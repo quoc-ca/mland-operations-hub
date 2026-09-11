@@ -1,6 +1,3 @@
 # Document Change History
 
-| Version | Date | Changes | Author |
-| --- | --- | --- |
-| v0.1-draft | 08 September 2026 | Initial Mland draft | Mland Project Team |
-
+Git and GitHub commit history are the authoritative record of document author, date, and change description. Manual version-history and change-log entries are intentionally disabled.

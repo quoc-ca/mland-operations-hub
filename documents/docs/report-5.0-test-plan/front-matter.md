@@ -2,7 +2,7 @@
 
 **Mland Operations Hub (MOH) — Report 5**
 
-> **Mland draft.** No test result or test environment has been approved yet.
+> **Active project, under validation.** No test result or test environment has been approved yet.
 
 **Known Mland context:** testing will cover booking availability and administration, staff shift visibility, multi-location operations, and audit history.
 

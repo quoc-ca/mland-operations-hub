@@ -2,7 +2,7 @@
 
 **Mland Operations Hub (MOH) — Report 3**
 
-> **Mland draft.** Requirements remain subject to stakeholder validation.
+> **Active project, under validation.** Requirements remain subject to stakeholder validation.
 
 **Known Mland context:** MOH covers customer workshop booking, booking administration, staff shift scheduling, multi-location operational visibility, and auditable operational changes.
 

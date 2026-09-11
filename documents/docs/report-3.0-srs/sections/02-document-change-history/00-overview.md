@@ -1,3 +1,3 @@
 # **Document Change History**
 
-> **TBD — Mland decision required:** Complete this section with approved Mland requirements, design decisions, or evidence.
+Git and GitHub commit history are the authoritative record of document author, date, and change description. Manual version-history and change-log entries are intentionally disabled.

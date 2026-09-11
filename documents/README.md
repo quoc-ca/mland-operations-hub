@@ -11,7 +11,9 @@ Markdown fragments + Mermaid/PlantUML source
 
 GitHub Actions validates and generates document bundles, then synchronizes mapped Google Docs and Google Sheets. Git remains the source of truth; Google Workspace is the publishing and review surface.
 
-## Generate the Mland draft reports
+Agents working in this folder must read [AGENT.md](AGENT.md) for editing rules and [CLAUDE.md](CLAUDE.md) for workspace context.
+
+## Generate the Mland reports
 
 Run these commands from the repository root:
 

@@ -2,7 +2,7 @@
 
 **Mland Operations Hub (MOH) — Report 3.2**
 
-> **Mland draft.** Design detail will follow approved user journeys and brand decisions.
+> **Active project, under validation.** Design detail will follow approved user journeys and brand decisions.
 
 **Known Mland context:** Mland needs a customer booking journey and staff/manager operations across two current locations and a planned Da Nang location.
 

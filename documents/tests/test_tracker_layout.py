@@ -18,7 +18,7 @@ FORBIDDEN_SAMPLE_TEXT = (
 
 
 class MlandTrackerLayoutTests(unittest.TestCase):
-    def test_every_tracker_csv_is_a_clean_mland_draft(self) -> None:
+    def test_every_tracker_csv_is_a_clean_mland_tracker(self) -> None:
         files = sorted(TRACKER_ROOT.rglob("*.csv"))
         self.assertEqual(len(files), 37)
         for path in files:
@@ -26,11 +26,24 @@ class MlandTrackerLayoutTests(unittest.TestCase):
                 with path.open(encoding="utf-8-sig", newline="") as source:
                     rows = list(csv.reader(source))
                 self.assertGreaterEqual(len(rows), 3)
-                self.assertEqual(rows[0][0], "Mland Operations Hub — Draft")
+                self.assertEqual(rows[0][0], "Mland Operations Hub")
                 width = len(rows[0])
                 self.assertTrue(all(len(row) == width for row in rows))
                 content = "\n".join(",".join(row) for row in rows).lower()
                 self.assertFalse(any(value in content for value in FORBIDDEN_SAMPLE_TEXT))
+
+    def test_manual_change_logs_are_policy_notices(self) -> None:
+        policy = "Git/GitHub commit history is authoritative; manual ChangeLog entries are disabled."
+        paths = (
+            TRACKER_ROOT / "report-2.1-project-tracking" / "ChangeLog.csv",
+            TRACKER_ROOT / "report-3.1-rtw" / "9-ChangeLog.csv",
+        )
+        for path in paths:
+            with self.subTest(path=path.relative_to(ROOT).as_posix()):
+                with path.open(encoding="utf-8-sig", newline="") as source:
+                    rows = list(csv.reader(source))
+                self.assertEqual(rows[1][0], policy)
+                self.assertTrue(all(not any(cell.strip() for cell in row) for row in rows[4:]))
 
 
 if __name__ == "__main__":
