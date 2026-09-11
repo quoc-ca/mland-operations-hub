@@ -32,8 +32,8 @@ class MlandTrackerLayoutTests(unittest.TestCase):
                 content = "\n".join(",".join(row) for row in rows).lower()
                 self.assertFalse(any(value in content for value in FORBIDDEN_SAMPLE_TEXT))
 
-    def test_manual_change_logs_are_policy_notices(self) -> None:
-        policy = "Git/GitHub commit history is authoritative; manual ChangeLog entries are disabled."
+    def test_change_log_templates_are_generated_from_git(self) -> None:
+        policy = "Automatically generated from Git commit history; do not edit manually."
         paths = (
             TRACKER_ROOT / "report-2.1-project-tracking" / "ChangeLog.csv",
             TRACKER_ROOT / "report-3.1-rtw" / "9-ChangeLog.csv",
@@ -43,6 +43,7 @@ class MlandTrackerLayoutTests(unittest.TestCase):
                 with path.open(encoding="utf-8-sig", newline="") as source:
                     rows = list(csv.reader(source))
                 self.assertEqual(rows[1][0], policy)
+                self.assertEqual(rows[3][1:5], ["Commit", "Date", "Author", "Change Description"])
                 self.assertTrue(all(not any(cell.strip() for cell in row) for row in rows[4:]))
 
 

@@ -8,14 +8,17 @@ from unittest.mock import MagicMock, patch
 from urllib.error import URLError
 
 from tools.document_generator import (
+    GIT_HISTORY_MARKER,
     GenerationError,
     _download_png,
     _pandoc_fragment,
+    _replace_git_history,
     _require_pandoc,
     build_bundle,
     load_bundle,
     validate_bundle,
 )
+from tools.git_history import GitCommit
 
 
 def manifest_text(*fragments: str) -> str:
@@ -126,6 +129,15 @@ class BundleValidationTests(unittest.TestCase):
     def test_maps_pandoc_line_to_fragment(self) -> None:
         fragment = _pandoc_fragment("Error at line 12", [(1, 5, "front-matter.md"), (8, 20, "sections/01.md")])
         self.assertEqual(fragment, "sections/01.md")
+
+    def test_replaces_change_history_marker_with_git_table(self) -> None:
+        text = f"# Document Change History\n\n{GIT_HISTORY_MARKER}\n"
+        result = _replace_git_history(
+            text,
+            (GitCommit(short_sha="abc1234", date="2026-09-11", author="Mland Team", subject="Refine SRS | tracker"),),
+        )
+        self.assertNotIn(GIT_HISTORY_MARKER, result)
+        self.assertIn("| `abc1234` | 2026-09-11 | Refine SRS \\| tracker | Mland Team |", result)
 
 
 if __name__ == "__main__":

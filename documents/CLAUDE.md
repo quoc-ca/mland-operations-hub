@@ -17,6 +17,6 @@ Google Workspace is for publishing, review, comments, and suggestions. Do not us
 
 ## Current project state
 
-MOH is an active project. Individual requirements, scope decisions, designs, and targets may still be under validation; use the evidence labels already present in the reports and trackers instead of treating an assumption as a decision. Git and GitHub commit history provide the document change history.
+MOH is an active project. Individual requirements, scope decisions, designs, and targets may still be under validation; use the evidence labels already present in the reports and trackers instead of treating an assumption as a decision. Git and GitHub commit history provides automatically generated report and tracker change-history tables during build and synchronization.
 
 Read [AGENT.md](AGENT.md) before changing this folder. It defines mandatory editing boundaries, evidence rules, change-history policy, and escalation conditions.

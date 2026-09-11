@@ -40,15 +40,17 @@ class MlandBundleTests(unittest.TestCase):
 
         history_fragments = (
             ROOT / "docs" / "report-1-vision-scope" / "sections" / "02-document-change-history" / "00-overview.md",
+            ROOT / "docs" / "report-2.0-project-plan" / "sections" / "00-document-change-history" / "00-overview.md",
             ROOT / "docs" / "report-3.0-srs" / "sections" / "02-document-change-history" / "00-overview.md",
             ROOT / "docs" / "report-3.2-fds" / "sections" / "01-version-history" / "00-overview.md",
             ROOT / "docs" / "report-3.2-screen-design-spec" / "sections" / "02-document-change-history" / "00-overview.md",
             ROOT / "docs" / "report-4-tds" / "sections" / "02-document-change-history" / "00-overview.md",
+            ROOT / "docs" / "report-5.0-test-plan" / "sections" / "00-document-change-history" / "00-overview.md",
         )
         for path in history_fragments:
             with self.subTest(path=path.relative_to(ROOT).as_posix()):
                 self.assertIn(
-                    "Git and GitHub commit history are the authoritative record",
+                    "<!-- AUTO-GENERATED: GIT-CHANGE-HISTORY -->",
                     path.read_text(encoding="utf-8"),
                 )
 

@@ -13,6 +13,8 @@ GitHub Actions validates and generates document bundles, then synchronizes mappe
 
 Agents working in this folder must read [AGENT.md](AGENT.md) for editing rules and [CLAUDE.md](CLAUDE.md) for workspace context.
 
+Document Change History tables and mapped ChangeLog tracker tabs are generated from scoped Git commit history during build and synchronization. Do not enter versions, authors, dates, or commit records manually.
+
 ## Generate the Mland reports
 
 Run these commands from the repository root:

@@ -45,6 +45,7 @@ trackers:
     sheets:
       - csv: ChangeLog.csv
         sheet_name: ChangeLog
+        generated: git-history
       - csv: Dashboard.csv
         sheet_name: Dashboard
       - csv: Defects.csv
@@ -85,6 +86,7 @@ trackers:
         sheet_name: "8. Open Issues"
       - csv: 9-ChangeLog.csv
         sheet_name: "9. Change Log"
+        generated: git-history
 
   - id: report-5.2-l1-unit-tests
     source_folder: trackers/report-5.2-l1-unit-tests/

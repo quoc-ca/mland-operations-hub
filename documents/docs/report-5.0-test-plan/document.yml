@@ -3,6 +3,7 @@
   "output": "report-5.0-test-plan.docx",
   "fragments": [
     "front-matter.md",
+    "sections/00-document-change-history/00-overview.md",
     "sections/01-i-scope-of-testing/00-overview.md",
     "sections/01-i-scope-of-testing/01-in-scope.md",
     "sections/01-i-scope-of-testing/02-out-of-scope.md",

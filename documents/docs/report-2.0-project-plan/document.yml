@@ -3,6 +3,7 @@
   "output": "report-2.0-project-plan.docx",
   "fragments": [
     "front-matter.md",
+    "sections/00-document-change-history/00-overview.md",
     "sections/01-1-overview/00-overview.md",
     "sections/01-1-overview/01-1-1-cost-time-estimation.md",
     "sections/01-1-overview/02-1-2-project-objectives.md",

@@ -6,6 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from tools.git_history import GitCommit
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT.parent / ".github" / "scripts" / "sync_to_drive.py"
@@ -60,6 +62,29 @@ class SyncSelectionTests(unittest.TestCase):
 
 
 class SyncRemoteTests(unittest.TestCase):
+    def test_generated_tracker_history_uses_git_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            tracker_root = root / "trackers" / "tracker-1"
+            tracker_root.mkdir(parents=True)
+            (tracker_root / "history.csv").write_text(
+                "Mland Operations Hub,,,,\n"
+                "Automatically generated from Git commit history; do not edit manually.,,,,\n"
+                ",,,,\n"
+                "#,Commit,Date,Author,Change Description\n",
+                encoding="utf-8",
+            )
+            item = tracker()
+            item["sheets"] = [{"csv": "history.csv", "sheet_name": "History", "generated": "git-history"}]
+            with patch.object(
+                sync,
+                "git_history_entries",
+                return_value=(GitCommit("abc1234", "2026-09-11", "Mland Team", "Refine tracker"),),
+            ):
+                values = sync.tracker_sheet_values(root, item, item["sheets"][0])
+        self.assertEqual(values[3], ["#", "Commit", "Date", "Author", "Change Description"])
+        self.assertEqual(values[4], ["GIT-001", "abc1234", "2026-09-11", "Mland Team", "Refine tracker"])
+
     def test_rejects_placeholder_and_invalid_drive_ids(self) -> None:
         with self.assertRaisesRegex(sync.SyncError, "placeholder"):
             sync.validate_drive_id("report", "DRIVE_FILE_ID_REPORT_1")

@@ -21,6 +21,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+try:
+    from .git_history import GitCommit, GitHistoryError, git_history_entries, markdown_change_history
+except ImportError:  # Supports `python tools/generate_document.py`.
+    from git_history import GitCommit, GitHistoryError, git_history_entries, markdown_change_history
+
 IMAGE_PATTERN = re.compile(r"!\[[^\]]*\]\((?P<target>[^)\s]+)(?:\s+[^)]*)?\)")
 DIAGRAM_EXTENSIONS = {".mmd": "mermaid", ".puml": "plantuml"}
 RASTER_OR_VECTOR_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg"}
@@ -28,6 +33,7 @@ DEFAULT_RENDERERS = {
     "mermaid": "https://mermaid.ink",
     "plantuml": "https://www.plantuml.com/plantuml",
 }
+GIT_HISTORY_MARKER = "<!-- AUTO-GENERATED: GIT-CHANGE-HISTORY -->"
 
 
 @dataclass(frozen=True)
@@ -236,6 +242,10 @@ def _replace_diagrams(bundle: Bundle, fragment: Path, text: str, rendered: dict[
     return IMAGE_PATTERN.sub(replace, text)
 
 
+def _replace_git_history(text: str, history: tuple[GitCommit, ...]) -> str:
+    return text.replace(GIT_HISTORY_MARKER, markdown_change_history(history))
+
+
 def _require_pandoc() -> str:
     pandoc = shutil.which("pandoc")
     if not pandoc:
@@ -282,12 +292,20 @@ def build_bundle(bundle_root: Path, repo_root: Path, output_dir: Path) -> Path:
             _download_png(bundle, fragment, diagram, renderer, rendered_asset)
             rendered[diagram] = rendered_asset
 
+        fragment_text = {fragment: fragment.read_text(encoding="utf-8") for fragment in bundle.fragments}
+        if any(GIT_HISTORY_MARKER in text for text in fragment_text.values()):
+            try:
+                history = git_history_entries(repo_root, bundle.root)
+            except GitHistoryError as exc:
+                raise _error("git-history-unavailable", str(exc), report_id=bundle.report_id) from exc
+            fragment_text = {fragment: _replace_git_history(text, history) for fragment, text in fragment_text.items()}
+
         composed = temp_dir / "composed.md"
         composed_parts: list[str] = []
         line_ranges: list[tuple[int, int, str]] = []
         current_line = 1
         for fragment in bundle.fragments:
-            content = _replace_diagrams(bundle, fragment, fragment.read_text(encoding="utf-8"), rendered).rstrip()
+            content = _replace_diagrams(bundle, fragment, fragment_text[fragment], rendered).rstrip()
             line_count = max(1, content.count("\n") + 1)
             line_ranges.append((current_line, current_line + line_count - 1, _relative(bundle, fragment)))
             composed_parts.append(content)

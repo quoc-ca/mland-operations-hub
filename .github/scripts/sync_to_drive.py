@@ -22,6 +22,7 @@ if str(DOCUMENTS_ROOT) not in sys.path:
     sys.path.insert(0, str(DOCUMENTS_ROOT))
 
 from tools.document_generator import GenerationError, build_bundle
+from tools.git_history import GitHistoryError, git_history_entries
 
 try:  # Selection and validation tests do not need Google packages installed.
     from google.oauth2.service_account import Credentials
@@ -142,6 +143,37 @@ def read_csv(path: Path) -> list[list[str]]:
         raise SyncError(f"Cannot read CSV: {path}") from exc
 
 
+def generated_git_history_values(root: Path, tracker: dict[str, Any], sheet: dict[str, Any]) -> list[list[str]]:
+    csv_path = repo_path(root, f"{tracker['source_folder'].rstrip('/')}/{sheet['csv']}")
+    template = read_csv(csv_path)
+    if len(template) < 4 or not template[3]:
+        raise SyncError(f"{tracker['id']} / {sheet['sheet_name']} must provide a four-row Git history template.")
+    width = len(template[3])
+    if any(len(row) != width for row in template[:4]):
+        raise SyncError(f"{tracker['id']} / {sheet['sheet_name']} has an invalid Git history template shape.")
+    try:
+        entries = git_history_entries(root, repo_path(root, tracker["source_folder"]))
+    except GitHistoryError as exc:
+        raise SyncError(f"Cannot generate Git history for {tracker['id']}: {exc}") from exc
+
+    values = template[:4]
+    for index, entry in enumerate(entries, start=1):
+        row = [f"GIT-{index:03d}", entry.short_sha, entry.date, entry.author, entry.subject]
+        if len(row) != width:
+            raise SyncError(f"{tracker['id']} / {sheet['sheet_name']} Git history header must have five columns.")
+        values.append(row)
+    return values
+
+
+def tracker_sheet_values(root: Path, tracker: dict[str, Any], sheet: dict[str, Any]) -> list[list[str]]:
+    generated = sheet.get("generated")
+    if generated is None:
+        return read_csv(repo_path(root, f"{tracker['source_folder'].rstrip('/')}/{sheet['csv']}"))
+    if generated == "git-history":
+        return generated_git_history_values(root, tracker, sheet)
+    raise SyncError(f"{tracker['id']} / {sheet['sheet_name']} has unsupported generated value: {generated!r}")
+
+
 def validate_local_inputs(root: Path, manifest: dict[str, Any], documents: list[dict[str, Any]], trackers: list[dict[str, Any]]) -> None:
     reference_doc = repo_path(root, manifest["reference_doc"])
     if documents and not reference_doc.is_file():
@@ -162,6 +194,8 @@ def validate_local_inputs(root: Path, manifest: dict[str, Any], documents: list[
         for sheet in sheets:
             if not isinstance(sheet, dict) or not isinstance(sheet.get("csv"), str) or not isinstance(sheet.get("sheet_name"), str):
                 raise SyncError(f"{tracker['id']} has an invalid sheet mapping.")
+            if sheet.get("generated") not in {None, "git-history"}:
+                raise SyncError(f"{tracker['id']} / {sheet['sheet_name']} has unsupported generated value.")
             csv_path = repo_path(root, f"{source_folder.rstrip('/')}/{sheet['csv']}")
             if not csv_path.is_file() or csv_path.suffix.lower() != ".csv":
                 raise SyncError(f"CSV source is missing or invalid: {csv_path}")
@@ -215,7 +249,20 @@ def sync_document(drive: Any, document: dict[str, Any], docx: Path) -> None:
     print(f"[DOC] {docx.name} -> {document['drive_file_id']}")
 
 
-def sync_tracker(sheets_api: Any, root: Path, tracker: dict[str, Any]) -> int:
+def prepare_tracker_values(root: Path, trackers: list[dict[str, Any]]) -> dict[tuple[str, str], list[list[str]]]:
+    return {
+        (tracker["id"], sheet["csv"]): tracker_sheet_values(root, tracker, sheet)
+        for tracker in trackers
+        for sheet in tracker["sheets"]
+    }
+
+
+def sync_tracker(
+    sheets_api: Any,
+    root: Path,
+    tracker: dict[str, Any],
+    prepared_values: dict[tuple[str, str], list[list[str]]],
+) -> int:
     spreadsheet_id = tracker["drive_file_id"]
     batch_data: list[dict[str, Any]] = []
     for sheet in tracker["sheets"]:
@@ -225,7 +272,7 @@ def sync_tracker(sheets_api: Any, root: Path, tracker: dict[str, Any]) -> int:
             sheets_api.spreadsheets().values().clear(spreadsheetId=spreadsheet_id, range=sheet_range, body={}).execute()
         except Exception as exc:
             raise SyncError(f"Failed to clear {tracker['id']} / {sheet['sheet_name']}: {exc}") from exc
-        values = read_csv(csv_path)
+        values = prepared_values[(tracker["id"], sheet["csv"])]
         if values:
             batch_data.append({"range": f"{sheet_range}!A1", "majorDimension": "ROWS", "values": values})
         print(f"[SHEET] {csv_path} -> {spreadsheet_id} / {sheet['sheet_name']} ({len(values)} rows)")
@@ -274,11 +321,12 @@ def main() -> int:
         raise SyncError(f"Credentials file is missing: {credential_path}")
     with tempfile.TemporaryDirectory(prefix="google-doc-build-", dir=root) as temp_dir:
         outputs = build_documents(root, documents, Path(temp_dir))
+        prepared_tracker_values = prepare_tracker_values(root, trackers)
         drive, sheets_api = google_clients(credential_path)
         validate_remote_targets(drive, sheets_api, documents, trackers)
         for document in documents:
             sync_document(drive, document, outputs[document["id"]])
-        updated_cells = sum(sync_tracker(sheets_api, root, tracker) for tracker in trackers)
+        updated_cells = sum(sync_tracker(sheets_api, root, tracker, prepared_tracker_values) for tracker in trackers)
     print(f"Sync complete: {len(documents)} Google Docs, {len(trackers)} Google Sheets, {updated_cells} sheet cells updated.")
     return 0
 

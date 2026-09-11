@@ -22,7 +22,7 @@ Act as a controlled documentation editor: make the smallest evidence-based chang
 
 ## Change history
 
-Git and GitHub commit history are the authoritative record of document author, date, and change description. Do not add or update manual document versions, authors, dates, or ChangeLog records. Retained ChangeLog sections and tracker tabs are policy notices only and must not be populated with operational rows.
+Git and GitHub commit history are the authoritative record of document author, date, and change description. Report Change History tables and mapped ChangeLog tracker tabs are generated from scoped Git history during build or synchronization. Do not add or update manual document versions, authors, dates, or ChangeLog records.
 
 ## Escalation
 
