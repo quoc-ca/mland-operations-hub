@@ -5,14 +5,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
-      - 'trackers/**'
-      - 'tools/**'
+      - 'documents/**'
       - '.github/scripts/sync_to_drive.py'
       - '.github/workflows/sync-to-drive.yml'
-      - 'manifest.yml'
-      - 'requirements.txt'
-      - 'templates/reference.docx'
 
 permissions:
   contents: read
@@ -20,6 +15,9 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: documents
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,6 +27,7 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
+          cache-dependency-path: documents/requirements.txt
 
       - name: Install Pandoc
         run: sudo apt-get update && sudo apt-get install --yes pandoc
@@ -46,8 +45,13 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
             echo "all=true" >> "$GITHUB_OUTPUT"
           else
-            git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" > changed-paths.txt
-            echo "all=false" >> "$GITHUB_OUTPUT"
+            git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" > repository-changed-paths.txt
+            if grep -Fxq '.github/scripts/sync_to_drive.py' repository-changed-paths.txt || grep -Fxq '.github/workflows/sync-to-drive.yml' repository-changed-paths.txt; then
+              echo "all=true" >> "$GITHUB_OUTPUT"
+            else
+              sed -n 's#^documents/##p' repository-changed-paths.txt > changed-paths.txt
+              echo "all=false" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Build and synchronize
@@ -60,7 +64,7 @@ jobs:
           printf '%s' "$GDRIVE_CREDENTIALS" > "$credentials_file"
           chmod 600 "$credentials_file"
           if [ "${{ steps.scope.outputs.all }}" = "true" ]; then
-            python .github/scripts/sync_to_drive.py --all --credentials "$credentials_file"
+            python ../.github/scripts/sync_to_drive.py --all --credentials "$credentials_file"
           else
-            python .github/scripts/sync_to_drive.py --changed "$(cat changed-paths.txt)" --credentials "$credentials_file"
+            python ../.github/scripts/sync_to_drive.py --changed "$(cat changed-paths.txt)" --credentials "$credentials_file"
           fi

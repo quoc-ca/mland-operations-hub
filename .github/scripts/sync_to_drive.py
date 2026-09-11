@@ -17,8 +17,9 @@ except ImportError:  # pragma: no cover - exercised only without requirements in
     yaml = None
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-if str(REPOSITORY_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPOSITORY_ROOT))
+DOCUMENTS_ROOT = REPOSITORY_ROOT / "documents"
+if str(DOCUMENTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(DOCUMENTS_ROOT))
 
 from tools.document_generator import GenerationError, build_bundle
 

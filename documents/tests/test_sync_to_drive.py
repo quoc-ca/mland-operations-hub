@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT_PATH = ROOT / ".github" / "scripts" / "sync_to_drive.py"
+SCRIPT_PATH = ROOT.parent / ".github" / "scripts" / "sync_to_drive.py"
 SPEC = importlib.util.spec_from_file_location("sync_to_drive", SCRIPT_PATH)
 assert SPEC and SPEC.loader
 sync = importlib.util.module_from_spec(SPEC)
