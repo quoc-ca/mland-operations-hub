@@ -1,0 +1,7 @@
+flowchart LR
+    Customer[Customer] -->|selects a location and session| MOH[Mland Operations Hub]
+    Staff[Customer-service staff] -->|manage bookings and view shifts| MOH
+    Owner[Owner or manager] -->|reviews operations and audit history| MOH
+    MOH --> Location1[Current location 1]
+    MOH --> Location2[Current location 2]
+    MOH --> Location3[Planned Da Nang location]

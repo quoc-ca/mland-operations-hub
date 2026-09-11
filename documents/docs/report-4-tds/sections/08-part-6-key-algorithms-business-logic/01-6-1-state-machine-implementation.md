@@ -1,0 +1,3 @@
+## **6.1  State Machine Implementation**
+
+> **TBD — Mland decision required:** Complete this section with approved Mland requirements, design decisions, or evidence.

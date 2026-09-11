@@ -1,0 +1,155 @@
+reference_doc: templates/reference.docx
+
+documents:
+  - id: report-1-vision-scope
+    # The Git-first source bundle is rendered to DOCX before Google Docs sync.
+    source_bundle: docs/report-1-vision-scope
+    drive_file_id: "1Uz19WCIOSa5_bR5K4QzO954uVTP_Vsb6X2m_lIypZpc"
+    target: google-doc
+
+  - id: report-2.0-project-plan
+    source_bundle: docs/report-2.0-project-plan
+    drive_file_id: "1LxhYrVQQrnhKGPm-3zyOXLBH0i6vaDhNqMak75QXA2A"
+    target: google-doc
+
+  - id: report-3.0-srs
+    source_bundle: docs/report-3.0-srs
+    drive_file_id: "1dEgY91J4VOmLWbEfTx1NdFB5c0LPWRDAUyLxWku1jh0"
+    target: google-doc
+
+  - id: report-3.2-fds
+    source_bundle: docs/report-3.2-fds
+    drive_file_id: "1QErQMWOly4GhDrH_UvJhb0IWOkj4jyyeIcdk4Kp6jnM"
+    target: google-doc
+
+  - id: report-3.2-screen-design-spec
+    source_bundle: docs/report-3.2-screen-design-spec
+    drive_file_id: "11WUJs_KXTejfIH5KkDRzzeeMBuVc5QRimH-YJC8Z33s"
+    target: google-doc
+
+  - id: report-4-tds
+    source_bundle: docs/report-4-tds
+    drive_file_id: "1YgZVSTWOOiClz4vpnpw1guIZTixS3_QzfyueAkBeXTY"
+    target: google-doc
+
+  - id: report-5.0-test-plan
+    source_bundle: docs/report-5.0-test-plan
+    drive_file_id: "1LVNEZGGMx2ryJEyaZpFgg18QEjmIDKDqupOsPob0j7k"
+    target: google-doc
+
+trackers:
+  - id: report-2.1-project-tracking
+    source_folder: trackers/report-2.1-project-tracking/
+    drive_file_id: "1lBlYYHxJ-jQouStWzOkvYv_w3ayDn4bv2yvRu1b2oSk"
+    target: google-sheet
+    sheets:
+      - csv: ChangeLog.csv
+        sheet_name: ChangeLog
+      - csv: Dashboard.csv
+        sheet_name: Dashboard
+      - csv: Defects.csv
+        sheet_name: Defects
+      - csv: Issues.csv
+        sheet_name: Issues
+      - csv: QA.csv
+        sheet_name: Q&A
+      - csv: Risks.csv
+        sheet_name: Risks
+      - csv: Scope.csv
+        sheet_name: Scope
+      - csv: TimeLogs.csv
+        sheet_name: TimeLogs
+      - csv: WBS.csv
+        sheet_name: WBS
+
+  - id: report-3.1-rtw
+    source_folder: trackers/report-3.1-rtw/
+    drive_file_id: "1rjxg3TRlpV21fi6AzmShyvSEQeq8FwxpnOasZRA6Ge4"
+    target: google-sheet
+    sheets:
+      - csv: 1-Overview.csv
+        sheet_name: "1. Overview"
+      - csv: 2-UseCaseList.csv
+        sheet_name: "2. Use Case List"
+      - csv: 3-FeatureTraceability.csv
+        sheet_name: "3. Feature Traceability"
+      - csv: 4-PermissionMatrix.csv
+        sheet_name: "4. Permission Matrix"
+      - csv: 5-DataDictionary.csv
+        sheet_name: "5. Data Dictionary"
+      - csv: 6-BusinessRules.csv
+        sheet_name: "6. Business Rules"
+      - csv: 7-NFRTracker.csv
+        sheet_name: "7. NFR Tracker"
+      - csv: 8-OpenIssues.csv
+        sheet_name: "8. Open Issues"
+      - csv: 9-ChangeLog.csv
+        sheet_name: "9. Change Log"
+
+  - id: report-5.2-l1-unit-tests
+    source_folder: trackers/report-5.2-l1-unit-tests/
+    drive_file_id: "1TbX7UuDISXGC-JB6EK-CcKC7R45vg-Bj18lQ0_u5QtU"
+    target: google-sheet
+    sheets:
+      - csv: Introduction.csv
+        sheet_name: Introduction
+      - csv: Frontend.csv
+        sheet_name: Frontend
+      - csv: BoundaryValues.csv
+        sheet_name: BoundaryValues
+      - csv: OrderStateMachine.csv
+        sheet_name: OrderStateMachine
+
+  - id: report-5.2-l2-integration-tests
+    source_folder: trackers/report-5.2-l2-integration-tests/
+    drive_file_id: "1O5ul21_2iNbckZXg8NVdNBygmsPhI0fZG6C5bCf1wxU"
+    target: google-sheet
+    sheets:
+      - csv: Introduction.csv
+        sheet_name: Introduction
+      - csv: L2-OrderService.csv
+        sheet_name: L2-OrderService
+      - csv: L2-Workflows.csv
+        sheet_name: L2-Workflows
+
+  - id: report-5.3-l3-system-api-tests
+    source_folder: trackers/report-5.3-l3-system-api-tests/
+    drive_file_id: "15zdTpic3Ty07YFuGtbvT-FxiwXY9RSpvx55n9uCmoJc"
+    target: google-sheet
+    sheets:
+      - csv: Introduction.csv
+        sheet_name: Introduction
+      - csv: L3-OrderAPI.csv
+        sheet_name: L3-OrderAPI
+      - csv: L3-Performance.csv
+        sheet_name: L3-Performance
+      - csv: L3-Security.csv
+        sheet_name: L3-Security
+
+  - id: report-5.4-l4-e2e-tests
+    source_folder: trackers/report-5.4-l4-e2e-tests/
+    drive_file_id: "1Yw2BAwwDsziAC2eK71gwEgvLdjT82iaPZi_QVyYUZTQ"
+    target: google-sheet
+    sheets:
+      - csv: Introduction.csv
+        sheet_name: Introduction
+      - csv: L4-CriticalPaths.csv
+        sheet_name: L4-CriticalPaths
+      - csv: L4-Permissions.csv
+        sheet_name: L4-Permissions
+      - csv: L4-SessionManagement.csv
+        sheet_name: L4-SessionManagement
+      - csv: L4-UserJourneys.csv
+        sheet_name: L4-UserJourneys
+
+  - id: report-5.5-uat-scripts
+    source_folder: trackers/report-5.5-uat-scripts/
+    drive_file_id: "1KL4TUxdCnS7qcIi6WKzrLYe4QzwqVmcBtXi_vUkTbAU"
+    target: google-sheet
+    sheets:
+      - csv: Overview.csv
+        sheet_name: Overview
+      - csv: Introduction.csv
+        sheet_name: Introduction
+      - csv: SC-XX-Template.csv
+        sheet_name: SC-XX Template

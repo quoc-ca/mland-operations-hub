@@ -1,0 +1,10 @@
+Mland Operations Hub — Draft,,,,,,,,,,
+TBD — populate only with approved Mland evidence.,,,,,,,,,,
+,,,,,,,,,,
+Issue ID,Description,Type,Raised by,Owner (must answer),Status,Priority,Deadline,Affected Area,Resolution / Decision,Resolved Date
+OI-001,Define workshop booking channels session duration capacity group booking confirmation cancellation no-show and walk-in rules,Functional,Mland Project Team,Project team collective,Open,High,2026-09-13,Booking,TBD after workshop discovery,
+OI-002,Define personnel roles shifts attendance handover and the boundary for contracts payroll and social insurance,Scope / Business Rule,Mland Project Team,Project team collective,Open,High,2026-09-13,Personnel operations,TBD after workshop discovery and specialist validation,
+OI-003,Distinguish workshop materials from retail goods and define inventory movements counting loss and supplier needs,Data / Functional,Mland Project Team,Project team collective,Open,High,2026-09-13,Inventory,TBD after workshop discovery,
+OI-004,Define the financial scope for cash bank payment reconciliation expense revenue reporting and legal boundaries,Scope / Business Rule,Mland Project Team,Project team collective,Open,High,2026-09-13,Finance,TBD after workshop discovery and specialist validation,
+OI-005,Define operational decisions dashboard measures source data and whether forecasting has sufficient reliable history,Reporting / NFR,Mland Project Team,Project team collective,Open,Medium,2026-09-13,Reporting and forecasting,TBD after workshop discovery,
+OI-006,Define live-pilot consent data minimisation support manual fallback and incident handling,Quality / Operations,Mland Project Team,Project team collective,Open,High,2026-09-13,Pilot and testing,TBD after scope matrix and test-plan baseline,

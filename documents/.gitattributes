@@ -1,0 +1,9 @@
+# .gitattributes
+# Chuẩn hoá line ending: LF cho tất cả text file
+* text=auto eol=lf
+
+# Các file binary không xử lý line ending
+*.docx binary
+*.xlsx binary
+*.png  binary
+*.jpg  binary

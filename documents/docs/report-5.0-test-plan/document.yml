@@ -1,0 +1,28 @@
+{
+  "id": "report-5.0-test-plan",
+  "output": "report-5.0-test-plan.docx",
+  "fragments": [
+    "front-matter.md",
+    "sections/01-i-scope-of-testing/00-overview.md",
+    "sections/01-i-scope-of-testing/01-in-scope.md",
+    "sections/01-i-scope-of-testing/02-out-of-scope.md",
+    "sections/01-i-scope-of-testing/03-constraints.md",
+    "sections/01-i-scope-of-testing/04-assumptions.md",
+    "sections/02-ii-test-strategy/00-overview.md",
+    "sections/02-ii-test-strategy/01-2-1-testing-types.md",
+    "sections/02-ii-test-strategy/02-2-2-test-levels.md",
+    "sections/02-ii-test-strategy/03-2-3-supporting-tools.md",
+    "sections/03-iii-test-plan/00-overview.md",
+    "sections/03-iii-test-plan/01-3-1-test-environment.md",
+    "sections/03-iii-test-plan/02-3-2-test-milestones.md",
+    "sections/04-iv-test-cases/00-overview.md",
+    "sections/05-v-test-reports/00-overview.md",
+    "sections/05-v-test-reports/01-5-1-summary-table.md",
+    "sections/05-v-test-reports/02-5-2-test-analysis-notes.md",
+    "sections/05-v-test-reports/03-5-3-sign-off-record.md"
+  ],
+  "renderers": {
+    "mermaid": "https://mermaid.ink",
+    "plantuml": "https://www.plantuml.com/plantuml"
+  }
+}

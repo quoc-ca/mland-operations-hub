@@ -1,0 +1,8 @@
+# .gitkeep — thư mục này chứa file .docx gốc (font, heading style, màu sắc).
+# Pandoc dùng các file này làm style reference khi convert .md → .docx.
+#
+# Lưu ý: KHÔNG cần file .xlsx ở đây.
+# File xlsx trên Google Drive đã có sẵn định dạng — script chỉ download về,
+# ghi data từ .csv vào đúng sheet, rồi upload lại. Định dạng được giữ nguyên.
+#
+# Xem hướng dẫn chi tiết trong README.md.

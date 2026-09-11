@@ -1,0 +1,24 @@
+{
+  "id": "report-1-vision-scope",
+  "output": "report-1-vision-scope.docx",
+  "fragments": [
+    "front-matter.md",
+    "sections/02-document-change-history/00-overview.md",
+    "sections/03-1-product-background/00-overview.md",
+    "sections/04-2-existing-solutions/00-overview.md",
+    "sections/04-2-existing-solutions/01-2-1-manual-multi-channel-coordination.md",
+    "sections/04-2-existing-solutions/02-2-2-generic-calendar-and-booking-tools.md",
+    "sections/05-3-proposed-solution/00-overview.md",
+    "sections/06-4-project-scope-limitations/00-overview.md",
+    "sections/06-4-project-scope-limitations/01-4-1-major-features.md",
+    "sections/06-4-project-scope-limitations/02-4-2-limitations-exclusions.md",
+    "sections/07-5-expected-contributions-next-steps/00-overview.md",
+    "sections/07-5-expected-contributions-next-steps/01-5-1-business-operational-impact.md",
+    "sections/07-5-expected-contributions-next-steps/02-5-2-user-experience-impact.md",
+    "sections/07-5-expected-contributions-next-steps/03-5-3-planned-next-steps-after-project-completion.md"
+  ],
+  "renderers": {
+    "mermaid": "https://mermaid.ink",
+    "plantuml": "https://www.plantuml.com/plantuml"
+  }
+}

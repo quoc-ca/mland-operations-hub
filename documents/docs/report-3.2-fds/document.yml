@@ -1,0 +1,18 @@
+{
+  "id": "report-3.2-fds",
+  "output": "report-3.2-fds.docx",
+  "fragments": [
+    "front-matter.md",
+    "sections/01-version-history/00-overview.md",
+    "sections/02-part-1-overview/00-overview.md",
+    "sections/02-part-1-overview/01-1-1-screen-navigation-flow.md",
+    "sections/02-part-1-overview/02-1-2-job-schedule-dependencies.md",
+    "sections/03-part-2-screen-specifications/00-overview.md",
+    "sections/03-part-2-screen-specifications/01-2-x-screen-name.md",
+    "sections/03-part-2-screen-specifications/02-3-x-job-xx-job-name.md"
+  ],
+  "renderers": {
+    "mermaid": "https://mermaid.ink",
+    "plantuml": "https://www.plantuml.com/plantuml"
+  }
+}

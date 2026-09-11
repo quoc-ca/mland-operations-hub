@@ -1,0 +1,66 @@
+name: Build and sync Google Workspace
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'trackers/**'
+      - 'tools/**'
+      - '.github/scripts/sync_to_drive.py'
+      - '.github/workflows/sync-to-drive.yml'
+      - 'manifest.yml'
+      - 'requirements.txt'
+      - 'templates/reference.docx'
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Pandoc
+        run: sudo apt-get update && sudo apt-get install --yes pandoc
+
+      - name: Install Python dependencies
+        run: python -m pip install --requirement requirements.txt
+
+      - name: Run unit tests
+        run: python -m unittest -v
+
+      - name: Select synchronization scope
+        id: scope
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "all=true" >> "$GITHUB_OUTPUT"
+          else
+            git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" > changed-paths.txt
+            echo "all=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and synchronize
+        env:
+          GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
+        shell: bash
+        run: |
+          credentials_file="$(mktemp)"
+          trap 'rm -f "$credentials_file"' EXIT
+          printf '%s' "$GDRIVE_CREDENTIALS" > "$credentials_file"
+          chmod 600 "$credentials_file"
+          if [ "${{ steps.scope.outputs.all }}" = "true" ]; then
+            python .github/scripts/sync_to_drive.py --all --credentials "$credentials_file"
+          else
+            python .github/scripts/sync_to_drive.py --changed "$(cat changed-paths.txt)" --credentials "$credentials_file"
+          fi
