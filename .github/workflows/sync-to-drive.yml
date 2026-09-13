@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  issues: read
 
 jobs:
   sync:
@@ -57,6 +58,8 @@ jobs:
       - name: Build and synchronize
         env:
           GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         shell: bash
         run: |
           credentials_file="$(mktemp)"
@@ -66,5 +69,5 @@ jobs:
           if [ "${{ steps.scope.outputs.all }}" = "true" ]; then
             python ../.github/scripts/sync_to_drive.py --all --credentials "$credentials_file"
           else
-            python ../.github/scripts/sync_to_drive.py --changed "$(cat changed-paths.txt)" --credentials "$credentials_file"
+            python ../.github/scripts/sync_to_drive.py --changed "$(cat changed-paths.txt)" --include-generated-trackers --credentials "$credentials_file"
           fi

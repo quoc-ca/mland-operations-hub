@@ -85,6 +85,25 @@ class SyncRemoteTests(unittest.TestCase):
         self.assertEqual(values[3], ["#", "Commit", "Date", "Author", "Change Description"])
         self.assertEqual(values[4], ["GIT-001", "abc1234", "2026-09-11", "Mland Team", "Refine tracker"])
 
+    def test_generated_github_issue_snapshot_is_read_only_mapping(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            tracker_root = root / "trackers" / "tracker-1"
+            tracker_root.mkdir(parents=True)
+            (tracker_root / "issues.csv").write_text(
+                "Mland Operations Hub,,,,,,,,,,,,,\n"
+                "Automatically generated from GitHub Issues on main document pushes; do not edit manually.,,,,,,,,,,,,,\n"
+                ",,,,,,,,,,,,,\n"
+                "GitHub #,Work Item ID,Title,Type,Domain,Priority,Assignee(s),State,Labels,Created At,Updated At,Closed At,Source Fragment,URL\n",
+                encoding="utf-8",
+            )
+            item = tracker()
+            item["sheets"] = [{"csv": "issues.csv", "sheet_name": "IssuesOnGithub", "generated": "github-issues"}]
+            github = MagicMock()
+            github.all_issues.return_value = [{"number": 7, "title": "Task", "state": "open", "labels": [], "assignees": [], "html_url": "https://example/7"}]
+            values = sync.tracker_sheet_values(root, item, item["sheets"][0], github)
+        self.assertEqual(values[4][0:3], ["7", "", "Task"])
+
     def test_rejects_placeholder_and_invalid_drive_ids(self) -> None:
         with self.assertRaisesRegex(sync.SyncError, "placeholder"):
             sync.validate_drive_id("report", "DRIVE_FILE_ID_REPORT_1")

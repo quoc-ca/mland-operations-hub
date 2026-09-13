@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import re
 import sys
 import tempfile
@@ -23,6 +24,7 @@ if str(DOCUMENTS_ROOT) not in sys.path:
 
 from tools.document_generator import GenerationError, build_bundle
 from tools.git_history import GitHistoryError, git_history_entries
+from tools.github_issues import GitHubApi, WorkItemError, issue_snapshot_rows
 
 try:  # Selection and validation tests do not need Google packages installed.
     from google.oauth2.service_account import Credentials
@@ -165,12 +167,37 @@ def generated_git_history_values(root: Path, tracker: dict[str, Any], sheet: dic
     return values
 
 
-def tracker_sheet_values(root: Path, tracker: dict[str, Any], sheet: dict[str, Any]) -> list[list[str]]:
+def generated_github_issue_values(
+    root: Path, tracker: dict[str, Any], sheet: dict[str, Any], github_api: GitHubApi | None
+) -> list[list[str]]:
+    if github_api is None:
+        raise SyncError("GitHub credentials are required to generate the IssuesOnGithub tracker snapshot.")
+    csv_path = repo_path(root, f"{tracker['source_folder'].rstrip('/')}/{sheet['csv']}")
+    template = read_csv(csv_path)
+    if len(template) < 4 or not template[3]:
+        raise SyncError(f"{tracker['id']} / {sheet['sheet_name']} must provide a four-row GitHub Issue template.")
+    width = len(template[3])
+    if width != 14 or any(len(row) != width for row in template[:4]):
+        raise SyncError(f"{tracker['id']} / {sheet['sheet_name']} GitHub Issue template must have fourteen columns.")
+    try:
+        rows = issue_snapshot_rows(github_api.all_issues())
+    except WorkItemError as exc:
+        raise SyncError(f"Cannot generate GitHub Issue snapshot: {exc}") from exc
+    if any(len(row) != width for row in rows):  # Defensive contract check for future schema changes.
+        raise SyncError(f"{tracker['id']} / {sheet['sheet_name']} GitHub Issue snapshot has an invalid row shape.")
+    return template[:4] + rows
+
+
+def tracker_sheet_values(
+    root: Path, tracker: dict[str, Any], sheet: dict[str, Any], github_api: GitHubApi | None = None
+) -> list[list[str]]:
     generated = sheet.get("generated")
     if generated is None:
         return read_csv(repo_path(root, f"{tracker['source_folder'].rstrip('/')}/{sheet['csv']}"))
     if generated == "git-history":
         return generated_git_history_values(root, tracker, sheet)
+    if generated == "github-issues":
+        return generated_github_issue_values(root, tracker, sheet, github_api)
     raise SyncError(f"{tracker['id']} / {sheet['sheet_name']} has unsupported generated value: {generated!r}")
 
 
@@ -194,7 +221,7 @@ def validate_local_inputs(root: Path, manifest: dict[str, Any], documents: list[
         for sheet in sheets:
             if not isinstance(sheet, dict) or not isinstance(sheet.get("csv"), str) or not isinstance(sheet.get("sheet_name"), str):
                 raise SyncError(f"{tracker['id']} has an invalid sheet mapping.")
-            if sheet.get("generated") not in {None, "git-history"}:
+            if sheet.get("generated") not in {None, "git-history", "github-issues"}:
                 raise SyncError(f"{tracker['id']} / {sheet['sheet_name']} has unsupported generated value.")
             csv_path = repo_path(root, f"{source_folder.rstrip('/')}/{sheet['csv']}")
             if not csv_path.is_file() or csv_path.suffix.lower() != ".csv":
@@ -249,9 +276,11 @@ def sync_document(drive: Any, document: dict[str, Any], docx: Path) -> None:
     print(f"[DOC] {docx.name} -> {document['drive_file_id']}")
 
 
-def prepare_tracker_values(root: Path, trackers: list[dict[str, Any]]) -> dict[tuple[str, str], list[list[str]]]:
+def prepare_tracker_values(
+    root: Path, trackers: list[dict[str, Any]], github_api: GitHubApi | None = None
+) -> dict[tuple[str, str], list[list[str]]]:
     return {
-        (tracker["id"], sheet["csv"]): tracker_sheet_values(root, tracker, sheet)
+        (tracker["id"], sheet["csv"]): tracker_sheet_values(root, tracker, sheet, github_api)
         for tracker in trackers
         for sheet in tracker["sheets"]
     }
@@ -298,6 +327,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--credentials")
     parser.add_argument("--changed", default="", help="Newline-separated changed repository paths")
     parser.add_argument("--all", action="store_true", help="Synchronize every manifest entry")
+    parser.add_argument("--include-generated-trackers", action="store_true", help="Also export generated tracker views.")
+    parser.add_argument("--github-repository", default=os.environ.get("GITHUB_REPOSITORY", ""))
+    parser.add_argument("--github-token", default=os.environ.get("GITHUB_TOKEN", ""))
     parser.add_argument("--dry-run", action="store_true", help="Validate local selection without building or contacting Google")
     return parser.parse_args()
 
@@ -307,6 +339,13 @@ def main() -> int:
     root = Path.cwd().resolve()
     manifest = load_manifest(repo_path(root, args.manifest))
     documents, trackers = select_entries(manifest, changed_paths(args.changed), args.all)
+    if args.include_generated_trackers and not args.all:
+        generated_trackers = [
+            tracker for tracker in manifest["trackers"]
+            if any(sheet.get("generated") == "github-issues" for sheet in tracker.get("sheets", []))
+        ]
+        known_ids = {tracker["id"] for tracker in trackers}
+        trackers.extend(require_entry(tracker, "google-sheet") for tracker in generated_trackers if tracker["id"] not in known_ids)
     if not documents and not trackers:
         print("No mapped document bundles or CSV sources changed; nothing to synchronize.")
         return 0
@@ -321,7 +360,12 @@ def main() -> int:
         raise SyncError(f"Credentials file is missing: {credential_path}")
     with tempfile.TemporaryDirectory(prefix="google-doc-build-", dir=root) as temp_dir:
         outputs = build_documents(root, documents, Path(temp_dir))
-        prepared_tracker_values = prepare_tracker_values(root, trackers)
+        needs_github = any(sheet.get("generated") == "github-issues" for tracker in trackers for sheet in tracker["sheets"])
+        try:
+            github_api = GitHubApi(args.github_repository, args.github_token) if needs_github else None
+        except WorkItemError as exc:
+            raise SyncError(f"Cannot configure GitHub Issue snapshot: {exc}") from exc
+        prepared_tracker_values = prepare_tracker_values(root, trackers, github_api)
         drive, sheets_api = google_clients(credential_path)
         validate_remote_targets(drive, sheets_api, documents, trackers)
         for document in documents:

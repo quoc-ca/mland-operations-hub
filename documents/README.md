@@ -15,6 +15,10 @@ Agents working in this folder must read [AGENT.md](AGENT.md) for editing rules a
 
 Document Change History tables and mapped ChangeLog tracker tabs are generated from scoped Git commit history during build and synchronization. Do not enter versions, authors, dates, or commit records manually.
 
+GitHub Issues are the operational work source of truth. Managed work items are declared in authorized report fragments and synchronized only from `develop`; `IssuesOnGithub` is a generated, read-only Project Tracking snapshot exported from `main`. Read [AGENT.md](AGENT.md) before adding a declaration or changing a tracker.
+
+Before enabling the `develop` workflow, create the agreed labels in GitHub: one `type:*`, one `priority:*`, at least one `domain:*`, `source:report`, `source:manual`, and `source:automation`; use `severity:*` only for bugs. Also create milestones `Iteration 01` through `Iteration 15`, share the assignment-notification expectation with each member, and create the mapped `IssuesOnGithub` tab in the Project Tracking Google Sheet.
+
 ## Generate the Mland reports
 
 Run these commands from the repository root:

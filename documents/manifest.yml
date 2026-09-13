@@ -52,6 +52,9 @@ trackers:
         sheet_name: Defects
       - csv: Issues.csv
         sheet_name: Issues
+      - csv: IssuesOnGithub.csv
+        sheet_name: IssuesOnGithub
+        generated: github-issues
       - csv: QA.csv
         sheet_name: Q&A
       - csv: Risks.csv

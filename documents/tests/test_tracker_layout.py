@@ -20,7 +20,7 @@ FORBIDDEN_SAMPLE_TEXT = (
 class MlandTrackerLayoutTests(unittest.TestCase):
     def test_every_tracker_csv_is_a_clean_mland_tracker(self) -> None:
         files = sorted(TRACKER_ROOT.rglob("*.csv"))
-        self.assertEqual(len(files), 37)
+        self.assertEqual(len(files), 38)
         for path in files:
             with self.subTest(path=path.relative_to(ROOT).as_posix()):
                 with path.open(encoding="utf-8-sig", newline="") as source:

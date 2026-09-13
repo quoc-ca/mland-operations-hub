@@ -1,0 +1,50 @@
+name: Discovered operational issue
+description: Record a bug, follow-up, decision, research need, or other MOH work discovered outside report declarations.
+title: "[DISCOVERED] "
+labels: ["source:manual", "needs-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form creates a manually managed GitHub Issue. An assignee is optional until team review.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or work to do
+      description: State the observed problem, decision, or expected work outcome.
+    validations:
+      required: true
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options: [task, bug, research, requirement-gap, decision, test, documentation, risk-action]
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: [critical, high, medium, low]
+    validations:
+      required: true
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Domain
+      options: [booking, staff-shifts, inventory, finance, reporting, forecasting, platform, documentation]
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or source link
+      description: Link a report fragment, tracker row, observation, screenshot, or other evidence. Do not include sensitive data.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Expected outcome
+    validations:
+      required: true

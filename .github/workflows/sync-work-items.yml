@@ -1,0 +1,42 @@
+name: Sync managed GitHub work items
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Validate declarations without creating or updating Issues
+        required: false
+        default: true
+        type: boolean
+  push:
+    branches: [develop]
+    paths:
+      - 'documents/docs/**'
+      - 'documents/tools/github_issues.py'
+      - '.github/scripts/sync_work_items.py'
+      - '.github/workflows/sync-work-items.yml'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  synchronize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate and synchronize managed work items
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
+            python .github/scripts/sync_work_items.py --dry-run
+          else
+            python .github/scripts/sync_work_items.py
+          fi
