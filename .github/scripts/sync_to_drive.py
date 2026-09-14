@@ -5,12 +5,15 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
+import random
 import re
 import sys
 import tempfile
+import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 try:  # The workflow installs PyYAML; local selection tests do not require it.
     import yaml
@@ -48,10 +51,20 @@ DRIVE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{10,}$")
 ARCHIVE_SUFFIX = "-out"
 INVALID_SHEET_TITLE = re.compile(r"[\\\\/:?*\[\]]")
 MAX_SHEET_TITLE_LENGTH = 100
+MAX_REMOTE_ATTEMPTS = 3
 
 
 class SyncError(RuntimeError):
     """A configuration, build, or remote-state error that must stop the sync."""
+
+
+class TargetError(SyncError):
+    """A target-scoped error with the phase that failed."""
+
+    def __init__(self, phase: str, error: Exception):
+        super().__init__(str(error))
+        self.phase = phase
+        self.error = error
 
 
 def repo_path(root: Path, value: str) -> Path:
@@ -92,12 +105,13 @@ def validate_drive_id(label: str, drive_file_id: Any) -> str:
 def require_entry(entry: Any, expected_target: str) -> dict[str, Any]:
     if not isinstance(entry, dict):
         raise SyncError("Each manifest entry must be a mapping.")
-    if not isinstance(entry.get("id"), str) or not entry["id"]:
+    identifier = entry.get("id")
+    if not isinstance(identifier, str) or not identifier:
         raise SyncError("Every manifest entry needs a non-empty id.")
     if entry.get("target") != expected_target:
-        raise SyncError(f"{entry['id']} must declare target: {expected_target}.")
+        raise SyncError(f"{identifier} must declare target: {expected_target}.")
     if not isinstance(entry.get("drive_file_id"), str):
-        raise SyncError(f"{entry['id']} must declare drive_file_id as a string.")
+        raise SyncError(f"{identifier} must declare drive_file_id as a string.")
     return entry
 
 
@@ -115,8 +129,8 @@ def _bundle_changed(source_bundle: str, changed: set[str]) -> bool:
 
 
 def select_entries(manifest: dict[str, Any], changed: set[str], sync_all: bool) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    documents = [require_entry(item, "google-doc") for item in manifest["documents"]]
-    trackers = [require_entry(item, "google-sheet") for item in manifest["trackers"]]
+    documents = manifest["documents"]
+    trackers = manifest["trackers"]
     if sync_all:
         return documents, trackers
     if _global_document_change(changed):
@@ -124,14 +138,14 @@ def select_entries(manifest: dict[str, Any], changed: set[str], sync_all: bool) 
     else:
         selected_documents = []
         for item in documents:
-            source_bundle = item.get("source_bundle")
-            if not isinstance(source_bundle, str) or not source_bundle:
-                raise SyncError(f"{item['id']} must declare a source_bundle directory.")
-            if _bundle_changed(source_bundle, changed):
+            source_bundle = item.get("source_bundle") if isinstance(item, dict) else None
+            if isinstance(source_bundle, str) and source_bundle and _bundle_changed(source_bundle, changed):
                 selected_documents.append(item)
     selected_trackers = trackers if changed & GLOBAL_TRACKER_INPUTS else [
         item for item in trackers
-        if any(path.startswith(item["source_folder"].rstrip("/") + "/") for path in changed)
+        if isinstance(item, dict)
+        and isinstance(item.get("source_folder"), str)
+        and any(path.startswith(item["source_folder"].rstrip("/") + "/") for path in changed)
     ]
     return selected_documents, selected_trackers
 
@@ -461,6 +475,226 @@ def google_clients(credential_path: Path) -> tuple[Any, Any]:
     return build("drive", "v3", credentials=credentials, cache_discovery=False), build("sheets", "v4", credentials=credentials, cache_discovery=False)
 
 
+def target_context(target_type: str, entry: Any) -> tuple[str, str]:
+    if not isinstance(entry, dict):
+        return f"invalid-{target_type}", ""
+    identifier = entry.get("id")
+    source_key = "source_bundle" if target_type == "document" else "source_folder"
+    return identifier if isinstance(identifier, str) and identifier else f"invalid-{target_type}", entry.get(source_key, "") if isinstance(entry.get(source_key), str) else ""
+
+
+def underlying_error(error: Exception) -> Exception:
+    current = error
+    while isinstance(current, TargetError):
+        current = current.error
+    while current.__cause__ is not None:
+        current = current.__cause__
+    return current
+
+
+def http_error_details(error: Exception) -> tuple[int | None, str | None, str | None]:
+    remote = underlying_error(error)
+    response = getattr(remote, "resp", None)
+    status = getattr(response, "status", None)
+    if not isinstance(status, int):
+        return None, None, None
+    reason: str | None = None
+    message: str | None = None
+    content = getattr(remote, "content", b"")
+    try:
+        payload = json.loads(content.decode("utf-8") if isinstance(content, bytes) else content)
+        detail = payload.get("error", {})
+        message = detail.get("message") if isinstance(detail.get("message"), str) else None
+        errors = detail.get("errors", [])
+        if isinstance(errors, list) and errors and isinstance(errors[0], dict):
+            reason = errors[0].get("reason") if isinstance(errors[0].get("reason"), str) else None
+    except (AttributeError, TypeError, UnicodeDecodeError, json.JSONDecodeError):
+        pass
+    return status, reason, message
+
+
+def is_retryable(error: Exception) -> bool:
+    status, reason, _ = http_error_details(error)
+    return status in {429, 500, 502, 503, 504} or reason in {"rateLimitExceeded", "userRateLimitExceeded"}
+
+
+def run_remote(phase: str, operation: Callable[[], Any]) -> Any:
+    for attempt in range(1, MAX_REMOTE_ATTEMPTS + 1):
+        try:
+            return operation()
+        except Exception as exc:
+            if not is_retryable(exc) or attempt == MAX_REMOTE_ATTEMPTS:
+                raise TargetError(phase, exc) from exc
+            delay = min(2 ** (attempt - 1), 8) + random.random()
+            print(json.dumps({"event": "sync_retry", "phase": phase, "attempt": attempt, "delay_seconds": round(delay, 2)}))
+            time.sleep(delay)
+    raise AssertionError("unreachable")
+
+
+def run_local(phase: str, operation: Callable[[], Any]) -> Any:
+    try:
+        return operation()
+    except TargetError:
+        raise
+    except Exception as exc:
+        raise TargetError(phase, exc) from exc
+
+
+def validate_document_local(root: Path, manifest: dict[str, Any], document: dict[str, Any]) -> None:
+    reference_doc = repo_path(root, manifest["reference_doc"])
+    if not reference_doc.is_file():
+        raise SyncError(f"Shared reference DOCX is missing: {reference_doc}")
+    source_bundle = document.get("source_bundle")
+    if not isinstance(source_bundle, str) or not source_bundle:
+        raise SyncError(f"{document['id']} must declare a source_bundle directory.")
+    if not repo_path(root, source_bundle).is_dir():
+        raise SyncError(f"Document bundle is missing: {source_bundle}")
+
+
+def failure_details(error: TargetError) -> tuple[str, bool, str, str]:
+    status, reason, remote_message = http_error_details(error)
+    message = remote_message or str(error.error)
+    message = " ".join(message.split())[:1000]
+    if status in {401, 403}:
+        return "ACCESS_DENIED", False, message, "Check the service account, Editor access, and enabled Google APIs."
+    if status == 404:
+        return "TARGET_NOT_FOUND", False, message, "Check the Drive file ID, file location, and sharing permission."
+    if status == 400:
+        return "REMOTE_REQUEST_INVALID", False, message, "Check the target configuration and the reported Google API request."
+    if is_retryable(error):
+        return "REMOTE_RETRY_EXHAUSTED", True, message, "Retry later; quota or Google service availability prevented completion."
+    phase_codes = {
+        "run": ("RUN_FAILED", "Check manifest syntax, credentials, and Google API client configuration."),
+        "local": ("SOURCE_INVALID", "Fix the reported source path, CSV name, generated metadata, or tracker configuration."),
+        "build": ("DOCUMENT_BUILD_FAILED", "Fix the reported document bundle, fragment, asset, or renderer issue."),
+        "github": ("GITHUB_SOURCE_FAILED", "Check GitHub repository/token configuration and generated tracker inputs."),
+        "reconcile": ("SHEET_RECONCILE_FAILED", "Resolve the tab/archive collision or spreadsheet structure error, then rerun."),
+        "write": ("SHEET_WRITE_FAILED", "Check the spreadsheet access and rerun; source values remain in Git."),
+        "upload": ("DOCUMENT_UPLOAD_FAILED", "Check the target Google Doc and service-account access, then rerun."),
+    }
+    code, hint = phase_codes.get(error.phase, ("SYNC_FAILED", "Review the target configuration and error message, then rerun."))
+    return code, False, message, hint
+
+
+def emit_result(result: dict[str, Any]) -> None:
+    print("[SYNC_RESULT] " + json.dumps(result, ensure_ascii=False, sort_keys=True))
+    if result["status"] != "failed":
+        return
+    title = f"Google Workspace sync failed: {result['target_type']} {result['target_id']} ({result['phase']})"
+    detail = f"{result['message']} Hint: {result['hint']}"
+    escaped_title = title.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    escaped_detail = detail.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print(f"::error title={escaped_title}::{escaped_detail}")
+
+
+def success_result(target_type: str, target_id: str, source: str, phase: str, **extra: Any) -> dict[str, Any]:
+    return {
+        "target_type": target_type,
+        "target_id": target_id,
+        "source": source,
+        "status": "success",
+        "phase": phase,
+        "error_code": None,
+        "retryable": False,
+        "message": "Synchronization completed.",
+        "hint": "",
+        **extra,
+    }
+
+
+def failed_result(target_type: str, target_id: str, source: str, error: TargetError) -> dict[str, Any]:
+    error_code, retryable, message, hint = failure_details(error)
+    return {
+        "target_type": target_type,
+        "target_id": target_id,
+        "source": source,
+        "status": "failed",
+        "phase": error.phase,
+        "error_code": error_code,
+        "retryable": retryable,
+        "message": message,
+        "hint": hint,
+    }
+
+
+def process_document(root: Path, manifest: dict[str, Any], entry: Any, drive: Any, output_dir: Path, dry_run: bool) -> dict[str, Any]:
+    target_id, source = target_context("document", entry)
+    try:
+        document = run_local("local", lambda: require_entry(entry, "google-doc"))
+        target_id, source = target_context("document", document)
+        run_local("local", lambda: validate_document_local(root, manifest, document))
+        if dry_run:
+            return success_result("document", target_id, source, "local-validation")
+        docx = run_local("build", lambda: build_bundle(repo_path(root, document["source_bundle"]), root, output_dir))
+        run_remote("upload", lambda: drive_file(drive, target_id, document["drive_file_id"], GOOGLE_DOC_MIME))
+        run_remote("upload", lambda: sync_document(drive, document, docx))
+        return success_result("document", target_id, source, "upload")
+    except TargetError as exc:
+        return failed_result("document", target_id, source, exc)
+
+
+def process_tracker(
+    root: Path, entry: Any, drive: Any, sheets_api: Any, github_repository: str, github_token: str, dry_run: bool
+) -> dict[str, Any]:
+    target_id, source = target_context("tracker", entry)
+    try:
+        tracker = run_local("local", lambda: require_entry(entry, "google-sheet"))
+        target_id, source = target_context("tracker", tracker)
+        sheets = run_local("local", lambda: tracker_sheets(root, tracker))
+        if dry_run:
+            return success_result("tracker", target_id, source, "local-validation", sheet_count=len(sheets))
+        needs_github = any(sheet.get("generated") == "github-issues" for sheet in sheets)
+        github_api = run_local("github", lambda: GitHubApi(github_repository, github_token)) if needs_github else None
+        values = {
+            sheet["csv"]: run_local(
+                "github" if sheet.get("generated") == "github-issues" else "local",
+                lambda sheet=sheet: tracker_sheet_values(root, tracker, sheet, github_api),
+            )
+            for sheet in sheets
+        }
+        remote_sheets = run_remote("reconcile", lambda: (drive_file(drive, target_id, tracker["drive_file_id"], GOOGLE_SHEET_MIME), remote_tracker_sheets(sheets_api, tracker))[1])
+        run_local("reconcile", lambda: reconciliation_requests(tracker, sheets, remote_sheets))
+        run_remote("reconcile", lambda: reconcile_tracker(sheets_api, tracker, sheets, remote_sheets))
+        updated_cells = run_remote(
+            "write",
+            lambda: sync_tracker(sheets_api, root, tracker, sheets, {(target_id, csv_name): rows for csv_name, rows in values.items()}),
+        )
+        return success_result("tracker", target_id, source, "write", sheet_count=len(sheets), updated_cells=updated_cells)
+    except TargetError as exc:
+        return failed_result("tracker", target_id, source, exc)
+
+
+def write_result_report(path: str | None, results: list[dict[str, Any]]) -> None:
+    if not path:
+        return
+    report_path = Path(path)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    summary = {"success": sum(item["status"] == "success" for item in results), "failed": sum(item["status"] == "failed" for item in results)}
+    report_path.write_text(json.dumps({"summary": summary, "results": results}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def render_result_summary(report_path: Path, summary_path: Path) -> int:
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"SYNC ERROR: Cannot render result summary: {exc}", file=sys.stderr)
+        return 1
+    results = report.get("results", [])
+    summary = report.get("summary", {})
+    lines = ["## Google Workspace synchronization", "", f"- Success: {summary.get('success', 0)}", f"- Failed: {summary.get('failed', 0)}", "", "| Target | Status | Phase | Detail |", "| --- | --- | --- | --- |"]
+    for item in results:
+        target = f"{item.get('target_type', '')}: {item.get('target_id', '')}".replace("|", "\\|")
+        detail = (item.get("message") or f"{item.get('updated_cells', '')} cells updated").replace("|", "\\|").replace("\n", " ")
+        lines.append(f"| {target} | {item.get('status', '')} | {item.get('phase', '')} | {detail} |")
+    try:
+        with summary_path.open("a", encoding="utf-8") as destination:
+            destination.write("\n".join(lines) + "\n")
+    except OSError as exc:
+        print(f"SYNC ERROR: Cannot write GitHub summary: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", default="manifest.yml")
@@ -471,59 +705,75 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--github-repository", default=os.environ.get("GITHUB_REPOSITORY", ""))
     parser.add_argument("--github-token", default=os.environ.get("GITHUB_TOKEN", ""))
     parser.add_argument("--dry-run", action="store_true", help="Validate local selection without building or contacting Google")
+    parser.add_argument("--result-report", help="Write machine-readable per-target synchronization results to this JSON path.")
+    parser.add_argument("--render-result-summary", help="Render an existing result-report JSON file into --github-summary.")
+    parser.add_argument("--github-summary", help="GitHub Job Summary path used with --render-result-summary.")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.render_result_summary:
+        if not args.github_summary:
+            raise SyncError("--github-summary is required with --render-result-summary.")
+        return render_result_summary(Path(args.render_result_summary), Path(args.github_summary))
+
+    results: list[dict[str, Any]] = []
     root = Path.cwd().resolve()
-    manifest = load_manifest(repo_path(root, args.manifest))
-    documents, trackers = select_entries(manifest, changed_paths(args.changed), args.all)
-    if args.include_generated_trackers and not args.all:
-        generated_trackers = [
-            tracker for tracker in manifest["trackers"]
-            if any(sheet.get("generated") == "github-issues" for sheet in tracker.get("generated_sheets", []))
-        ]
-        known_ids = {tracker["id"] for tracker in trackers}
-        trackers.extend(require_entry(tracker, "google-sheet") for tracker in generated_trackers if tracker["id"] not in known_ids)
-    if not documents and not trackers:
-        print("No mapped document bundles or CSV sources changed; nothing to synchronize.")
-        return 0
-    tracker_sheets_by_id = validate_local_inputs(root, manifest, documents, trackers)
-    if args.dry_run:
-        print(f"Dry run: {len(documents)} Google Docs and {len(trackers)} Google Sheets selected.")
-        return 0
-    if not args.credentials:
-        raise SyncError("--credentials is required.")
-    credential_path = Path(args.credentials)
-    if not credential_path.is_file():
-        raise SyncError(f"Credentials file is missing: {credential_path}")
-    with tempfile.TemporaryDirectory(prefix="google-doc-build-", dir=root) as temp_dir:
-        outputs = build_documents(root, documents, Path(temp_dir))
-        needs_github = any(
-            sheet.get("generated") == "github-issues"
-            for sheets in tracker_sheets_by_id.values()
-            for sheet in sheets
-        )
+    try:
+        manifest = load_manifest(repo_path(root, args.manifest))
+        documents, trackers = select_entries(manifest, changed_paths(args.changed), args.all)
+        if args.include_generated_trackers and not args.all:
+            generated_trackers = [
+                tracker for tracker in manifest["trackers"]
+                if isinstance(tracker, dict)
+                and any(sheet.get("generated") == "github-issues" for sheet in tracker.get("generated_sheets", []) if isinstance(sheet, dict))
+            ]
+            known_ids = {item.get("id") for item in trackers if isinstance(item, dict)}
+            trackers.extend(tracker for tracker in generated_trackers if tracker.get("id") not in known_ids)
+        if not documents and not trackers:
+            print("No mapped document bundles or CSV sources changed; nothing to synchronize.")
+            return 0
+        if args.dry_run:
+            for document in documents:
+                result = process_document(root, manifest, document, None, root, True)
+                results.append(result)
+                emit_result(result)
+            for tracker in trackers:
+                result = process_tracker(root, tracker, None, None, args.github_repository, args.github_token, True)
+                results.append(result)
+                emit_result(result)
+            return 1 if any(item["status"] == "failed" for item in results) else 0
+        if not args.credentials:
+            raise SyncError("--credentials is required.")
+        credential_path = Path(args.credentials)
+        if not credential_path.is_file():
+            raise SyncError(f"Credentials file is missing: {credential_path}")
         try:
-            github_api = GitHubApi(args.github_repository, args.github_token) if needs_github else None
-        except WorkItemError as exc:
-            raise SyncError(f"Cannot configure GitHub Issue snapshot: {exc}") from exc
-        prepared_tracker_values = prepare_tracker_values(root, trackers, tracker_sheets_by_id, github_api)
-        drive, sheets_api = google_clients(credential_path)
-        remote_sheets_by_id = validate_remote_targets(drive, sheets_api, documents, trackers, tracker_sheets_by_id)
-        for document in documents:
-            sync_document(drive, document, outputs[document["id"]])
-        for tracker in trackers:
-            reconcile_tracker(
-                sheets_api, tracker, tracker_sheets_by_id[tracker["id"]], remote_sheets_by_id[tracker["id"]]
-            )
-        updated_cells = sum(
-            sync_tracker(sheets_api, root, tracker, tracker_sheets_by_id[tracker["id"]], prepared_tracker_values)
-            for tracker in trackers
-        )
-    print(f"Sync complete: {len(documents)} Google Docs, {len(trackers)} Google Sheets, {updated_cells} sheet cells updated.")
-    return 0
+            drive, sheets_api = google_clients(credential_path)
+        except Exception as exc:
+            raise SyncError(f"Cannot create Google API clients: {exc}") from exc
+        with tempfile.TemporaryDirectory(prefix="google-doc-build-", dir=root) as temp_dir:
+            for document in documents:
+                result = process_document(root, manifest, document, drive, Path(temp_dir), False)
+                results.append(result)
+                emit_result(result)
+            for tracker in trackers:
+                result = process_tracker(root, tracker, drive, sheets_api, args.github_repository, args.github_token, False)
+                results.append(result)
+                emit_result(result)
+        succeeded = sum(item["status"] == "success" for item in results)
+        failed = sum(item["status"] == "failed" for item in results)
+        print(f"Sync complete: {succeeded} succeeded, {failed} failed.")
+        return 1 if failed else 0
+    except Exception as exc:
+        error = TargetError("run", exc)
+        result = failed_result("run", "workspace-sync", "", error)
+        results.append(result)
+        emit_result(result)
+        return 1
+    finally:
+        write_result_report(args.result_report, results)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -28,6 +29,13 @@ def tracker(identifier: str = "tracker-1") -> dict[str, object]:
 
 def remote_sheet(sheet_id: int, title: str, index: int = 0) -> dict[str, object]:
     return {"sheetId": sheet_id, "title": title, "index": index}
+
+
+class FakeHttpError(Exception):
+    def __init__(self, status: int, reason: str, message: str = "Google API error") -> None:
+        super().__init__(message)
+        self.resp = type("Response", (), {"status": status})()
+        self.content = json.dumps({"error": {"message": message, "errors": [{"reason": reason}]}}).encode("utf-8")
 
 
 class SyncSelectionTests(unittest.TestCase):
@@ -187,12 +195,109 @@ class SyncRemoteTests(unittest.TestCase):
             sync.validate_remote_targets(drive, MagicMock(), [document()], [], {})
 
 
+class BestEffortSyncTests(unittest.TestCase):
+    def test_source_failure_does_not_call_remote_apis_for_that_tracker(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "trackers" / "broken"
+            source.mkdir(parents=True)
+            (source / "Old-out.csv").touch()
+            item = tracker("broken")
+            drive = MagicMock()
+            sheets_api = MagicMock()
+            result = sync.process_tracker(root, item, drive, sheets_api, "", "", False)
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["phase"], "local")
+        self.assertEqual(result["error_code"], "SOURCE_INVALID")
+        drive.files().get.assert_not_called()
+        sheets_api.spreadsheets().get.assert_not_called()
+
+    def test_valid_tracker_can_succeed_after_another_tracker_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            broken_root = root / "trackers" / "broken"
+            good_root = root / "trackers" / "good"
+            broken_root.mkdir(parents=True)
+            good_root.mkdir(parents=True)
+            (broken_root / "Old-out.csv").touch()
+            (good_root / "Items.csv").write_text("value\n", encoding="utf-8")
+            drive = MagicMock()
+            drive.files().get().execute.return_value = {"mimeType": sync.GOOGLE_SHEET_MIME}
+            sheets_api = MagicMock()
+            sheets_api.spreadsheets().get().execute.return_value = {"sheets": []}
+            sheets_api.spreadsheets().batchUpdate().execute.return_value = {}
+            sheets_api.spreadsheets().values().clear().execute.return_value = {}
+            sheets_api.spreadsheets().values().batchUpdate().execute.return_value = {"totalUpdatedCells": 1}
+            failed = sync.process_tracker(root, tracker("broken"), drive, sheets_api, "", "", False)
+            succeeded = sync.process_tracker(root, tracker("good"), drive, sheets_api, "", "", False)
+        self.assertEqual(failed["status"], "failed")
+        self.assertEqual(succeeded["status"], "success")
+        self.assertEqual(succeeded["updated_cells"], 1)
+
+    def test_retries_transient_remote_error_three_times(self) -> None:
+        attempts = 0
+
+        def fail() -> None:
+            nonlocal attempts
+            attempts += 1
+            raise FakeHttpError(429, "rateLimitExceeded")
+
+        with patch.object(sync.time, "sleep") as sleep:
+            with self.assertRaises(sync.TargetError) as raised:
+                sync.run_remote("write", fail)
+        self.assertEqual(attempts, 3)
+        self.assertEqual(raised.exception.phase, "write")
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_does_not_retry_non_transient_remote_error(self) -> None:
+        attempts = 0
+
+        def fail() -> None:
+            nonlocal attempts
+            attempts += 1
+            raise FakeHttpError(403, "forbidden")
+
+        with patch.object(sync.time, "sleep") as sleep:
+            with self.assertRaises(sync.TargetError):
+                sync.run_remote("upload", fail)
+        self.assertEqual(attempts, 1)
+        sleep.assert_not_called()
+
+    def test_writes_machine_report_and_markdown_summary(self) -> None:
+        results = [
+            sync.success_result("tracker", "good", "trackers/good", "write", updated_cells=3),
+            sync.failed_result("tracker", "broken", "trackers/broken", sync.TargetError("local", sync.SyncError("invalid title"))),
+        ]
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = root / "results.json"
+            summary = root / "summary.md"
+            sync.write_result_report(str(report), results)
+            code = sync.render_result_summary(report, summary)
+            report_data = json.loads(report.read_text(encoding="utf-8"))
+            summary_text = summary.read_text(encoding="utf-8")
+        self.assertEqual(code, 0)
+        self.assertEqual(report_data["summary"], {"success": 1, "failed": 1})
+        self.assertEqual(
+            set(report_data["results"][0]),
+            {"target_type", "target_id", "source", "status", "phase", "error_code", "retryable", "message", "hint", "updated_cells"},
+        )
+        self.assertIn("tracker: broken", summary_text)
+        self.assertIn("invalid title", summary_text)
+
+
 class WorkflowContractTests(unittest.TestCase):
     def test_workspace_publishing_is_restricted_to_develop(self) -> None:
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
         self.assertIn("branches: [develop]", workflow)
         self.assertNotIn("branches: [main]", workflow)
         self.assertIn('"$GITHUB_REF" != "refs/heads/develop"', workflow)
+
+    def test_workflow_writes_report_and_always_renders_summary(self) -> None:
+        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+        self.assertIn("--result-report sync-results.json", workflow)
+        self.assertIn("Publish synchronization summary", workflow)
+        self.assertIn("if: always()", workflow)
 
 
 if __name__ == "__main__":

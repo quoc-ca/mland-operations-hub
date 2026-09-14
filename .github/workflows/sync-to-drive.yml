@@ -75,7 +75,21 @@ jobs:
           printf '%s' "$GDRIVE_CREDENTIALS" > "$credentials_file"
           chmod 600 "$credentials_file"
           if [ "${{ steps.scope.outputs.all }}" = "true" ]; then
-            python ../.github/scripts/sync_to_drive.py --all --credentials "$credentials_file"
+            python ../.github/scripts/sync_to_drive.py --all --credentials "$credentials_file" --result-report sync-results.json
           else
-            python ../.github/scripts/sync_to_drive.py --changed "$(cat changed-paths.txt)" --include-generated-trackers --credentials "$credentials_file"
+            python ../.github/scripts/sync_to_drive.py --changed "$(cat changed-paths.txt)" --include-generated-trackers --credentials "$credentials_file" --result-report sync-results.json
+          fi
+
+      - name: Publish synchronization summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f sync-results.json ]; then
+            python ../.github/scripts/sync_to_drive.py --render-result-summary sync-results.json --github-summary "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## Google Workspace synchronization"
+              echo
+              echo "No synchronization result report was produced; inspect the earlier workflow step."
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
