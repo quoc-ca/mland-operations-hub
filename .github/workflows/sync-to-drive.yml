@@ -3,7 +3,7 @@ name: Build and sync Google Workspace
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [develop]
     paths:
       - 'documents/**'
       - '.github/scripts/sync_to_drive.py'
@@ -20,6 +20,14 @@ jobs:
       run:
         working-directory: documents
     steps:
+      - name: Validate publication branch
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/develop" ]; then
+            echo "Google Workspace publishing is permitted only from refs/heads/develop; received $GITHUB_REF." >&2
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0

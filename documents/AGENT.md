@@ -37,7 +37,7 @@ GitHub Issues are the sole operational source of truth for assignable work: impl
 
 - Never add a declaration with an invented assignee, label, deadline, fact, or decision. Do not create, close, reopen, or manually alter a managed Issue outside the `develop` synchronization workflow.
 - Manually discovered Issues are allowed through the repository Issue form. They remain unmanaged and are reviewed by the team before assignment.
-- `IssuesOnGithub` is a generated, read-only snapshot on `main`; do not edit its CSV rows or Google Sheet tab. GitHub's own history remains the authoritative Issue lifecycle record.
+- `IssuesOnGithub` is a generated, read-only snapshot published from `develop`; do not edit its CSV rows or Google Sheet tab. GitHub's own history remains the authoritative Issue lifecycle record.
 
 ## Escalation
 

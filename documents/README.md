@@ -15,7 +15,7 @@ Agents working in this folder must read [AGENT.md](AGENT.md) for editing rules a
 
 Document Change History tables and mapped ChangeLog tracker tabs are generated from scoped Git commit history during build and synchronization. Do not enter versions, authors, dates, or commit records manually.
 
-GitHub Issues are the operational work source of truth. Managed work items are declared in authorized report fragments and synchronized only from `develop`; `IssuesOnGithub` is a generated, read-only Project Tracking snapshot exported from `main`. Read [AGENT.md](AGENT.md) before adding a declaration or changing a tracker.
+GitHub Issues are the operational work source of truth. Managed work items are declared in authorized report fragments and synchronized only from `develop`; `IssuesOnGithub` is a generated, read-only Project Tracking snapshot exported from `develop`. Read [AGENT.md](AGENT.md) before adding a declaration or changing a tracker.
 
 Before enabling the `develop` workflow, create the agreed labels in GitHub: one `type:*`, one `priority:*`, at least one `domain:*`, `source:report`, `source:manual`, and `source:automation`; use `severity:*` only for bugs. Also create milestones `Iteration 01` through `Iteration 15`, share the assignment-notification expectation with each member, and create the mapped `IssuesOnGithub` tab in the Project Tracking Google Sheet.
 
@@ -74,13 +74,13 @@ Markdown controls semantic structure only: headings, lists, tables, links, code,
 
 ## Google Workspace synchronization
 
-`manifest.yml` maps each document bundle and tracker folder directly to its target Google file. The workflow runs for a manual dispatch and for relevant pushes to `main`:
+`manifest.yml` maps each document bundle and tracker folder directly to its target Google file. The workflow runs for a manual dispatch from `develop` and for relevant pushes to `develop`:
 
-- manual dispatch builds and synchronizes all mapped Google Docs and Sheets;
+- manual dispatch builds and synchronizes all mapped Google Docs and Sheets only when dispatched from `develop`;
 - a changed document bundle publishes only its mapped Google Doc;
 - a changed tracker CSV publishes only its mapped Google Sheet;
 - a changed manifest, reference DOCX, generator, synchronizer, or workflow republishes all mapped Google Docs (and `manifest.yml` also republishes all trackers).
 
 Before the first run, enable the Drive and Sheets APIs, share every mapped Google Doc and Google Sheet with the service-account email as an Editor, and create the repository Actions secret `GDRIVE_CREDENTIALS` containing the complete service-account JSON. Do not commit that JSON.
 
-The workflow builds every selected document bundle before it contacts Google. It then validates all selected Google file types and mapped Sheet tab names before the first remote write. A DOCX upload replaces the mapped Google Doc's full content; tracker sync clears and rewrites mapped Sheet values. Open the Google artifacts yourself to assess conversion and formatting.
+The workflow builds every selected document bundle before it contacts Google. It then validates all selected Google file types and reconciles active Sheet tabs from direct CSV filenames before the first remote write. Tabs without a CSV source are renamed with the `-out` archive suffix; archive tabs are preserved. A DOCX upload replaces the mapped Google Doc's full content; tracker sync clears and rewrites active Sheet values. Open the Google artifacts yourself to assess conversion and formatting.

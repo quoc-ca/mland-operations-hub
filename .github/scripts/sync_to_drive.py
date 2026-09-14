@@ -45,6 +45,9 @@ GLOBAL_DOCUMENT_INPUTS = {"manifest.yml", "templates/reference.docx", "requireme
 GLOBAL_DOCUMENT_PREFIXES = ("tools/", ".github/scripts/", ".github/workflows/")
 GLOBAL_TRACKER_INPUTS = {"manifest.yml"}
 DRIVE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{10,}$")
+ARCHIVE_SUFFIX = "-out"
+INVALID_SHEET_TITLE = re.compile(r"[\\\\/:?*\[\]]")
+MAX_SHEET_TITLE_LENGTH = 100
 
 
 class SyncError(RuntimeError):
@@ -201,7 +204,69 @@ def tracker_sheet_values(
     raise SyncError(f"{tracker['id']} / {sheet['sheet_name']} has unsupported generated value: {generated!r}")
 
 
-def validate_local_inputs(root: Path, manifest: dict[str, Any], documents: list[dict[str, Any]], trackers: list[dict[str, Any]]) -> None:
+def validate_sheet_title(tracker_id: str, csv_name: str, sheet_name: str) -> None:
+    if not sheet_name or len(sheet_name) > MAX_SHEET_TITLE_LENGTH or INVALID_SHEET_TITLE.search(sheet_name):
+        raise SyncError(f"{tracker_id} / {csv_name} has an invalid Google Sheet title: {sheet_name!r}")
+    if sheet_name.casefold().endswith(ARCHIVE_SUFFIX):
+        raise SyncError(f"{tracker_id} / {csv_name} reserves the {ARCHIVE_SUFFIX!r} suffix for archived sheets.")
+
+
+def generated_sheet_metadata(tracker: dict[str, Any]) -> dict[str, dict[str, str]]:
+    configured = tracker.get("generated_sheets", [])
+    if not isinstance(configured, list):
+        raise SyncError(f"{tracker['id']} generated_sheets must be a list.")
+    metadata: dict[str, dict[str, str]] = {}
+    for item in configured:
+        if not isinstance(item, dict) or not isinstance(item.get("csv"), str):
+            raise SyncError(f"{tracker['id']} has invalid generated sheet metadata.")
+        csv_name = item["csv"]
+        if Path(csv_name).name != csv_name or Path(csv_name).suffix.lower() != ".csv":
+            raise SyncError(f"{tracker['id']} has invalid generated CSV name: {csv_name!r}")
+        generated = item.get("generated")
+        if generated not in {"git-history", "github-issues"}:
+            raise SyncError(f"{tracker['id']} / {csv_name} has unsupported generated value: {generated!r}")
+        key = csv_name.casefold()
+        if key in metadata:
+            raise SyncError(f"{tracker['id']} configures generated CSV {csv_name!r} more than once.")
+        metadata[key] = {"generated": generated}
+    return metadata
+
+
+def tracker_sheets(root: Path, tracker: dict[str, Any]) -> list[dict[str, str]]:
+    source_folder = tracker.get("source_folder")
+    if not isinstance(source_folder, str):
+        raise SyncError(f"{tracker['id']} has a missing tracker source_folder.")
+    source_path = repo_path(root, source_folder)
+    if not source_path.is_dir():
+        raise SyncError(f"{tracker['id']} has a missing tracker source_folder.")
+    metadata = generated_sheet_metadata(tracker)
+    sheets: list[dict[str, str]] = []
+    seen_titles: set[str] = set()
+    found_metadata: set[str] = set()
+    for csv_path in sorted((path for path in source_path.glob("*.csv") if path.is_file()), key=lambda path: path.name.casefold()):
+        csv_name = csv_path.name
+        sheet_name = csv_path.stem
+        validate_sheet_title(tracker["id"], csv_name, sheet_name)
+        key = sheet_name.casefold()
+        if key in seen_titles:
+            raise SyncError(f"{tracker['id']} has CSV files with duplicate sheet titles: {sheet_name!r}")
+        seen_titles.add(key)
+        sheet: dict[str, str] = {"csv": csv_name, "sheet_name": sheet_name}
+        generated = metadata.get(csv_name.casefold())
+        if generated is not None:
+            sheet.update(generated)
+            found_metadata.add(csv_name.casefold())
+        sheets.append(sheet)
+    missing_generated = set(metadata) - found_metadata
+    if missing_generated:
+        names = ", ".join(sorted(missing_generated))
+        raise SyncError(f"{tracker['id']} configures missing generated CSV files: {names}")
+    return sheets
+
+
+def validate_local_inputs(
+    root: Path, manifest: dict[str, Any], documents: list[dict[str, Any]], trackers: list[dict[str, Any]]
+) -> dict[str, list[dict[str, str]]]:
     reference_doc = repo_path(root, manifest["reference_doc"])
     if documents and not reference_doc.is_file():
         raise SyncError(f"Shared reference DOCX is missing: {reference_doc}")
@@ -211,21 +276,7 @@ def validate_local_inputs(root: Path, manifest: dict[str, Any], documents: list[
             raise SyncError(f"{document['id']} must declare a source_bundle directory.")
         if not repo_path(root, source_bundle).is_dir():
             raise SyncError(f"Document bundle is missing: {source_bundle}")
-    for tracker in trackers:
-        source_folder = tracker.get("source_folder")
-        if not isinstance(source_folder, str) or not repo_path(root, source_folder).is_dir():
-            raise SyncError(f"{tracker['id']} has a missing tracker source_folder.")
-        sheets = tracker.get("sheets")
-        if not isinstance(sheets, list) or not sheets:
-            raise SyncError(f"{tracker['id']} must map at least one CSV sheet.")
-        for sheet in sheets:
-            if not isinstance(sheet, dict) or not isinstance(sheet.get("csv"), str) or not isinstance(sheet.get("sheet_name"), str):
-                raise SyncError(f"{tracker['id']} has an invalid sheet mapping.")
-            if sheet.get("generated") not in {None, "git-history", "github-issues"}:
-                raise SyncError(f"{tracker['id']} / {sheet['sheet_name']} has unsupported generated value.")
-            csv_path = repo_path(root, f"{source_folder.rstrip('/')}/{sheet['csv']}")
-            if not csv_path.is_file() or csv_path.suffix.lower() != ".csv":
-                raise SyncError(f"CSV source is missing or invalid: {csv_path}")
+    return {tracker["id"]: tracker_sheets(root, tracker) for tracker in trackers}
 
 
 def build_documents(root: Path, documents: list[dict[str, Any]], output_dir: Path) -> dict[str, Path]:
@@ -249,20 +300,105 @@ def drive_file(drive: Any, label: str, drive_file_id: str, expected_mime: str) -
     return file_data
 
 
-def validate_remote_targets(drive: Any, sheets_api: Any, documents: list[dict[str, Any]], trackers: list[dict[str, Any]]) -> None:
-    """Validate every selected target before any Drive or Sheets write occurs."""
+def remote_tracker_sheets(sheets_api: Any, tracker: dict[str, Any]) -> list[dict[str, Any]]:
+    try:
+        spreadsheet = sheets_api.spreadsheets().get(
+            spreadsheetId=tracker["drive_file_id"], fields="sheets(properties(sheetId,title,index))"
+        ).execute()
+    except Exception as exc:
+        raise SyncError(f"Cannot inspect sheets in {tracker['id']} ({tracker['drive_file_id']}): {exc}") from exc
+    sheets: list[dict[str, Any]] = []
+    for item in spreadsheet.get("sheets", []):
+        properties = item.get("properties", {})
+        sheet_id = properties.get("sheetId")
+        title = properties.get("title")
+        if not isinstance(sheet_id, int) or not isinstance(title, str):
+            raise SyncError(f"{tracker['id']} returned invalid sheet properties.")
+        sheets.append({"sheetId": sheet_id, "title": title, "index": properties.get("index")})
+    return sheets
+
+
+def reconciliation_requests(
+    tracker: dict[str, Any], desired_sheets: list[dict[str, str]], remote_sheets: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    desired_by_key = {sheet["sheet_name"].casefold(): sheet["sheet_name"] for sheet in desired_sheets}
+    active_by_key: dict[str, dict[str, Any]] = {}
+    remote_titles = {sheet["title"].casefold() for sheet in remote_sheets}
+    for sheet in remote_sheets:
+        if sheet["title"].casefold().endswith(ARCHIVE_SUFFIX):
+            continue
+        key = sheet["title"].casefold()
+        if key in active_by_key:
+            raise SyncError(f"{tracker['id']} has duplicate active sheet titles differing only by case.")
+        active_by_key[key] = sheet
+
+    requests: list[dict[str, Any]] = []
+    archive_titles: set[str] = set()
+    for key, sheet in active_by_key.items():
+        if key in desired_by_key:
+            desired_title = desired_by_key[key]
+            if sheet["title"] != desired_title:
+                requests.append(
+                    {
+                        "updateSheetProperties": {
+                            "properties": {"sheetId": sheet["sheetId"], "title": desired_title},
+                            "fields": "title",
+                        }
+                    }
+                )
+            continue
+        archive_title = f"{sheet['title']}{ARCHIVE_SUFFIX}"
+        archive_key = archive_title.casefold()
+        if len(archive_title) > MAX_SHEET_TITLE_LENGTH or INVALID_SHEET_TITLE.search(archive_title):
+            raise SyncError(f"{tracker['id']} cannot archive sheet {sheet['title']!r} as {archive_title!r}.")
+        if archive_key in remote_titles or archive_key in archive_titles:
+            raise SyncError(f"{tracker['id']} cannot archive {sheet['title']!r}: {archive_title!r} already exists.")
+        archive_titles.add(archive_key)
+        requests.append(
+            {
+                "updateSheetProperties": {
+                    "properties": {"sheetId": sheet["sheetId"], "title": archive_title},
+                    "fields": "title",
+                }
+            }
+        )
+    for key, title in desired_by_key.items():
+        if key not in active_by_key:
+            requests.append({"addSheet": {"properties": {"title": title}}})
+    return requests
+
+
+def validate_remote_targets(
+    drive: Any,
+    sheets_api: Any,
+    documents: list[dict[str, Any]],
+    trackers: list[dict[str, Any]],
+    tracker_sheets_by_id: dict[str, list[dict[str, str]]],
+) -> dict[str, list[dict[str, Any]]]:
+    """Validate every selected target and reconciliation plan before any remote write occurs."""
     for document in documents:
         drive_file(drive, document["id"], document["drive_file_id"], GOOGLE_DOC_MIME)
+    remote_sheets_by_id: dict[str, list[dict[str, Any]]] = {}
     for tracker in trackers:
         drive_file(drive, tracker["id"], tracker["drive_file_id"], GOOGLE_SHEET_MIME)
-        try:
-            spreadsheet = sheets_api.spreadsheets().get(spreadsheetId=tracker["drive_file_id"], fields="sheets.properties.title").execute()
-        except Exception as exc:
-            raise SyncError(f"Cannot inspect sheets in {tracker['id']} ({tracker['drive_file_id']}): {exc}") from exc
-        existing_names = {item["properties"]["title"] for item in spreadsheet.get("sheets", [])}
-        missing = {item["sheet_name"] for item in tracker["sheets"]} - existing_names
-        if missing:
-            raise SyncError(f"{tracker['id']} is missing mapped sheet tabs: {', '.join(sorted(missing))}")
+        remote_sheets = remote_tracker_sheets(sheets_api, tracker)
+        reconciliation_requests(tracker, tracker_sheets_by_id[tracker["id"]], remote_sheets)
+        remote_sheets_by_id[tracker["id"]] = remote_sheets
+    return remote_sheets_by_id
+
+
+def reconcile_tracker(
+    sheets_api: Any, tracker: dict[str, Any], desired_sheets: list[dict[str, str]], remote_sheets: list[dict[str, Any]]
+) -> None:
+    requests = reconciliation_requests(tracker, desired_sheets, remote_sheets)
+    if not requests:
+        return
+    try:
+        sheets_api.spreadsheets().batchUpdate(
+            spreadsheetId=tracker["drive_file_id"], body={"requests": requests}
+        ).execute()
+    except Exception as exc:
+        raise SyncError(f"Failed to reconcile sheets in {tracker['id']}: {exc}") from exc
 
 
 def sync_document(drive: Any, document: dict[str, Any], docx: Path) -> None:
@@ -277,12 +413,15 @@ def sync_document(drive: Any, document: dict[str, Any], docx: Path) -> None:
 
 
 def prepare_tracker_values(
-    root: Path, trackers: list[dict[str, Any]], github_api: GitHubApi | None = None
+    root: Path,
+    trackers: list[dict[str, Any]],
+    tracker_sheets_by_id: dict[str, list[dict[str, str]]],
+    github_api: GitHubApi | None = None,
 ) -> dict[tuple[str, str], list[list[str]]]:
     return {
         (tracker["id"], sheet["csv"]): tracker_sheet_values(root, tracker, sheet, github_api)
         for tracker in trackers
-        for sheet in tracker["sheets"]
+        for sheet in tracker_sheets_by_id[tracker["id"]]
     }
 
 
@@ -290,11 +429,12 @@ def sync_tracker(
     sheets_api: Any,
     root: Path,
     tracker: dict[str, Any],
+    desired_sheets: list[dict[str, str]],
     prepared_values: dict[tuple[str, str], list[list[str]]],
 ) -> int:
     spreadsheet_id = tracker["drive_file_id"]
     batch_data: list[dict[str, Any]] = []
-    for sheet in tracker["sheets"]:
+    for sheet in desired_sheets:
         csv_path = repo_path(root, f"{tracker['source_folder'].rstrip('/')}/{sheet['csv']}")
         sheet_range = a1_sheet_name(sheet["sheet_name"])
         try:
@@ -342,14 +482,14 @@ def main() -> int:
     if args.include_generated_trackers and not args.all:
         generated_trackers = [
             tracker for tracker in manifest["trackers"]
-            if any(sheet.get("generated") == "github-issues" for sheet in tracker.get("sheets", []))
+            if any(sheet.get("generated") == "github-issues" for sheet in tracker.get("generated_sheets", []))
         ]
         known_ids = {tracker["id"] for tracker in trackers}
         trackers.extend(require_entry(tracker, "google-sheet") for tracker in generated_trackers if tracker["id"] not in known_ids)
     if not documents and not trackers:
         print("No mapped document bundles or CSV sources changed; nothing to synchronize.")
         return 0
-    validate_local_inputs(root, manifest, documents, trackers)
+    tracker_sheets_by_id = validate_local_inputs(root, manifest, documents, trackers)
     if args.dry_run:
         print(f"Dry run: {len(documents)} Google Docs and {len(trackers)} Google Sheets selected.")
         return 0
@@ -360,17 +500,28 @@ def main() -> int:
         raise SyncError(f"Credentials file is missing: {credential_path}")
     with tempfile.TemporaryDirectory(prefix="google-doc-build-", dir=root) as temp_dir:
         outputs = build_documents(root, documents, Path(temp_dir))
-        needs_github = any(sheet.get("generated") == "github-issues" for tracker in trackers for sheet in tracker["sheets"])
+        needs_github = any(
+            sheet.get("generated") == "github-issues"
+            for sheets in tracker_sheets_by_id.values()
+            for sheet in sheets
+        )
         try:
             github_api = GitHubApi(args.github_repository, args.github_token) if needs_github else None
         except WorkItemError as exc:
             raise SyncError(f"Cannot configure GitHub Issue snapshot: {exc}") from exc
-        prepared_tracker_values = prepare_tracker_values(root, trackers, github_api)
+        prepared_tracker_values = prepare_tracker_values(root, trackers, tracker_sheets_by_id, github_api)
         drive, sheets_api = google_clients(credential_path)
-        validate_remote_targets(drive, sheets_api, documents, trackers)
+        remote_sheets_by_id = validate_remote_targets(drive, sheets_api, documents, trackers, tracker_sheets_by_id)
         for document in documents:
             sync_document(drive, document, outputs[document["id"]])
-        updated_cells = sum(sync_tracker(sheets_api, root, tracker, prepared_tracker_values) for tracker in trackers)
+        for tracker in trackers:
+            reconcile_tracker(
+                sheets_api, tracker, tracker_sheets_by_id[tracker["id"]], remote_sheets_by_id[tracker["id"]]
+            )
+        updated_cells = sum(
+            sync_tracker(sheets_api, root, tracker, tracker_sheets_by_id[tracker["id"]], prepared_tracker_values)
+            for tracker in trackers
+        )
     print(f"Sync complete: {len(documents)} Google Docs, {len(trackers)} Google Sheets, {updated_cells} sheet cells updated.")
     return 0
 

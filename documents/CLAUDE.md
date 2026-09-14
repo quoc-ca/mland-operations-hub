@@ -8,7 +8,7 @@ Markdown report fragments and CSV trackers are the source of truth. The local ge
 
 Google Workspace is for publishing, review, comments, and suggestions. Do not use remote edits as a source to synchronize back into this folder. Never inspect or modify generated DOCX files unless a task explicitly requests manual review by a person.
 
-GitHub Issues are the operational work source of truth. The `develop` workflow may synchronize explicitly declared report work items to GitHub Issues; `main` only exports the read-only `IssuesOnGithub` tracker snapshot to Google Sheets. GitHub Projects and PAT-based automation are intentionally out of scope. See [AGENT.md](AGENT.md) for the declaration grammar and behavioral rules.
+GitHub Issues are the operational work source of truth. The `develop` workflow may synchronize explicitly declared report work items to GitHub Issues and export the read-only `IssuesOnGithub` tracker snapshot to Google Sheets. GitHub Projects and PAT-based automation are intentionally out of scope. See [AGENT.md](AGENT.md) for the declaration grammar and behavioral rules.
 
 ## Workspace map
 
