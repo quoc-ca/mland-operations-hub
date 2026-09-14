@@ -70,6 +70,20 @@ class TrackerDiscoveryTests(unittest.TestCase):
             sheets = sync.tracker_sheets(root, item)
         self.assertEqual(sheets, [{"csv": "History.csv", "sheet_name": "History", "generated": "git-history"}, {"csv": "Risks.csv", "sheet_name": "Risks"}])
 
+    def test_accepts_an_empty_csv_as_a_tab_source(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            tracker_root = root / "trackers" / "tracker-1"
+            tracker_root.mkdir(parents=True)
+            (tracker_root / "test.csv").touch()
+            item = tracker()
+            sheets = sync.tracker_sheets(root, item)
+            values = sync.tracker_sheet_values(root, item, sheets[0])
+            requests = sync.reconciliation_requests(item, sheets, [])
+        self.assertEqual(sheets, [{"csv": "test.csv", "sheet_name": "test"}])
+        self.assertEqual(values, [])
+        self.assertEqual(requests, [{"addSheet": {"properties": {"title": "test"}}}])
+
     def test_rejects_reserved_archive_suffix_and_invalid_titles(self) -> None:
         with self.assertRaisesRegex(sync.SyncError, "reserves"):
             sync.validate_sheet_title("tracker-1", "Old-out.csv", "Old-out")
