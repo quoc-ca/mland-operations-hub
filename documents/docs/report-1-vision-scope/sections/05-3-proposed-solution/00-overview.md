@@ -1,10 +1,11 @@
 # 3. Proposed Solution
 
-Mland Operations Hub (MOH) is a proposed operational workspace for Mland's workshop locations. It gives customers a structured way to request an available session at a chosen location and gives staff a shared place to manage reservations, attendance, and shifts. The owner can view operational activity across the current locations and a future Da Nang location from one place.
+Mland Operations Hub (MOH) is a bilingual, guest-accessible system for a personalised ring journey. A customer reserves a fixed-capacity group workshop session, then may choose an existing ring design, configure available ring components, upload a reference image with consent, or wait to consult staff in person.
 
-MOH closes the three gaps identified above: it replaces fragmented booking requests with location-aware availability, replaces message-only shift coordination with a shared schedule, and records important operating changes in an audit trail. It is intentionally focused on the workshop journey rather than on payments, point-of-sale, or full inventory management.
+For a reference image or custom design outside the confirmed catalogue, an external AI Vision API extracts candidate ring features. A feasibility engine then records an auto-accept, staff-review, or auto-reject decision from approved constraints, weights, and thresholds. The engine is a research prototype under validation: it does not generate designs or decide prices. Authorised staff or the owner may override a decision only with a recorded reason.
 
-For customers, the proposed experience reduces uncertainty around whether a workshop session is available. For staff, it makes the daily schedule visible before a shift begins. For the owner, it creates a clearer basis for planning coverage and investigating booking or schedule changes when the business operates across multiple locations.
+After a feasible design is available, MOH shows a price estimate from the staff-maintained component catalogue. The customer can either make the ring at the workshop or place a shop-made custom order. Shop-made orders use simple fulfilment statuses through pickup. Final invoice changes require customer consent, and staff record cash or bank-transfer payment only after the customer receives the product.
+
+MOH sends booking and review/order notifications by email and lets guests use a tracking code. It does not integrate a payment gateway, store card data, schedule staff, manage stock, or perform detailed production planning.
 
 ![MOH operational context](assets/diagrams/moh-context.mmd)
-

@@ -1,8 +1,8 @@
-﻿Mland Operations Hub,,,,,,,,,,,
+Mland Operations Hub,,,,,,,,,,,
 TBD — populate only with approved Mland evidence.,,,,,,,,,,,
 ,,,,,,,,,,,
 #,Date,Question,Raised By,Directed To,Priority,Due Date,Answer / Resolution,Answered By,Answered Date,Status,Notes
-Q-001,2026-09-09,Which basic workflows must MOH support?,Mland Project Team,Workshop owner manager and staff,High,2026-09-12,Pending onsite discovery,,,Open,Raised during internal discovery; not an approved requirement
-Q-002,2026-09-09,Which delivery milestones and evidence does the lecturer expect for the project?,Mland Project Team,Lecturer,High,2026-09-12,Pending lecturer review,,,Open,Raised during internal discovery
-Q-003,2026-09-10,Which finance personnel and inventory processes belong in MOH and which remain outside the system boundary?,Mland Project Team,Workshop owner manager and staff,High,2026-09-12,Pending onsite discovery,,,Open,Raised during internal discovery; legal obligations require specialist validation
-Q-004,2026-09-11,Which workshop evidence may the team record and how must personal data be protected?,Mland Project Team,Workshop owner,High,2026-09-12,Pending consent and onsite confirmation,,,Open,Record only approved evidence and minimise identifiers
+Q-001,2026-09-15,What fixed group-session duration capacity cancellation and no-show rules apply to V1?,Mland Project Team,TBD,High,,TBD,,,Open,Required for booking baseline
+Q-002,2026-09-15,Which ring components prices and hard constraints belong in the confirmed catalogue?,Mland Project Team,TBD,High,,TBD,,,Open,Required before catalogue configuration becomes a requirement
+Q-003,2026-09-15,Which feasibility source threshold governance and evaluation evidence are acceptable for the research prototype?,Mland Project Team,TBD,High,,TBD,,,Open,Do not claim accuracy before evidence exists
+Q-004,2026-09-15,What consent retention and review-coverage rules apply to uploaded images and the stated 4-6 hour review path?,Mland Project Team,TBD,High,,TBD,,,Open,Required before an operational commitment is made

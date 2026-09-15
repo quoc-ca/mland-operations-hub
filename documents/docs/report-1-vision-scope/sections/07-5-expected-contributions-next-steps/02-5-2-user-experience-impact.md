@@ -1,6 +1,5 @@
 ## 5.2 User Experience Impact
 
-Customers would be able to see a structured choice of workshop location and available session rather than starting every reservation with a message or phone call. Staff would begin a shift with one shared view of expected guests, booking changes, and their assignment. The owner and authorised managers would gain a location-aware operational view and a traceable explanation of who changed a booking or shift record.
+Customers would be able to reserve a fixed-capacity workshop session without an account, receive a tracking code, and explore a ring design before or during consultation. They would see an estimate only after the design is feasible and would explicitly approve a final-invoice change before collection.
 
-The intended outcome is less uncertainty for customers, fewer hand-offs for staff, and clearer operational accountability as Mland grows beyond two locations.
-
+Staff would have one record for consultation, feasibility review, fulfilment, and payment collection. The owner or authorised manager would maintain catalogue prices and feasibility rules and could review every automated decision or override. The intended outcome is less uncertainty for customers and fewer hand-offs for staff without automating professional judgement that has not been validated.

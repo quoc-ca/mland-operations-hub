@@ -4,4 +4,4 @@ The Mland Project Team makes collective scope and business-rule decisions and re
 
 The lecturer reviews direction, milestones, and academic deliverables. Lecturer feedback does not replace the project team's scope decision process.
 
-> **TBD — Mland decision required:** assign named owners for requirements, design, implementation, testing, pilot support, and change approval after the 12 September review.
+> **TBD — Mland decision required:** assign named owners for requirements, design, implementation, testing, pilot support, and change approval from the 15 September 2026 baseline.

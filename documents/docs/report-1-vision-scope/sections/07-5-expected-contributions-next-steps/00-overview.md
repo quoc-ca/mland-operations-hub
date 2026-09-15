@@ -1,4 +1,3 @@
 # 5. Expected Contributions & Next Steps
 
-The proposed contribution is a shared operating baseline for a growing workshop business: bookings, staffing, and operational changes become visible by location instead of being dispersed through conversations. Targets require validation with Mland before they are used as commitments.
-
+The proposed contribution is a coherent customer journey for a personalised ring workshop and custom ring order. It links booking, design input, feasibility, estimate, fulfilment, final-price consent, and collection payment instead of distributing the context across messages. Targets require validation before they are used as commitments.

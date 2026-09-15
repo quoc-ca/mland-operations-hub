@@ -1,6 +1,6 @@
 ## 2.2 Generic Calendar and Booking Tools
 
-This representative category covers standalone calendars and appointment tools that let a business expose time slots and collect reservations. Such tools can improve booking visibility, but they are usually configured around appointments rather than a multi-location workshop operation with staff scheduling and accountable operational changes.
+This representative category covers standalone calendars and appointment tools that let a business expose time slots and collect reservations. Such tools can improve booking visibility, but they usually do not connect a ring-design request, feasibility decision, estimate, fulfilment choice, and final invoice.
 
 | Attribute | Description |
 | --- | --- |
@@ -8,8 +8,7 @@ This representative category covers standalone calendars and appointment tools t
 | Target Users | Businesses that need basic appointment calendars or booking forms |
 | Core Features | Time-slot display, customer reservation capture, calendar reminders, and basic availability management |
 | Strengths | Faster self-service booking and a clearer customer-facing calendar than manual messaging |
-| Weaknesses | Limited connection to staff shift coverage, location operations, and an owner-facing audit trail |
-| GAP for this project | It does not create one operational workspace that relates customer bookings, staff schedules, location status, and traceable changes. |
+| Weaknesses | Limited connection to ring configuration, image-assisted feature extraction, feasibility review, and order fulfilment |
+| GAP for this project | It does not provide one customer journey for a group workshop or shop-made custom ring while preserving feasibility decisions and price-change consent. |
 
-Neither alternative solves Mland's full operational problem. Manual coordination is flexible but opaque; a generic booking calendar improves customer booking but leaves staff scheduling and accountability disconnected. MOH is proposed to close the shared multi-location operating gap without expanding v1 into a complete sales or inventory platform.
-
+Neither alternative solves Mland's current customer journey. Manual coordination is flexible but opaque; a generic booking calendar leaves the custom-ring decision and order process disconnected. MOH is proposed to connect these steps without expanding V1 into a general retail, inventory, or accounting platform.

@@ -4,6 +4,6 @@
 
 > **Active project, under validation.** Design detail will follow approved user journeys and brand decisions.
 
-**Known Mland context:** Mland needs a customer booking journey and staff/manager operations across two current locations and a planned Da Nang location.
+**Known Mland context:** Mland needs a bilingual guest journey for ring-workshop booking and custom-ring orders, plus staff/manager operations for consultation, fulfilment, and auditable decisions.
 
 > **TBD — Mland decision required:** screen inventory, navigation, visual identity, responsive behavior, accessibility standard, and final wireframes.

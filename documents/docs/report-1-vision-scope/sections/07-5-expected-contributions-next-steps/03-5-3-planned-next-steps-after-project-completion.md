@@ -1,5 +1,5 @@
 ## 5.3 Planned Next Steps After Project Completion
 
-Following a V1 pilot, Mland should review actual booking adoption, no-show patterns, staff scheduling effort, and audit-log usage before expanding scope. The next decision should be whether to improve the booking journey, add payment integration, introduce retail sales and inventory workflows, or prepare operational support for the planned Da Nang location.
+Before a broader rollout, the project should establish component taxonomy, price rules, hard feasibility constraints, threshold governance, image-confidence handling, review coverage, retention policy, and a labelled evaluation set with qualified review.
 
-Later iterations may add customer loyalty, marketing automation, native mobile access, and forecasting based on trustworthy operational history. Each expansion should be prioritised only after the V1 evidence shows that the booking, scheduling, and audit foundation is being used successfully.
+Later iterations may evaluate payment/POS integration, additional jewellery types, inventory, detailed production scheduling, loyalty, marketing, or forecasting. Each expansion should be prioritised only after V1 evidence shows that the booking-to-collection journey is used safely and consistently.

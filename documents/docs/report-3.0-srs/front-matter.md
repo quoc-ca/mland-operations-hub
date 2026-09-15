@@ -4,6 +4,6 @@
 
 > **Active project, under validation.** Requirements remain subject to stakeholder validation.
 
-**Known Mland context:** MOH covers customer workshop booking, booking administration, staff shift scheduling, multi-location operational visibility, and auditable operational changes.
+**Known Mland context:** MOH V1 covers guest booking for fixed-capacity ring workshops, optional ring design, feasibility triage, estimate, fulfilment, and collection payment.
 
-> **TBD — Mland decision required:** capacity and operating hours, booking/confirmation/cancellation rules, languages and customer data, role permissions, notifications, retention, and non-functional targets.
+> **TBD — Mland decision required:** session rules, component taxonomy, price rules, feasibility constraints and thresholds, review coverage, retention, and non-functional targets.

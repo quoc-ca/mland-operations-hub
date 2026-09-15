@@ -2,9 +2,9 @@
 
 | ID | Candidate Domain | Current Baseline Status |
 | --- | --- | --- |
-| LI-01 | Payment and finance operations | Not included in the current baseline. The workshop discovery must establish cash, bank, payment, reconciliation, reporting, and legal-boundary requirements before classification. |
-| LI-02 | Retail and workshop inventory | Not included in the current baseline. The workshop discovery must distinguish materials, finished goods, movements, counting, and supplier needs before classification. |
-| LI-03 | Personnel administration | Not included in the current baseline beyond shift scheduling. Employment, attendance, contracts, payroll, and social-insurance boundaries require evidence and specialist validation. |
-| LI-04 | Loyalty, promotions, and marketing automation | Not included in the current baseline. Customer-consent, campaign, and measurement rules must be established before classification. |
-| LI-05 | Forecasting and advanced optimisation | Not included in the current baseline. It requires reliable operating history, defined decisions, and measurable evaluation criteria. |
-
+| LI-01 | Staff and HR management | Staff scheduling, attendance, payroll, contracts, and personnel administration are out of scope. |
+| LI-02 | Product and production breadth | V1 supports rings only; it excludes retail catalogue breadth, inventory, and detailed production scheduling. |
+| LI-03 | Payment and accounting integration | V1 records cash or bank-transfer collection manually; payment gateways, POS integration, card data, tax, accounting, and bank reconciliation are out of scope. |
+| LI-04 | Advanced design tooling | V1 excludes CAD/3D editing and does not claim to reconstruct a ring exactly from a reference image. |
+| LI-05 | AI accuracy and autonomous certainty | The AI/feasibility engine is a research prototype under validation; no accuracy claim, final threshold, formula, or dataset result is committed without evidence. |
+| LI-06 | Future commercial expansion | Jewellery types other than rings, loyalty, marketing, and forecasting are deferred. |
