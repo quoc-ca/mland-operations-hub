@@ -44,7 +44,7 @@
 
 Khách có thể làm tiếp ở ca sau khi staff tạo continuation booking và ghi nhận custody cho work-in-progress item. Khi check-in, staff xác nhận số người thực sự cùng làm sản phẩm; phụ thu, nếu áp dụng, là 100.000 VND cho mỗi người thêm tham gia và chỉ ghi sau xác nhận.
 
-Context chi tiết: [MOH Context Diagram](docs/report-1-vision-scope/assets/diagrams/moh-context.mmd).
+Context chi tiết: [MOH Context Diagram](docs/report-1-vision-scope/assets/diagrams/moh-context.md).
 
 ## Ngoài scope V1
 

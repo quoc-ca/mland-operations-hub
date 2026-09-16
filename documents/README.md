@@ -50,14 +50,24 @@ Every `docs/report-*/document.yml` is JSON-compatible YAML so the local pipeline
 
 Each content task must name the fragment(s) it is allowed to edit. Do not alter generated files or reorder fragments implicitly.
 
-Use bundle-root-relative image references. A Mermaid or PlantUML image reference points to its committed source:
+Use bundle-root-relative image references. PlantUML image references point to committed `.puml` source. Mermaid diagrams are committed as previewable Markdown files under `assets/diagrams/`, each containing exactly one non-empty `mermaid` fenced block; report fragments link to that Markdown file:
 
 ```markdown
-![System context](assets/diagrams/system-context.mmd)
+[System context diagram](assets/diagrams/system-context.md)
 ![Order state](assets/diagrams/order-state.puml)
 ```
 
-The generator replaces those references with temporary PNGs. Regular PNG/JPG/GIF/SVG image assets must also be committed under the bundle. External image URLs are rejected to keep builds reproducible.
+The generator renders Mermaid diagram links and PlantUML image references as temporary PNGs in DOCX output. Mermaid `.mmd` files are not supported. Regular PNG/JPG/GIF/SVG image assets must also be committed under the bundle. External image URLs are rejected to keep builds reproducible.
+
+To inject a Drive-hosted image only when publishing, place a standalone placeholder in a report fragment:
+
+```markdown
+{{asset-name}}
+```
+
+`asset-name` uses ASCII letters, digits, hyphens, and underscores only; it excludes the filename extension. During the `develop` publishing workflow, the synchronizer matches it case-insensitively to exactly one PNG or JPEG basename in the Drive folder declared by the GitHub Secret `GDRIVE_ASSETS_FOLDER_ID`, then inserts the image at 80% width. The folder must be shared with the service-account email as a Reader. Missing, duplicate, non-downloadable, or unsupported assets fail only that report target with a diagnostic; they are not committed or logged. A Drive-only image change does not trigger GitHub Actions, so use a manual dispatch from `develop` to republish it.
+
+Local DOCX builds do not contact Drive. They render `[Drive asset omitted: asset-name]` at a valid placeholder position; `--validate` checks placeholder and diagram syntax.
 
 Mermaid source is sent to the configured `mermaid.ink` endpoint and PlantUML source to the configured PlantUML server. Do not use public rendering for sensitive diagrams. A network, response, source, or Pandoc failure exits non-zero and emits a diagnostic with report, fragment, asset, renderer, endpoint, status, and reason.
 

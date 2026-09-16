@@ -14,4 +14,4 @@ Members may also buy a ready-made ring. MOH collects full online payment through
 
 MOH sends booking and review/order notifications by email and lets guests use a tracking code; Members can view participation history, transaction history, and upcoming workshop events. Loyalty is deferred. An owner/manager Google Reviews dashboard is a research-gated candidate: it must not automatically calculate employee pay. Any review used in a bonus decision needs manual staff attribution, reason, approver, and audit evidence. Admin Technical manages technical configuration, integration monitoring, and technical audit but cannot mutate business records. MOH does not store card data, schedule staff, manage full inventory, or perform detailed production planning.
 
-![MOH operational context](assets/diagrams/moh-context.mmd)
+[MOH operational context diagram](assets/diagrams/moh-context.md)

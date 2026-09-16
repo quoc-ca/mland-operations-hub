@@ -66,6 +66,7 @@ jobs:
       - name: Build and synchronize
         env:
           GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
+          GDRIVE_ASSETS_FOLDER_ID: ${{ secrets.GDRIVE_ASSETS_FOLDER_ID }}
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         shell: bash

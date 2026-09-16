@@ -16,7 +16,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -27,8 +27,14 @@ except ImportError:  # Supports `python tools/generate_document.py`.
     from git_history import GitCommit, GitHistoryError, git_history_entries, markdown_change_history
 
 IMAGE_PATTERN = re.compile(r"!\[[^\]]*\]\((?P<target>[^)\s]+)(?:\s+[^)]*)?\)")
-DIAGRAM_EXTENSIONS = {".mmd": "mermaid", ".puml": "plantuml"}
+LINK_PATTERN = re.compile(r"(?<!!)\[(?P<label>[^\]]+)\]\((?P<target>[^)\s]+)(?:\s+[^)]*)?\)")
+MERMAID_MARKDOWN_SUFFIX = ".md"
+DIAGRAM_EXTENSIONS = {".puml": "plantuml"}
 RASTER_OR_VECTOR_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg"}
+DRIVE_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
+DRIVE_ASSET_PATTERN = re.compile(r"(?m)^[ \t]*\{\{(?P<name>[A-Za-z0-9][A-Za-z0-9_-]*)\}\}[ \t]*$")
+DRIVE_ASSET_BRACE_PATTERN = re.compile(r"\{\{.*?\}\}")
+MERMAID_FENCE_PATTERN = re.compile(r"\A[ \t]*```mermaid[ \t]*\r?\n(?P<source>.+?)\r?\n```[ \t]*(?:\r?\n)?\Z", re.DOTALL)
 DEFAULT_RENDERERS = {
     "mermaid": "https://mermaid.ink",
     "plantuml": "https://www.plantuml.com/plantuml",
@@ -140,7 +146,7 @@ def load_bundle(bundle_root: Path) -> Bundle:
     ):
         raise _error("manifest-invalid", "renderers must map renderer names to URLs.", report_id=report_id)
     renderers = {**DEFAULT_RENDERERS, **configured_renderers}
-    for name in DIAGRAM_EXTENSIONS.values():
+    for name in set(DIAGRAM_EXTENSIONS.values()) | {"mermaid"}:
         endpoint = renderers.get(name)
         if not isinstance(endpoint, str) or not endpoint.startswith("https://"):
             raise _error("renderer-invalid", f"{name} renderer must use an HTTPS URL.", report_id=report_id)
@@ -149,6 +155,10 @@ def load_bundle(bundle_root: Path) -> Bundle:
 
 def _image_targets(markdown: str) -> list[str]:
     return [match.group("target").strip("<>") for match in IMAGE_PATTERN.finditer(markdown)]
+
+
+def _diagram_links(markdown: str) -> list[tuple[str, str]]:
+    return [(match.group("label"), match.group("target").strip("<>")) for match in LINK_PATTERN.finditer(markdown)]
 
 
 def _asset_path(bundle: Bundle, target: str, fragment: Path) -> Path:
@@ -164,12 +174,68 @@ def _relative(bundle: Bundle, path: Path) -> str:
     return path.relative_to(bundle.root).as_posix()
 
 
+def _is_mermaid_markdown(bundle: Bundle, asset: Path) -> bool:
+    if asset.suffix.lower() != MERMAID_MARKDOWN_SUFFIX:
+        return False
+    try:
+        asset.relative_to(bundle.root / "assets" / "diagrams")
+    except ValueError:
+        return False
+    return True
+
+
+def _mermaid_source(diagram: Path, bundle: Bundle, fragment: Path) -> str:
+    text = diagram.read_text(encoding="utf-8")
+    match = MERMAID_FENCE_PATTERN.fullmatch(text)
+    if match is None or not match.group("source").strip():
+        raise _error(
+            "diagram-invalid-mermaid-markdown",
+            "Mermaid diagram Markdown must contain exactly one non-empty ```mermaid fenced block.",
+            report_id=bundle.report_id,
+            fragment=_relative(bundle, fragment),
+            diagram=_relative(bundle, diagram),
+        )
+    return match.group("source").strip() + "\n"
+
+
+def drive_image_placeholders(bundle: Bundle) -> tuple[str, ...]:
+    names: list[str] = []
+    seen: set[str] = set()
+    for fragment in bundle.fragments:
+        text = fragment.read_text(encoding="utf-8")
+        valid_ranges = [(match.start(), match.end()) for match in DRIVE_ASSET_PATTERN.finditer(text)]
+        remaining = DRIVE_ASSET_PATTERN.sub("", text)
+        if "{{" in remaining or "}}" in remaining:
+            raise _error(
+                "drive-asset-placeholder-invalid",
+                "Drive asset placeholders must stand alone and use {{asset-name}} with ASCII letters, digits, hyphens, or underscores.",
+                report_id=bundle.report_id,
+                fragment=_relative(bundle, fragment),
+            )
+        for candidate in DRIVE_ASSET_BRACE_PATTERN.finditer(text):
+            if not any(start <= candidate.start() and candidate.end() <= end for start, end in valid_ranges):
+                raise _error(
+                    "drive-asset-placeholder-invalid",
+                    "Drive asset placeholders must stand alone and use {{asset-name}} with ASCII letters, digits, hyphens, or underscores.",
+                    report_id=bundle.report_id,
+                    fragment=_relative(bundle, fragment),
+                )
+        for match in DRIVE_ASSET_PATTERN.finditer(text):
+            name = match.group("name")
+            key = name.casefold()
+            if key not in seen:
+                names.append(name)
+                seen.add(key)
+    return tuple(names)
+
+
 def validate_bundle(bundle: Bundle) -> list[tuple[Path, Path, str]]:
     """Validate local inputs and return (fragment, diagram, renderer) tuples."""
     diagrams: list[tuple[Path, Path, str]] = []
     for fragment in bundle.fragments:
         relative_fragment = _relative(bundle, fragment)
         text = fragment.read_text(encoding="utf-8")
+        drive_image_placeholders(Bundle(bundle.root, bundle.report_id, bundle.output_name, (fragment,), bundle.renderers))
         for target in _image_targets(text):
             asset = _asset_path(bundle, target, fragment)
             suffix = asset.suffix.lower()
@@ -185,6 +251,22 @@ def validate_bundle(bundle: Bundle) -> list[tuple[Path, Path, str]]:
                 )
             if suffix in DIAGRAM_EXTENSIONS:
                 diagrams.append((fragment, asset, DIAGRAM_EXTENSIONS[suffix]))
+        for _, target in _diagram_links(text):
+            if target.startswith("assets/diagrams/") and Path(target).suffix.lower() == ".mmd":
+                raise _error(
+                    "asset-unsupported", f"Unsupported Mermaid diagram extension: {target}; use a .md file with a mermaid fenced block.",
+                    report_id=bundle.report_id, fragment=relative_fragment, diagram=target,
+                )
+            if not target.startswith("assets/diagrams/") or Path(target).suffix.lower() != MERMAID_MARKDOWN_SUFFIX:
+                continue
+            asset = _asset_path(bundle, target, fragment)
+            if not asset.is_file():
+                raise _error(
+                    "asset-missing", f"Referenced asset does not exist: {target}",
+                    report_id=bundle.report_id, fragment=relative_fragment, diagram=target,
+                )
+            _mermaid_source(asset, bundle, fragment)
+            diagrams.append((fragment, asset, "mermaid"))
     return diagrams
 
 
@@ -201,7 +283,7 @@ def _diagram_url(renderer: str, endpoint: str, source: str) -> str:
 
 def _download_png(bundle: Bundle, fragment: Path, diagram: Path, renderer: str, destination: Path) -> None:
     endpoint = bundle.renderers[renderer]
-    source = diagram.read_text(encoding="utf-8")
+    source = _mermaid_source(diagram, bundle, fragment) if renderer == "mermaid" else diagram.read_text(encoding="utf-8")
     url = _diagram_url(renderer, endpoint, source)
     try:
         request = Request(url, headers={"User-Agent": "local-document-generator/1.0"})
@@ -239,7 +321,30 @@ def _replace_diagrams(bundle: Bundle, fragment: Path, text: str, rendered: dict[
         replacement = f"assets/{rendered[asset].name}"
         return match.group(0).replace(match.group("target"), replacement)
 
-    return IMAGE_PATTERN.sub(replace, text)
+    text = IMAGE_PATTERN.sub(replace, text)
+
+    def replace_mermaid_link(match: re.Match[str]) -> str:
+        target = match.group("target").strip("<>")
+        if not target.startswith("assets/diagrams/") or Path(target).suffix.lower() != MERMAID_MARKDOWN_SUFFIX:
+            return match.group(0)
+        asset = _asset_path(bundle, target, fragment)
+        replacement = f"assets/{rendered[asset].name}"
+        return f"![{match.group('label')}]({replacement})"
+
+    return LINK_PATTERN.sub(replace_mermaid_link, text)
+
+
+def _replace_drive_image_placeholders(text: str, drive_assets: Mapping[str, Path] | None, rendered: Mapping[str, Path]) -> str:
+    def replace(match: re.Match[str]) -> str:
+        name = match.group("name")
+        if drive_assets is None:
+            return f"[Drive asset omitted: {name}]"
+        asset = rendered.get(name.casefold())
+        if asset is None:
+            raise _error("drive-asset-missing", f"No downloaded Drive asset is available for placeholder {name!r}.")
+        return f"![{name}](assets/{asset.name}){{ width=80% }}"
+
+    return DRIVE_ASSET_PATTERN.sub(replace, text)
 
 
 def _replace_git_history(text: str, history: tuple[GitCommit, ...]) -> str:
@@ -264,7 +369,9 @@ def _pandoc_fragment(stderr: str, line_ranges: list[tuple[int, int, str]]) -> st
     return f"unknown (Pandoc reported composed line {line})"
 
 
-def build_bundle(bundle_root: Path, repo_root: Path, output_dir: Path) -> Path:
+def build_bundle(
+    bundle_root: Path, repo_root: Path, output_dir: Path, *, drive_assets: Mapping[str, Path] | None = None
+) -> Path:
     bundle = load_bundle(bundle_root)
     diagrams = validate_bundle(bundle)
     reference_doc = (repo_root / "templates" / "reference.docx").resolve()
@@ -292,6 +399,16 @@ def build_bundle(bundle_root: Path, repo_root: Path, output_dir: Path) -> Path:
             _download_png(bundle, fragment, diagram, renderer, rendered_asset)
             rendered[diagram] = rendered_asset
 
+        rendered_drive_assets: dict[str, Path] = {}
+        if drive_assets is not None:
+            for name in drive_image_placeholders(bundle):
+                asset = drive_assets.get(name.casefold())
+                if asset is None or not asset.is_file() or asset.suffix.lower() not in DRIVE_IMAGE_EXTENSIONS:
+                    raise _error("drive-asset-missing", f"No valid downloaded Drive asset is available for placeholder {name!r}.", report_id=bundle.report_id)
+                target = asset_dir / ("drive-" + hashlib.sha256(name.casefold().encode("utf-8")).hexdigest() + asset.suffix.lower())
+                shutil.copyfile(asset, target)
+                rendered_drive_assets[name.casefold()] = target
+
         fragment_text = {fragment: fragment.read_text(encoding="utf-8") for fragment in bundle.fragments}
         if any(GIT_HISTORY_MARKER in text for text in fragment_text.values()):
             try:
@@ -305,7 +422,8 @@ def build_bundle(bundle_root: Path, repo_root: Path, output_dir: Path) -> Path:
         line_ranges: list[tuple[int, int, str]] = []
         current_line = 1
         for fragment in bundle.fragments:
-            content = _replace_diagrams(bundle, fragment, fragment_text[fragment], rendered).rstrip()
+            content = _replace_diagrams(bundle, fragment, fragment_text[fragment], rendered)
+            content = _replace_drive_image_placeholders(content, drive_assets, rendered_drive_assets).rstrip()
             line_count = max(1, content.count("\n") + 1)
             line_ranges.append((current_line, current_line + line_count - 1, _relative(bundle, fragment)))
             composed_parts.append(content)

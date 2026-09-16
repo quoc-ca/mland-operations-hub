@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -178,6 +179,52 @@ class SyncRemoteTests(unittest.TestCase):
                 sync.sync_document(drive, document(), docx)
         media_upload.assert_called_once_with(str(docx), mimetype=sync.DOCX_MIME, resumable=False)
 
+
+class DriveAssetTests(unittest.TestCase):
+    def drive_with_assets(self, files: list[dict[str, object]], payload: bytes = b"image") -> MagicMock:
+        drive = MagicMock()
+        drive.files().list().execute.return_value = {"files": files}
+        drive.files().get_media().execute.return_value = payload
+        return drive
+
+    def test_downloads_unique_png_by_casefolded_basename(self) -> None:
+        drive = self.drive_with_assets([
+            {"id": "asset-id", "name": "Ring-Hero.PNG", "mimeType": "image/png", "capabilities": {"canDownload": True}},
+        ], b"png")
+        drive.reset_mock()
+        with tempfile.TemporaryDirectory() as temp:
+            assets = sync.download_drive_assets(drive, "1assetsfolder", ("ring-hero",), Path(temp))
+            payload = assets["ring-hero"].read_bytes()
+        self.assertEqual(payload, b"png")
+        drive.files.return_value.get_media.assert_called_once_with(fileId="asset-id", supportsAllDrives=True)
+
+    def test_rejects_missing_duplicate_and_unsupported_assets(self) -> None:
+        cases = (
+            ([], "not found"),
+            ([
+                {"id": "a", "name": "ring-hero.png", "mimeType": "image/png", "capabilities": {"canDownload": True}},
+                {"id": "b", "name": "ring-hero.jpg", "mimeType": "image/jpeg", "capabilities": {"canDownload": True}},
+            ], "duplicate"),
+            ([{"id": "a", "name": "ring-hero.svg", "mimeType": "image/svg+xml", "capabilities": {"canDownload": True}}], "PNG or JPEG"),
+        )
+        for files, message in cases:
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as temp:
+                with self.assertRaisesRegex(sync.SyncError, message):
+                    sync.download_drive_assets(self.drive_with_assets(files), "1assetsfolder", ("ring-hero",), Path(temp))
+
+    def test_missing_assets_secret_fails_only_document_target(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "templates").mkdir()
+            (root / "templates" / "reference.docx").write_bytes(b"reference")
+            (root / "docs" / "report-1").mkdir(parents=True)
+            manifest = {"reference_doc": "templates/reference.docx"}
+            with patch.object(sync, "document_drive_image_placeholders", return_value=("ring-hero",)), patch.dict(os.environ, {}, clear=True):
+                result = sync.process_document(root, manifest, document(), MagicMock(), root / "build", False)
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["phase"], "assets")
+        self.assertEqual(result["error_code"], "DRIVE_ASSET_FAILED")
+
     def test_remote_preflight_plans_missing_tab_creation_without_writes(self) -> None:
         drive = MagicMock()
         drive.files().get().execute.return_value = {"mimeType": sync.GOOGLE_SHEET_MIME}
@@ -298,6 +345,10 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("--result-report sync-results.json", workflow)
         self.assertIn("Publish synchronization summary", workflow)
         self.assertIn("if: always()", workflow)
+
+    def test_workflow_passes_drive_assets_folder_secret(self) -> None:
+        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+        self.assertIn("GDRIVE_ASSETS_FOLDER_ID: ${{ secrets.GDRIVE_ASSETS_FOLDER_ID }}", workflow)
 
 
 if __name__ == "__main__":

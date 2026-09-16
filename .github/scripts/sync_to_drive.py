@@ -25,7 +25,7 @@ DOCUMENTS_ROOT = REPOSITORY_ROOT / "documents"
 if str(DOCUMENTS_ROOT) not in sys.path:
     sys.path.insert(0, str(DOCUMENTS_ROOT))
 
-from tools.document_generator import GenerationError, build_bundle
+from tools.document_generator import GenerationError, build_bundle, drive_image_placeholders, load_bundle
 from tools.git_history import GitHistoryError, git_history_entries
 from tools.github_issues import GitHubApi, WorkItemError, issue_snapshot_rows
 
@@ -44,6 +44,7 @@ SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets"
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 GOOGLE_DOC_MIME = "application/vnd.google-apps.document"
 GOOGLE_SHEET_MIME = "application/vnd.google-apps.spreadsheet"
+DRIVE_IMAGE_MIME_EXTENSIONS = {"image/png": ".png", "image/jpeg": ".jpg"}
 GLOBAL_DOCUMENT_INPUTS = {"manifest.yml", "templates/reference.docx", "requirements.txt"}
 GLOBAL_DOCUMENT_PREFIXES = ("tools/", ".github/scripts/", ".github/workflows/")
 GLOBAL_TRACKER_INPUTS = {"manifest.yml"}
@@ -301,6 +302,77 @@ def build_documents(root: Path, documents: list[dict[str, Any]], output_dir: Pat
         except GenerationError as exc:
             raise SyncError(exc.diagnostic.format()) from exc
     return outputs
+
+
+def document_drive_image_placeholders(bundle_path: Path) -> tuple[str, ...]:
+    return drive_image_placeholders(load_bundle(bundle_path))
+
+
+def drive_assets_folder_id() -> str:
+    folder_id = os.environ.get("GDRIVE_ASSETS_FOLDER_ID", "").strip()
+    if not folder_id:
+        raise SyncError("GDRIVE_ASSETS_FOLDER_ID is required when a document uses a Drive image placeholder.")
+    if not DRIVE_ID_PATTERN.fullmatch(folder_id) or folder_id.startswith("DRIVE_FILE_ID_"):
+        raise SyncError("GDRIVE_ASSETS_FOLDER_ID must contain a valid Drive folder ID.")
+    return folder_id
+
+
+def download_drive_assets(drive: Any, folder_id: str, names: tuple[str, ...], destination: Path) -> dict[str, Path]:
+    requested = {name.casefold(): name for name in names}
+    matches: dict[str, list[dict[str, Any]]] = {key: [] for key in requested}
+    page_token: str | None = None
+    while True:
+        try:
+            response = drive.files().list(
+                q=f"'{folder_id}' in parents and trashed = false",
+                spaces="drive",
+                fields="nextPageToken,files(id,name,mimeType,capabilities(canDownload))",
+                pageSize=1000,
+                pageToken=page_token,
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+            ).execute()
+        except Exception as exc:
+            raise SyncError("Cannot list the configured Drive assets folder.") from exc
+        for item in response.get("files", []):
+            name = item.get("name")
+            if not isinstance(name, str):
+                continue
+            key = Path(name).stem.casefold()
+            if key in matches:
+                matches[key].append(item)
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+
+    destination.mkdir(parents=True, exist_ok=True)
+    downloaded: dict[str, Path] = {}
+    for key, placeholder in requested.items():
+        candidates = matches[key]
+        if not candidates:
+            raise SyncError(f"Drive asset {placeholder!r} was not found in the configured folder.")
+        if len(candidates) != 1:
+            raise SyncError(f"Drive asset {placeholder!r} has duplicate basenames in the configured folder.")
+        asset = candidates[0]
+        mime_type = asset.get("mimeType")
+        extension = DRIVE_IMAGE_MIME_EXTENSIONS.get(mime_type)
+        if extension is None:
+            raise SyncError(f"Drive asset {placeholder!r} must be a PNG or JPEG file.")
+        if asset.get("capabilities", {}).get("canDownload") is not True:
+            raise SyncError(f"Drive asset {placeholder!r} is not downloadable by the service account.")
+        file_id = asset.get("id")
+        if not isinstance(file_id, str) or not file_id:
+            raise SyncError(f"Drive asset {placeholder!r} returned no file identifier.")
+        try:
+            payload = drive.files().get_media(fileId=file_id, supportsAllDrives=True).execute()
+        except Exception as exc:
+            raise SyncError(f"Cannot download Drive asset {placeholder!r}.") from exc
+        if not isinstance(payload, bytes) or not payload:
+            raise SyncError(f"Drive asset {placeholder!r} returned empty image content.")
+        path = destination / (str(len(downloaded) + 1) + extension)
+        path.write_bytes(payload)
+        downloaded[key] = path
+    return downloaded
 
 
 def drive_file(drive: Any, label: str, drive_file_id: str, expected_mime: str) -> dict[str, str]:
@@ -568,6 +640,7 @@ def failure_details(error: TargetError) -> tuple[str, bool, str, str]:
         "local": ("SOURCE_INVALID", "Fix the reported source path, CSV name, generated metadata, or tracker configuration."),
         "build": ("DOCUMENT_BUILD_FAILED", "Fix the reported document bundle, fragment, asset, or renderer issue."),
         "github": ("GITHUB_SOURCE_FAILED", "Check GitHub repository/token configuration and generated tracker inputs."),
+        "assets": ("DRIVE_ASSET_FAILED", "Set GDRIVE_ASSETS_FOLDER_ID, share the image folder with the service account, and fix the named PNG/JPEG asset."),
         "reconcile": ("SHEET_RECONCILE_FAILED", "Resolve the tab/archive collision or spreadsheet structure error, then rerun."),
         "write": ("SHEET_WRITE_FAILED", "Check the spreadsheet access and rerun; source values remain in Git."),
         "upload": ("DOCUMENT_UPLOAD_FAILED", "Check the target Google Doc and service-account access, then rerun."),
@@ -625,7 +698,14 @@ def process_document(root: Path, manifest: dict[str, Any], entry: Any, drive: An
         run_local("local", lambda: validate_document_local(root, manifest, document))
         if dry_run:
             return success_result("document", target_id, source, "local-validation")
-        docx = run_local("build", lambda: build_bundle(repo_path(root, document["source_bundle"]), root, output_dir))
+        bundle_path = repo_path(root, document["source_bundle"])
+        placeholders = run_local("local", lambda: document_drive_image_placeholders(bundle_path))
+        drive_assets: dict[str, Path] | None = None
+        if placeholders:
+            folder_id = run_local("assets", drive_assets_folder_id)
+            asset_dir = output_dir / ("drive-assets-" + target_id)
+            drive_assets = run_remote("assets", lambda: download_drive_assets(drive, folder_id, placeholders, asset_dir))
+        docx = run_local("build", lambda: build_bundle(bundle_path, root, output_dir, drive_assets=drive_assets))
         run_remote("upload", lambda: drive_file(drive, target_id, document["drive_file_id"], GOOGLE_DOC_MIME))
         run_remote("upload", lambda: sync_document(drive, document, docx))
         return success_result("document", target_id, source, "upload")
