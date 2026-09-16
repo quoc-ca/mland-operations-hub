@@ -1,12 +1,12 @@
 # Tổng quan dự án MOH
 
-> **Snapshot Git-only — kiểm tra ngày 15/09/2026.** File này giúp nắm nhanh tình trạng dự án; nguồn chi tiết vẫn là report và tracker được liên kết bên dưới. Không dùng snapshot này để thay thế requirement, quyết định nhóm hoặc lịch sử thay đổi trong Git.
+> **Snapshot Git-only — kiểm tra ngày 16/09/2026.** File này giúp nắm nhanh tình trạng dự án; nguồn chi tiết vẫn là report và tracker được liên kết bên dưới. Không dùng snapshot này để thay thế requirement, quyết định nhóm hoặc lịch sử thay đổi trong Git.
 
 ## Nhìn nhanh
 
 | Nội dung | Trạng thái hiện tại |
 | --- | --- |
-| Baseline | V1 đang được xác thực từ ngày 15/09/2026. |
+| Baseline | V1 đang được xác thực từ ngày 15/09/2026; có stakeholder statement mới ngày 16/09 đang chờ group approval. |
 | Mục tiêu V1 | Hỗ trợ hành trình workshop làm nhẫn và order nhẫn custom do shop làm hộ. |
 | Phạm vi sản phẩm | Chỉ nhẫn; không phải ERP hay web shop tổng quát. |
 | Tiến độ | Chưa có mốc, ngân sách, phân công hay % hoàn thành được phê duyệt. |
@@ -14,21 +14,22 @@
 
 ## Scope và tính năng V1
 
-1. **Booking workshop nhóm:** khách truy cập không cần tài khoản, chọn session nhẫn có capacity cố định, nhận email xác nhận và mã tra cứu.
+1. **Chọn cơ sở và booking workshop nhóm:** khách truy cập không cần tài khoản, chọn một trong hai cơ sở rồi chọn session nhẫn, nhận email xác nhận và mã tra cứu. Stakeholder statement đề xuất ba ca 09:30–12:00, 13:00–15:30, 16:00–18:30; capacity/capability theo cơ sở vẫn `Open/TBD`.
 2. **Catalogue và cấu hình nhẫn:** chọn mẫu nhẫn đã xác nhận hoặc component được shop cho phép; staff có thể tư vấn trực tiếp.
 3. **Tiếp nhận ảnh tham khảo:** chỉ gửi ảnh sang AI Vision API khi khách đã consent; AI trả candidate feature và quality, không tự thiết kế.
 4. **Feasibility triage và audit override:** custom ngoài catalogue được auto-accept, staff-review hoặc auto-reject theo rule được phê duyệt; override phải có lý do và ngữ cảnh audit.
 5. **Estimate và consent giá cuối:** estimate có sau khi design feasible/review xong; thay đổi final invoice phải được khách chấp thuận.
-6. **Fulfilment nhẫn:** khách tự làm tại workshop hoặc tạo order để shop làm; order shop-made đi qua trạng thái đơn giản tới pickup.
-7. **Ghi nhận payment khi nhận hàng:** staff ghi nhận cash hoặc bank transfer sau collection; không xử lý card data.
+6. **Fulfilment và continuation:** khách tự làm tại workshop hoặc tạo order để shop làm; staff có thể ghi nhận custody và tạo booking tiếp tục cho sản phẩm làm dở.
+7. **Check-in và ghi nhận payment:** staff xác nhận số người thực sự tham gia làm sản phẩm tại check-in; stakeholder statement đề xuất phụ thu `100.000 VND` cho mỗi người thêm tham gia. Staff ghi nhận cash hoặc bank transfer sau collection, không xử lý card data.
+8. **Google Reviews research dashboard:** candidate cho owner/manager xem review theo cơ sở; không tự gán review cho nhân viên hoặc tự tính lương/thưởng.
 
 ## Actors và hành trình chính
 
 | Actor | Tương tác với MOH |
 | --- | --- |
 | Customer (guest, VI/EN) | Booking, thiết kế/tư vấn, consent ảnh, nhận estimate và kết quả, tra cứu bằng tracking code, consent giá cuối. |
-| Shop staff / consultant | Quản lý session, tư vấn, review/override, cập nhật fulfilment, lập invoice cuối và ghi nhận payment thủ công. |
-| Owner / manager | Quản lý catalogue/component price, feasibility rule; xem audit và override. |
+| Shop staff / consultant | Quản lý session, check-in/participant confirmation, tư vấn, review/override, custody/continuation booking, cập nhật fulfilment, lập invoice cuối và ghi nhận payment thủ công. |
+| Owner / manager | Quản lý catalogue/component price, feasibility rule; xem audit/override và review dashboard research khi đủ điều kiện. |
 | AI Vision API *(TBD)* | Nhận ảnh đã consent, trả quality và candidate feature. |
 | Email delivery service *(TBD)* | Gửi notification booking, review và order. |
 
@@ -38,7 +39,7 @@ Context chi tiết: [MOH Context Diagram](docs/report-1-vision-scope/assets/diag
 
 ## Ngoài scope V1
 
-- Staff scheduling, HR, payroll và quản trị nhân sự.
+- Staff scheduling, HR, payroll và quản trị nhân sự; review không tự động tính lương/thưởng.
 - Inventory đầy đủ, retail catalogue rộng, trang sức ngoài nhẫn và detailed production scheduling.
 - Payment gateway, POS, card data, accounting, tax và bank reconciliation.
 - CAD/3D editor, tự tạo design từ ảnh, hoặc cam kết AI chính xác/tự động hoá tuyệt đối.
@@ -69,6 +70,8 @@ Context chi tiết: [MOH Context Diagram](docs/report-1-vision-scope/assets/diag
 | Feasibility evidence, rule governance, threshold và evaluation | Open; research prototype under validation | [QA Q-003](trackers/report-2.1-project-tracking/QA.csv), [Risk R-001](trackers/report-2.1-project-tracking/Risks.csv), [Open Issue OI-003](trackers/report-3.1-rtw/8-OpenIssues.csv) |
 | Image consent/retention, review coverage, email và guest code | Open | [QA Q-004](trackers/report-2.1-project-tracking/QA.csv), [Risk R-002](trackers/report-2.1-project-tracking/Risks.csv), [Open Issue OI-004](trackers/report-3.1-rtw/8-OpenIssues.csv) |
 | Final-invoice consent và cash/bank-transfer payment record | Open | [Open Issue OI-005](trackers/report-3.1-rtw/8-OpenIssues.csv) |
+| Capacity/capability theo cơ sở, check-in fee và custody/continuation | Open | [QA](trackers/report-2.1-project-tracking/QA.csv), [Open Issues](trackers/report-3.1-rtw/8-OpenIssues.csv), [Risks](trackers/report-2.1-project-tracking/Risks.csv) |
+| Google Reviews access, privacy, staff attribution và approval | Research-gated / Open | [QA](trackers/report-2.1-project-tracking/QA.csv), [Open Issues](trackers/report-3.1-rtw/8-OpenIssues.csv), [Risks](trackers/report-2.1-project-tracking/Risks.csv) |
 
 **Thứ tự tiếp theo:** thu evidence và chốt các mục `Open/TBD` → baseline requirement và trace trong RTW → chi tiết FDS/UI/TDS → lập kế hoạch implementation và test scenario.
 
