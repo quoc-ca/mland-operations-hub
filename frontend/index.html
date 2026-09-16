@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="M.land customer journey prototype for ring-making workshops." />
+    <title>M.land — Ring making workshop</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#app" data-i18n="skipLink">Đi tới nội dung</a>
+    <header class="site-header">
+      <button class="brand" type="button" data-view-target="home" aria-label="M.land home">
+        <span class="brand-mark" aria-hidden="true">◌</span>
+        <span>M.land</span>
+      </button>
+      <div class="header-actions">
+        <span class="demo-pill" data-i18n="demoPill">Prototype · Demo</span>
+        <button id="language-toggle" class="language-toggle" type="button" aria-label="Switch language">EN</button>
+      </div>
+    </header>
+
+    <main id="app" tabindex="-1">
+      <section id="home" class="view view-active" aria-labelledby="hero-title">
+        <div class="hero">
+          <div class="hero-copy">
+            <p class="eyebrow" data-i18n="heroEyebrow">M.land ring making workshop</p>
+            <h1 id="hero-title" data-i18n="heroTitle">Craft your story into a ring.</h1>
+            <p class="hero-text" data-i18n="heroText">Chọn buổi workshop, khám phá ý tưởng nhẫn và bắt đầu một kỷ niệm có hình dáng của riêng bạn.</p>
+            <div class="hero-actions">
+              <button class="button button-primary" type="button" data-view-target="booking" data-i18n="heroCta">Bắt đầu đặt workshop</button>
+              <button class="button button-secondary" type="button" data-scroll-target="journey" data-i18n="heroLearn">Khám phá hành trình</button>
+            </div>
+            <p class="demo-note" data-i18n="demoNote">Bản minh hoạ UX — lịch, giá và quy tắc thật đang chờ M.land xác nhận.</p>
+          </div>
+          <div class="hero-image-frame">
+            <img src="assets/workshop-sign.jpg" alt="M.land Ring Making Workshop sign" />
+            <div class="hero-stamp">
+              <span data-i18n="stampTop">Made with</span>
+              <strong data-i18n="stampBottom">your story</strong>
+            </div>
+          </div>
+        </div>
+
+        <section id="journey" class="journey-section" aria-labelledby="journey-title">
+          <div class="section-intro">
+            <p class="eyebrow" data-i18n="journeyEyebrow">A calm, guided journey</p>
+            <h2 id="journey-title" data-i18n="journeyTitle">Từ khoảnh khắc đến chiếc nhẫn</h2>
+          </div>
+          <ol class="journey-grid">
+            <li><span>01</span><strong data-i18n="step1Title">Book</strong><p data-i18n="step1Text">Chọn một buổi workshop minh hoạ.</p></li>
+            <li><span>02</span><strong data-i18n="step2Title">Imagine</strong><p data-i18n="step2Text">Bắt đầu từ mẫu có sẵn hoặc ý tưởng riêng.</p></li>
+            <li><span>03</span><strong data-i18n="step3Title">Create</strong><p data-i18n="step3Text">Tự làm tại workshop hoặc để shop thực hiện.</p></li>
+            <li><span>04</span><strong data-i18n="step4Title">Keep</strong><p data-i18n="step4Text">Theo dõi yêu cầu bằng mã tra cứu demo.</p></li>
+          </ol>
+        </section>
+      </section>
+
+      <section id="booking" class="view panel-view" aria-labelledby="booking-title" hidden>
+        <div class="progress" aria-label="Prototype progress">
+          <span class="progress-active">1</span><i></i><span>2</span><i></i><span>3</span>
+        </div>
+        <div class="view-heading">
+          <p class="eyebrow" data-i18n="bookingEyebrow">Step 1 · Workshop</p>
+          <h1 id="booking-title" data-i18n="bookingTitle">Chọn một khoảng thời gian để bắt đầu</h1>
+          <p data-i18n="bookingText">Các session dưới đây chỉ minh hoạ giao diện; không phản ánh lịch, sức chứa hoặc availability thực tế.</p>
+        </div>
+
+        <form id="booking-form" class="booking-layout" novalidate>
+          <fieldset class="session-list">
+            <legend data-i18n="sessionLegend">Chọn session demo</legend>
+            <label class="choice-card">
+              <input type="radio" name="session" value="morning" />
+              <span class="choice-orb">01</span>
+              <span><strong data-i18n="morningTitle">Morning atelier</strong><small data-i18n="morningText">Workshop session · Minh hoạ</small></span>
+            </label>
+            <label class="choice-card">
+              <input type="radio" name="session" value="afternoon" />
+              <span class="choice-orb">02</span>
+              <span><strong data-i18n="afternoonTitle">Afternoon studio</strong><small data-i18n="afternoonText">Workshop session · Minh hoạ</small></span>
+            </label>
+          </fieldset>
+          <div class="form-card">
+            <label for="guest-count" data-i18n="guestLabel">Số khách (demo)</label>
+            <select id="guest-count" name="guestCount">
+              <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+            </select>
+            <label for="guest-email" data-i18n="emailLabel">Email để xem validation demo</label>
+            <input id="guest-email" name="email" type="email" autocomplete="off" inputmode="email" placeholder="guest@example.com" />
+            <p class="field-hint" data-i18n="emailHint">Không dùng email thật: thông tin này không được lưu hoặc gửi đi.</p>
+            <p id="booking-error" class="form-error" role="alert" hidden></p>
+            <button class="button button-primary button-wide" type="submit" data-i18n="bookingContinue">Tiếp tục chọn ý tưởng nhẫn</button>
+          </div>
+        </form>
+        <button class="text-button back-button" type="button" data-view-target="home" data-i18n="backHome">← Về trang chủ</button>
+      </section>
+
+      <section id="design" class="view panel-view" aria-labelledby="design-title" hidden>
+        <div class="progress" aria-label="Prototype progress">
+          <span class="progress-done">✓</span><i></i><span class="progress-active">2</span><i></i><span>3</span>
+        </div>
+        <div class="view-heading split-heading">
+          <div>
+            <p class="eyebrow" data-i18n="designEyebrow">Step 2 · Ring idea</p>
+            <h1 id="design-title" data-i18n="designTitle">Bạn muốn bắt đầu từ đâu?</h1>
+          </div>
+          <span class="demo-pill" data-i18n="ringsOnly">V1 · Rings only</span>
+        </div>
+
+        <div class="design-layout">
+          <div class="ring-visual">
+            <img src="assets/ring-display.jpg" alt="A display box of silver rings at M.land" />
+            <p data-i18n="ringPhotoCaption">Hình ảnh workshop thực tế · không phải catalogue đã xác nhận</p>
+          </div>
+          <div class="design-options">
+            <button class="design-card" type="button" data-design-type="catalogue">
+              <span class="design-icon" aria-hidden="true">✦</span>
+              <span><strong data-i18n="catalogueTitle">Chọn mẫu nhẫn minh hoạ</strong><small data-i18n="catalogueText">Dành cho ý tưởng bắt đầu từ catalogue đã được xác nhận.</small></span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </button>
+            <button class="design-card" type="button" data-design-type="custom">
+              <span class="design-icon" aria-hidden="true">⌁</span>
+              <span><strong data-i18n="customTitle">Chia sẻ ý tưởng riêng</strong><small data-i18n="customText">Mô phỏng đường dẫn ảnh tham khảo hoặc custom design cần review.</small></span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </button>
+          </div>
+        </div>
+
+        <form id="custom-form" class="custom-form" hidden novalidate>
+          <label for="reference-note" data-i18n="referenceLabel">Mô tả ý tưởng (không bắt buộc)</label>
+          <textarea id="reference-note" rows="3" maxlength="240" data-i18n-placeholder="referencePlaceholder" placeholder="Ví dụ: một chiếc nhẫn mảnh, có bề mặt hữu cơ…"></textarea>
+          <label for="reference-image" data-i18n="imageLabel">Ảnh tham khảo (chỉ preview trong tab)</label>
+          <input id="reference-image" type="file" accept="image/*" />
+          <div id="image-preview" class="image-preview" hidden></div>
+          <label class="consent-row"><input id="image-consent" type="checkbox" /><span data-i18n="consentText">Tôi hiểu đây là demo: ảnh không được gửi tới AI hoặc lưu lại.</span></label>
+          <p id="custom-error" class="form-error" role="alert" hidden></p>
+          <button class="button button-primary" type="submit" data-i18n="customContinue">Yêu cầu review demo</button>
+        </form>
+        <button class="text-button back-button" type="button" data-view-target="booking" data-i18n="backBooking">← Đổi session</button>
+      </section>
+
+      <section id="result" class="view panel-view result-view" aria-labelledby="result-title" hidden>
+        <div id="result-icon" class="result-icon" aria-hidden="true">✦</div>
+        <p id="result-eyebrow" class="eyebrow"></p>
+        <h1 id="result-title"></h1>
+        <p id="result-description" class="result-description"></p>
+        <div class="estimate-card">
+          <span data-i18n="estimateLabel">Estimate preview</span>
+          <strong id="estimate-value"></strong>
+          <p id="estimate-note"></p>
+        </div>
+        <div class="tracking-card">
+          <span data-i18n="trackingCardLabel">Mã tra cứu demo</span>
+          <strong id="tracking-code" aria-live="polite"></strong>
+          <button id="copy-code" class="icon-button" type="button" data-i18n="copyCode">Sao chép</button>
+        </div>
+        <div class="result-actions">
+          <button class="button button-primary" type="button" data-view-target="tracking" data-i18n="trackRequest">Tra cứu yêu cầu</button>
+          <button class="button button-secondary" type="button" data-view-target="home" data-i18n="returnHome">Về trang chủ</button>
+        </div>
+      </section>
+
+      <section id="tracking" class="view panel-view tracking-view" aria-labelledby="tracking-title" hidden>
+        <div class="view-heading">
+          <p class="eyebrow" data-i18n="trackingEyebrow">Guest tracking</p>
+          <h1 id="tracking-title" data-i18n="trackingTitle">Tra cứu yêu cầu demo</h1>
+          <p data-i18n="trackingText">Nhập mã được tạo trong phiên demo này. Không có kết nối đến order thật.</p>
+        </div>
+        <form id="tracking-form" class="tracking-form" novalidate>
+          <label for="tracking-input" data-i18n="trackingLabel">Mã tra cứu</label>
+          <div class="tracking-input-row">
+            <input id="tracking-input" autocomplete="off" placeholder="MLD-DEMO-0000" />
+            <button class="button button-primary" type="submit" data-i18n="trackingSubmit">Tra cứu</button>
+          </div>
+          <p id="tracking-error" class="form-error" role="alert" hidden></p>
+        </form>
+        <article id="tracking-result" class="tracking-result" hidden aria-live="polite">
+          <span class="status-dot"></span>
+          <div><p id="tracking-status"></p><strong id="tracking-heading"></strong><small id="tracking-detail"></small></div>
+        </article>
+        <button class="text-button back-button" type="button" data-view-target="home" data-i18n="backHome">← Về trang chủ</button>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p data-i18n="footerText">M.land customer journey prototype · Không phải booking hoặc catalogue production.</p>
+      <button id="reset-demo" class="text-button" type="button" data-i18n="resetDemo">Xoá trạng thái demo</button>
+    </footer>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="app.js"></script>
+  </body>
+</html>
