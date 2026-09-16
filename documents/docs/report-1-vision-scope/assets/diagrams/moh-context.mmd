@@ -6,3 +6,5 @@ flowchart LR
     MOH -->|consented reference image| Vision[AI Vision API: provider TBD]
     Vision -->|quality and candidate ring features| MOH
     MOH -->|booking; review; order notification| Email[Email delivery service: provider TBD]
+    Payment Gateway --> |payment status, transaction ID| MOH
+    MOH --> Payment Gateway [payment request; order/deposit amount]
