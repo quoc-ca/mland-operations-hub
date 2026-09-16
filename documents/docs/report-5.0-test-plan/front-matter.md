@@ -4,6 +4,6 @@
 
 > **Active project, under validation.** No test result or test environment has been approved yet.
 
-**Known Mland context:** testing will cover group-session booking, guest tracking, ring design intake, feasibility decisions, estimate/final-price consent, fulfilment, manual payment recording, and audit history.
+**Known Mland context:** testing will cover Guest/Member booking deposit, gateway-webhook confirmation, invoice adjustments/consent, cash/bank final settlement, Member retail reservation, pickup/delivery handoff, feasibility decisions, and audit history.
 
-> **TBD — Mland decision required:** acceptance owners, environments, devices/browsers, test data, test tools, quality thresholds, and release criteria.
+> **TBD — Mland decision required:** gateway sandbox, webhook test evidence, reservation-concurrency cases, cancellation/refund policy, delivery-handoff test data, acceptance owners, environments, devices/browsers, test tools, quality thresholds, and release criteria.
