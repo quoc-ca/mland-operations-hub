@@ -1,10 +1,15 @@
 # Software Requirements Specification
 
-**Mland Operations Hub (MOH) — Report 3**
+**Personalized Product Sales and Workshop Booking System — Report 3**
 
 > **Active project, under validation.** Requirements remain subject to stakeholder validation.
 
-**Known Mland context:** MOH V1 covers Guest and Member ring-workshop booking, Member ready-ring retail, feasibility triage, invoicing, fulfilment, and auditable payment records.
+| Project information | Value |
+| --- | --- |
+| Group | SEP490_G22 |
+| English project name | Personalized Product Sales and Workshop Booking System |
+
+**Known Mland context:** V1 covers Guest and Member ring-workshop booking, Member ready-ring retail, feasibility triage, invoicing, fulfilment, and auditable payment records.
 
 > **Stakeholder statement — 16 September 2026:** proposed daily sessions are 09:30–12:00, 13:00–15:30, and 16:00–18:30. Staff propose to confirm actual product participants at check-in, create continuation bookings for held work in progress, and use a research-gated Google Reviews dashboard for owner/manager review. These inputs are not approved requirements.
 

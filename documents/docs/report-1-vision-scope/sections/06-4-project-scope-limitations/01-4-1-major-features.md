@@ -6,7 +6,7 @@
 | FE-02 | Ring Catalogue and Configuration | Customers choose a confirmed ring model or available components; staff can continue design consultation in person. | GAP-01 |
 | FE-03 | Image-Assisted Feature Intake | With explicit consent, a reference image is sent to an external AI Vision API for quality and candidate-feature extraction. | GAP-01 |
 | FE-04 | Feasibility Triage and Override Audit | Custom designs outside the confirmed catalogue are auto-accepted, staff-reviewed, or auto-rejected from configured feasibility rules; overrides record their reason and decision context. | GAP-01 |
-| FE-05 | Invoice, Deposit and Final-Price Consent | MOH records package invoice, 50% deposit transaction, auditable staff adjustments, and customer consent before the final balance is settled at the shop. | GAP-01 |
+| FE-05 | Invoice, Deposit and Final-Price Consent | the system records package invoice, 50% deposit transaction, auditable staff adjustments, and customer consent before the final balance is settled at the shop. | GAP-01 |
 | FE-06 | Ring Fulfilment, Continuation and Collection | Customers choose self-making at the workshop or a shop-made order; staff can record custody and create a linked continuation booking for a work-in-progress product. | GAP-01 |
 | FE-07 | Check-in and Final Settlement Record | Staff confirm actual participating attendees at check-in, then record cash or bank-transfer settlement of the remaining package balance and approved adjustments at the shop. The proposed extra-attendee fee requires approval. | GAP-01 |
 | FE-08 | Google Reviews Research Dashboard | Research-gated candidate for owner/manager review visibility; it requires verified Business Profile access and must not automate pay or bonus decisions. | GAP-01 |

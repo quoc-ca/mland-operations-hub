@@ -1,6 +1,9 @@
-# Mland Operations Hub
+# Personalized Product Sales and Workshop Booking System
 
-**Mland Operations Hub** là hệ sinh thái phần mềm quản lý và vận hành chuyển đổi số dành riêng cho chuỗi workshop trang sức thủ công **Mland**. Hệ thống chuẩn hóa quy trình đặt lịch trực tuyến, tối ưu hóa phân ca nhân viên và quản lý vận hành đa chi nhánh theo thời gian thực.
+| Project information | Value |
+| --- | --- |
+| Group | SEP490_G22 |
+| English project name | Personalized Product Sales and Workshop Booking System |
 
 ---
 

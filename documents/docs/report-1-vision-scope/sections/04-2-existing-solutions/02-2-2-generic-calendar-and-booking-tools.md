@@ -11,4 +11,4 @@ This representative category covers standalone calendars and appointment tools t
 | Weaknesses | Limited connection to ring configuration, image-assisted feature extraction, feasibility review, and order fulfilment |
 | GAP for this project | It does not provide one customer journey for a group workshop or shop-made custom ring while preserving feasibility decisions and price-change consent. |
 
-Neither alternative solves Mland's current customer journey. Manual coordination is flexible but opaque; a generic booking calendar leaves the custom-ring decision and order process disconnected. MOH is proposed to connect these steps without expanding V1 into a general retail, inventory, or accounting platform.
+Neither alternative solves Mland's current customer journey. Manual coordination is flexible but opaque; a generic booking calendar leaves the custom-ring decision and order process disconnected. the system is proposed to connect these steps without expanding V1 into a general retail, inventory, or accounting platform.

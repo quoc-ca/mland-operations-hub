@@ -1,6 +1,6 @@
 ## 5.1 Business & Operational Impact
 
-**Target — validate with Mland before approval.** MOH should establish a baseline for booking completion, review turnaround, design-to-order conversion, estimate-to-invoice variance, and manual coordination effort before success targets are committed.
+**Target — validate with Mland before approval.** the system should establish a baseline for booking completion, review turnaround, design-to-order conversion, estimate-to-invoice variance, and manual coordination effort before success targets are committed.
 
 | Outcome | Candidate Measure | Current Baseline |
 | --- | --- | --- |

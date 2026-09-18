@@ -144,7 +144,7 @@ class SyncRemoteTests(unittest.TestCase):
             root = Path(temp)
             tracker_root = root / "trackers" / "tracker-1"
             tracker_root.mkdir(parents=True)
-            (tracker_root / "history.csv").write_text("Mland Operations Hub,,,,\nAutomatically generated from Git commit history; do not edit manually.,,,,\n,,,,\n#,Commit,Date,Author,Change Description\n", encoding="utf-8")
+            (tracker_root / "history.csv").write_text("Personalized Product Sales and Workshop Booking System,,,,\nAutomatically generated from Git commit history; do not edit manually.,,,,\n,,,,\n#,Commit,Date,Author,Change Description\n", encoding="utf-8")
             sheet = {"csv": "history.csv", "sheet_name": "history", "generated": "git-history"}
             with patch.object(sync, "git_history_entries", return_value=(GitCommit("abc1234", "2026-09-11", "Mland Team", "Refine tracker"),)):
                 values = sync.tracker_sheet_values(root, tracker(), sheet)
@@ -155,7 +155,7 @@ class SyncRemoteTests(unittest.TestCase):
             root = Path(temp)
             tracker_root = root / "trackers" / "tracker-1"
             tracker_root.mkdir(parents=True)
-            (tracker_root / "issues.csv").write_text("Mland Operations Hub,,,,,,,,,,,,,\nAutomatically generated from GitHub Issues on develop document pushes; do not edit manually.,,,,,,,,,,,,,\n,,,,,,,,,,,,,\nGitHub #,Work Item ID,Title,Type,Domain,Priority,Assignee(s),State,Labels,Created At,Updated At,Closed At,Source Fragment,URL\n", encoding="utf-8")
+            (tracker_root / "issues.csv").write_text("Personalized Product Sales and Workshop Booking System,,,,,,,,,,,,,\nAutomatically generated from GitHub Issues on develop document pushes; do not edit manually.,,,,,,,,,,,,,\n,,,,,,,,,,,,,\nGitHub #,Work Item ID,Title,Type,Domain,Priority,Assignee(s),State,Labels,Created At,Updated At,Closed At,Source Fragment,URL\n", encoding="utf-8")
             sheet = {"csv": "issues.csv", "sheet_name": "issues", "generated": "github-issues"}
             github = MagicMock()
             github.all_issues.return_value = [{"number": 7, "title": "Task", "state": "open", "labels": [], "assignees": [], "html_url": "https://example/7"}]

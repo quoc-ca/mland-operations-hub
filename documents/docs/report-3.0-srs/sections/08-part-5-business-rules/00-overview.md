@@ -9,5 +9,5 @@ The following rules are group decisions dated 17 September 2026, informed by lec
 | BR-03 | Staff may add an invoice adjustment only with reason, actor, timestamp and customer consent. The issued invoice history is preserved. |
 | BR-04 | The workshop final balance is the remaining 50% package price plus approved adjustments, settled cash/bank at the shop when the work is completed or collected. |
 | BR-05 | Only a Member may buy a ready-made ring. Full verified online payment reserves one unit, then the Member selects pickup or third-party delivery handoff. |
-| BR-06 | MOH records delivery only up to staff handoff to a third-party carrier. Carrier integration, live tracking, delivery failure, return and shipping-refund workflows are excluded. |
+| BR-06 | the system records delivery only up to staff handoff to a third-party carrier. Carrier integration, live tracking, delivery failure, return and shipping-refund workflows are excluded. |
 | BR-07 | Admin Technical may manage technical configuration, integrations, monitoring and technical audit only; this actor cannot change business records. |

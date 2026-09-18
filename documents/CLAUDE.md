@@ -1,6 +1,6 @@
 # Mland documentation workspace
 
-`documents/` is the Git-first documentation workspace for the live Mland Operations Hub (MOH) project.
+`documents/` is the Git-first documentation workspace for the live Personalized Product Sales and Workshop Booking System project.
 
 ## Workflow and source of truth
 
@@ -19,6 +19,6 @@ GitHub Issues are the operational work source of truth. The `develop` workflow m
 
 ## Current project state
 
-MOH is an active project. Individual requirements, scope decisions, designs, and targets may still be under validation; use the evidence labels already present in the reports and trackers instead of treating an assumption as a decision. Git and GitHub commit history provides automatically generated report and tracker change-history tables during build and synchronization.
+The project is active. Individual requirements, scope decisions, designs, and targets may still be under validation; use the evidence labels already present in the reports and trackers instead of treating an assumption as a decision. Git and GitHub commit history provides automatically generated report and tracker change-history tables during build and synchronization.
 
 Read [AGENT.md](AGENT.md) before changing this folder. It defines mandatory editing boundaries, evidence rules, change-history policy, and escalation conditions.

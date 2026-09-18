@@ -1,6 +1,11 @@
-# Tổng quan dự án MOH
+# Tổng quan dự án
 
-> **Snapshot Git-only — kiểm tra ngày 17/09/2026.** File này giúp nắm nhanh tình trạng dự án; nguồn chi tiết vẫn là report và tracker được liên kết bên dưới. Không dùng snapshot này để thay thế requirement, quyết định nhóm hoặc lịch sử thay đổi trong Git.
+> **Snapshot Git-only — kiểm tra ngày 18/09/2026.** File này giúp nắm nhanh tình trạng dự án; nguồn chi tiết vẫn là report và tracker được liên kết bên dưới. Không dùng snapshot này để thay thế requirement, quyết định nhóm hoặc lịch sử thay đổi trong Git.
+
+| Thông tin dự án | Giá trị |
+| --- | --- |
+| Nhóm | SEP490_G22 |
+| Tên tiếng Anh | Personalized Product Sales and Workshop Booking System |
 
 ## Nhìn nhanh
 
@@ -10,7 +15,7 @@
 | Mục tiêu V1 | Hỗ trợ workshop làm nhẫn, order nhẫn custom do shop làm hộ và Member mua nhẫn có sẵn. |
 | Phạm vi sản phẩm | Chỉ nhẫn; không phải ERP, CAD/3D hay web shop tổng quát. |
 | Tiến độ | Chưa có mốc, ngân sách, phân công hay % hoàn thành được phê duyệt. |
-| Mã nguồn ứng dụng | Chưa có mã nguồn runtime/application của MOH trong repository. |
+| Mã nguồn ứng dụng | Chưa có mã nguồn runtime/application của dự án trong repository. |
 
 ## Scope và tính năng V1
 
@@ -27,7 +32,7 @@
 
 ## Actors và hành trình chính
 
-| Actor | Tương tác với MOH |
+| Actor | Tương tác với hệ thống |
 | --- | --- |
 | Guest | Booking không cần tài khoản, trả cọc, cung cấp design/reference có consent và nhận invoice/tracking. Không có retail checkout hoặc lịch sử Member. |
 | Member | Có mọi khả năng booking của Guest; xem lịch sử tham gia, lịch sử giao dịch, workshop/event sắp tới và mua nhẫn có sẵn. Loyalty chưa triển khai. |
@@ -44,7 +49,7 @@
 
 Khách có thể làm tiếp ở ca sau khi staff tạo continuation booking và ghi nhận custody cho work-in-progress item. Khi check-in, staff xác nhận số người thực sự cùng làm sản phẩm; phụ thu, nếu áp dụng, là 100.000 VND cho mỗi người thêm tham gia và chỉ ghi sau xác nhận.
 
-Context chi tiết: [MOH Context Diagram](docs/report-1-vision-scope/assets/diagrams/moh-context.md).
+Context chi tiết: [Project Context Diagram](docs/report-1-vision-scope/assets/diagrams/project-context.md).
 
 ## Ngoài scope V1
 
@@ -67,7 +72,7 @@ Context chi tiết: [MOH Context Diagram](docs/report-1-vision-scope/assets/diag
 
 ## Tình trạng mã nguồn và vận hành tài liệu
 
-- Repository có **tooling Python cho tài liệu**, gồm generate DOCX, Git history/GitHub Issue snapshot, Google Workspace synchronization và unit tests; đây không phải mã nguồn sản phẩm MOH.
+- Repository có **tooling Python cho tài liệu**, gồm generate DOCX, Git history/GitHub Issue snapshot, Google Workspace synchronization và unit tests; đây không phải mã nguồn sản phẩm.
 - GitHub Actions validate và publish source tài liệu/tracker lên Google Workspace **chỉ từ nhánh `develop`**. Đồng bộ có kết quả theo từng target để target lỗi không chặn target khác.
 - Các report/tracker Git-first là nguồn chỉnh sửa; Google Docs/Sheets là bề mặt publish/review. Không đưa credentials, Drive ID hay dữ liệu khách vào snapshot.
 

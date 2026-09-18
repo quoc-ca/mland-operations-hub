@@ -1,4 +1,4 @@
-Mland Operations Hub,,,,,,,,,,
+Personalized Product Sales and Workshop Booking System,,,,,,,,,,
 TBD — populate only with approved Mland evidence.,,,,,,,,,,
 ,,,,,,,,,,
 Issue ID,Description,Type,Raised by,Owner (must answer),Status,Priority,Deadline,Affected Area,Resolution / Decision,Resolved Date
@@ -13,6 +13,6 @@ OI-008,Confirm two-location selection scope and decide when location-specific ca
 OI-009,Complete Google Reviews research spike for verified Business Profile OAuth access data policy staff attribution approval and appeal,Business / Integration / Privacy,Mland Project Team,TBD,Open,High,,Owner review dashboard,TBD; no import or payroll automation before governance approval,
 OI-010,Select a Payment Gateway provider and define webhook verification reconciliation and duplicate-event handling,Integration / Security,Mland Project Team,TBD,Open,High,,Booking and retail payment,TBD; redirect alone cannot confirm payment,
 OI-011,Define Member ready-ring catalogue one-unit reservation expiry and pickup readiness rules,Functional / Data,Mland Project Team,TBD,Open,High,,Member retail,TBD; verified full payment reserves one unit,
-OI-012,Define minimum delivery-data retention and staff evidence for third-party carrier handoff,Privacy / Operations,Mland Project Team,TBD,Open,High,,Member retail delivery,TBD; MOH stops at handoff with no carrier integration or return process,
+OI-012,Define minimum delivery-data retention and staff evidence for third-party carrier handoff,Privacy / Operations,SEP490_G22,TBD,Open,High,,Member retail delivery,TBD; the system stops at handoff with no carrier integration or return process,
 OI-013,Define Admin Technical access monitoring audit and emergency escalation without business-record mutation,Authorization / Operations,Mland Project Team,TBD,Open,High,,Technical administration,TBD; no invoice payment order or business-data mutation,
 OI-014,Define Member authentication account recovery and visibility rules for participation transaction and upcoming-workshop history,Authorization / NFR,Mland Project Team,TBD,Open,High,,Member experience,TBD; Guest has no Member-only history or retail checkout,

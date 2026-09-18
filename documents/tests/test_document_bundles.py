@@ -29,7 +29,7 @@ class MlandBundleTests(unittest.TestCase):
         sources.extend((ROOT / "docs").rglob("*.md"))
         sources.extend((ROOT / "trackers").rglob("*.csv"))
         content = "\n".join(path.read_text(encoding="utf-8-sig") for path in sources).casefold()
-        self.assertNotIn("mland operations hub — draft", content)
+        self.assertNotIn("personalized product sales and workshop booking system — draft", content)
         self.assertNotIn("mland draft", content)
         self.assertNotIn("v0.1-draft", content)
 
