@@ -1,226 +1,71 @@
 (() => {
-  const STORAGE_KEY = "mland-frontend-prototype-v1";
-  const INITIAL_STATE = { language: "vi", session: "", guestCount: "1", designType: "", trackingCode: "" };
-  let state = loadState();
-  let imageUrl = "";
-
-  const translations = {
-    vi: {
-      skipLink: "Đi tới nội dung", demoPill: "Prototype · Demo", heroEyebrow: "M.land ring making workshop", heroTitle: "Craft your story into a ring.", heroText: "Chọn buổi workshop, khám phá ý tưởng nhẫn và bắt đầu một kỷ niệm có hình dáng của riêng bạn.", heroCta: "Bắt đầu đặt workshop", heroLearn: "Khám phá hành trình", demoNote: "Bản minh hoạ UX — lịch, giá và quy tắc thật đang chờ M.land xác nhận.", stampTop: "Made with", stampBottom: "your story",
-      journeyEyebrow: "A calm, guided journey", journeyTitle: "Từ khoảnh khắc đến chiếc nhẫn", step1Title: "Book", step1Text: "Chọn một buổi workshop minh hoạ.", step2Title: "Imagine", step2Text: "Bắt đầu từ mẫu có sẵn hoặc ý tưởng riêng.", step3Title: "Create", step3Text: "Tự làm tại workshop hoặc để shop thực hiện.", step4Title: "Keep", step4Text: "Theo dõi yêu cầu bằng mã tra cứu demo.",
-      bookingEyebrow: "Bước 1 · Workshop", bookingTitle: "Chọn một khoảng thời gian để bắt đầu", bookingText: "Các session dưới đây chỉ minh hoạ giao diện; không phản ánh lịch, sức chứa hoặc availability thực tế.", sessionLegend: "Chọn session demo", morningTitle: "Morning atelier", morningText: "Workshop session · Minh hoạ", afternoonTitle: "Afternoon studio", afternoonText: "Workshop session · Minh hoạ", guestLabel: "Số khách (demo)", emailLabel: "Email để xem validation demo", emailHint: "Không dùng email thật: thông tin này không được lưu hoặc gửi đi.", bookingContinue: "Tiếp tục chọn ý tưởng nhẫn", backHome: "← Về trang chủ",
-      designEyebrow: "Bước 2 · Ý tưởng nhẫn", designTitle: "Bạn muốn bắt đầu từ đâu?", ringsOnly: "V1 · Chỉ nhẫn", ringPhotoCaption: "Hình ảnh workshop thực tế · không phải catalogue đã xác nhận", catalogueTitle: "Chọn mẫu nhẫn minh hoạ", catalogueText: "Dành cho ý tưởng bắt đầu từ catalogue đã được xác nhận.", customTitle: "Chia sẻ ý tưởng riêng", customText: "Mô phỏng đường dẫn ảnh tham khảo hoặc custom design cần review.", referenceLabel: "Mô tả ý tưởng (không bắt buộc)", referencePlaceholder: "Ví dụ: một chiếc nhẫn mảnh, có bề mặt hữu cơ…", imageLabel: "Ảnh tham khảo (chỉ preview trong tab)", consentText: "Tôi hiểu đây là demo: ảnh không được gửi tới AI hoặc lưu lại.", customContinue: "Yêu cầu review demo", backBooking: "← Đổi session",
-      estimateLabel: "Estimate preview", trackingCardLabel: "Mã tra cứu demo", copyCode: "Sao chép", trackRequest: "Tra cứu yêu cầu", returnHome: "Về trang chủ", trackingEyebrow: "Guest tracking", trackingTitle: "Tra cứu yêu cầu demo", trackingText: "Nhập mã được tạo trong phiên demo này. Không có kết nối đến order thật.", trackingLabel: "Mã tra cứu", trackingSubmit: "Tra cứu", footerText: "M.land customer journey prototype · Không phải booking hoặc catalogue production.", resetDemo: "Xoá trạng thái demo",
-      bookingError: "Hãy chọn session demo và nhập một email có định dạng hợp lệ. Không dùng dữ liệu thật.", consentError: "Hãy xác nhận bạn hiểu ảnh không được gửi đi trong demo này.", trackingError: "Mã không khớp với một yêu cầu demo trong trình duyệt này.", copied: "Đã sao chép mã demo.", resetDone: "Đã xoá trạng thái demo.", catalogueEyebrow: "Catalogue path · Demo", catalogueResultTitle: "Ý tưởng nhẫn có thể tiếp tục", catalogueResultDescription: "Đây là trạng thái minh hoạ cho một mẫu từ catalogue đã xác nhận. Staff vẫn sẽ tư vấn các chi tiết cuối cùng.", catalogueEstimate: "Estimate sẽ được M.land xác nhận", catalogueEstimateNote: "Không hiển thị giá demo vì price rule chưa được phê duyệt.", customEyebrow: "Custom path · Demo", customResultTitle: "Đã yêu cầu staff review", customResultDescription: "Ý tưởng custom/reference cần được staff xem xét trước khi có feasibility result hoặc estimate. Không có AI request nào được gửi từ prototype.", customEstimate: "Estimate đang chờ review", customEstimateNote: "Review coverage và response time là Open/TBD.", trackCatalogueStatus: "Demo status", trackCatalogueHeading: "Catalogue idea recorded", trackCatalogueDetail: "Minh hoạ: có thể chuyển sang staff consultation.", trackCustomStatus: "Demo status", trackCustomHeading: "Staff review requested", trackCustomDetail: "Minh hoạ: đang chờ review, không có SLA đã xác nhận."
-    },
-    en: {
-      skipLink: "Skip to content", demoPill: "Prototype · Demo", heroEyebrow: "M.land ring making workshop", heroTitle: "Craft your story into a ring.", heroText: "Choose a workshop, explore a ring idea and begin a keepsake with a shape that feels like yours.", heroCta: "Start a workshop booking", heroLearn: "Explore the journey", demoNote: "UX prototype — real schedule, prices and rules are still awaiting M.land confirmation.", stampTop: "Made with", stampBottom: "your story",
-      journeyEyebrow: "A calm, guided journey", journeyTitle: "From a moment to a ring", step1Title: "Book", step1Text: "Choose an illustrative workshop session.", step2Title: "Imagine", step2Text: "Start with an existing sample or your own idea.", step3Title: "Create", step3Text: "Make it at the workshop or let the shop craft it.", step4Title: "Keep", step4Text: "Track the request with a demo code.",
-      bookingEyebrow: "Step 1 · Workshop", bookingTitle: "Choose a moment to begin", bookingText: "The sessions below illustrate the interface only; they do not represent real schedules, capacity or availability.", sessionLegend: "Choose a demo session", morningTitle: "Morning atelier", morningText: "Workshop session · Illustration", afternoonTitle: "Afternoon studio", afternoonText: "Workshop session · Illustration", guestLabel: "Guests (demo)", emailLabel: "Email for validation demo", emailHint: "Do not use a real email: this information is not saved or sent.", bookingContinue: "Continue to ring ideas", backHome: "← Back to home",
-      designEyebrow: "Step 2 · Ring idea", designTitle: "Where would you like to begin?", ringsOnly: "V1 · Rings only", ringPhotoCaption: "Real workshop photo · not a confirmed catalogue", catalogueTitle: "Choose an illustrative ring sample", catalogueText: "For an idea beginning from a confirmed catalogue.", customTitle: "Share your own idea", customText: "Simulates a reference-image or custom-design path that needs review.", referenceLabel: "Describe the idea (optional)", referencePlaceholder: "For example: a slim ring with an organic texture…", imageLabel: "Reference image (preview in this tab only)", consentText: "I understand this is a demo: the image is not sent to AI or retained.", customContinue: "Request demo review", backBooking: "← Change session",
-      estimateLabel: "Estimate preview", trackingCardLabel: "Demo tracking code", copyCode: "Copy", trackRequest: "Track request", returnHome: "Back to home", trackingEyebrow: "Guest tracking", trackingTitle: "Track a demo request", trackingText: "Enter the code created in this demo session. It is not connected to real orders.", trackingLabel: "Tracking code", trackingSubmit: "Track", footerText: "M.land customer journey prototype · Not a production booking or catalogue.", resetDemo: "Clear demo state",
-      bookingError: "Choose a demo session and enter a valid email format. Do not use real data.", consentError: "Please confirm that the image is not sent anywhere in this demo.", trackingError: "This code does not match a demo request in this browser.", copied: "Demo code copied.", resetDone: "Demo state cleared.", catalogueEyebrow: "Catalogue path · Demo", catalogueResultTitle: "Your ring idea can continue", catalogueResultDescription: "This illustrates a confirmed-catalogue path. Staff will still advise on final details.", catalogueEstimate: "Estimate will be confirmed by M.land", catalogueEstimateNote: "No demo price is shown because price rules are not yet approved.", customEyebrow: "Custom path · Demo", customResultTitle: "Staff review requested", customResultDescription: "A custom/reference idea needs staff review before a feasibility result or estimate. The prototype sent no request to an AI service.", customEstimate: "Estimate awaits review", customEstimateNote: "Review coverage and response time remain Open/TBD.", trackCatalogueStatus: "Demo status", trackCatalogueHeading: "Catalogue idea recorded", trackCatalogueDetail: "Illustration: ready to continue to staff consultation.", trackCustomStatus: "Demo status", trackCustomHeading: "Staff review requested", trackCustomDetail: "Illustration: awaiting review; no confirmed SLA."
-    }
+  const KEY = "artisanal-atelier-prototype-v2";
+  const INITIAL = { lang: "vi", member: false, location: "", date: "", slot: "", package: "", design: "", bookingCode: "", bookingStatus: "", orderCode: "", orderStatus: "", delivery: "", returnTo: "" };
+  let state = load(), view = "home", imageUrl = "", imageAttempts = [], imageOutcome = "feasible";
+  const app = document.querySelector("#app"), toast = document.querySelector("#toast");
+  const words = {
+    vi: { demo:"Dữ liệu minh hoạ", homeTitle:"Tạo một chiếc nhẫn có câu chuyện của riêng bạn.", homeText:"Prototype offline cho hành trình workshop và ready-ring retail. Không có booking, giá, email hay thanh toán thật.", book:"Đặt workshop", shop:"Khám phá ready rings", track:"Tra cứu booking", sign:"Trở thành Member", login:"Đăng nhập", history:"Lịch sử Member", resetLabel:"Xoá trạng thái demo", noPrice:"không có giá số", location:"Chọn cơ sở", locationText:"Hai atelier hư cấu để review luồng chọn location; không phản ánh cơ sở thật.", detail:"Khám phá không gian", schedule:"Chọn ngày, ca và package", date:"Ngày demo", slot:"Ca workshop", package:"Package demo", continue:"Tiếp tục", back:"← Quay lại", summary:"Chi tiết booking", contact:"Thông tin liên hệ", contactText:"Dữ liệu chỉ dùng để validation trong tab này, không được lưu hoặc gửi đi.", email:"Email", phone:"Số điện thoại", designAsk:"Bạn có muốn thiết kế nhẫn trước workshop?", noDesign:"Không thiết kế", yesDesign:"Có, bắt đầu thiết kế", profile:"Member demo", profileText:"Thông tin profile đã được che; prototype không lưu thông tin liên hệ.", design:"Bắt đầu từ ý tưởng", sample:"Mẫu có sẵn", config:"Tự cấu hình", image:"Ảnh tham khảo", sampleText:"Mẫu minh hoạ đã khả thi.", configText:"Chọn component từ template giả lập.", imageText:"AI chỉ được mô phỏng; ảnh không rời khỏi browser.", consent:"Tôi đồng ý dùng ảnh cho mô phỏng AI trong prototype này.", outcome:"Kết quả AI demo", feasible:"Khả thi", review:"Cần Staff review", rejected:"Từ chối", imageLimit:"Tối đa 5 lần thử ảnh trong 60 giây cho phiên này.", payment:"Thanh toán demo", deposit:"Cọc package 50%", full:"Thanh toán đủ đơn retail", paymentText:"Chọn một kết quả mô phỏng. Redirect không xác nhận thanh toán.", pending:"Chờ Gateway xác nhận", confirmed:"Đã xác nhận", failed:"Xác nhận thất bại", status:"Trạng thái", bookingOk:"Booking đã được xác nhận", bookingWait:"Booking đang chờ thanh toán", bookingFail:"Booking chưa được xác nhận", emailDemo:"Thông báo email chỉ là mô phỏng; không có email nào được gửi.", join:"Bạn có muốn trở thành Member của workshop không?", noThanks:"Không, cảm ơn", joinNow:"Trở thành Member", qr:"QR demo — không quét được", signup:"Đăng ký Member", signupText:"Xác thực chỉ là UI demo. Email, phone và password bị bỏ sau validation.", password:"Thông tin xác thực", create:"Tạo Member demo", loginTitle:"Đăng nhập Member demo", enter:"Vào phiên Member demo", retail:"Ready rings demo", retailText:"Hình ảnh workshop chỉ làm visual reference, không phải catalogue/availability thật.", buy:"Mua ngay", memberOnly:"Bạn cần là Member để mua ready ring.", order:"Chi tiết đơn hàng", reserve:"Reserve sau full payment", pickup:"Nhận tại shop", handoff:"Bàn giao carrier", pickupState:"Chờ shop chuẩn bị nhận hàng", handoffState:"Chờ shop bàn giao carrier", handed:"Đã bàn giao carrier", lookup:"Tra cứu booking", lookupText:"Nhập mã booking cùng email hoặc số điện thoại để mô phỏng xác thực. Thông tin không được lưu.", code:"Mã booking", search:"Tra cứu", notFound:"Không tìm thấy booking phù hợp.", reset:"Đã xoá toàn bộ demo state.", footer:"Artisanal Atelier customer-journey prototype · Offline, không phải hệ thống production.", memberHistory:"Booking, invoice và giao dịch demo trong phiên Member hiện tại.", choose:"Chọn", error:"Hãy hoàn thiện các trường bắt buộc.", release:"Quay lại chọn ý tưởng", approved:"Review demo đã được chấp thuận", success:"Thành công" },
+    en: { demo:"Illustrative data", homeTitle:"Create a ring with a story that is entirely yours.", homeText:"An offline prototype for the workshop and ready-ring retail journey. No real booking, price, email or payment exists.", book:"Book a workshop", shop:"Explore ready rings", track:"Track booking", sign:"Become a Member", login:"Sign in", history:"Member history", resetLabel:"Clear demo state", noPrice:"no numeric price", location:"Choose a location", locationText:"Two fictional ateliers let reviewers assess location selection; neither represents a real shop.", detail:"Explore the space", schedule:"Choose a date, session and package", date:"Demo date", slot:"Workshop session", package:"Demo package", continue:"Continue", back:"← Back", summary:"Booking details", contact:"Contact information", contactText:"Data is used only for validation in this tab; it is not stored or sent.", email:"Email", phone:"Phone", designAsk:"Would you like to design a ring before the workshop?", noDesign:"No design", yesDesign:"Yes, start designing", profile:"Demo Member profile", profileText:"Profile details are masked; the prototype never stores contact data.", design:"Start with an idea", sample:"Existing sample", config:"Configure a ring", image:"Reference image", sampleText:"An illustrative feasible sample.", configText:"Choose components from a mock template.", imageText:"AI is simulated only; the image never leaves the browser.", consent:"I consent to use this image for the prototype AI simulation.", outcome:"Demo AI outcome", feasible:"Feasible", review:"Staff review", rejected:"Rejected", imageLimit:"At most five image attempts per 60 seconds in this session.", payment:"Demo payment", deposit:"50% package deposit", full:"Full retail payment", paymentText:"Choose a simulated outcome. A redirect never confirms payment.", pending:"Awaiting Gateway confirmation", confirmed:"Confirmed", failed:"Confirmation failed", status:"Status", bookingOk:"Booking is confirmed", bookingWait:"Booking awaits payment", bookingFail:"Booking is not confirmed", emailDemo:"Email notification is simulated; no email has been sent.", join:"Would you like to become a workshop Member?", noThanks:"No, thank you", joinNow:"Become a Member", qr:"Demo QR — not scannable", signup:"Member registration", signupText:"Verification is UI-only. Email, phone and password are discarded after validation.", password:"Verification information", create:"Create demo Member", loginTitle:"Demo Member sign in", enter:"Enter demo Member session", retail:"Demo ready rings", retailText:"Workshop photos are visual references, not confirmed catalogue or availability.", buy:"Buy now", memberOnly:"You must be a Member to buy a ready ring.", order:"Order details", reserve:"Reserve after full payment", pickup:"Pick up at shop", handoff:"Carrier handoff", pickupState:"Shop is preparing pickup", handoffState:"Shop is awaiting carrier handoff", handed:"Handed to carrier", lookup:"Track a booking", lookupText:"Enter the booking code and an email or phone to simulate verification. Data is not stored.", code:"Booking code", search:"Track", notFound:"No matching booking was found.", reset:"All demo state was cleared.", footer:"Artisanal Atelier customer-journey prototype · Offline, not a production system.", memberHistory:"Demo booking, invoice and transaction history for the current Member session.", choose:"Choose", error:"Complete the required fields.", release:"Choose another idea", approved:"Demo review approved", success:"Success" }
   };
-
-  const $ = (selector) => document.querySelector(selector);
-  const $$ = (selector) => [...document.querySelectorAll(selector)];
-
-  function loadState() {
-    try {
-      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-      return { ...INITIAL_STATE, ...pickSafeState(stored) };
-    } catch {
-      return { ...INITIAL_STATE };
-    }
-  }
-
-  function pickSafeState(value) {
-    return {
-      language: value.language === "en" ? "en" : "vi",
-      session: ["morning", "afternoon"].includes(value.session) ? value.session : "",
-      guestCount: ["1", "2", "3", "4"].includes(value.guestCount) ? value.guestCount : "1",
-      designType: ["catalogue", "custom"].includes(value.designType) ? value.designType : "",
-      trackingCode: typeof value.trackingCode === "string" && /^MLD-DEMO-\d{4}$/.test(value.trackingCode) ? value.trackingCode : ""
-    };
-  }
-
-  function saveState() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pickSafeState(state)));
-  }
-
-  function t(key) { return translations[state.language][key] || key; }
-
-  function applyLanguage() {
-    document.documentElement.lang = state.language;
-    document.title = state.language === "vi" ? "M.land — Workshop làm nhẫn" : "M.land — Ring making workshop";
-    $$('[data-i18n]').forEach((element) => { element.textContent = t(element.dataset.i18n); });
-    $$('[data-i18n-placeholder]').forEach((element) => { element.placeholder = t(element.dataset.i18nPlaceholder); });
-    $("#language-toggle").textContent = state.language === "vi" ? "EN" : "VI";
-    $("#language-toggle").setAttribute("aria-label", state.language === "vi" ? "Switch to English" : "Chuyển sang tiếng Việt");
-    renderResult();
-    renderTracking();
-  }
-
-  function showView(id) {
-    $$(".view").forEach((view) => { view.hidden = view.id !== id; });
-    if (id === "booking") restoreBookingChoice();
-    if (id === "design") restoreDesignChoice();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setTimeout(() => $("#" + id).querySelector("h1, h2, input, button")?.focus({ preventScroll: true }), 0);
-  }
-
-  function restoreBookingChoice() {
-    $("#guest-count").value = state.guestCount;
-    const selected = document.querySelector(`input[name="session"][value="${state.session}"]`);
-    if (selected) selected.checked = true;
-  }
-
-  function restoreDesignChoice() {
-    $("#custom-form").hidden = state.designType !== "custom";
-  }
-
-  function nextTrackingCode() {
-    if (!state.trackingCode) state.trackingCode = `MLD-DEMO-${String(Math.floor(1000 + Math.random() * 9000))}`;
-    return state.trackingCode;
-  }
-
-  function renderResult() {
-    if (!$("#result-title")) return;
-    const custom = state.designType === "custom";
-    $("#result-icon").textContent = custom ? "⌁" : "✦";
-    $("#result-eyebrow").textContent = t(custom ? "customEyebrow" : "catalogueEyebrow");
-    $("#result-title").textContent = t(custom ? "customResultTitle" : "catalogueResultTitle");
-    $("#result-description").textContent = t(custom ? "customResultDescription" : "catalogueResultDescription");
-    $("#estimate-value").textContent = t(custom ? "customEstimate" : "catalogueEstimate");
-    $("#estimate-note").textContent = t(custom ? "customEstimateNote" : "catalogueEstimateNote");
-    $("#tracking-code").textContent = state.trackingCode || "MLD-DEMO-••••";
-  }
-
-  function renderTracking() {
-    const result = $("#tracking-result");
-    if (result.hidden) return;
-    const custom = state.designType === "custom";
-    $("#tracking-status").textContent = t(custom ? "trackCustomStatus" : "trackCatalogueStatus");
-    $("#tracking-heading").textContent = t(custom ? "trackCustomHeading" : "trackCatalogueHeading");
-    $("#tracking-detail").textContent = t(custom ? "trackCustomDetail" : "trackCatalogueDetail");
-  }
-
-  function setError(id, message) {
-    const target = $("#" + id);
-    target.textContent = message;
-    target.hidden = !message;
-  }
-
-  function showToast(message) {
-    const toast = $("#toast");
-    toast.textContent = message;
-    toast.hidden = false;
-    window.clearTimeout(showToast.timer);
-    showToast.timer = window.setTimeout(() => { toast.hidden = true; }, 2400);
-  }
-
-  $$('[data-view-target]').forEach((button) => button.addEventListener("click", () => showView(button.dataset.viewTarget)));
-  $$('[data-scroll-target]').forEach((button) => button.addEventListener("click", () => $("#" + button.dataset.scrollTarget).scrollIntoView({ behavior: "smooth" })));
-
-  $("#language-toggle").addEventListener("click", () => {
-    state.language = state.language === "vi" ? "en" : "vi";
-    saveState();
-    applyLanguage();
+  Object.assign(words.vi, { skip:"Đi tới nội dung", nav:"Điều hướng chính", oneRing:"1 người = 1 nhẫn", componentTemplate:"Component template", resultDemo:"Kết quả này do người review chọn; không có AI request nào được gửi.", retailFacts:"Không nêu giá, chất liệu, tồn kho hoặc availability.", readyRing:"Ready ring" });
+  Object.assign(words.en, { skip:"Skip to content", nav:"Primary navigation", oneRing:"1 person = 1 ring", componentTemplate:"Component template", resultDemo:"This outcome was selected by the reviewer; no AI request was made.", retailFacts:"No price, material, stock or availability is claimed.", readyRing:"Ready ring" });
+  const t = (k) => words[state.lang][k] || k;
+  const loc = { ring: ["The Ring Atelier", "A quiet studio for personal stories."], bench: ["The Silver Bench", "A gallery-like bench for slow craft."] };
+  const slots = [["09:30–12:00","01"],["13:00–15:30","02"],["16:00–18:30","03"]];
+  const packs = ["Workshop Form I", "Workshop Texture II", "Workshop Story III"];
+  function load(){ try { return { ...INITIAL, ...clean(JSON.parse(localStorage.getItem(KEY)||"{}")) }; } catch { return {...INITIAL}; } }
+  function clean(v){ return { lang:v.lang==="en"?"en":"vi", member:v.member===true, location:["ring","bench"].includes(v.location)?v.location:"", date:["d1","d2","d3"].includes(v.date)?v.date:"", slot:["0","1","2"].includes(v.slot)?v.slot:"", package:["0","1","2"].includes(v.package)?v.package:"", design:["sample","config","image"].includes(v.design)?v.design:"", bookingCode:/^AAT-DEMO-\d{4}$/.test(v.bookingCode)?v.bookingCode:"", bookingStatus:["pending","confirmed","failed"].includes(v.bookingStatus)?v.bookingStatus:"", orderCode:/^AAT-ORDER-\d{4}$/.test(v.orderCode)?v.orderCode:"", orderStatus:["pending","confirmed","failed"].includes(v.orderStatus)?v.orderStatus:"", delivery:["pickup","handoff","handed"].includes(v.delivery)?v.delivery:"", returnTo:["booking-result","retail-detail"].includes(v.returnTo)?v.returnTo:"" }; }
+  function save(){ localStorage.setItem(KEY, JSON.stringify(clean(state))); }
+  function code(kind){ return `${kind === "order" ? "AAT-ORDER" : "AAT-DEMO"}-${String(1000+Math.floor(Math.random()*9000))}`; }
+  const qrcode = () => `<div class="qr-wrap"><div class="qr-demo" aria-label="${t("qr")}">${"<i></i>".repeat(81)}</div><small>${t("qr")}</small></div>`;
+  const heading=(eyebrow,title,text)=>`<div class="view-heading"><p class="eyebrow">${eyebrow}</p><h1>${title}</h1>${text?`<p class="lede">${text}</p>`:""}</div>`;
+  const progress=(n)=>`<div class="progress"><strong>${n}</strong><i></i><span>${t("demo")}</span></div>`;
+  const summary=()=>`<div class="summary"><dl><dt>${t("location")}</dt><dd>${state.location?loc[state.location][0]:"—"}</dd><dt>${t("date")}</dt><dd>${state.date?`Demo ${state.date.toUpperCase()}`:"—"}</dd><dt>${t("slot")}</dt><dd>${state.slot!==""?slots[state.slot][0]:"—"}</dd><dt>${t("package")}</dt><dd>${state.package!==""?packs[state.package]:"—"}</dd><dt>${t("design")}</dt><dd>${state.design||t("noDesign")}</dd></dl></div>`;
+  function render(next=view){ view=next; document.documentElement.lang=state.lang; document.querySelector("#language-toggle").textContent=state.lang==="vi"?"EN":"VI"; document.querySelector("#skip-link").textContent=t("skip"); document.querySelector("#primary-nav").setAttribute("aria-label",t("nav")); document.querySelector("#member-action").textContent=state.member?t("history"):t("sign"); document.querySelector(".site-nav button[data-action='booking']").textContent=t("book"); document.querySelector(".site-nav button[data-action='shop']").textContent=t("shop"); document.querySelector(".site-nav button[data-action='tracking']").textContent=t("track"); document.querySelector(".site-footer button").textContent=t("resetLabel"); document.querySelector("#footer-copy").textContent=t("footer"); app.innerHTML=templates()[view]||templates().home; window.scrollTo({top:0,behavior:"smooth"}); setTimeout(()=>app.querySelector("h1,button,input")?.focus({preventScroll:true}),0); }
+  function templates(){ const product=(id,name)=>`<article class="product-card"><div class="product-image"><img src="assets/ring-display.jpg" alt="${t("demo")}" /></div><button data-action="retail-detail" data-product="${id}"><span class="demo-badge">${t("demo")}</span><h3>${name}</h3><p>${t("retailText")}</p></button></article>`; return {
+    home:`<section class="view"><div class="hero"><div><p class="eyebrow">ARTISANAL ATELIER · ${t("demo")}</p><h1 class="display">${t("homeTitle")}</h1><p class="hero-text">${t("homeText")}</p><div class="button-row"><button class="button primary" data-action="booking">${t("book")}</button><button class="button" data-action="shop">${t("shop")}</button><button class="button" data-action="tracking">${t("track")}</button></div></div><div class="hero-image"><img src="assets/workshop-sign.jpg" alt="Workshop sign"/><div class="hero-seal">SILVER<br/>STORY</div></div></div><div class="journey-grid"><article><span>01</span><h3>Book</h3><p>${t("book")}</p></article><article><span>02</span><h3>Design</h3><p>${t("design")}</p></article><article><span>03</span><h3>Pay</h3><p>${t("payment")}</p></article><article><span>04</span><h3>Keep</h3><p>${t("track")}</p></article></div></section>`,
+    booking:`<section class="view">${progress("1")}${heading("WORKSHOP",t("location"),t("locationText"))}<div class="flow-grid"><div class="selection-list">${Object.entries(loc).map(([id,x],i)=>`<button class="choice-card ${state.location===id?"selected":""}" data-action="location-detail" data-location="${id}"><span class="choice-index">0${i+1}</span><span><strong>${x[0]}</strong><small>${x[1]} · ${t("demo")}</small></span><span>→</span></button>`).join("")}</div><aside class="side-card"><span class="demo-badge">${t("demo")}</span><p>${t("locationText")}</p></aside></div></section>`,
+    "location-detail":`<section class="view">${progress("1")}${heading("LOCATION",state.location?loc[state.location][0]:t("location"),state.location?loc[state.location][1]:"")}<div class="flow-grid"><div class="selection-list"><div class="location-image"><img src="assets/workshop-sign.jpg" alt="${t("demo")}"/></div><p class="notice">${t("demo")}: location, capacity and product capability are not production data.</p><div class="button-row"><button class="button primary" data-action="schedule">${t("continue")}</button><button class="button" data-action="booking">${t("back")}</button></div></div></div></section>`,
+    schedule:`<section class="view">${progress("2")}${heading("WORKSHOP",t("schedule"),t("demo"))}<div class="flow-grid"><div class="selection-list"><div class="summary"><strong>${t("date")}</strong><div class="button-row">${["d1","d2","d3"].map((d,i)=>`<button class="button ${state.date===d?"gold":""}" data-action="set-date" data-value="${d}">DAY ${i+1} · ${t("demo")}</button>`).join("")}</div></div><div class="summary"><strong>${t("slot")}</strong><div class="button-row">${slots.map((s,i)=>`<button class="button ${state.slot===String(i)?"gold":""}" data-action="set-slot" data-value="${i}">${s[1]} · ${s[0]}</button>`).join("")}</div></div><div class="summary"><strong>${t("package")}</strong><div class="button-row">${packs.map((p,i)=>`<button class="button ${state.package===String(i)?"gold":""}" data-action="set-package" data-value="${i}">${p} · ${t("demo")}</button>`).join("")}</div></div><p id="schedule-error" class="notice error" hidden></p><div class="button-row"><button class="button primary" data-action="booking-summary">${t("continue")}</button><button class="button" data-action="location-detail">${t("back")}</button></div></div><aside class="side-card">${summary()}</aside></div></section>`,
+    "booking-summary":`<section class="view">${progress("3")}${heading("BOOKING",t("summary"),t("demo"))}<div class="flow-grid"><div class="selection-list">${summary()}<div class="button-row"><button class="button primary" data-action="contact">${t("continue")}</button><button class="button" data-action="schedule">${t("back")}</button></div></div></div></section>`,
+    contact:`<section class="view">${progress("4")}${heading("BOOKING",t("contact"),state.member?t("profileText"):t("contactText"))}<div class="flow-grid"><div class="selection-list">${state.member?`<p class="notice">${t("profile")}: m•••••@example.test · 09••••••••</p>`:""}<form id="contact-form" class="form-stack"><div class="field"><label>${t("email")}</label><input type="email" required autocomplete="off" placeholder="guest@example.test"/></div><div class="field"><label>${t("phone")}</label><input required inputmode="tel" autocomplete="off" placeholder="0900 000 000"/></div><label class="toggle-row"><input id="design-toggle" type="checkbox"/><span>${t("designAsk")}</span></label><p class="hint">1 person = 1 ring · ${t("demo")}</p><p id="contact-error" class="notice error" hidden></p><button class="button primary" type="submit">${t("continue")}</button></form></div><aside class="side-card">${summary()}</aside></div></section>`,
+    design:`<section class="view">${progress("5")}${heading("RING",t("design"),t("demo"))}<div class="design-grid"><article class="design-card"><button data-action="design-sample"><span class="demo-badge">${t("demo")}</span><h3>${t("sample")}</h3><p>${t("sampleText")}</p></button></article><article class="design-card"><button data-action="design-config"><span class="demo-badge">${t("demo")}</span><h3>${t("config")}</h3><p>${t("configText")}</p></button></article><article class="design-card"><button data-action="design-image"><span class="demo-badge">${t("demo")}</span><h3>${t("image")}</h3><p>${t("imageText")}</p></button></article></div><div class="button-row"><button class="button" data-action="contact">${t("back")}</button></div></section>`,
+    "design-config":`<section class="view">${heading("RING",t("config"),t("configText"))}<div class="flow-grid"><div class="selection-list"><div class="summary"><strong>Component template · ${t("demo")}</strong><div class="swatches"><i class="swatch"></i><i class="swatch"></i><i class="swatch"></i></div><p class="hint">Owner-confirmed component simulation; no material, price or feasibility claim.</p></div><button class="button primary" data-action="design-complete" data-value="config">${t("continue")}</button></div></div></section>`,
+    "design-image":`<section class="view">${heading("RING",t("image"),t("imageText"))}<form id="image-form" class="form-stack"><div class="field"><label>${t("image")}</label><input id="reference-image" type="file" accept="image/*" required/></div><div id="image-preview" class="image-preview" hidden></div><label class="toggle-row"><input id="image-consent" type="checkbox"/><span>${t("consent")}</span></label><strong>${t("outcome")}</strong><div class="demo-selector">${["feasible","review","rejected"].map(x=>`<button type="button" class="${imageOutcome===x?"selected":""}" data-action="image-outcome" data-value="${x}">${t(x)}</button>`).join("")}</div><p class="hint">${t("imageLimit")}</p><p id="image-error" class="notice error" hidden></p><button class="button primary" type="submit">${t("continue")}</button></form></section>`,
+    "design-result":`<section class="view">${heading("RING",imageOutcome==="feasible"?t("feasible"):imageOutcome==="review"?t("review"):t("rejected"),imageOutcome==="feasible"?t("sampleText"):imageOutcome==="review"?t("approved"):t("release"))}<p class="notice ${imageOutcome==="rejected"?"error":""}">${t("demo")}: this result is selected by the reviewer; no AI request was made.</p><div class="button-row">${imageOutcome==="rejected"?`<button class="button" data-action="design">${t("release")}</button>`:`<button class="button primary" data-action="design-complete" data-value="image">${imageOutcome==="review"?t("approved"):t("continue")}</button>`}</div></section>`,
+    payment:`<section class="view">${progress("6")}${heading("PAYMENT",t("payment"),t("paymentText"))}<div class="flow-grid"><div class="selection-list"><div class="summary"><dl><dt>${t("deposit")}</dt><dd>${state.orderCode?t("full"):t("deposit")}</dd><dt>${t("status")}</dt><dd>—</dd></dl></div><div class="payment-actions"><button class="button" data-action="payment-outcome" data-value="pending">${t("pending")}</button><button class="button gold" data-action="payment-outcome" data-value="confirmed">${t("confirmed")}</button><button class="button danger" data-action="payment-outcome" data-value="failed">${t("failed")}</button></div></div></div></section>`,
+    "booking-result":`<section class="view">${bookingResult()}</section>`,
+    auth:`<section class="view">${heading("MEMBER",t("signup"),t("signupText"))}${authForm("signup")}<div class="button-row"><button class="text-button" data-action="login">${t("login")}</button></div></section>`,
+    login:`<section class="view">${heading("MEMBER",t("loginTitle"),t("signupText"))}${authForm("login")}<div class="button-row"><button class="text-button" data-action="auth">${t("signup")}</button></div></section>`,
+    history:`<section class="view">${heading("MEMBER",t("history"),t("memberHistory"))}<div class="history-list">${state.bookingCode?`<article class="history-item"><strong>${state.bookingCode}</strong><p>${t("booking")} · <span class="status ${state.bookingStatus||"pending"}">${t(state.bookingStatus||"pending")}</span></p></article>`:""}${state.orderCode?`<article class="history-item"><strong>${state.orderCode}</strong><p>${t("retail")} · <span class="status ${state.orderStatus||"pending"}">${t(state.orderStatus||"pending")}</span></p></article>`:""}${!state.bookingCode&&!state.orderCode?`<p class="notice">${t("demo")}</p>`:""}</div></section>`,
+    shop:`<section class="view">${heading("READY RINGS",t("retail"),t("retailText"))}<div class="product-grid">${product("a","Form 01")}${product("b","Texture 02")}${product("c","Story 03")}</div></section>`,
+    "retail-detail":`<section class="view">${heading("READY RING","Form 01 · " + t("demo"),t("retailText"))}<div class="flow-grid"><div class="selection-list"><div class="location-image"><img src="assets/ring-display.jpg" alt="${t("demo")}"/></div><p class="notice">${t("demo")}: no price, material, stock or availability is claimed.</p>${state.member?`<button class="button primary" data-action="retail-summary">${t("buy")}</button>`:`<div class="notice error">${t("memberOnly")}</div><div class="button-row"><button class="button primary" data-action="auth" data-return="retail-detail">${t("sign")}</button><button class="button" data-action="login" data-return="retail-detail">${t("login")}</button></div>`}</div></div></section>`,
+    "retail-summary":`<section class="view">${heading("READY RING",t("order"),t("demo"))}<div class="flow-grid"><div class="selection-list"><div class="summary"><dl><dt>Ready ring</dt><dd>Form 01 · ${t("demo")}</dd><dt>${t("full")}</dt><dd>${t("demo")} · ${t("noPrice")}</dd><dt>${t("reserve")}</dt><dd>${t("confirmed")}</dd></dl></div><div class="button-row"><button class="button primary" data-action="retail-payment">${t("continue")}</button></div></div></div></section>`,
+    "retail-result":`<section class="view">${retailResult()}</section>`,
+    tracking:`<section class="view">${heading("BOOKING",t("lookup"),t("lookupText"))}<form id="tracking-form" class="form-stack"><div class="field"><label>${t("code")}</label><input id="tracking-code" required autocomplete="off" placeholder="AAT-DEMO-0000"/></div><div class="field"><label>${t("email")} / ${t("phone")}</label><input id="tracking-contact" required autocomplete="off"/></div><p id="tracking-error" class="notice error" hidden></p><button class="button primary" type="submit">${t("search")}</button></form><div id="tracking-result"></div></section>`
+  }; }
+  function authForm(mode){ return `<form id="auth-form" class="form-stack" data-mode="${mode}"><div class="field"><label>${t("email")}</label><input type="email" required autocomplete="off"/></div><div class="field"><label>${t("phone")}</label><input required inputmode="tel" autocomplete="off"/></div><div class="field"><label>${t("password")}</label><input type="password" required minlength="4" autocomplete="off"/></div><p id="auth-error" class="notice error" hidden></p><button class="button primary" type="submit">${mode==="signup"?t("create"):t("enter")}</button></form>`; }
+  function bookingResult(){ const status=state.bookingStatus||"pending", title=status==="confirmed"?t("bookingOk"):status==="failed"?t("bookingFail"):t("bookingWait"); return `${heading("BOOKING",title,t("emailDemo"))}<p><span class="status ${status}">${t(status)}</span></p><div class="summary"><dl><dt>${t("code")}</dt><dd>${state.bookingCode||"—"}</dd><dt>${t("location")}</dt><dd>${state.location?loc[state.location][0]:"—"}</dd><dt>${t("slot")}</dt><dd>${state.slot!==""?slots[state.slot][0]:"—"}</dd></dl></div>${status==="confirmed"?`${qrcode()}${state.member?`<div class="button-row"><button class="button primary" data-action="history">${t("history")}</button></div>`:`<h3>${t("join")}</h3><div class="button-row"><button class="button primary" data-action="auth" data-return="booking-result">${t("joinNow")}</button><button class="button" data-action="home">${t("noThanks")}</button></div>`}`:status==="failed"?`<div class="button-row"><button class="button primary" data-action="payment">${t("payment")}</button></div>`:`<div class="button-row"><button class="button" data-action="tracking">${t("track")}</button></div>`}`; }
+  function retailResult(){ const status=state.orderStatus||"pending"; if(status!=="confirmed") return `${heading("RETAIL",status==="failed"?t("failed"):t("pending"),t("paymentText"))}<div class="button-row"><button class="button primary" data-action="retail-payment">${t("payment")}</button></div>`; if(!state.delivery) return `${heading("RETAIL",t("success"),t("reserve"))}<p class="notice success">${state.orderCode}</p><div class="button-row"><button class="button primary" data-action="delivery" data-value="pickup">${t("pickup")}</button><button class="button" data-action="delivery" data-value="handoff">${t("handoff")}</button></div>`; const text=state.delivery==="pickup"?t("pickupState"):state.delivery==="handed"?t("handed"):t("handoffState"); return `${heading("RETAIL",text,t("emailDemo"))}<p class="notice success">${state.orderCode} · ${t("demo")}</p>${state.delivery==="handoff"?`<button class="button" data-action="delivery" data-value="handed">${t("handed")}</button>`:""}`; }
+  function showToast(message){ toast.textContent=message;toast.hidden=false;clearTimeout(showToast.id);showToast.id=setTimeout(()=>toast.hidden=true,2500); }
+  function setError(id,message){ const el=document.querySelector(`#${id}`);if(el){el.textContent=message;el.hidden=!message;} }
+  function saveAnd(next){save();render(next);}
+  document.addEventListener("click",(e)=>{const b=e.target.closest("[data-action]");if(!b)return;const a=b.dataset.action,v=b.dataset.value;if(a==="home"||a==="booking"||a==="shop"||a==="tracking"||a==="history"||a==="contact"||a==="schedule"||a==="location-detail"||a==="design"||a==="design-config"||a==="design-image"||a==="retail-detail"||a==="retail-summary"||a==="payment"){ if(a==="location-detail")state.location=b.dataset.location||state.location; if(a==="retail-detail"&&b.dataset.product)state.returnTo="retail-detail"; saveAnd(a); }
+    else if(a==="set-date"||a==="set-slot"||a==="set-package"){state[a.replace("set-","")]=v;save();render("schedule");}
+    else if(a==="design-sample"){state.design="sample";saveAnd("payment");} else if(a==="design-complete"){state.design=v;saveAnd("payment");}
+    else if(a==="image-outcome"){imageOutcome=v;render("design-image");}
+    else if(a==="booking-summary"){if(!state.date||state.slot===""||state.package==="") return setError("schedule-error",t("error"));saveAnd("booking-summary");}
+    else if(a==="retail-payment"){state.orderCode=state.orderCode||code("order");state.delivery="";saveAnd("payment");}
+    else if(a==="payment-outcome"){if(state.orderCode){state.orderStatus=v;saveAnd("retail-result");}else{state.bookingStatus=v;if(!state.bookingCode)state.bookingCode=code("booking");saveAnd("booking-result");}}
+    else if(a==="auth"||a==="login"){if(a==="auth"&&state.member)return saveAnd("history");state.returnTo=b.dataset.return||state.returnTo||(view==="home"?"home":"booking-result");saveAnd(a);} else if(a==="delivery"){state.delivery=v;saveAnd("retail-result");}
+    else if(a==="reset"){localStorage.removeItem(KEY);state={...INITIAL,lang:state.lang};imageAttempts=[];if(imageUrl)URL.revokeObjectURL(imageUrl);imageUrl="";showToast(t("reset"));render("home");}
   });
-
-  $("#booking-form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const session = document.querySelector('input[name="session"]:checked')?.value || "";
-    const email = $("#guest-email").value.trim();
-    if (!session || !email || !$("#guest-email").validity.valid) {
-      setError("booking-error", t("bookingError"));
-      return;
-    }
-    setError("booking-error", "");
-    state.session = session;
-    state.guestCount = $("#guest-count").value;
-    saveState();
-    $("#guest-email").value = "";
-    showView("design");
+  document.querySelector("#language-toggle").addEventListener("click",()=>{state.lang=state.lang==="vi"?"en":"vi";save();render(view);});
+  document.addEventListener("submit",(e)=>{e.preventDefault();const form=e.target;if(form.id==="contact-form"){const [email,phone]=form.querySelectorAll("input:not([type=checkbox])");if(!email.validity.valid||!phone.value.trim())return setError("contact-error",t("error"));saveAnd(form.querySelector("#design-toggle").checked?"design":"payment");}
+    if(form.id==="auth-form"){if(!form.checkValidity())return setError("auth-error",t("error"));state.member=true;const go=state.returnTo||"home";state.returnTo="";saveAnd(go);showToast(t("success"));}
+    if(form.id==="image-form"){const file=form.querySelector("#reference-image").files[0];if(!file||!form.querySelector("#image-consent").checked)return setError("image-error",t("error"));imageAttempts=imageAttempts.filter(x=>Date.now()-x<60000);if(imageAttempts.length>=5)return setError("image-error",t("imageLimit"));imageAttempts.push(Date.now());state.design="image";saveAnd("design-result");}
+    if(form.id==="tracking-form"){const code=form.querySelector("#tracking-code").value.trim().toUpperCase(), contact=form.querySelector("#tracking-contact").value.trim();if(!contact||code!==state.bookingCode)return setError("tracking-error",t("notFound"));setError("tracking-error","");const status=state.bookingStatus||"pending";document.querySelector("#tracking-result").innerHTML=`<div class="summary"><dl><dt>${t("code")}</dt><dd>${code}</dd><dt>${t("status")}</dt><dd><span class="status ${status}">${t(status)}</span></dd></dl></div>${status==="confirmed"?qrcode():""}`;}
   });
-
-  $$('[data-design-type]').forEach((button) => button.addEventListener("click", () => {
-    state.designType = button.dataset.designType;
-    saveState();
-    if (state.designType === "catalogue") {
-      nextTrackingCode();
-      saveState();
-      renderResult();
-      showView("result");
-    } else {
-      $("#custom-form").hidden = false;
-      $("#reference-note").focus();
-    }
-  }));
-
-  $("#reference-image").addEventListener("change", (event) => {
-    const file = event.target.files?.[0];
-    const preview = $("#image-preview");
-    if (imageUrl) URL.revokeObjectURL(imageUrl);
-    if (!file) { preview.hidden = true; preview.innerHTML = ""; return; }
-    imageUrl = URL.createObjectURL(file);
-    preview.innerHTML = `<img alt="${state.language === "vi" ? "Ảnh xem trước cục bộ" : "Local image preview"}">`;
-    preview.querySelector("img").src = imageUrl;
-    preview.hidden = false;
-  });
-
-  $("#custom-form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    if (!$("#image-consent").checked) {
-      setError("custom-error", t("consentError"));
-      return;
-    }
-    setError("custom-error", "");
-    nextTrackingCode();
-    saveState();
-    $("#reference-note").value = "";
-    $("#reference-image").value = "";
-    $("#image-consent").checked = false;
-    $("#image-preview").hidden = true;
-    $("#image-preview").innerHTML = "";
-    if (imageUrl) { URL.revokeObjectURL(imageUrl); imageUrl = ""; }
-    renderResult();
-    showView("result");
-  });
-
-  $("#copy-code").addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText(state.trackingCode); showToast(t("copied")); }
-    catch { showToast(state.trackingCode); }
-  });
-
-  $("#tracking-form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const code = $("#tracking-input").value.trim().toUpperCase();
-    if (!state.trackingCode || code !== state.trackingCode) {
-      $("#tracking-result").hidden = true;
-      setError("tracking-error", t("trackingError"));
-      return;
-    }
-    setError("tracking-error", "");
-    $("#tracking-result").hidden = false;
-    renderTracking();
-  });
-
-  $("#reset-demo").addEventListener("click", () => {
-    localStorage.removeItem(STORAGE_KEY);
-    state = { ...INITIAL_STATE, language: state.language };
-    $("#booking-form").reset();
-    $("#custom-form").reset();
-    $("#tracking-form").reset();
-    $("#tracking-result").hidden = true;
-    if (imageUrl) { URL.revokeObjectURL(imageUrl); imageUrl = ""; }
-    $("#image-preview").hidden = true;
-    $("#image-preview").innerHTML = "";
-    applyLanguage();
-    showToast(t("resetDone"));
-    showView("home");
-  });
-
-  applyLanguage();
+  document.addEventListener("change",(e)=>{if(e.target.id!=="reference-image")return;const file=e.target.files[0],box=document.querySelector("#image-preview");if(imageUrl)URL.revokeObjectURL(imageUrl);if(!file){box.hidden=true;return;}imageUrl=URL.createObjectURL(file);box.innerHTML=`<img alt="${t("demo")}" src="${imageUrl}">`;box.hidden=false;});
+  render();
 })();
