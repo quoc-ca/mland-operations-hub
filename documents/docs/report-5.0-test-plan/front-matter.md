@@ -9,6 +9,6 @@
 | Group | SEP490_G22 |
 | English project name | Personalized Product Sales and Workshop Booking System |
 
-**Known Mland context:** testing will cover Guest/Member booking deposit, gateway-webhook confirmation, invoice adjustments/consent, cash/bank final settlement, Member retail reservation, pickup/delivery handoff, feasibility decisions, and audit history.
+**Known Mland context:** testing will cover Guest/Member booking deposit, 18 September booking/custody rules, invoice adjustments/consent, cash/bank final settlement, Member retail reservation, pickup/delivery handoff, feasibility decisions, conditional Google review import, and audit history. Payment Gateway provider/webhook design is not approved and therefore has no executable integration-test commitment.
 
-> **TBD — Mland decision required:** gateway sandbox, webhook test evidence, reservation-concurrency cases, cancellation/refund policy, delivery-handoff test data, acceptance owners, environments, devices/browsers, test tools, quality thresholds, and release criteria.
+> **TBD — group decision required:** gateway provider/sandbox, webhook/IPN test evidence, reconciliation/retry/duplicate/refund rules, exact capacity configuration, catalogue/evaluation test data, remaining cancellation/refund cases, Google Review access/governance evidence, delivery-recipient retention, acceptance owners, environments, devices/browsers, test tools, quality thresholds, and release criteria.

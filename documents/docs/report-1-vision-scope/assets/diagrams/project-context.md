@@ -12,4 +12,6 @@ flowchart LR
     System -->|booking; review; order notification| Email[Email delivery service: provider TBD]
     System -->|booking deposit or member retail payment request| Payment[Payment Gateway]
     Payment -->|payment status; transaction ID| System
+    System -->|review link or QR| Google[Google Business Profile / Reviews: conditional]
+    Google -->|Owner-triggered one-way review import| System
 ```

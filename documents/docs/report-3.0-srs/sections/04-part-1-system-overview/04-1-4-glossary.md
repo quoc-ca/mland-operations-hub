@@ -9,5 +9,5 @@
 | Invoice Adjustment | A staff-recorded additional charge with reason, actor, timestamp and customer consent. |
 | Payment Transaction | A record of a gateway deposit/full payment or an in-shop cash/bank settlement. |
 | Retail Order | A Member's order for one ready-made ring. |
-| Stock Reservation | The reservation of one ready-ring unit after verified full payment. Reservation expiry is `TBD`. |
+| Stock Reservation | The reservation of one ready-ring unit after verified full payment. It has no automatic expiry in V1 and remains until pickup or carrier handoff. |
 | Delivery Handoff | Staff-recorded handover of a paid ready-ring order to a third-party carrier; the system has no post-handoff carrier tracking in V1. |
