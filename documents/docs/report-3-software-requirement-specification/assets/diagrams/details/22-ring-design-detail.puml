@@ -1,0 +1,74 @@
+@startuml
+!pragma charset UTF-8
+title UC-Ring Design — Select, Configure or Submit Reference Image
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+start
+|Guest or Member|
+:Choose design approach;
+if (Approved ring model?) then (yes)
+  |System|
+  :Load Owner-confirmed model;
+  :Mark route as catalogue design;
+  stop
+elseif (Component configurator?) then (yes)
+  |Guest or Member|
+  :Choose available component options;
+  |System|
+  :Validate against approved components\nand hard constraints;
+  if (Selection valid?) then (yes)
+    :Mark route as configured design;
+  else (no)
+    :Explain constraint and require a valid selection;
+  endif
+  stop
+else (Reference image)
+  |Guest or Member|
+  :Read consent wording and give explicit consent;
+  :Submit reference image;
+  |System|
+  :Validate request, consent and rate limit;
+  if (Request accepted?) then (yes)
+    |AI Vision API|
+    :Assess image quality;
+    :Return candidate features only;
+    |System|
+    :Evaluate candidate features with approved\nhard constraints, scores and thresholds;
+    if (Simple) then (auto-accept)
+      :Record auditable feasibility decision;
+      :Show feasible design path;
+    elseif (Medium) then (Staff review)
+      :Create Staff review request;
+      |Staff / Consultant|
+      :Review feasibility and optionally override;
+      |System|
+      :Record actor, reason and decision context;
+      :Show reviewed result;
+    elseif (Advanced) then (Owner review)
+      :Create Owner review request;
+      |Owner / Manager|
+      :Review feasibility and optionally override;
+      |System|
+      :Record actor, reason and decision context;
+      :Show reviewed result;
+    else (Impossible)
+      :Record approved rejection reason/context;
+      :Ask customer to choose another option;
+    endif
+  else (no)
+    :Do not send image to AI;
+    :Show consent, quality or rate-limit error;
+  endif
+endif
+
+note right
+AI cannot decide the final price or feasibility; it only returns image quality and candidate features.
+Scoring, thresholds, evaluation dataset and retention wording remain Open/TBD.
+end note
+stop
+@enduml

@@ -1,0 +1,32 @@
+@startuml
+!pragma charset UTF-8
+title UC-Technical Administration — Configure and Monitor Technical Integrations
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+start
+|Admin Technical|
+:Authenticate through the approved technical-administration mechanism;
+:Open technical configuration or monitoring area;
+|System|
+:Verify Admin Technical authorisation;
+if (Technical operation requested?) then (configuration / integration / monitoring)
+  |Admin Technical|
+  :Configure approved technical settings or inspect integration health/logs;
+  |System|
+  :Apply permitted technical configuration;
+  :Record technical audit event;
+else (business-record mutation)
+  :Deny request;
+  :Record denied attempt in technical audit;
+endif
+
+note right
+Admin Technical may manage configuration, integrations, monitoring and technical audit only. It must not change invoice, payment, order or other business records.
+end note
+stop
+@enduml

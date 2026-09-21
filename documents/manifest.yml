@@ -1,82 +1,49 @@
 reference_doc: templates/reference.docx
 
 documents:
-  - id: report-1-vision-scope
-    # The Git-first source bundle is rendered to DOCX before Google Docs sync.
-    source_bundle: docs/report-1-vision-scope
-    drive_file_id: "1Uz19WCIOSa5_bR5K4QzO954uVTP_Vsb6X2m_lIypZpc"
+  - id: report-1-project-introduction
+    source_bundle: docs/report-1-project-introduction
+    drive_file_id: "1LQIREV3ExYwrRiut_F4qRhOV_GT4qkdu9ygtXHEtA5I"
     target: google-doc
-
-  - id: report-2.0-project-plan
-    source_bundle: docs/report-2.0-project-plan
-    drive_file_id: "1LxhYrVQQrnhKGPm-3zyOXLBH0i6vaDhNqMak75QXA2A"
+  - id: report-2-project-management-plan
+    source_bundle: docs/report-2-project-management-plan
+    drive_file_id: "18ftNiMnQhGHR__ltVrXQKgGM5kU85xjbXq--VHRJG2Q"
     target: google-doc
-
-  - id: report-3.0-srs
-    source_bundle: docs/report-3.0-srs
-    drive_file_id: "1dEgY91J4VOmLWbEfTx1NdFB5c0LPWRDAUyLxWku1jh0"
+  - id: report-3-software-requirement-specification
+    source_bundle: docs/report-3-software-requirement-specification
+    drive_file_id: "1B5QjTFiTKqGjV34RYIeePm8lj5evtN0Nwt0aO_SJ6A8"
     target: google-doc
-
-  - id: report-3.2-fds
-    source_bundle: docs/report-3.2-fds
-    drive_file_id: "1QErQMWOly4GhDrH_UvJhb0IWOkj4jyyeIcdk4Kp6jnM"
+  - id: report-4-software-design-specification
+    source_bundle: docs/report-4-software-design-specification
+    drive_file_id: "1WM7u4JV_2_ck5gBSOgOrSdhOCgNEyxJyGG8K0RdqItM"
     target: google-doc
-
-  - id: report-3.2-screen-design-spec
-    source_bundle: docs/report-3.2-screen-design-spec
-    drive_file_id: "11WUJs_KXTejfIH5KkDRzzeeMBuVc5QRimH-YJC8Z33s"
-    target: google-doc
-
-  - id: report-4-tds
-    source_bundle: docs/report-4-tds
-    drive_file_id: "1YgZVSTWOOiClz4vpnpw1guIZTixS3_QzfyueAkBeXTY"
-    target: google-doc
-
-  - id: report-5.0-test-plan
-    source_bundle: docs/report-5.0-test-plan
-    drive_file_id: "1LVNEZGGMx2ryJEyaZpFgg18QEjmIDKDqupOsPob0j7k"
+  - id: report-5.0-test-documentation
+    source_bundle: docs/report-5.0-test-documentation
+    drive_file_id: "1wfav70e_TK2kT4xGAtctl9ouTiRU-3QuE8mNOC3ntog"
     target: google-doc
 
 trackers:
-  - id: report-2.1-project-tracking
-    source_folder: trackers/report-2.1-project-tracking/
-    drive_file_id: "1lBlYYHxJ-jQouStWzOkvYv_w3ayDn4bv2yvRu1b2oSk"
+  - id: project-tracking
+    source_folder: trackers/project-tracking/
+    drive_file_id: "1vdrgp0D_aBtX72WeXa63SgccfdFZoJBAJWRr9JVCa_w"
     target: google-sheet
-    generated_sheets:
-      - csv: ChangeLog.csv
-        generated: git-history
-      - csv: IssuesOnGithub.csv
-        generated: github-issues
-
-  - id: report-3.1-rtw
-    source_folder: trackers/report-3.1-rtw/
-    drive_file_id: "1rjxg3TRlpV21fi6AzmShyvSEQeq8FwxpnOasZRA6Ge4"
+  - id: report-5.1-unit-test
+    source_folder: trackers/report-5.1-unit-test/
+    drive_file_id: "1PoSmgOFf1g6GwT8ccNnuBMX8mjeONcf8v9aAR-tv4N8"
     target: google-sheet
-    generated_sheets:
-      - csv: 9-ChangeLog.csv
-        generated: git-history
-
-  - id: report-5.2-l1-unit-tests
-    source_folder: trackers/report-5.2-l1-unit-tests/
-    drive_file_id: "1TbX7UuDISXGC-JB6EK-CcKC7R45vg-Bj18lQ0_u5QtU"
+  - id: report-5.2-integration-test
+    source_folder: trackers/report-5.2-integration-test/
+    drive_file_id: "1AGr2aFTnVSRPWLUep1GTzNEkeTxPIQdTiEe5C-CFkdE"
     target: google-sheet
-
-  - id: report-5.2-l2-integration-tests
-    source_folder: trackers/report-5.2-l2-integration-tests/
-    drive_file_id: "1O5ul21_2iNbckZXg8NVdNBygmsPhI0fZG6C5bCf1wxU"
+  - id: report-5.3-system-test-frs
+    source_folder: trackers/report-5.3-system-test-frs/
+    drive_file_id: "1Yem9RCZ2c5-TdTNanQjpNGKw7_f9CMRlCPJGudCQyg8"
     target: google-sheet
-
-  - id: report-5.3-l3-system-api-tests
-    source_folder: trackers/report-5.3-l3-system-api-tests/
-    drive_file_id: "15zdTpic3Ty07YFuGtbvT-FxiwXY9RSpvx55n9uCmoJc"
+  - id: report-5.4-system-test-nfrs
+    source_folder: trackers/report-5.4-system-test-nfrs/
+    drive_file_id: "1Mmi7M-CQ4YRUBmEOjaOuMMkPQNj7YSLJiTFkmm3e_u4"
     target: google-sheet
-
-  - id: report-5.4-l4-e2e-tests
-    source_folder: trackers/report-5.4-l4-e2e-tests/
-    drive_file_id: "1Yw2BAwwDsziAC2eK71gwEgvLdjT82iaPZi_QVyYUZTQ"
-    target: google-sheet
-
-  - id: report-5.5-uat-scripts
-    source_folder: trackers/report-5.5-uat-scripts/
-    drive_file_id: "1KL4TUxdCnS7qcIi6WKzrLYe4QzwqVmcBtXi_vUkTbAU"
+  - id: report-5.5-acceptance-test-scripts
+    source_folder: trackers/report-5.5-acceptance-test-scripts/
+    drive_file_id: "1pEdGeoR0EfNu4x9IOuccyDYuuw6YfQd6vVHu1wGXDxg"
     target: google-sheet

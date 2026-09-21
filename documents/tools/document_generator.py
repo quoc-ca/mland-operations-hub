@@ -22,9 +22,9 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 try:
-    from .git_history import GitCommit, GitHistoryError, git_history_entries, markdown_change_history
+    from .git_history import GitCommit, GitHistoryError, git_history_entries, git_history_entries_for_paths, markdown_change_history, markdown_template_change_history
 except ImportError:  # Supports `python tools/generate_document.py`.
-    from git_history import GitCommit, GitHistoryError, git_history_entries, markdown_change_history
+    from git_history import GitCommit, GitHistoryError, git_history_entries, git_history_entries_for_paths, markdown_change_history, markdown_template_change_history
 
 IMAGE_PATTERN = re.compile(r"!\[[^\]]*\]\((?P<target>[^)\s]+)(?:\s+[^)]*)?\)")
 LINK_PATTERN = re.compile(r"(?<!!)\[(?P<label>[^\]]+)\]\((?P<target>[^)\s]+)(?:\s+[^)]*)?\)")
@@ -75,6 +75,7 @@ class Bundle:
     output_name: str
     fragments: tuple[Path, ...]
     renderers: dict[str, str]
+    change_log: dict[str, Any] | None
 
 
 def _error(code: str, reason: str, **details: str | None) -> GenerationError:
@@ -150,7 +151,25 @@ def load_bundle(bundle_root: Path) -> Bundle:
         endpoint = renderers.get(name)
         if not isinstance(endpoint, str) or not endpoint.startswith("https://"):
             raise _error("renderer-invalid", f"{name} renderer must use an HTTPS URL.", report_id=report_id)
-    return Bundle(root, report_id, output_name, tuple(fragments), renderers)
+    change_log_value = data.get("change_log")
+    change_log: dict[str, Any] | None = None
+    if change_log_value is not None:
+        if not isinstance(change_log_value, dict):
+            raise _error("manifest-invalid", "change_log must be a mapping.", report_id=report_id)
+        history_paths = change_log_value.get("history_paths")
+        if change_log_value.get("format") != "template":
+            raise _error("manifest-invalid", "change_log.format must be template.", report_id=report_id)
+        if not isinstance(history_paths, list) or not history_paths or not all(isinstance(item, str) for item in history_paths):
+            raise _error("manifest-invalid", "change_log.history_paths must be a non-empty list of relative paths.", report_id=report_id)
+        for history_path in history_paths:
+            candidate = Path(history_path)
+            if candidate.is_absolute() or ".." in candidate.parts:
+                raise _error("manifest-invalid", "change_log.history_paths must stay within the repository.", report_id=report_id)
+        default_action = change_log_value.get("default_action", "M")
+        if default_action not in {"A", "M", "D"}:
+            raise _error("manifest-invalid", "change_log.default_action must be A, M, or D.", report_id=report_id)
+        change_log = {"format": "template", "history_paths": tuple(history_paths), "default_action": default_action}
+    return Bundle(root, report_id, output_name, tuple(fragments), renderers, change_log)
 
 
 def _image_targets(markdown: str) -> list[str]:
@@ -235,7 +254,7 @@ def validate_bundle(bundle: Bundle) -> list[tuple[Path, Path, str]]:
     for fragment in bundle.fragments:
         relative_fragment = _relative(bundle, fragment)
         text = fragment.read_text(encoding="utf-8")
-        drive_image_placeholders(Bundle(bundle.root, bundle.report_id, bundle.output_name, (fragment,), bundle.renderers))
+        drive_image_placeholders(Bundle(bundle.root, bundle.report_id, bundle.output_name, (fragment,), bundle.renderers, bundle.change_log))
         for target in _image_targets(text):
             asset = _asset_path(bundle, target, fragment)
             suffix = asset.suffix.lower()
@@ -347,8 +366,12 @@ def _replace_drive_image_placeholders(text: str, drive_assets: Mapping[str, Path
     return DRIVE_ASSET_PATTERN.sub(replace, text)
 
 
-def _replace_git_history(text: str, history: tuple[GitCommit, ...]) -> str:
-    return text.replace(GIT_HISTORY_MARKER, markdown_change_history(history))
+def _replace_git_history(text: str, history: tuple[GitCommit, ...], change_log: Mapping[str, Any] | None = None) -> str:
+    if change_log and change_log["format"] == "template":
+        rendered = markdown_template_change_history(history, default_action=change_log["default_action"])
+    else:
+        rendered = markdown_change_history(history)
+    return text.replace(GIT_HISTORY_MARKER, rendered)
 
 
 def _require_pandoc() -> str:
@@ -412,10 +435,14 @@ def build_bundle(
         fragment_text = {fragment: fragment.read_text(encoding="utf-8") for fragment in bundle.fragments}
         if any(GIT_HISTORY_MARKER in text for text in fragment_text.values()):
             try:
-                history = git_history_entries(repo_root, bundle.root)
+                if bundle.change_log:
+                    sources = tuple(repo_root / path for path in bundle.change_log["history_paths"])
+                    history = git_history_entries_for_paths(repo_root, sources)
+                else:
+                    history = git_history_entries(repo_root, bundle.root)
             except GitHistoryError as exc:
                 raise _error("git-history-unavailable", str(exc), report_id=bundle.report_id) from exc
-            fragment_text = {fragment: _replace_git_history(text, history) for fragment, text in fragment_text.items()}
+            fragment_text = {fragment: _replace_git_history(text, history, bundle.change_log) for fragment, text in fragment_text.items()}
 
         composed = temp_dir / "composed.md"
         composed_parts: list[str] = []

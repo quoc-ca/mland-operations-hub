@@ -1,0 +1,45 @@
+@startuml
+!pragma charset UTF-8
+title UC-Workshop Operations — Check-in, Adjustment and Settlement
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+start
+|Staff / Consultant|
+:Locate confirmed Booking using code / QR;
+:Check in customer and verify actual product participants;
+if (Each unbooked extra person actually contributes?) then (yes)
+  :Prepare adjustment = 100,000 VND x each extra contributing person;
+  :Record adjustment reason, Staff actor and time;
+  |Guest or Member|
+  :Review and consent to adjustment;
+  |System|
+  :Append InvoiceAdjustment to invoice audit trail;
+else (no)
+endif
+|Staff / Consultant|
+if (Waiver or changed fee requested?) then (yes)
+  |Owner / Manager|
+  :Approve or reject waiver/change;
+  |Staff / Consultant|
+  :Record Owner decision and reason in audit trail;
+else (no)
+endif
+|System|
+:Calculate final balance = unpaid 50% package amount + approved adjustments;
+|Guest or Member|
+:Settle final balance at shop by cash or bank transfer;
+|Staff / Consultant|
+:Record settlement transaction and fulfilment state;
+|System|
+:Keep invoice/payment audit history;
+
+note right
+The fee is not based only on a person being present. It applies only when an unbooked additional person actually participates in making the product.
+end note
+stop
+@enduml

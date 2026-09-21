@@ -1,0 +1,63 @@
+@startuml
+!pragma charset UTF-8
+title Workshop Check-in, Settlement and Continuation Swimlane
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+|Guest or Member|
+start
+:Arrive for a confirmed workshop booking;
+
+|Staff / Consultant|
+:Verify booking code or QR;
+:Check actual product participants;
+if (Unbooked additional participant actually contributes to making?) then (yes)
+  :Prepare 100,000 VND adjustment per participant;
+  :Record Staff actor, time and reason;
+  |Guest or Member|
+  :Give consent to invoice adjustment;
+  |System|
+  :Append auditable invoice adjustment;
+else (no)
+endif
+
+|Staff / Consultant|
+if (Fee waiver / fee change requested?) then (yes)
+  |Owner / Manager|
+  :Approve or reject waiver/change;
+  |Staff / Consultant|
+  :Record decision and audit reason;
+else (no)
+endif
+
+|Guest or Member|
+if (Product needs another workshop session?) then (yes)
+  :Request continuation;
+  |Staff / Consultant|
+  :Check later-session capacity;
+  if (Capacity available?) then (yes)
+    :Create linked continuation booking;
+    :Record work-item description, intake photo,\nlocation/time and Staff actor;
+    |System|
+    :Store custody record and continuation link;
+  else (no)
+    :Explain that no continuation slot is reserved;
+  endif
+else (no)
+endif
+
+|Staff / Consultant|
+:Calculate final unpaid balance\n(remaining 50% + approved adjustments);
+|Guest or Member|
+:Pay settlement in cash or bank transfer at shop;
+|Staff / Consultant|
+:Record settlement;
+|System|
+:Update invoice / fulfilment record and audit trail;
+stop
+@enduml
+

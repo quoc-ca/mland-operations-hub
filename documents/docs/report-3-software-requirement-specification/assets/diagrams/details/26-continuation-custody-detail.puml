@@ -1,0 +1,41 @@
+@startuml
+!pragma charset UTF-8
+title UC-Continuation — Continue Work and Record Custody
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+start
+|Guest or Member|
+:Request to continue a work-in-progress product\nin a later workshop session;
+|Staff / Consultant|
+:Locate current Booking and work item;
+:Check a later session at the requested location for capacity;
+if (Later session has capacity?) then (yes)
+  :Create Staff-initiated linked continuation Booking;
+  :Record custody intake:\nwork-item description, intake photo, location/time and Staff actor;
+  |System|
+  :Link continuation Booking and custody record\nto the work-in-progress item;
+  :Do not automatically reserve any other session;
+  |Guest or Member|
+  :Receive continuation booking information;
+else (no)
+  :Explain no continuation slot can be created;
+endif
+
+|Staff / Consultant|
+if (Customer returns for continuation or collection?) then (yes)
+  :Verify booking code or QR;
+  :Check the work item with customer;
+  :Record auditable custody release / handover;
+else (no)
+endif
+
+note right
+Only Staff may create a continuation booking. The customer cannot self-create it and the system cannot auto-hold the next session.
+end note
+stop
+@enduml

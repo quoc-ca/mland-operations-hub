@@ -63,7 +63,7 @@ Payment Gateway vẫn là blocker nghiệp vụ/kỹ thuật. Chưa có quyết 
 
 Khách có thể làm tiếp ở ca sau khi Staff tạo continuation booking theo yêu cầu và ghi nhận custody/release cho work-in-progress item. Khi check-in, Staff xác nhận số người thực sự cùng làm sản phẩm; phụ thu là 100.000 VND cho mỗi người thêm chưa booking có tham gia làm, chỉ ghi sau Staff attestation và customer consent.
 
-Context chi tiết: [Project Context Diagram](docs/report-1-vision-scope/assets/diagrams/project-context.md).
+Context chi tiết: [Project Context Diagram](docs/report-3-software-requirement-specification/assets/diagrams/context.puml).
 
 ## Ngoài scope V1
 
@@ -77,12 +77,11 @@ Context chi tiết: [Project Context Diagram](docs/report-1-vision-scope/assets/
 
 | Nguồn | Trạng thái |
 | --- | --- |
-| [Vision & Scope](docs/report-1-vision-scope/front-matter.md) | Baseline V1 hiện hành, phản ánh group decisions 17/09 và 18/09; data/gateway/governance chưa chốt vẫn được phân biệt rõ. |
-| [Project Plan](docs/report-2.0-project-plan/front-matter.md) | Có working baseline; milestone, budget, delivery role, governance và approval process vẫn chưa được duyệt. |
-| [SRS](docs/report-3.0-srs/front-matter.md) | Đã ghi business rules 17/09–18/09; cần chi tiết hóa data, authorization và các integration/governance còn mở. |
-| [FDS](docs/report-3.2-fds/front-matter.md) và [Screen Design](docs/report-3.2-screen-design-spec/front-matter.md) | Cần chốt journey, field, validation, screen inventory và wireframe. |
-| [TDS](docs/report-4-tds/front-matter.md) | Chưa có architecture, hosting, data, auth, integration hay security decision được phê duyệt. |
-| [Test Plan](docs/report-5.0-test-plan/front-matter.md) | Acceptance scenarios phản ánh rule đã chốt; environment, owner, quality threshold, gateway contract và test result chưa được duyệt. |
+| [Report 1](docs/report-1-project-introduction/front-matter.md) | Active SEP490 introduction and scope baseline. |
+| [Report 2](docs/report-2-project-management-plan/front-matter.md) | Planning baseline; milestone, budget, roles, and approval remain TBD. |
+| [Report 3](docs/report-3-software-requirement-specification/front-matter.md) | Active requirements, business flows, permission boundary, and committed PUML source. |
+| [Report 4](docs/report-4-software-design-specification/front-matter.md) | Architecture and implementation design remain TBD until an application baseline is approved. |
+| [Report 5](docs/report-5.0-test-documentation/front-matter.md) | Test planning only; no result, environment, schedule, or sign-off is claimed. |
 
 ## Tình trạng mã nguồn và vận hành tài liệu
 
@@ -94,13 +93,13 @@ Context chi tiết: [Project Context Diagram](docs/report-1-vision-scope/assets/
 
 | Nhóm cần xác nhận | Tình trạng | Nguồn theo dõi |
 | --- | --- | --- |
-| Booking, invoice & payment rules | Capacity từng cơ sở/ca, manual refund/force majeure, consent wording, final settlement và toàn bộ gateway contract. | [QA](trackers/report-2.1-project-tracking/QA.csv), [Open Issues](trackers/report-3.1-rtw/8-OpenIssues.csv) |
-| Component taxonomy, catalogue, price và hard constraint | Partially answered; Owner cần cung cấp/duyệt dữ liệu thực tế. | [QA](trackers/report-2.1-project-tracking/QA.csv), [Open Issues](trackers/report-3.1-rtw/8-OpenIssues.csv) |
-| Feasibility evidence, rule governance, threshold và evaluation | Partially answered; research prototype vẫn under validation. | [QA](trackers/report-2.1-project-tracking/QA.csv), [Risks](trackers/report-2.1-project-tracking/Risks.csv) |
-| Image consent/retention, review coverage, email và guest code | Partially answered; consent wording, provider retention và coverage còn mở. | [QA](trackers/report-2.1-project-tracking/QA.csv), [Risks](trackers/report-2.1-project-tracking/Risks.csv) |
-| Member retail & delivery handoff | Partially answered; pickup/manual exception, recipient-data retention và failed-handoff handling còn mở. | [Open Issues](trackers/report-3.1-rtw/8-OpenIssues.csv), [Risks](trackers/report-2.1-project-tracking/Risks.csv) |
-| Technical administration & Payment Gateway | Payment provider, webhook/IPN, reconciliation, retry, duplicate events và refund vẫn `Open` do tranh chấp nhóm. | [Open Issues](trackers/report-3.1-rtw/8-OpenIssues.csv), [QA](trackers/report-2.1-project-tracking/QA.csv) |
-| Google Reviews access, privacy, staff attribution và approval | Partially answered; verified access và governance là điều kiện trước import. | [QA](trackers/report-2.1-project-tracking/QA.csv), [Open Issues](trackers/report-3.1-rtw/8-OpenIssues.csv), [Risks](trackers/report-2.1-project-tracking/Risks.csv) |
+| Booking, invoice & payment rules | Capacity từng cơ sở/ca, manual refund/force majeure, consent wording, final settlement và toàn bộ gateway contract. | [Q&A](trackers/project-tracking/Q&A.csv), [Issues](trackers/project-tracking/Issues.csv) |
+| Component taxonomy, catalogue, price và hard constraint | Partially answered; Owner cần cung cấp/duyệt dữ liệu thực tế. | [Q&A](trackers/project-tracking/Q&A.csv), [Issues](trackers/project-tracking/Issues.csv) |
+| Feasibility evidence, rule governance, threshold và evaluation | Partially answered; research prototype vẫn under validation. | [Q&A](trackers/project-tracking/Q&A.csv), [Issues](trackers/project-tracking/Issues.csv) |
+| Image consent/retention, review coverage, email và guest code | Partially answered; consent wording, provider retention và coverage còn mở. | [Q&A](trackers/project-tracking/Q&A.csv), [Issues](trackers/project-tracking/Issues.csv) |
+| Member retail & delivery handoff | Partially answered; pickup/manual exception, recipient-data retention và failed-handoff handling còn mở. | [Issues](trackers/project-tracking/Issues.csv) |
+| Technical administration & Payment Gateway | Payment provider, webhook/IPN, reconciliation, retry, duplicate events và refund vẫn `Open` do tranh chấp nhóm. | [Issues](trackers/project-tracking/Issues.csv), [Q&A](trackers/project-tracking/Q&A.csv) |
+| Google Reviews access, privacy, staff attribution và approval | Partially answered; verified access và governance là điều kiện trước import. | [Q&A](trackers/project-tracking/Q&A.csv), [Issues](trackers/project-tracking/Issues.csv) |
 
 **Thứ tự tiếp theo:** thu evidence và chốt các mục `Open/TBD` → baseline requirement và trace trong RTW → chi tiết FDS/UI/TDS → lập kế hoạch implementation và test scenario.
 

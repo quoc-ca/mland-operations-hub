@@ -1,0 +1,2 @@
+Test Case ID,Scenario,Tool,Target,Actual,Status,Defect IDs,Notes
+ST-NFR-PERF-001,Booking availability response under approved load,TBD,TBD,,Not Run,,Performance target and environment TBD

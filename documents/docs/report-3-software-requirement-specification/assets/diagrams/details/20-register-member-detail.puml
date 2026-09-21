@@ -1,0 +1,36 @@
+@startuml
+!pragma charset UTF-8
+title UC-Account — Register a Member
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+start
+|Guest|
+:Choose Register / Become a Member;
+:Provide email, phone and authentication information;
+:Submit registration form;
+|System|
+:Validate required fields and account rules;
+if (Input valid and account can be created?) then (yes)
+  :Create Member account;
+  :Create authenticated Member session;
+  :Record technical audit event;
+  |Member|
+  :See successful registration;
+  :Continue to homepage or the protected action\nthat initiated registration;
+else (no)
+  :Show validation or account-creation error;
+  |Guest|
+  :Correct or abandon registration;
+endif
+
+note right
+Identity proofing, password policy, recovery and session implementation are not approved yet.
+This diagram records the required business outcome, not a final technical design.
+end note
+stop
+@enduml

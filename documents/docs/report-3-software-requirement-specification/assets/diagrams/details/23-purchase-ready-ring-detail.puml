@@ -1,0 +1,60 @@
+@startuml
+!pragma charset UTF-8
+title UC-Retail — Purchase a Ready Ring
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+start
+|Guest or Member|
+:Browse ready rings and select one item;
+|System|
+if (Authenticated Member?) then (yes)
+  :Show order summary and full amount due;
+  |Member|
+  :Confirm purchase and start payment;
+  |Payment Gateway|
+  :Process full retail payment;
+  |System|
+  if (Valid payment confirmation received?) then (yes)
+    :Record verified PaymentTransaction;
+    :Create RetailOrder;
+    :Reserve one ready-ring unit;
+    |Member|
+    :Choose pickup or third-party delivery handoff;
+    if (Pickup) then (yes)
+      |System|
+      :Set order status to pickup-ready / preparing;
+    else (handoff)
+      |Staff / Consultant|
+      :Complete third-party handoff;
+      :Record carrier, handoff reference, actor and timestamp;
+      |System|
+      :Set order status to handed to carrier;
+    endif
+    |Email Sender|
+    :Send order/status notification;
+    |System|
+    :Show order and transaction in Member history;
+  else (pending, failed or invalid)
+    :Keep order payment unconfirmed;
+    :Do not reserve the item;
+    :Show pending / unconfirmed-payment status;
+  endif
+else (no)
+  :Block Buy Now;
+  :Explain that retail checkout requires Member status;
+  |Guest|
+  :Sign in or register;
+  |System|
+  :Return to the selected ready-ring detail after success;
+endif
+
+note right
+The reservation has no automatic expiry in V1. Carrier tracking, delivery failure, return and logistics refund are out of scope.
+end note
+stop
+@enduml

@@ -1,6 +1,6 @@
-# Mland documentation workflow
+# SEP490 documentation workflow
 
-This repository manages Mland documentation through a Git-first workflow:
+This repository manages documentation for **Personalized Product Sales and Workshop Booking System** (group **SEP490_G22**) through a Git-first workflow:
 
 ```text
 Markdown fragments + Mermaid/PlantUML source
@@ -13,25 +13,19 @@ GitHub Actions validates and generates document bundles, then synchronizes mappe
 
 Agents working in this folder must read [AGENT.md](AGENT.md) for editing rules and [CLAUDE.md](CLAUDE.md) for workspace context.
 
-Document Change History tables and mapped ChangeLog tracker tabs are generated from scoped Git commit history during build and synchronization. Do not enter versions, authors, dates, or commit records manually.
+Each Report 1–5 bundle uses the SEP490 change-log table (`Date | A/M/D | In charge | Change Description`). It is generated from the configured, scoped Git history paths; the migration uses `M` by default rather than guessing an add/delete action from a commit message.
 
-GitHub Issues are the operational work source of truth. Managed work items are declared in authorized report fragments and synchronized only from `develop`; `IssuesOnGithub` is a generated, read-only Project Tracking snapshot exported from `develop`. Read [AGENT.md](AGENT.md) before adding a declaration or changing a tracker.
-
-Before enabling the `develop` workflow, create the agreed labels in GitHub: one `type:*`, one `priority:*`, at least one `domain:*`, `source:report`, `source:manual`, and `source:automation`; use `severity:*` only for bugs. Also create milestones `Iteration 01` through `Iteration 15`, share the assignment-notification expectation with each member, and create the mapped `IssuesOnGithub` tab in the Project Tracking Google Sheet.
-
-## Generate the Mland reports
+## Generate the active SEP490 reports
 
 Run these commands from the repository root:
 
 ```powershell
 $bundles = @(
-  'report-1-vision-scope',
-  'report-2.0-project-plan',
-  'report-3.0-srs',
-  'report-3.2-fds',
-  'report-3.2-screen-design-spec',
-  'report-4-tds',
-  'report-5.0-test-plan'
+  'report-1-project-introduction',
+  'report-2-project-management-plan',
+  'report-3-software-requirement-specification',
+  'report-4-software-design-specification',
+  'report-5.0-test-documentation'
 )
 $bundles | ForEach-Object { python tools/generate_document.py --bundle "docs/$_" --validate }
 $bundles | ForEach-Object { python tools/generate_document.py --bundle "docs/$_" }
@@ -47,6 +41,7 @@ Every `docs/report-*/document.yml` is JSON-compatible YAML so the local pipeline
 - `output`: the DOCX filename;
 - `fragments`: an explicit ordered list, starting with `front-matter.md`, followed by nested `sections/<H1-group>/<H2-section>.md` fragments;
 - `renderers`: configurable public endpoints for Mermaid and PlantUML.
+- `change_log`: the `template` format, historical source paths, and default A/M/D action.
 
 Each content task must name the fragment(s) it is allowed to edit. Do not alter generated files or reorder fragments implicitly.
 

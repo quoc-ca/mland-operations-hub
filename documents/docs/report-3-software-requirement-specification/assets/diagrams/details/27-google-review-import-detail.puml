@@ -1,0 +1,38 @@
+@startuml
+!pragma charset UTF-8
+title UC-Google Reviews — Customer Link/QR and Conditional Manual Import
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+start
+|Guest or Member|
+:Open Google review link or QR on the website;
+:Choose whether to write a review directly on Google;
+note right
+The system does not create or submit a Google review for the customer.
+end note
+
+|Owner / Manager|
+:Request manual one-way review import;
+|System|
+:Check prerequisites:\nverified Business Profile, authorised OAuth/API access,\nand approved retention/attribution/approval/appeal policy;
+if (All prerequisites satisfied?) then (yes)
+  :Start manual import;
+  |Google Business Profile|
+  :Return permitted review data;
+  |System|
+  :Store/display imported review according to approved policy;
+  :Make visibility available to Owner and, if approved, public website;
+else (no)
+  :Block import and show missing governance/access prerequisite;
+endif
+
+note right
+Import is one-way and manual. Reviews are never automatically attributed to Staff or used to calculate payroll/bonus.
+end note
+stop
+@enduml

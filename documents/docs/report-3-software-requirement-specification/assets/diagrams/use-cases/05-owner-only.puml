@@ -1,0 +1,35 @@
+@startuml
+!pragma charset UTF-8
+title Owner / Manager Use Cases
+left to right direction
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+actor "Owner / Manager" as Owner
+
+rectangle "Personalized Product Sales and Workshop Booking System" {
+  usecase "Manage confirmed component\ncatalogue and current prices" as Catalogue
+  usecase "Manage feasibility hard constraints,\nscores and thresholds" as Rules
+  usecase "Approve / reject fee\nwaiver or change" as FeeWaiver
+  usecase "Review business audit\nand override records" as Audit
+  usecase "Manually start one-way\nGoogle review import" as ImportReviews
+  usecase "Control imported-review\nvisibility" as ReviewVisibility
+}
+
+Owner --> Catalogue
+Owner --> Rules
+Owner --> FeeWaiver
+Owner --> Audit
+Owner --> ImportReviews
+Owner --> ReviewVisibility
+ImportReviews .> ReviewVisibility : <<extend>>\n[governance prerequisites met]
+
+note bottom of ImportReviews
+Manual import is conditional on verified access and approved governance.
+end note
+@enduml
+

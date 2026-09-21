@@ -1,0 +1,68 @@
+@startuml
+!pragma charset UTF-8
+title UC-Booking — Book a Workshop and Confirm Deposit
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+start
+|Guest or Member|
+:Select location;
+:Select date, one daily session and package;
+|System|
+:Confirm that capacity is configured per location/session;
+if (Selected session has capacity?) then (yes)
+  :Present booking summary;
+else (no)
+  :Reject selection and request another session;
+  stop
+endif
+|Guest or Member|
+:Enter required contact details\nor verify Member profile details;
+if (Use ring-design flow?) then (yes)
+  :Complete UC-Ring Design;
+  |System|
+  if (Design request is rejected?) then (yes)
+    :Request another design choice;
+    stop
+  else (no)
+  endif
+else (no)
+endif
+:Submit booking;
+|System|
+:Create Booking and Invoice;
+:Set required deposit to 50% of package price;
+:Set booking status to payment pending;
+|Guest or Member|
+:Start deposit payment;
+|Payment Gateway|
+:Return payment status through the approved confirmation mechanism;
+|System|
+if (Confirmation is valid and not a duplicate?) then (yes)
+  :Record deposit PaymentTransaction;
+  :Set Invoice deposit paid;
+  :Set Booking confirmed;
+  :Generate booking code and QR;
+  |Email Sender|
+  :Send confirmation notification;
+  |System|
+  if (Member?) then (yes)
+    :Show/save Booking, Invoice and Transaction in history;
+  else (no)
+    :Offer optional Member registration;
+  endif
+else (pending, failed or invalid)
+  :Keep Booking unconfirmed;
+  :Show payment-pending or unconfirmed status;
+endif
+
+note right
+Provider, webhook/IPN verification, reconciliation, retry, duplicate-event handling and refund handling are Open.
+Browser redirect must not confirm payment.
+end note
+stop
+@enduml

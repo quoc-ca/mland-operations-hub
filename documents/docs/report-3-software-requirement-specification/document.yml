@@ -1,0 +1,7 @@
+{
+  "id": "report-3-software-requirement-specification",
+  "output": "report-3-software-requirement-specification.docx",
+  "fragments": ["front-matter.md", "sections/01-change-log/00-overview.md", "sections/02-definitions/00-overview.md", "sections/03-i-overall-requirements/00-overview.md", "sections/03-i-overall-requirements/01-context-business-flow.md", "sections/03-i-overall-requirements/02-actors-permissions.md", "sections/03-i-overall-requirements/03-use-case-catalogue.md", "sections/03-i-overall-requirements/04-diagram-index.md", "sections/04-ii-use-case-specifications/00-overview.md", "sections/05-iii-functional-requirements/00-overview.md", "sections/06-iv-non-functional-requirements/00-overview.md", "sections/07-appendices/00-overview.md"],
+  "renderers": {"mermaid": "https://mermaid.ink", "plantuml": "https://www.plantuml.com/plantuml"},
+  "change_log": {"format": "template", "history_paths": ["documents/docs/report-3.0-srs", "documents/docs/report-3.2-fds", "documents/docs/report-3.2-screen-design-spec", "documents/trackers/report-3.1-rtw"], "default_action": "M"}
+}

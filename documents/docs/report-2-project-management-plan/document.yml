@@ -1,0 +1,7 @@
+{
+  "id": "report-2-project-management-plan",
+  "output": "report-2-project-management-plan.docx",
+  "fragments": ["front-matter.md", "sections/01-change-log/00-overview.md", "sections/02-i-project-overview/00-overview.md", "sections/02-i-project-overview/01-scope-purpose.md", "sections/02-i-project-overview/02-assumptions-constraints.md", "sections/02-i-project-overview/03-cost-time-capacity.md", "sections/02-i-project-overview/04-objectives-risks.md", "sections/03-ii-management-approach/00-overview.md", "sections/03-ii-management-approach/01-quality-training.md", "sections/03-ii-management-approach/02-responsibility-communication.md", "sections/03-ii-management-approach/03-configuration-management.md"],
+  "renderers": {"mermaid": "https://mermaid.ink", "plantuml": "https://www.plantuml.com/plantuml"},
+  "change_log": {"format": "template", "history_paths": ["documents/docs/report-2.0-project-plan"], "default_action": "M"}
+}

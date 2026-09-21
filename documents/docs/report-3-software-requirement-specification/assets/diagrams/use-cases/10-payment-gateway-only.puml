@@ -1,0 +1,31 @@
+@startuml
+!pragma charset UTF-8
+title Payment Gateway Use Cases
+left to right direction
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+actor "Payment Gateway\n(provider TBD)" as Gateway
+
+rectangle "Personalized Product Sales and Workshop Booking System" {
+  usecase "Return / deliver booking\ndeposit payment status" as DepositStatus
+  usecase "Return / deliver retail\nfull-payment status" as RetailStatus
+  usecase "Verify accepted payment\nconfirmation" as Verify
+  usecase "Record one verified\nPaymentTransaction" as RecordPayment
+}
+
+Gateway --> DepositStatus
+Gateway --> RetailStatus
+DepositStatus .> Verify : <<include>>
+RetailStatus .> Verify : <<include>>
+Verify .> RecordPayment : <<extend>>\n[valid and not duplicate]
+
+note bottom of Gateway
+Redirect alone is never payment confirmation. Provider, webhook/IPN, reconciliation, retry, duplicate handling and refund are Open.
+end note
+@enduml
+

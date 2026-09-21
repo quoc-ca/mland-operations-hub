@@ -1,0 +1,7 @@
+{
+  "id": "report-4-software-design-specification",
+  "output": "report-4-software-design-specification.docx",
+  "fragments": ["front-matter.md", "sections/01-change-log/00-overview.md", "sections/02-i-high-level-design/00-overview.md", "sections/03-ii-detailed-code-design/00-overview.md", "sections/04-iii-nfr-design/00-overview.md", "sections/05-iv-other/00-overview.md"],
+  "renderers": {"mermaid": "https://mermaid.ink", "plantuml": "https://www.plantuml.com/plantuml"},
+  "change_log": {"format": "template", "history_paths": ["documents/docs/report-4-tds"], "default_action": "M"}
+}

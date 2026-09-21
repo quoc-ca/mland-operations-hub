@@ -1,0 +1,35 @@
+@startuml
+!pragma charset UTF-8
+title UC-Tracking — Track a Guest Booking
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+start
+|Guest or Member|
+:Open booking tracking;
+:Enter booking code and contact information\nused for the booking;
+|System|
+:Match code and contact information;
+if (Match found?) then (yes)
+  :Show minimum booking information:\ncode, location, date, session, package,\nbooking status and invoice/deposit status;
+  if (Booking confirmed?) then (yes)
+    :Show booking QR;
+  else (no)
+    :Show payment pending / awaiting Gateway confirmation;
+    :Do not show booking as confirmed;
+  endif
+  if (Booking belongs to authenticated Member?) then (yes)
+    :Offer Member booking and transaction history;
+  else (no)
+  endif
+else (no)
+  :Show “No matching booking found”;
+  :Do not reveal booking information;
+endif
+stop
+@enduml
+
