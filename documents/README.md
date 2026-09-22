@@ -52,15 +52,17 @@ Use bundle-root-relative image references. PlantUML image references point to co
 ![Order state](assets/diagrams/order-state.puml)
 ```
 
-The generator renders Mermaid diagram links and PlantUML image references as temporary PNGs in DOCX output. Mermaid `.mmd` files are not supported. Regular PNG/JPG/GIF/SVG image assets must also be committed under the bundle. External image URLs are rejected to keep builds reproducible.
+The generator renders Mermaid diagram links and PlantUML image references as temporary PNGs in DOCX output. Mermaid `.mmd` files are not supported. Active report raster images, including manually designed diagrams, use Drive placeholders rather than committed image files; Mermaid and PlantUML source remain committed when they are the diagram source of truth. External image URLs are rejected to keep builds reproducible.
 
 To inject a Drive-hosted image only when publishing, place a standalone placeholder in a report fragment:
 
 ```markdown
 {{asset-name}}
+{{asset-name width=35%}}
+{{asset-name width=2.4in}}
 ```
 
-`asset-name` uses ASCII letters, digits, hyphens, and underscores only; it excludes the filename extension. During the `develop` publishing workflow, the synchronizer matches it case-insensitively to exactly one PNG or JPEG basename in the Drive folder declared by the GitHub Secret `GDRIVE_ASSETS_FOLDER_ID`, then inserts the image at 80% width. The folder must be shared with the service-account email as a Reader. Missing, duplicate, non-downloadable, or unsupported assets fail only that report target with a diagnostic; they are not committed or logged. A Drive-only image change does not trigger GitHub Actions, so use a manual dispatch from `develop` to republish it.
+`asset-name` uses ASCII letters, digits, hyphens, and underscores only; it excludes the filename extension. `width` is optional: the default is `80%`; accepted explicit values are integer `1%`–`100%` or decimal `0.1in`–`10in`. No other attributes are supported. During the `develop` publishing workflow, the synchronizer matches the basename case-insensitively to exactly one PNG or JPEG in the Drive folder declared by the GitHub Secret `GDRIVE_ASSETS_FOLDER_ID`, then inserts it at the requested width. The `Assets/` folder is scanned directly, not recursively, and must be shared with the service-account email as a Reader. Missing, duplicate, non-downloadable, or unsupported assets fail only that report target with a diagnostic; they are not committed or logged. A Drive-only image change does not trigger GitHub Actions, so use a manual dispatch from `develop` to republish it.
 
 Local DOCX builds do not contact Drive. They render `[Drive asset omitted: asset-name]` at a valid placeholder position; `--validate` checks placeholder and diagram syntax.
 

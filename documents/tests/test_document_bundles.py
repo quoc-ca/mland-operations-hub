@@ -36,6 +36,14 @@ class MlandBundleTests(unittest.TestCase):
         self.assertTrue(all((ROOT / path).is_dir() for path in re.findall(r"^    source_bundle: ([^\n]+)$", document_block, flags=re.MULTILINE)))
         self.assertTrue(all((ROOT / path.rstrip("/")).is_dir() for path in re.findall(r"^    source_folder: ([^\n]+)$", tracker_block, flags=re.MULTILINE)))
 
+    def test_report_covers_use_the_shared_drive_fpt_placeholder(self) -> None:
+        for report_id in REPORT_IDS:
+            with self.subTest(report_id=report_id):
+                bundle_root = ROOT / "docs" / report_id
+                front_matter = (bundle_root / "front-matter.md").read_text(encoding="utf-8")
+                self.assertIn("{{fpt-university width=35%}}", front_matter)
+                self.assertFalse((bundle_root / "assets" / "cover" / "fpt-university.png").exists())
+
     def test_governance_files_and_active_project_policy_are_present(self) -> None:
         agent_rules = (ROOT / "AGENT.md").read_text(encoding="utf-8")
         claude_context = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")

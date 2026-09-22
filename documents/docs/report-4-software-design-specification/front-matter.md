@@ -1,4 +1,4 @@
-![FPT University logo](assets/cover/fpt-university.png){ width=35% }
+{{fpt-university width=35%}}
 
 # REPORT 4 — SOFTWARE DESIGN SPECIFICATION
 

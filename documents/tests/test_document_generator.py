@@ -179,6 +179,39 @@ class BundleValidationTests(unittest.TestCase):
             "[Drive asset omitted: ring-hero]\n",
         )
 
+    def test_drive_placeholder_accepts_percent_and_inch_widths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            bundle_root = write_bundle(
+                Path(temp) / "report",
+                manifest_text("front-matter.md", "sections/01-section.md"),
+                "# Title\n\n{{ring-hero width=35%}}\n\n{{ring-hero width=2.4in}}\n",
+            )
+            bundle = load_bundle(bundle_root)
+            self.assertEqual(drive_image_placeholders(bundle), ("ring-hero",))
+            rendered = Path(temp) / "ring-hero.png"
+            rendered.write_bytes(b"png")
+            injected = _replace_drive_image_placeholders(
+                "{{ring-hero width=35%}}\n{{ring-hero width=2.4in}}\n",
+                {"ring-hero": rendered},
+                {"ring-hero": rendered},
+            )
+        self.assertEqual(
+            injected,
+            "![ring-hero](assets/ring-hero.png){ width=35% }\n![ring-hero](assets/ring-hero.png){ width=2.4in }\n",
+        )
+
+    def test_rejects_invalid_drive_placeholder_width_or_attributes(self) -> None:
+        invalid = ("0%", "101%", "0.05in", "10.1in", "35px", "35% height=2in")
+        for value in invalid:
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as temp:
+                bundle_root = write_bundle(
+                    Path(temp) / "report",
+                    manifest_text("front-matter.md", "sections/01-section.md"),
+                    f"# Title\n\n{{{{ring-hero width={value}}}}}\n",
+                )
+                with self.assertRaisesRegex(GenerationError, "drive-asset-placeholder-invalid"):
+                    validate_bundle(load_bundle(bundle_root))
+
     def test_rejects_non_standalone_drive_placeholder(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             bundle_root = write_bundle(

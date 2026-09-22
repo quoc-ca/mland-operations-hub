@@ -1,4 +1,4 @@
-![FPT University](assets/cover/fpt-university.png){ width=2.4in }
+{{fpt-university width=35%}}
 
 # CAPSTONE PROJECT REPORT
 

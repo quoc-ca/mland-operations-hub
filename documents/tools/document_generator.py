@@ -32,8 +32,12 @@ MERMAID_MARKDOWN_SUFFIX = ".md"
 DIAGRAM_EXTENSIONS = {".puml": "plantuml"}
 RASTER_OR_VECTOR_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg"}
 DRIVE_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
-DRIVE_ASSET_PATTERN = re.compile(r"(?m)^[ \t]*\{\{(?P<name>[A-Za-z0-9][A-Za-z0-9_-]*)\}\}[ \t]*$")
+DRIVE_ASSET_PATTERN = re.compile(
+    r"(?m)^[ \t]*\{\{(?P<name>[A-Za-z0-9][A-Za-z0-9_-]*)(?:[ \t]+width=(?P<width>[^\s}]+))?\}\}[ \t]*$"
+)
 DRIVE_ASSET_BRACE_PATTERN = re.compile(r"\{\{.*?\}\}")
+DRIVE_ASSET_PERCENT_WIDTH = re.compile(r"^(?:[1-9][0-9]?|100)%$")
+DRIVE_ASSET_INCH_WIDTH = re.compile(r"^(?:0\.[1-9][0-9]*|[1-9][0-9]*(?:\.[0-9]+)?)in$")
 MERMAID_FENCE_PATTERN = re.compile(r"\A[ \t]*```mermaid[ \t]*\r?\n(?P<source>.+?)\r?\n```[ \t]*(?:\r?\n)?\Z", re.DOTALL)
 DEFAULT_RENDERERS = {
     "mermaid": "https://mermaid.ink",
@@ -223,6 +227,16 @@ def drive_image_placeholders(bundle: Bundle) -> tuple[str, ...]:
     for fragment in bundle.fragments:
         text = fragment.read_text(encoding="utf-8")
         valid_ranges = [(match.start(), match.end()) for match in DRIVE_ASSET_PATTERN.finditer(text)]
+        for match in DRIVE_ASSET_PATTERN.finditer(text):
+            try:
+                _drive_asset_width(match)
+            except ValueError as exc:
+                raise _error(
+                    "drive-asset-placeholder-invalid",
+                    str(exc),
+                    report_id=bundle.report_id,
+                    fragment=_relative(bundle, fragment),
+                ) from exc
         remaining = DRIVE_ASSET_PATTERN.sub("", text)
         if "{{" in remaining or "}}" in remaining:
             raise _error(
@@ -246,6 +260,20 @@ def drive_image_placeholders(bundle: Bundle) -> tuple[str, ...]:
                 names.append(name)
                 seen.add(key)
     return tuple(names)
+
+
+def _drive_asset_width(match: re.Match[str]) -> str:
+    """Return a validated Pandoc width, defaulting to the documented 80%."""
+    width = match.group("width")
+    if width is None:
+        return "80%"
+    if DRIVE_ASSET_PERCENT_WIDTH.fullmatch(width):
+        return width
+    if DRIVE_ASSET_INCH_WIDTH.fullmatch(width):
+        inches = float(width.removesuffix("in"))
+        if 0.1 <= inches <= 10:
+            return width
+    raise ValueError("Drive asset width must be an integer from 1% to 100% or a value from 0.1in to 10in.")
 
 
 def validate_bundle(bundle: Bundle) -> list[tuple[Path, Path, str]]:
@@ -356,12 +384,13 @@ def _replace_diagrams(bundle: Bundle, fragment: Path, text: str, rendered: dict[
 def _replace_drive_image_placeholders(text: str, drive_assets: Mapping[str, Path] | None, rendered: Mapping[str, Path]) -> str:
     def replace(match: re.Match[str]) -> str:
         name = match.group("name")
+        width = _drive_asset_width(match)
         if drive_assets is None:
             return f"[Drive asset omitted: {name}]"
         asset = rendered.get(name.casefold())
         if asset is None:
             raise _error("drive-asset-missing", f"No downloaded Drive asset is available for placeholder {name!r}.")
-        return f"![{name}](assets/{asset.name}){{ width=80% }}"
+        return f"![{name}](assets/{asset.name}){{ width={width} }}"
 
     return DRIVE_ASSET_PATTERN.sub(replace, text)
 
