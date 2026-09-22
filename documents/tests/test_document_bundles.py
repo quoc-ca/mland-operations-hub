@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 import re
 
-from tools.document_generator import load_bundle, validate_bundle
+from tools.document_generator import drive_image_placeholders, load_bundle, validate_bundle
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,8 +84,13 @@ class MlandBundleTests(unittest.TestCase):
                 self.assertTrue(any(path.count("/") >= 2 for path in relative_fragments[1:]))
                 diagrams = validate_bundle(bundle)
                 if report_id == "report-3-software-requirement-specification":
-                    self.assertGreaterEqual(len(diagrams), 15)
+                    # Report 3 deliberately uses a hybrid diagram strategy:
+                    # code-managed diagrams are rendered from committed PUML,
+                    # while manually designed diagrams are resolved from Drive.
+                    # Only the former appear in validate_bundle's render list.
+                    self.assertGreaterEqual(len(diagrams), 14)
                     self.assertTrue(all(item[2] == "plantuml" for item in diagrams))
+                    self.assertIn("r3-context-diagram", drive_image_placeholders(bundle))
                 else:
                     self.assertEqual(diagrams, [])
 
