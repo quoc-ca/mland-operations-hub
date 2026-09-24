@@ -8,8 +8,8 @@ skinparam activity {
   ArrowColor #5B5E67
 }
 
-start
 |Admin Technical|
+start
 :Authenticate through the approved technical-administration mechanism;
 :Open technical configuration or monitoring area;
 |System|

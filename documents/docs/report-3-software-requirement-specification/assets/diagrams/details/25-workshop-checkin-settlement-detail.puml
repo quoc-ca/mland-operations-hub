@@ -8,8 +8,8 @@ skinparam activity {
   ArrowColor #5B5E67
 }
 
-start
 |Staff / Consultant|
+start
 :Locate confirmed Booking using code / QR;
 :Check in customer and verify actual product participants;
 if (Each unbooked extra person actually contributes?) then (yes)

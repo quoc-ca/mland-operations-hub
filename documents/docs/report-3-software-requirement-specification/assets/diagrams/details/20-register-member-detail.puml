@@ -8,8 +8,8 @@ skinparam activity {
   ArrowColor #5B5E67
 }
 
-start
 |Guest|
+start
 :Choose Register / Become a Member;
 :Provide email, phone and authentication information;
 :Submit registration form;

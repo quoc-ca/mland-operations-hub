@@ -13,9 +13,11 @@ import base64
 import html
 import json
 import re
+import zlib
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
+from urllib.parse import quote
 
 try:
     from .document_generator import DRIVE_ASSET_PATTERN, MERMAID_FENCE_PATTERN, Bundle, load_bundle
@@ -39,6 +41,7 @@ class GalleryItem:
     renderer: str
     source: str
     endpoint: str | None
+    preview_url: str | None
     report_id: str
     path: str
     status: str = "preview"
@@ -85,6 +88,53 @@ def _display_title(path: Path, source: str) -> str:
     return label.title()
 
 
+def _plantuml_encode6bit(value: int) -> str:
+    if value < 10:
+        return chr(48 + value)
+    value -= 10
+    if value < 26:
+        return chr(65 + value)
+    value -= 26
+    if value < 26:
+        return chr(97 + value)
+    value -= 26
+    return "-" if value == 0 else "_" if value == 1 else "?"
+
+
+def _plantuml_url(endpoint: str, source: str) -> str:
+    """Encode with raw Deflate to keep browser image URLs below server limits."""
+    compressor = zlib.compressobj(level=9, wbits=-15)
+    compressed = compressor.compress(source.encode("utf-8")) + compressor.flush()
+    encoded: list[str] = []
+    for index in range(0, len(compressed), 3):
+        block = compressed[index:index + 3]
+        b1 = block[0]
+        b2 = block[1] if len(block) > 1 else 0
+        b3 = block[2] if len(block) > 2 else 0
+        encoded.extend((
+            _plantuml_encode6bit(b1 >> 2),
+            _plantuml_encode6bit(((b1 & 0x3) << 4) | (b2 >> 4)),
+            _plantuml_encode6bit(((b2 & 0xF) << 2) | (b3 >> 6)),
+            _plantuml_encode6bit(b3 & 0x3F),
+        ))
+    # SVG avoids PNG renderer failures for the larger activity diagrams while
+    # remaining directly displayable by a browser <img> element.
+    return f"{endpoint.rstrip('/')}/svg/{''.join(encoded)}"
+
+
+def _mermaid_url(endpoint: str, source: str) -> str:
+    encoded = base64.urlsafe_b64encode(source.encode("utf-8")).decode("ascii").rstrip("=")
+    return f"{endpoint.rstrip('/')}/img/{quote(encoded)}?type=png"
+
+
+def _preview_url(renderer: str, endpoint: str, source: str) -> str:
+    if renderer == "plantuml":
+        return _plantuml_url(endpoint, source)
+    if renderer == "mermaid":
+        return _mermaid_url(endpoint, source)
+    raise ValueError(f"Unsupported renderer: {renderer}")
+
+
 def _nearest_heading(markdown: str, position: int) -> str:
     headings = [match.group("title").strip() for match in HEADING_PATTERN.finditer(markdown, 0, position)]
     return headings[-1] if headings else "Drive-hosted diagram"
@@ -119,6 +169,7 @@ def _source_items(bundle: Bundle) -> list[GalleryItem]:
                 renderer=renderer,
                 source=source,
                 endpoint=bundle.renderers[renderer],
+                preview_url=_preview_url(renderer, bundle.renderers[renderer], source),
                 report_id=bundle.report_id,
                 path=relative,
             )
@@ -147,6 +198,7 @@ def _drive_items(bundle: Bundle) -> list[GalleryItem]:
                     renderer="drive",
                     source="",
                     endpoint=None,
+                    preview_url=None,
                     report_id=bundle.report_id,
                     path=fragment.relative_to(bundle.root).as_posix(),
                     status="drive-only",
@@ -208,22 +260,19 @@ def render_gallery(items: Iterable[GalleryItem]) -> str:
       const gallery = document.getElementById('gallery');
       const viewer = document.getElementById('viewer'); const viewerImage = document.getElementById('viewer-image'); const viewerError = document.getElementById('viewer-error'); const viewerTitle = document.getElementById('viewer-title');
       const state = {{ scale:1, x:0, y:0, dragging:false, startX:0, startY:0 }};
-      const hex = source => Array.from(new TextEncoder().encode(source), b => b.toString(16).padStart(2,'0')).join('');
-      const base64Url = source => btoa(String.fromCharCode(...new TextEncoder().encode(source))).replace(/[+]/g,'-').replace(/[/]/g,'_').replace(/=+$/,'');
-      const imageUrl = item => item.renderer === 'plantuml' ? `${{item.endpoint.replace(/\\/$/,'')}}/png/~h${{hex(item.source)}}` : `${{item.endpoint.replace(/\\/$/,'')}}/img/${{encodeURIComponent(base64Url(item.source))}}?type=png`;
       const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[character]));
       const apply = () => viewerImage.style.transform = `translate(${{state.x}}px, ${{state.y}}px) scale(${{state.scale}})`;
       const reset = () => {{ state.scale=1; state.x=0; state.y=0; apply(); }};
       const zoom = amount => {{ state.scale=Math.min(5,Math.max(.3,state.scale+amount)); apply(); }};
       const error = (item, target) => {{ target.replaceChildren(Object.assign(document.createElement('p'),{{className:'status',textContent:`Không render được ${{item.renderer.toUpperCase()}}. Kiểm tra Internet hoặc endpoint renderer.`}})); }};
-      const open = item => {{ reset(); viewerTitle.textContent=item.title; viewerError.hidden=true; viewerImage.hidden=false; viewerImage.alt=item.title; viewerImage.onload=()=>{{ viewerImage.hidden=false; }}; viewerImage.onerror=()=>{{ viewerImage.hidden=true; viewerError.textContent=`Không render được ${{item.renderer.toUpperCase()}}: ${{item.path}}`; viewerError.hidden=false; }}; viewerImage.src=imageUrl(item); viewer.showModal(); }};
+      const open = item => {{ reset(); viewerTitle.textContent=item.title; viewerError.hidden=true; viewerImage.hidden=false; viewerImage.alt=item.title; viewerImage.onload=()=>{{ viewerImage.hidden=false; }}; viewerImage.onerror=()=>{{ viewerImage.hidden=true; viewerError.textContent=`Không render được ${{item.renderer.toUpperCase()}}: ${{item.path}}`; viewerError.hidden=false; }}; viewerImage.src=item.preview_url; viewer.showModal(); }};
       for (const [index, category] of order.entries()) {{
         const group=items.filter(item=>item.category===category); const section=document.createElement('section'); section.id=`category-${{index+1}}`; section.innerHTML=`<h2>${{category}}</h2>`; const grid=document.createElement('div'); grid.className='grid';
         if (!group.length) {{ grid.innerHTML='<p class="empty">Chưa có source diagram hợp lệ trong nhóm này.</p>'; }}
         for (const item of group) {{
           const body=`<div class="card-body"><h3>${{escapeHtml(item.title)}}</h3><p class="meta">${{item.renderer === 'drive' ? 'Drive placeholder' : item.renderer.toUpperCase()}} · ${{escapeHtml(item.report_id)}}</p><p class="meta">${{escapeHtml(item.path)}}</p></div>`;
           if (item.status === 'drive-only') {{ const card=document.createElement('article'); card.className='card'; card.innerHTML=`<div class="thumb drive">Có trên Drive<br><small>Không preview trong gallery</small></div>${{body}}`; grid.append(card); continue; }}
-          const card=document.createElement('button'); card.type='button'; card.className='card'; card.setAttribute('aria-label',`Mở ${{item.title}}`); const thumb=document.createElement('div'); thumb.className='thumb'; const img=document.createElement('img'); img.alt=`Preview: ${{item.title}}`; img.loading='lazy'; img.src=imageUrl(item); img.onerror=()=>error(item,thumb); thumb.append(img); card.append(thumb); card.insertAdjacentHTML('beforeend',body); card.addEventListener('click',()=>open(item)); grid.append(card);
+          const card=document.createElement('button'); card.type='button'; card.className='card'; card.setAttribute('aria-label',`Mở ${{item.title}}`); const thumb=document.createElement('div'); thumb.className='thumb'; const img=document.createElement('img'); img.alt=`Preview: ${{item.title}}`; img.loading='lazy'; img.src=item.preview_url; img.onerror=()=>error(item,thumb); thumb.append(img); card.append(thumb); card.insertAdjacentHTML('beforeend',body); card.addEventListener('click',()=>open(item)); grid.append(card);
         }}
         section.append(grid); gallery.append(section);
       }}

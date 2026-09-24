@@ -50,6 +50,11 @@ class DiagramGalleryTests(unittest.TestCase):
         self.assertEqual({item.category for item in items if item.status == "preview"}, {
             "Context", "Use Cases", "Swimlanes / Workflows", "Activities / Details", "Mermaid", "Other",
         })
+        plantuml = next(item for item in items if item.path.endswith("context.puml"))
+        mermaid = next(item for item in items if item.renderer == "mermaid")
+        self.assertIn("/svg/", plantuml.preview_url or "")
+        self.assertNotIn("~h", plantuml.preview_url or "")
+        self.assertIn("/img/", mermaid.preview_url or "")
         drive = [item for item in items if item.status == "drive-only"]
         self.assertEqual(len(drive), 1)
         self.assertEqual(drive[0].title, "Context diagram (r3-context-diagram)")
@@ -65,7 +70,8 @@ class DiagramGalleryTests(unittest.TestCase):
 
         self.assertIn('id="gallery-data"', page)
         self.assertIn("r3-context-diagram", page)
-        self.assertIn("/png/~h", page)
+        self.assertIn("/svg/", page)
+        self.assertNotIn("/png/~h", page)
         self.assertIn("/img/", page)
         self.assertNotIn("fetch(", page)
         self.assertIn("Có trên Drive", page)
