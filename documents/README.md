@@ -68,6 +68,18 @@ Local DOCX builds do not contact Drive. They render `[Drive asset omitted: asset
 
 Mermaid source is sent to the configured `mermaid.ink` endpoint and PlantUML source to the configured PlantUML server. Do not use public rendering for sensitive diagrams. A network, response, source, or Pandoc failure exits non-zero and emits a diagnostic with report, fragment, asset, renderer, endpoint, status, and reason.
 
+## Local diagram gallery
+
+To create the internal, static diagram reference page, run this command from the repository root:
+
+```powershell
+python documents/tools/generate_diagram_gallery.py
+```
+
+It creates the ignored file `local-notes/diagram-gallery.html`, which can be opened directly in a browser. The gallery scans every valid PlantUML source and Mermaid Markdown source under the active bundles' `assets/diagrams/` folders, including activity/detail diagrams that are not yet linked from a report fragment. It groups Context, Use Cases, Swimlanes/Workflows, Activities/Details, Mermaid, and other sources.
+
+The page embeds source text and metadata, so it never fetches source files from the repository at runtime. It requests a preview from the configured public PlantUML or Mermaid endpoint only when the browser renders a code-managed diagram; an internet connection is therefore required for previews and source text is sent to that endpoint. Standalone Drive placeholders found in report `sections/` are listed as **available on Drive** without downloading or previewing them. Cover-only assets such as `fpt-university` are excluded.
+
 ## Shared Word style
 
 You own `templates/reference.docx`; automation reads it only. Configure it once with the shared style contract:
