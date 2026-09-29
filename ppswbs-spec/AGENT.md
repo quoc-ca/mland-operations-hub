@@ -17,6 +17,11 @@ Testing: JUnit 5 + Spring Boot Test khi cần test HTTP, Spring context hoặc p
 Styling: Responsive CSS mobile-first; browser/device baseline và accessibility standard phải được chốt trong SRS trước khi triển khai
 
 ## 3. ARCHITECTURE PRINCIPLES
+- Business modules use `facade/`, `web/`, `application/`, `domain/`, and `infrastructure/`. `facade/` is the only named interface another business module may use; controllers, HTTP DTOs, entities, repositories, and adapters remain internal.
+- `web` calls only its module's `application` layer. `application` owns use cases and transaction boundaries; `domain` owns JPA entities, value objects, and invariants; `infrastructure` owns Spring Data repositories, queries, and external adapters.
+- Cross-domain work uses synchronous one-way facade calls. Domain events are allowed only for asynchronous/callback workflows or cycle removal, carry minimal identifiers/version data, and require idempotent consumers.
+- `common` is a technical kernel only (typed errors, correlation IDs, clock/ID and security primitives). It MUST NOT hold business entities, HTTP DTOs, or shared business services. Audit events are owned by the business domain that performs the action.
+- Each business module MUST be a closed Spring Modulith module with a `facade/` named interface. `ApplicationModules.verify()` is a required test gate for cycles, undeclared dependencies, and internal-package access; runtime fail-fast verification is disabled in V1.
 - Follow modular monolith theo feature/domain: mỗi feature sở hữu controller, DTO, service/use case và repository; chỉ triển khai sau constitution ratify và `$speckit-specify` → `$speckit-clarify` → `$speckit-plan` → `$speckit-tasks` → `$speckit-analyze`, dùng `$speckit-implement` rồi `$speckit-converge`
 - API style: REST versioned, resource số nhiều và kebab-case, ví dụ `/api/v1/workshop-bookings`
 - Error handling: dùng Bean Validation, typed exception và `@RestControllerAdvice`; không trả stack trace hoặc payload nhạy cảm cho client

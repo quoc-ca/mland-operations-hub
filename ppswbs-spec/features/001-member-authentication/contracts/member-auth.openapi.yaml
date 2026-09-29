@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: Mland Member Authentication API
+  version: 1.0.0-draft
+paths:
+  /api/v1/members/me:
+    put:
+      summary: Create or return Member for verified Firebase UID
+      security: [{ firebaseBearer: [] }]
+      responses: { '200': {description: Existing}, '201': {description: Provisioned}, '401': {description: Invalid token}, '409': {description: Identity conflict; never auto-merge} }
+  /api/v1/members/me/entitlement:
+    get:
+      summary: Return current Member entitlement
+      security: [{ firebaseBearer: [] }]
+      responses: { '200': {description: State}, '401': {description: Invalid token}, '403': {description: Suspended or policy acceptance required} }
+  /api/v1/policies/current:
+    get:
+      summary: Public current Terms and Privacy metadata/content locations
+      responses: { '200': {description: Current policy versions} }
+  /api/v1/members/me/policy-acceptances:
+    post:
+      summary: Record acceptance of exactly current policy versions
+      security: [{ firebaseBearer: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [termsVersion, privacyVersion], properties: { termsVersion: {type: string}, privacyVersion: {type: string} } } } }
+      responses: { '201': {description: Entitlement activated}, '400': {description: Stale/invalid version}, '401': {description: Invalid token} }
+  /api/v1/members/me/guest-booking-import-preview:
+    get:
+      summary: Preview eligible verified-email Guest bookings
+      security: [{ firebaseBearer: [] }]
+      responses: { '200': {description: Candidates}, '403': {description: Email unverified, suspended, or consent stale} }
+  /api/v1/members/me/guest-booking-imports:
+    post:
+      summary: Explicitly link all currently eligible bookings idempotently
+      security: [{ firebaseBearer: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [confirmed], properties: { confirmed: {type: boolean, enum: [true]} } } } }
+      responses: { '200': {description: Linked/skipped counts}, '403': {description: Not eligible} }
+  /api/v1/workshop-bookings/{bookingCode}/email-confirmations:
+    post:
+      summary: Consume one-time Guest booking email token
+      parameters: [{in: path, name: bookingCode, required: true, schema: {type: string}}]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [confirmationToken], properties: { confirmationToken: {type: string, writeOnly: true} } } } }
+      responses: { '200': {description: Confirmed}, '400': {description: Generic invalid/expired/used token}, '404': {description: Booking absent} }
+components:
+  securitySchemes:
+    firebaseBearer: { type: http, scheme: bearer, bearerFormat: Firebase-ID-Token }
+

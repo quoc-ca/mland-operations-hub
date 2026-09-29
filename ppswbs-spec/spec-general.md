@@ -13,6 +13,8 @@
 
 **Tech context:** Java 21 + Spring Boot server-rendered web application with Thymeleaf and htmx progressive enhancement, REST API, and MySQL. Firebase Hosting is approved only as a preview capability; it does not choose a production backend origin, rewrite model, Cloud Run deployment or VPS deployment.
 
+**Architecture convention:** The backend is a Spring Modulith modular monolith. A business module owns `facade/`, `web/`, `application/`, `domain/`, and `infrastructure/`; its named `facade/` is the only Java interface another business module may call. Firebase identity integration remains internal to the `members` module. Cross-domain calls are synchronous one-way facade calls by default; internal domain events are reserved for callbacks, asynchronous workflows, or cycle removal. The technical `common` kernel has no business entity, DTO, or service ownership.
+
 ## 2. Actors & Roles
 
 | Actor | Type | Responsibility and boundary |
