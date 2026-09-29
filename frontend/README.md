@@ -1,6 +1,8 @@
-# Artisanal Atelier customer-journey prototype
+# Mland customer-journey prototype
 
 Prototype thuần HTML, CSS và JavaScript cho hành trình workshop nhẫn và ready-ring retail. Đây là công cụ review UX, không phải ứng dụng production.
+
+Luồng Guest → Member được triển khai ở `auth-experience.js`; handoff để dựng Figma nằm tại [FIGMA-HANDOFF.md](FIGMA-HANDOFF.md).
 
 ## Chạy
 

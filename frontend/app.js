@@ -67,5 +67,15 @@
     if(form.id==="tracking-form"){const code=form.querySelector("#tracking-code").value.trim().toUpperCase(), contact=form.querySelector("#tracking-contact").value.trim();if(!contact||code!==state.bookingCode)return setError("tracking-error",t("notFound"));setError("tracking-error","");const status=state.bookingStatus||"pending";document.querySelector("#tracking-result").innerHTML=`<div class="summary"><dl><dt>${t("code")}</dt><dd>${code}</dd><dt>${t("status")}</dt><dd><span class="status ${status}">${t(status)}</span></dd></dl></div>${status==="confirmed"?qrcode():""}`;}
   });
   document.addEventListener("change",(e)=>{if(e.target.id!=="reference-image")return;const file=e.target.files[0],box=document.querySelector("#image-preview");if(imageUrl)URL.revokeObjectURL(imageUrl);if(!file){box.hidden=true;return;}imageUrl=URL.createObjectURL(file);box.innerHTML=`<img alt="${t("demo")}" src="${imageUrl}">`;box.hidden=false;});
+  window.MlandPrototype = {
+    render,
+    isMember: () => state.member,
+    setMember: (member) => {
+      state.member = member;
+      state.returnTo = "";
+      save();
+    }
+  };
+
   render();
 })();

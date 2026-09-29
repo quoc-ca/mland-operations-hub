@@ -4,13 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Offline customer-journey prototype for a ring workshop." />
-    <title>Artisanal Atelier · Prototype</title>
+    <title>Mland | Member access</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="auth-experience.css" />
   </head>
   <body>
     <a id="skip-link" class="skip-link" href="#app">Đi tới nội dung</a>
     <header class="site-header">
-      <button class="brand" type="button" data-action="home" aria-label="Artisanal Atelier home"><span class="brand-mark">◌</span><span>Artisanal Atelier</span></button>
+      <button class="brand" type="button" data-action="home" aria-label="Mland home"><span class="brand-mark">M</span><span>Mland</span></button>
       <nav id="primary-nav" class="site-nav" aria-label="Primary navigation">
         <button type="button" data-action="booking">Workshop</button>
         <button type="button" data-action="shop">Ready rings</button>
@@ -21,9 +22,11 @@
         <button id="language-toggle" class="language-toggle" type="button" aria-label="Switch language">EN</button>
       </div>
     </header>
+    <noscript><div class="no-script-note" role="alert">JavaScript is required to sign in securely. You can still contact Mland for help with a public booking.</div></noscript>
     <main id="app" tabindex="-1"></main>
     <footer class="site-footer"><p id="footer-copy"></p><button class="text-button" type="button" data-action="reset">Xoá trạng thái demo</button></footer>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="app.js"></script>
+    <script src="auth-experience.js"></script>
   </body>
 </html>
