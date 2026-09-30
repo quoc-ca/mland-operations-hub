@@ -57,7 +57,7 @@ The business cannot safely decide whether a customer may view Member history or 
 
 ## Implementation planning constraints
 
-- Use MySQL 8.4 LTS as the database compatibility baseline.
+- Superseded: use MySQL 9.7.2 as the exact database compatibility baseline; see plan.md and research.md.
 - Use Firebase Auth Emulator for automated tests and a separate Firebase development project for manual Google sign-in, redirect, and provider-linking checks. Production Firebase must not be used for testing.
 - Validate the UI on the latest two releases of Chrome, Edge, Firefox, and Safari on desktop, plus Chrome on Android and Safari on iPhone. Accessibility remains a best-effort commitment rather than a formal conformance target.
 

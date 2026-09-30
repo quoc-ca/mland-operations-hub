@@ -2,51 +2,167 @@ openapi: 3.0.3
 info:
   title: Mland Member Authentication API
   version: 1.0.0-draft
+  description: >-
+    Feature 001 contract. Firebase bearer authentication proves identity; MySQL
+    account status and roles determine entitlement. Errors never expose tokens,
+    credentials, or stack traces.
 paths:
   /api/v1/members/me:
     put:
       summary: Create or return Member for verified Firebase UID
       security: [{ firebaseBearer: [] }]
-      responses: { '200': {description: Existing}, '201': {description: Provisioned}, '401': {description: Invalid token}, '409': {description: Identity conflict; never auto-merge} }
+      responses:
+        '200': { $ref: '#/components/responses/ExistingMember' }
+        '201': { $ref: '#/components/responses/ProvisionedMember' }
+        '401': { $ref: '#/components/responses/InvalidToken' }
+        '409': { $ref: '#/components/responses/IdentityConflict' }
   /api/v1/members/me/entitlement:
     get:
       summary: Return current Member entitlement
       security: [{ firebaseBearer: [] }]
-      responses: { '200': {description: State}, '401': {description: Invalid token}, '403': {description: Suspended or policy acceptance required} }
+      responses:
+        '200': { $ref: '#/components/responses/Entitlement' }
+        '401': { $ref: '#/components/responses/InvalidToken' }
+        '403': { $ref: '#/components/responses/EntitlementDenied' }
   /api/v1/policies/current:
     get:
       summary: Public current Terms and Privacy metadata/content locations
-      responses: { '200': {description: Current policy versions} }
+      responses:
+        '200': { $ref: '#/components/responses/CurrentPolicies' }
   /api/v1/members/me/policy-acceptances:
     post:
       summary: Record acceptance of exactly current policy versions
       security: [{ firebaseBearer: [] }]
       requestBody:
         required: true
-        content: { application/json: { schema: { type: object, required: [termsVersion, privacyVersion], properties: { termsVersion: {type: string}, privacyVersion: {type: string} } } } }
-      responses: { '201': {description: Entitlement activated}, '400': {description: Stale/invalid version}, '401': {description: Invalid token} }
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PolicyAcceptanceRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/EntitlementActivated' }
+        '400': { $ref: '#/components/responses/InvalidPolicyVersion' }
+        '401': { $ref: '#/components/responses/InvalidToken' }
   /api/v1/members/me/guest-booking-import-preview:
     get:
       summary: Preview eligible verified-email Guest bookings
       security: [{ firebaseBearer: [] }]
-      responses: { '200': {description: Candidates}, '403': {description: Email unverified, suspended, or consent stale} }
+      responses:
+        '200': { $ref: '#/components/responses/GuestBookingPreview' }
+        '403': { $ref: '#/components/responses/EntitlementDenied' }
   /api/v1/members/me/guest-booking-imports:
     post:
       summary: Explicitly link all currently eligible bookings idempotently
       security: [{ firebaseBearer: [] }]
       requestBody:
         required: true
-        content: { application/json: { schema: { type: object, required: [confirmed], properties: { confirmed: {type: boolean, enum: [true]} } } } }
-      responses: { '200': {description: Linked/skipped counts}, '403': {description: Not eligible} }
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuestBookingImportRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/GuestBookingImportResult' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '403': { $ref: '#/components/responses/EntitlementDenied' }
   /api/v1/workshop-bookings/{bookingCode}/email-confirmations:
     post:
       summary: Consume one-time Guest booking email token
-      parameters: [{in: path, name: bookingCode, required: true, schema: {type: string}}]
+      parameters:
+        - in: path
+          name: bookingCode
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
       requestBody:
         required: true
-        content: { application/json: { schema: { type: object, required: [confirmationToken], properties: { confirmationToken: {type: string, writeOnly: true} } } } }
-      responses: { '200': {description: Confirmed}, '400': {description: Generic invalid/expired/used token}, '404': {description: Booking absent} }
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmailConfirmationRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/BookingConfirmed' }
+        '400': { $ref: '#/components/responses/GenericConfirmationFailure' }
+        '404': { $ref: '#/components/responses/BookingNotFound' }
 components:
   securitySchemes:
-    firebaseBearer: { type: http, scheme: bearer, bearerFormat: Firebase-ID-Token }
-
+    firebaseBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase-ID-Token
+  schemas:
+    PolicyAcceptanceRequest:
+      type: object
+      additionalProperties: false
+      required: [termsVersion, privacyVersion]
+      properties:
+        termsVersion: { type: string, minLength: 1, maxLength: 64 }
+        privacyVersion: { type: string, minLength: 1, maxLength: 64 }
+    GuestBookingImportRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmed]
+      properties:
+        confirmed: { type: boolean, enum: [true] }
+    EmailConfirmationRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmationToken]
+      properties:
+        confirmationToken:
+          type: string
+          minLength: 1
+          maxLength: 512
+          writeOnly: true
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, correlationId]
+      properties:
+        code: { type: string, maxLength: 64 }
+        message: { type: string, maxLength: 512 }
+        correlationId: { type: string, maxLength: 64 }
+    Entitlement:
+      type: object
+      required: [state]
+      properties:
+        state: { type: string }
+    PolicyVersions:
+      type: object
+      required: [termsVersion, privacyVersion]
+      properties:
+        termsVersion: { type: string }
+        privacyVersion: { type: string }
+    ImportResult:
+      type: object
+      required: [linkedCount, skippedCount]
+      properties:
+        linkedCount: { type: integer, minimum: 0 }
+        skippedCount: { type: integer, minimum: 0 }
+  responses:
+    ExistingMember: { description: Existing Member returned }
+    ProvisionedMember: { description: Member provisioned }
+    InvalidToken:
+      description: Invalid or expired Firebase token
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    IdentityConflict:
+      description: Identity conflict; no automatic merge
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Entitlement: { description: Current entitlement }
+    EntitlementDenied:
+      description: Suspended account or policy acceptance required
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    CurrentPolicies: { description: Current policy versions and content locations }
+    EntitlementActivated: { description: Entitlement activated }
+    InvalidPolicyVersion:
+      description: Invalid or stale policy version
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    GuestBookingPreview: { description: Eligible booking candidates }
+    GuestBookingImportResult:
+      description: Linked and skipped counts
+      content: { application/json: { schema: { $ref: '#/components/schemas/ImportResult' } } }
+    InvalidRequest:
+      description: Invalid request
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    BookingConfirmed: { description: Booking email confirmed }
+    GenericConfirmationFailure:
+      description: Generic invalid, expired, or already-used token failure
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    BookingNotFound:
+      description: Booking absent
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

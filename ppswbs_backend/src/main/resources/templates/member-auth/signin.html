@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{auth.title}">Sign In - Mland</title>
+    <style>
+        :root {
+            --primary: #8b5cf6;
+            --primary-hover: #7c3aed;
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .auth-container {
+            width: 100%;
+            max-width: 440px;
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 2.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        .header { text-align: center; margin-bottom: 2rem; }
+        .header h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .header p { color: var(--text-muted); font-size: 0.9rem; }
+        .btn {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            border: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .btn-google {
+            background: #ffffff;
+            color: #1e293b;
+            margin-bottom: 1.5rem;
+        }
+        .btn-google:hover { background: #f1f5f9; }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            margin-top: 1rem;
+        }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 1.5rem 0;
+        }
+        .divider::before, .divider::after {
+            content: ''; flex: 1; border-bottom: 1px solid var(--border-color);
+        }
+        .divider::before { margin-right: .5em; }
+        .divider::after { margin-left: .5em; }
+        .form-group { margin-bottom: 1.25rem; text-align: left; }
+        .form-group label { display: block; font-size: 0.85rem; margin-bottom: 0.4rem; color: var(--text-muted); }
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            color: white;
+            box-sizing: border-box;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 1rem;
+        }
+        .checkbox-group input { margin-top: 0.2rem; }
+        .checkbox-group a { color: var(--primary); text-decoration: none; }
+        .checkbox-group a:hover { text-decoration: underline; }
+        .noscript-banner {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #fca5a5;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+        .error-banner {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #fca5a5;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: none;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <noscript>
+            <div class="noscript-banner">
+                <strong th:text="#{auth.noscript.title}">JavaScript Required</strong>
+                <p th:text="#{auth.noscript.message}">Authentication requires JavaScript. Please enable JavaScript to continue.</p>
+            </div>
+        </noscript>
+
+        <div class="header">
+            <h1 th:text="#{auth.heading}">Welcome to Mland</h1>
+            <p th:text="#{auth.subheading}">Please sign in or create an account.</p>
+        </div>
+
+        <div id="errorMessage" class="error-banner"></div>
+
+        <button id="btnGoogle" class="btn btn-google">
+            <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+            <span th:text="#{auth.btn.google}">Continue with Google</span>
+        </button>
+
+        <div class="divider" th:text="#{auth.divider}">Or use Email & Password</div>
+
+        <form id="emailAuthForm" onsubmit="return false;">
+            <div class="form-group">
+                <label for="email" th:text="#{auth.label.email}">Email Address</label>
+                <input type="email" id="email" th:placeholder="#{auth.placeholder.email}" required>
+            </div>
+            <div class="form-group">
+                <label for="password" th:text="#{auth.label.password}">Password</label>
+                <input type="password" id="password" th:placeholder="#{auth.placeholder.password}" required>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="acceptPolicyCheck">
+                <label for="acceptPolicyCheck">
+                    <span th:utext="#{auth.checkbox.terms('/policies/terms-v1.0.0.html', '/policies/privacy-v1.0.0.html')}">
+                        I agree to Terms & Privacy Policy
+                    </span>
+                </label>
+            </div>
+
+            <input type="hidden" id="returnTo" th:value="${returnTo}">
+
+            <button type="submit" id="btnSignIn" class="btn btn-primary" th:text="#{auth.btn.signin}">Sign In</button>
+            <button type="button" id="btnRegister" class="btn" style="background: transparent; color: var(--text-muted); margin-top: 0.5rem;" th:text="#{auth.btn.register}">Create Account</button>
+            <button type="button" id="btnForgotPassword" class="btn" style="background: transparent; color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;" th:text="#{auth.btn.forgot_password}">Forgot Password?</button>
+        </form>
+    </div>
+
+    <script th:inline="javascript">
+        window.FIREBASE_CONFIG = /*[[${firebaseConfig}]]*/ {};
+    </script>
+    <script src="/js/member-auth.js"></script>
+</body>
+</html>

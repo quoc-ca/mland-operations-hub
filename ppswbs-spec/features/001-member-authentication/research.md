@@ -1,36 +1,56 @@
-# Research: Member Authentication Decisions
+# Research and decisions: Member Authentication
 
-## Token verification boundary
+## Database baseline
 
-**Decision**: Firebase Web SDK authenticates the browser; the browser sends an ID token in `Authorization: Bearer`; Spring Boot verifies it using Firebase Admin. The verified `uid` is `external_user_id`.
+**Decision**: use the official mysql:9.7.2 image as the exact MySQL baseline
+for local, CI/integration, staging, and production. The tag is pinned rather
+than relying on a moving major/minor tag.
 
-**Rejected**: custom JWTs, server-stored Firebase tokens, password handling in Spring, and email as account key.
+**Evidence**: [official image tags](https://hub.docker.com/_/mysql?tab=tags)
+and [MySQL 9.7.2 release notes](https://dev.mysql.com/doc/relnotes/mysql/9.7/en/news-9-7-2.html).
 
-**Evidence**: [Firebase Admin: Verify ID tokens](https://firebase.google.com/docs/auth/admin/verify-id-tokens).
+**Consequence**: Flyway/JPA compatibility is demonstrated against MySQL 9.7.2.
+H2 compatibility mode is retained for fast tests only and cannot close a
+release verification gate.
 
-## Same-email collision and provider linking
+## Credentials and migration privileges
 
-**Decision**: Matching email never merges identities. A provider is linked only from the authenticated Firebase identity via Firebase's explicit credential-linking flow. Credential collisions produce a generic recovery/sign-in instruction.
+**Decision**: use two non-root database principals. ppswbs_migrator runs
+Flyway before service deployment; ppswbs_app runs the application with DML-only
+privileges. Secrets are injected at execution time through JDBC_* and FLYWAY_*
+environment variables.
 
-**Rejected**: changing a MySQL UID by email, silent linking at Google login, or manual identity transfer for a Google-only Member.
+**Reason**: an application account that can alter schemas unnecessarily widens
+production blast radius. The service must not run Flyway with its runtime
+principal.
 
-**Evidence**: [Firebase Web: Link multiple auth providers](https://firebase.google.com/docs/auth/web/account-linking).
+## Identity and authorization
 
-## Verification, recovery, and integration testing
+**Decision**: Firebase Admin verifies token authenticity and UID; MySQL
+accounts/account_roles determines business role and status.
 
-**Decision**: Firebase sends email verification and password reset. Responses remain generic. Test Firebase integration against Auth Emulator, never a production project; emulator tokens must never be accepted by production configuration.
+**Reason**: social provider and Firebase claims are identity information, not
+Mland authorization. UID is the only identity join key; email is never merge
+evidence.
 
-**Evidence**: [Firebase Web: Manage users](https://firebase.google.com/docs/auth/web/manage-users), [Firebase Auth Emulator](https://firebase.google.com/docs/emulator-suite/connect_auth).
+## Policy-current invariant
 
-## MySQL baseline and JavaScript exception
+**Decision**: a forward migration adds a stored generated effective-policy key,
+equal to policy_type only when state is EFFECTIVE, and a unique index on that
+key.
 
-**Decision**: Target MySQL 8.4 LTS with JPA/Flyway. Authentication UI stays SSR but Firebase credential actions require JS; `noscript` gives safe support/retry, not an unsafe password form. Ratification is required because this is a bounded exception to `AGENT.md` progressive enhancement.
+**Reason**: MySQL unique indexes permit multiple NULL values, allowing any
+number of non-effective versions while structurally preventing two effective
+records of the same type. Application checks remain useful but are not the only
+protection.
 
-**Evidence**: [MySQL release model](https://dev.mysql.com/doc/refman/8.4/en/mysql-releases.html).
+## Browser and booking workflow
 
-## Booking confirmation
+**Decision**: Firebase browser credential operations use Firebase Web SDK; the
+server receives only a fresh bearer token. Booking confirmation accepts a
+one-time plaintext token only in the request, hashes it before persistence, and
+maps malformed/expired/used tokens to one generic 400 response.
 
-**Decision**: Store a hash of a random one-time booking-email token, consume it with a server-rendered link, and expire bookings idempotently after 15 minutes. No invoice/payment exists before confirmation.
-
-**Rejected**: plaintext tokens, client-only timer, payment before confirmation, and automatic resend.
-
+**Consequence**: browser smoke testing needs Firebase Auth Emulator or an
+approved non-production Firebase project. Token, password, and provider-code
+logging is prohibited.
