@@ -1,303 +1,770 @@
-# Mland V1 Database Catalog and Physical Target Design
+# PPSWBS Database Design
 
-## 1. Purpose, authority, and maturity
+## Tables
 
-This document records the database in two deliberately separate layers:
+### Identity and policy
 
-1. **As-built** describes the physical schema created by the current Flyway
-   migration and the JPA mappings that currently exist.
-2. **Proposed V1 target** is a physical design blueprint for later,
-   feature-approved migrations. It is not deployed schema and must not be
-   treated as an implementation instruction without the owning feature's
-   SpecKit/OpenAPI work.
+~~~sql
+CREATE TABLE accounts (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    system_code VARCHAR(64) NULL UNIQUE,
+    firebase_uid VARCHAR(128) NULL UNIQUE,
+    email VARCHAR(255) NULL,
+    role VARCHAR(64) NOT NULL,
+    status VARCHAR(64) NOT NULL DEFAULT 'ACTIVE',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_accounts_role CHECK (
+        role IN ('GUEST', 'MEMBER', 'STAFF', 'MANAGER', 'ADMIN_TECHNICAL')
+    ),
+    CONSTRAINT chk_accounts_status CHECK (
+        status IN ('ACTIVE', 'SUSPENDED', 'PENDING_POLICY_ACCEPTANCE', 'SYSTEM')
+    ),
+    CONSTRAINT chk_accounts_guest_system CHECK (
+        (role = 'GUEST' AND status = 'SYSTEM' AND system_code = 'GUEST_SYSTEM' AND firebase_uid IS NULL)
+        OR (role <> 'GUEST' AND system_code IS NULL)
+    )
+);
 
-The Flyway migrations under
-`ppswbs_backend/src/main/resources/db/migration/` are the physical-schema
-source of truth. Feature data models and this catalog explain intent; they do
-not override an applied migration.
+CREATE TABLE member_profiles (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_id BIGINT NOT NULL UNIQUE,
+    full_name VARCHAR(255) NULL,
+    phone VARCHAR(32) NULL,
+    address_text VARCHAR(512) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_member_profiles_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
 
-| Maturity | Meaning |
-| --- | --- |
-| **As-built** | Present in the current Flyway V1 migration. |
-| **Mapped** | An As-built table currently has a JPA entity/repository mapping. |
-| **Proposed** | Physical target chosen for V1 but not yet migrated. |
-| **TBD dependency** | A provider, governance, retention, or lifecycle rule is not approved; no final persistence behaviour may be assumed. |
+CREATE TABLE guest_profiles (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(255) NULL,
+    email VARCHAR(255) NOT NULL,
+    canonical_email VARCHAR(255) NOT NULL UNIQUE,
+    phone VARCHAR(32) NULL,
+    email_verified_at TIMESTAMP NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-## 2. Database platform and change rules
+CREATE TABLE policy_documents (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    policy_type VARCHAR(64) NOT NULL,
+    version VARCHAR(64) NOT NULL,
+    content_uri VARCHAR(512) NOT NULL,
+    effective_at TIMESTAMP NOT NULL,
+    state VARCHAR(64) NOT NULL,
+    effective_policy_type VARCHAR(64)
+        GENERATED ALWAYS AS (
+            CASE WHEN state = 'EFFECTIVE' THEN policy_type ELSE NULL END
+        ) STORED,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_policy_type_version (policy_type, version),
+    UNIQUE KEY uk_effective_policy_type (effective_policy_type),
+    CONSTRAINT chk_policy_documents_state CHECK (
+        state IN ('DRAFT', 'EFFECTIVE', 'ARCHIVED')
+    )
+);
 
-- MySQL 9.7.2 is the pinned baseline for local, CI/integration, staging, and
-  production. H2 in MySQL compatibility mode is permitted only for the fast
-  test profile and is not runtime or release-compatibility evidence. Hibernate
-  DDL is disabled and Flyway runs from the migration classpath.
-- Database ppswbs uses two non-root principals: ppswbs_migrator runs Flyway in
-  CI/deploy with schema-migration privileges; ppswbs_app is runtime-only with
-  least-privilege DML. Credentials are injected through JDBC_* and FLYWAY_*
-  variables and are never stored in this catalog, source, fixtures, or logs.
-- Tables and columns use `snake_case`; Java persistence uses JPA repositories.
-  Application code does not use raw SQL for business persistence.
-- Every change is a new, ordered Flyway migration. Never edit or reuse an
-  applied migration version, including `V1__init_member_auth.sql`.
-- Target primary keys are `BIGINT AUTO_INCREMENT`; cross-table references use
-  explicit foreign keys. Historical and audit references use restrictive
-  deletion; the target does not use `ON DELETE CASCADE`.
-- Money is stored as `amount_vnd BIGINT`, never floating point. State fields
-  are `VARCHAR(64)` values controlled by application enums and feature rules.
-  Timestamps are `TIMESTAMP`; application and database configuration must use a
-  consistent UTC interpretation.
-- Audit evidence is append-only and belongs to the domain that performs the
-  workflow. `safe_metadata` or equivalent contains only redacted operational
-  context—never Firebase ID tokens, password/reset codes, provider secrets, or
-  raw payment webhook payloads.
-- No shared central business-audit table is part of V1. Google Review import
-  remains an integration/governance dependency and has no target table.
+CREATE TABLE member_policy_acceptances (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_id BIGINT NOT NULL,
+    policy_document_id BIGINT NOT NULL,
+    accepted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    locale VARCHAR(16) NOT NULL DEFAULT 'vi',
+    correlation_id VARCHAR(64) NOT NULL,
+    UNIQUE KEY uk_member_policy_acceptance (account_id, policy_document_id),
+    CONSTRAINT fk_member_policy_acceptances_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id),
+    CONSTRAINT fk_member_policy_acceptances_policy
+        FOREIGN KEY (policy_document_id) REFERENCES policy_documents(id)
+);
 
-## 3. As-built schema: Flyway V1
+CREATE TABLE member_auth_audit_events (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_id BIGINT NULL,
+    event_type VARCHAR(64) NOT NULL,
+    occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    correlation_id VARCHAR(64) NOT NULL,
+    provider VARCHAR(64) NULL,
+    safe_metadata JSON NULL,
+    INDEX idx_member_auth_audit_account_occurred (account_id, occurred_at),
+    CONSTRAINT fk_member_auth_audit_events_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
 
-### 3.1 Migration and current mapping status
+INSERT INTO accounts (system_code, firebase_uid, email, role, status)
+VALUES ('GUEST_SYSTEM', NULL, NULL, 'GUEST', 'SYSTEM');
+~~~
 
-`V1__init_member_auth.sql` creates six tables and two effective policy seed
-rows. The `members` module currently maps the first four tables through JPA:
-`Member`, `PolicyDocument`, `MemberPolicyAcceptance`, and
-`MemberAuthAuditEventEntity`. There is currently no `workshopbooking` JPA
-entity/repository mapping for `workshop_bookings` or
-`booking_email_confirmations`; this is a technical mapping status only.
+### Catalogue
 
-| Table | Module owner | Maturity | Current JPA mapping |
-| --- | --- | --- | --- |
-| `members` | `members` | As-built | Mapped: `Member` |
-| `policy_documents` | `members` | As-built | Mapped: `PolicyDocument` |
-| `member_policy_acceptances` | `members` | As-built | Mapped: `MemberPolicyAcceptance` |
-| `member_auth_audit_events` | `members` | As-built | Mapped: `MemberAuthAuditEventEntity` |
-| `workshop_bookings` | `workshopbooking` | As-built | Not mapped currently |
-| `booking_email_confirmations` | `workshopbooking` | As-built | Not mapped currently |
+~~~sql
+CREATE TABLE locations (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    address_text VARCHAR(512) NOT NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'ACTIVE',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-### 3.2 Tables, columns, and constraints
+CREATE TABLE workshop_packages (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    duration_minutes INT NOT NULL,
+    base_price_vnd BIGINT NOT NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'DRAFT',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_workshop_packages_duration CHECK (duration_minutes > 0),
+    CONSTRAINT chk_workshop_packages_price CHECK (base_price_vnd >= 0)
+);
 
-#### `members`
+CREATE TABLE workshop_sessions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    location_id BIGINT NOT NULL,
+    starts_at TIMESTAMP NOT NULL,
+    ends_at TIMESTAMP NOT NULL,
+    capacity INT NOT NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'OPEN',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_workshop_sessions_location_start (location_id, starts_at),
+    CONSTRAINT fk_workshop_sessions_location
+        FOREIGN KEY (location_id) REFERENCES locations(id),
+    CONSTRAINT chk_workshop_sessions_capacity CHECK (capacity > 0),
+    CONSTRAINT chk_workshop_sessions_time CHECK (ends_at > starts_at)
+);
 
-| Column | Physical definition | Notes |
-| --- | --- | --- |
-| `id` | `BIGINT AUTO_INCREMENT PRIMARY KEY` | Internal Member identifier. |
-| `external_user_id` | `VARCHAR(128) NOT NULL UNIQUE` | Verified Firebase UID; never derived from email. |
-| `email` | `VARCHAR(255) NULL` | Mutable profile/contact attribute, never a merge or authorization key. |
-| `email_verified` | `BOOLEAN NOT NULL DEFAULT FALSE` | Snapshot of verified Firebase claim. |
-| `status` | `VARCHAR(64) NOT NULL DEFAULT 'PENDING_POLICY_ACCEPTANCE'` | Current JPA enum persists as a string. |
-| `created_at`, `updated_at` | `TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`; `updated_at` has `ON UPDATE CURRENT_TIMESTAMP` | Lifecycle timestamps. |
+CREATE TABLE workshop_session_packages (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    workshop_session_id BIGINT NOT NULL,
+    workshop_package_id BIGINT NOT NULL,
+    price_vnd BIGINT NOT NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'AVAILABLE',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_workshop_session_package (workshop_session_id, workshop_package_id),
+    CONSTRAINT fk_workshop_session_packages_session
+        FOREIGN KEY (workshop_session_id) REFERENCES workshop_sessions(id),
+    CONSTRAINT fk_workshop_session_packages_package
+        FOREIGN KEY (workshop_package_id) REFERENCES workshop_packages(id),
+    CONSTRAINT chk_workshop_session_packages_price CHECK (price_vnd >= 0)
+);
 
-Index: `idx_members_email (email)`.
+CREATE TABLE ring_models (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    base_price_vnd BIGINT NOT NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'DRAFT',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_ring_models_price CHECK (base_price_vnd >= 0)
+);
 
-#### `policy_documents`
+CREATE TABLE ring_components (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    component_type VARCHAR(64) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    price_delta_vnd BIGINT NOT NULL DEFAULT 0,
+    state VARCHAR(64) NOT NULL DEFAULT 'DRAFT',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-| Column | Physical definition | Notes |
-| --- | --- | --- |
-| `id` | `BIGINT AUTO_INCREMENT PRIMARY KEY` | Policy document identifier. |
-| `policy_type`, `version` | `VARCHAR(64) NOT NULL` each | Unique as a pair. |
-| `content_uri` | `VARCHAR(512) NOT NULL` | Published content location. |
-| `effective_at` | `TIMESTAMP NOT NULL` | Effective date/time. |
-| `state` | `VARCHAR(64) NOT NULL DEFAULT 'EFFECTIVE'` | Current JPA enum persists as a string. |
-| `created_at` | `TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP` | Creation evidence. |
+CREATE TABLE ring_model_components (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ring_model_id BIGINT NOT NULL,
+    ring_component_id BIGINT NOT NULL,
+    min_quantity INT NOT NULL DEFAULT 0,
+    max_quantity INT NOT NULL DEFAULT 1,
+    required BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_ring_model_component (ring_model_id, ring_component_id),
+    CONSTRAINT fk_ring_model_components_model
+        FOREIGN KEY (ring_model_id) REFERENCES ring_models(id),
+    CONSTRAINT fk_ring_model_components_component
+        FOREIGN KEY (ring_component_id) REFERENCES ring_components(id),
+    CONSTRAINT chk_ring_model_components_quantity CHECK (
+        min_quantity >= 0 AND max_quantity >= min_quantity
+    )
+);
 
-Unique key: `uk_policy_type_version (policy_type, version)`.
+CREATE TABLE ready_ring_products (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    sku VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    list_price_vnd BIGINT NOT NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'DRAFT',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_ready_ring_products_price CHECK (list_price_vnd >= 0)
+);
 
-#### `member_policy_acceptances`
+CREATE TABLE ready_ring_units (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ready_ring_product_id BIGINT NOT NULL,
+    unit_code VARCHAR(64) NOT NULL UNIQUE,
+    availability_status VARCHAR(64) NOT NULL DEFAULT 'AVAILABLE',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ready_ring_units_product
+        FOREIGN KEY (ready_ring_product_id) REFERENCES ready_ring_products(id)
+);
+~~~
 
-| Column | Physical definition | Notes |
-| --- | --- | --- |
-| `id` | `BIGINT AUTO_INCREMENT PRIMARY KEY` | Acceptance identifier. |
-| `member_id` | `BIGINT NOT NULL` | FK `fk_mpa_member → members(id)`. |
-| `policy_document_id` | `BIGINT NOT NULL` | FK `fk_mpa_policy → policy_documents(id)`. |
-| `accepted_at` | `TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP` | Acceptance evidence time. |
-| `locale` | `VARCHAR(16) NOT NULL DEFAULT 'vi'` | Locale at acceptance. |
-| `correlation_id` | `VARCHAR(64) NOT NULL` | Request/audit correlation. |
+### Design review
 
-Unique key: `uk_member_policy (member_id, policy_document_id)`.
+~~~sql
+CREATE TABLE design_requests (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_id BIGINT NOT NULL,
+    guest_profile_id BIGINT NULL,
+    booking_id BIGINT NULL,
+    request_type VARCHAR(64) NOT NULL,
+    consented_at TIMESTAMP NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'SUBMITTED',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_design_requests_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id),
+    CONSTRAINT fk_design_requests_guest_profile
+        FOREIGN KEY (guest_profile_id) REFERENCES guest_profiles(id)
+);
 
-#### `member_auth_audit_events`
+CREATE TABLE design_reference_assets (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    design_request_id BIGINT NOT NULL,
+    storage_uri VARCHAR(512) NOT NULL,
+    content_sha256 CHAR(64) NOT NULL,
+    media_type VARCHAR(128) NOT NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'ACTIVE',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_design_reference_asset_hash (design_request_id, content_sha256),
+    CONSTRAINT fk_design_reference_assets_request
+        FOREIGN KEY (design_request_id) REFERENCES design_requests(id)
+);
 
-| Column | Physical definition | Notes |
-| --- | --- | --- |
-| `id` | `BIGINT AUTO_INCREMENT PRIMARY KEY` | Audit event identifier. |
-| `member_id` | `BIGINT NULL` | Nullable because some events precede Member creation; no FK is declared in V1. |
-| `event_type` | `VARCHAR(64) NOT NULL` | Typed auth event. |
-| `occurred_at` | `TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP` | Event time. |
-| `correlation_id` | `VARCHAR(64) NOT NULL` | Request/audit correlation. |
-| `provider` | `VARCHAR(64) NULL` | Provider label only. |
-| `safe_metadata` | `TEXT NULL` | Redacted metadata only. |
+CREATE TABLE design_request_components (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    design_request_id BIGINT NOT NULL,
+    ring_component_id BIGINT NOT NULL,
+    quantity INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_design_request_component (design_request_id, ring_component_id),
+    CONSTRAINT fk_design_request_components_request
+        FOREIGN KEY (design_request_id) REFERENCES design_requests(id),
+    CONSTRAINT fk_design_request_components_component
+        FOREIGN KEY (ring_component_id) REFERENCES ring_components(id),
+    CONSTRAINT chk_design_request_components_quantity CHECK (quantity > 0)
+);
 
-Index: `idx_audit_member_occurred (member_id, occurred_at)`.
+CREATE TABLE feasibility_rules (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    rule_code VARCHAR(64) NOT NULL,
+    rule_version VARCHAR(64) NOT NULL,
+    rule_definition JSON NOT NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'DRAFT',
+    published_by_account_id BIGINT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_feasibility_rule_version (rule_code, rule_version),
+    CONSTRAINT fk_feasibility_rules_manager
+        FOREIGN KEY (published_by_account_id) REFERENCES accounts(id)
+);
 
-#### `workshop_bookings`
+CREATE TABLE feasibility_evaluations (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    design_request_id BIGINT NOT NULL UNIQUE,
+    feasibility_rule_id BIGINT NOT NULL,
+    route VARCHAR(64) NOT NULL,
+    decision VARCHAR(64) NOT NULL,
+    candidate_features JSON NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_feasibility_evaluations_request
+        FOREIGN KEY (design_request_id) REFERENCES design_requests(id),
+    CONSTRAINT fk_feasibility_evaluations_rule
+        FOREIGN KEY (feasibility_rule_id) REFERENCES feasibility_rules(id)
+);
 
-| Column | Physical definition | Notes |
-| --- | --- | --- |
-| `id` | `BIGINT AUTO_INCREMENT PRIMARY KEY` | Booking identifier. |
-| `booking_code` | `VARCHAR(64) NOT NULL UNIQUE` | Public lookup identifier. |
-| `member_id` | `BIGINT NULL` | FK `fk_wb_member → members(id)`; Guest booking may remain unlinked. |
-| `contact_email`, `canonical_email` | `VARCHAR(255) NOT NULL` each | Contact and normalized lookup email. |
-| `confirmation_state` | `VARCHAR(64) NOT NULL DEFAULT 'EMAIL_CONFIRMATION_PENDING'` | Email-confirmation lifecycle state. |
-| `booking_status` | `VARCHAR(64) NOT NULL DEFAULT 'PENDING'` | Booking lifecycle state. |
-| `created_at`, `updated_at` | `TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`; `updated_at` has `ON UPDATE CURRENT_TIMESTAMP` | Lifecycle timestamps. |
+CREATE TABLE design_review_decisions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    design_request_id BIGINT NOT NULL,
+    account_id BIGINT NOT NULL,
+    decision VARCHAR(64) NOT NULL,
+    reason TEXT NOT NULL,
+    decision_context JSON NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_design_review_decisions_request
+        FOREIGN KEY (design_request_id) REFERENCES design_requests(id),
+    CONSTRAINT fk_design_review_decisions_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
 
-Index: `idx_bookings_canonical_email (canonical_email)`.
+CREATE TABLE design_review_audit_events (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    design_request_id BIGINT NOT NULL,
+    account_id BIGINT NULL,
+    event_type VARCHAR(64) NOT NULL,
+    occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    correlation_id VARCHAR(64) NOT NULL,
+    safe_metadata JSON NULL,
+    CONSTRAINT fk_design_review_audit_request
+        FOREIGN KEY (design_request_id) REFERENCES design_requests(id),
+    CONSTRAINT fk_design_review_audit_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
+~~~
 
-#### `booking_email_confirmations`
+### Workshop booking
 
-| Column | Physical definition | Notes |
-| --- | --- | --- |
-| `id` | `BIGINT AUTO_INCREMENT PRIMARY KEY` | Confirmation identifier. |
-| `booking_id` | `BIGINT NOT NULL UNIQUE` | FK `fk_bec_booking → workshop_bookings(id)`; one confirmation record per booking. |
-| `token_hash` | `VARCHAR(128) NOT NULL` | Hash only; plaintext token is never persisted. |
-| `expires_at` | `TIMESTAMP NOT NULL` | One-time-token expiry. |
-| `confirmed_at` | `TIMESTAMP NULL` | Successful consumption time. |
-| `state` | `VARCHAR(64) NOT NULL DEFAULT 'PENDING'` | Confirmation state. |
-| `created_at` | `TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP` | Creation time. |
+~~~sql
+CREATE TABLE workshop_bookings (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    booking_code VARCHAR(64) NOT NULL UNIQUE,
+    account_id BIGINT NOT NULL,
+    guest_profile_id BIGINT NULL,
+    workshop_session_id BIGINT NOT NULL,
+    workshop_package_id BIGINT NOT NULL,
+    parent_booking_id BIGINT NULL,
+    contact_name VARCHAR(255) NOT NULL,
+    contact_email VARCHAR(255) NOT NULL,
+    canonical_email VARCHAR(255) NOT NULL,
+    participant_count INT NOT NULL DEFAULT 1,
+    confirmation_state VARCHAR(64) NOT NULL DEFAULT 'EMAIL_CONFIRMATION_PENDING',
+    booking_status VARCHAR(64) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_workshop_bookings_canonical_email (canonical_email),
+    CONSTRAINT fk_workshop_bookings_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id),
+    CONSTRAINT fk_workshop_bookings_guest_profile
+        FOREIGN KEY (guest_profile_id) REFERENCES guest_profiles(id),
+    CONSTRAINT fk_workshop_bookings_session
+        FOREIGN KEY (workshop_session_id) REFERENCES workshop_sessions(id),
+    CONSTRAINT fk_workshop_bookings_package
+        FOREIGN KEY (workshop_package_id) REFERENCES workshop_packages(id),
+    CONSTRAINT fk_workshop_bookings_parent
+        FOREIGN KEY (parent_booking_id) REFERENCES workshop_bookings(id),
+    CONSTRAINT chk_workshop_bookings_participants CHECK (participant_count > 0)
+);
 
-### 3.3 As-built relationships and seed data
+CREATE TABLE booking_email_confirmations (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    booking_id BIGINT NOT NULL UNIQUE,
+    token_hash VARCHAR(128) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    confirmed_at TIMESTAMP NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_booking_email_confirmations_booking
+        FOREIGN KEY (booking_id) REFERENCES workshop_bookings(id)
+);
 
-```mermaid
+CREATE TABLE booking_audit_events (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    booking_id BIGINT NOT NULL,
+    account_id BIGINT NULL,
+    event_type VARCHAR(64) NOT NULL,
+    occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    correlation_id VARCHAR(64) NOT NULL,
+    safe_metadata JSON NULL,
+    CONSTRAINT fk_booking_audit_events_booking
+        FOREIGN KEY (booking_id) REFERENCES workshop_bookings(id),
+    CONSTRAINT fk_booking_audit_events_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
+
+ALTER TABLE design_requests
+    ADD CONSTRAINT fk_design_requests_booking
+    FOREIGN KEY (booking_id) REFERENCES workshop_bookings(id);
+~~~
+
+### Ready-ring sales, billing, and payments
+
+~~~sql
+CREATE TABLE ready_ring_orders (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_code VARCHAR(64) NOT NULL UNIQUE,
+    account_id BIGINT NOT NULL,
+    ready_ring_unit_id BIGINT NOT NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'PENDING_PAYMENT',
+    fulfilment_choice VARCHAR(64) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ready_ring_orders_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id),
+    CONSTRAINT fk_ready_ring_orders_unit
+        FOREIGN KEY (ready_ring_unit_id) REFERENCES ready_ring_units(id)
+);
+
+CREATE TABLE ready_ring_sales_audit_events (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ready_ring_order_id BIGINT NOT NULL,
+    account_id BIGINT NULL,
+    event_type VARCHAR(64) NOT NULL,
+    occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    correlation_id VARCHAR(64) NOT NULL,
+    safe_metadata JSON NULL,
+    CONSTRAINT fk_ready_ring_sales_audit_order
+        FOREIGN KEY (ready_ring_order_id) REFERENCES ready_ring_orders(id),
+    CONSTRAINT fk_ready_ring_sales_audit_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE invoices (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    invoice_code VARCHAR(64) NOT NULL UNIQUE,
+    workshop_booking_id BIGINT NULL,
+    ready_ring_order_id BIGINT NULL,
+    currency_code CHAR(3) NOT NULL DEFAULT 'VND',
+    total_amount_vnd BIGINT NOT NULL,
+    deposit_due_vnd BIGINT NOT NULL DEFAULT 0,
+    amount_paid_vnd BIGINT NOT NULL DEFAULT 0,
+    state VARCHAR(64) NOT NULL DEFAULT 'OPEN',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_invoices_booking
+        FOREIGN KEY (workshop_booking_id) REFERENCES workshop_bookings(id),
+    CONSTRAINT fk_invoices_order
+        FOREIGN KEY (ready_ring_order_id) REFERENCES ready_ring_orders(id),
+    CONSTRAINT chk_invoices_subject CHECK (
+        (workshop_booking_id IS NOT NULL AND ready_ring_order_id IS NULL)
+        OR (workshop_booking_id IS NULL AND ready_ring_order_id IS NOT NULL)
+    ),
+    CONSTRAINT chk_invoices_amounts CHECK (
+        total_amount_vnd >= 0 AND deposit_due_vnd >= 0 AND amount_paid_vnd >= 0
+    )
+);
+
+CREATE TABLE invoice_lines (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    invoice_id BIGINT NOT NULL,
+    line_type VARCHAR(64) NOT NULL,
+    description VARCHAR(512) NOT NULL,
+    quantity INT NOT NULL,
+    unit_amount_vnd BIGINT NOT NULL,
+    line_amount_vnd BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_invoice_lines_invoice
+        FOREIGN KEY (invoice_id) REFERENCES invoices(id),
+    CONSTRAINT chk_invoice_lines_quantity CHECK (quantity > 0)
+);
+
+CREATE TABLE invoice_adjustments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    invoice_id BIGINT NOT NULL,
+    staff_account_id BIGINT NOT NULL,
+    manager_account_id BIGINT NULL,
+    adjustment_type VARCHAR(64) NOT NULL,
+    amount_vnd BIGINT NOT NULL,
+    reason TEXT NOT NULL,
+    customer_consented_at TIMESTAMP NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_invoice_adjustments_invoice
+        FOREIGN KEY (invoice_id) REFERENCES invoices(id),
+    CONSTRAINT fk_invoice_adjustments_staff
+        FOREIGN KEY (staff_account_id) REFERENCES accounts(id),
+    CONSTRAINT fk_invoice_adjustments_manager
+        FOREIGN KEY (manager_account_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE billing_audit_events (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    invoice_id BIGINT NOT NULL,
+    account_id BIGINT NULL,
+    event_type VARCHAR(64) NOT NULL,
+    occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    correlation_id VARCHAR(64) NOT NULL,
+    safe_metadata JSON NULL,
+    CONSTRAINT fk_billing_audit_events_invoice
+        FOREIGN KEY (invoice_id) REFERENCES invoices(id),
+    CONSTRAINT fk_billing_audit_events_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE payment_attempts (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    invoice_id BIGINT NOT NULL,
+    provider VARCHAR(64) NOT NULL,
+    provider_reference VARCHAR(255) NULL,
+    requested_amount_vnd BIGINT NOT NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'CREATED',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_payment_attempts_invoice
+        FOREIGN KEY (invoice_id) REFERENCES invoices(id),
+    CONSTRAINT chk_payment_attempts_amount CHECK (requested_amount_vnd > 0)
+);
+
+CREATE TABLE payment_transactions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    payment_attempt_id BIGINT NOT NULL,
+    provider VARCHAR(64) NOT NULL,
+    provider_transaction_id VARCHAR(255) NOT NULL,
+    amount_vnd BIGINT NOT NULL,
+    state VARCHAR(64) NOT NULL,
+    confirmed_at TIMESTAMP NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_payment_provider_transaction (provider, provider_transaction_id),
+    CONSTRAINT fk_payment_transactions_attempt
+        FOREIGN KEY (payment_attempt_id) REFERENCES payment_attempts(id),
+    CONSTRAINT chk_payment_transactions_amount CHECK (amount_vnd > 0)
+);
+
+CREATE TABLE payment_provider_events (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    payment_transaction_id BIGINT NULL,
+    provider VARCHAR(64) NOT NULL,
+    provider_event_id VARCHAR(255) NOT NULL,
+    payload_sha256 CHAR(64) NOT NULL,
+    safe_metadata JSON NULL,
+    received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    verified_at TIMESTAMP NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'RECEIVED',
+    UNIQUE KEY uk_payment_provider_event (provider, provider_event_id),
+    CONSTRAINT fk_payment_provider_events_transaction
+        FOREIGN KEY (payment_transaction_id) REFERENCES payment_transactions(id)
+);
+~~~
+
+### Operations and fulfilment
+
+~~~sql
+CREATE TABLE workshop_check_ins (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    workshop_booking_id BIGINT NOT NULL UNIQUE,
+    staff_account_id BIGINT NOT NULL,
+    checked_in_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actual_participant_count INT NOT NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'CHECKED_IN',
+    CONSTRAINT fk_workshop_check_ins_booking
+        FOREIGN KEY (workshop_booking_id) REFERENCES workshop_bookings(id),
+    CONSTRAINT fk_workshop_check_ins_staff
+        FOREIGN KEY (staff_account_id) REFERENCES accounts(id),
+    CONSTRAINT chk_workshop_check_ins_participants CHECK (actual_participant_count >= 0)
+);
+
+CREATE TABLE custody_records (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    workshop_booking_id BIGINT NOT NULL,
+    location_id BIGINT NOT NULL,
+    staff_account_id BIGINT NOT NULL,
+    work_item_description TEXT NOT NULL,
+    intake_photo_uri VARCHAR(512) NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'IN_CUSTODY',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_custody_records_booking
+        FOREIGN KEY (workshop_booking_id) REFERENCES workshop_bookings(id),
+    CONSTRAINT fk_custody_records_location
+        FOREIGN KEY (location_id) REFERENCES locations(id),
+    CONSTRAINT fk_custody_records_staff
+        FOREIGN KEY (staff_account_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE custody_releases (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    custody_record_id BIGINT NOT NULL UNIQUE,
+    staff_account_id BIGINT NOT NULL,
+    released_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    state VARCHAR(64) NOT NULL DEFAULT 'RELEASED',
+    CONSTRAINT fk_custody_releases_record
+        FOREIGN KEY (custody_record_id) REFERENCES custody_records(id),
+    CONSTRAINT fk_custody_releases_staff
+        FOREIGN KEY (staff_account_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE carrier_handoffs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ready_ring_order_id BIGINT NOT NULL UNIQUE,
+    staff_account_id BIGINT NOT NULL,
+    carrier_name VARCHAR(255) NOT NULL,
+    handoff_reference VARCHAR(255) NOT NULL,
+    handed_off_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_carrier_handoffs_order
+        FOREIGN KEY (ready_ring_order_id) REFERENCES ready_ring_orders(id),
+    CONSTRAINT fk_carrier_handoffs_staff
+        FOREIGN KEY (staff_account_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE fulfilment_audit_events (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    custody_record_id BIGINT NULL,
+    ready_ring_order_id BIGINT NULL,
+    account_id BIGINT NULL,
+    event_type VARCHAR(64) NOT NULL,
+    occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    correlation_id VARCHAR(64) NOT NULL,
+    safe_metadata JSON NULL,
+    CONSTRAINT fk_fulfilment_audit_custody
+        FOREIGN KEY (custody_record_id) REFERENCES custody_records(id),
+    CONSTRAINT fk_fulfilment_audit_order
+        FOREIGN KEY (ready_ring_order_id) REFERENCES ready_ring_orders(id),
+    CONSTRAINT fk_fulfilment_audit_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id),
+    CONSTRAINT chk_fulfilment_audit_subject CHECK (
+        (custody_record_id IS NOT NULL AND ready_ring_order_id IS NULL)
+        OR (custody_record_id IS NULL AND ready_ring_order_id IS NOT NULL)
+    )
+);
+~~~
+
+### Technical administration
+
+~~~sql
+CREATE TABLE technical_configurations (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    configuration_key VARCHAR(128) NOT NULL UNIQUE,
+    display_name VARCHAR(255) NOT NULL,
+    safe_value JSON NULL,
+    state VARCHAR(64) NOT NULL DEFAULT 'ACTIVE',
+    updated_by_account_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_technical_configurations_account
+        FOREIGN KEY (updated_by_account_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE integration_health_checks (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    integration_key VARCHAR(128) NOT NULL,
+    checked_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    state VARCHAR(64) NOT NULL,
+    safe_detail TEXT NULL,
+    INDEX idx_integration_health_checks_key_time (integration_key, checked_at)
+);
+
+CREATE TABLE technical_admin_audit_events (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_id BIGINT NOT NULL,
+    event_type VARCHAR(64) NOT NULL,
+    occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    correlation_id VARCHAR(64) NOT NULL,
+    safe_metadata JSON NULL,
+    CONSTRAINT fk_technical_admin_audit_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
+~~~
+
+## Relationships
+
+### Identity and policy
+
+~~~mermaid
 erDiagram
-    MEMBERS ||--o{ MEMBER_POLICY_ACCEPTANCES : accepts
-    POLICY_DOCUMENTS ||--o{ MEMBER_POLICY_ACCEPTANCES : records
-    MEMBERS o|--o{ WORKSHOP_BOOKINGS : links
-    WORKSHOP_BOOKINGS ||--|| BOOKING_EMAIL_CONFIRMATIONS : confirms
-    MEMBERS o|--o{ MEMBER_AUTH_AUDIT_EVENTS : identifies
-```
+    ACCOUNTS ||--o| MEMBER_PROFILES : account_id
+    ACCOUNTS ||--o{ MEMBER_POLICY_ACCEPTANCES : account_id
+    POLICY_DOCUMENTS ||--o{ MEMBER_POLICY_ACCEPTANCES : policy_document_id
+    ACCOUNTS o|--o{ MEMBER_AUTH_AUDIT_EVENTS : account_id
+~~~
 
-V1 seeds two `policy_documents` rows: `TERMS_OF_USE` and `PRIVACY_POLICY`, both
-version `v1.0.0`, state `EFFECTIVE`, and content URIs beneath `/policies/`.
-No migration seed includes accounts, roles, payment providers, catalogue data,
-or Google Reviews.
+### Catalogue
 
-## 4. Proposed V1 physical target
-
-All tables in this section are **Proposed — not yet migrated**. Standard target
-columns omitted from the compact lists are `created_at TIMESTAMP NOT NULL` and,
-for mutable records, `updated_at TIMESTAMP NOT NULL`. Audit tables use only
-`occurred_at TIMESTAMP NOT NULL` and do not expose update/delete operations.
-
-### 4.1 Identity, entitlement, and policy (`members`)
-
-| Table | Core physical fields | Keys, relationships, and invariant |
-| --- | --- | --- |
-| `accounts` | `id BIGINT`, `external_user_id VARCHAR(128)`, `status VARCHAR(64)` | PK `id`; unique `external_user_id`. One verified Firebase identity has one account; Firebase claims do not set Mland roles. |
-| `account_roles` | `id BIGINT`, `account_id BIGINT`, `role VARCHAR(64)`, `state VARCHAR(64)`, `granted_by_account_id BIGINT NULL`, `granted_at TIMESTAMP`, `revoked_at TIMESTAMP NULL` | FK to `accounts` for account/granter; unique `(account_id, role)`. Revoke/reactivate the existing assignment for auditable role history. |
-| `members` (evolved) | existing fields plus `account_id BIGINT NULL` during compatibility migration | Unique FK `account_id → accounts(id)`. Backfill an account for each existing Member; retain `external_user_id` until the Member feature contract completes the forward migration. |
-| policy_documents (evolved) | existing columns plus stored generated effective_policy_type VARCHAR(64) | Retains unique policy_type/version; generated value is policy_type only for EFFECTIVE, otherwise NULL; unique index on it enforces one effective policy per type. |
-| `member_policy_acceptances` | existing physical columns | Immutable evidence; unique Member/policy pair. |
-| `member_auth_audit_events` | existing physical columns | Append-only auth/audit evidence; add an FK only through a separately approved compatibility migration. |
-
-### 4.2 Catalogue and capacity (`catalogue`, `workshopbooking`, `readyringsales`)
-
-| Table | Core physical fields | Keys, relationships, and invariant |
-| --- | --- | --- |
-| `locations` | `id`, `code VARCHAR(64)`, `name VARCHAR(255)`, `address_text VARCHAR(512)`, `state VARCHAR(64)` | Unique `code`; branch/location is a catalogue-owned published resource. |
-| `workshop_packages` | `id`, `code VARCHAR(64)`, `name VARCHAR(255)`, `description TEXT`, `duration_minutes INT`, `base_price_vnd BIGINT`, `state VARCHAR(64)` | Unique `code`; package price is VND integer. |
-| `workshop_sessions` | `id`, `location_id BIGINT`, `starts_at TIMESTAMP`, `ends_at TIMESTAMP`, `capacity INT`, `state VARCHAR(64)` | FK to `locations`; unique `(location_id, starts_at)`; capacity must be positive. |
-| `ring_models` | `id`, `code VARCHAR(64)`, `name VARCHAR(255)`, `base_price_vnd BIGINT`, `state VARCHAR(64)` | Unique `code`; Owner-published model path. |
-| `ring_components` | `id`, `code VARCHAR(64)`, `component_type VARCHAR(64)`, `name VARCHAR(255)`, `price_delta_vnd BIGINT`, `state VARCHAR(64)` | Unique `code`; component definition only. |
-| `ring_model_components` | `id`, `ring_model_id BIGINT`, `ring_component_id BIGINT`, `min_quantity INT`, `max_quantity INT`, `required BOOLEAN` | FKs to model/component; unique `(ring_model_id, ring_component_id)`; `min_quantity <= max_quantity`. |
-| `ready_ring_products` | `id`, `sku VARCHAR(64)`, `name VARCHAR(255)`, `description TEXT`, `list_price_vnd BIGINT`, `state VARCHAR(64)` | Unique `sku`; catalogue-owned product definition. |
-| `ready_ring_units` | `id`, `ready_ring_product_id BIGINT`, `unit_code VARCHAR(64)`, `availability_status VARCHAR(64)` | FK to product; unique `unit_code`. Unit is the single reservable/sellable physical ring. Reservation/expiry state semantics remain TBD. |
-
-### 4.3 Design review (`designreview`)
-
-| Table | Core physical fields | Keys, relationships, and invariant |
-| --- | --- | --- |
-| `design_requests` | `id`, `member_id BIGINT NULL`, `booking_id BIGINT NULL`, `guest_reference_code VARCHAR(64) NULL`, `access_token_hash VARCHAR(128) NULL`, `request_type VARCHAR(64)`, `consented_at TIMESTAMP NULL`, `state VARCHAR(64)` | Nullable FK to `members` and later `workshop_bookings`; unique non-null `guest_reference_code`; a reference-image request requires explicit consent before external analysis, and any Guest access token is hashed only. |
-| `design_reference_assets` | `id`, `design_request_id BIGINT`, `storage_uri VARCHAR(512)`, `content_sha256 CHAR(64)`, `media_type VARCHAR(128)`, `state VARCHAR(64)` | FK to request; unique `(design_request_id, content_sha256)`. Retention period and storage provider are TBD. |
-| `design_request_components` | `id`, `design_request_id BIGINT`, `ring_component_id BIGINT`, `quantity INT` | FKs to request/component; unique `(design_request_id, ring_component_id)`; quantity positive. |
-| `feasibility_rules` | `id`, `rule_code VARCHAR(64)`, `rule_version VARCHAR(64)`, `state VARCHAR(64)`, `rule_definition JSON` | Unique `(rule_code, rule_version)`; rule values/thresholds require Owner approval. |
-| `feasibility_evaluations` | `id`, `design_request_id BIGINT`, `rule_version VARCHAR(64)`, `route VARCHAR(64)`, `decision VARCHAR(64)`, `candidate_features JSON NULL` | Unique `design_request_id`; AI output remains candidate data only. Candidate-data retention is TBD. |
-| `design_review_decisions` | `id`, `design_request_id BIGINT`, `account_id BIGINT`, `decision VARCHAR(64)`, `reason TEXT`, `decision_context JSON NULL` | FKs to request/account; Staff or Owner decision/override is auditable. |
-| `design_review_audit_events` | `id`, `design_request_id BIGINT`, `event_type VARCHAR(64)`, `account_id BIGINT NULL`, `correlation_id VARCHAR(64)`, `safe_metadata TEXT NULL` | FKs to request/account; append-only domain audit. |
-
-### 4.4 Booking and confirmation (`workshopbooking`)
-
-| Table | Core physical fields | Keys, relationships, and invariant |
-| --- | --- | --- |
-| `workshop_bookings` (extended) | existing fields plus `workshop_session_id BIGINT`, `workshop_package_id BIGINT`, `design_request_id BIGINT NULL`, `parent_booking_id BIGINT NULL`, `participant_count INT` | FKs to session/package/design/self. `parent_booking_id` represents a Staff-created continuation; `participant_count` must be positive. Existing booking code and Guest/Member linkage remain unique/optional as in V1. |
-| `booking_email_confirmations` | existing physical columns | One hashed confirmation token per booking. Expiry/cancellation workflow remains feature-owned. |
-| `booking_audit_events` | `id`, `booking_id BIGINT`, `event_type VARCHAR(64)`, `account_id BIGINT NULL`, `occurred_at TIMESTAMP`, `correlation_id VARCHAR(64)`, `safe_metadata TEXT NULL` | FK to booking and optional account; append-only booking audit. |
-
-### 4.5 Billing and payments (`billing`, `payments`)
-
-| Table | Core physical fields | Keys, relationships, and invariant |
-| --- | --- | --- |
-| `invoices` | `id`, `invoice_code VARCHAR(64)`, `booking_id BIGINT NULL`, `ready_ring_order_id BIGINT NULL`, `currency_code CHAR(3) DEFAULT 'VND'`, `total_amount_vnd BIGINT`, `deposit_due_vnd BIGINT`, `amount_paid_vnd BIGINT`, `state VARCHAR(64)` | Unique `invoice_code`; FKs to booking/order. A check constraint must require exactly one of booking/order once both relations exist. |
-| `invoice_lines` | `id`, `invoice_id BIGINT`, `line_type VARCHAR(64)`, `description VARCHAR(512)`, `quantity INT`, `unit_amount_vnd BIGINT`, `line_amount_vnd BIGINT` | FK to invoice; quantity positive; historical line prices are immutable. |
-| `invoice_adjustments` | `id`, `invoice_id BIGINT`, `adjustment_type VARCHAR(64)`, `amount_vnd BIGINT`, `reason TEXT`, `staff_account_id BIGINT`, `owner_account_id BIGINT NULL`, `customer_consented_at TIMESTAMP NULL`, `state VARCHAR(64)` | FKs to invoice/accounts; preserves actor, reason, and consent/approval evidence. |
-| `billing_audit_events` | `id`, `invoice_id BIGINT`, `event_type VARCHAR(64)`, `account_id BIGINT NULL`, `correlation_id VARCHAR(64)`, `safe_metadata TEXT NULL` | FK to invoice/account; append-only billing audit. |
-| `payment_attempts` | `id`, `invoice_id BIGINT`, `provider VARCHAR(64)`, `requested_amount_vnd BIGINT`, `state VARCHAR(64)`, `provider_reference VARCHAR(255) NULL` | FK to invoice; no browser redirect can set confirmed state. |
-| `payment_transactions` | `id`, `payment_attempt_id BIGINT`, `provider VARCHAR(64)`, `provider_transaction_id VARCHAR(255)`, `amount_vnd BIGINT`, `state VARCHAR(64)`, `confirmed_at TIMESTAMP NULL` | FK to attempt; unique `(provider, provider_transaction_id)`. |
-| `payment_provider_events` | `id`, `provider VARCHAR(64)`, `provider_event_id VARCHAR(255)`, `payment_transaction_id BIGINT NULL`, `received_at TIMESTAMP`, `verified_at TIMESTAMP NULL`, `payload_sha256 CHAR(64)`, `safe_metadata TEXT NULL`, `state VARCHAR(64)` | Unique `(provider, provider_event_id)`; stores verification evidence and hash, not a raw provider payload. Provider signature, retry, and reconciliation policy remain TBD. |
-
-### 4.6 Ready-ring sales, operations, and fulfilment
-
-| Table | Core physical fields | Keys, relationships, and invariant |
-| --- | --- | --- |
-| `ready_ring_orders` | `id`, `order_code VARCHAR(64)`, `member_id BIGINT`, `ready_ring_unit_id BIGINT`, `state VARCHAR(64)`, `fulfilment_choice VARCHAR(64)` | Unique `order_code`; FKs to Member/unit. Only an entitled Member may create an order; payment confirmation precedes unit reservation. |
-| `ready_ring_sales_audit_events` | `id`, `ready_ring_order_id BIGINT`, `event_type VARCHAR(64)`, `account_id BIGINT NULL`, `correlation_id VARCHAR(64)`, `safe_metadata TEXT NULL` | FK to order/account; append-only sales audit. |
-| `workshop_check_ins` | `id`, `booking_id BIGINT`, `staff_account_id BIGINT`, `checked_in_at TIMESTAMP`, `actual_participant_count INT`, `state VARCHAR(64)` | Unique `booking_id`; FKs to booking/account; actual participant count non-negative. |
-| `custody_records` | `id`, `booking_id BIGINT`, `work_item_description TEXT`, `intake_photo_uri VARCHAR(512) NULL`, `location_id BIGINT`, `staff_account_id BIGINT`, `state VARCHAR(64)` | FKs to booking/location/account; work-in-progress custody evidence. Image retention is feature-owned. |
-| `custody_releases` | `id`, `custody_record_id BIGINT`, `staff_account_id BIGINT`, `released_at TIMESTAMP`, `state VARCHAR(64)` | Unique `custody_record_id`; FKs to custody/account; auditable release/handover. |
-| `carrier_handoffs` | `id`, `ready_ring_order_id BIGINT`, `carrier_name VARCHAR(255)`, `handoff_reference VARCHAR(255)`, `staff_account_id BIGINT`, `handed_off_at TIMESTAMP` | Unique `ready_ring_order_id`; FKs to order/account. Carrier tracking, returns, and logistics refunds are out of scope. |
-| `fulfilment_audit_events` | `id`, `custody_record_id BIGINT NULL`, `ready_ring_order_id BIGINT NULL`, `event_type VARCHAR(64)`, `account_id BIGINT NULL`, `correlation_id VARCHAR(64)`, `safe_metadata TEXT NULL` | FKs to applicable record/account; a check constraint must require exactly one fulfilment subject. |
-
-### 4.7 Technical administration (`technicaladmin`)
-
-| Table | Core physical fields | Keys, relationships, and invariant |
-| --- | --- | --- |
-| `technical_configurations` | `id`, `configuration_key VARCHAR(128)`, `display_name VARCHAR(255)`, `safe_value JSON NULL`, `state VARCHAR(64)`, `updated_by_account_id BIGINT` | Unique `configuration_key`; FK to account. Secrets remain environment/secret-manager references, never `safe_value`. Exact configuration set is TBD. |
-| `integration_health_checks` | `id`, `integration_key VARCHAR(128)`, `checked_at TIMESTAMP`, `state VARCHAR(64)`, `safe_detail TEXT NULL` | Index `(integration_key, checked_at)`; holds safe observability result only. Monitoring cadence and retention are TBD. |
-| `technical_admin_audit_events` | `id`, `account_id BIGINT`, `event_type VARCHAR(64)`, `occurred_at TIMESTAMP`, `correlation_id VARCHAR(64)`, `safe_metadata TEXT NULL` | FK to account; append-only technical audit. No business-record mutation is represented here. |
-
-### 4.8 Target relationship map
-
-```mermaid
+~~~mermaid
 erDiagram
-    ACCOUNTS ||--o{ ACCOUNT_ROLES : grants
-    ACCOUNTS ||--o| MEMBERS : entitles
-    LOCATIONS ||--o{ WORKSHOP_SESSIONS : hosts
-    WORKSHOP_SESSIONS ||--o{ WORKSHOP_BOOKINGS : schedules
-    WORKSHOP_PACKAGES ||--o{ WORKSHOP_BOOKINGS : prices
-    MEMBERS o|--o{ WORKSHOP_BOOKINGS : owns
-    WORKSHOP_BOOKINGS o|--o{ WORKSHOP_BOOKINGS : continues
-    WORKSHOP_BOOKINGS ||--o| INVOICES : bills
-    READY_RING_UNITS ||--o| READY_RING_ORDERS : sells
-    READY_RING_ORDERS ||--o| INVOICES : bills
-    INVOICES ||--o{ PAYMENT_ATTEMPTS : collects
-    PAYMENT_ATTEMPTS ||--o{ PAYMENT_TRANSACTIONS : records
-    DESIGN_REQUESTS o|--o{ WORKSHOP_BOOKINGS : supports
-    DESIGN_REQUESTS ||--o{ DESIGN_REFERENCE_ASSETS : contains
-    WORKSHOP_BOOKINGS ||--o| CUSTODY_RECORDS : stores
-```
+    LOCATIONS ||--o{ WORKSHOP_SESSIONS : location_id
+    WORKSHOP_SESSIONS ||--o{ WORKSHOP_SESSION_PACKAGES : workshop_session_id
+    WORKSHOP_PACKAGES ||--o{ WORKSHOP_SESSION_PACKAGES : workshop_package_id
+    RING_MODELS ||--o{ RING_MODEL_COMPONENTS : ring_model_id
+    RING_COMPONENTS ||--o{ RING_MODEL_COMPONENTS : ring_component_id
+    READY_RING_PRODUCTS ||--o{ READY_RING_UNITS : ready_ring_product_id
+~~~
 
-## 5. Proposed append-only migration sequence
+### Booking
 
-| Sequence | Migration purpose | Dependencies |
-| --- | --- | --- |
-| V2 | Create accounts/account_roles; backfill one account per existing Member; add nullable members.account_id, validate uniqueness, and add the generated effective-policy unique key. | Existing members, policy_documents |
-| V3 | Create catalogue, location, session, model/component, product, and unit tables. | V2 accounts only for audit ownership where needed |
-| V4 | Extend bookings and add design-review tables/audit tables. | V3 sessions/packages/components; existing bookings |
-| V5 | Add ready-ring orders, invoices, adjustments, payment attempts/transactions/provider-event evidence, and billing/sales audit. | V3 units, V4 bookings, V2 Members; create orders before invoice FKs. |
-| V6 | Add check-ins, continuation/custody/release/carrier handoff, and fulfilment audit. | V3 locations, V4 bookings, V5 orders |
-| V7 | Add non-secret technical configuration, health, and technical-audit tables. | V2 accounts |
+~~~mermaid
+erDiagram
+    ACCOUNTS ||--o{ WORKSHOP_BOOKINGS : account_id
+    GUEST_PROFILES o|--o{ WORKSHOP_BOOKINGS : guest_profile_id
+    WORKSHOP_SESSIONS ||--o{ WORKSHOP_BOOKINGS : workshop_session_id
+    WORKSHOP_PACKAGES ||--o{ WORKSHOP_BOOKINGS : workshop_package_id
+    WORKSHOP_BOOKINGS o|--o{ WORKSHOP_BOOKINGS : parent_booking_id
+    WORKSHOP_BOOKINGS ||--|| BOOKING_EMAIL_CONFIRMATIONS : booking_id
+    WORKSHOP_BOOKINGS ||--o{ BOOKING_AUDIT_EVENTS : booking_id
+    ACCOUNTS o|--o{ BOOKING_AUDIT_EVENTS : account_id
+~~~
 
-The exact migration version number may advance as approved feature migrations are
-added. Each migration must be owned by its business module and tested on an
-empty MySQL database plus the supported upgrade path.
+### Design review
 
-## 6. Open dependencies and delivery gate
+~~~mermaid
+erDiagram
+    ACCOUNTS ||--o{ DESIGN_REQUESTS : account_id
+    GUEST_PROFILES o|--o{ DESIGN_REQUESTS : guest_profile_id
+    WORKSHOP_BOOKINGS o|--o{ DESIGN_REQUESTS : booking_id
+    DESIGN_REQUESTS ||--o{ DESIGN_REFERENCE_ASSETS : design_request_id
+    DESIGN_REQUESTS ||--o{ DESIGN_REQUEST_COMPONENTS : design_request_id
+    RING_COMPONENTS ||--o{ DESIGN_REQUEST_COMPONENTS : ring_component_id
+    FEASIBILITY_RULES ||--o{ FEASIBILITY_EVALUATIONS : feasibility_rule_id
+    DESIGN_REQUESTS ||--o| FEASIBILITY_EVALUATIONS : design_request_id
+    DESIGN_REQUESTS ||--o{ DESIGN_REVIEW_DECISIONS : design_request_id
+    ACCOUNTS ||--o{ DESIGN_REVIEW_DECISIONS : account_id
+    DESIGN_REQUESTS ||--o{ DESIGN_REVIEW_AUDIT_EVENTS : design_request_id
+    ACCOUNTS o|--o{ DESIGN_REVIEW_AUDIT_EVENTS : account_id
+~~~
 
-| Area | Status before implementation |
-| --- | --- |
-| Payment gateway signature, payload, retries, reconciliation, refunds | TBD dependency; define provider contract before creating provider integration. |
-| Ready-ring reservation/expiry policy | TBD dependency; define allowed unit-state transitions and concurrency protection. |
-| AI reference-image storage, feature output, and retention | TBD dependency; define consent, storage, deletion, and visibility policy. |
-| Technical configuration inventory, health retention, secret references | TBD dependency; no secrets may enter the database. |
-| Google Review import | No table in V1 target; requires separate retention/attribution/appeal approval. |
+### Ready-ring, billing, and payments
 
-Before a Proposed table becomes a migration, its feature must define the
-request/API contract, authorization, validation, state transitions, audit
-evidence, data retention, concurrency/idempotency rule, and rollback/upgrade
-test. No target row changes the current migration or runtime schema by itself.
+~~~mermaid
+erDiagram
+    READY_RING_UNITS ||--o| READY_RING_ORDERS : ready_ring_unit_id
+    ACCOUNTS ||--o{ READY_RING_ORDERS : account_id
+    WORKSHOP_BOOKINGS o|--o| INVOICES : workshop_booking_id
+    READY_RING_ORDERS o|--o| INVOICES : ready_ring_order_id
+    INVOICES ||--o{ INVOICE_LINES : invoice_id
+    INVOICES ||--o{ INVOICE_ADJUSTMENTS : invoice_id
+    ACCOUNTS ||--o{ INVOICE_ADJUSTMENTS : staff_account_id
+    ACCOUNTS o|--o{ INVOICE_ADJUSTMENTS : manager_account_id
+    INVOICES ||--o{ BILLING_AUDIT_EVENTS : invoice_id
+    ACCOUNTS o|--o{ BILLING_AUDIT_EVENTS : account_id
+    INVOICES ||--o{ PAYMENT_ATTEMPTS : invoice_id
+    PAYMENT_ATTEMPTS ||--o{ PAYMENT_TRANSACTIONS : payment_attempt_id
+    PAYMENT_TRANSACTIONS o|--o{ PAYMENT_PROVIDER_EVENTS : payment_transaction_id
+    READY_RING_ORDERS ||--o{ READY_RING_SALES_AUDIT_EVENTS : ready_ring_order_id
+    ACCOUNTS o|--o{ READY_RING_SALES_AUDIT_EVENTS : account_id
+~~~
+
+### Operations and fulfilment
+
+~~~mermaid
+erDiagram
+    WORKSHOP_BOOKINGS ||--o| WORKSHOP_CHECK_INS : workshop_booking_id
+    ACCOUNTS ||--o{ WORKSHOP_CHECK_INS : staff_account_id
+    WORKSHOP_BOOKINGS ||--o{ CUSTODY_RECORDS : workshop_booking_id
+    LOCATIONS ||--o{ CUSTODY_RECORDS : location_id
+    ACCOUNTS ||--o{ CUSTODY_RECORDS : staff_account_id
+    CUSTODY_RECORDS ||--|| CUSTODY_RELEASES : custody_record_id
+    ACCOUNTS ||--o{ CUSTODY_RELEASES : staff_account_id
+    READY_RING_ORDERS ||--o| CARRIER_HANDOFFS : ready_ring_order_id
+    ACCOUNTS ||--o{ CARRIER_HANDOFFS : staff_account_id
+    CUSTODY_RECORDS o|--o{ FULFILMENT_AUDIT_EVENTS : custody_record_id
+    READY_RING_ORDERS o|--o{ FULFILMENT_AUDIT_EVENTS : ready_ring_order_id
+    ACCOUNTS o|--o{ FULFILMENT_AUDIT_EVENTS : account_id
+~~~
+
+### Technical administration
+
+~~~mermaid
+erDiagram
+    ACCOUNTS ||--o{ TECHNICAL_CONFIGURATIONS : updated_by_account_id
+    ACCOUNTS ||--o{ TECHNICAL_ADMIN_AUDIT_EVENTS : account_id
+    INTEGRATION_HEALTH_CHECKS {
+        bigint id PK
+        varchar integration_key
+        varchar state
+    }
+~~~
