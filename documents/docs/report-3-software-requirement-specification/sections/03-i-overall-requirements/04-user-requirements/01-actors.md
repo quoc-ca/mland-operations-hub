@@ -1,7 +1,7 @@
 ### 4.1 Actors
 
 | # | Actor | Description |
-| :-: | :--- | :--- |
+| :--- | :--- | :--- |
 | 1 | **Guest** | An unauthenticated user visiting the platform. They can browse available in-stock products, view workshop package information (Ring Crafting, Clay Molding, Wax Carving), search or filter schedules by store branch locations and available materials, look up public customer reviews and store ratings, chat with the AI support assistant, book a workshop session, and register a new member account or log into the system. |
 | 2 | **Member** | A registered customer of the platform. They can update basic personal profile information (changing passwords), enter their delivery address directly during the checkout step, manage their shopping cart, place orders for available in-stock jewelry products with an automatic stock deduction upon successful order creation (non-real-time mechanism), book workshop sessions, track purchase order history, engage in online chat support with staff or AI, and submit reviews and star ratings for completed products or workshop experiences. |
 | 3 | **Staff** | A store employee responsible for daily operational execution. They assist customers via online chat for consultation requests (*); after receiving specific requirement details from the customer through the conversation, Staff will issue an official crafting price quote on the system. They also manage the product catalog alongside real-time inventory stock quantities, and perform check-ins for customers attending workshops in person at the store by scanning digital QR tickets or verifying manually. |
