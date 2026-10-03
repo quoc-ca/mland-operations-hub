@@ -1,7 +1,7 @@
 ## 1. Major Features {#major-features}
 
 | ID | Feature Name | Description | Addresses Gap |
-| :--- | :--- | :--- | :--- |
+| --- | --- | --- | --- |
 | FE-01 | Account Management | Handles user registration, secure authentication via Single Sign-On (SSO) Identity Providers (Google/Facebook) or standard credentials, profile management, and Role-Based Access Control (RBAC) across different user roles. | GAP-01 |
 | FE-02 | Product Management | Handles retail jewelry catalogues, customizable component listings, stock inventory tracking, and purchasing of pre-configured ring models exclusively for authenticated Members with 100% upfront payment via the Payment Gateway. | GAP-01 |
 | FE-03 | Workshop Management | Manages the end-to-end workshop lifecycle, encompassing facility setup across two branches, daily session scheduling (three daily slots), workshop program and package design, seamless booking with aggregate group options and mandatory 50% online deposits, and on-site operational management including attendance tracking and check-ins. | GAP-01 |
