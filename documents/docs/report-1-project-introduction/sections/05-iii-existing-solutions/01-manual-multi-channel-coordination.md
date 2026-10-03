@@ -1,4 +1,4 @@
-## 1 Manual Multi-Channel Coordination
+## 1. Manual Multi-Channel Coordination {#manual-multi-channel-coordination}
 
 This representative workaround combines direct messages, calls, and informal records to receive bookings and discuss a customer's ring idea. It is familiar to small workshop teams because it can begin immediately with tools they already use, but the booking, design, estimate, and order context remain fragmented.
 

@@ -12,4 +12,19 @@
 
 - Change Log
 - I. Project Overview
+  - 1. Scope and Purpose
+  - 2. Assumptions and Constraints
+  - 3. Cost & Time Estimations
+  - 4. Capacity Planning
+  - 5. Project Objectives
+  - 6. Risks and Mitigations
 - II. Management Approach
+  - 1. Project Process/Methodology
+  - 2. Quality Management
+  - 3. Project Training Plan
+  - 4. Responsibility Assignments
+  - 5. Project Communications
+  - 6. Configuration Management
+    - 6.1 Document Management
+    - 6.2 Source Code Management
+    - 6.3 Tools & Infrastructures

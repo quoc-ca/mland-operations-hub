@@ -1,4 +1,4 @@
-## 1 Major Features
+## 1. Major Features {#major-features}
 
 | ID | Feature Name | Description | Addresses Gap |
 | --- | --- | --- | --- |

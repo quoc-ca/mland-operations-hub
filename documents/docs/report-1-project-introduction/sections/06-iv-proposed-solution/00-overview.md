@@ -1,4 +1,4 @@
-# IV Proposed Solution {#iv-proposed-solution}
+# IV. Proposed Solution {#proposed-solution}
 
 The Personalized Product Sales and Workshop Booking System is a bilingual system with Guest and Member journeys. Both may select a workshop location and reserve a group workshop session, then choose an existing ring design, configure available ring components, submit a reference image with consent, or wait to consult Staff in person. The approved operating day has sessions at 09:30-12:00, 13:00-15:30, and 16:00-18:30. Capacity is configured for each location and session; its exact values and location product capabilities remain operational data to approve.
 

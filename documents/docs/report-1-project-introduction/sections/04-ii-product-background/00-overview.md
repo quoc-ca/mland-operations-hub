@@ -1,4 +1,4 @@
-# II Product Background {#ii-product-background}
+# II. Product Background {#product-background}
 
 Mland is a jewellery-making workshop focused on personalised ring experiences. A customer may attend a group workshop to make a ring or request that the shop make a custom ring after consultation.
 

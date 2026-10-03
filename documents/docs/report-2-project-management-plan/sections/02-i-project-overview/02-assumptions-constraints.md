@@ -1,5 +1,5 @@
 ## 2. Assumptions and Constraints
-
+<!--
 ### Baseline constraints
 
 - Guests and Members may book workshops; only a Member account may use retail checkout.
@@ -19,3 +19,13 @@
 - Business cancellation and refund rules. The V1 system has no cancellation or refund workflow while these rules remain unresolved.
 - Consent wording and retention rules for reference images and retail recipient/delivery data.
 - Carrier provider or API contract. Carrier integration is not required for the V1 manual-handoff flow.
+ -->
+### Assumptions
+|No|Description|Note|
+|---|---|---|
+||||
+
+### Constraints
+|No|Description|Note|
+|---|---|---|
+||||

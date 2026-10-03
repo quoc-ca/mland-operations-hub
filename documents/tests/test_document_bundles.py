@@ -66,11 +66,17 @@ class MlandBundleTests(unittest.TestCase):
                 self.assertIn("Active project, under validation", front_matter)
 
         for report_id in REPORT_IDS:
-            path = ROOT / "docs" / report_id / "sections" / "01-change-log" / "00-overview.md"
-            with self.subTest(path=path.relative_to(ROOT).as_posix()):
+            bundle = load_bundle(ROOT / "docs" / report_id)
+            paths = [
+                path
+                for path in bundle.fragments
+                if "<!-- AUTO-GENERATED: GIT-CHANGE-HISTORY -->" in path.read_text(encoding="utf-8")
+            ]
+            with self.subTest(report_id=report_id):
+                self.assertEqual(len(paths), 1)
                 self.assertIn(
                     "<!-- AUTO-GENERATED: GIT-CHANGE-HISTORY -->",
-                    path.read_text(encoding="utf-8"),
+                    paths[0].read_text(encoding="utf-8"),
                 )
 
     def test_all_mland_report_bundles_are_nested_and_valid(self) -> None:

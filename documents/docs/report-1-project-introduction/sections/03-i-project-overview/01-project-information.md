@@ -1,4 +1,4 @@
-## 1 Project Information {#project-information}
+## 1. Project Information {#project-information}
 
 | Field | Value |
 | --- | --- |

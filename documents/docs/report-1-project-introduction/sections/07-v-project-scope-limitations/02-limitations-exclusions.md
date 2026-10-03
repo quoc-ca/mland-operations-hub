@@ -1,4 +1,4 @@
-## 2 Limitations and Exclusions
+## 2. Limitations & Exclusions {#limitations-exclusions}
 
 | ID | Candidate Domain | Current Baseline Status |
 | --- | --- | --- |

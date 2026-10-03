@@ -1,4 +1,4 @@
-## 2 Generic Calendar and Booking Tools
+## 2. Generic Calendar and Booking Tools {#generic-calendar-and-booking-tools}
 
 This representative category covers standalone calendars and appointment tools that let a business expose time slots and collect reservations. Such tools can improve booking visibility, but they usually do not connect a ring-design request, feasibility decision, estimate, fulfilment choice, and final invoice.
 

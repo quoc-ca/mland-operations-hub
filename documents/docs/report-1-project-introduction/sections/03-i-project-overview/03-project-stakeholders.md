@@ -1,4 +1,4 @@
-## 3 Project Stakeholders {#project-stakeholders}
+## 3. Project Stakeholders {#project-stakeholders}
 
 The named stakeholder register has not yet been formally recorded. This report therefore identifies stakeholder roles only and does not invent personal contact information.
 
