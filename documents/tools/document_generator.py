@@ -6,7 +6,6 @@ Workspace and it never reads or modifies generated DOCX files.
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
 import os
@@ -17,9 +16,6 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
-from urllib.error import HTTPError, URLError
-from urllib.parse import quote
-from urllib.request import Request, urlopen
 
 try:
     from .git_history import GitCommit, GitHistoryError, git_history_entries, git_history_entries_for_paths, markdown_change_history, markdown_template_change_history
@@ -28,8 +24,6 @@ except ImportError:  # Supports `python tools/generate_document.py`.
 
 IMAGE_PATTERN = re.compile(r"!\[[^\]]*\]\((?P<target>[^)\s]+)(?:\s+[^)]*)?\)")
 LINK_PATTERN = re.compile(r"(?<!!)\[(?P<label>[^\]]+)\]\((?P<target>[^)\s]+)(?:\s+[^)]*)?\)")
-MERMAID_MARKDOWN_SUFFIX = ".md"
-DIAGRAM_EXTENSIONS = {".puml": "plantuml"}
 RASTER_OR_VECTOR_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg"}
 DRIVE_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 DRIVE_ASSET_PATTERN = re.compile(
@@ -38,11 +32,6 @@ DRIVE_ASSET_PATTERN = re.compile(
 DRIVE_ASSET_BRACE_PATTERN = re.compile(r"\{\{.*?\}\}")
 DRIVE_ASSET_PERCENT_WIDTH = re.compile(r"^(?:[1-9][0-9]?|100)%$")
 DRIVE_ASSET_INCH_WIDTH = re.compile(r"^(?:0\.[1-9][0-9]*|[1-9][0-9]*(?:\.[0-9]+)?)in$")
-MERMAID_FENCE_PATTERN = re.compile(r"\A[ \t]*```mermaid[ \t]*\r?\n(?P<source>.+?)\r?\n```[ \t]*(?:\r?\n)?\Z", re.DOTALL)
-DEFAULT_RENDERERS = {
-    "mermaid": "https://mermaid.ink",
-    "plantuml": "https://www.plantuml.com/plantuml",
-}
 GIT_HISTORY_MARKER = "<!-- AUTO-GENERATED: GIT-CHANGE-HISTORY -->"
 
 
@@ -78,7 +67,6 @@ class Bundle:
     report_id: str
     output_name: str
     fragments: tuple[Path, ...]
-    renderers: dict[str, str]
     change_log: dict[str, Any] | None
 
 
@@ -145,16 +133,6 @@ def load_bundle(bundle_root: Path) -> Bundle:
         seen.add(fragment)
         fragments.append(fragment)
 
-    configured_renderers = data.get("renderers", {})
-    if not isinstance(configured_renderers, dict) or not all(
-        isinstance(name, str) and isinstance(url, str) for name, url in configured_renderers.items()
-    ):
-        raise _error("manifest-invalid", "renderers must map renderer names to URLs.", report_id=report_id)
-    renderers = {**DEFAULT_RENDERERS, **configured_renderers}
-    for name in set(DIAGRAM_EXTENSIONS.values()) | {"mermaid"}:
-        endpoint = renderers.get(name)
-        if not isinstance(endpoint, str) or not endpoint.startswith("https://"):
-            raise _error("renderer-invalid", f"{name} renderer must use an HTTPS URL.", report_id=report_id)
     change_log_value = data.get("change_log")
     change_log: dict[str, Any] | None = None
     if change_log_value is not None:
@@ -173,15 +151,11 @@ def load_bundle(bundle_root: Path) -> Bundle:
         if default_action not in {"A", "M", "D"}:
             raise _error("manifest-invalid", "change_log.default_action must be A, M, or D.", report_id=report_id)
         change_log = {"format": "template", "history_paths": tuple(history_paths), "default_action": default_action}
-    return Bundle(root, report_id, output_name, tuple(fragments), renderers, change_log)
+    return Bundle(root, report_id, output_name, tuple(fragments), change_log)
 
 
 def _image_targets(markdown: str) -> list[str]:
     return [match.group("target").strip("<>") for match in IMAGE_PATTERN.finditer(markdown)]
-
-
-def _diagram_links(markdown: str) -> list[tuple[str, str]]:
-    return [(match.group("label"), match.group("target").strip("<>")) for match in LINK_PATTERN.finditer(markdown)]
 
 
 def _asset_path(bundle: Bundle, target: str, fragment: Path) -> Path:
@@ -195,30 +169,6 @@ def _asset_path(bundle: Bundle, target: str, fragment: Path) -> Path:
 
 def _relative(bundle: Bundle, path: Path) -> str:
     return path.relative_to(bundle.root).as_posix()
-
-
-def _is_mermaid_markdown(bundle: Bundle, asset: Path) -> bool:
-    if asset.suffix.lower() != MERMAID_MARKDOWN_SUFFIX:
-        return False
-    try:
-        asset.relative_to(bundle.root / "assets" / "diagrams")
-    except ValueError:
-        return False
-    return True
-
-
-def _mermaid_source(diagram: Path, bundle: Bundle, fragment: Path) -> str:
-    text = diagram.read_text(encoding="utf-8")
-    match = MERMAID_FENCE_PATTERN.fullmatch(text)
-    if match is None or not match.group("source").strip():
-        raise _error(
-            "diagram-invalid-mermaid-markdown",
-            "Mermaid diagram Markdown must contain exactly one non-empty ```mermaid fenced block.",
-            report_id=bundle.report_id,
-            fragment=_relative(bundle, fragment),
-            diagram=_relative(bundle, diagram),
-        )
-    return match.group("source").strip() + "\n"
 
 
 def drive_image_placeholders(bundle: Bundle) -> tuple[str, ...]:
@@ -276,17 +226,16 @@ def _drive_asset_width(match: re.Match[str]) -> str:
     raise ValueError("Drive asset width must be an integer from 1% to 100% or a value from 0.1in to 10in.")
 
 
-def validate_bundle(bundle: Bundle) -> list[tuple[Path, Path, str]]:
-    """Validate local inputs and return (fragment, diagram, renderer) tuples."""
-    diagrams: list[tuple[Path, Path, str]] = []
+def validate_bundle(bundle: Bundle) -> None:
+    """Validate local bundle inputs without rendering or downloading diagrams."""
     for fragment in bundle.fragments:
         relative_fragment = _relative(bundle, fragment)
         text = fragment.read_text(encoding="utf-8")
-        drive_image_placeholders(Bundle(bundle.root, bundle.report_id, bundle.output_name, (fragment,), bundle.renderers, bundle.change_log))
+        drive_image_placeholders(Bundle(bundle.root, bundle.report_id, bundle.output_name, (fragment,), bundle.change_log))
         for target in _image_targets(text):
             asset = _asset_path(bundle, target, fragment)
             suffix = asset.suffix.lower()
-            if suffix not in set(DIAGRAM_EXTENSIONS) | RASTER_OR_VECTOR_EXTENSIONS:
+            if suffix not in RASTER_OR_VECTOR_EXTENSIONS:
                 raise _error(
                     "asset-unsupported", f"Unsupported image extension: {target}",
                     report_id=bundle.report_id, fragment=relative_fragment, diagram=target,
@@ -296,89 +245,13 @@ def validate_bundle(bundle: Bundle) -> list[tuple[Path, Path, str]]:
                     "asset-missing", f"Referenced asset does not exist: {target}",
                     report_id=bundle.report_id, fragment=relative_fragment, diagram=target,
                 )
-            if suffix in DIAGRAM_EXTENSIONS:
-                diagrams.append((fragment, asset, DIAGRAM_EXTENSIONS[suffix]))
-        for _, target in _diagram_links(text):
-            if target.startswith("assets/diagrams/") and Path(target).suffix.lower() == ".mmd":
+        for match in LINK_PATTERN.finditer(text):
+            target = match.group("target").strip("<>")
+            if target.startswith("assets/diagrams/"):
                 raise _error(
-                    "asset-unsupported", f"Unsupported Mermaid diagram extension: {target}; use a .md file with a mermaid fenced block.",
+                    "diagram-source-unsupported", "Diagram source files are not rendered into documents; use a standalone Drive asset placeholder instead.",
                     report_id=bundle.report_id, fragment=relative_fragment, diagram=target,
                 )
-            if not target.startswith("assets/diagrams/") or Path(target).suffix.lower() != MERMAID_MARKDOWN_SUFFIX:
-                continue
-            asset = _asset_path(bundle, target, fragment)
-            if not asset.is_file():
-                raise _error(
-                    "asset-missing", f"Referenced asset does not exist: {target}",
-                    report_id=bundle.report_id, fragment=relative_fragment, diagram=target,
-                )
-            _mermaid_source(asset, bundle, fragment)
-            diagrams.append((fragment, asset, "mermaid"))
-    return diagrams
-
-
-def _diagram_url(renderer: str, endpoint: str, source: str) -> str:
-    base = endpoint.rstrip("/")
-    if renderer == "plantuml":
-        # PlantUML's documented ~h format avoids a third-party encoder dependency.
-        return f"{base}/png/~h{source.encode('utf-8').hex()}"
-    if renderer == "mermaid":
-        encoded = base64.urlsafe_b64encode(source.encode("utf-8")).decode("ascii").rstrip("=")
-        return f"{base}/img/{quote(encoded)}?type=png"
-    raise AssertionError(f"Unexpected renderer: {renderer}")
-
-
-def _download_png(bundle: Bundle, fragment: Path, diagram: Path, renderer: str, destination: Path) -> None:
-    endpoint = bundle.renderers[renderer]
-    source = _mermaid_source(diagram, bundle, fragment) if renderer == "mermaid" else diagram.read_text(encoding="utf-8")
-    url = _diagram_url(renderer, endpoint, source)
-    try:
-        request = Request(url, headers={"User-Agent": "local-document-generator/1.0"})
-        with urlopen(request, timeout=30) as response:  # noqa: S310 - endpoints are manifest-controlled HTTPS URLs.
-            content_type = response.headers.get_content_type()
-            data = response.read()
-            status = str(getattr(response, "status", 200))
-    except HTTPError as exc:
-        raise _error(
-            "diagram-render-failed", str(exc), report_id=bundle.report_id,
-            fragment=_relative(bundle, fragment), diagram=_relative(bundle, diagram),
-            renderer=renderer, endpoint=endpoint, status=str(exc.code),
-        ) from exc
-    except (URLError, TimeoutError, OSError) as exc:
-        raise _error(
-            "diagram-render-failed", str(exc), report_id=bundle.report_id,
-            fragment=_relative(bundle, fragment), diagram=_relative(bundle, diagram),
-            renderer=renderer, endpoint=endpoint, status="unavailable",
-        ) from exc
-    if content_type not in {"image/png", "image/x-png"} or not data:
-        raise _error(
-            "diagram-render-invalid-response", f"Expected a non-empty PNG, received {content_type}.",
-            report_id=bundle.report_id, fragment=_relative(bundle, fragment),
-            diagram=_relative(bundle, diagram), renderer=renderer, endpoint=endpoint, status=status,
-        )
-    destination.write_bytes(data)
-
-
-def _replace_diagrams(bundle: Bundle, fragment: Path, text: str, rendered: dict[Path, Path]) -> str:
-    def replace(match: re.Match[str]) -> str:
-        target = match.group("target").strip("<>")
-        asset = _asset_path(bundle, target, fragment)
-        if asset.suffix.lower() not in DIAGRAM_EXTENSIONS:
-            return match.group(0)
-        replacement = f"assets/{rendered[asset].name}"
-        return match.group(0).replace(match.group("target"), replacement)
-
-    text = IMAGE_PATTERN.sub(replace, text)
-
-    def replace_mermaid_link(match: re.Match[str]) -> str:
-        target = match.group("target").strip("<>")
-        if not target.startswith("assets/diagrams/") or Path(target).suffix.lower() != MERMAID_MARKDOWN_SUFFIX:
-            return match.group(0)
-        asset = _asset_path(bundle, target, fragment)
-        replacement = f"assets/{rendered[asset].name}"
-        return f"![{match.group('label')}]({replacement})"
-
-    return LINK_PATTERN.sub(replace_mermaid_link, text)
 
 
 def _replace_drive_image_placeholders(text: str, drive_assets: Mapping[str, Path] | None, rendered: Mapping[str, Path]) -> str:
@@ -425,7 +298,7 @@ def build_bundle(
     bundle_root: Path, repo_root: Path, output_dir: Path, *, drive_assets: Mapping[str, Path] | None = None
 ) -> Path:
     bundle = load_bundle(bundle_root)
-    diagrams = validate_bundle(bundle)
+    validate_bundle(bundle)
     reference_doc = (repo_root / "templates" / "reference.docx").resolve()
     if not reference_doc.is_file():
         raise _error("reference-doc-missing", f"Missing shared style file: {reference_doc}", report_id=bundle.report_id)
@@ -442,15 +315,6 @@ def build_bundle(
         temp_dir = Path(temp_dir_name)
         asset_dir = temp_dir / "assets"
         asset_dir.mkdir()
-        rendered: dict[Path, Path] = {}
-        for fragment, diagram, renderer in diagrams:
-            if diagram in rendered:
-                continue
-            asset_name = hashlib.sha256(str(diagram.relative_to(bundle.root)).encode("utf-8")).hexdigest() + ".png"
-            rendered_asset = asset_dir / asset_name
-            _download_png(bundle, fragment, diagram, renderer, rendered_asset)
-            rendered[diagram] = rendered_asset
-
         rendered_drive_assets: dict[str, Path] = {}
         if drive_assets is not None:
             for name in drive_image_placeholders(bundle):
@@ -478,8 +342,7 @@ def build_bundle(
         line_ranges: list[tuple[int, int, str]] = []
         current_line = 1
         for fragment in bundle.fragments:
-            content = _replace_diagrams(bundle, fragment, fragment_text[fragment], rendered)
-            content = _replace_drive_image_placeholders(content, drive_assets, rendered_drive_assets).rstrip()
+            content = _replace_drive_image_placeholders(fragment_text[fragment], drive_assets, rendered_drive_assets).rstrip()
             line_count = max(1, content.count("\n") + 1)
             line_ranges.append((current_line, current_line + line_count - 1, _relative(bundle, fragment)))
             composed_parts.append(content)
@@ -509,5 +372,5 @@ def build_bundle(
             )
         shutil.move(str(staged_output), destination)
 
-    print(f"[SUCCESS] report_id={bundle.report_id!r} output={str(destination)!r} diagrams={len(rendered)}")
+    print(f"[SUCCESS] report_id={bundle.report_id!r} output={str(destination)!r}")
     return destination

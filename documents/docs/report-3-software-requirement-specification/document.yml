@@ -60,6 +60,5 @@
     "sections/07-v-requirement-appendix/02-system-messages.md",
     "sections/07-v-requirement-appendix/03-other-requirements.md"
   ],
-  "renderers": {"mermaid": "https://mermaid.ink", "plantuml": "https://www.plantuml.com/plantuml"},
   "change_log": {"format": "template", "history_paths": ["documents/docs/report-3.0-srs", "documents/docs/report-3.2-fds", "documents/docs/report-3.2-screen-design-spec", "documents/trackers/report-3.1-rtw"], "default_action": "M"}
 }

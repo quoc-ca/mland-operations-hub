@@ -4,7 +4,7 @@
 
 ## Workflow and source of truth
 
-Markdown report fragments and CSV trackers are the source of truth. The local generator validates report bundles, renders committed Mermaid or PlantUML sources to temporary assets, and creates ignored DOCX artifacts with Pandoc and `templates/reference.docx`. GitHub Actions repeats that process and publishes mapped DOCX and CSV content to Google Docs and Google Sheets.
+Markdown report fragments and CSV trackers are the source of truth. The local generator validates report bundles and creates ignored DOCX artifacts with Pandoc and `templates/reference.docx`. Diagrams are maintained manually in Drive and injected only during the publishing workflow. GitHub Actions repeats that process and publishes mapped DOCX and CSV content to Google Docs and Google Sheets.
 
 Google Workspace is for publishing, review, comments, and suggestions. Do not use remote edits as a source to synchronize back into this folder. Never inspect or modify generated DOCX files unless a task explicitly requests manual review by a person.
 

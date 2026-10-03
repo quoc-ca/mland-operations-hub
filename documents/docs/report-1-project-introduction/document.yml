@@ -19,10 +19,6 @@
     "sections/07-v-project-scope-limitations/01-major-features.md",
     "sections/07-v-project-scope-limitations/02-limitations-exclusions.md"
   ],
-  "renderers": {
-    "mermaid": "https://mermaid.ink",
-    "plantuml": "https://www.plantuml.com/plantuml"
-  },
   "change_log": {
     "format": "template",
     "history_paths": ["documents/docs/report-1-vision-scope"],

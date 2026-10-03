@@ -3,8 +3,7 @@
 This repository manages documentation for **Personalized Product Sales and Workshop Booking System** (group **SEP490_G22**) through a Git-first workflow:
 
 ```text
-Markdown fragments + Mermaid/PlantUML source
-  -> temporary PNG assets
+Markdown fragments + Drive image placeholders
   -> Pandoc + shared reference.docx
   -> build/*.docx
 ```
@@ -40,19 +39,11 @@ Every `docs/report-*/document.yml` is JSON-compatible YAML so the local pipeline
 - `id`: a stable report identifier;
 - `output`: the DOCX filename;
 - `fragments`: an explicit ordered list, starting with `front-matter.md`, followed by nested `sections/<H1-group>/<H2-section>.md` fragments;
-- `renderers`: configurable public endpoints for Mermaid and PlantUML.
 - `change_log`: the `template` format, historical source paths, and default A/M/D action.
 
 Each content task must name the fragment(s) it is allowed to edit. Do not alter generated files or reorder fragments implicitly.
 
-Use bundle-root-relative image references. PlantUML image references point to committed `.puml` source. Mermaid diagrams are committed as previewable Markdown files under `assets/diagrams/`, each containing exactly one non-empty `mermaid` fenced block; report fragments link to that Markdown file:
-
-```markdown
-[System context diagram](assets/diagrams/system-context.md)
-![Order state](assets/diagrams/order-state.puml)
-```
-
-The generator renders Mermaid diagram links and PlantUML image references as temporary PNGs in DOCX output. Mermaid `.mmd` files are not supported. Active report raster images, including manually designed diagrams, use Drive placeholders rather than committed image files; Mermaid and PlantUML source remain committed when they are the diagram source of truth. External image URLs are rejected to keep builds reproducible.
+Diagrams are maintained manually in Drive and injected only during the publishing workflow. Do not reference Mermaid, PlantUML, or other code-managed diagram sources from report fragments. External image URLs are rejected to keep builds reproducible.
 
 To inject a Drive-hosted image only when publishing, place a standalone placeholder in a report fragment:
 
@@ -64,21 +55,7 @@ To inject a Drive-hosted image only when publishing, place a standalone placehol
 
 `asset-name` uses ASCII letters, digits, hyphens, and underscores only; it excludes the filename extension. `width` is optional: the default is `80%`; accepted explicit values are integer `1%`–`100%` or decimal `0.1in`–`10in`. No other attributes are supported. During the `develop` publishing workflow, the synchronizer matches the basename case-insensitively to exactly one PNG or JPEG in the Drive folder declared by the GitHub Secret `GDRIVE_ASSETS_FOLDER_ID`, then inserts it at the requested width. The `Assets/` folder is scanned directly, not recursively, and must be shared with the service-account email as a Reader. Missing, duplicate, non-downloadable, or unsupported assets fail only that report target with a diagnostic; they are not committed or logged. A Drive-only image change does not trigger GitHub Actions, so use a manual dispatch from `develop` to republish it.
 
-Local DOCX builds do not contact Drive. They render `[Drive asset omitted: asset-name]` at a valid placeholder position; `--validate` checks placeholder and diagram syntax.
-
-Mermaid source is sent to the configured `mermaid.ink` endpoint and PlantUML source to the configured PlantUML server. Do not use public rendering for sensitive diagrams. A network, response, source, or Pandoc failure exits non-zero and emits a diagnostic with report, fragment, asset, renderer, endpoint, status, and reason.
-
-## Local diagram gallery
-
-To create the internal, static diagram reference page, run this command from the repository root:
-
-```powershell
-python documents/tools/generate_diagram_gallery.py
-```
-
-It creates the ignored file `local-notes/diagram-gallery.html`, which can be opened directly in a browser. The gallery scans every valid PlantUML source and Mermaid Markdown source under the active bundles' `assets/diagrams/` folders, including activity/detail diagrams that are not yet linked from a report fragment. It groups Context, Use Cases, Swimlanes/Workflows, Activities/Details, Mermaid, and other sources.
-
-The page embeds source text and metadata, so it never fetches source files from the repository at runtime. It requests a preview from the configured public PlantUML or Mermaid endpoint only when the browser renders a code-managed diagram; an internet connection is therefore required for previews and source text is sent to that endpoint. Standalone Drive placeholders found in report `sections/` are listed as **available on Drive** without downloading or previewing them. Cover-only assets such as `fpt-university` are excluded.
+Local DOCX builds do not contact Drive. They render `[Drive asset omitted: asset-name]` at a valid placeholder position; `--validate` checks placeholder syntax and rejects code-managed diagram references.
 
 ## Shared Word style
 
