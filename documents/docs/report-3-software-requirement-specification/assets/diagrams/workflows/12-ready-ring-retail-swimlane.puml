@@ -1,0 +1,58 @@
+@startuml
+!pragma charset UTF-8
+title Member Ready-Ring Retail Swimlane
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+|Guest or Member|
+start
+:Browse ready-ring catalogue;
+:Select a ready ring;
+if (Authenticated Member?) then (yes)
+  :Review retail order and full payment due;
+  :Start payment at Payment Gateway;
+  |Payment Gateway|
+  :Process full payment;
+  |System|
+  if (Valid gateway confirmation received?) then (yes)
+    :Record verified full-payment transaction;
+    :Create Retail Order;
+    :Reserve one ready-ring unit;
+    note right
+    Reservation has no automatic expiry in V1.
+    end note
+    |Member|
+    :Choose pickup or third-party delivery handoff;
+    if (Pickup?) then (yes)
+      |System|
+      :Show pickup-ready / shop-preparation status;
+    else (third-party handoff)
+      |Staff / Consultant|
+      :Hand order to third-party carrier;
+      :Record carrier, handoff reference,\nStaff actor and timestamp;
+      |System|
+      :Show handed-to-carrier status;
+    endif
+    |Email Sender|
+    :Deliver order/status notification;
+    |System|
+    :Store order and payment in Member history;
+  else (no: pending / failed)
+    :Show unconfirmed-payment status;
+    :Do not reserve the ready ring;
+  endif
+else (no)
+  |System|
+  :Block retail checkout;
+  :Offer sign in or Member registration;
+endif
+
+note right
+V1 has no carrier API, live tracking, delivery failure, return or shipping-refund workflow.
+end note
+stop
+@enduml

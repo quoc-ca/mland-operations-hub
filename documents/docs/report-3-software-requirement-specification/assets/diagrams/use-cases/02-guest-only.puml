@@ -1,0 +1,28 @@
+@startuml
+!pragma charset UTF-8
+title Guest-only Use Cases
+left to right direction
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+actor Guest
+
+rectangle "Personalized Product Sales and Workshop Booking System" {
+  usecase "Register as Member" as Register
+  usecase "Receive optional Member\nregistration invitation" as Invitation
+  usecase "View guest booking\noutcome on web" as ViewOutcome
+  usecase "Use guest booking\ncode / QR" as GuestCode
+  usecase "Access public Google\nreview link / QR" as ReviewLink
+}
+
+Guest --> Register
+Guest --> ViewOutcome
+Guest --> GuestCode
+Guest --> ReviewLink
+Invitation .> Register : <<extend>>\n[Guest chooses to join]
+@enduml
+

@@ -4,17 +4,17 @@ import tempfile
 import unittest
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-from urllib.error import URLError
+from unittest.mock import patch
 
 from tools.document_generator import (
     GIT_HISTORY_MARKER,
     GenerationError,
-    _download_png,
     _pandoc_fragment,
+    _replace_drive_image_placeholders,
     _replace_git_history,
     _require_pandoc,
     build_bundle,
+    drive_image_placeholders,
     load_bundle,
     validate_bundle,
 )
@@ -40,7 +40,7 @@ class BundleValidationTests(unittest.TestCase):
             bundle_root = write_bundle(Path(temp) / "report", manifest_text("front-matter.md", "sections/01-section.md"))
             bundle = load_bundle(bundle_root)
             self.assertEqual(bundle.report_id, "report-1")
-            self.assertEqual(validate_bundle(bundle), [])
+            self.assertIsNone(validate_bundle(bundle))
 
     def test_rejects_duplicate_fragment(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -59,7 +59,7 @@ class BundleValidationTests(unittest.TestCase):
             bundle_root = write_bundle(
                 Path(temp) / "report",
                 manifest_text("front-matter.md", "sections/01-section.md"),
-                "# Title\n![missing](assets/diagram.mmd)\n",
+                "# Title\n![missing](assets/diagram.png)\n",
             )
             bundle = load_bundle(bundle_root)
             with self.assertRaisesRegex(GenerationError, "asset-missing"):
@@ -76,48 +76,84 @@ class BundleValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(GenerationError, "asset-external"):
                 validate_bundle(bundle)
 
-    def test_reports_unavailable_diagram_service_with_source_location(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp) / "report"
-            bundle_root = write_bundle(
-                root,
-                manifest_text("front-matter.md", "sections/01-section.md"),
-                "# Title\n![flow](assets/diagrams/flow.mmd)\n",
-            )
-            diagram = bundle_root / "assets" / "diagrams" / "flow.mmd"
-            diagram.parent.mkdir(parents=True)
-            diagram.write_text("flowchart TD\n", encoding="utf-8")
-            bundle = load_bundle(bundle_root)
-            with patch("tools.document_generator.urlopen", side_effect=URLError("offline")):
-                with self.assertRaisesRegex(GenerationError, "diagram-render-failed") as error:
-                    _download_png(bundle, bundle.fragments[0], diagram, "mermaid", Path(temp) / "flow.png")
-            self.assertIn("assets/diagrams/flow.mmd", str(error.exception))
-
     def test_reports_missing_pandoc(self) -> None:
         with patch("tools.document_generator.shutil.which", return_value=None):
             with self.assertRaisesRegex(GenerationError, "pandoc-missing"):
                 _require_pandoc()
 
-    def test_reports_invalid_diagram_response(self) -> None:
+    def test_rejects_code_managed_diagram_source(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp) / "report"
             bundle_root = write_bundle(
-                root,
+                Path(temp) / "report",
                 manifest_text("front-matter.md", "sections/01-section.md"),
-                "# Title\n![flow](assets/diagrams/flow.mmd)\n",
+                "# Title\n[flow](assets/diagrams/flow.md)\n",
             )
-            diagram = bundle_root / "assets" / "diagrams" / "flow.mmd"
+            diagram = bundle_root / "assets" / "diagrams" / "flow.md"
             diagram.parent.mkdir(parents=True)
             diagram.write_text("flowchart TD\n", encoding="utf-8")
+            with self.assertRaisesRegex(GenerationError, "diagram-source-unsupported"):
+                validate_bundle(load_bundle(bundle_root))
+
+    def test_drive_placeholder_is_standalone_and_uses_local_marker_without_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            bundle_root = write_bundle(
+                Path(temp) / "report",
+                manifest_text("front-matter.md", "sections/01-section.md"),
+                "# Title\n\n{{ring-hero}}\n",
+            )
             bundle = load_bundle(bundle_root)
-            response = MagicMock()
-            response.headers.get_content_type.return_value = "text/html"
-            response.read.return_value = b"service error"
-            response.status = 200
-            response.__enter__.return_value = response
-            with patch("tools.document_generator.urlopen", return_value=response):
-                with self.assertRaisesRegex(GenerationError, "diagram-render-invalid-response"):
-                    _download_png(bundle, bundle.fragments[0], diagram, "mermaid", Path(temp) / "flow.png")
+            self.assertEqual(drive_image_placeholders(bundle), ("ring-hero",))
+            rendered = Path(temp) / "ring-hero.png"
+            rendered.write_bytes(b"png")
+            injected = _replace_drive_image_placeholders("{{ring-hero}}\n", {"ring-hero": rendered}, {"ring-hero": rendered})
+            self.assertEqual(injected, "![ring-hero](assets/ring-hero.png){ width=80% }\n")
+        self.assertEqual(
+            _replace_drive_image_placeholders("{{ring-hero}}\n", None, {}),
+            "[Drive asset omitted: ring-hero]\n",
+        )
+
+    def test_drive_placeholder_accepts_percent_and_inch_widths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            bundle_root = write_bundle(
+                Path(temp) / "report",
+                manifest_text("front-matter.md", "sections/01-section.md"),
+                "# Title\n\n{{ring-hero width=35%}}\n\n{{ring-hero width=2.4in}}\n",
+            )
+            bundle = load_bundle(bundle_root)
+            self.assertEqual(drive_image_placeholders(bundle), ("ring-hero",))
+            rendered = Path(temp) / "ring-hero.png"
+            rendered.write_bytes(b"png")
+            injected = _replace_drive_image_placeholders(
+                "{{ring-hero width=35%}}\n{{ring-hero width=2.4in}}\n",
+                {"ring-hero": rendered},
+                {"ring-hero": rendered},
+            )
+        self.assertEqual(
+            injected,
+            "![ring-hero](assets/ring-hero.png){ width=35% }\n![ring-hero](assets/ring-hero.png){ width=2.4in }\n",
+        )
+
+    def test_rejects_invalid_drive_placeholder_width_or_attributes(self) -> None:
+        invalid = ("0%", "101%", "0.05in", "10.1in", "35px", "35% height=2in")
+        for value in invalid:
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as temp:
+                bundle_root = write_bundle(
+                    Path(temp) / "report",
+                    manifest_text("front-matter.md", "sections/01-section.md"),
+                    f"# Title\n\n{{{{ring-hero width={value}}}}}\n",
+                )
+                with self.assertRaisesRegex(GenerationError, "drive-asset-placeholder-invalid"):
+                    validate_bundle(load_bundle(bundle_root))
+
+    def test_rejects_non_standalone_drive_placeholder(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            bundle_root = write_bundle(
+                Path(temp) / "report",
+                manifest_text("front-matter.md", "sections/01-section.md"),
+                "# Title\nImage: {{ring-hero}}\n",
+            )
+            with self.assertRaisesRegex(GenerationError, "drive-asset-placeholder-invalid"):
+                validate_bundle(load_bundle(bundle_root))
 
     def test_reports_missing_reference_document(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

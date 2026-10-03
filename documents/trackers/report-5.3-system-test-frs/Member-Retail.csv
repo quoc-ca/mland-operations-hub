@@ -1,0 +1,2 @@
+Test Case ID,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+ST-FR-RET-001,Guest cannot buy a ready ring,"Attempt ready-ring checkout without Member account",System prevents checkout and routes to Member access path,Application implementation,Not Run,,,,,,,,,,No execution result recorded

@@ -1,0 +1,13 @@
+## 1. Major Features {#major-features}
+
+| ID | Feature Name | Description | Addresses Gap |
+| --- | --- | --- | --- |
+| FE-01 | Account Management | Handles user registration, secure authentication via Single Sign-On (SSO) Identity Providers (Google/Facebook) or standard credentials, profile management, and Role-Based Access Control (RBAC) across different user roles. | GAP-01 |
+| FE-02 | Product Management | Handles retail jewelry catalogues, customizable component listings, stock inventory tracking, and purchasing of pre-configured ring models exclusively for authenticated Members with 100% upfront payment via the Payment Gateway. | GAP-01 |
+| FE-03 | Workshop Management | Manages the end-to-end workshop lifecycle, encompassing facility setup across two branches, daily session scheduling (three daily slots), workshop program and package design, seamless booking with aggregate group options and mandatory 50% online deposits, and on-site operational management including attendance tracking and check-ins. | GAP-01 |
+| FE-04 | AI Chatbox Analysis & Suggestion | Centralizes all AI-driven capabilities, including Vision-based reference image analysis, automatic component extraction, real-time material valuation (AI Valuation), personalized product recommendations (AI Suggestions), and an automated AI Chatbot for customer support. | GAP-01 |
+| FE-05 | Personalized Design & Quote Workflow | Manages custom design inquiries submitted by users, allows material/gemstone parameter adjustments, calculates structural effort scores, generates real-time price quotes, and routes custom design requests to Staff for direct consultation. | GAP-01 |
+| FE-06 | Loyalty & Promotion Management | Tracks customer transaction histories to automatically compute reward points, manages membership tier progression, and provisions promotional benefit campaigns and discount vouchers for Members. | GAP-01 |
+| FE-07 | Notification Management | Centralizes multi-channel dispatches via the Mail Gateway, including deposit confirmation emails, security verification codes, digital QR code check-in tickets, order status updates, and internal Manager approval request notifications. | GAP-01 |
+| FE-08 | Order Management & Fulfillment | Manages retail order fulfillment workflows, in-store pickup, handovers to Delivery Providers, logging of custom surcharges, and comprehensive order history tracking for Staff, Managers, and Customers. | GAP-01 |
+| FE-09 | Administrative Parameter Configuration | Empowers Administrators to configure core operational parameters, define Staff and Manager account roles, and set crucial system thresholds (e.g., AI pricing formulas, maximum image upload limits, and Manager approval cutoffs). | GAP-01 |
