@@ -12,7 +12,7 @@ GitHub Issues are the operational work source of truth. The `develop` workflow m
 
 ## Workspace map
 
-- `docs/report-*/` contains seven composable report bundles. `document.yml` defines the only valid composition order; `front-matter.md` and `sections/` hold authored content; committed diagram sources stay beneath the matching bundle.
+- `docs/report-*/` contains composable report bundles. `front-matter.md` renders first, then every Markdown fragment under `sections/` in path-name order; the numbered folder/file tree defines composition order. Committed diagram sources stay beneath the matching bundle.
 - `trackers/` contains CSV-backed tracker groups mapped by `manifest.yml` to Google Sheets tabs.
 - `tools/` validates and generates bundles. `build/` is generated and ignored. `templates/reference.docx` is a shared, read-only style input unless a task explicitly authorizes a style change.
 - The parent repository's GitHub Actions workflow runs the synchronized publish path. Do not alter mappings, credentials, workflow behavior, or external artifacts without explicit authorization.

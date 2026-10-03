@@ -38,10 +38,10 @@ Every `docs/report-*/document.yml` is JSON-compatible YAML so the local pipeline
 
 - `id`: a stable report identifier;
 - `output`: the DOCX filename;
-- `fragments`: an explicit ordered list, starting with `front-matter.md`, followed by nested `sections/<H1-group>/<H2-section>.md` fragments;
+- `front-matter.md` is always first; every Markdown file under `sections/` follows in path-name order. Folder and file names should therefore use numeric prefixes to express the intended outline;
 - `change_log`: the `template` format, historical source paths, and default A/M/D action.
 
-Each content task must name the fragment(s) it is allowed to edit. Do not alter generated files or reorder fragments implicitly.
+Each content task must name the fragment(s) it is allowed to edit. Do not alter generated files; changing the numbered folder/file tree determines rendering order.
 
 Diagrams are maintained manually in Drive and injected only during the publishing workflow. Do not reference Mermaid, PlantUML, or other code-managed diagram sources from report fragments. External image URLs are rejected to keep builds reproducible.
 

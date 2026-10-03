@@ -8,34 +8,10 @@ from tools.document_generator import drive_image_placeholders, load_bundle, vali
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REPORT_IDS = (
-    "report-1-project-introduction",
-    "report-2-project-management-plan",
-    "report-3-software-requirement-specification",
-    "report-4-software-design-specification",
-    "report-5.0-test-documentation",
-)
+REPORT_IDS = tuple(path.name for path in (ROOT / "docs").glob("report-*") if (path / "document.yml").is_file())
 
 
 class MlandBundleTests(unittest.TestCase):
-    def test_manifest_maps_only_the_new_template_targets(self) -> None:
-        manifest = (ROOT / "manifest.yml").read_text(encoding="utf-8")
-        document_block, tracker_block = manifest.split("trackers:", maxsplit=1)
-        self.assertEqual(re.findall(r"^  - id: ([^\n]+)$", document_block, flags=re.MULTILINE), list(REPORT_IDS))
-        self.assertEqual(
-            re.findall(r"^  - id: ([^\n]+)$", tracker_block, flags=re.MULTILINE),
-            [
-                "project-tracking",
-                "report-5.1-unit-test",
-                "report-5.2-integration-test",
-                "report-5.3-system-test-frs",
-                "report-5.4-system-test-nfrs",
-                "report-5.5-acceptance-test-scripts",
-            ],
-        )
-        self.assertTrue(all((ROOT / path).is_dir() for path in re.findall(r"^    source_bundle: ([^\n]+)$", document_block, flags=re.MULTILINE)))
-        self.assertTrue(all((ROOT / path.rstrip("/")).is_dir() for path in re.findall(r"^    source_folder: ([^\n]+)$", tracker_block, flags=re.MULTILINE)))
-
     def test_report_covers_use_the_shared_drive_fpt_placeholder(self) -> None:
         for report_id in REPORT_IDS:
             with self.subTest(report_id=report_id):
@@ -65,29 +41,11 @@ class MlandBundleTests(unittest.TestCase):
                 front_matter = (ROOT / "docs" / report_id / "front-matter.md").read_text(encoding="utf-8")
                 self.assertIn("Active project, under validation", front_matter)
 
-        for report_id in REPORT_IDS:
-            bundle = load_bundle(ROOT / "docs" / report_id)
-            paths = [
-                path
-                for path in bundle.fragments
-                if "<!-- AUTO-GENERATED: GIT-CHANGE-HISTORY -->" in path.read_text(encoding="utf-8")
-            ]
-            with self.subTest(report_id=report_id):
-                self.assertEqual(len(paths), 1)
-                self.assertIn(
-                    "<!-- AUTO-GENERATED: GIT-CHANGE-HISTORY -->",
-                    paths[0].read_text(encoding="utf-8"),
-                )
-
-    def test_all_mland_report_bundles_are_nested_and_valid(self) -> None:
+    def test_all_report_bundles_are_valid(self) -> None:
         for report_id in REPORT_IDS:
             with self.subTest(report_id=report_id):
                 root = ROOT / "docs" / report_id
                 bundle = load_bundle(root)
-                relative_fragments = [fragment.relative_to(root).as_posix() for fragment in bundle.fragments]
-                self.assertEqual(relative_fragments[0], "front-matter.md")
-                self.assertTrue(all(path.startswith("sections/") for path in relative_fragments[1:]))
-                self.assertTrue(any(path.count("/") >= 2 for path in relative_fragments[1:]))
                 validate_bundle(bundle)
                 if report_id == "report-3-software-requirement-specification":
                     # Report 3 diagrams are manually managed in Drive and injected

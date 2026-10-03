@@ -108,30 +108,23 @@ def load_bundle(bundle_root: Path) -> Bundle:
     data = _read_yaml(manifest_path)
     report_id = data.get("id")
     output_name = data.get("output")
-    fragments_value = data.get("fragments")
     if not isinstance(report_id, str) or not re.fullmatch(r"[a-z0-9][a-z0-9.-]*", report_id):
         raise _error("manifest-invalid", "id must use lowercase letters, digits, periods, and hyphens.")
     if not isinstance(output_name, str) or Path(output_name).name != output_name or not output_name.endswith(".docx"):
         raise _error("manifest-invalid", "output must be a DOCX filename without directories.", report_id=report_id)
-    if not isinstance(fragments_value, list) or not fragments_value or not all(isinstance(item, str) for item in fragments_value):
-        raise _error("manifest-invalid", "fragments must be a non-empty ordered list of paths.", report_id=report_id)
-    if fragments_value[0] != "front-matter.md":
-        raise _error("manifest-unordered", "front-matter.md must be the first fragment.", report_id=report_id)
-    if any(not item.startswith("sections/") for item in fragments_value[1:]):
-        raise _error("manifest-unordered", "all fragments after front-matter.md must live in sections/.", report_id=report_id)
-
-    fragments: list[Path] = []
-    seen: set[Path] = set()
-    for item in fragments_value:
-        if not item.endswith(".md"):
-            raise _error("fragment-invalid", f"Fragment is not Markdown: {item}", report_id=report_id)
-        fragment = _inside(root, item, label="fragment", report_id=report_id)
-        if fragment in seen:
-            raise _error("fragment-duplicate", f"Fragment is listed more than once: {item}", report_id=report_id)
-        if not fragment.is_file():
-            raise _error("fragment-missing", f"Fragment does not exist: {item}", report_id=report_id, fragment=item)
-        seen.add(fragment)
-        fragments.append(fragment)
+    # The folder tree is the document outline.  Teams frequently add, move, or
+    # remove sections while drafting, so a hard-coded fragment list would make
+    # an otherwise valid build fail until a manifest is edited by hand.
+    front_matter = root / "front-matter.md"
+    sections = root / "sections"
+    if not front_matter.is_file():
+        raise _error("fragment-missing", f"Fragment does not exist: {front_matter}", report_id=report_id, fragment="front-matter.md")
+    if not sections.is_dir():
+        raise _error("sections-missing", f"Missing sections directory: {sections}", report_id=report_id)
+    section_fragments = sorted(path for path in sections.rglob("*.md") if path.is_file())
+    if not section_fragments:
+        raise _error("sections-empty", "sections/ must contain at least one Markdown fragment.", report_id=report_id)
+    fragments = [front_matter, *section_fragments]
 
     change_log_value = data.get("change_log")
     change_log: dict[str, Any] | None = None

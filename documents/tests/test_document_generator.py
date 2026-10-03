@@ -42,17 +42,22 @@ class BundleValidationTests(unittest.TestCase):
             self.assertEqual(bundle.report_id, "report-1")
             self.assertIsNone(validate_bundle(bundle))
 
-    def test_rejects_duplicate_fragment(self) -> None:
+    def test_discovers_fragments_from_sections_tree(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
-            bundle_root = write_bundle(Path(temp) / "report", manifest_text("front-matter.md", "sections/01-section.md", "sections/01-section.md"))
-            with self.assertRaisesRegex(GenerationError, "fragment-duplicate"):
-                load_bundle(bundle_root)
+            bundle_root = write_bundle(Path(temp) / "report", manifest_text("front-matter.md", "sections/moved-away.md"))
+            nested = bundle_root / "sections" / "02-topic" / "01-detail.md"
+            nested.parent.mkdir()
+            nested.write_text("### Detail\n", encoding="utf-8")
+            bundle = load_bundle(bundle_root)
+            self.assertEqual(
+                [fragment.relative_to(bundle_root).as_posix() for fragment in bundle.fragments],
+                ["front-matter.md", "sections/01-section.md", "sections/02-topic/01-detail.md"],
+            )
 
-    def test_rejects_outside_fragment(self) -> None:
+    def test_ignores_legacy_fragment_entries(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             bundle_root = write_bundle(Path(temp) / "report", manifest_text("front-matter.md", "sections/../../escape.md"))
-            with self.assertRaisesRegex(GenerationError, "path-outside-bundle"):
-                load_bundle(bundle_root)
+            self.assertIsNone(validate_bundle(load_bundle(bundle_root)))
 
     def test_rejects_missing_asset(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
