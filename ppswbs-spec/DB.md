@@ -332,9 +332,40 @@ Rules:
 - V1 responsibility ends at carrier handoff. This table has no carrier API, live tracking, delivered/failed-delivery status, return or shipping-refund workflow.
 - Recipient-data access, retention and deletion policy remain `TBD`; storing an address does not decide those policies.
 
+## Locations / branches
+
+Design status: Draft proposal. A location represents one physical workshop/retail branch. It is the master record referenced by workshop slots, booking exceptions and promotion applicability.
+
+### workshop_locations
+
+| Column | Type | Constraints / description |
+| --- | --- | --- |
+| `location_id` | BIGINT | Primary key; technical surrogate identifier used internally by foreign keys and joins. It has no business meaning, should not be re-used after deletion, and is not the code shown to customers or external systems. |
+| `location_code` | VARCHAR(64) | Required unique stable business code for the branch, used in administration, reports, URLs/integrations when a human-readable or externally exchanged identifier is needed. It must remain stable when the branch name or address changes. |
+| `location_name` | VARCHAR(255) | Required public branch name. |
+| `address_line` | VARCHAR(500) | Required physical address or address snapshot used for display. |
+| `city` | VARCHAR(100) | Required city/province. |
+| `country_code` | CHAR(2) | Required ISO 3166-1 alpha-2 country code; proposed default `VN`. |
+| `phone_number` | VARCHAR(30) | Nullable branch contact phone number. |
+| `timezone` | VARCHAR(64) | Required IANA time-zone identifier used to interpret local opening dates/times; proposed default `Asia/Ho_Chi_Minh`. |
+| `is_active` | BOOLEAN | Required; proposed default `TRUE`. Inactive locations cannot receive new bookings or promotion applicability. |
+| `created_at` | DATETIME | Required creation timestamp. |
+| `updated_at` | DATETIME | Required last-update timestamp. |
+
+Indexes:
+
+- Unique `(location_code)` for stable branch lookup.
+- `(is_active, city, location_name)` for public branch selection and administration.
+
+Rules:
+
+- A location is a physical branch, not a staff assignment or a dated workshop slot. A location may have many slots, bookings and exceptions.
+- Deactivation prevents new operational use but does not delete historical slots, bookings, orders, promotion applicability records or audit history.
+- `timezone` is authoritative for local `slot_date`, opening hours and exception evaluation.
+
 ## Promotions
 
-Design status: Future/conditional draft. [Report 3 - Use Cases](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/02-use-cases.md) lists campaigns, voucher codes and order application; [Report 1 - Limitations](../documents/docs/report-1-project-introduction/sections/07-v-project-scope-limitations/02-limitations-exclusions.md) defers loyalty/marketing. Promotion scope, stacking, eligibility and redemption accounting remain `TBD` before this proposal can affect checkout.
+Design status: Future/conditional draft. [Report 3 - Use Cases](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/02-use-cases.md) lists campaigns, voucher codes and order application; [Report 1 - Limitations](../documents/docs/report-1-project-introduction/sections/07-v-project-scope-limitations/02-limitations-exclusions.md) defers loyalty/marketing. Stacking, eligibility and redemption accounting remain `TBD` before this proposal can affect checkout. Promotion-to-branch applicability is represented explicitly by `promotion_locations`.
 
 ### promotions
 
@@ -371,6 +402,30 @@ Rules:
 - Later campaign edits/deactivation must not recalculate a completed order's historical amounts.
 - Stacking with other vouchers/loyalty, product/category restrictions, customer targeting and usage limits are unresolved, not assumed unlimited entitlements.
 
+### promotion_locations
+
+| Column | Type | Constraints / description |
+| --- | --- | --- |
+| `promotion_id` | BIGINT | Required foreign key to `promotions`. |
+| `location_id` | BIGINT | Required foreign key to `workshop_locations`. |
+| `created_at` | DATETIME | Required timestamp when the promotion is enabled for the location. |
+| `created_by_user_id` | BIGINT | Required foreign key to `users`; identifies the authenticated user who created this promotion-to-branch assignment. It provides accountability for who enabled the promotion at the branch, supports audit/history and investigation of accidental or unauthorised scope changes, and must refer to an authorised operational user. It does not determine promotion eligibility and must not be used as the promotion owner. |
+
+Primary key: `(promotion_id, location_id)`.
+
+Indexes:
+
+- `(location_id, promotion_id)` for finding active promotions available at one branch.
+- `(promotion_id, location_id)` is covered by the composite primary key for listing branches assigned to a promotion.
+
+Rules:
+
+- One row means that the promotion applies at that location; no row means that it does not apply there. This supports the same promotion being enabled for one branch and excluded from another without duplicating the promotion definition.
+- A promotion is eligible for an order only when its promotion row is active and within its validity window, the order's branch/location has a matching `promotion_locations` row, and all other promotion rules pass.
+- The promotion and location must both be retained for historical orders; removing applicability affects only future eligibility and must not recalculate completed orders.
+- An inactive location cannot be newly linked to a promotion. Existing links remain for history and must be ignored during eligibility checks while the location is inactive.
+- If a future requirement needs a global promotion, it must be modeled explicitly (for example, with a separate scope flag); absence of rows must not mean “all locations”.
+
 ## Workshop booking, slots, packages and exceptions
 
 Design status: Draft proposal. This section retains the requested logical names `workshop_registration` and `worshop_exceptions`; the latter spelling can be reconciled with `workshop_exceptions` before implementation. The existing backend uses `workshop_bookings` and `booking_email_confirmations`, not this proposed physical schema.
@@ -386,7 +441,7 @@ Sources:
 Design assumptions and unresolved points:
 
 - A `slots` row represents one dated session at one location, not a recurring timetable template. A group registration consumes its `participant_count` seats in one slot. These are proposed physical modeling choices.
-- Location IDs below are logical foreign keys to an additional `workshop_locations` table, not to a table already described here. Location master data and branch/material/package compatibility require separate specifications.
+- `workshop_locations` is the location/branch master defined above. Branch/material/package compatibility still requires separate relationship specifications.
 - Booking workflows specify a 50% package deposit, while Report 3 also lists material-based deposit configuration. The proposed package deposit percentage defaults to 50 for that workflow; precedence of material/package rules and group-pricing basis remain `TBD`.
 - Capacity values, temporary seat-hold timing, payment deadline after email confirmation, exception precedence and safe rescheduling policies remain `TBD`. Email-token expiry is not a retail-stock or payment-attempt expiry.
 - Package invoices, adjustment consent, settlement, policy acceptance, email tokens and custody evidence remain separate records. These four tables alone do not represent the complete workshop workflow.
@@ -451,7 +506,7 @@ Rules:
 | Column | Type | Constraints / description |
 | --- | --- | --- |
 | `slot_id` | BIGINT | Primary key. |
-| `location_id` | BIGINT | Required logical foreign key to the separately specified `workshop_locations` table. |
+| `location_id` | BIGINT | Required foreign key to `workshop_locations`. |
 | `slot_date` | DATE | Required local operating date at the location. |
 | `start_time` | TIME | Required local session start time. |
 | `end_time` | TIME | Required local session end time; later than `start_time` for the documented same-day sessions. |
@@ -513,7 +568,7 @@ Rules:
 | Column | Type | Constraints / description |
 | --- | --- | --- |
 | `workshop_exception_id` | BIGINT | Primary key. The requested table spelling `worshop_exceptions` is retained; naming correction is a separate decision. |
-| `location_id` | BIGINT | Nullable logical foreign key to `workshop_locations`; null with no slot means all locations on the exception date under this proposal. |
+| `location_id` | BIGINT | Nullable foreign key to `workshop_locations`; null with no slot means all locations on the exception date under this proposal. |
 | `slot_id` | BIGINT | Nullable foreign key to `slots`; set for a single-session exception and null for a whole-day scope. |
 | `exception_date` | DATE | Required affected local operating date. A multi-day holiday uses one dated record per day under this proposal. |
 | `is_closed` | BOOLEAN | Required; proposed default `TRUE`. Blocks new booking in the matching scope. |
