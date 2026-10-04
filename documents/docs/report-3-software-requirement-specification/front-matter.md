@@ -6,7 +6,7 @@
 
 **Group:** SEP490_G22  
 **Status:** Active project, under validation  
-**Document status:** Current requirement baseline. Items without approved evidence are `TBD`.
+**Document status:** Current requirement baseline, aligned with approved V1 decisions. Items outside the approved scope or without an approved baseline remain `TBD`.
 
 ## Table of Contents
 
