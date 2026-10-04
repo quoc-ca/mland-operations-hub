@@ -1,19 +1,27 @@
-## Users and roles
+## Scope and reading conventions
 
-Design status: Draft proposal. Physical column names, types, lengths, indexes and defaults are proposed unless explicitly identified as existing implementation details.
+Design status: Restricted logical draft. Giữ nguyên form entity: Column / Type / Constraints, Indexes và Rules. Chỉ bổ sung trường/quan hệ trên bảng ban đầu, không thêm entity. Chưa phải migration được duyệt.
 
 Sources:
 
-- [General Spec - Identity and Authorization](spec-general.md): Firebase UID identity, MySQL role/status authority, optional profile snapshots and no local password store.
-- [Member Authentication Specification](features/001-member-authentication/spec.md) and [Data Model](features/001-member-authentication/data-model.md): current `members` persistence, proposed `accounts`/`account_roles`, policy acceptance and Guest-booking linkage.
-- [Report 3 - Actors](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/01-actors.md) and [Use Cases](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/02-use-cases.md): profile, role assignment and account locking.
+- [ERD hiện tại — sơ đồ chính](../documents/ERD.md): nguồn danh sách bảng.
+- [Report 2 — Scope](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/01-scope-purpose.md), [Report 3 — Use Cases](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/02-use-cases.md) và [Business Rules](../documents/docs/report-3-software-requirement-specification/sections/07-v-requirement-appendix/01-business-rules.md): baseline người dùng chọn.
+- [General Spec](spec-general.md), [Auth Data Model](features/001-member-authentication/data-model.md), [V1 Migration](../ppswbs_backend/src/main/resources/db/migration/V1__init_member_auth.sql): identity boundary và schema thực tế.
+- [Settlement](../documents/docs/report-3-software-requirement-specification/assets/diagrams/details/25-workshop-checkin-settlement-detail.puml), [Custody](../documents/docs/report-3-software-requirement-specification/assets/diagrams/details/26-continuation-custody-detail.puml), [Report 1 — Limitations](../documents/docs/report-1-project-introduction/sections/07-v-project-scope-limitations/02-limitations-exclusions.md): kiểm tra nguồn và xung đột.
 
-Design assumptions and unresolved points:
+Scope decisions:
 
-- `users` remains the logical account name used by this document. Its physical mapping to existing `members` and proposed `accounts` is `TBD`; this proposal does not rename or migrate those tables.
-- The authentication feature proposes multiple role assignments through `account_roles`. The logical equivalent is a `user_roles` junction with user/role foreign keys, unique `(user_id, role_id)` and auditable grant/revoke state. That additional table must be specified before implementation; a single `users.role_id` would not represent this model.
-- The working agreement/authentication feature names `MEMBER`, `STAFF`, `OWNER`, `ADMIN_TECHNICAL`; Report 3 names Member, Staff, Manager and Admin. Role-code reconciliation and the permission matrix remain `TBD`.
-- Policy acceptance and role-change audit remain separate versioned records, not profile flags. Existing policy/auth-audit tables are outside the tables requested here.
+- Người dùng gọi bộ ban đầu là 24 bảng; sơ đồ chính ERD.md thực tế có **23 bảng**. Giữ đúng 23 tên này; không tự thêm bảng thứ 24 hoặc các bảng nối ở sơ đồ bổ sung.
+- Retail/custom dùng chung orders với order_type; payments/delivery tham chiếu order_id cho cả hai. Booking-image request vẫn riêng, không tự biến thành manufacturing.
+- Một role/user và primary gemstone/attachment có FK; nhiều giá trị còn lại dùng JSON hoặc để TBD. ID trong JSON **không phải SQL FK**, không có PK/unique riêng từng phần tử.
+- PK = khóa chính, FK = khóa ngoại, UK/unique = khóa duy nhất. DATETIME precision/UTC và JSON schema/version/retention/concurrency là quyết định feature plan; slot local time dùng branch timezone.
+- audit_trail giữ redacted evidence của chính record/domain, append với locking/validation; không central audit store, không token/credential/ảnh/raw AI text hoặc bản sao recipient PII đã erase. JSON không tự enforce immutability.
+- Đây là mô hình logical giới hạn. Không xóa/đổi các bảng policy/token/audit đã có trong applied migration V1; users/workshop_registration mapping sang members/accounts/workshop_bookings vẫn TBD.
+- ERD.md chỉ được đọc để lấy tên bảng. Các cạnh/thuộc tính cũ chưa đồng bộ với lần sửa DB này; dùng phần Relationships for ERD bên dưới khi vẽ lại.
+
+## Users and roles
+
+Design status: Draft within the original table set; Report 2/3 baseline, unresolved source conflicts and physical mapping remain TBD where identified.
 
 ### users
 
@@ -25,25 +33,28 @@ Design assumptions and unresolved points:
 | `email_verified` | BOOLEAN | Required; defaults to `FALSE`. Snapshot of Firebase email verification, not proof that a booking's contact email was confirmed. |
 | `display_name` | VARCHAR(255) | Nullable basic profile/display name. |
 | `phone_number` | VARCHAR(30) | Nullable profile phone; stored as text. Required contact fields are enforced by the booking/order flow, not by identity provisioning. |
+| `address` | TEXT | Nullable profile address proposed for UC-06. It is not an address book and never substitutes for an order-specific delivery snapshot. |
 | `photo_url` | TEXT | Nullable profile-image URL or storage reference. |
 | `status` | VARCHAR(30) | Required. Proposed account values: `active`, `suspended`; default `active` for a newly provisioned account. Member entitlement still requires active role and current policy acceptance. Mapping to existing Member states is `TBD`. |
+| `role_id` | BIGINT | Required foreign key to `roles.role_id`. Proposed one current business role per user; reconciliation with multi-role authentication remains TBD. |
+| `role_granted_by_user_id` | BIGINT | Nullable foreign key to `users.user_id`. Null for approved system Member provisioning; actor for privileged role assignment. |
+| `role_granted_at` | DATETIME | Required current role-grant time; retain earlier changes in audit_trail. |
+| `policy_acceptances` | JSON | Nullable append-only policy type/version/content digest/reference, accepted_at, locale and correlation snapshots; effective Terms/Privacy pair required for entitlement. Embedded policy references have no SQL FK. |
+| `cart_snapshot` | JSON | Nullable current Member cart: supported product IDs/options, positive quantities and revision. Application-validated references, not SQL FKs; whole cart revalidated at checkout. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required account-creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(external_user_id)` for UID lookup and idempotent provisioning.
-- Non-unique `(email)` for permitted contact lookup; it must not trigger automatic linking or merging.
-- `(status, created_at)` for account-administration queries.
+- Unique (external_user_id); non-unique (email); (role_id, status); (role_granted_by_user_id).
 
 Rules:
 
-- Firebase owns passwords, social credentials and token renewal. This table has no password/hash, provider access token, Firebase ID token or refresh-token column.
-- Repeated/concurrent sign-in with the same verified UID provisions one account. Different UIDs remain different accounts even when email text matches.
-- MySQL account status and active role assignments determine authorization. Provider claims and profile fields cannot grant business roles.
-- Public Guests do not require a synthetic `users` row; `workshop_registration.member_user_id` may remain null.
-- Guest-booking import requires verified matching email, explicit Member confirmation and entitlement; it preserves booking status and is idempotent.
-- Account suspension blocks protected access without deleting orders, payments, requests or bookings. Account/PII retention and status-change audit policy remain subject to the owning feature.
+- Một current role/user qua role_id là proposal giản lược; khác multi-role account_roles của auth feature, reconciliation vẫn TBD. Không thay schema đang chạy.
+- Firebase sở hữu credential/token; UID unique, email không unique và không dùng tự gộp identity. Guest không cần users giả.
+- Policy acceptance giữ phiên bản/content/time và earlier history trong JSON; server kiểm tra effective pair/role/status/entitlement. ID bên trong JSON không có FK.
+- Cart JSON giữ selection/revision, không cam kết giá/stock; checkout revalidate toàn giỏ và tạo order/items nguyên tử.
 
 ### roles
 
@@ -54,25 +65,24 @@ Rules:
 | `role_name` | VARCHAR(100) | Required human-readable role label; changing the label does not change the role code or permissions. |
 | `description` | TEXT | Nullable description of the role's business responsibility and boundary. |
 | `is_active` | BOOLEAN | Required; proposed default `TRUE`. An inactive role cannot grant authorization under this proposal. |
+| `permission_codes` | JSON | Required proposed array of approved operation codes, default empty. Code catalogue/role mapping remain TBD; account, ownership and branch checks still apply. |
+| `updated_by_user_id` | BIGINT | Nullable foreign key to `users.user_id`. Authorised role-definition actor; null for bootstrap. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required role-creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(role_code)` for authoritative role lookup.
-- `(is_active, role_code)` for active-role administration.
+- Unique (role_code); (is_active, role_code); (updated_by_user_id).
 
 Rules:
 
-- Role definitions and user-role assignments are different records. Users and roles are linked through the additional junction described above, not a comma-separated string or JSON role list.
-- First-time Member provisioning grants only the Member role under the approved entitlement flow; operational roles require an authorised, audited grant.
-- Guest is an unauthenticated actor, not a role granted to a provisioned account.
-- Permissions are not inferred from `role_name`. Dynamic permission configuration would require a separately specified permission model; this table alone does not implement RBAC configuration.
-- Referenced roles must not be physically deleted. Deactivation/revocation retains business and audit history; exact administrative authority remains `TBD`.
+- Role → users là 1–N trong proposal này; referenced role không xóa. permission_codes dùng allowlist được duyệt, không bỏ ownership/account checks.
+- Mapping Member/Staff/Manager/Admin với MEMBER/STAFF/OWNER/ADMIN_TECHNICAL và branch authority còn TBD. Role changes cần actor/audit.
 
 ## Loyalty points
 
-Design status: Future/conditional draft requested for documentation. [Report 3 - Use Cases](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/02-use-cases.md) lists balance, earning/redemption history and order redemption, while [Report 1 - Limitations](../documents/docs/report-1-project-introduction/sections/07-v-project-scope-limitations/02-limitations-exclusions.md) defers loyalty and states that Members have no loyalty points in V1. This table does not enable loyalty in V1; scope approval and all conversion/eligibility rules remain `TBD`.
+Design status: Draft within the original table set; Report 2/3 baseline, unresolved source conflicts and physical mapping remain TBD where identified.
 
 ### loyalty_points
 
@@ -90,37 +100,17 @@ Design status: Future/conditional draft requested for documentation. [Report 3 -
 
 Indexes:
 
-- Unique `(event_key)` for idempotent ledger posting.
-- `(member_user_id, created_at, loyalty_point_id)` for balance/history queries with deterministic ordering.
-- `(order_id, entry_type)` for order-related point history.
+- Unique (event_key); (member_user_id, created_at, loyalty_point_id); (order_id, entry_type); (recorded_by_user_id).
 
 Rules:
 
-- Proposed balance is the sum of posted `points_delta` values for a Member; do not keep an independently editable balance in `users`.
-- Redemption must check eligibility and sufficient points atomically. An earning trigger, points-to-money rate, rounding, minimum redemption and any limits remain `TBD`.
-- A posted entry is not edited/deleted to correct a balance; an authorised compensating entry records the reason and actor. This is not an order-refund workflow.
-- Point expiry, tiers, temporary checkout reservations and reversal rules are not implied by these fields and require separate design if approved.
-- Linking redemption to payable amounts requires order discount snapshots/consumption records not present in the current retail proposal. No change to `orders.total_amount` is authorised by this draft alone.
+- Ledger immutable: sum points_delta là balance; earn dương, redeem âm, adjustment có reason/actor; event_key unique.
+- Không mutable points balance trên users. Order giữ money/rate snapshots; points reserve/debit/compensating entry phải atomic/idempotent, exact policy vẫn TBD.
+- Report 2/3 có loyalty, Report 1 hoãn; conversion/caps/expiry và source reconciliation TBD.
 
-## Product catalogue, retail orders, payment and delivery
+## Product catalogue, orders, payment and delivery
 
-Design status: Draft proposal based on the supplied documents. Column names, SQL types, lengths, defaults, indexes and status codes below are proposed physical-design details, not an already approved or implemented schema.
-
-Sources:
-
-- [Report 2 - Scope and Purpose](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/01-scope-purpose.md): Member cart, complete-cart checkout, price snapshots, 15-minute quantity holds, full payment, pickup and manual carrier handoff.
-- [Report 3 - Actors](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/01-actors.md) and [Use Cases](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/02-use-cases.md): catalogue information, images, publishing, prices, available-to-sell quantities and delivery contact/address.
-- [Report 3 - Retail Workflow](../documents/docs/report-3-software-requirement-specification/assets/diagrams/workflows/12-ready-ring-retail-swimlane.puml): verified payment and auditable carrier handoff.
-- [API Contract Catalog](APIs.md): payment attempts and verified provider events; provider contracts remain `TBD`.
-
-Design assumptions and unresolved points:
-
-- Foreign keys to `users` follow the logical naming already used in this file. The implemented authentication schema uses `members`; the mapping between `users`, Member identity and operational users is `TBD` before implementation.
-- One product belongs to one category, one product may have many images, and one retail order has one fulfilment choice and at most one delivery-information record. These cardinalities are design proposals because the supplied ERD/entity-description sections are incomplete.
-- Report 2 specifies a 15-minute hold before payment. Report 3's retail workflow specifies reservation after payment without automatic expiry. The checkout/reservation lifecycle is `TBD`; the proposed `pending_payment`, `expired` and `hold_expires_at` fields support the Report 2 approach if that approach is approved.
-- Staff versus Manager/Owner catalogue-maintenance authority differs between documents and remains `TBD`. Operational actor fields record the authorised user without deciding that permission conflict.
-- This section describes catalogue-product retail. Linking configured ring designs to purchasable items is `TBD`. It does not change the existing rule that `custom_design_requests` has no relationship to orders.
-- Voucher/loyalty use appears in Report 3, while Report 1 defers loyalty/marketing. Discount policy and its schema are `TBD`; no unapproved promotion or points foreign key is introduced here.
+Design status: Draft within the original table set; Report 2/3 baseline, unresolved source conflicts and physical mapping remain TBD where identified.
 
 ### products
 
@@ -130,26 +120,24 @@ Design assumptions and unresolved points:
 | `category_id` | BIGINT | Required foreign key to `categories`; assumes one category per product. |
 | `product_name` | VARCHAR(255) | Required catalogue name displayed to customers. |
 | `description` | TEXT | Nullable product information displayed on the product-detail page. |
+| `option_schema` | JSON | Proposed nullable versioned definition of supported retail size/engraving choices and validation limits; null means no options. Exact schema and option pricing remain `TBD`; this is not variant-level inventory. |
 | `unit_price` | DECIMAL(15,2) | Required current selling price; must be non-negative. Exact pricing rules remain `TBD`. |
 | `currency` | CHAR(3) | Required currency code, for example `VND`. Approved currency/default remains `TBD`. |
 | `available_to_sell_quantity` | INT | Required; defaults to `0`; must be non-negative. Manually maintained sale quantity, not a warehouse inventory balance or a real-time guarantee. |
 | `is_published` | BOOLEAN | Required; defaults to `FALSE`. Controls visibility in the public catalogue. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- `(is_published, category_id)` for published catalogue browsing and category filtering.
-- `(category_id)` for category membership queries and the foreign key.
+- (is_published, category_id); (category_id).
 
 Rules:
 
-- Only published products in an active category are shown in the public catalogue; category activation is a proposed visibility rule.
-- Product name/description support search; the search implementation is `TBD`. A normal B-tree index is not assumed to support substring search.
-- Product availability and the entire cart are revalidated at checkout. Unpublished, invalid or insufficient-quantity products cannot be purchased.
-- If the Report 2 hold model is approved, active unpaid holds reduce checkout availability. Held quantity can be derived from `order_items` of non-expired `pending_payment` orders; reserve/release and sale deduction must be atomic and must not oversell or deduct twice.
-- Product edits do not rewrite historical order-item snapshots. A product referenced by an order item cannot be physically deleted; unpublish it instead.
-- This table does not manage warehouses, lots, serial numbers, procurement or stock-movement ledgers.
+- Chỉ published product/category hợp lệ được chọn. Quantity là số lượng bán cập nhật thủ công, không warehouse inventory.
+- Checkout kiểm tra cả giỏ/options/giá/quantity; reserve/deduct/release nguyên tử và không trừ hai lần. Order snapshots không đổi theo catalogue.
+- Không xóa referenced product. Size-specific stock chưa mô hình hóa; option_schema không tạo variant stock records.
 
 ### categories
 
@@ -159,20 +147,17 @@ Rules:
 | `category_name` | VARCHAR(100) | Required category label for grouping/filtering catalogue products. Proposed unique value under the chosen database collation. |
 | `description` | TEXT | Nullable explanation of the category. |
 | `is_active` | BOOLEAN | Required; defaults to `TRUE`. Proposed flag for enabling the category in public catalogue navigation. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(category_name)` to prevent duplicate labels under the chosen collation.
-- `(is_active, category_name)` for active-category navigation.
+- Unique (category_name) under selected collation; (is_active, category_name).
 
 Rules:
 
-- A category may contain many products. Actual category labels and the need for multiple categories per product remain `TBD`.
-- Deactivating a category hides its products under the proposed visibility rule; it does not alter existing order records.
-- A category referenced by a product cannot be physically deleted until those products are reassigned.
-- No category hierarchy or additional jewellery types are assumed.
+- Một category/product theo proposal; không tự thêm hierarchy/multi-category. Inactive category ảnh hưởng catalogue mới, không sửa order history.
 
 ### orders
 
@@ -180,45 +165,72 @@ Rules:
 | --- | --- | --- |
 | `order_id` | BIGINT | Primary key. |
 | `order_code` | VARCHAR(64) | Required unique customer-facing order reference. |
-| `member_user_id` | BIGINT | Required foreign key to `users`. Only an authenticated Member can place a retail order. |
-| `status` | VARCHAR(30) | Required. Proposed values: `pending_payment`, `expired`, `paid`, `preparing`, `ready_for_pickup`, `picked_up`, `prepared_for_carrier`, `handed_to_carrier`. Default and pre-payment states depend on the unresolved checkout lifecycle. |
-| `fulfilment_method` | VARCHAR(20) | Nullable before the Member chooses fulfilment after verified full payment. Allowed proposed values: `pickup`, `carrier`. |
-| `subtotal_amount` | DECIMAL(15,2) | Required non-negative snapshot of the sum of order-item line amounts. |
-| `total_amount` | DECIMAL(15,2) | Required non-negative final amount due. Equals `subtotal_amount` for the proposed retail scope; adjustment/discount rules remain `TBD`. Carrier fees are excluded. |
+| `member_user_id` | BIGINT | Required foreign key to `users.user_id`. Both retail and custom manufacturing require an authenticated eligible Member. |
+| `location_id` | BIGINT | Proposed required foreign key to `workshop_locations.location_id`: responsible retail/custom branch for preparation and fulfilment, and retail promotion scope. Allocation and queue scope remain `TBD`; never derive this branch from a recipient address. |
+| `status` | VARCHAR(30) | Required type-specific state. Retail: pending_payment/expired/paid/preparing/ready_for_pickup/picked_up/prepared_for_carrier/handed_to_carrier. Custom also uses pending_deposit/rejected/in_progress/ready_for_balance. Exact transitions remain TBD. |
+| `fulfilment_method` | VARCHAR(20) | Nullable until retail choice after full payment; required pickup/carrier at custom submission. |
+| `subtotal_amount` | DECIMAL(15,2) | Required non-negative amount: retail sum of line snapshots; custom original wax-package amount. |
+| `voucher_discount_amount` | DECIMAL(15,2) | Required non-negative checkout snapshot; proposed default `0`. Supported only if promotion scope is ratified. |
+| `points_redeemed` | BIGINT | Required non-negative checkout snapshot; proposed default `0`. Ledger posting/reservation must be atomic under the approved loyalty policy. |
+| `points_discount_amount` | DECIMAL(15,2) | Required non-negative money-value snapshot; proposed default `0`. Conversion rate/cap remain `TBD`. |
+| `total_amount` | DECIMAL(15,2) | Required non-negative amount. Retail freezes subtotal minus voucher/points discounts at checkout. Custom finalizes wax-package amount plus actual surcharge before balance payment. Carrier fees excluded; zero-payable completion path remains TBD. |
 | `currency` | CHAR(3) | Required currency snapshot; must match the order items and its payment. |
-| `hold_expires_at` | DATETIME | Nullable. If the Report 2 approach is approved, required for a pending checkout and set to checkout time plus 15 minutes. It does not expire a paid order. |
-| `paid_at` | DATETIME | Nullable until verified full-payment confirmation is accepted; then required. |
+| `hold_expires_at` | DATETIME | Nullable 15-minute provisional retail-quantity/custom-queue hold deadline; not an expiry of a paid order or committed custom queue position. |
+| `paid_at` | DATETIME | Nullable until all payable obligations are satisfied: retail full amount, or custom deposit and final balance. Deposit alone is insufficient. |
 | `picked_up_by_user_id` | BIGINT | Nullable foreign key to `users`; required when an authorised operational user records customer pickup. This is the recording actor, not the customer. |
 | `picked_up_at` | DATETIME | Nullable; required when `status` is `picked_up`. |
+| `order_type` | VARCHAR(20) | Required proposed retail/custom discriminator, default retail. Both Member-only; type-specific fields/transitions must be validated. |
+| `promotion_id` | BIGINT | Nullable foreign key to `promotions.promotion_id`. At most one promotion/voucher for a retail checkout; null for custom manufacturing. |
+| `voucher_code_snapshot` | VARCHAR(64) | Nullable code snapshot, required when a code-based promotion is selected. |
+| `promotion_policy_snapshot` | JSON | Nullable immutable rate/cap/eligibility context at checkout. |
+| `promotion_usage_state` | VARCHAR(20) | Nullable without promotion; proposed reserved/consumed/released, updated atomically with hold/payment/expiry. |
+| `promotion_usage_updated_at` | DATETIME | Nullable last benefit-usage transition time; earlier evidence retained in audit_trail. |
+| `workshop_package_id` | BIGINT | Nullable foreign key to `workshop_packages.workshop_package_id`. Required approved wax-package reference for custom; null for retail. Wax identification remains TBD. |
+| `design_input_type` | VARCHAR(20) | Nullable for retail; required reference_image/configuration for custom. Image input is not sent to AI to accept/reject/price manufacturing. |
+| `reference_image_url` | TEXT | Nullable for retail/configuration or after approved erasure; required at custom image submission. Delete rejected/withdrawn images after processing and accepted images by pickup/handoff under Report 2. |
+| `ring_design_id` | BIGINT | Nullable foreign key to `ring_designs.ring_design_id`. Required frozen design for custom configuration input; null for retail/image input. |
+| `requested_deadline` | DATE | Nullable date supplied by the Member. |
+| `assigned_deadline` | DATE | Nullable for retail or a rejected/unaccepted custom request; required for accepted custom manufacturing. System chooses the earliest valid date when none is requested; calendar/lead-time rules remain `TBD`. |
+| `wax_package_price_snapshot` | DECIMAL(15,2) | Nullable for retail; required non-negative original wax-package price for custom, matching its subtotal. |
+| `deposit_amount` | DECIMAL(15,2) | Nullable for retail; required custom 50% wax-package deposit snapshot; rounding remains TBD. |
+| `actual_surcharge_amount` | DECIMAL(15,2) | Nullable until the final amount is set; non-negative total actual surcharge. Report 2 does not require a line-item surcharge breakdown. |
+| `final_balance_amount` | DECIMAL(15,2) | Nullable for retail/unfinalized custom; remaining package amount after deposit plus actual surcharge. |
+| `final_amount_set_by_user_id` | BIGINT | Nullable foreign key to `users.user_id`; required Staff/Manager actor when final amount is set. |
+| `final_amount_set_at` | DATETIME | Nullable until final-amount recording. |
+| `request_description` | TEXT | Nullable custom-manufacturing instructions; not a workshop image-review decision. |
+| `deposit_paid_at` | DATETIME | Nullable until accepted verified custom_deposit payment; retail does not use this field. |
+| `queue_committed_at` | DATETIME | Nullable until custom deposit commits one queue position. |
+| `queue_released_at` | DATETIME | Nullable until custom pickup/carrier handoff releases the committed position. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required order/checkout creation timestamp under the approved lifecycle. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(order_code)` for order lookup.
-- `(member_user_id, created_at)` for a Member's purchase history.
-- `(status, created_at)` for operational order queues.
-- `(status, hold_expires_at)` for unpaid-hold expiry processing if that model is approved.
+- Unique (order_code); (member_user_id, created_at); (location_id, order_type, status); (status, hold_expires_at).
+- (promotion_id, promotion_usage_state); (ring_design_id); (workshop_package_id); (assigned_deadline, order_type, status); (picked_up_by_user_id); (final_amount_set_by_user_id).
 
 Rules:
 
-- An order contains at least one `order_items` row and is created from the complete validated cart; checkout creates no partial order.
-- Prices, quantities, currency and amounts are fixed for that checkout. Catalogue-price changes do not recalculate an existing order.
-- Only a verified gateway confirmation matching the payable target, full amount and currency can mark a retail order as paid. Browser redirects are not payment evidence.
-- Under the proposed Report 2 lifecycle: `pending_payment` -> `paid` or `expired`. Expiry releases the unpaid hold; a paid order has no automatic reservation expiry. Handling a successful callback arriving after hold expiry remains `TBD`.
-- After payment: `paid` -> `preparing`, then the pickup branch `ready_for_pickup` -> `picked_up`, or the carrier branch `prepared_for_carrier` -> `handed_to_carrier`. These exact status codes/transitions are proposed, not final requirements.
-- Fulfilment choice is made after verified full payment. Carrier fulfilment requires a complete `delivery_infors` record; pickup does not require delivery contact/address.
-- Customer pickup requires recording actor and timestamp. Carrier handoff requires the evidence recorded in `delivery_infors`.
-- V1 has no in-system cancellation, refund, return or shipment-tracking lifecycle. Order history must be retained according to an approved retention policy (`TBD`).
+- order_type phân biệt retail/custom; cả hai Member-only. Retail cần ≥1 order_items; custom lưu single design/package/amount trên orders và không dùng dòng retail.
+- Retail amount/line snapshot bất biến tại checkout; toàn giỏ held tối đa 15 phút và accepted retail_full_payment mới hoàn tất sale.
+- Custom auto-accept chỉ khi deadline hợp lệ và queue còn chỗ; cọc 50% gói wax, balance = phần còn lại của gói + actual surcharge. AI không quyết định manufacturing.
+- Custom reference image hoặc frozen configuration là hai input riêng; accepted request không tự tạo catalogue product. Wax identity, queue global/per-branch, deadline/rounding/final-amendment policies còn TBD.
+- Khi submit custom order, chọn đúng một image/configuration và kiểm tra required fields tương ứng; sau erasure hợp lệ không buộc giữ URL ảnh. Retail không dùng custom deadline/deposit/design fields; custom không có retail items và voucher/points discount phải bằng 0 trong proposal hiện tại.
+- Tối đa một promotion/voucher trên retail order; code/policy/discount/usage state giữ ở đây. Kiểm tra active/time/branch/limits và consume/release nguyên tử; custom không tự dùng voucher/points.
+- Retail chọn fulfilment sau trả đủ; custom chọn lúc submission nhưng trả đủ deposit/balance trước pickup/handoff. Deposit không tự đặt paid_at. Handoff/pickup releases custom queue; carrier fees ngoài order.
+- Không ghi đè expired checkout thành order mới; retain benefit/hold history. Shared retail/custom ownership và billing boundaries cần được chốt trước implementation.
 
 ### order_items
 
 | Column | Type | Constraints / description |
 | --- | --- | --- |
 | `order_item_id` | BIGINT | Primary key. |
-| `order_id` | BIGINT | Required foreign key to `orders`. |
+| `order_id` | BIGINT | Required foreign key to `orders.order_id`. Retail line only under this proposal; custom stores its single design/package/amount on orders and has no retail lines. |
 | `product_id` | BIGINT | Required foreign key to `products` for the catalogue-product retail scope. |
 | `product_name_snapshot` | VARCHAR(255) | Required product-name snapshot at checkout; keeps order history readable after a catalogue rename. |
+| `line_key` | VARCHAR(128) | Required stable normalized identity of the product plus supported options. Unique with `order_id`; exact canonicalization is `TBD`. |
+| `options_snapshot` | JSON | Required validated option snapshot, for example ring size and engraving from UC-43; an empty object means no options. Supported schema/version and price impact remain `TBD`. |
 | `quantity` | INT | Required purchased quantity; must be greater than `0`. |
 | `unit_price` | DECIMAL(15,2) | Required non-negative selling-price snapshot at checkout, not a live lookup of `products.unit_price`. |
 | `line_amount` | DECIMAL(15,2) | Required non-negative line total; must equal `quantity * unit_price`. Proposed stored snapshot; a generated column is an alternative physical implementation. |
@@ -226,17 +238,13 @@ Rules:
 
 Indexes:
 
-- Unique `(order_id, product_id)` under the proposal that each catalogue product appears once per order and its quantity is aggregated.
-- `(product_id)` for product-reference queries and the foreign key.
+- Unique (order_id, line_key); (product_id).
 
 Rules:
 
-- One order has many items; one product may occur in many orders.
-- All items in an order use the order's currency. `orders.subtotal_amount` equals the sum of its `line_amount` values.
-- Order items are immutable checkout snapshots. Cart quantity updates/removal happen before checkout, not by rewriting a paid order.
-- All required quantities are validated and held together if the Report 2 model is approved; failure of any line prevents the complete checkout.
-- These are order lines, not cart lines. Persistent cart storage is outside these seven tables.
-- Configured/custom ring line types, variants and their effect on line uniqueness remain `TBD`; they are not implicitly linked to `custom_design_requests`.
+- FK order_id luôn bắt buộc; chỉ thuộc order retail. Retail cần ≥1 item bằng transaction check; custom có 0 item.
+- Unique order_id/line_key thay order_id/product_id: cùng sản phẩm khác size/engraving có thể là hai dòng.
+- quantity > 0, line_amount = quantity × unit_price, currency theo order; snapshot sau checkout bất biến.
 
 ### product_imgs
 
@@ -247,94 +255,91 @@ Rules:
 | `img_url` | TEXT | Required product-image URL or object-storage path. Stores a media reference, not binary image data. |
 | `alt_text` | VARCHAR(255) | Nullable image description for accessibility; required when the image conveys information not already expressed by nearby text. |
 | `sort_order` | INT | Required non-negative display position; proposed unique position within a product. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required image-record creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(product_id, sort_order)` for ordered product-image retrieval.
+- Unique (product_id, sort_order).
 
 Rules:
 
-- One product may have multiple catalogue images. The lowest `sort_order` supplies the proposed catalogue thumbnail/main image, avoiding a separate main-image flag.
-- Authorised catalogue maintainers may add, replace, reorder or remove image references. File validation, publication minimum-image count and storage retention remain `TBD`.
-- These are catalogue images; Member reference images remain in `custom_design_requests.img_url`.
-- Changing catalogue images does not alter an order's price or quantity snapshots.
+- Nhiều ảnh/product, unique thứ tự; không ảnh reference của customer. Validation/minimum publication/retention còn TBD.
 
 ### payments
 
 | Column | Type | Constraints / description |
 | --- | --- | --- |
-| `payment_id` | BIGINT | Primary key. Proposed model: one row per payment attempt, updated with its verified gateway outcome. |
-| `payment_code` | VARCHAR(64) | Required unique internal payment-attempt reference used to correlate provider confirmation with the payable target. |
-| `order_id` | BIGINT | Nullable foreign key to `orders`; required for a retail full-payment attempt. |
-| `workshop_registration_id` | BIGINT | Nullable logical foreign key to `workshop_registration`; required for a workshop-deposit attempt. This table name follows this file's inventory; mapping to implemented `workshop_bookings` remains `TBD`. |
-| `payment_purpose` | VARCHAR(30) | Required. Proposed values: `retail_full_payment`, `workshop_deposit`; must match the selected target. |
-| `amount` | DECIMAL(15,2) | Required amount requested for this attempt; must be greater than `0`. Retail amount must match the order's full amount due; workshop deposit formula remains subject to the approved booking policy. |
+| `payment_id` | BIGINT | Primary key. One online payment attempt or one recorded shop receipt, distinguished by payment_record_type. |
+| `payment_code` | VARCHAR(64) | Required unique internal attempt/receipt reference; correlates this record with its payable target. |
+| `order_id` | BIGINT | Nullable foreign key to `orders.order_id`. Retail or custom target, validated against order_type and payment_purpose; XOR with booking. |
+| `workshop_registration_id` | BIGINT | Nullable foreign key to `workshop_registration.workshop_registration_id`. Workshop deposit or shop-balance target; XOR with order. |
+| `payment_purpose` | VARCHAR(30) | Required retail_full_payment/workshop_deposit/workshop_balance/custom_deposit/custom_balance; must match target, record type and frozen amount. |
+| `amount` | DECIMAL(15,2) | Required positive requested/received amount matching the approved payable obligation and currency. |
 | `currency` | CHAR(3) | Required currency snapshot; must match the payable target. |
-| `provider` | VARCHAR(50) | Required configured Payment Gateway identifier. Provider choice and contract remain `TBD`. |
+| `provider` | VARCHAR(50) | Required VNPay for gateway_attempt; nullable for shop_receipt. Provider-specific payload/dedup scope remain TBD. |
 | `provider_transaction_id` | VARCHAR(255) | Nullable until a provider transaction reference is available. Reference format/uniqueness scope remain `TBD` in the gateway contract. |
-| `status` | VARCHAR(20) | Required; proposed default `pending`. Proposed values: `pending`, `succeeded`, `failed`, `expired`. These describe the payment attempt, not fulfilment. |
-| `verified_at` | DATETIME | Nullable until an authentic provider outcome has passed server-side verification; required for `succeeded`. |
-| `paid_at` | DATETIME | Nullable; required for `succeeded`. Records the confirmed payment timestamp; its provider/local timestamp source remains `TBD`. |
+| `status` | VARCHAR(20) | Required. Online candidates: `pending`, `succeeded`, `failed`, `expired`; shop_receipt is `succeeded` only after authorised actual-receipt recording. No fulfilment state is inferred from a pending record. |
+| `verified_at` | DATETIME | Nullable until server-verified gateway evidence; required for accepted online success, null for manually recorded shop receipts. |
+| `paid_at` | DATETIME | Nullable until verified online payment or actual shop receipt is recorded. |
 | `failure_reason` | TEXT | Nullable safe failure explanation/code. Must not contain gateway secrets, card data or raw sensitive callback payloads. |
+| `link_expires_at` | DATETIME | Nullable for shop_receipt; required online link expiry, initiation plus 10 minutes. Separate from hold and email-token expiry. |
+| `payment_record_type` | VARCHAR(20) | Required gateway_attempt/shop_receipt: one online attempt or one actually recorded cash/bank-transfer receipt. |
+| `payment_method` | VARCHAR(20) | Required proposed vnpay/cash/bank_transfer. Retail/custom obligations use VNPay; detailed workshop balance may use shop receipt. |
+| `accepted_at` | DATETIME | Nullable until this payment/receipt is applied once to its target obligation, after required hold/amount/status checks. |
+| `recorded_by_user_id` | BIGINT | Nullable foreign key to `users.user_id`. Required authorised Staff actor for shop_receipt; online system confirmation may be null. |
+| `confirmation_source` | VARCHAR(20) | Nullable before evidence; proposed ipn/querydr/staff_recorded, matching record type. Return URL never confirms. |
+| `gateway_event_key` | VARCHAR(255) | Nullable provider-scoped accepted-evidence key; unique with provider when supplier contract guarantees scope. Exact identity remains TBD. |
+| `verification_history` | JSON | Nullable append-only allowlisted callback/QueryDR/late-exception evidence, safe keys/checks/timestamps only. Embedded events have no individual SQL unique constraint; no signatures, tokens, secrets, card data or raw PII. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required payment-attempt creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(payment_code)` for attempt correlation.
-- Proposed unique `(provider, provider_transaction_id)` when the provider contract guarantees this uniqueness scope; nullable references allow pending attempts.
-- `(order_id, created_at)` for retail payment history.
-- `(workshop_registration_id, created_at)` for workshop payment history.
-- `(status, created_at)` for pending-attempt processing.
+- Unique (payment_code); proposed unique (provider, provider_transaction_id) and (provider, gateway_event_key), provider scope TBD.
+- (order_id, payment_purpose, created_at); (workshop_registration_id, payment_purpose, created_at); (status, created_at); (recorded_by_user_id).
 
 Rules:
 
-- Exactly one target is set: retail attempts have `order_id` and no `workshop_registration_id`; workshop attempts have `workshop_registration_id` and no `order_id`. Guest workshop deposits therefore do not require a Member foreign key on this table.
-- One target may have multiple payment attempts. Retrying is conditional on the approved gateway and target-state rules; an already paid target must not be charged again by a normal retry.
-- A retail sale requires one accepted verified full payment. Accepting it, recording the paid state and deducting held quantities must be idempotent; repeated callbacks must not repeat those effects.
-- The proposed transaction-reference index alone does not define duplicate-event handling. Event identity, signature verification, allowed status transitions, timeout/late-success handling, retry and callback-record storage remain `TBD` in the provider contract.
-- A browser redirect, client-supplied success flag or unverifiable callback must not mark payment as `succeeded`.
-- Payment data is retained as business history; it is not deleted when catalogue data changes. Payment/audit retention remains `TBD`.
-- This proposal does not introduce card-data storage, reconciliation, accounting or in-system refund processing. Custom-manufacturing payment linkage remains `TBD` outside the catalogue-retail/booking targets described here.
+- Chính xác một order_id/workshop_registration_id khác null. order_id dùng cho retail/custom; purpose phải khớp order_type và amount/currency snapshot.
+- gateway_attempt cần signed VNPay IPN hoặc signed QueryDR và target hold/state hợp lệ; Return URL không xác nhận. Link 10 phút, hold resource tối đa 15 phút; late success sau release chỉ manual exception.
+- shop_receipt chỉ ghi actual workshop balance cash/bank transfer, có Staff actor/time; không fake VNPay/provider/verified_at cho offline receipt.
+- Target có nhiều attempts nhưng mỗi nghĩa vụ tiền chỉ áp dụng một lần qua accepted_at + target transaction/state. JSON history không tự bảo đảm dedup; accepted provider reference/key scope và retries còn TBD.
+- Unknown callback không có attempt cần technical evidence ngoài ERD; không tạo payment giả. Không card data/refund/accounting; history JSON phải lock khi append và redact/retain theo policy.
 
 ### delivery_infors
 
 | Column | Type | Constraints / description |
 | --- | --- | --- |
 | `delivery_infor_id` | BIGINT | Primary key. Retains the table naming requested in this file. |
-| `order_id` | BIGINT | Required unique foreign key to `orders`; at most one delivery-information record per retail order. |
-| `recipient_name` | VARCHAR(255) | Required recipient/contact name for carrier fulfilment. |
-| `recipient_phone` | VARCHAR(30) | Required contact phone number; stored as text to preserve prefixes and leading zeroes. Exact validation rules remain `TBD`. |
-| `delivery_address` | TEXT | Required complete delivery-address snapshot supplied for this order. No address-book relationship is assumed. |
+| `order_id` | BIGINT | Required unique foreign key to `orders.order_id`; at most one delivery-information record per retail/custom order. |
+| `recipient_name` | VARCHAR(255) | Required recipient/contact name before carrier preparation; nullable after approved PII erasure. |
+| `recipient_phone` | VARCHAR(30) | Required contact phone before carrier preparation; nullable after approved erasure. Text preserves prefixes and leading zeroes; exact validation remains `TBD`. |
+| `delivery_address` | TEXT | Required complete delivery-address snapshot before carrier preparation; nullable after approved erasure. No address-book relationship is assumed. |
 | `delivery_note` | TEXT | Nullable recipient delivery instructions. |
 | `carrier_name` | VARCHAR(100) | Nullable before handoff; required when an authorised operational user records actual carrier handoff. |
 | `handoff_reference` | VARCHAR(255) | Nullable before handoff; required handoff receipt/reference when handoff is recorded. It is evidence, not live shipment tracking. |
 | `handed_off_by_user_id` | BIGINT | Nullable foreign key to `users`; required recording operational actor at carrier handoff. |
 | `handed_off_at` | DATETIME | Nullable; required actual carrier-handoff timestamp. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required timestamp when delivery details are saved. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(order_id)` for one delivery-information record per order and direct order lookup.
-- `(handed_off_by_user_id, handed_off_at)` for actor/time handoff-evidence queries.
+- Unique (order_id); (handed_off_by_user_id, handed_off_at).
 
 Rules:
 
-- A delivery-information record belongs only to an order with verified full payment and `fulfilment_method = carrier`; a pickup order requires no such record.
-- Recipient/contact/address fields must be complete before the order is prepared for carrier handoff.
-- Carrier name, handoff reference, recording actor and timestamp are recorded together with the transition to `handed_to_carrier`; incomplete evidence cannot complete that transition.
-- Under this proposal, recipient details and handoff evidence are fixed after handoff; any correction/audit procedure remains `TBD`.
-- Delivery details are an order-specific snapshot, not a live reference to a Member profile or saved address.
-- Carrier fees are paid separately to the carrier and are not added to `orders.total_amount` or recorded as a platform payment.
-- V1 responsibility ends at carrier handoff. This table has no carrier API, live tracking, delivered/failed-delivery status, return or shipping-refund workflow.
-- Recipient-data access, retention and deletion policy remain `TBD`; storing an address does not decide those policies.
+- order_id required + unique: tối đa một delivery cho retail/custom; pickup không cần row.
+- Recipient đầy đủ trước carrier preparation; custom có thể thu thập từ submission. Hoàn tất handoff chỉ khi toàn bộ nghĩa vụ tiền được trả.
+- Handoff cần carrier/reference/Staff/time cùng transition order. GHTK manual only, no API/tracking; recipient PII erase sau 30 ngày theo Report 2, audit không giữ địa chỉ đã erase.
 
 ## Locations / branches
 
-Design status: Draft proposal. A location represents one physical workshop/retail branch. It is the master record referenced by workshop slots, booking exceptions and promotion applicability.
+Design status: Draft within the original table set; Report 2/3 baseline, unresolved source conflicts and physical mapping remain TBD where identified.
 
 ### workshop_locations
 
@@ -349,23 +354,29 @@ Design status: Draft proposal. A location represents one physical workshop/retai
 | `phone_number` | VARCHAR(30) | Nullable branch contact phone number. |
 | `timezone` | VARCHAR(64) | Required IANA time-zone identifier used to interpret local opening dates/times; proposed default `Asia/Ho_Chi_Minh`. |
 | `is_active` | BOOLEAN | Required; proposed default `TRUE`. Inactive locations cannot receive new bookings or promotion applicability. |
+| `supported_material_ids` | JSON | Nullable explicit material IDs/availability; null means incomplete configuration, not all materials. Application validates materials; no SQL FK for array elements. |
+| `available_workshop_package_ids` | JSON | Nullable explicit offered package IDs, validated against publication/local compatibility; no SQL FK for array elements. |
+| `standard_sessions` | JSON | Nullable standard local timeframes/default capacity; dated slots remain authoritative snapshots. |
+| `custom_queue_limit` | INT | Nullable until configured; non-negative proposed per-branch custom queue limit. Global versus branch scope remains TBD. |
+| `minimum_custom_lead_days` | INT | Nullable until configured; non-negative proposed lead time, calendar/working-day basis TBD. |
+| `custom_deadline_exclusions` | JSON | Nullable explicit unavailable custom deadline dates/reasons; not workshop closures. Configuration scope/version policy remains TBD. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(location_code)` for stable branch lookup.
-- `(is_active, city, location_name)` for public branch selection and administration.
+- Unique (location_code); (is_active, city, location_name).
 
 Rules:
 
-- A location is a physical branch, not a staff assignment or a dated workshop slot. A location may have many slots, bookings and exceptions.
-- Deactivation prevents new operational use but does not delete historical slots, bookings, orders, promotion applicability records or audit history.
-- `timezone` is authoritative for local `slot_date`, opening hours and exception evaluation.
+- Chi nhánh sở hữu local timezone/session config; slots là dated snapshots. Deactivate thay xóa lịch sử.
+- Material/package arrays là logical N–N, application kiểm tra tồn tại/active/compatibility; null không nghĩa hỗ trợ tất cả, không có SQL FK trên phần tử.
+- Custom queue/lead days/excluded dates là proposal per-branch. Global policy/source version còn TBD; không tạo branch giả chứa settings.
 
 ## Promotions
 
-Design status: Future/conditional draft. [Report 3 - Use Cases](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/02-use-cases.md) lists campaigns, voucher codes and order application; [Report 1 - Limitations](../documents/docs/report-1-project-introduction/sections/07-v-project-scope-limitations/02-limitations-exclusions.md) defers loyalty/marketing. Stacking, eligibility and redemption accounting remain `TBD` before this proposal can affect checkout. Promotion-to-branch applicability is represented explicitly by `promotion_locations`.
+Design status: Draft within the original table set; Report 2/3 baseline, unresolved source conflicts and physical mapping remain TBD where identified.
 
 ### promotions
 
@@ -374,7 +385,7 @@ Design status: Future/conditional draft. [Report 3 - Use Cases](../documents/doc
 | `promotion_id` | BIGINT | Primary key. |
 | `promotion_name` | VARCHAR(255) | Required campaign/promotion name. |
 | `description` | TEXT | Nullable customer-facing explanation and conditions. |
-| `voucher_code` | VARCHAR(64) | Nullable unique voucher code. Proposed simplification: at most one code per promotion; a campaign with multiple voucher codes requires a separate voucher table. |
+| `voucher_code` | VARCHAR(64) | Nullable unique authoritative code, at most one code per promotion under the restricted proposal. |
 | `discount_type` | VARCHAR(20) | Required. Proposed values: `percentage`, `fixed_amount`. |
 | `discount_value` | DECIMAL(15,2) | Required positive value; percentage must be at most `100`, fixed amount is expressed in `currency`. |
 | `currency` | CHAR(3) | Required for a fixed amount or monetary threshold/cap; may be null for a percentage with no monetary conditions. Must match an eligible order whenever monetary conditions are present. |
@@ -384,30 +395,30 @@ Design status: Future/conditional draft. [Report 3 - Use Cases](../documents/doc
 | `ends_at` | DATETIME | Required end timestamp; must be later than `starts_at`. Proposed validity interval includes the start and excludes the end. |
 | `is_active` | BOOLEAN | Required; proposed default `FALSE`. Manual activation does not override the validity window. |
 | `created_by_user_id` | BIGINT | Required foreign key to `users`; authorised campaign-creation actor. Exact managing role remains `TBD`. |
+| `total_usage_limit` | INT | Nullable positive configured limit; null semantics must be approved, not assumed unlimited. |
+| `per_member_usage_limit` | INT | Nullable positive configured Member limit; policy remains `TBD`. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(voucher_code)` for voucher lookup; multiple null codes are permitted.
-- `(is_active, starts_at)` for active/scheduled promotion selection, with end-time filtering.
-- `(created_by_user_id, created_at)` for campaign administration.
+- Unique (voucher_code), allowing null; (is_active, starts_at); (created_by_user_id, created_at).
 
 Rules:
 
-- A voucher is valid only when its promotion is active, within its approved validity window and eligible for the order. Code normalization/case sensitivity remain `TBD` before enforcing uniqueness.
-- Discount cannot exceed the eligible order amount; percentage/fixed-amount rounding and tax interaction remain `TBD`.
-- A null voucher code does not automatically authorize applying the promotion. Automatic versus code-based application must be specified.
-- This table defines a promotion, not proof that an order consumed it. Per-order discount snapshots and redemption/usage records are additional dependencies; counters/limits and concurrent redemption cannot be implemented from this table alone.
-- Later campaign edits/deactivation must not recalculate a completed order's historical amounts.
-- Stacking with other vouchers/loyalty, product/category restrictions, customer targeting and usage limits are unresolved, not assumed unlimited entitlements.
+- Mỗi promotion tối đa một authoritative voucher code; nhiều mã/campaign chưa chuẩn hóa. Null code không tự cấp automatic entitlement.
+- orders.promotion_id và immutable code/policy/amount + usage state thay redemption row. Active/time/branch/limits được kiểm tra; đổi promotion không reprice order cũ.
+- GBR-10 cho một voucher/order kết hợp points; stacking/limits/rounding và scope conflict Report 1 còn TBD.
 
 ### promotion_locations
 
 | Column | Type | Constraints / description |
 | --- | --- | --- |
-| `promotion_id` | BIGINT | Required foreign key to `promotions`. |
-| `location_id` | BIGINT | Required foreign key to `workshop_locations`. |
+| `promotion_id` | BIGINT | Required foreign key to `promotions.promotion_id`; part of composite primary key. |
+| `location_id` | BIGINT | Required foreign key to `workshop_locations.location_id`; part of composite primary key. |
+| `is_active` | BOOLEAN | Required proposed applicability flag, default TRUE. Deactivate for new eligibility while retaining historical links. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required timestamp when the promotion is enabled for the location. |
 | `created_by_user_id` | BIGINT | Required foreign key to `users`; identifies the authenticated user who created this promotion-to-branch assignment. It provides accountability for who enabled the promotion at the branch, supports audit/history and investigation of accidental or unauthorised scope changes, and must refer to an authorised operational user. It does not determine promotion eligibility and must not be used as the promotion owner. |
 
@@ -415,36 +426,17 @@ Primary key: `(promotion_id, location_id)`.
 
 Indexes:
 
-- `(location_id, promotion_id)` for finding active promotions available at one branch.
-- `(promotion_id, location_id)` is covered by the composite primary key for listing branches assigned to a promotion.
+- Composite PK (promotion_id, location_id); (location_id, promotion_id); (created_by_user_id).
 
 Rules:
 
-- One row means that the promotion applies at that location; no row means that it does not apply there. This supports the same promotion being enabled for one branch and excluded from another without duplicating the promotion definition.
-- A promotion is eligible for an order only when its promotion row is active and within its validity window, the order's branch/location has a matching `promotion_locations` row, and all other promotion rules pass.
-- The promotion and location must both be retained for historical orders; removing applicability affects only future eligibility and must not recalculate completed orders.
-- An inactive location cannot be newly linked to a promotion. Existing links remain for history and must be ignored during eligibility checks while the location is inactive.
-- If a future requirement needs a global promotion, it must be modeled explicitly (for example, with a separate scope flag); absence of rows must not mean “all locations”.
+- PK ghép promotion_id/location_id chống gán trùng; N–N promotions/locations qua bảng nối có sẵn.
+- No row không nghĩa global. Eligibility cần active link/master/time/rules; giữ historical row và deactivate thay delete.
+- created_by_user_id là actor bật branch applicability, không phải customer hay campaign owner.
 
 ## Workshop booking, slots, packages and exceptions
 
-Design status: Draft proposal. This section retains the requested logical names `workshop_registration` and `worshop_exceptions`; the latter spelling can be reconciled with `workshop_exceptions` before implementation. The existing backend uses `workshop_bookings` and `booking_email_confirmations`, not this proposed physical schema.
-
-Sources:
-
-- [Report 3 - Workshop Booking Workflow](../documents/docs/report-3-software-requirement-specification/assets/diagrams/workflows/10-workshop-booking-swimlane.puml): configured capacity, Guest/Member booking, package invoice, deposit confirmation and QR notification.
-- [Report 3 - Use Cases](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/02-use-cases.md): slot selection before design, branch/material filtering, group booking, check-in, packages and holiday/off-day exceptions. Group booking is additionally described in [Report 1 - Major Features](../documents/docs/report-1-project-introduction/sections/07-v-project-scope-limitations/01-major-features.md).
-- [Report 1 - Proposed Solution](../documents/docs/report-1-project-introduction/sections/06-iv-proposed-solution/00-overview.md): three operating sessions, package deposits, additional participants and continuation work.
-- [Member Authentication Specification](features/001-member-authentication/spec.md): Guest contact-email confirmation before payment, a hashed one-time token and 15-minute expiry.
-- [Report 3 - Continuation Workflow](../documents/docs/report-3-software-requirement-specification/assets/diagrams/details/26-continuation-custody-detail.puml): Staff-created continuation booking and separate custody evidence.
-
-Design assumptions and unresolved points:
-
-- A `slots` row represents one dated session at one location, not a recurring timetable template. A group registration consumes its `participant_count` seats in one slot. These are proposed physical modeling choices.
-- `workshop_locations` is the location/branch master defined above. Branch/material/package compatibility still requires separate relationship specifications.
-- Booking workflows specify a 50% package deposit, while Report 3 also lists material-based deposit configuration. The proposed package deposit percentage defaults to 50 for that workflow; precedence of material/package rules and group-pricing basis remain `TBD`.
-- Capacity values, temporary seat-hold timing, payment deadline after email confirmation, exception precedence and safe rescheduling policies remain `TBD`. Email-token expiry is not a retail-stock or payment-attempt expiry.
-- Package invoices, adjustment consent, settlement, policy acceptance, email tokens and custody evidence remain separate records. These four tables alone do not represent the complete workshop workflow.
+Design status: Draft within the original table set; Report 2/3 baseline, unresolved source conflicts and physical mapping remain TBD where identified.
 
 ### workshop_registration
 
@@ -456,7 +448,7 @@ Design assumptions and unresolved points:
 | `slot_id` | BIGINT | Required foreign key to `slots`; records the selected dated location/session. |
 | `workshop_package_id` | BIGINT | Required foreign key to `workshop_packages`. |
 | `ring_design_id` | BIGINT | Nullable foreign key to `ring_designs` for a permitted catalogue/configured-design selection. In-person consultation may leave it null; it does not link a custom image request. |
-| `design_path` | VARCHAR(30) | Nullable proposed path: `catalogue_model`, `configured_design`, `in_person`. Exact required paths and timing remain `TBD`; image-request linkage is excluded by the existing `custom_design_requests` rules. |
+| `design_path` | VARCHAR(30) | Nullable proposed path: `catalogue_model`, `configured_design`, `booking_image`, `in_person`. `booking_image` is Member-only under Report 3 and links through `custom_design_requests.workshop_registration_id`; reconcile the former independent-review boundary before implementation. |
 | `contact_name` | VARCHAR(255) | Required booking contact name under this proposal. |
 | `contact_email` | VARCHAR(255) | Required booking-notification and contact-email confirmation address; independent of a Member's mutable profile email. |
 | `canonical_email` | VARCHAR(255) | Required normalized contact-email lookup value, following the approved email policy. Not an identity or automatic-link key. |
@@ -471,35 +463,43 @@ Design assumptions and unresolved points:
 | `confirmation_state` | VARCHAR(30) | Required contact-email confirmation state. Existing candidates: `EMAIL_CONFIRMATION_PENDING`, `CONFIRMED`, `EXPIRED`; Guest bookings start pending. Member confirmation policy remains `TBD`. |
 | `status` | VARCHAR(30) | Required booking state, separate from email confirmation. Proposed values: `pending`, `confirmed`, `checked_in`, `completed`, `expired`. Exact state mapping to existing persistence remains `TBD`. |
 | `confirmed_at` | DATETIME | Nullable until the booking's required confirmation gates, including verified deposit where applicable, are satisfied. |
+| `hold_expires_at` | DATETIME | Proposed nullable temporary seat-hold deadline. Report 2/3 specifies at most 15 minutes for a payment-linked hold; pre-email holds and start-time alignment remain `TBD` in the booking plan. Never use email-token expiry or payment-link expiry interchangeably. |
+| `booking_channel` | VARCHAR(20) | Proposed required channel, default `mland`; candidate `klook` identifies the separately authenticated partner flow. Channel never bypasses capacity/confirmation validation. |
 | `checked_in_by_user_id` | BIGINT | Nullable foreign key to `users`; authorised Staff actor for recorded group check-in. |
 | `checked_in_at` | DATETIME | Nullable; required when check-in is recorded. |
 | `actual_participant_count` | INT | Nullable until check-in; non-negative actual participating count, independent of the booked count. |
-| `parent_registration_id` | BIGINT | Nullable self-referencing foreign key for a Staff-created continuation booking; must not reference itself or create a cycle. |
+| `parent_registration_id` | BIGINT | Nullable foreign key to `workshop_registration.workshop_registration_id`. Staff continuation; no self-reference or cycle. |
 | `created_by_user_id` | BIGINT | Nullable foreign key to `users`; records the authenticated creation actor where applicable and is required for a Staff-created continuation. Guest creation does not require a user row. |
+| `invoice_code` | VARCHAR(64) | Nullable unique invoice reference; required when a one-per-booking package invoice is issued. Not a statutory tax invoice. |
+| `invoice_state` | VARCHAR(20) | Required proposed draft/issued/settled/void, independent of booking and email state; transitions remain TBD. |
+| `invoice_issued_at` | DATETIME | Nullable until package invoice issuance. |
+| `invoice_adjustments` | JSON | Nullable append-only records: stable event key, signed amount/reason, Staff actor/time, customer consent decision/method/evidence, and required Owner/Manager approval. Embedded actor IDs are not SQL FKs. |
+| `email_confirm_token_hash` | VARCHAR(128) | Nullable current Guest one-time token hash; never plaintext. Pending Guest flow requires one hash; resend/rotation rules remain TBD. |
+| `email_confirmation_expires_at` | DATETIME | Nullable unless email confirmation pending; required token deadline, 15 minutes per auth feature. Independent of payment hold. |
+| `email_confirmed_at` | DATETIME | Nullable until valid contact-email confirmation; not a deposit-payment timestamp. |
+| `qr_issued_at` | DATETIME | Nullable until required email/deposit/booking gates pass. QR access/lookup-proof strategy remains TBD; no raw reusable access secret. |
+| `external_booking_id` | VARCHAR(255) | Nullable unique Klook reference in the proposed single supplier account; multi-account uniqueness requires scope revision. |
+| `external_linked_at` | DATETIME | Nullable partner-link timestamp. |
+| `partner_sync_state` | VARCHAR(20) | Nullable current pending/synced/failed summary, not a complete retry/inbound-message history. |
+| `custody_items` | JSON | Nullable bounded item/custody histories: stable item code, description/photo reference, location, intake/release actor/time, continuation reference and verification method. Application validates references; no independent SQL PK/FK per item/cycle. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required booking-creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(booking_code)` for lookup/check-in correlation.
-- `(member_user_id, created_at)` for Member booking history.
-- `(slot_id, status)` for capacity and operational attendance queries.
-- `(canonical_email, member_user_id)` for permitted Guest-booking import selection.
-- `(parent_registration_id)` for linked continuation history.
-- `(confirmation_state, created_at)` for confirmation-state queries; actual token-expiry scanning uses the separate confirmation table's expiry field.
+- Unique (booking_code), (invoice_code); proposed unique (external_booking_id) for one supplier account.
+- (member_user_id, created_at); (slot_id, status); (workshop_package_id); (ring_design_id); (canonical_email, member_user_id); (parent_registration_id); (confirmation_state, email_confirmation_expires_at); (created_by_user_id); (checked_in_by_user_id).
 
 Rules:
 
-- Guests and Members may book; Member linkage is optional and never created merely because a profile and booking email have matching text.
-- Select a slot before the booking design path. Validate the selected package/design against location/material capabilities and approved constraints before proceeding.
-- Capacity validation and reservation/release must be transactional for the entire group. Do not calculate availability by counting booking rows instead of participants.
-- A Guest's pending email confirmation refuses payment/settlement and committed capacity. Its one-time token hash/expiry stays in `booking_email_confirmations` (or its approved logical equivalent), never in this table as plaintext.
-- Consuming a valid email token confirms only the email gate; it does not by itself mark the booking deposit paid. Verified gateway deposit confirmation is required for normal booking confirmation and QR-ticket issuance.
-- Overdue temporary Guest bookings expire idempotently and release temporary capacity/invoice state under the authentication feature; full integration and state naming still require the booking plan.
-- Package and contact snapshots are not rewritten by later catalogue/profile edits. Confirmed bookings are not silently moved or repriced when a slot/package/exception changes.
-- Group-level check-in records actor, time and actual count. Per-person attendance, if required, needs separate participant records; it is not represented by one group timestamp.
-- Unbooked additional participants and any fee waiver/change are processed through billing/consent/approval records, not by silently changing the original package/deposit snapshot.
-- Only Staff create a capacity-checked continuation on customer request. Continuation fee/deposit rules remain `TBD`; parent linkage does not automatically reuse or charge the original deposit. Custody intake/release evidence is outside this table.
+- Guest member_user_id null; import cần verified matching email, explicit confirmation và entitlement, không tự nối theo email.
+- Package chọn trước slot/design theo GBR-01; group capacity theo tổng participant_count, held/released nguyên tử. Location suy qua slot, không thêm location FK dư.
+- Email hash/expiry/time nằm trên booking logical; email gate khác deposit gate. Pending Guest chưa payment; pre-email hold timing/resend/rotation còn TBD. Applied confirmation table không bị xóa.
+- Invoice một/booking qua code/state và amount/deposit snapshots; adjustments JSON chứa event key, reason/actor/time, consent và required approval. Effective adjustment bất biến, correction append mới.
+- Shop settlements qua payments.workshop_balance; chỉ accepted deposit/receipt giảm unpaid balance. Fee 100,000 VND/additional contributing person và waiver authority cần reconcile nguồn.
+- Staff tạo continuation capacity-checked, không self/cycle/auto-hold-next/reuse-deposit. custody_items giữ item/intake/release proof, không PK/FK riêng.
+- Klook external code/link time/sync summary không thay reliable queue/protocol; no cancellation consumption. Embed invoice/custody/consent cần owner/transaction/concurrency design, không claim đã chuẩn hóa đầy đủ.
 
 ### slots
 
@@ -512,23 +512,21 @@ Rules:
 | `end_time` | TIME | Required local session end time; later than `start_time` for the documented same-day sessions. |
 | `capacity` | INT | Nullable until configured; when set, must be non-negative. Null means configuration required; zero means no bookable seats. |
 | `is_open` | BOOLEAN | Required; proposed default `FALSE` until the dated session is intentionally opened for booking. |
+| `assigned_staff_user_id` | BIGINT | Nullable foreign key to `users.user_id`. One primary authorised facilitator; overlap/scope rules remain TBD. |
+| `additional_staff_assignments` | JSON | Nullable extra Staff IDs/assignment context, application validation only; no SQL FK on elements. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required session-creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(location_id, slot_date, start_time)` for duplicate dated-session prevention.
-- `(slot_date, is_open, location_id)` for date/location availability browsing.
+- Unique (location_id, slot_date, start_time); (slot_date, is_open, location_id); (assigned_staff_user_id).
 
 Rules:
 
-- Documented local sessions are 09:30-12:00, 13:00-15:30 and 16:00-18:30. Exceptions or changes must follow the approved schedule policy; no numeric seat capacity is invented.
-- A slot is bookable only when intentionally open, its capacity is configured, applicable exceptions permit it, and sufficient seats remain.
-- Remaining seats are derived from consuming registrations/temporary holds under the approved lifecycle, not stored as an independently editable `available_seats` counter.
-- Capacity cannot be lowered below existing committed participants without an explicit conflict-resolution procedure. Availability checks must also account for valid temporary holds where that policy applies.
-- A slot belongs to one location and can host multiple registrations. Package/material compatibility is not inferred from a single package foreign key on the slot.
-- A dated occurrence is not a recurrence rule. Schedule generation, overlap validation and time-zone storage/conversion need the workshop plan; local date/time values must be interpreted consistently using the location's configured time zone.
-- Referenced slots are retained for history; closure/rescheduling does not silently delete or move paid bookings.
+- Slot là dated occurrence; unique location/date/start. standard_sessions trong branch chỉ mẫu, không tự sửa session đã có booking.
+- Giờ tài liệu: 09:30–12:00, 13:00–15:30, 16:00–18:30. Open/configured capacity/exceptions và tổng participant_count/eligible holds quyết định availability.
+- Primary Staff có FK; extra Staff JSON chỉ application references. Permission/overlap và Staff assignment versus HR scope còn TBD.
 
 ### workshop_packages
 
@@ -542,26 +540,25 @@ Rules:
 | `duration_minutes` | INT | Nullable positive advertised duration; must fit the eligible session under the approved package/session policy. |
 | `price` | DECIMAL(15,2) | Required non-negative current listed package price; pricing unit/group rules remain `TBD`. |
 | `currency` | CHAR(3) | Required package currency code. |
-| `deposit_percentage` | DECIMAL(5,2) | Required proposed package deposit percentage; baseline default `50`, greater than `0` and at most `100`. Precedence against material-based settings remains `TBD`. |
+| `deposit_percentage` | DECIMAL(5,2) | Required proposed setting; normal workshop deposit follows the Report 3 50% baseline. Other percentages/material precedence are not activated without approved policy. |
 | `img_url` | TEXT | Nullable package-display image URL or storage reference. |
 | `is_published` | BOOLEAN | Required; proposed default `FALSE`. Controls public discoverability and eligibility for new bookings. |
+| `material_id` | BIGINT | Nullable foreign key to `materials.material_id`. Optional primary included material; not necessarily the only selectable material. |
+| `supported_material_ids` | JSON | Nullable additional compatible material IDs/conditions; application checks all references. No SQL FK on array elements. |
+| `package_type` | VARCHAR(30) | Proposed required workshop/wax classification; approved wax-package identity and overlap of purposes remain TBD. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required package-creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(package_code)` for stable catalogue lookup.
-- `(is_published, package_name)` for public package selection.
+- Unique (package_code); (is_published, package_name); (material_id).
 
 Rules:
 
-- A package may be used by many registrations. Price/name/deposit changes affect new bookings, not historical booking/invoice snapshots.
-- Package materials may be multiple options; a separately specified `workshop_package_materials` relationship is needed rather than one arbitrary `material_id` on the package.
-- Branch material availability and branch/package eligibility require separate location relationships; `materials.is_active` alone does not prove local availability.
-- Publication does not create session capacity or automatically make the package available at every branch.
-- Package images are catalogue media, not Member custom-design references. Multi-image package storage, if required, needs a separate image table.
-- AI package-price suggestions do not update the configured selling price automatically. Approval/maintenance authority and pricing formulas remain `TBD`.
-- Referenced packages cannot be physically deleted; unpublish them to stop new bookings.
+- Primary material FK optional; nhiều material options ở JSON cần application validation, không N–N SQL integrity.
+- Price/name/deposit snapshot trên booking/order giữ lịch sử; normal booking cọc 50% theo GBR-02. Group-price basis/wax classification còn TBD.
+- Publication không tự tạo capacity/branch offering. AI không publish giá; approved configuration source và price-decision history chưa chuẩn hóa đầy đủ.
 
 ### worshop_exceptions
 
@@ -578,24 +575,23 @@ Rules:
 | `reason` | TEXT | Required holiday/off-day/schedule-change explanation. |
 | `is_active` | BOOLEAN | Required; proposed default `TRUE`. Inactive exceptions do not affect new availability decisions. |
 | `created_by_user_id` | BIGINT | Required foreign key to `users`; authorised schedule-exception actor. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required exception-creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- `(exception_date, is_active, location_id)` for date/location exception selection.
-- `(slot_id, is_active)` for session-specific exceptions.
+- (exception_date, is_active, location_id); (slot_id, is_active); (created_by_user_id).
 
 Rules:
 
-- Proposed scopes are global/date (both references null), location/date (`location_id` set, no slot), or one dated slot (both references set). For a slot scope, location/date must match the referenced slot.
-- One active exception per identical scope/date is proposed. Nullable scope keys mean a naive unique `(location_id, exception_date, slot_id)` index does not enforce this; conditional keys or transactional validation must be designed.
-- Proposed resolution chooses the most specific matching scope: slot, then location/date, then global/date. Approval is required for this precedence and whether any broader closure must remain absolute; the actual policy is `TBD`.
-- A closed exception has no capacity/time override; an open exception must supply a meaningful capacity or paired time change under this proposal. Range/overlap and committed-capacity validation remain mandatory.
-- Creating/changing an exception affects eligibility for new bookings; paid/confirmed registrations require explicit operational handling and are not silently cancelled, moved or refunded.
-- This table describes schedule exceptions, not customer cancellations, payment failures, workshop custody or inventory adjustments.
+- Global/date: location/slot null; location/date: location có, slot null; slot scope: cả hai có và location/date phải khớp slot.
+- Một active exception/scope/date cần conditional key/transaction; nullable tuple unique thông thường chưa đủ. Precedence/safe reschedule còn TBD; không silently cancel/move paid booking.
+- Custom deadline exclusions khác workshop schedule closure. Giữ spelling hiện tại.
 
 ## Custom design request
+
+Design status: Draft within the original table set; Report 2/3 baseline, unresolved source conflicts and physical mapping remain TBD where identified.
 
 ### custom_design_requests
 
@@ -603,45 +599,41 @@ Rules:
 | --- | --- | --- |
 | `custom_design_request_id` | BIGINT | Primary key. |
 | `member_user_id` | BIGINT | Required foreign key to `users`. Only a Member can submit a request. |
+| `workshop_registration_id` | BIGINT | Proposed required foreign key to `workshop_registration.workshop_registration_id`. The requesting Member must own the eligible booking; one booking may have several historical submissions. |
 | `request_description` | TEXT | Required description entered by the Member. |
-| `img_url` | TEXT | Required reference-image URL or object-storage path. Each request stores exactly one image. |
+| `img_url` | TEXT | Required reference-image URL or object-storage path at submission; nullable after approved media erasure. One image per request is the retained draft assumption; Report 3 does not settle image count. Do not persist the AI provider's image input after processing. |
+| `estimated_value` | DECIMAL(15,2) | Proposed nullable non-negative reviewed estimate in VND; required before selecting the human review tier. Valuation basis/version remain `TBD`; AI does not publish a selling price. |
+| `review_tier` | VARCHAR(20) | Proposed nullable snapshot: `staff` for value at most 3,000,000 VND, `manager` above it under GBR-05. Role-code mapping remains `TBD`. |
+| `submitted_at` | DATETIME | Proposed required submission time; preserved even if media is erased. |
 | `status` | VARCHAR(20) | Required; defaults to `need_review`. Allowed values: `need_review`, `accepted`, `rejected`. |
 | `reviewed_by_user_id` | BIGINT | Nullable foreign key to `users`; set when the request is accepted or rejected. |
 | `reviewed_at` | DATETIME | Nullable; set when the request is accepted or rejected. |
 | `review_reason` | TEXT | Required when `status` is `rejected`; not required when `status` is `accepted`. |
+| `candidate_features` | JSON | Nullable minimal extracted component/material suggestions; structured schema and retention classification remain `TBD`. No image bytes/base64 or raw prompt/response. |
+| `analysis_status` | VARCHAR(20) | Nullable before processing; proposed pending/succeeded/failed latest AI-attempt summary, not a business decision. |
+| `analysis_model` | VARCHAR(100) | Nullable configured Gemini model/version snapshot. |
+| `analyzed_at` | DATETIME | Nullable latest processing completion time; individual attempt history is not normalized. |
+| `analysis_expires_at` | DATETIME | Nullable approved expiry for derived AI data; erase candidate payload independently from retained human decision context. |
+| `decision_context` | JSON | Nullable before terminal review; required safe value/rule/tier context on accepted/rejected outcome. No raw AI image/text in long-lived evidence. |
+| `applied_rules_version` | VARCHAR(64) | Nullable rule-version snapshot; exact valuation source remains TBD. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required submission timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- `(status, created_at)` for the review queue.
-- `(member_user_id, created_at)` for a Member's request history.
+- (status, created_at); (member_user_id, created_at); (workshop_registration_id, created_at); (reviewed_by_user_id, reviewed_at); (analysis_expires_at).
 
 Rules:
 
-- Lifecycle: `need_review` -> `accepted` or `rejected`.
-- A Member cannot edit a request description or its reference images after submission. A rejected request cannot be reviewed again or resubmitted; the Member creates a new request instead.
-- This table has no relationship to `ring_designs`, `orders`, pricing, payment, fulfilment, guest requests, or AI analysis.
+- Giữ tên bảng; Report 3 Member booking-image request có booking FK. Khác independent-review scope của ERD cũ được ghi trong giới hạn.
+- Latest AI result + một terminal human decision nằm trong cùng row; no raw image/prompt/text lưu lâu, no direct order/payment conversion.
+- Staff review estimate ≤ 3,000,000 VND, Manager trên ngưỡng theo GBR-05; valuation/role mapping TBD. Outcome giữ reviewer/reason/time/decision context.
+- Submission bất biến, need_review → accepted/rejected; rejected không re-review, tạo request mới. Multi-review/AI-attempt history chưa chuẩn hóa; derived payload expiry riêng với human evidence.
 
 ## Ring designs and component catalogue
 
-Design status: Draft proposal for catalogue models and component-configured designs. The supplied documents describe approved components, price inputs and hard constraints but do not enumerate final component attributes, units, cardinalities or numerical scoring/pricing formulas. The physical fields below are proposed, with unresolved business values retained as `TBD`.
-
-Sources:
-
-- [Report 3 - Actors](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/01-actors.md) and [Use Cases](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/02-use-cases.md): available ring models, system-provided configuration components, material/gemstone choices and branch material availability.
-- [Report 3 - Ring Design Workflow](../documents/docs/report-3-software-requirement-specification/assets/diagrams/workflows/11-ring-design-triage-swimlane.puml): catalogue/configurator validation against approved components and hard constraints; numeric rules remain `TBD`.
-- [Report 1 - Proposed Solution](../documents/docs/report-1-project-introduction/sections/06-iv-proposed-solution/00-overview.md): staff-maintained component price inputs and feasibility constraints.
-- The existing **Custom design request** section in this file defines an independent review-only request with no relationship to `ring_designs`, orders, pricing, payment, fulfilment or AI analysis. That explicit boundary is preserved even where broader source diagrams show other image-processing paths.
-
-Design assumptions and unresolved points:
-
-- `ring_designs` represents either a system catalogue model or one customer's configured design/version. A design uses one base material and one base ring shape under this proposal; multi-material construction and other cardinalities remain `TBD`.
-- A design may contain multiple gemstone and attachment types. Normalized `ring_design_gemstones` and `ring_design_attachments` junctions are additional dependencies, each with design/component foreign keys and positive quantity; size/placement/variant uniqueness remains `TBD`. The requested five tables alone cannot express those many-to-many selections.
-- `attachments` means physical decorative/assembly components on a ring, not uploaded files. `shape` means the base ring-form option, not a gemstone cut. These interpretations are design assumptions to confirm against the final catalogue.
-- Component catalogue prices are estimate inputs, not warehouse stock, invoices or approved manufacturing charges. Units, labour charges, rounding, tax and score aggregation remain `TBD`.
-- Active component flags apply globally; branch/material availability and package compatibility need additional relationships. A single flag does not prove that a component can be used in every workshop.
-- Linking designs to `products`/`order_items`, per-person designs for group bookings, rule-version storage and quote acceptance require separate design. No custom-image request is automatically converted into a ring design or purchasable item.
+Design status: Draft within the original table set; Report 2/3 baseline, unresolved source conflicts and physical mapping remain TBD where identified.
 
 ### ring_designs
 
@@ -652,39 +644,37 @@ Design assumptions and unresolved points:
 | `description` | TEXT | Nullable catalogue/design explanation. |
 | `design_type` | VARCHAR(30) | Required. Proposed values: `catalogue_model`, `configured_design`; does not include image-based custom requests. |
 | `created_by_user_id` | BIGINT | Nullable foreign key to `users`; authorised catalogue author or Member configuration creator when authenticated. Null can represent a permitted Guest workshop configuration. |
-| `source_design_id` | BIGINT | Nullable self-referencing foreign key to a catalogue model used as a configuration starting point or to a preceding design version. Must not reference itself or create a cycle. |
-| `material_id` | BIGINT | Required foreign key to `materials` under the single-base-material proposal. |
-| `shape_id` | BIGINT | Required foreign key to `shape` for the base ring form. |
+| `source_design_id` | BIGINT | Nullable foreign key to `ring_designs.ring_design_id`. Source model/previous version; no self-reference or cycle. |
+| `material_id` | BIGINT | Required foreign key to `materials.material_id`. One base material under the constrained proposal. |
+| `shape_id` | BIGINT | Required foreign key to `shape.shape_id`. One base ring form, not gemstone cut or ring size. |
 | `ring_size` | VARCHAR(30) | Nullable selected ring size. Size system, allowed values and the point at which it becomes required remain `TBD`; it is not a free-text substitute for validated size options. |
+| `engraving_text` | VARCHAR(255) | Proposed nullable workshop engraving choice from UC-33; allowed characters, length, placement, compatibility and estimate contribution remain `TBD`. Snapshot it with the frozen design. |
 | `img_url` | TEXT | Nullable catalogue preview/model image. Not a Member custom-request reference image. |
-| `component_snapshot` | JSON | Nullable while editing a draft; required once a design is validated/frozen under this proposal. Structured snapshot of chosen components, quantities, relevant attributes and estimate inputs; JSON structure/version remains `TBD`. |
+| `component_snapshot` | JSON | Nullable draft, required frozen component/quantity/attribute/price snapshot; primary fields must match it. Additional component types are application-validated embedded references, not SQL FKs. |
 | `estimated_price` | DECIMAL(15,2) | Nullable non-negative system-calculated estimate using approved component/price rules. Not an AI-generated price, fixed order price or amount charged. |
 | `currency` | CHAR(3) | Nullable until an estimate exists; required with `estimated_price` and must match its monetary inputs. |
 | `difficulty_score` | DECIMAL(10,4) | Nullable non-negative calculated difficulty score. Scale, formula and thresholds remain `TBD`. |
-| `rules_version` | VARCHAR(64) | Nullable until evaluation; required with stored estimate/difficulty results under this proposal. Identifies the approved rule set used; its backing rule records remain a separate dependency. |
+| `rules_version` | VARCHAR(64) | Nullable before evaluation; required approved rule-version snapshot for saved results; no relational rule-set FK in this restricted model. |
 | `status` | VARCHAR(20) | Required; proposed default `draft`. Proposed values: `draft`, `validated`, `published`, `archived`; `published` is only for a catalogue model. |
+| `gemstone_id` | BIGINT | Nullable foreign key to `gemstones.gemstone_id`. One primary selected gemstone option with positive quantity when present. |
+| `gemstone_quantity` | INT | Nullable if gemstone_id null; otherwise required positive count. |
+| `attachment_id` | BIGINT | Nullable foreign key to `attachments.attachment_id`. One primary physical attachment option with positive quantity when present. |
+| `attachment_quantity` | INT | Nullable if attachment_id null; otherwise required positive count. |
+| `evaluation_rules_snapshot` | JSON | Nullable until evaluation; safe immutable rule/input context when freezing results. Approved configuration source/ownership remains TBD. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required design-version creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- `(design_type, status, created_at)` for published-model browsing and configuration queues.
-- `(created_by_user_id, created_at)` for permitted creator history.
-- `(material_id, shape_id)` for component-based model filtering.
-- `(shape_id)` for shape-reference queries and the foreign key.
-- `(source_design_id)` for model/version lineage.
+- (design_type, status, created_at); (created_by_user_id, created_at); (material_id, shape_id); (shape_id); (gemstone_id); (attachment_id); (source_design_id).
 
 Rules:
 
-- Catalogue/configured designs are validated against approved active components, location/package compatibility and hard constraints. Merely selecting existing IDs is not enough to prove feasibility.
-- Gemstone and attachment selections use the additional junctions described above. A design with no stone or decoration has no corresponding selection rows, rather than a fake zero-ID component.
-- The JSON snapshot preserves the selected configuration and evaluation inputs; it does not replace relational foreign keys, compatibility checks or an approved rule store.
-- Proposed lifecycle: draft configurations become `validated`; validated catalogue models may become `published`; retirement uses `archived`. Validation/publication authority and exact transitions remain `TBD`.
-- Only published catalogue models are publicly selectable. A customer's configuration is private to its permitted booking/Member journey and is not automatically published.
-- Referenced validated designs are frozen versions under this proposal. Changing a referenced model or configuration creates a new version; later component-price edits do not silently rewrite historical selections/estimates.
-- A price estimate is informational until the owning billing/order flow snapshots and accepts the payable amount. No automatic pricing, purchase or manufacturing follows design validation.
-- Guest configuration storage, access credentials and abandoned-draft retention remain `TBD`; a null creator does not make a design public.
-- This table has no `custom_design_request_id`, reference-image review status, AI output or request-review decision. The existing custom-request lifecycle remains separate.
+- Một base material/shape bắt buộc; primary gemstone/attachment optional, quantity > 0 khi có ID.
+- Direct FK chỉ bảo đảm một selected loại đá và một loại phụ kiện. Nhiều loại/placement trong snapshot chỉ được application validation; không vẽ junction FK giả.
+- Primary IDs/quantity khớp component_snapshot; frozen version giữ giá/rule context. Thay catalogue không rewrite referenced design.
+- Published catalogue models mới public; configured Guest/Member access/retention còn TBD. Source không self/cycle; hard compatibility không bị difficulty score ghi đè.
 
 ### gemstones
 
@@ -704,21 +694,18 @@ Rules:
 | `difficulty_score` | DECIMAL(10,4) | Nullable non-negative configured difficulty contribution; no score or aggregation rule is invented. |
 | `img_url` | TEXT | Nullable catalogue-option image URL or storage reference. |
 | `is_active` | BOOLEAN | Required; proposed default `FALSE` until the option is approved for new selections. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required option-creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(gemstone_code)` for stable option lookup.
-- `(is_active, gemstone_type, color)` for supported gemstone filtering.
+- Unique (gemstone_code); (is_active, gemstone_type, color).
 
 Rules:
 
-- One gemstone option may be used by many designs through `ring_design_gemstones`; selection quantity must be positive and use compatible units.
-- The proposal treats a code as a specific selectable option. Variant combinations, allowable sizes and compatibility with ring form/settings remain `TBD` before validating selection uniqueness.
-- Price/score changes affect new evaluations only; historical configured designs keep their snapshots.
-- An inactive gemstone cannot be newly selected, but existing design/history references remain valid records. Referenced options are not physically deleted.
-- This is component master data, not a stock count, lot/serial record, procurement table or guarantee of branch availability.
+- Primary design FK với selection quantity trên ring_designs. Additional embedded types không có SQL FK; variant/unit/cut rules còn TBD.
+- Master catalogue, không stock; disable thay xóa lịch sử.
 
 ### materials
 
@@ -735,22 +722,18 @@ Rules:
 | `difficulty_score` | DECIMAL(10,4) | Nullable non-negative configured difficulty contribution; rule values remain `TBD`. |
 | `img_url` | TEXT | Nullable material preview URL or storage reference. |
 | `is_active` | BOOLEAN | Required; proposed default `FALSE` until approved for new selections. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required material-creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(material_code)` for stable material lookup.
-- `(is_active, material_name)` for active-material selection.
+- Unique (material_code); (is_active, material_name).
 
 Rules:
 
-- A material may be used by many designs and multiple workshop packages. Package-material and branch-material relationships are separately specified dependencies.
-- Gram-based pricing requires a validated quantity/weight input and conversion policy. Neither material name nor ring size alone determines a charge without approved estimation rules.
-- Branch availability is recorded per location, not as a global stock/availability counter on `materials`.
-- Material-based deposit configuration mentioned in Report 3 is unresolved relative to the 50% package baseline; no additional material deposit rule is silently activated here.
-- Price/difficulty changes preserve historical snapshots. Retire a referenced material by disabling new selections, not deleting it.
-- This table does not track warehouse inventory, purchases, measured manufacturing consumption or live market-metal prices.
+- Master base material/optional primary package material; branch/package options kiểm tra riêng. Pricing cần explicit unit/quantity/conversion rule, không suy size thành charge.
+- No inventory/procurement ledger; disable thay delete referenced records, không rewrite historical prices.
 
 ### attachments
 
@@ -767,21 +750,17 @@ Rules:
 | `difficulty_score` | DECIMAL(10,4) | Nullable non-negative configured effort/difficulty contribution; not an independent feasibility decision. |
 | `img_url` | TEXT | Nullable physical-component preview URL or storage reference. |
 | `is_active` | BOOLEAN | Required; proposed default `FALSE` until approved for selection. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required component-creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(attachment_code)` for stable option lookup.
-- `(is_active, attachment_type)` for component selection/filtering.
+- Unique (attachment_code); (is_active, attachment_type).
 
 Rules:
 
-- A design may use multiple attachment types/quantities through `ring_design_attachments`; each selected quantity is positive.
-- Allowed attachment/material/shape/gemstone combinations and placement constraints must be approved and validated; being active is not sufficient proof of compatibility.
-- Estimates use approved component prices and quantities, with any labour/assembly rules specified separately. AI does not assign final charges or accept an invalid combination.
-- Retiring or repricing a component does not rewrite a frozen design snapshot. Referenced attachment options are retained for history.
-- This table does not store chat files, Member reference-image uploads or inventory movements.
+- Phụ kiện vật lý, không uploaded file; primary design FK. Active không chứng minh compatibility; no stock movement model.
 
 ### shape
 
@@ -796,18 +775,156 @@ Rules:
 | `difficulty_score` | DECIMAL(10,4) | Nullable non-negative configured structural-difficulty contribution; formula/thresholds remain `TBD`. |
 | `img_url` | TEXT | Nullable ring-form preview URL or storage reference. |
 | `is_active` | BOOLEAN | Required; proposed default `FALSE` until the form is approved for new selections. |
+| `audit_trail` | JSON | Nullable append-only redacted record/domain evidence: stable event key, actor context, time, reason/state change and correlation. Application locking/validation required; embedded actor IDs are not SQL FKs, and JSON does not enforce immutable events. |
 | `created_at` | DATETIME | Required ring-form creation timestamp. |
 | `updated_at` | DATETIME | Required last-update timestamp. |
 
 Indexes:
 
-- Unique `(shape_code)` for stable ring-form lookup.
-- `(is_active, shape_name)` for available-form selection.
+- Unique (shape_code); (is_active, shape_name).
 
 Rules:
 
-- One base ring form may be referenced by many designs; one base form per design is a stated proposal, not a documented final cardinality.
-- Shape is separate from gemstone cut, ring size and a complete catalogue model. Its exact structural attribute schema remains `TBD`.
-- Material, component placement and size compatibility must be checked against approved hard constraints; a numeric score alone cannot override an incompatible design.
-- A standalone shape price contribution is included only under an approved estimation rule and must not double-count component/labour prices.
-- Form/score/price changes do not rewrite frozen design versions. Disable an option for new selection rather than deleting referenced history.
+- Base ring form, không gemstone cut/size; shape → designs 1–N. Price/difficulty chỉ theo approved rules, no double count.
+- Disable referenced form thay delete; structural schema/formula vẫn TBD.
+
+## Relationships for ERD
+
+A → B: trái là số A mỗi B tham chiếu; phải là số B mỗi A có thể có. `1 : 0..N` = required FK, `0..1 : 0..N` = nullable FK, `1 : 0..1` = required + unique FK. Mỗi actor FK vào users là cạnh riêng.
+
+### Users and roles relationships
+
+| Bảng cha → bảng con | A : B | FK ở bảng con → PK bảng cha | Ý nghĩa / ràng buộc |
+| --- | --- | --- | --- |
+| `roles` → `users` | `1 : 0..N` | `users.role_id` → `roles.role_id` | Một role hiện hành; multi-role auth reconciliation TBD. |
+| `users` → `users` | `0..1 : 0..N` | `users.role_granted_by_user_id` → `users.user_id` | Actor/customer theo role_granted_by_user_id; FK không tự kiểm tra quyền. |
+| `users` → `roles` | `0..1 : 0..N` | `roles.updated_by_user_id` → `users.user_id` | Actor/customer theo updated_by_user_id; FK không tự kiểm tra quyền. |
+
+### Loyalty points relationships
+
+| Bảng cha → bảng con | A : B | FK ở bảng con → PK bảng cha | Ý nghĩa / ràng buộc |
+| --- | --- | --- | --- |
+| `users` → `loyalty_points` | `1 : 0..N` | `loyalty_points.member_user_id` → `users.user_id` | Actor/customer theo member_user_id; FK không tự kiểm tra quyền. |
+| `orders` → `loyalty_points` | `0..1 : 0..N` | `loyalty_points.order_id` → `orders.order_id` | Tham chiếu tùy chọn. |
+| `users` → `loyalty_points` | `0..1 : 0..N` | `loyalty_points.recorded_by_user_id` → `users.user_id` | Actor/customer theo recorded_by_user_id; FK không tự kiểm tra quyền. |
+
+### Product catalogue, orders, payment and delivery relationships
+
+| Bảng cha → bảng con | A : B | FK ở bảng con → PK bảng cha | Ý nghĩa / ràng buộc |
+| --- | --- | --- | --- |
+| `categories` → `products` | `1 : 0..N` | `products.category_id` → `categories.category_id` | Child thuộc đúng một parent; parent có thể có nhiều child. |
+| `products` → `product_imgs` | `1 : 0..N` | `product_imgs.product_id` → `products.product_id` | Child thuộc đúng một parent; parent có thể có nhiều child. |
+| `users` → `orders` | `1 : 0..N` | `orders.member_user_id` → `users.user_id` | Actor/customer theo member_user_id; FK không tự kiểm tra quyền. |
+| `workshop_locations` → `orders` | `1 : 0..N` | `orders.location_id` → `workshop_locations.location_id` | Child thuộc đúng một parent; parent có thể có nhiều child. |
+| `users` → `orders` | `0..1 : 0..N` | `orders.picked_up_by_user_id` → `users.user_id` | Actor/customer theo picked_up_by_user_id; FK không tự kiểm tra quyền. |
+| `promotions` → `orders` | `0..1 : 0..N` | `orders.promotion_id` → `promotions.promotion_id` | Tối đa một ưu đãi retail; snapshot và usage state trên orders. |
+| `workshop_packages` → `orders` | `0..1 : 0..N` | `orders.workshop_package_id` → `workshop_packages.workshop_package_id` | Gói wax custom, không phải workshop booking. |
+| `ring_designs` → `orders` | `0..1 : 0..N` | `orders.ring_design_id` → `ring_designs.ring_design_id` | Configuration custom; null cho retail/image input. |
+| `users` → `orders` | `0..1 : 0..N` | `orders.final_amount_set_by_user_id` → `users.user_id` | Actor/customer theo final_amount_set_by_user_id; FK không tự kiểm tra quyền. |
+| `orders` → `order_items` | `1 : 0..N` | `order_items.order_id` → `orders.order_id` | Retail ≥1 item bằng business check; custom có 0 item, nên cardinality chung 0..N. |
+| `products` → `order_items` | `1 : 0..N` | `order_items.product_id` → `products.product_id` | Child thuộc đúng một parent; parent có thể có nhiều child. |
+| `orders` → `payments` | `0..1 : 0..N` | `payments.order_id` → `orders.order_id` | Target retail/custom; XOR với booking, purpose/type phải khớp. |
+| `workshop_registration` → `payments` | `0..1 : 0..N` | `payments.workshop_registration_id` → `workshop_registration.workshop_registration_id` | Target workshop deposit/balance; XOR với order. |
+| `users` → `payments` | `0..1 : 0..N` | `payments.recorded_by_user_id` → `users.user_id` | Actor/customer theo recorded_by_user_id; FK không tự kiểm tra quyền. |
+| `orders` → `delivery_infors` | `1 : 0..1` | `delivery_infors.order_id` → `orders.order_id` | Unique required FK, tối đa một delivery cho retail/custom. |
+| `users` → `delivery_infors` | `0..1 : 0..N` | `delivery_infors.handed_off_by_user_id` → `users.user_id` | Actor/customer theo handed_off_by_user_id; FK không tự kiểm tra quyền. |
+
+### Locations / branches relationships
+
+| Bảng cha → bảng con | A : B | FK ở bảng con → PK bảng cha | Ý nghĩa / ràng buộc |
+| --- | --- | --- | --- |
+
+### Promotions relationships
+
+| Bảng cha → bảng con | A : B | FK ở bảng con → PK bảng cha | Ý nghĩa / ràng buộc |
+| --- | --- | --- | --- |
+| `users` → `promotions` | `1 : 0..N` | `promotions.created_by_user_id` → `users.user_id` | Actor/customer theo created_by_user_id; FK không tự kiểm tra quyền. |
+| `promotions` → `promotion_locations` | `1 : 0..N` | `promotion_locations.promotion_id` → `promotions.promotion_id` | Child thuộc đúng một parent; parent có thể có nhiều child. |
+| `workshop_locations` → `promotion_locations` | `1 : 0..N` | `promotion_locations.location_id` → `workshop_locations.location_id` | Child thuộc đúng một parent; parent có thể có nhiều child. |
+| `users` → `promotion_locations` | `1 : 0..N` | `promotion_locations.created_by_user_id` → `users.user_id` | Actor/customer theo created_by_user_id; FK không tự kiểm tra quyền. |
+
+### Workshop booking, slots, packages and exceptions relationships
+
+| Bảng cha → bảng con | A : B | FK ở bảng con → PK bảng cha | Ý nghĩa / ràng buộc |
+| --- | --- | --- | --- |
+| `workshop_locations` → `slots` | `1 : 0..N` | `slots.location_id` → `workshop_locations.location_id` | Child thuộc đúng một parent; parent có thể có nhiều child. |
+| `users` → `slots` | `0..1 : 0..N` | `slots.assigned_staff_user_id` → `users.user_id` | Một primary facilitator; extra Staff JSON không có SQL FK. |
+| `materials` → `workshop_packages` | `0..1 : 0..N` | `workshop_packages.material_id` → `materials.material_id` | Primary optional; vật liệu thêm JSON không có SQL FK. |
+| `users` → `workshop_registration` | `0..1 : 0..N` | `workshop_registration.member_user_id` → `users.user_id` | Guest null; import phải verified email + explicit confirmation. |
+| `slots` → `workshop_registration` | `1 : 0..N` | `workshop_registration.slot_id` → `slots.slot_id` | Child thuộc đúng một parent; parent có thể có nhiều child. |
+| `workshop_packages` → `workshop_registration` | `1 : 0..N` | `workshop_registration.workshop_package_id` → `workshop_packages.workshop_package_id` | Child thuộc đúng một parent; parent có thể có nhiều child. |
+| `ring_designs` → `workshop_registration` | `0..1 : 0..N` | `workshop_registration.ring_design_id` → `ring_designs.ring_design_id` | Tham chiếu tùy chọn. |
+| `users` → `workshop_registration` | `0..1 : 0..N` | `workshop_registration.checked_in_by_user_id` → `users.user_id` | Actor/customer theo checked_in_by_user_id; FK không tự kiểm tra quyền. |
+| `workshop_registration` → `workshop_registration` | `0..1 : 0..N` | `workshop_registration.parent_registration_id` → `workshop_registration.workshop_registration_id` | Continuation, cấm self/cycle. |
+| `users` → `workshop_registration` | `0..1 : 0..N` | `workshop_registration.created_by_user_id` → `users.user_id` | Actor/customer theo created_by_user_id; FK không tự kiểm tra quyền. |
+| `workshop_locations` → `worshop_exceptions` | `0..1 : 0..N` | `worshop_exceptions.location_id` → `workshop_locations.location_id` | Tham chiếu tùy chọn. |
+| `slots` → `worshop_exceptions` | `0..1 : 0..N` | `worshop_exceptions.slot_id` → `slots.slot_id` | Tham chiếu tùy chọn. |
+| `users` → `worshop_exceptions` | `1 : 0..N` | `worshop_exceptions.created_by_user_id` → `users.user_id` | Actor/customer theo created_by_user_id; FK không tự kiểm tra quyền. |
+
+### Custom design request relationships
+
+| Bảng cha → bảng con | A : B | FK ở bảng con → PK bảng cha | Ý nghĩa / ràng buộc |
+| --- | --- | --- | --- |
+| `users` → `custom_design_requests` | `1 : 0..N` | `custom_design_requests.member_user_id` → `users.user_id` | Actor/customer theo member_user_id; FK không tự kiểm tra quyền. |
+| `workshop_registration` → `custom_design_requests` | `1 : 0..N` | `custom_design_requests.workshop_registration_id` → `workshop_registration.workshop_registration_id` | Ảnh trong booking theo Report 3; validate requester ownership. |
+| `users` → `custom_design_requests` | `0..1 : 0..N` | `custom_design_requests.reviewed_by_user_id` → `users.user_id` | Actor/customer theo reviewed_by_user_id; FK không tự kiểm tra quyền. |
+
+### Ring designs and component catalogue relationships
+
+| Bảng cha → bảng con | A : B | FK ở bảng con → PK bảng cha | Ý nghĩa / ràng buộc |
+| --- | --- | --- | --- |
+| `users` → `ring_designs` | `0..1 : 0..N` | `ring_designs.created_by_user_id` → `users.user_id` | Actor/customer theo created_by_user_id; FK không tự kiểm tra quyền. |
+| `ring_designs` → `ring_designs` | `0..1 : 0..N` | `ring_designs.source_design_id` → `ring_designs.ring_design_id` | Tham chiếu tùy chọn. |
+| `materials` → `ring_designs` | `1 : 0..N` | `ring_designs.material_id` → `materials.material_id` | Child thuộc đúng một parent; parent có thể có nhiều child. |
+| `shape` → `ring_designs` | `1 : 0..N` | `ring_designs.shape_id` → `shape.shape_id` | Child thuộc đúng một parent; parent có thể có nhiều child. |
+| `gemstones` → `ring_designs` | `0..1 : 0..N` | `ring_designs.gemstone_id` → `gemstones.gemstone_id` | Primary gemstone optional với positive quantity. |
+| `attachments` → `ring_designs` | `0..1 : 0..N` | `ring_designs.attachment_id` → `attachments.attachment_id` | Primary phụ kiện vật lý optional với positive quantity. |
+
+### Quan hệ N–N có bảng nối giữ nguyên
+
+| Hai entity | Bảng nối | Khóa / dữ liệu |
+| --- | --- | --- |
+| orders ↔ products | order_items | PK order_item_id, FK order_id/product_id, unique order_id/line_key; retail quantity/options/price snapshot. |
+| promotions ↔ workshop_locations | promotion_locations | PK ghép promotion_id/location_id, FK cả hai master; active/actor/time. |
+
+### JSON/application references — không phải SQL FK
+
+| Trường hiện có / bổ sung | Liên kết | Kiểm tra / giới hạn |
+| --- | --- | --- |
+| users.cart_snapshot | products và options | Application kiểm tra từng ID/quantity/revision; checkout sang order_items. |
+| users.policy_acceptances | Terms/Privacy versions | Version/digest/time snapshot; không policy FK trong restricted ERD. |
+| roles.permission_codes | Approved operation codes | Allowlist validation; không permission entity mới. |
+| workshop_locations.supported_material_ids | materials | Logical N–N, application validates IDs/active/availability. |
+| workshop_locations.available_workshop_package_ids | workshop_packages | Logical N–N offering/publication/compatibility. |
+| workshop_packages.supported_material_ids | materials | Additional compatibility options, application checks. |
+| ring_designs.component_snapshot | Components/price/rule inputs | Primary IDs có FK; additional types/placements chỉ application references. |
+| slots.additional_staff_assignments | users (Staff) | Không FK/unique mỗi element; validate role/overlap. |
+| workshop_registration.invoice_adjustments | Adjustment/consent/approval actors | Stable event key, amount/reason/consent checks, lock append. |
+| workshop_registration.custody_items | Item, booking chain, location, actor | Application integrity; không SQL PK/FK cho mỗi custody cycle. |
+| payments.verification_history và audit_trail | Provider/change evidence | Target-level idempotency/locking; không SQL unique mỗi event. |
+
+## Constraints and known limits
+
+| Nhóm | Quy tắc / phần giữ TBD |
+| --- | --- |
+| Fixed table set | Giữ đúng 23 entity trong ERD chính, không thêm bảng. Tên bảng thứ 24 chưa xuất hiện trong nguồn được chỉ định. |
+| PK/FK/retention | Mọi SQL FK trỏ PK được khai báo, nullable/unique rõ; không cascade delete lịch sử. JSON IDs không có referential integrity tương đương junction tables. |
+| Order discriminator | Retail/custom chung orders: type-specific required/forbidden fields và lifecycle khác nhau. Custom 0 item, retail ≥1 item. Nullable fields là trade-off để giữ bảng. |
+| Payment XOR/effects | Exactly one order/booking target; purpose/method/type/amount/currency matching. Nhiều attempts nhưng mỗi nghĩa vụ được áp dụng một lần; deposit và balance custom khác nhau. |
+| Gateway versus shop receipt | IPN/QueryDR verified online; offline cần actual receipt + Staff proof. Unknown callbacks không có target chưa được lưu trong mô hình này, không tạo payment giả. |
+| Promotion/points | Một code/promotion và một promotion/order. Usage counts theo reserved/consumed orders, atomic expiry/redeem; points ledger immutable và debit/compensation policy còn TBD. |
+| Time/capacity | Link VNPay 10 phút, resource hold tối đa 15 phút, email token 15 phút là các đồng hồ khác nhau. Pre-email hold/release/invoice activation policy còn TBD. Capacity theo participant_count, queue theo eligible custom orders. |
+| Existing auth schema | Embedded email/policy fields là logical proposal, không xóa applied policy/token/audit tables hoặc rename schema. Mapping/backfill/concurrency/security review còn TBD. |
+| Role simplification | Một role/user có FK trực tiếp nhưng auth feature đề xuất đa vai trò. Role-code/branch-permission/model reconciliation còn TBD; không coi hai mô hình tương đương. |
+| Embedded evidence | Consent/audit/custody JSON không có PK/unique/immutability per-element được DB enforce. Array growth, concurrent append, authorization, retention và immutable corrections cần feature plan. |
+| Components/compatibility | Primary đá/phụ kiện FK cho một type mỗi design; nhiều loại và branch/package materials ở JSON phải application validation. Không vẽ SQL N–N giả. |
+| Module ownership | Shared orders và invoice-on-booking cần chốt domain owner/facade/transaction boundary trước triển khai; việc sửa DB.md không tự đổi architecture conventions. |
+| Manufacturing | Wax package, lead-time calendar/global-versus-branch queue/deadline exclusions, final-amount amendments và retention vẫn TBD; AI không decide custom orders. |
+| Historical source conflicts | Report 2/3 bao gồm loyalty/Staff facilitation; Report 1 hoãn loyalty/loại HR. Workshop fee/waiver/settlement/custody details và role names còn cần reconcile. |
+| Booking image boundary | Report 3 gắn Member image request với booking, khác ERD cũ review-only. Latest analysis + terminal decision được giữ; nhiều reviews/overrides/attempts chưa có normalized history. |
+| Unmodeled technical storage | Persisted chat, reliable email/integration retry queues và global versioned parameter storage chưa được đặc tả trong 23 bảng; cần approved infrastructure/config source, không claim field summary đã hoàn thành mọi UC. |
+| Klook | Single supplier account scoped unique external booking ID; hold/security/retry protocol và unknown inbound history TBD. No Klook cancellation auto-release. |
+| Privacy | Report 2: no AI image input after processing, text ≤30 ngày, custom image tới pickup/handoff, delivery PII 30 ngày, payment/audit 5 năm. Reconcile older policy; audit không giữ PII đã erase. |
+| ERD source | ERD.md chỉ được đọc lấy table set, chưa sửa cạnh/cột cũ; dùng Relationships for ERD của DB.md này khi vẽ lại. |
+
+Validation scope: 23 entity definitions and 48 SQL FK relationships; exact original table set, PK/FK targets, nullable/unique/cardinality, entity form and JSON-reference distinction checked. No application/migration changes.
