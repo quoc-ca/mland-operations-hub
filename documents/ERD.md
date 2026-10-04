@@ -1,614 +1,449 @@
-# Mland system ERD
+# ERD và mối quan hệ giữa các bảng — PPSWBS
 
-Status: proposed logical data model
+Trạng thái: mô hình quan hệ theo **bản đề xuất trong [DB.md](../ppswbs-spec/DB.md)**, chưa phải toàn bộ schema đã triển khai. Tên bảng, khóa và tính bắt buộc/tùy chọn bên dưới bám theo tài liệu đó; các quyết định chưa chốt giữ nguyên `TBD`.
 
-This document describes the relational model for the current requirements baseline. It is intentionally provider-neutral for authentication and keeps carrier tracking, full logistics exception handling and Google review import as extensions around the V1 transaction core.
+## 1. Cơ sở đối chiếu và phạm vi
 
-## Scope and design rules
+| Nguồn | Nội dung đối chiếu |
+| --- | --- |
+| [DB.md](../ppswbs-spec/DB.md) | 23 bảng được đặc tả, PK/FK, unique, snapshot và ranh giới nghiệp vụ. Cơ sở cho sơ đồ chính. |
+| [General Spec](../ppswbs-spec/spec-general.md) | Firebase xác thực danh tính; MySQL quản lý quyền và trạng thái; Guest không cần tài khoản. |
+| [Authentication Data Model](../ppswbs-spec/features/001-member-authentication/data-model.md) và [migration V1](../ppswbs_backend/src/main/resources/db/migration/V1__init_member_auth.sql) | Phân biệt schema hiện có `members`, `workshop_bookings` với tên logic trong `DB.md`; xác nhận bảng token email riêng. |
+| [Report 2 — Scope and Purpose](docs/report-2-project-management-plan/sections/02-i-project-overview/01-scope-purpose.md) | Checkout toàn bộ giỏ, snapshot giá, đề xuất giữ số lượng 15 phút, thanh toán đủ và giao nhận có bằng chứng. |
+| [Report 3 — Use Cases](docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/02-use-cases.md) | Booking nhóm, slot, package, thiết kế, vật liệu theo chi nhánh và quản lý tài khoản. |
+| [Workshop workflow](docs/report-3-software-requirement-specification/assets/diagrams/workflows/10-workshop-booking-swimlane.puml), [Design workflow](docs/report-3-software-requirement-specification/assets/diagrams/workflows/11-ring-design-triage-swimlane.puml), [Retail workflow](docs/report-3-software-requirement-specification/assets/diagrams/workflows/12-ready-ring-retail-swimlane.puml), [Continuation workflow](docs/report-3-software-requirement-specification/assets/diagrams/details/26-continuation-custody-detail.puml) | Đối chiếu luồng nghiệp vụ và nhận diện khác biệt với mô hình đề xuất. |
+| [Report 1 — Limitations](docs/report-1-project-introduction/sections/07-v-project-scope-limitations/02-limitations-exclusions.md) | Loyalty/marketing được hoãn; V1 không có quản lý kho đầy đủ hay tracking giao hàng. |
 
-- Database target: MySQL.
-- Application target: Spring Boot, Java 21, JPA and Flyway.
-- `APP_USER.USER_ID` is the application identity key. An external identity provider is linked through `EXTERNAL_IDENTITY`; Cognito/Auth0/Firebase/Keycloak values are never business keys.
-- Guests may own a booking through `BOOKING_CONTACT` without an `APP_USER`.
-- Money is represented by `DECIMAL` values plus an ISO currency code. Invoice lines retain price snapshots.
-- All mutable business records should have `created_at`, `updated_at` and an explicit status where a lifecycle exists.
-- JSON columns are limited to provider payloads, before/after audit snapshots and extensible metadata. They are not used for core relationships.
-- Logical ownership follows the V1 modular-monolith convention: Member identity/authorization belongs to `members`; booking/capacity to `workshopbooking`; catalogue definitions/prices to `catalogue`; feasibility to `designreview`; invoices/consent/settlement to `billing`; gateway transactions to `payments`; ready-ring reservation/sales to `readyringsales`; custody/handoff to `fulfilment`; and check-in workflows to `operations`. This naming does not alter the proposed logical schema.
+**Quy ước:**
 
-## Logical ERD
+- Giữ nguyên `delivery_infors`, `worshop_exceptions`, `shape` và `workshop_registration` theo `DB.md`. Sửa tên/migration là quyết định riêng.
+- `users.user_id` là khóa tài khoản logic; `users.external_user_id` là Firebase UID duy nhất. Email không phải khóa định danh duy nhất và không tự tạo quan hệ/gộp tài khoản.
+- Ánh xạ `users` sang `members`/`accounts`, và `workshop_registration` sang `workshop_bookings`, còn `TBD`. Sơ đồ này không đổi tên schema đang chạy.
+- Sơ đồ chính chứa đúng 23 bảng của `DB.md`, gồm `loyalty_points`, `promotions`, `promotion_locations` thuộc **phạm vi tương lai/có điều kiện**; việc xuất hiện trong sơ đồ không đưa chúng vào V1.
+- Sơ đồ bổ sung chỉ thể hiện bảng nối mà `DB.md` nêu là còn thiếu; chúng cần đặc tả trước triển khai.
+- Sơ đồ hiển thị khóa và một số thuộc tính nghiệp vụ. Kiểu SQL, độ dài, default, index và danh sách cột đầy đủ xem `DB.md`.
+
+## 2. Cách đọc quan hệ
+
+| Ký hiệu Mermaid | Ý nghĩa ở đầu quan hệ |
+| --- | --- |
+| `||` | Đúng một bản ghi, bắt buộc. |
+| `o|` hoặc `|o` | Không hoặc một bản ghi, tùy chọn. |
+| `o{` hoặc `}o` | Không hoặc nhiều bản ghi. |
+| `|{` hoặc `}|` | Một hoặc nhiều bản ghi. |
+| `PK` / `FK` / `UK` | Khóa chính / khóa ngoại / khóa duy nhất. |
+
+Ví dụ: `users |o--o{ workshop_registration` nghĩa là một user có thể có nhiều booking; mỗi booking gắn với tối đa một user và có thể không gắn user khi khách là Guest. FK nullable được ghi thêm bằng chú thích `NULL`.
+
+Đường nối diễn tả cardinality; khóa xác định bản ghi đọc từ `PK`, không suy ra từ kiểu đường nối. Các cạnh riêng lẻ không biểu đạt được XOR của payment hoặc điều kiện phạm vi exception; xem mục 6.
+
+## 3. ERD chính — 23 bảng trong DB.md
+
+`roles`, `gemstones`, `attachments` đứng riêng trong sơ đồ chính vì chưa có bảng nối được đặc tả đầy đủ trong `DB.md`. Quan hệ dự kiến nằm ở mục 5.
 
 ```mermaid
 erDiagram
-    APP_USER ||--o{ EXTERNAL_IDENTITY : has
-    APP_USER ||--o{ USER_ROLE : receives
-    ROLE ||--o{ USER_ROLE : grants
-    APP_USER ||--o| STAFF_PROFILE : has
-    BRANCH ||--o{ STAFF_PROFILE : home_branch
+    direction LR
 
-    BRANCH ||--o{ WORKSHOP_SESSION : hosts
-    WORKSHOP_SESSION_TEMPLATE ||--o{ WORKSHOP_SESSION : instantiates
-    WORKSHOP_SESSION ||--|| SESSION_CAPACITY : configures
-    BRANCH ||--o{ STAFF_SHIFT : schedules
-    STAFF_SHIFT ||--o{ SHIFT_ASSIGNMENT : has
-    STAFF_PROFILE ||--o{ SHIFT_ASSIGNMENT : works
+    categories ||--o{ products : grouping
+    products ||--o{ product_imgs : displaying
+    users ||--o{ orders : placing
+    users |o--o{ orders : recording_pickup
+    orders ||--|{ order_items : containing
+    products ||--o{ order_items : appearing_in
+    orders |o--o{ payments : receiving_retail_attempts
+    workshop_registration |o--o{ payments : receiving_deposit_attempts
+    orders ||--o| delivery_infors : having_carrier_details
+    users |o--o{ delivery_infors : recording_handoff
 
-    CATALOG_PACKAGE ||--o{ CATALOG_PRICE : priced_as
-    CATALOG_COMPONENT ||--o{ CATALOG_COMPONENT_OPTION : offers
-    DESIGN_REQUEST ||--o{ DESIGN_COMPONENT_SELECTION : contains
-    CATALOG_COMPONENT_OPTION ||--o{ DESIGN_COMPONENT_SELECTION : selected
-    DESIGN_REQUEST ||--o{ DESIGN_REFERENCE_ASSET : references
-    DESIGN_REQUEST ||--o{ DESIGN_FEATURE_CANDIDATE : analyses
-    DESIGN_REQUEST ||--o{ FEASIBILITY_REVIEW : reviewed_by
-    APP_USER ||--o{ FEASIBILITY_REVIEW : acts
-    READY_RING_PRODUCT ||--o{ READY_RING_UNIT : stocked_as
+    workshop_locations ||--o{ slots : hosting
+    slots ||--o{ workshop_registration : receiving
+    workshop_packages ||--o{ workshop_registration : being_selected
+    users |o--o{ workshop_registration : owning_as_member
+    users |o--o{ workshop_registration : creating
+    users |o--o{ workshop_registration : recording_checkin
+    ring_designs |o--o{ workshop_registration : being_selected
+    workshop_registration |o--o{ workshop_registration : continuing_from
+    workshop_locations |o--o{ worshop_exceptions : scoping_by_location
+    slots |o--o{ worshop_exceptions : scoping_by_slot
+    users ||--o{ worshop_exceptions : creating
 
-    APP_USER ||--o{ BOOKING : member_booking
-    BRANCH ||--o{ BOOKING : selected
-    WORKSHOP_SESSION ||--o{ BOOKING : reserves
-    CATALOG_PACKAGE ||--o{ BOOKING : package
-    BOOKING ||--|| BOOKING_CONTACT : contact
-    BOOKING ||--o{ BOOKING_PARTICIPANT : includes
-    BOOKING ||--o| BOOKING_CODE : tracked_by
-    BOOKING ||--o| BOOKING_DESIGN_LINK : uses
-    DESIGN_REQUEST ||--o{ BOOKING_DESIGN_LINK : attached
+    materials ||--o{ ring_designs : supplying_base_material
+    shape ||--o{ ring_designs : defining_base_form
+    users |o--o{ ring_designs : creating
+    ring_designs |o--o{ ring_designs : deriving_from
+    users ||--o{ custom_design_requests : submitting
+    users |o--o{ custom_design_requests : reviewing
 
-    BOOKING ||--|| INVOICE : billed_by
-    RETAIL_ORDER ||--|| INVOICE : billed_by
-    INVOICE ||--o{ INVOICE_LINE : contains
-    INVOICE ||--o{ INVOICE_ADJUSTMENT : adjusted_by
-    INVOICE_ADJUSTMENT ||--o| ADJUSTMENT_CONSENT : consented
-    INVOICE ||--o{ PAYMENT_INTENT : requests
-    PAYMENT_INTENT ||--o{ PAYMENT_TRANSACTION : attempts
-    PAYMENT_TRANSACTION ||--o{ PAYMENT_EVENT : receives
-    INVOICE ||--o{ SETTLEMENT : settled_by
-    APP_USER ||--o{ INVOICE_ADJUSTMENT : records
-    APP_USER ||--o{ SETTLEMENT : records
+    users ||--o{ loyalty_points : owning_ledger_entries
+    users |o--o{ loyalty_points : recording_adjustments
+    orders |o--o{ loyalty_points : causing_entries
+    users ||--o{ promotions : creating
+    promotions ||--o{ promotion_locations : applying_at
+    workshop_locations ||--o{ promotion_locations : accepting
+    users ||--o{ promotion_locations : enabling_at_location
 
-    APP_USER ||--o{ RETAIL_ORDER : places
-    RETAIL_ORDER ||--o{ RETAIL_ORDER_ITEM : contains
-    READY_RING_PRODUCT ||--o{ RETAIL_ORDER_ITEM : ordered
-    RETAIL_ORDER_ITEM ||--o| INVENTORY_RESERVATION : reserves
-    READY_RING_UNIT ||--o{ INVENTORY_RESERVATION : allocated
-    RETAIL_ORDER ||--o| FULFILLMENT : fulfills
-    FULFILLMENT ||--o| CARRIER_HANDOFF : handed_to
-    CARRIER ||--o{ CARRIER_HANDOFF : performs
-    APP_USER ||--o{ CARRIER_HANDOFF : records
-
-    BOOKING ||--o| BOOKING_CHECK_IN : checks_in
-    BOOKING ||--o{ WORK_ITEM : produces
-    WORK_ITEM ||--o{ CONTINUATION_BOOKING : continues
-    BOOKING ||--o{ CONTINUATION_BOOKING : links
-    WORKSHOP_SESSION ||--o{ CONTINUATION_BOOKING : scheduled
-    WORK_ITEM ||--o{ CUSTODY_EVENT : custody
-    APP_USER ||--o{ BOOKING_CHECK_IN : records
-    APP_USER ||--o{ CUSTODY_EVENT : records
-
-    APP_USER ||--o{ AUDIT_EVENT : acts
-    TECHNICAL_INTEGRATION ||--o{ INTEGRATION_REQUEST : receives
-    OUTBOX_EVENT ||--o{ NOTIFICATION_DELIVERY : dispatches
-
-    REVIEW_IMPORT_RUN ||--o{ EXTERNAL_REVIEW : imports
-    EXTERNAL_REVIEW ||--o| REVIEW_VISIBILITY : controls
-    APP_USER ||--o{ REVIEW_IMPORT_RUN : requests
-    APP_USER ||--o{ REVIEW_VISIBILITY : approves
-
-    APP_USER {
+    users {
         bigint user_id PK
-        string email
-        string status
-        string locale
-        datetime created_at
+        varchar external_user_id UK "Firebase UID"
+        varchar email "NULL; not unique"
+        varchar status
     }
-    EXTERNAL_IDENTITY {
-        bigint external_identity_id PK
-        bigint user_id FK
-        string provider
-        string subject
-        string email_snapshot
-        datetime linked_at
-    }
-    ROLE {
+    roles {
         bigint role_id PK
-        string code UK
+        varchar role_code UK
+        varchar role_name
+        boolean is_active
     }
-    USER_ROLE {
-        bigint user_id PK, FK
-        bigint role_id PK, FK
-        bigint assigned_by FK
-        datetime assigned_at
+    categories {
+        bigint category_id PK
+        varchar category_name UK
+        boolean is_active
     }
-    STAFF_PROFILE {
-        bigint staff_profile_id PK
-        bigint user_id FK
-        bigint home_branch_id FK
-        string display_name
-        string status
-    }
-    BRANCH {
-        bigint branch_id PK
-        string code UK
-        string name
-        string timezone
-        string status
-    }
-    WORKSHOP_SESSION_TEMPLATE {
-        bigint template_id PK
-        string code UK
-        time start_time
-        time end_time
-    }
-    WORKSHOP_SESSION {
-        bigint session_id PK
-        bigint branch_id FK
-        bigint template_id FK
-        date service_date
-        string status
-    }
-    SESSION_CAPACITY {
-        bigint session_id PK, FK
-        int capacity
-        int booked_count
-        datetime updated_at
-    }
-    STAFF_SHIFT {
-        bigint shift_id PK
-        bigint branch_id FK
-        datetime starts_at
-        datetime ends_at
-        string status
-    }
-    SHIFT_ASSIGNMENT {
-        bigint shift_id PK, FK
-        bigint staff_profile_id PK, FK
-        datetime assigned_at
-    }
-    CATALOG_PACKAGE {
-        bigint package_id PK
-        string code UK
-        string name
-        string status
-    }
-    CATALOG_PRICE {
-        bigint catalog_price_id PK
-        bigint package_id FK
-        decimal amount
-        string currency
-        datetime valid_from
-        datetime valid_to
-    }
-    CATALOG_COMPONENT {
-        bigint component_id PK
-        string code UK
-        string name
-        string status
-    }
-    CATALOG_COMPONENT_OPTION {
-        bigint option_id PK
-        bigint component_id FK
-        string code
-        json metadata_json
-    }
-    READY_RING_PRODUCT {
+    products {
         bigint product_id PK
-        string sku UK
-        string name
-        decimal price
-        string currency
-        string status
-    }
-    READY_RING_UNIT {
-        bigint unit_id PK
-        bigint product_id FK
-        string serial_or_lot
-        string status
-    }
-    DESIGN_REQUEST {
-        bigint design_request_id PK
-        string route
-        string status
-        datetime consent_at
-    }
-    DESIGN_COMPONENT_SELECTION {
-        bigint design_request_id PK, FK
-        bigint option_id PK, FK
-        int quantity
-    }
-    DESIGN_REFERENCE_ASSET {
-        bigint asset_id PK
-        bigint design_request_id FK
-        string object_key
-        datetime retention_until
-        string consent_text_version
-    }
-    DESIGN_FEATURE_CANDIDATE {
-        bigint candidate_id PK
-        bigint design_request_id FK
-        string source
-        json payload_json
-    }
-    FEASIBILITY_REVIEW {
-        bigint review_id PK
-        bigint design_request_id FK
-        bigint reviewer_user_id FK
-        string decision
-        string reason
-        datetime reviewed_at
-    }
-    BOOKING {
-        bigint booking_id PK
-        bigint member_user_id FK
-        bigint branch_id FK
-        bigint session_id FK
-        bigint package_id FK
-        string status
-        string guest_lookup_token_hash
-    }
-    BOOKING_CONTACT {
-        bigint booking_id PK, FK
-        string name
-        string email
-        string phone
-        string country_code
-    }
-    BOOKING_PARTICIPANT {
-        bigint participant_id PK
-        bigint booking_id FK
-        string name
-        string status
-    }
-    BOOKING_CODE {
-        bigint booking_id PK, FK
-        string code_hash
-        string qr_payload_hash
-        datetime issued_at
-    }
-    BOOKING_DESIGN_LINK {
-        bigint booking_id PK, FK
-        bigint design_request_id FK
-    }
-    INVOICE {
-        bigint invoice_id PK
-        bigint booking_id FK
-        bigint retail_order_id FK
-        string status
-        string currency
-        decimal total_amount
-        decimal deposit_due
-    }
-    INVOICE_LINE {
-        bigint invoice_line_id PK
-        bigint invoice_id FK
-        string description_snapshot
+        bigint category_id FK
+        varchar product_name
         decimal unit_price
-        int quantity
-        decimal line_total
+        char currency
+        int available_to_sell_quantity
+        boolean is_published
     }
-    INVOICE_ADJUSTMENT {
-        bigint adjustment_id PK
-        bigint invoice_id FK
-        bigint actor_user_id FK
-        decimal amount
-        string reason
-        datetime created_at
+    product_imgs {
+        bigint product_img_id PK
+        bigint product_id FK
+        text img_url
+        int sort_order
     }
-    ADJUSTMENT_CONSENT {
-        bigint consent_id PK
-        bigint adjustment_id FK
-        string consented_by
-        datetime consented_at
-        string wording_version
-    }
-    PAYMENT_INTENT {
-        bigint payment_intent_id PK
-        bigint invoice_id FK
-        string purpose
-        decimal amount
-        string currency
-        string status
-    }
-    PAYMENT_TRANSACTION {
-        bigint transaction_id PK
-        bigint payment_intent_id FK
-        string provider
-        string provider_transaction_id
-        string status
-        datetime confirmed_at
-    }
-    PAYMENT_EVENT {
-        bigint payment_event_id PK
-        bigint transaction_id FK
-        string provider_event_id UK
-        string event_type
-        boolean signature_verified
-        json payload_json
-    }
-    SETTLEMENT {
-        bigint settlement_id PK
-        bigint invoice_id FK
-        bigint recorded_by FK
-        string method
-        decimal amount
-        datetime recorded_at
-    }
-    RETAIL_ORDER {
+    orders {
         bigint order_id PK
+        varchar order_code UK
         bigint member_user_id FK
-        string status
-        string currency
+        bigint picked_up_by_user_id FK "NULL"
+        varchar fulfilment_method "NULL before selection"
+        varchar status
         decimal total_amount
+        char currency
+        datetime hold_expires_at "NULL; lifecycle TBD"
     }
-    RETAIL_ORDER_ITEM {
+    order_items {
         bigint order_item_id PK
         bigint order_id FK
         bigint product_id FK
+        varchar product_name_snapshot
         int quantity
-        decimal unit_price_snapshot
+        decimal unit_price
+        decimal line_amount
     }
-    INVENTORY_RESERVATION {
-        bigint reservation_id PK
-        bigint order_item_id FK
-        bigint unit_id FK
-        string status
-        datetime reserved_at
+    payments {
+        bigint payment_id PK
+        varchar payment_code UK
+        bigint order_id FK "NULL; XOR target"
+        bigint workshop_registration_id FK "NULL; XOR target"
+        varchar payment_purpose
+        decimal amount
+        char currency
+        varchar provider
+        varchar provider_transaction_id "NULL; uniqueness TBD"
+        varchar status
+        datetime verified_at "NULL until verified"
     }
-    FULFILLMENT {
-        bigint fulfillment_id PK
-        bigint order_id FK
-        string method
-        string status
-        json destination_json
+    delivery_infors {
+        bigint delivery_infor_id PK
+        bigint order_id FK, UK
+        varchar recipient_name
+        varchar recipient_phone
+        text delivery_address
+        varchar carrier_name "NULL before handoff"
+        varchar handoff_reference "NULL before handoff"
+        bigint handed_off_by_user_id FK "NULL before handoff"
+        datetime handed_off_at "NULL before handoff"
     }
-    CARRIER {
-        bigint carrier_id PK
-        string code UK
-        string name
-        string adapter_key
-        string status
+    workshop_locations {
+        bigint location_id PK
+        varchar location_code UK
+        varchar location_name
+        varchar timezone
+        boolean is_active
     }
-    CARRIER_HANDOFF {
-        bigint handoff_id PK
-        bigint fulfillment_id FK
-        bigint carrier_id FK
-        bigint recorded_by FK
-        string tracking_reference
-        datetime handed_at
+    slots {
+        bigint slot_id PK
+        bigint location_id FK
+        date slot_date
+        time start_time
+        time end_time
+        int capacity "NULL until configured"
+        boolean is_open
     }
-    BOOKING_CHECK_IN {
-        bigint check_in_id PK
-        bigint booking_id FK
-        bigint recorded_by FK
-        int actual_participants
-        datetime checked_in_at
+    workshop_packages {
+        bigint workshop_package_id PK
+        varchar package_code UK
+        varchar package_name
+        decimal price
+        char currency
+        decimal deposit_percentage
+        boolean is_published
     }
-    WORK_ITEM {
-        bigint work_item_id PK
-        bigint booking_id FK
-        string description
-        string status
+    workshop_registration {
+        bigint workshop_registration_id PK
+        varchar booking_code UK
+        bigint member_user_id FK "NULL for Guest"
+        bigint slot_id FK
+        bigint workshop_package_id FK
+        bigint ring_design_id FK "NULL"
+        bigint parent_registration_id FK "NULL; self-reference"
+        bigint created_by_user_id FK "NULL; required for continuation"
+        bigint checked_in_by_user_id FK "NULL before checkin"
+        varchar contact_email
+        int participant_count
+        decimal package_price_snapshot
+        decimal total_amount
+        decimal deposit_amount
+        char currency
+        varchar confirmation_state
+        varchar status
     }
-    CONTINUATION_BOOKING {
-        bigint continuation_id PK
-        bigint work_item_id FK
-        bigint source_booking_id FK
-        bigint booking_id FK
-        bigint created_by FK
+    worshop_exceptions {
+        bigint workshop_exception_id PK
+        bigint location_id FK "NULL for global scope"
+        bigint slot_id FK "NULL for whole-day scope"
+        bigint created_by_user_id FK
+        date exception_date
+        boolean is_closed
+        int capacity_override "NULL"
+        boolean is_active
     }
-    CUSTODY_EVENT {
-        bigint custody_event_id PK
-        bigint work_item_id FK
-        string event_type
-        string location
-        bigint actor_user_id FK
-        datetime occurred_at
+    ring_designs {
+        bigint ring_design_id PK
+        bigint created_by_user_id FK "NULL for permitted Guest"
+        bigint source_design_id FK "NULL; self-reference"
+        bigint material_id FK
+        bigint shape_id FK
+        varchar design_type
+        varchar ring_size "NULL"
+        json component_snapshot
+        decimal estimated_price "NULL until evaluated"
+        varchar rules_version
+        varchar status
     }
-    AUDIT_EVENT {
-        bigint audit_event_id PK
-        bigint actor_user_id FK
-        string actor_type
-        string action
-        string entity_type
-        string entity_id
-        string reason
-        json before_json
-        json after_json
-        string correlation_id
+    materials {
+        bigint material_id PK
+        varchar material_code UK
+        varchar material_name
+        decimal unit_price
+        varchar price_unit
+        char currency
+        boolean is_active
+    }
+    shape {
+        bigint shape_id PK
+        varchar shape_code UK
+        varchar shape_name
+        decimal price_adjustment "NULL"
+        boolean is_active
+    }
+    gemstones {
+        bigint gemstone_id PK
+        varchar gemstone_code UK
+        varchar gemstone_name
+        decimal unit_price
+        varchar price_unit
+        char currency
+        boolean is_active
+    }
+    attachments {
+        bigint attachment_id PK
+        varchar attachment_code UK
+        varchar attachment_name
+        decimal unit_price
+        varchar price_unit
+        char currency
+        boolean is_active
+    }
+    custom_design_requests {
+        bigint custom_design_request_id PK
+        bigint member_user_id FK
+        bigint reviewed_by_user_id FK "NULL before review"
+        text request_description
+        text img_url "Exactly one reference image"
+        varchar status
+        text review_reason "Required for rejection"
+    }
+    loyalty_points {
+        bigint loyalty_point_id PK
+        bigint member_user_id FK
+        bigint order_id FK "NULL"
+        bigint recorded_by_user_id FK "NULL for system event"
+        varchar event_key UK
+        varchar entry_type
+        bigint points_delta
         datetime created_at
     }
-    TECHNICAL_INTEGRATION {
-        bigint integration_id PK
-        string kind
-        string provider
-        string status
-        string configuration_ref
+    promotions {
+        bigint promotion_id PK
+        bigint created_by_user_id FK
+        varchar promotion_name
+        varchar voucher_code UK "NULL allowed"
+        varchar discount_type
+        decimal discount_value
+        datetime starts_at
+        datetime ends_at
+        boolean is_active
     }
-    INTEGRATION_REQUEST {
-        bigint request_id PK
-        bigint integration_id FK
-        string operation
-        string idempotency_key
-        string status
-        json request_meta_json
-        json response_meta_json
-    }
-    OUTBOX_EVENT {
-        bigint outbox_event_id PK
-        string event_type
-        string aggregate_type
-        string aggregate_id
-        json payload_json
-        datetime published_at
-    }
-    NOTIFICATION_DELIVERY {
-        bigint delivery_id PK
-        bigint outbox_event_id FK
-        string channel
-        string provider_message_id
-        string status
-        int attempt_count
-    }
-    REVIEW_IMPORT_RUN {
-        bigint run_id PK
-        string provider
-        bigint requested_by FK
-        string status
-        datetime started_at
-        datetime finished_at
-    }
-    EXTERNAL_REVIEW {
-        bigint external_review_id PK
-        bigint run_id FK
-        string provider_review_id UK
-        int rating
-        string comment
-        string reviewer_name_snapshot
-        datetime published_at
-    }
-    REVIEW_VISIBILITY {
-        bigint external_review_id PK, FK
-        string visibility
-        bigint approved_by FK
-        datetime approved_at
-        string reason
+    promotion_locations {
+        bigint promotion_id PK, FK
+        bigint location_id PK, FK
+        bigint created_by_user_id FK
+        datetime created_at
     }
 ```
 
-## Entity dictionary
+## 4. Mô tả chi tiết mối quan hệ
 
-### Identity and organization
+**A → B: `1 : 0..N`** nghĩa là mỗi B có đúng một A, còn mỗi A có thể chưa có B hoặc có nhiều B. **`0..1 : 0..N`** cho phép B không có A vì FK nullable. Với nhiều FK cùng trỏ `users`, mỗi dòng thể hiện một vai trò riêng.
 
-| Table | Key fields | Purpose and constraints |
-|---|---|---|
-| `app_user` | `user_id PK`, `email`, `status` | Application identity. Email is unique only under the chosen account policy; it is not the business primary key. |
-| `external_identity` | `external_identity_id PK`, `user_id FK`, `provider`, `subject` | Maps a Cognito/Auth0/etc. subject to one app user. Unique `(provider, subject)`. |
-| `role` | `role_id PK`, `code` | `MEMBER`, `STAFF`, `OWNER`, `ADMIN_TECHNICAL`. |
-| `user_role` | `(user_id, role_id) PK` | Many-to-many role assignment. Add `assigned_by` and `assigned_at` for governance. |
-| `staff_profile` | `staff_profile_id PK`, `user_id FK`, `home_branch_id FK` | Staff-specific profile. A staff member can work other branches through shift assignments. |
-| `branch` | `branch_id PK`, `code UK`, `name`, `timezone`, `status` | Physical workshop location and operational timezone. |
+### 4.1. Sản phẩm, đơn hàng, thanh toán và giao nhận
 
-### Branch, workshop and shifts
+| Bảng cha → bảng con | A : B | FK ở bảng con → khóa tham chiếu | Ý nghĩa / ràng buộc |
+| --- | --- | --- | --- |
+| `categories` → `products` | `1 : 0..N` | `products.category_id` → `categories.category_id` | Mỗi sản phẩm thuộc một danh mục theo đề xuất hiện tại; một danh mục có nhiều sản phẩm. |
+| `products` → `product_imgs` | `1 : 0..N` | `product_imgs.product_id` → `products.product_id` | Nhiều ảnh; unique `(product_id, sort_order)` giữ thứ tự. Số ảnh tối thiểu khi publish còn `TBD`. |
+| `users` → `orders` (người mua) | `1 : 0..N` | `orders.member_user_id` → `users.user_id` | Order thuộc một Member; Guest không được checkout retail. FK không tự chứng minh quyền Member. |
+| `users` → `orders` (pickup) | `0..1 : 0..N` | `orders.picked_up_by_user_id` → `users.user_id` | Nullable trước pickup; là người vận hành ghi nhận giao hàng tại cửa hàng, không phải người mua. |
+| `orders` → `order_items` | `1 : 1..N` | `order_items.order_id` → `orders.order_id` | Mỗi order có ít nhất một dòng. FK không bảo đảm số dòng tối thiểu; checkout phải tạo order và items trong cùng transaction. |
+| `products` → `order_items` | `1 : 0..N` | `order_items.product_id` → `products.product_id` | Sản phẩm xuất hiện trong nhiều đơn; mỗi dòng lưu snapshot. Unique `(order_id, product_id)` gộp số lượng cùng sản phẩm. |
+| `orders` → `payments` | `0..1 : 0..N` | `payments.order_id` → `orders.order_id` | Một order có nhiều attempt; payment trỏ order khi purpose là `retail_full_payment`. Kết hợp XOR với booking. |
+| `workshop_registration` → `payments` | `0..1 : 0..N` | `payments.workshop_registration_id` → `workshop_registration.workshop_registration_id` | Booking có nhiều attempt cọc; purpose `workshop_deposit`. Guest payment không cần user FK. |
+| `orders` → `delivery_infors` | `1 : 0..1` | `delivery_infors.order_id` → `orders.order_id` | FK required + unique: mỗi order tối đa một bản ghi giao hàng. Carrier cần thông tin giao hàng; pickup không cần. |
+| `users` → `delivery_infors` (handoff) | `0..1 : 0..N` | `delivery_infors.handed_off_by_user_id` → `users.user_id` | Nullable trước handoff; bắt buộc cùng carrier, reference và thời gian khi hoàn tất bàn giao. |
 
-| Table | Key fields | Purpose and constraints |
-|---|---|---|
-| `workshop_session_template` | `template_id PK`, `code UK`, `start_time`, `end_time` | Reusable session definition; baseline includes three daily sessions. |
-| `workshop_session` | `session_id PK`, `branch_id FK`, `template_id FK`, `service_date`, `status` | Bookable occurrence. Unique `(branch_id, service_date, template_id)`. |
-| `session_capacity` | `session_id PK/FK`, `capacity`, `booked_count` | Capacity configuration for a session. `booked_count` is derived or maintained transactionally, never trusted without reconciliation. |
-| `staff_shift` | `shift_id PK`, `branch_id FK`, `starts_at`, `ends_at`, `status` | Operational shift; does not itself grant permissions. |
-| `shift_assignment` | `shift_id FK`, `staff_profile_id FK`, composite PK | Staff-to-shift assignment. Prevent overlapping assignments in application validation. |
+`orders` và `products` có quan hệ **N–N qua `order_items`**. Đây là bảng dòng hàng có số lượng và giá snapshot, không chỉ chứa hai ID.
 
-### Catalogue and design
+### 4.2. Chi nhánh, slot, gói workshop và booking
 
-| Table | Key fields | Purpose and constraints |
-|---|---|---|
-| `catalog_package` | `package_id PK`, `code UK`, `name`, `status` | Workshop package or sellable package definition. |
-| `catalog_price` | `catalog_price_id PK`, `package_id FK`, `amount`, `currency`, `valid_from`, `valid_to` | Versioned price. No overlapping active periods for one package/currency. |
-| `catalog_component` | `component_id PK`, `code UK`, `name`, `status` | Owner-confirmed design component family. |
-| `catalog_component_option` | `option_id PK`, `component_id FK`, `code`, `metadata_json` | Selectable option within a component. |
-| `ready_ring_product` | `product_id PK`, `sku UK`, `name`, `price`, `currency`, `status` | Customer-facing ready-ring product. |
-| `ready_ring_unit` | `unit_id PK`, `product_id FK`, `serial_or_lot`, `status` | Physical unit. Unique `(product_id, serial_or_lot)` when the identifier exists. |
-| `design_request` | `design_request_id PK`, `route`, `status`, `consent_at` | Approved model, configured design or reference-image request. |
-| `design_component_selection` | `design_request_id FK`, `option_id FK`, composite PK | Components selected for a design request. |
-| `design_reference_asset` | `asset_id PK`, `design_request_id FK`, `object_key`, `retention_until`, `consent_text_version` | Consent-bound image metadata; binary content belongs in object storage. |
-| `design_feature_candidate` | `candidate_id PK`, `design_request_id FK`, `source`, `payload_json` | AI-returned candidate features only. It cannot set final price or feasibility. |
-| `feasibility_review` | `review_id PK`, `design_request_id FK`, `reviewer_user_id FK`, `decision`, `reason` | Auto, Staff or Owner feasibility decision with an audit context. |
+| Bảng cha → bảng con | A : B | FK ở bảng con → khóa tham chiếu | Ý nghĩa / ràng buộc |
+| --- | --- | --- | --- |
+| `workshop_locations` → `slots` | `1 : 0..N` | `slots.location_id` → `workshop_locations.location_id` | Slot là một phiên có ngày tại một chi nhánh. Unique `(location_id, slot_date, start_time)`. |
+| `slots` → `workshop_registration` | `1 : 0..N` | `workshop_registration.slot_id` → `slots.slot_id` | Slot nhận nhiều booking, trong giới hạn tổng số người theo trạng thái/hold đã duyệt. |
+| `workshop_packages` → `workshop_registration` | `1 : 0..N` | `workshop_registration.workshop_package_id` → `workshop_packages.workshop_package_id` | Booking chọn một gói; gói dùng cho nhiều booking. Giá/tên/tỷ lệ cọc được snapshot khi đặt. |
+| `users` → `workshop_registration` (Member) | `0..1 : 0..N` | `workshop_registration.member_user_id` → `users.user_id` | Guest để null. Import Guest booking cần xác minh email, xác nhận rõ và entitlement, không tự nối theo email. |
+| `users` → `workshop_registration` (người tạo) | `0..1 : 0..N` | `workshop_registration.created_by_user_id` → `users.user_id` | Actor tạo booking khi có đăng nhập; bắt buộc là Staff được phép khi tạo continuation. |
+| `users` → `workshop_registration` (check-in) | `0..1 : 0..N` | `workshop_registration.checked_in_by_user_id` → `users.user_id` | Actor check-in nhóm; nullable trước check-in. Không đại diện cho từng người tham gia. |
+| `ring_designs` → `workshop_registration` | `0..1 : 0..N` | `workshop_registration.ring_design_id` → `ring_designs.ring_design_id` | Booking chọn tối đa một mẫu/configuration; có thể null khi tư vấn tại chỗ. Không trỏ yêu cầu ảnh tùy chỉnh. |
+| `workshop_registration` → chính nó | `0..1 : 0..N` | `parent_registration_id` → `workshop_registration_id` | Continuation có tối đa một booking gốc; booking gốc có thể có nhiều continuation. Cấm tự tham chiếu và chu trình. |
+| `workshop_locations` → `worshop_exceptions` | `0..1 : 0..N` | `worshop_exceptions.location_id` → `workshop_locations.location_id` | Nullable cho ngoại lệ toàn hệ thống; có ID cho phạm vi chi nhánh hoặc slot. |
+| `slots` → `worshop_exceptions` | `0..1 : 0..N` | `worshop_exceptions.slot_id` → `slots.slot_id` | Nullable cho ngoại lệ cả ngày; có ID khi áp dụng cho một slot. |
+| `users` → `worshop_exceptions` | `1 : 0..N` | `worshop_exceptions.created_by_user_id` → `users.user_id` | Actor được phép cấu hình ngoại lệ lịch. |
 
-### Booking and tracking
+Chi nhánh của booking được suy ra qua `workshop_registration.slot_id` → `slots.location_id` → `workshop_locations.location_id`. `DB.md` không có location FK trực tiếp trên booking, nên sơ đồ không thêm FK dư thừa.
 
-| Table | Key fields | Purpose and constraints |
-|---|---|---|
-| `booking` | `booking_id PK`, `member_user_id FK NULL`, `branch_id FK`, `session_id FK`, `status`, `guest_lookup_token_hash` | Guest or Member workshop booking. `member_user_id` is nullable. |
-| `booking_contact` | `booking_id PK/FK`, `name`, `email`, `phone`, `country_code` | Contact snapshot used for booking and Guest lookup. |
-| `booking_participant` | `participant_id PK`, `booking_id FK`, `name`, `status` | People participating in the booking; supports check-in and extra participant adjustments. |
-| `booking_code` | `booking_id PK/FK`, `code_hash`, `qr_payload_hash`, `issued_at` | Protected booking lookup/QR representation. |
-| `booking_design_link` | `booking_id PK/FK`, `design_request_id FK` | Optional design request attached to a booking. Unique `booking_id` for the current one-design-per-booking assumption. |
+### 4.3. Thiết kế nhẫn và yêu cầu thiết kế ảnh
 
-### Invoice and payment
+| Bảng cha → bảng con | A : B | FK ở bảng con → khóa tham chiếu | Ý nghĩa / ràng buộc |
+| --- | --- | --- | --- |
+| `materials` → `ring_designs` | `1 : 0..N` | `ring_designs.material_id` → `materials.material_id` | Một vật liệu nền/design theo đề xuất single-base-material; đa vật liệu còn `TBD`. |
+| `shape` → `ring_designs` | `1 : 0..N` | `ring_designs.shape_id` → `shape.shape_id` | Một hình dạng nền/design; không phải kiểu cắt đá hoặc kích thước nhẫn. |
+| `users` → `ring_designs` | `0..1 : 0..N` | `ring_designs.created_by_user_id` → `users.user_id` | Tác giả mẫu/người tạo cấu hình. Nullable cho Guest được phép; không có nghĩa thiết kế công khai. |
+| `ring_designs` → chính nó | `0..1 : 0..N` | `source_design_id` → `ring_design_id` | Dẫn xuất từ mẫu/phiên bản trước; một nguồn có nhiều bản dẫn xuất. Cấm tự tham chiếu và chu trình. |
+| `users` → `custom_design_requests` (người gửi) | `1 : 0..N` | `custom_design_requests.member_user_id` → `users.user_id` | Chỉ Member gửi; mỗi request có mô tả và đúng một ảnh tham chiếu. |
+| `users` → `custom_design_requests` (người duyệt) | `0..1 : 0..N` | `custom_design_requests.reviewed_by_user_id` → `users.user_id` | Nullable trước duyệt; accepted/rejected phải ghi reviewer, thời gian; rejected cần lý do. |
 
-| Table | Key fields | Purpose and constraints |
-|---|---|---|
-| `invoice` | `invoice_id PK`, `booking_id FK NULL`, `retail_order_id FK NULL`, `status`, `currency`, `total_amount`, `deposit_due` | One invoice belongs to either a workshop booking or retail order. Enforce exactly one owner at application/database level. |
-| `invoice_line` | `invoice_line_id PK`, `invoice_id FK`, `description_snapshot`, `unit_price`, `quantity`, `line_total` | Immutable price snapshot. |
-| `invoice_adjustment` | `adjustment_id PK`, `invoice_id FK`, `actor_user_id FK`, `amount`, `reason`, `created_at` | Append-only adjustment audit trail. |
-| `adjustment_consent` | `consent_id PK`, `adjustment_id FK`, `consented_by`, `consented_at`, `wording_version` | Customer consent for adjustments where required. |
-| `payment_intent` | `payment_intent_id PK`, `invoice_id FK`, `purpose`, `amount`, `currency`, `status` | Deposit, retail full payment or final settlement request. |
-| `payment_transaction` | `transaction_id PK`, `payment_intent_id FK`, `provider`, `provider_transaction_id`, `status`, `confirmed_at` | Verified payment attempt. Unique `(provider, provider_transaction_id)`. |
-| `payment_event` | `payment_event_id PK`, `transaction_id FK`, `provider_event_id UK`, `event_type`, `signature_verified`, `payload_json` | Raw/provider event ledger for webhook idempotency and reconciliation. |
-| `settlement` | `settlement_id PK`, `invoice_id FK`, `recorded_by FK`, `method`, `amount`, `recorded_at` | In-shop cash/bank settlement or other final balance collection. |
+**Ranh giới giữ nguyên từ `DB.md`:** `custom_design_requests` là luồng gửi/duyệt độc lập, không liên kết với `ring_designs`, `workshop_registration`, `orders`, `payments`, pricing, fulfilment hoặc AI. Accepted không tự tạo thiết kế, booking hay đơn mua. Các workflow mô tả image/AI/quote rộng hơn cần được thống nhất riêng trước khi thay đổi ranh giới này.
 
-### Retail and delivery
+### 4.4. Loyalty và promotion — tương lai/có điều kiện
 
-| Table | Key fields | Purpose and constraints |
-|---|---|---|
-| `retail_order` | `order_id PK`, `member_user_id FK`, `status`, `currency`, `total_amount` | Member-only ready-ring order. |
-| `retail_order_item` | `order_item_id PK`, `order_id FK`, `product_id FK`, `quantity`, `unit_price_snapshot` | Ordered product lines. |
-| `inventory_reservation` | `reservation_id PK`, `order_item_id FK`, `unit_id FK`, `status`, `reserved_at` | Unit-level reservation. Unique active reservation per `unit_id`. |
-| `fulfillment` | `fulfillment_id PK`, `order_id FK`, `method`, `status`, `destination_json` | Pickup or third-party handoff intent. |
-| `carrier` | `carrier_id PK`, `code UK`, `name`, `adapter_key`, `status` | Provider-neutral carrier registry. |
-| `carrier_handoff` | `handoff_id PK`, `fulfillment_id FK`, `carrier_id FK`, `tracking_reference`, `recorded_by FK`, `handed_at` | V1 handoff evidence. Full tracking is an extension. |
+| Bảng cha → bảng con | A : B | FK ở bảng con → khóa tham chiếu | Ý nghĩa / ràng buộc |
+| --- | --- | --- | --- |
+| `users` → `loyalty_points` (Member) | `1 : 0..N` | `loyalty_points.member_user_id` → `users.user_id` | Nhiều bút toán bất biến; số dư bằng tổng `points_delta`. |
+| `users` → `loyalty_points` (actor) | `0..1 : 0..N` | `loyalty_points.recorded_by_user_id` → `users.user_id` | Actor cho điều chỉnh thủ công; event hệ thống có thể null. |
+| `orders` → `loyalty_points` | `0..1 : 0..N` | `loyalty_points.order_id` → `orders.order_id` | Order có thể gây nhiều bút toán; entry khác có thể để null. Unique `event_key` chống ghi lặp. |
+| `users` → `promotions` | `1 : 0..N` | `promotions.created_by_user_id` → `users.user_id` | Actor tạo chương trình; quyền quản lý cụ thể còn `TBD`. |
+| `promotions` → `promotion_locations` | `1 : 0..N` | `promotion_locations.promotion_id` → `promotions.promotion_id` | Chương trình được bật tại từng chi nhánh bằng bản ghi liên kết. |
+| `workshop_locations` → `promotion_locations` | `1 : 0..N` | `promotion_locations.location_id` → `workshop_locations.location_id` | Chi nhánh có nhiều chương trình; PK ghép `(promotion_id, location_id)` chống gán trùng. |
+| `users` → `promotion_locations` | `1 : 0..N` | `promotion_locations.created_by_user_id` → `users.user_id` | Actor bật promotion tại chi nhánh, không phải người hưởng ưu đãi/chủ sở hữu chương trình. |
 
-### Operations and custody
+`promotions` và `workshop_locations` có quan hệ **N–N qua `promotion_locations`**. Không có dòng liên kết nghĩa là không áp dụng tại chi nhánh đó, không phải toàn hệ thống. Chưa có đặc tả promotion usage/order, nên không vẽ cạnh `promotions` → `orders`.
 
-| Table | Key fields | Purpose and constraints |
-|---|---|---|
-| `booking_check_in` | `check_in_id PK`, `booking_id FK`, `recorded_by FK`, `actual_participants`, `checked_in_at` | Check-in record for a confirmed booking. |
-| `work_item` | `work_item_id PK`, `booking_id FK`, `description`, `status` | Work-in-progress physical item created by a workshop flow. |
-| `continuation_booking` | `continuation_id PK`, `work_item_id FK`, `source_booking_id FK`, `booking_id FK`, `created_by FK` | Staff-created linked continuation booking. |
-| `custody_event` | `custody_event_id PK`, `work_item_id FK`, `event_type`, `location`, `actor_user_id FK`, `photo_object_key`, `occurred_at` | Intake, storage transfer, release or handover evidence. |
+## 5. Quan hệ bổ sung đã được nêu nhưng chưa đặc tả đầy đủ
 
-### Audit and integrations
+**Sơ đồ đề xuất, tách khỏi 23 bảng chính.** Tên bốn bảng nối đã được `DB.md` nhắc đến. Các FK thể hiện quan hệ dự kiến; không tự chốt PK, actor, lifecycle hoặc unique chưa có bằng chứng. Quantity phải dương cho đá/phụ kiện; kiểu SQL và đơn vị cần đặc tả nên chưa vẽ cột quantity.
 
-| Table | Key fields | Purpose and constraints |
-|---|---|---|
-| `audit_event` | `audit_event_id PK`, `actor_user_id FK NULL`, `actor_type`, `action`, `entity_type`, `entity_id`, `reason`, `before_json`, `after_json`, `correlation_id`, `created_at` | Append-only business and technical audit log. |
-| `technical_integration` | `integration_id PK`, `kind`, `provider`, `status`, `configuration_ref` | Sanitized reference to payment, carrier, email, AI or Google integration configuration. Secrets stay in a secret manager. |
-| `integration_request` | `request_id PK`, `integration_id FK`, `operation`, `idempotency_key`, `status`, `request_meta_json`, `response_meta_json` | Retryable integration attempt and observability record. |
-| `outbox_event` | `outbox_event_id PK`, `event_type`, `aggregate_type`, `aggregate_id`, `payload_json`, `published_at` | Transactional outbox for notifications and external side effects. |
-| `notification_delivery` | `delivery_id PK`, `outbox_event_id FK`, `channel`, `provider_message_id`, `status`, `attempt_count` | Email or other notification delivery result. |
+```mermaid
+erDiagram
+    direction LR
+    users ||--o{ user_roles : receiving
+    roles ||--o{ user_roles : being_assigned
+    ring_designs ||--o{ ring_design_gemstones : selecting
+    gemstones ||--o{ ring_design_gemstones : being_used
+    ring_designs ||--o{ ring_design_attachments : selecting
+    attachments ||--o{ ring_design_attachments : being_used
+    workshop_packages ||--o{ workshop_package_materials : supporting
+    materials ||--o{ workshop_package_materials : being_supported
 
-### Google review extension
+    user_roles {
+        bigint user_id FK
+        bigint role_id FK
+    }
+    ring_design_gemstones {
+        bigint ring_design_id FK
+        bigint gemstone_id FK
+    }
+    ring_design_attachments {
+        bigint ring_design_id FK
+        bigint attachment_id FK
+    }
+    workshop_package_materials {
+        bigint workshop_package_id FK
+        bigint material_id FK
+    }
+```
 
-| Table | Key fields | Purpose and constraints |
-|---|---|---|
-| `review_import_run` | `run_id PK`, `provider`, `requested_by FK`, `status`, `started_at`, `finished_at` | Manual one-way import attempt. |
-| `external_review` | `external_review_id PK`, `run_id FK`, `provider_review_id UK`, `rating`, `comment`, `reviewer_name_snapshot`, `published_at` | Imported Google review snapshot. It is not a customer-submitted website review. |
-| `review_visibility` | `external_review_id PK/FK`, `visibility`, `approved_by FK`, `approved_at`, `reason` | Internal/public/hidden governance state. |
+| Quan hệ dự kiến | Bảng nối | Cơ sở / phần cần bổ sung |
+| --- | --- | --- |
+| `users` ↔ `roles`: N–N | `user_roles` | Unique `(user_id, role_id)`; cần trạng thái cấp/thu hồi và audit. PK, actor/timestamp, ánh xạ `account_roles` còn `TBD`. Không dùng `users.role_id` thay mô hình đa vai trò. |
+| `ring_designs` ↔ `gemstones`: N–N | `ring_design_gemstones` | Design FK, gemstone FK, quantity dương. Design không có đá có 0 selection. PK/unique theo variant, kích thước, vị trí còn `TBD`; không mặc định mỗi cặp design/stone chỉ có một dòng. |
+| `ring_designs` ↔ `attachments`: N–N | `ring_design_attachments` | Design FK, attachment FK, quantity dương. Design không có phụ kiện có 0 selection. PK, vị trí, variant uniqueness còn `TBD`. |
+| `workshop_packages` ↔ `materials`: N–N dự kiến | `workshop_package_materials` | Gói có nhiều vật liệu; vật liệu dùng cho nhiều gói. Cần đặc tả cấu trúc, unique, compatibility; không thêm một `material_id` tùy ý vào package. |
 
-## State and integrity rules
+`DB.md` còn yêu cầu quan hệ **vật liệu theo chi nhánh** và **gói workshop hợp lệ theo chi nhánh**, nhưng chưa chốt bảng/cột. Chúng cần thiết khi lọc package/design theo location; `is_active` toàn cục không thay thế các quan hệ này. Chưa đưa tên bảng tự đặt vào ERD chính.
 
-| Area | Required rule |
-|---|---|
-| Booking | `DRAFT -> PAYMENT_PENDING -> CONFIRMED -> CHECKED_IN -> COMPLETED`; cancellation is explicit and must not be inferred from payment redirect. |
-| Invoice | Deposit is normally 50% of the package snapshot price; line snapshots remain unchanged after catalogue changes. |
-| Payment | Only a verified, non-duplicate `PAYMENT_EVENT` can confirm an invoice, booking or retail order. |
-| Retail | A ready-ring unit cannot have two active reservations; an unpaid order cannot reserve inventory. |
-| Guest access | Guest lookup requires booking code plus matching contact data and exposes minimum fields only. |
-| Authorization | `APP_USER` identity is separate from business role and resource ownership; every protected command checks backend authorization. |
-| Audit | Business overrides, invoice adjustments, custody events and technical changes are append-only evidence with actor/time/reason. |
-| Delivery | V1 records handoff only; live tracking, failed delivery, returns and shipping refunds remain extension work. |
-| Reviews | Google review import is manual, one-way and provider-idempotent; the system never posts a review on behalf of a customer. |
+## 6. Quy tắc không thể thể hiện chỉ bằng đường nối
 
-## Traceability matrix
+| Nhóm | Quy tắc cần bảo đảm |
+| --- | --- |
+| Payment target — XOR | Chính xác một trong `payments.order_id`, `payments.workshop_registration_id` khác null. Retail: có order, không booking, purpose `retail_full_payment`. Workshop: có booking, không order, purpose `workshop_deposit`. Cấm cả hai null/cả hai có giá trị. |
+| Payment attempts | Target có nhiều attempt, không phải 1–1. Chỉ outcome gateway xác minh hợp lệ, đúng target/amount/currency được chấp nhận; callback lặp không thu tiền/trừ số lượng/xác nhận lần nữa. Redirect không phải bằng chứng thanh toán. |
+| Delivery | `order_id` required + unique bảo đảm tối đa một record/order. Record chỉ thuộc order đã thanh toán đủ, chọn carrier. Handoff cần carrier name, reference, actor, timestamp; phí carrier ngoài order. |
+| Group capacity | Tính theo tổng `participant_count` của booking/hold đủ điều kiện, không theo số dòng booking. `actual_participant_count` là số check-in thực tế, không thay số đã đặt. |
+| Exception scope | Global/date: location và slot null. Location/date: có location, slot null. Slot: cả hai có giá trị; location/date phải khớp slot. Có slot nhưng location null không hợp lệ theo đề xuất. |
+| Exception uniqueness | Unique `(location_id, exception_date, slot_id)` thông thường không xử lý đủ tổ hợp null. Cần enforcement cho một exception active/cùng phạm vi/ngày; precedence slot → location → global còn `TBD`. |
+| Self-reference | `parent_registration_id`, `source_design_id` không trỏ chính bản ghi/không tạo chu trình. Parent booking không tự giữ slot kế tiếp, tái dùng cọc hay chứng minh có custody record. |
+| Snapshots | Order item, booking và design đã frozen giữ snapshot; thay giá/tên catalogue, profile, component không viết lại lịch sử. JSON không thay FK/compatibility validation. |
+| Authorization | FK trỏ `users` chỉ kiểm tra tài khoản tồn tại. Quyền Member/Staff/Owner, trạng thái và policy acceptance phải được use case kiểm tra riêng. |
+| Retention | Giữ master data/identity đang được lịch sử tham chiếu; ngừng sử dụng bằng unpublish/deactivate/archive theo domain. Không tự chọn cascade delete giao dịch. Retention cụ thể còn `TBD`. |
+| Loyalty/promotion | Chưa kích hoạt trong V1. Ledger immutable, unique event; ưu đãi cần policy, snapshot, usage record riêng. Các bảng hiện có chưa đủ để chốt tiền giảm/đồng thời redeem. |
 
-| Use case | Main tables |
-|---|---|
-| Register/member login | `app_user`, `external_identity`, `role`, `user_role`, `audit_event` |
-| Book workshop | `branch`, `workshop_session`, `session_capacity`, `booking`, `booking_contact`, `booking_participant`, `booking_code` |
-| Ring design | `design_request`, `design_component_selection`, `design_reference_asset`, `design_feature_candidate`, `feasibility_review` |
-| Pay deposit | `invoice`, `invoice_line`, `payment_intent`, `payment_transaction`, `payment_event` |
-| Track Guest booking | `booking_code`, `booking_contact`, `booking` |
-| Check-in/settlement | `booking_check_in`, `invoice_adjustment`, `adjustment_consent`, `settlement`, `audit_event` |
-| Continue work/custody | `work_item`, `continuation_booking`, `custody_event` |
-| Buy ready ring | `retail_order`, `retail_order_item`, `ready_ring_product`, `ready_ring_unit`, `inventory_reservation`, `fulfillment` |
-| Carrier handoff | `carrier`, `carrier_handoff`, `integration_request`, `audit_event` |
-| Staff shifts | `staff_shift`, `shift_assignment`, `staff_profile`, `branch` |
-| Google review import | `review_import_run`, `external_review`, `review_visibility` |
-| Technical administration | `technical_integration`, `integration_request`, `audit_event` |
+## 7. Khoảng trống và khác biệt cần chốt trước triển khai
 
-## Deliberately unresolved before Flyway migrations
+| Vấn đề | Bằng chứng / giới hạn |
+| --- | --- |
+| Logical và physical schema | Migration V1 tạo `members`, `policy_documents`, `member_policy_acceptances`, `member_auth_audit_events`, `workshop_bookings`, `booking_email_confirmations`. Không coi 23 bảng trong sơ đồ là đã triển khai. Ánh xạ identity/booking và migration tiếp theo còn `TBD`. |
+| Email confirmation | Schema hiện có: `members.id` → `workshop_bookings.member_id` nullable; `workshop_bookings.id` → `booking_email_confirmations.booking_id` required + unique, mỗi booking tối đa một confirmation record. Mapping confirmation sang `workshop_registration` chưa chốt; không tự thêm FK giữa hai schema. Token hash/expiry ở bảng riêng. |
+| Policy và audit | Acceptance có FK đến `members`, `policy_documents`, unique `(member_id, policy_document_id)`. `member_auth_audit_events.member_id` nullable nhưng migration V1 không khai báo FK; không suy diễn thành FK đã có. Các record này và role-change audit ngoài 23 bảng. |
+| Role codes | Working agreement/authentication dùng `MEMBER`, `STAFF`, `OWNER`, `ADMIN_TECHNICAL`; Report 3 dùng Member/Staff/Manager/Admin. Cần hòa giải role code/permission matrix, không tự coi tên là tương đương. |
+| Retail lifecycle | Report 2 giữ số lượng 15 phút trước thanh toán; Report 3 retail workflow tạo order/reserve unit sau thanh toán, không automatic expiry. `DB.md` nêu xung đột này. Giữ field `hold_expires_at` nhưng không chốt lifecycle; không dùng lại bảng unit-level inventory của ERD cũ. |
+| Branch của retail order | Promotion cần chi nhánh order nhưng `orders` chưa có location FK/quan hệ xác định branch. `delivery_address` không chứng minh chi nhánh xử lý order. Cần đặc tả trước khi dùng `promotion_locations` trong checkout. |
+| Voucher/loyalty usage | Thiếu order discount snapshot, usage/redemption và policy quy đổi. Không thêm `promotion_id` vào orders hoặc tự thay `total_amount`. |
+| Booking billing/custody | Invoice, adjustment, consent, settlement, participant-level attendance, custody cần mô hình riêng. Check-in/parent fields không thay thế chúng; không giữ bảng cũ như schema đã chốt. |
+| Design → retail | Mapping design sang `products`/`order_items`, design riêng từng người trong nhóm, rule storage còn `TBD`. Không vẽ FK suy đoán. |
+| Custom image request | Review-only trong `DB.md` khác image/AI/quote ở một số tài liệu. Giữ ranh giới DB trong ERD; mở rộng cần quyết định riêng. |
+| Package/material/location | Thiếu đặc tả bảng nối, giá theo nhóm, ưu tiên cọc package/material. Các bảng workshop hiện tại chưa đại diện workflow hoàn chỉnh. |
+| Future scope | Report 3 có loyalty/promotion và use case mở rộng; Report 1 hoãn loyalty/marketing và HR. Mô tả quan hệ trong DB không đồng nghĩa phê duyệt feature. |
 
-- Exact catalogue/package/component pricing and currency rules.
-- Cancellation, refund and expiry policies.
-- Whether one invoice can contain both booking and retail lines; the current model forbids that and uses one owner per invoice.
-- Exact data retention and deletion policy for contact data, payment payloads and reference images.
-- Whether shift management is implemented in V1 or remains a schema extension.
-- Carrier tracking and logistics refund workflow.
-- Final authentication provider and token/session integration.
+## 8. Những phần sửa so với ERD cũ
+
+- Thay `app_user`/`external_identity` trung lập provider bằng `users.external_user_id` theo Firebase working agreement; giữ physical mapping là `TBD`.
+- Đồng bộ tên bảng/khóa với `DB.md`; bỏ bảng inventory, shift, invoice, integration, review tự đề xuất trước đây khỏi sơ đồ chính.
+- Sửa FK nullable của Guest booking, actor, payment target và quan hệ tự tham chiếu.
+- Thể hiện nhiều payment attempt với XOR order/booking và delivery `1 : 0..1` theo unique FK.
+- Tách custom image request khỏi design/booking/retail; chỉ rõ bảng nối còn thiếu và phạm vi tương lai của loyalty/promotion.
