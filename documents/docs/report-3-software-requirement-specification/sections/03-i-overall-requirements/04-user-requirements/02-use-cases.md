@@ -1,87 +1,69 @@
 ### 4.2 Use Cases (UC)
 
-|ID|Use Case|Feature|Use Case Description|
-|---|---|---|---|
-|1|Register through Firebase Authentication|Account Management|Creates a Member identity through Firebase Authentication.|
-|2|Sign In through Firebase Authentication|Account Management|Signs in with Firebase and resolves the platform account.|
-|3|Recover Password through Firebase Authentication|Account Management|Starts Firebase-managed password recovery.|
-|4|View Personal Profile|Account Management|Displays the Member's basic profile information.|
-|5|Update Personal Profile|Account Management|Updates permitted basic profile information.|
-|6|Manage User Account|Account Management|Creates or updates platform user accounts.|
-|7|Assign User Role|Account Management|Assigns a business role stored in the platform database.|
-|8|Lock or Unlock User Account|Account Management|Changes whether a user account can access the platform.|
-|9|Configure Role-Based Access Control|Account Management|Maintains permissions for each platform role.|
-|10|Browse Product Catalogue|Product Management|Displays published products in the public catalogue.|
-|11|Search Products|Product Management|Finds products using a search term.|
-|12|Filter Products|Product Management|Narrows products by available catalogue filters.|
-|13|View Product Details|Product Management|Displays product information, images, price, and availability.|
-|14|Create Product|Product Management|Adds a new product to the catalogue.|
-|15|Update Product Information|Product Management|Edits product information maintained by Staff.|
-|16|Publish or Unpublish Product|Product Management|Controls whether a product is visible in the catalogue.|
-|17|Manage Product Images|Product Management|Adds, replaces, or removes product catalogue images.|
-|18|Configure Product Price|Product Management|Sets the current selling price for a product.|
-|19|Update Available-to-Sell Quantity|Product Management|Maintains the manual quantity available for sale.|
-|20|View Product Availability|Product Management|Shows the currently displayed available-to-sell quantity.|
-|21|Browse Workshop Packages|Workshop Management|Displays available workshop packages.|
-|22|View Workshop Package Details|Workshop Management|Displays package information, materials, and conditions.|
-|23|Search Workshop Schedules|Workshop Management|Finds workshop schedules by search criteria.|
-|24|Filter Workshop Schedules|Workshop Management|Narrows schedules by branch, material, or time.|
-|25|View Workshop Slot Availability|Workshop Management|Shows available seats for a workshop slot.|
-|26|Select Workshop Slot|Workshop Management|Chooses a workshop slot before the booking design path.|
-|27|Create Workshop Booking|Workshop Management|Creates a booking for the selected slot and design path.|
-|28|View Booking Details|Workshop Management|Displays a booking's current details.|
-|29|Look Up Workshop Booking|Workshop Management|Finds a booking using the public lookup flow.|
-|30|Check In Participant by QR Code|Workshop Management|Checks in a participant by scanning their QR ticket.|
-|31|Check In Participant Manually|Workshop Management|Checks in a participant after manual verification.|
-|32|Manage Workshop Schedule|Workshop Management|Creates or updates workshop schedules.|
-|33|Configure Workshop Time Slot|Workshop Management|Defines the available times for workshop sessions.|
-|34|Configure Workshop Slot Capacity|Workshop Management|Sets the seat capacity for a workshop slot.|
-|35|Configure Material Availability by Branch|Workshop Management|Sets materials available at each branch.|
-|36|Configure Holiday and Off-Day Exception|Workshop Management|Blocks or changes schedules for holidays and off-days.|
-|37|Receive External Schedule Synchronization Request|Workshop Management|Accepts a schedule synchronization request from an external platform.|
-|38|Receive External Booking Synchronization Request|Workshop Management|Accepts a booking synchronization request from an external platform.|
-|39|Chat with Basic AI Support|AI Chatbox Analysis and Suggestion|Lets a customer ask basic text questions to AI support.|
-|40|Submit Reference Image for Component Classification|AI Chatbox Analysis and Suggestion|Submits a Member image for AI component classification.|
-|41|View Classified Design Components|AI Chatbox Analysis and Suggestion|Displays components classified from the submitted image.|
-|42|View AI Package-Price Suggestion|AI Chatbox Analysis and Suggestion|Shows a Manager an AI price suggestion for a package.|
-|43|Choose Ring Design Path for Workshop Booking|Personalized Design and Quote Workflow|Chooses a design path after selecting a workshop slot.|
-|44|Choose Ring Design Path for Retail Purchase|Personalized Design and Quote Workflow|Chooses a design path for a Member retail purchase.|
-|45|Select Available Ring Model|Personalized Design and Quote Workflow|Selects a complete ring model available in the system.|
-|46|Configure Ring from System-Provided Components|Personalized Design and Quote Workflow|Builds a ring from predefined system components.|
-|47|Chat with Staff Consultant|Personalized Design and Quote Workflow|Starts an independent plain-text consultation with Staff.|
-|48|Submit Image-Based Custom Design Request|Personalized Design and Quote Workflow|Submits a Member image-based custom design request.|
-|49|Review Difficulty-Flagged Design Request|Personalized Design and Quote Workflow|Staff accepts or rejects an eligible difficulty-flagged request.|
-|50|Review High-Value Design Request|Personalized Design and Quote Workflow|Manager reviews a request estimated above 3,000,000 VND.|
-|51|View Custom Design Request Decision|Personalized Design and Quote Workflow|Displays the final decision and rejection reason when applicable.|
-|52|View Loyalty Point Balance|Loyalty and Promotion Management|Displays the Member's current loyalty point balance.|
-|53|View Loyalty Point History|Loyalty and Promotion Management|Displays loyalty point earning and redemption history.|
-|54|Redeem Loyalty Points|Loyalty and Promotion Management|Uses eligible loyalty points toward an order.|
-|55|Apply Voucher to Order|Loyalty and Promotion Management|Applies a valid voucher to an order.|
-|56|Create Promotion Campaign|Loyalty and Promotion Management|Creates a promotion campaign.|
-|57|Update Promotion Campaign|Loyalty and Promotion Management|Edits an existing promotion campaign.|
-|58|Activate or Deactivate Promotion Campaign|Loyalty and Promotion Management|Changes whether a promotion campaign is active.|
-|59|Manage Voucher Code|Loyalty and Promotion Management|Creates or updates voucher codes.|
-|60|Receive Account Security Notification|Notification Management|Receives an account-security notification.|
-|61|Receive Workshop Booking Notification|Notification Management|Receives a notification about a workshop booking.|
-|62|Receive Workshop QR Ticket|Notification Management|Receives the QR ticket for a workshop booking.|
-|63|Receive Order Status Notification|Notification Management|Receives an update about retail order status.|
-|64|Add Product to Cart|Order Management and Fulfillment|Adds an available product to the Member cart.|
-|65|Update Cart Item Quantity|Order Management and Fulfillment|Changes the quantity of a cart item.|
-|66|Remove Cart Item|Order Management and Fulfillment|Removes an item from the cart.|
-|67|View Shopping Cart|Order Management and Fulfillment|Displays cart items and their current validity.|
-|68|Checkout Retail Order|Order Management and Fulfillment|Creates checkout from a valid Member cart.|
-|69|Pay for Retail Order|Order Management and Fulfillment|Pays the retail order through the payment gateway.|
-|70|Choose Order Fulfillment Option after Payment|Order Management and Fulfillment|Chooses store pickup or carrier fulfilment after payment.|
-|71|Enter Delivery Contact and Address|Order Management and Fulfillment|Provides delivery contact and address for carrier fulfilment.|
-|72|View Order Details|Order Management and Fulfillment|Displays the current details of a retail order.|
-|73|View Purchase Order History|Order Management and Fulfillment|Displays the Member's retail order history.|
-|74|Process Retail Order|Order Management and Fulfillment|Processes a paid retail order for fulfilment.|
-|75|Record Customer Pickup|Order Management and Fulfillment|Records that the customer collected the order.|
-|76|Mark Order as Prepared for Carrier|Order Management and Fulfillment|Marks an order as prepared or packed for carrier.|
-|77|View System Parameters|Administrative Parameter Configuration|Displays current operational system parameters.|
-|78|Configure AI Pricing Parameters|Administrative Parameter Configuration|Maintains parameters used for AI package-price suggestions.|
-|79|Configure Material-Based Deposit Percentage|Administrative Parameter Configuration|Sets deposit percentages based on material.|
-|80|Configure Currency Setting|Administrative Parameter Configuration|Sets the platform currency configuration.|
-|81|Configure VAT Rate|Administrative Parameter Configuration|Sets the VAT rate used by the platform.|
-|82|Manage Third-Party API Credentials|Administrative Parameter Configuration|Maintains credentials for approved third-party integrations.|
-|83|View Executive Revenue Dashboard|Administrative Parameter Configuration|Displays the executive revenue overview.|
+|  ID | Use Case                                       | Feature                                | Use Case Description                                                                                             |
+| --: | ---------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+|   1 | Register Account                               | Account Management                     | Creates a Member account after successful identity registration via email or SSO.                                |
+|   2 | Sign In                                        | Account Management                     | Authenticates the user and resolves the corresponding platform account and role-based permissions.               |
+|   3 | Reset Password                                 | Account Management                     | Resets a user's password through the configured email-based recovery flow.                                       |
+|   4 | Change Password                                | Account Management                     | Changes the authenticated user's password and triggers an account-security notification.                         |
+|   5 | View Personal Profile                          | Account Management                     | Displays the authenticated user's basic profile information and contact details.                                 |
+|   6 | Update Personal Profile                        | Account Management                     | Updates permitted personal profile information (e.g., name, phone number, address).                              |
+|   7 | Manage User Account                            | Account Management                     | Creates, views, or updates internal platform staff and user accounts.                                            |
+|   8 | Assign User Role                               | Account Management                     | Assigns a business operational role stored in the platform database to an account.                               |
+|   9 | Lock or Unlock User Account                    | Account Management                     | Changes whether a user account is active or restricted from accessing the platform.                              |
+|  10 | Configure Role-Based Access Control            | Account Management                     | Maintains granular permissions and access policies for each platform role.                                       |
+|  11 | Browse Product Catalogue                       | Product Management                     | Displays published jewelry products with keyword search, multi-criteria filtering, and active catalogue status.  |
+|  12 | Create Product                                 | Product Management                     | Adds a new jewelry product with initial attributes, media, and pricing to the catalogue.                         |
+|  13 | Update Product Information                     | Product Management                     | Edits product details, specifications, image galleries, and pricing configurations.                              |
+|  14 | Publish or Unpublish Product                   | Product Management                     | Controls whether a product is visible to public customers in the catalogue.                                      |
+|  15 | Browse Workshop Packages                       | Workshop Management                    | Displays available workshop packages with pricing, durations, and overview details.                              |
+|  16 | View Workshop Package Details                  | Workshop Management                    | Displays comprehensive package specifications, included materials, tools, and terms.                             |
+|  17 | Create Workshop Booking                        | Workshop Management                    | Selects a workshop package before a schedule/slot and supported ring-design path, enters participant data, and holds a temporary seat. |
+|  18 | Pay Workshop Deposit                           | Workshop Management                    | Pays a 50% deposit of the selected package via VNPay. The booking is confirmed only after a valid payment confirmation. |
+|  19 | Look Up Booking Details                        | Workshop Management                    | Allows customers to look up a booking by reference code and view details and QR check-in ticket.                 |
+|  20 | Check In Participant                           | Workshop Management                    | Confirms attendee presence at the workshop via QR code scanning or manual code lookup.                           |
+|  21 | Manage Workshop Schedule                       | Workshop Management                    | Creates, modifies, or cancels workshop calendar sessions, shifts, and branch allocations.                        |
+|  22 | Assign Staff to Workshop Slot                  | Workshop Management                    | Assigns designated instructors or goldsmith staff members to facilitate specific workshop sessions.              |
+|  23 | Configure Workshop Time Slot                   | Workshop Management                    | Defines the standard daily operating timeframes for workshop sessions.                                           |
+|  24 | Configure Workshop Slot Capacity               | Workshop Management                    | Sets the maximum seat capacity and participant limits for specific workshop slots.                               |
+|  25 | Configure Supported Materials by Branch        | Workshop Management                    | Configures the types of jewelry materials and ring options available for selection at each branch location.      |
+|  26 | Configure Holiday and Off-Day Exception        | Workshop Management                    | Sets calendar overrides, closures, and special operating rules for holidays and off-days.                        |
+|  27 | Synchronize Workshop Schedule                  | Workshop Management                    | Exchanges enabled availability updates with Klook while Mland remains the capacity source of truth; Klook must obtain availability/hold before confirmation. |
+|  28 | Synchronize Workshop Booking                   | Workshop Management                    | Sends enabled Mland confirmed-booking updates to Klook and records Klook bookings confirmed through the Mland availability/hold flow; Klook cancellations are not consumed. |
+|  29 | Chat with Basic AI Support                     | AI Chatbox Analysis and Suggestion     | Answers customer natural language inquiries regarding products, workshops, and store FAQs.                       |
+|  30 | Analyze Ring Design from Image                 | AI Chatbox Analysis and Suggestion     | Analyzes a Member-submitted booking-design image, identifies design components, and suggests materials for the workshop journey. |
+|  31 | Approve Custom Design Pricing                  | AI Chatbox Analysis and Suggestion     | Aggregates configured inputs to suggest a price for a new workshop package or retail product. The Manager, not AI, decides the published price; this does not price a custom-manufacturing order. |
+|  32 | Select Available Ring Model                    | Personalized Design and Quote Workflow | Chooses a pre-designed, ready-to-make ring template available in the system catalog.                             |
+|  33 | Configure Workshop Ring                        | Personalized Design and Quote Workflow | Configures the ring to be made in a workshop by assembling compatible system-provided bands, gems, and engravings. |
+|  34 | Chat with Staff Consultant                     | Personalized Design and Quote Workflow | Initiates direct real-time consultation messaging with a jewelry consultant for custom design advice.            |
+|  35 | Submit Booking Design Image                    | Personalized Design and Quote Workflow | A Member submits an image as a ring-design request within a workshop booking so that AI analysis and human review can be performed. |
+|  36 | Review Custom Design Request                   | Personalized Design and Quote Workflow | Staff reviews a booking-design request with estimated value at most 3,000,000 VND; a Manager reviews one above that threshold. The reviewer records the outcome. |
+|  37 | View Custom Design Request Decision            | Personalized Design and Quote Workflow | Allows the Member to view the recorded outcome of the reviewed booking-design request.                            |
+|  38 | View Loyalty Point Balance                     | Loyalty and Promotion Management       | Displays the Member's current accumulated loyalty reward point balance.                                          |
+|  39 | View Loyalty Point History                     | Loyalty and Promotion Management       | Displays a chronological ledger of loyalty point earning and redemption transactions.                            |
+|  40 | Redeem Loyalty Points                          | Loyalty and Promotion Management       | Applies accumulated points as a non-cash checkout discount. One voucher may be used per order and may be combined with points, subject to Admin-configured limits. |
+|  41 | Manage Promotion Campaigns                     | Loyalty and Promotion Management       | Creates, modifies, activates, or deactivates marketing discount campaigns and seasonal sales.                    |
+|  42 | Manage Voucher Code                            | Loyalty and Promotion Management       | Generates, configures, and tracks usage constraints for coupon and discount vouchers.                            |
+|  43 | Add Product to Cart                            | Order Management and Fulfillment       | Adds a selected retail product with chosen variant options (size, engraving) into the cart.                      |
+|  44 | Manage Shopping Cart                           | Order Management and Fulfillment       | Displays current cart contents, updates item quantities, and removes items from the cart.                        |
+|  45 | Checkout Retail Order                          | Order Management and Fulfillment       | Revalidates the whole cart, snapshots prices, applies an eligible voucher and/or points, and initiates a 15-minute full-cart payment hold; no partial order is created. |
+|  46 | Pay for Retail Order                           | Order Management and Fulfillment       | Pays the full retail order through VNPay. A valid signed VNPay confirmation, rather than the browser Return URL, completes the sale and deducts held quantities. |
+|  47 | View Purchase Order History                    | Order Management and Fulfillment       | Displays a Member's complete chronological list of past and ongoing retail orders.                               |
+|  48 | View Order Details                             | Order Management and Fulfillment       | Displays payment and internal fulfilment status for a retail order; it does not provide delivery tracking.        |
+|  49 | Review & Confirm Retail Order                  | Order Management and Fulfillment       | Staff reviews a verified paid retail order and begins its internal preparation.                                  |
+|  50 | Update Order Status                            | Order Management and Fulfillment       | Updates internal milestones such as paid, preparing/packing, ready for pickup, picked up, or handed to GHTK; it does not record courier delivery progress. |
+|  51 | Fulfill Retail Order                           | Order Management and Fulfillment       | After verified payment, records the Member's choice of store pickup or GHTK fulfilment and coordinates preparation for that method. |
+|  52 | Record Customer Pickup                         | Order Management and Fulfillment       | Verifies customer identity and marks a ready-for-pickup order as picked up.                                      |
+|  53 | Mark Order as Prepared for Carrier             | Order Management and Fulfillment       | Records that a prepared retail order was manually handed to GHTK; it does not call GHTK APIs or track delivery.  |
+|  54 | Configure System Operational Parameters        | Administrative Parameter Configuration | Configures operational values, including custom-order minimum deadline, unavailable deadline dates, maximum queue size, loyalty rates, point value, and point-discount cap. |
+|  55 | Manage Third-Party API Credentials             | Administrative Parameter Configuration | Maintains approved credentials and endpoints for VNPay, Klook, Gemini, Google Maps/Places, Mland SMTP, and cloud storage. |
+|  56 | View Executive Revenue Dashboard               | Administrative Parameter Configuration | Visualizes consolidated business analytics, workshop utilization, retail revenue, and branch KPIs.               |
+|  57 | View Public Store Reviews and Ratings          | Public Store Information               | Displays store locations and permitted public Google rating/review information with required attribution and a link to Google Maps; Places content is not persisted. |
+|  58 | Submit Store Review                            | Public Store Information               | Opens the store's Google Maps review link. Mland does not capture internal feedback or submit a review to Google. |
+|  59 | Submit Custom Order                            | Custom Manufacturing                   | A Member submits a custom-manufacturing order using a reference image or system-supported manual configuration, optional requested deadline, and fulfilment method. AI does not decide the order. |
+|  60 | Configure Custom Queue                         | Custom Manufacturing                   | A Manager or Admin configures the minimum deadline, dates on which a deadline cannot be selected, and the maximum custom-order queue size. |
+|  61 | Pay Custom Deposit                             | Custom Manufacturing                   | Pays a 50% deposit of the wax-package price through VNPay. An auto-accepted request holds one queue slot for up to 15 minutes while payment confirmation is pending; the slot is released without valid confirmation. |
+|  62 | View Custom Order                              | Custom Manufacturing                   | Allows the Member to view the custom-manufacturing order and its current internal status.                         |
+|  63 | Set Final Custom Amount                        | Custom Manufacturing                   | Staff or Manager records the final balance as the remaining 50% of the wax-package price plus actual surcharges when the item is ready. |
+|  64 | Pay Custom Balance                             | Custom Manufacturing                   | Sends the Member an email request and accepts VNPay payment for the recorded final balance before fulfilment.     |
+|  65 | Fulfil Custom Order                            | Custom Manufacturing                   | Records Member pickup or Staff's manual handoff of the completed paid item to GHTK.                              |
