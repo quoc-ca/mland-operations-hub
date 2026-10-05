@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Manager<br>**Secondary Actors:** External Registration System |
+| Primary Actors | Manager |
+| Secondary Actors | External Registration System |
 | Description | Exchanges enabled workshop availability updates with Klook while Mland remains the source of truth for capacity and holds. |
 | Preconditions | 1. Klook credentials and endpoint configuration are approved and available.<br>2. Mland has a current schedule, capacity, and availability state.<br>3. The schedule or synchronization job is enabled. |
 | Postconditions | • An enabled availability update is sent to Klook and the synchronization result is recorded.• Mland capacity and holds remain authoritative.• A failed synchronization is available for retry and does not overwrite Mland availability. |

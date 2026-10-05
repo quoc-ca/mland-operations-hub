@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Guest, Member<br>**Secondary Actors:** None |
+| Primary Actors | Guest, Member |
+| Secondary Actors | None |
 | Description | As a Guest or Member, I want to view the complete details of a workshop package so that I can understand what is included, the required materials and tools, the duration, the price, and the applicable terms before deciding whether to book. |
 | Preconditions | 1. The platform is available.<br>2. The actor has opened a published workshop package from the workshop package catalogue or has accessed its valid package link.<br>3. The requested package exists and is currently available for public viewing. |
 | Postconditions | • The actor views the latest available details of the selected workshop package, or an appropriate unavailable/error state.• No booking, invoice, payment, seat hold, or package-price snapshot is created.• The actor may return to the package list or continue to UC17 Create Workshop Booking. |

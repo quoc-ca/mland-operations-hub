@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Manager<br>**Secondary Actors:** None |
+| Primary Actors | Manager |
+| Secondary Actors | None |
 | Description | Allows the Manager to define the standard daily operating timeframes used when workshop sessions are created. |
 | Preconditions | 1. The Manager is authenticated and authorized.<br>2. The platform is available.<br>3. The proposed time range uses the configured business timezone. |
 | Postconditions | • A valid standard time slot is created, updated, activated, or deactivated.• Existing schedules are not silently changed by a configuration edit.• New schedule availability uses the active time-slot configuration. |

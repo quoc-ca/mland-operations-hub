@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Manager<br>**Secondary Actors:** None |
+| Primary Actors | Manager |
+| Secondary Actors | None |
 | Description | Allows the Manager to assign qualified Staff members as instructors or goldsmith facilitators for a workshop slot. |
 | Preconditions | 1. The Manager is authenticated and authorized.<br>2. The workshop slot exists.<br>3. Candidate Staff accounts are active and eligible for workshop operations. |
 | Postconditions | • The selected Staff assignment is saved for the workshop slot.• The assignment is visible to authorized operational users.• Conflicting or inactive assignments are not saved. |

@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Manager<br>**Secondary Actors:** None |
+| Primary Actors | Manager |
+| Secondary Actors | None |
 | Description | Allows the Manager to configure holidays, closures, off-days, capacity overrides, and other calendar exceptions that affect workshop availability. |
 | Preconditions | 1. The Manager is authenticated and authorized.<br>2. The exception date and applicable location/session scope are valid.<br>3. The Manager has reviewed any existing bookings affected by the exception. |
 | Postconditions | • The calendar exception is saved with its scope, active state, and optional capacity override.• A closed date/session is removed from new public booking availability.• Existing confirmed bookings are not silently cancelled. |

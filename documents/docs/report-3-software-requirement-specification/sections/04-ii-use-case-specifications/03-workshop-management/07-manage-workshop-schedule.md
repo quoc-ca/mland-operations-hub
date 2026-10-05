@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Manager<br>**Secondary Actors:** External Registration System |
+| Primary Actors | Manager |
+| Secondary Actors | External Registration System |
 | Description | Allows the Manager to create, view, modify, or cancel workshop calendar sessions, shifts, and branch allocations. |
 | Preconditions | 1. The Manager is authenticated and authorized.<br>2. Branches, standard time slots, and required operational configuration are available.<br>3. The requested schedule change is within the configured planning rules. |
 | Postconditions | • The schedule is created or updated with its branch, date, session, and operational state.• Existing bookings are protected from an unsafe schedule change.• An enabled schedule update may be sent to Klook through UC27. |

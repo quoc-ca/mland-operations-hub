@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Guest, Member<br>**Secondary Actors:** Payment Gateway, Mail Gateway |
+| Primary Actors | Guest, Member |
+| Secondary Actors | Payment Gateway, Mail Gateway |
 | Description | As a Guest or Member, I want to pay the required workshop deposit through VNPay so that my pending workshop booking can be confirmed after the system verifies a valid payment notification. |
 | Preconditions | 1. The platform is available.<br>2. A pending workshop booking and its package invoice have been created by UC17 Create Workshop Booking.<br>3. The booking has a valid temporary capacity hold.<br>4. The required deposit amount is available and equals 50% of the selected package price.<br>5. VNPay credentials and the payment endpoint are configured. |
 | Postconditions | • If valid payment confirmation is received, exactly one deposit transaction is recorded, the invoice deposit is marked paid, and the booking is confirmed.• A booking reference code and QR check-in ticket are generated for a confirmed booking.• A confirmation notification is sent to the booking contact email.• If payment is pending, failed, expired, invalid, or duplicated, the booking remains unconfirmed and the capacity hold is released when its hold window expires. |

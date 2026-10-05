@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Admin<br>**Secondary Actors:** Payment Gateway, External Registration System, AI API, Google Maps API, Mail Gateway, Cloud Storage Service |
+| Primary Actors | Admin |
+| Secondary Actors | Payment Gateway, External Registration System, AI API, Google Maps API, Mail Gateway, Cloud Storage Service |
 | Description | Allows the Admin to maintain approved credentials, endpoints, and activation status for the system's third-party integrations, including VNPay, Klook, Gemini, Google Maps/Places, Mland SMTP, and cloud storage. |
 | Preconditions | 1. The Admin is authenticated and authorized to manage integration credentials.<br>2. The target integration type is supported by the platform.<br>3. The Admin has received valid credentials and endpoint information through an approved operational channel. |
 | Postconditions | - Valid credentials and endpoints are stored securely and associated with the selected integration.<br>- Secrets are masked in the user interface and are not exposed in logs.<br>- The integration is enabled only after validation or an explicit approved activation decision.<br>- Previous credentials remain recoverable through audit/rotation history according to retention policy. |

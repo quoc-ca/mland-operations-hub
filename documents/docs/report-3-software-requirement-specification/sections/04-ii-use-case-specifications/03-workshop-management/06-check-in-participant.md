@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Staff<br>**Secondary Actors:** None |
+| Primary Actors | Staff |
+| Secondary Actors | None |
 | Description | Allows Staff to verify a confirmed workshop booking using its QR code or booking code and record the participant's attendance. |
 | Preconditions | 1. Staff is authenticated and authorized to perform workshop check-in.<br>2. The workshop session exists.<br>3. The customer provides a QR ticket or valid booking code. |
 | Postconditions | • The confirmed booking is marked checked in with the Staff actor and time recorded.• A duplicate check-in is not created.• If the booking is invalid, no attendance record is changed. |

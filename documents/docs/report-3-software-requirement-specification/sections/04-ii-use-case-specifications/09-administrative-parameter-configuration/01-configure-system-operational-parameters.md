@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Admin<br>**Secondary Actors:** None |
+| Primary Actors | Admin |
+| Secondary Actors | None |
 | Description | Allows the Admin to configure operational values used by custom manufacturing, loyalty, and checkout workflows, including the minimum custom-order deadline, unavailable deadline dates, maximum queue size, loyalty rates, point value, and point-discount cap. |
 | Preconditions | 1. The Admin is authenticated and authorized to manage operational parameters.<br>2. The platform is available.<br>3. The parameter definitions and permitted value ranges are configured by the system. |
 | Postconditions | • Valid parameter values are saved with the Admin actor and change time recorded.• Subsequent applicable workflows use the new values.• Invalid or incomplete values do not overwrite the previous configuration. |

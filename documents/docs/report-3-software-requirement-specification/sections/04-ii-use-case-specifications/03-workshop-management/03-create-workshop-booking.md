@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Guest, Member<br>**Secondary Actors:** None |
+| Primary Actors | Guest, Member |
+| Secondary Actors | None |
 | Description | As a Guest or Member, I want to create a workshop booking by selecting a published package, location, date, session, and permitted ring-design path so that the system can reserve a seat temporarily and prepare the booking deposit payment. |
 | Preconditions | 1. The platform is available.<br>2. The actor has selected a published workshop package.<br>3. A workshop location and session are available for selection.<br>4. Capacity is configured for the selected location and session.<br>5. The actor has the required contact and participant information. A Member may use verified profile information; a Guest must provide the required contact details. |
 | Postconditions | • A booking and package invoice are created with payment-pending status when the selected session can accept the requested participants.• The required deposit is calculated as 50% of the selected package price.• The selected seat capacity is held temporarily for the payment window, for at most 15 minutes.• The booking remains unconfirmed until UC18 Pay Workshop Deposit receives valid payment confirmation.• If the design path is used, its request and outcome are associated with the booking. |

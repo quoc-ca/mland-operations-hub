@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Manager<br>**Secondary Actors:** None |
+| Primary Actors | Manager |
+| Secondary Actors | None |
 | Description | Allows the Manager to view consolidated business analytics, workshop utilization, retail revenue, and branch key performance indicators for an authorized reporting period. |
 | Preconditions | 1. The Manager is authenticated and authorized to view executive analytics.<br>2. The platform is available.<br>3. The selected reporting period and branch scope are valid. |
 | Postconditions | • The system displays the dashboard metrics and visualizations for the selected scope and period.• No booking, order, payment, or operational master data is changed.• Any unavailable or delayed metric is identified rather than presented as a confirmed value. |

@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Guest, Member<br>**Secondary Actors:** None |
+| Primary Actors | Guest, Member |
+| Secondary Actors | None |
 | Description | Allows a customer to retrieve a workshop booking by reference code and view its schedule, package, status, payment information, and QR check-in ticket. |
 | Preconditions | 1. The platform is available.<br>2. The customer has a booking reference code.<br>3. The booking exists and is eligible for customer lookup. |
 | Postconditions | • The system displays the booking details and QR ticket when the reference is valid.• No booking, payment, capacity, or check-in data is changed. |

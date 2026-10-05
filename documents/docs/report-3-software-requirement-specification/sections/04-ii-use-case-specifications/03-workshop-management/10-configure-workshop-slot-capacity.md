@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Manager<br>**Secondary Actors:** None |
+| Primary Actors | Manager |
+| Secondary Actors | None |
 | Description | Allows the Manager to set the maximum seat capacity and participant limits for a workshop location/session. |
 | Preconditions | 1. The Manager is authenticated and authorized.<br>2. The target branch and workshop session exist.<br>3. Capacity values use the configured participant-count policy. |
 | Postconditions | • The capacity configuration is saved for the selected location/session.• Public and integration availability uses the new capacity after validation.• Existing confirmed bookings are not deleted or silently reduced below their committed participant count. |

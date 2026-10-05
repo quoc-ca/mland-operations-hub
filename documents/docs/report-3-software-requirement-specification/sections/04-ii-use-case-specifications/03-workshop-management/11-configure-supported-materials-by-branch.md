@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Manager<br>**Secondary Actors:** None |
+| Primary Actors | Manager |
+| Secondary Actors | None |
 | Description | Allows the Manager to configure which jewelry materials, ring options, and workshop packages are supported at each branch. |
 | Preconditions | 1. The Manager is authenticated and authorized.<br>2. The branch and material/ring catalogue entries exist.<br>3. The selected material is active and eligible for workshop use. |
 | Postconditions | • The branch-material and supported-option configuration is saved.• Booking and design selection flows use the branch-specific supported options.• Existing bookings retain their recorded selections. |

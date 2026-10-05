@@ -2,7 +2,8 @@
 
 | Attribute | Value |
 |---|---|
-| Primary Actors | Manager<br>**Secondary Actors:** External Registration System |
+| Primary Actors | Manager |
+| Secondary Actors | External Registration System |
 | Description | Sends enabled confirmed Mland workshop-booking updates to Klook and records Klook bookings that were confirmed through the Mland availability/hold flow. |
 | Preconditions | 1. The Klook integration is approved and enabled.<br>2. A Mland booking is confirmed or a Klook booking has passed the Mland availability/hold confirmation flow.<br>3. The booking payload contains the required branch, session, participant, and reference information. |
 | Postconditions | • The eligible booking synchronization result is recorded with an idempotency/correlation reference.• Mland booking and capacity state remains consistent with the confirmed flow.• Klook cancellation events are not consumed or used to release Mland capacity in V1. |
