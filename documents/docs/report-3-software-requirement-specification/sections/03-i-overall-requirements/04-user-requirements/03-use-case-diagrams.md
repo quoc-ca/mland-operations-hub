@@ -8,6 +8,15 @@
 
 {{r3-ucs-member width=100%}}
 
-#### 4.3.3 UCs for . . .
+#### 4.3.3 UCs for staff
 
 (Images placeholder)
+{{r3-ucs-staff width=100%}}
+
+#### 4.3.4 UCs for management
+
+{{r3-ucs-management width=100%}}
+
+#### 4.3.4 UCs for admin
+
+{{r3-ucs-admin width=100%}}
