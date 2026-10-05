@@ -6,7 +6,7 @@
 |   2 | Sign In                                        | Account Management                     | Authenticates the user and resolves the corresponding platform account and role-based permissions.               |
 |   3 | Reset Password                                 | Account Management                     | Resets a user's password through the configured email-based recovery flow.                                       |
 |   4 | Change Password                                | Account Management                     | Changes the authenticated user's password and triggers an account-security notification.                         |
-|   5 | View Personal Profile                          | Account Management                     | Displays the Member's basic profile information and contact details.                                             |
+|   5 | View Personal Profile                          | Account Management                     | Displays the authenticated user's basic profile information and contact details.                                 |
 |   6 | Update Personal Profile                        | Account Management                     | Updates permitted personal profile information (e.g., name, phone number, address).                              |
 |   7 | Manage User Account                            | Account Management                     | Creates, views, or updates internal platform staff and user accounts.                                            |
 |   8 | Assign User Role                               | Account Management                     | Assigns a business operational role stored in the platform database to an account.                               |
