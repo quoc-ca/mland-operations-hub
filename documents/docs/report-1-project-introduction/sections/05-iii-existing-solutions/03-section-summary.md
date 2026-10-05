@@ -1,3 +1,5 @@
 ## 3. Section Summary {#existing-solutions-summary}
 
-Manual coordination is flexible but opaque, while a generic booking calendar leaves the custom-ring decision and order process disconnected. The proposed system connects these steps without expanding V1 into a general retail, inventory, or accounting platform.
+The currently existing approaches solve only parts of Mland's problem. Manual coordination is flexible and allows Staff to discuss each customer's idea, but the information remains scattered across conversations and notes. Generic booking tools improve session visibility and self-service reservation, but they do not connect booking with ring customization, feasibility review, estimation, payment, and fulfilment. Domino's Build Your Own Pizza demonstrates how guided, component-based customization can help customers make decisions step by step; however, ring customization is less predictable and may require reference-image analysis, clarification, Staff or Owner review, and a tailored estimate.
+
+Unlike standard product configurators, Mland's customization turns uncertain ideas into feasible, priceable ring requests, resolving fragmented communication, repeated clarification, unclear responsibility, and weak traceability across booking, review, payment, and fulfilment.
