@@ -1,0 +1,15 @@
+### 3.1 Workshop Management
+
+#### 3.1.14 Synchronize Workshop Booking
+
+<table>
+<tr><td>Primary Actors</td><td>Manager</td><td>Secondary Actors</td><td>External Registration System</td></tr>
+<tr><td>Description</td><td colspan="3">Sends enabled confirmed Mland workshop-booking updates to Klook and records Klook bookings that were confirmed through the Mland availability/hold flow.</td></tr>
+<tr><td>Preconditions</td><td colspan="3">1. The Klook integration is approved and enabled.<br>2. A Mland booking is confirmed or a Klook booking has passed the Mland availability/hold confirmation flow.<br>3. The booking payload contains the required branch, session, participant, and reference information.</td></tr>
+<tr><td>Postconditions</td><td colspan="3">• The eligible booking synchronization result is recorded with an idempotency/correlation reference.<br>• Mland booking and capacity state remains consistent with the confirmed flow.<br>• Klook cancellation events are not consumed or used to release Mland capacity in V1.</td></tr>
+<tr><td>Normal<br>Sequence/Flow</td><td colspan="3"><em>Synchronize Workshop Booking</em><br>1. The system detects a confirmed Mland booking or an approved Klook confirmation callback.<br>2. The system verifies that the booking was confirmed through the required Mland availability/hold flow.<br>3. The system builds the enabled booking synchronization payload.<br>4. The system sends or records the booking update with Klook.<br>5. The system validates the response, prevents duplicate processing, and records the synchronization result.<br>6. The system makes the synchronized booking available to authorized workshop operations.</td></tr>
+<tr><td>Alternative<br>Sequences/Flows</td><td colspan="3"><em>Step 2 — Booking has no valid Mland hold/confirmation</em><br>The system rejects the synchronization and does not consume capacity or confirm the booking.<br><br><em>Step 3 — Required booking data is missing</em><br>The system records a validation failure and queues the booking for operational correction.<br><br><em>Step 4 — Klook rejects or cannot receive the update</em><br>The system records the failure and retries without creating a duplicate booking.<br><br><em>Step 5 — Duplicate event</em><br>The system returns the previously recorded result and does not create a second booking or capacity deduction.<br><br><em>Klook cancellation received</em><br>The system does not consume the cancellation event or automatically release Mland capacity.</td></tr>
+<tr><td>Business Rule</td><td colspan="3">GBR-11, BR-28-01, BR-28-02</td></tr>
+</table>
+
+<table><tr style="background-color:#f4cccc"><th>ID</th><th>Rule Definition</th></tr><tr><td>GBR-11</td><td>Klook obtains Mland availability/hold before it confirms a workshop booking; Klook cancellation events do not release Mland capacity automatically.</td></tr><tr><td>BR-28-01</td><td>Only confirmed bookings from an approved Mland availability/hold flow may be synchronized as workshop bookings.</td></tr><tr><td>BR-28-02</td><td>Booking synchronization must be idempotent and must not create duplicate bookings or transactions.</td></tr></table>
