@@ -33,6 +33,7 @@ DRIVE_ASSET_BRACE_PATTERN = re.compile(r"\{\{.*?\}\}")
 DRIVE_ASSET_PERCENT_WIDTH = re.compile(r"^(?:[1-9][0-9]?|100)%$")
 DRIVE_ASSET_INCH_WIDTH = re.compile(r"^(?:0\.[1-9][0-9]*|[1-9][0-9]*(?:\.[0-9]+)?)in$")
 GIT_HISTORY_MARKER = "<!-- AUTO-GENERATED: GIT-CHANGE-HISTORY -->"
+USE_CASE_TABLE_REPORT_ID = "report-3-software-requirement-specification"
 
 
 @dataclass(frozen=True)
@@ -350,9 +351,17 @@ def build_bundle(
             "--to=docx",
             f"--reference-doc={reference_doc}",
             f"--resource-path={resource_path}",
-            "--output", str(staged_output),
-            str(composed),
         ]
+        if bundle.report_id == USE_CASE_TABLE_REPORT_ID:
+            use_case_filter = Path(__file__).resolve().with_name("usecase_headings_to_table.lua")
+            if not use_case_filter.is_file():
+                raise _error(
+                    "usecase-filter-missing",
+                    f"Missing use-case table filter: {use_case_filter}",
+                    report_id=bundle.report_id,
+                )
+            command.append(f"--lua-filter={use_case_filter}")
+        command.extend(("--output", str(staged_output), str(composed)))
         try:
             completed = subprocess.run(command, capture_output=True, text=True, check=False)
         except OSError as exc:

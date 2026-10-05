@@ -1,6 +1,4 @@
-### 3.1 Workshop Management
-
-#### 3.1.2 View Workshop Package Details
+### 3.2 View Workshop Package Details
 
 <table>
 <tr><td>Primary Actors</td><td>Guest, Member</td><td>Secondary Actors</td><td>None</td></tr>

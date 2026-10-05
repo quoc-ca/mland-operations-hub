@@ -68,6 +68,23 @@ You own `templates/reference.docx`; automation reads it only. Configure it once 
 
 Markdown controls semantic structure only: headings, lists, tables, links, code, and image references.
 
+### Report 3 use-case specifications
+
+Use-case source content should remain readable Markdown. For Report 3, the DOCX
+generator converts a use-case field group into a native Word table when the
+fields are written as same-level headings. The group must contain each of these
+headings exactly once: `Primary Actors`, `Secondary Actors`, `Description`,
+`Preconditions`, `Normal Flow`, `Alternative Flows`, `Postconditions`, and
+`Business Rules`. The accepted aliases `Normal Sequence/Flow`,
+`Alternative Sequences/Flows`, and singular `Business Rule` are also recognized.
+
+The heading level is not fixed, but all eight field headings in a use case must
+use the same level. A following same-level heading outside this field set stays
+as normal document content after the table. Missing or duplicated required
+fields stop the DOCX build with a diagnostic. Use standard Markdown blank lines
+between headings and their content. This filter is enabled only for Report 3;
+it does not change Markdown source files or other report bundles.
+
 ## Google Workspace synchronization
 
 `manifest.yml` maps each document bundle and tracker folder directly to its target Google file. The workflow runs for a manual dispatch from `develop` and for relevant pushes to `develop`:
