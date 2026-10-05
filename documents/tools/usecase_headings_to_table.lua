@@ -82,8 +82,17 @@ local function make_table(fields)
     }
   }
 
+  -- pandoc.Caption was added in 3.6.1. Ubuntu 24.04's packaged Pandoc
+  -- (used by CI) predates that constructor, but accepts the Caption record.
+  local caption
+  if pandoc.Caption then
+    caption = pandoc.Caption()
+  else
+    caption = { short = pandoc.Inlines {}, long = pandoc.Blocks {} }
+  end
+
   return pandoc.Table(
-    pandoc.Caption(),
+    caption,
     colspecs,
     pandoc.TableHead(),
     bodies,

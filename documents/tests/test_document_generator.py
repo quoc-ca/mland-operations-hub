@@ -239,12 +239,15 @@ This heading remains outside the generated table.
             root = Path(temp)
             source_path = root / "uc.md"
             output_path = root / "uc.docx"
+            legacy_api_filter = root / "legacy-pandoc-api.lua"
             source_path.write_text(source, encoding="utf-8")
+            legacy_api_filter.write_text("pandoc.Caption = nil\n", encoding="utf-8")
             result = subprocess.run(
                 [
                     shutil.which("pandoc") or "pandoc",
                     "--from=markdown",
                     "--to=docx",
+                    f"--lua-filter={legacy_api_filter}",
                     f"--lua-filter={filter_path}",
                     "--output",
                     str(output_path),
