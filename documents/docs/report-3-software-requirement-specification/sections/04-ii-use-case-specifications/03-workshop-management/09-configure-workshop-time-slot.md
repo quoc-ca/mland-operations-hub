@@ -21,6 +21,7 @@ Allows the Manager to define the standard daily operating timeframes used when w
 #### Normal Flow
 
 **Configure Workshop Time Slot**
+
 1. The Manager opens time-slot configuration.
 2. The system displays the configured daily timeframes.
 3. The Manager enters or edits a slot name, start time, end time, and active state.
@@ -30,24 +31,20 @@ Allows the Manager to define the standard daily operating timeframes used when w
 
 #### Alternative Flows
 
+**Step 4 — time is not after start time**
 
-
-**Step 4 — time is not after start time**
 The system rejects the slot and requests correction.
 
+**Step 4 — Timeframes overlap or duplicate another active slot**
 
-
-**Step 4 — Timeframes overlap or duplicate another active slot**
 The system displays the conflict and does not save the change.
 
+**Step 5 — Existing schedules use the slot**
 
-
-**Step 5 — Existing schedules use the slot**
 The system warns the Manager and requires an explicit confirmation or prevents deactivation according to operational policy.
 
+**Step 6 — Save fails**
 
-
-**Step 6 — Save fails**
 The system displays an error and preserves the previous configuration.
 
 #### Postconditions

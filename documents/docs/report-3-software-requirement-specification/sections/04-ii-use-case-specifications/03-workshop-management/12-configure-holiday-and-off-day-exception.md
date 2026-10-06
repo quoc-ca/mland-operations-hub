@@ -21,6 +21,7 @@ Allows the Manager to configure holidays, closures, off-days, capacity overrides
 #### Normal Flow
 
 **Configure Holiday and Off-Day Exception**
+
 1. The Manager opens calendar exception configuration.
 2. The Manager selects a date and optionally a branch or session scope.
 3. The Manager sets the exception as closed, open with an override, or otherwise operationally defined.
@@ -30,20 +31,18 @@ Allows the Manager to configure holidays, closures, off-days, capacity overrides
 
 #### Alternative Flows
 
+**Step 3 — Exception conflicts with another active exception**
 
-
-**Step 3 — Exception conflicts with another active exception**
 The system displays the conflict and asks the Manager to resolve it.
 
+**Step 4 — Existing booking is affected**
 
-
-**Step 4 — Existing booking is affected**
 The system warns the Manager and requires an authorized operational decision before a closure can be applied.
 
+**Step 5 — Manager cancelsNo exception is saved.**
 
+**Step 6 — Save fails**
 
-**Step 5 — Manager cancelsNo exception is saved.**
-**Step 6 — Save fails**
 The system displays an error and leaves the previous calendar state unchanged.
 
 #### Postconditions

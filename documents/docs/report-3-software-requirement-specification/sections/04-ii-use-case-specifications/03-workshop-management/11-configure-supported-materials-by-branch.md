@@ -21,6 +21,7 @@ Allows the Manager to configure which jewelry materials, ring options, and works
 #### Normal Flow
 
 **Configure Supported Materials by Branch**
+
 1. The Manager selects a branch.
 2. The system displays the currently supported materials, ring options, and packages.
 3. The Manager adds, edits, or removes a supported option.
@@ -30,24 +31,20 @@ Allows the Manager to configure which jewelry materials, ring options, and works
 
 #### Alternative Flows
 
+**Step 3 — Catalogue entry is inactive or missing**
 
-
-**Step 3 — Catalogue entry is inactive or missing**
 The system rejects the option and asks the Manager to select an active configured entry.
 
+**Step 4 — Material/design combination is incompatible**
 
-
-**Step 4 — Material/design combination is incompatible**
 The system identifies the compatibility problem and does not save the combination.
 
+**Step 3 — Removing an option used by existing bookings**
 
-
-**Step 3 — Removing an option used by existing bookings**
 The system prevents removal from historical booking data and deactivates it only for new selections.
 
+**Step 6 — Save fails**
 
-
-**Step 6 — Save fails**
 The system displays an error and preserves the prior branch configuration.
 
 #### Postconditions

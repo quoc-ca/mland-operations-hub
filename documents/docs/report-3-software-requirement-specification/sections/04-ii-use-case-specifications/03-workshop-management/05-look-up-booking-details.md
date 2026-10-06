@@ -21,6 +21,7 @@ Allows a customer to retrieve a workshop booking by reference code and view its 
 #### Normal Flow
 
 **Look Up Booking Details**
+
 1. The customer opens the booking lookup page.
 2. The customer enters the booking reference code.
 3. The system validates the format and searches for the booking.
@@ -29,24 +30,20 @@ Allows a customer to retrieve a workshop booking by reference code and view its 
 
 #### Alternative Flows
 
+**Step 2 — Reference code is blank or malformed**
 
-
-**Step 2 — Reference code is blank or malformed**
 The system displays a validation message and asks the customer to enter a valid code.
 
+**Step 3 — Booking is not found**
 
-
-**Step 3 — Booking is not found**
 The system displays a not-found message without exposing another customer's data.
 
+**Step 4 — Booking is not confirmed or has no QR ticket**
 
-
-**Step 4 — Booking is not confirmed or has no QR ticket**
 The system displays the current payment/booking status and omits the QR ticket until the booking is confirmed.
 
+**Step 3 — Lookup fails**
 
-
-**Step 3 — Lookup fails**
 The system displays an error and allows the customer to retry.
 
 #### Postconditions

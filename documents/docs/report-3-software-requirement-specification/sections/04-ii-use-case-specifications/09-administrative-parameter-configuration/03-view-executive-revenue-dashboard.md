@@ -21,6 +21,7 @@ Allows the Manager to view consolidated business analytics, workshop utilization
 #### Normal Flow
 
 **View Executive Revenue Dashboard**
+
 1. The Manager opens the executive revenue dashboard.
 2. The system loads the default reporting period and authorized branch scope.
 3. The Manager selects a period, branch, or supported KPI view.
@@ -30,24 +31,20 @@ Allows the Manager to view consolidated business analytics, workshop utilization
 
 #### Alternative Flows
 
+**Step 2 — data is available**
 
-
-**Step 2 — data is available**
 The system displays a zero/empty state with the selected period and does not infer missing transactions.
 
+**Step 3 — Invalid period or unauthorized branch scope**
 
-
-**Step 3 — Invalid period or unauthorized branch scope**
 The system rejects the filter and keeps the last valid dashboard view.
 
+**Step 4 — Aggregation fails or data is delayed**
 
-
-**Step 4 — Aggregation fails or data is delayed**
 The system displays an error or data-unavailable indicator and allows the Manager to retry.
 
+**Step 5 — Partial data source is unavailable**
 
-
-**Step 5 — Partial data source is unavailable**
 The system marks the affected KPI as incomplete and does not represent it as fully consolidated.
 
 #### Postconditions

@@ -22,6 +22,7 @@ As a Guest or Member, I want to view the complete details of a workshop package 
 
 **View Workshop Package Details**
 
+
 1. The actor selects a published package from the Browse Workshop Packages page.
 2. The system retrieves the package details and associated published information.
 3. The system displays the package name, overview, price, currency, duration, deposit information, included materials, available tools, supported workshop/design information, and applicable terms.

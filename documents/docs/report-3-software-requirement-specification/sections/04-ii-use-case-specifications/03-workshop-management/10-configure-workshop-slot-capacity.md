@@ -21,6 +21,7 @@ Allows the Manager to set the maximum seat capacity and participant limits for a
 #### Normal Flow
 
 **Configure Workshop Slot Capacity**
+
 1. The Manager selects a branch, date/session scope, or capacity template.
 2. The system displays current capacity, held seats, confirmed participants, and remaining availability.
 3. The Manager enters the maximum seat capacity and any participant limit.
@@ -30,19 +31,16 @@ Allows the Manager to set the maximum seat capacity and participant limits for a
 
 #### Alternative Flows
 
+**Step 4 — Capacity is below committed participants**
 
-
-**Step 4 — Capacity is below committed participants**
 The system rejects the change or requires an approved exception; existing bookings remain protected.
 
+**Step 4 — Invalid or inconsistent participant limit**
 
-
-**Step 4 — Invalid or inconsistent participant limit**
 The system displays validation errors and asks the Manager to correct the values.
 
+**Step 6 — Save fails**
 
-
-**Step 6 — Save fails**
 The system displays an error and leaves the previous capacity unchanged.
 
 #### Postconditions
