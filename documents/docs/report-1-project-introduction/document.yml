@@ -18,12 +18,12 @@
       "sections/06-iv-proposed-solution/00-overview.md",
       "sections/07-v-project-scope-limitations/00-overview.md",
       "sections/07-v-project-scope-limitations/01-major-features.md",
-      "sections/07-v-project-scope-limitations/02-limitations-exclusions.md",
+      "sections/07-v-project-scope-limitations/02-limitations-exclusions.md"
     ],
   "change_log":
     {
       "format": "template",
       "history_paths": ["documents/docs/report-1-project-introduction"],
-      "default_action": "M",
-    },
+      "default_action": "M"
+    }
 }
