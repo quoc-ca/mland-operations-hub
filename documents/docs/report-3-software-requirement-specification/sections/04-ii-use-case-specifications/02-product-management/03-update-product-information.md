@@ -2,11 +2,11 @@
 
 #### Primary Actors
 
-Staff; Manager for price approval, and for other maintenance only with explicit applicable delegation.
+Staff; Manager.
 
 #### Secondary Actors
 
-Cloud Storage Service — supports catalogue image operations; provider selection is deferred to the plan; approved catalogue-media access and retention rules apply.
+Cloud Storage Service.
 
 #### Description
 
