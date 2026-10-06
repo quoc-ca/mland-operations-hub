@@ -20,7 +20,7 @@ Allows the Admin to maintain approved credentials, endpoints, and activation sta
 
 #### Normal Flow
 
-Manage Third-Party API Credentials
+**Manage Third-Party API Credentials**
 1. The Admin opens third-party integration configuration.
 2. The system displays supported integrations and masked current configuration.
 3. The Admin selects an integration and enters or updates its endpoint, credentials, and active state.
@@ -33,22 +33,30 @@ Manage Third-Party API Credentials
 
 **
 
-Step 3 — Unsupported integration or missing required field**
+
+
+**Step 3 — Unsupported integration or missing required field****
 The system rejects the configuration and identifies the missing/unsupported data.
 
 **
 
-Step 5 — Credential or endpoint test fails**
+
+
+**Step 5 — Credential or endpoint test fails****
 The system reports the failure and does not activate the new configuration.
 
 **
 
-Step 6 — Admin cancels**
+
+
+**Step 6 — Admin cancels****
 No credential change is saved.
 
 **
 
-Step 7 — Secure storage fails**
+
+
+**Step 7 — Secure storage fails****
 The system does not activate the credential and displays an operational error.
 
 **Credential rotation**

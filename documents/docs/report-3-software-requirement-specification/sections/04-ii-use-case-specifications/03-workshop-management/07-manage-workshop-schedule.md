@@ -20,7 +20,7 @@ Allows the Manager to create, view, modify, or cancel workshop calendar sessions
 
 #### Normal Flow
 
-Manage Workshop Schedule
+**Manage Workshop Schedule**
 1. The Manager opens workshop schedule management.
 2. The system displays existing schedules and their capacity/booking state.
 3. The Manager creates or selects a schedule.
@@ -34,18 +34,18 @@ Manage Workshop Schedule
 
 
 
-
-
-Step 5 — Schedule conflicts or required configuration is missing
+**Step 5 — Schedule conflicts or required configuration is missing**
 The system rejects the change and identifies the conflicting or missing data.
 
-Step 5 — Existing confirmed bookings would be invalidated
+
+
+**Step 5 — Existing confirmed bookings would be invalidated**
 The system blocks the change or requires an authorized operational handling path before saving.
 
-Step 6 — Manager cancelsNo schedule change is saved.
 
-Step 8 — Klook synchronization failsThe Mland schedule remains the source-of-truth update and the failed synchronization is queued for retry.
 
+**Step 6 — Manager cancelsNo schedule change is saved.**
+**Step 8 — Klook synchronization failsThe Mland schedule remains the source-of-truth update and the failed synchronization is queued for retry.**
 #### Postconditions
 
 • The schedule is created or updated with its branch, date, session, and operational state.• Existing bookings are protected from an unsafe schedule change.• An enabled schedule update may be sent to Klook through UC27.

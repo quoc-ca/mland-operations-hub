@@ -22,7 +22,7 @@ As a Guest or Member, I want to pay the required workshop deposit through VNPay 
 
 #### Normal Flow
 
-Pay Workshop Deposit
+**Pay Workshop Deposit**
 1. The actor reviews the pending booking and deposit amount.
 2. The actor starts payment for the workshop deposit.
 3. The system creates a VNPay payment request for the required 50% deposit and redirects the actor to VNPay.
@@ -39,30 +39,42 @@ Pay Workshop Deposit
 
 
 
-
-
-Step 3 — Payment request cannot be created
+**Step 3 — Payment request cannot be created**
 The system displays an error and keeps the booking unconfirmed. The actor may retry while the capacity hold remains active.
 
-Step 4 — Actor cancels or abandons payment
+
+
+**Step 4 — Actor cancels or abandons payment**
 The system keeps the booking in payment-pending/unconfirmed status. The capacity hold remains only until its expiry time.
 
-Step 6 — VNPay confirmation is invalid or the amount does not match
+
+
+**Step 6 — VNPay confirmation is invalid or the amount does not match**
 The system rejects the confirmation, records the failed/invalid result for audit purposes, and does not confirm the booking.
 
-Step 6 — Browser Return URL is received without valid server-side confirmation
+
+
+**Step 6 — Browser Return URL is received without valid server-side confirmation**
 The system does not treat the redirect as payment confirmation. The booking remains unconfirmed until a valid signed IPN or approved signed recovery result is received.
 
-Step 6 — Duplicate payment event
+
+
+**Step 6 — Duplicate payment event**
 The system ignores the duplicate event and does not create a second transaction or alter the already recorded result.
 
-Step 6 — Payment is pending or failed
-The system displays the pending/failed status and keeps the booking unconfirmed. The actor may retry if the hold is still active.After 
 
-Step 6 — Hold or payment link has expired
+
+**Step 6 — Payment is pending or failed**
+The system displays the pending/failed status and keeps the booking unconfirmed. The actor may retry if the hold is still active.After
+
+
+
+**Step 6 — Hold or payment link has expired**
 The system rejects late confirmation and releases the temporary capacity hold. The actor must create a new booking if they want to try again.
 
-Step 10 — Confirmation notification cannot be sent
+
+
+**Step 10 — Confirmation notification cannot be sent**
 The booking remains confirmed and the system records the notification failure for retry or operational follow-up.
 
 #### Postconditions

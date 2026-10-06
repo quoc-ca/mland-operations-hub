@@ -20,7 +20,8 @@ As a Guest or Member, I want to view the complete details of a workshop package 
 
 #### Normal Flow
 
-View Workshop Package Details
+**View Workshop Package Details**
+
 1. The actor selects a published package from the Browse Workshop Packages page.
 2. The system retrieves the package details and associated published information.
 3. The system displays the package name, overview, price, currency, duration, deposit information, included materials, available tools, supported workshop/design information, and applicable terms.
@@ -30,25 +31,27 @@ View Workshop Package Details
 
 #### Alternative Flows
 
+**Step 1 — Invalid or missing package identifier**
 
-
-
-
-Step 1 — Invalid or missing package identifier
 The system displays a not-found message and provides a link to the Workshop Packages page.
 
-Step 2 — Package is unpublished, inactive, or no longer available
+**Step 2 — Package is unpublished, inactive, or no longer available**
+
 The system does not display the package details and informs the actor that the package is unavailable. The actor may return to the package list.
 
-Step 2 — Associated detail data is incomplete
+**Step 2 — Associated detail data is incomplete**
+
 The system displays the available package information, marks unavailable fields appropriately, and does not invent missing materials, tools, or terms.
 
-Step 2 — Package retrieval fails
+**Step 2 — Package retrieval fails**
+
 The system displays an error message and allows the actor to retry or return to the package list.
 
 #### Postconditions
 
-• The actor views the latest available details of the selected workshop package, or an appropriate unavailable/error state.• No booking, invoice, payment, seat hold, or package-price snapshot is created.• The actor may return to the package list or continue to UC17 Create Workshop Booking.
+- The actor views the latest available details of the selected workshop package, or an appropriate unavailable/error state.
+- No booking, invoice, payment, seat hold, or package-price snapshot is created.
+- The actor may return to the package list or continue to UC17 Create Workshop Booking.
 
 #### Business Rules
 

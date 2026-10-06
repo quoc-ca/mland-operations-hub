@@ -20,7 +20,7 @@ Allows the Admin to configure operational values used by custom manufacturing, l
 
 #### Normal Flow
 
-Configure System Operational Parameters
+**Configure System Operational Parameters**
 1. The Admin opens operational parameter configuration.
 2. The system displays the current values and their descriptions.
 3. The Admin edits one or more values, such as minimum deadline, unavailable dates, queue size, loyalty rate, point value, or discount cap.
@@ -32,18 +32,22 @@ Configure System Operational Parameters
 
 
 
-
-
-Step 4 — Value is invalid or outside the permitted range
+**Step 4 — Value is invalid or outside the permitted range**
 The system displays field-level validation errors and does not save the invalid value.
 
-Step 4 — Values are inconsistent
+
+
+**Step 4 — Values are inconsistent**
 The system identifies the dependency, such as a discount cap exceeding the permitted limit, and asks the Admin to correct it.
 
-Step 5 — Admin cancels
+
+
+**Step 5 — Admin cancels**
 No parameter is changed.
 
-Step 6 — Save fails
+
+
+**Step 6 — Save fails**
 The system displays an error and preserves the previous configuration.
 
 #### Postconditions

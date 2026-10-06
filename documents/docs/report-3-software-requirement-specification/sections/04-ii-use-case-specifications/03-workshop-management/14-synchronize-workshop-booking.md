@@ -20,7 +20,7 @@ Sends enabled confirmed Mland workshop-booking updates to Klook and records Kloo
 
 #### Normal Flow
 
-Synchronize Workshop Booking
+**Synchronize Workshop Booking**
 1. The system detects a confirmed Mland booking or an approved Klook confirmation callback.
 2. The system verifies that the booking was confirmed through the required Mland availability/hold flow.
 3. The system builds the enabled booking synchronization payload.
@@ -32,18 +32,22 @@ Synchronize Workshop Booking
 
 
 
-
-
-Step 2 — Booking has no valid Mland hold/confirmation
+**Step 2 — Booking has no valid Mland hold/confirmation**
 The system rejects the synchronization and does not consume capacity or confirm the booking.
 
-Step 3 — Required booking data is missing
+
+
+**Step 3 — Required booking data is missing**
 The system records a validation failure and queues the booking for operational correction.
 
-Step 4 — Klook rejects or cannot receive the update
+
+
+**Step 4 — Klook rejects or cannot receive the update**
 The system records the failure and retries without creating a duplicate booking.
 
-Step 5 — Duplicate event
+
+
+**Step 5 — Duplicate event**
 The system returns the previously recorded result and does not create a second booking or capacity deduction.Klook cancellation receivedThe system does not consume the cancellation event or automatically release Mland capacity.
 
 #### Postconditions
