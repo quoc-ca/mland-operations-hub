@@ -6,7 +6,7 @@ Guest, Member.
 
 #### Secondary Actors
 
-Cloud Storage Service — supplies catalogue media; provider selection is deferred to the plan; approved catalogue-media access and retention rules apply.
+Cloud Storage Service.
 
 #### Description
 

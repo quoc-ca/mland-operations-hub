@@ -6,7 +6,7 @@ Staff; Manager only with explicit applicable product-creation delegation.
 
 #### Secondary Actors
 
-Cloud Storage Service — supports submitted catalogue media; provider selection is deferred to the plan; approved catalogue-media access and retention rules apply.
+Cloud Storage Service.
 
 #### Description
 

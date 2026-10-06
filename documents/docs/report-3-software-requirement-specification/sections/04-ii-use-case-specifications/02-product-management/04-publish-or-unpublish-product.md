@@ -2,11 +2,11 @@
 
 #### Primary Actors
 
-Staff; Manager only with explicit applicable publication delegation.
+Staff; Manager.
 
 #### Secondary Actors
 
-Cloud Storage Service — catalogue-media dependency for publication; provider selection is deferred to the plan; approved catalogue-media access and retention rules apply.
+Cloud Storage Service.
 
 #### Description
 
