@@ -2,7 +2,7 @@
 
 #### Primary Actors
 
-Guest, Member; Staff, Manager, and Admin may also browse the same public content.
+Guest, Member.
 
 #### Secondary Actors
 
