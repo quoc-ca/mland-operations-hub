@@ -269,6 +269,27 @@ This heading remains outside the generated table.
         self.assertEqual(len(rows), 7)
         self.assertEqual(len(rows[0].findall("w:tc", namespace)), 4)
         self.assertTrue(all(len(row.findall("w:tc", namespace)) == 2 for row in rows[1:]))
+        first_row_labels = [
+            "".join(node.text or "" for node in rows[0].findall(f"w:tc[{index}]//w:t", namespace))
+            for index in (1, 3)
+        ]
+        remaining_row_labels = [
+            "".join(node.text or "" for node in row.findall("w:tc[1]//w:t", namespace))
+            for row in rows[1:]
+        ]
+        self.assertEqual(
+            first_row_labels + remaining_row_labels,
+            [
+                "Primary Actors",
+                "Secondary Actors",
+                "Description",
+                "Preconditions",
+                "Postconditions",
+                "Normal Flows",
+                "Alternative Flows",
+                "Business Rules",
+            ],
+        )
         span = rows[1].find(".//w:gridSpan", namespace)
         self.assertIsNotNone(span)
         self.assertEqual(span.attrib.get(f"{{{namespace['w']}}}val"), "3")
