@@ -32,11 +32,11 @@ As a Guest or Member, I want to browse published workshop packages so that I can
 
 #### Alternative Flows
 
-**Step 5 — No matching package exists**
+**Step 5 — matching package exists**
 
 The system displays an empty-result message and allows the actor to change or clear the search/filter criteria.
 
-**Step 5 — A package is inactive, unpublished, or no longer available**
+**Step 5 — package is inactive, unpublished, or no longer available**
 
 The system excludes the package from refreshed results and informs the actor that the catalogue has changed.
 
