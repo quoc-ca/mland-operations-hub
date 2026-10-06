@@ -20,9 +20,18 @@ As a Guest or Member, I want to create a workshop booking by selecting a publish
 4. Capacity is configured for the selected location and session.
 5. The actor has the required contact and participant information. A Member may use verified profile information; a Guest must provide the required contact details.
 
+
+#### Postconditions
+
+- A booking and package invoice are created with payment-pending status.
+- The required deposit is calculated as 50% of the selected package price.
+- The selected capacity is held temporarily for the payment window.
+- The booking remains unconfirmed until UC18 Pay Workshop Deposit receives valid payment confirmation.
+
 #### Normal Flow
 
 **Create Workshop Booking**
+
 1. The actor selects a workshop location.
 2. The actor selects a date and one available daily session.
 3. The actor selects a published workshop package.
@@ -37,56 +46,41 @@ As a Guest or Member, I want to create a workshop booking by selecting a publish
 
 #### Alternative Flows
 
+**Step 3 — Package is invalid, unpublished, or unavailable**
 
-
-**Step 3 — Package is invalid, unpublished, or unavailable**
 The system rejects the selection and asks the actor to choose another published package.
 
+**Step 4 — Capacity is not configured**
 
-
-**Step 4 — Capacity is not configured**
 The system cannot create the booking and informs the actor that the selected session is not available for booking. The actor must select another session or location.
 
+**Step 4 — Insufficient capacity**
 
-
-**Step 4 — Insufficient capacity**
 The system rejects the selection, releases any provisional selection, and asks the actor to choose another session or reduce the participant count.
 
+**Step 6 — Required contact or participant information is missing or invalid**
 
-
-**Step 6 — Required contact or participant information is missing or invalid**
 The system displays validation errors and keeps the actor on the booking form until the information is corrected.
 
+**Step 7 — Selected design path is not supported**
 
-
-**Step 7 — Selected design path is not supported**
 The system rejects the design selection and asks the actor to choose another supported design path or continue without a design request.
 
+**Step 8 — Design request is rejected**
 
-
-**Step 8 — Design request is rejected**
 The system does not create the booking and asks the actor to select another design choice or continue without the rejected design path.
 
+**Step 9 — Actor abandons or cancels before submission**
 
-
-**Step 9 — Actor abandons or cancels before submission**
 The system creates no booking, invoice, or capacity hold.
 
+**Step 10 — Booking creation fails**
 
-
-**Step 10 — Booking creation fails**
 The system displays an error, creates no incomplete customer-facing booking, and allows the actor to retry.
 
-After
+**Step 11 — Deposit is not validly confirmed within the hold window**
 
-
-
-**Step 11 — Deposit is not validly confirmed within the hold window**
 The booking remains unconfirmed and the temporary capacity hold is released. Payment handling continues under UC18 Pay Workshop Deposit.
-
-#### Postconditions
-
-• A booking and package invoice are created with payment-pending status when the selected session can accept the requested participants.• The required deposit is calculated as 50% of the selected package price.• The selected seat capacity is held temporarily for the payment window, for at most 15 minutes.• The booking remains unconfirmed until UC18 Pay Workshop Deposit receives valid payment confirmation.• If the design path is used, its request and outcome are associated with the booking.
 
 #### Business Rules
 

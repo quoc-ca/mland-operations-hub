@@ -18,9 +18,17 @@ Exchanges enabled workshop availability updates with Klook while Mland remains t
 2. Mland has a current schedule, capacity, and availability state.
 3. The schedule or synchronization job is enabled.
 
+
+#### Postconditions
+
+- The enabled availability update and synchronization result are recorded.
+- Mland capacity and holds remain authoritative.
+- A failed synchronization does not overwrite Mland availability.
+
 #### Normal Flow
 
 **Synchronize Workshop Schedule**
+
 1. The Manager saves a schedule/capacity change or the synchronization job starts.
 2. The system selects the affected branch, date, session, capacity, and availability state.
 3. The system builds the approved Klook availability payload.
@@ -30,29 +38,21 @@ Exchanges enabled workshop availability updates with Klook while Mland remains t
 
 #### Alternative Flows
 
+**Step 2 — enabled integration configuration**
 
-
-**Step 2 — enabled integration configuration**
 The system records that synchronization is skipped and keeps Mland operations available.
 
+**Step 4 — Klook rejects or cannot receive the update**
 
-
-**Step 4 — Klook rejects or cannot receive the update**
 The system records the failure and schedules a retry without changing Mland capacity.
 
+**Step 5 — Response is invalid or duplicated**
 
-
-**Step 5 — Response is invalid or duplicated**
 The system does not apply an ambiguous response and records the issue for reconciliation.
 
+**Step 6 — Klook requests confirmation without an Mland hold**
 
-
-**Step 6 — Klook requests confirmation without an Mland hold**
 The system rejects the confirmation path because Mland must authorize availability first.
-
-#### Postconditions
-
-• An enabled availability update is sent to Klook and the synchronization result is recorded.• Mland capacity and holds remain authoritative.• A failed synchronization is available for retry and does not overwrite Mland availability.
 
 #### Business Rules
 

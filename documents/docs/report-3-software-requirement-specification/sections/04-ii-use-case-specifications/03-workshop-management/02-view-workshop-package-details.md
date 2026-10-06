@@ -18,9 +18,17 @@ As a Guest or Member, I want to view the complete details of a workshop package 
 2. The actor has opened a published workshop package from the workshop package catalogue or has accessed its valid package link.
 3. The requested package exists and is currently available for public viewing.
 
+
+#### Postconditions
+
+- The actor views the latest available details of the selected workshop package, or an appropriate unavailable/error state.
+- No booking, invoice, payment, seat hold, or package-price snapshot is created.
+- The actor may return to the package list or continue to UC17 Create Workshop Booking.
+
 #### Normal Flow
 
 **View Workshop Package Details**
+
 
 1. The actor selects a published package from the Browse Workshop Packages page.
 2. The system retrieves the package details and associated published information.
@@ -46,12 +54,6 @@ The system displays the available package information, marks unavailable fields 
 **Step 2 — Package retrieval fails**
 
 The system displays an error message and allows the actor to retry or return to the package list.
-
-#### Postconditions
-
-- The actor views the latest available details of the selected workshop package, or an appropriate unavailable/error state.
-- No booking, invoice, payment, seat hold, or package-price snapshot is created.
-- The actor may return to the package list or continue to UC17 Create Workshop Booking.
 
 #### Business Rules
 
