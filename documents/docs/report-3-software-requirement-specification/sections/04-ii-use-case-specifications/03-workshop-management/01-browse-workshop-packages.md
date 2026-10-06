@@ -18,6 +18,13 @@ As a Guest or Member, I want to browse published workshop packages so that I can
 2. The actor can access the public workshop catalogue without authentication.
 3. Workshop package data has been configured in the catalogue.
 
+
+#### Postconditions
+
+- The actor views matching published workshop packages, or an appropriate empty/error state.
+- No booking, invoice, payment, seat hold, or package-price snapshot is created.
+- The actor may continue to UC16 View Workshop Package Details or UC17 Create Workshop Booking.
+
 #### Normal Flow
 
 **Browse Workshop Packages**
@@ -32,6 +39,14 @@ As a Guest or Member, I want to browse published workshop packages so that I can
 
 #### Alternative Flows
 
+**Step 2 — Catalogue retrieval fails**
+
+The system displays an error message and allows the actor to retry.
+
+**Step 4 — Invalid or unsupported search/filter criteria**
+
+The system rejects the criteria, displays a validation message, and keeps the actor on the Browse Workshop Packages page.
+
 **Step 5 — matching package exists**
 
 The system displays an empty-result message and allows the actor to change or clear the search/filter criteria.
@@ -40,28 +55,14 @@ The system displays an empty-result message and allows the actor to change or cl
 
 The system excludes the package from refreshed results and informs the actor that the catalogue has changed.
 
-**Step 4 — Invalid or unsupported search/filter criteria**
-
-The system rejects the criteria, displays a validation message, and keeps the actor on the Browse Workshop Packages page.
-
-**Step 2 — Catalogue retrieval fails**
-
-The system displays an error message and allows the actor to retry.
-
-#### Postconditions
-
-- The actor views matching published workshop packages, or an appropriate empty/error state.
-- No booking, invoice, payment, seat hold, or package-price snapshot is created.
-- The actor may continue to UC16 View Workshop Package Details or UC17 Create Workshop Booking.
-
 #### Business Rules
 
 BR-15-01, BR-15-02, BR-15-03
 
 #### Business Rule Definitions
 
-| ID | Rule Definition |
-|---|---|
-| BR-15-01 | Only workshop packages with a published and active status are displayed to Guests and Members. |
+| ID       | Rule Definition                                                                                                        |
+| -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| BR-15-01 | Only workshop packages with a published and active status are displayed to Guests and Members.                         |
 | BR-15-02 | Browsing workshop packages is read-only; it does not create a booking, invoice, payment, seat hold, or price snapshot. |
-| BR-15-03 | A workshop package must be selected before the actor proceeds to the workshop booking flow. |
+| BR-15-03 | A workshop package must be selected before the actor proceeds to the workshop booking flow.                            |

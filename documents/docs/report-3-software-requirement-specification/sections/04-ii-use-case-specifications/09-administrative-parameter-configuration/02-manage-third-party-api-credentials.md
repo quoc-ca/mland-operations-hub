@@ -18,9 +18,17 @@ Allows the Admin to maintain approved credentials, endpoints, and activation sta
 2. The target integration type is supported by the platform.
 3. The Admin has received valid credentials and endpoint information through an approved operational channel.
 
+
+#### Postconditions
+
+- Valid credentials and endpoints are stored securely for the selected integration.
+- Secrets are masked and excluded from logs.
+- The integration is enabled only after validation succeeds.
+
 #### Normal Flow
 
 **Manage Third-Party API Credentials**
+
 1. The Admin opens third-party integration configuration.
 2. The system displays supported integrations and masked current configuration.
 3. The Admin selects an integration and enters or updates its endpoint, credentials, and active state.
@@ -31,43 +39,21 @@ Allows the Admin to maintain approved credentials, endpoints, and activation sta
 
 #### Alternative Flows
 
-**
-
-
-
-**Step 3 — Unsupported integration or missing required field****
-The system rejects the configuration and identifies the missing/unsupported data.
+**Step 3 — Unsupported integration or missing required field**
 
 **
 
-
-
-**Step 5 — Credential or endpoint test fails****
-The system reports the failure and does not activate the new configuration.
+**Step 5 — Credential or endpoint test fails**
 
 **
 
-
-
-**Step 6 — Admin cancels****
-No credential change is saved.
+**Step 6 — Admin cancels**
 
 **
 
+**Step 7 — Secure storage fails**
 
-
-**Step 7 — Secure storage fails****
-The system does not activate the credential and displays an operational error.
-
-**Credential rotation**
-The system replaces the active secret only after the new configuration is valid and retains an audit record of the rotation.
-
-#### Postconditions
-
-- Valid credentials and endpoints are stored securely and associated with the selected integration.
-- Secrets are masked in the user interface and are not exposed in logs.
-- The integration is enabled only after validation or an explicit approved activation decision.
-- Previous credentials remain recoverable through audit/rotation history according to retention policy.
+**
 
 #### Business Rules
 

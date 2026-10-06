@@ -1,12 +1,12 @@
 ## 1. Manual Multi-Channel Coordination {#manual-multi-channel-coordination}
 
-This representative workaround combines direct messages, calls, and informal records to receive bookings and discuss a customer's ring idea. It is familiar to small workshop teams because it can begin immediately with tools they already use, but the booking, design, estimate, and order context remain fragmented.
+This representative workaround uses channels such as Instagram, WhatsApp, phone calls, and informal notes to receive booking requests and discuss a customer's ring idea. A customer may send an incomplete description, a reference image, or preferred materials and components, then refine the request through several conversations. Staff must clarify the requirements, check whether the design appears feasible, arrange a workshop session or shop-made order, prepare an estimate, and follow up on payment and fulfilment. The process is easy to start, but the booking, customization, feasibility, estimate, and order context remain fragmented across channels and depend heavily on the Staff member handling the conversation.
 
-| Attribute | Description |
-| --- | --- |
-| Website or link | N/A - representative manual process |
-| Target users | Workshop customers and staff handling booking or consultation informally |
-| Core features | Calls or messages for booking requests, design discussion, and quote follow-up; notes for records |
-| Strengths | Low initial cost, flexible customer conversation, and no formal training requirement |
-| Weaknesses | No shared session availability, inconsistent design and estimate records, and high dependence on individual staff members |
-| Gap for this project | It cannot connect group-session booking, design feasibility, estimate, order status, and final-price consent in one traceable customer journey. |
+| Attribute            | Description                                                                                                                                                                                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Website or link      | N/A - representative manual process                                                                                                                                                                                                                   |
+| Target users         | Workshop customers and staff handling booking or consultation informally                                                                                                                                                                              |
+| Core features        | Direct messages and calls for booking requests, reference-image or component discussions, clarification, estimate follow-up, payment reminders, and order-status communication; informal notes preserve selected details                              |
+| Strengths            | Low initial cost, familiar communication channels, flexible consultation, and no formal training requirement                                                                                                                                          |
+| Weaknesses           | No shared bilingual booking path, no structured customization record, repeated clarification, inconsistent feasibility and estimate information, limited visibility of session availability, and high dependence on individual Staff memory and notes |
+| Gap for this project | It cannot reliably connect a customer's design input with branch/session availability, feasibility review, estimate, payment, order status, fulfilment, and final-price consent in one traceable journey.                                             |
