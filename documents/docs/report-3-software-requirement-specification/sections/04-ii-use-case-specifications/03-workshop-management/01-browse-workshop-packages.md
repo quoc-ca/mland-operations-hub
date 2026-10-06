@@ -18,6 +18,13 @@ As a Guest or Member, I want to browse published workshop packages so that I can
 2. The actor can access the public workshop catalogue without authentication.
 3. Workshop package data has been configured in the catalogue.
 
+
+#### Postconditions
+
+- The actor views matching published workshop packages, or an appropriate empty/error state.
+- No booking, invoice, payment, seat hold, or package-price snapshot is created.
+- The actor may continue to UC16 View Workshop Package Details or UC17 Create Workshop Booking.
+
 #### Normal Flow
 
 **Browse Workshop Packages**
@@ -47,12 +54,6 @@ The system displays an empty-result message and allows the actor to change or cl
 **Step 5 — package is inactive, unpublished, or no longer available**
 
 The system excludes the package from refreshed results and informs the actor that the catalogue has changed.
-
-#### Postconditions
-
-- The actor views matching published workshop packages, or an appropriate empty/error state.
-- No booking, invoice, payment, seat hold, or package-price snapshot is created.
-- The actor may continue to UC16 View Workshop Package Details or UC17 Create Workshop Booking.
 
 #### Business Rules
 

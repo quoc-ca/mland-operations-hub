@@ -18,6 +18,12 @@ Allows a customer to retrieve a workshop booking by reference code and view its 
 2. The customer has a booking reference code.
 3. The booking exists and is eligible for customer lookup.
 
+
+#### Postconditions
+
+- The system displays booking details and the QR ticket when the reference is valid.
+- No booking, payment, capacity, or check-in data is changed.
+
 #### Normal Flow
 
 **Look Up Booking Details**
@@ -45,10 +51,6 @@ The system displays the current payment/booking status and omits the QR ticket u
 **Step 3 — Lookup fails**
 
 The system displays an error and allows the customer to retry.
-
-#### Postconditions
-
-• The system displays the booking details and QR ticket when the reference is valid.• No booking, payment, capacity, or check-in data is changed.
 
 #### Business Rules
 

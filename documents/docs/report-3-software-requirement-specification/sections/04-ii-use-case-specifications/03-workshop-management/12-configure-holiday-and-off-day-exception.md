@@ -18,6 +18,13 @@ Allows the Manager to configure holidays, closures, off-days, capacity overrides
 2. The exception date and applicable location/session scope are valid.
 3. The Manager has reviewed any existing bookings affected by the exception.
 
+
+#### Postconditions
+
+- The calendar exception is saved with its scope and active state.
+- A closed date/session is removed from new booking availability.
+- Existing confirmed bookings are not silently cancelled.
+
 #### Normal Flow
 
 **Configure Holiday and Off-Day Exception**
@@ -44,10 +51,6 @@ The system warns the Manager and requires an authorized operational decision bef
 **Step 6 — Save fails**
 
 The system displays an error and leaves the previous calendar state unchanged.
-
-#### Postconditions
-
-• The calendar exception is saved with its scope, active state, and optional capacity override.• A closed date/session is removed from new public booking availability.• Existing confirmed bookings are not silently cancelled.
 
 #### Business Rules
 

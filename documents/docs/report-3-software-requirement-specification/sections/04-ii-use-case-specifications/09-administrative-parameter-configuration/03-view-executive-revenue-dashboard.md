@@ -18,6 +18,13 @@ Allows the Manager to view consolidated business analytics, workshop utilization
 2. The platform is available.
 3. The selected reporting period and branch scope are valid.
 
+
+#### Postconditions
+
+- The system displays dashboard metrics for the selected period and scope.
+- No booking, order, payment, or operational master data is changed.
+- Missing or delayed metrics are clearly identified.
+
 #### Normal Flow
 
 **View Executive Revenue Dashboard**
@@ -46,10 +53,6 @@ The system displays an error or data-unavailable indicator and allows the Manage
 **Step 5 — Partial data source is unavailable**
 
 The system marks the affected KPI as incomplete and does not represent it as fully consolidated.
-
-#### Postconditions
-
-• The system displays the dashboard metrics and visualizations for the selected scope and period.• No booking, order, payment, or operational master data is changed.• Any unavailable or delayed metric is identified rather than presented as a confirmed value.
 
 #### Business Rules
 

@@ -18,6 +18,13 @@ Sends enabled confirmed Mland workshop-booking updates to Klook and records Kloo
 2. A Mland booking is confirmed or a Klook booking has passed the Mland availability/hold confirmation flow.
 3. The booking payload contains the required branch, session, participant, and reference information.
 
+
+#### Postconditions
+
+- The eligible booking synchronization result is recorded with an idempotency reference.
+- Mland booking and capacity state remains consistent.
+- Klook cancellation events do not automatically release Mland capacity in V1.
+
 #### Normal Flow
 
 **Synchronize Workshop Booking**
@@ -46,10 +53,6 @@ The system records the failure and retries without creating a duplicate booking.
 **Step 5 — Duplicate event**
 
 The system returns the previously recorded result and does not create a second booking or capacity deduction.Klook cancellation receivedThe system does not consume the cancellation event or automatically release Mland capacity.
-
-#### Postconditions
-
-• The eligible booking synchronization result is recorded with an idempotency/correlation reference.• Mland booking and capacity state remains consistent with the confirmed flow.• Klook cancellation events are not consumed or used to release Mland capacity in V1.
 
 #### Business Rules
 

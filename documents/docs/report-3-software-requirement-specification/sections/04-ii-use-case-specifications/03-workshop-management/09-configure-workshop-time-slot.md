@@ -18,6 +18,13 @@ Allows the Manager to define the standard daily operating timeframes used when w
 2. The platform is available.
 3. The proposed time range uses the configured business timezone.
 
+
+#### Postconditions
+
+- A valid standard time slot is created, updated, activated, or deactivated.
+- Existing schedules are not silently changed by a configuration edit.
+- New schedule availability uses the active time-slot configuration.
+
 #### Normal Flow
 
 **Configure Workshop Time Slot**
@@ -46,10 +53,6 @@ The system warns the Manager and requires an explicit confirmation or prevents d
 **Step 6 — Save fails**
 
 The system displays an error and preserves the previous configuration.
-
-#### Postconditions
-
-• A valid standard time slot is created, updated, activated, or deactivated.• Existing schedules are not silently changed by a configuration edit.• New schedule availability uses the active time-slot configuration.
 
 #### Business Rules
 

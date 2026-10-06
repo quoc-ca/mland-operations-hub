@@ -18,6 +18,13 @@ Allows the Admin to maintain approved credentials, endpoints, and activation sta
 2. The target integration type is supported by the platform.
 3. The Admin has received valid credentials and endpoint information through an approved operational channel.
 
+
+#### Postconditions
+
+- Valid credentials and endpoints are stored securely for the selected integration.
+- Secrets are masked and excluded from logs.
+- The integration is enabled only after validation succeeds.
+
 #### Normal Flow
 
 **Manage Third-Party API Credentials**
@@ -47,13 +54,6 @@ Allows the Admin to maintain approved credentials, endpoints, and activation sta
 **Step 7 — Secure storage fails**
 
 **
-
-#### Postconditions
-
-- Valid credentials and endpoints are stored securely and associated with the selected integration.
-- Secrets are masked in the user interface and are not exposed in logs.
-- The integration is enabled only after validation or an explicit approved activation decision.
-- Previous credentials remain recoverable through audit/rotation history according to retention policy.
 
 #### Business Rules
 

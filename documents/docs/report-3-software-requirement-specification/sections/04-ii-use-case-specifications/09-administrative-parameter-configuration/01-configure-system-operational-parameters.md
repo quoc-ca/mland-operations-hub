@@ -18,6 +18,13 @@ Allows the Admin to configure operational values used by custom manufacturing, l
 2. The platform is available.
 3. The parameter definitions and permitted value ranges are configured by the system.
 
+
+#### Postconditions
+
+- Valid parameter values are saved with the Admin actor and change time recorded.
+- Subsequent applicable workflows use the new values.
+- Invalid or incomplete values do not overwrite the previous configuration.
+
 #### Normal Flow
 
 **Configure System Operational Parameters**
@@ -46,10 +53,6 @@ No parameter is changed.
 **Step 6 — Save fails**
 
 The system displays an error and preserves the previous configuration.
-
-#### Postconditions
-
-• Valid parameter values are saved with the Admin actor and change time recorded.• Subsequent applicable workflows use the new values.• Invalid or incomplete values do not overwrite the previous configuration.
 
 #### Business Rules
 

@@ -18,6 +18,13 @@ Allows the Manager to assign qualified Staff members as instructors or goldsmith
 2. The workshop slot exists.
 3. Candidate Staff accounts are active and eligible for workshop operations.
 
+
+#### Postconditions
+
+- The selected Staff assignment is saved for the workshop slot.
+- The assignment is visible to authorized operational users.
+- Conflicting or inactive assignments are not saved.
+
 #### Normal Flow
 
 **Assign Staff to Workshop Slot**
@@ -46,10 +53,6 @@ The system removes it only after confirmation and records the change.
 **Step 6 — Save fails**
 
 The system displays an error and preserves the previous assignment state.
-
-#### Postconditions
-
-• The selected Staff assignment is saved for the workshop slot.• The assignment is visible to authorized operational users.• Conflicting or inactive assignments are not saved.
 
 #### Business Rules
 

@@ -18,6 +18,13 @@ Allows the Manager to set the maximum seat capacity and participant limits for a
 2. The target branch and workshop session exist.
 3. Capacity values use the configured participant-count policy.
 
+
+#### Postconditions
+
+- The capacity configuration is saved for the selected location/session.
+- Public and integration availability uses the validated capacity.
+- Existing confirmed bookings are not deleted or silently reduced.
+
 #### Normal Flow
 
 **Configure Workshop Slot Capacity**
@@ -42,10 +49,6 @@ The system displays validation errors and asks the Manager to correct the values
 **Step 6 — Save fails**
 
 The system displays an error and leaves the previous capacity unchanged.
-
-#### Postconditions
-
-• The capacity configuration is saved for the selected location/session.• Public and integration availability uses the new capacity after validation.• Existing confirmed bookings are not deleted or silently reduced below their committed participant count.
 
 #### Business Rules
 

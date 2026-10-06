@@ -20,6 +20,13 @@ As a Guest or Member, I want to pay the required workshop deposit through VNPay 
 4. The required deposit amount is available and equals 50% of the selected package price.
 5. VNPay credentials and the payment endpoint are configured.
 
+
+#### Postconditions
+
+- A valid deposit transaction marks the invoice as paid and the booking as confirmed.
+- A booking code and QR check-in ticket are generated after confirmation.
+- Invalid, failed, pending, or expired payment leaves the booking unconfirmed.
+
 #### Normal Flow
 
 **Pay Workshop Deposit**
@@ -69,10 +76,6 @@ The system rejects late confirmation and releases the temporary capacity hold. T
 **Step 10 — Confirmation notification cannot be sent**
 
 The booking remains confirmed and the system records the notification failure for retry or operational follow-up.
-
-#### Postconditions
-
-• If valid payment confirmation is received, exactly one deposit transaction is recorded, the invoice deposit is marked paid, and the booking is confirmed.• A booking reference code and QR check-in ticket are generated for a confirmed booking.• A confirmation notification is sent to the booking contact email.• If payment is pending, failed, expired, invalid, or duplicated, the booking remains unconfirmed and the capacity hold is released when its hold window expires.
 
 #### Business Rules
 

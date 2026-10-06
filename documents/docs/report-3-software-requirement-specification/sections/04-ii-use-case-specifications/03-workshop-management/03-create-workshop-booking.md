@@ -20,6 +20,14 @@ As a Guest or Member, I want to create a workshop booking by selecting a publish
 4. Capacity is configured for the selected location and session.
 5. The actor has the required contact and participant information. A Member may use verified profile information; a Guest must provide the required contact details.
 
+
+#### Postconditions
+
+- A booking and package invoice are created with payment-pending status.
+- The required deposit is calculated as 50% of the selected package price.
+- The selected capacity is held temporarily for the payment window.
+- The booking remains unconfirmed until UC18 Pay Workshop Deposit receives valid payment confirmation.
+
 #### Normal Flow
 
 **Create Workshop Booking**
@@ -73,10 +81,6 @@ The system displays an error, creates no incomplete customer-facing booking, and
 **Step 11 — Deposit is not validly confirmed within the hold window**
 
 The booking remains unconfirmed and the temporary capacity hold is released. Payment handling continues under UC18 Pay Workshop Deposit.
-
-#### Postconditions
-
-• A booking and package invoice are created with payment-pending status when the selected session can accept the requested participants.• The required deposit is calculated as 50% of the selected package price.• The selected seat capacity is held temporarily for the payment window, for at most 15 minutes.• The booking remains unconfirmed until UC18 Pay Workshop Deposit receives valid payment confirmation.• If the design path is used, its request and outcome are associated with the booking.
 
 #### Business Rules
 

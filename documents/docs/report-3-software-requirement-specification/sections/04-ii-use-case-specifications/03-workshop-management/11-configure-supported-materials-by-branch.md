@@ -18,6 +18,13 @@ Allows the Manager to configure which jewelry materials, ring options, and works
 2. The branch and material/ring catalogue entries exist.
 3. The selected material is active and eligible for workshop use.
 
+
+#### Postconditions
+
+- The branch-material and supported-option configuration is saved.
+- New booking and design flows use the branch-specific supported options.
+- Existing bookings retain their recorded selections.
+
 #### Normal Flow
 
 **Configure Supported Materials by Branch**
@@ -46,10 +53,6 @@ The system prevents removal from historical booking data and deactivates it only
 **Step 6 — Save fails**
 
 The system displays an error and preserves the prior branch configuration.
-
-#### Postconditions
-
-• The branch-material and supported-option configuration is saved.• Booking and design selection flows use the branch-specific supported options.• Existing bookings retain their recorded selections.
 
 #### Business Rules
 

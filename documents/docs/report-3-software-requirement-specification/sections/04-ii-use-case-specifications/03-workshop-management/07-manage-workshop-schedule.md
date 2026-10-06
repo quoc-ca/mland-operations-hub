@@ -18,6 +18,13 @@ Allows the Manager to create, view, modify, or cancel workshop calendar sessions
 2. Branches, standard time slots, and required operational configuration are available.
 3. The requested schedule change is within the configured planning rules.
 
+
+#### Postconditions
+
+- The schedule is created or updated with its branch, date, session, and operational state.
+- Existing bookings are protected from an unsafe schedule change.
+- An enabled schedule update may be synchronized through UC27.
+
 #### Normal Flow
 
 **Manage Workshop Schedule**
@@ -44,10 +51,6 @@ The system blocks the change or requires an authorized operational handling path
 **Step 6 — Manager cancelsNo schedule change is saved.**
 
 **Step 8 — Klook synchronization failsThe Mland schedule remains the source-of-truth update and the failed synchronization is queued for retry.**
-
-#### Postconditions
-
-• The schedule is created or updated with its branch, date, session, and operational state.• Existing bookings are protected from an unsafe schedule change.• An enabled schedule update may be sent to Klook through UC27.
 
 #### Business Rules
 

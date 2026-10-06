@@ -18,6 +18,13 @@ Allows Staff to verify a confirmed workshop booking using its QR code or booking
 2. The workshop session exists.
 3. The customer provides a QR ticket or valid booking code.
 
+
+#### Postconditions
+
+- The confirmed booking is marked checked in with the Staff actor and time recorded.
+- A duplicate check-in is not created.
+- Invalid bookings do not change attendance data.
+
 #### Normal Flow
 
 **Check In Participant**
@@ -46,10 +53,6 @@ The system warns Staff and does not check in the participant without an authoriz
 **Step 5 — Booking is already checked in**
 
 The system displays the existing check-in and does not create a duplicate record.
-
-#### Postconditions
-
-• The confirmed booking is marked checked in with the Staff actor and time recorded.• A duplicate check-in is not created.• If the booking is invalid, no attendance record is changed.
 
 #### Business Rules
 
