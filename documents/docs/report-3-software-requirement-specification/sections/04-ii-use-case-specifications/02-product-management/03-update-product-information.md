@@ -10,7 +10,7 @@ Cloud Storage Service.
 
 #### Description
 
-As an authorized actor, I want to maintain product content, images, predefined variants, quantities, and the proposal/approval/application of variant prices while preserving publication prerequisites and existing purchase terms (UC13).
+As an authorized actor, I want to maintain product content, images, predefined variants, quantities, and the proposal/approval/application of variant prices while preserving publication prerequisites and existing purchase terms.
 
 #### Preconditions
 
@@ -73,11 +73,11 @@ The system rejects the complete save and retains all prior data and publication 
 
 **Step 6 — Quantity reduction below active held quantity**
 
-Under confirmed A-05, the system rejects a value below that variant's active held total; another variant's quantity cannot cover the reduction. It does not delete/release/settle holds. The actor may correct the quantity at Step 4; this rule is confirmed by the user's Q14 approval.
+The system rejects a value below that variant's active held total; another variant's quantity cannot cover the reduction. It does not delete/release/settle holds. The actor may correct the quantity at Step 4.
 
 **Step 6 — Stale conflicting submission**
 
-Under confirmed A-06, the system rejects the later conflicting edit, preserves the accepted state, and asks the actor to reload/review from Step 2. The accepted concurrent change is retained; reload/review is required before resubmission.
+The system rejects the later conflicting edit, preserves the accepted state, and asks the actor to reload/review from Step 2. The accepted concurrent change is retained; reload/review is required before resubmission.
 
 **Step 6 — Unapproved, mismatched, or changed reviewed price terms**
 
@@ -85,7 +85,7 @@ The system rejects application/approval of mismatched variant/configuration/amou
 
 **Steps 4 and 7 — Required media operation or save fails**
 
-The system reports a safe failure, preserves prior catalogue data, retains FAILED evidence, and permits correction/retry. Removing an image reference does not authorize deletion of shared/history media; external image-loss visibility policy remains confirmed A-11 and differs from manual edit rejection.
+The system reports a safe failure, preserves prior catalogue data, retains FAILED evidence, and permits correction/retry. Removing an image reference does not authorize deletion of shared/history media; external image loss changes public visibility without rewriting publication state.
 
 #### Business Rules
 
@@ -95,14 +95,14 @@ BR-13-01, BR-13-02, BR-13-03, BR-13-04, BR-13-05, BR-13-06, BR-13-07, BR-13-08, 
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-13-01 | Staff maintains catalogue data/proposals/application. Only active Manager/OWNER approves prices; other Manager maintenance requires current explicit applicable delegation. Guest/Member/Admin have no business mutation or approval rights. Recheck authority at submission (D-02). |
-| BR-13-02 | Proposal, approval, application, and publication are separate actions. Proposed replacements retain the old applied price/publication. Every initial/replacement sale price needs in-system Manager approval and explicit permitted application; AI/outside-system assertions do not substitute (D-11). |
-| BR-13-03 | Approval binds exact unchanged proposal, variant/configuration, amount/currency, deciding actor, and time. Changed terms require fresh review, preserving earlier terms/decision evidence; a different variant's approval is invalid (D-11). |
-| BR-13-04 | Configured size/engraving combinations are unique within each product, including concurrent changes. After any hold/order use, configuration is immutable even after expiry. A different configuration needs a new nonduplicate variant; approved price/quantity edits remain permitted (D-07/D-09). Mland supplies configured option values, including “Không khắc” (No engraving); initial data remains a dependency (D-06). |
-| BR-13-05 | An accepted save is complete and preserves identity and publication. Reject the entire maintainer edit if its final state breaks published-product prerequisites; retain previous data/flag and audit rejection. Require explicit prior unpublish or valid same-save replacement, never automatic unpublish (D-10). |
-| BR-13-06 | Image references may be added/replaced/reordered/removed with alternative text and unique positions per product. Reference removal does not authorize shared/history media deletion. At most 10 images, 5 MB each, JPEG/PNG/WebP, with alternative text of 1–200 characters. Draft access requires product authority. Keep referenced/history files; delete eligible unreferenced files after 30 days and failed unlinked uploads after 24 hours. Provider selection is deferred to the plan; outage/recovery follows confirmed A-11 (D-04). |
-| BR-13-07 | Manual remaining-unsold quantity belongs to each variant, not a separately editable parent stock total. Quantity changes do not mutate holds or promise physical stock. Confirmed requirement (A-05): reject reductions below the same variant's active held total, without cross-variant substitution. |
-| BR-13-08 | Applied approved prices affect new checkout immediately. Existing valid held orders may pay frozen prices within original 10-minute payment-link and 15-minute hold deadlines; updates neither extend/revive holds nor automatically cancel orders (D-08). Historical names/options/quantity/price/amount remain unchanged. |
-| BR-13-09 | Distinct variants retain distinct hold/order-line identities and frozen option/price snapshots (D-01). Merge same-variant selections only when price/snapshot terms also match (confirmed A-10). Preserve legacy snapshots/holds, and configure reviewed legacy products into variants before new checkout; never guess historical options (D-06). |
-| BR-13-10 | Confirmed requirement (A-06): reject stale conflicting edits with reload/review guidance instead of silent overwrite. Trimmed name is 1–200 characters and description 1–5,000. Proposed/applied prices are positive whole VND, rejecting decimals rather than rounding/converting (D-04). |
-| BR-13-11 | Maintenance/proposal/review/application attempts retain safe normally append-only evidence with actual SUCCESS/REJECTED/FAILED outcomes and five-year business audit retention. Preserve reviewed terms; exclude credentials, tokens, and avoidable personal data. |
+| BR-13-01 | Staff maintains catalogue data and prices; only active Manager approves prices, and other Manager maintenance requires explicit applicable delegation. Guest, Member and Admin cannot mutate products. |
+| BR-13-02 | Price proposal, approval, application and publication are separate; each initial/replacement sale price requires in-system Manager approval and explicit authorized application. |
+| BR-13-03 | Approval binds unchanged proposal, variant/options, amount/currency, deciding actor and time; changed terms require fresh review while preserving earlier evidence. |
+| BR-13-04 | Variant combinations are unique per product; size/engraving becomes immutable after any hold/order use, including expired holds. Different options require a new variant. |
+| BR-13-05 | Reject the entire edit if it breaks published-product prerequisites; require prior explicit unpublish or valid same-save replacement, without automatic unpublish. |
+| BR-13-06 | Image edits require unique positions, alternative text and the shared media policy; removing a reference never authorizes deleting referenced/history files. |
+| BR-13-07 | Variant remaining-unsold quantity must be a nonnegative integer at least equal to that variant’s active held quantity; updates never alter holds or substitute another variant. |
+| BR-13-08 | Applied approved prices affect new checkout immediately; valid holds retain frozen terms within original 10-minute link/15-minute hold deadlines, without extension or automatic cancellation. |
+| BR-13-09 | Distinct variants/terms remain distinct in holds/orders; merge only matching same-variant terms and preserve legacy history without guessed options. |
+| BR-13-10 | Reject stale conflicting edits for reload/review; shared field limits apply and all proposed/applied prices must be positive whole VND without rounding or conversion. |
+| BR-13-11 | Record each attempt and its actual outcome under the shared audit policy. |

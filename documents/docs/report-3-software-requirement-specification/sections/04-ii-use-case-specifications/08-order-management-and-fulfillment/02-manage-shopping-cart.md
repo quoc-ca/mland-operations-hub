@@ -10,7 +10,7 @@ None.
 
 #### Description
 
-As a Member, I want to view my own cart, change quantities and remove lines so that I can review current purchase intent before whole-cart checkout (UC44).
+As a Member, I want to view my own cart, change quantities and remove lines so that I can review current purchase intent before whole-cart checkout.
 
 #### Preconditions
 
@@ -47,15 +47,15 @@ Deny the request without revealing protected cart information or changing it. A 
 
 **Steps 3 and 5 — Catalogue price or availability changed**
 
-Show current indicative values and changed eligibility rather than claiming old-price/hold protection. Whole-cart invalid-line removal/reporting belongs to UC45; require explicit review/resubmission after correction or quote change and reject stale conflicts (confirmed A-01/A-02).
+Show current indicative values and changed eligibility rather than claiming old-price/hold protection. Whole-cart invalid-line removal/reporting belongs to UC45; require explicit review/resubmission after correction or quote change and reject stale conflicts.
 
 **Step 5 — Invalid quantity or unsupported variant**
 
-Reject nonpositive/fractional or unavailable quantity and unsupported configured variants with correction guidance. At most 50 cart/order lines and integer quantity 1–99 per configured variant, aggregated across all same-variant lines regardless of distinct terms; current logical availability remains mandatory. (D04-a). The Member may resume at Step 4 or remove the line.
+Reject nonpositive/fractional or unavailable quantity and unsupported configured variants with correction guidance. Allow at most 50 cart lines and quantity 1–99 per variant across all lines, subject to logical availability. The Member may resume at Step 4 or remove the line.
 
 **Steps 2 and 6 — Retrieval/save failure or stale conflicting edit**
 
-Distinguish failure from an empty cart or accepted edit, preserve established facts and provide safe retry/review guidance. Confirmed A-02 rejects stale conflicting edits; no order/payment/hold is created.
+Distinguish failure from an empty cart or accepted edit, preserve established facts and provide safe retry/review guidance. Reject stale edits and reload current values; no order, payment or hold is created.
 
 #### Business Rules
 
@@ -65,9 +65,9 @@ BR-44-01, BR-44-02, BR-44-03, BR-44-04, BR-44-05, BR-44-06
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-44-01 | Only the active owning Member may read/edit the cart; internal support grants do not permit impersonation or cart mutation (D-01). |
-| BR-44-02 | Displayed cart values are current purchase intent, not frozen order terms or held quantities; checkout revalidates every line. |
-| BR-44-03 | Keep exact variant/options identity; require positive integer quantities and reject unsupported combinations. At most 50 cart/order lines and integer quantity 1–99 per configured variant, aggregated across all same-variant lines regardless of distinct terms; current logical availability remains mandatory. (D04-a). |
-| BR-44-04 | Cart removal/quantity changes do not reprice, release, revive or settle an accepted order/hold; later Member additions are not automatically part of an earlier order. |
-| BR-44-05 | Confirmed behavior (A-02): reject stale conflicts and require review of changed terms. After paid, remove only purchased cart lines unchanged by the Member since checkout. Preserve any subsequently edited or added line entirely; never subtract purchased quantity from a later edit. Frozen orders remain independent of cart edits. Cart expires 30 days after the last Member edit without changing existing orders/holds/payment (A-07/D07-b). |
-| BR-44-06 | Retain safe normally append-only actor/source, target, action/time, actual SUCCESS/REJECTED/FAILED outcome and reason, with permitted references/context. Rejected or failed attempts are not success; exclude credentials, raw tokens and avoidable personal data. Business audit follows five-year retention without extending recipient-data retention. |
+| BR-44-01 | Only the active owning Member may read/edit the cart; support access grants no impersonation or mutation. |
+| BR-44-02 | Cart values represent current intent; checkout revalidates every line before freezing purchase terms or reserving quantities. |
+| BR-44-03 | Use configured variants, at most 50 lines and positive integer quantities totaling at most 99 per variant, subject to logical availability. |
+| BR-44-04 | Cart edits never change accepted orders/holds or include later additions in earlier purchases. |
+| BR-44-05 | Reject stale conflicts; after payment remove only unchanged purchased lines, preserve later edits/additions, and expire cart 30 days after the last Member edit. |
+| BR-44-06 | Record each attempt and its actual outcome under the shared audit policy. |
