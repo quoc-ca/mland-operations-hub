@@ -10,7 +10,7 @@ Mail Gateway.
 
 #### Description
 
-As an authorized shop actor, I want to record the next permitted internal readiness milestone so that the selected pickup or carrier workflow advances without manual payment or courier-state overrides (UC50).
+As an authorized shop actor, I want to record the next permitted internal readiness milestone so that the selected pickup or carrier workflow advances without manual payment or courier-state overrides.
 
 #### Preconditions
 
@@ -34,7 +34,7 @@ As an authorized shop actor, I want to record the next permitted internal readin
 4. The actor submits the selected readiness milestone.
 5. The system rechecks current authority, verified paid status, fixed method/required data and the permitted next transition.
 6. The system records that one next readiness milestone and safe attributable evidence.
-7. The system displays the resulting status and applicable UC52/UC53 controls. At ready_for_pickup, it may send optional email to approved usable contact through the existing workflow, with at most two retries after 1/5 minutes from initial send; failure never reverses readiness (D08-e/A-08).
+7. The system displays the resulting status and applicable UC52/UC53 controls. At ready_for_pickup, optional email follows the shared notification policy and never reverses readiness.
 
 #### Alternative Flows
 
@@ -52,7 +52,7 @@ Continue through UC52/UC53, with owner verification or actual manual custody evi
 
 **Step 6 — Already-recorded milestone, stale or conflicting update**
 
-No second effective transition is allowed. Confirmed A-06 returns successful no-change for an identical accepted effect and rejects stale/incompatible changes with review guidance.
+No second effective transition is allowed. The system returns successful no-change for an identical accepted effect and rejects stale/incompatible changes with review guidance.
 
 **Steps 2 and 6 — Read/save failure**
 
@@ -60,7 +60,7 @@ Report a safe actual error and retain prior accepted facts.
 
 **Steps 2 and 5 — Processing branch became inactive**
 
-Branch inactivity blocks new checkout selection, but accepted orders retain the original branch and deadlines. Existing payment/holds continue under the original rules; paid orders may be completed by currently assigned Staff or explicitly action/branch-delegated Manager. Inability to physically hand over requires operational follow-up, not automatic relocation/cancellation/refund. (D05-a). Continue the established order flow when current action/state prerequisites are met; inactivity alone does not revoke an existing order's branch-scoped authority.
+An inactive branch cannot receive new checkout, but accepted orders retain their branch and original deadlines. Currently authorized assigned Staff/delegated Manager may complete paid orders; physical handover problems require operational follow-up without automatic transfer, cancellation or refund.
 
 #### Business Rules
 
@@ -70,10 +70,10 @@ BR-50-01, BR-50-02, BR-50-03, BR-50-04, BR-50-05, BR-50-06, BR-50-07
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-50-01 | Only assigned-branch Staff or explicitly delegated current action/branch Manager records shop progress (D-01). |
-| BR-50-02 | Approved chains are paid → preparing → ready_for_pickup → picked_up and paid → preparing → prepared_for_carrier → handed_to_carrier; no skips, backward or other-terminal transition (D-02). |
-| BR-50-03 | UC50 records method-specific readiness after preparation. UC46 owns verified paid, UC49 begins preparing, UC52 verifies actual owner pickup and UC53 records actual carrier handoff; no arbitrary label bypasses those conditions. |
-| BR-50-04 | Payment facts, hold disposition and internal milestones remain distinct. No courier delivered/tracking/return/cancellation/refund state is introduced. |
-| BR-50-05 | Method/recipient data remain frozen from preparing; readiness updates do not reprice snapshots, move the processing branch or extend payment/hold deadlines. |
-| BR-50-06 | Confirmed behavior (A-06): identical already-recorded effects return successful no-change; stale/conflicting requests reject with review guidance, without duplicate effects. |
-| BR-50-07 | Retain safe normally append-only actor/source, target, action/time, actual SUCCESS/REJECTED/FAILED outcome and reason, with permitted references/context. Rejected or failed attempts are not success; exclude credentials, raw tokens and avoidable personal data. Business audit follows five-year retention without extending recipient-data retention. |
+| BR-50-01 | Only assigned-branch Staff or explicitly action/branch-delegated Manager may record internal order progress. |
+| BR-50-02 | Follow paid → preparing → ready_for_pickup → picked_up or paid → preparing → prepared_for_carrier → handed_to_carrier; no skipped, backward or cross-terminal transition. |
+| BR-50-03 | UC50 records readiness only; UC46 verifies payment, UC49 starts preparation, UC52 records owner pickup and UC53 records actual carrier handoff. |
+| BR-50-04 | Payment, hold and fulfilment remain separate; no courier-delivery, return, cancellation or refund state is added. |
+| BR-50-05 | Readiness changes never alter frozen method/recipient data, prices, processing branch or payment/hold deadlines. |
+| BR-50-06 | Identical recorded milestones return successful no-change; reject stale/conflicting submissions without duplicate effects. |
+| BR-50-07 | Record each attempt and its actual outcome under the shared audit policy. |

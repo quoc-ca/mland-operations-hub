@@ -10,13 +10,13 @@ None.
 
 #### Description
 
-As an authorized order viewer, I want the frozen retail purchase and recorded payment/internal fulfilment facts so that I can understand the order without repricing it or implying courier tracking (UC48).
+As an authorized order viewer, I want the frozen retail purchase and recorded payment/internal fulfilment facts so that I can understand the order without repricing it or implying courier tracking.
 
 #### Preconditions
 
 1. The platform is available and an order reference is supplied.
 2. The actor is authenticated with verified identity, has an active account, and holds current authority for the requested action.
-3. The requested order/purpose must fit owner access, assigned Staff branch, delegated Manager read or the approved minimum-data technical support boundary. Admin support allowlist: internal order/attempt reference, branch code, timestamps, payment/hold/fulfilment states and sanitized technical error/correlation codes only. Exclude cart contents, products/options, customer identity/contact/address/notes and authentication data; no business mutation or impersonation. (D04-e).
+3. The requested purpose fits own-order access, assigned-branch Staff access, applicable Manager read delegation or the limited Admin support policy.
 
 #### Postconditions
 
@@ -29,7 +29,7 @@ As an authorized order viewer, I want the frozen retail purchase and recorded pa
 
 1. The actor opens a retail order reference for an authorized purpose.
 2. The system rechecks current ownership/action/branch/account authority before revealing protected data.
-3. For authorized business reads the system retrieves frozen purchase snapshots and reference/branch; for Admin technical support it retrieves only D04-e allowlisted diagnostics, excluding cart/product/options/customer data.
+3. For authorized business reads the system retrieves frozen purchase snapshots and reference/branch; for Admin technical support it retrieves only permitted technical diagnostics, excluding cart/product/options/customer data.
 4. The system retrieves recorded payment, original deadlines, hold disposition, method and internal preparation/readiness/completion evidence.
 5. The system applies purpose-based access/minimization and recipient-data retirement, distinguishing unknown legacy values from current facts.
 6. The system displays permitted order details and eligible next-action links; each later action rechecks its own authority/state.
@@ -42,7 +42,7 @@ Return a safe unavailable/denied result without private line/payment/recipient d
 
 **Steps 2 and 5 — Admin technical support request**
 
-Expose only approved minimum necessary diagnostic data, without customer impersonation, general detailed-order access or business mutations. Admin support allowlist: internal order/attempt reference, branch code, timestamps, payment/hold/fulfilment states and sanitized technical error/correlation codes only. Exclude cart contents, products/options, customer identity/contact/address/notes and authentication data; no business mutation or impersonation. (D04-e).
+Display only internal order/attempt reference, branch code, timestamps, payment/hold/fulfilment states and sanitized technical codes. Exclude cart/product/options, customer identity/contact/address/notes and authentication data; grant no mutation or impersonation.
 
 **Steps 3 and 4 — Data retrieval fails or payment outcome is uncertain**
 
@@ -58,7 +58,7 @@ Delete/irreversibly obscure retired recipient/contact/address values and applica
 
 **Step 6 — Processing branch now inactive**
 
-Preserve the recorded branch and history; no silent relocation occurs. Branch inactivity blocks new checkout selection, but accepted orders retain the original branch and deadlines. Existing payment/holds continue under the original rules; paid orders may be completed by currently assigned Staff or explicitly action/branch-delegated Manager. Inability to physically hand over requires operational follow-up, not automatic relocation/cancellation/refund. Viewing still grants no mutation.
+Preserve the recorded branch and history; no silent relocation occurs. An inactive branch cannot receive new checkout, but accepted orders retain their branch and original deadlines. Currently authorized assigned Staff/delegated Manager may complete paid orders; physical handover problems require operational follow-up without automatic transfer, cancellation or refund.
 
 #### Business Rules
 
@@ -68,10 +68,10 @@ BR-48-01, BR-48-02, BR-48-03, BR-48-04, BR-48-05, BR-48-06, BR-48-07
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-48-01 | Owner Members read only own orders; assigned-branch Staff and explicitly delegated action/branch Managers receive necessary scoped reads. Recheck current account/authority; references alone grant no access (D-01). |
-| BR-48-02 | Admin receives minimum-data technical support only, with no general detailed order access, Member impersonation or business override. Admin support allowlist: internal order/attempt reference, branch code, timestamps, payment/hold/fulfilment states and sanitized technical error/correlation codes only. Exclude cart contents, products/options, customer identity/contact/address/notes and authentication data; no business mutation or impersonation. (D04-e). |
-| BR-48-03 | Frozen purchase/benefit terms and recorded payment/hold/internal progress are distinct; read access never mutates them or grants paid/fulfilment authority. |
-| BR-48-04 | Preserve legacy snapshots without inferred variants; new checkout requires configured reviewed variants. No public order lookup or courier tracking is introduced. |
-| BR-48-05 | Retain needed carrier recipient data while actual handoff is pending; retire private values/copies 30 days after the original handoff. Minimized audit/payment evidence follows five years, without overriding privacy retirement (C4/D-07). |
-| BR-48-06 | Branch inactivity blocks new checkout selection, but accepted orders retain the original branch and deadlines. Existing payment/holds continue under the original rules; paid orders may be completed by currently assigned Staff or explicitly action/branch-delegated Manager. Inability to physically hand over requires operational follow-up, not automatic relocation/cancellation/refund. (D05-a). |
-| BR-48-07 | Retain safe normally append-only actor/source, target, action/time, actual SUCCESS/REJECTED/FAILED outcome and reason, with permitted references/context. Rejected or failed attempts are not success; exclude credentials, raw tokens and avoidable personal data. Business audit follows five-year retention without extending recipient-data retention. |
+| BR-48-01 | Members read own orders; Staff reads assigned-branch orders and Manager requires explicit applicable action/branch delegation. Recheck current authority. |
+| BR-48-02 | Admin sees only shared-policy technical diagnostics, with no customer data, general detailed-order access, impersonation or business mutation. |
+| BR-48-03 | Keep purchase snapshots, payment, hold and fulfilment facts distinct; viewing never changes them or grants payment/completion authority. |
+| BR-48-04 | Preserve legacy snapshots without guessed options; new checkout requires configured variants. No public order lookup or courier tracking is provided. |
+| BR-48-05 | Retain necessary carrier data until actual handoff, then retire private values/copies after 30 days while keeping minimized five-year evidence. |
+| BR-48-06 | Inactive branches block new checkout but retain accepted orders, deadlines and currently authorized processing; no automatic transfer occurs. |
+| BR-48-07 | Record each attempt and its actual outcome under the shared audit policy. |

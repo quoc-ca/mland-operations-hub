@@ -8,10 +8,9 @@ Staff; Manager.
 
 Member; Mail Gateway.
 
-
 #### Description
 
-As an authorized shop actor, I want to verify the current authenticated owner and actual handover of a ready pickup order so that picked-up completion is attributable (UC52).
+As an authorized shop actor, I want to verify the current authenticated owner and actual handover of a ready pickup order so that picked-up completion is attributable.
 
 #### Preconditions
 
@@ -35,7 +34,7 @@ As an authorized shop actor, I want to verify the current authenticated owner an
 4. The system verifies current Member identity/account authority and ownership of that matching order.
 5. The shop actor checks the matching ready order and confirms actual handover to that owner.
 6. The system rechecks current state and both applicable ownership/shop conditions, then records ready_for_pickup to picked_up once.
-7. The system stores safe confirming actor/time, verification method/result and minimized reference, and displays the recorded pickup completion. Optional completion email uses approved usable contact and the existing workflow, with at most two retries after 1/5 minutes from initial send; failure never undoes completion (D08-e/A-08).
+7. The system stores safe confirming actor/time, verification method/result and minimized reference, and displays the recorded pickup completion. Optional completion email follows the shared notification policy and never reverses completion.
 
 #### Alternative Flows
 
@@ -57,15 +56,15 @@ Do not record pickup completion from a view/verification alone. Recheck current 
 
 **Step 6 — Pickup already recorded or stale submission**
 
-Never record a second effective pickup or alternate terminal. Confirmed A-06 acknowledges an identical accepted completion without change and rejects stale/conflicting submissions.
+Never record a second effective pickup or alternate terminal. The system acknowledges an identical accepted completion without change and rejects stale/conflicting submissions.
 
-**Steps 4 and 6 — Verification/read/save failure or inactive branch**
+**Steps 4 and 6 — Verification/read/save failure**
 
 Report a safe actual failure and preserve accepted state/evidence, without false completed pickup.
 
 **Steps 2 and 6 — Processing branch became inactive**
 
-Branch inactivity blocks new checkout selection, but accepted orders retain the original branch and deadlines. Existing payment/holds continue under the original rules; paid orders may be completed by currently assigned Staff or explicitly action/branch-delegated Manager. Inability to physically hand over requires operational follow-up, not automatic relocation/cancellation/refund. (D05-a). Continue the established order flow when current action/state prerequisites are met; inactivity alone does not revoke an existing order's branch-scoped authority.
+An inactive branch cannot receive new checkout, but accepted orders retain their branch and original deadlines. Currently authorized assigned Staff/delegated Manager may complete paid orders; physical handover problems require operational follow-up without automatic transfer, cancellation or refund.
 
 #### Business Rules
 
@@ -75,10 +74,10 @@ BR-52-01, BR-52-02, BR-52-03, BR-52-04, BR-52-05, BR-52-06, BR-52-07
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-52-01 | Only assigned-branch Staff or explicitly delegated current action/branch Manager may record pickup; the owning Member supplies verification but cannot record shop completion (D-01). |
-| BR-52-02 | Confirmed C3/D-04: only the owner may collect, after signing in and opening the current matching order at the counter; the system confirms ownership. Screenshot/order reference alone and third-party collection are rejected. |
-| BR-52-03 | Require verified paid, pickup method, ready_for_pickup and actual handover to that authenticated owner. Record only ready_for_pickup to picked_up; no skipped/backward/other-terminal transition. |
-| BR-52-04 | Retain confirming actor/time, verification method/result and minimized order reference/context. Do not collect identity-document copies, pickup OTP or raw authentication credentials/tokens. |
-| BR-52-05 | Pickup completion does not charge again, create/extend a hold, reprice the order or repeat paid-sale quantity/benefit settlement. |
-| BR-52-06 | Confirmed behavior (A-06): identical already-recorded effects return successful no-change; stale/conflicting requests reject with review guidance, without duplicate effects. Pickup collects no additional address/contact (D07-a); existing minimized business audit follows five years. |
-| BR-52-07 | Retain safe normally append-only actor/source, target, action/time, actual SUCCESS/REJECTED/FAILED outcome and reason, with permitted references/context. Rejected or failed attempts are not success; exclude credentials, raw tokens and avoidable personal data. Business audit follows five-year retention without extending recipient-data retention. |
+| BR-52-01 | Assigned-branch Staff or explicitly pickup-action/branch-delegated Manager records completion; the Member provides ownership verification only. |
+| BR-52-02 | Only the signed-in owning Member opening the current matching order may collect; screenshots, references alone and third-party collection are insufficient. |
+| BR-52-03 | Record ready_for_pickup → picked_up only after verified payment, pickup readiness and actual handover to the authenticated owner. |
+| BR-52-04 | Retain actor/time, verification method/result and minimized order reference; collect no identity-document copy, pickup OTP, extra contact/address or raw credentials. |
+| BR-52-05 | Pickup never charges again, changes prices/deadlines or repeats quantity/benefit settlement. |
+| BR-52-06 | Identical recorded completion returns successful no-change; reject stale/conflicting requests without another handover effect. |
+| BR-52-07 | Record each attempt and its actual outcome under the shared audit policy. |
