@@ -1,6 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.facade;
 
-import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.domain.ConfirmationState;
+import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.domain.BookingStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.domain.WorkshopBooking;
 import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.infrastructure.WorkshopBookingRepository;
 import lombok.AllArgsConstructor;
@@ -31,8 +31,8 @@ public class WorkshopBookingFacade {
         private Long memberId;
         private String contactEmail;
         private String canonicalEmail;
-        private String confirmationState;
         private String bookingStatus;
+        private String paymentStatus;
         private Instant createdAt;
     }
 
@@ -42,8 +42,8 @@ public class WorkshopBookingFacade {
             return List.of();
         }
         String sanitized = canonicalEmail.trim().toLowerCase();
-        List<WorkshopBooking> eligible = bookingRepository.findByCanonicalEmailAndConfirmationStateAndMemberIdIsNull(
-                sanitized, ConfirmationState.EMAIL_CONFIRMED);
+        List<WorkshopBooking> eligible = bookingRepository.findByCanonicalEmailAndBookingStatusAndMemberIdIsNull(
+                sanitized, BookingStatus.CONFIRMED);
 
         return eligible.stream()
                 .map(this::toDto)
@@ -58,7 +58,7 @@ public class WorkshopBookingFacade {
         int linkedCount = 0;
         for (Long id : bookingIds) {
             WorkshopBooking booking = bookingRepository.findById(id).orElse(null);
-            if (booking != null && booking.getMemberId() == null && booking.getConfirmationState() == ConfirmationState.EMAIL_CONFIRMED) {
+            if (booking != null && booking.getMemberId() == null && booking.getBookingStatus() == BookingStatus.CONFIRMED) {
                 booking.setMemberId(memberId);
                 bookingRepository.save(booking);
                 linkedCount++;
@@ -74,8 +74,8 @@ public class WorkshopBookingFacade {
                 .memberId(b.getMemberId())
                 .contactEmail(b.getContactEmail())
                 .canonicalEmail(b.getCanonicalEmail())
-                .confirmationState(b.getConfirmationState().name())
                 .bookingStatus(b.getBookingStatus().name())
+                .paymentStatus(b.getPaymentStatus().name())
                 .createdAt(b.getCreatedAt())
                 .build();
     }
