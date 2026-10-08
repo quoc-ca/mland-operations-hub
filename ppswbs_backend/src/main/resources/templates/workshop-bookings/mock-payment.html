@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Mock VNPay Checkout</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        .vnpay-mock {
+            max-width: 500px;
+            margin: 50px auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .vnpay-header {
+            background-color: #005a9e;
+            color: white;
+            padding: 15px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="vnpay-mock bg-white">
+        <div class="vnpay-header">
+            <h3>Mock Payment Gateway</h3>
+            <p>Sandbox Environment</p>
+        </div>
+        <div class="p-4">
+            <h5 class="text-center mb-4">Payment Details</h5>
+            <table class="table table-borderless">
+                <tr>
+                    <td>Booking Code:</td>
+                    <th th:text="${bookingCode}"></th>
+                </tr>
+                <tr>
+                    <td>Amount:</td>
+                    <th class="text-primary fs-5"><span th:text="${amount}"></span> VND</th>
+                </tr>
+            </table>
+
+            <hr>
+
+            <!-- Action Buttons for testing different outcomes -->
+            <div class="d-grid gap-3">
+                <button class="btn btn-success" onclick="sendCallback('SUCCESS')">Approve Payment (00)</button>
+                <button class="btn btn-danger" onclick="sendCallback('FAILED')">Reject Payment (24)</button>
+                <button class="btn btn-secondary" onclick="sendCallback('CANCELLED')">Cancel Checkout</button>
+            </div>
+
+            <div id="callbackResult" class="mt-3"></div>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const bookingCode = /*[[${bookingCode}]]*/ 'UNKNOWN';
+    const amount = /*[[${amount}]]*/ 0;
+    const ref = /*[[${ref}]]*/ 'REF';
+    
+    function sendCallback(outcome) {
+        const payload = {
+            providerEventId: 'EVT-' + Math.floor(Math.random() * 1000000),
+            providerReference: ref,
+            bookingCode: bookingCode,
+            amount: amount,
+            currency: 'VND',
+            rawOutcome: outcome,
+            signature: 'MOCK-SIGNATURE-xyz'
+        };
+
+        const url = `/api/v1/workshop-bookings/${bookingCode}/payment-callbacks`;
+        fetch(url, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Payment-Signature': payload.signature
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.accepted) {
+                document.getElementById('callbackResult').innerHTML = 
+                    '<div class="alert alert-info">Payment processed! <br/>Booking Status: ' + data.bookingStatus + 
+                    '<br/><a href="/workshop-bookings/lookup" class="btn btn-sm btn-primary mt-2">Go to Lookup</a></div>';
+            }
+        })
+        .catch(err => alert('Callback failed: ' + err.message));
+    }
+    /*]]>*/
+</script>
+</body>
+</html>

@@ -10,63 +10,63 @@
 
 ## Payment Security and Idempotency
 
-- [ ] CHK001 Are the requirements for authenticating and validating payment results explicit for signature, booking reference, amount and currency? [Completeness, Spec §FR-010]
-- [ ] CHK002 Is it clear that gateway OTP/QR authorization belongs to the payment provider and is never captured by Workshop Booking? [Security, Spec §FR-010a]
-- [ ] CHK003 Are browser Return URLs explicitly distinguished from authoritative payment confirmation? [Clarity, Spec §FR-012]
-- [ ] CHK004 Are duplicate, delayed, mismatched and unknown payment events addressed without ambiguous outcomes? [Edge Case, Spec §FR-013]
-- [ ] CHK005 Is the relationship between `PaymentAttempt.FAILED` and booking `PENDING_PAYMENT/UNPAID` unambiguous for retry? [Consistency, Spec §FR-012a]
-- [ ] CHK006 Are raw OTPs, secrets, signed payloads and unnecessary provider data explicitly excluded from requirements and audit output? [Security, Spec §SC-007]
+- [x] CHK001 Are the requirements for authenticating and validating payment results explicit for signature, booking reference, amount and currency? [Completeness, Spec §FR-010]
+- [x] CHK002 Is it clear that gateway OTP/QR authorization belongs to the payment provider and is never captured by Workshop Booking? [Security, Spec §FR-010a]
+- [x] CHK003 Are browser Return URLs explicitly distinguished from authoritative payment confirmation? [Clarity, Spec §FR-012]
+- [x] CHK004 Are duplicate, delayed, mismatched and unknown payment events addressed without ambiguous outcomes? [Edge Case, Spec §FR-013]
+- [x] CHK005 Is the relationship between `PaymentAttempt.FAILED` and booking `PENDING_PAYMENT/UNPAID` unambiguous for retry? [Consistency, Spec §FR-012a]
+- [x] CHK006 Are raw OTPs, secrets, signed payloads and unnecessary provider data explicitly excluded from requirements and audit output? [Security, Spec §SC-007]
 
 ## Booking State and Financial State
 
-- [ ] CHK007 Is the separation between service `status` and financial `payment_status` defined consistently across requirements, entities and scenarios? [Consistency, Spec §FR-020]
-- [ ] CHK008 Are all current transitions among `PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED` and pending-release `CANCELLED` explicitly defined? [Completeness, Spec §FR-020]
-- [ ] CHK009 Are `CHECKED_IN`, `COMPLETED` and `NO_SHOW` clearly marked as reserved future states rather than current behavior? [Scope, Spec §FR-020]
-- [ ] CHK010 Is the meaning of `CANCELLED` clearly limited to explicit pre-payment hold release in this feature? [Clarity, Spec Clarifications]
-- [ ] CHK011 Are terminal-state rules defined for expired and cancelled bookings, including prohibition of payment retry and QR issuance? [Completeness, Spec §FR-017f–FR-017i]
-- [ ] CHK012 Are financial states retained for future cancellation/refund without accidentally implying that refund is implemented now? [Scope, Spec §FR-024]
+- [x] CHK007 Is the separation between service `status` and financial `payment_status` defined consistently across requirements, entities and scenarios? [Consistency, Spec §FR-020]
+- [x] CHK008 Are all current transitions among `PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED` and pending-release `CANCELLED` explicitly defined? [Completeness, Spec §FR-020]
+- [x] CHK009 Are `CHECKED_IN`, `COMPLETED` and `NO_SHOW` clearly marked as reserved future states rather than current behavior? [Scope, Spec §FR-020]
+- [x] CHK010 Is the meaning of `CANCELLED` clearly limited to explicit pre-payment hold release in this feature? [Clarity, Spec Clarifications]
+- [x] CHK011 Are terminal-state rules defined for expired and cancelled bookings, including prohibition of payment retry and QR issuance? [Completeness, Spec §FR-017f–FR-017i]
+- [x] CHK012 Are financial states retained for future cancellation/refund without accidentally implying that refund is implemented now? [Scope, Spec §FR-024]
 
 ## Capacity Consistency
 
-- [ ] CHK013 Does the specification define whether capacity is consumed by participant count rather than booking-row count? [Clarity, Spec FR-005/FR-008]
-- [ ] CHK014 Are creation, confirmation, expiry and explicit pending-hold release requirements consistent about when capacity is held, committed and released? [Consistency, Spec §FR-008–FR-009, §FR-017h]
-- [ ] CHK015 Are concurrent requests for the final available participant capacity explicitly covered? [Edge Case, Spec Edge Cases]
-- [ ] CHK016 Is the 15-minute hold deadline defined independently from the payment link deadline? [Completeness, Spec §FR-008]
-- [ ] CHK017 Does the specification define idempotent release behavior so one hold cannot be released twice? [Idempotency, Spec §FR-021]
+- [x] CHK013 Does the specification define whether capacity is consumed by participant count rather than booking-row count? [Clarity, Spec FR-005/FR-008]
+- [x] CHK014 Are creation, confirmation, expiry and explicit pending-hold release requirements consistent about when capacity is held, committed and released? [Consistency, Spec §FR-008–FR-009, §FR-017h]
+- [x] CHK015 Are concurrent requests for the final available participant capacity explicitly covered? [Edge Case, Spec Edge Cases]
+- [x] CHK016 Is the 15-minute hold deadline defined independently from the payment link deadline? [Completeness, Spec §FR-008]
+- [x] CHK017 Does the specification define idempotent release behavior so one hold cannot be released twice? [Idempotency, Spec §FR-021]
 
 ## Authorization and Lookup
 
-- [ ] CHK018 Are Guest lookup proofs clearly specified as `booking_code + normalized phone` OR `booking_code + normalized email`? [Clarity, Spec §FR-017a]
-- [ ] CHK019 Are Member lookup and payment-retry permissions tied to authenticated ownership rather than email matching? [Security, Spec §FR-017c/FR-017c1]
-- [ ] CHK020 Are Guest and Member contact snapshots, profile auto-fill and edited booking-for-another-person behavior specified consistently? [Consistency, Spec §FR-003a]
-- [ ] CHK021 Are invalid, ambiguous and unauthorized lookup outcomes defined without revealing whether a booking exists? [Security, Spec §FR-017]
-- [ ] CHK022 Are Staff/Owner resend permissions, audit requirements and the exclusion of Staff/POS check-in clearly bounded? [Scope, Spec §FR-014e/FR-017d]
+- [x] CHK018 Are Guest lookup proofs clearly specified as `booking_code + normalized phone` OR `booking_code + normalized email`? [Clarity, Spec §FR-017a]
+- [x] CHK019 Are Member lookup and payment-retry permissions tied to authenticated ownership rather than email matching? [Security, Spec §FR-017c/FR-017c1]
+- [x] CHK020 Are Guest and Member contact snapshots, profile auto-fill and edited booking-for-another-person behavior specified consistently? [Consistency, Spec §FR-003a]
+- [x] CHK021 Are invalid, ambiguous and unauthorized lookup outcomes defined without revealing whether a booking exists? [Security, Spec §FR-017]
+- [x] CHK022 Are Staff/Owner resend permissions, audit requirements and the exclusion of Staff/POS check-in clearly bounded? [Scope, Spec §FR-014e/FR-017d]
 
 ## Magic Link and QR Requirements
 
-- [ ] CHK023 Is Magic Link lifetime clearly defined as ending at the associated workshop end time? [Clarity, Spec §FR-017b]
-- [ ] CHK024 Are Magic Link hashing, revocation, expiry, reuse and logging requirements complete and consistent? [Security, Spec §FR-017b, Edge Cases]
-- [ ] CHK025 Does the specification distinguish pending lookup (countdown/resume payment/no QR) from confirmed lookup (QR/details/no countdown)? [Consistency, Spec §FR-017f/FR-017g]
-- [ ] CHK026 Is the QR payload requirement explicit that it contains only a signed opaque reference and no PII/payment data? [Security, Spec §FR-014b]
-- [ ] CHK027 Are QR validity through workshop end, revocation, and resend reuse rules defined without changing payment evidence? [Completeness, Spec §FR-014c/FR-014d]
-- [ ] CHK028 Is the confirmation email recipient explicitly the submitted contact email for both Guest and Member bookings? [Clarity, Spec §FR-017b1]
+- [x] CHK023 Is Magic Link lifetime clearly defined as ending at the associated workshop end time? [Clarity, Spec §FR-017b]
+- [x] CHK024 Are Magic Link hashing, revocation, expiry, reuse and logging requirements complete and consistent? [Security, Spec §FR-017b, Edge Cases]
+- [x] CHK025 Does the specification distinguish pending lookup (countdown/resume payment/no QR) from confirmed lookup (QR/details/no countdown)? [Consistency, Spec §FR-017f/FR-017g]
+- [x] CHK026 Is the QR payload requirement explicit that it contains only a signed opaque reference and no PII/payment data? [Security, Spec §FR-014b]
+- [x] CHK027 Are QR validity through workshop end, revocation, and resend reuse rules defined without changing payment evidence? [Completeness, Spec §FR-014c/FR-014d]
+- [x] CHK028 Is the confirmation email recipient explicitly the submitted contact email for both Guest and Member bookings? [Clarity, Spec §FR-017b1]
 
 ## Error Handling, Recovery and Audit
 
-- [ ] CHK029 Are error outcomes defined for invalid package, unavailable session, insufficient capacity, invalid contact data, failed payment and expired hold? [Completeness, Spec Edge Cases]
-- [ ] CHK030 Are rollback requirements explicit when booking, invoice or hold creation fails partway through? [Recovery, Spec §FR-006]
-- [ ] CHK031 Is notification failure clearly non-blocking for booking confirmation and limited to three automatic retries before Staff/Owner follow-up? [Clarity, Spec §FR-015a]
-- [ ] CHK032 Are resend rate limits and safe error behavior required without specifying an unverifiable implementation detail? [Completeness, Spec §FR-014e]
-- [ ] CHK033 Are actor, reason and safe outcome requirements defined for operational actions that remain in scope, including resend and pending-hold release? [Audit, Spec §FR-014e/FR-017h]
-- [ ] CHK034 Are production-data reset restrictions and development/test reset assumptions explicitly separated? [Risk, Spec Clarifications]
+- [x] CHK029 Are error outcomes defined for invalid package, unavailable session, insufficient capacity, invalid contact data, failed payment and expired hold? [Completeness, Spec Edge Cases]
+- [x] CHK030 Are rollback requirements explicit when booking, invoice or hold creation fails partway through? [Recovery, Spec §FR-006]
+- [x] CHK031 Is notification failure clearly non-blocking for booking confirmation and limited to three automatic retries before Staff/Owner follow-up? [Clarity, Spec §FR-015a]
+- [x] CHK032 Are resend rate limits and safe error behavior required without specifying an unverifiable implementation detail? [Completeness, Spec §FR-014e]
+- [x] CHK033 Are actor, reason and safe outcome requirements defined for operational actions that remain in scope, including resend and pending-hold release? [Audit, Spec §FR-014e/FR-017h]
+- [x] CHK034 Are production-data reset restrictions and development/test reset assumptions explicitly separated? [Risk, Spec Clarifications]
 
 ## Acceptance Criteria and Traceability
 
-- [ ] CHK035 Does every P1 user story have an independently testable goal and acceptance scenarios for success and failure? [Acceptance Criteria, Spec US1–US3]
-- [ ] CHK036 Does the P2 lookup story cover Guest, Member, pending, confirmed, cancelled and expired projections? [Coverage, Spec US4]
-- [ ] CHK037 Are measurable success criteria defined for confirmation uniqueness, expiry release, lookup success and sensitive-data absence? [Measurability, Spec SC-001–SC-007]
-- [ ] CHK038 Does each security, state, capacity and idempotency requirement map to at least one task in `tasks.md`? [Traceability, tasks.md]
-- [ ] CHK039 Are the explicitly deferred boundaries—refund, check-in, completion, no-show, final payment and external synchronization—consistent across spec, plan and tasks? [Consistency, Spec/Plan/Tasks]
+- [x] CHK035 Does every P1 user story have an independently testable goal and acceptance scenarios for success and failure? [Acceptance Criteria, Spec US1–US3]
+- [x] CHK036 Does the P2 lookup story cover Guest, Member, pending, confirmed, cancelled and expired projections? [Coverage, Spec US4]
+- [x] CHK037 Are measurable success criteria defined for confirmation uniqueness, expiry release, lookup success and sensitive-data absence? [Measurability, Spec SC-001–SC-007]
+- [x] CHK038 Does each security, state, capacity and idempotency requirement map to at least one task in `tasks.md`? [Traceability, tasks.md]
+- [x] CHK039 Are the explicitly deferred boundaries—refund, check-in, completion, no-show, final payment and external synchronization—consistent across spec, plan and tasks? [Consistency, Spec/Plan/Tasks]
 
 ## Notes
 

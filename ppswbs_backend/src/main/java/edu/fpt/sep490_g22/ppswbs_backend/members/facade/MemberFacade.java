@@ -1,6 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.members.facade;
 
-import edu.fpt.sep490_g22.ppswbs_backend.members.application.MemberDto;
+import edu.fpt.sep490_g22.ppswbs_backend.members.facade.MemberDto;
 import edu.fpt.sep490_g22.ppswbs_backend.members.application.MemberEntitlementDto;
 import edu.fpt.sep490_g22.ppswbs_backend.members.application.MemberService;
 import edu.fpt.sep490_g22.ppswbs_backend.members.application.EntitlementEvaluator;

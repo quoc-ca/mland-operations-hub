@@ -3,6 +3,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.members.web;
 import edu.fpt.sep490_g22.ppswbs_backend.common.InvalidTokenException;
 import edu.fpt.sep490_g22.ppswbs_backend.configuration.FirebaseAuthenticationToken;
 import edu.fpt.sep490_g22.ppswbs_backend.members.application.*;
+import edu.fpt.sep490_g22.ppswbs_backend.members.facade.MemberDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -49,19 +50,6 @@ public class MemberApiController {
         return ResponseEntity.status(HttpStatus.CREATED).body(entitlement);
     }
 
-    @GetMapping("/guest-booking-import-preview")
-    public ResponseEntity<GuestBookingImportPreviewDto> previewGuestBookingImport() {
-        FirebaseAuthenticationToken auth = getAuthToken();
-        GuestBookingImportPreviewDto preview = memberService.previewGuestBookingImports(auth.getUid());
-        return ResponseEntity.ok(preview);
-    }
-
-    @PostMapping("/guest-booking-imports")
-    public ResponseEntity<GuestBookingImportResponseDto> confirmGuestBookingImport() {
-        FirebaseAuthenticationToken auth = getAuthToken();
-        GuestBookingImportResponseDto response = memberService.confirmGuestBookingImport(auth.getUid());
-        return ResponseEntity.ok(response);
-    }
 
     private FirebaseAuthenticationToken getAuthToken() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

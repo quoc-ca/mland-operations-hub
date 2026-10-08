@@ -340,8 +340,12 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-017g**: A confirmed booking projection MUST show the QR ticket and
   booking/branch details, MUST NOT show a payment countdown, and MUST NOT expose
   a resume-payment action.
-- **FR-017h**: A Guest MUST be able to release an active pending hold from the
-  lookup journey; the release MUST not create a confirmed booking or QR ticket.
+- **FR-017h**: A Guest or authorized Member MUST be able to release an active
+  pending hold from the lookup journey; the release MUST not create a confirmed
+  booking or QR ticket. The system MUST append a redacted audit event containing
+  the actor type/verified identity reference when available, a required reason,
+  booking code, outcome, and correlation ID; it MUST NOT record contact proofs,
+  raw tokens, or unnecessary PII.
 - **FR-017i**: After a Guest releases a pending hold, the booking view MUST offer
   a safe action to start a new workshop booking and MUST NOT offer payment retry
   for the cancelled booking.

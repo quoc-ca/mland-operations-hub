@@ -6,8 +6,15 @@ import edu.fpt.sep490_g22.ppswbs_backend.members.infrastructure.MemberRepository
 import edu.fpt.sep490_g22.ppswbs_backend.support.TestFirebaseTokenVerifier;
 import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.application.WorkshopBookingService;
 import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.domain.WorkshopBooking;
-import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.infrastructure.CapturedBookingMailSender;
+import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.domain.BookingStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.domain.BookingPaymentStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.domain.WorkshopPackage;
+import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.domain.WorkshopSession;
+import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.infrastructure.WorkshopPackageRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.infrastructure.WorkshopSessionRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.application.CreateBookingCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.infrastructure.WorkshopBookingRepository;
+import java.time.LocalDate;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,7 +52,10 @@ public class GuestBookingImportIT {
     private WorkshopBookingRepository bookingRepository;
 
     @Autowired
-    private CapturedBookingMailSender mailSender;
+    private WorkshopPackageRepository packageRepository;
+
+    @Autowired
+    private WorkshopSessionRepository sessionRepository;
 
     @Autowired
     private TestFirebaseTokenVerifier tokenVerifier;
@@ -53,7 +63,6 @@ public class GuestBookingImportIT {
     @BeforeEach
     void setUp() {
         tokenVerifier.clearTokens();
-        mailSender.clear();
     }
 
     @Test
@@ -85,10 +94,35 @@ public class GuestBookingImportIT {
                         { "termsVersion": "v1.0.0", "privacyVersion": "v1.0.0" }
                         """));
 
-        // Create confirmed Guest booking for matching email
-        WorkshopBooking booking = bookingService.createGuestBooking("history@example.com");
-        String rawToken = mailSender.getLastSentToken(booking.getBookingCode());
-        bookingService.confirmBookingEmail(booking.getBookingCode(), rawToken);
+        WorkshopPackage pkg = packageRepository.save(WorkshopPackage.builder()
+                .name("Test Package")
+                .price(500000L)
+                .currency("VND")
+                .depositPercent(50)
+                .minParticipants(1)
+                .maxParticipants(10)
+                .status("PUBLISHED")
+                .build());
+
+        WorkshopSession session = sessionRepository.save(WorkshopSession.builder()
+                .packageId(pkg.getId())
+                .sessionDate(LocalDate.now().plusDays(5))
+                .capacity(10)
+                .reservedParticipants(0)
+                .status("OPEN")
+                .build());
+
+        CreateBookingCommand cmd = CreateBookingCommand.builder()
+                .packageId(pkg.getId())
+                .sessionId(session.getId())
+                .participantCount(1)
+                .contactEmail("history@example.com")
+                .contactPhone("0901234567")
+                .build();
+        WorkshopBooking booking = bookingService.createGuestBooking(cmd);
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        booking.setPaymentStatus(BookingPaymentStatus.DEPOSIT_PAID);
+        bookingRepository.save(booking);
 
         // Preview should show 1 candidate
         mockMvc.perform(get("/api/v1/members/me/guest-booking-import-preview")

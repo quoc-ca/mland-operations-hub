@@ -6,6 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.common.CorrelationIdFilter;
 import edu.fpt.sep490_g22.ppswbs_backend.common.InvalidRequestException;
 import edu.fpt.sep490_g22.ppswbs_backend.common.ResourceNotFoundException;
 import edu.fpt.sep490_g22.ppswbs_backend.members.domain.*;
+import edu.fpt.sep490_g22.ppswbs_backend.members.facade.MemberDto;
 import edu.fpt.sep490_g22.ppswbs_backend.members.infrastructure.MemberPolicyAcceptanceRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.members.infrastructure.MemberRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.members.infrastructure.PolicyDocumentRepository;
@@ -19,7 +20,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.facade.WorkshopBookingFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.common.ApiException;
 import org.springframework.http.HttpStatus;
 
@@ -33,7 +33,6 @@ public class MemberService {
     private final MemberPolicyAcceptanceRepository acceptanceRepository;
     private final EntitlementEvaluator entitlementEvaluator;
     private final AuditEventWriter auditEventWriter;
-    private final WorkshopBookingFacade bookingFacade;
 
     public record ProvisionResult(MemberDto member, boolean isNew) {}
 
@@ -155,65 +154,6 @@ public class MemberService {
                     .build();
             acceptanceRepository.save(mpa);
         }
-    }
-
-    @Transactional(readOnly = true)
-    public GuestBookingImportPreviewDto previewGuestBookingImports(String uid) {
-        Member member = memberRepository.findByExternalUserId(uid)
-                .orElseThrow(() -> new ResourceNotFoundException("Member identity not found"));
-
-        if (!member.isEmailVerified()) {
-            throw new ApiException("EMAIL_UNVERIFIED", "Email verification required before importing guest bookings", HttpStatus.FORBIDDEN);
-        }
-        entitlementEvaluator.verifyActiveEntitlement(member);
-
-        List<WorkshopBookingFacade.WorkshopBookingDto> candidates = bookingFacade.getEligibleGuestBookingsForImport(member.getEmail());
-
-        List<GuestBookingImportPreviewDto.CandidateBookingDto> candidateDtos = candidates.stream()
-                .map(c -> GuestBookingImportPreviewDto.CandidateBookingDto.builder()
-                        .id(c.getId())
-                        .bookingCode(c.getBookingCode())
-                        .contactEmail(c.getContactEmail())
-                        .bookingStatus(c.getBookingStatus())
-                        .createdAt(c.getCreatedAt().toString())
-                        .build())
-                .collect(Collectors.toList());
-
-        return GuestBookingImportPreviewDto.builder()
-                .memberEmail(member.getEmail())
-                .emailVerified(member.isEmailVerified())
-                .candidateCount(candidateDtos.size())
-                .candidates(candidateDtos)
-                .build();
-    }
-
-    @Transactional
-    public GuestBookingImportResponseDto confirmGuestBookingImport(String uid) {
-        Member member = memberRepository.findByExternalUserId(uid)
-                .orElseThrow(() -> new ResourceNotFoundException("Member identity not found"));
-
-        if (!member.isEmailVerified()) {
-            throw new ApiException("EMAIL_UNVERIFIED", "Email verification required before importing guest bookings", HttpStatus.FORBIDDEN);
-        }
-        entitlementEvaluator.verifyActiveEntitlement(member);
-
-        List<WorkshopBookingFacade.WorkshopBookingDto> candidates = bookingFacade.getEligibleGuestBookingsForImport(member.getEmail());
-        List<Long> ids = candidates.stream().map(WorkshopBookingFacade.WorkshopBookingDto::getId).collect(Collectors.toList());
-
-        int linkedCount = bookingFacade.linkGuestBookingsToMember(ids, member.getId());
-
-        auditEventWriter.writeEvent(AuditEvent.builder()
-                .memberId(member.getId())
-                .eventType("GUEST_BOOKINGS_IMPORTED")
-                .occurredAt(Instant.now())
-                .correlationId(CorrelationIdFilter.getCurrentCorrelationId())
-                .safeMetadata("{\"candidates\":" + candidates.size() + ",\"linked\":" + linkedCount + "}")
-                .build());
-
-        return GuestBookingImportResponseDto.builder()
-                .linkedCount(linkedCount)
-                .skippedCount(candidates.size() - linkedCount)
-                .build();
     }
 
     private MemberDto toDto(Member member) {

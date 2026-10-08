@@ -1,4 +1,4 @@
-package edu.fpt.sep490_g22.ppswbs_backend.members.application;
+package edu.fpt.sep490_g22.ppswbs_backend.members.facade;
 
 import edu.fpt.sep490_g22.ppswbs_backend.members.domain.MemberStatus;
 import lombok.AllArgsConstructor;

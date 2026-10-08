@@ -17,8 +17,8 @@ public class LocaleConfiguration implements WebMvcConfigurer {
     @Bean
     public LocaleResolver localeResolver() {
         AcceptHeaderLocaleResolver localeResolver = new AcceptHeaderLocaleResolver();
-        localeResolver.setDefaultLocale(Locale.of("vi"));
-        localeResolver.setSupportedLocales(Arrays.asList(Locale.of("vi"), Locale.ENGLISH));
+        localeResolver.setDefaultLocale(Locale.forLanguageTag("vi"));
+        localeResolver.setSupportedLocales(Arrays.asList(Locale.forLanguageTag("vi"), Locale.ENGLISH));
         return localeResolver;
     }
 

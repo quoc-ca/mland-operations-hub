@@ -1,6 +1,10 @@
-/** Owns workshop capacity, bookings, contact-email confirmation, and expiry. */
+/**
+ * Owns workshop package discovery, capacity holds, bookings, payment processing,
+ * QR ticket issuance, notification intents, Magic Links and external handoff records.
+ * Cross-module access only via members::facade and payments::facade.
+ */
 @ApplicationModule(displayName = "Workshop booking", allowedDependencies = {
-        "members::facade", "catalogue::facade", "billing::facade"
+        "members::facade", "payments::facade"
 })
 package edu.fpt.sep490_g22.ppswbs_backend.workshopbooking;
 
