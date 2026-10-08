@@ -1,6 +1,6 @@
 3.2 Entity Descriptions
 
-Entity: User (users)
+**Entity: User (users)**
 
 | Field | Value |
 | --- | --- |
@@ -9,7 +9,7 @@ Entity: User (users)
 | Business identity | The Firebase UID (external_user_id) is unique across accounts. Email is optional and not unique; matching email text does not merge accounts. |
 | Status / lifecycle | active or suspended. Suspension blocks protected access while retaining business history. Authentication credentials are managed by Firebase. |
 
-Entity: Role (roles)
+**Entity: Role (roles)**
 
 | Field | Value |
 | --- | --- |
@@ -18,7 +18,7 @@ Entity: Role (roles)
 | Business identity | role_code is unique. Each User references one Role; Guest is not an assigned account role. Role labels alone do not define permissions. |
 | Status / lifecycle | Active or inactive through is_active. Deactivation is rejected while any User, including a suspended User, still references the Role. |
 
-Entity: Audit Log (audit_logs)
+**Entity: Audit Log (audit_logs)**
 
 | Field | Value |
 | --- | --- |
@@ -27,7 +27,7 @@ Entity: Audit Log (audit_logs)
 | Business identity | Each entry has its own audit_log_id. The request reference and affected entity identify context, not a declared unique business key. |
 | Status / lifecycle | Outcomes are SUCCESS, REJECTED or FAILED, rather than workflow states. Evidence is append-only under normal operations, with five-year retention and guarded privacy/expiry. |
 
-Entity: Category (categories)
+**Entity: Category (categories)**
 
 | Field | Value |
 | --- | --- |
@@ -36,7 +36,7 @@ Entity: Category (categories)
 | Business identity | The category name is proposed as unique under the selected database collation; category_id provides a stable reference. |
 | Status / lifecycle | Active or inactive through is_active. Inactive categories are excluded from public selection; historical product references are preserved. |
 
-Entity: Product (products)
+**Entity: Product (products)**
 
 | Field | Value |
 | --- | --- |
@@ -45,7 +45,7 @@ Entity: Product (products)
 | Business identity | product_id identifies the catalogue item. The design does not declare a unique product name or a separate SKU. |
 | Status / lifecycle | Published or unpublished through is_published. Checkout revalidates availability and active holds. Unpublishing stops new purchases without rewriting historical order items. |
 
-Entity: Product Image (product_imgs)
+**Entity: Product Image (product_imgs)**
 
 | Field | Value |
 | --- | --- |
@@ -54,7 +54,7 @@ Entity: Product Image (product_imgs)
 | Business identity | product_img_id identifies the image record; (product_id, sort_order) is unique within a Product's image list. |
 | Status / lifecycle | No separate status. Authorized maintainers may add, replace, reorder or remove image references. |
 
-Entity: Order (orders)
+**Entity: Order (orders)**
 
 | Field | Value |
 | --- | --- |
@@ -63,7 +63,7 @@ Entity: Order (orders)
 | Business identity | order_code is the unique customer-facing reference. checkout_key uniquely identifies a checkout command across retries with the same request. |
 | Status / lifecycle | Proposed: pending_payment becomes paid or expired; paid becomes preparing, then ready_for_pickup → picked_up or prepared_for_carrier → handed_to_carrier. No in-system cancellation, refund or return lifecycle. |
 
-Entity: Order Item (order_items)
+**Entity: Order Item (order_items)**
 
 | Field | Value |
 | --- | --- |
@@ -72,7 +72,7 @@ Entity: Order Item (order_items)
 | Business identity | order_item_id identifies the line. The proposed unique (order_id, product_id) aggregates each Product into one line per Order. |
 | Status / lifecycle | No independent status; follows the parent Order. Historical line snapshots are retained and are not recalculated from later catalogue changes. |
 
-Entity: Payment (payments)
+**Entity: Payment (payments)**
 
 | Field | Value |
 | --- | --- |
@@ -81,7 +81,7 @@ Entity: Payment (payments)
 | Business identity | payment_code is unique per attempt. Provider-reference uniqueness depends on the approved gateway contract. A retry uses the applicable attempt and generation rules. |
 | Status / lifecycle | Starts at pending; documented outcomes are succeeded, failed, cancelled or expired. Only verified provider evidence can authorize success. Evidence retirement permanently blocks further application effects without changing the original outcome. |
 
-Entity: Payment Transaction (payment_transactions)
+**Entity: Payment Transaction (payment_transactions)**
 
 | Field | Value |
 | --- | --- |
@@ -90,7 +90,7 @@ Entity: Payment Transaction (payment_transactions)
 | Business identity | Each receipt has a payment_transaction_id. Available provider event IDs and the (provider, payment_id, payload_hash) fingerprint provide documented duplicate-event guards. |
 | Status / lifecycle | Outcome codes are received, succeeded, failed, cancelled or unknown; receipt alone does not confirm payment. Original evidence is retained while guarded processing metadata records application decisions. Evidence follows the five-year retention policy. |
 
-Entity: Delivery Information (delivery_infos)
+**Entity: Delivery Information (delivery_infos)**
 
 | Field | Value |
 | --- | --- |
@@ -99,7 +99,7 @@ Entity: Delivery Information (delivery_infos)
 | Business identity | Each record has a delivery_infor_id; order_id is required and unique, allowing at most one delivery record per Order. |
 | Status / lifecycle | No separate status. Applies to paid carrier Orders; responsibility ends at recorded handoff. Recipient/contact/address data is redacted 30 days after handoff while required handoff history remains. |
 
-Entity: Workshop Location (workshop_locations)
+**Entity: Workshop Location (workshop_locations)**
 
 | Field | Value |
 | --- | --- |
@@ -108,7 +108,7 @@ Entity: Workshop Location (workshop_locations)
 | Business identity | location_code is a unique stable business reference, independent of later name or address changes. |
 | Status / lifecycle | Active or inactive through is_active. Deactivation blocks new operational use without deleting or silently relocating existing bookings and Orders. |
 
-Entity: Slot (slots)
+**Entity: Slot (slots)**
 
 | Field | Value |
 | --- | --- |
@@ -117,7 +117,7 @@ Entity: Slot (slots)
 | Business identity | slot_id identifies the session; (location_id, slot_date, start_time) uniquely identifies a dated start at a branch. |
 | Status / lifecycle | Open or closed through is_open, subject to schedule exceptions. Capacity must be configured before booking; null requires configuration and zero means no bookable seats. Remaining seats are derived from participant quantities and valid holds; closure does not silently move paid bookings. |
 
-Entity: Workshop Package (workshop_packages)
+**Entity: Workshop Package (workshop_packages)**
 
 | Field | Value |
 | --- | --- |
@@ -126,7 +126,7 @@ Entity: Workshop Package (workshop_packages)
 | Business identity | package_code is the unique stable catalogue reference. |
 | Status / lifecycle | Published or unpublished through is_published. Eligibility also depends on branch and material relationships. Retiring a Package preserves booking snapshots. |
 
-Entity: Workshop Registration (workshop_registration)
+**Entity: Workshop Registration (workshop_registration)**
 
 | Field | Value |
 | --- | --- |
@@ -135,7 +135,7 @@ Entity: Workshop Registration (workshop_registration)
 | Business identity | booking_code is unique. Guest contact email is booking-scoped and does not automatically establish account ownership. A continuation is a new booking linked to a previous registration. |
 | Status / lifecycle | Proposed: pending → confirmed → checked_in → completed, or pending → expired. The email gate separately records EMAIL_CONFIRMATION_PENDING, CONFIRMED or EXPIRED; confirmation requires applicable email/deposit gates. Physical state mapping remains to be approved. |
 
-Entity: Workshop Exception (workshop_exceptions)
+**Entity: Workshop Exception (workshop_exceptions)**
 
 | Field | Value |
 | --- | --- |
@@ -144,7 +144,7 @@ Entity: Workshop Exception (workshop_exceptions)
 | Business identity | workshop_exception_id identifies the record. Scope can be global, branch-wide or slot-specific; enforcing one active exception per identical scope/date remains a documented design requirement. |
 | Status / lifecycle | Active or inactive through is_active. Changes affect new booking eligibility; existing confirmed bookings require explicit handling. |
 
-Entity: Workshop Package Location (workshop_package_locations)
+**Entity: Workshop Package Location (workshop_package_locations)**
 
 | Field | Value |
 | --- | --- |
@@ -153,7 +153,7 @@ Entity: Workshop Package Location (workshop_package_locations)
 | Business identity | The (workshop_package_id, location_id)pair uniquely identifies the relationship. |
 | Status / lifecycle | Active or inactive through is_active. Disabling stops new branch-specific selection while retaining the relationship and existing booking snapshots. |
 
-Entity: Material Location (material_locations)
+**Entity: Material Location (material_locations)**
 
 | Field | Value |
 | --- | --- |
@@ -162,7 +162,7 @@ Entity: Material Location (material_locations)
 | Business identity | The (material_id, location_id) pair uniquely identifies the relationship. |
 | Status / lifecycle | Active or inactive through is_active. Selection also requires the Material and branch to be active. The relationship records availability, not inventory quantity. |
 
-Entity: Workshop Package Material (workshop_package_materials)
+**Entity: Workshop Package Material (workshop_package_materials)**
 
 | Field | Value |
 | --- | --- |
@@ -171,7 +171,7 @@ Entity: Workshop Package Material (workshop_package_materials)
 | Business identity | The (workshop_package_id, material_id) pair uniquely identifies the relationship. |
 | Status / lifecycle | Active or inactive through is_active. New use also requires a published Package and active Material. Disable rather than delete a retained relationship; changes are audited and do not rewrite frozen history. |
 
-Entity: Material (materials)
+**Entity: Material (materials)**
 
 | Field | Value |
 | --- | --- |
@@ -180,7 +180,7 @@ Entity: Material (materials)
 | Business identity | material_code is the unique stable catalogue reference. |
 | Status / lifecycle | Active or inactive through is_active. Repricing affects new evaluations; historical snapshots remain unchanged. Branch availability is managed separately. |
 
-Entity: Shape (shape)
+**Entity: Shape (shape)**
 
 | Field | Value |
 | --- | --- |
@@ -189,7 +189,7 @@ Entity: Shape (shape)
 | Business identity | shape_code is the unique stable catalogue reference. |
 | Status / lifecycle | Active or inactive through is_active. Referenced forms are retained; changes do not rewrite frozen designs. |
 
-Entity: Gemstone (gemstones)
+**Entity: Gemstone (gemstones)**
 
 | Field | Value |
 | --- | --- |
@@ -198,7 +198,7 @@ Entity: Gemstone (gemstones)
 | Business identity | gemstone_code is the unique stable option reference. |
 | Status / lifecycle | Active or inactive through is_active. Inactive options cannot be newly selected; referenced selections and historical price snapshots remain valid. |
 
-Entity: Attachment (attachments)
+**Entity: Attachment (attachments)**
 
 | Field | Value |
 | --- | --- |
@@ -207,7 +207,7 @@ Entity: Attachment (attachments)
 | Business identity | attachment_code is the unique stable catalogue reference. |
 | Status / lifecycle | Active or inactive through is_active. Repricing or retirement affects new selection/evaluation only; referenced frozen designs retain their snapshots. |
 
-Entity: Ring Design (ring_designs)
+**Entity: Ring Design (ring_designs)**
 
 | Field | Value |
 | --- | --- |
@@ -216,7 +216,7 @@ Entity: Ring Design (ring_designs)
 | Business identity | ring_design_id identifies a specific design/version. source_design_id records lineage; a design name is not declared unique. Changes to referenced frozen designs create new versions. |
 | Status / lifecycle | Proposed states are draft, validated, published and archived. Only validated catalogue models may be published; customer configurations remain private. |
 
-Entity: Ring Design Gemstone (ring_design_gemstones)
+**Entity: Ring Design Gemstone (ring_design_gemstones)**
 
 | Field | Value |
 | --- | --- |
@@ -225,7 +225,7 @@ Entity: Ring Design Gemstone (ring_design_gemstones)
 | Business identity | ring_design_gemstone_id identifies the selection. A design/gemstone pair is not declared unique. |
 | Status / lifecycle | No independent status. Selections can change only while the design is editable; validated/frozen/referenced designs retain them. Newly validated selections require an active, compatible Gemstone. |
 
-Entity: Ring Design Attachment (ring_design_attachments)
+**Entity: Ring Design Attachment (ring_design_attachments)**
 
 | Field | Value |
 | --- | --- |
@@ -234,7 +234,7 @@ Entity: Ring Design Attachment (ring_design_attachments)
 | Business identity | ring_design_attachment_id identifies the selection. A design/attachment pair is not assumed unique until variant and placement rules are approved. |
 | Status / lifecycle | No independent status. Selections can change only while the design is editable; frozen/referenced designs retain them. Newly validated selections require an active, compatible Attachment. |
 
-Entity: Custom Design Request (custom_design_requests)
+**Entity: Custom Design Request (custom_design_requests)**
 
 | Field | Value |
 | --- | --- |
@@ -243,7 +243,7 @@ Entity: Custom Design Request (custom_design_requests)
 | Business identity | custom_design_request_id identifies a submitted request. A new request is required instead of reopening or resubmitting a rejected one. |
 | Status / lifecycle | need_review → accepted or rejected; rejection requires a reason, and both outcomes are terminal. Submitted content is not editable. Acceptance does not create a Ring Design, quote, booking, Order or payment. |
 
-Entity: Custom Design Review (custom_design_reviews)
+**Entity: Custom Design Review (custom_design_reviews)**
 
 | Field | Value |
 | --- | --- |
@@ -252,7 +252,7 @@ Entity: Custom Design Review (custom_design_reviews)
 | Business identity | custom_design_review_id identifies the review event. A Request may have review history; its reference is not unique in this entity. |
 | Status / lifecycle | Decision is accepted or rejected, rather than a separate lifecycle status. The review and current Request decision are recorded atomically. Terminal Request rules and the prohibition on self-review still apply. |
 
-Entity: Promotion (promotions)
+**Entity: Promotion (promotions)**
 
 | Field | Value |
 | --- | --- |
@@ -261,7 +261,7 @@ Entity: Promotion (promotions)
 | Business identity | promotion_id identifies the campaign. An optional voucher_code is unique; the current proposal allows at most one code per Promotion. |
 | Status / lifecycle | Eligibility depends on is_active, the validity window and approved branch/order rules; there is no separate status field. Retirement preserves discount history. |
 
-Entity: Promotion Location (promotion_locations)
+**Entity: Promotion Location (promotion_locations)**
 
 | Field | Value |
 | --- | --- |
@@ -270,7 +270,7 @@ Entity: Promotion Location (promotion_locations)
 | Business identity | The (promotion_id, location_id) pair uniquely identifies the assignment. Reactivation retains the original creator and creation time. |
 | Status / lifecycle | Active or inactive through is_active; absence of a link means the Promotion does not apply at that branch. Disabling affects new eligibility and preserves existing discount snapshots. |
 
-Entity: Promotion Redemption (promotion_redemptions)
+**Entity: Promotion Redemption (promotion_redemptions)**
 
 | Field | Value |
 | --- | --- |
@@ -279,7 +279,7 @@ Entity: Promotion Redemption (promotion_redemptions)
 | Business identity | reservation_key is unique. At most one reserved/redeemed generation exists per Order/Promotion; multiple released generations are retained. |
 | Status / lifecycle | reserved → redeemed or released, with terminal states irreversible. Verified payment consumes quota once; eligible failure/expiry releases the unpaid reservation without deleting history. Old callbacks cannot use a replacement generation. |
 
-Entity: Payment Promotion Redemption (payment_promotion_redemptions)
+**Entity: Payment Promotion Redemption (payment_promotion_redemptions)**
 
 | Field | Value |
 | --- | --- |
@@ -288,7 +288,7 @@ Entity: Payment Promotion Redemption (payment_promotion_redemptions)
 | Business identity | The (payment_id, promotion_redemption_id) pair is unique. Multiple attempts may use a still-valid generation; multiple campaigns per attempt require approved stacking. |
 | Status / lifecycle | No independent status. Links are committed before provider initiation and retained as immutable evidence; an old attempt cannot be relinked to a replacement generation. |
 
-Entity: Loyalty Policy (loyalty_policies)
+**Entity: Loyalty Policy (loyalty_policies)**
 
 | Field | Value |
 | --- | --- |
@@ -297,7 +297,7 @@ Entity: Loyalty Policy (loyalty_policies)
 | Business identity | policy_version is unique. At most one Policy is active per currency; historical versions remain available for existing credits and quotes. |
 | Status / lifecycle | Unpublished drafts start inactive; only approved published terms may be activated. Published/referenced terms are immutable and changes create a new version. Retirement does not reprice valid holds. |
 
-Entity: Loyalty Point (loyalty_points)
+**Entity: Loyalty Point (loyalty_points)**
 
 | Field | Value |
 | --- | --- |
@@ -306,7 +306,7 @@ Entity: Loyalty Point (loyalty_points)
 | Business identity | event_key is unique per business event. Each entry has a loyalty_point_id; at most one redeem debit is recorded per Redemption. |
 | Status / lifecycle | Entry types are earn, redeem, adjustment and expiry, not workflow states. Posted entries are immutable; holds do not post debits. Spendable points exclude holds and overdue credits. No refund-restoration entry type is included. |
 
-Entity: Loyalty Redemption (loyalty_redemptions)
+**Entity: Loyalty Redemption (loyalty_redemptions)**
 
 | Field | Value |
 | --- | --- |
@@ -315,7 +315,7 @@ Entity: Loyalty Redemption (loyalty_redemptions)
 | Business identity | reservation_key is unique. An Order has at most one reserved/redeemed generation, while released generations remain in history. |
 | Status / lifecycle | reserved → redeemed or released; both terminal states are irreversible. Accepted payment posts one debit; eligible unpaid release changes availability without a compensating credit. The design excludes refund-driven restoration. |
 
-Entity: Loyalty Allocation (loyalty_allocations)
+**Entity: Loyalty Allocation (loyalty_allocations)**
 
 | Field | Value |
 | --- | --- |
