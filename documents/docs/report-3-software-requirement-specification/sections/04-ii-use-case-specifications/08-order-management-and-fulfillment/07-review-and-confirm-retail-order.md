@@ -10,7 +10,7 @@ None.
 
 #### Description
 
-As an authorized shop actor, I want to review a verified paid retail order and begin preparation for its selected method so that fulfilment starts with current authority and valid data (UC49).
+As an authorized shop actor, I want to review a verified paid retail order and begin preparation for its selected method so that fulfilment starts with current authority and valid data.
 
 #### Preconditions
 
@@ -52,7 +52,7 @@ Use the current selected valid method/data when accepting preparation. An edit a
 
 **Step 6 — Already preparing, later milestone, terminal or stale conflict**
 
-Do not duplicate preparation or move backwards/from the other branch. Confirmed A-06 acknowledges an identical accepted effect without change and rejects incompatible/stale updates.
+Do not duplicate preparation or move backwards/from the other branch. The system acknowledges an identical accepted effect without change and rejects incompatible/stale updates.
 
 **Steps 2 and 6 — Read/save failure**
 
@@ -60,7 +60,7 @@ Report a safe actual failure and preserve accepted facts without false transitio
 
 **Steps 2 and 5 — Processing branch became inactive**
 
-Branch inactivity blocks new checkout selection, but accepted orders retain the original branch and deadlines. Existing payment/holds continue under the original rules; paid orders may be completed by currently assigned Staff or explicitly action/branch-delegated Manager. Inability to physically hand over requires operational follow-up, not automatic relocation/cancellation/refund. (D05-a). Continue the established order flow when current action/state prerequisites are met; inactivity alone does not revoke an existing order's branch-scoped authority.
+An inactive branch cannot receive new checkout, but accepted orders retain their branch and original deadlines. Currently authorized assigned Staff/delegated Manager may complete paid orders; physical handover problems require operational follow-up without automatic transfer, cancellation or refund.
 
 #### Business Rules
 
@@ -70,10 +70,10 @@ BR-49-01, BR-49-02, BR-49-03, BR-49-04, BR-49-05, BR-49-06, BR-49-07
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-49-01 | Only current assigned-branch Staff or explicitly delegated action/branch Manager may review/confirm preparation; approval or role name alone grants no action (D-01). |
-| BR-49-02 | Only verified paid orders with a selected valid method/data enter preparing. Human confirmation does not replace signed VNPay evidence or reprice frozen terms. |
-| BR-49-03 | Accept only paid to preparing; Member method/recipient editing is then frozen. No backward correction, cancellation/refund or override is added (D-02). |
-| BR-49-04 | Concurrent Member edits and shop submission must recheck current state/data; after preparing starts a method/recipient change is rejected and the processing branch stays fixed. |
-| BR-49-05 | Confirmed behavior (A-06): identical already-recorded effects return successful no-change; stale/conflicting requests reject with review guidance, without duplicate effects. No duplicate effective transition is allowed. |
-| BR-49-06 | Branch inactivity blocks new checkout selection, but accepted orders retain the original branch and deadlines. Existing payment/holds continue under the original rules; paid orders may be completed by currently assigned Staff or explicitly action/branch-delegated Manager. Inability to physically hand over requires operational follow-up, not automatic relocation/cancellation/refund. (D05-a). |
-| BR-49-07 | Retain safe normally append-only actor/source, target, action/time, actual SUCCESS/REJECTED/FAILED outcome and reason, with permitted references/context. Rejected or failed attempts are not success; exclude credentials, raw tokens and avoidable personal data. Business audit follows five-year retention without extending recipient-data retention. |
+| BR-49-01 | Only assigned-branch Staff or explicitly action/branch-delegated Manager may confirm preparation; role names or price approval alone grant no authority. |
+| BR-49-02 | Preparation requires verified paid status and a valid selected method/recipient data; human confirmation cannot assert payment or reprice the order. |
+| BR-49-03 | Confirming paid → preparing freezes Member method/recipient edits; no backward correction or override is permitted. |
+| BR-49-04 | Recheck concurrent edits and preparation against current state/data; accepted preparation prevents later edits and preserves the fixed branch. |
+| BR-49-05 | Identical recorded effects return successful no-change; stale/conflicting requests reject for review without duplicate transitions. |
+| BR-49-06 | Inactive branches may finish accepted paid orders under current branch-scoped authority; no silent transfer, cancellation or refund is created. |
+| BR-49-07 | Record each attempt and its actual outcome under the shared audit policy. |

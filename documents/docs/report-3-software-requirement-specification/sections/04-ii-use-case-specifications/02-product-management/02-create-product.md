@@ -10,13 +10,13 @@ Cloud Storage Service.
 
 #### Description
 
-As an authorized catalogue maintainer, I want to create an unpublished retail product with shared attributes, optional draft images, and separately identified predefined variants with proposed prices and manual quantities so that prices can be reviewed before application/publication (UC12).
+As an authorized catalogue maintainer, I want to create an unpublished retail product with shared attributes, optional draft images, and separately identified predefined variants with proposed prices and manual quantities so that prices can be reviewed before application/publication.
 
 #### Preconditions
 
 1. The platform is available.
 2. The actor is authenticated, has an active platform account, and has current product-creation authority. Manager's price-decision authority alone is insufficient.
-3. Category reference data and permitted variant option values are available. Use Mland-provided configured size/engraving values, including “Không khắc” (No engraving); initial reference data is a D-06 dependency.
+3. Category reference data and permitted variant option values are available. Use Mland-provided configured size/engraving values, including “Không khắc” (No engraving); Mland must supply the initial option list.
 
 #### Postconditions
 
@@ -35,7 +35,7 @@ As an authorized catalogue maintainer, I want to create an unpublished retail pr
 4. The actor configures one or more predefined size/engraving combinations, entering each variant's proposed amount/currency and manual remaining-unsold quantity. No prior price approval is needed to prepare a draft.
 5. The actor optionally adds draft image references, alternative text, and distinct display positions.
 6. The actor reviews the draft and submits creation.
-7. The system rechecks current active-account/action authority and validates the complete submission, category, configured options, per-product combination uniqueness, quantities, prices, and image references. Name must be 1–200 characters and description 1–5,000 after trimming; there must be an active category and at least one unique configured variant with positive whole-VND proposed price and nonnegative integer quantity. Images, if supplied, must meet D-04 limits: at most 10, 5 MB each, JPEG/PNG/WebP, alternative text 1–200 characters.
+7. The system rechecks current active-account/action authority and validates the complete submission, category, configured options, per-product combination uniqueness, quantities, prices, and image references. Name must be 1–200 characters and description 1–5,000 after trimming; there must be an active category and at least one unique configured variant with positive whole-VND proposed price and nonnegative integer quantity. Images, if supplied, must meet the media limits: at most 10, 5 MB each, JPEG/PNG/WebP, alternative text 1–200 characters.
 8. The system saves the complete group with stable product/variant identities and an unpublished parent state; proposed amounts remain separate from effective sale prices.
 9. The system retains safe SUCCESS audit evidence and confirms creation in the maintenance context, with continuation to UC13/UC14.
 
@@ -47,7 +47,7 @@ The system denies Guest, Member, Admin, inactive accounts, and Manager without c
 
 **Step 7 — Invalid fields, category, quantity, proposed price, or image references**
 
-The system identifies validation errors and preserves editable input for correction. Under confirmed A-04, examples include blank required name/description, inactive/missing category, missing configured variants, invalid proposed price/currency, or negative/fractional quantity. No partial group is saved; resume at the applicable input step.
+The system identifies validation errors and preserves editable input for correction. Examples include blank required name/description, inactive/missing category, missing configured variants, invalid proposed price/currency, or negative/fractional quantity. No partial group is saved; resume at the applicable input step.
 
 **Step 7 — Duplicate variant combination**
 
@@ -59,7 +59,7 @@ The name alone does not cause rejection. If all other validation passes, continu
 
 **Steps 5 and 8 — Required submitted-media operation or save fails**
 
-The system reports a safe failure, retains FAILED evidence, and permits correction/retry. It does not report success or persist a partial catalogue group. Failed-upload files unlinked to catalogue data are removed after 24 hours under D-04; this cleanup does not authorize deletion of referenced/history media.
+The system reports a safe failure, retains FAILED evidence, and permits correction/retry. It does not report success or persist a partial catalogue group. Failed-upload files unlinked to catalogue data are removed after 24 hours; this cleanup does not authorize deletion of referenced/history media.
 
 **Step 9 — Actor tries to apply or publish an unapproved draft price**
 
@@ -73,11 +73,11 @@ BR-12-01, BR-12-02, BR-12-03, BR-12-04, BR-12-05, BR-12-06, BR-12-07, BR-12-08
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-12-01 | Active Staff may create products. Manager/OWNER needs explicit delegation applying to creation and the submission context; Guest/Member/Admin cannot create business records. Authority is checked at submission, not inferred from labels or price approval. Confirmed D-02. |
-| BR-12-02 | Creation saves an unpublished product and variant price proposals; no proposed price becomes an effective sale price. Manager approval, permitted application, and explicit publication are later separate actions (confirmed D-11). Prior approval is unnecessary for proposal creation; draft images are optional and field checks follow confirmed A-04/D-04. |
-| BR-12-03 | Each variant belongs to one product, has a stable identity and a predefined size/engraving combination unique within that product, and retains independent proposed price/currency and nonnegative integer quantity. Concurrent duplicates are rejected; customers cannot configure arbitrary variants. Confirmed D-01/D-07/D-09. |
-| BR-12-04 | Product identity is distinct from its non-unique display name. No separate SKU, Variant-publication state, or editable parent sale-stock total is declared. Existing product-only records require later compatibility alignment, not guessed variant migration (D-06). |
-| BR-12-05 | Confirmed requirement (A-04): draft creation requires nonblank shared name/description, an active category, at least one configured variant, and positive proposed amount/currency with nonnegative integer quantity. After trimming, name is 1–200 characters and description 1–5,000; VND prices are positive integers with decimal amounts rejected. Mland supplies the configured option values (D-04/D-06). |
-| BR-12-06 | Image positions are distinct within a product and references include alternative text. Optional draft images do not bypass publish's usable-image requirement. At most 10 images, 5 MB each, JPEG/PNG/WebP, with alternative text of 1–200 characters. Draft media requires target-product authority; public media follows eligibility. Referenced/history files remain, eligible unreferenced files are deleted after 30 days, and failed unlinked uploads after 24 hours. Provider selection is deferred to the plan (D-04). |
-| BR-12-07 | Creation/validation failure saves no partial product/variant/image-reference group. A rejected or failed attempt is never recorded as successful; retry does not imply an approved creation-deduplication contract. |
-| BR-12-08 | Creation attempts retain normally append-only actor/target/action/time/outcome/reason and permitted context/references with five-year business audit retention. Credentials, tokens, and avoidable personal data are excluded. |
+| BR-12-01 | Active Staff may create products; Manager requires explicit applicable creation delegation. Guest, Member and Admin cannot create products. |
+| BR-12-02 | Creation saves an unpublished product with price proposals; approval, price application and publication remain separate actions. Draft images are optional. |
+| BR-12-03 | Each variant has a stable identity, independent proposed price/quantity and a size/engraving combination unique within its product, including concurrent creation. |
+| BR-12-04 | Display names need not be unique; identity belongs to the product/variant, with no separate SKU, variant-publication flag or editable parent stock total. |
+| BR-12-05 | Creation requires valid name/description, an active category, at least one configured variant, positive whole-VND proposed prices and nonnegative integer quantities. |
+| BR-12-06 | Images require alternative text, distinct positions and compliance with the shared media limits, access and retention policy. |
+| BR-12-07 | Failed validation or saving creates no partial product, variant or image-reference group; retry alone does not guarantee creation deduplication. |
+| BR-12-08 | Record each attempt and its actual outcome under the shared audit policy. |

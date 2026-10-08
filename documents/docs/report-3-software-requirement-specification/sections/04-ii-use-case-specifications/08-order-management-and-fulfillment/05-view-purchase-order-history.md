@@ -10,7 +10,7 @@ None.
 
 #### Description
 
-As a Member, I want to view my own past and ongoing retail orders so that I can understand recorded purchase and shop progress without changing orders (UC47).
+As a Member, I want to view my own past and ongoing retail orders so that I can understand recorded purchase and shop progress without changing orders.
 
 #### Preconditions
 
@@ -45,7 +45,7 @@ Display an empty-history result with safe purchase guidance; do not fabricate or
 
 **Steps 3 and 4 — Retrieval failure or undefined filter/paging option**
 
-Provide a safe read error/retry result. Retain the approved 20/max 50 paging, newest-first ordering and creation-date/payment/fulfilment filters (D08-a/A-09).
+Provide a safe read error/retry result. Retain the approved 20/max 50 paging, newest-first ordering and creation-date/payment/fulfilment filters.
 
 **Steps 3 and 4 — Catalogue changes, legacy snapshots or retired recipient data**
 
@@ -59,9 +59,9 @@ BR-47-01, BR-47-02, BR-47-03, BR-47-04, BR-47-05, BR-47-06
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-47-01 | UC47 is own-history read access for the active Member; Guest/internal business roles receive no customer impersonation grant (D-01). |
-| BR-47-02 | Show recorded retail purchase/payment/hold/internal-fulfilment facts; no courier tracking, delivery outcome or new payment/order mutation. |
-| BR-47-03 | Preserve accepted historical names/options/quantity/prices/discounts/totals. Legacy missing variant options remain unknown; never infer mappings. |
-| BR-47-04 | Confirmed behavior (A-09): Order history is newest first by creation time, with stable order identity as tie-breaker; default 20 orders/page, maximum 50. Filters cover creation date, payment state and fulfilment state, always within current authority. Quality targets follow approved D08-b–d; no achieved performance is claimed. |
-| BR-47-05 | Retired carrier recipient/contact/address data is absent/irreversibly obscured after 30 days from actual original handoff. Five-year minimized payment/audit history does not preserve those personal values. |
-| BR-47-06 | Protected access and failed/rejected read evidence remain safe and purpose-appropriate; a reference is not authorization (D-01; FR-023). |
+| BR-47-01 | Only the active owning Member views retail purchase history; internal roles receive no customer impersonation grant. |
+| BR-47-02 | History is read-only and shows recorded purchase, payment, hold and internal fulfilment facts without courier tracking. |
+| BR-47-03 | Preserve accepted historical names/options/quantities/prices/discounts/totals; missing legacy options remain unknown. |
+| BR-47-04 | Sort newest first by creation time then stable identity; default 20/max 50 orders per page, filtered by creation date, payment or fulfilment state. |
+| BR-47-05 | Retire carrier recipient/contact/address values 30 days after original actual handoff; five-year minimized evidence does not retain those values. |
+| BR-47-06 | Recheck ownership and record safe read/rejection outcomes; knowing an order reference grants no access. |

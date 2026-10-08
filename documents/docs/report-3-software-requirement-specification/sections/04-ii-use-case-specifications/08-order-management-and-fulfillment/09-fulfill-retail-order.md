@@ -10,7 +10,7 @@ None.
 
 #### Description
 
-As a Member, I want to choose pickup or GHTK after verified payment and provide necessary order-specific data so that the shop can prepare the paid order for the chosen method (UC51).
+As a Member, I want to choose pickup or GHTK after verified payment and provide necessary order-specific data so that the shop can prepare the paid order for the chosen method.
 
 #### Preconditions
 
@@ -46,7 +46,7 @@ Reject without exposing another order, accepting data or changing payment facts.
 
 **Step 6 — Invalid method or incomplete GHTK data**
 
-Identify missing/invalid fields and permit correction at Step 4 while the order remains editable. GHTK delivery is domestic Vietnam: recipient name 1–100 Unicode characters, address 10–500 Unicode characters, optional note at most 500 Unicode characters, with leading/trailing whitespace trimmed. Contact mobile number is 10 digits starting with 0 or its equivalent +84 form. (D04-b/c).
+Identify missing/invalid fields and permit correction at Step 4 while the order remains editable. GHTK delivery is domestic Vietnam: recipient name 1–100 Unicode characters, address 10–500 Unicode characters, optional note at most 500 Unicode characters, with leading/trailing whitespace trimmed. Contact mobile number is 10 digits starting with 0 or its equivalent +84 form.
 
 **Step 6 — Preparing started, including a concurrent shop confirmation**
 
@@ -54,7 +54,7 @@ Reject method/recipient changes and retain the existing choice/data. No reset, b
 
 **Steps 3 and 7 — Processing branch became inactive**
 
-Preserve the recorded branch/history and do not silently relocate. Branch inactivity blocks new checkout selection, but accepted orders retain the original branch and deadlines. Existing payment/holds continue under the original rules; paid orders may be completed by currently assigned Staff or explicitly action/branch-delegated Manager. Inability to physically hand over requires operational follow-up, not automatic relocation/cancellation/refund. (D05-a); changing pickup/GHTK cannot change the branch.
+Preserve the recorded branch/history and do not silently relocate. An inactive branch cannot receive new checkout, but accepted orders retain their branch and original deadlines. Currently authorized assigned Staff/delegated Manager may complete paid orders; physical handover problems require operational follow-up without automatic transfer, cancellation or refund.
 
 **Step 7 — Save failure**
 
@@ -62,11 +62,11 @@ Report a safe error and preserve previously accepted data/payment facts. The own
 
 **Steps 7 and 8 — Long wait before actual GHTK handoff**
 
-Keep only recipient name/phone/address necessary to fulfil the pending handoff. The 30-day retirement clock begins at the original actual handoff, not at entry/editing or preparation (C4/D-07).
+Keep only recipient name/phone/address necessary to fulfil the pending handoff. The 30-day retirement clock begins at the original actual handoff, not at entry/editing or preparation.
 
 **Steps 4 and 6 — GHTK changes to pickup before preparing**
 
-Remove obsolete GHTK recipient data when the valid change is accepted. Pickup collects no extra address or separate contact; branch and frozen payment terms remain unchanged (D07-a/c).
+Remove obsolete GHTK recipient data when the valid change is accepted. Pickup collects no extra address or separate contact; branch and frozen payment terms remain unchanged.
 
 #### Business Rules
 
@@ -76,10 +76,10 @@ BR-51-01, BR-51-02, BR-51-03, BR-51-04, BR-51-05, BR-51-06, BR-51-07
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-51-01 | Only the active owning Member selects/edits method/recipient data after verified payment while paid before preparing. Internal actors coordinate through their own authorized use cases without impersonation (D-01/D-02). |
-| BR-51-02 | Pickup and manual GHTK are the supported methods. GHTK requires order-specific recipient name/phone/address; GHTK delivery is domestic Vietnam: recipient name 1–100 Unicode characters, address 10–500 Unicode characters, optional note at most 500 Unicode characters, with leading/trailing whitespace trimmed. Contact mobile number is 10 digits starting with 0 or its equivalent +84 form. (D04-b/c). No global address book. |
-| BR-51-03 | The Member-selected processing branch is fixed with checkout. Method selection/editing does not move the branch, alter frozen prices/totals, add shipping fees or create new payment/holds (C1/D-05). |
-| BR-51-04 | Preparing requires current valid method/data and freezes subsequent owner edits. Only the selected method's approved readiness/completion chain is permitted; no override/backward correction. |
-| BR-51-05 | Retain necessary GHTK recipient fields while actual handoff is pending; retire private values/copies 30 days after the original actual handoff. Pickup collects no separate delivery address/contact. Cart expires 30 days after its last Member edit without affecting established orders/holds/payments. Switching GHTK to pickup before preparing removes obsolete GHTK recipient data. Necessary pending-GHTK data remains until actual handoff; retire recipient/contact/address values and applicable copies 30 days after the original actual handoff. Minimized payment/exception/business-audit evidence is retained five years; sanitized ordinary technical logs 30 days. No raw recipient values are copied into logs. (D07-a–d). |
-| BR-51-06 | V1 does not quote GHTK fees, call its APIs, track delivery, handle courier failure/returns or add cancellation/refund workflows. |
-| BR-51-07 | Retain safe normally append-only actor/source, target, action/time, actual SUCCESS/REJECTED/FAILED outcome and reason, with permitted references/context. Rejected or failed attempts are not success; exclude credentials, raw tokens and avoidable personal data. Business audit follows five-year retention without extending recipient-data retention. |
+| BR-51-01 | Only the active owning Member selects/edits method and recipient data after verified payment and before preparing; internal actors cannot impersonate the Member. |
+| BR-51-02 | Support pickup or manual domestic GHTK; GHTK requires valid name, phone and address with optional note under the shared field limits, without an address book. |
+| BR-51-03 | Fulfilment choice never changes the checkout branch, frozen prices/totals, shipping fees, payment or hold. |
+| BR-51-04 | Preparation requires valid current method/data and freezes later owner edits; only the selected method’s readiness/completion chain is permitted. |
+| BR-51-05 | Retain necessary pending GHTK data, retire it 30 days after original actual handoff, and remove obsolete data when switching to pickup before preparing. |
+| BR-51-06 | No GHTK fee quote, API, tracking, delivery-failure/return or cancellation/refund workflow is provided. |
+| BR-51-07 | Record each attempt and its actual outcome under the shared audit policy. |

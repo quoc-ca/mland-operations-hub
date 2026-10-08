@@ -10,7 +10,7 @@ None.
 
 #### Description
 
-As a Member, I want to add an existing configured retail variant and quantity to my own cart so that I can prepare a purchase without reserving stock or freezing a price (UC43).
+As a Member, I want to add an existing configured retail variant and quantity to my own cart so that I can prepare a purchase without reserving stock or freezing a price.
 
 #### Preconditions
 
@@ -42,7 +42,7 @@ The system rejects unknown combinations, free-text retail engraving, unpublished
 
 **Step 4 — Missing ownership/account authority or invalid quantity**
 
-The system denies unauthorized access and rejects nonpositive/fractional or unavailable requested quantities. At most 50 cart/order lines and integer quantity 1–99 per configured variant, aggregated across all same-variant lines regardless of distinct terms; current logical availability remains mandatory. (D04-a). The Member may correct quantity at Step 3 when authorized.
+The system denies unauthorized access and rejects nonpositive/fractional or unavailable requested quantities. Allow at most 50 cart lines and quantity 1–99 per variant across all lines, subject to logical availability. The Member may correct quantity at Step 3 when authorized.
 
 **Step 5 — Different variant or different price/term identity**
 
@@ -50,7 +50,7 @@ Keep the lines distinct. Only the same configured variant with matching price/sn
 
 **Step 5 — Save fails or concurrent cart edit conflicts**
 
-Report a safe failure without false success or partial purchase effects. Reject stale conflicting edits and reload current values for review (confirmed A-02). Preserve the accepted cart and provide retry/review guidance.
+Report a safe failure without false success or partial purchase effects. Reject stale conflicting edits and reload current values for review. Preserve the accepted cart and provide retry/review guidance.
 
 #### Business Rules
 
@@ -60,10 +60,10 @@ BR-43-01, BR-43-02, BR-43-03, BR-43-04, BR-43-05, BR-43-06, BR-43-07
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-43-01 | Only the owning active Member may add retail cart items; Guest, Staff, Manager and Admin cannot purchase/edit a Member cart by impersonation (D-01). |
-| BR-43-02 | Use a stable configured variant identity with predefined size/engraving, its applied approved positive whole-VND price and quantity. No customer-created variants or free-text engraving (Product Management; FR-003). |
-| BR-43-03 | Quantity is a positive integer subject to logical availability; maximum 50 lines/cart and aggregate quantity 99 per variant apply (D04-a). A cart line creates no reservation or physical-stock guarantee. |
-| BR-43-04 | Distinct variants remain distinct. Same-variant selections merge only when price/snapshot terms also match; a displayed cart price is not a protected purchase snapshot. |
-| BR-43-05 | Submission reassesses current catalogue eligibility. Earlier browsing/cart views confer no old-price protection or right to a new hold after unpublish. |
-| BR-43-06 | Confirmed behavior (A-02): reject stale conflicting cart edits with review/reload guidance; this behavior is confirmed. |
-| BR-43-07 | Retain safe normally append-only actor/source, target, action/time, actual SUCCESS/REJECTED/FAILED outcome and reason, with permitted references/context. Rejected or failed attempts are not success; exclude credentials, raw tokens and avoidable personal data. Business audit follows five-year retention without extending recipient-data retention. |
+| BR-43-01 | Only the active owning Member may add cart items; internal roles cannot act by customer impersonation. |
+| BR-43-02 | Cart items select existing configured size/engraving variants at applied approved positive whole-VND prices; arbitrary variants and free-text engraving are rejected. |
+| BR-43-03 | Cart limits are 50 lines and integer quantity 1–99 per variant across all lines, subject to logical availability; cart items create no hold. |
+| BR-43-04 | Keep variants/terms distinct; merge only the same variant with matching terms. Cart prices remain indicative. |
+| BR-43-05 | Recheck current catalogue eligibility on submission; stale browsing/cart data grants no old-price or post-unpublish hold protection. |
+| BR-43-06 | Reject stale conflicting edits and reload current cart values for review. |
+| BR-43-07 | Record each attempt and its actual outcome under the shared audit policy. |

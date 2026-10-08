@@ -10,7 +10,7 @@ Cloud Storage Service.
 
 #### Description
 
-As an authorized catalogue maintainer, I want to explicitly publish an eligible retail product or unpublish it immediately so that public discovery/new checkout reflect current publication while valid held orders and historical purchases retain their agreed terms (UC14).
+As an authorized catalogue maintainer, I want to explicitly publish an eligible retail product or unpublish it immediately so that public discovery/new checkout reflect current publication while valid held orders and historical purchases retain their agreed terms.
 
 #### Preconditions
 
@@ -54,7 +54,7 @@ If all other prerequisites are satisfied, continue to Step 7 and publish with un
 
 **Step 5 — Requested state already exists**
 
-Under confirmed A-07, the system checks current authority, reports a successful no-change result, and records safe attempt evidence without a second effective transition.
+The system checks current authority, reports a successful no-change result, and records safe attempt evidence without a second effective transition.
 
 **Step 7 — Existing valid held order when product is unpublished**
 
@@ -66,7 +66,7 @@ Only an already-accepted valid hold before unpublish becomes effective receives 
 
 **Steps 6 and 7 — Required data/media assessment or state save fails**
 
-The system reports a safe error, preserves the previous state, records FAILED evidence, and permits retry. External loss of all usable images is a separate confirmed A-11 public-read policy, not permission to silently rewrite publication state.
+The system reports a safe error, preserves the previous state, records FAILED evidence, and permits retry. External image loss hides public results without changing publication state.
 
 #### Business Rules
 
@@ -76,11 +76,11 @@ BR-14-01, BR-14-02, BR-14-03, BR-14-04, BR-14-05, BR-14-06, BR-14-07, BR-14-08
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-14-01 | Active Staff may publish/unpublish; Manager/OWNER requires current explicit applicable delegation. Guest/Member/Admin cannot mutate publication; approval authority alone grants no publication right. Check authority at submission (D-02). |
-| BR-14-02 | Publish validates current active category, required shared attributes, at least one usable image and configured variant, and an applied price/currency backed by in-system Manager approval with nonnegative quantity for every configured variant. Proposed or approved-but-unapplied prices are insufficient (D-03/D-11); name is 1–200 characters, description 1–5,000 after trimming, price is positive whole VND, and images are limited to 10 at 5 MB each in JPEG/PNG/WebP with 1–200-character alternative text (D-04). A usable image is successfully stored, readable, and in an allowed format. |
-| BR-14-03 | Zero quantity does not block publication or public display; indicate unavailable variants rather than promise a purchase. Publication belongs to the parent product; no additional Product-active or Variant-publication state is introduced (D-03). |
-| BR-14-04 | Unpublish takes effect immediately for subsequent public reads/new checkout and cannot acquire new holds. It requires no wait for pending orders and does not alter historical product/variant/options/quantity/price/amount snapshots (D-08). |
-| BR-14-05 | Already accepted valid held orders retain payment eligibility at frozen prices within original 10-minute payment-link and 15-minute hold deadlines. Catalogue actions do not extend/revive holds or automatically cancel orders. Stale unheld carts have no protection; expired/late payments follow existing exception rules (D-08). |
-| BR-14-06 | Reject a complete maintainer save that invalidates a published product's prerequisites, retaining all old data/publication. Require explicit prior unpublish or a valid same-save replacement; never automatically unpublish as a maintenance side effect (D-10). Inactive categories exclude public reads without changing historical references/publication flags. |
-| BR-14-07 | Confirmed requirement (A-07): repeated existing-state requests succeed without a second effective transition. Confirmed A-11 suppresses public reads during external all-image failure without changing flags/history; restore public eligibility when usable media returns and other prerequisites hold. No automatic publication-state transition occurs. |
-| BR-14-08 | Publication attempts retain safe normally append-only actor/target/action/time/outcome/reason and permitted before/after/reference evidence with five-year business audit retention. Rejected/failed actions are not success; credentials, tokens, and avoidable personal data are excluded. |
+| BR-14-01 | Active Staff may publish/unpublish; Manager requires explicit applicable publication delegation. Guest, Member and Admin cannot change publication. |
+| BR-14-02 | Publish requires valid shared fields, an active category, a usable image and configured variants, each with an applied Manager-approved positive whole-VND price and nonnegative quantity. |
+| BR-14-03 | Publication belongs to the product; zero-quantity variants remain visible as unavailable and do not block publication. |
+| BR-14-04 | Unpublish immediately blocks subsequent public reads and new checkout holds, without waiting for pending orders or changing purchase history. |
+| BR-14-05 | Accepted valid holds retain frozen terms and original 10-minute link/15-minute hold deadlines; stale carts, expired holds and late payments gain no protection. |
+| BR-14-06 | Reject edits that invalidate published prerequisites; inactive categories hide public results without rewriting publication flags or historical references. |
+| BR-14-07 | An authorized request for the existing state succeeds without another transition; external image loss/restoration changes visibility only, not publication/history. |
+| BR-14-08 | Record each attempt and its actual outcome under the shared audit policy. |
