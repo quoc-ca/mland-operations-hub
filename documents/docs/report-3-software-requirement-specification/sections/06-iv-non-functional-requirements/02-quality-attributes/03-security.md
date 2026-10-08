@@ -1,7 +1,15 @@
 ### 2.3 Security
 
-example: 
-
-|Requirement|Description|
-|---|---|
-|Authentication|...|
+| Requirement | Description | Verification |
+| --- | --- | --- |
+| Authentication | Support the approved local-credential and configured SSO journeys. A locked, inactive, invalid, or unlinked identity must not receive an authenticated session. | Authentication, account-status, and SSO integration tests. |
+| Authorization | Resolve role and business authorization from Mland’s own account data. Enforce least privilege for Member, Staff, Manager, Owner, Admin, and Admin Technical; an external identity alone must not grant a business role. | Permission-matrix tests for allowed and denied actions. |
+| Session and credential safety | Do not expose passwords, tokens, provider secrets, card data, or raw sensitive credentials in UI responses or logs. Passwords must be stored using a one-way password-hashing mechanism; security-sensitive changes must invalidate or revalidate sessions according to the approved security policy. | Configuration review, secret-scanning, and session tests. |
+| Payment security | Accept payment state only from a valid signed VNPay IPN or the defined signed QueryDR recovery result while the associated hold is active. Validate signature, transaction reference, amount, and successful status; process duplicates idempotently. | Positive, tampered, mismatched, duplicate, and late-event tests. |
+| Input and file security | Validate type, size, structure, and business ownership for uploaded images and request data. Reject malformed or unsupported input and prevent uploaded content from being executed as application code. | API validation, upload abuse, and malware-scanning/infrastructure review. |
+| Provider and integration security | Store provider credentials outside source control and restrict access to the integration boundary. Use approved callback URLs and encrypted transport for external calls. | Secret/configuration review and integration test. |
+| Personal-data minimisation | Apply the approved retention rules: AI text logs at most 30 days, no AI image input after processing, custom reference images only until pickup/GHTK handoff when eligible, delivery recipient/address data deleted or irreversibly obscured 30 days after handoff, and no card-data storage. | Retention-job test, storage inspection, and deletion/anonymisation evidence. |
+| Privacy and attribution | The general Terms and Privacy Policy must state image-processing purposes, retention periods, Google attribution, and delivery-recipient handling. Google Places review/rating content must not be persisted and must retain required attribution/linking. | Policy review and Google Maps integration inspection. |
+| Audit evidence | Retain business audit evidence for payment confirmation, price publication, booking-design review, custom final amount, pickup, and GHTK handoff for five years. Record actor, time, affected business record, outcome, and reason where an override or adjustment occurs. | Audit-trail completeness and retention verification. |
+| Security events | Record successful and failed authentication, authorization denials, payment-verification failures, sensitive configuration changes, and relevant provider/integration failures without recording secrets or unnecessary personal data. | Log review and redaction test. |
+| Security baseline | TLS, security headers, dependency patching, backup protection, recovery objectives, penetration testing scope, and incident-response timings are deployment/security baselines to be approved before production rather than unapproved V1 promises. | Release-readiness checklist. |
