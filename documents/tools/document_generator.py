@@ -30,7 +30,7 @@ LINK_PATTERN = re.compile(r"(?<!!)\[(?P<label>[^\]]+)\]\((?P<target>[^)\s]+)(?:\
 RASTER_OR_VECTOR_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg"}
 DRIVE_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 DRIVE_ASSET_PATTERN = re.compile(
-    r"(?m)^[ \t]*\{\{(?P<name>[A-Za-z0-9][A-Za-z0-9_-]*)(?:[ \t]+width=(?P<width>[^\s}]+))?\}\}[ \t]*$"
+    r"(?m)^[ \t]*\{\{(?P<name>[A-Za-z0-9][A-Za-z0-9_-]*)(?P<attributes>(?:[ \t]+[^\s{}]+)*)[ \t]*\}\}[ \t]*$"
 )
 DRIVE_ASSET_BRACE_PATTERN = re.compile(r"\{\{.*?\}\}")
 DRIVE_ASSET_PERCENT_WIDTH = re.compile(r"^(?:[1-9][0-9]?|100)%$")
@@ -38,7 +38,9 @@ DRIVE_ASSET_INCH_WIDTH = re.compile(r"^(?:0\.[1-9][0-9]*|[1-9][0-9]*(?:\.[0-9]+)
 GIT_HISTORY_MARKER = "<!-- AUTO-GENERATED: GIT-CHANGE-HISTORY -->"
 USE_CASE_TABLE_REPORT_ID = "report-3-software-requirement-specification"
 DOCX_TABLE_STYLE_MARKER = "MOH_Table_"
+DOCX_DRIVE_IMAGE_TITLE_PREFIX = "MOH_DRIVE_IMAGE:"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+DRAWING_NS = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
 
 
 @dataclass(frozen=True)
@@ -74,6 +76,12 @@ class Bundle:
     output_name: str
     fragments: tuple[Path, ...]
     change_log: dict[str, Any] | None
+
+
+@dataclass(frozen=True)
+class DriveImageSettings:
+    width: str
+    align: str
 
 
 def _error(code: str, reason: str, **details: str | None) -> GenerationError:
@@ -178,7 +186,7 @@ def drive_image_placeholders(bundle: Bundle) -> tuple[str, ...]:
         valid_ranges = [(match.start(), match.end()) for match in DRIVE_ASSET_PATTERN.finditer(text)]
         for match in DRIVE_ASSET_PATTERN.finditer(text):
             try:
-                _drive_asset_width(match)
+                _drive_image_settings(match)
             except ValueError as exc:
                 raise _error(
                     "drive-asset-placeholder-invalid",
@@ -211,18 +219,37 @@ def drive_image_placeholders(bundle: Bundle) -> tuple[str, ...]:
     return tuple(names)
 
 
-def _drive_asset_width(match: re.Match[str]) -> str:
-    """Return a validated Pandoc width, defaulting to the documented 80%."""
-    width = match.group("width")
+def _drive_image_settings(match: re.Match[str]) -> DriveImageSettings:
+    """Parse the optional width and alignment on a Drive image placeholder."""
+    attributes: dict[str, str] = {}
+    for token in match.group("attributes").split():
+        if "=" not in token:
+            raise ValueError(f"Invalid Drive image setting {token!r}; expected name=value.")
+        key, value = token.split("=", 1)
+        if key not in {"width", "align"}:
+            raise ValueError(f"Unsupported Drive image setting {key!r}; supported settings are width and align.")
+        if key in attributes:
+            raise ValueError(f"Drive image setting {key!r} may only be specified once.")
+        if not value:
+            raise ValueError(f"Drive image setting {key!r} must have a value.")
+        attributes[key] = value
+
+    width = attributes.get("width")
     if width is None:
-        return "80%"
+        width = "80%"
     if DRIVE_ASSET_PERCENT_WIDTH.fullmatch(width):
-        return width
-    if DRIVE_ASSET_INCH_WIDTH.fullmatch(width):
+        pass
+    elif DRIVE_ASSET_INCH_WIDTH.fullmatch(width):
         inches = float(width.removesuffix("in"))
-        if 0.1 <= inches <= 10:
-            return width
-    raise ValueError("Drive asset width must be an integer from 1% to 100% or a value from 0.1in to 10in.")
+        if not 0.1 <= inches <= 10:
+            raise ValueError("Drive asset width must be an integer from 1% to 100% or a value from 0.1in to 10in.")
+    else:
+        raise ValueError("Drive asset width must be an integer from 1% to 100% or a value from 0.1in to 10in.")
+
+    align = attributes.get("align", "left")
+    if align not in {"left", "center", "right"}:
+        raise ValueError("Drive image align must be left, center, or right.")
+    return DriveImageSettings(width=width, align=align)
 
 
 def validate_bundle(bundle: Bundle) -> None:
@@ -256,13 +283,14 @@ def validate_bundle(bundle: Bundle) -> None:
 def _replace_drive_image_placeholders(text: str, drive_assets: Mapping[str, Path] | None, rendered: Mapping[str, Path]) -> str:
     def replace(match: re.Match[str]) -> str:
         name = match.group("name")
-        width = _drive_asset_width(match)
+        settings = _drive_image_settings(match)
         if drive_assets is None:
             return f"[Drive asset omitted: {name}]"
         asset = rendered.get(name.casefold())
         if asset is None:
             raise _error("drive-asset-missing", f"No downloaded Drive asset is available for placeholder {name!r}.")
-        return f"![{name}](assets/{asset.name}){{ width={width} }}"
+        title = f"{DOCX_DRIVE_IMAGE_TITLE_PREFIX}{settings.align}"
+        return f'![{name}](assets/{asset.name} "{title}"){{ width={settings.width} }}'
 
     return DRIVE_ASSET_PATTERN.sub(replace, text)
 
@@ -294,8 +322,8 @@ def _pandoc_fragment(stderr: str, line_ranges: list[tuple[int, int, str]]) -> st
     return f"unknown (Pandoc reported composed line {line})"
 
 
-def _apply_docx_table_widths(docx_path: Path) -> int:
-    """Apply table widths carried through Pandoc's DOCX style marker."""
+def _apply_docx_layout(docx_path: Path) -> tuple[int, int]:
+    """Apply table widths and injected Drive image alignment in the DOCX."""
     qname = lambda name: f"{{{WORD_NS}}}{name}"
     with zipfile.ZipFile(docx_path, "r") as source:
         entries = [(info, source.read(info.filename)) for info in source.infolist()]
@@ -309,18 +337,39 @@ def _apply_docx_table_widths(docx_path: Path) -> int:
     for _, (prefix, uri) in namespace_pairs:
         ET.register_namespace(prefix, uri)
     document = ET.fromstring(document_xml)
+    changed_images = 0
+    for paragraph in document.findall(".//" + qname("p")):
+        for picture in paragraph.findall(".//" + f"{{{DRAWING_NS}}}docPr"):
+            marker = picture.get("title", "")
+            if not marker.startswith(DOCX_DRIVE_IMAGE_TITLE_PREFIX):
+                continue
+            align = marker.removeprefix(DOCX_DRIVE_IMAGE_TITLE_PREFIX)
+            if align not in {"left", "center", "right"}:
+                raise ValueError(f"Invalid internal Drive image alignment marker: {marker!r}.")
+            paragraph_properties = paragraph.find("./" + qname("pPr"))
+            if paragraph_properties is None:
+                paragraph_properties = ET.Element(qname("pPr"))
+                paragraph.insert(0, paragraph_properties)
+            justification = paragraph_properties.find("./" + qname("jc"))
+            if justification is None:
+                justification = ET.Element(qname("jc"))
+                paragraph_properties.append(justification)
+            justification.set(qname("val"), align)
+            picture.set("title", "")
+            changed_images += 1
+
     section = document.find(".//" + qname("sectPr"))
     page_size = section.find("./" + qname("pgSz")) if section is not None else None
     page_margins = section.find("./" + qname("pgMar")) if section is not None else None
     if page_size is None or page_margins is None:
-        raise ValueError("DOCX section is missing page size or page margins needed for table widths.")
+        raise ValueError("DOCX section is missing page size or page margins needed for layout.")
     page_width = int(page_size.get(qname("w"), "0"))
     margins = sum(int(page_margins.get(qname(side), "0")) for side in ("left", "right", "gutter"))
     text_width = page_width - margins
     if text_width <= 0:
         raise ValueError("DOCX page margins leave no printable text width for tables.")
 
-    changed = 0
+    changed_tables = 0
     for table in document.findall(".//" + qname("tbl")):
         properties = table.find("./" + qname("tblPr"))
         if properties is None:
@@ -381,10 +430,10 @@ def _apply_docx_table_widths(docx_path: Path) -> int:
                 cell_width_element.set(qname("type"), "dxa")
                 cell_width_element.set(qname("w"), str(cell_width))
         style.set(qname("val"), "TableGrid")
-        changed += 1
+        changed_tables += 1
 
-    if not changed:
-        return 0
+    if not changed_tables and not changed_images:
+        return 0, 0
 
     entries[document_entry] = (
         entries[document_entry][0],
@@ -399,7 +448,7 @@ def _apply_docx_table_widths(docx_path: Path) -> int:
     finally:
         if staged_path.exists():
             staged_path.unlink()
-    return changed
+    return changed_tables, changed_images
 
 
 def build_bundle(
@@ -485,6 +534,14 @@ def build_bundle(
                 report_id=bundle.report_id,
             )
         command.append(f"--lua-filter={table_layout_filter}")
+        drive_image_filter = Path(__file__).resolve().with_name("drive_image_layout.lua")
+        if not drive_image_filter.is_file():
+            raise _error(
+                "drive-image-filter-missing",
+                f"Missing Drive image layout filter: {drive_image_filter}",
+                report_id=bundle.report_id,
+            )
+        command.append(f"--lua-filter={drive_image_filter}")
         command.extend(("--output", str(staged_output), str(composed)))
         try:
             completed = subprocess.run(command, capture_output=True, text=True, check=False)
@@ -497,10 +554,10 @@ def build_bundle(
                 fragment=_pandoc_fragment(reason, line_ranges),
             )
         try:
-            _apply_docx_table_widths(staged_output)
+            _apply_docx_layout(staged_output)
         except (OSError, ValueError, zipfile.BadZipFile, ET.ParseError) as exc:
             raise _error(
-                "docx-table-layout-failed", str(exc), report_id=bundle.report_id,
+                "docx-layout-failed", str(exc), report_id=bundle.report_id,
             ) from exc
         shutil.move(str(staged_output), destination)
 
