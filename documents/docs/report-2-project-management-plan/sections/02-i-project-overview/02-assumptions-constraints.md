@@ -1,6 +1,6 @@
 ## 2. Assumptions and Constraints
 
-The decisions in this section are traced in [07. Evidences](07-evidences.md). Values for project schedule, staffing, budget, capacity planning, and RACI remain intentionally unpopulated until the group supplies an approved project-management baseline; they are not system-integration TBD items.
+The business and integration decisions in this section are traced in [07. Evidences](07-evidences.md). Project-management values elsewhere in this report are either illustrative proposals or marked TBD until SEP490_G22 approves a delivery baseline; they are not system-integration TBD items.
 
 ### Assumptions
 
