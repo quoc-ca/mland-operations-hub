@@ -68,6 +68,22 @@ You own `templates/reference.docx`; automation reads it only. Configure it once 
 
 Markdown controls semantic structure only: headings, lists, tables, links, code, and image references.
 
+### Markdown table layout
+
+Author-written Markdown tables use full text width, a complete grid, and do not repeat their header on later pages. To override a table's width, column proportions, or header repetition, wrap exactly one table in a fenced Div:
+
+```markdown
+::: {.docx-table width="90%" columns="15%,50%,35%" repeat-header="true"}
+
+| No. | Description | Note |
+|---|---|---|
+| A-01 | Example description | Example note |
+
+:::
+```
+
+`width` is a percentage from `1%` to `100%` of the printable text area. `columns` is optional; when supplied it must contain one positive percentage per column and add up to `100%`. Without it, Pandoc's inferred column proportions are normalized to the table width. `repeat-header` accepts `true` or `false` and defaults to `false`. Invalid settings stop that report build and identify the source fragment. Report 3's `Metadata Table` use-case tables and generated change-history tables keep their own layout.
+
 ### Report 3 use-case specifications
 
 Use-case source content should remain readable Markdown. For Report 3, the DOCX

@@ -7,12 +7,15 @@ Workspace and it never reads or modifies generated DOCX files.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
 import tempfile
+import xml.etree.ElementTree as ET
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -34,6 +37,8 @@ DRIVE_ASSET_PERCENT_WIDTH = re.compile(r"^(?:[1-9][0-9]?|100)%$")
 DRIVE_ASSET_INCH_WIDTH = re.compile(r"^(?:0\.[1-9][0-9]*|[1-9][0-9]*(?:\.[0-9]+)?)in$")
 GIT_HISTORY_MARKER = "<!-- AUTO-GENERATED: GIT-CHANGE-HISTORY -->"
 USE_CASE_TABLE_REPORT_ID = "report-3-software-requirement-specification"
+DOCX_TABLE_STYLE_MARKER = "MOH_Table_"
+WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
 
 @dataclass(frozen=True)
@@ -267,7 +272,8 @@ def _replace_git_history(text: str, history: tuple[GitCommit, ...], change_log: 
         rendered = markdown_template_change_history(history, default_action=change_log["default_action"])
     else:
         rendered = markdown_change_history(history)
-    return text.replace(GIT_HISTORY_MARKER, rendered)
+    wrapped = f"::: {{.generated-history}}\n\n{rendered.rstrip()}\n\n:::\n"
+    return text.replace(GIT_HISTORY_MARKER, wrapped)
 
 
 def _require_pandoc() -> str:
@@ -286,6 +292,114 @@ def _pandoc_fragment(stderr: str, line_ranges: list[tuple[int, int, str]]) -> st
         if start <= line <= end:
             return fragment
     return f"unknown (Pandoc reported composed line {line})"
+
+
+def _apply_docx_table_widths(docx_path: Path) -> int:
+    """Apply table widths carried through Pandoc's DOCX style marker."""
+    qname = lambda name: f"{{{WORD_NS}}}{name}"
+    with zipfile.ZipFile(docx_path, "r") as source:
+        entries = [(info, source.read(info.filename)) for info in source.infolist()]
+
+    document_entry = next((index for index, (info, _) in enumerate(entries) if info.filename == "word/document.xml"), None)
+    if document_entry is None:
+        raise ValueError("DOCX is missing word/document.xml.")
+
+    document_xml = entries[document_entry][1]
+    namespace_pairs = ET.iterparse(io.BytesIO(document_xml), events=("start-ns",))
+    for _, (prefix, uri) in namespace_pairs:
+        ET.register_namespace(prefix, uri)
+    document = ET.fromstring(document_xml)
+    section = document.find(".//" + qname("sectPr"))
+    page_size = section.find("./" + qname("pgSz")) if section is not None else None
+    page_margins = section.find("./" + qname("pgMar")) if section is not None else None
+    if page_size is None or page_margins is None:
+        raise ValueError("DOCX section is missing page size or page margins needed for table widths.")
+    page_width = int(page_size.get(qname("w"), "0"))
+    margins = sum(int(page_margins.get(qname(side), "0")) for side in ("left", "right", "gutter"))
+    text_width = page_width - margins
+    if text_width <= 0:
+        raise ValueError("DOCX page margins leave no printable text width for tables.")
+
+    changed = 0
+    for table in document.findall(".//" + qname("tbl")):
+        properties = table.find("./" + qname("tblPr"))
+        if properties is None:
+            continue
+        style = properties.find("./" + qname("tblStyle"))
+        if style is None:
+            continue
+        style_id = style.get(qname("val"), "")
+        if not style_id.startswith(DOCX_TABLE_STYLE_MARKER):
+            continue
+        marker_width = style_id.removeprefix(DOCX_TABLE_STYLE_MARKER)
+        if not marker_width.isdigit():
+            raise ValueError(f"Invalid internal table-width marker: {style_id!r}.")
+        width_hundredths = int(marker_width)
+        if not 100 <= width_hundredths <= 10000:
+            raise ValueError(f"Table-width marker is outside 1%–100%: {style_id!r}.")
+        table_width = properties.find("./" + qname("tblW"))
+        if table_width is None:
+            table_width = ET.Element(qname("tblW"))
+            properties.insert(list(properties).index(style) + 1, table_width)
+        table_width.set(qname("type"), "pct")
+        # OOXML stores table percentages in fiftieths of one percent: 5000 = 100%.
+        table_width.set(qname("w"), str(round(width_hundredths / 2)))
+        grid = table.find("./" + qname("tblGrid"))
+        grid_columns = grid.findall("./" + qname("gridCol")) if grid is not None else []
+        if not grid_columns:
+            raise ValueError(f"Table {style_id!r} has no grid columns to size.")
+        original_widths = [int(column.get(qname("w"), "0")) for column in grid_columns]
+        original_total = sum(original_widths)
+        if original_total <= 0:
+            raise ValueError(f"Table {style_id!r} has no measurable column widths.")
+        target_total = round(text_width * width_hundredths / 10000)
+        new_widths = [max(1, round(value * target_total / original_total)) for value in original_widths]
+        new_widths[-1] += target_total - sum(new_widths)
+        if new_widths[-1] <= 0:
+            raise ValueError(f"Table {style_id!r} has more columns than available width units.")
+        for column, column_width in zip(grid_columns, new_widths):
+            column.set(qname("w"), str(column_width))
+
+        for row in table.findall("./" + qname("tr")):
+            column_index = 0
+            for cell in row.findall("./" + qname("tc")):
+                cell_properties = cell.find("./" + qname("tcPr"))
+                span = 1
+                if cell_properties is not None:
+                    span_element = cell_properties.find("./" + qname("gridSpan"))
+                    if span_element is not None:
+                        span = int(span_element.get(qname("val"), "1"))
+                cell_width = sum(new_widths[column_index:column_index + span])
+                column_index += span
+                if cell_properties is None:
+                    cell_properties = ET.Element(qname("tcPr"))
+                    cell.insert(0, cell_properties)
+                cell_width_element = cell_properties.find("./" + qname("tcW"))
+                if cell_width_element is None:
+                    cell_width_element = ET.Element(qname("tcW"))
+                    cell_properties.insert(0, cell_width_element)
+                cell_width_element.set(qname("type"), "dxa")
+                cell_width_element.set(qname("w"), str(cell_width))
+        style.set(qname("val"), "TableGrid")
+        changed += 1
+
+    if not changed:
+        return 0
+
+    entries[document_entry] = (
+        entries[document_entry][0],
+        ET.tostring(document, encoding="utf-8", xml_declaration=True),
+    )
+    staged_path = docx_path.with_name(docx_path.name + ".layout-tmp")
+    try:
+        with zipfile.ZipFile(staged_path, "w") as target:
+            for info, payload in entries:
+                target.writestr(info, payload)
+        shutil.move(str(staged_path), docx_path)
+    finally:
+        if staged_path.exists():
+            staged_path.unlink()
+    return changed
 
 
 def build_bundle(
@@ -337,6 +451,8 @@ def build_bundle(
         current_line = 1
         for fragment in bundle.fragments:
             content = _replace_drive_image_placeholders(fragment_text[fragment], drive_assets, rendered_drive_assets).rstrip()
+            source_marker = f"<!-- MOH-SOURCE: {_relative(bundle, fragment)} -->\n\n"
+            content = source_marker + content
             line_count = max(1, content.count("\n") + 1)
             line_ranges.append((current_line, current_line + line_count - 1, _relative(bundle, fragment)))
             composed_parts.append(content)
@@ -347,7 +463,7 @@ def build_bundle(
         resource_path = os.pathsep.join((str(temp_dir), str(bundle.root)))
         command = [
             pandoc,
-            "--from=markdown",
+            "--from=markdown+fenced_divs+raw_html",
             "--to=docx",
             f"--reference-doc={reference_doc}",
             f"--resource-path={resource_path}",
@@ -361,6 +477,14 @@ def build_bundle(
                     report_id=bundle.report_id,
                 )
             command.append(f"--lua-filter={use_case_filter}")
+        table_layout_filter = Path(__file__).resolve().with_name("markdown_table_layout.lua")
+        if not table_layout_filter.is_file():
+            raise _error(
+                "table-layout-filter-missing",
+                f"Missing Markdown table layout filter: {table_layout_filter}",
+                report_id=bundle.report_id,
+            )
+        command.append(f"--lua-filter={table_layout_filter}")
         command.extend(("--output", str(staged_output), str(composed)))
         try:
             completed = subprocess.run(command, capture_output=True, text=True, check=False)
@@ -372,6 +496,12 @@ def build_bundle(
                 "pandoc-failed", reason, report_id=bundle.report_id,
                 fragment=_pandoc_fragment(reason, line_ranges),
             )
+        try:
+            _apply_docx_table_widths(staged_output)
+        except (OSError, ValueError, zipfile.BadZipFile, ET.ParseError) as exc:
+            raise _error(
+                "docx-table-layout-failed", str(exc), report_id=bundle.report_id,
+            ) from exc
         shutil.move(str(staged_output), destination)
 
     print(f"[SUCCESS] report_id={bundle.report_id!r} output={str(destination)!r}")
