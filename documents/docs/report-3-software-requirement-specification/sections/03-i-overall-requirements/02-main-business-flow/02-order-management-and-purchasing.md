@@ -1,4 +1,4 @@
-### 2.2 (Order Management & Purchasing ) (Code)
+### 2.2 Order Management & Purchasing
 
 *Trigger*: 
 

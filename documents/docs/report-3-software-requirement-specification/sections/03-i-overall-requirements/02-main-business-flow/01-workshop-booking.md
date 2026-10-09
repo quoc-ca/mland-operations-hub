@@ -1,4 +1,4 @@
-### 2.1 (Workshop Booking ) (Code)
+### 2.1 Workshop Booking (Code)
 
 *Trigger*: 
 
