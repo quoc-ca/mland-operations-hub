@@ -1,4 +1,4 @@
-### 1.7 Manage User Account
+### 1.6 Manage User Account
 
 #### Primary Actors
 

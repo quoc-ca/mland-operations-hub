@@ -1,4 +1,4 @@
-### 8.1 Add Product to Cart
+### 7.1 Add Product to Cart
 
 #### Primary Actors
 

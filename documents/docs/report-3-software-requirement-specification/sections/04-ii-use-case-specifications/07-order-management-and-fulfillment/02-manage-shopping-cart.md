@@ -1,4 +1,4 @@
-### 8.2 Manage Shopping Cart
+### 7.2 Manage Shopping Cart
 
 #### Primary Actors
 

@@ -1,4 +1,4 @@
-### 8.7 Review & Confirm Retail Order
+### 7.7 Review & Confirm Retail Order
 
 #### Primary Actors
 

@@ -1,4 +1,4 @@
-### 1.8 Assign User Role
+### 1.7 Assign User Role
 
 #### Primary Actors
 

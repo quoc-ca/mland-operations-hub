@@ -1,4 +1,4 @@
-### 8.5 View Purchase Order History
+### 7.5 View Purchase Order History
 
 #### Primary Actors
 

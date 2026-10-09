@@ -1,4 +1,4 @@
-### 8.3 Checkout Retail Order
+### 7.3 Checkout Retail Order
 
 #### Primary Actors
 

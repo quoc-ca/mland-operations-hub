@@ -1,4 +1,4 @@
-### 1.9 Lock or Unlock User Account
+### 1.8 Lock or Unlock User Account
 
 #### Primary Actors
 

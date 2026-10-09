@@ -1,4 +1,4 @@
-### 1.10 Configure Role-Based Access Control
+### 1.9 Configure Role-Based Access Control
 
 #### Primary Actors
 

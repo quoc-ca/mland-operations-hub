@@ -1,4 +1,4 @@
-### 8.4 Pay for Retail Order
+### 7.4 Pay for Retail Order
 
 #### Primary Actors
 

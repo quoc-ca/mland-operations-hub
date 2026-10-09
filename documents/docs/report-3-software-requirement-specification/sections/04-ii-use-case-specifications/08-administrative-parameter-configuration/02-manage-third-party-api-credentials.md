@@ -1,4 +1,4 @@
-### 5.2 Manage Third-Party API Credentials
+### 8.2 Manage Third-Party API Credentials
 
 #### Primary Actors
 

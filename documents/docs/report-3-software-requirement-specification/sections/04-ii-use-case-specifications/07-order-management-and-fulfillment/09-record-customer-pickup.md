@@ -1,4 +1,4 @@
-### 8.10 Record Customer Pickup
+### 7.9 Record Customer Pickup
 
 #### Primary Actors
 

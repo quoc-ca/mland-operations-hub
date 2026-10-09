@@ -1,4 +1,4 @@
-### 8.6 View Order Details
+### 7.6 View Order Details
 
 #### Primary Actors
 
