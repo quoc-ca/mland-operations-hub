@@ -1,7 +1,5 @@
 #### b. Screen List
 
-Shared screens are listed once. Embedded tabs and result panels are described within their parent screens; forms and confirmations with separate user actions are included.
-
 | # | Screen Name | Feature | Description |
 | --- | --- | --- | --- |
 | 1 | Home Page | Public Information | Introduces the shop and provides access to products, workshops, booking lookup, store information and sign-in. |
