@@ -6,9 +6,9 @@ This file records conflicts, missing details, and weak points identified while r
 
 ### 1.1 Guest permission for image-based customization
 
-**Conflict:** `00-overview.md:3` states that both Guests and Members may submit a reference image or choose a custom-design path. Report 3 Actors states that a Guest cannot submit an image-based custom design request, while a Member can.
+**Resolved decision:** Guests cannot submit a reference image for AI analysis. Only Members may submit a consented reference image or create a shop-made custom-manufacturing order; both roles may use the supported workshop booking and component-selection paths.
 
-**Suggested resolution:** Define the access boundary explicitly: Guests may browse, choose a supported design/configuration path, and book a workshop; only Members may submit an image-based custom design request or complete retail checkout. If Guest image submission is intended, update the authentication and entitlement rules consistently.
+**Status:** Resolved in the current Report 1 baseline.
 
 ### 1.2 Order of slot selection and design selection
 
@@ -32,15 +32,15 @@ This file records conflicts, missing details, and weak points identified while r
 
 ### 2.2 Feasibility states and routing
 
-**Conflict:** `00-overview.md:5` proposes `simple/auto-accept`, `medium/Staff review`, `advanced/Owner review`, and `impossible/auto-reject`. Report 3 says every custom request enters `need_review`, then ends as `accepted` or `rejected`; Staff reviews requests up to 3,000,000 VND and Manager reviews requests above that amount.
+**Conflict:** Earlier proposed routing used `simple/auto-accept`, `medium/Staff review`, `advanced/Manager review`, and `impossible/auto-reject`, while Report 3 assigns Staff or Manager review according to the approved business threshold.
 
 **Suggested resolution:** Choose one state model and one routing rule. At minimum, define request states, who may change each state, whether auto-accept/auto-reject is allowed, the meaning of the price threshold, and the required rejection reason.
 
 ### 2.3 Role responsible for feasibility review
 
-**Conflict:** The proposed solution assigns advanced review to Owner, while Report 3 assigns high-value review to Manager. The project context also uses Owner for catalogue and feasibility governance.
+**Resolved decision:** Business and financial decisions belong to the Manager. Admin Technical handles technical configuration and does not replace business approval. Staff handles requests within the approved Staff threshold; the Manager handles higher-value reviews.
 
-**Suggested resolution:** Reconcile `Owner`, `Manager`, `Staff`, `Admin`, and `Admin Technical`. Define whether Owner configures rules only, whether Manager approves high-value requests, and when Staff may accept or reject a request.
+**Status:** The Owner terminology is removed from the Report 1 baseline in favour of the Report 3 role model.
 
 ### 2.4 Source and ownership of the estimate
 
@@ -88,7 +88,7 @@ This file records conflicts, missing details, and weak points identified while r
 
 ### 3.6 Adjustment authority and consent order
 
-**Unclear point:** Staff may add an adjustment with a reason and customer consent, while Owner approval is required for a waiver or fee change. It is unclear whether consent occurs before or after approval and whether all adjustments require Owner approval.
+**Unclear point:** Staff may add an adjustment with a reason and customer consent, while Manager approval is required for a waiver or fee change. The sequence between customer consent and Manager approval, and whether all adjustment types require approval, still needs to be specified.
 
 **Suggested resolution:** Separate normal surcharge, waiver, discount, and correction flows. Define who proposes, who approves, when the customer consents, and which immutable audit records are stored.
 
@@ -172,7 +172,7 @@ This file records conflicts, missing details, and weak points identified while r
 
 ### 6.3 Google review link and import
 
-**Unclear point:** The overview combines a public Google review link/QR with an Owner-triggered Google Business Profile import, but their purposes, data direction, visibility, and governance are not clearly separated.
+**Unclear point:** The overview combines a public Google review link/QR with a Manager-triggered Google Business Profile import, but their purposes, data direction, visibility, and governance are not clearly separated.
 
 **Suggested resolution:** Treat customer-authored review submission and one-way review import as two separate features. Define verified access, attribution, retention, moderation/appeal, public visibility, and the exact role of Google Maps/Google Business Profile.
 
@@ -186,7 +186,7 @@ This file records conflicts, missing details, and weak points identified while r
 
 ### 7.1 Role vocabulary
 
-**Conflict:** Different contexts use `Owner`, `Manager`, `Admin`, and `Admin Technical` for overlapping responsibilities. The working agreement uses `OWNER` and `ADMIN_TECHNICAL`, while Report 3 uses `Manager` and `Admin`.
+**Resolved decision:** Report 1 follows the Report 3 business role model: Staff and Manager own business and financial decisions, while Admin Technical owns technical configuration, RBAC, integration credentials, monitoring, and technical audit.
 
 **Suggested resolution:** Ratify one role vocabulary and a permission matrix. Do not describe a role as having authority over a workflow until the role mapping is approved.
 
