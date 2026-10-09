@@ -1,7 +1,5 @@
 #### b. Screen List
 
-Screens shared across roles are listed once. SSO Provider and Payment Page are external interfaces shown in the screen flow. Booking Design Review Detail and Details refer to the same screen with role-specific access.
-
 | # | Screen Name | Feature | Description |
 | --- | --- | --- | --- |
 | 1 | Home Page | Public Information | Introduces the shop and provides access to sign-in, the product catalogue and reviews. |
