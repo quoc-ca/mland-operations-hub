@@ -1,6 +1,6 @@
 #### 5.1.5 Booking Summary
 
-![Booking Summary mockup](assets/screens/23-booking-summary.png)
+![](assets/screens/23-booking-summary.png)
 
 This screen allows Guests and Members to:
 

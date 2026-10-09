@@ -1,6 +1,6 @@
 #### 13.1.3 Payment Result
 
-![Payment Result mockup](assets/screens/35-payment-result.png)
+![](assets/screens/35-payment-result.png)
 
 This screen allows eligible customers to:
 

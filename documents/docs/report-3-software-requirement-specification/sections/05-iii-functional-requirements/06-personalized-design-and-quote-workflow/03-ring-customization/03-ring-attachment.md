@@ -1,6 +1,6 @@
 #### 6.3.3 Ring Attachment
 
-![Ring Attachment mockup](assets/screens/44-ring-attachment.png)
+![](assets/screens/44-ring-attachment.png)
 
 This screen allows Guests and Members to:
 

@@ -1,6 +1,6 @@
 #### 3.1.1 Member Dashboard
 
-![Member Dashboard mockup](assets/screens/13-member-dashboard.png)
+![](assets/screens/13-member-dashboard.png)
 
 This screen allows Members to:
 

@@ -1,6 +1,6 @@
 #### 8.1.3 New Custom Order
 
-![New Custom Order mockup](assets/screens/30-new-custom-order.png)
+![](assets/screens/30-new-custom-order.png)
 
 This screen allows Members to:
 

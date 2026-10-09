@@ -1,6 +1,6 @@
 #### 2.1.5 Reset Password
 
-![Reset Password mockup](assets/screens/06-reset-password.png)
+![](assets/screens/06-reset-password.png)
 
 This screen allows users to:
 

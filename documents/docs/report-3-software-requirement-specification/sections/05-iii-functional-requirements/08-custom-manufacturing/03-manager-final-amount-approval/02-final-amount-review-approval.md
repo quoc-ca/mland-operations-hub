@@ -1,6 +1,6 @@
 #### 8.3.2 Final Amount Review / Approval
 
-![Final Amount Review / Approval mockup](assets/screens/71-final-amount-review-approval.png)
+![](assets/screens/71-final-amount-review-approval.png)
 
 This screen allows Managers to:
 

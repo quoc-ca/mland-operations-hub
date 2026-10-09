@@ -1,6 +1,6 @@
 #### 5.3.3 Participant Check-in
 
-![Participant Check-in mockup](assets/screens/53-participant-check-in.png)
+![](assets/screens/53-participant-check-in.png)
 
 This screen allows authorized Staff to:
 

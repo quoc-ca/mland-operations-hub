@@ -1,6 +1,6 @@
 #### 6.2.1 Image Upload Consent Form
 
-![Image Upload Consent Form mockup](assets/screens/38-image-upload-consent-form.png)
+![](assets/screens/38-image-upload-consent-form.png)
 
 This screen allows Members to:
 

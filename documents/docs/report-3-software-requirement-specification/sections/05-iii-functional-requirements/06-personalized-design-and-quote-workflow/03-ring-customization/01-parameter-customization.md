@@ -1,6 +1,6 @@
 #### 6.3.1 Parameter Customization
 
-![Parameter Customization mockup](assets/screens/42-parameter-customization.png)
+![](assets/screens/42-parameter-customization.png)
 
 This screen allows Guests and Members to:
 

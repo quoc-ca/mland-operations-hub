@@ -1,6 +1,6 @@
 #### 5.4.3 Staff Assignment
 
-![Staff Assignment mockup](assets/screens/64-staff-assignment.png)
+![](assets/screens/64-staff-assignment.png)
 
 This screen allows Managers to:
 

@@ -1,6 +1,6 @@
 #### 1.1.1 Home Page
 
-![Home Page mockup](assets/screens/01-home-page.png)
+![](assets/screens/01-home-page.png)
 
 This screen allows visitors and Members to:
 

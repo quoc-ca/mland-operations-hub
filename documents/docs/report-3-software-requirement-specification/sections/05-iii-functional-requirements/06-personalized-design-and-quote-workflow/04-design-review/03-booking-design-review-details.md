@@ -1,6 +1,6 @@
 #### 6.4.3 Booking Design Review Details
 
-![Booking Design Review Details mockup](assets/screens/55-booking-design-review-details.png)
+![](assets/screens/55-booking-design-review-details.png)
 
 This screen allows authorized Staff or Managers to:
 

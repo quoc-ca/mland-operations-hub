@@ -1,6 +1,6 @@
 #### 6.2.2 AI Feature Analysis
 
-![AI Feature Analysis mockup](assets/screens/39-ai-feature-analysis.png)
+![](assets/screens/39-ai-feature-analysis.png)
 
 This screen allows Members to:
 

@@ -1,6 +1,6 @@
 #### 10.1.1 Price Proposal List
 
-![Price Proposal List mockup](assets/screens/66-price-proposal-list.png)
+![](assets/screens/66-price-proposal-list.png)
 
 This screen allows Managers to:
 

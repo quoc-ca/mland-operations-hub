@@ -1,6 +1,6 @@
 #### 6.4.2 Booking Design Review List
 
-![Booking Design Review List mockup](assets/screens/54-booking-design-review-list.png)
+![](assets/screens/54-booking-design-review-list.png)
 
 This screen allows authorized Staff or Managers to:
 

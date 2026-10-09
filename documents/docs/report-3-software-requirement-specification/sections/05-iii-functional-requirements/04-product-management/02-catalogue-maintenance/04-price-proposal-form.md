@@ -1,6 +1,6 @@
 #### 4.2.4 Price Proposal Form
 
-![Price Proposal Form mockup](assets/screens/50-price-proposal-form.png)
+![](assets/screens/50-price-proposal-form.png)
 
 This screen allows Staff to:
 

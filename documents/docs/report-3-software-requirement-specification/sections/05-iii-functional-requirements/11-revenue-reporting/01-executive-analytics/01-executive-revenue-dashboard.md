@@ -1,6 +1,6 @@
 #### 11.1.1 Executive Revenue Dashboard
 
-![Executive Revenue Dashboard mockup](assets/screens/61-executive-revenue-dashboard.png)
+![](assets/screens/61-executive-revenue-dashboard.png)
 
 This screen allows Managers to:
 

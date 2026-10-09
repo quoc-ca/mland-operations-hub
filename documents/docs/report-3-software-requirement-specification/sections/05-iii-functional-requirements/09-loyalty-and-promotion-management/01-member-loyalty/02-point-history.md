@@ -1,6 +1,6 @@
 #### 9.1.2 Point History
 
-![Point History mockup](assets/screens/32-point-history.png)
+![](assets/screens/32-point-history.png)
 
 This screen allows Members to:
 

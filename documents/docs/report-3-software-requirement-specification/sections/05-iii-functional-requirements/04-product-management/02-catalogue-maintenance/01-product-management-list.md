@@ -1,6 +1,6 @@
 #### 4.2.1 Product Management List
 
-![Product Management List mockup](assets/screens/47-product-management-list.png)
+![](assets/screens/47-product-management-list.png)
 
 This screen allows authorized catalogue maintainers to:
 

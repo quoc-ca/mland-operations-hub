@@ -1,6 +1,6 @@
 #### 5.1.4 Booking Information Form
 
-![Booking Information Form mockup](assets/screens/22-booking-information-form.png)
+![](assets/screens/22-booking-information-form.png)
 
 This screen allows Guests and Members to:
 

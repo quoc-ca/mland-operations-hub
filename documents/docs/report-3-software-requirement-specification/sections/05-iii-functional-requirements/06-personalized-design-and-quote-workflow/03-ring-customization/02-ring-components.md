@@ -1,6 +1,6 @@
 #### 6.3.2 Ring Components
 
-![Ring Components mockup](assets/screens/43-ring-components.png)
+![](assets/screens/43-ring-components.png)
 
 This screen allows Guests and Members to:
 

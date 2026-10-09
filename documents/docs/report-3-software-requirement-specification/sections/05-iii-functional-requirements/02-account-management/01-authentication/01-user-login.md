@@ -1,6 +1,6 @@
 #### 2.1.1 User Login
 
-![User Login mockup](assets/screens/02-user-login.png)
+![](assets/screens/02-user-login.png)
 
 This screen allows users to:
 

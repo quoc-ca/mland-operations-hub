@@ -1,6 +1,6 @@
 #### 7.1.2 Retail Checkout
 
-![Retail Checkout mockup](assets/screens/18-retail-checkout.png)
+![](assets/screens/18-retail-checkout.png)
 
 This screen allows Members to:
 

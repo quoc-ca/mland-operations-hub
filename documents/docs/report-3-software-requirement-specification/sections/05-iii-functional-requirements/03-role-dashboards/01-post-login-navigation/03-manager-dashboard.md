@@ -1,6 +1,6 @@
 #### 3.1.3 Manager Dashboard
 
-![Manager Dashboard mockup](assets/screens/15-manager-dashboard.png)
+![](assets/screens/15-manager-dashboard.png)
 
 This screen allows Managers to:
 

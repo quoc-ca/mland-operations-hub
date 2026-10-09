@@ -1,6 +1,6 @@
 #### 2.3.2 New User / User Account Details
 
-![New User / User Account Details mockup](assets/screens/73-new-user-user-account-details.png)
+![](assets/screens/73-new-user-user-account-details.png)
 
 This screen allows Administrators to:
 

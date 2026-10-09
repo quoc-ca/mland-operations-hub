@@ -1,6 +1,6 @@
 #### 5.3.1 Workshop Session List
 
-![Workshop Session List mockup](assets/screens/51-workshop-session-list.png)
+![](assets/screens/51-workshop-session-list.png)
 
 This screen allows authorized Staff to:
 

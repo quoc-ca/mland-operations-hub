@@ -1,6 +1,6 @@
 #### 12.1.3 Technical Order Support
 
-![Technical Order Support mockup](assets/screens/78-technical-order-support.png)
+![](assets/screens/78-technical-order-support.png)
 
 This screen allows Administrators to:
 

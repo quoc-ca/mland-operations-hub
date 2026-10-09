@@ -1,6 +1,6 @@
 #### 2.1.3 Email Verification
 
-![Email Verification mockup](assets/screens/04-email-verification.png)
+![](assets/screens/04-email-verification.png)
 
 This screen allows users to:
 

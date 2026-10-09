@@ -1,6 +1,6 @@
 #### 1.1.2 Review List
 
-![Review List mockup](assets/screens/12-review-list.png)
+![](assets/screens/12-review-list.png)
 
 This screen allows visitors and Members to:
 

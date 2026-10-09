@@ -1,6 +1,6 @@
 #### 6.1.1 Design Path Selection
 
-![Design Path Selection mockup](assets/screens/36-design-path-selection.png)
+![](assets/screens/36-design-path-selection.png)
 
 This screen allows Guests and Members to:
 

@@ -1,6 +1,6 @@
 #### 8.1.1 My Custom Orders
 
-![My Custom Orders mockup](assets/screens/28-my-custom-orders.png)
+![](assets/screens/28-my-custom-orders.png)
 
 This screen allows Members to:
 

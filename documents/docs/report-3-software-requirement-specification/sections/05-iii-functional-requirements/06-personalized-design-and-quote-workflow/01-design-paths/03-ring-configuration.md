@@ -1,6 +1,6 @@
 #### 6.1.3 Ring Configuration
 
-![Ring Configuration mockup](assets/screens/41-ring-configuration.png)
+![](assets/screens/41-ring-configuration.png)
 
 This screen allows Guests and Members to:
 

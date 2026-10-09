@@ -1,6 +1,6 @@
 #### 9.2.2 Promotion Details / Form
 
-![Promotion Details / Form mockup](assets/screens/69-promotion-details-form.png)
+![](assets/screens/69-promotion-details-form.png)
 
 This screen allows Managers to:
 

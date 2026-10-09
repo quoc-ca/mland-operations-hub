@@ -1,6 +1,6 @@
 #### 2.3.1 User Account List
 
-![User Account List mockup](assets/screens/72-user-account-list.png)
+![](assets/screens/72-user-account-list.png)
 
 This screen allows Administrators to:
 

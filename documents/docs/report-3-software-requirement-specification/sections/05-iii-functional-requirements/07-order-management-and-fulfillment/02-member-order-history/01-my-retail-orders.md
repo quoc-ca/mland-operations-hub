@@ -1,6 +1,6 @@
 #### 7.2.1 My Retail Orders
 
-![My Retail Orders mockup](assets/screens/24-my-retail-orders.png)
+![](assets/screens/24-my-retail-orders.png)
 
 This screen allows Members to:
 

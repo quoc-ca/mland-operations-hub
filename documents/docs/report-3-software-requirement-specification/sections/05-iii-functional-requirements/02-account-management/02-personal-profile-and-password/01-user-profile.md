@@ -1,6 +1,6 @@
 #### 2.2.1 User Profile
 
-![User Profile mockup](assets/screens/08-user-profile.png)
+![](assets/screens/08-user-profile.png)
 
 This screen allows Members to:
 

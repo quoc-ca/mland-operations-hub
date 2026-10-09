@@ -1,6 +1,6 @@
 #### 10.1.2 Price Proposal Review
 
-![Price Proposal Review mockup](assets/screens/67-price-proposal-review.png)
+![](assets/screens/67-price-proposal-review.png)
 
 This screen allows Managers to:
 

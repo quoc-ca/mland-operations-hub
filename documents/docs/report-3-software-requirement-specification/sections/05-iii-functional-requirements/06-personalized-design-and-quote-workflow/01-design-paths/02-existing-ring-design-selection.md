@@ -1,6 +1,6 @@
 #### 6.1.2 Existing Ring Design Selection
 
-![Existing Ring Design Selection mockup](assets/screens/37-existing-ring-design-selection.png)
+![](assets/screens/37-existing-ring-design-selection.png)
 
 This screen allows Guests and Members to:
 

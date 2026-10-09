@@ -1,6 +1,6 @@
 #### 2.1.6 SSO Provider
 
-![SSO Provider mockup](assets/screens/07-sso-provider.png)
+![](assets/screens/07-sso-provider.png)
 
 This screen allows users to:
 

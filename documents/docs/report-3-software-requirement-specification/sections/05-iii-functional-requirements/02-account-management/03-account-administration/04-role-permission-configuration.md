@@ -1,6 +1,6 @@
 #### 2.3.4 Role / Permission Configuration
 
-![Role / Permission Configuration mockup](assets/screens/75-role-permission-configuration.png)
+![](assets/screens/75-role-permission-configuration.png)
 
 This screen allows Administrators to:
 
