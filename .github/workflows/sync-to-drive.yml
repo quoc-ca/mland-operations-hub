@@ -39,7 +39,9 @@ jobs:
           cache-dependency-path: documents/requirements.txt
 
       - name: Install Pandoc
-        run: sudo apt-get update && sudo apt-get install --yes pandoc
+        uses: pandoc/actions/setup@v1
+        with:
+          version: '3.11'
 
       - name: Show Pandoc version
         run: pandoc --version
