@@ -1,4 +1,4 @@
-### 5.3 View Executive Revenue Dashboard
+### 5.3 View Dashboard
 
 #### Primary Actors
 
@@ -17,7 +17,6 @@ Allows the Manager to view consolidated business analytics, workshop utilization
 1. The Manager is authenticated and authorized to view executive analytics.
 2. The platform is available.
 3. The selected reporting period and branch scope are valid.
-
 
 #### Postconditions
 
@@ -60,8 +59,8 @@ BR-56-01, BR-56-02, BR-56-03
 
 #### Business Rule Definitions
 
-| ID | Rule Definition |
-|---|---|
-| BR-56-01 | Only an authorized Manager may view executive revenue and branch KPI data. |
-| BR-56-02 | Dashboard metrics must be calculated from verified recorded business data for the selected period and scope. |
+| ID       | Rule Definition                                                                                                        |
+| -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| BR-56-01 | Only an authorized Manager may view executive revenue and branch KPI data.                                             |
+| BR-56-02 | Dashboard metrics must be calculated from verified recorded business data for the selected period and scope.           |
 | BR-56-03 | Missing, delayed, or partial data must be clearly identified and must not be silently presented as complete analytics. |

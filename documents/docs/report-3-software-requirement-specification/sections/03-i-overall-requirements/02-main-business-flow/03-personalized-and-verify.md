@@ -1,7 +1,7 @@
-### 2.3 Personalized Deisgn & Verification
+### 2.3 Personalized Design & Verification
 
-*Trigger*: 
+_Trigger_:
 
-*End condition*: 
+_End condition_:
 
 {{r3-personalized-and-verify width=100%}}

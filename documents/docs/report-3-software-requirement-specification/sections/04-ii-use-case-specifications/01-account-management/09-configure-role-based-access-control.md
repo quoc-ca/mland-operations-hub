@@ -67,8 +67,8 @@ BR-10-01, BR-10-02, BR-10-03
 
 #### Business Rule Definitions
 
-| ID | Rule Definition |
-|---|---|
-| BR-10-01 | Only an authorized Admin may configure role-based access-control policies. |
-| BR-10-02 | Every permission must be assigned through a supported role and permission definition. |
+| ID       | Rule Definition                                                                                                                        |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| BR-10-01 | Only an authorized Admin may configure role-based access-control policies.                                                             |
+| BR-10-02 | Every permission must be assigned through a supported role and permission definition.                                                  |
 | BR-10-03 | The system must not save an RBAC change that removes all authorized administrative access or creates an invalid permission dependency. |
