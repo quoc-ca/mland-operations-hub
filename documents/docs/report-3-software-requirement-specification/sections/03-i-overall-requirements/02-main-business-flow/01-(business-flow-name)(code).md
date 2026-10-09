@@ -1,7 +1,7 @@
-### 2.1 (Business Flow Name) (Code)
+### 2.1 (Workshop Booking ) (Code)
 
 *Trigger*: 
 
 *End condition*: 
 
-(Image placeholder)
+{{r3-swl-booking-workshop width=100%}}
