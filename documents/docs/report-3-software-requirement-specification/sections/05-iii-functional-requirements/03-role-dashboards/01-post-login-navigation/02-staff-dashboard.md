@@ -1,6 +1,6 @@
 #### 3.1.2 Staff Dashboard
 
-![Staff Dashboard mockup](assets/screens/14-staff-dashboard.png)
+![](assets/screens/14-staff-dashboard.png)
 
 This screen allows Staff to:
 

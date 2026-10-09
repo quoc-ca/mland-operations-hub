@@ -1,6 +1,6 @@
 #### 8.2.3 Final Amount Proposal
 
-![Final Amount Proposal mockup](assets/screens/60-final-amount-proposal.png)
+![](assets/screens/60-final-amount-proposal.png)
 
 This screen allows authorized Staff to:
 

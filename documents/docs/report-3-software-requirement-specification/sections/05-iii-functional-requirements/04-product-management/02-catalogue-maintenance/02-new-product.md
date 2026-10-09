@@ -1,6 +1,6 @@
 #### 4.2.2 New Product
 
-![New Product mockup](assets/screens/48-new-product.png)
+![](assets/screens/48-new-product.png)
 
 This screen allows authorized catalogue maintainers to:
 

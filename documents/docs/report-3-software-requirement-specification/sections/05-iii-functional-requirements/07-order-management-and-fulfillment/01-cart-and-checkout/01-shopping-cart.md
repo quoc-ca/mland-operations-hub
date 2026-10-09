@@ -1,6 +1,6 @@
 #### 7.1.1 Shopping Cart
 
-![Shopping Cart mockup](assets/screens/17-shopping-cart.png)
+![](assets/screens/17-shopping-cart.png)
 
 This screen allows Members to:
 

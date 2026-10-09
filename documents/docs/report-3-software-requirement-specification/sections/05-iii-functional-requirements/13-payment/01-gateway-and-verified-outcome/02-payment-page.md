@@ -1,6 +1,6 @@
 #### 13.1.2 Payment Page
 
-![Payment Page mockup](assets/screens/34-payment-page.png)
+![](assets/screens/34-payment-page.png)
 
 This screen allows eligible customers to:
 

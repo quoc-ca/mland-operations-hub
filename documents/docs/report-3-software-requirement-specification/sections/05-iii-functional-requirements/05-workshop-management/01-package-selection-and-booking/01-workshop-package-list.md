@@ -1,6 +1,6 @@
 #### 5.1.1 Workshop Package List
 
-![Workshop Package List mockup](assets/screens/19-workshop-package-list.png)
+![](assets/screens/19-workshop-package-list.png)
 
 This screen allows Guests and Members to:
 

@@ -1,6 +1,6 @@
 #### 4.2.3 Product Management Details
 
-![Product Management Details mockup](assets/screens/49-product-management-details.png)
+![](assets/screens/49-product-management-details.png)
 
 This screen allows authorized catalogue maintainers to:
 

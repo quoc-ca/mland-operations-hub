@@ -1,6 +1,6 @@
 #### 6.3.4 Ring Engraving
 
-![Ring Engraving mockup](assets/screens/45-ring-engraving.png)
+![](assets/screens/45-ring-engraving.png)
 
 This screen allows Guests and Members to:
 

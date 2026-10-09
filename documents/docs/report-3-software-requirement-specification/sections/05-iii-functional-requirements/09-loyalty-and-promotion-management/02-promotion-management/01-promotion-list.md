@@ -1,6 +1,6 @@
 #### 9.2.1 Promotion List
 
-![Promotion List mockup](assets/screens/68-promotion-list.png)
+![](assets/screens/68-promotion-list.png)
 
 This screen allows Managers to:
 

@@ -1,6 +1,6 @@
 #### 2.2.2 Change Password
 
-![Change Password mockup](assets/screens/09-change-password.png)
+![](assets/screens/09-change-password.png)
 
 This screen allows authenticated users with locally managed credentials to:
 

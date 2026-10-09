@@ -1,6 +1,6 @@
 #### 7.2.2 Retail Order Details
 
-![Retail Order Details mockup](assets/screens/25-retail-order-details.png)
+![](assets/screens/25-retail-order-details.png)
 
 This screen allows Members to:
 

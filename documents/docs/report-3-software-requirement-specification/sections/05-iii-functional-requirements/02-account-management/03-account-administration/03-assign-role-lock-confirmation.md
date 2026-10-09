@@ -1,6 +1,6 @@
 #### 2.3.3 Assign Role / Lock Confirmation
 
-![Assign Role / Lock Confirmation mockup](assets/screens/74-assign-role-lock-confirmation.png)
+![](assets/screens/74-assign-role-lock-confirmation.png)
 
 This screen allows Administrators to:
 

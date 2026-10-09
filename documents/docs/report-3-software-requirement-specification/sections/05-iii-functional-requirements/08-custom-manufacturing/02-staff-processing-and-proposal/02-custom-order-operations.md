@@ -1,6 +1,6 @@
 #### 8.2.2 Custom Order Operations
 
-![Custom Order Operations mockup](assets/screens/59-custom-order-operations.png)
+![](assets/screens/59-custom-order-operations.png)
 
 This screen allows authorized Staff to:
 

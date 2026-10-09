@@ -1,6 +1,6 @@
 #### 8.1.2 Custom Order Details
 
-![Custom Order Details mockup](assets/screens/29-custom-order-details.png)
+![](assets/screens/29-custom-order-details.png)
 
 This screen allows Members to:
 

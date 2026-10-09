@@ -1,6 +1,6 @@
 #### 8.3.1 Final Amount Approval List
 
-![Final Amount Approval List mockup](assets/screens/70-final-amount-approval-list.png)
+![](assets/screens/70-final-amount-approval-list.png)
 
 This screen allows Managers to:
 

@@ -1,6 +1,6 @@
 #### 12.1.2 Integration List
 
-![Integration List mockup](assets/screens/77-integration-list.png)
+![](assets/screens/77-integration-list.png)
 
 This screen allows Administrators to:
 

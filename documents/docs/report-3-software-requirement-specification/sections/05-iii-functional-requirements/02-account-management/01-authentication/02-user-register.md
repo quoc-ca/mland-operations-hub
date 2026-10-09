@@ -1,6 +1,6 @@
 #### 2.1.2 User Register
 
-![User Register mockup](assets/screens/03-user-register.png)
+![](assets/screens/03-user-register.png)
 
 This screen allows users to:
 

@@ -1,6 +1,6 @@
 #### 5.3.2 Workshop Session Details
 
-![Workshop Session Details mockup](assets/screens/52-workshop-session-details.png)
+![](assets/screens/52-workshop-session-details.png)
 
 This screen allows authorized Staff to:
 

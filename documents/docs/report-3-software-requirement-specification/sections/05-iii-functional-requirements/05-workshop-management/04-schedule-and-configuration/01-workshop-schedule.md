@@ -1,6 +1,6 @@
 #### 5.4.1 Workshop Schedule
 
-![Workshop Schedule mockup](assets/screens/62-workshop-schedule.png)
+![](assets/screens/62-workshop-schedule.png)
 
 This screen allows Managers to:
 

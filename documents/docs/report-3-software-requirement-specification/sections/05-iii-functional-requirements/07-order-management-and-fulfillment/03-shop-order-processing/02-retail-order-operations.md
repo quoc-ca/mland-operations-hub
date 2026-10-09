@@ -1,6 +1,6 @@
 #### 7.3.2 Retail Order Operations
 
-![Retail Order Operations mockup](assets/screens/57-retail-order-operations.png)
+![](assets/screens/57-retail-order-operations.png)
 
 This screen allows authorized Staff to:
 

@@ -1,6 +1,6 @@
 #### 8.2.1 Custom Order List
 
-![Custom Order List mockup](assets/screens/58-custom-order-list.png)
+![](assets/screens/58-custom-order-list.png)
 
 This screen allows authorized Staff to:
 

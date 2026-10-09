@@ -1,6 +1,6 @@
 #### 6.4.1 Design Review Status and Quote
 
-![Design Review Status and Quote mockup](assets/screens/46-design-review-status-and-quote.png)
+![](assets/screens/46-design-review-status-and-quote.png)
 
 This screen allows Members to:
 

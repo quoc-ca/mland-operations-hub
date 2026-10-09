@@ -1,6 +1,6 @@
 #### 5.2.2 Booking Details / QR Code
 
-![Booking Details / QR Code mockup](assets/screens/27-booking-details-qr-code.png)
+![](assets/screens/27-booking-details-qr-code.png)
 
 This screen allows Members to:
 

@@ -1,6 +1,6 @@
 #### 7.3.1 Retail Order List
 
-![Retail Order List mockup](assets/screens/56-retail-order-list.png)
+![](assets/screens/56-retail-order-list.png)
 
 This screen allows authorized Staff to:
 

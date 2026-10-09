@@ -1,6 +1,6 @@
 #### 13.1.1 Payment Gateway Redirect
 
-![Payment Gateway Redirect mockup](assets/screens/33-payment-gateway-redirect.png)
+![](assets/screens/33-payment-gateway-redirect.png)
 
 This screen allows eligible customers to:
 

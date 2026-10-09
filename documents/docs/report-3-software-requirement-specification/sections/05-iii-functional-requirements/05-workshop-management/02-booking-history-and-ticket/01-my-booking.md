@@ -1,6 +1,6 @@
 #### 5.2.1 My Booking
 
-![My Booking mockup](assets/screens/26-my-booking.png)
+![](assets/screens/26-my-booking.png)
 
 This screen allows Members to:
 

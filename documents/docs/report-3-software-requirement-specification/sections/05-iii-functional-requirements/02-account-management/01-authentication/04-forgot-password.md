@@ -1,6 +1,6 @@
 #### 2.1.4 Forgot Password
 
-![Forgot Password mockup](assets/screens/05-forgot-password.png)
+![](assets/screens/05-forgot-password.png)
 
 This screen allows users to:
 

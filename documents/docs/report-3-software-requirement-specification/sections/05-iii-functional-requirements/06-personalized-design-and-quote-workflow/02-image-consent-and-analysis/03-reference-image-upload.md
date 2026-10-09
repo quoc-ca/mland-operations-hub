@@ -1,6 +1,6 @@
 #### 6.2.3 Reference Image Upload
 
-![Reference Image Upload mockup](assets/screens/40-reference-image-upload.png)
+![](assets/screens/40-reference-image-upload.png)
 
 This screen allows Members to:
 

@@ -1,6 +1,6 @@
 #### 3.1.4 Admin Dashboard
 
-![Admin Dashboard mockup](assets/screens/16-admin-dashboard.png)
+![](assets/screens/16-admin-dashboard.png)
 
 This screen allows Administrators to:
 

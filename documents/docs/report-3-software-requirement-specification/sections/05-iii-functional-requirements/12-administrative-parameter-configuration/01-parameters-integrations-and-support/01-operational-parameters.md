@@ -1,6 +1,6 @@
 #### 12.1.1 Operational Parameters
 
-![Operational Parameters mockup](assets/screens/76-operational-parameters.png)
+![](assets/screens/76-operational-parameters.png)
 
 This screen allows Administrators to:
 

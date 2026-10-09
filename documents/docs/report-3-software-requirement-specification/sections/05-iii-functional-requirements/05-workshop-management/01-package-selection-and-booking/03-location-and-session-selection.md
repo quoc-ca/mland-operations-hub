@@ -1,6 +1,6 @@
 #### 5.1.3 Location and Session Selection
 
-![Location and Session Selection mockup](assets/screens/21-location-and-session-selection.png)
+![](assets/screens/21-location-and-session-selection.png)
 
 This screen allows Guests and Members to:
 

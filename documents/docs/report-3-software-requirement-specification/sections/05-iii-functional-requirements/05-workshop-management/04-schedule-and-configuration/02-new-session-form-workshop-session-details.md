@@ -1,6 +1,6 @@
 #### 5.4.2 New Session Form / Workshop Session Details
 
-![New Session Form / Workshop Session Details mockup](assets/screens/63-new-session-form-workshop-session-details.png)
+![](assets/screens/63-new-session-form-workshop-session-details.png)
 
 This screen allows Managers to:
 

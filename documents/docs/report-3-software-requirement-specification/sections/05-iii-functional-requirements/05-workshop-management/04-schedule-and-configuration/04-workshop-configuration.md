@@ -1,6 +1,6 @@
 #### 5.4.4 Workshop Configuration
 
-![Workshop Configuration mockup](assets/screens/65-workshop-configuration.png)
+![](assets/screens/65-workshop-configuration.png)
 
 This screen allows Managers to:
 
