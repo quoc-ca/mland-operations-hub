@@ -55,7 +55,7 @@ jobs:
             echo "all=true" >> "$GITHUB_OUTPUT"
           else
             git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" > repository-changed-paths.txt
-            if grep -Fxq '.github/scripts/sync_to_drive.py' repository-changed-paths.txt || grep -Fxq '.github/workflows/sync-to-drive.yml' repository-changed-paths.txt; then
+            if grep -Fxq '.github/scripts/sync_to_drive.py' repository-changed-paths.txt || grep -Fxq '.github/workflows/sync-to-drive.yml' repository-changed-paths.txt || grep -Fxq 'documents/tools/temp.md' repository-changed-paths.txt; then
               echo "all=true" >> "$GITHUB_OUTPUT"
             else
               sed -n 's#^documents/##p' repository-changed-paths.txt > changed-paths.txt

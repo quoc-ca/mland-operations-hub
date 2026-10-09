@@ -53,6 +53,11 @@ class SyncSelectionTests(unittest.TestCase):
         self.assertEqual([item["id"] for item in documents], ["report-1", "report-2"])
         self.assertEqual(trackers, [])
 
+    def test_temp_tool_change_selects_every_document(self) -> None:
+        documents, trackers = sync.select_entries(self.manifest, {"tools/temp.md"}, False)
+        self.assertEqual([item["id"] for item in documents], ["report-1", "report-2"])
+        self.assertEqual(trackers, [])
+
     def test_selects_only_changed_tracker(self) -> None:
         documents, trackers = sync.select_entries(self.manifest, {"trackers/tracker-1/items.csv"}, False)
         self.assertEqual(documents, [])
