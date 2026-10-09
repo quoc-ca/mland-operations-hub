@@ -1,7 +1,7 @@
-### 2.2 (Business Flow Name) (Code)
+### 2.2 (Order Management & Purchasing ) (Code)
 
 *Trigger*: 
 
 *End condition*: 
 
-(Image placeholder)
+{{r3-swl-order width=100%}}
