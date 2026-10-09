@@ -1,108 +1,74 @@
 # Tổng quan dự án
 
-> **Snapshot Git-only — kiểm tra ngày 18/09/2026.** File này giúp nắm nhanh tình trạng dự án; nguồn chi tiết vẫn là report và tracker được liên kết bên dưới. Không dùng snapshot này để thay thế requirement, quyết định nhóm hoặc lịch sử thay đổi trong Git.
+> **Snapshot Git-only — kiểm tra ngày 09/10/2026.** Đây là bản tóm tắt để điều hướng; Report 2 và Report 3 là nguồn scope và requirement chi tiết. Các bảng trong Report 1 còn một số nội dung lệch baseline hiện tại, được ghi rõ bên dưới.
 
 | Thông tin dự án | Giá trị |
 | --- | --- |
 | Nhóm | SEP490_G22 |
 | Tên tiếng Anh | Personalized Product Sales and Workshop Booking System |
+| Trạng thái | Active project, under validation; chưa có baseline tiến độ được phê duyệt. |
 
 ## Nhìn nhanh
 
 | Nội dung | Trạng thái hiện tại |
 | --- | --- |
-| Baseline V1 | Đang validation. Group decisions 17/09 và 18/09 đã chốt 8 actor, payment boundary, session/booking rules, catalogue/AI direction, Google Review scope có điều kiện và Member retail; dữ liệu cấu hình cùng gateway contract còn mở. |
-| Mục tiêu V1 | Hỗ trợ workshop làm nhẫn, order nhẫn custom do shop làm hộ và Member mua nhẫn có sẵn. |
-| Phạm vi sản phẩm | Chỉ nhẫn; không phải ERP, CAD/3D hay web shop tổng quát. |
-| Tiến độ | Chưa có mốc, ngân sách, phân công hay % hoàn thành được phê duyệt. |
-| Mã nguồn ứng dụng | Chưa có mã nguồn runtime/application của dự án trong repository. |
+| Baseline sản phẩm V1 | Report 2 và Report 3 mô tả nền tảng vận hành cho ring atelier: workshop, Member retail, custom manufacturing, loyalty/voucher, quản trị và các tích hợp đã nêu. |
+| Payment | VNPay là provider duy nhất của V1. Chỉ signed IPN hoặc signed QueryDR recovery hợp lệ khi hold còn hiệu lực mới xác nhận thanh toán; Return URL chỉ hiển thị. |
+| Booking và hold | Link thanh toán hết hạn sau 10 phút; slot workshop, retail cart hoặc custom-order queue slot được giữ tối đa 15 phút. |
+| Tích hợp chính | VNPay, Klook, Gemini, Google Maps/Places, SMTP, Google/Facebook SSO và cloud storage; GHTK chỉ là handoff thủ công do Staff ghi nhận. |
+| Quản lý dự án | Lịch, effort, ngân sách, năng lực nhóm, mục tiêu đo lường và RACI chưa được điền theo baseline được duyệt. Không có % hoàn thành được xác nhận. |
+| Mã nguồn sản phẩm | Repository hiện là nguồn tài liệu và tooling; chưa ghi nhận application runtime trong snapshot này. |
 
-## Scope và tính năng V1
+## Scope V1 theo Report 2 và Report 3
 
-1. **Booking workshop nhóm:** Guest và Member chọn cơ sở/ca. Mỗi package tạo invoice và yêu cầu cọc online 50% qua Payment Gateway; chỉ giao dịch được gateway xác nhận mới confirm booking. Có ba ca 09:30–12:00, 13:00–15:30, 16:00–18:30; capacity cấu hình theo cơ sở/ca. Đổi lịch cần trước 24 giờ và ca còn chỗ; no-show mất booking/cọc trừ ngoại lệ Staff/Owner có audit.
-2. **Catalogue và cấu hình nhẫn:** chọn mẫu nhẫn đã xác nhận hoặc component do Owner xác nhận cùng giá, độ khó và hard constraint; Staff có thể tư vấn trực tiếp.
-3. **Tiếp nhận ảnh tham khảo:** chỉ gửi ảnh sang AI Vision API khi khách đã consent; AI trả candidate feature và quality, không tự thiết kế, chốt giá hay chốt khả thi. Ảnh request được duyệt giữ tới khi hoàn tất order; request bị từ chối/rút consent bị xoá.
-4. **Feasibility triage và audit override:** custom ngoài catalogue được route simple/auto-accept, medium/Staff review, advanced/Owner review hoặc impossible/auto-reject theo rule Owner cấu hình; override phải có lý do và ngữ cảnh audit.
-5. **Invoice, cọc và giá cuối:** invoice lưu cọc 50%; staff chỉ thêm phí phát sinh khi có lý do, actor, thời điểm và customer consent. Số dư cuối là 50% chưa thanh toán cộng phí phát sinh, được settlement cash/bank tại shop.
-6. **Fulfilment và continuation:** khách tự làm tại workshop hoặc tạo order để shop làm; Staff chỉ tạo booking tiếp tục khi khách yêu cầu và ca còn chỗ, đồng thời ghi nhận custody/release có audit cho sản phẩm làm dở.
-7. **Check-in và settlement:** Staff xác nhận số người thực sự tham gia làm sản phẩm. Phụ thu là 100.000 VND cho mỗi người thêm chưa booking nhưng có tham gia làm; điều chỉnh cần customer consent, còn miễn/đổi phí do Owner duyệt có audit. Staff ghi nhận settlement cash/bank sau collection.
-8. **Google Reviews visibility:** website cung cấp Google review link/QR cho khách tự đánh giá. Sau khi đạt access/governance prerequisite, Owner có thể manual import một chiều Google → hệ thống để hiển thị cho Owner và công khai trên website; không tự gán review cho nhân viên hoặc tự tính lương/thưởng.
-9. **Member retail nhẫn có sẵn:** chỉ Member mua; full payment online được xác nhận trước khi reserve một đơn vị nhẫn. Reservation không tự hết hạn trong V1; khách chọn pickup hoặc bàn giao cho đơn vị vận chuyển bên thứ ba, với bằng chứng handoff tối thiểu.
-10. **Quản trị kỹ thuật:** Admin Technical quản lý cấu hình, integration, monitoring và technical audit; không sửa invoice, payment, order hay dữ liệu nghiệp vụ.
+- **Workshop:** Guest và Member xem package/lịch và đặt workshop; Member có thể dùng thiết kế được hệ thống hỗ trợ hoặc gửi ảnh booking-design để phân tích. Mland là nguồn sự thật về capacity. Klook là đối tác đăng ký workshop; Klook phải lấy availability/hold từ Mland trước khi xác nhận. Hủy từ Klook không tự giải phóng capacity trong Mland.
+- **Booking-design và AI:** Gemini hỗ trợ chat cơ bản, phân tích ảnh booking-design, và gợi ý giá cho package/product. Staff review request có giá trị ước tính đến 3.000.000 VND; Manager review request cao hơn. AI không quyết định custom order.
+- **Custom manufacturing:** Chỉ Member tạo custom order, dùng ảnh tham khảo hoặc cấu hình thủ công được hỗ trợ, deadline tùy chọn và phương thức nhận hàng. Hệ thống tự chấp nhận khi deadline hợp lệ và queue còn capacity. Deposit bằng 50% giá wax package; khoản cuối là 50% còn lại cộng surcharge thực tế do tăng trọng lượng vật liệu hoặc phụ kiện mua ngoài.
+- **Retail và loyalty:** Member có thể mua retail bằng cart, loyalty points và voucher. Cart được revalidate toàn bộ; checkout không tạo order một phần. Thanh toán đủ được xác minh trước khi trừ số lượng đã hold. Staff duy trì available-to-sell quantity thủ công; đây không phải inventory ledger.
+- **Fulfilment:** Retail/custom order đã thanh toán nhận tại shop hoặc bàn giao thủ công cho GHTK. Staff ghi nhận pickup/handoff. V1 không gọi API GHTK, báo giá ship hay tracking.
+- **Store information/reviews:** Google Maps Embed và Places chỉ đọc, hiển thị vị trí và rating/review công khai được phép kèm attribution/link bắt buộc. Nội dung Places không được lưu trong Mland; không thu review nội bộ hoặc gửi review lên Google.
+- **Quản trị:** Staff quản lý catalogue/media/giá/publication và số lượng available-to-sell; Manager quản lý lịch workshop, capacity, vật liệu, ngày nghỉ, promotions/vouchers, dashboard và quyết định giá; Admin quản lý tài khoản, RBAC, tham số vận hành và credentials tích hợp đã duyệt.
 
-## Các rule đã chốt — 18/09/2026
+## Payment, dữ liệu và giới hạn vận hành
 
-- Ba ca mỗi ngày; capacity được cấu hình riêng theo cơ sở/ca, không hard-code chung.
-- Đổi lịch trước tối thiểu 24 giờ và cần ca còn chỗ; no-show chỉ có ngoại lệ khi Staff/Owner lưu audit.
-- Phụ thu 100.000 VND chỉ tính cho người thêm thực sự làm sản phẩm; Staff xác nhận, khách consent adjustment và Owner duyệt miễn/đổi phí.
-- Continuation do Staff tạo theo yêu cầu khách và capacity; custody/release cần evidence, booking code/QR và Staff check.
-- Configurator chỉ dùng catalogue Owner xác nhận; AI chỉ phân loại candidate feature; feasibility routing có audit và không cam kết accuracy.
-- Google Review bắt đầu bằng link/QR; import một chiều chỉ do Owner kích hoạt sau khi đủ access và governance.
-- Ready-ring reservation không tự hết hạn; delivery kết thúc tại handoff có carrier, reference, Staff và timestamp.
+- VNPay là provider duy nhất. Xác minh chữ ký, transaction reference, amount và success status; xử lý duplicate event theo cách idempotent. QueryDR là kiểm tra khôi phục trạng thái thanh toán, không phải reconciliation.
+- Payment link hết hạn sau 10 phút; hold liên quan hết sau 15 phút. Nếu hết hold mà chưa có bằng chứng thanh toán hợp lệ, hệ thống giải phóng tài nguyên. Bằng chứng đến muộn cần Staff xử lý thủ công và không tự kích hoạt fulfilment.
+- Không lưu card data. VNPay transaction reference và business audit evidence giữ 5 năm; cần Finance/Legal xác nhận thời hạn này trước go-live.
+- Gemini text prompt/response giữ tối đa 30 ngày; không lưu ảnh đầu vào AI sau xử lý. Ảnh custom manufacturing giữ đến pickup/GHTK handoff; request bị từ chối/rút và ảnh phân loại độc lập bị xóa sau xử lý. Dữ liệu người nhận/địa chỉ GHTK xóa hoặc ẩn danh không thể đảo ngược 30 ngày sau handoff.
+- Terms và Privacy Policy chung phải bao quát xử lý ảnh, retention, Google attribution và dữ liệu giao hàng; Report 2 ghi rõ V1 không thêm checkbox consent riêng cho từng feature.
+- V1 loại trừ warehouse management, inventory ledger/stock movement, Guest retail checkout, address book, shipping quote/tracking, delivery failure, return, cancellation/refund trong hệ thống, accounting và payment-reconciliation workflow.
 
-## Payment Gateway — chưa chốt
+## Giới hạn và điểm cần đối chiếu giữa report
 
-Payment Gateway vẫn là blocker nghiệp vụ/kỹ thuật. Chưa có quyết định về provider, webhook/IPN contract, xác minh chữ ký/trạng thái, đối soát, retry, duplicate-event handling hay refund. Browser redirect chỉ là trải nghiệm điều hướng và **không** được coi là thanh toán thành công; không được triển khai hoặc chọn provider trước khi nhóm chốt các mục này.
+- **Report 1 chưa đồng bộ hoàn toàn với Report 2–3.** Bảng Major Features của Report 1 còn mô tả AI valuation/automatic component extraction/chatbot, inventory tracking, delivery-provider workflow và Manager Dashboard rộng. Bảng Limitations lại nói loyalty deferred và VNPay/provider contract chưa chốt. Các điểm này mâu thuẫn với baseline chi tiết hiện tại của Report 2–3 (Gemini chỉ hỗ trợ các use case được liệt kê; loyalty/voucher thuộc V1; available-to-sell quantity được Staff duy trì thủ công; VNPay đã chốt; dashboard là executive revenue dashboard). Cần reconcile Report 1 với Report 2–3 tại nguồn canonical.
+- Report 2 và Report 3 thống nhất các luồng V1 chính, nhưng chưa phải bằng chứng rằng hệ thống đã được triển khai hoặc kiểm thử.
 
-## Actors và hành trình chính
+## Trạng thái tài liệu
 
-| Actor | Tương tác với hệ thống |
+| Nguồn | Trạng thái theo nội dung hiện có |
 | --- | --- |
-| Guest | Booking không cần tài khoản, trả cọc, cung cấp design/reference có consent và nhận invoice/tracking. Không có retail checkout hoặc lịch sử Member. |
-| Member | Có mọi khả năng booking của Guest; xem lịch sử tham gia, lịch sử giao dịch, workshop/event sắp tới và mua nhẫn có sẵn. Loyalty chưa triển khai. |
-| Staff/Consultant | Quản lý session, tư vấn, review/override, adjustment có audit/consent, fulfilment, cash/bank settlement, delivery handoff, continuation booking và custody record. |
-| Owner/Manager | Quản lý catalogue/component price, feasibility rule; xem audit/override, manual Google Review import và review visibility khi đủ điều kiện. |
-| Admin Technical | Cấu hình kỹ thuật, integration, monitoring và technical audit; không có quyền thay đổi business record. |
-| AI Vision API *(TBD)* | Nhận ảnh đã consent, trả quality và candidate feature. |
-| Email Sender *(TBD)* | Gửi notification booking, review và order. |
-| Payment Gateway *(chưa chốt)* | Sẽ xác nhận cọc workshop hoặc full payment retail; redirect không tự xác nhận thanh toán. Provider và toàn bộ webhook/IPN/reconciliation/refund contract vẫn `Open`. |
+| [Report 1](docs/report-1-project-introduction/front-matter.md) | Introduction/scope report; một số feature và limitation còn lệch với baseline chi tiết ở Report 2–3. |
+| [Report 2](docs/report-2-project-management-plan/front-matter.md) | Scope, decision evidence và operating constraints V1 được ghi rõ; lịch, budget, capacity, objectives và RACI vẫn chưa được cung cấp. |
+| [Report 3](docs/report-3-software-requirement-specification/front-matter.md) | Requirement baseline gồm actor, business flows, use cases, APIs, data retention và system rules. |
+| [Report 4](docs/report-4-software-design-specification/front-matter.md) | Architecture/implementation design chưa được xác nhận trong snapshot này. |
+| [Report 5](docs/report-5.0-test-documentation/front-matter.md) | Chưa dùng làm bằng chứng test result, environment hoặc sign-off cho sản phẩm. |
 
-`Guest/Member booking → invoice + cọc 50% được gateway xác nhận → design/consult → feasibility → estimate → fulfilment → settlement cash/bank.`
+## Mã nguồn và vận hành tài liệu
 
-`Member retail → full payment được gateway xác nhận → reserve một nhẫn có sẵn → pickup ready hoặc handed to third-party carrier.`
+- Repository có tooling Python cho tài liệu: generate DOCX, Git history/GitHub Issue snapshot, Google Workspace synchronization và unit tests. Đây không phải mã nguồn runtime của sản phẩm.
+- Git-first source tài liệu/tracker là bề mặt chỉnh sửa; Google Docs/Sheets dùng để publish/review. Không đưa credentials, Drive ID hay dữ liệu khách vào snapshot.
 
-Khách có thể làm tiếp ở ca sau khi Staff tạo continuation booking theo yêu cầu và ghi nhận custody/release cho work-in-progress item. Khi check-in, Staff xác nhận số người thực sự cùng làm sản phẩm; phụ thu là 100.000 VND cho mỗi người thêm chưa booking có tham gia làm, chỉ ghi sau Staff attestation và customer consent.
+## Baseline quản lý dự án còn thiếu
 
-Context chi tiết: [Project Context Diagram](docs/report-3-software-requirement-specification/assets/diagrams/context.puml).
-
-## Ngoài scope V1
-
-- Staff scheduling, HR, payroll và quản trị nhân sự; review không tự động tính lương/thưởng.
-- Inventory đầy đủ, retail catalogue rộng, trang sức ngoài nhẫn và detailed production scheduling.
-- POS, card-data storage, accounting/tax/bank reconciliation; policy cancellation/refund chưa chốt.
-- Carrier integration, live shipment tracking, delivery failure, return và shipping refund sau khi staff đã bàn giao cho carrier.
-- CAD/3D editor, tự tạo design từ ảnh, hoặc cam kết AI chính xác/tự động hoá tuyệt đối.
-
-## Tình trạng tài liệu
-
-| Nguồn | Trạng thái |
+| Hạng mục | Trạng thái |
 | --- | --- |
-| [Report 1](docs/report-1-project-introduction/front-matter.md) | Active SEP490 introduction and scope baseline. |
-| [Report 2](docs/report-2-project-management-plan/front-matter.md) | Planning baseline; milestone, budget, roles, and approval remain TBD. |
-| [Report 3](docs/report-3-software-requirement-specification/front-matter.md) | Active requirements, business flows, permission boundary, and committed PUML source. |
-| [Report 4](docs/report-4-software-design-specification/front-matter.md) | Architecture and implementation design remain TBD until an application baseline is approved. |
-| [Report 5](docs/report-5.0-test-documentation/front-matter.md) | Test planning only; no result, environment, schedule, or sign-off is claimed. |
-
-## Tình trạng mã nguồn và vận hành tài liệu
-
-- Repository có **tooling Python cho tài liệu**, gồm generate DOCX, Git history/GitHub Issue snapshot, Google Workspace synchronization và unit tests; đây không phải mã nguồn sản phẩm.
-- GitHub Actions validate và publish source tài liệu/tracker lên Google Workspace **chỉ từ nhánh `develop`**. Đồng bộ có kết quả theo từng target để target lỗi không chặn target khác.
-- Các report/tracker Git-first là nguồn chỉnh sửa; Google Docs/Sheets là bề mặt publish/review. Không đưa credentials, Drive ID hay dữ liệu khách vào snapshot.
-
-## Việc cần làm để chốt baseline
-
-| Nhóm cần xác nhận | Tình trạng | Nguồn theo dõi |
-| --- | --- | --- |
-| Booking, invoice & payment rules | Capacity từng cơ sở/ca, manual refund/force majeure, consent wording, final settlement và toàn bộ gateway contract. | [Q&A](trackers/project-tracking/Q&A.csv), [Issues](trackers/project-tracking/Issues.csv) |
-| Component taxonomy, catalogue, price và hard constraint | Partially answered; Owner cần cung cấp/duyệt dữ liệu thực tế. | [Q&A](trackers/project-tracking/Q&A.csv), [Issues](trackers/project-tracking/Issues.csv) |
-| Feasibility evidence, rule governance, threshold và evaluation | Partially answered; research prototype vẫn under validation. | [Q&A](trackers/project-tracking/Q&A.csv), [Issues](trackers/project-tracking/Issues.csv) |
-| Image consent/retention, review coverage, email và guest code | Partially answered; consent wording, provider retention và coverage còn mở. | [Q&A](trackers/project-tracking/Q&A.csv), [Issues](trackers/project-tracking/Issues.csv) |
-| Member retail & delivery handoff | Partially answered; pickup/manual exception, recipient-data retention và failed-handoff handling còn mở. | [Issues](trackers/project-tracking/Issues.csv) |
-| Technical administration & Payment Gateway | Payment provider, webhook/IPN, reconciliation, retry, duplicate events và refund vẫn `Open` do tranh chấp nhóm. | [Issues](trackers/project-tracking/Issues.csv), [Q&A](trackers/project-tracking/Q&A.csv) |
-| Google Reviews access, privacy, staff attribution và approval | Partially answered; verified access và governance là điều kiện trước import. | [Q&A](trackers/project-tracking/Q&A.csv), [Issues](trackers/project-tracking/Issues.csv) |
-
-**Thứ tự tiếp theo:** thu evidence và chốt các mục `Open/TBD` → baseline requirement và trace trong RTW → chi tiết FDS/UI/TDS → lập kế hoạch implementation và test scenario.
+| Work packages, effort và due dates | Chưa điền trong Report 2. |
+| Capacity planning | Chưa điền trong Report 2. |
+| Planned/actual project objectives | Chưa điền trong Report 2. |
+| Risk register và mitigation owners | Report 2 còn bảng mẫu trống; chưa có risk baseline được xác nhận ở đó. |
+| Responsibility assignment/RACI | Chưa có baseline được duyệt. |
+| Go-live prerequisites | Provider contracts/credentials, Finance/Legal xác nhận retention, Terms/Privacy Policy và các cấu hình vận hành phải sẵn sàng trước go-live theo Report 2. |
 
 ## Quy ước cập nhật snapshot
 
-Snapshot chỉ đúng tại ngày kiểm tra ghi ở đầu file. Khi có quyết định nhóm đã được duyệt, thay đổi tài liệu, hoặc mã nguồn ứng dụng thực sự được thêm vào repository, cập nhật mục liên quan và liên kết lại nguồn canonical. Không chuyển một assumption, risk hoặc câu hỏi mở thành requirement đã xác nhận chỉ bằng việc cập nhật file này.
+Snapshot chỉ đúng tại ngày kiểm tra ở đầu file. Cập nhật từ nguồn canonical khi có quyết định được duyệt hoặc thay đổi trong reports; giữ rõ giả định, constraint và mục chưa có baseline. Không dùng snapshot này để khẳng định tiến độ, triển khai hoặc kết quả test chưa có bằng chứng.
