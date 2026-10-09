@@ -1,0 +1,40 @@
+@startuml
+!pragma charset UTF-8
+title Staff / Consultant Use Cases
+left to right direction
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+actor "Staff / Consultant" as Staff
+
+rectangle "Personalized Product Sales and Workshop Booking System" {
+  usecase "Manage workshop\nsessions and capacity" as Capacity
+  usecase "Check in participants\nwith booking code / QR" as Checkin
+  usecase "Record invoice adjustment\nreason, actor and time" as Adjustment
+  usecase "Capture customer consent\nfor invoice adjustment" as Consent
+  usecase "Record cash / bank\nfinal settlement" as Settlement
+  usecase "Create continuation booking\non customer request" as Continuation
+  usecase "Record custody intake\nand release" as Custody
+  usecase "Record third-party\ndelivery handoff" as Handoff
+}
+
+Staff --> Capacity
+Staff --> Checkin
+Staff --> Adjustment
+Staff --> Settlement
+Staff --> Continuation
+Staff --> Custody
+Staff --> Handoff
+Adjustment .> Consent : <<include>>
+Checkin .> Adjustment : <<extend>>\n[extra contributor]
+Continuation .> Custody : <<include>>
+
+note bottom of Continuation
+Staff alone may create a continuation booking after capacity check.
+end note
+@enduml
+

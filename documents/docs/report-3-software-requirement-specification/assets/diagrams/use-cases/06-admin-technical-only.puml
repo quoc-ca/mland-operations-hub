@@ -1,0 +1,30 @@
+@startuml
+!pragma charset UTF-8
+title Admin Technical Use Cases
+left to right direction
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+actor "Admin Technical" as Admin
+
+rectangle "Personalized Product Sales and Workshop Booking System" {
+  usecase "Configure approved\ntechnical settings" as Configure
+  usecase "Monitor integration\nhealth and technical logs" as Monitor
+  usecase "Review technical audit" as TechAudit
+  usecase "Record technical\nconfiguration audit event" as ConfigAudit
+}
+
+Admin --> Configure
+Admin --> Monitor
+Admin --> TechAudit
+Configure .> ConfigAudit : <<include>>
+
+note bottom of Admin
+Admin Technical cannot change invoices, payments, orders or other business records.
+end note
+@enduml
+
