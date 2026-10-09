@@ -17,4 +17,4 @@ Mland integrates with Google Maps Embed and Google Places on a read-only basis t
 
 For retail and custom orders, the Member chooses store pickup or Giao Hang Tiet Kiem (GHTK) fulfilment after verified payment. Staff records the pickup or manual handoff to GHTK. The platform does not integrate with GHTK APIs, quote shipping fees, track delivery, handle delivery failure, returns, cancellations, or refunds. Recipient and address data for GHTK delivery are deleted or irreversibly obscured 30 days after handoff; VNPay transaction references and business audit evidence are retained for five years, and no card data is stored.
 
-{{r3-context-diagram width=105%}}
+{{r3-context-diagram width=100%}}
