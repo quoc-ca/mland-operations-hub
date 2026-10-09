@@ -1,0 +1,5 @@
+Date,Question,By,Priority,Due Date,Status,"Note (answer, other notes)"
+2026-09-15,What capacity cancellation and no-show rules apply to the three daily workshop sessions?,SEP490_G22,High,,Partially answered,"Three sessions: 09:30–12:00, 13:00–15:30, 16:00–18:30. Capacity is configured per location/session; reschedule requires 24 hours and capacity; exact values TBD."
+2026-09-15,Which catalogue components price and feasibility constraints are approved?,SEP490_G22,High,,Partially answered,"Only Owner-confirmed components may be configured. Actual catalogue, prices and thresholds are TBD."
+2026-09-17,Which gateway provider and verified webhook/IPN rules confirm deposits and retail payment?,SEP490_G22,High,,Open,"Provider, webhook/IPN verification, reconciliation, retry, duplicate handling and refund are TBD. Browser redirect is not confirmation."
+2026-09-17,What ready-ring reservation and delivery handoff rules are required?,SEP490_G22,High,,Partially answered,"Verified full payment reserves one ready ring until pickup or carrier handoff; retention and failed-handoff process are TBD."

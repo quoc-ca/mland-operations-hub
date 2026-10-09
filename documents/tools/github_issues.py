@@ -1,4 +1,4 @@
-"""GitHub Issue declarations, API access, and reporting rows for MOH."""
+"""GitHub Issue declarations, API access, and reporting rows for this project."""
 
 from __future__ import annotations
 
@@ -127,7 +127,7 @@ def managed_issue_body(item: WorkItem) -> str:
         (
             f"<!-- MOH-WORK-ITEM-ID: {item.identifier} -->",
             f"<!-- MOH-WORK-ITEM-SOURCE: {item.source} -->",
-            "This GitHub Issue is managed from a versioned MOH report declaration.",
+            "This GitHub Issue is managed from a versioned report declaration.",
             "",
             f"Source fragment: `{item.source}`",
         )

@@ -1,0 +1,2 @@
+Test Case ID,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+IT-PAY-001,Valid payment event confirms one booking,"Submit one valid verified payment event after a pending booking invoice exists",Booking is confirmed once and payment is recorded once,Gateway contract and implementation available,Not Run,,,,,,,,,,Duplicate-event design remains TBD
