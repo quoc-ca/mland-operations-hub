@@ -17,7 +17,7 @@ class MlandBundleTests(unittest.TestCase):
             with self.subTest(report_id=report_id):
                 bundle_root = ROOT / "docs" / report_id
                 front_matter = (bundle_root / "front-matter.md").read_text(encoding="utf-8")
-                self.assertIn("{{fpt-university width=35%}}", front_matter)
+                self.assertIn("{{fpt-university width=35% align=center}}", front_matter)
                 self.assertFalse((bundle_root / "assets" / "cover" / "fpt-university.png").exists())
 
     def test_governance_files_and_active_project_policy_are_present(self) -> None:

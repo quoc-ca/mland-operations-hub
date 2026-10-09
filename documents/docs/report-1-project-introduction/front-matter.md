@@ -1,4 +1,4 @@
-{{fpt-university width=35%}}
+{{fpt-university width=35% align=center}}
 
 # CAPSTONE PROJECT REPORT
 

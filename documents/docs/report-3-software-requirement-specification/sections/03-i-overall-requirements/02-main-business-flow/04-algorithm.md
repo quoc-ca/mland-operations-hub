@@ -4,4 +4,4 @@
 
 *End condition*: 
 
-{{r3-algorithm width=100%}}
+{{r3-algorithm width=100% align=center}}

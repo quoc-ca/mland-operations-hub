@@ -4,4 +4,4 @@
 
 *End condition*: 
 
-{{r3-personalized-and-verify width=100%}}
+{{r3-personalized-and-verify width=100% align=center}}

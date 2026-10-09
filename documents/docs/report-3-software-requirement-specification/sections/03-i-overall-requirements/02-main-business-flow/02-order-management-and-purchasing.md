@@ -4,4 +4,4 @@
 
 *End condition*: 
 
-{{r3-swl-order width=100%}}
+{{r3-swl-order width=100% align=center}}
