@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .header { background-color: #005a9e; color: white; padding: 15px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { padding: 20px; }
+        .qr-box { text-align: center; margin: 20px 0; padding: 15px; background-color: #f9f9f9; border-radius: 8px; }
+        .ticket-info { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .ticket-info th, .ticket-info td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
+        .footer { text-align: center; font-size: 12px; color: #777; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Xác nhận Đặt chỗ Workshop</h2>
+        </div>
+        
+        <div class="content">
+            <p>Cảm ơn bạn đã đặt chỗ! Thanh toán của bạn đã được xác nhận thành công.</p>
+            
+            <table class="ticket-info">
+                <tr>
+                    <th>Mã Booking:</th>
+                    <td th:text="${bookingCode}">WS-123</td>
+                </tr>
+                <tr>
+                    <th>Workshop:</th>
+                    <td th:text="${packageName}">Nhẫn Bạc Cơ Bản</td>
+                </tr>
+                <tr>
+                    <th>Ngày tham gia:</th>
+                    <td th:text="${sessionDate}">01/01/2026</td>
+                </tr>
+                <tr>
+                    <th>Địa điểm:</th>
+                    <td th:text="${location}">Studio 1</td>
+                </tr>
+                <tr>
+                    <th>Số người:</th>
+                    <td th:text="${participantCount}">1</td>
+                </tr>
+            </table>
+
+            <div class="qr-box">
+                <h4>Mã QR Check-in của bạn</h4>
+                <p>Vui lòng đưa mã QR này cho nhân viên tại quầy check-in khi bạn đến Workshop.</p>
+                <!-- Dùng API tạo QR code từ string qrCodeData -->
+                <img th:src="'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + ${qrCodeData}" alt="QR Code" width="200" height="200" />
+                <br/>
+                <small th:text="${qrCodeData}"></small>
+            </div>
+            
+            <p>Nếu bạn có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi.</p>
+            <p>Trân trọng,<br>Đội ngũ Workshop</p>
+        </div>
+        
+        <div class="footer">
+            <p>Email này được gửi tự động từ hệ thống Workshop Booking.</p>
+        </div>
+    </div>
+</body>
+</html>

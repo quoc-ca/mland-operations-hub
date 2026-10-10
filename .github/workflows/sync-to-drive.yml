@@ -3,7 +3,7 @@ name: Build and sync Google Workspace
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [develop]
     paths:
       - 'documents/**'
       - '.github/scripts/sync_to_drive.py'
@@ -23,6 +23,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+        
+      - name: Validate publication branch
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/develop" ]; then
+            echo "Google Workspace publishing is permitted only from refs/heads/develop; received $GITHUB_REF." >&2
+            exit 1
+          fi
 
       - uses: actions/setup-python@v5
         with:
@@ -31,7 +39,12 @@ jobs:
           cache-dependency-path: documents/requirements.txt
 
       - name: Install Pandoc
-        run: sudo apt-get update && sudo apt-get install --yes pandoc
+        uses: pandoc/actions/setup@v1
+        with:
+          version: '3.11'
+
+      - name: Show Pandoc version
+        run: pandoc --version
 
       - name: Install Python dependencies
         run: python -m pip install --requirement requirements.txt
@@ -47,7 +60,7 @@ jobs:
             echo "all=true" >> "$GITHUB_OUTPUT"
           else
             git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" > repository-changed-paths.txt
-            if grep -Fxq '.github/scripts/sync_to_drive.py' repository-changed-paths.txt || grep -Fxq '.github/workflows/sync-to-drive.yml' repository-changed-paths.txt; then
+            if grep -Fxq '.github/scripts/sync_to_drive.py' repository-changed-paths.txt || grep -Fxq '.github/workflows/sync-to-drive.yml' repository-changed-paths.txt || grep -Fxq 'documents/tools/temp.md' repository-changed-paths.txt; then
               echo "all=true" >> "$GITHUB_OUTPUT"
             else
               sed -n 's#^documents/##p' repository-changed-paths.txt > changed-paths.txt
@@ -58,6 +71,7 @@ jobs:
       - name: Build and synchronize
         env:
           GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
+          GDRIVE_ASSETS_FOLDER_ID: ${{ secrets.GDRIVE_ASSETS_FOLDER_ID }}
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         shell: bash
@@ -67,7 +81,21 @@ jobs:
           printf '%s' "$GDRIVE_CREDENTIALS" > "$credentials_file"
           chmod 600 "$credentials_file"
           if [ "${{ steps.scope.outputs.all }}" = "true" ]; then
-            python ../.github/scripts/sync_to_drive.py --all --credentials "$credentials_file"
+            python ../.github/scripts/sync_to_drive.py --all --credentials "$credentials_file" --result-report sync-results.json
           else
-            python ../.github/scripts/sync_to_drive.py --changed "$(cat changed-paths.txt)" --include-generated-trackers --credentials "$credentials_file"
+            python ../.github/scripts/sync_to_drive.py --changed "$(cat changed-paths.txt)" --include-generated-trackers --credentials "$credentials_file" --result-report sync-results.json
+          fi
+
+      - name: Publish synchronization summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f sync-results.json ]; then
+            python ../.github/scripts/sync_to_drive.py --render-result-summary sync-results.json --github-summary "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## Google Workspace synchronization"
+              echo
+              echo "No synchronization result report was produced; inspect the earlier workflow step."
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
