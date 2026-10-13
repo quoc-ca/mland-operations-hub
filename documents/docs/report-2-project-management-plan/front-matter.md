@@ -4,9 +4,6 @@
 
 ## Personalized Product Sales and Workshop Booking System
 
-**Group:** SEP490_G22  
-**Status:** Active project, under validation  
-**Document status:** Planning baseline. Functional and integration decisions approved for V1 are traced in Project Overview. Project-management estimates and targets in this draft are illustrative proposals; no actual results or approved delivery baseline have been reported.
 
 ## Table of Contents
 
