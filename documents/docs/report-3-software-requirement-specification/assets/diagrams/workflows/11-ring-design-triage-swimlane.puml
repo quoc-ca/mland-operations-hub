@@ -1,0 +1,64 @@
+@startuml
+!pragma charset UTF-8
+title Ring Design and Feasibility Triage Swimlane
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+|Guest or Member|
+start
+:Choose ring-design option;
+if (Approved catalogue model?) then (yes)
+  |System|
+  :Select confirmed feasible model;
+  :Continue booking / consultation;
+  stop
+elseif (Approved component configurator?) then (yes)
+  |System|
+  :Validate selection against Owner-confirmed\ncomponent catalogue and hard constraints;
+  :Continue booking / consultation;
+  stop
+else (Reference image)
+  :Give explicit image-processing consent;
+  :Submit reference image;
+  |System|
+  :Validate image request and rate limit;
+  if (Consent and request accepted?) then (yes)
+    |AI Vision API|
+    :Return image quality and candidate features only;
+    |System|
+    :Apply Owner-configured hard constraints,\nscores and thresholds;
+    if (Simple?) then (yes)
+      :Auto-accept with auditable decision context;
+      :Continue booking / consultation;
+    elseif (Medium?) then (yes)
+      |Staff / Consultant|
+      :Review candidate features and feasibility;
+      |System|
+      :Record reviewed decision and audit context;
+      :Continue or ask customer to choose again;
+    elseif (Advanced?) then (yes)
+      |Owner / Manager|
+      :Review advanced request / override if authorised;
+      |System|
+      :Record decision, actor, reason and context;
+      :Continue or ask customer to choose again;
+    else (Impossible)
+      :Auto-reject using approved constraint / threshold;
+      :Ask customer to choose another idea;
+    endif
+  else (no)
+    :Do not send image to AI;
+    :Show consent / validation error;
+  endif
+endif
+
+note right
+AI does not make the final business decision, generate a design or decide price.
+Numeric rules, evaluation evidence and provider remain TBD.
+end note
+stop
+@enduml

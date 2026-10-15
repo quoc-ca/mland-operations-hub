@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="#{auth.title}">Policy Acceptance Required</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: #1e293b; border-radius: 1rem; padding: 2rem; max-width: 460px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        h2 { color: #f8fafc; margin-top: 0; }
+        p { color: #94a3b8; font-size: 0.9rem; line-height: 1.5; }
+        .btn { width: 100%; padding: 0.75rem; background: #8b5cf6; color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; margin-top: 1.5rem; }
+        .btn:hover { background: #7c3aed; }
+        .checkbox-group { margin-top: 1rem; display: flex; gap: 0.5rem; color: #cbd5e1; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Cập nhật Điều khoản & Chính sách</h2>
+        <p>Mland đã cập nhật Điều khoản sử dụng và Chính sách bảo mật. Vui lòng đọc và đồng ý để tiếp tục sử dụng các dịch vụ dành cho thành viên.</p>
+
+        <div class="checkbox-group">
+            <input type="checkbox" id="acceptCheck">
+            <label for="acceptCheck">Tôi đã đọc và đồng ý với <a href="/policies/terms-v1.0.0.html" target="_blank" style="color:#a78bfa;">Điều khoản v1.0.0</a> và <a href="/policies/privacy-v1.0.0.html" target="_blank" style="color:#a78bfa;">Chính sách bảo mật v1.0.0</a>.</label>
+        </div>
+
+        <input type="hidden" id="returnTo" th:value="${returnTo}">
+        <button id="btnSubmitPolicy" class="btn">Xác nhận và tiếp tục</button>
+    </div>
+
+    <script th:inline="javascript">
+        window.FIREBASE_CONFIG = /*[[${firebaseConfig}]]*/ {};
+    </script>
+    <script src="/js/member-auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+openapi: 3.0.3
+info:
+  title: Workshop Booking API
+  version: 1.0.0
+  description: Booking, payment initiation, callback and lookup contract.
+paths:
+  /api/v1/workshop-packages:
+    get:
+      summary: Browse published workshop packages
+      responses:
+        '200':
+          description: Published packages
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/WorkshopPackage'}}
+  /api/v1/workshop-packages/{packageId}:
+    get:
+      summary: View package details
+      parameters: [{ $ref: '#/components/parameters/PackageId' }]
+      responses:
+        '200': {description: Package details, content: {application/json: {schema: {$ref: '#/components/schemas/WorkshopPackage'}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/workshop-bookings:
+    post:
+      summary: Create a pending workshop booking
+      security: []
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/CreateBookingRequest'}}}
+      responses:
+        '201': {description: Pending booking with capacity hold, content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/v1/workshop-bookings/{bookingCode}/payments:
+    post:
+      summary: Start or retry deposit payment
+      description: An authenticated Member must present a Firebase Bearer token for an owned booking. A Guest must provide exactly one normalized contact proof, either contactPhone or contactEmail, matching the booking snapshot. Supplying neither or both contact fields is invalid and returns 400.
+      x-validation-rules:
+        - For Guest access, exactly one of contactPhone and contactEmail is required.
+        - For Member access, contact proof is not required; ownership is determined from the verified Firebase UID.
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - { $ref: '#/components/parameters/BookingCode' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - {name: contactPhone, in: query, required: false, schema: {type: string, minLength: 7, maxLength: 32}}
+        - {name: contactEmail, in: query, required: false, schema: {type: string, format: email, maxLength: 254}}
+      responses:
+        '200': {description: Gateway initiation details, content: {application/json: {schema: {$ref: '#/components/schemas/PaymentInitiation'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/v1/workshop-bookings/{bookingCode}/payment-callbacks:
+    post:
+      summary: Receive a verified provider callback
+      description: Verify signature, event identity, amount and currency before changing state. Never return OTP or provider secrets.
+      parameters: [{ $ref: '#/components/parameters/BookingCode' }, { $ref: '#/components/parameters/ProviderSignature' }]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/PaymentCallback'}}}
+      responses:
+        '200': {description: Accepted or safely deduplicated, content: {application/json: {schema: {$ref: '#/components/schemas/CallbackResult'}}}}
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/v1/workshop-bookings/{bookingCode}:
+    get:
+      summary: Look up a booking
+      description: Guest lookup requires booking code and exactly one of contactPhone or contactEmail. Supplying neither or both contact fields is invalid and returns 400. Members may access only their own bookings; Staff/Owner access is role-protected.
+      x-validation-rules:
+        - For Guest access, exactly one of contactPhone and contactEmail is required.
+        - For Member access, contact proof is not required; ownership is determined from the verified Firebase UID.
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - {$ref: '#/components/parameters/BookingCode'}
+        - {name: contactPhone, in: query, required: false, schema: {type: string, minLength: 7, maxLength: 32}}
+        - {name: contactEmail, in: query, required: false, schema: {type: string, format: email, maxLength: 254}}
+      responses:
+        '200': {description: Authorized summary; QR only for CONFIRMED, content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /booking/view:
+    get:
+      summary: View a booking through a protected Magic Link
+      description: Browser-rendered Thymeleaf view reached from a protected Magic Link. This is intentionally a customer-facing HTML route, not a versioned public REST resource; REST APIs remain under /api/v1/.
+      parameters:
+        - {name: code, in: query, required: true, schema: {type: string}}
+        - {name: token, in: query, required: true, schema: {type: string, minLength: 32}}
+      responses:
+        '200': {description: Read-only details; QR only after confirmation, content: {text/html: {schema: {type: string}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  parameters:
+    PackageId: {name: packageId, in: path, required: true, schema: {type: integer, format: int64}}
+    BookingCode: {name: bookingCode, in: path, required: true, schema: {type: string, pattern: '^WS-[A-Z0-9]+$'}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
+    ProviderSignature: {name: X-Payment-Signature, in: header, required: true, schema: {type: string, minLength: 16}}
+  schemas:
+    CreateBookingRequest:
+      type: object
+      required: [packageId, sessionId, participantCount, contactEmail, contactPhone]
+      properties:
+        packageId: {type: integer, format: int64}
+        sessionId: {type: integer, format: int64}
+        participantCount: {type: integer, minimum: 1}
+        contactEmail: {type: string, format: email, maxLength: 254}
+        contactPhone: {type: string, minLength: 7, maxLength: 32}
+        designReference: {type: string, maxLength: 2000}
+    PaymentCallback:
+      type: object
+      required: [providerEventId, providerReference, outcome, amount, currency]
+      properties:
+        providerEventId: {type: string, maxLength: 128}
+        providerReference: {type: string, maxLength: 128}
+        outcome: {type: string, enum: [SUCCESS, FAILED, CANCELLED]}
+        amount: {type: integer, format: int64, minimum: 0}
+        currency: {type: string, pattern: '^[A-Z]{3}$'}
+    PaymentInitiation:
+      type: object
+      required: [paymentUrl, expiresAt]
+      properties:
+        paymentUrl: {type: string, format: uri}
+        expiresAt: {type: string, format: date-time}
+    CallbackResult:
+      type: object
+      required: [accepted, bookingStatus, paymentStatus]
+      properties:
+        accepted: {type: boolean}
+        bookingStatus: {type: string, enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED]}
+        paymentStatus: {type: string, enum: [UNPAID, DEPOSIT_PAID, FAILED]}
+    WorkshopPackage:
+      type: object
+      required: [id, name, price, currency]
+      properties:
+        id: {type: integer, format: int64}
+        name: {type: string}
+        price: {type: integer, format: int64}
+        currency: {type: string, pattern: '^[A-Z]{3}$'}
+    BookingSummary:
+      type: object
+      required: [bookingCode, bookingStatus, paymentStatus]
+      properties:
+        bookingCode: {type: string}
+        bookingStatus: {type: string, enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED]}
+        paymentStatus: {type: string, enum: [UNPAID, DEPOSIT_PAID, FAILED]}
+        holdExpiresAt: {type: string, format: date-time, nullable: true}
+        qrTicket: {type: string, nullable: true, description: Signed opaque QR value; null before confirmation.}
+        paymentResumeAllowed: {type: boolean}
+    Problem:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code: {type: string}
+        message: {type: string}
+        correlationId: {type: string}
+  responses:
+    ValidationError: {description: Safe validation error, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    Conflict: {description: Capacity, idempotency or lifecycle conflict, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    Unauthorized: {description: Authentication required or invalid provider authentication, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    Forbidden: {description: Caller is not authorized for this booking, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    NotFound: {description: Safe not-found result for unknown or unauthorized booking/link, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}

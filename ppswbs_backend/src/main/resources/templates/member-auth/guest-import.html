@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="#{auth.import.heading}">Guest Booking Import</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: #1e293b; border-radius: 1rem; padding: 2rem; max-width: 480px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        h2 { color: #f8fafc; margin-top: 0; }
+        p { color: #94a3b8; font-size: 0.9rem; line-height: 1.5; }
+        .booking-list { background: #0f172a; border-radius: 0.5rem; padding: 1rem; margin: 1rem 0; max-height: 200px; overflow-y: auto; }
+        .booking-item { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #334155; font-size: 0.85rem; }
+        .booking-item:last-child { border-bottom: none; }
+        .btn-group { display: flex; gap: 1rem; margin-top: 1.5rem; }
+        .btn { flex: 1; padding: 0.75rem; border-radius: 0.5rem; border: none; font-weight: 600; cursor: pointer; }
+        .btn-primary { background: #8b5cf6; color: white; }
+        .btn-secondary { background: transparent; border: 1px solid #475569; color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2 th:text="#{auth.import.heading}">Nhập lịch sử đặt workshop</h2>
+        <p th:text="#{auth.import.message}">Tìm thấy các đơn đặt workshop trước đây khớp với email của bạn. Xác nhận nhập?</p>
+
+        <div id="bookingCandidates" class="booking-list">
+            <div class="booking-item"><span>Đang tải danh sách...</span></div>
+        </div>
+
+        <input type="hidden" id="returnTo" th:value="${returnTo}">
+        <div class="btn-group">
+            <button id="btnConfirmImport" class="btn btn-primary" th:text="#{auth.import.btn_confirm}">Xác nhận</button>
+            <button id="btnDeclineImport" class="btn btn-secondary" th:text="#{auth.import.btn_decline}">Để sau</button>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        window.FIREBASE_CONFIG = /*[[${firebaseConfig}]]*/ {};
+    </script>
+    <script src="/js/member-auth.js"></script>
+</body>
+</html>

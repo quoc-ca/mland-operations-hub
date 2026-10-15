@@ -1,0 +1,34 @@
+@startuml
+!pragma charset UTF-8
+title Shared Use Case — Staff and Owner Feasibility Review
+left to right direction
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+actor "Staff / Consultant" as Staff
+actor "Owner / Manager" as Owner
+
+rectangle "Personalized Product Sales and Workshop Booking System" {
+  usecase "Review feasibility request" as Review
+  usecase "Override feasibility decision" as Override
+  usecase "Record actor, reason\nand decision context" as Audit
+  usecase "Return reviewed outcome\nto customer" as Outcome
+}
+
+Staff --> Review
+Owner --> Review
+Staff --> Override
+Owner --> Override
+Review .> Audit : <<include>>
+Override .> Audit : <<include>>
+Review .> Outcome : <<include>>
+
+note bottom of Review
+Staff reviews medium requests; Owner reviews advanced requests.
+end note
+@enduml
+

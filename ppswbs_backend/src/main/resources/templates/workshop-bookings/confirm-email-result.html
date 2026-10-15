@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Xác nhận Email Đặt Workshop</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: #1e293b; border-radius: 1rem; padding: 2.5rem; max-width: 440px; width: 100%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .icon-success { color: #10b981; font-size: 3rem; margin-bottom: 1rem; }
+        .icon-error { color: #ef4444; font-size: 3rem; margin-bottom: 1rem; }
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+        p { color: #94a3b8; font-size: 0.95rem; line-height: 1.5; margin-bottom: 1.5rem; }
+        .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #8b5cf6; color: white; border-radius: 0.5rem; text-decoration: none; font-weight: 600; }
+        .btn:hover { background: #7c3aed; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div th:if="${success}">
+            <div class="icon-success">✓</div>
+            <h1>Xác nhận Email Thành Công!</h1>
+            <p th:text="${message}">Email đã được xác nhận.</p>
+            <p>Mã đơn đặt: <strong th:text="${bookingCode}">WB-12345678</strong></p>
+            <a href="/" class="btn">Tiến Hành Đặt Cọc</a>
+        </div>
+        <div th:unless="${success}">
+            <div class="icon-error">✕</div>
+            <h1>Xác Nhận Không Thành Công</h1>
+            <p th:text="${message}">Mã xác nhận không hợp lệ hoặc đã hết hạn.</p>
+            <a href="/" class="btn">Quay Về Trang Chủ</a>
+        </div>
+    </div>
+</body>
+</html>
