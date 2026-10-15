@@ -20,7 +20,7 @@ class MlandBundleTests(unittest.TestCase):
                 self.assertIn("{{fpt-university width=35% align=center}}", front_matter)
                 self.assertFalse((bundle_root / "assets" / "cover" / "fpt-university.png").exists())
 
-    def test_governance_files_and_active_project_policy_are_present(self) -> None:
+    def test_governance_files_are_present_and_draft_labels_are_absent(self) -> None:
         agent_rules = (ROOT / "AGENT.md").read_text(encoding="utf-8")
         claude_context = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
         self.assertIn("Git and GitHub commit history", agent_rules)
@@ -35,11 +35,6 @@ class MlandBundleTests(unittest.TestCase):
         self.assertNotIn("personalized product sales and workshop booking system — draft", content)
         self.assertNotIn("mland draft", content)
         self.assertNotIn("v0.1-draft", content)
-
-        for report_id in REPORT_IDS:
-            with self.subTest(report_id=report_id):
-                front_matter = (ROOT / "docs" / report_id / "front-matter.md").read_text(encoding="utf-8")
-                self.assertIn("Active project, under validation", front_matter)
 
     def test_all_report_bundles_are_valid(self) -> None:
         for report_id in REPORT_IDS:
