@@ -1,5 +1,7 @@
 ## 2. Limitations & Exclusions {#limitations-exclusions}
 
+::: {.docx-table width="100%" columns="20%,20%,60%" repeat-header="false"}
+
 | ID | Candidate Domain | Current Baseline Status |
 | --- | --- | --- |
 | LI-01 | Staff and HR management | Staff scheduling, attendance, payroll, contracts, and personnel administration are out of scope. |
@@ -9,3 +11,5 @@
 | LI-05 | AI accuracy and autonomous certainty | The AI/feasibility engine is a research prototype under validation; no accuracy claim, final threshold, formula, or dataset result is committed without evidence. |
 | LI-06 | Future commercial expansion | Jewellery types other than rings, loyalty, marketing, and forecasting are deferred. Members have no loyalty points in V1. |
 | LI-07 | Delivery and review governance | Third-party delivery stops at evidenced Staff-recorded handoff to GHTK; carrier integration, delivery-fee calculation, live shipment tracking, return, and shipping-refund logistics are excluded. Google Reviews import is conditional on verified access and governance approval, is Manager-triggered one-way only, and cannot automatically calculate salary or bonuses. |
+
+:::
