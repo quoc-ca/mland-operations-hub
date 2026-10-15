@@ -1,5 +1,7 @@
 ### 5.2 External API Inventory
 
+::: {.docx-table width="100%" columns="10%,25%,25%,40%" repeat-header="false"}
+
 |#|API Name|Calling Path|Description|
 |---|---|---|---|
 |1|VNPay Payment API|System → VNPay / VNPay → System|Creates payment requests and receives approved signed payment confirmations for workshop deposits, retail payments, custom-order deposits, and custom-order final balances. The system validates the signature, transaction reference, amount, success status, and duplicate-event status. A browser Return URL never confirms payment.|
@@ -10,3 +12,5 @@
 |6|SSO Provider API|System ↔ Google/Facebook SSO|Supports external identity registration, login, password recovery, and identity-token exchange. The provider establishes identity only; Mland resolves account status, business role, and authorization from its own database.|
 |7|Cloud Storage API|System ↔ Cloud Storage Service|Stores catalogue media and eligible custom-manufacturing reference images outside the application database. Access and deletion follow the approved retention rules; rejected or withdrawn custom requests and independently classified AI images are deleted after processing.|
 |8|GHTK Delivery Boundary|Staff → System → GHTK manual handoff|Records Staff-confirmed handoff of a paid retail or custom order to Giao Hang Tiet Kiem. V1 does not call GHTK APIs, quote delivery fees, track delivery, or process delivery-failure, return, cancellation, or refund workflows.|
+
+:::
