@@ -1,0 +1,5 @@
+Function / Screen,Type,Feature Group,Sub-Feature,Description,Complexity,Est. Effort (pts),Planned Iteration,In Charge,Actual Effort (pts),Status,Notes
+Booking,Functional,Workshop booking,Location and session,Guest and Member select a configured location/session,TBD,TBD,TBD,SEP490_G22,,To Do,Capacity values are TBD
+Booking,Functional,Workshop booking,Deposit confirmation,Confirm only after valid Payment Gateway event,TBD,TBD,TBD,SEP490_G22,,To Do,Provider contract is TBD
+Retail,Functional,Member retail,Ready-ring purchase,Member-only full-payment reservation and pickup/handoff,TBD,TBD,TBD,SEP490_G22,,To Do,No carrier tracking in V1
+Operations,Functional,Workshop operations,Custody and continuation,Staff-created continuation booking with auditable custody,TBD,TBD,TBD,SEP490_G22,,To Do,Detail design TBD

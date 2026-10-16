@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Lookup Booking</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body>
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Lookup Booking</h1>
+        <a href="/workshop-bookings/packages" class="btn btn-outline-secondary fw-semibold">← Quay lại Trang chính (Workshop List)</a>
+    </div>
+    <form action="/api/v1/workshop-bookings" method="get" id="lookupForm">
+        <div class="mb-3">
+            <label class="form-label">Booking Code</label>
+            <input type="text" id="bookingCode" class="form-control" th:value="${autoLookupCode}" required />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Phone or Email (Guest)</label>
+            <input type="text" id="contact" class="form-control" th:value="${autoLookupContact}" placeholder="Contact Email or Phone" required />
+        </div>
+        <button type="button" onclick="submitLookup()" class="btn btn-primary">Lookup</button>
+    </form>
+    <div id="result" class="mt-4"></div>
+</div>
+<script th:inline="javascript">
+/*<![CDATA[*/
+window.addEventListener('DOMContentLoaded', () => {
+    const autoCode = /*[[${autoLookupCode}]]*/ null;
+    if (autoCode) {
+        submitLookup();
+    }
+});
+/*]]>*/
+function submitLookup() {
+    const code = document.getElementById('bookingCode').value;
+    const contact = document.getElementById('contact').value;
+    const url = `/api/v1/workshop-bookings/${code}?contactEmail=${encodeURIComponent(contact)}`;
+    fetch(url)
+        .then(response => {
+            if (!response.ok) throw new Error('Booking not found');
+            return response.json();
+        })
+        .then(data => {
+            let html = `
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Booking: ${data.bookingCode}</h5>
+                        <p>Status: <span class="badge bg-secondary">${data.bookingStatus}</span></p>
+                        <p>Payment Status: <span class="badge ${data.paymentStatus === 'PAID' ? 'bg-success' : 'bg-warning'}">${data.paymentStatus}</span></p>
+            `;
+            if (data.bookingStatus === 'PENDING_PAYMENT') {
+                html += `<p class="text-danger">Hold Expires At: ${new Date(data.holdExpiresAt).toLocaleString()}</p>`;
+                html += `<button onclick="initiatePayment('${data.bookingCode}')" class="btn btn-success">Pay Now</button>`;
+            } else if (data.qrTicket) {
+                html += `<p>Ticket Code: <strong>${data.qrTicket.ticketCode}</strong></p>`;
+            }
+            html += `</div></div>`;
+            document.getElementById('result').innerHTML = html;
+        })
+        .catch(err => {
+            document.getElementById('result').innerHTML = `<div class="alert alert-danger">Failed to lookup booking. Please check your code and email/phone.</div>`;
+        });
+}
+
+function initiatePayment(code) {
+    const contact = document.getElementById('contact').value;
+    let contactParam = '';
+    if (contact && contact.includes('@')) contactParam = 'contactEmail=' + encodeURIComponent(contact);
+    else contactParam = 'contactPhone=' + encodeURIComponent(contact);
+
+    const url = `/api/v1/workshop-bookings/${code}/payments?${contactParam}`;
+    fetch(url, {
+        method: 'POST'
+    })
+    .then(r => {
+        if(!r.ok) throw new Error('Payment initiation failed');
+        return r.json();
+    })
+    .then(data => {
+        if(data.paymentUrl) {
+            window.location.href = data.paymentUrl;
+        } else {
+            alert('Failed to initiate payment');
+        }
+    })
+    .catch(err => alert('Error initiating payment: ' + err.message));
+}
+</script>
+</body>
+</html>

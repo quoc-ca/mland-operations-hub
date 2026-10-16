@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Create Booking</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+<div class="container mt-5">
+    <h1>Book Workshop</h1>
+    <h3 th:text="${package.name}">Package</h3>
+    
+    <div id="bookingResult" class="mt-3"></div>
+
+    <form hx-post="/api/v1/workshop-bookings" hx-ext="json-enc" hx-swap="none">
+        <input type="hidden" name="packageId" th:value="${package.id}" />
+        
+        <div class="mb-3">
+            <label class="form-label">Selected Session</label>
+            <!-- If sessionId was passed from URL, show it as hidden input and text -->
+            <th:block th:if="${selectedSessionId != null}">
+                <input type="hidden" name="sessionId" th:value="${selectedSessionId}" />
+                <div class="form-control bg-light">
+                    <span th:each="s : ${sessions}" th:if="${s.id == selectedSessionId}" th:text="${s.sessionDate + ' (' + s.getAvailableCapacity() + ' slots left)'}"></span>
+                </div>
+            </th:block>
+            <!-- If no sessionId was passed, let user choose -->
+            <th:block th:if="${selectedSessionId == null}">
+                <select name="sessionId" class="form-select" required>
+                    <option value="">-- Choose a session --</option>
+                    <option th:each="s : ${sessions}" th:value="${s.id}" th:text="${s.sessionDate + ' (' + s.getAvailableCapacity() + ' slots left)'}"></option>
+                </select>
+            </th:block>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Participants</label>
+            <input type="number" name="participantCount" class="form-control" min="1" value="1" required />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Contact Email</label>
+            <input type="email" name="contactEmail" class="form-control" required />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Contact Phone</label>
+            <input type="text" name="contactPhone" class="form-control" required />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Design Reference (Optional)</label>
+            <textarea name="designReference" class="form-control"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Hold Booking (15m)</button>
+    </form>
+    
+    <a th:href="@{/workshop-bookings/packages/detail(id=${package.id})}" class="btn btn-secondary mt-3">Cancel</a>
+</div>
+
+<!-- Simple HTMX JSON Encoding Extension for APIs -->
+<script>
+    htmx.defineExtension('json-enc', {
+        onEvent: function (name, evt) {
+            if (name === "htmx:configRequest") {
+                evt.detail.headers['Content-Type'] = "application/json";
+            }
+        },
+        encodeParameters: function(xhr, parameters, elt) {
+            xhr.overrideMimeType('text/json');
+            return (JSON.stringify(parameters));
+        }
+    });
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.elt.hasAttribute('hx-post')) {
+            var resultDiv = document.getElementById('bookingResult');
+            if (evt.detail.successful) {
+                var response = JSON.parse(evt.detail.xhr.response);
+                
+                // Get the email and phone the user just entered
+                var contactEmail = document.querySelector('input[name="contactEmail"]').value;
+                var contactPhone = document.querySelector('input[name="contactPhone"]').value;
+
+                var html = '<div class="alert alert-success">' +
+                           '<h4>Booking Created Successfully!</h4>' +
+                           '<p>Your booking code is: <strong>' + response.bookingCode + '</strong></p>' +
+                           '<p>Hold expires at: ' + new Date(response.holdExpiresAt).toLocaleString() + '</p>' +
+                           '<hr/>' +
+                           '<p>Review your details and complete the payment to secure your slots.</p>' +
+                           '<button onclick="initiatePayment(\'' + response.bookingCode + '\', \'' + contactEmail + '\', \'' + contactPhone + '\')" class="btn btn-success">Pay Now</button>' +
+                           '</div>';
+                resultDiv.innerHTML = html;
+                evt.detail.elt.style.display = 'none';
+            } else {
+                resultDiv.innerHTML = '<div class="alert alert-danger">Failed to create booking: ' + evt.detail.xhr.response + '</div>';
+            }
+        }
+    });
+
+    function initiatePayment(code, email, phone) {
+        let contactParam = '';
+        if (email) contactParam = 'contactEmail=' + encodeURIComponent(email);
+        else if (phone) contactParam = 'contactPhone=' + encodeURIComponent(phone);
+        
+        const url = `/api/v1/workshop-bookings/${code}/payments?${contactParam}`;
+        fetch(url, {
+            method: 'POST'
+        })
+        .then(r => {
+            if(!r.ok) throw new Error('Payment initiation failed');
+            return r.json();
+        })
+        .then(data => {
+            if(data.paymentUrl) {
+                window.location.href = data.paymentUrl;
+            } else {
+                alert('Failed to initiate payment');
+            }
+        })
+        .catch(err => alert('Error initiating payment: ' + err.message));
+    }
+</script>
+</body>
+</html>
