@@ -5,10 +5,11 @@
 
 *End condition*: 
 
+
 - The system validates the ring data, calculates the Geometry Compatibility Score (GCS), Ring Complexity Score (CS), ring mass, and estimated price, then returns the calculated CS and price.
 
 *Alternative end conditions*:
 
  - If the ring data is invalid or the design fails the complexity or compatibility thresholds, the system rejects the design and returns the applicable rejection reason.
  
-{{r3-algorithm width=100%}}
+{{r3-algorithm width=100% align=center}}

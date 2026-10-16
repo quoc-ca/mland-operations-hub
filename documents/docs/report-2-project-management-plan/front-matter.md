@@ -1,12 +1,9 @@
-{{fpt-university width=35%}}
+{{fpt-university width=35% align=center}}
 
 # REPORT 2 — PROJECT MANAGEMENT PLAN
 
 ## Personalized Product Sales and Workshop Booking System
 
-**Group:** SEP490_G22  
-**Status:** Active project, under validation  
-**Document status:** Planning baseline. Functional and integration decisions approved for V1 are traced in Project Overview; project-management planning values are intentionally unpopulated until an approved group baseline is supplied.
 
 ## Table of Contents
 

@@ -1,10 +1,12 @@
 ## 4. Responsibility Assignments
 
-<!-- [Provide the project organization structure and describe the main responsibilities for the work packages as listed in the section “1.1 Scope & Estimation” above] -->
-Example:
+The RACI below uses five proposed roles to make ownership clear without assigning work to named students. It is an illustrative allocation for a five-person team; SEP490_G22 should map members to roles and approve the allocation before using it as a commitment. One member may cover more than one role.
 
-|Work Package|Member1|Member2|...|
-|---|---|---|---|
-|Work Package Name1|R|A|...|
+| Work Package | PL | BA | DEV | QA | OPS |
+|---|---|---|---|---|---|
+| Planning and requirements | A | R | C | C | I |
+| Design and feature delivery | A | C | R | C | C |
+| Provider integration and environment | A | C | R | C | R |
+| Quality, release, and handover | A | C | C | R | R |
 
-RACI Chart: R~Responsible, A~Accountable, C~Consulted, I~Informed
+PL = Project Lead; BA = Business Analyst; DEV = Development; QA = Quality Assurance / Test; OPS = Integration / Operations. R = Responsible; A = Accountable; C = Consulted; I = Informed. Each work package has one accountable role; the proposed role mapping remains subject to team review.

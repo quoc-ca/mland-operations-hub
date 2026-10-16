@@ -1,6 +1,6 @@
 ### 2.1 Workshop Booking
 
-*Trigger:
+*Trigger*:
 
 - A Guest or Member selects a workshop package and initiates a booking by choosing a branch, date, and available time slot.
 
@@ -12,4 +12,4 @@
 
 - If payment fails or the 15-minute payment window expires, the booking is cancelled or marked as expired, the temporarily held seat is released, and the system displays an appropriate notification.
 
-{{r3-swl-booking-workshop width=100%}}
+{{r3-swl-booking-workshop width=100% align=center}}

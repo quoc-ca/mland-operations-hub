@@ -1,5 +1,7 @@
 ### 4.1 Actors
 
+::: {.docx-table width="100%" columns="15%,25%,60%" repeat-header="false"}
+
 | # | Actor | Description |
 | --- | --- | --- |
 | 1 | Guest | An unauthenticated visitor who can browse the published product catalogue and available ring models, view workshop packages and schedules, view permitted public store information, use basic AI support, book a workshop, and register or sign in through the configured identity provider. A Guest selects a workshop package before a supported ring-design path. A Guest cannot submit a booking-design image, create a custom-manufacturing order, or complete retail checkout. |
@@ -15,3 +17,5 @@
 | 11 | Cloud Storage Service | An external media store for catalogue assets and custom-manufacturing reference images. Custom-manufacturing images are retained only until pickup or GHTK handoff; rejected or withdrawn requests and independently classified images are deleted immediately after processing. |
 | 12 | Delivery Provider | Giao Hang Tiet Kiem (GHTK), used only for Staff-recorded manual handoff of paid retail or custom orders. Mland does not use GHTK APIs, quote delivery fees, track delivery, or process delivery failure, return, cancellation, or refund workflows. |
 | 13 | External Registration System | Klook, the sole V1 external workshop-registration partner. It obtains Mland availability/hold before confirming a Klook booking and receives enabled Mland availability or confirmed-booking updates. Klook cancellation events are not received or processed by Mland V1. |
+
+:::

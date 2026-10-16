@@ -51,9 +51,12 @@ To inject a Drive-hosted image only when publishing, place a standalone placehol
 {{asset-name}}
 {{asset-name width=35%}}
 {{asset-name width=2.4in}}
+{{asset-name align=right}}
+{{asset-name width=35% align=center}}
+{{asset-name align=left width=2.4in}}
 ```
 
-`asset-name` uses ASCII letters, digits, hyphens, and underscores only; it excludes the filename extension. `width` is optional: the default is `80%`; accepted explicit values are integer `1%`–`100%` or decimal `0.1in`–`10in`. No other attributes are supported. During the `develop` publishing workflow, the synchronizer matches the basename case-insensitively to exactly one PNG or JPEG in the Drive folder declared by the GitHub Secret `GDRIVE_ASSETS_FOLDER_ID`, then inserts it at the requested width. The `Assets/` folder is scanned directly, not recursively, and must be shared with the service-account email as a Reader. Missing, duplicate, non-downloadable, or unsupported assets fail only that report target with a diagnostic; they are not committed or logged. A Drive-only image change does not trigger GitHub Actions, so use a manual dispatch from `develop` to republish it.
+`asset-name` uses ASCII letters, digits, hyphens, and underscores only; it excludes the filename extension. `width` and `align` are optional, can appear in either order, and may each appear once. The default width is `80%`; accepted values are integer `1%`–`100%` or decimal `0.1in`–`10in`. `align` accepts `left`, `center`, or `right`, and defaults to `left`. Injected images do not show the asset name as a caption; the name remains in the image's alt-text metadata. No other attributes are supported. During the `develop` publishing workflow, the synchronizer matches the basename case-insensitively to exactly one PNG or JPEG in the Drive folder declared by the GitHub Secret `GDRIVE_ASSETS_FOLDER_ID`, then inserts it at the requested width and alignment. The `Assets/` folder is scanned directly, not recursively, and must be shared with the service-account email as a Reader. Missing, duplicate, non-downloadable, or unsupported assets fail only that report target with a diagnostic; they are not committed or logged. A Drive-only image change does not trigger GitHub Actions, so use a manual dispatch from `develop` to republish it.
 
 Local DOCX builds do not contact Drive. They render `[Drive asset omitted: asset-name]` at a valid placeholder position; `--validate` checks placeholder syntax and rejects code-managed diagram references.
 
@@ -67,6 +70,22 @@ You own `templates/reference.docx`; automation reads it only. Configure it once 
 - compact tables, monospaced code, black underlined links; no header/footer.
 
 Markdown controls semantic structure only: headings, lists, tables, links, code, and image references.
+
+### Markdown table layout
+
+Author-written Markdown tables use full text width, a complete grid, and do not repeat their header on later pages. To override a table's width, column proportions, or header repetition, wrap exactly one table in a fenced Div:
+
+```markdown
+::: {.docx-table width="90%" columns="15%,50%,35%" repeat-header="true"}
+
+| No. | Description | Note |
+|---|---|---|
+| A-01 | Example description | Example note |
+
+:::
+```
+
+`width` is a percentage from `1%` to `100%` of the printable text area. `columns` is optional; when supplied it must contain one positive percentage per column and add up to `100%`. Without it, Pandoc's inferred column proportions are normalized to the table width. `repeat-header` accepts `true` or `false` and defaults to `false`. Invalid settings stop that report build and identify the source fragment. Report 3's `Metadata Table` use-case tables and generated change-history tables keep their own layout.
 
 ### Report 3 use-case specifications
 

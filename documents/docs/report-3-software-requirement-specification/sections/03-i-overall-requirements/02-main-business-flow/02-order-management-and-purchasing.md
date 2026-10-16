@@ -9,4 +9,5 @@
 *Alternative end conditions*:
 
 - If the product is unavailable, the promotion is invalid, or payment fails, the system does not complete the order and displays an appropriate error message. If a payment hold or temporary reservation exists, it is released when the applicable timeout expires.
-{{r3-swl-order width=100%}}
+
+{{r3-swl-order width=100% align=center}}
