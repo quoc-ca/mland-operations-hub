@@ -81,7 +81,7 @@ Không tự làm phần có vẻ độc lập. Chỉ nhận lại phần đó sa
 - REST versioned, plural kebab-case, DTO riêng, Bean Validation, server-side authorization và typed error qua @RestControllerAdvice. Không trả entity JPA/stack trace/thông tin nhạy cảm. Giữ OpenAPI contract và kiểm chứng liên quan.
 - Thymeleaf với htmx progressive enhancement; form/link cốt lõi hoạt động không có htmx/JavaScript theo constitution. Giữ ngoại lệ Member Auth đã ratify cùng fallback/guardrail; không mở rộng sang journey khác.
 - Không lưu/log/commit secret, password, raw token hoặc PII không cần thiết. Giữ validation, transaction, integrity, audit, concurrency và retention theo thiết kế được duyệt.
-- ../frontend/ là UX prototype, không chứng minh backend behavior. Firebase Hosting chỉ là preview; không tự chọn production hosting/backend origin hoặc thêm cấu hình Firebase/deploy/credential khi chưa có plan được duyệt.
+- ../prototypes/ là UX prototype, không chứng minh backend behavior. Firebase Hosting chỉ là preview; không tự chọn production hosting/backend origin hoặc thêm cấu hình Firebase/deploy/credential khi chưa có plan được duyệt.
 - Không xóa/reset dữ liệu, đổi source boundary, publishing/mapping hoặc chạm vùng ngoài phạm vi khi chưa được giao/cho phép cụ thể. Quyền code không tự cấp quyền deploy hoặc thao tác dữ liệu thực.
 
 Giữ convention hiện có: Java class/interface/enum PascalCase; method/field/local variable camelCase; Thymeleaf page/fragment kebab-case, DB table snake_case. Khi có yêu cầu Git, giữ branch feat/…, fix/…, spec/… và commit theo convention repository; không tự commit/push từ việc được giao sửa tài liệu/code.

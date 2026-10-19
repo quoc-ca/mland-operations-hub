@@ -2,6 +2,10 @@ openapi: 3.0.3
 info:
   title: Member Profile API
   version: 1.0.0
+  description: >-
+    Own-profile access requires backend-validated Firebase credentials, verified email
+    and local Member status ACTIVE or PENDING_POLICY_ACCEPTANCE. Policy acceptance
+    and policy version state do not gate profile reads or writes. SUSPENDED is denied.
 paths:
   /api/v1/members/me/profile:
     get:
@@ -14,9 +18,9 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/Profile'}
         '401': {description: Missing invalid expired or revoked ID token}
-        '403': {description: Email state or policy requirement not met}
+        '403': {description: Email is missing or unverified or local Member status is not allowed}
         '409': {description: MEMBER_INITIALIZATION_REQUIRED}
-        '503': {description: Identity verification unavailable}
+        '503': {description: Credential validation service unavailable}
     put:
       operationId: replaceOwnProfile
       security: [{firebaseIdToken: []}]
@@ -33,9 +37,9 @@ paths:
               schema: {$ref: '#/components/schemas/Profile'}
         '400': {description: Unknown missing mistyped or invalid fields}
         '401': {description: Missing invalid expired or revoked ID token}
-        '403': {description: Email state or policy requirement not met}
+        '403': {description: Email is missing or unverified or local Member status is not allowed}
         '409': {description: MEMBER_INITIALIZATION_REQUIRED}
-        '503': {description: Identity verification unavailable}
+        '503': {description: Credential validation service unavailable}
 components:
   securitySchemes:
     firebaseIdToken:

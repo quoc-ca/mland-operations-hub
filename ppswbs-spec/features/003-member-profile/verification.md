@@ -2,6 +2,18 @@
 
 Implementation, migration, UI and tests were removed at the user's request on 2026-10-19. The evidence below is historical evidence from the removed implementation; it does not verify the current tree or establish readiness for release. All implementation and runtime verification must be performed again if implementation is requested.
 
+## Current revision
+
+The user subsequently approved the distinct authentication journeys, fixed post-authentication destination `/` and removal of the policy gate for 003. Both ACTIVE and PENDING_POLICY_ACCEPTANCE permit the session/profile when other checks pass; SUSPENDED does not. Refer to the [current spec navigation table](spec.md#authentication-and-navigation) and [AC-01–AC-07](quickstart.md#journey-acceptance-scenarios).
+
+The original revision task changed documentation only. A subsequent user request synchronized web/Figma with the revised journey; [prototype verification](../../../prototypes/003-member-profile/VERIFICATION.md) records those UX checks separately. Prototype checks are not production authentication/profile/database evidence. Production task completion markers remain unchanged.
+
+Documentation verification for this revision: the SpecKit prerequisite command `./.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireSpec -RequireTasks -IncludeTasks`, run from the SpecKit root, resolved feature 003 successfully; no extension hooks were registered. Read-only cross-artifact analysis covered 18 FRs, four SCs and eight tasks, with 100% requirement coverage, no unmapped tasks, no constitution conflicts and no critical/high findings. The seven AC scenarios were walked through against the navigation/access rules; runtime execution remains pending. Static checks passed for all 26 local Markdown links/anchors, OpenAPI YAML, unchanged API structure after removing description fields, unchanged FR-004–FR-010, identical task markers and identical historical content below the separator. `git diff --check` passed. No backend or prototype test result is claimed.
+
+## Historical evidence — removed implementation
+
+Everything below the separator is preserved from the previous implementation, including its old policy-gate behavior, commands, task references and completion statements. Those statements are historical, not current status. Some referenced scripts/tests were removed, and historical references to T009 or runnable commands in quickstart do not describe the current task list/quickstart.
+
 ---
 
 # Verification Evidence
