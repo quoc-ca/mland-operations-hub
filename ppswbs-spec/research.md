@@ -139,164 +139,218 @@ Mỗi luồng được mô tả tại một nơi. Các điểm dùng chung đư�
 
 # FE-02 — Product Management
 
-Theo Report 1, feature này gồm sản phẩm bán sẵn và việc mua sản phẩm với thanh toán trước. Giữ luồng mua hàng và thanh toán bán lẻ tại đây để đọc liên tục. Ưu đãi tham chiếu FE-06; thông báo tham chiếu FE-07; lựa chọn nhận hàng và chuyển giao đơn phối hợp FE-08. Chưa mô tả riêng quản lý catalogue, tìm kiếm/lọc và quản trị sản phẩm.
+Feature này gồm quản lí nhẫn bán sẵn do Staff thực hiện và tra cứu catalogue công khai. Mua ngay, giỏ hàng, checkout, tạo đơn, thanh toán và giao nhận được mô tả tại [FE-08](#fe-08); voucher và điểm thưởng tại [FE-06](#fe-06). Các nội dung **Đề xuất** và tham số **chưa chốt** được ghi tại luồng liên quan.
 
-## Mua hàng
+## Quản lí catalogue sản phẩm
 
-### Phạm vi và quy tắc chung
+### Điều kiện và quy tắc chung
 
-1. Đây là bản thiết kế độc lập, tham khảo trải nghiệm chọn hàng và checkout kiểu Shopee; chưa phản ánh đầy đủ code hoặc thay thế tài liệu yêu cầu hiện có. Phạm vi gồm chọn hàng, giỏ hàng, checkout, tạo đơn và xác nhận thanh toán; chưa đi sâu shop chuẩn bị hàng, giao nhận, hủy đơn hoặc refund.
-2. Khác với tài liệu yêu cầu cũ: khách được mua ngay không qua giỏ, checkout chỉ các dòng tích chọn, hệ thống chọn nơi xử lý khi giao hàng và cho phép đơn 0 đồng hợp lệ.
-3. Khách được xem danh mục, giá và chi tiết sản phẩm khi chưa đăng nhập. Trước khi thêm giỏ hoặc mua ngay, khách phải đăng nhập, xác minh email và có tài khoản được Backend cho phép sử dụng.
-4. Frontend giữ lựa chọn sản phẩm, biến thể, số lượng và thao tác đang làm trong quá trình xác thực. Sau khi khách đăng nhập/xác minh email, tải lại danh tính Firebase và lấy token mới; Backend kiểm tra lại điều kiện trước khi tiếp tục. Không coi dữ liệu giữ trên trình duyệt là giá, tồn kho hoặc quyền đã được chấp nhận.
-5. Backend là nơi quyết định giá, khả năng bán, lượng hàng khả dụng, ưu đãi và tổng tiền. Xem giỏ, thêm giỏ hoặc mở checkout chưa tạo đơn, giữ hàng, tiêu điểm hoặc sử dụng voucher.
-6. Mua ngay và mua qua giỏ dùng chung quy trình checkout và tạo đơn. Trang checkout là trang xác nhận đặt hàng trước khi tạo đơn; trang chi tiết đơn dùng sau khi đã có đơn, kể cả đơn đang chờ thanh toán.
+1. Chỉ Staff có tài khoản hoạt động và quyền quản lí sản phẩm được tạo/sửa sản phẩm, ảnh, biến thể, giá, danh mục và trạng thái bán. Backend kiểm tra vai trò/quyền tại từng thao tác; Guest/Member tra cứu catalogue; luồng mua hàng tham chiếu [FE-08](#fe-08).
+2. Sản phẩm mới ở trạng thái **Chưa công khai**. Staff nhập/lưu trực tiếp giá bán; công khai sản phẩm là thao tác riêng.
+3. Mỗi biến thể có tổ hợp kích thước/lựa chọn khắc được cấu hình trước, SKU tự sinh cố định, giá và số lượng cho phép bán riêng. Khách chỉ chọn biến thể đã có.
+4. Mỗi biến thể dùng một số lượng còn cho phép bán **chung toàn hệ thống**, không chia theo chi nhánh. Staff cập nhật thủ công; số lượng khả dụng bằng lượng bán chung còn lại trừ phần đang tạm giữ. Staff tự điều phối nơi chuẩn bị hàng tại FE-08. Không làm quản lí kho, nhập/xuất, kiểm kê hay điều chuyển.
+5. Backend ghi người thực hiện, thay đổi, thời điểm và kết quả của thao tác quản trị. Cập nhật thất bại không được lưu một phần; đơn và quyền giữ hợp lệ đã chấp nhận được bảo toàn theo điều khoản gốc.
 
-### Chọn sản phẩm
+### Xem danh sách và chi tiết quản trị — Luồng thành công
 
-1. Khách vào landing page hoặc danh mục, chọn xem chi tiết sản phẩm.
-2. Frontend hiển thị sản phẩm, các biến thể được cấu hình, giá hiện tại và tình trạng khả dụng do Backend cung cấp.
-3. Khách chọn đầy đủ thuộc tính của một biến thể, nhập số lượng nguyên dương, rồi chọn **Mua ngay** hoặc **Thêm vào giỏ hàng**.
-4. Frontend kiểm tra đã chọn đủ thuộc tính và số lượng hợp lệ. Backend kiểm tra lại sản phẩm còn được bán, biến thể tồn tại và lượng hàng khả dụng trước khi chấp nhận thao tác.
-5. Nếu khách chưa đủ điều kiện xác thực, Frontend hướng dẫn đăng nhập/xác minh theo quy tắc chung, giữ lựa chọn để tiếp tục. Sau xác thực phải kiểm tra lại sản phẩm và lượng khả dụng, không tự đặt hàng.
+1. Staff có quyền mở **Quản lí sản phẩm**. Backend kiểm tra tài khoản và quyền trước khi trả dữ liệu nội bộ.
+2. Frontend hiển thị mã tham chiếu sản phẩm, tên, danh mục, ảnh, trạng thái công khai và giá bán hiện tại. Chi tiết biến thể hiển thị trạng thái đang bán/ngừng bán và SKU do hệ thống tự sinh; SKU là trường chỉ đọc.
+3. Staff tìm theo mã tham chiếu/tên sản phẩm hoặc SKU biến thể; lọc theo danh mục và trạng thái công khai. Kết quả tìm SKU chỉ rõ biến thể khớp trong sản phẩm. Tiêu chí lọc bổ sung và kích thước trang **chưa chốt**.
+4. Người dùng mở một sản phẩm để xem mô tả, danh mục, thứ tự ảnh, biến thể, giá và số lượng cho phép bán. Frontend chỉ hiển thị các thao tác phù hợp với quyền hiện tại.
+5. Staff chọn tạo mới, sửa thông tin/giá bán, quản lí ảnh/biến thể hoặc công khai/ngừng công khai theo các luồng bên dưới.
 
-### Mua ngay — Luồng thành công
+### Danh sách và chi tiết quản trị — Nhánh lỗi
 
-1. Khách chọn biến thể, số lượng và bấm **Mua ngay**.
-2. Frontend gửi lựa chọn để Backend kiểm tra điều kiện tài khoản, sản phẩm và lượng khả dụng.
-3. Khi hợp lệ, Frontend mở checkout chỉ với sản phẩm, biến thể và số lượng vừa chọn, đánh dấu nguồn mua là Mua ngay.
-4. Hệ thống không thêm sản phẩm vào giỏ, không xóa hoặc sửa các dòng đã có trong giỏ. Khách tiếp tục quy trình checkout chung bên dưới.
+1. Không có quyền hoặc tài khoản không còn được phép sử dụng: từ chối truy cập, không trả bản nháp hay thông tin giá nội bộ.
+2. Không có sản phẩm hoặc không có kết quả theo bộ lọc: hiển thị trạng thái rỗng và cho sửa/xóa bộ lọc; không coi đây là lỗi hệ thống.
+3. Lỗi tải hoặc sản phẩm không còn tồn tại: thông báo phù hợp, cho tải lại/quay về danh sách; không hiển thị dữ liệu cũ như trạng thái hiện tại đã xác nhận.
 
-### Mua qua giỏ hàng — Luồng thành công
+### Tạo sản phẩm — Luồng thành công
 
-1. Khách chọn biến thể, số lượng và bấm **Thêm vào giỏ hàng**.
-2. Backend kiểm tra tài khoản và lựa chọn; nếu giỏ đã có cùng sản phẩm/biến thể thì cộng số lượng trong giới hạn hợp lệ, nếu chưa có thì thêm dòng mới. Chỉ ghi nhận ý định mua, chưa giữ hàng hoặc giá.
-3. Frontend thông báo thêm giỏ thành công. Khách có thể tiếp tục xem và thêm sản phẩm khác.
-4. Khách mở giỏ; Backend chỉ trả giỏ thuộc tài khoản hiện tại cùng giá và tình trạng sản phẩm hiện hành.
-5. Khách tăng/giảm số lượng hoặc xóa dòng. Backend kiểm tra và lưu thay đổi trước khi Frontend cập nhật kết quả; không hiển thị đã lưu khi chưa nhận xác nhận.
-6. Khách tích chọn những dòng muốn mua. Các dòng chưa chọn vẫn ở trong giỏ và không được tính vào checkout.
-7. Khách bấm **Tiếp tục thanh toán**. Nếu chưa chọn dòng nào, Frontend yêu cầu chọn ít nhất một dòng.
-8. Backend kiểm tra lại đúng các dòng được chọn và quyền sở hữu giỏ. Frontend mở checkout với các dòng này; chưa loại bỏ chúng khỏi giỏ.
+1. Staff có quyền mở danh sách sản phẩm và chọn **Tạo sản phẩm**.
+2. Người dùng nhập tên, mô tả và chọn một danh mục đang hoạt động. Frontend loại bỏ khoảng trắng thừa để kiểm tra trường bắt buộc; Backend kiểm tra lại dữ liệu khi lưu.
+3. Người dùng cấu hình các biến thể kích thước/lựa chọn khắc có sẵn, nhập giá bán và số lượng cho phép bán chung ban đầu cho từng biến thể. Giá là số nguyên VND dương; số lượng là số nguyên không âm. Backend tự sinh SKU duy nhất, cố định cho từng biến thể theo luồng SKU; người dùng không nhập hoặc sửa mã.
+4. Người dùng có thể tải ảnh, nhập văn bản thay thế và sắp xếp thứ tự hiển thị theo luồng ảnh bên dưới. Bản nháp có thể chưa có ảnh; sản phẩm phải có ảnh sử dụng được trước khi công khai.
+5. Frontend kiểm tra dữ liệu rồi gửi yêu cầu lưu; Backend kiểm tra quyền, danh mục, tổ hợp biến thể không trùng, dữ liệu giá/số lượng và các ảnh đã tải hợp lệ.
+6. Backend lưu sản phẩm và các dữ liệu liên quan ở trạng thái **Chưa công khai**, ghi nhận audit rồi trả kết quả. Giá Staff nhập được lưu trực tiếp thành giá bán của từng biến thể.
+7. Frontend mở chi tiết sản phẩm vừa tạo. Staff kiểm tra thông tin, ảnh, biến thể và giá bán đã lưu; khi đủ điều kiện thì chủ động chọn công khai sản phẩm.
+8. Giới hạn độ dài tên/mô tả, số lượng biến thể và giới hạn giá/số lượng cụ thể **chưa chốt**.
 
-### Checkout — Thông tin nhận hàng
+### Tạo sản phẩm — Nhánh lỗi
 
-1. Backend lấy lại lựa chọn từ nguồn Mua ngay hoặc các dòng giỏ đã chọn, kiểm tra điều kiện tài khoản và hiển thị giá hiện tại. Frontend không gửi tổng tiền tự tính làm căn cứ tạo đơn.
-2. Frontend hiển thị sản phẩm, biến thể, số lượng, đơn giá, thành tiền, thông tin người nhận, phương thức nhận, ưu đãi và tổng thanh toán.
-3. Khách nhập hoặc chọn thông tin người nhận và chọn **Tự nhận tại cửa hàng** hoặc **Giao hàng qua GHTK**. Thông tin có sẵn chỉ là dữ liệu điền trước; khách cần kiểm tra lại.
-4. Nếu tự nhận, khách cung cấp tên, số điện thoại và chọn cửa hàng còn hoạt động. Backend kiểm tra cửa hàng đó đủ hàng cho toàn bộ lựa chọn; phí giao hàng bằng 0.
-5. Nếu giao GHTK, khách cung cấp tên, số điện thoại và địa chỉ giao đầy đủ theo dữ liệu địa chỉ tích hợp hỗ trợ. Backend chọn một cửa hàng còn hoạt động, đủ hàng cho toàn bộ lựa chọn theo thứ tự ưu tiên cửa hàng đã cấu hình.
-6. Backend dùng nơi gửi, nơi nhận, trọng lượng và các thông tin gói hàng cần thiết để lấy báo giá GHTK; Frontend hiển thị phí và thông tin giao dự kiến nếu nhà cung cấp trả về. Phí không được giả định chỉ dựa trên khoảng cách.
-7. Nếu không có một cửa hàng đáp ứng toàn bộ lựa chọn, yêu cầu khách sửa sản phẩm, số lượng hoặc phương thức nhận; không tự chia nhiều đơn hoặc tự chuyển một phần sang nơi khác.
-8. Khi khách thay đổi địa chỉ, cửa hàng, cách nhận hoặc nội dung mua, Backend tính lại điều kiện giao và phí. Báo giá thay đổi phải được hiển thị trước khi khách xác nhận đặt hàng.
+1. Thiếu tên/mô tả, danh mục không hoạt động hoặc dữ liệu không hợp lệ: hiển thị lỗi tại trường tương ứng, giữ nội dung người dùng đã nhập để sửa.
+2. Thiếu biến thể, trùng tổ hợp kích thước/lựa chọn khắc, giá không hợp lệ hoặc số lượng âm/không nguyên: chỉ rõ dòng lỗi, chưa tạo sản phẩm một phần.
+3. Ảnh tải lên lỗi hoặc tham chiếu ảnh chưa hợp lệ: yêu cầu sửa/thử lại hoặc chủ động bỏ ảnh lỗi trước khi lưu bản nháp; không lưu liên kết ảnh hỏng.
+4. Mất phản hồi sau khi gửi yêu cầu: kiểm tra kết quả đã lưu trước khi tạo lại; không tạo thêm sản phẩm chỉ vì chưa nhận được thông báo thành công.
+5. Lỗi lưu hoặc audit: thông báo chưa hoàn tất, không ghi nhận sản phẩm ở trạng thái được tạo thành công một phần.
 
-### Checkout — Voucher, điểm thưởng và tổng tiền
+### Sửa thông tin sản phẩm — Luồng thành công
 
-Luồng này được phân loại vào [FE-06 — Loyalty & Promotion Management](#fe-06). Sau khi xem và xác nhận báo giá, tiếp tục bước Tạo đơn bên dưới.
+1. Staff có quyền mở chi tiết và chọn **Sửa**. Backend trả thông tin hiện tại để người dùng đối chiếu trước khi thay đổi.
+2. Người dùng sửa các trường được phép như tên, mô tả, danh mục; thay đổi ảnh, biến thể hoặc giá đi theo các quy tắc riêng bên dưới.
+3. Backend kiểm tra quyền, phiên bản dữ liệu và trạng thái hiện tại trước khi lưu. Nếu sản phẩm đang công khai, bản cập nhật phải tiếp tục đáp ứng điều kiện công khai. Giỏ hàng chưa tạo đơn dùng thông tin mới khi tải lại và được kiểm tra lại ở checkout; giá hoặc điều kiện thay đổi phải được khách xem và xác nhận trước khi đặt.
+4. Backend lưu các thay đổi hợp lệ và audit; không sửa thông tin đã chụp của đơn hoặc điều khoản của quyền giữ đã được chấp nhận.
+5. Frontend hiển thị kết quả đã lưu, gồm giá bán mới nếu Staff có sửa giá. Lưu thông tin/giá không thay cho thao tác công khai/ngừng công khai.
 
-### Tạo đơn — Kiểm tra và ghi nhận chung
+### Sửa sản phẩm — Nhánh lỗi
 
-1. Frontend gửi yêu cầu xác nhận lựa chọn cùng dấu hiệu nhận diện yêu cầu để Backend chống tạo trùng; khóa nút trong lúc chờ. Backend không chỉ dựa vào việc khóa nút để chống gửi lặp.
-2. Backend kiểm tra lại danh tính, email đã xác minh, trạng thái tài khoản, quyền sở hữu các dòng giỏ nếu có, sản phẩm/biến thể, số lượng, giá, nơi xử lý, báo giá giao và ưu đãi.
-3. Nếu báo giá hoặc điều kiện khác bản khách đã xem, Backend yêu cầu xem lại và xác nhận mới; chưa tạo đơn với điều khoản thay đổi.
-4. Khi hợp lệ, Backend ghi nhận một đơn cùng bản chụp nguồn mua, các dòng mua, biến thể, số lượng, giá, người nhận, địa chỉ/cửa hàng nhận, nơi xử lý, ưu đãi, chính sách áp dụng và tổng tiền. Thay đổi hồ sơ, catalogue hay giỏ sau đó không sửa các thông tin đã chấp nhận của đơn.
-5. Backend tạo đơn và giữ hàng đúng biến thể tại nơi xử lý cùng quyền dùng voucher/điểm theo nguyên tắc toàn bộ hoặc không có gì. Nếu tranh mua sản phẩm cuối hoặc ưu đãi hết lượt thì từ chối an toàn, không tạo đơn được chấp nhận một phần.
-6. Gửi lại cùng yêu cầu và cùng nội dung trả về đơn đã tạo cùng thời hạn gốc; nếu dùng lại dấu hiệu nhận diện với nội dung khác thì từ chối và yêu cầu xem lại. Mất phản hồi không phải lý do tự tạo đơn mới.
-7. Với tổng dương đủ điều kiện theo cấu hình tích hợp VNPay, đơn chuyển **Chờ thanh toán**, ghi thời điểm tạo đơn, hạn link sau 10 phút và hạn giữ hàng/ưu đãi sau 15 phút; tiếp tục mục Thanh toán.
-8. Với tổng cuối cùng bằng 0 hợp lệ, xử lý theo nhánh đơn 0 đồng bên dưới; tổng âm hoặc số tiền dương không đạt điều kiện tích hợp phải được sửa trước khi chấp nhận đơn.
+1. Người khác đã thay đổi dữ liệu: từ chối ghi đè bản cũ, tải lại dữ liệu mới để người dùng xem và xác nhận lại.
+2. Danh mục đã ngừng hoạt động hoặc thay đổi làm sản phẩm công khai mất điều kiện hợp lệ: chỉ rõ lỗi, giữ trạng thái cũ; người dùng sửa dữ liệu hoặc chủ động ngừng công khai trước khi tiếp tục.
+3. Không có quyền, sản phẩm không còn tồn tại, lưu/audit lỗi: từ chối an toàn, không lưu một phần và không báo đã cập nhật.
 
-### Đơn 0 đồng — Xác nhận trực tiếp
+### Quản lí ảnh sản phẩm — Luồng thành công
 
-1. Backend kiểm tra tổng cuối cùng, bao gồm phí giao hàng, thực sự bằng 0 theo chính sách hợp lệ; tiền hàng bằng 0 nhưng còn phí giao thì vẫn là đơn cần thanh toán.
-2. Backend xác nhận đơn, chốt hàng và tiêu dùng voucher/điểm đúng một lần trong cùng thao tác toàn bộ hoặc không có gì; chuyển **Đã xác nhận — Chờ xử lý**.
-3. Hệ thống không tạo yêu cầu hoặc giao dịch VNPay, không ghi nhận khách đã chuyển tiền qua cổng thanh toán.
-4. Nếu mua qua giỏ, Backend dọn đúng lượng đã mua theo quy tắc dọn giỏ trong mục Thanh toán; nếu Mua ngay thì giữ nguyên giỏ.
-5. Frontend hiển thị chi tiết đơn 0 đồng đã xác nhận; hệ thống gửi email xác nhận. Gửi email lỗi không đảo kết quả xác nhận đơn.
+1. Người dùng có quyền chọn thêm, thay thế, đổi thứ tự hoặc gỡ ảnh trong biểu mẫu tạo/sửa sản phẩm.
+2. Frontend hiển thị ảnh xem trước, văn bản thay thế và thứ tự hiển thị; cho chọn định dạng ảnh được hệ thống hỗ trợ. Các định dạng cụ thể, số ảnh tối đa, dung lượng mỗi ảnh và giới hạn văn bản thay thế **chưa chốt**.
+3. Backend kiểm tra ảnh, quyền truy cập và dữ liệu mô tả; lưu tệp qua dịch vụ lưu trữ ảnh được cấu hình, rồi gắn tham chiếu hợp lệ vào sản phẩm.
+4. Backend kiểm tra thứ tự ảnh không trùng. Với sản phẩm công khai, sau thay đổi phải còn ảnh sử dụng được; muốn gỡ toàn bộ ảnh thì người dùng phải ngừng công khai trước.
+5. Backend lưu danh sách ảnh và audit rồi trả kết quả. Gỡ tham chiếu ảnh catalogue không mặc định cho phép xóa tệp dùng chung hoặc ảnh còn phục vụ lịch sử giao dịch.
 
-### Mua hàng và checkout — Nhánh lỗi
+### Quản lí ảnh — Nhánh lỗi
 
-1. Sản phẩm ngừng bán, thiếu thuộc tính, biến thể không hợp lệ, số lượng không phải số nguyên dương hoặc hết hàng: chỉ rõ dòng và nguyên nhân để khách sửa; không tự đổi biến thể, giảm số lượng hoặc đặt các dòng còn lại.
-2. Quyền truy cập không hợp lệ hoặc tài khoản bị khóa: từ chối thao tác bảo vệ; không tiết lộ giỏ hay đơn của tài khoản khác. Nếu cần đăng nhập/xác minh lại thì giữ lựa chọn để tiếp tục sau khi đủ điều kiện và kiểm tra lại dữ liệu.
-3. Giỏ rỗng, chưa tích chọn hoặc dòng đã bị sửa/xóa ở nơi khác: tải dữ liệu hiện tại, yêu cầu chọn và xác nhận lại; không lấy toàn bộ giỏ thay cho lựa chọn cũ.
-4. Thông tin nhận hàng thiếu hoặc không hợp lệ: hiển thị lỗi tại trường tương ứng, chưa tạo đơn.
-5. Cửa hàng ngừng hoạt động hoặc không đủ hàng: yêu cầu đổi cửa hàng/cách nhận hoặc sửa lựa chọn; không tự chấp nhận một phần đơn.
-6. GHTK không báo được phí, ngoài vùng phục vụ hoặc dữ liệu gói hàng chưa đủ: giữ thông tin khách đã nhập, cho sửa hoặc thử lại/chọn tự nhận; không tự cho phí giao bằng 0.
-7. Voucher hoặc điểm không hợp lệ, hết lượt, không đủ số dư hoặc thiếu chính sách: báo rõ, giữ lựa chọn để khách sửa. Chỉ tiếp tục không ưu đãi khi khách chủ động chấp nhận báo giá mới.
-8. Mất mạng hoặc lỗi lưu giỏ: phân biệt thao tác chưa được xác nhận với giỏ rỗng; cho tải lại/thử lại mà không tự cộng số lượng lần nữa khi kết quả lưu trước chưa rõ.
-9. Bấm Đặt hàng lặp hoặc mất phản hồi tạo đơn: Frontend tra lại kết quả yêu cầu cũ; Backend trả lại đơn đã tạo nếu có. Không tạo thêm đơn, giữ thêm hàng hoặc kéo dài thời hạn vì thử lại.
+1. Sai loại tệp, vượt giới hạn đã cấu hình, thiếu mô tả ảnh hoặc trùng thứ tự: hiển thị lỗi tương ứng, chưa lưu cập nhật.
+2. Dịch vụ lưu trữ lỗi hoặc tệp chưa tải xong: giữ danh sách ảnh đang có, cho thử lại; không thay ảnh hợp lệ bằng liên kết lỗi.
+3. Thao tác làm mất ảnh cuối cùng của sản phẩm công khai: từ chối cập nhật và hướng dẫn ngừng công khai hoặc thêm ảnh thay thế trước.
 
-Thanh toán VNPay dưới đây là phần tích hợp dùng chung: tại FE-02 mô tả trường hợp đơn bán lẻ; FE-03 và FE-05 cần luồng riêng cho nghĩa vụ thanh toán của booking/đơn custom, không mặc định dùng nguyên quy tắc bán lẻ.
+### Quản lí biến thể và số lượng cho phép bán — Luồng thành công
 
-## Thanh toán
+1. Staff có quyền mở danh sách biến thể của sản phẩm để thêm tổ hợp kích thước/lựa chọn khắc đã được hỗ trợ hoặc cập nhật dữ liệu được phép.
+2. Backend kiểm tra tổ hợp không trùng và định danh ổn định. Biến thể đã được dùng trong giao dịch không được đổi lựa chọn làm thay đổi ý nghĩa của định danh cũ.
+3. Staff nhập số lượng còn cho phép bán chung của từng biến thể theo thông tin shop xác nhận bên ngoài hệ thống. Backend chỉ chấp nhận số nguyên không âm và không thấp hơn phần đang giữ hợp lệ. Khi đơn được chốt, Backend trừ lượng đã mua khỏi số lượng chung đúng một lần; hết hạn chưa thanh toán chỉ giải phóng phần giữ.
+4. Staff nhập/sửa giá bán trực tiếp theo luồng Nhập và cập nhật giá bán sản phẩm. Backend kiểm tra giá hợp lệ và dữ liệu mới nhất trước khi lưu; không sửa giá của đơn hoặc quyền giữ đã được chấp nhận.
+5. Backend kiểm tra tính hợp lệ của sản phẩm sau thay đổi, lưu dữ liệu và audit rồi hiển thị kết quả. Biến thể mới chưa có giá bán hợp lệ phải được hoàn tất bước giá trước khi đáp ứng điều kiện công khai.
 
-### Điều kiện và thời hạn
+### Biến thể và số lượng cho phép bán — Nhánh lỗi
 
-1. Luồng VNPay áp dụng cho đơn Chờ thanh toán có tổng dương hợp lệ, thuộc khách hiện tại và còn thời hạn. Đơn 0 đồng đi theo nhánh xác nhận trực tiếp ở mục Mua hàng.
-2. Link thanh toán và mọi lần thanh toán lại hết hạn sau 10 phút tính từ lúc tạo đơn; giữ hàng và quyền dùng ưu đãi hết hạn sau 15 phút tính từ cùng thời điểm. Không gia hạn khi tải lại trang, bấm lại hoặc tạo lần thanh toán khác.
-3. Giữ hàng/ưu đãi chưa đồng nghĩa đã bán hàng, trừ điểm hoặc dùng hết lượt voucher. Các tác động đó chỉ được chốt một lần sau khi xác nhận thanh toán hợp lệ.
-4. Backend quản lý trạng thái đơn và từng lần thanh toán riêng. Mỗi lần có tham chiếu VNPay riêng; không coi nút hủy hoặc trang trình duyệt quay về là bằng chứng đủ để kết luận kết quả giao dịch.
+1. Tổ hợp bị trùng, dữ liệu không hợp lệ hoặc thay đổi lựa chọn của biến thể đã dùng: từ chối, hướng dẫn tạo tổ hợp mới hợp lệ thay vì sửa định danh cũ.
+2. Số lượng nhập thấp hơn lượng đang giữ, hoặc lượng giữ thay đổi khi đang sửa: Backend trả tình trạng mới và yêu cầu kiểm tra lại; không hủy giữ chỗ để ép lưu số lượng.
+3. Thay đổi khiến sản phẩm đang công khai không đủ điều kiện, chẳng hạn biến thể mới chưa có giá bán: từ chối bản cập nhật; người dùng hoàn tất dữ liệu qua quy trình phù hợp hoặc ngừng công khai trước khi cấu hình lại.
+4. Lỗi lưu/audit: giữ dữ liệu trước đó, chưa báo cập nhật thành công và cho kiểm tra lại kết quả.
 
-### Thanh toán VNPay — Luồng thành công
+### Cấp và quản lí SKU biến thể — Luồng thành công
 
-1. Sau khi tạo đơn hợp lệ, Backend ghi nhận lần thanh toán và tạo URL VNPay chứa tham chiếu, số tiền đúng của đơn, thời hạn gốc và thông tin kiểm tra toàn vẹn theo tích hợp.
-2. Backend trả mã đơn và URL; Frontend chuyển khách sang VNPay. Nếu tạo URL lỗi sau khi đơn đã được ghi nhận, hiển thị đúng đơn Chờ thanh toán để khôi phục, không tự tạo lại đơn.
-3. Khách chọn ngân hàng, thẻ hoặc phương thức VNPay đang hỗ trợ theo cấu hình tích hợp, rồi hoàn tất thanh toán trên cổng.
-4. VNPay gửi kết quả về Backend qua IPN và chuyển trình duyệt về website. Hai luồng có thể đến khác thứ tự; Backend có thể truy vấn kết quả qua API VNPay để đối soát khi cần.
-5. Backend kiểm tra chữ ký, thông tin merchant, tham chiếu, số tiền, mã kết quả/trạng thái giao dịch và giao dịch đã xử lý. Chỉ chấp nhận bằng chứng IPN hoặc kết quả truy vấn đã xác thực; dữ liệu trình duyệt quay về không tự đánh dấu đơn đã thanh toán.
-6. Khi xác nhận thành công và tài nguyên của đơn còn được giữ hợp lệ, Backend chốt lượng hàng, dùng voucher/điểm đã giữ, ghi nhận thanh toán và chuyển đơn **Đã thanh toán — Chờ xử lý** theo nguyên tắc toàn bộ hoặc không có gì. Thông báo lặp không gây chốt thêm lần nữa.
-7. Nếu kết quả đến sau hạn link nhưng trước hạn giữ, Backend đối chiếu thời điểm thanh toán hợp lệ với hạn link gốc trước khi chốt; nếu có bất thường thì chuyển đối soát, không chỉ dựa vào thời điểm nhận IPN để kết luận.
-8. Với đơn mua qua giỏ, Backend chỉ loại bỏ lượng đã mua thuộc các dòng checkout, dựa trên nguồn và phiên bản dòng đã ghi nhận. Giữ các dòng chưa mua và lượng khách thêm sau; không tạo lại dòng khách đã xóa hoặc trừ nhầm dòng thay thế. Nếu dòng đã đổi theo cách không thể đối chiếu an toàn, giữ dòng đó để khách xem lại thay vì đoán số lượng cần xóa. Dọn giỏ chỉ áp dụng một lần và lỗi dọn giỏ không đảo giao dịch đã thành công.
-9. Với đơn Mua ngay, hệ thống không dọn hoặc thay đổi giỏ, kể cả giỏ đang chứa cùng biến thể.
-10. Frontend lấy trạng thái đơn từ Backend và hiển thị trang chi tiết cùng kết quả thanh toán. Hệ thống gửi email xác nhận; lỗi gửi thư được xử lý lại riêng, không yêu cầu khách thanh toán lại.
+1. Khi tạo biến thể, Backend cấp SKU để Staff tra cứu và phân biệt các lựa chọn bán hàng.
+2. Khi tạo biến thể, Backend tự sinh SKU duy nhất và cố định cho biến thể đó; Staff không nhập hoặc sửa mã. Định dạng và độ dài mã cụ thể **chưa chốt**.
+3. Backend kiểm tra SKU không trùng với biến thể khác trên hệ thống. Không dùng chung một SKU cho nhiều tổ hợp; việc trùng tên sản phẩm không quyết định SKU.
+4. Sau khi lưu thành công, Frontend hiển thị SKU chỉ đọc trong chi tiết quản trị và cho tìm kiếm theo SKU. Mã giữ nguyên từ khi cấp, kể cả khi biến thể chưa có giao dịch.
+5. Đổi tên sản phẩm, đổi giá hoặc ngừng bán không tự sinh SKU mới. SKU không được tái cấp cho một biến thể khác chỉ vì biến thể cũ ngừng bán.
 
-### Chưa rõ kết quả hoặc khách chưa quay về
+### SKU biến thể — Nhánh lỗi
 
-1. Nếu trình duyệt quay về trước khi Backend có xác nhận, Frontend hiển thị **Đang xác nhận thanh toán** và lấy lại trạng thái từ Backend; không báo thành công chỉ dựa vào URL.
-2. Backend tiếp nhận IPN hoặc truy vấn VNPay để xác định kết quả. Chưa cho tạo lần thanh toán mới khi lần trước còn chưa rõ, tránh khách trả tiền hai lần.
-3. Nếu khách đóng trang, mất mạng hoặc không quay lại website, Backend vẫn xử lý thông báo hợp lệ. Khách mở lại chi tiết đơn sẽ thấy trạng thái do Backend xác nhận.
-4. Nếu xác định giao dịch thành công, tiếp tục chốt đơn theo luồng thành công; nếu xác định thất bại hoặc chưa thanh toán thì áp dụng nhánh thanh toán lại/hết hạn.
+1. Hệ thống chưa cấp được mã hợp lệ hoặc phát hiện mã trùng: không lưu biến thể với SKU thiếu/trùng; thông báo chưa hoàn tất để thử lại, không yêu cầu Staff nhập mã thay thế.
+2. Yêu cầu cố sửa SKU đã được cấp hoặc gán SKU của biến thể khác: Backend từ chối, kể cả khi chưa có giao dịch; không chỉ dựa vào trường chỉ đọc trên giao diện.
+3. Cấp mã hoặc lưu dữ liệu lỗi: không tạo biến thể thiếu mã hay tạo thêm biến thể khi thử lại; kiểm tra kết quả đã ghi nhận trước khi gửi lại.
 
-### Thanh toán thất bại, hủy trên cổng và thanh toán lại
+## Nhập và cập nhật giá bán sản phẩm
 
-1. Khách hủy trên VNPay hoặc giao dịch lỗi: Frontend hiển thị kết quả Backend đã xác nhận; nếu chưa xác định được thì giữ **Đang xác nhận thanh toán**. Hủy một lần thanh toán không tự hủy đơn.
-2. Khi Backend xác nhận lần trước thất bại hoặc đã kết thúc mà chưa thanh toán, khách được chọn **Thanh toán lại** cho cùng đơn nếu chưa hết hạn link gốc và tài nguyên còn được giữ.
-3. Backend kiểm tra lại quyền truy cập, trạng thái đơn, tài nguyên giữ và kết quả lần trước, rồi tạo một lần thanh toán với tham chiếu mới. Không tạo đơn mới, không đổi giá/ưu đãi đã chốt và không gia hạn link hoặc giữ hàng.
-4. Nếu đã thanh toán, Backend trả kết quả hiện có thay vì tạo thêm lần thanh toán. Nếu lần trước còn chưa rõ, yêu cầu chờ đối soát.
-5. Nếu đã hết 10 phút từ lúc tạo đơn, không cho tạo lần thanh toán mới. Khách chỉ có thể tạo checkout mới sau khi tình trạng đơn cũ được làm rõ, với kiểm tra và báo giá mới đầy đủ.
+### Lưu giá bán — Luồng thành công
 
-### Hết hạn giữ hàng và ưu đãi
+1. Staff có tài khoản hoạt động và quyền quản lí sản phẩm nhập giá bán khi tạo biến thể, hoặc mở biến thể đã có và chọn sửa giá. Frontend hiển thị SKU và giá hiện tại để Staff xác định đúng đối tượng.
+2. Staff nhập giá bán là số nguyên VND dương, xem lại rồi chọn **Lưu**. Giá nhập hợp lệ sau khi lưu thành công chính là giá bán của biến thể.
+3. Backend kiểm tra vai trò Staff, quyền quản lí sản phẩm, đối tượng, dữ liệu mới nhất và giá hợp lệ; lưu giá cùng audit gồm người sửa, thời điểm và giá trước/sau.
+4. Frontend hiển thị giá đã lưu. Với sản phẩm công khai và đủ điều kiện, lượt xem/checkout mới sử dụng giá mới; với sản phẩm chưa công khai, lưu giá không tự công khai sản phẩm.
+5. Đơn và quyền giữ hợp lệ đã được chấp nhận trước đó giữ giá đã chốt trong thời hạn gốc. Giỏ chưa tạo đơn phải tải và kiểm tra lại giá hiện tại, cho khách xác nhận tổng tiền trước khi đặt.
 
-1. Khi link hết hạn sau 10 phút, Frontend thông báo không thể tiếp tục thanh toán mới bằng đơn này; Backend vẫn tiếp nhận và xác minh kết quả giao dịch đã phát sinh.
-2. Đến hạn giữ sau 15 phút, Backend đối soát các lần thanh toán và phối hợp xử lý hết hạn với xử lý xác nhận thanh toán để tránh cùng lúc vừa chốt vừa giải phóng hàng/ưu đãi.
-3. Nếu xác định đơn chưa được thanh toán, Backend chuyển đơn **Hết hạn thanh toán**, giải phóng hàng và quyền dùng voucher/điểm đúng một lần. Không tiêu điểm, dùng lượt voucher hoặc dọn giỏ cho đơn hết hạn.
-4. Nếu đã xác nhận thanh toán hợp lệ, xử lý theo luồng thành công và không giải phóng tài nguyên của đơn đã chốt.
-5. Nếu chưa xác định được do dịch vụ thanh toán lỗi hoặc kết quả không nhất quán, ghi nhận **Cần đối soát**, tạm ngừng thanh toán mới và chuyển xử lý vận hành; không tự kết luận chưa thanh toán hoặc giải phóng tài nguyên khi chưa đủ bằng chứng. Đây là ngoại lệ cần theo dõi, không tạo lại thời hạn 15 phút mới.
+### Lưu giá bán — Nhánh lỗi
 
-### Thông báo bất thường hoặc thanh toán đến muộn
+1. Không có vai trò Staff/quyền quản lí sản phẩm hoặc chọn sai biến thể: từ chối, không thay đổi giá.
+2. Giá không hợp lệ: hiển thị lỗi tại trường nhập và giữ giá cũ; các giới hạn giá bổ sung nếu có **chưa chốt**.
+3. Dữ liệu đã bị người khác thay đổi: từ chối ghi đè, tải lại giá hiện tại để Staff xem và xác nhận lại.
+4. Lỗi lưu/audit hoặc mất phản hồi: chưa báo đã cập nhật; kiểm tra kết quả đã ghi nhận trước khi thử lại, không ghi đè giá mới hơn bằng yêu cầu cũ.
 
-1. Chữ ký không hợp lệ, sai merchant, sai số tiền hoặc tham chiếu không khớp: Backend không dùng thông báo đó để đánh dấu đơn đã thanh toán; ghi nhận an toàn để kiểm tra và trả phản hồi phù hợp cho cổng.
-2. IPN lặp hoặc nhận lại cùng kết quả truy vấn: trả kết quả xử lý đã ghi nhận, không trừ hàng/điểm, tiêu voucher, dọn giỏ hoặc xác nhận đơn thêm lần nữa.
-3. Thanh toán thành công được xác thực nhưng tài nguyên đã giải phóng, đơn đã hết hạn hoặc thời điểm thanh toán ngoài điều kiện cho phép: ghi nhận khoản tiền thực nhận và chuyển **Cần xử lý thanh toán**. Không tự phục hồi đơn hoặc bán vượt tồn.
-4. Có nhiều giao dịch thực sự thành công cho cùng đơn: chỉ chốt đơn một lần, ghi riêng khoản tiền trả trùng và chuyển xử lý thanh toán; không nhầm với việc nhận lặp một thông báo cho cùng giao dịch.
-5. Nếu đơn đã được chốt thành công trước đó, giữ nguyên kết quả chốt và đánh dấu sự cố thanh toán kèm theo để xử lý; không đưa đơn đã thành công về Chờ thanh toán.
-6. Những khoản cần xử lý được chuyển sang quy trình đối soát/Refund sau này. Không tự hoàn tiền, bỏ qua khoản tiền nhận được hoặc yêu cầu khách trả thêm trong luồng này.
+## Công khai và ngừng công khai sản phẩm
 
-### Tình huống cần kiểm tra khi triển khai
+### Công khai sản phẩm — Luồng thành công
 
-1. Mua ngay không thay đổi giỏ; mua qua giỏ chỉ lấy các dòng tích chọn; khách phải đủ điều kiện đăng nhập và xác minh trước khi thêm giỏ hoặc mua ngay.
-2. Tự nhận đúng cửa hàng đủ hàng và phí 0; giao GHTK báo đúng phí; không có một nơi đủ toàn bộ hàng thì không tự chia đơn.
-3. Không ưu đãi, một voucher, chỉ điểm, voucher kết hợp điểm theo chính sách; tổng 0 đồng xác nhận trực tiếp, còn phí giao thì vẫn cần VNPay.
-4. Hai khách tranh sản phẩm cuối hoặc ưu đãi cuối; điều kiện thay đổi trước khi đặt; lỗi một dòng không tạo đơn được chấp nhận một phần.
-5. Bấm Đặt hàng lặp, mất phản hồi sau khi tạo đơn, tạo URL thanh toán lỗi và gửi lại cùng dấu hiệu nhận diện với nội dung khác.
-6. Trình duyệt quay về trước IPN, IPN đến trước trình duyệt, khách không quay lại, IPN lặp, chữ ký/số tiền sai và nhiều khoản thanh toán thực sự thành công.
-7. Thất bại đã xác nhận được thanh toán lại cùng đơn trước hạn gốc; trạng thái chưa rõ không được thanh toán lại; quá 10 phút không tạo lần mới; quá 15 phút xử lý hết hạn không tranh chấp với chốt đơn.
-8. Kết quả đến muộn sau khi giải phóng tài nguyên và lỗi đối soát không tự phục hồi đơn, bán vượt tồn hoặc bỏ sót tiền đã nhận.
-9. Dọn giỏ sau thành công giữ dòng khác, lượng thêm sau và thao tác sửa/xóa sau checkout; xử lý lặp không dọn hai lần. Lỗi email hoặc dọn giỏ không đảo thanh toán đã xác nhận.
+1. Staff có quyền mở sản phẩm **Chưa công khai**, kiểm tra thông tin rồi chọn **Công khai**.
+2. Backend kiểm tra quyền, danh mục đang hoạt động, thông tin hợp lệ, có ảnh sử dụng được, có biến thể và mọi biến thể được cấu hình đều có giá bán đã lưu hợp lệ.
+3. Số lượng cho phép bán bằng 0 không tự chặn công khai: sản phẩm vẫn có thể được hiển thị với tình trạng chưa có hàng để mua.
+4. Backend cập nhật trạng thái công khai và ghi audit. Khách được xem sản phẩm ở các lượt đọc catalogue tiếp theo khi các điều kiện công khai vẫn đạt.
 
-### Tài liệu tham khảo mua hàng và thanh toán
+### Ngừng công khai — Luồng thành công
 
-1. [VNPay — Tích hợp thanh toán, IPN và Return URL](https://sandbox.vnpayment.vn/apis/docs/thanh-toan-pay/pay.html).
-2. [VNPay — API truy vấn kết quả giao dịch](https://sandbox.vnpayment.vn/apis/docs/truy-van-hoan-tien/querydr%26refund.html).
-3. [GHTK — API tính phí giao hàng](https://api.ghtk.vn/docs/submit-order/calculate-shipping-fee/).
+1. Staff có quyền mở sản phẩm, chọn **Ngừng công khai** và xác nhận.
+2. Backend kiểm tra trạng thái hiện tại, cập nhật và ghi audit. Sản phẩm không còn xuất hiện trong catalogue công khai và không được tạo quyền giữ mới ở checkout.
+3. Giỏ hoặc màn hình cũ không cho phép vượt qua kiểm tra hiện tại. Quyền giữ hợp lệ đã được chấp nhận, giá của đơn và lịch sử mua được bảo toàn; không tự hủy đơn hay gia hạn thanh toán.
+4. Staff có thể công khai lại sau khi sản phẩm đáp ứng điều kiện. Luồng xóa sản phẩm sẽ được bổ sung sau; lần này chỉ mô tả công khai/ngừng công khai.
+
+### Công khai và ngừng công khai — Nhánh lỗi
+
+1. Thiếu ảnh, danh mục không hoạt động, thiếu biến thể hoặc chưa có giá bán hợp lệ: không công khai, nêu rõ điều kiện cần hoàn tất.
+2. Gửi lại thao tác khi sản phẩm đã ở trạng thái yêu cầu: trả trạng thái hiện tại, không thực hiện thêm một lần chuyển trạng thái.
+3. Dữ liệu thay đổi trong lúc xác nhận, không có quyền hoặc lưu/audit lỗi: giữ trạng thái trước đó, cho tải lại và thử lại sau khi kiểm tra.
+
+### Ngừng bán và mở bán lại từng biến thể — Luồng thành công
+
+1. Staff có quyền mở sản phẩm, chọn đúng biến thể cần ngừng bán rồi xác nhận. Trạng thái này được quản lí riêng cho biến thể, không đổi cờ công khai của toàn sản phẩm.
+2. Backend kiểm tra quyền và trạng thái hiện tại, ghi nhận biến thể ngừng bán cùng audit. Dù số lượng cho phép bán vẫn còn, biến thể đó không được thêm mới vào giỏ hoặc tạo quyền giữ mới ở checkout.
+3. Các biến thể khác của cùng sản phẩm tiếp tục hoạt động theo điều kiện riêng. Không đặt số lượng về 0 để biểu diễn ngừng bán; số lượng bán và quyết định cho phép bán là hai thông tin khác nhau.
+4. Biến thể ngừng bán vẫn hiển thị trên trang sản phẩm với nhãn **Ngừng bán**, không chọn mua được. Giỏ cũ phải kiểm tra lại và yêu cầu khách sửa lựa chọn trước khi đặt; không tự đổi sang biến thể khác.
+5. Ngừng bán không hủy đơn hoặc quyền giữ hợp lệ đã được chấp nhận, không đổi giá đã chốt và không gia hạn thanh toán. Lịch sử vẫn tham chiếu đúng biến thể/SKU đã dùng.
+6. Khi chọn **Mở bán lại**, Backend kiểm tra dữ liệu và giá bán hợp lệ trước khi lưu trạng thái. Biến thể chỉ mua được nếu sản phẩm công khai, danh mục hoạt động và còn lượng bán khả dụng; mở lại biến thể không tự công khai sản phẩm đang ẩn.
+
+### Trạng thái biến thể — Nhánh lỗi
+
+1. Thiếu quyền, chọn sai biến thể hoặc dữ liệu đã thay đổi: không lưu trạng thái mới, cho tải lại và xác nhận lại đúng đối tượng.
+2. Mở bán lại nhưng dữ liệu/giá chưa hợp lệ: chỉ rõ điều kiện cần hoàn tất; không báo đã mở bán thành công.
+3. Gửi lặp cùng trạng thái: trả kết quả hiện tại, không tạo thêm lần chuyển trạng thái hoặc trừ/khôi phục số lượng bán.
+4. Lưu/audit lỗi hoặc mất phản hồi: kiểm tra kết quả đã ghi nhận trước khi thử lại; không hủy các giao dịch đã chấp nhận để xử lí lỗi quản trị.
+
+## Quản lí danh mục sản phẩm
+
+### Tạo, sửa và đổi trạng thái danh mục — Luồng thành công
+
+1. Chỉ Staff có quyền quản lí sản phẩm được tạo, sửa, kích hoạt hoặc ngừng kích hoạt danh mục. Backend kiểm tra tài khoản hoạt động và quyền hiện tại trước mỗi thao tác.
+2. Người có quyền mở danh sách danh mục, chọn tạo mới hoặc sửa, nhập tên/mô tả rồi xác nhận. Backend kiểm tra quyền, trường bắt buộc và quy tắc tên trước khi lưu cùng audit. Quy tắc duy nhất tên và giới hạn nhập liệu **chưa chốt**.
+3. Khi ngừng kích hoạt danh mục, Frontend cho xem các sản phẩm bị ảnh hưởng trước khi xác nhận. Backend loại danh mục và sản phẩm liên quan khỏi các lượt tra cứu công khai mới; lịch sử sản phẩm, đơn và quyền giữ hợp lệ không bị viết lại.
+4. Khi kích hoạt lại, chỉ sản phẩm còn công khai và đủ các điều kiện khác mới được hiển thị. Không tự công khai các sản phẩm người dùng đã chủ động ẩn.
+5. **Đề xuất:** ngừng kích hoạt thay cho xóa danh mục đã được tham chiếu; chuyển sản phẩm sang danh mục khác qua luồng Sửa sản phẩm.
+
+### Quản lí danh mục — Nhánh lỗi
+
+1. Thiếu quyền, dữ liệu sai hoặc trùng tên theo quy tắc sau khi chốt: từ chối, chỉ rõ điều kiện cần sửa; không thay đổi danh mục một phần.
+2. Danh mục thay đổi trong lúc thao tác hoặc lưu/audit lỗi: giữ dữ liệu đã xác nhận trước đó, yêu cầu tải lại/kiểm tra kết quả trước khi thử lại.
+
+## Tra cứu sản phẩm công khai
+
+### Xem, tìm kiếm và lọc catalogue — Luồng thành công
+
+1. Guest hoặc Member mở catalogue mà không cần đăng nhập. Backend chỉ trả sản phẩm công khai, thuộc danh mục hoạt động và đáp ứng điều kiện nội dung/ảnh/giá.
+2. Frontend hiển thị tên, mô tả tóm tắt, danh mục, ảnh sử dụng được, khoảng giá bán hiện tại của các biến thể và tình trạng còn được phép mua.
+3. Khách nhập từ khóa hoặc lọc theo danh mục, khoảng giá và tình trạng khả dụng. Backend bỏ khoảng trắng thừa, tìm trong tên/mô tả không phân biệt hoa thường và kết hợp các bộ lọc bằng điều kiện cùng thỏa mãn.
+4. Khoảng giá bao gồm hai đầu mút. Nếu lọc đồng thời giá và khả dụng, cùng một biến thể phải thỏa cả hai; không lấy giá của biến thể này ghép với tình trạng của biến thể khác.
+5. Mặc định Backend sắp theo tên sản phẩm A–Z rồi định danh để thứ tự ổn định. Khách có thể đổi sang giá tăng dần, giá giảm dần hoặc mới nhất theo luồng bên dưới. Kích thước trang và giới hạn từ khóa cụ thể **chưa chốt**.
+6. Khách sửa/xóa bộ lọc hoặc mở một sản phẩm để xem chi tiết. Tra cứu chưa tạo giỏ, đơn, giữ lượng bán, giữ voucher hay điểm.
+
+### Khách chọn sắp xếp sản phẩm — Luồng thành công
+
+1. Khách mở lựa chọn **Sắp xếp** trên catalogue: tên A–Z, giá tăng dần, giá giảm dần hoặc mới nhất. Mặc định là **Tên A–Z**.
+2. Frontend giữ từ khóa và các bộ lọc đang chọn khi đổi cách sắp xếp; Backend kiểm tra lựa chọn thuộc danh sách được hỗ trợ.
+3. Với tên A–Z, Backend sắp theo tên; **đề xuất:** với mới nhất, dùng thời điểm tạo sản phẩm, không dùng thời điểm sửa giá để làm sản phẩm thành mới.
+4. Với sản phẩm có nhiều biến thể, dùng **giá thấp nhất của các biến thể đang hiển thị và thỏa bộ lọc** làm giá đại diện cho cả sắp xếp tăng/giảm. Frontend vẫn hiển thị khoảng giá; giá chính xác được xem khi chọn biến thể.
+5. Backend dùng định danh sản phẩm làm tiêu chí phụ khi trùng tên/giá/thời điểm để thứ tự ổn định; trả kết quả và cách sắp xếp đang áp dụng để Frontend hiển thị.
+6. Frontend hiển thị kết quả và giữ bộ lọc hiện tại; thay đổi cách sắp xếp không tạo đơn hoặc giữ số lượng bán.
+
+### Sắp xếp sản phẩm — Nhánh lỗi
+
+1. Tiêu chí không được hỗ trợ: nêu lỗi và cho chọn lại cách sắp xếp hợp lệ.
+2. Lỗi tải kết quả: cho thử lại, giữ từ khóa/bộ lọc; không hiển thị nhầm thành không có sản phẩm.
+
+### Xem chi tiết và chọn biến thể — Luồng thành công
+
+1. Khách mở sản phẩm từ catalogue; Backend kiểm tra lại điều kiện công khai trước khi trả dữ liệu.
+2. Frontend hiển thị thông tin, ảnh và các tổ hợp kích thước/lựa chọn khắc được cấu hình; chỉ hiển thị giá bán hiện tại của sản phẩm công khai, không lộ thông tin của sản phẩm chưa công khai.
+3. Khách chọn một tổ hợp đã có. Backend trả đúng định danh biến thể, giá và tình trạng khả dụng hiện tại; không tự tạo biến thể từ nội dung khách nhập.
+4. Nếu một biến thể hết lượng bán, Frontend đánh dấu biến thể đó chưa mua được; biến thể khác vẫn được xem và chọn theo tình trạng riêng. Sản phẩm vẫn hiển thị khi đủ điều kiện công khai dù mọi biến thể hiện không còn lượng bán.
+5. Khách chọn **Mua ngay** hoặc **Thêm vào giỏ hàng** thì chuyển sang [FE-08 — Mua hàng](#fe-08), mang theo sản phẩm, biến thể và số lượng đã chọn. FE-08 kiểm tra đăng nhập/xác minh và điều kiện mua trước khi chấp nhận.
+
+### Tra cứu và chọn biến thể — Nhánh lỗi
+
+1. Bộ lọc không hợp lệ, giá âm, giá tối thiểu lớn hơn tối đa hoặc danh mục không được hỗ trợ: nêu lỗi, cho sửa; không thay đổi dữ liệu sản phẩm.
+2. Không có kết quả: hiển thị thông báo và cho xóa/đổi bộ lọc. Lỗi tải dữ liệu phải được báo riêng, không hiển thị nhầm thành catalogue rỗng.
+3. Sản phẩm ngừng công khai hoặc danh mục không còn hoạt động sau lần xem trước: không trả nội dung công khai mới và không cho dùng trang/giỏ cũ để bỏ qua kiểm tra checkout. Biến thể ngừng bán vẫn hiển thị với nhãn **Ngừng bán** và bị chặn mua mới dù còn số lượng, theo luồng trạng thái biến thể.
+4. Mất toàn bộ ảnh sử dụng được: loại khỏi kết quả công khai mà không tự sửa cờ công khai hay lịch sử; khi ảnh khôi phục, chỉ hiển thị lại nếu các điều kiện khác vẫn đạt. Với lỗi tải ảnh tạm thời, hiển thị thông tin lỗi/thử lại phù hợp.
+5. Tổ hợp không tồn tại hoặc nhập lựa chọn ngoài catalogue: yêu cầu khách chọn đúng biến thể Staff đã cấu hình; không tạo thêm biến thể từ dữ liệu khách nhập.
 
 <a id="fe-03"></a>
 
@@ -324,7 +378,7 @@ Chưa mô tả luồng thiết kế cá nhân hóa, review, báo giá và đơn 
 
 # FE-06 — Loyalty & Promotion Management
 
-Feature này gồm quản lí chương trình voucher/giảm giá và điểm thưởng, nhằm khuyến khích Member quay lại mua sản phẩm và tham gia workshop. Luồng mua sản phẩm tham chiếu [FE-02](#fe-02), đặt workshop tham chiếu [FE-03](#fe-03), cấu hình tham số tham chiếu [FE-09](#fe-09). Nội dung dưới đây là thiết kế mong muốn; các quy tắc có nhãn **Đề xuất** còn cần quyết định. Các giá trị cụ thể về mức giảm, giá trị giao dịch tối thiểu, hạn mức lượt dùng, tỷ lệ cộng/quy đổi điểm, lượng điểm tối thiểu và trần giảm bằng điểm đều **chưa chốt**; Manager/Admin cấu hình theo phạm vi phụ trách sau khi thống nhất chính sách.
+Feature này gồm quản lí chương trình voucher/giảm giá và điểm thưởng, nhằm khuyến khích Member quay lại mua sản phẩm và tham gia workshop. Luồng mua sản phẩm tham chiếu [FE-08](#fe-08), đặt workshop tham chiếu [FE-03](#fe-03), cấu hình tham số tham chiếu [FE-09](#fe-09). Nội dung dưới đây là thiết kế mong muốn; các quy tắc có nhãn **Đề xuất** còn cần quyết định. Các giá trị cụ thể về mức giảm, giá trị giao dịch tối thiểu, hạn mức lượt dùng, tỷ lệ cộng/quy đổi điểm, lượng điểm tối thiểu và trần giảm bằng điểm đều **chưa chốt**; Manager/Admin cấu hình theo phạm vi phụ trách sau khi thống nhất chính sách.
 
 ## Quản lí chương trình ưu đãi
 
@@ -397,13 +451,13 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 
 ### Checkout — Luồng thành công
 
-1. Member tiếp tục checkout từ [FE-02](#fe-02). Backend lấy các dòng mua, giá, chi nhánh xử lí và thông tin Member để xác định ưu đãi hợp lệ.
+1. Member tiếp tục checkout từ [FE-08](#fe-08). Backend lấy các dòng mua, giá, chi nhánh xử lí và thông tin Member để xác định ưu đãi hợp lệ.
 2. Frontend hiển thị giảm tự động nếu có, các voucher sản phẩm phù hợp và số điểm khả dụng. Member chọn một voucher từ kho, nhập mã trực tiếp hoặc sử dụng giảm tự động.
 3. Backend kiểm tra thời gian, trạng thái chương trình, phạm vi, giá trị tối thiểu, tổng lượt và lượt của Member; trả khoản giảm hợp lệ. Chỉ áp dụng một giảm tự động hoặc một voucher.
 4. Backend tính số điểm tối đa được dùng cho giao dịch dựa trên điểm khả dụng, giá trị giao dịch và chính sách kết hợp ưu đãi, rồi trả kết quả cho Frontend. Frontend hiển thị điểm khả dụng, số điểm tối đa được dùng và số tiền giảm tương ứng để Member chủ động chọn dùng điểm trong giới hạn đó. Nếu ưu đãi không cho kết hợp điểm, Frontend không cho chọn dùng điểm và hiển thị lý do. **Đề xuất:** áp dụng lượng dùng tối thiểu và trần giảm bằng điểm do Admin cấu hình; các mức cụ thể **chưa chốt**.
 5. Frontend hiển thị tiền hàng, giảm tự động/voucher, giảm bằng điểm, phí giao hàng và tổng cuối cùng để Member xem và xác nhận. **Đề xuất:** phí giao hàng không thuộc cơ sở cộng điểm.
-6. Mở checkout hoặc thử mã chưa giữ lượt voucher hay điểm. Khi Member xác nhận đặt hàng, Backend kiểm tra lại điều kiện và tạo đơn cùng phần quyền lợi tạm giữ theo [FE-02](#fe-02).
-7. Khi thanh toán đầy đủ được xác minh thành công, hệ thống chốt voucher, trừ điểm đã dùng và xử lí cộng điểm mới theo phần Điểm thưởng. Với đơn 0 đồng hợp lệ, chốt quyền lợi khi Backend xác nhận đơn theo nhánh tương ứng tại FE-02, không chờ thanh toán qua cổng.
+6. Mở checkout hoặc thử mã chưa giữ lượt voucher hay điểm. Khi Member xác nhận đặt hàng, Backend kiểm tra lại điều kiện và tạo đơn cùng phần quyền lợi tạm giữ theo [FE-08](#fe-08).
+7. Khi thanh toán đầy đủ được xác minh thành công, hệ thống chốt voucher, trừ điểm đã dùng và xử lí cộng điểm mới theo phần Điểm thưởng. Với đơn 0 đồng hợp lệ, chốt quyền lợi khi Backend xác nhận đơn theo nhánh tương ứng tại FE-08, không chờ thanh toán qua cổng.
 
 ### Checkout sản phẩm — Nhánh lỗi
 
@@ -411,7 +465,7 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 2. Mã không tồn tại, hết hạn, bị dừng, hết lượt hoặc không đạt điều kiện đơn: hiển thị lý do, cho chọn mã khác hoặc tiếp tục không dùng voucher.
 3. Điểm khả dụng không đủ hoặc vượt giới hạn: Backend tính lại số điểm tối đa hợp lệ; Frontend cập nhật giới hạn và giá trị quy đổi, yêu cầu Member chọn lại và xác nhận tổng tiền mới.
 4. Giá, ưu đãi, điểm hoặc hạn mức thay đổi trước khi tạo đơn: Backend yêu cầu xem lại báo giá; không tự tạo đơn với tổng tiền khác bản Member đã xác nhận.
-5. Lỗi tạo đơn hoặc không giữ được quyền lợi: không để lại phần giữ dở dang; xử lí cùng bước tạo đơn tại FE-02. Mất phản hồi không được tự động tạo một đơn mới.
+5. Lỗi tạo đơn hoặc không giữ được quyền lợi: không để lại phần giữ dở dang; xử lí cùng bước tạo đơn tại FE-08. Mất phản hồi không được tự động tạo một đơn mới.
 
 ## Áp dụng ưu đãi khi đặt workshop
 
@@ -470,7 +524,7 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 ### Chốt lượt voucher và điểm — Luồng thành công
 
 1. Khi Member xác nhận đặt hàng/booking, Backend tạm giữ lượt voucher và điểm cần dùng cùng thao tác ghi nhận giao dịch. Điểm đang giữ không còn khả dụng cho giao dịch khác.
-2. Với sản phẩm, khi thanh toán được xác minh thành công, Backend chốt lượt voucher và trừ điểm đang giữ đúng một lần. Đơn 0 đồng hợp lệ được chốt khi Backend xác nhận đơn theo FE-02.
+2. Với sản phẩm, khi thanh toán được xác minh thành công, Backend chốt lượt voucher và trừ điểm đang giữ đúng một lần. Đơn 0 đồng hợp lệ được chốt khi Backend xác nhận đơn theo FE-08.
 3. **Đề xuất:** với workshop, khi cọc được xác minh thành công, Backend chốt lượt voucher và trừ điểm đang giữ; đợi hoàn thành và trả đủ mới cộng điểm mới.
 4. Backend ghi kết quả sử dụng theo giao dịch để xử lí lại an toàn; gửi lại cùng kết quả thanh toán không tiêu dùng thêm lượt hoặc trừ thêm điểm.
 
@@ -484,7 +538,7 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 ### Chốt và giải phóng — Nhánh lỗi
 
 1. Thanh toán và xử lí hết hạn diễn ra gần nhau: Backend kiểm tra trạng thái giao dịch trước khi cập nhật; không vừa chốt sử dụng vừa trả lại cùng lượt voucher/điểm.
-2. Kết quả thanh toán chưa rõ hoặc đến muộn: xử lí theo luồng thanh toán của FE-02/FE-03; không tự cộng điểm hoặc chốt ưu đãi chỉ từ thông báo trên trình duyệt.
+2. Kết quả thanh toán chưa rõ hoặc đến muộn: xử lí theo luồng thanh toán của FE-08/FE-03; không tự cộng điểm hoặc chốt ưu đãi chỉ từ thông báo trên trình duyệt.
 3. Lỗi lưu hoặc mất phản hồi: kiểm tra trạng thái đã ghi nhận trước khi xử lí lại; không trừ, cộng hoặc giải phóng thêm lần nữa.
 
 <a id="fe-07"></a>
@@ -1014,7 +1068,174 @@ Các mẫu kế thừa phiên bản 1.0, trạng thái **Dự thảo — chưa k
 
 # FE-08 — Order Management & Fulfillment
 
-Phần chọn tự nhận/giao GHTK và thông tin nơi xử lý được giữ trong checkout ở FE-02 để không tách đứt luồng mua hàng. Chưa có luồng riêng cho chuẩn bị hàng, nhận tại cửa hàng và ghi nhận bàn giao. Phần thu tiền/đối soát được tham chiếu tại Thanh toán trong FE-02.
+Feature này mô tả mua ngay, giỏ hàng, checkout, tạo đơn, thanh toán retail, tra cứu đơn và giao nhận. Dữ liệu sản phẩm/biến thể do Staff quản lí tại [FE-02](#fe-02); voucher, giảm tự động và điểm thưởng theo [FE-06](#fe-06); thông báo theo [FE-07](#fe-07). Số lượng bán dùng chung toàn hệ thống; Staff tự điều phối nơi chuẩn bị hàng, không kiểm tra số lượng theo từng chi nhánh để tự chọn nơi xử lí. Phần tích hợp GHTK và luồng chuẩn bị/bàn giao chi tiết giữ để hoàn thiện riêng như ghi chú bên dưới.
+
+## Mua hàng
+
+### Điều kiện và quy tắc chung
+
+1. Khách được xem catalogue khi chưa đăng nhập. Trước khi thêm giỏ hoặc mua ngay, khách phải đăng nhập, xác minh email và có tài khoản được phép sử dụng theo [FE-01](#fe-01).
+2. Frontend giữ lựa chọn sản phẩm, biến thể và số lượng trong quá trình xác thực; sau đó Backend kiểm tra lại điều kiện trước khi tiếp tục, không tự đặt hàng.
+3. Backend xác định giá hiện tại, lượng bán khả dụng, thông tin giao và tổng tiền; ưu đãi được kiểm tra theo FE-06. Dữ liệu trên trình duyệt không thay cho kết quả kiểm tra này.
+4. Mua ngay và mua qua giỏ dùng chung checkout. Xem catalogue, giỏ hoặc checkout chưa tạo đơn hay giữ số lượng/quyền lợi; trang chi tiết đơn được dùng sau khi đơn đã tạo.
+
+### Tiếp nhận lựa chọn mua từ catalogue
+
+1. Khách xem/chọn sản phẩm tại [FE-02](#fe-02), rồi chuyển sang luồng mua hàng với sản phẩm, biến thể và số lượng đã chọn.
+2. Frontend hiển thị sản phẩm, các biến thể được cấu hình, giá hiện tại và tình trạng khả dụng do Backend cung cấp.
+3. Khách chọn đầy đủ thuộc tính của một biến thể, nhập số lượng nguyên dương, rồi chọn **Mua ngay** hoặc **Thêm vào giỏ hàng**.
+4. Frontend kiểm tra đã chọn đủ thuộc tính và số lượng hợp lệ. Backend kiểm tra lại sản phẩm còn được bán, biến thể tồn tại và lượng hàng khả dụng trước khi chấp nhận thao tác.
+5. Nếu khách chưa đủ điều kiện xác thực, Frontend hướng dẫn đăng nhập/xác minh theo quy tắc chung, giữ lựa chọn để tiếp tục. Sau xác thực phải kiểm tra lại sản phẩm và lượng khả dụng, không tự đặt hàng.
+
+### Mua ngay — Luồng thành công
+
+1. Khách chọn biến thể, số lượng và bấm **Mua ngay**.
+2. Frontend gửi lựa chọn để Backend kiểm tra điều kiện tài khoản, sản phẩm và lượng khả dụng.
+3. Khi hợp lệ, Frontend mở checkout chỉ với sản phẩm, biến thể và số lượng vừa chọn, đánh dấu nguồn mua là Mua ngay.
+4. Hệ thống không thêm sản phẩm vào giỏ, không xóa hoặc sửa các dòng đã có trong giỏ. Khách tiếp tục quy trình checkout chung bên dưới.
+
+### Mua qua giỏ hàng — Luồng thành công
+
+1. Khách chọn biến thể, số lượng và bấm **Thêm vào giỏ hàng**.
+2. Backend kiểm tra tài khoản và lựa chọn; nếu giỏ đã có cùng sản phẩm/biến thể thì cộng số lượng trong giới hạn hợp lệ, nếu chưa có thì thêm dòng mới. Chỉ ghi nhận ý định mua, chưa giữ hàng hoặc giá.
+3. Frontend thông báo thêm giỏ thành công. Khách có thể tiếp tục xem và thêm sản phẩm khác.
+4. Khách mở giỏ; Backend chỉ trả giỏ thuộc tài khoản hiện tại cùng giá và tình trạng sản phẩm hiện hành.
+5. Khách tăng/giảm số lượng hoặc xóa dòng. Backend kiểm tra và lưu thay đổi trước khi Frontend cập nhật kết quả; không hiển thị đã lưu khi chưa nhận xác nhận.
+6. Khách tích chọn những dòng muốn mua. Các dòng chưa chọn vẫn ở trong giỏ và không được tính vào checkout.
+7. Khách bấm **Tiếp tục thanh toán**. Nếu chưa chọn dòng nào, Frontend yêu cầu chọn ít nhất một dòng.
+8. Backend kiểm tra lại đúng các dòng được chọn và quyền sở hữu giỏ. Frontend mở checkout với các dòng này; chưa loại bỏ chúng khỏi giỏ.
+
+### Checkout — Thông tin nhận hàng
+
+1. Backend lấy lại lựa chọn từ nguồn Mua ngay hoặc các dòng giỏ đã chọn, kiểm tra tài khoản, giá hiện tại và số lượng bán chung còn khả dụng của từng biến thể.
+2. Khách chọn cách nhận và cung cấp thông tin theo phần **Thông tin nhận hàng và GHTK** bên dưới. Backend kiểm tra thông tin nhận, phương thức phục vụ và khoản phí giao nhận nếu có.
+3. Frontend hiển thị sản phẩm, biến thể, số lượng, đơn giá, thông tin nhận hàng và phí đã được xác nhận. Thay đổi thông tin ảnh hưởng đến phí phải được tính và hiển thị lại trước khi khách đặt hàng.
+4. Số lượng được kiểm tra trên nguồn bán chung, không kiểm tra từng chi nhánh đủ hàng hay tự chọn nơi chuẩn bị hàng theo số lượng. Staff tự điều phối nơi chuẩn bị khi xử lí đơn.
+
+### Checkout — Voucher, điểm thưởng và tổng tiền
+
+1. Khách chọn ưu đãi và điểm tại checkout theo [FE-06 — Áp dụng ưu đãi khi mua sản phẩm](#fe-06). FE-06 quyết định điều kiện hợp lệ và khoản giảm.
+2. Frontend hiển thị các khoản giảm từ kết quả FE-06, phí giao nhận đã xác nhận và tổng cuối cùng, rồi cho khách tiếp tục tạo đơn.
+
+### Tạo đơn — Kiểm tra và ghi nhận chung
+
+1. Frontend gửi yêu cầu xác nhận lựa chọn cùng dấu hiệu nhận diện yêu cầu để Backend chống tạo trùng; khóa nút trong lúc chờ. Backend không chỉ dựa vào việc khóa nút để chống gửi lặp.
+2. Backend kiểm tra lại danh tính, email đã xác minh, trạng thái tài khoản, quyền sở hữu các dòng giỏ nếu có, sản phẩm/biến thể, số lượng bán chung, giá, thông tin/phí giao nhận đã xác nhận và ưu đãi theo FE-06.
+3. Nếu báo giá hoặc điều kiện khác bản khách đã xem, Backend yêu cầu xem lại và xác nhận mới; chưa tạo đơn với điều khoản thay đổi.
+4. Khi hợp lệ, Backend ghi nhận một đơn cùng bản chụp nguồn mua, các dòng mua, biến thể, số lượng, giá, người nhận, thông tin/cách nhận, ưu đãi, phí và tổng tiền đã xác nhận. Nơi chuẩn bị hàng do Staff điều phối sau ở bước xử lí giao nhận. Thay đổi hồ sơ, catalogue hay giỏ sau đó không sửa các thông tin đã chấp nhận của đơn.
+5. Backend tạo đơn, giữ số lượng từ nguồn bán chung của đúng biến thể và phối hợp tạm giữ voucher/điểm theo [FE-06](#fe-06) trong cùng thao tác toàn bộ hoặc không có gì. Nếu không giữ đủ sản phẩm/quyền lợi thì từ chối, không tạo đơn được chấp nhận một phần.
+6. Gửi lại cùng yêu cầu và cùng nội dung trả về đơn đã tạo cùng thời hạn gốc; nếu dùng lại dấu hiệu nhận diện với nội dung khác thì từ chối và yêu cầu xem lại. Mất phản hồi không phải lý do tự tạo đơn mới.
+7. Với tổng dương đủ điều kiện theo cấu hình tích hợp VNPay, đơn chuyển **Chờ thanh toán**, ghi thời điểm tạo đơn, hạn link sau 10 phút và hạn giữ hàng/ưu đãi sau 15 phút; tiếp tục mục Thanh toán.
+8. Với tổng cuối cùng bằng 0 hợp lệ, xử lý theo nhánh đơn 0 đồng bên dưới; tổng âm hoặc số tiền dương không đạt điều kiện tích hợp phải được sửa trước khi chấp nhận đơn.
+
+### Đơn 0 đồng — Xác nhận trực tiếp
+
+1. Backend kiểm tra tổng cuối cùng, bao gồm phí giao hàng, thực sự bằng 0 theo chính sách hợp lệ; tiền hàng bằng 0 nhưng còn phí giao thì vẫn là đơn cần thanh toán.
+2. Backend xác nhận đơn, chốt số lượng bán và quyền lợi theo [FE-06](#fe-06) đúng một lần trong cùng thao tác; chuyển **Đã xác nhận — Chờ xử lý**.
+3. Hệ thống không tạo yêu cầu hoặc giao dịch VNPay, không ghi nhận khách đã chuyển tiền qua cổng thanh toán.
+4. Nếu mua qua giỏ, Backend dọn đúng lượng đã mua theo quy tắc dọn giỏ trong mục Thanh toán; nếu Mua ngay thì giữ nguyên giỏ.
+5. Frontend hiển thị chi tiết đơn 0 đồng đã xác nhận; hệ thống gửi email xác nhận. Gửi email lỗi không đảo kết quả xác nhận đơn.
+
+### Mua hàng và checkout — Nhánh lỗi
+
+1. Sản phẩm ngừng bán, thiếu thuộc tính, biến thể không hợp lệ, số lượng không phải số nguyên dương hoặc hết hàng: chỉ rõ dòng và nguyên nhân để khách sửa; không tự đổi biến thể, giảm số lượng hoặc đặt các dòng còn lại.
+2. Quyền truy cập không hợp lệ hoặc tài khoản bị khóa: từ chối thao tác bảo vệ; không tiết lộ giỏ hay đơn của tài khoản khác. Nếu cần đăng nhập/xác minh lại thì giữ lựa chọn để tiếp tục sau khi đủ điều kiện và kiểm tra lại dữ liệu.
+3. Giỏ rỗng, chưa tích chọn hoặc dòng đã bị sửa/xóa ở nơi khác: tải dữ liệu hiện tại, yêu cầu chọn và xác nhận lại; không lấy toàn bộ giỏ thay cho lựa chọn cũ.
+4. Thông tin nhận hàng thiếu hoặc không hợp lệ: hiển thị lỗi tại trường tương ứng, chưa tạo đơn.
+5. Số lượng bán chung không đủ: chỉ rõ biến thể cần sửa số lượng hoặc bỏ chọn; không tự đổi biến thể hay chấp nhận một phần đơn.
+6. Thông tin/cách nhận hoặc báo phí chưa hợp lệ: hiển thị lý do, giữ lựa chọn để khách sửa/thử lại; không tự coi phí chưa xác định là bằng 0.
+7. Voucher hoặc điểm không hợp lệ, hết lượt, không đủ số dư hoặc thiếu chính sách: báo rõ, giữ lựa chọn để khách sửa. Chỉ tiếp tục không ưu đãi khi khách chủ động chấp nhận báo giá mới.
+8. Mất mạng hoặc lỗi lưu giỏ: phân biệt thao tác chưa được xác nhận với giỏ rỗng; cho tải lại/thử lại mà không tự cộng số lượng lần nữa khi kết quả lưu trước chưa rõ.
+9. Bấm Đặt hàng lặp hoặc mất phản hồi tạo đơn: Frontend tra lại kết quả yêu cầu cũ; Backend trả lại đơn đã tạo nếu có. Không tạo thêm đơn, giữ thêm hàng hoặc kéo dài thời hạn vì thử lại.
+
+## Thông tin nhận hàng và GHTK
+
+### Chọn cách nhận và xác nhận phí
+
+1. Tại bước checkout của luồng Mua hàng, khách chọn **Tự nhận tại cửa hàng** hoặc **Giao hàng qua GHTK**, nhập/chọn thông tin người nhận và kiểm tra lại trước khi xác nhận.
+2. Nếu tự nhận, khách cung cấp tên, số điện thoại và chọn cửa hàng đang hoạt động; phí giao hàng bằng 0. Cửa hàng nhận là lựa chọn giao nhận, không phải căn cứ kiểm tra số lượng bán theo chi nhánh.
+3. Nếu giao GHTK, khách cung cấp tên, số điện thoại và địa chỉ đầy đủ theo dữ liệu tích hợp hỗ trợ. FE-08 phụ trách lấy báo giá bằng thông tin nơi gửi, nơi nhận, trọng lượng và dữ liệu gói hàng cần thiết; không giả định phí chỉ theo khoảng cách.
+4. Frontend hiển thị khoản phí được xác nhận và thông tin dự kiến nếu nhà cung cấp trả về. Khi địa chỉ, cách nhận hoặc nội dung mua thay đổi, FE-08 tính lại phí để khách xem trước khi tạo đơn; bước Tạo đơn sử dụng kết quả này để chốt tổng thanh toán.
+5. Tích hợp GHTK giữ ở phạm vi FE-08 để hoàn thiện riêng. Cách xác định nơi gửi dùng báo phí trước khi Staff điều phối nơi chuẩn bị hàng và cách cung cấp đầu vào gói hàng **chưa chốt**; không tự suy ra nơi gửi từ số lượng theo chi nhánh.
+6. Sau khi đơn được xác nhận, Staff tự điều phối nơi chuẩn bị và tiếp tục xử lí giao nhận tại FE-08; không ảnh hưởng nguồn số lượng bán chung hoặc tự đổi khoản tiền khách đã chấp nhận. Luồng chuẩn bị/bàn giao chi tiết sẽ bổ sung riêng.
+
+### Thông tin nhận hàng và phí — Nhánh lỗi
+
+1. Thiếu/sai thông tin hoặc cửa hàng nhận không hoạt động: chỉ rõ điều kiện chưa đạt, cho khách sửa; chưa tạo đơn với thông tin không hợp lệ.
+2. Không báo được phí, ngoài vùng phục vụ hoặc chưa đủ đầu vào tích hợp: giữ thông tin khách đã nhập, cho thử lại/sửa hoặc chọn tự nhận; không tự cho phí giao bằng 0.
+3. Phí thay đổi trước khi đặt: trả thông tin mới về checkout để khách xác nhận lại; không tự tạo đơn với tổng tiền khác bản đã xem.
+
+Thanh toán VNPay dưới đây mô tả trường hợp mua sản phẩm bán sẵn. Nghĩa vụ thanh toán của booking workshop được mô tả tại FE-03; không mặc định dùng nguyên quy tắc thanh toán bán lẻ.
+
+## Thanh toán
+
+### Điều kiện và thời hạn
+
+1. Luồng VNPay áp dụng cho đơn Chờ thanh toán có tổng dương hợp lệ, thuộc khách hiện tại và còn thời hạn. Đơn 0 đồng đi theo nhánh xác nhận trực tiếp ở mục Mua hàng.
+2. Link thanh toán và mọi lần thanh toán lại hết hạn sau 10 phút tính từ lúc tạo đơn; giữ hàng và quyền dùng ưu đãi hết hạn sau 15 phút tính từ cùng thời điểm. Không gia hạn khi tải lại trang, bấm lại hoặc tạo lần thanh toán khác.
+3. Tạm giữ chưa chốt giao dịch. Khi thanh toán được xác nhận thành công, Backend phối hợp chốt quyền lợi và cộng điểm theo [FE-06](#fe-06); hết hạn chưa thanh toán thì phối hợp giải phóng phần đang giữ theo cùng feature.
+4. Backend quản lý trạng thái đơn và từng lần thanh toán riêng. Mỗi lần có tham chiếu VNPay riêng; không coi nút hủy hoặc trang trình duyệt quay về là bằng chứng đủ để kết luận kết quả giao dịch.
+
+### Thanh toán VNPay — Luồng thành công
+
+1. Sau khi tạo đơn hợp lệ, Backend ghi nhận lần thanh toán và tạo URL VNPay chứa tham chiếu, số tiền đúng của đơn, thời hạn gốc và thông tin kiểm tra toàn vẹn theo tích hợp.
+2. Backend trả mã đơn và URL; Frontend chuyển khách sang VNPay. Nếu tạo URL lỗi sau khi đơn đã được ghi nhận, hiển thị đúng đơn Chờ thanh toán để khôi phục, không tự tạo lại đơn.
+3. Khách chọn ngân hàng, thẻ hoặc phương thức VNPay đang hỗ trợ theo cấu hình tích hợp, rồi hoàn tất thanh toán trên cổng.
+4. VNPay gửi kết quả về Backend qua IPN và chuyển trình duyệt về website. Hai luồng có thể đến khác thứ tự; Backend có thể truy vấn kết quả qua API VNPay để đối soát khi cần.
+5. Backend kiểm tra chữ ký, thông tin merchant, tham chiếu, số tiền, mã kết quả/trạng thái giao dịch và giao dịch đã xử lý. Chỉ chấp nhận bằng chứng IPN hoặc kết quả truy vấn đã xác thực; dữ liệu trình duyệt quay về không tự đánh dấu đơn đã thanh toán.
+6. Khi thanh toán thành công được xác minh và tài nguyên còn được giữ hợp lệ, Backend chốt số lượng bán, quyền lợi theo FE-06, ghi nhận thanh toán và chuyển đơn **Đã thanh toán — Chờ xử lý** trong cùng thao tác. Kết quả thành công được dùng để cộng điểm theo FE-06; xử lí lặp không chốt hoặc cộng thêm lần nữa.
+7. Nếu kết quả đến sau hạn link nhưng trước hạn giữ, Backend đối chiếu thời điểm thanh toán hợp lệ với hạn link gốc trước khi chốt; nếu có bất thường thì chuyển đối soát, không chỉ dựa vào thời điểm nhận IPN để kết luận.
+8. Với đơn mua qua giỏ, Backend chỉ loại bỏ lượng đã mua thuộc các dòng checkout, dựa trên nguồn và phiên bản dòng đã ghi nhận. Giữ các dòng chưa mua và lượng khách thêm sau; không tạo lại dòng khách đã xóa hoặc trừ nhầm dòng thay thế. Nếu dòng đã đổi theo cách không thể đối chiếu an toàn, giữ dòng đó để khách xem lại thay vì đoán số lượng cần xóa. Dọn giỏ chỉ áp dụng một lần và lỗi dọn giỏ không đảo giao dịch đã thành công.
+9. Với đơn Mua ngay, hệ thống không dọn hoặc thay đổi giỏ, kể cả giỏ đang chứa cùng biến thể.
+10. Frontend lấy trạng thái đơn từ Backend và hiển thị trang chi tiết cùng kết quả thanh toán. Hệ thống gửi email xác nhận; lỗi gửi thư được xử lý lại riêng, không yêu cầu khách thanh toán lại.
+
+### Chưa rõ kết quả hoặc khách chưa quay về
+
+1. Nếu trình duyệt quay về trước khi Backend có xác nhận, Frontend hiển thị **Đang xác nhận thanh toán** và lấy lại trạng thái từ Backend; không báo thành công chỉ dựa vào URL.
+2. Backend tiếp nhận IPN hoặc truy vấn VNPay để xác định kết quả. Chưa cho tạo lần thanh toán mới khi lần trước còn chưa rõ, tránh khách trả tiền hai lần.
+3. Nếu khách đóng trang, mất mạng hoặc không quay lại website, Backend vẫn xử lí thông báo hợp lệ. Khách mở lại đơn tại **Đơn hàng của tôi** để xem trạng thái do Backend xác nhận.
+4. Nếu xác định giao dịch thành công, tiếp tục chốt đơn theo luồng thành công; nếu xác định thất bại hoặc chưa thanh toán thì áp dụng nhánh thanh toán lại/hết hạn.
+
+### Thanh toán thất bại, hủy trên cổng và thanh toán lại
+
+1. Khách hủy trên VNPay hoặc giao dịch lỗi: Frontend hiển thị kết quả Backend đã xác nhận; nếu chưa xác định được thì giữ **Đang xác nhận thanh toán**. Hủy một lần thanh toán không tự hủy đơn.
+2. Khi Backend xác nhận lần trước thất bại hoặc đã kết thúc mà chưa thanh toán, khách được chọn **Thanh toán lại** cho cùng đơn nếu chưa hết hạn link gốc và tài nguyên còn được giữ.
+3. Backend kiểm tra lại quyền truy cập, trạng thái đơn, tài nguyên giữ và kết quả lần trước, rồi tạo một lần thanh toán với tham chiếu mới. Không tạo đơn mới, không đổi giá/ưu đãi đã chốt và không gia hạn link hoặc giữ hàng.
+4. Nếu đã thanh toán, Backend trả kết quả hiện có thay vì tạo thêm lần thanh toán. Nếu lần trước còn chưa rõ, yêu cầu chờ đối soát.
+5. Nếu đã hết 10 phút từ lúc tạo đơn, không cho tạo lần thanh toán mới. Khách chỉ có thể tạo checkout mới sau khi tình trạng đơn cũ được làm rõ, với kiểm tra và báo giá mới đầy đủ.
+
+### Hết hạn giữ hàng và ưu đãi
+
+1. Khi link hết hạn sau 10 phút, Frontend thông báo không thể tiếp tục thanh toán mới bằng đơn này; Backend vẫn tiếp nhận và xác minh kết quả giao dịch đã phát sinh.
+2. Đến hạn giữ sau 15 phút, Backend đối soát các lần thanh toán và phối hợp xử lý hết hạn với xử lý xác nhận thanh toán để tránh cùng lúc vừa chốt vừa giải phóng hàng/ưu đãi.
+3. Nếu xác định đơn chưa được thanh toán, Backend chuyển đơn **Hết hạn thanh toán**, giải phóng số lượng đang giữ và phối hợp giải phóng voucher/điểm theo FE-06 đúng một lần; không dọn giỏ cho đơn hết hạn.
+4. Nếu đã xác nhận thanh toán hợp lệ, xử lý theo luồng thành công và không giải phóng tài nguyên của đơn đã chốt.
+5. Nếu chưa xác định được do dịch vụ thanh toán lỗi hoặc kết quả không nhất quán, ghi nhận **Cần đối soát**, tạm ngừng thanh toán mới và chuyển xử lý vận hành; không tự kết luận chưa thanh toán hoặc giải phóng tài nguyên khi chưa đủ bằng chứng. Đây là ngoại lệ cần theo dõi, không tạo lại thời hạn 15 phút mới.
+
+### Thông báo bất thường hoặc thanh toán đến muộn
+
+1. Chữ ký không hợp lệ, sai merchant, sai số tiền hoặc tham chiếu không khớp: Backend không dùng thông báo đó để đánh dấu đơn đã thanh toán; ghi nhận an toàn để kiểm tra và trả phản hồi phù hợp cho cổng.
+2. IPN lặp hoặc nhận lại cùng kết quả truy vấn: trả kết quả xử lý đã ghi nhận, không trừ hàng/điểm, tiêu voucher, dọn giỏ hoặc xác nhận đơn thêm lần nữa.
+3. Thanh toán thành công được xác thực nhưng tài nguyên đã giải phóng, đơn đã hết hạn hoặc thời điểm thanh toán ngoài điều kiện cho phép: ghi nhận khoản tiền thực nhận và chuyển **Cần xử lý thanh toán**. Không tự phục hồi đơn hoặc bán vượt tồn.
+4. Có nhiều giao dịch thực sự thành công cho cùng đơn: chỉ chốt đơn một lần, ghi riêng khoản tiền trả trùng và chuyển xử lý thanh toán; không nhầm với việc nhận lặp một thông báo cho cùng giao dịch.
+5. Nếu đơn đã được chốt thành công trước đó, giữ nguyên kết quả chốt và đánh dấu sự cố thanh toán kèm theo để xử lý; không đưa đơn đã thành công về Chờ thanh toán.
+6. Những khoản cần xử lý được chuyển sang quy trình đối soát/Refund sau này. Không tự hoàn tiền, bỏ qua khoản tiền nhận được hoặc yêu cầu khách trả thêm trong luồng này.
+
+## Đơn hàng của tôi
+
+### Xem danh sách và chi tiết — Luồng thành công
+
+1. Member đăng nhập, mở **Đơn hàng của tôi**. Backend kiểm tra tài khoản và chỉ trả các đơn thuộc Member hiện tại.
+2. Frontend hiển thị mã đơn, thời điểm đặt, tổng tiền và trạng thái. Member chọn một đơn để mở chi tiết.
+3. Backend kiểm tra lại quyền sở hữu và trả bản chụp sản phẩm/biến thể, số lượng, giá, khoản giảm, phí, tổng tiền, thông tin nhận cùng trạng thái đơn/thanh toán. Không tính lại đơn cũ bằng giá catalogue hay chính sách ưu đãi hiện tại.
+4. Nếu đơn còn đủ điều kiện thanh toán lại, Frontend hiển thị **Thanh toán lại** và tiếp tục phần **Thanh toán thất bại, hủy trên cổng và thanh toán lại** trong feature này. Backend vẫn kiểm tra trạng thái, kết quả lần trước và thời hạn gốc trước khi cho thanh toán; không tạo đơn mới hoặc gia hạn.
+5. Đơn đã xác nhận, hết hạn hoặc đang chờ xác định kết quả được hiển thị đúng tình trạng để khách theo dõi; chỉ cho thao tác phù hợp với trạng thái Backend đã xác nhận.
+
+### Xem đơn — Nhánh lỗi
+
+1. Phiên đăng nhập không hợp lệ: hướng dẫn đăng nhập lại. Đơn không tồn tại hoặc không thuộc Member: từ chối truy cập, không tiết lộ thông tin đơn của người khác.
+2. Lỗi tải danh sách/chi tiết: cho tải lại; không hiển thị lỗi tải như danh sách đơn rỗng.
+3. Trạng thái đổi hoặc thời hạn kết thúc trước khi bấm thanh toán lại: tải trạng thái mới và áp dụng nhánh tại phần Thanh toán; không tạo thêm lần thanh toán khi giao dịch trước chưa rõ kết quả.
 
 ## Refund
 
