@@ -15,4 +15,4 @@ This screen allows Members to:
 | Step indicator | Displays journey progress; the example step count is not an approved fixed workflow length. |
 | Estimated price / difficulty | Read-only estimate based on current options and configured rules; it is not a final payable amount. |
 | Save Draft / Send for Review | Illustrative actions. Submission requires the current eligible Member/design context. |
-| Image-processing consent text | Informational label in the frame; a consent statement alone is not evidence of an affirmative recorded choice. |
+| Image-processing consent state | Shows whether the current Member has actively accepted the current consent version; upload and analysis are blocked without recorded consent. |
