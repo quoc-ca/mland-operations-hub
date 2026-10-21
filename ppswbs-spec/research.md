@@ -1,6 +1,6 @@
 # Research — Phân loại luồng theo Features
 
-Phân loại theo 10 major features trong Report 1. Đây là cách tổ chức tài liệu, không phải xác nhận các tính năng đã được triển khai. Nội dung luồng hiện có được giữ lại; phần chưa có chỉ ghi rõ trạng thái, chưa bổ sung thiết kế mới.
+Phân loại theo 10 major features trong Report 1. Đây là cách tổ chức tài liệu, không phải xác nhận các tính năng đã được triển khai. Mỗi feature ghi rõ nội dung đã mô tả, đề xuất và phần chưa chốt.
 
 Mỗi luồng được mô tả tại một nơi. Các điểm dùng chung được dẫn chiếu giữa feature; thanh toán không được tạo thành feature thứ 11.
 
@@ -324,18 +324,194 @@ Chưa mô tả luồng thiết kế cá nhân hóa, review, báo giá và đơn 
 
 # FE-06 — Loyalty & Promotion Management
 
-Đã có luồng sử dụng ưu đãi tại checkout bên dưới, được chuyển từ mục Mua hàng. Luồng bắt đầu từ checkout ở FE-02 và quay về bước Tạo đơn sau khi khách xác nhận báo giá. Chưa mô tả quản lý chương trình, hạng thành viên, tích điểm và lịch sử điểm.
+Feature này gồm quản lí chương trình voucher/giảm giá, điểm thưởng và hạng thành viên, nhằm khuyến khích Member quay lại mua sản phẩm và tham gia workshop. Luồng mua sản phẩm tham chiếu [FE-02](#fe-02), đặt workshop tham chiếu [FE-03](#fe-03), cấu hình tham số tham chiếu [FE-09](#fe-09). Nội dung dưới đây là thiết kế mong muốn; các quy tắc có nhãn **Đề xuất** còn cần quyết định.
 
-## Checkout — Voucher, điểm thưởng và tổng tiền
+## Quản lí chương trình ưu đãi
 
-1. Khách chọn không dùng ưu đãi hoặc dùng tối đa một voucher giảm tiền hàng. Chưa hỗ trợ voucher vận chuyển riêng trong luồng này.
-2. Backend kiểm tra voucher theo chính sách đã cấu hình: hiệu lực, phạm vi sản phẩm, điều kiện đơn, giới hạn sử dụng và điều kiện kết hợp. Không tự đặt mức giảm hoặc giới hạn khi thiếu chính sách.
-3. Sau khi tính voucher, khách có thể chọn dùng loyalty point. Backend kiểm tra số điểm khả dụng và chính sách quy đổi/giới hạn, áp dụng điểm trên phần tiền hàng còn lại; chỉ kết hợp khi chính sách cho phép.
-4. Backend tính: **Tổng thanh toán = Tiền hàng − Giảm voucher − Giảm bằng điểm + Phí giao hàng**. Các khoản giảm không được làm tiền hàng âm; voucher tiền hàng và điểm không giảm phí giao trong phạm vi này.
-5. Frontend hiển thị rõ tiền hàng, từng khoản giảm, phí giao và tổng cuối cùng bằng VND. Nếu không dùng ưu đãi thì vẫn được tiếp tục với báo giá hợp lệ.
-6. Voucher và điểm mới được kiểm tra khi báo giá, chưa bị sử dụng. Việc giữ quyền sử dụng chỉ diễn ra khi tạo đơn; chỉ tiêu dùng khi đơn được xác nhận thanh toán hoặc xác nhận hợp lệ với tổng 0 đồng.
-7. Đổi sản phẩm, số lượng, nơi nhận hoặc ưu đãi phải tính lại báo giá và điều kiện liên quan. Nếu giá, phí hoặc quyền lợi thay đổi, Frontend yêu cầu khách xem lại và xác nhận; không âm thầm bỏ ưu đãi để đặt theo giá khác.
-8. Khách kiểm tra toàn bộ báo giá và bấm **Đặt hàng**. Với tổng dương, checkout thông báo sẽ thanh toán trực tuyến qua VNPay; với tổng 0 đồng, thông báo đơn sẽ được xác nhận trực tiếp. Lần này không có COD hoặc trả tiền tại cửa hàng.
+### Phạm vi và quy tắc chung
+
+1. Manager tạo, sửa, tạm dừng chương trình và theo dõi lượt sử dụng, số tiền đã giảm. Admin cấu hình chính sách điểm và ngưỡng hạng; Member xem, lưu và sử dụng quyền lợi của mình.
+2. Voucher có hai phạm vi riêng: **sản phẩm** và **workshop**. Voucher sản phẩm không dùng cho workshop và ngược lại. Voucher workshop dành cho Member đặt trực tiếp trên website.
+3. Voucher ngày lễ và voucher theo hạng là các chương trình có điều kiện thời gian hoặc đối tượng sử dụng; không phải các lớp voucher được cộng thêm vào một giao dịch. Một chương trình có thể vừa áp dụng dịp lễ, vừa yêu cầu hạng Gold trở lên.
+4. Với mua sản phẩm, mỗi đơn áp dụng **một chương trình giảm tự động hoặc một voucher**, sau đó có thể dùng thêm điểm nếu chính sách cho phép. **Đề xuất:** mỗi booking dùng một voucher; trần giảm không nhân theo số người tham gia.
+5. Hạng thành viên chỉ mở quyền sử dụng chương trình tương ứng. Manager vẫn phải tạo và đưa chương trình vào áp dụng; đạt hạng không tự sinh voucher hoặc tự giảm mọi giao dịch.
+
+### Tạo voucher sản phẩm — Luồng thành công
+
+1. Manager mở phần quản lí ưu đãi, chọn **Tạo chương trình** và phạm vi **Sản phẩm**.
+2. Manager nhập tên chương trình, mã voucher, thời gian sử dụng, sản phẩm và chi nhánh áp dụng.
+3. Manager chọn giảm theo phần trăm hoặc số tiền cố định, nhập mức giảm, mức giảm tối đa và giá trị đơn tối thiểu.
+4. Manager cấu hình tổng lượt sử dụng, số lượt mỗi Member, đối tượng là mọi Member hoặc từ một hạng nhất định, và có cho phép dùng thêm điểm hay không.
+5. Frontend kiểm tra trường bắt buộc và dữ liệu nhập; Backend kiểm tra quyền Manager, phạm vi và tính hợp lệ của các điều kiện trước khi lưu.
+6. Backend lưu chương trình cùng các điều kiện đã xác nhận. Khi chương trình được đưa vào áp dụng và trong thời gian hiệu lực, hệ thống cho Member đủ điều kiện xem và chọn mã tại checkout sản phẩm.
+
+### Tạo voucher workshop — Luồng thành công
+
+1. Manager chọn **Tạo chương trình** và phạm vi **Workshop**, nhập tên chương trình và mã voucher.
+2. Manager chọn gói workshop, chi nhánh, ngày và phiên áp dụng; xác định khoảng thời gian Member được đặt booking bằng mã. Thời gian được đặt bằng mã được phân biệt với ngày diễn ra workshop.
+3. Manager chọn giảm theo phần trăm hoặc số tiền cố định, mức giảm tối đa và tổng phí gói tối thiểu của booking.
+4. Manager cấu hình tổng lượt sử dụng, số lượt mỗi Member, hạng được dùng và có cho phép dùng thêm điểm hay không.
+5. Frontend kiểm tra dữ liệu nhập; Backend kiểm tra quyền Manager, các gói/phiên được chọn và tính hợp lệ của điều kiện trước khi lưu.
+6. Backend lưu chương trình. Khi chương trình có hiệu lực, Member đủ điều kiện được chọn mã lúc đặt workshop trực tiếp trên website; không hiển thị mã này như voucher dùng cho sản phẩm.
+
+### Tạo chương trình giảm tự động cho sản phẩm — Luồng thành công
+
+1. Manager chọn tạo chương trình giảm tự động, cấu hình phạm vi sản phẩm, chi nhánh, thời gian, mức giảm và các điều kiện áp dụng.
+2. Manager xác định chương trình có cho phép dùng thêm điểm hay không rồi xác nhận lưu.
+3. Backend kiểm tra quyền và điều kiện trước khi ghi nhận chương trình.
+4. Tại checkout sản phẩm, Backend xác định chương trình tự động hợp lệ và trả khoản giảm để Member xem; Member không cần nhập mã.
+5. Nếu Member chọn voucher thay cho giảm tự động, hệ thống tính lại tổng tiền với voucher đó; không cộng dồn cả hai khoản giảm.
+
+### Tạo chương trình — Nhánh lỗi
+
+1. Thiếu trường bắt buộc, thời gian không hợp lệ, mức giảm hoặc hạn mức sai: hiển thị lỗi tại trường tương ứng; chưa lưu chương trình.
+2. Mã voucher đã được sử dụng cho chương trình khác hoặc phạm vi sản phẩm/gói/phiên không hợp lệ: yêu cầu Manager sửa lựa chọn trước khi lưu.
+3. Tài khoản không có quyền quản lí chương trình: Backend từ chối thao tác; không chỉ ẩn nút trên giao diện.
+4. Lỗi lưu hoặc mất phản hồi: thông báo chưa xác nhận được kết quả và cho kiểm tra lại danh sách chương trình trước khi gửi lại; không báo tạo thành công khi chưa có xác nhận.
+
+### Sửa, tạm dừng và theo dõi chương trình
+
+1. Manager mở danh sách, chọn một chương trình để xem điều kiện, thời gian, tổng lượt, số lượt đã dùng và số tiền đã giảm; có thể lọc theo phạm vi sản phẩm hoặc workshop.
+2. Manager chọn **Sửa**, cập nhật điều kiện rồi xác nhận. Backend kiểm tra quyền và dữ liệu trước khi lưu, Frontend tải lại thông tin sau khi lưu thành công.
+3. Các thay đổi chỉ dùng cho giao dịch được chấp nhận sau đó; không tính lại khoản giảm của đơn/booking đã được hệ thống chấp nhận.
+4. Manager chọn **Tạm dừng** khi muốn ngừng nhận thêm giao dịch mới theo chương trình. Backend cập nhật trạng thái; mã đã lưu trong Kho Voucher không còn đủ điều kiện cho giao dịch mới khi chương trình bị dừng.
+5. Tạm dừng không tự hủy quyền lợi đã chốt. Với lượt đang tạm giữ, xử lí theo phần Chốt và giải phóng quyền lợi bên dưới, không tự xóa phần đang giữ.
+6. Nếu cập nhật lỗi hoặc mất phản hồi, giữ khả năng tải lại trạng thái để kiểm tra; không hiển thị đã sửa hoặc đã dừng khi chưa được Backend xác nhận.
+
+## Kho Voucher
+
+### Xem và lưu voucher — Luồng thành công
+
+1. Khách xem ưu đãi tại trang sản phẩm, gói workshop hoặc trang ưu đãi. Frontend hiển thị rõ phạm vi **Mua sản phẩm** hoặc **Đặt workshop**, mức giảm, giá trị tối thiểu, thời hạn và hạng được dùng.
+2. Khách mở chi tiết để xem các điều kiện còn lại, rồi chọn **Lưu voucher**. Nếu chưa đăng nhập, hệ thống hướng dẫn đăng nhập trước khi lưu vào tài khoản.
+3. Backend kiểm tra Member và ghi nhận voucher trong **Kho Voucher** của Member đó; lưu lại cùng mã không tạo thêm quyền sử dụng.
+4. Member mở Kho Voucher để xem các mã đã lưu và điều kiện hiện tại, hoặc chọn mã đã lưu khi checkout. Member vẫn có thể nhập mã trực tiếp mà không cần lưu trước.
+5. Lưu voucher chưa giữ lượt, chưa tiêu dùng hạn mức và chưa bảo đảm dùng được. Backend kiểm tra lại điều kiện khi áp dụng và khi Member xác nhận giao dịch.
+
+### Xem và lưu voucher — Nhánh lỗi
+
+1. Voucher hết hạn, bị tạm dừng hoặc Member chưa đạt điều kiện: hiển thị rõ tình trạng; không coi việc mã đã có trong kho là đủ điều kiện sử dụng.
+2. Phiên đăng nhập không còn hợp lệ: yêu cầu đăng nhập lại trước khi lưu hoặc xem kho cá nhân.
+3. Mất mạng hoặc lỗi lưu: cho thử lại; chỉ hiển thị đã lưu sau khi Backend xác nhận.
+
+## Áp dụng ưu đãi khi mua sản phẩm
+
+### Checkout — Luồng thành công
+
+1. Member tiếp tục checkout từ [FE-02](#fe-02). Backend lấy các dòng mua, giá, chi nhánh xử lí và thông tin Member để xác định ưu đãi hợp lệ.
+2. Frontend hiển thị giảm tự động nếu có, các voucher sản phẩm phù hợp và số điểm khả dụng. Member chọn một voucher từ kho, nhập mã trực tiếp hoặc sử dụng giảm tự động.
+3. Backend kiểm tra thời gian, trạng thái chương trình, phạm vi, giá trị tối thiểu, hạng Member, tổng lượt và lượt của Member; trả khoản giảm hợp lệ. Chỉ áp dụng một giảm tự động hoặc một voucher.
+4. Member chọn dùng điểm nếu chính sách của ưu đãi cho phép. Backend kiểm tra điểm khả dụng và giới hạn của giao dịch, trả số điểm được dùng cùng giá trị quy đổi. **Đề xuất:** áp dụng lượng dùng tối thiểu và trần giảm bằng điểm do Admin cấu hình.
+5. Frontend hiển thị tiền hàng, giảm tự động/voucher, giảm bằng điểm, phí giao hàng và tổng cuối cùng để Member xem và xác nhận. **Đề xuất:** phí giao hàng không thuộc cơ sở cộng điểm hoặc chi tiêu xét hạng.
+6. Mở checkout hoặc thử mã chưa giữ lượt voucher hay điểm. Khi Member xác nhận đặt hàng, Backend kiểm tra lại điều kiện và tạo đơn cùng phần quyền lợi tạm giữ theo [FE-02](#fe-02).
+7. Khi thanh toán đầy đủ được xác minh thành công, hệ thống chốt voucher, trừ điểm đã dùng và xử lí cộng điểm mới theo phần Điểm thưởng. Với đơn 0 đồng hợp lệ, chốt quyền lợi khi Backend xác nhận đơn theo nhánh tương ứng tại FE-02, không chờ thanh toán qua cổng.
+
+### Checkout sản phẩm — Nhánh lỗi
+
+1. Nhập voucher workshop tại checkout sản phẩm: từ chối mã và nêu rõ phạm vi áp dụng.
+2. Mã không tồn tại, hết hạn, bị dừng, hết lượt hoặc không đạt điều kiện đơn/hạng: hiển thị lý do, cho chọn mã khác hoặc tiếp tục không dùng voucher.
+3. Điểm khả dụng không đủ hoặc vượt giới hạn: hiển thị lượng được dùng, yêu cầu Member chọn lại và xác nhận tổng tiền mới.
+4. Giá, ưu đãi, điểm hoặc hạn mức thay đổi trước khi tạo đơn: Backend yêu cầu xem lại báo giá; không tự tạo đơn với tổng tiền khác bản Member đã xác nhận.
+5. Lỗi tạo đơn hoặc không giữ được quyền lợi: không để lại phần giữ dở dang; xử lí cùng bước tạo đơn tại FE-02. Mất phản hồi không được tự động tạo một đơn mới.
+
+## Áp dụng ưu đãi khi đặt workshop
+
+### Đặt workshop — Luồng thành công
+
+1. Member chọn gói workshop, chi nhánh, ngày, phiên và thông tin booking theo [FE-03](#fe-03), rồi mở bước xác nhận đặt chỗ trên website.
+2. Frontend hiển thị các voucher workshop phù hợp. Member chọn mã đã lưu hoặc nhập mã trực tiếp.
+3. Backend kiểm tra phạm vi workshop, thời gian được đặt bằng mã, gói/ngày/phiên, tổng phí gói tối thiểu, hạng và hạn mức sử dụng; trả mức giảm hợp lệ. **Đề xuất:** mỗi booking chỉ dùng một voucher, trần giảm không nhân theo số người.
+4. Voucher được trừ trên tổng phí gói trước khi tính cọc. **Đề xuất:** nếu chính sách cho phép dùng thêm điểm, Backend kiểm tra điểm và trừ giá trị quy đổi sau voucher, cũng trước khi tính cọc.
+5. Frontend hiển thị phí gói ban đầu, giảm voucher, giảm bằng điểm, phí gói sau giảm, tiền cọc và phần còn phải thu để Member xác nhận. Ví dụ minh hoạ với cọc 50%: phí gói 1.000.000đ, voucher giảm 100.000đ và điểm giảm 20.000đ thì còn 880.000đ; cọc 440.000đ, còn phải thu 440.000đ.
+6. Khi Member xác nhận booking, Backend kiểm tra lại điều kiện và tạm giữ lượt voucher, điểm cần dùng cùng việc ghi nhận booking. **Đề xuất:** xác minh cọc thành công thì chốt lượt voucher và trừ điểm.
+7. Khi thu phần còn lại, hệ thống dùng số tiền đã ghi nhận của booking; không áp dụng lại voucher hay trừ lại điểm. **Đề xuất:** chỉ cộng điểm mới sau khi Member đã tham gia xong và thanh toán đủ, không cộng khi mới tạo booking hoặc mới trả cọc.
+
+### Đặt workshop — Nhánh lỗi
+
+1. Nhập voucher sản phẩm: từ chối mã và hướng dẫn chọn voucher workshop.
+2. Gói, chi nhánh, ngày/phiên, thời gian đặt, giá trị tối thiểu hoặc hạng không phù hợp: thông báo điều kiện chưa đạt, chưa áp dụng voucher.
+3. Voucher hết lượt hoặc điểm không còn đủ trước lúc xác nhận: yêu cầu chọn lại ưu đãi, tính lại phí gói/cọc và cho Member xác nhận lại.
+4. Booking hết hạn trước khi thanh toán được chấp nhận: giải phóng lượt voucher và điểm đang giữ; không ghi nhận là đã sử dụng.
+5. **Đề xuất:** trường hợp hủy, hoàn tiền hoặc không đến sau khi đã chốt quyền lợi cần quy tắc riêng về hoàn voucher, hoàn điểm đã dùng và điều chỉnh điểm/chi tiêu đã ghi nhận; chưa tự coi các trường hợp này giống hết hạn chưa thanh toán.
+
+## Điểm thưởng
+
+### Phạm vi và cấu hình chính sách
+
+1. Member có một số dư điểm dùng chung: được kiếm điểm từ mua sản phẩm và workshop, rồi dùng điểm để giảm tiền cho một trong hai dịch vụ. Điểm không chia thành ví sản phẩm và ví workshop.
+2. Điểm chỉ dùng được sau khi đã cộng thành công; không dùng điểm dự kiến kiếm từ giao dịch để giảm chính giao dịch đó. **Điểm chưa hết hạn.**
+3. Admin cấu hình tỷ lệ cộng điểm và giá trị quy đổi. **Đề xuất:** ban đầu dùng cùng tỷ lệ cộng điểm cho cả hai dịch vụ; cấu hình lượng dùng tối thiểu, trần giảm bằng điểm và điều kiện kết hợp ưu đãi. Các mức cụ thể chưa chốt.
+4. Backend kiểm tra quyền Admin và tính hợp lệ của cấu hình trước khi lưu. Nếu dữ liệu sai hoặc lưu lỗi, yêu cầu sửa/thử lại; không báo đã cập nhật chính sách khi chưa có xác nhận.
+5. Luồng dùng điểm tại checkout được mô tả ở phần mua sản phẩm và đặt workshop; việc giữ/chốt điểm được mô tả ở phần Chốt và giải phóng quyền lợi bên dưới.
+
+### Cộng điểm từ giao dịch — Luồng thành công
+
+1. Backend nhận kết quả nghiệp vụ đã được xác minh: với sản phẩm là thanh toán đầy đủ thành công; **Đề xuất:** với workshop là đã tham gia xong và thanh toán đủ.
+2. Backend kiểm tra giao dịch thuộc Member và chưa được cộng điểm. Workshop mới trả cọc chưa đủ điều kiện theo đề xuất này.
+3. **Đề xuất:** Backend tính điểm trên tiền thực trả sau các khoản giảm và điểm đã dùng, không gồm phí giao hàng. Workshop tính một lần trên phí gói thực trả; không cộng riêng tiền cọc rồi cộng lại toàn bộ phí.
+4. Backend áp dụng chính sách tương ứng và ghi lịch sử cộng điểm gắn với giao dịch, cập nhật số dư Member. Ví dụ minh hoạ: mỗi 10.000đ được 1 điểm thì số tiền đủ điều kiện 880.000đ nhận 88 điểm; tỷ lệ và cách làm tròn còn cần cấu hình.
+5. **Đề xuất:** tại cùng thời điểm, ghi nhận khoản chi tiêu đủ điều kiện của cả hai dịch vụ để xét hạng; không lấy số điểm còn lại làm chỉ tiêu xét hạng.
+6. Khi xử lí lại cùng một kết quả, Backend trả trạng thái đã ghi nhận; không cộng thêm điểm hoặc chi tiêu lần nữa.
+
+### Xem điểm và lịch sử — Luồng thành công
+
+1. Member đăng nhập, mở **My Loyalty**.
+2. Backend trả số dư điểm, phần đang tạm giữ, điểm khả dụng và lịch sử cộng/dùng điểm của chính Member đó.
+3. Frontend hiển thị giá trị quy đổi theo chính sách hiện hành; mỗi mục lịch sử cho biết giao dịch liên quan và số điểm thay đổi.
+4. Sau khi phát sinh cộng điểm, chốt dùng điểm hoặc giải phóng phần đang giữ, Member có thể tải lại để xem số liệu đã được Backend xác nhận.
+
+### Điểm thưởng — Nhánh lỗi
+
+1. Giao dịch chưa đủ điều kiện hoặc workshop mới trả cọc: chưa cộng điểm; không hiển thị điểm dự kiến như điểm khả dụng.
+2. Chưa có chính sách hợp lệ hoặc lỗi ghi nhận điểm: chưa báo cộng thành công; giữ khả năng xử lí lại giao dịch mà không cộng trùng.
+3. Mất phản hồi khi cộng/trừ điểm: kiểm tra kết quả đã ghi nhận trước khi thử lại, không thực hiện thêm một lần chỉ vì Frontend chưa nhận được kết quả.
+4. Phiên đăng nhập hết hạn hoặc tải My Loyalty lỗi: yêu cầu đăng nhập lại hoặc thử tải lại; không hiển thị số dư cũ như số điểm hiện tại đã xác nhận.
+
+## Hạng thành viên
+
+### Xét nâng hạng trong kỳ — Luồng thành công
+
+1. Hệ thống sử dụng ba hạng **Silver → Gold → Platinum**, xét theo chu kỳ **12 tháng**. Admin cấu hình ngưỡng hạng; ngưỡng cụ thể và mốc bắt đầu chu kỳ còn cần quyết định.
+2. Khi khoản chi tiêu đủ điều kiện được ghi nhận, Backend cập nhật tổng chi tiêu của kỳ. **Đề xuất:** lấy chi tiêu từ cả mua sản phẩm và workshop tại cùng thời điểm cộng điểm ở phần Điểm thưởng.
+3. Backend đối chiếu tổng chi tiêu với ngưỡng hạng. Nếu đạt điều kiện hạng cao hơn, cập nhật hạng Member và lưu lịch sử thay đổi.
+4. Member xem hạng hiện tại và chi tiêu trong kỳ tại My Loyalty. Điểm dùng giảm giá được theo dõi riêng; dùng hết điểm không trực tiếp làm xuống hạng.
+5. Trong quyền lợi của mỗi hạng, Frontend hiển thị hai nhóm chương trình: **voucher sản phẩm** và **voucher workshop**. Chỉ các chương trình Manager đã tạo, còn hiệu lực và phù hợp điều kiện mới được dùng; mã đã lưu vẫn phải kiểm tra lại hạng khi áp dụng.
+
+### Xét lại hạng khi sang kỳ mới — Luồng thành công
+
+1. Khi kết thúc kỳ 12 tháng, Backend tổng hợp chi tiêu đủ điều kiện của kỳ vừa kết thúc và xác định hạng cho kỳ tiếp theo theo ngưỡng đã cấu hình; không đặt chi tiêu về 0 trước khi xét lại.
+2. Backend cập nhật hạng cho kỳ mới. Nếu chi tiêu không đủ để duy trì hạng cũ, Member có thể xuống hạng; không mặc định giữ hạng cao nhất mãi mãi.
+3. Backend lưu kết quả xét hạng, khép lại kỳ cũ và bắt đầu chỉ tiêu chi tiêu kỳ mới từ 0; lịch sử giao dịch và lịch sử hạng vẫn được giữ.
+4. Số dư điểm còn lại không bị xóa khi đổi kỳ. Quyền sử dụng voucher ở các giao dịch mới được kiểm tra theo hạng hiện tại.
+5. Trong kỳ mới, Member tiếp tục được nâng hạng khi đạt điều kiện như luồng xét nâng hạng bên trên.
+
+### Hạng thành viên — Nhánh lỗi
+
+1. Chưa chốt mốc chu kỳ hoặc thiếu ngưỡng hạng hợp lệ: chưa tự xét lại hoặc đặt lại chỉ tiêu; cần hoàn tất cấu hình trước khi áp dụng.
+2. Lỗi xử lí khi nâng hạng hoặc chuyển kỳ: chỉ hiển thị thay đổi đã được Backend xác nhận; xử lí lại không được tạo thêm một kỳ hoặc xóa lịch sử.
+3. Hạng đã thay đổi khiến voucher không còn đủ điều kiện: báo lý do tại bước áp dụng mã; không suy diễn mã đã lưu là quyền được sử dụng vĩnh viễn.
+
+## Chốt và giải phóng quyền lợi
+
+### Chốt lượt voucher và điểm — Luồng thành công
+
+1. Khi Member xác nhận đặt hàng/booking, Backend tạm giữ lượt voucher và điểm cần dùng cùng thao tác ghi nhận giao dịch. Điểm đang giữ không còn khả dụng cho giao dịch khác.
+2. Với sản phẩm, khi thanh toán được xác minh thành công, Backend chốt lượt voucher và trừ điểm đang giữ đúng một lần. Đơn 0 đồng hợp lệ được chốt khi Backend xác nhận đơn theo FE-02.
+3. **Đề xuất:** với workshop, khi cọc được xác minh thành công, Backend chốt lượt voucher và trừ điểm đang giữ; đợi hoàn thành và trả đủ mới cộng điểm mới.
+4. Backend ghi kết quả sử dụng theo giao dịch để xử lí lại an toàn; gửi lại cùng kết quả thanh toán không tiêu dùng thêm lượt hoặc trừ thêm điểm.
+
+### Hết hạn khi chưa thanh toán được chấp nhận
+
+1. Backend xác định đơn/booking đã hết hạn và chưa có kết quả thanh toán thành công được chấp nhận theo luồng nghiệp vụ tương ứng.
+2. Backend giải phóng lượt voucher và điểm đang giữ, trả điểm về khả dụng; không ghi nhận đã dùng voucher hoặc đã tiêu điểm.
+3. Giải phóng không gia hạn chương trình. Nếu Member đặt lại, Backend kiểm tra điều kiện hiện hành; voucher có thể đã hết hạn hoặc hết lượt.
+4. Việc giải phóng phần chưa dùng không đồng nghĩa hoàn quyền lợi đã chốt. **Đề xuất:** quy tắc hoàn sau hủy/hoàn tiền/không đến cần được xác định riêng.
+
+### Chốt và giải phóng — Nhánh lỗi
+
+1. Thanh toán và xử lí hết hạn diễn ra gần nhau: Backend kiểm tra trạng thái giao dịch trước khi cập nhật; không vừa chốt sử dụng vừa trả lại cùng lượt voucher/điểm.
+2. Kết quả thanh toán chưa rõ hoặc đến muộn: xử lí theo luồng thanh toán của FE-02/FE-03; không tự cộng điểm hoặc chốt ưu đãi chỉ từ thông báo trên trình duyệt.
+3. Lỗi lưu hoặc mất phản hồi: kiểm tra trạng thái đã ghi nhận trước khi xử lí lại; không trừ, cộng hoặc giải phóng thêm lần nữa.
 
 <a id="fe-07"></a>
 
