@@ -1410,7 +1410,7 @@ belongs to the same visual/semantic concept.
 
 ## Existing Components
 
-The current prototype is a static customer UI in frontend/index.html with interaction rendering in frontend/app.js. It has no reusable component library yet; reusable components should be introduced only when a feature establishes a repeated visual and semantic pattern.
+The current prototype is the isolated Member Profile 003 review UI in prototypes/003-member-profile/index.html. Its interaction rendering is in app.js and its reviewer controls are separate in reviewer.js. The previous customer-journey demo has been removed. This prototype is not evidence of production behavior; see the feature handoff for scope and reusable Figma components.
 
 <!--
 Không cần list toàn bộ component nếu chúng thay đổi thường xuyên.
@@ -1426,7 +1426,7 @@ src/features/
 
 ## Existing Styles
 
-Existing global tokens and component styles are in frontend/styles.css. New UI should adopt this DESIGN.md’s approved tokens; migration of the current gold prototype is a separate, explicitly scoped task.
+Prototype 003 tokens and component styles are in prototypes/003-member-profile/styles.css. The user-approved prototype redesign uses light ivory surfaces, charcoal text and a restrained warm accent. This approval is specific to prototype 003; it does not change production design decisions for other features.
 
 <!--
 Ví dụ:
@@ -1613,7 +1613,7 @@ Rule đó phải nằm trong Feature/Spec.
 
 # References
 
-References: the current customer prototype in frontend/, the approved feature/spec documents, and public CGV Vietnam and Firebase interfaces as high-level UX references only. No external brand asset, logo, proprietary typeface or distinctive screen composition is to be copied.
+References: the Member Profile review prototype in prototypes/003-member-profile/, the approved feature/spec documents, and public CGV Vietnam and Firebase interfaces as high-level UX references only. No external brand asset, logo, proprietary typeface or distinctive screen composition is to be copied.
 
 <!--
 Optional.

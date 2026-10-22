@@ -93,13 +93,18 @@ remain feature-contract decisions.
 | --- | --- | --- | --- | --- | --- |
 | Public client REST | `GET /api/v1/ring-models` | Public | UC-03 | List Owner-confirmed ring-model design paths. | Draft |
 | Public client REST | `GET /api/v1/ring-components` | Public | UC-03 | List published components usable by the configurator. | Draft |
-| Public client REST | `POST /api/v1/design-requests` | Guest or Member with required consent | UC-03 | Submit a reference-image design request or a validated configured design choice. | Draft |
-| Public or protected client REST | `GET /api/v1/design-requests/{designRequestId}` | Requester-authorised access | UC-03 | Read the requester-visible feasibility result and next action. | Draft |
-| Protected client REST | `POST /api/v1/design-review-requests/{reviewRequestId}/decisions` | Staff or Owner, according to review tier | UC-03, UC-08 | Record a human feasibility decision or permitted override with actor, reason, and context. | Draft |
+| Protected client REST | `POST /api/v1/design-requests` | Eligible Member with recorded consent | UC-03 | Submit a booking-design image request or validated configured design choice after package, location, session, ownership and capability checks. | Draft |
+| Protected client REST | `GET /api/v1/design-requests/{designRequestId}` | Owning Member; authorized Staff/Manager review scope | UC-03 | Read the permitted analysis state, review result, and next action without exposing raw provider payloads or another Member's data. | Draft |
+| Protected client REST | `GET /api/v1/design-review-requests` | Staff or Manager within review scope | UC-03, UC-08 | List booking-design requests assigned to the reviewer's authority and branch/delegation scope. | Draft |
+| Protected client REST | `POST /api/v1/design-review-requests/{reviewRequestId}/decisions` | Staff or Manager, according to value/authority tier | UC-03, UC-08 | Record Accepted, Rejected, or Clarification Required with actor, reason, current design version and decision context. AI cannot create this decision. | Draft |
+| Public or protected client REST | `POST /api/v1/ai-support/messages` | Guest or Member | UC-26 | Submit an in-scope public-information/FAQ prompt and receive a validated basic-support response. No transaction or business decision is created. | Draft |
+| Protected client REST | `POST /api/v1/price-proposals/{proposalId}/ai-suggestions` | Manager | UC-28 | Request an advisory package/product price suggestion from complete configured inputs; the suggestion never publishes or changes the final price. | Draft |
 
-AI output is candidate feature data only. AI scoring, threshold values, image
-retention, upload transport, rate limits, and final pricing are not confirmed
-by this catalog.
+AI output is candidate feature data or advisory pricing information only. Every
+valid booking-design request requires human review; no AI auto-accept or
+auto-reject is permitted. Consent, temporary image retention/deletion, upload
+transport, rate limits, provider schema, and final pricing remain feature
+contract concerns and must not be inferred from a browser response.
 
 ### 3.4 Ready-ring retail, invoices, and payments
 
