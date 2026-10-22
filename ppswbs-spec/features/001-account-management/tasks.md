@@ -1,4 +1,4 @@
-# Tasks: 003-member-profile
+# Tasks: 001-account-management
 Approval/source: user-approved implementation plan, 2026-10-19. Checkboxes are implementation progress, not reviewer sign-off. Implementation was removed at the user's request on 2026-10-19; only design artifacts remain.
 Revision source: the user's approved authentication/home-redirect/no-policy-gate correction in this conversation. T001 records the original design task; revised-document analysis is separate from runtime completion. Task IDs, dependency order and completion markers are retained. Use the [spec navigation table](spec.md#authentication-and-navigation) and [seven verification scenarios](quickstart.md).
 ## Phase 1: Design and prerequisites

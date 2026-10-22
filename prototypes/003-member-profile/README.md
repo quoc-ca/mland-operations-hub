@@ -1,6 +1,6 @@
 # 003 · Member Profile — prototype
 
-Prototype tĩnh để duyệt UX theo [spec 003 đã sửa](../../ppswbs-spec/features/003-member-profile/spec.md). Không có authentication, email, API, cookie hay database thật.
+Prototype tĩnh để duyệt UX theo [spec 003 đã sửa](../../ppswbs-spec/features/001-account-management/spec.md). Không có authentication, email, API, cookie hay database thật.
 
 ## Chạy
 

@@ -6,7 +6,7 @@ Danh mục URL đầy đủ: [figma-index.json](figma-index.json).
 
 ## Nguồn hiện hành
 
-Người dùng yêu cầu đồng bộ prototype theo bản [spec](../../ppswbs-spec/features/003-member-profile/spec.md), [plan](../../ppswbs-spec/features/003-member-profile/plan.md), [data model](../../ppswbs-spec/features/003-member-profile/data-model.md) và [OpenAPI](../../ppswbs-spec/features/003-member-profile/contracts/member-profile.openapi.yaml) đã sửa: thành công về trang chủ, chỉ email chưa xác minh mới tiếp tục kích hoạt, policy không chặn 003.
+Người dùng yêu cầu đồng bộ prototype theo bản [spec](../../ppswbs-spec/features/001-account-management/spec.md), [plan](../../ppswbs-spec/features/001-account-management/plan.md), [data model](../../ppswbs-spec/features/001-account-management/data-model.md) và [OpenAPI](../../ppswbs-spec/features/001-account-management/contracts/member-profile.openapi.yaml) đã sửa: thành công về trang chủ, chỉ email chưa xác minh mới tiếp tục kích hoạt, policy không chặn 003.
 
 Đợt này sửa web, Figma và tài liệu bàn giao; không triển khai backend hoặc tick T001–T008 nhờ prototype.
 

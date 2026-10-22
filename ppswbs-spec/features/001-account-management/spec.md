@@ -1,5 +1,5 @@
 # Feature Specification: Member Profile
-**Feature**: 003-member-profile | **Date**: 2026-10-19
+**Feature**: 001-account-management | **Date**: 2026-10-19
 **Status**: Approved scope/design recorded from the user's explicit “PLEASE IMPLEMENT THIS PLAN” instruction in this conversation on 2026-10-19. Approval is limited to this feature, plan and tasks; it does not ratify any other feature.
 **Revision**: The user approved “Sửa spec 003: xác thực về trang chủ, policy không chặn hồ sơ” in this conversation. This revision supersedes the earlier combined authentication/verification/policy journey; implementation remains pending.
 ## Scope and source alignment
