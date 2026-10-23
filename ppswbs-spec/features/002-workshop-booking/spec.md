@@ -1,4 +1,4 @@
-# Feature Specification: Customer Workshop Booking Lifecycle
+# Feature Specification: Customer Workshop Booking Core
 
 **Feature Branch**: `002-workshop-booking`
 
@@ -11,9 +11,18 @@
 ## Scope and source alignment
 
 This feature defines the first customer-facing Workshop Booking slice for Guests
-and Members. It covers the journey from discovering a published workshop package
-through creating a pending booking, paying the required deposit, and looking up
-the resulting booking.
+and Members. It owns the commercial order, the chosen workshop item(s), capacity
+holds, attendance-ticket issuance, deposit payment, and booking lookup.
+
+> **Rebase required — 2026-10-23.** The original V1 artifacts below were written
+> for a single-session booking with a single `participant_count`. FE-03 now uses
+> a more accurate model: a **booking** is the commercial order; each **workshop
+> item** is one physical result (for example, one ring) and is assigned to one
+> session; each actual attendee has one independent **attendance ticket** and
+> QR. A booking may therefore contain several items and sessions, and two people
+> can share one item while receiving two tickets. The legacy data model, API
+> contract, plan, and tasks in this directory must be rebased before they guide
+> any further implementation. See [REBASE-NOTES.md](REBASE-NOTES.md).
 
 The source use cases are:
 
@@ -24,11 +33,11 @@ The source use cases are:
 - `05-look-up-booking-details.md`
 
 Workshop schedule configuration, slot capacity configuration, staff assignment,
-participant check-in, post-confirmation completion/no-show processing, holiday
-exceptions, and external synchronization are explicitly deferred to later
-features. This feature consumes published package,
-schedule, session, capacity, and supported-material information; it does not own
-their operational configuration workflows.
+participant check-in, attendance finalization/no-show processing, post-session
+settlement, customer cancellation/refund, manual rescheduling, and external OTA
+synchronization are explicitly deferred to later features. This feature consumes
+published package, session, capacity, and supported-material information; it
+does not own their operational configuration workflows.
 
 ## Clarifications
 
@@ -46,7 +55,7 @@ a later feature. The implemented state enum is therefore
 `COMPLETED`, and `NO_SHOW` remain reserved states.
 
 - Q: Booking should use which business and financial states? → A: Service status and financial payment status are separate. The agreed service statuses are `PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED`, `CHECKED_IN`, `COMPLETED`, `CANCELLED`, and `NO_SHOW`; booking financial statuses are `UNPAID`, `DEPOSIT_PAID`, `FULLY_PAID`, `REFUND_PENDING`, and `REFUNDED`. `FAILED` is reserved for `PaymentAttempt`.
-- Q: Is email confirmation required before payment? → A: No. The booking does not require email confirmation before payment; after successful payment, the system generates the QR ticket and sends the confirmation notification.
+- Q: Is email confirmation required before payment? → A: No. The booking does not require email confirmation before payment; after successful payment, the system generates one QR ticket for each purchased participant seat and sends the confirmation notification.
 - Q: Who owns the OTP step shown during payment? → A: The Payment Gateway owns OTP or equivalent payment authorization; Workshop Booking does not issue, store, or verify the OTP. It only processes the gateway's authenticated payment result.
 - Q: Does the External Registration System integration belong to this feature? → A: No. This feature records or emits the confirmed-booking handoff for a later synchronization feature; external slot deduction, retry and reconciliation are out of scope.
 - Superseded clarification: post-confirmation cancellation, cancellation deadlines, refunds, and Staff/Owner operational cancellation are deferred to a later feature.
@@ -66,10 +75,16 @@ a later feature. The implemented state enum is therefore
 - Q: May a Member retry payment for a pending booking? → A: Yes. An authenticated Member may resume or retry payment for a booking owned by that Member; the state-specific projection is the same as for a Guest.
 - Q: Which contact fields are required when creating a booking? → A: Guests must provide both email and phone. Members receive both fields auto-filled from their profile and may edit them when booking for another person; the booking stores the submitted contact snapshot.
 - Q: Who receives the post-payment Magic Link? → A: Both Guest and Member bookings send the Magic Link to the submitted contact email snapshot, including when a Member books for another person.
-- Q: What should the confirmation email contain? → A: It contains both the QR Check-in ticket directly and a Magic Link to the read-only booking details.
+- Q: How are tickets issued for a multi-participant booking? → A: One booking has one aggregate invoice and one deposit payment, but successful confirmation issues exactly `participant_count` independent QR tickets. Until a later participant-registration feature exists, the submitted booking contact receives the ticket set and may distribute it to the group.
+- Q: Does V1 collect an identity or contact method for every ticket holder? → A: No. V1 uses `BOOKING_CONTACT_RECEIVES_ALL_TICKETS`: it collects only the booking contact and `participant_count`, then delivers the full ticket set and Magic Link to that contact. Each ticket is independently usable at later check-in but is not assigned to a participant identity. `EACH_PARTICIPANT_RECEIVES_TICKET`, participant email delivery/claim, and ticket-transfer workflows are explicitly deferred to a separate feature.
+- Q: What should the confirmation email contain? → A: It contains the complete QR Check-in ticket set directly and a Magic Link to the read-only booking details.
 - Q: What should the QR Check-in payload contain? → A: It contains only a signed opaque token/reference; it contains no PII, payment data, raw Magic Link token, or other sensitive payload.
+- Q: How is a later Staff check-in performed when QR scan is unavailable? → A: QR is the primary ticket credential; an individual `ticket_code` is the manual fallback. A `booking_code` only retrieves the booking/ticket set and cannot itself check in an unspecified ticket. Any future override must select a remaining ticket and be audited.
+- Q: Who may perform a later ticket check-in or override? → A: Staff may perform normal QR/`ticket_code` check-in under `workshop.checkin`. Only Manager or specially authorized Staff with `workshop.checkin.override` may override a ticket exception; the override needs a reason and audit evidence. This is a later check-in feature, not a transition implemented by feature 002.
+- Q: When may a later ticket check-in occur? → A: Each session has a Manager-configurable check-in window. Normal Staff check-in is allowed only within that window; an outside-window check-in needs authorized override and audit evidence. This is configuration for a later check-in feature, not a transition implemented by feature 002.
+- Q: How are later no-shows recorded? → A: The system does not mark a ticket `NO_SHOW` automatically when the check-in window closes. Staff/Manager finalize attendance after the session; remaining unchecked tickets become `NO_SHOW` and the booking becomes `COMPLETED`. Any correction after finalization requires Manager-authorized audit. This is a later attendance feature, not a transition implemented by feature 002.
 - Q: When does the QR Check-in ticket expire? → A: It remains valid until the associated workshop ends and may be revoked when required.
-- Q: What happens to the QR when a confirmation email is resent? → A: Reuse the same active QR/token; resending email does not create a new ticket or revoke the existing one.
+- Q: What happens to the QR when a confirmation email is resent? → A: Reuse the same active ticket set; resending email does not create, revoke or rotate any ticket.
 - Q: Who may request a confirmation email resend? → A: Guest, Member, and authorized Staff/Owner may request a resend under their respective access rules; operational sends are audited.
 - Q: What happens if confirmation email delivery fails after payment? → A: The booking remains `CONFIRMED`; the system stores a notification retry intent and retries automatically. Email delivery is not a condition for booking confirmation.
 - Q: How should automatic confirmation-email retry stop? → A: Retry at most three times with backoff, then mark the notification for authorized Staff/Owner follow-up.
@@ -102,13 +117,13 @@ package, and see enough information to decide whether to continue to booking.
 ### User Story 2 - Create a pending workshop booking (Priority: P1)
 
 As a Guest or Member, I want to select a package, location, date, session, and
-participant information so that the system can prepare my deposit payment.
+participant count so that the system can prepare my deposit payment.
 
 **Why this priority**: Creating a valid pending booking is the core value of the
 feature and provides the transaction context for payment.
 
 **Independent Test**: A visitor can select an available package and session,
-submit valid contact and participant details, and receive a pending booking with
+submit valid booking-contact details and a participant count, and receive a pending booking with
 an exact deposit amount and temporary capacity hold.
 
 **Acceptance Scenarios**:
@@ -119,9 +134,9 @@ an exact deposit amount and temporary capacity hold.
 2. **Given** a Member has verified profile details, **When** the Member confirms
    them for the booking, **Then** the system uses the applicable profile data
    without requiring duplicate entry.
-3. **Given** the visitor is a Guest, **When** required contact and participant
-   details are missing or invalid, **Then** the system identifies the fields to
-   correct and creates no booking.
+3. **Given** the visitor is a Guest, **When** required booking-contact details or
+   participant count are missing or invalid, **Then** the system identifies the
+   fields to correct and creates no booking.
 4. **Given** the visitor is a Member, **When** the booking form opens, **Then**
    email and phone are auto-filled from the Member profile and remain editable
    for booking on behalf of another person.
@@ -154,7 +169,8 @@ payment confirmation is received.
 2. **Given** a valid signed payment confirmation with the expected booking
    reference and amount, **When** the system receives it within the allowed
    window, **Then** it records one deposit transaction, sets payment status to
-   `DEPOSIT_PAID`, and confirms the booking.
+   `DEPOSIT_PAID`, confirms the booking, and issues one independent QR ticket
+   for every purchased participant seat.
 3. **Given** payment authorization fails or the visitor cancels at the payment
    gateway while the hold is active, **When** the visitor retries payment,
    **Then** the system keeps the booking `PENDING_PAYMENT` with financial status
@@ -189,12 +205,13 @@ appropriate booking summary without exposing another customer's booking.
 2. **Given** lookup information does not identify a booking, **When** the visitor
    submits it, **Then** the system returns a safe not-found outcome without
    revealing whether another booking exists.
-3. **Given** a confirmed booking has a QR check-in ticket, **When** the visitor
-   views the booking, **Then** the ticket is available for later check-in.
+3. **Given** a confirmed booking has participant QR tickets, **When** the visitor
+   views the booking, **Then** exactly one ticket per purchased participant seat
+   is available for later individual check-in.
 4. **Given** a Guest has a confirmed booking, **When** the Guest submits the
    booking code and either the contact phone or contact email used during
    booking, **Then** the system
-   displays the authorized booking details, branch, session status, and QR ticket.
+   displays the authorized booking details, branch, session status, and ticket set.
 5. **Given** a confirmation email contains a valid Magic Link, **When** the Guest
    opens it, **Then** the system displays the authorized booking details without
    requiring manual lookup input.
@@ -206,7 +223,7 @@ appropriate booking summary without exposing another customer's booking.
    remaining hold countdown and a resume-payment action, but does not show a QR
    check-in ticket.
 8. **Given** a Guest looks up a `CONFIRMED` booking, **When** the booking details
-   are displayed, **Then** the system shows the QR ticket and booking/branch
+   are displayed, **Then** the system shows the ticket set and booking/branch
    details without a payment countdown.
 
 ### Edge Cases
@@ -249,8 +266,9 @@ appropriate booking summary without exposing another customer's booking.
   description, participant constraints, supported design/material information,
   and booking availability information.
 - **FR-003**: The system MUST allow a Guest or Member to select a published
-  package, location, date, session, participant count, and required contact and
-  participant information before submitting a booking.
+  package, location, date, session, participant count, and required booking
+  contact information before submitting a booking. It MUST NOT require, infer,
+  or persist a separate name or contact method for each participant in V1.
 - **FR-003a**: Guest booking creation MUST require a valid contact email and
   contact phone. Member booking forms MUST auto-fill both fields from the Member
   profile, allow edits for booking on behalf of another person, and persist the
@@ -263,8 +281,10 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-006**: The system MUST create at most one customer-facing pending booking
   for a single accepted booking submission and must not leave an incomplete
   booking when creation fails.
-- **FR-007**: The system MUST create a package invoice with payment-pending
-  status and calculate the required deposit as 50% of the selected package price.
+- **FR-007**: The system MUST create one payment-pending package invoice per
+  booking, freeze the total booking amount derived from the selected package's
+  approved participant-pricing policy, and calculate the required deposit as
+  50% of that total booking amount.
 - **FR-008**: The system MUST hold the requested capacity temporarily for a
   pending booking for no longer than 15 minutes.
 - **FR-009**: The system MUST release the temporary capacity hold when valid
@@ -285,18 +305,22 @@ appropriate booking summary without exposing another customer's booking.
   active, and the visitor MUST be allowed to retry payment within that window.
 - **FR-013**: The system MUST record payment outcomes idempotently so repeated
   payment events do not create duplicate transactions or duplicate settlement.
-- **FR-014**: The system MUST generate a booking code and QR check-in ticket
-  after successful deposit confirmation.
-- **FR-014a**: The confirmation email MUST include the QR Check-in ticket
-  directly and a protected Magic Link to the read-only booking details.
+- **FR-014**: The system MUST generate a booking code and exactly
+  `participant_count` independent QR check-in tickets after successful deposit
+  confirmation. One booking/invoice/payment transaction settles the whole ticket
+  set; each ticket represents one purchased participant seat.
+- **FR-014a**: The confirmation email MUST be delivered only to the submitted
+  booking contact in V1 and include the complete QR ticket set directly and a
+  protected Magic Link to the read-only booking details. The contact may share
+  tickets independently; no participant-specific delivery is performed.
 - **FR-014b**: The QR Check-in ticket MUST contain only a signed opaque
   token/reference and MUST NOT contain PII, payment data, raw Magic Link tokens,
   or secrets.
-- **FR-014c**: The QR Check-in ticket MUST remain valid until the associated
+- **FR-014c**: Each QR Check-in ticket MUST remain valid until the associated
   workshop ends and MUST support revocation without changing the booking's
   historical payment evidence.
-- **FR-014d**: Resending a confirmation email MUST reuse the same active QR
-  ticket and MUST NOT create a duplicate ticket or revoke the existing ticket.
+- **FR-014d**: Resending a confirmation email MUST reuse the same active ticket
+  set and MUST NOT create, revoke or rotate any ticket.
 - **FR-014e**: Guest and Member resend requests MUST require the corresponding
   lookup or ownership proof, while Staff/Owner resend requests MUST be
   authorized and audited; all resend paths MUST be rate-limited and safe.
@@ -319,7 +343,7 @@ appropriate booking summary without exposing another customer's booking.
   that booking; at least one contact proof must match.
 - **FR-017b**: After successful payment confirmation, the system MUST send a
   protected Magic Link that grants read-only access to the corresponding booking
-  details and QR ticket until the associated workshop ends; the token MUST be
+  details and complete ticket set until the associated workshop ends; the token MUST be
   stored only as a hash, MUST expire automatically when the workshop ends, and
   MUST be revocable.
 - **FR-017b1**: The confirmation notification and Magic Link MUST be sent to the
@@ -336,8 +360,8 @@ appropriate booking summary without exposing another customer's booking.
   identity-document verification MUST remain outside this feature.
 - **FR-017f**: A pending booking projection MUST show only payment-resume data,
   including remaining hold time and a resume-payment action; it MUST NOT expose
-  a QR check-in ticket.
-- **FR-017g**: A confirmed booking projection MUST show the QR ticket and
+  any QR check-in ticket.
+- **FR-017g**: A confirmed booking projection MUST show the complete ticket set and
   booking/branch details, MUST NOT show a payment countdown, and MUST NOT expose
   a resume-payment action.
 - **FR-017h**: A Guest or authorized Member MUST be able to release an active
@@ -389,8 +413,9 @@ appropriate booking summary without exposing another customer's booking.
   with a pending booking and an expiry time.
 - **Design Request**: An optional supported ring-design choice and its outcome
   associated with a booking.
-- **Booking Ticket**: A booking code and QR representation available after
-  confirmation for later check-in.
+- **Booking Ticket**: One independently scannable QR representation of a
+  purchased participant seat, available after booking confirmation. A confirmed
+  booking has exactly `participant_count` tickets.
 - **Payment Status**: The financial state of a booking, including unpaid,
   deposit paid, fully paid, failed, refund pending, or refunded.
 
@@ -401,7 +426,8 @@ appropriate booking summary without exposing another customer's booking.
 - **SC-001**: At least 95% of valid customer booking attempts reach a clear
   pending-payment or confirmed outcome without manual operator intervention.
 - **SC-002**: 100% of confirmed bookings have exactly one accepted deposit
-  transaction, payment status `DEPOSIT_PAID`, and a retrievable booking code.
+  transaction, payment status `DEPOSIT_PAID`, a retrievable booking code, and
+  exactly one active ticket for each purchased participant seat.
 - **SC-003**: 100% of invalid, duplicate, mismatched, or unsigned payment
   notifications leave the booking unconfirmed and do not settle the invoice.
 - **SC-004**: 100% of expired pending bookings release their temporary capacity

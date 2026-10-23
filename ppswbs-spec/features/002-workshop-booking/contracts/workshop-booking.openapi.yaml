@@ -80,7 +80,7 @@ paths:
         - {name: contactPhone, in: query, required: false, schema: {type: string, minLength: 7, maxLength: 32}}
         - {name: contactEmail, in: query, required: false, schema: {type: string, format: email, maxLength: 254}}
       responses:
-        '200': {description: Authorized summary; QR only for CONFIRMED, content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}
+        '200': {description: Authorized summary; ticket set only for CONFIRMED, content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}
         '400': {$ref: '#/components/responses/ValidationError'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
@@ -92,7 +92,7 @@ paths:
         - {name: code, in: query, required: true, schema: {type: string}}
         - {name: token, in: query, required: true, schema: {type: string, minLength: 32}}
       responses:
-        '200': {description: Read-only details; QR only after confirmation, content: {text/html: {schema: {type: string}}}}
+        '200': {description: Read-only details; ticket set only after confirmation, content: {text/html: {schema: {type: string}}}}
         '404': {$ref: '#/components/responses/NotFound'}
 components:
   securitySchemes:
@@ -151,8 +151,17 @@ components:
         bookingStatus: {type: string, enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED]}
         paymentStatus: {type: string, enum: [UNPAID, DEPOSIT_PAID, FAILED]}
         holdExpiresAt: {type: string, format: date-time, nullable: true}
-        qrTicket: {type: string, nullable: true, description: Signed opaque QR value; null before confirmation.}
+        tickets:
+          type: array
+          description: Empty before confirmation; after confirmation contains exactly one independently scannable ticket for each purchased participant seat.
+          items: {$ref: '#/components/schemas/BookingTicket'}
         paymentResumeAllowed: {type: boolean}
+    BookingTicket:
+      type: object
+      required: [ticketCode, qrTicket]
+      properties:
+        ticketCode: {type: string, description: Stable non-sensitive ticket reference within the booking.}
+        qrTicket: {type: string, description: Signed opaque QR value; contains no PII, payment data, Magic Link token or secret.}
     Problem:
       type: object
       required: [code, message, correlationId]

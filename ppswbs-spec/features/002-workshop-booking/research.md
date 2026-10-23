@@ -31,6 +31,12 @@
    booking enum with current feature states `PENDING_PAYMENT`, `CONFIRMED`,
    `EXPIRED` and `CANCELLED` for explicit pending-hold release; reserve later
    lifecycle states without transitions.
+12. **Aggregate payment, individual tickets**: A multi-participant booking has
+    one invoice and one accepted deposit payment for the frozen total booking
+    amount. Successful confirmation issues exactly one opaque QR ticket for each
+    purchased participant seat. The submitted booking contact receives and may
+    distribute the ticket set; individual participant contact records are a
+    later feature, not an inferred requirement.
 
 ## Alternatives rejected
 

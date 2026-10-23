@@ -17,13 +17,13 @@ Everything below the separator is preserved from the previous implementation, in
 ---
 
 # Verification Evidence
-Feature: 003-member-profile. Results are recorded from fresh execution, not inferred from existing checkboxes.
+Feature: 006-member-profile. Results are recorded from fresh execution, not inferred from existing checkboxes.
 ## Design gate
 User approval: explicit implementation request in this conversation, 2026-10-19.
 Operational design kit read and checked. No reviewer-owned checklists created or changed.
 **Final acceptance status: CHƯA HOÀN TẤT — MySQL verification pending.** Application implementation is present; the database gate is not waived.
 
-Read-only SpecKit prerequisite command passed with FEATURE_DIR=features/003-member-profile. No extensions.yml hooks exist. Cross-artifact analysis: 18 functional requirements + 4 success criteria, 8 tasks, 100% requirement coverage, 0 critical/high findings, 0 unmapped tasks, 0 constitution conflicts. Requirement coverage: FR-001–003 T002/T004/T005; FR-004–009 T002/T003/T005; FR-010–013 T002/T004/T006; FR-014–016 T002/T004/T005/T006; FR-017 T003/T005; FR-018 T002/T004/T005/T006; SC-001 T001/T007/T008, SC-002–003 T007, SC-004 T006/T008. No reviewer checklist markers were changed.
+Read-only SpecKit prerequisite command passed with FEATURE_DIR=features/006-member-profile after feature renumbering. No extensions.yml hooks exist. Cross-artifact analysis: 18 functional requirements + 4 success criteria, 8 tasks, 100% requirement coverage, 0 critical/high findings, 0 unmapped tasks, 0 constitution conflicts. Requirement coverage: FR-001–003 T002/T004/T005; FR-004–009 T002/T003/T005; FR-010–013 T002/T004/T006; FR-014–016 T002/T004/T005/T006; FR-017 T003/T005; FR-018 T002/T004/T005/T006; SC-001 T001/T007/T008, SC-002–003 T007, SC-004 T006/T008. No reviewer checklist markers were changed.
 
 ## Fresh execution — 2026-10-19
 
@@ -34,7 +34,7 @@ Read-only SpecKit prerequisite command passed with FEATURE_DIR=features/003-memb
 | Persistence, concurrency and rollback | `MemberProfilePersistenceIT` | 4 passed on H2: simultaneous first saves, last save, atomic audit rollback, bootstrap idempotence/no email merge/suspension, concurrent UID initialization. H2 is supplemental. |
 | SDK boundary | `ProfileIdentityGatewayTest` | 2 passed: both credential verification methods request revocation checks; safe invalid/unavailable provider outcomes. |
 | Real provider simulator | `FirebaseProfileEmulatorIT` | 1 passed against running Auth Emulator: real email/password registration, verification action, new ID token, Firebase cookie with exp–iat exactly 28,800 seconds, cookie and ID-token revocation. Emulator does not prove production cryptographic/project integration. |
-| Real HTTP, no-JS forms | From root: `python -X utf8 ppswbs-spec/features/003-member-profile/emulator/profile-http-smoke.py` | Passed: Emulator identity → actual app cookie → SSR policy form → SSR profile form → API read → logout. No JS/browser is used by the form runner. Secure cookies are explicitly forwarded only to the fixed loopback HTTP app. |
+| Real HTTP, no-JS forms | From root: `python -X utf8 ppswbs-spec/features/006-member-profile/emulator/profile-http-smoke.py` | Passed: Emulator identity → actual app cookie → SSR policy form → SSR profile form → API read → logout. No JS/browser is used by the form runner. Secure cookies are explicitly forwarded only to the fixed loopback HTTP app. |
 | JS/static contract | `node --check .../member-profile-auth.js`; Python YAML/Markdown/template checks | Passed: OpenAPI YAML, strict body contract, 18 FRs, local links, UTF-8 markup, no script on profile/policy pages. |
 | Scope preservation | `git diff --check`; diff restricted to V1–V3 migrations, workshopbooking and designreview production directories | Passed; those existing migrations and business code unchanged. No production Firebase configuration or deployment. |
 

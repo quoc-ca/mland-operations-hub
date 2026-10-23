@@ -439,7 +439,7 @@ checked_in -> completed
 
 - `confirmed` requires the approved email-confirmation and deposit/payment gates.
 - `expired` releases any temporary capacity hold exactly once.
-- `checked_in` requires `checked_in_by_user_id`, `checked_in_at` and a non-negative `actual_participant_count`.
+- `checked_in` requires `checked_in_by_user_id`, `checked_in_at` and at least one independently recorded checked-in participant ticket. Attendance totals are derived from ticket check-in records, not entered on the booking.
 - A parent/continuation link does not automatically transfer status, deposit or capacity from the parent registration.
 
 ## Separation-of-duties matrix
@@ -1779,7 +1779,6 @@ Design assumptions and unresolved points:
 | `confirmed_at`                | DATETIME      | Nullable until the booking's required confirmation gates, including verified deposit where applicable, are satisfied.                                                                                        |
 | `checked_in_by_user_id`       | BIGINT        | Nullable foreign key to `users`; authorised Staff actor for recorded group check-in.                                                                                                                         |
 | `checked_in_at`               | DATETIME      | Nullable; required when check-in is recorded.                                                                                                                                                                |
-| `actual_participant_count`    | INT           | Nullable until check-in; non-negative actual participating count, independent of the booked count.                                                                                                           |
 | `parent_registration_id`      | BIGINT        | Nullable self-referencing foreign key for a Staff-created continuation booking; must not reference itself or create a cycle.                                                                                 |
 | `created_by_user_id`          | BIGINT        | Nullable foreign key to `users`; records the authenticated creation actor where applicable and is required for a Staff-created continuation. Guest creation does not require a user row.                     |
 | `created_at`                  | DATETIME      | Required booking-creation timestamp.                                                                                                                                                                         |

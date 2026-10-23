@@ -1,6 +1,6 @@
 # Feature Specification: AI Chatbox Analysis and Suggestion
 
-**Branch**: `004-ai-chatbox-analysis-and-suggestion`  
+**Branch**: `007-ai-chatbox-analysis-and-suggestion`  
 **Status**: Draft implementation specification  
 **Source alignment**: Report 1 FE-04/FE-05, Report 3 AI Chatbox Analysis and Suggestion, `ppswbs-spec/spec-general.md`
 

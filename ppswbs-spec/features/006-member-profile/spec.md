@@ -1,7 +1,7 @@
 # Feature Specification: Member Profile
-**Feature**: 003-member-profile | **Date**: 2026-10-19
+**Feature**: 006-member-profile | **Date**: 2026-10-19
 **Status**: Approved scope/design recorded from the user's explicit “PLEASE IMPLEMENT THIS PLAN” instruction in this conversation on 2026-10-19. Approval is limited to this feature, plan and tasks; it does not ratify any other feature.
-**Revision**: The user approved “Sửa spec 003: xác thực về trang chủ, policy không chặn hồ sơ” in this conversation. This revision supersedes the earlier combined authentication/verification/policy journey; implementation remains pending.
+**Revision**: The user approved the revision that sends authentication to the home page and does not block the profile by policy acceptance. This revision supersedes the earlier combined authentication/verification/policy journey; implementation remains pending.
 ## Scope and source alignment
 Constitution 2.0.0 applies. Report 3 Manage Personal Profile and User Profile supply the business context. Firebase owns credentials and email verification; MySQL owns Member status, policy records and profile. Policy acceptance is not a prerequisite for 003. Booking, ring design, policy prompts in other features and implementation of the home page are outside scope.
 

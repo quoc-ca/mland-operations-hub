@@ -356,11 +356,581 @@ Feature này gồm quản lí nhẫn bán sẵn do Staff thực hiện và tra c
 
 # FE-03 — Workshop Management
 
-Chưa có nội dung chi tiết. Mục Booking trước đây được đặt tại feature này.
+## Phạm vi và trạng thái tài liệu
 
-## Booking
+FE-03 mô tả nghiệp vụ workshop từ cấu hình vận hành, công khai package, đặt
+chỗ, thanh toán cọc, tham gia workshop đến các ngoại lệ sau xác nhận. Đây là
+bản đồ nghiệp vụ của feature, không phải tuyên bố rằng tất cả các luồng đã được
+triển khai.
 
-Chưa mô tả luồng.
+Phần **đã có phạm vi V1** được xác định trong
+`features/002-workshop-booking`: khách xem package, tạo booking chờ thanh toán,
+thanh toán cọc, nhận xác nhận/QR/Magic Link và tra cứu booking. Cấu hình lịch,
+check-in, completion/no-show, huỷ sau xác nhận, đổi lịch, refund và đồng bộ
+kênh ngoài chưa thuộc implementation scope của feature 002. Các phần này được
+ghi rõ là **Đề xuất** hoặc **Cần quyết định** bên dưới.
+
+## Vai trò và ranh giới trách nhiệm
+
+| Vai trò/hệ thống | Trách nhiệm trong FE-03 |
+| --- | --- |
+| Guest | Xem package, tạo và tra cứu booking bằng chứng liên hệ hợp lệ, thanh toán cọc. |
+| Member | Thực hiện các quyền của Guest; xem booking thuộc tài khoản và có thể đặt cho người khác bằng contact snapshot. |
+| Staff | Vận hành session, xử lý check-in hoặc ngoại lệ khi được cấp quyền; mọi thao tác vận hành cần audit. |
+| Manager/Owner | Cấu hình package, lịch, sức chứa, phân công Staff và phê duyệt chính sách/ngoại lệ thuộc thẩm quyền. |
+| Payment Gateway | Thực hiện OTP hoặc bước xác thực thanh toán; Mland chỉ xử lý kết quả đã xác thực. |
+| External channel | Nhận dữ liệu đồng bộ theo contract riêng; không được ghi đè booking/capacity do Mland quản lý. |
+
+## Cấu hình workshop, lịch và sức chứa — Đề xuất
+
+Manager cần quản lý package được mở bán theo branch, session, sức chứa tối đa,
+giới hạn số ticket mỗi lần đặt, trạng thái mở/đóng và Staff đủ điều kiện phụ
+trách. Đây là workflow vận hành riêng, không phải quyền của khách đang đặt chỗ.
+
+- Thay đổi sức chứa không được làm tổng số ghế nhỏ hơn participant của các
+  booking đã xác nhận và capacity hold còn hiệu lực.
+- Đóng package/session chỉ chặn booking mới; không tự huỷ, đổi lịch hay thay
+  đổi giá trị booking đã xác nhận.
+- Tạo session, lịch lặp, ngày nghỉ, đổi branch và tiêu chí Staff đủ điều kiện
+  cần được đặc tả bằng feature riêng trước khi triển khai.
+- Mland không dùng `check_in_closes_at` cho workshop làm nhẫn: khách đến muộn
+  vẫn có thể check-in đến khi Staff/Manager finalize attendance của session.
+  Thời điểm khách check-in chỉ ghi nhận đã đến, không cho phép bắt đầu làm sớm
+  hay chiếm chỗ làm trước session; việc sắp xếp chỗ chờ/chỗ làm do Staff điều
+  phối tại chỗ. Nếu cần một `check_in_opens_at`, nó chỉ là mốc hướng dẫn vận
+  hành/thông báo, không phải điều kiện chặn check-in. Thay đổi cấu hình phải
+  được audit và không được làm thay đổi lịch session, capacity hoặc booking đã
+  xác nhận.
+- Package, material/design option và branch/session phải được kiểm tra lại tại
+  thời điểm submit, không chỉ dựa vào dữ liệu frontend đã hiển thị.
+
+### Chính sách giá theo số người — Đề xuất đã chọn
+
+Mỗi package phải khai báo một `pricing_model`; hệ thống không được suy diễn giá
+từ `participant_count` nếu package chưa có chính sách giá hợp lệ.
+
+| `pricing_model` | Ví dụ | Cách tính tổng booking |
+| --- | --- | --- |
+| `PER_PERSON` | 750.000 VND/người; 4 người | `participant_count × unit_price` = 3.000.000 VND |
+| `BASE_PLUS_EXTRA` | Giá một suất làm nhẫn gồm 1 người; thêm người cùng làm trả phụ phí | `base_price + max(0, participant_count - included_participant_count) × extra_person_price` |
+
+Với cả hai model, package phải có giới hạn participant tối thiểu/tối đa và số
+tiền cọc được tính từ **tổng booking đã chốt**, không chỉ từ giá niêm yết ban
+đầu của package. Ví dụ cọc 50% cho booking 3.000.000 VND là 1.500.000 VND.
+
+#### Chú thích — suất làm và vé check-in
+
+**Workshop item/suất làm** là một sản phẩm hoặc kết quả làm ra, ví dụ một chiếc
+nhẫn. **Attendance ticket** là quyền của một người vào session và check-in bằng
+QR. Hai khái niệm không đồng nhất: hai người cùng làm **một** chiếc nhẫn tạo một
+workshop item có giá nhẫn cơ bản cộng phụ phí người cùng làm, nhưng phát **hai**
+attendance ticket/QR. Ngược lại, hai người mỗi người làm một chiếc nhẫn tạo hai
+workshop item và hai QR.
+
+Một booking là **đơn thương mại/thanh toán** của người đặt; nó có thể có nhiều
+workshop item và ticket ở nhiều session. Capacity, check-in và no-show tính theo
+attendance ticket/session; giá cơ bản, cọc và khoản còn lại tính theo workshop
+item/booking line. Phụ phí phát sinh sau workshop gắn với workshop item và có
+thể liên kết thêm ticket/người liên quan để truy vết.
+
+Mô hình workshop item và phụ phí người cùng làm này chỉ áp dụng cho booking trực
+tiếp trên Mland. Đợt OTA đầu chỉ mở package `PER_PERSON`; OTA không nhận hoặc
+đồng bộ workshop item, người cùng làm hay phụ phí này.
+
+Với `PER_PERSON`, mỗi workshop item thường có một ticket và giá cơ bản snapshot
+riêng. Với `BASE_PLUS_EXTRA`, tất cả participant cùng làm một workshop item phải
+thuộc cùng một session/booking line; không được tự ghép người ở các session khác
+nhau vào một workshop item.
+
+## Khám phá package và tạo booking — Đã có phạm vi V1
+
+Guest hoặc Member chỉ thấy package được công khai và đang cho phép đặt. Chi tiết
+package hiển thị giá hiện hành, thời lượng, giới hạn người tham gia, lựa chọn
+material/design được hỗ trợ và điểm bắt đầu booking.
+
+Khách có thể chọn nhiều workshop item; mỗi item chọn package, branch, ngày và
+session riêng, cùng số người sẽ tham gia làm item đó. Hệ thống phát một attendance
+ticket cho mỗi người tham gia. Một booking chỉ có một contact và một lần thanh
+toán cọc, nhưng các item/ticket trong đó không bắt buộc cùng slot. Guest bắt buộc
+có email và số điện thoại; Member được điền sẵn hai trường này nhưng có thể sửa
+khi đặt cho người khác. Booking phải lưu contact snapshot, không phụ thuộc các
+thay đổi hồ sơ sau đó.
+
+Sau khi kiểm tra package, session, sức chứa và dữ liệu bắt buộc trong cùng một
+ngữ cảnh giao dịch, hệ thống tạo:
+
+- booking `PENDING_PAYMENT` với trạng thái tài chính `UNPAID`;
+- các workshop item/booking line và attendance ticket theo session, giá snapshot
+  cùng phần cọc được phân bổ theo workshop item;
+- một invoice cọc bằng 50% tổng giá workshop cơ bản đã chốt;
+- capacity hold tối đa 15 phút cho từng ticket tại session tương ứng.
+
+Sức chứa của từng session được tính theo ticket đã xác nhận và hold còn hiệu lực
+ở chính session đó, không tính theo số booking/order. Nếu bất kỳ ticket nào có
+session ngừng mở bán, hết chỗ hoặc cạnh tranh sức chứa, hệ thống không được xác
+nhận một phần booking mà không có policy tách đơn rõ ràng.
+
+## Thanh toán cọc, xác nhận và tra cứu — Đã có phạm vi V1
+
+Payment link có thời hạn tối đa 10 phút. Browser redirect không phải bằng chứng
+để xác nhận booking: Backend chỉ chuyển sang `CONFIRMED` khi nhận kết quả gateway
+có chữ ký hợp lệ, đúng booking reference, amount/currency và chưa được xử lý.
+
+Khi cọc được xác nhận, hệ thống đặt trạng thái tài chính `DEPOSIT_PAID`, chốt
+capacity của từng ticket/session, phát một QR ticket riêng cho từng participant
+đã mua; mỗi QR không chứa PII hoặc dữ liệu thanh toán. Hệ thống cũng tạo Magic
+Link đọc booking và notification intent. Payment thất bại/hủy giữ booking ở
+`PENDING_PAYMENT` trong lúc hold còn hiệu lực để khách retry. Khi hold hết hạn,
+booking chuyển `EXPIRED` và không được tiếp tục thanh toán.
+
+Guest tra cứu bằng booking code cộng với email hoặc số điện thoại đã lưu; Member
+chỉ được xem booking thuộc sở hữu của mình. Booking `PENDING_PAYMENT` hiển thị
+thời gian hold còn lại và hành động thanh toán lại; booking `CONFIRMED` hiển thị
+danh sách ticket/QR được nhóm theo session, không có payment countdown. Email
+thất bại không được đảo trạng thái `CONFIRMED`; hệ thống lưu notification
+retry/follow-up.
+
+`CANCELLED` trong V1 chỉ là việc Guest/Member chủ động giải phóng hold khi
+booking còn `PENDING_PAYMENT`; không phát QR, không refund và không phải hủy
+booking đã xác nhận.
+
+## Thanh toán phần còn lại và phụ phí — Đề xuất đã chọn
+
+Mland chỉ thu cọc 50% của tổng giá workshop cơ bản đã chốt khi đặt và phân bổ
+phần cọc đó cho từng workshop item/booking line. Khách được check-in bình thường
+khi attendance ticket hợp lệ thuộc booking `CONFIRMED` có cọc `DEPOSIT_PAID`;
+không yêu cầu toàn bộ booking `FULLY_PAID`, vì phụ phí vật liệu/dịch vụ chỉ có
+thể biết sau khi workshop item hoàn thành session của nó.
+
+Sau **mỗi session của workshop item**, Staff/Manager chốt phụ phí của item đó.
+Hệ thống tạo khoản cần thu cho item gồm phần giá workshop cơ bản còn lại và các
+phụ phí đã chốt của item; phụ phí có thể ghi rõ ticket/người liên quan nhưng
+không biến QR thành đơn vị giá. **Luồng mặc định:** Staff đưa bill và thu tại
+quầy ngay sau session qua phương thức được shop cho phép (tiền mặt, POS hoặc
+QR/gateway); người trả có thể là bất kỳ đại diện nào của nhóm, không bắt buộc là
+booking contact. Khi payment được xác nhận, workshop item đã thanh toán đủ;
+booking chỉ `FULLY_PAID` khi mọi workshop item đã thanh toán đủ hoặc được xử lý
+ngoại lệ có audit.
+
+Phụ phí cần được lưu thành các dòng charge riêng, có ticket liên quan, mô tả,
+số tiền, currency, người chốt, thời điểm chốt và audit; không sửa giá workshop
+cơ bản đã snapshot. Mỗi dòng đi qua ít nhất `PENDING_ASSESSMENT` (chưa biết/chưa
+chốt) → `ASSESSED` (đã chốt số tiền) → `PAID` (đã được thu trong khoản cuối).
+
+**Policy đã chọn:** Mland không cho nợ mặc định. Khách thanh toán bill cuối tại
+quầy ngay sau workshop; sản phẩm hoàn thiện của workshop item chỉ được giao sau
+khi khoản cần thu đã thanh toán. Chỉ khi Manager phê duyệt ngoại lệ (ví dụ người
+đại diện không thể thanh toán tại quầy), hệ thống mới gửi payment link trả sau
+và phải lưu lý do, actor, hạn thanh toán, số dư còn phải trả và audit. Link có
+hạn **24 giờ** và hệ thống gửi một reminder trước khi hết hạn. Khi link hết hạn,
+hệ thống không tự tạo link mới; shop tiếp tục giữ sản phẩm, còn Manager quyết
+định liên hệ hoặc cấp link mới với audit. Không tự hủy sản phẩm, chuyển sở hữu
+hoặc xóa công nợ. Sau khi bill đã chốt, Staff không sửa trực tiếp dòng charge
+hoặc tiền đã thu; sai sót phải dùng dòng điều chỉnh/void có lý do và audit.
+Không được suy ra rằng booking `CONFIRMED` đã thanh toán toàn bộ.
+
+## Check-in, attendance, completion và no-show — Đề xuất
+
+Mỗi participant có một QR ticket riêng, nhưng feature 002 chưa có luồng tiêu
+thụ ticket. Feature tiếp theo nên cho Staff quét từng QR, xác minh ticket còn
+hiệu lực, đúng session/branch và chưa được dùng, rồi ghi nhận attendance của
+participant đó. Hệ thống cần chống quét lặp, lưu Staff/thời điểm/nguồn thao tác
+và áp dụng ba tầng xác minh sau:
+
+1. Scan QR ticket là luồng chính và chỉ check-in ticket mà QR xác định.
+2. Khi QR không quét được, Staff nhập `ticket_code` riêng để check-in đúng
+   ticket; thao tác thủ công được audit.
+3. `booking_code` chỉ cho phép tra cứu booking/ticket set, không tự check-in
+   ticket nào. Nếu cần override vì không có QR hoặc ticket code, Staff/Manager
+   phải chọn ticket chưa dùng, nhập lý do và để lại audit record.
+
+### Phân quyền check-in và override — Đề xuất đã chọn
+
+Áp dụng phân quyền hai tầng:
+
+- Staff có quyền `workshop.checkin` được scan QR hoặc nhập `ticket_code` để
+  check-in ticket hợp lệ theo quy tắc tự động.
+- Manager, hoặc Staff được cấp riêng quyền `workshop.checkin.override`, mới
+  được xử lý ngoại lệ như khách chỉ có `booking_code` hoặc đến nhầm session.
+- Override phải chọn một ticket chưa dùng, lưu actor, thời điểm, ticket/booking
+  liên quan, lý do chuẩn hóa, ghi chú ngắn và correlation ID.
+- Ticket đã check-in hoặc đã revoke không được override thành check-in lần nữa;
+  chúng phải đi qua quy trình xử lý vận hành riêng.
+
+### Thời điểm check-in — Đề xuất đã chọn
+
+Workshop làm nhẫn không có `check_in_closes_at`: Staff check-in ticket hợp lệ
+khi khách đến, dù đến sớm hay muộn, cho đến khi attendance của session được
+finalize. Check-in xác nhận khách đã đến; nó không tự cho phép khách bắt đầu làm
+sớm hoặc giữ chỗ làm. Staff điều phối chỗ chờ và thời điểm bắt đầu theo vận hành
+tại chỗ.
+
+`check_in_opens_at` là tùy chọn, chỉ dùng để hiển thị/hướng dẫn thời điểm nên
+đến hoặc hỗ trợ vận hành; không chặn check-in. Sau khi Staff/Manager finalize
+attendance, ticket chưa check-in chuyển `NO_SHOW`; ticket check-in muộn sau đó
+chỉ được sửa bởi người có quyền hậu kiểm kèm audit. Manager thay đổi mốc hướng
+dẫn theo session phải lưu actor/thời điểm/lý do và không tự thay đổi attendance
+hiện có.
+
+### Chốt attendance và no-show — Đề xuất đã chọn
+
+Sau khi **mỗi session** kết thúc, Staff/Manager thực hiện hành động **Finalize
+Attendance** cho session đó: hệ thống hiển thị ticket đã check-in và ticket chưa
+check-in của session để người vận hành xem lại trước khi chốt. Khi chốt, ticket
+chưa check-in của session chuyển thành `NO_SHOW`. Không dùng `COMPLETED` của cả
+booking để thay cho attendance, vì các ticket trong cùng booking có thể thuộc
+các session khác nhau.
+
+Hệ thống không tự chuyển ticket sang `NO_SHOW` chỉ vì giờ bắt đầu session đã qua.
+Sau khi attendance đã chốt, chỉ Manager hoặc người có quyền sửa hậu kiểm mới
+được thay đổi kết quả; mọi chỉnh sửa cần actor, lý do, giá trị trước/sau và audit
+record. Chính sách tài chính/quyền lợi cho `NO_SHOW` vẫn thuộc feature riêng cần
+quyết định.
+
+`CHECKED_IN`, completion và `NO_SHOW` là trạng thái theo ticket/session. Số
+participant thực tế của một session là số ticket đã check-in, không phải con số
+Staff nhập tự do. Việc chuyển ticket sang `NO_SHOW` phải dựa trên mốc thời gian
+và grace period được phê duyệt, không tự động xảy ra chỉ vì chưa có thao tác
+check-in. Các transition này được giữ sẵn nhưng chưa là transition triển khai
+trong V1.
+
+### Mô hình ticket cá nhân — Đề xuất đã chọn
+
+Một order/booking có một người đặt và một giao dịch thanh toán, nhưng sau xác
+nhận tạo `N` ticket, với `N = participant_count`. Mỗi ticket có ID/QR opaque,
+trạng thái riêng và tối đa một lần check-in. Một participant đến muộn vẫn có thể
+quét ticket của mình mà không ảnh hưởng các participant khác trong cùng booking.
+
+Mô hình này yêu cầu thay thiết kế một ticket-per-booking hiện có của feature 002
+thành quan hệ một booking-nhiều tickets/participants. Các artefact cần cập nhật
+khi feature attendance được đặc tả là `002` hoặc feature kế nhiệm, data model,
+OpenAPI, migration, notification template và test check-in/idempotency.
+
+### Quyền sở hữu và phân phối ticket — Đề xuất đã chọn
+
+V1 dùng policy `BOOKING_CONTACT_RECEIVES_ALL_TICKETS`. Người đặt là contact của
+booking, nhận email xác nhận, Magic Link và toàn bộ `N` ticket/QR của booking;
+người đặt tự chia ticket cho những người đi cùng. Form đặt chỗ chỉ yêu cầu thông
+tin contact của người đặt và `participant_count`; không yêu cầu, suy diễn hay lưu
+tên/email của từng participant. Mỗi ticket vẫn độc lập khi check-in bằng QR hoặc
+`ticket_code`, dù ticket chưa được gán cho một danh tính participant.
+
+Mở rộng sau V1 có thể thêm policy `EACH_PARTICIPANT_RECEIVES_TICKET`: người đặt
+nhập tên/email cho từng ticket, hệ thống gửi ticket/claim link cho từng người và
+cần workflow đổi người nhận hoặc chuyển ticket. Đây là feature riêng vì phát
+sinh thu thập PII, consent, delivery failure, quyền sửa dữ liệu participant và
+audit; không được ngầm triển khai trong V1.
+
+## Hủy sau xác nhận, đổi lịch và refund — Chốt cuối phiên
+
+Luồng này tách hoàn toàn khỏi việc release hold trước thanh toán. Chính sách sẽ
+được **chốt trong phiên hoàn thiện FE-03 này, sau các vấn đề vận hành còn lại**;
+feature triển khai có thể vẫn được tách riêng. Cho đến khi chốt, V1 hiện chỉ hỗ
+trợ `CANCELLED` để release hold trước thanh toán. Cần quyết định ít nhất:
+
+### Đơn vị áp dụng policy — Đề xuất đã chọn
+
+Áp dụng cho booking trực tiếp Mland:
+
+- **Không có self-service đổi lịch:** khách không tự đổi session trên website.
+  Nếu cần đổi lịch, khách liên hệ shop; Manager hoặc người được cấp quyền đánh
+  giá yêu cầu theo policy và capacity. Shop chỉ đổi một workshop item sang
+  session còn chỗ của **cùng package, cùng cấu hình item và cùng số người tham
+  gia**; không tự đổi sang package/thiết kế khác. Nếu chấp thuận, hệ thống
+  chuyển toàn bộ ticket của item sang session mới trong một thao tác nguyên tử,
+  chuyển phần cọc đã phân bổ cho item, revoke QR cũ và phát QR mới. Các workshop
+  item khác trong cùng booking không thay đổi; mọi quyết định phải lưu actor, lý
+  do và audit.
+- **Giá khi đổi lịch thủ công:** nếu giá workshop cơ bản hiện hành của session
+  mới cao hơn giá snapshot ban đầu, chênh lệch được thêm vào khoản còn phải thu
+  của workshop item và thu theo luồng thanh toán cuối. Nếu giá mới thấp hơn hoặc
+  bằng giá snapshot ban đầu, Mland V1 giữ nguyên giá cũ và không hoàn/credit
+  phần chênh lệch. Muốn đổi sang package/thiết kế khác hoặc hoàn phần chênh là
+  Manager exception, không phải luồng chuẩn.
+- **Refund nghiệp vụ V1 chỉ theo toàn bộ booking:** không có self-service
+  cancellation/refund riêng một workshop item, ticket hay người tham gia. Một
+  yêu cầu refund toàn bộ chỉ đủ điều kiện khi mọi item/ticket trong booking chưa
+  check-in và đều còn trong hạn policy. Sau khi một item đã được dùng hoặc quá
+  hạn, khách không dùng luồng hủy/refund thông thường; Manager chỉ xử lý ngoại
+  lệ có audit.
+- Policy này không áp dụng cho OTA. Booking OTA đi theo điều kiện hủy/refund của
+  channel; Mland chỉ đồng bộ kết quả và xử lý ticket/capacity tương ứng.
+
+### Policy hủy/refund booking trực tiếp Mland — Đề xuất đã chọn
+
+Khách có thể gửi yêu cầu hủy/refund **toàn bộ booking** rồi đặt booking mới nếu
+muốn đổi kế hoạch; không có hủy/refund tự phục vụ từng workshop item hoặc ticket.
+Booking chỉ hợp lệ để áp policy khi mọi item/ticket chưa check-in, chưa diễn ra
+và chưa giao sản phẩm. Mốc thời gian luôn tính theo giờ bắt đầu sớm nhất trong
+các workshop item của booking, dùng timezone của branch/session và policy
+snapshot tại lúc đặt.
+
+| Thời điểm khách yêu cầu so với session sớm nhất | Số tiền hoàn |
+| --- | --- |
+| Từ 72 giờ trở lên | Hoàn 100% cọc khách đã thực trả |
+| Từ 24 đến dưới 72 giờ | Hoàn 50% cọc khách đã thực trả |
+| Dưới 24 giờ, no-show hoặc đã có ticket check-in | Không hoàn |
+| Mland hủy toàn bộ booking/không thể cung cấp workshop đã xác nhận | Hoàn 100% mọi khoản khách đã thực trả |
+
+“Refund toàn bộ booking” nghĩa là hủy toàn bộ dịch vụ trong booking; số tiền
+refund có thể là 100%, 50% hoặc 0% của cọc theo bảng trên. Đây **không** là
+partial refund theo item/ticket. Phụ phí sau workshop không phát sinh trong một
+hủy hợp lệ vì chưa có workshop item nào hoàn thành.
+
+Khi yêu cầu hủy đạt điều kiện, hệ thống snapshot policy và số tiền phải hoàn,
+tạo refund qua payment gateway rồi giữ `REFUND_PENDING`. Khi gateway xác nhận
+kết quả, hệ thống chuyển `REFUNDED`, revoke QR chưa dùng, giải phóng capacity của
+các session chưa diễn ra và gửi notification. Nếu gateway lỗi, booking không
+được khôi phục để sử dụng; Staff/Manager đối soát refund lỗi theo audit.
+
+Manager chỉ xử lý ngoại lệ với actor, lý do, số tiền thực hoàn, tham chiếu gateway
+và audit.
+
+Nếu **Mland chủ động hủy một workshop item** trong booking có nhiều session,
+shop ưu tiên đề nghị session thay thế tương đương. Nếu không có session phù hợp
+hoặc khách từ chối, Manager được hoàn mọi khoản khách đã thực trả được phân bổ
+cho workshop item bị hủy; revoke ticket của item và giải phóng capacity tương
+ứng. Đây là partial refund kỹ thuật **chỉ do Mland không thể cung cấp dịch vụ**,
+không tạo quyền khách tự hủy/refund riêng item. Refund record phải có
+`scope = WORKSHOP_ITEM`, liên kết item và gateway reference; không chuyển cả
+booking sang `REFUNDED` khi các item khác vẫn giữ nguyên.
+
+## Đồng bộ kênh ngoài — Cần quyết định
+
+Booking `CONFIRMED` có thể tạo handoff record cho một feature đồng bộ sau này.
+Mland vẫn là nguồn sự thật về booking và capacity. Contract sau này phải xác định
+identity mapping, idempotency, retry, reconciliation, dữ liệu được phép chia sẻ
+và cách xử lý remote failure; không tự áp dụng cancellation hoặc capacity từ
+kênh ngoài khi chưa có policy/contract.
+
+### Nguồn sự thật về session và capacity — Đề xuất đã chọn
+
+Mland là nguồn sự thật duy nhất cho package/session được mở bán, sức chứa và số
+chỗ còn lại. Manager chỉ tạo hoặc thay đổi các giá trị này tại Mland. Klook và
+GetYourGuide chỉ nhận availability đã được Mland công bố, rồi gửi yêu cầu booking
+vào Mland để Mland kiểm tra/trừ capacity nguyên tử. Không cho phép thay đổi
+capacity trực tiếp tại OTA tự ghi đè dữ liệu Mland; bất kỳ khác biệt nào phải đi
+qua quy trình đối soát và thao tác có quyền tại Mland.
+
+### Kiến trúc tích hợp booking OTA thời gian thực — Đề xuất đã chọn
+
+Mland dùng một core nội bộ duy nhất cho package/session, kiểm tra/trừ capacity,
+booking, ticket và audit. Klook và GetYourGuide có **adapter riêng** để chuyển
+đổi API, authentication, schema, voucher/ticket reference và quy tắc callback
+của từng bên; không nhét khác biệt của OTA vào domain core hoặc buộc hai OTA có
+cùng contract kỹ thuật.
+
+Khi OTA gửi yêu cầu reserve/booking, adapter phải chuyển external booking
+reference và idempotency key vào core Mland. Core kiểm tra capacity nguyên tử,
+tạo đúng một channel booking và ticket theo số participant, rồi trả kết quả xác
+nhận hoặc từ chối rõ ràng cho adapter/OTA. Gửi lặp cùng idempotency key phải trả
+kết quả đã có, không trừ thêm capacity, tạo booking hay ticket trùng.
+
+Webhook/callback về cancellation, refund và thay đổi booking đi qua adapter,
+được xác thực và lưu external event reference trước khi xử lý. Thông báo/gửi
+dữ liệu ra OTA dùng outbox có retry và backoff; lỗi tạm thời không được khiến
+Mland tạo lại booking hoặc tự đổi capacity. Lỗi hết retry, mapping không khớp
+hoặc khác biệt trạng thái phải vào hàng đợi đối soát để người có quyền xử lý,
+với actor, lý do và liên kết booking/event đầy đủ. Không khắc phục bằng cách tạo
+một booking Mland mới thủ công khi chưa xác minh external reference.
+
+Mỗi adapter chỉ được go-live sau test end-to-end: availability/capacity, create
+booking lặp, failure/retry, cancel/refund callback, ticket delivery và scan
+từng ticket tại Mland. Secret/authentication không ghi vào log hay ledger; chỉ
+lưu mã tham chiếu và metadata tối thiểu cần đối soát.
+
+### Phạm vi package mở bán OTA — Đề xuất đã chọn
+
+Đợt tích hợp OTA đầu chỉ publish package có `pricing_model = PER_PERSON`.
+Package `BASE_PLUS_EXTRA` tiếp tục bán trên website Mland; không được tự suy diễn
+công thức giá nhóm, workshop item hoặc phụ phí người cùng làm sang OTA. Muốn mở
+bán sau này, Mland phải tạo và map các option group-size có giá cố định (ví dụ
+2, 3, 4 người) cho từng channel, rồi kiểm thử giá, capacity và ticket-per-person
+của từng option trước khi bật bán.
+
+### Giá theo channel và điều kiện publish — Đề xuất đã chọn
+
+Mland lưu giá riêng cho mỗi `package/channel`: giá website, `retail_price` khách
+trả tại OTA, `target_net_amount` Mland muốn nhận, currency, phiên bản quy tắc
+commission/fee và thời hạn hiệu lực. Mỗi OTA booking phải snapshot các giá trị
+này cùng commission/fee thực tế và payout thực tế để đối soát lịch sử; không dùng
+một trường tổng tiền chung cho mọi channel.
+
+Với GetYourGuide, Manager cấu hình `retail_price` tại Mland và đồng bộ qua Price
+over API khi integration được cấp quyền, hoặc nhập đúng giá này trên Supplier
+Portal khi dùng cấu hình thủ công. Với Klook, Manager có thể chuẩn bị retail price
+và target net nhưng package giữ `PENDING_COMMERCIAL_CONFIRMATION` và không được
+publish đến khi contract/onboarding xác nhận giá API là retail hay net, commission,
+thuế/phí, currency/FX và payout terms. Không suy ra retail price chỉ từ một tỷ lệ
+commission danh nghĩa.
+
+### Dịch vụ kèm theo OTA — Ghi nhận, chưa triển khai
+
+Với booking từ **bất kỳ OTA nào**, chỉ dịch vụ **khắc laser** được bao gồm miễn
+phí trong offer OTA hiện tại. Mọi material/design option, dịch vụ hoặc nâng cấp
+khác vẫn là phụ phí theo bảng giá Mland tại thời điểm áp dụng; không được suy ra
+chúng đã nằm trong `retail_price` OTA.
+
+**Policy đã chọn:** Staff phải báo giá và nhận xác nhận của khách **trước** khi
+dùng/nâng cấp lựa chọn có phí. Mland tạo bill phụ phí riêng tại quầy, liên kết
+OTA booking/ticket reference và thu trực tiếp bằng phương thức Mland cho phép.
+Bill phải snapshot hạng mục, giá, currency, thời điểm/xác nhận của khách, Staff
+và payment reference; khắc laser được ghi là hạng mục 0 đồng nếu cần hiển thị.
+
+Khoản này là doanh thu trực tiếp của Mland, không sửa `retail_price`, tiền khách
+đã trả OTA, commission hay payout/settlement OTA; cũng không gọi refund qua OTA.
+Không dùng luồng cọc của Mland cho booking OTA. Nếu khách chưa thanh toán phụ
+phí đã chọn, shop chỉ giao phần nâng cấp/sản phẩm liên quan sau khi bill riêng
+được thanh toán, trừ Manager exception có audit.
+
+### Điều kiện ticket để mở bán OTA — Đề xuất đã chọn
+
+Một package/session chỉ được bật bán trên Klook hoặc GetYourGuide sau khi test
+end-to-end xác nhận rằng booking `N` participant tạo và OTA giao đúng `N` QR/ticket
+riêng do Mland phát; Staff phải quét từng QR trên Mland. Không mở bán một option
+nếu channel chỉ giao một voucher/order code chung thay cho ticket-per-person.
+
+Voucher/order code chung chỉ là fallback sự cố sau go-live: người có quyền
+`workshop.checkin.override` tra cứu channel booking, chọn đúng ticket active chưa
+check-in theo số người thực tế đến, nêu lý do và lưu audit. Nó không được tự động
+check-in toàn bộ booking và không phải luồng check-in hay điều kiện go-live mặc
+định.
+
+### Dữ liệu khách từ OTA — Đề xuất đã chọn
+
+Mland chỉ lưu dữ liệu tối thiểu cần thiết để vận hành channel booking: channel,
+external booking reference, package/option/session mapping, participant count,
+ticket mapping, trạng thái và contact được OTA/contract cho phép dùng khi thật sự
+cần hỗ trợ vận hành. Không tự tạo Member Mland, Magic Link, participant profile
+hoặc dùng contact OTA cho newsletter, CRM/remarketing hay mục đích marketing.
+
+Nếu sau này cần tên/email từng participant cho waiver, kiểm tra tuổi, chứng nhận
+hay giao ticket riêng, phải tạo feature participant-registration riêng với
+purpose/consent, quyền truy cập, retention, sửa/xóa và audit rõ ràng. Không suy
+ra quyền thu/lưu các dữ liệu đó chỉ vì OTA có gửi chúng.
+
+### Chính sách hủy/refund theo kênh — Đề xuất đã chọn
+
+Tách hai lớp chính sách, không ép chúng phải giống nhau:
+
+1. **Chính sách trực tiếp của Mland:** áp dụng duy nhất cho booking được tạo và
+   thanh toán trên website Mland. Mland có thể cấu hình số tiền hoặc tỷ lệ hoàn
+   khác nhau theo các mốc thời gian của session và thực hiện refund qua gateway
+   của Mland.
+2. **Chính sách OTA:** áp dụng cho booking tạo trên Klook hoặc GetYourGuide.
+   Khách thanh toán và nhận refund từ OTA theo policy đã công bố trên trang
+   OTA/voucher; Mland không gọi refund qua gateway của mình cho khoản tiền OTA
+   đã thu. Policy này vẫn phải được Mland xác nhận khi onboarding/publish, vì
+   nó quyết định quyền hủy, capacity và số tiền net Mland được đối soát.
+
+Mỗi booking phải snapshot `sales_channel`, mã/phiên bản policy đã hiển thị,
+cutoff và timezone tại thời điểm xác nhận. Không dùng policy đang hiệu lực ở
+hiện tại để quyết định một booking cũ.
+
+Mland V1 không có nghiệp vụ partial refund theo item/ticket: khách chỉ yêu cầu
+hủy/refund toàn bộ booking, không hoàn riêng từng ticket hoặc participant. Số
+tiền refund của toàn bộ booking vẫn có thể là một tỷ lệ cọc theo policy thời
+gian. Với OTA, yêu cầu hủy và kết quả hoàn là các sự kiện riêng. Trong bản ghi
+**tiền khách trả cho OTA** (có `sales_channel`), Mland ghi nhận tối thiểu `PAID_ON_CHANNEL`,
+`REFUND_REQUESTED`, `PARTIALLY_REFUNDED` hoặc `REFUNDED`, số tiền OTA đã hoàn
+và external reference.
+`PARTIALLY_REFUNDED` nghĩa là OTA thực tế đã hoàn một phần tiền khách đã trả
+OTA; `REFUNDED` nghĩa là OTA đã hoàn toàn bộ khoản đó. Đây không phải trạng thái
+tổng của booking, cũng không mở workflow Mland tự tạo partial refund. Không suy
+từ trạng thái service rằng khách đã được hoàn tiền. Chỉ khi cancellation được
+OTA xác nhận thì Mland mới revoke ticket và giải phóng capacity, tránh bán lại
+chỗ trong khi yêu cầu hoàn vẫn đang chờ xử lý.
+
+Báo cáo/đối soát OTA phải tách tiền khách trả OTA, số OTA hoàn khách,
+commission/fee, `target_net_amount`, payout dự kiến và payout thực nhận. Nội
+dung confirmation/voucher luôn hiển thị policy của đúng channel đặt chỗ, không
+đưa bảng refund trực tiếp của Mland cho khách OTA.
+
+### Công nợ OTA và sổ đối soát bất biến — Đề xuất đã chọn
+
+Tách trạng thái **tiền khách trả OTA** ở trên khỏi trạng thái **OTA phải thanh
+toán cho Mland**. Mỗi booking OTA (hoặc từng dòng payout được OTA trả về) có
+vòng đời công nợ:
+
+```text
+NOT_ELIGIBLE → ACCRUED → INVOICED → PAYOUT_PENDING → PAID_OUT
+```
+
+- `NOT_ELIGIBLE`: chưa đủ điều kiện ghi nhận công nợ theo contract, ví dụ còn
+  trong thời hạn cancellation/no-show hoặc service chưa diễn ra;
+- `ACCRUED`: Mland ước tính được khoản net phải nhận từ booking, dựa vào snapshot
+  giá và commission/fee đã biết;
+- `INVOICED`: khoản đó đã nằm trong invoice/statement của OTA;
+- `PAYOUT_PENDING`: invoice/statement đã chốt nhưng Mland chưa nhận tiền;
+- `PAID_OUT`: Mland đã đối chiếu được tiền OTA thực nhận với payout reference.
+
+Không ghi đè số tiền đã ghi nhận. Mỗi gross sale, commission/fee, customer
+refund, payout received, chênh lệch FX hay điều chỉnh phải là một dòng ledger
+bất biến, có số tiền, currency, thời điểm, external reference, lý do và liên
+kết tới booking/invoice/payout liên quan. Các loại bút toán tối thiểu gồm
+`EXPECTED_NET`, `CHANNEL_COMMISSION`, `PAYOUT_RECEIVED`, `REFUND_REVERSAL`,
+`CANCELLATION_COMPENSATION`, `FX_VARIANCE` và `MANUAL_ADJUSTMENT`.
+
+`ADJUSTED` và `REVERSED` là tính chất/loại bút toán mới để điều chỉnh hoặc đảo
+một bút toán cũ, không sửa trực tiếp lịch sử cũng không là một trạng thái chung
+thay cho payout. `DISPUTED` là hồ sơ tranh chấp tách riêng, liên kết các bút
+toán và giữ trạng thái xử lý của tranh chấp; nó không tự kết luận rằng OTA đã
+hoặc chưa trả tiền. Báo cáo gross sales, net expected, payout received, refund
+và công nợ phải được tổng hợp từ ledger này.
+
+## State model
+
+Các transition hiện có trong V1:
+
+```text
+PENDING_PAYMENT → CONFIRMED
+PENDING_PAYMENT → EXPIRED
+PENDING_PAYMENT → CANCELLED  (chỉ release hold trước thanh toán)
+```
+
+Các transition dự kiến cho feature sau:
+
+```text
+Ticket hợp lệ → CHECKED_IN → COMPLETED
+Ticket hợp lệ → NO_SHOW
+Ticket/booking → cancellation/refund workflow theo policy
+```
+
+### Diễn giải ngắn các trạng thái
+
+Tên trạng thái chỉ có nghĩa trong **phạm vi** ghi dưới đây; ví dụ `REFUNDED`
+của payment trực tiếp khác với `REFUNDED` của khoản tiền khách trả OTA. Các
+trạng thái check-in, cancellation/refund sau xác nhận và OTA đều là đề xuất cho
+feature sau, chưa phải transition triển khai của V1.
+
+| Phạm vi | Trạng thái | Nghĩa ngắn gọn |
+| --- | --- | --- |
+| Booking | `PENDING_PAYMENT` | Đang giữ chỗ, chờ xác nhận thanh toán. |
+| Booking | `CONFIRMED` | Đã nhận thanh toán cần thiết để xác nhận; vé/QR đã được cấp theo V1. |
+| Booking | `EXPIRED` | Hết hạn giữ chỗ khi chưa thanh toán hợp lệ. |
+| Booking | `CANCELLED` | V1: khách hủy booking đang chờ thanh toán để nhả hold; không phải hủy sau xác nhận. |
+| Ticket attendance | `CHECKED_IN` | Ticket này đã được Staff xác nhận đến đúng session. |
+| Ticket attendance | `COMPLETED` | Session của ticket đã kết thúc và attendance của ticket đã được chốt. |
+| Ticket attendance | `NO_SHOW` | Ticket chưa check-in khi attendance được người có quyền chốt. |
+| Payment trực tiếp | `UNPAID` | Chưa có khoản thanh toán trực tiếp hợp lệ. |
+| Payment trực tiếp | `DEPOSIT_PAID` | Đã xác nhận thanh toán cọc; phần còn lại chưa được xử lý trong V1. |
+| Payment trực tiếp | `FULLY_PAID` | Booking đã thu đủ cọc, phần giá cơ bản còn lại và mọi phụ phí của tất cả workshop item. |
+| Payment trực tiếp | `REFUND_PENDING` | Refund trực tiếp đã được yêu cầu/duyệt, đang chờ kết quả gateway. |
+| Payment trực tiếp | `REFUNDED` | Gateway đã xác nhận hoàn đúng số tiền refund của toàn bộ booking theo policy. |
+| Payment attempt | `FAILED` | Một lần thử thanh toán thất bại; không tự đổi trạng thái booking. |
+| Dòng phụ phí theo workshop item | `PENDING_ASSESSMENT` | Phụ phí có thể phát sinh nhưng chưa được Staff/Manager chốt. |
+| Dòng phụ phí theo workshop item | `ASSESSED` | Phụ phí đã được chốt số tiền, chưa được thu. |
+| Dòng phụ phí theo workshop item | `PAID` | Phụ phí đã được thu trong khoản thanh toán sau session của item. |
+| Tiền khách trả OTA | `PAID_ON_CHANNEL` | OTA đã thu tiền khách cho booking. |
+| Tiền khách trả OTA | `REFUND_REQUESTED` | Yêu cầu hoàn qua OTA đang chờ OTA xử lý/xác nhận. |
+| Tiền khách trả OTA | `PARTIALLY_REFUNDED` | OTA thực tế đã hoàn một phần tiền khách trả; chỉ để ghi nhận/đối soát, không mở partial refund Mland V1. |
+| Tiền khách trả OTA | `REFUNDED` | OTA thực tế đã hoàn toàn bộ tiền khách trả. |
+| Công nợ OTA với Mland | `NOT_ELIGIBLE` | Chưa đủ điều kiện ghi nhận khoản OTA phải trả Mland. |
+| Công nợ OTA với Mland | `ACCRUED` | Đã tính được khoản net Mland dự kiến nhận. |
+| Công nợ OTA với Mland | `INVOICED` | Khoản phải thu đã có trong invoice/statement OTA. |
+| Công nợ OTA với Mland | `PAYOUT_PENDING` | Statement đã chốt nhưng Mland chưa nhận tiền. |
+| Công nợ OTA với Mland | `PAID_OUT` | Mland đã nhận và đối chiếu được payout OTA. |
+| Hồ sơ tranh chấp | `DISPUTED` | Có tranh chấp cần theo dõi riêng; không tự kết luận refund hay payout. |
 
 <a id="fe-04"></a>
 

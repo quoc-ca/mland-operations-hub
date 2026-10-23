@@ -5,6 +5,12 @@
 **Prerequisites**: `spec.md`, `plan.md`, `research.md`, `data-model.md`,
 `contracts/workshop-booking.openapi.yaml`, and `quickstart.md`.
 
+> **Rebase required — 2026-10-23.** These tasks describe the original V1
+> single-session, `participant_count` implementation. Do not schedule new work
+> from them until the booking → workshop item → individual attendance-ticket
+> model in [REBASE-NOTES.md](REBASE-NOTES.md) has been applied to all design
+> artifacts.
+
 **Scope gate**: Do not implement `CHECKED_IN`, `COMPLETED`, `NO_SHOW`, final
 payment, or External Registration System synchronization in this feature.
 
@@ -166,3 +172,16 @@ Dependency note: T033b depends on T033a, and both handoff tasks must complete be
 
 No task in this file authorizes implementation before the user approves the
 complete SpecKit artifact set.
+
+## Phase 8: Revision — Aggregate Deposit, Individual Participant Tickets
+
+**Goal**: Retain one booking, invoice and deposit payment for a group while
+issuing one independently scannable ticket for every purchased participant seat.
+
+- [ ] T044 Define the approved migration/rollout path from the legacy one-ticket-per-booking model to `WorkshopBooking 1 → N BookingTicket`; preserve production/customer evidence and do not reset production data.
+- [ ] T045 Add an append-only Flyway migration, JPA model and repository constraints for individual `ticket_code`, opaque QR value, ticket lifecycle and uniqueness per booking/seat in `ppswbs_backend/src/main/resources/db/migration/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/`; remove any writable booking-level `actual_participant_count` in favour of totals derived from checked-in tickets.
+- [ ] T046 Update confirmation handling in `WorkshopBookingService` so one accepted aggregate deposit transaction atomically issues exactly `participant_count` tickets; duplicate callbacks and notification resends must reuse, not duplicate or rotate, the ticket set.
+- [ ] T047 Update booking lookup DTOs, REST/OpenAPI implementation and Thymeleaf/Magic-Link views to return/show the complete ticket set only after confirmation, without exposing PII, payment payloads or secrets.
+- [ ] T048 Update the confirmation email renderer so the booking contact receives every active ticket in the confirmed ticket set; delivery retry/resend must preserve the original set.
+- [ ] T049 Add integration/security tests covering aggregate deposit calculation, exact ticket count, individual opaque QR uniqueness, duplicate callback idempotency, ticket-set resend and pending/expired/cancelled projections.
+- [ ] T050 Update `ppswbs-spec/APIs.md`, `quickstart.md` and feature evidence to reflect aggregate payment and individual-ticket behaviour, then run `speckit-analyze` before implementation.
