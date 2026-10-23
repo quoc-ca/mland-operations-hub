@@ -4,12 +4,18 @@
 - [ ] OpenAPI routes, access rules and error responses match `spec.md`.
 - [ ] JPA/Flyway mapping preserves existing domain ownership and does not use raw SQL in application code.
 - [ ] Provider calls have timeout, safe mapping, correlation and retry behavior.
+- [ ] Invalid, disallowed or prompt-injection input is rejected before any provider call.
+- [ ] AI output policy validation rejects final approvals, price publication commands and data leakage.
 - [ ] Raw tokens, credentials, images, provider payloads and unnecessary PII are excluded from logs/audit.
 - [ ] Guest/Member/Staff/Manager/Admin authorization tests cover allowed and denied paths.
 - [ ] Concurrent duplicate submissions and review decisions are safe.
+- [ ] Concurrent image submissions cannot bypass the three-per-five-minute Member quota.
+- [ ] Fourth image attempt returns `429 IMAGE_RATE_LIMITED` with `Retry-After`.
+- [ ] Duplicate idempotent image retry does not consume another quota slot.
 - [ ] Temporary image cleanup is retry-safe and observable.
 - [ ] Text retention cleanup is tested against the 30-day boundary.
 - [ ] AI provider failure never creates approval, price publication, payment or custom-order mutation.
+- [ ] Price suggestion visibility follows Manager/Admin/Staff boundary.
 - [ ] Server-rendered forms and links work without htmx/JavaScript for required core actions.
 - [ ] Spring Modulith verification passes without undeclared cross-module access.
 - [ ] MySQL migration/integration tests run against the selected development/test target.

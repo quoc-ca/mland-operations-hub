@@ -13,5 +13,12 @@
 - [ ] Price suggestion is limited to new packages/retail products.
 - [ ] Manager confirmation and separate catalogue publication are required.
 - [ ] Error codes, idempotency, retry and stale-version behavior are specified.
+- [ ] Every provider input is normalized, schema-validated and restricted to an allowlisted context.
+- [ ] Prompt-injection attempts are rejected before provider invocation.
+- [ ] Provider output is checked for schema, data leakage and prohibited business decisions.
+- [ ] Member image submissions are limited to three attempts in a rolling five-minute window.
+- [ ] Rate limiting is atomic, returns `429 IMAGE_RATE_LIMITED` and includes `Retry-After`.
+- [ ] Duplicate idempotent retries do not consume another image rate-limit slot.
+- [ ] Price suggestion visibility is restricted to Manager, with limited Admin audit access and no default Staff access.
 - [ ] API, data, audit, security and retention requirements are traced to tasks.
 - [ ] Non-goals prevent scope expansion into payment, custom-order acceptance or delivery tracking.

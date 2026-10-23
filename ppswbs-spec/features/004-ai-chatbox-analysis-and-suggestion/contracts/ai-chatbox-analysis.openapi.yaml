@@ -28,6 +28,8 @@ paths:
                 $ref: '#/components/schemas/AiSupportResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableInput'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -60,6 +62,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableInput'
+        '429':
+          $ref: '#/components/responses/ImageRateLimited'
   /design-requests/{designRequestId}:
     get:
       summary: Read an authorized design request projection
@@ -154,6 +160,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableInput'
         '503':
           $ref: '#/components/responses/ProviderUnavailable'
 components:
@@ -277,8 +285,35 @@ components:
       properties:
         code:
           type: string
+          enum:
+            - AUTHENTICATION_REQUIRED
+            - FORBIDDEN_ROLE
+            - BOOKING_CONTEXT_INVALID
+            - DESIGN_VERSION_STALE
+            - CONSENT_REQUIRED
+            - IMAGE_INVALID
+            - IMAGE_TOO_LARGE
+            - IMAGE_QUALITY_INSUFFICIENT
+            - IMAGE_RATE_LIMITED
+            - AI_RATE_LIMITED
+            - AI_INPUT_INVALID
+            - AI_PROMPT_INJECTION_DETECTED
+            - AI_CONTEXT_NOT_ALLOWED
+            - AI_UNAVAILABLE
+            - AI_RESPONSE_INVALID
+            - AI_OUTPUT_POLICY_VIOLATION
+            - AI_SCOPE_UNSUPPORTED
+            - REVIEW_NOT_AUTHORIZED
+            - REVIEW_STATE_CONFLICT
+            - PRICE_INPUT_INCOMPLETE
+            - PRICE_SUGGESTION_INVALID
+            - AI_FEATURE_NOT_APPLICABLE
         message:
           type: string
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+          nullable: true
   responses:
     BadRequest:
       description: Invalid request or input
@@ -296,5 +331,33 @@ components:
       description: Idempotency, stale version or review state conflict
     RateLimited:
       description: Configured request limit exceeded
+      headers:
+        Retry-After:
+          description: Seconds until the client may retry
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ImageRateLimited:
+      description: Member exceeded the limit of three image attempts in five minutes
+      headers:
+        Retry-After:
+          description: Seconds until the image quota may be retried
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableInput:
+      description: Input failed schema, context or AI security policy validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     ProviderUnavailable:
       description: AI provider unavailable or timed out

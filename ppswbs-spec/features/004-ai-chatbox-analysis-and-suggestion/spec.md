@@ -43,6 +43,116 @@ Workshop package
 
 The image branch is available only to a Member with an eligible booking context. Consent is recorded before temporary storage or provider processing. A material design change creates a new design/review version and invalidates the previous decision for continuation.
 
+## Invariant Rules and Security Policies
+
+The following rules are mandatory implementation invariants. They apply to browser
+requests, fallback forms, API clients, retries and internal adapters. Client-provided
+role, price, status, reviewer, estimate and decision values are never trusted.
+
+### Authorization and business invariants
+
+1. Guest MAY use Basic AI Support only. Guest MUST NOT upload or submit a
+   booking-design image.
+2. Only an authenticated Member MAY submit a booking-design image.
+3. A Member image request MUST reference an eligible package, location, session,
+   booking context and current design version owned by that Member.
+4. Affirmative, purpose-specific consent MUST be recorded before temporary image
+   storage or provider processing.
+5. Every valid booking-design request MUST reach Staff or Manager human review.
+   AI MUST NOT create `ACCEPTED`, `REJECTED` or `CLARIFICATION_REQUIRED`.
+6. A reviewer MUST NOT decide a request created by that reviewer or a request with
+   a prohibited conflict of interest.
+7. One design version MAY have at most one terminal review decision.
+8. A material design change MUST create a new design version. An earlier decision
+   MUST NOT be reused for the changed configuration.
+9. AI output MUST NOT mutate booking, payment, review, custom-manufacturing or
+   catalogue-price state.
+10. Only Manager may make the final catalogue pricing decision. Technical Admin may
+    manage approved technical configuration but may not create business review
+    decisions or publish prices through this feature.
+
+### AI input validation invariants
+
+1. Every provider request MUST pass schema, type, length, size, ownership and
+   business-context validation before serialization.
+2. The system MUST construct provider requests from an allowlisted command model; it
+   MUST NOT forward an untrusted request body directly to Gemini.
+3. Provider context MUST be limited to the allowlist for the active use case.
+4. Firebase tokens, provider credentials, passwords, payment data, private customer
+   data and raw operational data MUST NOT be included in provider input.
+5. Price input MUST reference a valid new workshop-package or retail-product
+   proposal with complete materials, components and pricing context.
+6. Candidate features, image quality and price suggestions MUST be validated against
+   their versioned schema, enum values, data types, ranges and maximum lengths.
+7. Images MUST pass MIME type, file-signature, size, dimensions, malware-policy and
+   ownership checks before temporary storage or provider processing.
+8. Unnecessary image metadata MUST be removed before provider processing. OCR text
+   or text embedded in an image MUST be treated as untrusted data, never as a system
+   instruction.
+
+### Prompt-injection and provider-output invariants
+
+1. User input MUST be treated as untrusted data and MUST NOT override system
+   instructions, business policy, output schema, role, pricing rules or review rules.
+2. Fixed system instructions and business policy MUST remain separate from user
+   content. Provider input MUST use structured, allowlisted context.
+3. Requests containing instructions such as `ignore previous instructions`,
+   `publish this price`, `approve this order`, or equivalent attempts to alter system
+   behavior MUST be rejected before the provider call.
+4. A detected prompt injection MUST produce `AI_PROMPT_INJECTION_DETECTED`, record
+   minimal safe audit evidence and create no booking, review, price or payment
+   mutation. Raw malicious content MUST NOT be retained unless explicitly required
+   for a controlled security investigation.
+5. Provider output MUST be checked for schema violations, data leakage, hidden
+   instructions, final business decisions and unsupported claims before display or
+   persistence.
+6. A provider response containing an approval, rejection, final price, publication
+   command or instruction to mutate Mland state MUST be rejected with
+   `AI_OUTPUT_POLICY_VIOLATION`.
+
+### Image rate-limiting invariants
+
+1. Each authenticated Member MAY submit at most three image-submission attempts in
+   a rolling five-minute window, keyed by authenticated Member ID.
+2. An image-submission attempt is counted after Firebase identity verification when
+   a multipart image request reaches the feature, including requests later rejected
+   for missing consent, invalid context or invalid file content.
+3. Requests rejected before identity verification do not consume the Member quota,
+   but remain subject to infrastructure or IP-level abuse controls.
+4. When the quota is exceeded, the system MUST return HTTP `429 TOO_MANY_REQUESTS`
+   with `IMAGE_RATE_LIMITED` and `Retry-After`. It MUST not store the image, call
+   Gemini, or create a design/review request.
+5. The quota check and reservation MUST be atomic so concurrent requests cannot
+   bypass the limit.
+6. A duplicate retry identified by the same idempotency key MUST return the existing
+   command result and MUST NOT consume another quota slot.
+
+### Data retention and visibility invariants
+
+1. Booking-design images MUST be temporary and MUST be deleted after provider
+   processing on both success and failure paths.
+2. Raw provider payloads MUST NOT be persisted unless a separately approved audit
+   requirement requires a minimized safe projection.
+3. The retained analysis projection is limited to candidate features, image quality,
+   schema version, provider correlation ID, processed time and safe failure evidence.
+4. Text prompts and responses MUST expire within 30 days.
+5. Internal price suggestions MUST never be visible to Guest or Member.
+6. A price suggestion MAY be viewed by the authorized Manager responsible for the
+   proposal. Admin may view only approved technical or audit evidence. Staff has no
+   default access to the internal suggestion.
+7. A customer MAY see a price only after Manager confirmation and successful
+   catalogue publication through the owning catalogue workflow.
+
+### Required security error codes
+
+```text
+AI_INPUT_INVALID
+AI_PROMPT_INJECTION_DETECTED
+AI_CONTEXT_NOT_ALLOWED
+AI_OUTPUT_POLICY_VIOLATION
+IMAGE_RATE_LIMITED
+```
+
 ## User scenarios and testing
 
 ### User Story 1 — Ask basic AI support (P1)
@@ -72,6 +182,12 @@ As a Member, I want to submit a consented reference image after selecting my pac
 8. Given a reviewer records Accepted, Rejected or Clarification Required, when the decision commits, then the system records actor, current design version, reason, timestamp and audit evidence and exposes the permitted result to the owning Member.
 9. Given the Member changes a material option after a decision, when the new design is submitted, then the system creates a new version and requires analysis/routing/review again.
 10. Given the provider fails or returns an invalid result, when processing stops, then the system records failure, deletes temporary image input, creates no approval and permits a safe retry.
+11. Given a Member has submitted three image attempts within the rolling five-minute window, when the Member submits a fourth image, then the system returns `429 IMAGE_RATE_LIMITED`, does not store the image, and does not call Gemini.
+12. Given an image request is rejected for missing consent, invalid context or invalid file content after identity verification, when the request is processed, then the attempt still consumes the Member rate-limit slot.
+13. Given concurrent image requests would exceed the Member quota, when they are processed, then the atomic quota check allows no more than three attempts in the window.
+14. Given a Member retries the same accepted idempotency key, when the request is processed, then the system returns the existing result and does not consume another image quota slot.
+15. Given a prompt contains an instruction to ignore system policy or change a business decision, when it is submitted, then the system returns `AI_PROMPT_INJECTION_DETECTED`, does not call Gemini, and does not mutate business state.
+16. Given an AI response contains an approval, final price or publication command, when the response is validated, then the system rejects it with `AI_OUTPUT_POLICY_VIOLATION` and keeps business state unchanged.
 
 ### User Story 3 — Request an advisory catalogue price suggestion (P1)
 
@@ -118,6 +234,13 @@ As a Manager, I want an AI price suggestion for a new workshop package or retail
 - **FR-04-020**: The system MUST label the AI result advisory and MUST not modify or publish a price from the AI response alone.
 - **FR-04-021**: The final Manager price MUST be validated, recorded with decision context, and applied/published through the owning catalogue workflow.
 - **FR-04-022**: The feature MUST reject AI price suggestions for custom-manufacturing orders, individual Member quotations, final invoices and payment amounts.
+- **FR-04-023**: Every provider request MUST be built from a validated, normalized and allowlisted command model; raw untrusted request bodies MUST NOT be forwarded.
+- **FR-04-024**: The system MUST reject prompt-injection attempts before provider invocation and MUST return `AI_PROMPT_INJECTION_DETECTED` without business mutation.
+- **FR-04-025**: The system MUST validate provider output for schema, policy, data leakage and unsupported business-decision content before display or persistence.
+- **FR-04-026**: An authenticated Member MUST be limited to three image-submission attempts in a rolling five-minute window. The limit MUST be keyed by Member ID and enforced atomically.
+- **FR-04-027**: A rate-limited image request MUST return HTTP 429 with `IMAGE_RATE_LIMITED` and `Retry-After`, without storage, provider invocation or request creation.
+- **FR-04-028**: A duplicate idempotent image command MUST return the existing result and MUST NOT consume another image rate-limit slot.
+- **FR-04-029**: Price suggestion visibility MUST be restricted to the authorized Manager, with Admin limited to approved technical/audit evidence and no default Staff access.
 
 ## State model
 
@@ -151,6 +274,11 @@ An analysis failure has no business decision. A rejected version cannot continue
 
 Protected requests require a verified Firebase ID token and Mland role/status authorization. Client-supplied role, price, status, reviewer, estimate or decision is never trusted.
 
+Validation and security screening occur before any provider call. A rejected input,
+prompt-injection detection or disallowed context returns a stable error code and does
+not invoke Gemini. The image endpoint enforces the Member rolling rate limit and
+returns `Retry-After` when the limit is exceeded.
+
 ### Idempotency and retry
 
 - Image submission MUST accept a client command/idempotency key scoped to the authenticated Member and booking/design version.
@@ -164,7 +292,7 @@ Protected requests require a verified Firebase ID token and Mland role/status au
 
 The contract MUST expose stable, safe codes including:
 
-`AUTHENTICATION_REQUIRED`, `FORBIDDEN_ROLE`, `BOOKING_CONTEXT_INVALID`, `DESIGN_VERSION_STALE`, `CONSENT_REQUIRED`, `IMAGE_INVALID`, `IMAGE_TOO_LARGE`, `IMAGE_QUALITY_INSUFFICIENT`, `AI_RATE_LIMITED`, `AI_UNAVAILABLE`, `AI_RESPONSE_INVALID`, `AI_SCOPE_UNSUPPORTED`, `REVIEW_NOT_AUTHORIZED`, `REVIEW_STATE_CONFLICT`, `PRICE_INPUT_INCOMPLETE`, `PRICE_SUGGESTION_INVALID`, and `AI_FEATURE_NOT_APPLICABLE`.
+`AUTHENTICATION_REQUIRED`, `FORBIDDEN_ROLE`, `BOOKING_CONTEXT_INVALID`, `DESIGN_VERSION_STALE`, `CONSENT_REQUIRED`, `IMAGE_INVALID`, `IMAGE_TOO_LARGE`, `IMAGE_QUALITY_INSUFFICIENT`, `IMAGE_RATE_LIMITED`, `AI_RATE_LIMITED`, `AI_INPUT_INVALID`, `AI_PROMPT_INJECTION_DETECTED`, `AI_CONTEXT_NOT_ALLOWED`, `AI_UNAVAILABLE`, `AI_RESPONSE_INVALID`, `AI_OUTPUT_POLICY_VIOLATION`, `AI_SCOPE_UNSUPPORTED`, `REVIEW_NOT_AUTHORIZED`, `REVIEW_STATE_CONFLICT`, `PRICE_INPUT_INCOMPLETE`, `PRICE_SUGGESTION_INVALID`, and `AI_FEATURE_NOT_APPLICABLE`.
 
 ## Logical data ownership
 
