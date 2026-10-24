@@ -10,6 +10,8 @@ The original revision task changed documentation only. A subsequent user request
 
 Documentation verification for this revision: the SpecKit prerequisite command `./.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireSpec -RequireTasks -IncludeTasks`, run from the SpecKit root, resolved feature 003 successfully; no extension hooks were registered. Read-only cross-artifact analysis covered 18 FRs, four SCs and eight tasks, with 100% requirement coverage, no unmapped tasks, no constitution conflicts and no critical/high findings. The seven AC scenarios were walked through against the navigation/access rules; runtime execution remains pending. Static checks passed for all 26 local Markdown links/anchors, OpenAPI YAML, unchanged API structure after removing description fields, unchanged FR-004–FR-010, identical task markers and identical historical content below the separator. `git diff --check` passed. No backend or prototype test result is claimed.
 
+Current document location after merge resolution: `features/001-account-management/` (FE-01). The historical evidence below is restored from the common-ancestor snapshot before feature renumbering, including its original `003-member-profile` identifiers and commands. This location correction does not claim that any historical command or runtime verification was rerun.
+
 ## Historical evidence — removed implementation
 
 Everything below the separator is preserved from the previous implementation, including its old policy-gate behavior, commands, task references and completion statements. Those statements are historical, not current status. Some referenced scripts/tests were removed, and historical references to T009 or runnable commands in quickstart do not describe the current task list/quickstart.
@@ -17,7 +19,7 @@ Everything below the separator is preserved from the previous implementation, in
 ---
 
 # Verification Evidence
-Feature: 001-account-management. Results are recorded from fresh execution, not inferred from existing checkboxes.
+Feature: 003-member-profile. Results are recorded from fresh execution, not inferred from existing checkboxes.
 ## Design gate
 User approval: explicit implementation request in this conversation, 2026-10-19.
 Operational design kit read and checked. No reviewer-owned checklists created or changed.
@@ -34,7 +36,7 @@ Read-only SpecKit prerequisite command passed with FEATURE_DIR=features/003-memb
 | Persistence, concurrency and rollback | `MemberProfilePersistenceIT` | 4 passed on H2: simultaneous first saves, last save, atomic audit rollback, bootstrap idempotence/no email merge/suspension, concurrent UID initialization. H2 is supplemental. |
 | SDK boundary | `ProfileIdentityGatewayTest` | 2 passed: both credential verification methods request revocation checks; safe invalid/unavailable provider outcomes. |
 | Real provider simulator | `FirebaseProfileEmulatorIT` | 1 passed against running Auth Emulator: real email/password registration, verification action, new ID token, Firebase cookie with exp–iat exactly 28,800 seconds, cookie and ID-token revocation. Emulator does not prove production cryptographic/project integration. |
-| Real HTTP, no-JS forms | From root: `python -X utf8 ppswbs-spec/features/001-account-management/emulator/profile-http-smoke.py` | Passed: Emulator identity → actual app cookie → SSR policy form → SSR profile form → API read → logout. No JS/browser is used by the form runner. Secure cookies are explicitly forwarded only to the fixed loopback HTTP app. |
+| Real HTTP, no-JS forms | From root: `python -X utf8 ppswbs-spec/features/003-member-profile/emulator/profile-http-smoke.py` | Passed: Emulator identity → actual app cookie → SSR policy form → SSR profile form → API read → logout. No JS/browser is used by the form runner. Secure cookies are explicitly forwarded only to the fixed loopback HTTP app. |
 | JS/static contract | `node --check .../member-profile-auth.js`; Python YAML/Markdown/template checks | Passed: OpenAPI YAML, strict body contract, 18 FRs, local links, UTF-8 markup, no script on profile/policy pages. |
 | Scope preservation | `git diff --check`; diff restricted to V1–V3 migrations, workshopbooking and designreview production directories | Passed; those existing migrations and business code unchanged. No production Firebase configuration or deployment. |
 

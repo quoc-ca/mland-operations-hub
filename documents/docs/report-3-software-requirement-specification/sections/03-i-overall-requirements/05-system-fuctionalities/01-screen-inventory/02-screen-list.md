@@ -37,17 +37,17 @@
 | 33 | Payment Gateway Redirect | Payment | Routes an eligible retail, workshop-deposit or custom-order payment to the configured payment gateway. |
 | 34 | Payment Page | Payment | Provides the external payment gateway interface for completing the selected payment. |
 | 35 | Payment Result | Payment | Displays system-verified payment status and links to the relevant booking or order; browser return alone does not confirm payment. |
-| 36 | Design Path Selection | Design Customization | Allows users to choose an existing ring design, image-based design or supported ring configuration. |
+| 36 | Design Path Selection | Design Customization | Allows users to choose an existing ring design or supported ring configuration. The image-based design path is visible only to an eligible Member and requires the booking context and consent flow. |
 | 37 | Existing Ring Design Selection | Design Customization | Allows users to browse and select an available shop ring design for their workshop. |
-| 38 | Image Upload Consent Form | Design Customization | Allows Members to review and provide the required consent for reference-image processing. |
-| 39 | AI Feature Analysis | Design Customization | Displays AI-assisted identification of design features and components for review and further customization. |
-| 40 | Reference Image Upload | Design Customization | Allows Members to upload a reference image and receive file-validation feedback for their design. |
+| 38 | Image Upload Consent Form | Design Customization | Allows an eligible Member to review and actively record versioned consent before temporary reference-image storage or AI processing. |
+| 39 | AI Feature Analysis | Design Customization | Displays candidate features and image-quality information returned by AI, the current analysis state, estimate context, retry guidance, and the required Staff/Manager human-review status. |
+| 40 | Reference Image Upload | Design Customization | Allows an eligible Member to upload a reference image after recorded consent and receive file, ownership, context, quality, and rate-limit validation feedback. |
 | 41 | Ring Configuration | Design Customization | Allows users to build a ring design using supported configuration choices. |
 | 42 | Parameter Customization | Design Customization | Allows users to adjust supported design parameters and review the updated price estimate and difficulty. |
 | 43 | Ring Components | Design Customization | Allows users to select supported components for their customized ring. |
 | 44 | Ring Attachment | Design Customization | Allows users to configure supported attachments for the selected ring design. |
 | 45 | Ring Engraving | Design Customization | Allows users to specify supported engraving options for the selected ring design. |
-| 46 | Design Review Status and Quote | Design Customization | Displays the current design review outcome, self-making suitability and applicable estimate or quote. |
+| 46 | Design Review Status and Quote | Design Customization | Displays analysis status, the current estimate context, Staff/Manager review status, Accepted/Rejected/Clarification Required outcome, reason, and the permitted next action. It never treats AI output alone as approval or final price. |
 | 47 | Product Management List | Product Management | Allows authorized maintainers to browse managed products and open product creation or maintenance. |
 | 48 | New Product | Product Management | Allows authorized maintainers to enter product information and save a new product as unpublished. |
 | 49 | Product Management Details | Product Management | Allows authorized maintainers to manage product data, images, variants, quantities, approved-price application and publication while protecting holds and purchase history. |

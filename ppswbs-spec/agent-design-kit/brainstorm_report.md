@@ -4,14 +4,14 @@ Ngày: 2026-10-18. Phạm vi: viết lại [AGENT.md](../AGENT.md) và bổ sung
 
 ## Vấn đề và căn cứ
 
-File cũ chủ yếu liệt kê stack, kiến trúc và quy trình. Nó chưa phân định cụ thể quyết định agent được tự làm, thiết kế phải đủ tới đâu và phản hồi khi thiếu. Phần sprint ghi chưa có feature spec/constitution chưa ratify, trong khi đã có [feature booking](../features/002-workshop-booking/spec.md) và [constitution](../.specify/memory/constitution.md) ghi ratified ngày 2026-09-30.
+File cũ chủ yếu liệt kê stack, kiến trúc và quy trình. Nó chưa phân định cụ thể quyết định agent được tự làm, thiết kế phải đủ tới đâu và phản hồi khi thiếu. Phần sprint ghi chưa có feature spec/constitution chưa ratify, trong khi đã có [feature booking](../features/003-workshop-management/003.1-workshop-booking/spec.md) và [constitution](../.specify/memory/constitution.md) ghi ratified ngày 2026-09-30.
 
 Khảo sát repo cho thấy:
 
 - [Backend manifest](../../ppswbs_backend/pom.xml) dùng Java 21/Spring Boot, JPA, Flyway, Spring Modulith. Khả năng triển khai đa công nghệ không có nghĩa được đổi baseline dự án.
 - [General spec](../spec-general.md) là working agreement còn TBD; không tự dùng nó để giải quyết quyết định chưa chốt.
 - Đã có [spec template](../.specify/templates/spec-template.md), [plan template](../.specify/templates/plan-template.md), [tasks template](../.specify/templates/tasks-template.md) và feature artifacts/contracts. Không cần pipeline thiết kế thay thế.
-- [Checklist booking](../features/002-workshop-booking/checklists/quality.md) phân biệt review yêu cầu với hoàn tất triển khai. Tick checkbox không tự chứng minh phê duyệt hoặc code đúng.
+- [Checklist booking](../features/003-workshop-management/003.1-workshop-booking/checklists/quality.md) phân biệt review yêu cầu với hoàn tất triển khai. Tick checkbox không tự chứng minh phê duyệt hoặc code đúng.
 - Constitution yêu cầu artifacts được duyệt, giữ unknown và kiểm chứng phù hợp; tài liệu chỉ cần static check thích hợp. Persona phải giữ ngoại lệ Member Auth đã ratify, không tuyệt đối hóa quy tắc no-JavaScript.
 
 Tham khảo ngoài repo: [NASA — How to Write a Good Requirement](https://www.nasa.gov/reference/appendix-c-how-to-write-a-good-requirement/) trình bày các tiêu chí rõ nghĩa, đầy đủ, nhất quán, truy vết và kiểm chứng. Kit vận dụng các tiêu chí liên quan, không tuyên bố áp dụng hay đáp ứng tiêu chuẩn NASA.
