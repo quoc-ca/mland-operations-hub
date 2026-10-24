@@ -1,5 +1,10 @@
 # Feature Specification: AI Chatbox Analysis and Suggestion
 
+**Date created**: 2026-10-21
+**Date updated**: 2026-10-24
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Ngô Tiến Đạt
+
 **Feature**: `004-ai-chatbox-analysis-and-suggestion`
 **Status**: Draft implementation specification
 **Source alignment**: Report 1 FE-04/FE-05, Report 3 AI Chatbox Analysis and Suggestion, `ppswbs-spec/spec-general.md`
@@ -22,9 +27,9 @@ The Report 3 display roles are authoritative for this feature: `Guest`, `Member`
 | --- | --- |
 | Guest | Use basic AI support with public catalogue, workshop, store-information and FAQ context. Cannot upload or submit a booking-design image. |
 | Member | Use basic AI support; submit an image only inside an eligible workshop booking after affirmative consent; view only own analysis/review result. |
-| Staff | Review booking-design requests within the delegated branch and value threshold, record Accepted, Rejected or Clarification Required with a reason. |
-| Manager | Review higher-value or Manager-authority booking-design requests; request package/product price suggestions; accept, adjust or reject final catalogue prices. |
-| Admin | Manage approved technical parameters, integration credentials and support configuration; cannot create business review decisions or publish prices through this feature. |
+| Staff | Review booking-design requests within the delegated branch and value threshold; record Accepted, Rejected or Clarification Required with a reason. Staff does not use the Feature-04 Basic AI endpoint. |
+| Manager | Review higher-value or Manager-authority booking-design requests; request package/product price suggestions; accept, adjust or reject final catalogue prices. Manager does not use the Feature-04 Basic AI endpoint. |
+| Admin | Manage approved technical parameters, integration credentials and support configuration; cannot create business review decisions or publish prices through this feature. Admin does not use the Feature-04 Basic AI endpoint. |
 | AI API | Return text support, candidate image features/image quality, or advisory package/product price suggestions. It cannot mutate Mland business state. |
 | Cloud Storage | Temporarily store booking-design image input and retain only according to the feature retention rule. |
 
@@ -37,7 +42,7 @@ never trusted. Physical role-code mapping remains a separate approved decision.
 
 | Action | Guest | Member | Staff | Manager | Admin |
 | --- | --- | --- | --- | --- | --- |
-| Basic AI support | Allow, public context only | Allow, public context only | Allow, public context only | Allow, public context only | Allow, public context only |
+| Basic AI support | Allow, public context only | Allow, public context only | Deny | Deny | Deny |
 | Upload booking-design image | Deny | Allow, own eligible booking only | Deny | Deny | Deny |
 | View own design result | Deny | Own data only | Deny | Deny | Deny |
 | View scoped design request | Deny | Own data only | Branch/value scope | Branch/authority scope | Technical/audit evidence only if authorized |
@@ -70,7 +75,7 @@ never trusted. Physical role-code mapping remains a separate approved decision.
 
 | Endpoint | Allowed actor | Denied or restricted actor | Scope/business condition | Denied side effect |
 | --- | --- | --- | --- | --- |
-| `POST /api/v1/ai-support/messages` | Guest, Member, authorized internal actors | None for public-support scope; unsupported business requests are rejected | Public catalogue, workshop, store-information or approved FAQ context | No booking, payment, review, order or price mutation |
+| `POST /api/v1/ai-support/messages` | Guest or Member | None for public-support scope; unsupported business requests are rejected | Public catalogue, workshop, store-information or approved FAQ context | No booking, payment, review, order or price mutation |
 | `POST /api/v1/design-requests` | Authenticated eligible Member | Guest, Staff, Manager, Admin | Own package/location/session/booking context, current consent and valid design version | No storage/provider call when authorization or validation fails |
 | `GET /api/v1/design-requests/{id}` | Owning Member, scoped Staff/Manager, authorized Admin audit view | Other Members and out-of-scope staff | Ownership, branch/delegation and authority scope | No raw image, raw provider payload or another Member's data |
 | `GET /api/v1/design-review-requests` | Staff and Manager | Guest, Member, Admin unless approved audit view | Reviewer branch/delegation/value/authority scope | No mutation |
@@ -413,9 +418,9 @@ An analysis failure has no business decision. A rejected version cannot continue
 
 | Method | Route | Access | Result |
 | --- | --- | --- | --- |
-| `POST` | `/api/v1/ai-support/messages` | Guest/Member | Validated basic-support response or typed scope/rate/provider error. |
+| `POST` | `/api/v1/ai-support/messages` | Guest/Member, public context only | Validated basic-support response or typed scope/rate/provider error. |
 | `POST` | `/api/v1/design-requests` | Eligible Member | Creates one versioned booking-design request after consent/context validation. |
-| `GET` | `/api/v1/design-requests/{id}` | Owning Member or authorized Staff/Manager | Returns permitted analysis/review projection; never raw provider payload or another Member's data. |
+| `GET` | `/api/v1/design-requests/{id}` | Owning Member, authorized Staff/Manager, or approved Admin audit view | Returns permitted analysis/review projection; never raw provider payload or another Member's data. |
 | `GET` | `/api/v1/design-review-requests` | Staff/Manager | Returns only requests in the reviewer's branch/delegation/value scope. |
 | `POST` | `/api/v1/design-review-requests/{id}/decisions` | Authorized Staff/Manager | Records one allowed human decision for the current version. |
 | `POST` | `/api/v1/price-proposals/{id}/ai-suggestions` | Manager | Returns advisory suggestion for a package/product proposal only. |
@@ -426,6 +431,38 @@ Validation and security screening occur before any provider call. A rejected inp
 prompt-injection detection or disallowed context returns a stable error code and does
 not invoke Gemini. The image endpoint enforces the Member rolling rate limit and
 returns `Retry-After` when the limit is exceeded.
+
+## Design handoff requirements
+
+The feature is ready to enter the design step only when the following observable
+flows and states are represented in the feature design. `ppswbs-spec/DESIGN.md`
+is the visual and interaction baseline; this section defines Feature-04 behavior
+that the design must expose without changing the business rules above.
+
+1. **Basic AI support**: entry point, prompt input, loading, supported response,
+   unsupported-topic response, rate-limit response, provider-unavailable response,
+   and safe-response failure state for Guest and Member.
+2. **Booking-design submission**: package → location/session → booking information
+   → design path → consent → image upload. The design must show the consent purpose,
+   image constraints, upload progress, invalid-image state, prompt-injection/security
+   rejection state, and the three-attempts-per-five-minutes rate-limit state.
+3. **Analysis and human review**: processing, analysis failure, `NEED_REVIEW`,
+   `ACCEPTED`, `REJECTED`, and `CLARIFICATION_REQUIRED`. Candidate features and
+   image quality must be labelled as AI suggestions, while reviewer identity,
+   reason and next action remain human-controlled.
+4. **Manager price suggestion**: proposal inputs, loading, advisory suggestion,
+   invalid/out-of-range suggestion, provider failure, manual fallback, and the
+   Manager accept/adjust/reject decision. The suggestion is never shown to Guest,
+   Member or Staff by default and never publishes a price directly.
+5. **Shared UI states**: loading, empty, validation error, permission denied,
+   not found, stale design version, concurrency conflict, retry and recovery.
+   No screen may expose raw provider payloads, raw images, credentials or unnecessary
+   personal data.
+
+The feature design must also preserve bilingual labels/messages, backend-enforced
+authorization, keyboard accessibility, visible focus, and a clear distinction
+between booking-design images (temporary) and custom-manufacturing reference images
+(a separate workflow).
 
 ### Idempotency and retry
 
@@ -440,7 +477,7 @@ returns `Retry-After` when the limit is exceeded.
 
 The contract MUST expose stable, safe codes including:
 
-`AUTHENTICATION_REQUIRED`, `FORBIDDEN_ROLE`, `BOOKING_CONTEXT_INVALID`, `DESIGN_VERSION_STALE`, `CONSENT_REQUIRED`, `IMAGE_INVALID`, `IMAGE_TOO_LARGE`, `IMAGE_QUALITY_INSUFFICIENT`, `IMAGE_RATE_LIMITED`, `AI_RATE_LIMITED`, `AI_INPUT_INVALID`, `AI_PROMPT_INJECTION_DETECTED`, `AI_CONTEXT_NOT_ALLOWED`, `AI_UNAVAILABLE`, `AI_RESPONSE_INVALID`, `AI_OUTPUT_POLICY_VIOLATION`, `AI_SCOPE_UNSUPPORTED`, `REVIEW_NOT_AUTHORIZED`, `REVIEW_STATE_CONFLICT`, `PRICE_INPUT_INCOMPLETE`, `PRICE_SUGGESTION_INVALID`, and `AI_FEATURE_NOT_APPLICABLE`.
+`AUTHENTICATION_REQUIRED`, `FORBIDDEN_ROLE`, `NOT_FOUND`, `BOOKING_CONTEXT_INVALID`, `DESIGN_VERSION_STALE`, `CONSENT_REQUIRED`, `IMAGE_INVALID`, `IMAGE_TOO_LARGE`, `IMAGE_QUALITY_INSUFFICIENT`, `IMAGE_RATE_LIMITED`, `AI_RATE_LIMITED`, `AI_INPUT_INVALID`, `AI_PROMPT_INJECTION_DETECTED`, `AI_CONTEXT_NOT_ALLOWED`, `AI_UNAVAILABLE`, `AI_RESPONSE_INVALID`, `AI_OUTPUT_POLICY_VIOLATION`, `AI_SCOPE_UNSUPPORTED`, `REVIEW_NOT_AUTHORIZED`, `REVIEW_STATE_CONFLICT`, `PRICE_INPUT_INCOMPLETE`, `PRICE_SUGGESTION_INVALID`, and `AI_FEATURE_NOT_APPLICABLE`.
 
 ## Logical data ownership
 
@@ -472,7 +509,9 @@ The feature MUST not link booking-design review to custom-manufacturing acceptan
 - Never log raw Firebase tokens, provider credentials, raw image content, raw signed provider payloads or unnecessary PII.
 - Use server-side authorization for every protected operation.
 - Store only minimized audit evidence and safe provider correlation data.
-- Core forms/links must remain usable without htmx or JavaScript where the platform constitution requires a fallback.
+- The React + Vite client must expose loading, empty, validation, success, denial,
+  conflict and recovery states for this feature; business authorization remains
+  server-side. This feature does not introduce a separate Thymeleaf/htmx UI baseline.
 - Cross-module access uses named facades; no controller, entity or repository is imported across modules.
 - AI/image/provider calls must execute outside business database locks and must use retry-safe application boundaries.
 
