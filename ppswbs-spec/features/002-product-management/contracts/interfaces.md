@@ -1,11 +1,11 @@
 # Interface Contracts: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-24 (bổ sung API import Excel — US9)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
-**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; contract là baseline, provider/identity/FE-08 prerequisites chưa có implementation.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; contract là baseline, provider/identity/FE-08 prerequisites chưa có implementation.   Phần bổ sung import Excel (US9) được duyệt bởi Đặng Thị Khương ngày 2026-10-24.
 **REST contract**: [OpenAPI 3.0.3](product-management.openapi.json). Trường, URL và errors ở đây phải khớp OpenAPI trước khi code; đây không phải endpoint đã hoạt động.
 
 ## Identity and capability boundary
@@ -56,10 +56,16 @@ API management chỉ nhận backend-verified bearer identity; cookie không thay
 | POST price-proposals/{proposalId}/submissions | expectedVersion; submit current draft dưới variant lock, một pending/size. |
 | POST price-proposals/{proposalId}/decisions | expectedVersion, decision APPROVE/REJECT, approvedPrice/reason tương ứng; Manager only. Với initial product review phải đi review-decisions để whole-review atomic, không approve riêng lẻ rồi coi hồ sơ đã duyệt. |
 | POST price-proposals/{proposalId}/applications | expectedVersion; body không nhận số tiền mới. Check đúng approved revision/baseAppliedSequence; initial review phải valid. |
+| GET product-imports/template | `downloadProductImportTemplate`: trả `.xlsx` mẫu (sheet "Sản phẩm" với cột Mã nhóm, Tên sản phẩm, Mô tả, Danh mục, Size, Giá đề xuất (VND), Số lượng; sheet hướng dẫn; sheet danh mục đang hoạt động). Cần `product.create`. |
+| POST product-imports | `validateProductImport`: multipart đúng một file `.xlsx`; kiểm tra MIME + chữ ký ZIP/OOXML, không macro (`.xlsm`/vbaProject), ≤ 5.000.000 bytes (request ≤ 5.100.000), ≤ 500 dòng dữ liệu, chỉ sheet đầu. Trả 201 `ProductImportBatch` state VALIDATED (kèm `preview`) hoặc REJECTED (kèm `errors[{row,column,value,code,message}]`, mọi lỗi, tối đa 4.000 phần tử). Lỗi dòng không phải HTTP lỗi; lỗi mức file là 400/413/415. Không tạo product, product id hoặc SKU. Cần `Idempotency-Key`; cùng key/cùng digest (file SHA-256) trả lại batch cũ. |
+| GET product-imports/{batchId}, GET product-imports/{batchId}/error-report | `getProductImport` đọc trạng thái/kết quả (kiểm tra sau mất phản hồi); `downloadProductImportErrorReport` tải `.xlsx` lỗi (ô bắt đầu bằng `=`,`+`,`-`,`@` được vô hiệu hóa). Chỉ actor tạo batch và còn `product.create`; batch người khác trả 404 `IMPORT_BATCH_NOT_FOUND`; batch quá hạn trả 409 `IMPORT_BATCH_EXPIRED` cho `error-report` (errors đã bị xóa). `template` là đoạn đường dẫn cố định, `batchId` luôn là UUID nên không va chạm. |
+| POST product-imports/{batchId}/confirmations | `confirmProductImport`: body `expectedVersion` của batch + `Idempotency-Key`. Chỉ batch VALIDATED chưa hết hạn (60 phút). Tái kiểm tra toàn bộ payload với dữ liệu mới nhất rồi tạo mọi sản phẩm bằng đúng `CreateProductService` trong **một** transaction cùng audit + receipt; trả `ProductImportBatch` state IMPORTED với `created[{groupKey, productId, skus}]`. Có lỗi/lỗi lưu/lỗi audit → không tạo gì. Gửi lặp cùng key trả kết quả đã commit. |
 | GET/POST categories, PUT categories/{categoryId} | List/create/update name/description với unique normalized name toàn hệ thống. |
 | GET categories/{categoryId}/impact | Số lượng và danh sách phân trang các sản phẩm bị ảnh hưởng; active/version hiện hành. Không public dữ liệu quản trị. |
 | PUT categories/{categoryId}/activation | expectedVersion + active; phản ánh kết quả sau xác nhận impact. Không xóa product publication flag/history. |
 | GET command-receipts/{commandId} | Chỉ actor sở hữu, có quyền hiện tại; query action bắt buộc để đúng receipt scope. Chưa có receipt trả 404 COMMAND_RESULT_NOT_FOUND, không khẳng định command chắc chắn chưa được xử lí. |
+
+**Quy tắc import Excel (FR-039–FR-045)**: dùng capability `product.create` (không thêm capability mới); Admin/Guest/Member bị 403/401 ở mọi operation import. Hàng tiêu đề cố định ở dòng 1, đúng 7 cột như mẫu (không cột lạ/thiếu; thứ tự cột phải đúng mẫu); dòng trống hoàn toàn ở cuối bị bỏ qua, dòng trống xen giữa là lỗi. Ô công thức, ô gộp, hyperlink và giá trị lỗi Excel bị báo lỗi (không đọc giá trị cache). Ô số: số thật phải là số nguyên không vượt 15 chữ số có nghĩa; ô văn bản chỉ nhận chuỗi chữ số đúng quy tắc Amount/Quantity (không dấu phân tách, không `+`, thập phân, mũ, leading zero) — còn lại báo `INVALID_NUMBER`. Size nhận số nguyên 5–29 (`5.0` bị từ chối). Danh mục so khớp tên đã trim, không phân biệt hoa/thường với danh mục đang hoạt động (sai → `CATEGORY_NOT_ACTIVE_OR_UNKNOWN`). Nhóm theo `Mã nhóm` (trim, phân biệt hoa/thường, ≤ 100 ký tự); các dòng cùng nhóm phải trùng tên/mô tả/danh mục (`GROUP_FIELD_MISMATCH`), size không trùng (`DUPLICATE_SIZE_IN_GROUP`), ≤ 25 size/nhóm. Mã lỗi dòng: `REQUIRED`, `TOO_LONG`, `INVALID_NUMBER`, `OUT_OF_RANGE`, `CATEGORY_NOT_ACTIVE_OR_UNKNOWN`, `GROUP_FIELD_MISMATCH`, `DUPLICATE_SIZE_IN_GROUP`, `TOO_MANY_SIZES`, `FORMULA_NOT_SUPPORTED`, `EMPTY_ROW_IN_DATA`. Tên sản phẩm không yêu cầu duy nhất nên không có lỗi trùng tên. Một file không chứa ảnh/SKU/trạng thái/giá bán.
 
 Decision reason đã được chốt tối đa 2.000 ký tự, bắt buộc không rỗng sau trim khi REJECT; contract đề xuất đếm code point. Không nhận số tiền ở REJECT. APPROVE product cần prices của mọi variant đúng snapshot, không duplicate; Manager có thể điều chỉnh approvedPrice hợp lệ. Danh sách variant bất biến nên update product không có variants. saleEnabled=true cho size mới và active=true cho danh mục mới đã được chốt, chưa cấp quyền mua cho product unpublished.
 
@@ -69,13 +75,13 @@ Giữ shape common.ErrorResponse: code, message an toàn, correlationId, timesta
 
 | HTTP | Codes | Behavior |
 | --- | --- | --- |
-| 400 | VALIDATION_ERROR, UNSUPPORTED_FILTER, INVALID_SORT, UNKNOWN_FIELD | Trường/dòng lỗi; không query/ghi với tiêu chí sai. |
+| 400 | VALIDATION_ERROR, UNSUPPORTED_FILTER, INVALID_SORT, UNKNOWN_FIELD, IMPORT_FILE_INVALID (hỏng/không phải OOXML/có macro/header sai-thiếu cột/sheet đầu trống), IMPORT_ROW_LIMIT_EXCEEDED (> 500 dòng) | Trường/dòng lỗi; không query/ghi với tiêu chí sai. |
 | 401 | AUTHENTICATION_REQUIRED, INVALID_CREDENTIAL | Không tạo phiên/quyền từ credential lỗi. |
 | 403 | CATALOGUE_ACCESS_DENIED | Không tiết lộ protected resource. |
-| 404 | PRODUCT_NOT_FOUND, VARIANT_NOT_FOUND, CATEGORY_NOT_FOUND, MEDIA_NOT_FOUND, PROPOSAL_NOT_FOUND, COMMAND_RESULT_NOT_FOUND | Public hidden/deleted giống không có; không reveal draft. |
-| 409 | STALE_VERSION, DUPLICATE_CATEGORY_NAME, PENDING_PRICE_PROPOSAL_EXISTS, REVIEW_NOT_CURRENT, PRICE_NOT_APPROVED, PRICE_TERMS_CHANGED, PRICE_APPLICATION_STALE, PUBLICATION_PREREQUISITES_MISSING, QUANTITY_BELOW_HELD, SIZE_LIST_IMMUTABLE, PRODUCT_DELETED, IDEMPOTENCY_KEY_REUSED | Tải latest trong quyền hiện tại, sửa/xác nhận lại; không ghi đè/hủy giao dịch cũ. |
-| 413 | MEDIA_TOO_LARGE | Không attach object một phần; file quá giới hạn bị từ chối. |
-| 415 | MEDIA_TYPE_UNSUPPORTED | Không nhận định dạng ảnh khác. |
+| 404 | PRODUCT_NOT_FOUND, VARIANT_NOT_FOUND, CATEGORY_NOT_FOUND, MEDIA_NOT_FOUND, PROPOSAL_NOT_FOUND, COMMAND_RESULT_NOT_FOUND, IMPORT_BATCH_NOT_FOUND | Public hidden/deleted giống không có; không reveal draft. |
+| 409 | STALE_VERSION, DUPLICATE_CATEGORY_NAME, PENDING_PRICE_PROPOSAL_EXISTS, REVIEW_NOT_CURRENT, PRICE_NOT_APPROVED, PRICE_TERMS_CHANGED, PRICE_APPLICATION_STALE, PUBLICATION_PREREQUISITES_MISSING, QUANTITY_BELOW_HELD, SIZE_LIST_IMMUTABLE, PRODUCT_DELETED, IDEMPOTENCY_KEY_REUSED, IMPORT_HAS_ERRORS (xác nhận batch REJECTED), IMPORT_BATCH_EXPIRED, IMPORT_PREVIEW_STALE (tái kiểm tra khi xác nhận thấy dữ liệu đổi; batch chuyển REJECTED, không tạo gì) | Tải latest trong quyền hiện tại, sửa/xác nhận lại; không ghi đè/hủy giao dịch cũ. |
+| 413 | MEDIA_TOO_LARGE, IMPORT_FILE_TOO_LARGE | Không attach object một phần / không tạo batch; file quá giới hạn bị từ chối. |
+| 415 | MEDIA_TYPE_UNSUPPORTED, IMPORT_FILE_TYPE_UNSUPPORTED | Không nhận định dạng ảnh khác / chỉ nhận `.xlsx`. |
 | 503 | IDENTITY_DEPENDENCY_UNAVAILABLE, AVAILABILITY_DEPENDENCY_UNAVAILABLE, MEDIA_DEPENDENCY_UNAVAILABLE, CATALOGUE_SAVE_UNAVAILABLE, CATALOGUE_BUSY | Lỗi tạm thời riêng, không trả empty/held=0; cho kiểm tra receipt/thử lại cùng key. |
 
 ## Frontend journeys (React + Vite, REST-only)
@@ -91,6 +97,7 @@ Frontend là ứng dụng React + Vite tách riêng, render phía client và ch�
 | Công khai / ẩn / lượng bán / ngừng bán | PUT `publication`, PUT `variants/{variantId}/quantity`, sale-status operation | Proposed/approved/applied amounts và state hiển thị riêng. |
 | Đề xuất giá | price-proposal operations (revise/submit/decide/apply) | Chỉ apply đúng giá đã duyệt; không có amount field ở apply. |
 | Danh mục | category operations và impact | Tên duy nhất, xác nhận tác động, không mất lịch sử. |
+| Import sản phẩm từ Excel | `product-imports/template`, `POST product-imports`, `GET product-imports/{batchId}`, `error-report`, `confirmations` | Tải mẫu → chọn file (kiểm tra phía client chỉ là gợi ý: đuôi `.xlsx`, dung lượng) → xem kết quả kiểm tra: bảng lỗi theo dòng/cột + nút tải báo cáo lỗi, hoặc bản xem trước số sản phẩm/biến thể → hộp thoại xác nhận riêng → kết quả liệt kê mã sản phẩm/SKU với liên kết sang chi tiết. Sinh commandId cho từng bước; sau mất phản hồi gọi `getProductImport` trước khi thử lại cùng key; batch hết hạn hoặc 409 `IMPORT_PREVIEW_STALE` yêu cầu tải/kiểm tra lại. Nhắc rõ sản phẩm import chưa có ảnh và phải thêm ảnh trước khi gửi duyệt. |
 
 Hành vi chung: mỗi màn hình có loading, empty (khác dependency error), validation (lỗi gắn đúng trường, giữ dữ liệu đã nhập), success và failure/recovery. 409 STALE_VERSION tải latest và yêu cầu xác nhận lại; 503 cho kiểm tra receipt/thử lại cùng commandId; lỗi hiển thị correlation ID. Nhãn/input có tên rõ, hỗ trợ vi/en theo cơ chế i18n frontend, không tự tuyên bố đạt một accessibility standard chưa phê chuẩn. Ẩn nút hoặc route guard phía client không thay authorization phía server.
 

@@ -1,18 +1,20 @@
 # Implementation Plan: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-24 (bổ sung thiết kế import Excel — US9, FR-039–FR-045)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
 **Feature context**: `002-product-management` | **Spec**: [spec.md](spec.md)  
 **Git branch**: `khuong` được giữ nguyên; không tạo/switch nhánh. `002-product-management` là feature context của SpecKit, không phải git branch hiện tại.  
-**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; thiết kế là baseline cho triển khai, các task phụ thuộc bên ngoài (FE-01 contract xác thực, FE-08 nguồn giữ hàng, FE-06 T004, Cloudinary, kế hoạch frontend) chỉ bắt đầu khi dependency tương ứng đạt.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; thiết kế là baseline cho triển khai, các task phụ thuộc bên ngoài (FE-01 contract xác thực, FE-08 nguồn giữ hàng, FE-06 T004, Cloudinary, kế hoạch frontend) chỉ bắt đầu khi dependency tương ứng đạt.   Phần bổ sung import Excel (US9) được duyệt bởi Đặng Thị Khương ngày 2026-10-24.
 **Input**: FE-02 có hai quyết định clarify ngày 2026-10-23 và các câu trả lời bổ sung ngày 2026-10-24 về roles, Cloudinary, retention, defaults và hướng A: dùng chung cơ chế xác thực theo FE-01/001, kiểm tra thêm quyền Staff/Manager; MFA/recovery do identity/FE-01 sở hữu. Chỉ hoàn thiện tài liệu, không code/test/migration/deploy.
 
 ## Summary
 
 Triển khai nhẫn bán sẵn trong module productmanagement: tạo sản phẩm với size cố định 5–29 và SKU tự sinh, gửi Manager duyệt, áp dụng đúng giá đã duyệt rồi chủ động công khai. Sửa nội dung trực tiếp sau công khai lần đầu; mọi đổi giá vẫn phải duyệt. Có quản lí ảnh, lượng bán chung, ngừng bán từng size, ẩn/công khai, xóa mềm không khôi phục, danh mục và public search/filter/sort theo spec.
+
+Bổ sung import Excel (US9): tải file mẫu `.xlsx`, tải lên để kiểm tra (không tạo dữ liệu), xem trước/báo cáo lỗi theo dòng–cột, rồi xác nhận để tạo mọi sản phẩm nháp trong một transaction qua đúng `CreateProductService`. Không thay đổi vòng đời duyệt/giá/công khai và không có ảnh trong file.
 
 Giữ module đóng; JPA/Flyway và MySQL 8.4, REST API versioned phục vụ frontend React + Vite tách riêng. Catalogue sở hữu quantity, FE-08 sở hữu hold; availability SPI giữ compile dependency readyringsales → productmanagement và đồng bộ khóa. Không dùng fallback zero-hold, ROLE_MEMBER, provider giả hoặc thiết kế 001 chưa triển khai để lấp dependency.
 
@@ -28,7 +30,8 @@ Giữ module đóng; JPA/Flyway và MySQL 8.4, REST API versioned phục vụ fr
 | Project type | Spring Modulith modular monolith hiện có, thêm nội dung vào module productmanagement đang là shell. |
 | Performance goals | Chưa baselined; không tự đặt throughput/latency/SLA. Thiết kế batch availability, phân trang và query theo product IDs; kiểm chứng tính đúng trước benchmark. |
 | Constraints | Không khắc; size không thêm/đổi sau lưu; Manager tự duyệt được; giá duyệt/áp dụng/công khai riêng; UI React chỉ qua REST; giữ giá/lịch sử giao dịch; không sửa role mapping ngầm. |
-| Scale/scope | 1–25 variants/product, tối đa 10 ảnh 5.000.000 bytes; 20 product/page và q tối đa 200 đã chốt. Tổng catalogue/concurrency production chưa xác định. |
+| Scale/scope | 1–25 variants/product, tối đa 10 ảnh 5.000.000 bytes; 20 product/page và q tối đa 200 đã chốt. Import Excel: ≤ 5.000.000 bytes, ≤ 500 dòng/file (đã chốt). Tổng catalogue/concurrency production chưa xác định. |
+| Excel (US9) | Thư viện đọc/ghi OOXML (đề xuất Apache POI `poi-ooxml`; version pin sau kiểm tra tương thích với Java 21/Boot 3.4.1 và tiền lệ T004, chưa thêm vào pom từ tác vụ tài liệu). Đọc bằng event/streaming API với giới hạn zip-bomb (tỉ lệ nén, kích thước giải nén, số entry) và tắt XXE/external entity; không thực thi công thức/liên kết ngoài. Đặt sau ranh giới `ProductImportParser`/`ImportTemplateWriter` trong `service/importing/` (thay được bằng test double). |
 
 ## Constitution Check
 
@@ -78,6 +81,9 @@ ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/
     service/          commands, authorization boundary, state/price/quantity services,
                       media staging/cleanup; service/media/ holds the Cloudinary adapter
                       for MediaStoragePort (gói phụ: ranh giới ra dịch vụ ngoài, thay được bằng test double)
+                      service/importing/ holds ProductImportService (validate/confirm),
+                      ProductImportValidator, ProductImportParser, ImportTemplateWriter,
+                      ImportErrorReportWriter, ProductImportPayloadCleaner (US9)
     facade/           CatalogueSalesFacade, AvailabilityGuardPort, immutable records
   configuration/      route-scoped catalogue API security/CORS wiring only
   members/facade/     dependency: identity-owned capability/session contract
@@ -119,12 +125,24 @@ Theo constitution V, mỗi tương tác của FE-02 được phân loại như s
 | Xác thực mọi REST (kể cả frontend React) | Stateless: bearer được xác minh mỗi request | Identity (FE-01) | Không lưu trong productmanagement. Theo contract xác thực FE-01/001 | Revocation/trạng thái kiểm tra mỗi request; hết phiên/thu hồi trả 401; hành vi đăng nhập lại/recovery do 001 định nghĩa |
 | Tìm/lọc/sắp xếp/phân trang công khai | Stateless | productmanagement | Không lưu; tiêu chí nằm trong query, đọc lại điều kiện công khai mỗi lượt | Trang cũ không cấp quyền mua; lỗi phụ thuộc khác empty |
 | Command receipt (chống gửi lặp) | Retained | productmanagement | MySQL, giữ 5 năm theo G-04 | Cùng actor/action/key và cùng digest trả kết quả đã commit; khác digest trả 409 |
+| Import Excel: file tải lên | Stateless, không lưu | productmanagement | Đọc trong request, không ghi đĩa/Cloudinary; chỉ giữ SHA-256 và tên file | Quá giới hạn/hỏng bị từ chối; người dùng tải lại |
+| Import Excel: batch xem trước | Retained, ngắn hạn + metadata dài hạn | productmanagement | MySQL `catalogue_import_batches`: payload đã chuẩn hóa chỉ khi VALIDATED, hết hạn sau 60 phút rồi xóa payload và errors; metadata/kết quả giữ 5 năm | Xác nhận cần expectedVersion + command key; hết hạn → tải lại; `getProductImport` để kiểm tra sau mất phản hồi |
 | Hồ sơ, review, đề xuất giá, publication, xóa mềm | Retained | productmanagement | MySQL, có version, không ghi đè lịch sử | expectedVersion, 409 cho xem latest rồi xác nhận lại |
 | Ảnh staging và tham chiếu | Retained, ngắn hạn | productmanagement | Staging private trên Cloudinary; chưa gắn 24 giờ, gỡ không còn tham chiếu 30 ngày mới được dọn | Reference guard, DELETE_PENDING, retry cùng key |
 | Lượng bán và hold | Retained, tách owner | productmanagement giữ lượng bán; FE-08 giữ hold | MySQL, khóa theo thứ tự đã chốt | Guard xuyên suốt compare/save/audit, không cancel hold để giảm lượng |
 | Trạng thái màn hình frontend (bộ lọc, form chưa gửi) | Client-side, tạm thời | Frontend | Không là nguồn sự thật nghiệp vụ; nơi lưu do kế hoạch frontend chốt | Mất khi tải lại; không lưu token hay dữ liệu nội bộ ngoài thiết kế |
 
 Trạng thái xác thực và trạng thái nghiệp vụ được tách riêng: cookie hay cơ sở dữ liệu một mình không xác lập mô hình xác thực.
+
+### Excel import flow (US9)
+
+1. **Template**: `ImportTemplateWriter` sinh `.xlsx` (sheet dữ liệu, hướng dẫn, danh mục hoạt động) theo từng request, không lưu file; chỉ cần `product.create`.
+2. **Validate** (`POST product-imports`): authorize → kiểm tra size/MIME/chữ ký/macro trước khi giải nén → `ProductImportParser` đọc sheet đầu, đúng 7 cột, ≤ 500 dòng, loại ô công thức/ô gộp/hyperlink → `ProductImportValidator` áp dụng `CatalogueValues` (cùng quy tắc FR-004/005), nhóm theo Mã nhóm, tra category theo name key đang hoạt động, thu thập toàn bộ lỗi (không cắt bớt; tối đa 4.000 phần tử) → ghi batch (VALIDATED với payload chuẩn hóa hoặc REJECTED không payload) + audit + receipt trong một transaction. Không gọi Cloudinary/remote dưới khóa; không cấp product id/SKU.
+3. **Confirm** (`POST product-imports/{batchId}/confirmations`): authorize → receipt replay → khóa batch (optimistic version) → kiểm tra chưa hết hạn → khóa category theo ID tăng dần, tái kiểm tra category active và quy tắc FR-004/005 trên payload → gọi lõi `CreateProductService.createDraft` (không receipt/transaction riêng; receipt duy nhất là của lệnh xác nhận) cho từng nhóm trong **một** transaction (tạo product, variants/SKU, review DRAFT, proposal DRAFT, audit từng sản phẩm với nguồn IMPORT + audit batch + receipt) → batch IMPORTED. Bất kỳ lỗi (kể cả audit) rollback toàn bộ; lỗi tái kiểm tra ghi batch REJECTED ở transaction riêng và trả 409 `IMPORT_PREVIEW_STALE`.
+4. **Idempotency**: validate dùng `Idempotency-Key` với digest = SHA-256 file; confirm dùng key + batchId + expectedVersion. Mất phản hồi: `getProductImport`.
+5. **Giới hạn đồng thời**: không cần khóa sản phẩm (chỉ tạo mới); hai import đồng thời không tranh chấp ngoài category lock; không có unique theo tên sản phẩm.
+6. **Dọn dẹp**: `ProductImportPayloadCleaner` (job nền theo lịch) xóa `parsed_payload` và `errors` của batch quá hạn, đặt EXPIRED (VALIDATED); không xóa metadata/audit/receipt.
+7. **Bảo mật**: bearer + capability `product.create` ở mọi bước; batch chỉ thuộc actor tạo; không log nội dung file/giá trị ô, chỉ số dòng/mã lỗi; báo cáo lỗi xuất file vô hiệu hóa ô bắt đầu bằng `=`, `+`, `-`, `@`; Admin không dùng.
 
 ### Lifecycle and UI
 
@@ -150,6 +168,7 @@ Xem [data-model](data-model.md), [OpenAPI](contracts/product-management.openapi.
 | --- | --- | --- |
 | FR-001–FR-003 | Shared identity per 001, capability boundary, management views | API denial, expiry/revocation, no internal authority from Member cookie, privileged-auth gate, Manager self-approval, existing-route regression. |
 | FR-004–FR-008 | Exact data, fixed variants, media metadata | Validation boundaries, SKU >6 digits, upload failures, no partial creation. |
+| FR-039–FR-045 | Template/validate/confirm flow, retained batch, shared `CreateProductService`, streaming OOXML parser | Parser boundary tests (header, ô công thức, số dạng văn bản, 500/501 dòng, zip-bomb), all-or-nothing, stale preview, expiry, replay, denied actors (gồm Admin), SKU/giá/số lượng bằng với tạo tay, audit per product + batch. |
 | FR-009–FR-018 | Immutable review/price and separate publication | Invalidated revisions, one pending/size, exact approved apply, stale application, sold-out publish. |
 | FR-019–FR-025 | Guarded quantities, product gate, soft delete | Real-source hold races, delete/hold ordering, immutable old transaction snapshots. |
 | FR-026–FR-030 | Receipt/audit, locks and normalized category key | Lost response replay, audit rollback, concurrent duplicate category/activation. |
@@ -159,11 +178,11 @@ Xem [data-model](data-model.md), [OpenAPI](contracts/product-management.openapi.
 
 ## Complexity Tracking
 
-Không có constitution exception đề xuất. SPI availability là dependency inversion để không tạo cycle và giữ atomic check/save; receipt và business version cần cho FR-011/015/026/028, không thay bằng cache hoặc queue. Không thêm distributed transaction, search engine, queue hoặc lifecycle hold thứ hai.
+Không có constitution exception đề xuất. Import Excel thêm một bảng retained ngắn hạn (`catalogue_import_batches`) và một dependency thư viện OOXML; cả hai cần cho xem-trước-rồi-xác-nhận có kiểm tra lại và idempotency (FR-041/042/044), không thay bằng queue, bộ nhớ phiên hay lưu file gốc. SPI availability là dependency inversion để không tạo cycle và giữ atomic check/save; receipt và business version cần cho FR-011/015/026/028, không thay bằng cache hoặc queue. Không thêm distributed transaction, search engine, queue hoặc lifecycle hold thứ hai.
 
 ## Documentation verification performed
 
-Ngày 2026-10-24, sau chốt hướng A và Cloudinary: đã kiểm tra tĩnh 8 tài liệu Markdown của feature (gồm spec/checklist hiện có), 43 liên kết nội bộ tồn tại và 5 liên kết nguồn ngoài được dẫn chiếu, thứ tự 38 FR và ánh xạ đủ mọi FR trong plan. OpenAPI JSON parse được, có 23 paths/27 operations/43 schemas, local reference/operationId hợp lệ, management operation có security và mutation có idempotency key. Có 7 câu trả lời đã ghi nhận (2 ngày 2026-10-23, 5 ngày 2026-10-24), gồm xác thực dùng chung theo 001; không coi phương thức MFA cụ thể đã được chọn. 16 marker checklist giữ nguyên. `git diff --check` không có lỗi whitespace; có thông báo chuẩn hóa LF/CRLF của Git cho research tổng, không phải lỗi nội dung. Không có after_plan hook được cấu hình.
+Ngày 2026-10-24, sau chốt hướng A và Cloudinary: đã kiểm tra tĩnh 8 tài liệu Markdown của feature (gồm spec/checklist hiện có), 43 liên kết nội bộ tồn tại và 5 liên kết nguồn ngoài được dẫn chiếu (số liệu trước bổ sung US9 ngày 2026-10-24; hiện 45 FR, 32 operations, 47 schemas), thứ tự 38 FR và ánh xạ đủ mọi FR trong plan. OpenAPI JSON parse được, có 23 paths/27 operations/43 schemas, local reference/operationId hợp lệ, management operation có security và mutation có idempotency key. Có 7 câu trả lời đã ghi nhận (2 ngày 2026-10-23, 5 ngày 2026-10-24), gồm xác thực dùng chung theo 001; không coi phương thức MFA cụ thể đã được chọn. 16 marker checklist giữ nguyên. `git diff --check` không có lỗi whitespace; có thông báo chuẩn hóa LF/CRLF của Git cho research tổng, không phải lỗi nội dung. Không có after_plan hook được cấu hình.
 
 Giới hạn kiểm chứng: đây là structural validator tự kiểm tra tài liệu, chưa chạy external full OpenAPI validator. Không chạy ứng dụng, test catalogue, MySQL migration/concurrency hoặc adapter thật vì chưa có implementation/prerequisites; không dùng static pass làm evidence runtime. Không tạo tasks.md hoặc sửa production/test files.
 

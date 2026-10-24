@@ -94,6 +94,12 @@ Khảo sát không tìm thấy adapter lưu ảnh catalogue, cấu hình provide
 - **Decision**: Tạo migration mới cho các bảng `catalogue_*` sau khi kiểm tra high-water mark lúc triển khai (hiện chưa có migration nào vì `ppswbs_backend/src` đã bị xóa); không dành sẵn số version trong plan, không sửa migration đã áp dụng của feature khác, không seed role/provider hoặc reset dữ liệu. Kiểm chứng fresh MySQL và upgrade trên schema có dữ liệu của các feature khác đã có lúc triển khai.
 - **Rationale**: Feature 001 có thể tạo migration trước khi 002 được triển khai. Soft-delete giữ toàn bộ identity/FK; rollback triển khai ưu tiên disable routes và migration sửa tiếp, không drop dữ liệu mới.
 
+### D-10 — Excel import is a two-step, all-or-nothing alternative to create
+
+- **Decision**: Người dùng chốt ngày 2026-10-24: import `.xlsx` theo mẫu, ≤ 5.000.000 bytes và 500 dòng, sheet đầu, không ảnh, tất cả-hoặc-không, chỉ tạo mới. Thiết kế: bước kiểm tra không tạo dữ liệu và lưu batch ngắn hạn (payload đã chuẩn hóa, hết hạn 60 phút — mặc định kỹ thuật) rồi bước xác nhận tái kiểm tra và tạo qua đúng `CreateProductService` trong một transaction. Không lưu file gốc; metadata/kết quả giữ 5 năm. Thư viện OOXML (đề xuất Apache POI) dùng streaming read, giới hạn zip-bomb, tắt XXE, không thực thi công thức.
+- **Rationale**: Xem trước + báo cáo lỗi giúp sửa file lớn trước khi tạo; tái kiểm tra khi xác nhận giữ đúng FR-026 (danh mục có thể đổi giữa hai bước). Dùng lại service tạo tay để SKU, giá, số lượng, audit và receipt giống nhau, tránh đường ghi thứ hai.
+- **Alternatives considered**: Tạo ngay khi tải lên (không có xem trước, khó rollback ở cấp UI) — loại; stateless confirm bằng tải lại cùng file (không cần bảng batch nhưng tốn băng thông và khó chứng minh "đúng file đã xem") — loại; import từng phần hợp lệ (partial) — trái FR-042; lưu file gốc trên Cloudinary/đĩa — không cần và thêm rủi ro dữ liệu.
+
 ## Phase 0 outcome and remaining gates
 
 Ngày 2026-10-24 đã chốt role codes/provisioning, dùng chung xác thực theo 001, Cloudinary, retention và các mặc định. G-01 đóng về hướng tích hợp/phiên FE-02; phương thức MFA/recovery vẫn là dependency thiết kế identity/FE-01 chưa được chọn. G-02 là dependency code/kiểm chứng FE-08, không yêu cầu người dùng quyết định lại quy tắc giữ hàng. G-03/G-04 đóng về quyết định. Plan có thể sắp thứ tự dependency; chưa được coi thiết kế MFA chung hoặc integration đã hoàn thành. Không code, migration hoặc deploy trong tác vụ cập nhật này.

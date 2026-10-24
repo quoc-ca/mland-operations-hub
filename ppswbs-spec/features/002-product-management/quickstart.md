@@ -1,11 +1,11 @@
 # Quickstart and Validation: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-24 (bổ sung V-15 import Excel)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
-**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; kế hoạch kiểm chứng, chưa có implementation để chạy nghiệm thu.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; kế hoạch kiểm chứng, chưa có implementation để chạy nghiệm thu.   Phần bổ sung import Excel (US9) được duyệt bởi Đặng Thị Khương ngày 2026-10-24.
 **References**: [spec](spec.md), [plan](plan.md), [data model](data-model.md), [OpenAPI](contracts/product-management.openapi.json), [interfaces](contracts/interfaces.md).
 
 ## Prerequisites
@@ -23,6 +23,7 @@ Từ workspace root trong PowerShell, các lệnh có thể thực thi sau khi �
 Set-Location D:/mland-operations-hub/mland-operations-hub/ppswbs_backend
 .\mvnw.cmd -Dtest=CatalogueDomainTests,CatalogueApiIT test
 .\mvnw.cmd -Dtest=CatalogueMySqlIT,CatalogueConcurrencyIT test
+.\mvnw.cmd -Dtest=CatalogueImportTests,CatalogueImportApiIT test
 .\mvnw.cmd -Dtest=CatalogueDependenciesIT,ModulithArchitectureTests test
 .\mvnw.cmd test
 ```
@@ -37,6 +38,7 @@ Tên test là mục tiêu thiết kế, không có test code được tạo tron
 - Product A có size 5, 12; Product B cùng size nhưng SKU khác. Mã sản phẩm 123 và mã hơn 6 chữ số; không tạo thêm size sau lưu.
 - Hai size giá khác nhau, một size có remaining=10/held=2, một size ngừng bán vẫn còn lượng, một product mọi size hết hàng.
 - Ảnh hợp lệ JPEG/PNG/WebP, 10/11 ảnh, tệp ngay dưới/đúng/trên byte limit, alt text biên, media unavailable rồi phục hồi; staging upload chưa attach phải private.
+- File Excel import (tạo bằng công cụ test, không dữ liệu thật): file hợp lệ 2 sản phẩm (size 5, 12 và size 29), file có từng loại lỗi dòng (tên 201 ký tự, size 4/30/5.0, trùng size, giá 0/âm/`12.5`/`1.000`, số lượng âm, danh mục sai/inactive, thiếu Mã nhóm, nhóm khác tên), file 500/501 dòng, tiêu đề thiếu/thừa cột, đuôi `.xls`/`.xlsm`/file hỏng/zip-bomb nhỏ, ô công thức, giá trị bắt đầu bằng `=`. Danh mục hoạt động bị ngừng giữa lúc xem trước và xác nhận; file có nhiều lỗi (tới 4.000 phần tử); batch quá hạn 60 phút.
 - FE-08 hold/accepted order thật có frozen price/deadline trước đổi giá/ẩn/xóa; mọi fixture phải có nguồn authoritative, không chỉ set field catalogue “held”.
 
 ## Verification matrix
@@ -57,6 +59,7 @@ Tên test là mục tiêu thiết kế, không có test code được tạo tron
 | V-12 | Fresh/upgrade migration MySQL, rollback failure/audit/unique, baseline member/workshop regression. | Preserve dữ liệu của các migration đã có lúc triển khai, correct FK/check/index, zero changes migration cũ, real concurrency evidence. |
 | V-13 | Chạy frontend React + Vite với backend REST: public search/filter/paging và mọi hành trình quản trị cốt lõi; kiểm tra loading/empty/validation/success/failure/recovery. | Journeys hoàn thành chỉ qua REST; backend không trả HTML UI; hết phiên/thu hồi trả 401 và UI xử lý theo hành vi đăng nhập lại/recovery do 001 định nghĩa. FR-038. |
 | V-14 | Kiểm tra mốc 24h ảnh chưa gắn, 30 ngày sau ảnh gỡ; attach/retain đồng thời cleanup; audit/receipt dưới 5 năm. Kiểm tra Cloudinary upload timeout/retry, unsigned access và ảnh sau unpublish/delete. | Chỉ dọn object không tham chiếu, DELETE_PENDING chặn attach; retry không tạo trùng/ghi đè. Provider URL không lộ, original/derived unsigned bị từ chối; public media bị chặn khi không còn tham chiếu công khai hợp lệ, quyền đọc lịch sử kiểm tra riêng. Không xóa ảnh lịch sử hoặc purge audit/receipt trước hạn. US4.9, US5.6. |
+| V-15 | Tải mẫu; tải lên file hợp lệ → xem trước → xác nhận; file có từng loại lỗi dòng/file; 500/501 dòng; xác nhận lặp/mất phản hồi; danh mục bị ngừng giữa hai bước; batch hết hạn; Guest/Member/Admin/inactive gọi mọi operation import; hai import đồng thời. | Sản phẩm nháp đúng SKU/giá đề xuất/số lượng như tạo tay, Chưa công khai, không ảnh, không tự gửi duyệt/áp dụng giá; file có lỗi hoặc xác nhận thất bại không tạo product/variant/SKU/audit một phần; báo cáo lỗi nêu đủ mọi lỗi (không cắt), đúng dòng/cột, tải sau khi hết hạn trả 409, và vô hiệu hóa ô `=`/`+`/`-`/`@`; lặp cùng key không trùng; stale/expired trả 409 đúng mã; không lưu file gốc, log không chứa nội dung ô. US9, FR-039–045, SC-008. |
 
 Chạy V-06/V-07 có barrier điều phối hai transaction để thực sự va chạm, không chỉ gọi tuần tự. Lock order được kiểm tra cả productmanagement và source FE-08, gồm source không có hold row để bắt phantom race. Nếu adapter chưa có, ghi NOT RUN/BLOCKED, không dùng fixture-only kết quả thay integration pass.
 
