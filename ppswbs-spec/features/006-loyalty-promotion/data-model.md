@@ -1,5 +1,10 @@
 # Data Model: Loyalty & Promotion
 
+**Date created**: 2026-10-24
+**Date updated**: 2026-10-24
+**Author**: Đặng Thị Khương
+**Last updated by**: Đặng Thị Khương
+
 **Status**: Proposed design — chưa tạo entity hoặc migration.  
 **Traceability**: [FR-003–FR-010, FR-023–FR-038, FR-041](spec.md), [research D-03–D-08](research.md).
 

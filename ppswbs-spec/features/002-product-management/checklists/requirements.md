@@ -1,7 +1,11 @@
 # Specification Quality Checklist: Product Management
 
+**Date created**: 2026-10-23
+**Date updated**: 2026-10-24
+**Author**: Đặng Thị Khương
+**Last updated by**: Đặng Thị Khương
+
 **Purpose**: Rà chất lượng và độ đầy đủ của spec trước review/lập plan.  
-**Created**: 2026-10-23  
 **Feature**: [spec.md](../spec.md)  
 **Review Ownership**: Checklist chất lượng do bước speckit-specify rà soát; không phải phê duyệt nghiệp vụ mới hoặc bằng chứng triển khai.  
 **Marker Semantics**: `[x]` nghĩa tiêu chí chất lượng tài liệu đã được kiểm tra, không có nghĩa code đã hoàn thành hoặc kịch bản đã chạy trên sản phẩm.
@@ -52,11 +56,11 @@ Ký hiệu `USn.m` là kịch bản số m trong User Story n; các khoảng FR 
 | FR-029, FR-030 | US7.1–US7.5 | Nhập liệu danh mục, ảnh hưởng hoạt động và giữ lịch sử. |
 | FR-031–FR-036 | US8.1–US8.9, US8.11 | Tập kết quả công khai, lọc cùng size, giá/sắp xếp và mất ảnh. |
 | FR-037 | US8.10; US6.6 | Chuyển FE-08, không tạo giao dịch từ việc tra cứu. |
-| FR-038 | US4.8 | Hành trình cốt lõi hoạt động không cần tăng cường trình duyệt. |
+| FR-038 | US4.8 | Hành trình cốt lõi hoàn thành từ frontend React qua REST, có đủ trạng thái loading/empty/validation/success/failure/recovery. |
 
 ## Notes
 
-- Vòng review 1 đã bổ sung kịch bản riêng về quyền quản trị, phân trang, biên nhập danh mục, độ dài từ khóa và hành trình không cần tăng cường trình duyệt để làm rõ ánh xạ nghiệm thu. Vòng review 2 kiểm tra lại toàn bộ 38 FR và các quyết định hội thoại.
+- Vòng review 1 đã bổ sung kịch bản riêng về quyền quản trị, phân trang, biên nhập danh mục, độ dài từ khóa và hành trình frontend React qua REST để làm rõ ánh xạ nghiệm thu. Vòng review 2 kiểm tra lại toàn bộ 38 FR và các quyết định hội thoại.
 - A-001/A-002, role codes, hướng A/phiên nội bộ 8 giờ, Cloudinary, retention và các mặc định đã được người dùng đồng ý ngày 2026-10-24 và đồng bộ vào FE-02 research. Không hỏi lại các quyết định này.
 - MFA/recovery cụ thể vẫn là dependency thiết kế identity/FE-01; không sửa luồng Member hoặc tự chọn phương thức từ FE-02. Adapter FE-08/identity/Cloudinary là dependency triển khai; miền số/cách đếm ký tự là thiết kế kỹ thuật. Không dùng checklist chất lượng để nhận dependency đã chạy hoặc code đã được phê duyệt.
 - Không có hooks.before_specify hoặc hooks.after_specify để thực thi vì dự án không có `.specify/extensions.yml`; không tạo/switch nhánh và không commit/push.

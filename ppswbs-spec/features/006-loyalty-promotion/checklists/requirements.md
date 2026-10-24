@@ -1,7 +1,11 @@
 # Specification Quality Checklist: Loyalty & Promotion Management
 
+**Date created**: 2026-10-24
+**Date updated**: 2026-10-24
+**Author**: Đặng Thị Khương
+**Last updated by**: Đặng Thị Khương
+
 **Purpose**: Kiểm tra chất lượng và độ đầy đủ của spec trước review/lập plan.  
-**Created**: 2026-10-24  
 **Feature**: [spec.md](../spec.md)  
 **Review Ownership**: Bước speckit-specify rà chất lượng tài liệu; không phải phê duyệt nghiệp vụ mới hoặc bằng chứng chạy sản phẩm.  
 **Marker Semantics**: `[x]` nghĩa đã kiểm tra tiêu chí chất lượng; không có nghĩa đã triển khai hoặc chạy nghiệm thu.
@@ -59,7 +63,7 @@ Ký hiệu `USn.m` là kịch bản m của User Story n. Khoảng số bao gồ
 | FR-034–FR-036 | US7.3–US7.6 | Hủy xác nhận, trả lượng gốc/từng quyền lợi và không trả trùng. |
 | FR-037, FR-038 | US7.7–US7.9; US6.6 | Không đến/hủy sai, ngoài phạm vi và kết quả chưa rõ. |
 | FR-039 | US8.6; US3.6; US6.8 | Hành trình biểu mẫu cốt lõi và lỗi an toàn. |
-| FR-040 | US8.7 | Xác thực dùng chung, phiên cố định 8 giờ, quyền/trạng thái, thu hồi và CSRF. |
+| FR-040 | US8.7 | Xác thực dùng chung, phiên cố định 8 giờ tính từ auth_time, quyền/trạng thái và thu hồi. |
 | FR-041 | US6.9 | Lưu tối thiểu 5 năm, bảo vệ tham chiếu, số dư và bằng chứng chống trùng. |
 
 ## Notes
@@ -69,6 +73,6 @@ Ký hiệu `USn.m` là kịch bản m của User Story n. Khoảng số bao gồ
 - Review vòng 1 đã bổ sung tra mã có khoảng trắng/khác hoa thường tại US3.4 và miền dữ liệu hợp lệ tại US1.5/FR-007. Review vòng 2 đối chiếu đủ 39 FR với 62 kịch bản và kiểm tra các quyết định 1–10, công thức tiền/điểm, phạm vi đã loại bỏ.
 - Cập nhật khi lập plan: thêm FR-040/FR-041 và US8.7/US6.9 theo câu trả lời trực tiếp của người dùng ngày 2026-10-24; không suy rộng chính sách retention/xác thực của feature khác mà chưa có xác nhận.
 - Static verification: thứ tự phần template, số FR/SC/user story, đánh số và tham chiếu kịch bản, liên kết nguồn và feature pointer đều hợp lệ; không có placeholder yêu cầu làm rõ. Băm research.md giữ nguyên sau tác vụ; kiểm tra whitespace và đường dẫn SpecKit được thực hiện trước bàn giao. Không chạy test sản phẩm vì chỉ tạo tài liệu.
-- Dependency D-004: spec booking 002 hiện hoãn hậu xử lí; cần FE-03 cung cấp kết quả hủy/hoàn thành/trả đủ đã xác nhận trước bật các hành trình tương ứng. Không nhận dependency đã có code hoặc đã được spec 002 bao phủ.
+- Dependency D-004: spec booking 003 hiện hoãn hậu xử lí; cần FE-03 cung cấp kết quả hủy/hoàn thành/trả đủ đã xác nhận trước bật các hành trình tương ứng. Không nhận dependency đã có code hoặc đã được spec 003 bao phủ.
 - Hooks.before_specify và hooks.after_specify không có để chạy vì không tồn tại `.specify/extensions.yml` tại dự án SpecKit hoặc gốc workspace. Không tạo/chuyển nhánh, không commit/push.
 - Đây là checklist chất lượng spec trước review/plan; chưa có plan/tasks, thiết kế tích hợp/lưu dữ liệu hoặc nghiệm thu trên sản phẩm cho FE-06.

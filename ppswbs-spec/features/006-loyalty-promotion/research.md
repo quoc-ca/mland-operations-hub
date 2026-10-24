@@ -1,12 +1,16 @@
 # Research: Loyalty & Promotion Management
 
-**Date**: 2026-10-24  
+**Date created**: 2026-10-24
+**Date updated**: 2026-10-24
+**Author**: Đặng Thị Khương
+**Last updated by**: Đặng Thị Khương
+
 **Status**: Thiết kế đề xuất từ speckit-plan; nghiệp vụ và hai xác nhận bổ sung đã chốt, chưa có code FE-06.  
 **Sources**: [spec](spec.md), [FE-06](../../research.md#fe-06), [constitution](../../.specify/memory/constitution.md), hai tác vụ nghiên cứu read-only về platform và tích hợp.
 
 ## D-01 — Stack và môi trường kiểm chứng
 
-**Decision**: Giữ Java 21, Spring Boot 3.4.1, Spring Modulith 1.3.1, Firebase Admin 9.11.0, JPA, Flyway, Thymeleaf/Security/Validation theo [pom hiện có](../../../ppswbs_backend/pom.xml). MySQL 8.4/InnoDB là baseline kiểm chứng như plan 003/005; H2 chỉ bổ trợ. Không thêm Redis, broker, dịch vụ loyalty hoặc nhà cung cấp mới.
+**Decision**: Giữ Java 21, Spring Boot 3.4.1, Spring Modulith 1.3.1, Firebase Admin 9.11.0, JPA, Flyway, Security/Validation theo [pom hiện có](../../../ppswbs_backend/pom.xml). Thymeleaf còn trong pom nhưng không dùng cho UI theo constitution 3.0.0. MySQL 8.4/InnoDB là baseline kiểm chứng như plan 001/002; H2 chỉ bổ trợ. Không thêm Redis, broker, dịch vụ loyalty hoặc nhà cung cấp mới.
 
 **Rationale**: Constitution đã chốt modular monolith; nghiệp vụ giữ điểm/lượt cần transaction cùng DB với đơn/booking. application.properties hiện mặc định H2, không phải bằng chứng MySQL compatibility.
 
@@ -50,7 +54,7 @@ Registry dùng PESSIMISTIC_READ cho accept; Manager tạo/sửa/dừng và Admin
 
 Bộ khởi đầu: earnUnit=10000, redeemValue=100, minRedeem=10, maxRedeemPercent=10. Mỗi policy/program revision immutable. Accepted transaction giữ revision, gross/net, cơ sở đủ điều kiện, khoản giảm, số điểm dùng/quy đổi và earn basis. Mọi phép tính sau accept dùng snapshot, không đọc current policy để tính lại.
 
-**Rationale**: DECIMAL/BigInteger và decimal strings đồng nhất hướng catalogue 005, tránh JavaScript precision loss và overflow khi nhân phần trăm. Ngưỡng voucher xét phần eligible trước giảm; trần điểm xét toàn tiền hàng/phí gói sau một ưu đãi, trước điểm.
+**Rationale**: DECIMAL/BigInteger và decimal strings đồng nhất hướng catalogue 002, tránh JavaScript precision loss và overflow khi nhân phần trăm. Ngưỡng voucher xét phần eligible trước giảm; trần điểm xét toàn tiền hàng/phí gói sau một ưu đãi, trước điểm.
 
 **Alternatives considered**: long-only cần kiểm soát intermediate arithmetic vẫn có thể overflow; float/double sai tại biên đồng/điểm.
 
@@ -66,9 +70,9 @@ Benefit có trạng thái points/voucher riêng (NONE/HELD/CONSUMED/RELEASED/RES
 
 ## D-07 — Auth dùng chung, được xác nhận cho FE-06
 
-**Decision confirmed by user 2026-10-24**: Kế thừa FE-01/003 và hướng FE-02: API bearer đã xác minh; web session cố định 8 giờ không sliding; revocation/trạng thái/quyền hiện tại và CSRF; privileged assurance do FE-01 sở hữu. Không tạo login/MFA mới, không lấy ROLE_MEMBER/Firebase claim/email làm quyền Manager/Admin.
+**Decision confirmed by user 2026-10-24**: Kế thừa FE-01/001 và hướng FE-02: mọi REST API (kể cả frontend React) dùng bearer đã xác minh; phiên cố định 8 giờ tính từ auth_time, không sliding (áp dụng đề xuất cho SPA, identity owner xác nhận); revocation/trạng thái/quyền hiện tại; privileged assurance do FE-01 sở hữu. Không tạo login/MFA mới, không lấy ROLE_MEMBER/Firebase claim/email làm quyền Manager/Admin.
 
-**Rationale**: Cùng cơ chế cho Member/Manager/Admin mà không chia danh tính theo feature. MemberFacade/cookie/capability trong 003/005 là thiết kế phụ thuộc, chưa đủ code hiện tại.
+**Rationale**: Cùng cơ chế cho Member/Manager/Admin mà không chia danh tính theo feature. MemberFacade/cookie/capability trong 001/002 là thiết kế phụ thuộc, chưa đủ code hiện tại.
 
 **Alternatives considered**: Tin global permitAll/CSRF disabled/stateless hiện tại sẽ bỏ qua ranh giới đã chốt. Tự chọn phương thức MFA từ loyalty vượt phạm vi identity.
 
@@ -84,7 +88,7 @@ Không implement destructive purge trong feature v1. Thiết kế giữ evidence
 
 ## D-09 — Giao diện và contracts
 
-**Decision**: Thymeleaf GET/POST forms với CSRF, command UUID, expectedVersion và PRG; htmx chỉ enhancement. Public ưu đãi, kho/My Loyalty, Manager programs và Admin policy có API versioned riêng trong [OpenAPI](contracts/loyalty-promotion.openapi.json). Quote/accept/payment/cancel thuộc owner FE-03/FE-08, không thêm endpoint public để reserve/settle/earn/restore.
+**Decision**: Frontend React + Vite tách riêng gọi REST với `Idempotency-Key`, expectedVersion và hiển thị typed error. Public ưu đãi, kho/My Loyalty, Manager programs và Admin policy có API versioned riêng trong [OpenAPI](contracts/loyalty-promotion.openapi.json). Quote/accept/payment/cancel thuộc owner FE-03/FE-08, không thêm endpoint public để reserve/settle/earn/restore.
 
 **Clarification confirmed 2026-10-24**: Manager được mở lại chương trình PAUSED theo lựa chọn A; giữ cùng program/code, quota/history và accepted snapshots, không tự gia hạn/reset lượt. Resume dùng expectedVersion, command receipt, cùng quyền và registry WRITE lock như pause; giao dịch mới vẫn kiểm tra điều kiện hiện hành.
 
@@ -92,7 +96,7 @@ Không implement destructive purge trong feature v1. Thiết kế giữ evidence
 
 **Rationale**: Chỉ source owner có trusted prices và payment/lifecycle evidence. Contract tách public cards khỏi management data; không lộ audit/member quotas của người khác.
 
-**Alternatives considered**: SPA/JS-only forms không có ngoại lệ ratify cho FE-06. Public grant/refund endpoint mở đường client tự tạo quyền lợi.
+**Alternatives considered**: Thymeleaf/htmx server-rendered forms bị loại vì constitution 3.0.0 yêu cầu frontend React + Vite tách riêng. Public grant/refund endpoint mở đường client tự tạo quyền lợi.
 
 ## D-10 — Gaps hiện có và điều kiện tích hợp
 
@@ -100,14 +104,14 @@ Không implement destructive purge trong feature v1. Thiết kế giữ evidence
 
 **Evidence**:
 
-- [SecurityConfiguration](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/configuration/SecurityConfiguration.java): global CSRF disabled/stateless và fallback permitAll; routes loyalty cần security chain riêng.
+- [SecurityConfiguration](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/configuration/SecurityConfiguration.java): global CSRF disabled/stateless và fallback permitAll; routes loyalty cần security chain riêng (bearer, CORS theo origin frontend).
 - [MemberFacade](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/members/facade/MemberFacade.java): chưa có capability/assurance guard.
 - [WorkshopBookingService](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/WorkshopBookingService.java): booking/cọc/hold có transaction, invoice hiện lấy giá gốc; callback/expiry cần source lifecycle serialization khi tích hợp.
-- [BookingStatus](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/domain/BookingStatus.java): chưa có lifecycle hoàn thành thực; [spec 002](../002-workshop-booking/spec.md) hoãn hậu xử lí.
-- [FE-02 plan](../005-product-management/plan.md) là thiết kế catalogue/availability, chưa có provider thật. Retail hiện package skeleton.
+- [BookingStatus](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/domain/BookingStatus.java): chưa có lifecycle hoàn thành thực; [spec 003](../003-workshop-management/003.1-workshop-booking/spec.md) hoãn hậu xử lí.
+- [FE-02 plan](../002-product-management/plan.md) là thiết kế catalogue/availability, chưa có provider thật. Retail hiện package skeleton.
 - Migration directory hiện V1–V3; FE-06 thêm migration mới, không kế thừa DROP/reset cũ của V2. Allocate version tại implementation để không đụng feature khác.
 
-**Rationale**: Các gap là prerequisite triển khai/tích hợp, không phải câu hỏi nghiệp vụ cần người dùng chốt lại. Plan không tự sửa code nguồn/feature 002/005 hoặc nhận permission deploy.
+**Rationale**: Các gap là prerequisite triển khai/tích hợp, không phải câu hỏi nghiệp vụ cần người dùng chốt lại. Plan không tự sửa code nguồn/feature 003/002 hoặc nhận permission deploy.
 
 **Alternatives considered**: Stub production trả 0 held/allowAll/fullyPaid giả làm tính năng có vẻ chạy nhưng vi phạm invariants.
 

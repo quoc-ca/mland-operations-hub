@@ -1,15 +1,20 @@
 # Interface Contracts: Product Management
 
-**Date**: 2026-10-24 | **Status**: Proposed, provider/identity/FE-08 prerequisites chưa có implementation.  
+**Date created**: 2026-10-24
+**Date updated**: 2026-10-24
+**Author**: Đặng Thị Khương
+**Last updated by**: Đặng Thị Khương
+
+**Status**: Proposed, provider/identity/FE-08 prerequisites chưa có implementation.  
 **REST contract**: [OpenAPI 3.0.3](product-management.openapi.json). Trường, URL và errors ở đây phải khớp OpenAPI trước khi code; đây không phải endpoint đã hoạt động.
 
 ## Identity and capability boundary
 
 Identity owner cung cấp qua members::facade một actor value gồm opaque actorId, verified identity reference, accountActive và capability result hiện hành. Catalogue không đọc members entity, không log raw token và không suy role từ Firebase/email. Staff/Manager là nhãn nghiệp vụ, không tự chuyển sang OWNER hoặc mã role khác.
 
-Ngày 2026-10-24 người dùng đã chốt MEMBER/STAFF/MANAGER/ADMIN, MANAGER là vai trò riêng, Admin cấp quyền nội bộ và đăng ký khách không cấp quyền nội bộ. Người dùng cũng đồng ý hướng A: dùng chung primitive xác thực theo [spec 003](../../003-member-profile/spec.md) qua identity owner, bearer API/cookie web cố định 8 giờ không gia hạn trượt, revocation/trạng thái/CSRF và thành công về `/`. Phiên mới kế thừa auth_time tối đa 5 phút/tolerance tương lai 30 giây, cookie HttpOnly/Secure/SameSite=Lax/Path=/; không yêu cầu xác minh email lại trên session hợp lệ. Đây là quyết định FE-02, chưa phải RBAC/session đã triển khai; MFA/recovery cụ thể vẫn thuộc dependency thiết kế FE-01.
+Ngày 2026-10-24 người dùng đã chốt MEMBER/STAFF/MANAGER/ADMIN, MANAGER là vai trò riêng, Admin cấp quyền nội bộ và đăng ký khách không cấp quyền nội bộ. Người dùng cũng đồng ý hướng A: dùng chung primitive xác thực theo [spec 001](../../001-account-management/spec.md) qua identity owner, bearer cho mọi REST API, phiên nội bộ cố định 8 giờ tính từ auth_time không gia hạn trượt, revocation/trạng thái và thành công về `/`. Cookie web/CSRF của 001 không áp dụng cho FE-02 vì UI là React SPA; credential transport cuối cùng do identity owner xác nhận. Không yêu cầu xác minh email lại trên session hợp lệ. Đây là quyết định FE-02, chưa phải RBAC/session đã triển khai; MFA/recovery cụ thể vẫn thuộc dependency thiết kế FE-01.
 
-Không dùng Member allowlist ACTIVE/PENDING_POLICY_ACCEPTANCE hoặc Member bootstrap làm quyền nội bộ. `/member-auth/profile-session`, `__Host-mland_profile` và logout thuộc scope 003; không tự thay đổi hoặc coi cookie này là bằng chứng hoàn tất MFA. Identity owner cung cấp contract dùng chung/mở rộng, bao gồm gate đặc quyền và recovery theo FE-01; catalogue chỉ tiêu thụ actor/capability/xác thực đạt yêu cầu. Không tạo trang đăng nhập/MFA riêng trong catalogue hoặc ép người dùng Member xác minh email lại.
+Không dùng Member allowlist ACTIVE/PENDING_POLICY_ACCEPTANCE hoặc Member bootstrap làm quyền nội bộ. `/member-auth/profile-session`, `__Host-mland_profile` và logout thuộc scope 001; không tự thay đổi hoặc coi cookie này là bằng chứng hoàn tất MFA. Identity owner cung cấp contract dùng chung/mở rộng, bao gồm gate đặc quyền và recovery theo FE-01; catalogue chỉ tiêu thụ actor/capability/xác thực đạt yêu cầu. Không tạo trang đăng nhập/MFA riêng trong catalogue hoặc ép người dùng Member xác minh email lại.
 
 | Action | Required business authority | Denial |
 | --- | --- | --- |
@@ -21,7 +26,7 @@ Không dùng Member allowlist ACTIVE/PENDING_POLICY_ACCEPTANCE hoặc Member boo
 
 Capability names đề xuất: catalogue.read-internal, product.create, product.edit, product.submit, product.approve, product.publish, product.delete, media.manage, variant.quantity, variant.sale-status, price.propose, price.approve, price.apply, category.manage. Đây là action vocabulary của hợp đồng, không phải các DB role/capability đã được provision.
 
-API management chỉ nhận backend-verified bearer identity; cookie không thay bearer. Web management dùng phiên identity đã được xác minh, CSRF cho mọi POST, form có commandId và expectedVersion, cookie security thuộc identity owner. Chưa có session/capability facade thật nên đường quản trị không được enable bằng fallback permitAll hiện tại. Lỗi session không tự điều hướng sang hồ sơ/chính sách Member; identity owner phải cung cấp đích đăng nhập nội bộ cố định, không nhận arbitrary returnTo.
+API management chỉ nhận backend-verified bearer identity; cookie không thay bearer. Frontend React gửi cùng bearer; mỗi lệnh ghi mang commandId và expectedVersion trong DTO. Phiên nội bộ hết 8 giờ tính từ auth_time thì trả 401 AUTHENTICATION_REQUIRED và frontend yêu cầu đăng nhập lại qua Firebase SDK. CORS theo origin của frontend, không vô hiệu hóa toàn cục. Chưa có session/capability facade thật nên đường quản trị không được enable bằng fallback permitAll hiện tại. Lỗi session không tự điều hướng sang hồ sơ/chính sách Member; identity owner phải cung cấp đích đăng nhập nội bộ cố định, không nhận arbitrary returnTo.
 
 ## API conventions
 
@@ -66,24 +71,28 @@ Giữ shape common.ErrorResponse: code, message an toàn, correlationId, timesta
 | --- | --- | --- |
 | 400 | VALIDATION_ERROR, UNSUPPORTED_FILTER, INVALID_SORT, UNKNOWN_FIELD | Trường/dòng lỗi; không query/ghi với tiêu chí sai. |
 | 401 | AUTHENTICATION_REQUIRED, INVALID_CREDENTIAL | Không tạo phiên/quyền từ credential lỗi. |
-| 403 | CATALOGUE_ACCESS_DENIED, CSRF_INVALID | Không tiết lộ protected resource; CSRF_INVALID là web form path. |
+| 403 | CATALOGUE_ACCESS_DENIED | Không tiết lộ protected resource. |
 | 404 | PRODUCT_NOT_FOUND, VARIANT_NOT_FOUND, CATEGORY_NOT_FOUND, MEDIA_NOT_FOUND, PROPOSAL_NOT_FOUND, COMMAND_RESULT_NOT_FOUND | Public hidden/deleted giống không có; không reveal draft. |
 | 409 | STALE_VERSION, DUPLICATE_CATEGORY_NAME, PENDING_PRICE_PROPOSAL_EXISTS, REVIEW_NOT_CURRENT, PRICE_NOT_APPROVED, PRICE_TERMS_CHANGED, PRICE_APPLICATION_STALE, PUBLICATION_PREREQUISITES_MISSING, QUANTITY_BELOW_HELD, SIZE_LIST_IMMUTABLE, PRODUCT_DELETED, IDEMPOTENCY_KEY_REUSED | Tải latest trong quyền hiện tại, sửa/xác nhận lại; không ghi đè/hủy giao dịch cũ. |
 | 413 | MEDIA_TOO_LARGE | Không attach object một phần; file quá giới hạn bị từ chối. |
 | 415 | MEDIA_TYPE_UNSUPPORTED | Không nhận định dạng ảnh khác. |
 | 503 | IDENTITY_DEPENDENCY_UNAVAILABLE, AVAILABILITY_DEPENDENCY_UNAVAILABLE, MEDIA_DEPENDENCY_UNAVAILABLE, CATALOGUE_SAVE_UNAVAILABLE, CATALOGUE_BUSY | Lỗi tạm thời riêng, không trả empty/held=0; cho kiểm tra receipt/thử lại cùng key. |
 
-## Web journeys
+## Frontend journeys (React + Vite, REST-only)
 
-| GET page | POST actions on the same web prefix | Result |
+Frontend là ứng dụng React + Vite tách riêng, render phía client và chỉ gọi các REST operation ở trên. Backend không render UI hoặc HTML form. Client route, thư viện routing/state và cơ chế i18n do kế hoạch frontend chốt, không chọn ở đây; `ppswbs_frontend/` hiện chưa khởi tạo.
+
+| Màn hình | REST operations | Hành vi UI bắt buộc |
 | --- | --- | --- |
-| `/products`, `/products/{id}` | Chuyển lựa chọn sang FE-08 khi chọn mua | Public; GET không tạo cart/hold. Không phát minh route checkout của FE-08 nếu chưa có contract riêng. |
-| `/catalogue-management/products`, `/catalogue-management/products/new`, `/catalogue-management/products/{id}` | `/products`, `/products/{id}/edit`, `/products/{id}/images`, `/products/{id}/submit`, `/products/{id}/review`, `/products/{id}/publication`, `/products/{id}/delete` | Normal HTML forms, CSRF + hidden commandId/version; review self-approval permitted for Manager. |
-| `/catalogue-management/products/{id}` | `/media-uploads`, `/variants/{id}/quantity`, `/variants/{id}/sale-status`, `/variants/{id}/price-proposals` | Multipart normal form + subsequent attach references; no arbitrary URL/JS-only uploader. |
-| `/catalogue-management/price-proposals/{id}` | `/price-proposals/{id}/revise`, `/price-proposals/{id}/submit`, `/price-proposals/{id}/decide`, `/price-proposals/{id}/apply` | Proposed/approved/applied amounts and states shown separately. |
-| `/catalogue-management/categories`, `/catalogue-management/categories/{id}/impact` | `/categories`, `/categories/{id}/edit`, `/categories/{id}/activation` | Unique name, impact confirmation and no lost history. |
+| Danh sách / chi tiết công khai | `GET /api/v1/products`, `GET /api/v1/product-categories` | Public; GET không tạo cart/hold. Không phát minh route checkout của FE-08 nếu chưa có contract riêng; chọn mua chuyển sang FE-08 qua handoff đã có contract. |
+| Danh sách / tạo / chi tiết sản phẩm quản trị | GET/POST `products`, GET/PUT/DELETE `products/{productId}` | Mỗi lệnh ghi có commandId + expectedVersion; Manager được tự duyệt. Xóa qua hộp thoại xác nhận riêng. |
+| Ảnh sản phẩm | POST `media-uploads`, PUT `products/{productId}/images` | Tải multipart một file rồi attach bằng mediaId; không dùng URL tùy ý; hiển thị tiến trình, lỗi và thử lại cùng key. |
+| Gửi duyệt / quyết định | POST `review-submissions`, POST `review-decisions` | Hiển thị snapshot đúng; REJECT cần lý do; không duyệt một phần. |
+| Công khai / ẩn / lượng bán / ngừng bán | PUT `publication`, PUT `variants/{variantId}/quantity`, sale-status operation | Proposed/approved/applied amounts và state hiển thị riêng. |
+| Đề xuất giá | price-proposal operations (revise/submit/decide/apply) | Chỉ apply đúng giá đã duyệt; không có amount field ở apply. |
+| Danh mục | category operations và impact | Tên duy nhất, xác nhận tác động, không mất lịch sử. |
 
-Danh sách web suffix ở cột POST được nối vào `/catalogue-management` trừ khi ghi prefix đầy đủ. Thành công redirect 303 tới fixed local detail/list page; validation render lỗi + escaped submitted fields; conflict render latest facts để xác nhận lại; error có correlation ID. Delete là form xác nhận riêng. Các link/labels/input có tên rõ và thông báo lỗi gắn trường; hỗ trợ vi/en theo message mechanism hiện có, không tự tuyên bố đạt một accessibility standard chưa phê chuẩn.
+Hành vi chung: mỗi màn hình có loading, empty (khác dependency error), validation (lỗi gắn đúng trường, giữ dữ liệu đã nhập), success và failure/recovery. 409 STALE_VERSION tải latest và yêu cầu xác nhận lại; 503 cho kiểm tra receipt/thử lại cùng commandId; lỗi hiển thị correlation ID. Nhãn/input có tên rõ, hỗ trợ vi/en theo cơ chế i18n frontend, không tự tuyên bố đạt một accessibility standard chưa phê chuẩn. Ẩn nút hoặc route guard phía client không thay authorization phía server.
 
 ## Module facade contracts
 

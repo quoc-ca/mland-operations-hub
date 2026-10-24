@@ -1,8 +1,12 @@
 # Feature Specification: Loyalty & Promotion Management
 
+**Date created**: 2026-10-24
+**Date updated**: 2026-10-24
+**Author**: Đặng Thị Khương
+**Last updated by**: Đặng Thị Khương
+
 **Feature**: `006-loyalty-promotion` — FE-06  
 **Feature Branch**: Không tạo hoặc chuyển nhánh; dự án không cấu hình hook tạo nhánh.  
-**Created**: 2026-10-24  
 **Status**: Draft — đặc tả nghiệp vụ để review/lập plan, chưa phải phê duyệt triển khai.  
 **Input**: Dùng `$speckit-specify` để đặc tả FE-06 trong [research.md](../../research.md#fe-06), theo bộ thông số điểm và các quyết định 1–10 người dùng đã chốt ngày 2026-10-24.
 
@@ -168,8 +172,8 @@ Là Admin, tôi muốn quản lí thông số chung và giữ chính sách đã 
 3. **Given** Guest, Member, Staff, Manager hoặc tài khoản thiếu quyền Admin hiện hành, **When** đổi cấu hình điểm, **Then** từ chối; Manager chỉ quyết định kết hợp điểm trong chương trình được quản lí.
 4. **Given** booking đã chấp nhận với 10.000đ/điểm tích và 100đ/điểm quy đổi, **When** Admin đổi thông số trước ngày hoàn thành, **Then** booking giữ chính sách/cách tính ban đầu, giao dịch được chấp nhận sau đổi dùng chính sách mới; không tính lại khoản giảm/điểm đã giữ/tổng đã đồng ý.
 5. **Given** lưu chưa xác nhận hoặc mất phản hồi, **When** kiểm tra lại, **Then** không báo cập nhật chỉ từ thao tác; giao dịch mới dùng một chính sách hợp lệ đã xác nhận.
-6. **Given** hành trình quản lí chương trình, Kho Voucher, My Loyalty, chọn ưu đãi và cấu hình, **When** không có tăng cường trình duyệt, **Then** vẫn xem/gửi biểu mẫu/nhận lỗi và hoàn thành hành trình cốt lõi; thao tác trình duyệt không thay bằng chứng quyền/thanh toán.
-7. **Given** Member/Manager/Admin vào FE-06, **When** xác thực và thao tác, **Then** dùng cơ chế chung FE-01/003, phiên web cố định 8 giờ, kiểm tra trạng thái/quyền hiện tại và chống giả mạo biểu mẫu; phiên hết hạn/thu hồi bị từ chối, không kéo dài trượt. Yêu cầu xác thực đặc quyền do FE-01 cung cấp, FE-06 không tự chọn phương thức hoặc bỏ qua điều kiện đó.
+6. **Given** hành trình quản lí chương trình, Kho Voucher, My Loyalty, chọn ưu đãi và cấu hình, **When** dùng frontend React + Vite qua REST, **Then** xem/gửi dữ liệu/nhận lỗi và hoàn thành hành trình cốt lõi với đủ loading/empty/validation/success/failure/recovery; thao tác trình duyệt không thay bằng chứng quyền/thanh toán.
+7. **Given** Member/Manager/Admin vào FE-06, **When** xác thực và thao tác, **Then** dùng cơ chế chung FE-01/001, phiên nội bộ cố định 8 giờ tính từ auth_time, kiểm tra trạng thái/quyền hiện tại qua bearer đã xác minh; phiên hết hạn/thu hồi bị từ chối, không kéo dài trượt. Yêu cầu xác thực đặc quyền do FE-01 cung cấp, FE-06 không tự chọn phương thức hoặc bỏ qua điều kiện đó.
 
 ### Edge Cases
 
@@ -248,8 +252,8 @@ Là Admin, tôi muốn quản lí thông số chung và giữ chính sách đã 
 - **FR-036**: Kết quả giải phóng/hoàn MUST phân biệt từng quyền lợi để thử lại an toàn; không trả trùng hoặc vừa giải phóng vừa hoàn. Kết quả trước thiếu phần nào chỉ hoàn tất phần đó, bảo toàn lịch sử.
 - **FR-037**: Không đến, hủy không hợp lệ/chưa xác nhận hoặc đã hoàn thành MUST không tự hoàn quyền lợi đã dùng. Phiên bản này không trả hàng/hoàn tiền sản phẩm, hủy workshop đã hoàn thành, thu hồi điểm kiếm từ giao dịch hoàn tất hoặc số dư âm.
 - **FR-038**: Khi thanh toán/hết hạn/hủy gần nhau hoặc kết quả muộn/chưa rõ, hệ thống MUST theo FE-03/FE-08 xác nhận, không vừa chốt vừa giải phóng, không cấp/hoàn từ trình duyệt hoặc tự tạo giao dịch/thời hạn mới do mất phản hồi.
-- **FR-039**: Hành trình FE-06 cốt lõi MUST dùng được qua biểu mẫu/liên kết thông thường không có tăng cường trình duyệt; lỗi an toàn, cho sửa/đăng nhập/thử lại, không thông báo thành công trước xác nhận.
-- **FR-040**: FE-06 MUST dùng chung cơ chế xác thực FE-01/003: phiên web cố định 8 giờ, kiểm tra thu hồi/trạng thái/quyền hiện tại và chống giả mạo biểu mẫu; không tự cấp quyền từ cookie Member hoặc kéo dài phiên trượt. Xác thực đặc quyền do FE-01 sở hữu và phải cung cấp kết quả đủ điều kiện trước thao tác nội bộ được bảo vệ.
+- **FR-039**: Hành trình FE-06 cốt lõi MUST hoàn thành được từ frontend React + Vite tách riêng chỉ qua REST API có version; backend MUST NOT render UI. Lỗi an toàn, cho sửa/đăng nhập/thử lại, không thông báo thành công trước xác nhận.
+- **FR-040**: FE-06 MUST dùng chung cơ chế xác thực FE-01/001: phiên nội bộ cố định 8 giờ tính từ auth_time, bearer đã xác minh, kiểm tra thu hồi/trạng thái/quyền hiện tại; không tự cấp quyền từ cookie Member hoặc kéo dài phiên trượt. Xác thực đặc quyền do FE-01 sở hữu và phải cung cấp kết quả đủ điều kiện trước thao tác nội bộ được bảo vệ.
 - **FR-041**: Hệ thống MUST giữ lịch sử điểm/lượt voucher, nhật ký thay đổi và kết quả thao tác tối thiểu 5 năm; không dọn dữ liệu khi còn tham chiếu hoặc giao dịch chưa kết thúc. Thời hạn lưu không làm điểm hết hạn, mất bằng chứng chống cộng/trừ/hoàn trùng hoặc cho tái sử dụng mã voucher cũ.
 
 ### Key Entities *(include if feature involves data)*
@@ -273,7 +277,7 @@ Là Admin, tôi muốn quản lí thông số chung và giữ chính sách đã 
 - **SC-005**: 100% giao dịch cũ ở US2.4 và US8.4 giữ đúng chính sách ban đầu; giao dịch mới dùng điều kiện mới. Không workshop nào tích khi thiếu hoàn thành hoặc trả đủ.
 - **SC-006**: Tất cả truy cập/thao tác trái quyền trong US1.6, US3.6, US4.10, US6.4, US8.3 và US8.7 bị từ chối; không xem/dùng quyền lợi Member khác hoặc tiếp tục thao tác với phiên hết hạn/thu hồi.
 - **SC-007**: Trong US7.1–US7.7, điểm/lượt giải phóng hoặc hoàn đúng lượng gốc kể cả chỉ dùng một quyền lợi/mã hết hạn; điểm khả dụng/lịch sử nhất quán sau tải lại. Trong US6.9, dữ liệu dưới 5 năm, còn tham chiếu hoặc giao dịch chưa kết thúc không bị dọn.
-- **SC-008**: Các hành trình cốt lõi US8.6 hoàn thành được không có tăng cường trình duyệt; lỗi tải/lưu không gây thông báo thành công sai.
+- **SC-008**: Các hành trình cốt lõi US8.6 hoàn thành được từ frontend React qua REST; lỗi tải/lưu không gây thông báo thành công sai.
 
 ## Assumptions
 
@@ -284,14 +288,14 @@ Là Admin, tôi muốn quản lí thông số chung và giữ chính sách đã 
 - A-003: Tiền VND, điểm nguyên; phép tính dùng chính sách ghi nhận cho giao dịch. Công thức với 10.000đ/100đ/10 điểm/10% là bộ khởi đầu, không cấm Admin đổi hợp lệ cho tương lai.
 - A-004: Các kiểm tra dấu/miền giá trị tại FR-007 và FR-026 cụ thể hóa dữ liệu hợp lệ để nghiệm thu; không đặt thêm mức giảm thương mại, ngưỡng đơn hoặc hạn mức cố định cho Manager. Giới hạn độ dài nhập liệu và thiết kế lưu dữ liệu thuộc bước thiết kế tiếp theo.
 - A-005: Khi lập plan ngày 2026-10-24, người dùng chốt lưu lịch sử điểm/lượt voucher, audit/kết quả thao tác tối thiểu 5 năm, không dọn dữ liệu còn tham chiếu hoặc giao dịch chưa kết thúc; điểm vẫn không hết hạn và mã cũ không tái sử dụng.
-- A-006: Cùng phiên lập plan, người dùng chốt dùng chung hướng FE-01/003 và FE-02 cho Member/Manager/Admin FE-06: phiên web cố định 8 giờ, quyền/trạng thái mỗi thao tác, chống giả mạo biểu mẫu và dependency xác thực đặc quyền do FE-01 sở hữu.
+- A-006: Cùng phiên lập plan, người dùng chốt dùng chung hướng FE-01/001 và FE-02 cho Member/Manager/Admin FE-06: phiên nội bộ cố định 8 giờ tính từ auth_time, quyền/trạng thái mỗi thao tác và dependency xác thực đặc quyền do FE-01 sở hữu.
 
 ### Phụ thuộc và ranh giới
 
 - D-001: FE-01/identity và Member Profile cung cấp danh tính xác minh, trạng thái/quyền và Member sở hữu giao dịch; FE-06 không chọn lại đăng nhập, mapping vai trò hoặc cấp quyền nội bộ.
 - D-002: [FE-02](../../research.md#fe-02) cung cấp sản phẩm/biến thể/giá; FE-06 không tạo/sửa catalogue, duyệt giá, số lượng bán hoặc quản lí kho.
 - D-003: [FE-08](../../research.md#fe-08) sở hữu giỏ/checkout/tạo đơn, số lượng, thanh toán/0đ, thời hạn, tra cứu và giao nhận. FE-06 cung cấp phép tính/quyền lợi, nhận kết quả xác minh; không chọn lại cổng, phí giao hoặc GHTK.
-- D-004: [FE-03](../../research.md#fe-03) và [spec booking](../002-workshop-booking/spec.md) cung cấp gói/lịch/phí/cọc/thời hạn/kết quả thanh toán. Hủy hợp lệ, không đến, hoàn thành và trả đủ là kết quả FE-03 phải cung cấp. Spec 002 hiện chỉ booking/cọc/tra cứu và hoãn hậu xử lí; không coi hủy/hoàn thành đã triển khai hoặc được spec 002 bao phủ chỉ vì FE-06 cần.
+- D-004: [FE-03](../../research.md#fe-03) và [spec booking](../003-workshop-management/003.1-workshop-booking/spec.md) cung cấp gói/lịch/phí/cọc/thời hạn/kết quả thanh toán. Hủy hợp lệ, không đến, hoàn thành và trả đủ là kết quả FE-03 phải cung cấp. Spec 003 hiện chỉ booking/cọc/tra cứu và hoãn hậu xử lí; không coi hủy/hoàn thành đã triển khai hoặc được spec 003 bao phủ chỉ vì FE-06 cần.
 - D-005: Điều kiện hủy và số tiền cọc hoàn thuộc FE-03; FE-06 chỉ giải phóng/hoàn điểm/lượt từ kết quả xác nhận, không tự thêm trả hàng/hoàn tiền sản phẩm hoặc hủy workshop hoàn thành.
 - D-006: [FE-09](../../research.md#fe-09) cung cấp hành trình cấu hình chung cho Admin; nội dung/kiểm tra chính sách điểm thuộc FE-06, không mở rộng thành xây toàn bộ quản trị hệ thống.
 - D-007: Spec đặc tả nghiệp vụ. Plan sẽ xác định thiết kế tích hợp, biểu mẫu, dữ liệu và kiểm chứng theo constitution, tuân thủ retention FR-041/A-005 đã được xác nhận khi lập plan; không tự chọn công nghệ/provider hoặc thực hiện triển khai. Dependency chưa có không chặn review spec nhưng phải được hoàn thiện/kiểm chứng trước bật hành trình phụ thuộc.

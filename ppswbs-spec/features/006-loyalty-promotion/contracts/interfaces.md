@@ -1,5 +1,10 @@
 # Interface Contracts: Loyalty & Promotion
 
+**Date created**: 2026-10-24
+**Date updated**: 2026-10-24
+**Author**: Đặng Thị Khương
+**Last updated by**: Đặng Thị Khương
+
 **Status**: Proposed contracts for review; các facade/routes dưới đây chưa tồn tại trong code.  
 **Sources**: [spec](../spec.md), [data model](../data-model.md), [research](../research.md), [OpenAPI](loyalty-promotion.openapi.json).
 
@@ -45,13 +50,13 @@ Không có public HTTP endpoint để reserve/consume/release/earn/restore, khô
 
 ## 3. Auth/session/error
 
-- API: bearer Firebase token được backend xác minh, kiểm tra revocation và local identity state/capabilities hiện tại. API không chấp nhận web cookie thay bearer.
-- Web: session identity-owned fixed8h, không sliding, CSRF cho POST, role/ownership mỗi thao tác. Cookie flags/bootstrap/logout/recovery dùng thiết kế chung [003](../../003-member-profile/plan.md), không tạo cookie auth mới trong loyalty.
+- REST API (kể cả gọi từ React): bearer Firebase token được backend xác minh, kiểm tra revocation và local identity state/capabilities hiện tại. API không chấp nhận web cookie thay bearer.
+- Frontend React gửi cùng bearer; phiên nội bộ cố định 8 giờ tính từ auth_time của Firebase ID token, không sliding (áp dụng đề xuất cho React SPA, identity owner xác nhận); role/ownership kiểm mỗi thao tác. Cookie/CSRF của thiết kế chung [001](../../001-account-management/plan.md) không áp dụng cho SPA; loyalty không tạo cookie auth mới.
 - Manager quản lí programs; Admin policy; Member own resources. Một vai trò không tự suy là vai trò kia. Nội bộ phải có privileged assurance do FE-01 cung cấp; chưa có dependency thì từ chối, không fallback permitAll.
 - Trusted lifecycle continuation không đòi Member còn đang active tại callback để xử lí cam kết đã chấp nhận; chỉ source component nội bộ có quyền gọi, không credential của browser.
 - 400 INVALID_INPUT cho malformed/type/bounds; 401 INVALID_TOKEN/SESSION_EXPIRED; 403 ACCESS_DENIED/PRIVILEGED_AUTH_REQUIRED; 404 PROMOTION_NOT_FOUND; 409 CODE_EXISTS, STALE_VERSION, IDEMPOTENCY_CONFLICT, QUOTA_LIMIT_CONFLICT, BENEFIT_STATE_CONFLICT, QUOTE_CHANGED, POINTS_LIMIT_CHANGED; 422 PROMOTION_INELIGIBLE, POINTS_USE_NOT_ALLOWED, WORKSHOP_NET_AMOUNT_INVALID; 503 DEPENDENCY_UNAVAILABLE hoặc RETRYABLE_CONTENTION.
 - Error envelope `code,message,correlationId,timestamp,fieldErrors` theo common convention; không stack trace, token, member data hoặc raw source proof. Retryable contention không tự đổi key hoặc total; client kiểm tra/retry cùng intent.
-- Browser view lỗi field giữ dữ liệu hợp lệ đã nhập; stale/quote changed hiển thị latest để khách xác nhận lại; lỗi xác thực đưa về owner login; PRG sau thành công.
+- Frontend hiển thị lỗi theo trường và giữ dữ liệu hợp lệ đã nhập; stale/quote changed hiển thị latest để khách xác nhận lại; 401 đưa về đăng nhập Firebase của owner; sau thành công điều hướng client.
 
 ## 4. Internal facade records and operations
 
@@ -123,25 +128,27 @@ Terminal effects có thể bắt đầu ở source lifecycle guard rồi đến 
 - Delivery của một sourceRef phải được owner serialize theo sourceOutcomeVersion; paid outcome xử lí settle rồi grant trong cùng transaction delivery. Outcome cũ đã áp dụng thì replay receipt, outcome mâu thuẫn trạng thái terminal thì conflict để owner đối soát, không cưỡng ép state hoặc bỏ qua debit để grant trước.
 - Timeout/deadlock rollback; không external side effect trước commit. Expiry/payment unresolved do source giữ trạng thái cần đối soát, không tự release và không gia hạn.
 
-## 5. Web contracts
+## 5. Frontend contracts (React + Vite, REST-only)
 
-| View/action | Actor | Core behavior |
-| --- | --- | --- |
-| GET /promotions | Public | Scope-labelled cards và điều kiện; login trước lưu. |
-| GET /member/vouchers; POST /member/vouchers/{programId}/save | Member | Kho chính mình, status/lý do không dùng, save không quota hold. |
-| GET /member/loyalty | Member | Balance, held, available, conversion/history; lỗi tải không hiện số cũ như confirmed. |
-| GET /management/promotions; GET/POST /management/promotions/new | Manager | List/filter và create form theo kind/scope; errors giữ input. |
-| GET/POST /management/promotions/{programId}/edit; POST .../{programId}/pause hoặc .../{programId}/resume | Manager | expectedVersion, UUID command, không đổi immutable fields; nút Mở lại cho PAUSED, giữ history/quota và xem current nếu stale. |
-| GET/POST /admin/loyalty-policy | Admin | Policy form, versioned, ảnh hưởng tương lai. |
-| FE-03/FE-08 checkout forms | Member | Tích hợp fragment chọn mã/điểm và breakdown; owner submit accept, không FE06 tự tạo booking/order. |
+Frontend là ứng dụng React + Vite tách riêng (`ppswbs_frontend/`, chưa khởi tạo), render phía client và chỉ gọi REST. Backend không render UI hoặc HTML form. Client route, thư viện routing/state và i18n do kế hoạch frontend chốt, không chọn ở đây. Mọi lệnh ghi gửi UUID `Idempotency-Key`; update/pause/resume/policy gửi `expectedVersion`.
 
-Mọi POST có CSRF và command UUID; views không tự gửi form khi đổi lựa chọn, có nút Tính lại và Xác nhận hoạt động không JS. Chọn ưu đãi có thể không dùng, nhập mã hoặc chọn đã lưu. Khách phải thấy max usable points; lý do chặn kết hợp/minimum rõ ràng.
+| Màn hình / thành phần | Actor | REST operations | Core behavior |
+| --- | --- | --- | --- |
+| Danh sách / chi tiết ưu đãi công khai | Public | `listPublicPromotions`, `getPublicPromotion` | Scope-labelled cards và điều kiện; login trước khi lưu. |
+| Kho Voucher | Member | `listOwnSavedVouchers`, `saveOwnVoucher` | Kho chính mình, status/lý do không dùng, save không quota hold. |
+| My Loyalty | Member | `getOwnLoyaltyAccount`, `listOwnLoyaltyTransactions` | Balance, held, available, conversion/history; lỗi tải không hiện số cũ như confirmed. |
+| Danh sách & tạo chương trình | Manager | `listPromotionPrograms`, `createPromotionProgram` | List/filter và form tạo theo kind/scope; lỗi theo trường, giữ input. |
+| Sửa / dừng / mở lại chương trình | Manager | `getPromotionProgram`, `updatePromotionProgram`, `pausePromotionProgram`, `resumePromotionProgram`, `getPromotionUsage` | expectedVersion, UUID command, không đổi immutable fields; nút Mở lại cho PAUSED, giữ history/quota và xem current nếu stale. |
+| Chính sách điểm | Admin | `getCurrentLoyaltyPolicy`, `updateCurrentLoyaltyPolicy` | Form có version, ảnh hưởng tương lai. |
+| Thành phần chọn ưu đãi trong checkout FE-03/FE-08 | Member | Dữ liệu quote/breakdown từ API của owner FE-03/FE-08; không thêm endpoint public mới | FE-06 cung cấp component chọn mã/điểm và breakdown để màn hình của owner nhúng; owner gửi accept, FE-06 không tự tạo booking/order. |
+
+Hành vi chung: UI không tự gửi lệnh khi đổi lựa chọn; có nút Tính lại và Xác nhận. Chọn ưu đãi có thể không dùng, nhập mã hoặc chọn đã lưu. Khách phải thấy max usable points; lý do chặn kết hợp/minimum rõ ràng. Mỗi màn hình có loading, empty, validation, success và failure/recovery; không hiển thị thành công trước khi response xác nhận. Ẩn nút hoặc route guard phía client không thay authorization phía server.
 
 Empty states: chưa lưu mã, chưa có lịch sử/điểm; không đồng nhất empty với dependency error. Accessibility: label/input association, field errors và summary, keyboard operability; money/points bằng text đọc được.
 
 ## 6. Compatibility and retention
 
-- Không đổi API/contract đã triển khai của 003/002 trong tài liệu này. Source integration cần owner review và additive contract versioning.
+- Không đổi API/contract đã triển khai của 001/003 trong tài liệu này. Source integration cần owner review và additive contract versioning.
 - Không retrofit loyalty cho booking/đơn cũ không có snapshot Member-origin và accepted policy.
 - Command/audit/effect evidence tối thiểu5 năm, protected references/unfinished source; code/source-effect tombstones tồn tại để giữ uniqueness. Không log full payload/raw tokens/PII.
 - Operation schema/private output là proposed; runtime, migration, authorization và owner adapters phải được kiểm chứng trước activate.

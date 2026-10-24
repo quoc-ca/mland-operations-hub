@@ -1,6 +1,11 @@
 # Data Model: Product Management
 
-**Date**: 2026-10-24 | **Status**: Proposed physical design, chưa có migration được tạo/chạy.  
+**Date created**: 2026-10-24
+**Date updated**: 2026-10-24
+**Author**: Đặng Thị Khương
+**Last updated by**: Đặng Thị Khương
+
+**Status**: Proposed physical design, chưa có migration được tạo/chạy.  
 **Sources**: [spec](spec.md), [research decisions](research.md), [interfaces](contracts/interfaces.md).
 
 ## Ownership and representation

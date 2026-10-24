@@ -3,7 +3,7 @@
   "info": {
     "title": "Mland Product Management API",
     "version": "0.1.0-draft",
-    "description": "FE-02 draft technical contract updated 2026-10-24. User confirmed MEMBER/STAFF/MANAGER/ADMIN, Admin-provisioned authority, defaults, retention, Cloudinary and shared authentication using FE-01/Member Profile 003 primitives: verified bearer for API, fixed eight-hour web sessions without sliding renewal, revocation/status checks and CSRF. Internal capabilities remain required per action; a Member cookie grants no internal authority. MFA method/recovery and privileged-auth assurance contract remain an identity-owned design dependency before enabling management. FE-08 and identity/Cloudinary adapters are implementation dependencies, not evidence of an implemented service. See interfaces.md for state, reference-guard and audit rules."
+    "description": "FE-02 draft technical contract updated 2026-10-24. User confirmed MEMBER/STAFF/MANAGER/ADMIN, Admin-provisioned authority, defaults, retention, Cloudinary and shared authentication using FE-01 primitives: verified Firebase bearer for all REST calls including the separate React frontend, a fixed eight-hour internal session counted from auth_time without sliding renewal, and revocation/status checks. Internal capabilities remain required per action; a Member cookie grants no internal authority. MFA method/recovery and privileged-auth assurance contract remain an identity-owned design dependency before enabling management. FE-08 and identity/Cloudinary adapters are implementation dependencies, not evidence of an implemented service. See interfaces.md for state, reference-guard and audit rules."
   },
   "tags": [
     {

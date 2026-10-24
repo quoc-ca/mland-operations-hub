@@ -3,7 +3,7 @@
   "info": {
     "title": "FE-06 Loyalty & Promotion API",
     "version": "1.0.0",
-    "description": "PROPOSED design only. Shared verified bearer identity plus current local capability/ownership/privileged assurance required. Cookie web forms and source-owned checkout integration are in interfaces.md. No public reserve/settle/earn/restore endpoints. All protected responses no-store."
+    "description": "PROPOSED design only. Shared verified bearer identity plus current local capability/ownership/privileged assurance required. The separate React + Vite frontend uses these REST operations with the same bearer; source-owned checkout integration is in interfaces.md. No public reserve/settle/earn/restore endpoints. All protected responses no-store."
   },
   "tags": [
     {

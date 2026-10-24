@@ -1,8 +1,12 @@
 # Feature Specification: Product Management
 
-**Feature**: `005-product-management` — FE-02  
+**Date created**: 2026-10-23
+**Date updated**: 2026-10-24
+**Author**: Đặng Thị Khương
+**Last updated by**: Đặng Thị Khương
+
+**Feature**: `002-product-management` — FE-02  
 **Feature Branch**: Không tạo nhánh mới; không có hook tạo nhánh được cấu hình.  
-**Created**: 2026-10-23  
 **Status**: Draft — đặc tả nghiệp vụ để review và lập kế hoạch, chưa phải phê duyệt triển khai.  
 **Input**: Viết spec cho FE-02 Product Management trong [research.md](../../research.md#fe-02), bao gồm các quyết định người dùng đã chốt trong hội thoại.
 
@@ -22,9 +26,9 @@ Nguồn chính là FE-02 hiện tại và các quyết định trực tiếp c�
 - Q: Chính sách giữ/dọn ảnh và kết quả thao tác thế nào? → A: Đồng ý ảnh chưa gắn đủ 24 giờ được dọn nếu không còn sử dụng; ảnh đã gỡ đủ 30 ngày chỉ dọn khi không còn sản phẩm/hồ sơ/đơn/lịch sử tham chiếu; giữ ảnh lịch sử theo bản ghi liên quan. Kết quả thao tác tối thiểu giữ 5 năm; business audit 5 năm kế thừa Report 3.
 - Q: Các mặc định nhập liệu và hiển thị có được chốt không? → A: Đồng ý tên danh mục 1–200 ký tự, mô tả tùy chọn tối đa 5.000, từ khóa tối đa 200, 20 sản phẩm/trang, mới nhất theo createdAt, lý do từ chối bắt buộc tối đa 2.000, mỗi ảnh tối đa 5.000.000 bytes, danh mục mới active=true và size mới saleEnabled=true nhưng chưa mua được trước công khai hợp lệ.
 
-- Q: FE-02 có dùng chung cơ chế xác thực theo Member Profile 003 không? → A: Có. Người dùng đồng ý kế thừa Firebase bearer cho API, cookie web cố định 8 giờ, kiểm tra thu hồi phiên/trạng thái và CSRF qua identity owner; kiểm tra thêm quyền Staff/Manager trước từng thao tác. Giữ hành trình Member và điều hướng đăng nhập thành công về `/`. MFA đặc quyền và recovery thuộc identity/FE-01; chưa chọn Authenticator hoặc phương thức cụ thể từ FE-02.
+- Q: FE-02 có dùng chung cơ chế xác thực theo Member Profile 001 không? → A: Có. Người dùng đồng ý kế thừa Firebase bearer (Authorization: Bearer) cho mọi REST API, kể cả frontend React + Vite, phiên nội bộ cố định 8 giờ tính từ auth_time của Firebase ID token, không gia hạn trượt; hết hạn thì API trả 401 và React yêu cầu đăng nhập lại qua Firebase SDK, kiểm tra thu hồi/trạng thái qua identity owner; kiểm tra thêm quyền Staff/Manager trước từng thao tác. Giữ hành trình Member và điều hướng đăng nhập thành công về `/`. MFA đặc quyền và recovery thuộc identity/FE-01; chưa chọn Authenticator hoặc phương thức cụ thể từ FE-02.
 
-[Spec 003](../003-member-profile/spec.md) là nguồn thiết kế cơ chế xác thực dùng chung. Quyết định trên mở rộng chính sách phiên 8 giờ cho nội bộ trong phạm vi FE-02, không biến Member bootstrap/cookie thành quyền Staff/Manager và không sửa luồng 003. Thiết kế/triển khai MFA chung là dependency FE-01 cần hoàn thiện trước bật quản trị.
+[Spec 001](../001-account-management/spec.md) là nguồn thiết kế cơ chế xác thực dùng chung. Quyết định trên mở rộng chính sách phiên 8 giờ cho nội bộ trong phạm vi FE-02, không biến Member bootstrap/cookie thành quyền Staff/Manager và không sửa luồng 001. Cookie web và CSRF của 001 không áp dụng cho FE-02 vì UI là React SPA gọi REST; nếu identity owner chọn credential transport khác thì cập nhật theo contract dùng chung. Thiết kế/triển khai MFA chung là dependency FE-01 cần hoàn thiện trước bật quản trị.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -47,7 +51,7 @@ Là Staff hoặc Manager có quyền quản lí sản phẩm, tôi muốn tạo 
 7. **Given** hơn 20 sản phẩm khớp tiêu chí, **When** xem danh sách quản trị và chuyển trang, **Then** mặc định 20 bản ghi/trang, giữ tiêu chí và thứ tự xác định; không hiện sản phẩm đã xóa trong danh sách thông thường.
 8. **Given** Guest/Member, tài khoản không hoạt động hoặc thiếu quyền tương ứng, **When** đọc dữ liệu quản trị hay gửi thao tác thay đổi, **Then** không được cấp dữ liệu nội bộ/quyền thay đổi; yêu cầu bị từ chối an toàn.
 9. **Given** khách đăng ký hoặc đăng nhập social lần đầu, **When** hoàn tất luồng Member, **Then** không tự nhận STAFF/MANAGER/ADMIN; tài khoản nội bộ chỉ có quyền do Admin cấp và backend xác nhận bằng các mã đã chốt, không suy MANAGER từ OWNER.
-10. **Given** Staff/Manager có quyền dùng quản trị, **When** xác thực và truy cập FE-02, **Then** API dùng bearer đã xác minh, web dùng phiên cố định 8 giờ với kiểm tra thu hồi/trạng thái và CSRF; từng thao tác vẫn kiểm tra quyền hiện tại. Phiên hết hạn/thu hồi bị từ chối, session hợp lệ không buộc xác minh email lại và cookie Member không tự cấp quyền nội bộ. Khi identity chưa xác nhận đạt yêu cầu xác thực đặc quyền, không được vào quản trị.
+10. **Given** Staff/Manager có quyền dùng quản trị, **When** xác thực và truy cập FE-02, **Then** mọi REST API (kể cả frontend React) dùng bearer đã xác minh, phiên nội bộ cố định 8 giờ tính từ auth_time với kiểm tra thu hồi/trạng thái; từng thao tác vẫn kiểm tra quyền hiện tại. Phiên hết hạn/thu hồi bị từ chối, session hợp lệ không buộc xác minh email lại và cookie Member không tự cấp quyền nội bộ. Khi identity chưa xác nhận đạt yêu cầu xác thực đặc quyền, không được vào quản trị.
 
 ### User Story 2 - Gửi và phê duyệt sản phẩm mới (Priority: P1)
 
@@ -101,7 +105,7 @@ Là Staff/Manager có quyền, tôi muốn cập nhật thông tin và số lư�
 5. **Given** thêm/thay/sắp xếp/gỡ ảnh hợp lệ, **When** lưu, **Then** giữ ảnh có vị trí riêng và alt text; gỡ ảnh cuối cùng của sản phẩm đang công khai bị từ chối.
 6. **Given** ảnh sai định dạng, vượt giới hạn, thiếu alt text, trùng vị trí hoặc lưu ảnh thất bại, **When** lưu, **Then** chỉ rõ lỗi, không thay ảnh hợp lệ bằng liên kết hỏng hoặc xóa tệp dùng chung/lịch sử.
 7. **Given** đơn/quyền giữ hợp lệ đã chấp nhận, **When** sửa thông tin, số lượng hoặc ảnh, **Then** không sửa thông tin giao dịch đã chốt, thời hạn giữ hoặc giá đã chấp nhận.
-8. **Given** không có tăng cường tương tác phía trình duyệt, **When** thực hiện xem/tìm/lọc hoặc các biểu mẫu quản trị cốt lõi trong US1–US8, **Then** vẫn hoàn thành được hành trình hợp lệ, nhận lỗi nhập liệu/quyền phù hợp và có thể sửa/thử lại.
+8. **Given** frontend React + Vite tách riêng gọi REST API, **When** thực hiện xem/tìm/lọc hoặc các thao tác quản trị cốt lõi trong US1–US8, **Then** hoàn thành được hành trình hợp lệ, nhận lỗi nhập liệu/quyền phù hợp qua typed error và có thể sửa/thử lại; mỗi màn hình có loading, empty, validation, success, failure và recovery.
 9. **Given** ảnh chưa gắn quá 24 giờ hoặc ảnh đã gỡ không còn tham chiếu quá 30 ngày, **When** dọn ảnh, **Then** chỉ xóa object đủ điều kiện, không xóa ảnh còn được sản phẩm/hồ sơ/đơn/lịch sử sử dụng; attach đồng thời không được trỏ tới object đang bị xóa. Xóa mềm sản phẩm không tự làm ảnh lịch sử đủ điều kiện dọn.
 
 ### User Story 5 - Thay đổi giá cho size đã có (Priority: P1)
@@ -195,7 +199,7 @@ Là Guest hoặc Member, tôi muốn tìm, lọc, sắp xếp và xem đúng gi�
 
 #### Phạm vi, quyền và dữ liệu sản phẩm
 
-- **FR-001**: Tra cứu công khai MUST không yêu cầu đăng nhập. Mọi thao tác quản trị MUST kiểm tra danh tính, tài khoản hoạt động, vai trò và quyền hiện tại trước khi trả dữ liệu nội bộ hoặc thay đổi trạng thái; Guest/Member không có quyền quản trị sản phẩm. FE-02 MUST dùng chung cơ chế xác thực theo 003 qua identity owner: bearer đã xác minh cho API, cookie web cố định 8 giờ không gia hạn trượt, kiểm tra thu hồi/trạng thái và CSRF cho thao tác web. Phiên Member không tự cấp quyền nội bộ; quản trị MUST chỉ chấp nhận kết quả xác thực đạt yêu cầu đặc quyền do identity/FE-01 cung cấp, không tự triển khai luồng login/MFA riêng.
+- **FR-001**: Tra cứu công khai MUST không yêu cầu đăng nhập. Mọi thao tác quản trị MUST kiểm tra danh tính, tài khoản hoạt động, vai trò và quyền hiện tại trước khi trả dữ liệu nội bộ hoặc thay đổi trạng thái; Guest/Member không có quyền quản trị sản phẩm. FE-02 MUST dùng chung cơ chế xác thực theo 001 qua identity owner: bearer đã xác minh cho API, cookie web cố định 8 giờ không gia hạn trượt, kiểm tra thu hồi/trạng thái và CSRF cho thao tác web. Phiên Member không tự cấp quyền nội bộ; quản trị MUST chỉ chấp nhận kết quả xác thực đạt yêu cầu đặc quyền do identity/FE-01 cung cấp, không tự triển khai luồng login/MFA riêng.
 - **FR-002**: Staff và Manager có quyền tương ứng MUST được quản lí sản phẩm, ảnh, giá đề xuất, số lượng, trạng thái và xóa. Mã vai trò được chốt là MEMBER, STAFF, MANAGER, ADMIN; MANAGER là vai trò riêng, không tự ánh xạ OWNER. Admin tạo/cấp quyền tài khoản nội bộ qua FE-01; đăng ký khách không tự cấp quyền Staff/Manager/Admin. Chỉ Manager có quyền quyết định duyệt sản phẩm/giá; Manager MUST được tự duyệt sản phẩm/đề xuất của mình. Danh mục theo FR-029 dành cho Staff có quyền. Vai trò kỹ thuật Admin không tự cấp quyền quyết định nghiệp vụ.
 - **FR-003**: Người quản lí MUST xem danh sách/chi tiết và tìm theo mã sản phẩm, tên hoặc SKU, lọc theo danh mục/trạng thái công khai. Kết quả SKU MUST chỉ rõ size khớp; giao diện MUST phân biệt hồ sơ, đề xuất giá, giá đã duyệt, giá đang áp dụng và công khai.
 - **FR-004**: Tên MUST dài 1–200 ký tự, mô tả 1–5.000 ký tự sau bỏ khoảng trắng đầu/cuối; sản phẩm MUST có một danh mục hoạt động lúc tạo/chọn danh mục mới. Giá đề xuất/giá cuối cùng MUST là số nguyên VND dương, số lượng MUST là số nguyên không âm.
@@ -244,7 +248,7 @@ Là Guest hoặc Member, tôi muốn tìm, lọc, sắp xếp và xem đúng gi�
 - **FR-035**: MUST mặc định tên A–Z rồi định danh; hỗ trợ giá tăng/giảm và mới nhất. Sắp theo giá MUST dùng giá nhỏ nhất của size đang hiển thị/thỏa bộ lọc cho cả hai chiều; bằng nhau dùng định danh phụ. MUST giữ từ khóa/bộ lọc, giới hạn từ khóa 200 ký tự sau trim và phân trang 20 bản ghi/trang. Mới nhất MUST theo thời điểm tạo, không theo sửa giá hoặc công khai lại.
 - **FR-036**: Mất toàn bộ ảnh dùng được MUST loại khỏi đọc công khai không đổi cờ công khai/lịch sử; khi ảnh và điều kiện khác khôi phục thì hiện lại. Lỗi ảnh/tải tạm thời MUST có hướng dẫn an toàn/thử lại, khác catalogue rỗng hoặc không khớp.
 - **FR-037**: Khách MUST chỉ chọn size đã cấu hình, được chuyển sản phẩm/biến thể/số lượng sang FE-08 khi chọn mua. FE-02 MUST không tạo giỏ, đơn, thanh toán, giữ số lượng, voucher hoặc điểm từ tra cứu; FE-08 kiểm tra đăng nhập/điều kiện và xác nhận thay đổi giá trước giao dịch mới.
-- **FR-038**: Các hành trình cốt lõi xem/tìm/lọc và biểu mẫu tạo/sửa/gửi duyệt/quyết định/công khai/ẩn/xóa MUST sử dụng được khi không có tăng cường tương tác phía trình duyệt; không mở rộng ngoại lệ xác thực của dự án sang FE-02.
+- **FR-038**: Các hành trình cốt lõi xem/tìm/lọc và tạo/sửa/gửi duyệt/quyết định/công khai/ẩn/xóa MUST hoàn thành được từ frontend React + Vite tách riêng chỉ qua REST API có version; backend MUST NOT render UI. Mỗi màn hình MUST có trạng thái loading, empty, validation, success, failure và recovery xác định; không mở rộng ngoại lệ xác thực của dự án sang FE-02.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -267,7 +271,7 @@ Là Guest hoặc Member, tôi muốn tìm, lọc, sắp xếp và xem đúng gi�
 - **SC-003**: Với 25 size 5–29 và mã sản phẩm dưới/trên 6 chữ số, 100% SKU đúng định dạng/duy nhất; 0 yêu cầu thêm/đổi size, khắc hoặc sửa SKU sau lưu được chấp nhận.
 - **SC-004**: 100% kịch bản đổi giá/ẩn/ngừng bán/đổi danh mục/xóa giữ nguyên giá, thời hạn và định danh giao dịch hợp lệ đã chấp nhận; gửi lại cùng yêu cầu không tạo trùng hoặc điều chỉnh lượng lần hai.
 - **SC-005**: Trong tập size hết hàng/ngừng bán/nhiều giá, 100% kết quả lọc giá/Có thể mua có một size thỏa cả hai; 0 giá đề xuất hoặc nội dung nháp lộ công khai.
-- **SC-006**: Mọi nhóm biên nhập liệu/ảnh/hồ sơ/danh mục tại US1–US8 có kết quả xác định, giữ dữ liệu cũ khi lỗi và cho tiếp tục sửa/thử lại; 100% hành trình cốt lõi hoàn thành không cần tăng cường tương tác trình duyệt.
+- **SC-006**: Mọi nhóm biên nhập liệu/ảnh/hồ sơ/danh mục tại US1–US8 có kết quả xác định, giữ dữ liệu cũ khi lỗi và cho tiếp tục sửa/thử lại; 100% hành trình cốt lõi hoàn thành được từ frontend React qua REST với loading/empty/validation/success/failure/recovery xác định.
 - **SC-007**: Mỗi FR-001–FR-038 được ánh xạ ít nhất một kịch bản nghiệm thu trong checklist chất lượng. Các chỉ số trên là tiêu chí cần xác minh khi triển khai, không phải tuyên bố đã vượt kiểm thử.
 
 ## Assumptions
@@ -287,8 +291,8 @@ Là Guest hoặc Member, tôi muốn tìm, lọc, sắp xếp và xem đúng gi�
 
 ### Phụ thuộc và ranh giới lập kế hoạch
 
-- Tuân thủ [Constitution 2.0.0](../../.specify/memory/constitution.md). Đây là hành vi nghiệp vụ; kiến trúc, hợp đồng giao tiếp, dữ liệu vật lí và cách bảo đảm xử lí đồng thời thuộc bước plan.
-- Cần danh tính, quyền nội bộ và trạng thái tài khoản đã xác minh. Mã MEMBER/STAFF/MANAGER/ADMIN, dùng chung cơ chế xác thực theo 003 và phiên nội bộ cố định 8 giờ đã chốt. Chi tiết model tài khoản, facade phiên/quyền và phương thức MFA/recovery thuộc identity/FE-01; không tự map OWNER, tự chọn TOTP hoặc bỏ yêu cầu xác thực đặc quyền. Dependency thiết kế/triển khai MFA chung cần hoàn thiện trước bật quản trị; không phải câu hỏi mở lại quyết định dùng chung cơ chế của FE-02.
+- Tuân thủ [Constitution 3.0.0](../../.specify/memory/constitution.md). Đây là hành vi nghiệp vụ; kiến trúc, hợp đồng giao tiếp, dữ liệu vật lí và cách bảo đảm xử lí đồng thời thuộc bước plan.
+- Cần danh tính, quyền nội bộ và trạng thái tài khoản đã xác minh. Mã MEMBER/STAFF/MANAGER/ADMIN, dùng chung cơ chế xác thực theo 001 và phiên nội bộ cố định 8 giờ đã chốt. Chi tiết model tài khoản, facade phiên/quyền và phương thức MFA/recovery thuộc identity/FE-01; không tự map OWNER, tự chọn TOTP hoặc bỏ yêu cầu xác thực đặc quyền. Dependency thiết kế/triển khai MFA chung cần hoàn thiện trước bật quản trị; không phải câu hỏi mở lại quyết định dùng chung cơ chế của FE-02.
 - Cloudinary đã được chọn; adapter/cấu hình và thông tin giữ hợp lệ từ FE-08 là dependency triển khai. Retention ảnh/audit/receipt đã chốt ở FR-008/027/028. Không kích hoạt billing hoặc tạo tài nguyên provider từ tác vụ tài liệu. Không phụ thuộc FE-07 để hoàn thành duyệt trong quản trị.
 - FE-04 có thể cho gợi ý giá nhưng không bắt buộc để duyệt thủ công; không sửa spec FE-04 hoặc Member Profile trong tác vụ này.
 - Tải, tốc độ, khả dụng và môi trường sản xuất chưa baselined, không suy ra từ preview. Sẵn sàng review/lập plan không đồng nghĩa các phụ thuộc hoặc vận hành đã sẵn sàng triển khai.

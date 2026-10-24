@@ -1,9 +1,14 @@
 # Implementation Plan: Loyalty & Promotion Management
 
-**Feature context**: `006-loyalty-promotion` | **Date**: 2026-10-24 | **Spec**: [spec.md](spec.md)  
+**Date created**: 2026-10-24
+**Date updated**: 2026-10-24
+**Author**: Đặng Thị Khương
+**Last updated by**: Đặng Thị Khương
+
+**Feature context**: `006-loyalty-promotion` | **Spec**: [spec.md](spec.md)  
 **Git branch**: `khuong` giữ nguyên. `006-loyalty-promotion` là feature context của SpecKit, không phải nhánh Git được tạo trong tác vụ.  
 **Status**: Draft technical design — bộ tài liệu Phase0/Phase1; chưa triển khai hoặc phê duyệt code/deploy.  
-**Input**: FE-06 và quyết định1–10, bộ thông số điểm đã chốt; xác nhận bổ sung khi plan về retention tối thiểu5 năm và shared auth/session fixed8h. Chỉ soạn thiết kế.
+**Input**: FE-06 và quyết định1–10, bộ thông số điểm đã chốt; xác nhận bổ sung khi plan về retention tối thiểu5 năm và shared auth/session fixed8h (tính từ auth_time cho React SPA). Chỉ soạn thiết kế.
 
 ## Summary
 
@@ -16,13 +21,13 @@ Bốn thông số khởi đầu 10.000đ→1 điểm,1 điểm→100đ,min10,tr�
 | Item | Selected/proposed design |
 | --- | --- |
 | Language/Version | Java21, giữ pom hiện tại. |
-| Primary Dependencies | Spring Boot3.4.1, Modulith1.3.1, Firebase Admin9.11.0, Spring Data JPA/Security/Validation/Thymeleaf/Flyway theo BOM hiện tại; không nâng version hoặc thêm framework. |
-| Storage | MySQL8.4/InnoDB baseline như003/005; JPA cho application persistence, additive Flyway. DECIMAL(19,0) tiền/điểm, BigInteger/BigDecimal exact, JSON decimal strings, UTC. |
+| Primary Dependencies | Spring Boot3.4.1, Modulith1.3.1, Firebase Admin9.11.0, Spring Data JPA/Security/Validation/Flyway theo BOM hiện tại (Thymeleaf còn trong pom nhưng không dùng cho UI); frontend React + Vite tách riêng, chưa khởi tạo; không nâng version hoặc thêm framework backend. |
+| Storage | MySQL8.4/InnoDB baseline như001/002; JPA cho application persistence, additive Flyway. DECIMAL(19,0) tiền/điểm, BigInteger/BigDecimal exact, JSON decimal strings, UTC. |
 | Testing | JUnit/Spring Boot Test/MockMvc/Modulith hiện có; MySQL thật cho migration/locks/collation/upgrade, H2 chỉ bổ trợ. Test classes trong guide là dự kiến. |
-| Target Platform | Server-rendered web và REST trong monolith hiện có, dev Windows hỗ trợ Maven wrapper; không chọn host/topology production. |
-| Project Type | Backend Java với Thymeleaf/htmx progressive enhancement; không SPA/service mới. |
+| Target Platform | Spring Boot REST trong monolith hiện có phục vụ frontend React + Vite tách riêng, dev Windows hỗ trợ Maven wrapper; không chọn host/topology production. |
+| Project Type | Backend Java REST (Spring Modulith) cộng frontend React + Vite client-side rendering tách riêng; không service mới, backend không render UI. |
 | Performance Goals | Ưu tiên correctness theo8 SC; chưa cam kết SLA/throughput production vì chưa có baseline. Pagination20/max100, scope queries indexed/batched, short local transactions, không remote calls dưới lock. Đo contention/latency trên fixture MySQL trước rollout, không tự coi benchmark đã đạt. |
-| Constraints | Current local roles/ownership, privileged assurance từ FE01, shared8h fixed session/CSRF, no-JS core forms, no raw SQL application, không reset dữ liệu, không points expiry/tiers/retail returns. |
+| Constraints | Current local roles/ownership, privileged assurance từ FE01, shared8h fixed session tính từ auth_time, UI React chỉ qua REST, no raw SQL application, không reset dữ liệu, không points expiry/tiers/retail returns. |
 | Scale/Scope | Ba loại chương trình, một wallet/Member, một chương trình/retail hoặc voucher/booking; immutable revisions, component-level receipts. Tổng số Member/transactions production không phải giả định để tự đặt SLA. |
 
 ## Constitution Check
@@ -34,9 +39,9 @@ Bốn thông số khởi đầu 10.000đ→1 điểm,1 điểm→100đ,min10,tr�
 | I. Closed modules/ownership | PASS | PASS DESIGN | loyalty owns state, public facade only; source→loyalty, loyalty→members; target adapters qua SPI. Không common business logic. |
 | I. JPA/Flyway | PASS | PASS DESIGN | JPA locks, append-only migrations, exact numbers; allocate migration number tại implementation, không sửaV1–V3. |
 | I. Acyclic integration | REVIEW REQUIRED | PASS DESIGN / PROVIDERS OPEN | [interfaces](contracts/interfaces.md); actual verify cần implementation và source adapters. Không suy cycle từ stale allowedDependencies. |
-| II. Identity/authority | DEPENDENCY OPEN | DECISION CONFIRMED / CODE OPEN | User chốt sharedFE01/003/session8h; MemberFacade chưa có capabilities/assurance. Fail closed, không ROLE_MEMBER/claims/permitAll fallback. |
+| II. Identity/authority | DEPENDENCY OPEN | DECISION CONFIRMED / CODE OPEN | User chốt sharedFE01/001/session8h (tính từ auth_time cho SPA); MemberFacade chưa có capabilities/assurance. Fail closed, không ROLE_MEMBER/claims/permitAll fallback. |
 | II. Sensitive data/retention | POLICY QUESTION | DECISION CONFIRMED | User chọn tối thiểu5 năm, no purge referenced/unfinished; [research D08](research.md#d-08--retention-được-xác-nhận-cho-fe-06), data-model mục7. Không raw payload/token/PII thừa. |
-| III. Contracts/progressive web | PASS | PASS DESIGN | OpenAPI3.0.3, strict DTO/typed errors, protected routes, CSRF server forms; không mở JS-only exception. |
+| III. Contracts/separate frontend | PASS | PASS DESIGN | OpenAPI3.0.3, strict DTO/typed errors, protected routes, bearer cho mọi REST; frontend React + Vite tách riêng, backend không render UI. |
 | IV. Fresh evidence | PASS FOR DOCS | PASS FOR DOCS | Static checks và source review cho tài liệu; runtime/migration/auth/concurrency NOT RUN vì chưa code. |
 | V. Explicit decisions/simplicity | BUSINESS CLOSED | PASS DESIGN / REVIEW PENDING | Hai câu hỏi plan đã trả lời; không thêm tiers/provider/broker. Technical design Draft cần review, gates không tự đóng bởi checklist. |
 
@@ -59,7 +64,7 @@ ppswbs-spec/features/006-loyalty-promotion/
   contracts/loyalty-promotion.openapi.json
 ```
 
-Không tạo tasks.md trong speckit-plan. Spec/checklist được đồng bộ riêng hai câu trả lời auth/retention; không sửa research tổng, feature002/005 hoặc kit.
+Không tạo tasks.md trong speckit-plan. Spec/checklist được đồng bộ riêng hai câu trả lời auth/retention; không sửa research tổng, feature 001/003 hoặc kit.
 
 ### Source Code (repository root, planned only)
 
@@ -75,13 +80,13 @@ ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/
   catalogue/         dependency adapter for product target validation
   workshopbooking/   source adapter for workshop target and accepted lifecycle
   readyringsales/    source adapter for retail checkout/paid/zero/expiry
-  configuration/    route-scoped API/web security wiring
+  configuration/    route-scoped API security/CORS wiring
 ppswbs_backend/src/main/resources/
   db/migration/      new additive migration, number allocated at implementation
-  templates/loyalty/ promotions, wallet/account, management and policy forms/fragments
-  i18n/              messages/errors without secrets
 ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/
   loyalty/           future calculation, lifecycle, contract, security, MySQL checks
+ppswbs_frontend/      (chưa khởi tạo; vị trí dự kiến)
+  src/features/loyalty/  promotions, wallet/account, management, policy screens và checkout components
 ```
 
 **Structure Decision**: Module riêng theo ownership FE06, không nhét vào billing/common hoặc dùng frontend-only local storage cho điểm. Danh sách source tree là vị trí dự kiến, chưa tạo code.
@@ -114,9 +119,9 @@ Hai câu trả lời được ghi vào spec A005/A006, FR040/FR041 và acceptanc
 
 ### Security and web
 
-- API bearer đã verify/revocation; private responses no-store. Web dùng session identity fixed8h, CSRF, current role/ownership, privileged assurance; không làm login/MFA riêng.
+- API bearer đã verify/revocation; private responses no-store. Frontend React dùng cùng bearer, phiên identity fixed8h tính từ auth_time, current role/ownership, privileged assurance; không làm login/MFA riêng.
 - Identity chưa đủ authority thì fail closed. Technical management chains không thừa hưởng permitAll hiện tại; không thay global security hoặc Member journeys từ feature này.
-- Manager forms quản lí/sửa/dừng/mở lại programs; Admin policy; Member kho/My Loyalty; checkout fragments do owner forms nhúng. Resume PAUSED→ENABLED dùng cùng quyền, registry WRITE lock, command UUID/expectedVersion và audit; giữ quota/history, không gia hạn hoặc đổi accepted snapshots. GET/POST + PRG và field/conflict errors; không bắt JS.
+- Manager forms quản lí/sửa/dừng/mở lại programs; Admin policy; Member kho/My Loyalty; checkout components do màn hình của owner FE-03/FE-08 nhúng. Resume PAUSED→ENABLED dùng cùng quyền, registry WRITE lock, command UUID/expectedVersion và audit; giữ quota/history, không gia hạn hoặc đổi accepted snapshots. React gọi REST với field/conflict errors theo typed error, điều hướng client sau thành công.
 - Không public reserve/paid/completed/earn/refund endpoint. API input strict, safe correlation errors; không log full source proof/token.
 
 ### Data, calculation and revisions
@@ -145,7 +150,7 @@ Hai câu trả lời được ghi vào spec A005/A006, FR040/FR041 và acceptanc
 | FR-023–FR-027 | policy/wallet immutable revisions, Admin API | Shared balance, exact conversion, version policy change and old snapshot/no-early-use. |
 | FR-028–FR-031 | earn effects/ledger and MyLoyalty | Completed+paid only, net earning/floor, once/retry, own consistent balance/history. |
 | FR-032–FR-038 | lock order/effect states/source proof | Last-slot/same-wallet races, callback vs expiry/cancel, restore partial retry, no guessing unresolved. |
-| FR-039–FR-040 | web/error/security and shared identity | No-JS forms, CSRF, fixed8h/revoked/current roles, privileged assurance, no Member regression. |
+| FR-039–FR-040 | frontend/error/security and shared identity | React journeys over REST, fixed8h/revoked/current roles, privileged assurance, no Member regression. |
 | FR-041 | data-model mục7, researchD08 | Retention/ref/unfinished guards, no destructive purge, tombstones and migration preservation. |
 
 [quickstart.md](quickstart.md) có commands, prerequisites, fixture và expected outcomes; runtime suites là kế hoạch, chưa được chạy. Documentation verification sẽ kiểm tra file links, IDs/traceability, OpenAPI syntax/refs/security/key/version coverage và whitespace.
