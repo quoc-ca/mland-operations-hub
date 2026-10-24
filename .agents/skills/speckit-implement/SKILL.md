@@ -16,7 +16,29 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## Project Document Metadata
+
+Before any setup, hook, template copy, or other step that can write a project
+Markdown artifact, read the shared [metadata policy](../../../ppswbs-spec/.specify/metadata-policy.md)
+(`.specify/metadata-policy.md` under the active SpecKit project).
+Establish the responsible team member before writing; if missing, ask first.
+Preserve creation provenance on updates, refresh update fields only for actual
+content/allowed marker changes, and leave no-op artifacts byte-for-byte unchanged.
+This applies to generated Markdown companions as well as the primary artifact;
+do not insert Markdown metadata into OpenAPI/JSON/schema contracts. Do not
+bulk-backfill legacy artifacts or widen this command's write/approval scope.
+
 ## Pre-Execution Checks
+
+**Code-folder persona and design blockers**: Read the applicable code-folder
+AGENT.md and relevant ERROR-LOG.md entries before implementation. When that
+persona detects missing/conflicting design, stop the entire implementation task,
+preserve the current changes, and create/append ERROR-LOG.md next to that AGENT.
+This overrides continuation for parallel tasks and incomplete-task regeneration
+suggestions below: do not repair the spec, regenerate tasks, or run mutating
+hooks as a workaround. Only minimal read-only evidence gathering, the required
+operational error report, and the in-session blocker report may follow.
+The error report is exempt from responsible-member attribution gating.
 
 **Check for extension hooks (before implementation)**:
 - Check if `.specify/extensions.yml` exists in the project root.
@@ -166,10 +188,15 @@ You **MUST** consider the user input before proceeding (if not empty).
 8. Progress tracking and error handling:
    - Report progress after each completed task
    - Halt execution if any non-parallel task fails
-   - For parallel tasks [P], continue with successful tasks, report failed ones
+   - For ordinary implementation failures in parallel tasks [P], follow the
+     applicable persona and report failed tasks. A design blocker always stops
+     the entire current task, including otherwise independent parallel work.
    - Provide clear error messages with context for debugging
    - Suggest next steps if implementation cannot proceed
-   - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
+   - **IMPORTANT** Mark a task [X] only when completion is evidenced, then update
+     task update metadata under the shared policy. Preserve creation provenance;
+     no marker/content change means no metadata-only write. Reviewer-owned
+     checklist markers and metadata remain read-only to this command.
 
 9. Completion validation:
    - Verify all required tasks are completed

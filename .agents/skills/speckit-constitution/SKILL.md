@@ -16,6 +16,18 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## Project Document Metadata
+
+Before any setup, hook, template copy, or other step that can write a project
+Markdown artifact, read the shared [metadata policy](../../../ppswbs-spec/.specify/metadata-policy.md)
+(`.specify/metadata-policy.md` under the active SpecKit project).
+Establish the responsible team member before writing; if missing, ask first.
+Preserve creation provenance on updates, refresh update fields only for actual
+content/allowed marker changes, and leave no-op artifacts byte-for-byte unchanged.
+This applies to generated Markdown companions as well as the primary artifact;
+do not insert Markdown metadata into OpenAPI/JSON/schema contracts. Do not
+bulk-backfill legacy artifacts or widen this command's write/approval scope.
+
 ## Scope Guard
 
 This command's own work is limited to updating the project constitution itself. Dependent templates

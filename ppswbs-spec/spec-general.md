@@ -1,23 +1,27 @@
 # General Spec
-# Version: 0.1 | Status: Working Agreement | Updated: 2026-10-06
+Version: 0.2 | Status: Working Agreement | Updated: 2026-10-24
 
-> This working agreement guides agent planning and implementation. It consolidates the current product context without replacing the approved documentation baseline in `../documents/docs/`. Report 2 defines V1 scope and business decisions; Report 3 is the current requirements baseline. Detailed rules remain in those reports. Unresolved architecture, deployment, performance, availability, accessibility, and role-code decisions remain `TBD` until formally approved.
+> This working agreement summarizes product context and shared design constraints. [Report 2 scope](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/01-scope-purpose.md), [constraints](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/02-assumptions-constraints.md), and [decision evidence](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/07-evidences.md) govern business scope; Report 3 governs detailed requirements. The [constitution](.specify/memory/constitution.md) governs architecture. This update records the group's confirmed technical decisions; it does not reconcile unrelated business-source conflicts or approve feature designs.
+
+> Detailed feature artifacts, the design kit, and code have not been synchronized in this update. Reassess affected assumptions before implementation; this agreement alone does not establish readiness. The spec-folder [AGENT](AGENT.md) governs research and design; code-folder personas govern implementation.
 
 ## 1. Context & Goal
 
 **Business problem:** Mland is a ring atelier that needs one bilingual operations platform for public discovery, workshop booking, ring-design consultation, Member retail, custom manufacturing, and shop-side fulfilment. The platform should keep customer intent, operational decisions, payments, and fulfilment evidence connected without becoming an ERP, warehouse-management, accounting, or end-to-end logistics system.
 
-**System goal:** Support Guest and Member journeys while giving Staff, Managers, and Admins clear operational responsibilities. Workshop booking and workshop ring-design review are one journey; custom manufacturing is a distinct Member-only order flow. Report 3 remains the detailed source for its use cases, permission matrix, and business rules; this file summarizes their shared context and implementation guardrails.
+**System goal:** Support Guest and Member journeys while giving Staff, Managers, and Admins clear operational responsibilities. Workshop booking and workshop ring-design review are one journey; custom manufacturing is a distinct Member-only order flow. The [Report 3 context](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/01-context-business-flow.md) owns detailed business flows; this file summarizes shared context and design guardrails.
 
 **V1 scope summary:** Account/RBAC, public product and workshop catalogues, workshop schedules/bookings, workshop ring design, independent AI support and human-reviewed AI suggestions, Member retail, loyalty/promotions, custom manufacturing, workflow email, operational administration/dashboard, read-only Google Maps information, and workshop registration synchronization with Klook. Staff operates product catalogue and manually maintained available-to-sell quantities. Managers operate workshop schedules/capacity and business approvals, promotions, and the executive dashboard. Admins manage accounts/RBAC, operational parameters, and approved integration credentials. The exact role-code mapping is unresolved; see [Actors & Roles](#2-actors--roles).
 
-**Technology context:** Java 21 and Spring Boot; Thymeleaf server-rendered pages with htmx progressive enhancement; REST API; Spring Data JPA/JPA and MySQL. Firebase Authentication is the current identity-provider baseline. Firebase Hosting is approved only as a preview capability; it does not select production hosting, backend origin, database deployment, or CDN behavior.
+**Technology context:** Separate React + Vite frontend with client-side rendering and Java 21/Spring Boot backend communicating through REST APIs; Spring Data JPA/JPA, Flyway, and MySQL. The backend does not render the application UI; SSR/Thymeleaf/htmx are no longer the UI baseline. HTML email templates are separate from UI rendering. Firebase Authentication remains the identity-provider baseline. Firebase Hosting is preview-only; production origins, hosting, database deployment, CDN behavior, and repository separation are not selected by this decision.
 
-**Architecture convention:** The backend is a Spring Modulith modular monolith. Each business module owns `facade/`, `web/`, `application/`, `domain/`, and `infrastructure/`; its named `facade/` is the only Java interface another business module may call. Firebase identity integration remains within the `members` module. Cross-domain calls are synchronous one-way facade calls by default; internal domain events are reserved for callbacks, asynchronous workflows, or cycle removal and require idempotent consumers. The technical `common` kernel has no business entities, DTOs, or shared business workflows.
+**Architecture convention:** The backend remains a Spring Modulith modular monolith. Business code follows `features/<feature>/{controller,dto,dao,entity,service,facade}`. Each feature must be detected and verified as a distinct module, rather than collapsing into a single `features` module. Java package names use valid identifiers, for example `accountmanagement` for the documentation slug `account-management`. Controllers handle transport/validation; services own use cases/transactions; DAOs use JPA; entities stay internal. Only named `facade/` interfaces and explicit boundary types are public between features. One-way facade calls are the default; events serve async/callback/cycle-removal needs with idempotent consumers. `common` remains a technical kernel without business entities, DTOs, or shared workflows; account-management owns identity mapping.
+
+**State direction:** Hybrid stateless/stateful is a system direction, detailed per feature. A feature identifies stateless interactions and retained state with a rationale; it need not use both. Authentication/session state is distinct from business state. Shared mechanisms require consistent contracts, not independent conflicting choices by consumers. This decision does not mandate a global session policy or introduce Redis, an application JWT, or a refresh-token system.
 
 ## 2. Actors & Roles
 
-Report 3 defines these business-facing platform actors. Firebase proves identity; Mland/MySQL determines application account state and authorization.
+[Report 3 actors](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/01-actors.md) and the [permission matrix](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/04-permission-matrix.md) own detailed responsibilities. Firebase proves identity; Mland/MySQL determines account state and authorization.
 
 | Actor | Type | Responsibility and boundary |
 | --- | --- | --- |
@@ -41,12 +45,12 @@ The existing authentication working agreement requires MFA for privileged intern
 
 ## 3. Functional Requirements
 
-The following system-level requirements summarize Report 2/3. Feature specifications and the public API contract own detailed behavior.
+The following system-level requirements summarize Report 2/3 and their [business rules](../documents/docs/report-3-software-requirement-specification/sections/07-v-requirement-appendix/01-business-rules.md). Feature specifications and API contracts own detailed behavior. A source conflict must be reported with evidence rather than silently settled by this summary.
 
 ### Identity and authorization
 
 * The web client SHALL use the Firebase Web SDK for enabled Google, Facebook, and Firebase email/password sign-in methods. Provider availability remains subject to configuration/approval.
-* The client SHALL send a Firebase ID token as `Authorization: Bearer` on protected API requests. The Spring backend SHALL verify the token with Firebase Admin SDK before using its UID. Raw tokens SHALL NOT be placed in URLs, logs, or committed files.
+* Existing protected API contracts use Firebase ID tokens as `Authorization: Bearer`; the backend SHALL verify them with Firebase Admin SDK before using the UID. Any additional credential transport/session flow requires explicit feature design and a consistent shared contract; the hybrid direction alone does not authorize it. Raw tokens SHALL NOT appear in URLs, logs, or committed files.
 * MySQL SHALL remain authoritative for Mland account status, business role, entitlement, and audit. Provider, email, display-name, photo, or Firebase custom claims SHALL NOT grant business authority.
 * A verified first sign-in SHALL provision at most one Member by Firebase UID. Accounts with different UIDs SHALL NOT be merged automatically based on email.
 * Guest-accessible public journeys remain public; Member-only history, retail checkout, booking-design image submission, and custom manufacturing require the corresponding Mland authorization.
@@ -86,6 +90,10 @@ The following system-level requirements summarize Report 2/3. Feature specificat
 
 ## 4. Non-functional Requirements
 
+Detailed requirements remain in the [Report 3 NFR baseline](../documents/docs/report-3-software-requirement-specification/sections/06-iv-non-functional-requirements/00-overview.md) and [external interfaces](../documents/docs/report-3-software-requirement-specification/sections/06-iv-non-functional-requirements/01-external-interfaces.md).
+
+* **Feature state design:** For retained state, define owner, storage, lifecycle, expiry/invalidation, consistency/concurrency, user isolation, security, and recovery as applicable. Spec owns observable behavior; plan owns mechanisms. Shared state must have one consistent contract referenced by consumers.
+* **Frontend/backend boundary:** Define UI loading/empty/validation/success/error and recovery states; enforce business access on the backend. Feature plans define CORS for selected origins and CSRF protection appropriate to credential transport. Do not globally disable CSRF or enable credentialed origins merely because the frontend is separate.
 * **Payment integrity:** VNPay is the sole V1 provider. A browser Return URL is display-only. Payment state changes require a valid signed IPN or the defined signed QueryDR recovery result while the associated hold remains active. Validate signature/checksum, transaction reference, amount, and success status; process duplicate events idempotently.
 * **Identity and authorization security:** Verify Firebase token signature, issuer, audience, and expiration with Firebase Admin SDK. Authentication proves identity; Mland authorization decides business access on every protected operation. Do not log ID/provider tokens, secrets, or unnecessary PII.
 * **Payment timing:** A payment link expires after 10 minutes. A workshop slot, retail cart, or custom-order queue slot is held for at most 15 minutes. If no valid evidence exists at minute 15, release the hold; late payment evidence does not automatically fulfil and requires manual operational follow-up.
@@ -111,21 +119,23 @@ Physical schemas remain owned by feature plans, migrations, and the evolving [DB
 | Booking-design input, AI analysis, review outcome, and custom-order request | Separate Mland workflows | Workshop booking-design review is distinct from custom manufacturing; AI does not decide custom orders. |
 | Retail cart/order, invoices, loyalty/voucher application, payment references, and fulfilment milestones | Mland sales/payment/fulfilment domains | Full verified retail payment precedes sale completion; fulfilment evidence ends at pickup or carrier handoff. This does not create accounting or reconciliation scope. |
 | Media and custom reference images | Approved cloud storage service under Mland retention policy | Apply the deletion/retention rules in [Non-functional Requirements](#4-non-functional-requirements). |
-| Credentials, passwords, and Firebase token lifecycle | Firebase Authentication/provider | Never copy provider credentials, password hashes, or refresh lifecycle into Mland business storage. |
+| Credentials, passwords, and Firebase token lifecycle | Firebase Authentication/provider | Never copy provider passwords, password hashes, or refresh lifecycle into Mland business storage; application state is not an unapproved credential store. |
+| Application/session state, if used | Owning feature or explicitly shared mechanism | Define persistence, lifecycle, invalidation, isolation, and recovery; do not confuse credential lifecycle with business state or infer a new state store. |
 
 ## 6. Error Handling & Security
 
-* Missing, malformed, expired, revoked, wrong-project, or unverifiable Firebase bearer tokens SHALL return `401 Unauthorized` without exposing token details. A verified identity with a locked account or insufficient Mland entitlement SHALL return `403 Forbidden` without protected data.
+* Missing, malformed, expired, revoked, wrong-project, or unverifiable Firebase bearer tokens SHALL return `401 Unauthorized` without exposing token details. A verified identity with a locked account or insufficient Mland entitlement SHALL return `403 Forbidden` without protected data. Additional approved credential flows must define corresponding safe API errors and frontend recovery without granting fallback access.
 * Concurrent provisioning of the same verified Firebase UID SHALL leave at most one Mland Member record through a unique identity constraint and transaction handling.
 * Same-email/different-UID collisions SHALL not merge Member records, bookings, orders, or roles automatically. Provider-link and account-recovery failures must preserve existing account/history and return safe guidance.
 * Every protected operation SHALL authorize using Mland role/status and resource ownership on the server. Do not trust client-supplied role/price/status or provider claims.
-* VNPay confirmation SHALL validate signed provider evidence, reference, amount, and success status. Return URL alone cannot confirm payment. Duplicate callbacks are idempotent; a payment after hold expiry is an operational exception and does not trigger fulfilment.
-* On payment expiry without valid confirmation, release the relevant hold. Klook cancellation is not an inbound system event in V1; GHTK delivery progress is not a system workflow.
-* Do not log passwords, raw ID/provider tokens, secrets, card data, or unnecessary PII. Keep redacted, purpose-limited audit evidence for business actions under the five-year retention decision.
-* Client sign-out SHALL use the Firebase SDK. This agreement does not create a separate Mland password store, application-signed JWT, or refresh-token system.
+* Apply the payment-evidence, expiry, duplicate-callback, and redacted-audit requirements in [Non-functional Requirements](#4-non-functional-requirements); an invalid callback or expired hold cannot trigger fulfilment.
+* Client sign-out SHALL use the Firebase SDK. Features with additional application/session state must define logout clearing/invalidation and replay/expiry behavior in their shared credential contract. Sign-out in the UI alone is not proof of backend invalidation. This agreement creates no separate Mland password store, application-signed JWT, or refresh-token system.
 
 ## 7. Acceptance Criteria
 
+* [ ] The React + Vite frontend runs separately and uses REST APIs; the backend does not render the application UI or rely on Thymeleaf/htmx forms.
+* [ ] The feature package structure preserves distinct Modulith modules and facade-only dependencies; applicable module verification is planned and later evidenced.
+* [ ] Each affected feature documents applicable stateless/stateful behavior, lifecycle, isolation, recovery, security, UI states, and verification; shared auth/state contracts are consistent. Design completeness does not itself prove implementation.
 * [ ] A Guest can browse public catalogue/workshop/store information and create a workshop booking only through the package-first flow; a booking is confirmed only after the verified 50% VNPay deposit.
 * [ ] A verified Firebase UID provisions at most one Member; repeated sign-in retains business history, and provider/email claims cannot grant Mland roles or merge different UIDs.
 * [ ] A Member's workshop booking-design image can be analyzed and reviewed by the threshold-appropriate human role, and the Member can view the outcome; the separate custom-manufacturing path is never decided by AI.
@@ -158,43 +168,18 @@ Firebase Authentication ──verified ID token──► Mland account, status a
 * Mland-managed passwords/password hashes, Mland-signed JWTs, automatic same-email account merging, or granting business roles from provider claims.
 * AI-generated final designs, automated feasibility/price/accept/reject decisions for custom manufacturing, AI publication of prices, or a standalone notification centre.
 * Google Places review/rating persistence, internal store reviews, or review write-back to Google; automatic processing of Klook cancellations.
-* Firebase Test Lab as the testing strategy for the server-rendered web application.
+* Selecting Firebase Test Lab as the application testing strategy merely because Firebase is used; frontend/backend verification is chosen by the affected design.
 * Firebase Hosting production deployment, Hosting rewrites, Cloud Run/VPS selection, production database deployment, production custom domain, or a production Firebase project decision.
 
 ## 10. Notes / Open Questions
 
+* **Decided on 2026-10-24:** separate React + Vite frontend, Java 21/Spring Boot backend, no application SSR, feature-oriented layers, retained Modulith, and hybrid state direction. These are not architecture TBDs; mechanism details belong to the owning feature/shared contract.
+* **Deferred synchronization:** existing feature specs/plans/tasks/contracts, APIs.md, design kit, and code may retain old SSR, package, or persona assumptions. Review the affected material before implementation; do not silently rewrite or mark it ready in this update. The [account-management artifacts](features/001-account-management/) are a current design source, not proof of compliance with the amended baseline.
 * How should Report 3 business labels `Manager`/`Admin` reconcile with implementation role codes `OWNER`/`ADMIN_TECHNICAL` without changing approved permission boundaries? This remains `TBD`; do not infer a mapping.
 * Which Firebase project hierarchy, billing owner, access roles, secret-management process, and provider approvals will be used for development/staging/production?
 * Will Firebase Auth Emulator or a separate non-production Firebase project be used for authentication integration tests? The production project must not be used for tests.
 * What is the final safe account-linking, recovery, and support path for provider collisions or same-email/different-UID cases?
 * How will MFA be enforced, recovered, and audited for privileged internal roles under the selected Firebase/Identity Platform capability and role mapping?
 * Which provider contracts, credentials, callback URLs, quotas, supplier approvals, and SMTP/cloud-storage configuration are required for go-live? Keep credentials out of this repository.
-* What production origin/deployment model, performance/availability targets, accessibility standard, and browser/device baseline will be approved?
+* What frontend/backend origins, production deployment model, performance/availability targets, accessibility standard, and browser/device baseline will be approved? CORS, credential transport, and CSRF design must match the selected origins and owning feature contracts.
 * Which preview content may be published through Firebase Hosting, with what access boundary and expiry lifecycle?
-
-## References
-
-### Product and business baseline
-
-* [Report 2 — Scope and Purpose](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/01-scope-purpose.md)
-* [Report 2 — Assumptions and Constraints](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/02-assumptions-constraints.md)
-* [Report 2 — Evidences and Decision Traceability](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/07-evidences.md)
-
-### Requirements baseline
-
-* [Report 3 — Context Diagram](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/01-context-business-flow.md)
-* [Report 3 — Actors](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/01-actors.md)
-* [Report 3 — Permission Matrix](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/04-permission-matrix.md)
-* [Report 3 — Business Rules](../documents/docs/report-3-software-requirement-specification/sections/07-v-requirement-appendix/01-business-rules.md)
-* [Report 3 — NFR Overview](../documents/docs/report-3-software-requirement-specification/sections/06-iv-non-functional-requirements/00-overview.md)
-* [Report 3 — External Interfaces](../documents/docs/report-3-software-requirement-specification/sections/06-iv-non-functional-requirements/01-external-interfaces.md)
-
-### Architecture and identity baseline
-
-* [Project Constitution](.specify/memory/constitution.md)
-* [Member Authentication Feature Spec](features/001-member-authentication/spec.md)
-* [Database working document](DB.md)
-* [Firebase Authentication](https://firebase.google.com/docs/auth/)
-* [Firebase Admin token verification](https://firebase.google.com/docs/auth/admin/verify-id-tokens)
-* [Firebase Hosting use cases](https://firebase.google.com/docs/hosting/use-cases)
-* [Firebase Hosting preview channels](https://firebase.google.com/docs/hosting/test-preview-deploy)

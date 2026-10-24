@@ -2,138 +2,13 @@
 
 Phân loại theo 10 major features trong Report 1. Đây là cách tổ chức tài liệu, không phải xác nhận các tính năng đã được triển khai. Mỗi feature ghi rõ nội dung đã mô tả, đề xuất và phần chưa chốt.
 
-Mỗi luồng được mô tả tại một nơi. Các điểm dùng chung được dẫn chiếu giữa feature; thanh toán không được tạo thành feature thứ 11.
+Mỗi luồng được mô tả tại một nơi. FE-01 và FE-07 có research riêng trong thư mục features tương ứng; các phần chưa tách vẫn giữ ở đây. Các điểm dùng chung được dẫn chiếu giữa feature; thanh toán không được tạo thành feature thứ 11.
 
 <a id="fe-01"></a>
 
 # FE-01 — Account Management
 
-Đã có các luồng authentication bên dưới. Chưa mô tả riêng đăng xuất, xem/sửa hồ sơ, quản trị tài khoản và cấu hình vai trò/quyền. Email xác minh và đặt lại mật khẩu trong các luồng này do Firebase Auth xử lý; thông báo nghiệp vụ được phân loại tại FE-07.
-
-## Đăng ký
-
-### Đăng ký bằng email/mật khẩu — Luồng thành công
-
-1. Khách vào landing page, chọn **Đăng ký**, rồi chọn đăng ký bằng email/mật khẩu.
-2. Khách nhập email, mật khẩu và xác nhận mật khẩu; bấm **Đăng ký**.
-3. Frontend kiểm tra trường bắt buộc, định dạng email, xác nhận mật khẩu và chính sách mật khẩu đã cấu hình trong Firebase. Khi đang gửi yêu cầu, khóa nút để tránh bấm lặp.
-4. Frontend gọi `createUserWithEmailAndPassword(auth, email, password)`.
-5. Firebase tạo danh tính và trả về thông tin người dùng. Frontend lấy ID Token từ người dùng vừa được tạo.
-6. Frontend gọi `sendEmailVerification(user)` để gửi email xác minh ban đầu. Việc gửi email thất bại không hủy tài khoản đã tạo và không chặn bước Backend.
-7. Frontend thực hiện **Xử lý Backend chung sau xác thực** ở phần Đăng nhập để tạo hoặc lấy Member theo UID.
-8. Sau khi Backend chấp nhận, Frontend chuyển khách về landing page với trạng thái đã đăng nhập; nếu email chưa xác minh, hiển thị nhắc xác minh và nút yêu cầu gửi lại email.
-
-### Đăng ký bằng Google/Facebook — Luồng thành công
-
-1. Khách chọn **Đăng ký bằng Google** hoặc **Đăng ký bằng Facebook**.
-2. Frontend gọi Firebase SDK với provider tương ứng, mở popup để khách xác thực và cấp quyền tại nhà cung cấp.
-3. Firebase xử lý kết quả. Lần đầu đăng nhập bằng provider sẽ tạo danh tính Firebase; nếu danh tính đã tồn tại thì tiếp tục đăng nhập, không tạo tài khoản khác chỉ vì khách đi từ màn hình đăng ký.
-4. Frontend lấy ID Token và thực hiện **Xử lý Backend chung sau xác thực** để tạo hoặc lấy Member theo UID.
-5. Backend sử dụng email và trạng thái xác minh từ token đã kiểm tra. Nếu thiếu email hoặc email chưa xác minh, không coi tài khoản đã xác minh; việc bổ sung email được xử lý trong luồng hồ sơ khi cần.
-6. Sau khi Backend chấp nhận, Frontend chuyển khách về landing page với trạng thái đã đăng nhập.
-
-### Đăng ký — Nhánh lỗi
-
-1. Thiếu dữ liệu, email sai định dạng, xác nhận mật khẩu không khớp hoặc mật khẩu không đạt chính sách: Frontend hiển thị lỗi tại trường tương ứng; Firebase vẫn là nơi quyết định tính hợp lệ của thông tin đăng ký.
-2. Email đã được sử dụng: thông báo không thể đăng ký bằng thông tin này và hướng dẫn đăng nhập hoặc quên mật khẩu; không tự tạo hay gộp tài khoản khác.
-3. Khách đóng hoặc hủy popup: quay lại màn hình đăng ký, cho chọn lại phương thức; không báo đăng ký thành công.
-4. Popup bị chặn, provider chưa cấu hình hoặc lỗi nhà cung cấp: hướng dẫn cho phép popup hoặc thử lại/chọn phương thức khác; không tạo Member khi chưa có token hợp lệ.
-5. Firebase báo xung đột phương thức đăng nhập: hướng dẫn khách dùng phương thức đã đăng ký. Chưa thực hiện liên kết tài khoản và không tự gộp theo email.
-6. Gửi email xác minh thất bại: thông báo tài khoản đã được tạo nhưng chưa gửi được email; cho yêu cầu gửi lại, không chạy lại thao tác tạo tài khoản.
-7. Firebase thành công nhưng Backend lỗi hoặc mất mạng: thông báo chưa hoàn tất đăng nhập website, giữ khả năng thử lại bước Backend với token còn hợp lệ; không gọi lại thao tác đăng ký Firebase và không tạo trùng Member.
-
-## Đăng nhập
-
-### Đăng nhập bằng email/mật khẩu — Luồng thành công
-
-1. Khách mở trang đăng nhập, nhập email và mật khẩu rồi bấm **Đăng nhập**.
-2. Frontend kiểm tra trường bắt buộc và định dạng email, khóa nút trong khi xử lý.
-3. Frontend gọi `signInWithEmailAndPassword(auth, email, password)`.
-4. Firebase xác thực thông tin; Frontend lấy ID Token từ người dùng đã đăng nhập.
-5. Frontend thực hiện **Xử lý Backend chung sau xác thực**. Không yêu cầu khách xác minh email chỉ để đăng nhập website.
-
-### Đăng nhập bằng Google/Facebook — Luồng thành công
-
-1. Khách chọn **Đăng nhập bằng Google** hoặc **Đăng nhập bằng Facebook**.
-2. Frontend gọi Firebase SDK mở popup với provider tương ứng; khách chọn tài khoản và hoàn tất xác thực tại nhà cung cấp.
-3. Firebase xử lý kết quả; Frontend lấy ID Token.
-4. Frontend thực hiện **Xử lý Backend chung sau xác thực**. Nếu đây là lần đăng nhập đầu tiên, dùng cùng cơ chế tạo danh tính và Member của luồng đăng ký social.
-
-### Xử lý Backend chung sau xác thực
-
-1. Frontend gửi `PUT /api/v1/members/me` với header `Authorization: Bearer <ID_TOKEN>` để tạo hoặc lấy Member. Đây là điểm tích hợp đã có trong dự án; hành vi dưới đây là thiết kế mong muốn.
-2. Backend dùng Firebase Admin SDK xác thực chữ ký, thời hạn và việc thu hồi token; từ chối danh tính không hợp lệ hoặc đã bị vô hiệu hóa. Với Java, việc kiểm tra thu hồi cần được bật khi xác thực ID Token.
-3. Backend lấy UID, email và trạng thái xác minh từ token đã xác thực, rồi tìm Member theo UID.
-4. Nếu chưa có Member, Backend tạo Member theo UID. Thao tác phải có thể gọi lại an toàn, kể cả khi yêu cầu trước đã tạo xong nhưng Frontend chưa nhận được phản hồi; ràng buộc duy nhất theo UID ngăn bản ghi trùng.
-5. Nếu Member đã tồn tại, Backend giữ nguyên trạng thái quản trị và dữ liệu nghiệp vụ; không tự mở lại tài khoản bị khóa, không tự gộp tài khoản cùng email. Trạng thái chưa chấp nhận chính sách không chặn đăng nhập trong bản thiết kế này; điều kiện sử dụng từng nghiệp vụ được kiểm tra riêng.
-6. Backend kiểm tra Member có được phép sử dụng tài khoản hay không, rồi trả thông tin Member và trạng thái email đã xác minh. Tài khoản chưa xác minh vẫn được đăng nhập.
-7. Chỉ sau phản hồi chấp nhận của Backend, Frontend mới hiển thị đăng nhập website thành công và chuyển khách về `/` (landing page).
-8. Với các yêu cầu tiếp theo, Frontend lấy token qua Firebase SDK; Backend tiếp tục kiểm tra token và quyền sử dụng tài khoản, không chỉ dựa vào trạng thái giao diện.
-
-### Đăng nhập — Nhánh lỗi
-
-1. Email/mật khẩu không hợp lệ: hiển thị thông báo chung “Email hoặc mật khẩu không đúng”, không phân biệt email không tồn tại với mật khẩu sai.
-2. Tài khoản Firebase bị vô hiệu hóa hoặc Member bị khóa: từ chối truy cập và hướng dẫn liên hệ hỗ trợ; không tự tạo Member khác để bỏ qua trạng thái khóa.
-3. Token hết hạn: Frontend thử lấy token mới qua SDK một lần rồi gửi lại. Nếu token bị thu hồi hoặc không thể lấy token hợp lệ, xóa trạng thái đăng nhập hiện tại và yêu cầu đăng nhập lại; không lặp vô hạn.
-4. Hủy popup, popup bị chặn, lỗi provider hoặc xung đột phương thức: xử lý như các nhánh tương ứng trong Đăng ký; cho khách chọn lại phương thức.
-5. Mất mạng hoặc Backend không khả dụng: thông báo chưa hoàn tất đăng nhập website và cho thử lại bước Backend; nếu token không còn hợp lệ thì yêu cầu đăng nhập lại. Không thông báo sai rằng mật khẩu không đúng và không tạo trùng Member.
-6. Gửi quá nhiều yêu cầu: thông báo cần chờ rồi thử lại; không tự động gửi lặp liên tục.
-
-### Xác minh email khi chức năng yêu cầu
-
-1. Khách đã đăng nhập truy cập chức năng có điều kiện email đã xác minh; Backend kiểm tra điều kiện này trước khi thực hiện nghiệp vụ.
-2. Nếu chưa đạt, Backend từ chối thao tác nghiệp vụ và Frontend hướng dẫn xác minh email. Khách vẫn giữ trạng thái đăng nhập; không thực hiện nghiệp vụ trước rồi mới kiểm tra.
-3. Với tài khoản có email nhưng chưa xác minh, khách chủ động chọn **Gửi email xác minh** hoặc **Gửi lại**; Frontend gọi `sendEmailVerification(user)`. Không tự gửi lại liên tục khi mở trang hoặc đăng nhập.
-4. Khách mở link xác minh và hoàn tất theo hướng dẫn của Firebase. Nếu link không hợp lệ, hết hạn hoặc đã dùng, kiểm tra lại trạng thái; nếu vẫn chưa xác minh thì cho yêu cầu link mới.
-5. Khi khách quay lại website, Frontend gọi `reload(user)` và lấy ID Token mới bằng `getIdToken(user, true)`, rồi gửi lại cho Backend kiểm tra. Không dùng cờ do trình duyệt tự đặt để cấp quyền.
-6. Backend chỉ cho tiếp tục nghiệp vụ khi thông tin đã xác thực thể hiện email đã xác minh. Nếu tài khoản social không cung cấp email, hướng dẫn bổ sung email trong luồng hồ sơ trước; không tự đánh dấu đã xác minh.
-7. Nếu gửi mail lỗi, bị giới hạn tần suất hoặc mạng lỗi, thông báo để khách thử lại sau; giữ nguyên trạng thái đăng nhập và chưa xác minh.
-
-## Đổi mật khẩu
-
-### Điều kiện và luồng thành công
-
-1. Điều kiện: khách đang đăng nhập, tài khoản được phép sử dụng và đã có phương thức email/mật khẩu. Tài khoản chỉ dùng Google/Facebook được hướng dẫn quản lý mật khẩu tại nhà cung cấp.
-2. Khách mở phần bảo mật tài khoản, chọn **Đổi mật khẩu**, nhập mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu mới.
-3. Frontend kiểm tra trường bắt buộc, xác nhận khớp và chính sách mật khẩu Firebase; khóa nút trong khi xử lý.
-4. Frontend tạo credential bằng `EmailAuthProvider.credential(user.email, currentPassword)`, rồi gọi `reauthenticateWithCredential(user, credential)` để xác nhận lại danh tính.
-5. Sau khi tái xác thực thành công, Frontend gọi `updatePassword(user, newPassword)`. Firebase cập nhật mật khẩu; UID và dữ liệu Member không thay đổi.
-6. Hệ thống hoàn tất việc vô hiệu hóa các phiên cũ. Backend chịu trách nhiệm bảo đảm token/phiên cũ bị từ chối, kiểm tra thu hồi và thực hiện thu hồi qua Firebase Admin khi cần; không coi việc làm mới token là đã đăng xuất mọi thiết bị.
-7. Frontend đăng xuất Firebase tại thiết bị hiện tại và xóa trạng thái đăng nhập website. Nếu hệ thống có phiên phía server thì Backend cũng phải kết thúc phiên đó.
-8. Frontend thông báo đã đổi mật khẩu và chuyển về trang đăng nhập. Trên thiết bị khác, phiên cũ bị từ chối ở yêu cầu tiếp theo và giao diện yêu cầu đăng nhập lại; không cam kết giao diện mọi thiết bị đổi ngay tức thì.
-9. Khách đăng nhập bằng mật khẩu mới; thực hiện lại bước kiểm tra Backend như luồng đăng nhập thông thường.
-
-### Đổi mật khẩu — Nhánh lỗi
-
-1. Mật khẩu hiện tại sai: dừng ở bước tái xác thực, báo lỗi và cho nhập lại; chưa cập nhật mật khẩu.
-2. Mật khẩu mới không đạt chính sách hoặc xác nhận không khớp: hiển thị lỗi tương ứng, chưa gửi cập nhật; nếu Firebase từ chối thì hiển thị hướng dẫn sửa.
-3. Firebase yêu cầu đăng nhập gần đây hoặc phiên không còn hợp lệ: yêu cầu xác thực lại; nếu không thể tiếp tục thì đưa khách về đăng nhập.
-4. Mất mạng trước khi gửi cập nhật: cho thử lại. Nếu mất phản hồi sau khi đã gửi, thông báo chưa xác định được kết quả và hướng dẫn đăng nhập bằng mật khẩu mới; nếu không được thì thử mật khẩu cũ hoặc dùng quên mật khẩu, không khẳng định cập nhật đã thất bại.
-5. Mật khẩu đã đổi nhưng bước kết thúc phiên lỗi: thông báo rõ mật khẩu đã đổi nhưng chưa xác nhận kết thúc mọi phiên; đăng xuất thiết bị hiện tại nếu có thể, cho thử lại bước kết thúc phiên an toàn và hướng dẫn đăng nhập bằng mật khẩu mới. Không chạy lại toàn bộ thao tác đổi mật khẩu hoặc báo thành công toàn bộ khi chưa hoàn tất.
-6. Tài khoản chỉ dùng Google/Facebook: không hiển thị biểu mẫu yêu cầu mật khẩu hiện tại của website; hướng dẫn đổi hoặc khôi phục mật khẩu tại nhà cung cấp.
-
-## Quên mật khẩu
-
-### Luồng thành công
-
-1. Khách tại trang đăng nhập chọn **Quên mật khẩu**, nhập email và bấm **Gửi yêu cầu**.
-2. Frontend kiểm tra trường bắt buộc và định dạng email, khóa nút khi đang xử lý rồi gọi `sendPasswordResetEmail(auth, email)`.
-3. Với tài khoản có phương thức email/mật khẩu hợp lệ, Firebase xử lý gửi email chứa link đặt lại mật khẩu. Bật cơ chế chống dò email của Firebase và không hiển thị lỗi phân biệt tài khoản có tồn tại hay không.
-4. Frontend hiển thị thông báo trung tính: “Nếu địa chỉ email này có tài khoản hỗ trợ đặt lại mật khẩu, bạn sẽ nhận được email hướng dẫn. Vui lòng kiểm tra cả thư mục spam.” Không khẳng định email đã được giao đến hộp thư.
-5. Khách mở link; trang đặt lại mật khẩu do Firebase cung cấp kiểm tra mã và hướng dẫn nhập mật khẩu mới, xác nhận theo giao diện của trang.
-6. Firebase kiểm tra link và chính sách mật khẩu, cập nhật mật khẩu nếu hợp lệ và tự động xử lý thu hồi token cũ khi đặt lại mật khẩu.
-7. Backend phải kiểm tra thu hồi trên các yêu cầu cần đăng nhập để từ chối phiên cũ; các thiết bị khác được yêu cầu đăng nhập lại khi gửi yêu cầu tiếp theo. Không cần đồng bộ mật khẩu về database.
-8. Khách quay lại website và đăng nhập bằng mật khẩu mới; Frontend và Backend thực hiện luồng đăng nhập đầy đủ, không tự coi việc mở link là đăng nhập thành công.
-
-### Quên mật khẩu — Nhánh lỗi
-
-1. Email trống hoặc sai định dạng: hiển thị lỗi tại trường nhập, chưa gọi Firebase.
-2. Email không tồn tại hoặc không có phương thức mật khẩu: vẫn dùng thông báo trung tính; không tiết lộ phương thức đăng nhập của email cụ thể. Trang có hướng dẫn chung rằng khách chỉ dùng Google/Facebook nên đăng nhập hoặc khôi phục mật khẩu tại nhà cung cấp.
-3. Mất mạng hoặc dịch vụ gửi yêu cầu lỗi: thông báo chưa thể xác nhận yêu cầu, cho thử lại; không suy diễn rằng email không có tài khoản.
-4. Gửi quá nhiều yêu cầu: yêu cầu khách chờ trước khi thử lại, không tự gửi lặp. Nếu chưa thấy thư, hướng dẫn kiểm tra spam và yêu cầu gửi lại khi được phép.
-5. Link không hợp lệ, hết hạn hoặc đã dùng: hướng dẫn quay lại **Quên mật khẩu** để xin link mới; không cho cập nhật mật khẩu bằng link đó.
-6. Mật khẩu mới không đạt chính sách: trang Firebase hiển thị lỗi để khách sửa; chưa thông báo đặt lại thành công.
-7. Mất phản hồi khi xác nhận mật khẩu mới: không khẳng định mật khẩu chưa đổi; hướng dẫn thử đăng nhập bằng mật khẩu mới hoặc xin link khác nếu không thể đăng nhập.
+Nội dung nghiên cứu đã chuyển sang [research riêng của FE-01](features/001-account-management/research.md). Các tài liệu hồ sơ Member có sẵn được giữ trong thư mục nhóm này; chưa mở rộng spec/plan/tasks sang toàn bộ FE-01.
 
 <a id="fe-02"></a>
 
@@ -459,17 +334,813 @@ Size từ 5–29 và các số đo dưới đây được ghi theo ảnh bảng 
 
 # FE-03 — Workshop Management
 
-Chưa có nội dung chi tiết. Mục Booking trước đây được đặt tại feature này.
+## Phạm vi và trạng thái tài liệu
 
-## Booking
+FE-03 mô tả nghiệp vụ workshop từ cấu hình vận hành, công khai package, đặt
+chỗ, thanh toán cọc, tham gia workshop đến các ngoại lệ sau xác nhận. Đây là
+bản đồ nghiệp vụ của feature, không phải tuyên bố rằng tất cả các luồng đã được
+triển khai.
 
-Chưa mô tả luồng.
+Phần **đã có phạm vi V1** được xác định trong
+`features/003-workshop-management/003.1-workshop-booking`: khách xem package, tạo booking chờ thanh toán,
+thanh toán cọc, nhận xác nhận/QR/Magic Link và tra cứu booking. Cấu hình lịch,
+check-in, completion/no-show, huỷ sau xác nhận, đổi lịch, refund và đồng bộ
+kênh ngoài chưa thuộc implementation scope của feature 002. Các phần này được
+ghi rõ là **Đề xuất** hoặc **Cần quyết định** bên dưới.
+
+## Vai trò và ranh giới trách nhiệm
+
+| Vai trò/hệ thống | Trách nhiệm trong FE-03 |
+| --- | --- |
+| Guest | Xem package, tạo và tra cứu booking bằng chứng liên hệ hợp lệ, thanh toán cọc. |
+| Member | Thực hiện các quyền của Guest; xem booking thuộc tài khoản và có thể đặt cho người khác bằng contact snapshot. |
+| Staff | Vận hành session, xử lý check-in hoặc ngoại lệ khi được cấp quyền; mọi thao tác vận hành cần audit. |
+| Manager/Owner | Cấu hình package, lịch, sức chứa, phân công Staff và phê duyệt chính sách/ngoại lệ thuộc thẩm quyền. |
+| Payment Gateway | Thực hiện OTP hoặc bước xác thực thanh toán; Mland chỉ xử lý kết quả đã xác thực. |
+| External channel | Nhận dữ liệu đồng bộ theo contract riêng; không được ghi đè booking/capacity do Mland quản lý. |
+
+## Cấu hình workshop, lịch và sức chứa — Đề xuất
+
+Manager cần quản lý package được mở bán theo branch, session, sức chứa tối đa,
+giới hạn số ticket mỗi lần đặt, trạng thái mở/đóng và Staff đủ điều kiện phụ
+trách. Đây là workflow vận hành riêng, không phải quyền của khách đang đặt chỗ.
+
+- Thay đổi sức chứa không được làm tổng số ghế nhỏ hơn participant của các
+  booking đã xác nhận và capacity hold còn hiệu lực.
+- Đóng package/session chỉ chặn booking mới; không tự huỷ, đổi lịch hay thay
+  đổi giá trị booking đã xác nhận.
+- Tạo session, lịch lặp, ngày nghỉ, đổi branch và tiêu chí Staff đủ điều kiện
+  cần được đặc tả bằng feature riêng trước khi triển khai.
+- Mland không dùng `check_in_closes_at` cho workshop làm nhẫn: khách đến muộn
+  vẫn có thể check-in đến khi Staff/Manager finalize attendance của session.
+  Thời điểm khách check-in chỉ ghi nhận đã đến, không cho phép bắt đầu làm sớm
+  hay chiếm chỗ làm trước session; việc sắp xếp chỗ chờ/chỗ làm do Staff điều
+  phối tại chỗ. Nếu cần một `check_in_opens_at`, nó chỉ là mốc hướng dẫn vận
+  hành/thông báo, không phải điều kiện chặn check-in. Thay đổi cấu hình phải
+  được audit và không được làm thay đổi lịch session, capacity hoặc booking đã
+  xác nhận.
+- Package, material/design option và branch/session phải được kiểm tra lại tại
+  thời điểm submit, không chỉ dựa vào dữ liệu frontend đã hiển thị.
+
+### Chính sách giá theo số người — Đề xuất đã chọn
+
+Mỗi package phải khai báo một `pricing_model`; hệ thống không được suy diễn giá
+từ `participant_count` nếu package chưa có chính sách giá hợp lệ.
+
+| `pricing_model` | Ví dụ | Cách tính tổng booking |
+| --- | --- | --- |
+| `PER_PERSON` | 750.000 VND/người; 4 người | `participant_count × unit_price` = 3.000.000 VND |
+| `BASE_PLUS_EXTRA` | Giá một suất làm nhẫn gồm 1 người; thêm người cùng làm trả phụ phí | `base_price + max(0, participant_count - included_participant_count) × extra_person_price` |
+
+Với cả hai model, package phải có giới hạn participant tối thiểu/tối đa và số
+tiền cọc được tính từ **tổng booking đã chốt**, không chỉ từ giá niêm yết ban
+đầu của package. Ví dụ cọc 50% cho booking 3.000.000 VND là 1.500.000 VND.
+
+#### Chú thích — suất làm và vé check-in
+
+**Workshop item/suất làm** là một sản phẩm hoặc kết quả làm ra, ví dụ một chiếc
+nhẫn. **Attendance ticket** là quyền của một người vào session và check-in bằng
+QR. Hai khái niệm không đồng nhất: hai người cùng làm **một** chiếc nhẫn tạo một
+workshop item có giá nhẫn cơ bản cộng phụ phí người cùng làm, nhưng phát **hai**
+attendance ticket/QR. Ngược lại, hai người mỗi người làm một chiếc nhẫn tạo hai
+workshop item và hai QR.
+
+Một booking là **đơn thương mại/thanh toán** của người đặt; nó có thể có nhiều
+workshop item và ticket ở nhiều session. Capacity, check-in và no-show tính theo
+attendance ticket/session; giá cơ bản, cọc và khoản còn lại tính theo workshop
+item/booking line. Phụ phí phát sinh sau workshop gắn với workshop item và có
+thể liên kết thêm ticket/người liên quan để truy vết.
+
+Mô hình workshop item và phụ phí người cùng làm này chỉ áp dụng cho booking trực
+tiếp trên Mland. Đợt OTA đầu chỉ mở package `PER_PERSON`; OTA không nhận hoặc
+đồng bộ workshop item, người cùng làm hay phụ phí này.
+
+Với `PER_PERSON`, mỗi workshop item thường có một ticket và giá cơ bản snapshot
+riêng. Với `BASE_PLUS_EXTRA`, tất cả participant cùng làm một workshop item phải
+thuộc cùng một session/booking line; không được tự ghép người ở các session khác
+nhau vào một workshop item.
+
+## Khám phá package và tạo booking — Đã có phạm vi V1
+
+Guest hoặc Member chỉ thấy package được công khai và đang cho phép đặt. Chi tiết
+package hiển thị giá hiện hành, thời lượng, giới hạn người tham gia, lựa chọn
+material/design được hỗ trợ và điểm bắt đầu booking.
+
+Khách có thể chọn nhiều workshop item; mỗi item chọn package, branch, ngày và
+session riêng, cùng số người sẽ tham gia làm item đó. Hệ thống phát một attendance
+ticket cho mỗi người tham gia. Một booking chỉ có một contact và một lần thanh
+toán cọc, nhưng các item/ticket trong đó không bắt buộc cùng slot. Guest bắt buộc
+có email và số điện thoại; Member được điền sẵn hai trường này nhưng có thể sửa
+khi đặt cho người khác. Booking phải lưu contact snapshot, không phụ thuộc các
+thay đổi hồ sơ sau đó.
+
+Sau khi kiểm tra package, session, sức chứa và dữ liệu bắt buộc trong cùng một
+ngữ cảnh giao dịch, hệ thống tạo:
+
+- booking `PENDING_PAYMENT` với trạng thái tài chính `UNPAID`;
+- các workshop item/booking line và attendance ticket theo session, giá snapshot
+  cùng phần cọc được phân bổ theo workshop item;
+- một invoice cọc bằng 50% tổng giá workshop cơ bản đã chốt;
+- capacity hold tối đa 15 phút cho từng ticket tại session tương ứng.
+
+Sức chứa của từng session được tính theo ticket đã xác nhận và hold còn hiệu lực
+ở chính session đó, không tính theo số booking/order. Nếu bất kỳ ticket nào có
+session ngừng mở bán, hết chỗ hoặc cạnh tranh sức chứa, hệ thống không được xác
+nhận một phần booking mà không có policy tách đơn rõ ràng.
+
+## Thanh toán cọc, xác nhận và tra cứu — Đã có phạm vi V1
+
+Payment link có thời hạn tối đa 10 phút. Browser redirect không phải bằng chứng
+để xác nhận booking: Backend chỉ chuyển sang `CONFIRMED` khi nhận kết quả gateway
+có chữ ký hợp lệ, đúng booking reference, amount/currency và chưa được xử lý.
+
+Khi cọc được xác nhận, hệ thống đặt trạng thái tài chính `DEPOSIT_PAID`, chốt
+capacity của từng ticket/session, phát một QR ticket riêng cho từng participant
+đã mua; mỗi QR không chứa PII hoặc dữ liệu thanh toán. Hệ thống cũng tạo Magic
+Link đọc booking và notification intent. Payment thất bại/hủy giữ booking ở
+`PENDING_PAYMENT` trong lúc hold còn hiệu lực để khách retry. Khi hold hết hạn,
+booking chuyển `EXPIRED` và không được tiếp tục thanh toán.
+
+Guest tra cứu bằng booking code cộng với email hoặc số điện thoại đã lưu; Member
+chỉ được xem booking thuộc sở hữu của mình. Booking `PENDING_PAYMENT` hiển thị
+thời gian hold còn lại và hành động thanh toán lại; booking `CONFIRMED` hiển thị
+danh sách ticket/QR được nhóm theo session, không có payment countdown. Email
+thất bại không được đảo trạng thái `CONFIRMED`; hệ thống lưu notification
+retry/follow-up.
+
+`CANCELLED` trong V1 chỉ là việc Guest/Member chủ động giải phóng hold khi
+booking còn `PENDING_PAYMENT`; không phát QR, không refund và không phải hủy
+booking đã xác nhận.
+
+## Thanh toán phần còn lại và phụ phí — Đề xuất đã chọn
+
+Mland chỉ thu cọc 50% của tổng giá workshop cơ bản đã chốt khi đặt và phân bổ
+phần cọc đó cho từng workshop item/booking line. Khách được check-in bình thường
+khi attendance ticket hợp lệ thuộc booking `CONFIRMED` có cọc `DEPOSIT_PAID`;
+không yêu cầu toàn bộ booking `FULLY_PAID`, vì phụ phí vật liệu/dịch vụ chỉ có
+thể biết sau khi workshop item hoàn thành session của nó.
+
+Sau **mỗi session của workshop item**, Staff/Manager chốt phụ phí của item đó.
+Hệ thống tạo khoản cần thu cho item gồm phần giá workshop cơ bản còn lại và các
+phụ phí đã chốt của item; phụ phí có thể ghi rõ ticket/người liên quan nhưng
+không biến QR thành đơn vị giá. **Luồng mặc định:** Staff đưa bill và thu tại
+quầy ngay sau session qua phương thức được shop cho phép (tiền mặt, POS hoặc
+QR/gateway); người trả có thể là bất kỳ đại diện nào của nhóm, không bắt buộc là
+booking contact. Khi payment được xác nhận, workshop item đã thanh toán đủ;
+booking chỉ `FULLY_PAID` khi mọi workshop item đã thanh toán đủ hoặc được xử lý
+ngoại lệ có audit.
+
+Phụ phí cần được lưu thành các dòng charge riêng, có ticket liên quan, mô tả,
+số tiền, currency, người chốt, thời điểm chốt và audit; không sửa giá workshop
+cơ bản đã snapshot. Mỗi dòng đi qua ít nhất `PENDING_ASSESSMENT` (chưa biết/chưa
+chốt) → `ASSESSED` (đã chốt số tiền) → `PAID` (đã được thu trong khoản cuối).
+
+**Policy đã chọn:** Mland không cho nợ mặc định. Khách thanh toán bill cuối tại
+quầy ngay sau workshop; sản phẩm hoàn thiện của workshop item chỉ được giao sau
+khi khoản cần thu đã thanh toán. Chỉ khi Manager phê duyệt ngoại lệ (ví dụ người
+đại diện không thể thanh toán tại quầy), hệ thống mới gửi payment link trả sau
+và phải lưu lý do, actor, hạn thanh toán, số dư còn phải trả và audit. Link có
+hạn **24 giờ** và hệ thống gửi một reminder trước khi hết hạn. Khi link hết hạn,
+hệ thống không tự tạo link mới; shop tiếp tục giữ sản phẩm, còn Manager quyết
+định liên hệ hoặc cấp link mới với audit. Không tự hủy sản phẩm, chuyển sở hữu
+hoặc xóa công nợ. Sau khi bill đã chốt, Staff không sửa trực tiếp dòng charge
+hoặc tiền đã thu; sai sót phải dùng dòng điều chỉnh/void có lý do và audit.
+Không được suy ra rằng booking `CONFIRMED` đã thanh toán toàn bộ.
+
+## Check-in, attendance, completion và no-show — Đề xuất
+
+Mỗi participant có một QR ticket riêng, nhưng feature 002 chưa có luồng tiêu
+thụ ticket. Feature tiếp theo nên cho Staff quét từng QR, xác minh ticket còn
+hiệu lực, đúng session/branch và chưa được dùng, rồi ghi nhận attendance của
+participant đó. Hệ thống cần chống quét lặp, lưu Staff/thời điểm/nguồn thao tác
+và áp dụng ba tầng xác minh sau:
+
+1. Scan QR ticket là luồng chính và chỉ check-in ticket mà QR xác định.
+2. Khi QR không quét được, Staff nhập `ticket_code` riêng để check-in đúng
+   ticket; thao tác thủ công được audit.
+3. `booking_code` chỉ cho phép tra cứu booking/ticket set, không tự check-in
+   ticket nào. Nếu cần override vì không có QR hoặc ticket code, Staff/Manager
+   phải chọn ticket chưa dùng, nhập lý do và để lại audit record.
+
+### Phân quyền check-in và override — Đề xuất đã chọn
+
+Áp dụng phân quyền hai tầng:
+
+- Staff có quyền `workshop.checkin` được scan QR hoặc nhập `ticket_code` để
+  check-in ticket hợp lệ theo quy tắc tự động.
+- Manager, hoặc Staff được cấp riêng quyền `workshop.checkin.override`, mới
+  được xử lý ngoại lệ như khách chỉ có `booking_code` hoặc đến nhầm session.
+- Override phải chọn một ticket chưa dùng, lưu actor, thời điểm, ticket/booking
+  liên quan, lý do chuẩn hóa, ghi chú ngắn và correlation ID.
+- Ticket đã check-in hoặc đã revoke không được override thành check-in lần nữa;
+  chúng phải đi qua quy trình xử lý vận hành riêng.
+
+### Thời điểm check-in — Đề xuất đã chọn
+
+Workshop làm nhẫn không có `check_in_closes_at`: Staff check-in ticket hợp lệ
+khi khách đến, dù đến sớm hay muộn, cho đến khi attendance của session được
+finalize. Check-in xác nhận khách đã đến; nó không tự cho phép khách bắt đầu làm
+sớm hoặc giữ chỗ làm. Staff điều phối chỗ chờ và thời điểm bắt đầu theo vận hành
+tại chỗ.
+
+`check_in_opens_at` là tùy chọn, chỉ dùng để hiển thị/hướng dẫn thời điểm nên
+đến hoặc hỗ trợ vận hành; không chặn check-in. Sau khi Staff/Manager finalize
+attendance, ticket chưa check-in chuyển `NO_SHOW`; ticket check-in muộn sau đó
+chỉ được sửa bởi người có quyền hậu kiểm kèm audit. Manager thay đổi mốc hướng
+dẫn theo session phải lưu actor/thời điểm/lý do và không tự thay đổi attendance
+hiện có.
+
+### Chốt attendance và no-show — Đề xuất đã chọn
+
+Sau khi **mỗi session** kết thúc, Staff/Manager thực hiện hành động **Finalize
+Attendance** cho session đó: hệ thống hiển thị ticket đã check-in và ticket chưa
+check-in của session để người vận hành xem lại trước khi chốt. Khi chốt, ticket
+chưa check-in của session chuyển thành `NO_SHOW`. Không dùng `COMPLETED` của cả
+booking để thay cho attendance, vì các ticket trong cùng booking có thể thuộc
+các session khác nhau.
+
+Hệ thống không tự chuyển ticket sang `NO_SHOW` chỉ vì giờ bắt đầu session đã qua.
+Sau khi attendance đã chốt, chỉ Manager hoặc người có quyền sửa hậu kiểm mới
+được thay đổi kết quả; mọi chỉnh sửa cần actor, lý do, giá trị trước/sau và audit
+record. Chính sách tài chính/quyền lợi cho `NO_SHOW` vẫn thuộc feature riêng cần
+quyết định.
+
+`CHECKED_IN`, completion và `NO_SHOW` là trạng thái theo ticket/session. Số
+participant thực tế của một session là số ticket đã check-in, không phải con số
+Staff nhập tự do. Việc chuyển ticket sang `NO_SHOW` phải dựa trên mốc thời gian
+và grace period được phê duyệt, không tự động xảy ra chỉ vì chưa có thao tác
+check-in. Các transition này được giữ sẵn nhưng chưa là transition triển khai
+trong V1.
+
+### Mô hình ticket cá nhân — Đề xuất đã chọn
+
+Một order/booking có một người đặt và một giao dịch thanh toán, nhưng sau xác
+nhận tạo `N` ticket, với `N = participant_count`. Mỗi ticket có ID/QR opaque,
+trạng thái riêng và tối đa một lần check-in. Một participant đến muộn vẫn có thể
+quét ticket của mình mà không ảnh hưởng các participant khác trong cùng booking.
+
+Mô hình này yêu cầu thay thiết kế một ticket-per-booking hiện có của feature 002
+thành quan hệ một booking-nhiều tickets/participants. Các artefact cần cập nhật
+khi feature attendance được đặc tả là `002` hoặc feature kế nhiệm, data model,
+OpenAPI, migration, notification template và test check-in/idempotency.
+
+### Quyền sở hữu và phân phối ticket — Đề xuất đã chọn
+
+V1 dùng policy `BOOKING_CONTACT_RECEIVES_ALL_TICKETS`. Người đặt là contact của
+booking, nhận email xác nhận, Magic Link và toàn bộ `N` ticket/QR của booking;
+người đặt tự chia ticket cho những người đi cùng. Form đặt chỗ chỉ yêu cầu thông
+tin contact của người đặt và `participant_count`; không yêu cầu, suy diễn hay lưu
+tên/email của từng participant. Mỗi ticket vẫn độc lập khi check-in bằng QR hoặc
+`ticket_code`, dù ticket chưa được gán cho một danh tính participant.
+
+Mở rộng sau V1 có thể thêm policy `EACH_PARTICIPANT_RECEIVES_TICKET`: người đặt
+nhập tên/email cho từng ticket, hệ thống gửi ticket/claim link cho từng người và
+cần workflow đổi người nhận hoặc chuyển ticket. Đây là feature riêng vì phát
+sinh thu thập PII, consent, delivery failure, quyền sửa dữ liệu participant và
+audit; không được ngầm triển khai trong V1.
+
+## Hủy sau xác nhận, đổi lịch và refund — Chốt cuối phiên
+
+Luồng này tách hoàn toàn khỏi việc release hold trước thanh toán. Chính sách sẽ
+được **chốt trong phiên hoàn thiện FE-03 này, sau các vấn đề vận hành còn lại**;
+feature triển khai có thể vẫn được tách riêng. Cho đến khi chốt, V1 hiện chỉ hỗ
+trợ `CANCELLED` để release hold trước thanh toán. Cần quyết định ít nhất:
+
+### Đơn vị áp dụng policy — Đề xuất đã chọn
+
+Áp dụng cho booking trực tiếp Mland:
+
+- **Không có self-service đổi lịch:** khách không tự đổi session trên website.
+  Nếu cần đổi lịch, khách liên hệ shop; Manager hoặc người được cấp quyền đánh
+  giá yêu cầu theo policy và capacity. Shop chỉ đổi một workshop item sang
+  session còn chỗ của **cùng package, cùng cấu hình item và cùng số người tham
+  gia**; không tự đổi sang package/thiết kế khác. Nếu chấp thuận, hệ thống
+  chuyển toàn bộ ticket của item sang session mới trong một thao tác nguyên tử,
+  chuyển phần cọc đã phân bổ cho item, revoke QR cũ và phát QR mới. Các workshop
+  item khác trong cùng booking không thay đổi; mọi quyết định phải lưu actor, lý
+  do và audit.
+- **Giá khi đổi lịch thủ công:** nếu giá workshop cơ bản hiện hành của session
+  mới cao hơn giá snapshot ban đầu, chênh lệch được thêm vào khoản còn phải thu
+  của workshop item và thu theo luồng thanh toán cuối. Nếu giá mới thấp hơn hoặc
+  bằng giá snapshot ban đầu, Mland V1 giữ nguyên giá cũ và không hoàn/credit
+  phần chênh lệch. Muốn đổi sang package/thiết kế khác hoặc hoàn phần chênh là
+  Manager exception, không phải luồng chuẩn.
+- **Refund nghiệp vụ V1 chỉ theo toàn bộ booking:** không có self-service
+  cancellation/refund riêng một workshop item, ticket hay người tham gia. Một
+  yêu cầu refund toàn bộ chỉ đủ điều kiện khi mọi item/ticket trong booking chưa
+  check-in và đều còn trong hạn policy. Sau khi một item đã được dùng hoặc quá
+  hạn, khách không dùng luồng hủy/refund thông thường; Manager chỉ xử lý ngoại
+  lệ có audit.
+- Policy này không áp dụng cho OTA. Booking OTA đi theo điều kiện hủy/refund của
+  channel; Mland chỉ đồng bộ kết quả và xử lý ticket/capacity tương ứng.
+
+### Policy hủy/refund booking trực tiếp Mland — Đề xuất đã chọn
+
+Khách có thể gửi yêu cầu hủy/refund **toàn bộ booking** rồi đặt booking mới nếu
+muốn đổi kế hoạch; không có hủy/refund tự phục vụ từng workshop item hoặc ticket.
+Booking chỉ hợp lệ để áp policy khi mọi item/ticket chưa check-in, chưa diễn ra
+và chưa giao sản phẩm. Mốc thời gian luôn tính theo giờ bắt đầu sớm nhất trong
+các workshop item của booking, dùng timezone của branch/session và policy
+snapshot tại lúc đặt.
+
+| Thời điểm khách yêu cầu so với session sớm nhất | Số tiền hoàn |
+| --- | --- |
+| Từ 72 giờ trở lên | Hoàn 100% cọc khách đã thực trả |
+| Từ 24 đến dưới 72 giờ | Hoàn 50% cọc khách đã thực trả |
+| Dưới 24 giờ, no-show hoặc đã có ticket check-in | Không hoàn |
+| Mland hủy toàn bộ booking/không thể cung cấp workshop đã xác nhận | Hoàn 100% mọi khoản khách đã thực trả |
+
+“Refund toàn bộ booking” nghĩa là hủy toàn bộ dịch vụ trong booking; số tiền
+refund có thể là 100%, 50% hoặc 0% của cọc theo bảng trên. Đây **không** là
+partial refund theo item/ticket. Phụ phí sau workshop không phát sinh trong một
+hủy hợp lệ vì chưa có workshop item nào hoàn thành.
+
+Khi yêu cầu hủy đạt điều kiện, hệ thống snapshot policy và số tiền phải hoàn,
+tạo refund qua payment gateway rồi giữ `REFUND_PENDING`. Khi gateway xác nhận
+kết quả, hệ thống chuyển `REFUNDED`, revoke QR chưa dùng, giải phóng capacity của
+các session chưa diễn ra và gửi notification. Nếu gateway lỗi, booking không
+được khôi phục để sử dụng; Staff/Manager đối soát refund lỗi theo audit.
+
+Manager chỉ xử lý ngoại lệ với actor, lý do, số tiền thực hoàn, tham chiếu gateway
+và audit.
+
+Nếu **Mland chủ động hủy một workshop item** trong booking có nhiều session,
+shop ưu tiên đề nghị session thay thế tương đương. Nếu không có session phù hợp
+hoặc khách từ chối, Manager được hoàn mọi khoản khách đã thực trả được phân bổ
+cho workshop item bị hủy; revoke ticket của item và giải phóng capacity tương
+ứng. Đây là partial refund kỹ thuật **chỉ do Mland không thể cung cấp dịch vụ**,
+không tạo quyền khách tự hủy/refund riêng item. Refund record phải có
+`scope = WORKSHOP_ITEM`, liên kết item và gateway reference; không chuyển cả
+booking sang `REFUNDED` khi các item khác vẫn giữ nguyên.
+
+## Đồng bộ kênh ngoài — Cần quyết định
+
+Booking `CONFIRMED` có thể tạo handoff record cho một feature đồng bộ sau này.
+Mland vẫn là nguồn sự thật về booking và capacity. Contract sau này phải xác định
+identity mapping, idempotency, retry, reconciliation, dữ liệu được phép chia sẻ
+và cách xử lý remote failure; không tự áp dụng cancellation hoặc capacity từ
+kênh ngoài khi chưa có policy/contract.
+
+### Nguồn sự thật về session và capacity — Đề xuất đã chọn
+
+Mland là nguồn sự thật duy nhất cho package/session được mở bán, sức chứa và số
+chỗ còn lại. Manager chỉ tạo hoặc thay đổi các giá trị này tại Mland. Klook và
+GetYourGuide chỉ nhận availability đã được Mland công bố, rồi gửi yêu cầu booking
+vào Mland để Mland kiểm tra/trừ capacity nguyên tử. Không cho phép thay đổi
+capacity trực tiếp tại OTA tự ghi đè dữ liệu Mland; bất kỳ khác biệt nào phải đi
+qua quy trình đối soát và thao tác có quyền tại Mland.
+
+### Kiến trúc tích hợp booking OTA thời gian thực — Đề xuất đã chọn
+
+Mland dùng một core nội bộ duy nhất cho package/session, kiểm tra/trừ capacity,
+booking, ticket và audit. Klook và GetYourGuide có **adapter riêng** để chuyển
+đổi API, authentication, schema, voucher/ticket reference và quy tắc callback
+của từng bên; không nhét khác biệt của OTA vào domain core hoặc buộc hai OTA có
+cùng contract kỹ thuật.
+
+Khi OTA gửi yêu cầu reserve/booking, adapter phải chuyển external booking
+reference và idempotency key vào core Mland. Core kiểm tra capacity nguyên tử,
+tạo đúng một channel booking và ticket theo số participant, rồi trả kết quả xác
+nhận hoặc từ chối rõ ràng cho adapter/OTA. Gửi lặp cùng idempotency key phải trả
+kết quả đã có, không trừ thêm capacity, tạo booking hay ticket trùng.
+
+Webhook/callback về cancellation, refund và thay đổi booking đi qua adapter,
+được xác thực và lưu external event reference trước khi xử lý. Thông báo/gửi
+dữ liệu ra OTA dùng outbox có retry và backoff; lỗi tạm thời không được khiến
+Mland tạo lại booking hoặc tự đổi capacity. Lỗi hết retry, mapping không khớp
+hoặc khác biệt trạng thái phải vào hàng đợi đối soát để người có quyền xử lý,
+với actor, lý do và liên kết booking/event đầy đủ. Không khắc phục bằng cách tạo
+một booking Mland mới thủ công khi chưa xác minh external reference.
+
+Mỗi adapter chỉ được go-live sau test end-to-end: availability/capacity, create
+booking lặp, failure/retry, cancel/refund callback, ticket delivery và scan
+từng ticket tại Mland. Secret/authentication không ghi vào log hay ledger; chỉ
+lưu mã tham chiếu và metadata tối thiểu cần đối soát.
+
+### Phạm vi package mở bán OTA — Đề xuất đã chọn
+
+Đợt tích hợp OTA đầu chỉ publish package có `pricing_model = PER_PERSON`.
+Package `BASE_PLUS_EXTRA` tiếp tục bán trên website Mland; không được tự suy diễn
+công thức giá nhóm, workshop item hoặc phụ phí người cùng làm sang OTA. Muốn mở
+bán sau này, Mland phải tạo và map các option group-size có giá cố định (ví dụ
+2, 3, 4 người) cho từng channel, rồi kiểm thử giá, capacity và ticket-per-person
+của từng option trước khi bật bán.
+
+### Giá theo channel và điều kiện publish — Đề xuất đã chọn
+
+Mland lưu giá riêng cho mỗi `package/channel`: giá website, `retail_price` khách
+trả tại OTA, `target_net_amount` Mland muốn nhận, currency, phiên bản quy tắc
+commission/fee và thời hạn hiệu lực. Mỗi OTA booking phải snapshot các giá trị
+này cùng commission/fee thực tế và payout thực tế để đối soát lịch sử; không dùng
+một trường tổng tiền chung cho mọi channel.
+
+Với GetYourGuide, Manager cấu hình `retail_price` tại Mland và đồng bộ qua Price
+over API khi integration được cấp quyền, hoặc nhập đúng giá này trên Supplier
+Portal khi dùng cấu hình thủ công. Với Klook, Manager có thể chuẩn bị retail price
+và target net nhưng package giữ `PENDING_COMMERCIAL_CONFIRMATION` và không được
+publish đến khi contract/onboarding xác nhận giá API là retail hay net, commission,
+thuế/phí, currency/FX và payout terms. Không suy ra retail price chỉ từ một tỷ lệ
+commission danh nghĩa.
+
+### Dịch vụ kèm theo OTA — Ghi nhận, chưa triển khai
+
+Với booking từ **bất kỳ OTA nào**, chỉ dịch vụ **khắc laser** được bao gồm miễn
+phí trong offer OTA hiện tại. Mọi material/design option, dịch vụ hoặc nâng cấp
+khác vẫn là phụ phí theo bảng giá Mland tại thời điểm áp dụng; không được suy ra
+chúng đã nằm trong `retail_price` OTA.
+
+**Policy đã chọn:** Staff phải báo giá và nhận xác nhận của khách **trước** khi
+dùng/nâng cấp lựa chọn có phí. Mland tạo bill phụ phí riêng tại quầy, liên kết
+OTA booking/ticket reference và thu trực tiếp bằng phương thức Mland cho phép.
+Bill phải snapshot hạng mục, giá, currency, thời điểm/xác nhận của khách, Staff
+và payment reference; khắc laser được ghi là hạng mục 0 đồng nếu cần hiển thị.
+
+Khoản này là doanh thu trực tiếp của Mland, không sửa `retail_price`, tiền khách
+đã trả OTA, commission hay payout/settlement OTA; cũng không gọi refund qua OTA.
+Không dùng luồng cọc của Mland cho booking OTA. Nếu khách chưa thanh toán phụ
+phí đã chọn, shop chỉ giao phần nâng cấp/sản phẩm liên quan sau khi bill riêng
+được thanh toán, trừ Manager exception có audit.
+
+### Điều kiện ticket để mở bán OTA — Đề xuất đã chọn
+
+Một package/session chỉ được bật bán trên Klook hoặc GetYourGuide sau khi test
+end-to-end xác nhận rằng booking `N` participant tạo và OTA giao đúng `N` QR/ticket
+riêng do Mland phát; Staff phải quét từng QR trên Mland. Không mở bán một option
+nếu channel chỉ giao một voucher/order code chung thay cho ticket-per-person.
+
+Voucher/order code chung chỉ là fallback sự cố sau go-live: người có quyền
+`workshop.checkin.override` tra cứu channel booking, chọn đúng ticket active chưa
+check-in theo số người thực tế đến, nêu lý do và lưu audit. Nó không được tự động
+check-in toàn bộ booking và không phải luồng check-in hay điều kiện go-live mặc
+định.
+
+### Dữ liệu khách từ OTA — Đề xuất đã chọn
+
+Mland chỉ lưu dữ liệu tối thiểu cần thiết để vận hành channel booking: channel,
+external booking reference, package/option/session mapping, participant count,
+ticket mapping, trạng thái và contact được OTA/contract cho phép dùng khi thật sự
+cần hỗ trợ vận hành. Không tự tạo Member Mland, Magic Link, participant profile
+hoặc dùng contact OTA cho newsletter, CRM/remarketing hay mục đích marketing.
+
+Nếu sau này cần tên/email từng participant cho waiver, kiểm tra tuổi, chứng nhận
+hay giao ticket riêng, phải tạo feature participant-registration riêng với
+purpose/consent, quyền truy cập, retention, sửa/xóa và audit rõ ràng. Không suy
+ra quyền thu/lưu các dữ liệu đó chỉ vì OTA có gửi chúng.
+
+### Chính sách hủy/refund theo kênh — Đề xuất đã chọn
+
+Tách hai lớp chính sách, không ép chúng phải giống nhau:
+
+1. **Chính sách trực tiếp của Mland:** áp dụng duy nhất cho booking được tạo và
+   thanh toán trên website Mland. Mland có thể cấu hình số tiền hoặc tỷ lệ hoàn
+   khác nhau theo các mốc thời gian của session và thực hiện refund qua gateway
+   của Mland.
+2. **Chính sách OTA:** áp dụng cho booking tạo trên Klook hoặc GetYourGuide.
+   Khách thanh toán và nhận refund từ OTA theo policy đã công bố trên trang
+   OTA/voucher; Mland không gọi refund qua gateway của mình cho khoản tiền OTA
+   đã thu. Policy này vẫn phải được Mland xác nhận khi onboarding/publish, vì
+   nó quyết định quyền hủy, capacity và số tiền net Mland được đối soát.
+
+Mỗi booking phải snapshot `sales_channel`, mã/phiên bản policy đã hiển thị,
+cutoff và timezone tại thời điểm xác nhận. Không dùng policy đang hiệu lực ở
+hiện tại để quyết định một booking cũ.
+
+Mland V1 không có nghiệp vụ partial refund theo item/ticket: khách chỉ yêu cầu
+hủy/refund toàn bộ booking, không hoàn riêng từng ticket hoặc participant. Số
+tiền refund của toàn bộ booking vẫn có thể là một tỷ lệ cọc theo policy thời
+gian. Với OTA, yêu cầu hủy và kết quả hoàn là các sự kiện riêng. Trong bản ghi
+**tiền khách trả cho OTA** (có `sales_channel`), Mland ghi nhận tối thiểu `PAID_ON_CHANNEL`,
+`REFUND_REQUESTED`, `PARTIALLY_REFUNDED` hoặc `REFUNDED`, số tiền OTA đã hoàn
+và external reference.
+`PARTIALLY_REFUNDED` nghĩa là OTA thực tế đã hoàn một phần tiền khách đã trả
+OTA; `REFUNDED` nghĩa là OTA đã hoàn toàn bộ khoản đó. Đây không phải trạng thái
+tổng của booking, cũng không mở workflow Mland tự tạo partial refund. Không suy
+từ trạng thái service rằng khách đã được hoàn tiền. Chỉ khi cancellation được
+OTA xác nhận thì Mland mới revoke ticket và giải phóng capacity, tránh bán lại
+chỗ trong khi yêu cầu hoàn vẫn đang chờ xử lý.
+
+Báo cáo/đối soát OTA phải tách tiền khách trả OTA, số OTA hoàn khách,
+commission/fee, `target_net_amount`, payout dự kiến và payout thực nhận. Nội
+dung confirmation/voucher luôn hiển thị policy của đúng channel đặt chỗ, không
+đưa bảng refund trực tiếp của Mland cho khách OTA.
+
+### Công nợ OTA và sổ đối soát bất biến — Đề xuất đã chọn
+
+Tách trạng thái **tiền khách trả OTA** ở trên khỏi trạng thái **OTA phải thanh
+toán cho Mland**. Mỗi booking OTA (hoặc từng dòng payout được OTA trả về) có
+vòng đời công nợ:
+
+```text
+NOT_ELIGIBLE → ACCRUED → INVOICED → PAYOUT_PENDING → PAID_OUT
+```
+
+- `NOT_ELIGIBLE`: chưa đủ điều kiện ghi nhận công nợ theo contract, ví dụ còn
+  trong thời hạn cancellation/no-show hoặc service chưa diễn ra;
+- `ACCRUED`: Mland ước tính được khoản net phải nhận từ booking, dựa vào snapshot
+  giá và commission/fee đã biết;
+- `INVOICED`: khoản đó đã nằm trong invoice/statement của OTA;
+- `PAYOUT_PENDING`: invoice/statement đã chốt nhưng Mland chưa nhận tiền;
+- `PAID_OUT`: Mland đã đối chiếu được tiền OTA thực nhận với payout reference.
+
+Không ghi đè số tiền đã ghi nhận. Mỗi gross sale, commission/fee, customer
+refund, payout received, chênh lệch FX hay điều chỉnh phải là một dòng ledger
+bất biến, có số tiền, currency, thời điểm, external reference, lý do và liên
+kết tới booking/invoice/payout liên quan. Các loại bút toán tối thiểu gồm
+`EXPECTED_NET`, `CHANNEL_COMMISSION`, `PAYOUT_RECEIVED`, `REFUND_REVERSAL`,
+`CANCELLATION_COMPENSATION`, `FX_VARIANCE` và `MANUAL_ADJUSTMENT`.
+
+`ADJUSTED` và `REVERSED` là tính chất/loại bút toán mới để điều chỉnh hoặc đảo
+một bút toán cũ, không sửa trực tiếp lịch sử cũng không là một trạng thái chung
+thay cho payout. `DISPUTED` là hồ sơ tranh chấp tách riêng, liên kết các bút
+toán và giữ trạng thái xử lý của tranh chấp; nó không tự kết luận rằng OTA đã
+hoặc chưa trả tiền. Báo cáo gross sales, net expected, payout received, refund
+và công nợ phải được tổng hợp từ ledger này.
+
+## State model
+
+Các transition hiện có trong V1:
+
+```text
+PENDING_PAYMENT → CONFIRMED
+PENDING_PAYMENT → EXPIRED
+PENDING_PAYMENT → CANCELLED  (chỉ release hold trước thanh toán)
+```
+
+Các transition dự kiến cho feature sau:
+
+```text
+Ticket hợp lệ → CHECKED_IN → COMPLETED
+Ticket hợp lệ → NO_SHOW
+Ticket/booking → cancellation/refund workflow theo policy
+```
+
+### Diễn giải ngắn các trạng thái
+
+Tên trạng thái chỉ có nghĩa trong **phạm vi** ghi dưới đây; ví dụ `REFUNDED`
+của payment trực tiếp khác với `REFUNDED` của khoản tiền khách trả OTA. Các
+trạng thái check-in, cancellation/refund sau xác nhận và OTA đều là đề xuất cho
+feature sau, chưa phải transition triển khai của V1.
+
+| Phạm vi | Trạng thái | Nghĩa ngắn gọn |
+| --- | --- | --- |
+| Booking | `PENDING_PAYMENT` | Đang giữ chỗ, chờ xác nhận thanh toán. |
+| Booking | `CONFIRMED` | Đã nhận thanh toán cần thiết để xác nhận; vé/QR đã được cấp theo V1. |
+| Booking | `EXPIRED` | Hết hạn giữ chỗ khi chưa thanh toán hợp lệ. |
+| Booking | `CANCELLED` | V1: khách hủy booking đang chờ thanh toán để nhả hold; không phải hủy sau xác nhận. |
+| Ticket attendance | `CHECKED_IN` | Ticket này đã được Staff xác nhận đến đúng session. |
+| Ticket attendance | `COMPLETED` | Session của ticket đã kết thúc và attendance của ticket đã được chốt. |
+| Ticket attendance | `NO_SHOW` | Ticket chưa check-in khi attendance được người có quyền chốt. |
+| Payment trực tiếp | `UNPAID` | Chưa có khoản thanh toán trực tiếp hợp lệ. |
+| Payment trực tiếp | `DEPOSIT_PAID` | Đã xác nhận thanh toán cọc; phần còn lại chưa được xử lý trong V1. |
+| Payment trực tiếp | `FULLY_PAID` | Booking đã thu đủ cọc, phần giá cơ bản còn lại và mọi phụ phí của tất cả workshop item. |
+| Payment trực tiếp | `REFUND_PENDING` | Refund trực tiếp đã được yêu cầu/duyệt, đang chờ kết quả gateway. |
+| Payment trực tiếp | `REFUNDED` | Gateway đã xác nhận hoàn đúng số tiền refund của toàn bộ booking theo policy. |
+| Payment attempt | `FAILED` | Một lần thử thanh toán thất bại; không tự đổi trạng thái booking. |
+| Dòng phụ phí theo workshop item | `PENDING_ASSESSMENT` | Phụ phí có thể phát sinh nhưng chưa được Staff/Manager chốt. |
+| Dòng phụ phí theo workshop item | `ASSESSED` | Phụ phí đã được chốt số tiền, chưa được thu. |
+| Dòng phụ phí theo workshop item | `PAID` | Phụ phí đã được thu trong khoản thanh toán sau session của item. |
+| Tiền khách trả OTA | `PAID_ON_CHANNEL` | OTA đã thu tiền khách cho booking. |
+| Tiền khách trả OTA | `REFUND_REQUESTED` | Yêu cầu hoàn qua OTA đang chờ OTA xử lý/xác nhận. |
+| Tiền khách trả OTA | `PARTIALLY_REFUNDED` | OTA thực tế đã hoàn một phần tiền khách trả; chỉ để ghi nhận/đối soát, không mở partial refund Mland V1. |
+| Tiền khách trả OTA | `REFUNDED` | OTA thực tế đã hoàn toàn bộ tiền khách trả. |
+| Công nợ OTA với Mland | `NOT_ELIGIBLE` | Chưa đủ điều kiện ghi nhận khoản OTA phải trả Mland. |
+| Công nợ OTA với Mland | `ACCRUED` | Đã tính được khoản net Mland dự kiến nhận. |
+| Công nợ OTA với Mland | `INVOICED` | Khoản phải thu đã có trong invoice/statement OTA. |
+| Công nợ OTA với Mland | `PAYOUT_PENDING` | Statement đã chốt nhưng Mland chưa nhận tiền. |
+| Công nợ OTA với Mland | `PAID_OUT` | Mland đã nhận và đối chiếu được payout OTA. |
+| Hồ sơ tranh chấp | `DISPUTED` | Có tranh chấp cần theo dõi riêng; không tự kết luận refund hay payout. |
 
 <a id="fe-04"></a>
 
 # FE-04 — AI Chatbox Analysis & Suggestion
 
-Chưa mô tả luồng AI/chat, consent ảnh và phân tích/gợi ý.
+## Phạm vi và trạng thái nghiên cứu
+
+FE-04 hiện được đặc tả trong
+[`features/004-ai-chatbox-analysis-and-suggestion`](features/004-ai-chatbox-analysis-and-suggestion/).
+Phần này là bản tổng hợp nghiên cứu và đối chiếu context; không tuyên bố rằng
+backend đã được triển khai. Nguồn chi tiết hiện hành là `spec.md`, OpenAPI
+contract, `data-model.md`, `plan.md`, `tasks.md` và các checklist của Feature-004.
+
+Feature-04 gồm ba use case tách biệt:
+
+1. **Basic AI Support:** Guest và Member hỏi về catalogue sản phẩm, workshop,
+   thông tin cửa hàng và FAQ đã được duyệt.
+2. **Booking-design image analysis:** chỉ Member được gửi ảnh trong một workshop
+   booking hợp lệ, sau khi đồng ý consent riêng; kết quả luôn được Staff hoặc
+   Manager review.
+3. **Advisory price suggestion:** chỉ Manager yêu cầu AI gợi ý giá cho workshop
+   package mới hoặc retail product mới; Manager quyết định giá cuối và catalogue
+   workflow mới được phép apply/publish giá.
+
+AI là provider hỗ trợ, không phải actor có quyền nghiệp vụ. AI không được xác nhận
+booking, payment, feasibility, review decision, custom-manufacturing order hoặc
+final price.
+
+## Baseline đã chốt
+
+### Actor và quyền
+
+| Actor | Quyền trong FE-04 |
+| --- | --- |
+| Guest | Chỉ dùng Basic AI Support với public context; không được upload booking-design image. |
+| Member | Dùng Basic AI Support; gửi ảnh booking-design của booking thuộc chính mình sau khi có consent; chỉ xem projection của request của mình. |
+| Staff | Review request trong branch/delegation scope với estimated value không vượt quá 3.000.000 VND; không yêu cầu hoặc xem price suggestion nội bộ theo mặc định. |
+| Manager | Review request trên 3.000.000 VND hoặc cần Manager authority; yêu cầu và quyết định price suggestion cho package/product mới. |
+| Admin | Quản lý cấu hình kỹ thuật và có thể xem technical/audit evidence khi được cấp quyền; không thay Manager quyết định nghiệp vụ hoặc publish giá. |
+| AI Provider | Trả text support, image quality/candidate features hoặc advisory price suggestion; không được mutate Mland business state. |
+| Cloud Storage | Lưu tạm booking-design image và xử lý xóa theo retention rule; không sở hữu quyết định nghiệp vụ. |
+
+### Booking context và image consent
+
+Thứ tự booking được giữ là:
+
+```text
+Workshop Package
+→ Location and Session
+→ Booking Information
+→ Design Path
+→ Booking Summary
+→ Payment
+```
+
+Image path chỉ mở cho Member có package, location, session, booking ownership,
+design path và design version hợp lệ. Consent phải là consent riêng cho mục đích
+booking-design image analysis, có version, purpose, Member identity, timestamp và
+affirmative action. General Terms/Privacy không thay thế evidence này.
+
+Ảnh booking-design chỉ được lưu tạm thời, gửi provider sau khi validation thành
+công và phải bị xóa sau processing ở cả success/failure path. Ảnh của
+custom-manufacturing là luồng riêng, có retention riêng và không được gộp vào
+Feature-04.
+
+### AI boundary
+
+Basic AI Support chỉ nhận public context đã được allowlist. Không gửi Firebase
+token, provider credential, password, payment data, private customer data hoặc raw
+operational data.
+
+Đối với image analysis, AI chỉ có thể trả:
+
+- Image quality.
+- Candidate ring shape/material/component.
+- Candidate design attributes.
+- Confidence/uncertainty metadata nếu provider hỗ trợ.
+
+Đối với price suggestion, AI chỉ trả advisory suggestion cho package/product mới.
+Suggestion không được tự động thay đổi hoặc publish giá. Price suggestion nội bộ
+chỉ Manager có quyền trên proposal được xem; Admin chỉ xem technical/audit evidence
+nếu được cấp quyền; Staff, Guest và Member không xem projection này.
+
+### Human review và state
+
+Mọi booking-design request hợp lệ đều cần human decision:
+
+```text
+analysis: PENDING → PROCESSING → SUCCEEDED / FAILED
+review:   NEED_REVIEW → ACCEPTED / REJECTED / CLARIFICATION_REQUIRED
+```
+
+AI không auto-accept hoặc auto-reject. Staff xử lý request ở mức không quá
+3.000.000 VND trong scope; Manager xử lý request trên ngưỡng hoặc có Manager
+authority. Reviewer không được review request do mình tạo hoặc request có conflict
+of interest. Material design change tạo version mới và không tái sử dụng decision cũ.
+
+`CLARIFICATION_REQUIRED` không phải là rejection tự động; Member được quay lại
+current design context và phải tạo version mới nếu thay đổi material design.
+
+### Input security và rate limiting
+
+Provider request phải được tạo từ normalized allowlisted command model, không forward
+raw request body. Input phải qua schema/type/length/size/ownership/business-context
+validation trước provider call. Image phải kiểm tra MIME type, file signature, size,
+dimensions, malware policy, metadata và ownership.
+
+User input là untrusted data, không phải system instruction. Prompt injection hoặc
+request cố đổi role, policy, output schema, pricing rule hay review decision phải bị
+reject trước provider call với các error code tương ứng:
+
+```text
+AI_INPUT_INVALID
+AI_PROMPT_INJECTION_DETECTED
+AI_CONTEXT_NOT_ALLOWED
+AI_OUTPUT_POLICY_VIOLATION
+```
+
+Provider output phải được schema/policy validate; output chứa final approval, final
+price, publication command, hidden instruction hoặc data leakage không được persist
+và không được tạo business mutation.
+
+Mỗi authenticated Member được tối đa **3 image-submission attempts trong rolling
+window 5 phút**, tính theo Member ID. Attempt sau khi identity đã xác thực vẫn được
+tính dù bị reject vì consent, context hoặc file không hợp lệ. Attempt thứ tư trả
+`429 IMAGE_RATE_LIMITED` và `Retry-After`, không storage, không Gemini call, không
+tạo request. Duplicate retry với cùng idempotency key không tiêu tốn thêm quota;
+quota phải được check/reserve atomically.
+
+## API và data ownership
+
+Các endpoint của Feature-04 gồm:
+
+```text
+POST /api/v1/ai-support/messages
+POST /api/v1/design-requests
+GET  /api/v1/design-requests/{id}
+GET  /api/v1/design-review-requests
+POST /api/v1/design-review-requests/{id}/decisions
+POST /api/v1/price-proposals/{id}/ai-suggestions
+```
+
+Feature-04 sở hữu provider interaction evidence, consent, temporary image reference,
+analysis projection, review linkage và price suggestion evidence. Workshop Booking
+sở hữu booking/session/payment; Catalogue sở hữu apply/publish price; Custom
+Manufacturing sở hữu custom-order acceptance/pricing/retention. Không dùng Feature-04
+để ghi trực tiếp repository của module khác.
+
+Các logical records cần duy trì gồm AI text interaction, BookingDesignRequest,
+ImageConsent, TemporaryImageReference, AnalysisResult, HumanReviewDecision và
+PriceSuggestion. Technical analysis status phải tách khỏi business review status.
+
+## Kết quả đối chiếu với context mới
+
+### Điểm đã đồng bộ
+
+1. `spec-general.md`, Report 3 actors/use cases/context, Feature-004 `spec.md` và
+   OpenAPI đều thống nhất Member-only image flow, consent riêng, human review và
+   advisory AI output.
+2. Custom-manufacturing reference image và booking-design image đã được mô tả là
+   hai loại dữ liệu/retention khác nhau.
+3. Role nghiệp vụ hiện dùng `Guest`, `Member`, `Staff`, `Manager`, `Admin`; không
+   tự ánh xạ Manager thành `OWNER` hoặc Admin thành một physical role code khi
+   chưa có quyết định identity mapping.
+4. Permission Matrix và Validation Matrix trong Feature-004 đã quy định actor,
+   scope, thứ tự validation, error code và side effect trước/provider sau.
+5. Luồng price suggestion đã được giới hạn cho package/product mới, không dùng cho
+   custom-manufacturing quotation, invoice hoặc payment amount.
+
+### Mâu thuẫn hoặc điểm cần đồng bộ tiếp
+
+1. **API design request còn gộp configured design choice.**
+   `ppswbs-spec/APIs.md` hiện mô tả `POST /api/v1/design-requests` có thể submit
+   booking-design image *hoặc validated configured design choice*, trong khi
+   Feature-004 `spec.md` và OpenAPI đang đặc tả endpoint này cho Member image
+   request có consent. Cần quyết định tách configured design submission sang
+   owning design/booking facade hoặc mở rộng contract của Feature-004; không được
+   để request body và permission rule hiểu theo hai nghĩa.
+
+2. **Screen context còn mô tả consent chưa thống nhất.**
+   `ppswbs-spec/screen.md` có đoạn nói image-specific consent trong UC30 chưa
+   thống nhất và không tự thêm consent screen, nhưng Feature-004 và Report 3 đã
+   chốt consent form riêng trước storage/provider call. Đoạn screen cũ cần được
+   cập nhật hoặc đánh dấu obsolete trước khi dùng làm source cho UI/spec.
+
+3. **Một số screen text vẫn có thể hiểu là AI tự đánh giá khả năng.**
+   `screen.md` mô tả các kết quả “có thể tự làm / cần tư vấn / không thể tự làm” và
+   cập nhật estimate khi đổi options. Cách diễn đạt này chỉ hợp lệ nếu đó là
+   candidate/system estimate context để Staff/Manager xem; không được hiểu là AI
+   auto-reject hoặc quyết định feasibility. Cần ghi rõ nguồn decision là human
+   review và candidate result không phải terminal business state.
+
+4. **Tên use case price còn gây hiểu nhầm.**
+   Report 3 vẫn dùng tên `Approve Custom Design Pricing`, dù nội dung hiện chỉ áp
+   dụng cho workshop package/product mới và không pricing custom-manufacturing.
+   Nên đổi tên thành `Request and Decide Advisory Catalogue Price Suggestion` hoặc
+   đánh dấu tên cũ là legacy để tránh suy luận rằng AI pricing custom order.
+
+5. **Configured design và image analysis có ranh giới persistence chưa hoàn toàn
+   rõ.** `DB.md` xác định `ring_designs` không chứa Member image request, AI output
+   hoặc review status và custom request lifecycle độc lập. Điều này phù hợp với
+   Feature-004 nếu analysis/request/result dùng record riêng; physical table,
+   FK/version mapping và facade ownership vẫn phải được chốt trước migration.
+
+6. **Ngưỡng review phụ thuộc estimate source chưa hoàn tất.** Feature-004 đã chốt
+   Staff `≤ 3.000.000 VND`, Manager `> 3.000.000 VND` hoặc Manager authority,
+   nhưng nguồn/phiên bản estimate, rounding, unknown estimate và routing khi
+   không tính được vẫn cần được Catalogue/Design Review owner xác nhận. Unknown
+   estimate không được route về AI auto-decision; phải đi Manager hoặc
+   `CLARIFICATION_REQUIRED`.
+
+7. **Rate-limit và prompt-injection mới nằm chủ yếu ở Feature-004.** General spec,
+   Report 3 và các screen artifact chưa mô tả đầy đủ giới hạn 3 ảnh/5 phút,
+   atomic reservation, `Retry-After` và các error code security. Khi đồng bộ UI,
+   API gateway và test plan, phải dùng Feature-004 matrix làm nguồn tham chiếu,
+   không tự đặt limit khác ở frontend.
+
+## Kết luận nghiên cứu và việc cần làm tiếp
+
+Feature-004 đã đủ baseline để tiếp tục hoàn thiện implementation design, nhưng chưa
+nên coi là code-ready tuyệt đối cho đến khi xử lý các điểm trên. Việc ưu tiên là:
+
+1. Chốt endpoint ownership cho configured design choice.
+2. Đồng bộ `screen.md` với consent form bắt buộc và human-review boundary.
+3. Đổi/ghi chú tên use case price để tách package/product pricing khỏi custom order.
+4. Chốt physical persistence mapping cho booking-design request, consent, analysis
+   result, review version và temporary image reference.
+5. Chốt estimate source/routing cho unknown estimate và kiểm chứng matrix-to-API.
+
+Các mục trên là dependency của `plan.md`, `data-model.md`, migration design và
+implementation tasks; không được giải quyết bằng cách suy ra hành vi từ code hoặc
+browser response.
 
 <a id="fe-05"></a>
 
@@ -668,524 +1339,7 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 
 # FE-07 — Notification Management
 
-## Phạm vi và quy ước
-
-1. Đây là thiết kế tài liệu, chưa phải chức năng đã triển khai. Chỉ có email; chưa có push, trung tâm thông báo, màn hình chỉnh HTML, API hoặc schema mới. Nội dung ngoài FE-07 giữ nguyên.
-2. Firebase Auth gửi xác minh email và đặt lại mật khẩu theo FE-01. Backend gửi thư nghiệp vụ qua SMTP. Không đưa thư Firebase vào job SMTP hoặc giả lập trạng thái gửi của Firebase.
-3. Mỗi mẫu có mã, phiên bản, trạng thái và điều kiện sử dụng. “Thiết kế cho luồng đã chốt” không đồng nghĩa đã chạy production. “Dự thảo — chưa kích hoạt” không được gửi cho đến khi chủ nghiệp vụ chốt sự kiện, người nhận, quyền và dữ liệu.
-4. Các mã mẫu, tên biến và trạng thái dưới đây là định danh thiết kế, chưa phải API/enum/schema đã tồn tại. Không tự triển khai các quy trình refund, nhắc lịch hoặc quảng bá chỉ vì đã có bản thư.
-
-## Danh mục mẫu thư
-
-| Mã mẫu | Phiên bản | Trạng thái | Mục đích |
-| --- | --- | --- | --- |
-| AUTH_EMAIL_VERIFICATION | 1.0 | Tham chiếu Firebase Auth | Xác minh email |
-| AUTH_PASSWORD_RESET | 1.0 | Tham chiếu Firebase Auth | Đặt lại mật khẩu |
-| BOOKING_CONFIRMED | 1.0 | Thiết kế cho luồng đã chốt | Gộp booking, tiền cọc và vé QR |
-| RETAIL_ORDER_CONFIRMED | 1.0 | Thiết kế cho luồng đã chốt | Đơn VNPay hoặc đơn 0 đồng |
-| ACCOUNT_INVITATION | 1.0 | Dự thảo — chưa kích hoạt | Mời/kích hoạt tài khoản |
-| ACCOUNT_LOCKED | 1.0 | Dự thảo — chưa kích hoạt | Khóa tài khoản |
-| ACCOUNT_UNLOCKED | 1.0 | Dự thảo — chưa kích hoạt | Mở khóa tài khoản |
-| ACCOUNT_ROLE_CHANGED | 1.0 | Dự thảo — chưa kích hoạt | Thay đổi vai trò |
-| DESIGN_CLARIFICATION_REQUESTED | 1.0 | Dự thảo — chưa kích hoạt | Bổ sung thông tin thiết kế |
-| DESIGN_REVIEW_RESULT | 1.0 | Dự thảo — chưa kích hoạt | Kết quả review thiết kế |
-| APPROVAL_REQUESTED | 1.0 | Dự thảo — chưa kích hoạt | Yêu cầu Manager phê duyệt |
-| APPROVAL_RESULT | 1.0 | Dự thảo — chưa kích hoạt | Kết quả phê duyệt nội bộ |
-| CUSTOM_PAYMENT_REQUESTED | 1.0 | Dự thảo — chưa kích hoạt | Báo giá/yêu cầu thanh toán custom |
-| CUSTOM_PAYMENT_CONFIRMED | 1.0 | Dự thảo — chưa kích hoạt | Xác nhận khoản thanh toán custom |
-| REFUND_RESULT | 1.0 | Dự thảo — chưa kích hoạt | Kết quả refund |
-| WORKSHOP_REMINDER | 1.0 | Dự thảo — chưa kích hoạt | Nhắc lịch workshop |
-| PROMOTION_ANNOUNCEMENT | 1.0 | Dự thảo — chưa kích hoạt | Giới thiệu ưu đãi |
-
-## Quy tắc nội dung dùng chung
-
-1. Mỗi mẫu bên dưới kế thừa phiên bản và trạng thái trong danh mục. Phiên bản 1.0 của mẫu Firebase là phiên bản nội dung mong muốn của dự án, không phải tuyên bố kiểm soát phiên bản template Firebase.
-2. `{{variable}}` là biến cần điền bằng dữ liệu hợp lệ; không gửi nguyên placeholder. Thiếu tên người nhận có thể dùng “Chào bạn,” thay cho “Chào {{recipientName}},”. Các dữ liệu bắt buộc khác thiếu thì chưa được gửi.
-3. Tên người gửi, địa chỉ gửi, Reply-To và `{{supportContact}}` lấy từ cấu hình đã xác nhận; không tự đặt tên miền hoặc địa chỉ giả. Ngày giờ có múi giờ địa điểm, tiền định dạng VND theo dữ liệu nghiệp vụ.
-4. Link chỉ tới chức năng đã có, dùng địa chỉ ứng dụng được cấu hình và kiểm tra quyền truy cập. Không tự tạo magic link mới hoặc coi biết mã đơn là đủ quyền xem. Các biến URL chưa quyết định endpoint hoặc màn hình mới.
-5. HTML phải escape nội dung người dùng nhập và có bản chữ thuần tương ứng. Không đưa mật khẩu, thông tin thẻ, raw ID/refresh token hoặc ghi chú nội bộ nhạy cảm vào thư. Link hành động Firebase và vé QR chỉ dùng đúng mục đích/người nhận, không đưa vào log hay công cụ theo dõi công khai.
-6. Nội dung dựa trên bản chụp kết quả nghiệp vụ đã chấp nhận; không lấy giá catalogue mới để tính lại đơn cũ. Mẫu mới tạo phiên bản mới; yêu cầu đã ghi giữ phiên bản của nó. Đổi phiên bản mẫu không tự tạo thêm thư cho sự kiện cũ.
-7. Một sự kiện có thể tạo thư khách và nội bộ riêng; mỗi người nhận có yêu cầu riêng. Không CC/BCC danh sách nội bộ vào thư khách hoặc làm lộ địa chỉ giữa người nhận.
-8. Không thêm email cập nhật giao nhận trong phạm vi gửi hiện tại. Cũng không mặc định gửi thư cho từng lần đăng nhập, thanh toán lỗi hoặc kết quả thanh toán chưa rõ.
-
-## Mẫu tham chiếu Firebase Auth
-
-### AUTH_EMAIL_VERIFICATION — Xác minh email
-
-1. **Kích hoạt/người nhận:** đăng ký email/mật khẩu hoặc khách chủ động yêu cầu gửi/gửi lại xác minh; email Firebase đang yêu cầu xác minh theo FE-01.
-2. **Điều kiện:** Firebase chấp nhận tài khoản/email và giới hạn gửi. Không tự gửi lại chỉ vì mở trang hoặc đăng nhập.
-3. **Tiêu đề mong muốn:** `[Mland] Xác minh địa chỉ email của bạn`.
-4. **Nút/link:** **Xác minh email** → `{{firebaseVerificationUrl}}` do Firebase tạo và kiểm tra.
-5. **Không gửi:** yêu cầu không hợp lệ/bị giới hạn hoặc email đã xác minh không có thay đổi liên quan. Quyết định thực tế do Firebase kiểm soát.
-6. **Giới hạn:** bản thư là nội dung mong muốn; chỉ tùy chỉnh trường và placeholder Firebase hỗ trợ, không khẳng định sửa được toàn bộ template.
-
-> Chào bạn,
->
-> Vui lòng xác minh địa chỉ email này để hoàn tất bước xác minh cho tài khoản Mland.
->
-> **Xác minh email** — {{firebaseVerificationUrl}}
->
-> Nếu bạn không thực hiện yêu cầu này, bạn có thể bỏ qua thư. Nếu link không còn hợp lệ, hãy quay lại Mland để yêu cầu email xác minh mới.
->
-> Trân trọng, Mland
-
-### AUTH_PASSWORD_RESET — Đặt lại mật khẩu
-
-1. **Kích hoạt/người nhận:** khách chọn Quên mật khẩu; Firebase gửi tới email đủ điều kiện khôi phục theo FE-01.
-2. **Điều kiện:** Firebase chấp nhận yêu cầu; website trả thông báo trung tính, không tiết lộ email có tài khoản hay không.
-3. **Tiêu đề mong muốn:** `[Mland] Yêu cầu đặt lại mật khẩu`.
-4. **Nút/link:** **Đặt lại mật khẩu** → `{{firebasePasswordResetUrl}}` do Firebase tạo và kiểm tra.
-5. **Không gửi:** email không đủ điều kiện hoặc yêu cầu bị từ chối/giới hạn; không gửi SMTP thay thế để né Firebase.
-6. **Giới hạn:** đối chiếu khả năng tùy chỉnh Firebase trước triển khai. Không tự cam kết thời hạn link hoặc tự sinh token.
-
-> Chào bạn,
->
-> Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản Mland sử dụng địa chỉ email này.
->
-> **Đặt lại mật khẩu** — {{firebasePasswordResetUrl}}
->
-> Nếu bạn không yêu cầu, hãy bỏ qua thư này. Mật khẩu không thay đổi chỉ vì bạn nhận được email.
->
-> Nếu link không còn hợp lệ, hãy mở mục Quên mật khẩu trên Mland để yêu cầu link mới.
->
-> Trân trọng, Mland
-
-## Mẫu cho luồng đã chốt
-
-### BOOKING_CONFIRMED — Xác nhận booking, cọc và vé QR
-
-1. **Kích hoạt/người nhận:** booking đã được xác nhận từ kết quả thanh toán hợp lệ và vé sẵn sàng; gửi một thư tới email liên hệ được module booking chấp nhận, không tự gửi tới mọi người tham gia.
-2. **Điều kiện/dữ liệu:** có booking, gói, lịch/múi giờ, chi nhánh/địa chỉ, số người, nghĩa vụ tiền, cọc đã trả, số còn lại, vé hiện hành và link xem booking. Nếu booking đã xác nhận nhưng vé chưa sẵn sàng, ghi yêu cầu cùng sự kiện rồi chờ dữ liệu vé, chưa gửi thư thiếu vé hoặc tự tạo thư cọc riêng.
-3. **Tiêu đề:** `[Mland] Xác nhận booking {{bookingCode}}`.
-4. **Nút/link:** **Xem booking và vé** → `{{bookingUrl}}`, theo cơ chế truy cập booking hiện có. Nhúng QR bằng ảnh trong thư, không dùng dịch vụ QR công khai làm lộ vé; bản chữ thuần có link dự phòng, không in raw QR bí mật.
-5. **Không gửi:** booking chưa xác nhận, chỉ có trình duyệt quay về VNPay, vé thu hồi, lịch đã bị thay thế hoặc dữ liệu không khớp. Thiếu dữ liệu không được đánh dấu gửi thành công.
-
-> Chào {{recipientName}},
->
-> Booking **{{bookingCode}}** của bạn đã được xác nhận.
->
-> Workshop: {{packageName}}
-> Thời gian: {{sessionTimeWithTimezone}}
-> Địa điểm: {{branchName}} — {{branchAddress}}
-> Số người tham gia: {{participantCount}}
->
-> Tổng nghĩa vụ thanh toán của booking: {{bookingTotal}}
-> Tiền cọc đã xác nhận: {{depositPaid}}
-> Số tiền còn lại: {{remainingAmount}}
->
-> Vui lòng sử dụng vé QR bên dưới khi check-in. Không chia sẻ vé với người không liên quan.
->
-> [Ảnh QR của vé hiện hành được nhúng tại đây]
->
-> **Xem booking và vé** — {{bookingUrl}}
->
-> Nếu ảnh không hiển thị, bạn có thể mở link trên để xem vé. Số tiền còn lại do booking cung cấp; thư này không thay đổi điều kiện hoặc tự quyết định cách thu khoản còn lại.
->
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-### RETAIL_ORDER_CONFIRMED — Xác nhận đơn bán lẻ
-
-1. **Kích hoạt/người nhận:** module bán hàng đã chốt đơn từ VNPay hợp lệ hoặc tổng cuối cùng 0 đồng; gửi tới email thông báo đơn được nghiệp vụ chấp nhận, không tự suy email từ địa chỉ giao hàng.
-2. **Điều kiện/dữ liệu:** đơn và tác động hàng/ưu đãi đã chốt; có bản chụp dòng hàng, tiền hàng, từng khoản giảm, phí giao, tổng tiền, cách nhận và link chi tiết. Hai biến thể bên dưới loại trừ nhau, cùng phiên bản 1.0.
-3. **Tiêu đề:** `[Mland] Xác nhận đơn hàng {{orderCode}}`.
-4. **Nút/link:** **Xem chi tiết đơn hàng** → `{{orderUrl}}`, Backend kiểm tra chủ đơn/quyền truy cập.
-5. **Không gửi:** đơn mới tạo hoặc giữ hàng, chưa rõ thanh toán, hết hạn hay khoản tiền cần đối soát mà chưa chốt đơn; IPN lặp không tạo thêm thư.
-6. **Quy tắc biến:** `{{productSummary}}` gồm tên, biến thể, số lượng, giá theo bản chụp; `{{discountBreakdown}}` tách voucher/điểm nếu có; `{{fulfilmentSummary}}` chỉ mô tả cách nhận đã chốt, không hứa ngày giao chưa xác nhận.
-
-#### Biến thể đã thanh toán VNPay
-
-> Chào {{recipientName}},
->
-> Đơn hàng **{{orderCode}}** của bạn đã được xác nhận và đang chờ xử lý.
->
-> Sản phẩm:
-> {{productSummary}}
->
-> Tiền hàng: {{subtotal}}
-> Các khoản giảm: {{discountBreakdown}}
-> Phí giao hàng: {{shippingFee}}
-> Tổng thanh toán: {{payableTotal}}
->
-> Đã xác nhận thanh toán {{paidAmount}} qua VNPay cho đơn hàng này.
-> Phương thức nhận: {{fulfilmentSummary}}
->
-> **Xem chi tiết đơn hàng** — {{orderUrl}}
->
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-#### Biến thể đơn 0 đồng
-
-> Chào {{recipientName}},
->
-> Đơn hàng **{{orderCode}}** của bạn đã được xác nhận và đang chờ xử lý.
->
-> Sản phẩm:
-> {{productSummary}}
->
-> Tiền hàng: {{subtotal}}
-> Các khoản giảm: {{discountBreakdown}}
-> Phí giao hàng: {{shippingFee}}
-> Tổng cần thanh toán: **0 đồng**.
->
-> Đơn đã được xác nhận theo ưu đãi và điều kiện hợp lệ, không phát sinh giao dịch thanh toán qua VNPay.
-> Phương thức nhận: {{fulfilmentSummary}}
->
-> **Xem chi tiết đơn hàng** — {{orderUrl}}
->
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-## Mẫu dự thảo — Quản trị tài khoản
-
-Các mẫu dưới đây kế thừa phiên bản 1.0, trạng thái **Dự thảo — chưa kích hoạt**. FE-01 cần chốt hành động quản trị, quyền và nguồn email nhận trước khi sử dụng. Không gửi mật khẩu ban đầu hoặc tự tạo quy trình kích hoạt mới.
-
-### ACCOUNT_INVITATION — Mời/kích hoạt tài khoản
-
-1. **Kích hoạt/người nhận dự kiến:** tài khoản do Admin tạo hợp lệ và quy trình mời đã được chấp thuận; gửi tới người được mời. Chờ chốt cơ chế mời, hiệu lực và trạng thái tài khoản.
-2. **Điều kiện:** lời mời hiện hành, có hành động thiết lập truy cập được phép; không gửi mật khẩu.
-3. **Tiêu đề:** `[Mland] Lời mời sử dụng tài khoản`.
-4. **Nút/link:** **Xem lời mời** → `{{invitationUrl}}`, chỉ dùng khi chức năng được duyệt và tồn tại.
-5. **Không gửi:** mẫu chưa kích hoạt, lời mời thu hồi/hết hiệu lực hoặc chưa có cơ chế truy cập an toàn.
-
-> Chào {{recipientName}},
->
-> Bạn được mời sử dụng tài khoản Mland cho {{invitationPurpose}}.
->
-> **Xem lời mời** — {{invitationUrl}}
->
-> Hãy kiểm tra thông tin và thực hiện hướng dẫn trong lời mời. Nếu bạn không mong đợi email này, vui lòng liên hệ hỗ trợ trước khi tiếp tục. Mland không yêu cầu trả lời email bằng mật khẩu.
->
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-### ACCOUNT_LOCKED — Khóa tài khoản
-
-1. **Kích hoạt/người nhận dự kiến:** quyết định khóa đã commit; gửi chủ tài khoản. Chờ chốt trường hợp khóa nào cần thư và nguồn liên hệ hợp lệ.
-2. **Điều kiện:** khóa còn áp dụng, lý do công khai được nghiệp vụ cung cấp; không dùng ghi chú điều tra nội bộ.
-3. **Tiêu đề:** `[Mland] Thông báo trạng thái tài khoản`.
-4. **Nút/link:** **Liên hệ hỗ trợ** → `{{supportUrl}}`, không buộc đăng nhập tài khoản đang khóa chỉ để đọc thông báo.
-5. **Không gửi:** mẫu chưa kích hoạt, quyết định chưa commit hoặc đã bị thay thế.
-
-> Chào {{recipientName}},
->
-> Tài khoản Mland của bạn hiện bị khóa theo quyết định ghi nhận vào {{changedAt}}.
-> Thông tin có thể cung cấp: {{publicReason}}.
->
-> Nếu cần làm rõ hoặc cho rằng có nhầm lẫn, vui lòng liên hệ hỗ trợ. Email này không thay đổi các giao dịch trước đó và không phải thông báo hủy đơn.
->
-> **Liên hệ hỗ trợ** — {{supportUrl}}
-> Trân trọng, Mland
-
-### ACCOUNT_UNLOCKED — Mở khóa tài khoản
-
-1. **Kích hoạt/người nhận dự kiến:** mở khóa đã commit; gửi chủ tài khoản. Chờ chốt loại mở khóa và điều kiện sử dụng lại.
-2. **Điều kiện:** trạng thái hiện hành phù hợp hướng dẫn đăng nhập; không suy rằng đơn hoặc quyền cũ đều được khôi phục.
-3. **Tiêu đề:** `[Mland] Tài khoản đã được mở khóa`.
-4. **Nút/link:** **Đăng nhập Mland** → `{{signInUrl}}`.
-5. **Không gửi:** mẫu chưa kích hoạt, thao tác chưa thành công hoặc trạng thái đã thay đổi lại.
-
-> Chào {{recipientName}},
->
-> Quyết định mở khóa tài khoản Mland của bạn đã được ghi nhận vào {{changedAt}}.
->
-> **Đăng nhập Mland** — {{signInUrl}}
->
-> Hệ thống kiểm tra trạng thái và quyền hiện tại khi bạn truy cập. Email không tự khôi phục các yêu cầu hoặc giao dịch đã hết hiệu lực.
->
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-### ACCOUNT_ROLE_CHANGED — Thay đổi vai trò
-
-1. **Kích hoạt/người nhận dự kiến:** thay đổi vai trò đã commit; gửi chủ tài khoản. Chờ chốt quy tắc vai trò và các đối tượng cần thông báo.
-2. **Điều kiện:** mô tả vai trò/phạm vi khớp kết quả hiện hành, không lộ thông tin người khác.
-3. **Tiêu đề:** `[Mland] Cập nhật vai trò tài khoản`.
-4. **Nút/link:** **Xem tài khoản** → `{{accountUrl}}`.
-5. **Không gửi:** mẫu chưa kích hoạt, thay đổi bị từ chối hoặc đã thay thế.
-
-> Chào {{recipientName}},
->
-> Vai trò tài khoản Mland của bạn đã được cập nhật vào {{changedAt}}.
-> Vai trò hiện tại: {{roleSummary}}.
-> Phạm vi áp dụng: {{scopeSummary}}.
->
-> **Xem tài khoản** — {{accountUrl}}
->
-> Quyền thực tế được kiểm tra khi bạn thực hiện từng thao tác; email này không cấp thêm quyền truy cập.
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-## Mẫu dự thảo — Thiết kế và phê duyệt
-
-Các mẫu kế thừa phiên bản 1.0, trạng thái **Dự thảo — chưa kích hoạt**. FE-05 và chủ quy trình duyệt phải chốt mốc, phiên bản hồ sơ, người nhận và quyền. Không suy ra AI có thẩm quyền chấp nhận thiết kế hoặc duyệt giá.
-
-### DESIGN_CLARIFICATION_REQUESTED — Bổ sung thông tin
-
-1. **Kích hoạt/người nhận dự kiến:** người review có quyền ghi yêu cầu bổ sung; gửi chủ yêu cầu thiết kế. Chờ chốt trạng thái và cách phản hồi.
-2. **Điều kiện:** yêu cầu còn hiệu lực, nội dung gửi khách đã được nghiệp vụ chấp nhận.
-3. **Tiêu đề:** `[Mland] Cần bổ sung thông tin thiết kế {{designCode}}`.
-4. **Nút/link:** **Xem yêu cầu bổ sung** → `{{designUrl}}`.
-5. **Không gửi:** mẫu chưa kích hoạt, review chưa commit, yêu cầu bị rút hoặc thay thế.
-
-> Chào {{recipientName}},
->
-> Mland cần thêm thông tin để tiếp tục xem xét thiết kế **{{designCode}}**.
-> Nội dung cần bổ sung:
-> {{clarificationSummary}}
->
-> **Xem yêu cầu bổ sung** — {{designUrl}}
->
-> Vui lòng phản hồi theo hướng dẫn trong hồ sơ. Yêu cầu này chưa phải xác nhận khả thi, báo giá cuối hoặc chấp nhận sản xuất.
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-### DESIGN_REVIEW_RESULT — Kết quả review
-
-1. **Kích hoạt/người nhận dự kiến:** vai trò có quyền ghi kết quả review; gửi chủ yêu cầu thiết kế. Chờ chốt các kết quả và bước tiếp theo.
-2. **Điều kiện:** khớp phiên bản thiết kế đã review, có mô tả công khai và hướng dẫn hợp lệ.
-3. **Tiêu đề:** `[Mland] Kết quả xem xét thiết kế {{designCode}}`.
-4. **Nút/link:** **Xem kết quả thiết kế** → `{{designUrl}}`.
-5. **Không gửi:** mẫu chưa kích hoạt, chỉ có gợi ý AI, chưa có quyết định hợp lệ hoặc phiên bản hết hiệu lực.
-
-> Chào {{recipientName}},
->
-> Thiết kế **{{designCode}}**, phiên bản {{designVersion}}, đã có kết quả xem xét.
-> Kết quả: {{publicReviewResult}}.
-> Ghi chú dành cho bạn: {{publicReviewNote}}.
-> Bước tiếp theo: {{nextActionSummary}}.
->
-> **Xem kết quả thiết kế** — {{designUrl}}
->
-> Kết quả áp dụng cho phiên bản nêu trên. Chỉ các điều khoản được xác nhận trong hồ sơ mới là căn cứ tiếp tục thực hiện.
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-### APPROVAL_REQUESTED — Yêu cầu phê duyệt nội bộ
-
-1. **Kích hoạt/người nhận dự kiến:** hồ sơ được nộp vào quy trình duyệt; gửi riêng tới Manager được phân công và có quyền. Chờ chốt cách phân công, không gửi mọi Manager.
-2. **Điều kiện:** đề xuất hiện hành, đúng phiên bản, đủ dữ liệu; chỉ đưa thông tin nội bộ cần thiết.
-3. **Tiêu đề:** `[Mland — Nội bộ] Cần phê duyệt {{requestCode}}`.
-4. **Nút/link:** **Mở hồ sơ phê duyệt** → `{{approvalUrl}}`, yêu cầu đăng nhập và kiểm tra quyền.
-5. **Không gửi:** mẫu chưa kích hoạt, chưa xác định người duyệt, đề xuất đã rút/được xử lý hoặc người nhận mất quyền.
-
-> Chào {{recipientName}},
->
-> Hồ sơ **{{requestCode}}** đang chờ bạn xem xét theo phân công hiện tại.
-> Loại yêu cầu: {{approvalType}}.
-> Phiên bản đề xuất: {{proposalVersion}}.
-> Tóm tắt: {{approvalSummary}}.
->
-> **Mở hồ sơ phê duyệt** — {{approvalUrl}}
->
-> Vui lòng xem dữ liệu hiện tại trước khi quyết định. Nhận hoặc mở email không có nghĩa đã phê duyệt; quyết định phải thực hiện trong hệ thống.
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-### APPROVAL_RESULT — Kết quả phê duyệt nội bộ
-
-1. **Kích hoạt/người nhận dự kiến:** quyết định hợp lệ đã commit; gửi người nộp hoặc người xử lý tiếp theo quy trình. Chờ chốt danh sách nhận, không gửi bản nội bộ cho khách.
-2. **Điều kiện:** đúng phiên bản, kết quả/ghi chú phù hợp quyền người nhận.
-3. **Tiêu đề:** `[Mland — Nội bộ] Kết quả phê duyệt {{requestCode}}`.
-4. **Nút/link:** **Xem quyết định** → `{{approvalUrl}}`.
-5. **Không gửi:** mẫu chưa kích hoạt, quyết định chưa commit hoặc bị thay thế. Thông báo khách phải dùng mẫu khách với nội dung được công khai.
-
-> Chào {{recipientName}},
->
-> Hồ sơ **{{requestCode}}**, phiên bản {{proposalVersion}}, đã có quyết định phê duyệt.
-> Kết quả: {{approvalResult}}.
-> Ghi chú trong phạm vi bạn được xem: {{recipientVisibleNote}}.
-> Bước tiếp theo: {{nextActionSummary}}.
->
-> **Xem quyết định** — {{approvalUrl}}
->
-> Không áp dụng quyết định này cho phiên bản khác. Các bước tài chính và xử lý tiếp vẫn phải được kiểm tra trong hệ thống.
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-## Mẫu dự thảo — Nghĩa vụ thanh toán custom
-
-Các mẫu kế thừa phiên bản 1.0, trạng thái **Dự thảo — chưa kích hoạt**. FE-05 phải chốt báo giá, nghĩa vụ cọc/thanh toán còn lại, hiệu lực và người nhận; không tự kế thừa tỷ lệ cọc workshop hay hạn 10/15 phút của đơn bán lẻ.
-
-### CUSTOM_PAYMENT_REQUESTED — Báo giá/yêu cầu thanh toán
-
-1. **Kích hoạt/người nhận dự kiến:** giá đúng phiên bản đã được duyệt và nghiệp vụ cho phép yêu cầu thanh toán; gửi chủ đơn custom. Chờ chốt các nghĩa vụ và bước khách chấp nhận.
-2. **Điều kiện:** số tiền/hiệu lực được xác nhận và có trang xem điều khoản hợp lệ.
-3. **Tiêu đề:** `[Mland] Thông tin thanh toán đơn đặt làm {{customOrderCode}}`.
-4. **Nút/link:** **Xem báo giá và hướng dẫn** → `{{customOrderUrl}}`; kiểm tra điều kiện trên trang, không gắn link gateway đã hết hạn hoặc tạo giao dịch chỉ vì mở thư.
-5. **Không gửi:** mẫu chưa kích hoạt, giá chưa duyệt, sai phiên bản, nghĩa vụ đã thanh toán/hết hiệu lực hoặc chưa đủ điều kiện gửi.
-
-> Chào {{recipientName}},
->
-> Đơn đặt làm **{{customOrderCode}}** có thông tin cần bạn xem xét.
-> Phiên bản báo giá: {{quoteVersion}}.
-> Khoản yêu cầu: {{paymentPurpose}}.
-> Số tiền: {{requestedAmount}}.
-> Điều kiện hiệu lực đã xác nhận: {{validitySummary}}.
->
-> **Xem báo giá và hướng dẫn** — {{customOrderUrl}}
->
-> Hãy kiểm tra điều khoản trước khi chấp nhận hoặc thanh toán. Email này không xác nhận bạn đã trả tiền hoặc đơn đã được đưa vào sản xuất.
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-### CUSTOM_PAYMENT_CONFIRMED — Xác nhận khoản thanh toán
-
-1. **Kích hoạt/người nhận dự kiến:** nghiệp vụ ghi nhận khoản thanh toán custom hợp lệ; gửi chủ đơn. Chờ chốt điều kiện xác nhận/nhận thông báo của từng nghĩa vụ.
-2. **Điều kiện:** số tiền, mục đích, tham chiếu và trạng thái tiếp theo đã xác nhận; không dựa vào trình duyệt quay về cổng.
-3. **Tiêu đề:** `[Mland] Xác nhận khoản thanh toán {{customOrderCode}}`.
-4. **Nút/link:** **Xem đơn đặt làm** → `{{customOrderUrl}}`.
-5. **Không gửi:** mẫu chưa kích hoạt, giao dịch chưa rõ, sai tiền/tham chiếu hoặc cùng sự kiện đã được ghi nhận yêu cầu gửi.
-
-> Chào {{recipientName}},
->
-> Mland đã ghi nhận khoản thanh toán cho đơn đặt làm **{{customOrderCode}}**.
-> Mục đích: {{paymentPurpose}}.
-> Số tiền đã xác nhận: {{paidAmount}}.
-> Thời điểm xác nhận: {{confirmedAt}}.
-> Số tiền còn lại theo nghĩa vụ đã chốt: {{remainingAmount}}.
-> Trạng thái tiếp theo: {{nextStateSummary}}.
->
-> **Xem đơn đặt làm** — {{customOrderUrl}}
->
-> Email chỉ xác nhận khoản nêu trên, không tự thay đổi các nghĩa vụ khác hoặc điều kiện sản xuất.
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-## Mẫu dự thảo — Mở rộng chưa chốt
-
-Các mẫu kế thừa phiên bản 1.0, trạng thái **Dự thảo — chưa kích hoạt**. Nội dung thư không phê duyệt chức năng mới hoặc cho phép tự lập job.
-
-### REFUND_RESULT — Kết quả refund
-
-1. **Kích hoạt/người nhận dự kiến:** kết quả refund đã được xác minh theo quy trình sẽ chốt; gửi người có quyền nhận thông tin giao dịch. Chờ chốt quy trình, thẩm quyền và danh sách kết quả.
-2. **Điều kiện:** kết quả thực tế, tiền liên quan và mô tả được phép gửi; không suy từ việc mới nộp yêu cầu hoàn.
-3. **Tiêu đề:** `[Mland] Kết quả xử lý yêu cầu hoàn tiền {{refundCode}}`.
-4. **Nút/link:** **Xem kết quả yêu cầu** → `{{refundDetailsUrl}}`, chỉ có khi chức năng được duyệt và tồn tại.
-5. **Không gửi:** mẫu chưa kích hoạt, kết quả chưa xác minh hoặc chưa có chức năng tra cứu hợp lệ.
-
-> Chào {{recipientName}},
->
-> Yêu cầu hoàn tiền **{{refundCode}}** liên quan {{transactionReference}} đã có kết quả xử lý.
-> Kết quả đã xác nhận: {{verifiedRefundResult}}.
-> Số tiền liên quan: {{refundAmount}}.
-> Hướng dẫn tiếp theo: {{nextActionSummary}}.
->
-> **Xem kết quả yêu cầu** — {{refundDetailsUrl}}
->
-> Việc tiền hiển thị tại tài khoản nhận cần kiểm tra theo kết quả thực tế và hướng dẫn của đơn vị xử lý; thư không tự cam kết ngày tiền về.
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-### WORKSHOP_REMINDER — Nhắc lịch
-
-1. **Kích hoạt/người nhận dự kiến:** booking còn hiệu lực tới mốc nhắc được duyệt; gửi email liên hệ booking. Chờ chốt mốc, số lần nhắc và điều kiện dừng; không tự đặt lịch 24 giờ trước.
-2. **Điều kiện:** lịch/địa điểm hiện hành, booking hợp lệ, chưa gửi cho cùng mốc/phiên bản lịch.
-3. **Tiêu đề:** `[Mland] Nhắc lịch workshop {{bookingCode}}`.
-4. **Nút/link:** **Xem booking và vé** → `{{bookingUrl}}`, không tự cấp vé khác.
-5. **Không gửi:** mẫu chưa kích hoạt, lịch đổi chưa xử lý, booking/vé không còn hiệu lực hoặc qua mốc được phép.
-
-> Chào {{recipientName}},
->
-> Mland nhắc bạn về lịch workshop của booking **{{bookingCode}}**.
-> Workshop: {{packageName}}.
-> Thời gian: {{sessionTimeWithTimezone}}.
-> Địa điểm: {{branchName}} — {{branchAddress}}.
-> Số người tham gia: {{participantCount}}.
->
-> **Xem booking và vé** — {{bookingUrl}}
->
-> Vui lòng kiểm tra thông tin và vé trước khi đến. Đây là thư nhắc lịch, không phải xác nhận booking hoặc yêu cầu thanh toán mới.
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-### PROMOTION_ANNOUNCEMENT — Thông báo ưu đãi
-
-1. **Kích hoạt/người nhận dự kiến:** chiến dịch được duyệt, danh sách phù hợp lựa chọn nhận quảng bá; gửi riêng từng người. Chờ chốt consent, hủy nhận, phạm vi và lịch chiến dịch.
-2. **Điều kiện:** điều khoản còn hiệu lực, có cơ chế hủy nhận hợp lệ; không coi email giao dịch là mặc định đồng ý quảng bá.
-3. **Tiêu đề:** `[Mland] {{campaignTitle}}`.
-4. **Nút/link:** **Xem điều kiện ưu đãi** → `{{campaignUrl}}`; **Ngừng nhận email ưu đãi** → `{{unsubscribeUrl}}`, chỉ có khi chức năng đã chốt.
-5. **Không gửi:** mẫu chưa kích hoạt, thiếu điều kiện nhận, đã hủy nhận, hết hiệu lực hoặc thiếu cơ chế hủy nhận.
-
-> Chào {{recipientName}},
->
-> Mland giới thiệu chương trình **{{campaignTitle}}**.
-> Nội dung: {{approvedCampaignSummary}}.
-> Thời gian áp dụng: {{campaignPeriod}}.
-> Điều kiện chính: {{eligibilitySummary}}.
->
-> **Xem điều kiện ưu đãi** — {{campaignUrl}}
->
-> Ưu đãi chỉ áp dụng khi đáp ứng điều kiện hiện hành; email không bảo đảm giữ lượt hoặc tự áp voucher vào đơn.
->
-> Bạn nhận thư theo lựa chọn nhận email ưu đãi đã ghi nhận.
-> **Ngừng nhận email ưu đãi** — {{unsubscribeUrl}}
->
-> Cần hỗ trợ? {{supportContact}}
-> Trân trọng, Mland
-
-## Luồng chính — Module tạo yêu cầu gửi email
-
-1. Method nghiệp vụ chính xử lý hành động cần thông báo, ví dụ xác nhận booking. Khi kết quả và dữ liệu cần cho thư đã sẵn sàng, method gọi `prepareEmailBooking(bookingId)`; đây là tên minh họa cho method chuẩn bị thư.
-2. `prepareEmailBooking()` tự tập hợp dữ liệu cần thiết: email người nhận, mã template/phiên bản, các giá trị điền vào mẫu, dữ liệu vé/QR nếu cần và mã tham chiếu sự kiện nghiệp vụ. Method nghiệp vụ chính không phải tự ghép nội dung email.
-3. `prepareEmailBooking()` kiểm tra đúng người nhận, đúng mẫu và đủ dữ liệu bắt buộc. Nếu chưa đủ hoặc không hợp lệ, method báo lỗi để bên gọi xử lý, không lưu một yêu cầu thiếu dữ liệu rồi để job tự tìm bổ sung.
-4. `prepareEmailBooking()` tự lưu yêu cầu vào bảng yêu cầu email ở trạng thái **Chờ gửi**, kèm dữ liệu đã chuẩn bị. Method kết thúc sau khi ghi nhận yêu cầu, chưa gửi SMTP. Cùng sự kiện, mẫu và người nhận không tạo lặp yêu cầu.
-5. Method nghiệp vụ chính tiếp tục và commit kết quả nghiệp vụ cùng yêu cầu email trong một giao dịch. `prepareEmailBooking()` không tự commit riêng; nếu giao dịch rollback thì cả hai không được lưu, job không có yêu cầu để gửi.
-6. Sau commit, method nghiệp vụ chính trả kết quả mà không chờ SMTP. Trách nhiệm chuẩn bị và lưu yêu cầu email đã hoàn tất; việc ghép mẫu, gửi và cập nhật kết quả do job thực hiện sau đó.
-
-## Luồng chính — Job gửi email
-
-1. Job chạy định kỳ, tìm yêu cầu **Chờ gửi** và **Chờ gửi lại** đã tới thời điểm gửi tiếp.
-2. Job nhận từng yêu cầu và đánh dấu **Đang gửi**, bảo đảm không có hai lượt cùng xử lý một yêu cầu.
-3. Job đọc người nhận, mã template/phiên bản và dữ liệu đã lưu; kiểm tra dữ liệu rồi ghép vào template để tạo thư. Nếu có QR, job dựng ảnh nhúng từ dữ liệu đã được chuẩn bị. Job không tự tìm lại người nhận, truy dữ liệu booking/đơn, tính lại giá hoặc chạy lại nghiệp vụ.
-4. Job gửi thư qua SMTP và ghi nhận lần thử. Việc gọi SMTP diễn ra sau khi giao dịch nghiệp vụ đã commit, không giữ giao dịch đó mở để chờ gửi.
-5. SMTP xác nhận tiếp nhận thì job lưu **Đã gửi**, thời điểm và số lần thử. Trạng thái này chỉ xác nhận SMTP đã nhận, chưa chứng minh thư đã tới hộp thư hoặc được đọc.
-6. Nếu lỗi, job lưu nguyên nhân và trạng thái theo phần xử lý lỗi bên dưới; tới hạn thì xử lý gửi lại nếu đủ điều kiện. Lỗi gửi không làm chạy lại hoặc đảo kết quả nghiệp vụ đã commit.
-
-## Trạng thái xử lý
-
-| Trạng thái | Ý nghĩa |
-| --- | --- |
-| Chờ gửi | Yêu cầu đã commit, chưa được job nhận xử lý |
-| Đang gửi | Một lượt job đang xử lý yêu cầu |
-| Đã gửi | SMTP đã xác nhận tiếp nhận; chưa có kết luận về hộp thư hoặc việc đọc |
-| Chờ gửi lại | Lỗi tạm thời, xác định chưa gửi được và còn lượt thử; chờ thời điểm gửi tiếp |
-| Gửi thất bại | Lỗi cần sửa hoặc đã hết số lần thử |
-| Chưa rõ kết quả | Không biết SMTP đã nhận thư hay chưa; không tự gửi lại |
-
-## Xử lý lỗi và gửi lại tự động
-
-1. **Thiếu template/dữ liệu, mẫu chưa được phép dùng, người nhận không hợp lệ hoặc cấu hình sai:** chuyển **Gửi thất bại**, ghi nguyên nhân để sửa. Không tự truy bảng nghiệp vụ để bù dữ liệu và không đánh dấu Đã gửi.
-2. **Lỗi tạm thời và xác định SMTP chưa nhận:** chuyển **Chờ gửi lại**. Tổng cộng tối đa **3 lần gọi SMTP**, gồm lần đầu; lỗi lần đầu chờ **1 phút**, lỗi lần hai chờ **5 phút**, tính từ lúc ghi nhận lỗi tương ứng. Lỗi lần ba chuyển **Gửi thất bại**.
-3. **Không biết SMTP đã nhận chưa:** chuyển **Chưa rõ kết quả**, không tự gửi lại. Trường hợp này gồm mất phản hồi sau khi có thể đã chuyển thư hoặc SMTP đã nhận nhưng lưu kết quả thất bại; không tự kết luận chưa gửi.
-4. **Ứng dụng khởi động lại:** giữ trạng thái, số lần thử và thời điểm gửi tiếp trong DB. Tiếp tục yêu cầu chờ; yêu cầu Đang gửi bị bỏ dở cần kiểm tra trước khi nhận lại, nếu có thể đã gọi SMTP thì coi là Chưa rõ kết quả.
-5. **Tránh gửi trùng:** cùng sự kiện, template và người nhận không tự tạo nhiều yêu cầu; job không xử lý đồng thời một yêu cầu và không gửi lại yêu cầu Đã gửi. Tuy vậy SMTP không bảo đảm thư chỉ đến hộp thư đúng một lần khi kết quả gửi bị mất.
-6. **Tác động nghiệp vụ:** lỗi gửi sau commit không đảo kết quả booking, đơn hàng hoặc thanh toán. Việc sửa/gửi lại email không thực hiện lại hành động nghiệp vụ.
-
-## Gửi lại thủ công
-
-1. Người có quyền hỗ trợ thông báo kiểm tra yêu cầu, trạng thái, lỗi gần nhất và nguyên nhân đã được sửa. Chỉ xem dữ liệu chẩn đoán cần thiết, không công khai bí mật hoặc toàn bộ nội dung thư.
-2. Với **Chưa rõ kết quả**, kiểm tra bằng chứng nhà cung cấp trước. Nếu không xác minh được, phải ghi rõ việc chấp nhận nguy cơ thư trùng trước khi chủ động gửi lại.
-3. Ghi lý do, người thực hiện và tạo lượt gửi lại liên kết yêu cầu gốc; giữ lịch sử cũ. Không tự sửa người nhận hoặc lấy dữ liệu mới từ bảng nghiệp vụ. Nếu cần sửa dữ liệu, module sở hữu phải cung cấp lại dữ liệu đúng qua quy trình được phép, có truy vết.
-4. Không chạy lượt mới khi yêu cầu gốc hoặc lượt liên quan còn đang gửi/chờ gửi lại. Lượt gửi lại áp dụng cùng giới hạn 3 lần và lịch chờ 1/5 phút; hết lượt không tự sinh tiếp lượt thủ công.
-5. Gửi lại chỉ thực hiện công việc email, không tạo lại đơn, booking hoặc khoản thanh toán. Phần này mô tả quy trình, chưa bổ sung màn hình hay API quản trị.
-
-## Hiện trạng và kiểm tra
-
-1. Code hiện có job và mẫu xác nhận booking dùng SMTP; chưa phải cơ chế gửi chung đã hoàn tất. Thiết kế ở đây yêu cầu module lưu đủ dữ liệu và job chỉ dựng/gửi thư, nên cách code booking đang truy dữ liệu riêng cần được đối chiếu khi triển khai sau này.
-2. Kiểm tra luồng thành công: module lưu đủ dữ liệu, job ghép đúng mẫu và gửi đúng người; SMTP nhận thì ghi Đã gửi. Xác minh/reset Firebase vẫn đi luồng FE-01, không vào job SMTP này.
-3. Kiểm tra rollback và thiếu dữ liệu: giao dịch thất bại không có thư để gửi; job phát hiện yêu cầu lỗi không gửi và không báo thành công. Job không đọc bảng booking/đơn để dựng lại nội dung.
-4. Kiểm tra lỗi và retry: lỗi tạm thời thử tối đa 3 lần theo lịch 1/5 phút, lỗi cấu hình dừng, kết quả chưa rõ không tự gửi lại; khởi động lại không đặt lại bộ đếm.
-5. Kiểm tra chống trùng và vận hành: sự kiện lặp hoặc hai lượt job không tự gửi đồng thời; gửi lại thủ công có quyền, lý do và lịch sử; email lỗi không đảo nghiệp vụ. Chưa sửa code, API hoặc database trong lần cập nhật tài liệu này.
-
-## Tài liệu tham khảo FE-07
-
-1. [Spring Framework — Email và JavaMailSender](https://docs.spring.io/spring-framework/reference/integration/email.html).
-2. [Thymeleaf — Gửi email với Spring](https://www.thymeleaf.org/doc/articles/springmail.html).
-3. [SMTP — RFC 5321: tiếp nhận thư và rủi ro timeout/gửi trùng](https://www.rfc-editor.org/rfc/rfc5321.html).
-4. [Firebase — Quản lý người dùng và email authentication](https://firebase.google.com/docs/auth/web/manage-users).
-5. [Firebase — Tùy chỉnh email quản lý tài khoản](https://support.google.com/firebase/answer/7000714?hl=en).
+Nội dung nghiên cứu đã chuyển sang [research riêng của FE-07](features/007-notification-management/research.md). Chưa tạo spec/plan/tasks mới hoặc phân tích thêm feature.
 
 <a id="fe-08"></a>
 

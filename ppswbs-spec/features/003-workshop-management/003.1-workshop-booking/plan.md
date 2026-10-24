@@ -1,12 +1,20 @@
 # Implementation Plan: Customer Workshop Booking Lifecycle
 
-**Branch**: `002-workshop-booking` | **Date**: 2026-10-07 | **Spec**: [spec.md](spec.md)
+**Feature**: `003.1-workshop-booking` | **Date**: 2026-10-07 | **Spec**: [spec.md](spec.md)
 
 ## Summary
 
+> **Rebase required — 2026-10-23.** Do not use this legacy implementation plan
+> for new work until it has been reconciled with [REBASE-NOTES.md](REBASE-NOTES.md).
+> In particular, its single-session `participant_count` model is superseded by
+> booking → workshop item → individual attendance ticket. Operational work now
+> belongs to feature 005, settlement/change work to 006, and OTA connectivity to
+> 007.
+
 Implement the customer-facing workshop booking slice: browse published packages,
 create a temporary pending booking, start/retry deposit payment, accept one
-valid payment result idempotently, confirm the booking, generate a QR ticket,
+valid payment result idempotently, confirm the booking, generate one QR ticket
+per purchased participant seat,
 notify the customer, and look up the booking. The feature manages local booking
 state through `CONFIRMED`; post-confirmation cancellation/refund, in-store
 check-in, completion, no-show, final payment, and external registration
@@ -19,7 +27,7 @@ QR/no payment countdown.
 
 The existing draft email-confirmation classes/endpoints and pre-payment flow
 are removed from this feature flow. They are replaced by post-payment
-notification containing the QR ticket and protected Magic Link; payment-gateway
+notification containing the complete QR ticket set and protected Magic Link; payment-gateway
 OTP is not captured or verified by Workshop Booking.
 
 ## Technical Context
@@ -69,7 +77,7 @@ synchronization and final payment are not implemented here.
 ## Project Structure
 
 ```text
-ppswbs-spec/features/002-workshop-booking/
+ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/
 ├── spec.md
 ├── plan.md
 ├── research.md
@@ -102,6 +110,12 @@ ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/{workshopbooking,
 5. Confirm only after a signed, matching, non-duplicate gateway result.
 6. Record a durable handoff for later external synchronization after local
    confirmation; do not make that system a local confirmation prerequisite.
+7. Keep one booking/invoice/deposit payment for the group, but issue exactly
+   `participant_count` independently scannable tickets after confirmation. V1
+   uses `BOOKING_CONTACT_RECEIVES_ALL_TICKETS`: only the booking contact receives
+   the ticket set and may share it; it captures no individual participant PII.
+   Individual participant contact, claim/delivery, transfer and check-in remain
+   future feature scope.
 
 ## Generated design artifacts
 

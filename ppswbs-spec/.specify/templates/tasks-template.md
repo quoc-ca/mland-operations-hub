@@ -5,6 +5,11 @@ description: "Task list template for feature implementation"
 
 # Tasks: [FEATURE NAME]
 
+**Date created**: [YYYY-MM-DD]
+**Date updated**: [YYYY-MM-DD]
+**Author**: [RESPONSIBLE_MEMBER]
+**Last updated by**: [RESPONSIBLE_MEMBER]
+
 **Input**: Design documents from `/specs/[###-feature-name]/`
 
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
