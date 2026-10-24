@@ -19,7 +19,7 @@ This feature owns three separate capabilities:
 
 The feature does not own workshop booking creation, payment confirmation, custom-manufacturing acceptance, custom-manufacturing pricing, final catalogue publication, or delivery fulfilment. Those workflows consume only the recorded result or suggestion through their owning facades.
 
-The Report 3 display roles are authoritative for this feature: `Guest`, `Member`, `Staff`, `Manager`, and `Admin`. Mapping these labels to physical role codes remains a separate approved identity decision; implementation must not silently map `Manager` to `OWNER` or `Admin` to `ADMIN_TECHNICAL`.
+The Report 3 display roles are authoritative for this feature: `Guest`, `Member`, `Staff`, `Manager`, and `Admin`. For implementation, `Manager` maps to the physical `OWNER` role code and `Admin` maps to `ADMIN_TECHNICAL`; this mapping does not expand either role's business or technical authority. The mapping must remain explicit in authorization and audit code, never inferred from client input.
 
 ## Actors and permissions
 
@@ -38,7 +38,9 @@ The Report 3 display roles are authoritative for this feature: `Guest`, `Member`
 The following matrix is authoritative for Feature-04. `Allow` always requires the
 actor to satisfy Firebase identity, Mland account status, role, resource ownership
 and scope checks. A client-supplied role, reviewer, price, estimate or decision is
-never trusted. Physical role-code mapping remains a separate approved decision.
+never trusted. The physical mapping is explicit: `Manager` uses `OWNER` and
+`Admin` uses `ADMIN_TECHNICAL`, while this logical permission matrix remains
+authoritative.
 
 | Action | Guest | Member | Staff | Manager | Admin |
 | --- | --- | --- | --- | --- | --- |
@@ -105,6 +107,9 @@ when a preceding validation fails.
 
 ### Basic AI support validation
 
+The configured limits are a 2,000-character maximum prompt and a provider timeout
+of 30 seconds. The endpoint is available only to Guest and Member actors.
+
 | Validation | Error | Provider call | Persistence | Response |
 | --- | --- | --- | --- | --- |
 | Empty prompt | `AI_INPUT_INVALID` | No | None | 400/422 |
@@ -133,7 +138,7 @@ when a preceding validation fails.
 | 10 | Consent version, purpose, actor and time | `CONSENT_REQUIRED` | No | No storage/request creation |
 | 11 | `designVersion` is current and positive | `DESIGN_VERSION_STALE` | No | No storage/request creation |
 | 12 | Image is present and has valid MIME/file signature | `IMAGE_INVALID` | No | No storage/request creation |
-| 13 | File size and dimensions are within configuration | `IMAGE_TOO_LARGE` or `IMAGE_INVALID` | No | No storage/request creation |
+| 13 | File size and dimensions are within configuration (10 MB; maximum 4096×4096) | `IMAGE_TOO_LARGE` or `IMAGE_INVALID` | No | No storage/request creation |
 | 14 | Malware/security scan and ownership check | `IMAGE_INVALID` | No | No storage/request creation |
 | 15 | Image metadata is minimized and provider context is allowlisted | `AI_INPUT_INVALID` or `AI_CONTEXT_NOT_ALLOWED` | No | No storage/request creation |
 | 16 | Prompt-injection/security screening | `AI_PROMPT_INJECTION_DETECTED` | No | No storage/request creation |
@@ -360,7 +365,7 @@ As a Manager, I want an AI price suggestion for a new workshop package or retail
 ### Basic AI support
 
 - **FR-04-001**: The system MUST allow Guest and Member basic AI support only for approved public product, workshop, store-information and FAQ topics.
-- **FR-04-002**: The system MUST validate non-empty input, configured maximum length, scope and rate limit before calling the AI API.
+- **FR-04-002**: The system MUST validate non-empty input, a maximum length of 2,000 characters, scope and rate limit before calling the AI API. The provider timeout is 30 seconds.
 - **FR-04-003**: The system MUST provide the AI API only with permitted public context and MUST exclude private customer, payment, booking, authentication and operational data.
 - **FR-04-004**: The system MUST validate the response before display and MUST not present AI output as a confirmed business answer.
 - **FR-04-005**: Text prompts and responses MUST be retained for no more than 30 days and MUST not contain raw credentials, tokens or unnecessary PII.
@@ -369,7 +374,7 @@ As a Manager, I want an AI price suggestion for a new workshop package or retail
 
 - **FR-04-006**: Only an authorized Member with an eligible package, location, session and booking context MAY submit a booking-design image.
 - **FR-04-007**: The system MUST record affirmative consent version, purpose, Member identity, timestamp and design-request version before storage or AI processing.
-- **FR-04-008**: The system MUST validate booking ownership, branch/session capability, file type, size, image quality, design version and rate limit before provider processing.
+- **FR-04-008**: The system MUST validate booking ownership, branch/session capability, file type, size, image quality, design version and rate limit before provider processing. Booking-design images MUST be no larger than 10 MB and no larger than 4096×4096 pixels.
 - **FR-04-009**: The system MUST use temporary storage for booking-design image input and MUST delete the image after processing, including provider failure paths where deletion is permitted.
 - **FR-04-010**: The AI API MAY return image quality and candidate ring features/materials only. It MUST NOT return a final business decision.
 - **FR-04-011**: The system MUST validate the provider response against a versioned result schema and record provider correlation and safe failure evidence without retaining raw provider payloads.
@@ -521,6 +526,7 @@ The feature MUST not link booking-design review to custom-manufacturing acceptan
 - Exact image reconstruction or CAD/3D editing.
 - AI final feasibility, price, acceptance or rejection decisions.
 - Guest booking-design image upload.
+- Configured ring-design choices submitted through the booking/ring-design contract.
 - Custom-manufacturing quotation or order acceptance by AI.
 - Payment creation or confirmation.
 - Catalogue price publication without Manager confirmation.
@@ -536,9 +542,22 @@ The feature MUST not link booking-design review to custom-manufacturing acceptan
 - **SC-04-006**: Staff/Manager routing and authorization tests cover threshold, branch/delegation and Manager-authority cases.
 - **SC-04-007**: Price suggestions remain advisory and manual Manager fallback works when Gemini is unavailable.
 
-## Assumptions and unresolved implementation gates
+## Resolved decisions and remaining implementation gates
 
-- The exact physical role-code mapping remains a separate approved gate.
-- File size, image dimensions, prompt length, rate-limit values and provider timeout values must be configured in the feature plan; no numeric values are invented here.
-- The exact physical schema/migration mapping for analysis result JSON, consent and suggestion evidence must be reviewed against `DB.md` before implementation.
-- Gemini production credentials, billing, model version and provider contract remain integration configuration gates.
+- `Manager` maps to `OWNER` and `Admin` maps to `ADMIN_TECHNICAL`; the mapping is
+  technical only and does not change the logical permission matrix.
+- Feature-04 owns booking-design image analysis only. Configured design choices
+  belong to the owning booking/ring-design contract and are not accepted by
+  `POST /api/v1/design-requests`.
+- The prompt limit is 2,000 characters, the image limit is 10 MB with maximum
+  dimensions of 4096×4096, and the provider timeout is 30 seconds.
+- AI evidence shown to Members is structured and policy-filtered: image quality,
+  candidate features, confidence/uncertainty and safe explanation only. Raw provider
+  payloads are never returned.
+- Price suggestions are fully visible only to the authorized Manager. Admin may
+  view approved technical/audit evidence; Staff, Guest and Member cannot view the
+  internal suggestion.
+- The exact physical schema/migration mapping for analysis result JSON, consent and
+  suggestion evidence must still be reviewed against `DB.md` before implementation.
+- Gemini production credentials, billing, model version and provider contract remain
+  integration configuration gates.

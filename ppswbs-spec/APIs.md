@@ -43,9 +43,9 @@ and status codes. The existing Member Authentication contract is at
 - `Authorization: Bearer <Firebase ID token>` proves identity only. Spring
   verifies the token; Mland MySQL is authoritative for account status, logical
   roles (`Member`, `Staff`, `Manager`, and `Admin`), and entitlement. The physical
-  role-code mapping, including legacy codes such as `OWNER` and
-  `ADMIN_TECHNICAL`, remains a separate approved identity decision and must not be
-  inferred by an API implementation.
+  role-code mapping is explicit for this feature: `Manager` uses `OWNER` and
+  `Admin` uses `ADMIN_TECHNICAL`. The mapping must not expand logical business or
+  technical authority and must never be inferred from client input.
 - Protected requests with a missing, malformed, expired, revoked, wrong-project,
   or unverifiable token receive `401`. A valid identity without the required
   Mland authority or current entitlement receives `403`.
@@ -122,8 +122,8 @@ headers and error payloads.
 
 | Method and route | Input | Successful output | Allowed actors and conditions | Important errors / side effects |
 | --- | --- | --- | --- | --- |
-| `POST /api/v1/ai-support/messages` | JSON `{ message }`; normalized text within the configured length limit. | Validated text response with safe scope metadata and correlation data where permitted. | Guest or Member; only approved public catalogue, workshop, store and FAQ context. | `400/422` for invalid or unsupported input, prompt injection or unsafe output; `429` for AI rate limit; `503` for provider failure. No booking, payment, review or price mutation. |
-| `POST /api/v1/design-requests` | Multipart image plus `bookingCode`, `consentVersion`, `designVersion`, and `Idempotency-Key`. | `202` versioned design-request projection with analysis state and next action. | Authenticated active Member owning the eligible booking context. Consent must exist before storage/provider call; maximum three image attempts per rolling five minutes. | `401/403/409/422/429` for identity, scope, stale version, consent, image, security or rate-limit failures. Invalid requests do not call Gemini; accepted image input is temporary and deleted after processing. |
+| `POST /api/v1/ai-support/messages` | JSON `{ message }`; normalized text up to 2,000 characters. | Validated text response with safe scope metadata and correlation data where permitted. | Guest or Member; only approved public catalogue, workshop, store and FAQ context. Provider timeout is 30 seconds. | `400/422` for invalid or unsupported input, prompt injection or unsafe output; `429` for AI rate limit; `503` for provider failure. No booking, payment, review or price mutation. |
+| `POST /api/v1/design-requests` | Multipart image plus `bookingCode`, `consentVersion`, `designVersion`, and `Idempotency-Key`. Image is limited to 10 MB and 4096×4096 pixels. | `202` versioned design-request projection with analysis state and next action. | Authenticated active Member owning the eligible booking context. Consent must exist before storage/provider call; maximum three image attempts per rolling five minutes. | `401/403/409/422/429` for identity, scope, stale version, consent, image, security or rate-limit failures. Invalid requests do not call Gemini; accepted image input is temporary and deleted after processing. |
 | `GET /api/v1/design-requests/{designRequestId}` | Path identifier; no request body. | Member-safe or reviewer-scoped analysis/review projection. | Owning Member, in-scope Staff/Manager, or approved Admin technical/audit access. | `401/403/404`; never returns raw image, raw provider payload, credentials or another Member's data. |
 | `GET /api/v1/design-review-requests` | Optional scope/filter and pagination query parameters defined by the feature contract. | Reviewer-scoped queue of requests requiring human action. | Staff or Manager with active status, branch/delegation scope and applicable authority. | `401/403`; read-only and must not broaden reviewer scope through client parameters. |
 | `POST /api/v1/design-review-requests/{reviewRequestId}/decisions` | JSON `{ decision, designVersion, reason }`; decision is `ACCEPTED`, `REJECTED` or `CLARIFICATION_REQUIRED`. | Updated review projection with reviewer, decision time, reason and next action. | In-scope Staff/Manager; Staff only at or below 3,000,000 VND, Manager above threshold or where Manager authority is required. | `401/403/409/422`; stale/concurrent decisions return conflict. Reviewer cannot review own/conflicted request. AI cannot create the decision. |
