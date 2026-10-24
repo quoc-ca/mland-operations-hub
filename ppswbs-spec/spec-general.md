@@ -1,5 +1,12 @@
 # General Spec
-Version: 0.2 | Status: Working Agreement | Updated: 2026-10-24
+
+**Date created**: 2026-09-29
+**Date updated**: 2026-10-24
+**Author**: Phan Son
+**Last updated by**: Hồ Hoàng Quốc
+
+**Version**: 0.3
+**Status**: Working Agreement
 
 > This working agreement summarizes product context and shared design constraints. [Report 2 scope](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/01-scope-purpose.md), [constraints](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/02-assumptions-constraints.md), and [decision evidence](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/07-evidences.md) govern business scope; Report 3 governs detailed requirements. The [constitution](.specify/memory/constitution.md) governs architecture. This update records the group's confirmed technical decisions; it does not reconcile unrelated business-source conflicts or approve feature designs.
 
@@ -11,7 +18,7 @@ Version: 0.2 | Status: Working Agreement | Updated: 2026-10-24
 
 **System goal:** Support Guest and Member journeys while giving Staff, Managers, and Admins clear operational responsibilities. Workshop booking and workshop ring-design review are one journey; custom manufacturing is a distinct Member-only order flow. The [Report 3 context](../documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/01-context-business-flow.md) owns detailed business flows; this file summarizes shared context and design guardrails.
 
-**V1 scope summary:** Account/RBAC, public product and workshop catalogues, workshop schedules/bookings, workshop ring design, independent AI support and human-reviewed AI suggestions, Member retail, loyalty/promotions, custom manufacturing, workflow email, operational administration/dashboard, read-only Google Maps information, and workshop registration synchronization with Klook. Staff operates product catalogue and manually maintained available-to-sell quantities. Managers operate workshop schedules/capacity and business approvals, promotions, and the executive dashboard. Admins manage accounts/RBAC, operational parameters, and approved integration credentials. The exact role-code mapping is unresolved; see [Actors & Roles](#2-actors--roles).
+**V1 scope summary:** Account/RBAC, public product and workshop catalogues, workshop schedules/bookings, workshop ring design, independent AI support and human-reviewed AI suggestions, Member retail, loyalty/promotions, custom manufacturing, workflow email, operational administration/dashboard, read-only Google Maps information, and approved OTA workshop connectivity. Klook and GetYourGuide are OTA candidates; Mland may synchronize their schedules and availability in sales-closed preparation mode, but neither may accept bookings until its own feature gates pass, including proof that its voucher/ticket delivery supports one Mland-scannable ticket per participant. Staff operates product catalogue and manually maintained available-to-sell quantities. Managers operate workshop schedules/capacity and business approvals, promotions, and the executive dashboard. Admins manage accounts/RBAC, operational parameters, and approved integration credentials. The exact role-code mapping is unresolved; see [Actors & Roles](#2-actors--roles).
 
 **Technology context:** Separate React + Vite frontend with client-side rendering and Java 21/Spring Boot backend communicating through REST APIs; Spring Data JPA/JPA, Flyway, and MySQL. The backend does not render the application UI; SSR/Thymeleaf/htmx are no longer the UI baseline. HTML email templates are separate from UI rendering. Firebase Authentication remains the identity-provider baseline. Firebase Hosting is preview-only; production origins, hosting, database deployment, CDN behavior, and repository separation are not selected by this decision.
 
@@ -37,7 +44,7 @@ Version: 0.2 | Status: Working Agreement | Updated: 2026-10-24
 | Cloud Storage Service | External provider | Stores catalogue media and eligible custom-manufacturing reference images subject to retention/deletion rules. |
 | Google Maps API | External provider | Google Maps Embed and Places provide read-only map and permitted public review/rating information with attribution and a link to Google Maps. |
 | Delivery Provider | External provider | Giao Hàng Tiết Kiệm (GHTK), used only for Staff-recorded manual handoff; no V1 carrier API integration. |
-| External Registration System | External provider | Klook, the sole V1 external workshop-registration partner; Mland remains source of truth for capacity. |
+| External Registration System | External provider | Klook and GetYourGuide are OTA candidates. Mland remains source of truth for capacity; each provider requires separate onboarding and proof of ticket-per-participant delivery before 003.4 go-live. |
 
 **Role-code reconciliation:** Report 2/3 use the business labels `Member`, `Staff`, `Manager`, and `Admin`; the authentication feature and DB working material use codes including `MEMBER`, `STAFF`, `OWNER`, and `ADMIN_TECHNICAL`. The mapping and any permission differences remain `TBD`. Do not silently map Manager to Owner or Admin to Admin Technical, change a role code, or grant authority based on a display label.
 
@@ -61,7 +68,7 @@ The following system-level requirements summarize Report 2/3 and their [business
 * A workshop booking SHALL select a package before schedule/slot and supported ring-design path. A booking is confirmed only after valid confirmation of the 50% package-price deposit through VNPay.
 * A Member may submit a workshop booking-design image only after a separately recorded, purpose-specific consent for paid Gemini analysis. Every valid request receives human review: Staff reviews estimated values at or below 3,000,000 VND; a Manager reviews values above that threshold or requests requiring Manager authority. AI never auto-accepts or auto-rejects the design. The Member can view the recorded result.
 * AI MAY suggest materials/components or prices for a new workshop package or retail product. A Manager decides and publishes the price; AI does not publish it or decide custom-manufacturing orders.
-* Klook synchronization SHALL respect Mland-owned capacity and the approved availability/hold flow. Mland V1 does not consume Klook cancellation events.
+* OTA synchronization SHALL respect Mland-owned capacity and the approved availability/booking flow. Per-provider availability, ticket delivery, callback, cancellation/refund, commercial, and reconciliation behaviour is owned by feature 003.4; no channel is live until its gates pass.
 
 ### Retail, loyalty, and promotions
 
@@ -100,7 +107,7 @@ Detailed requirements remain in the [Report 3 NFR baseline](../documents/docs/re
 * **AI data:** Gemini is a paid service. Application-level text prompts/responses are retained for no more than 30 days. Booking-design image input requires recorded Member consent, is stored temporarily, and is deleted after processing; AI output supports human decisions only. Custom-manufacturing reference images follow their separate retention rule until pickup or GHTK handoff.
 * **Personal-data retention:** Custom-manufacturing reference images are retained until pickup or GHTK handoff. Rejected/withdrawn custom requests and independently classified images are deleted immediately after processing. GHTK recipient/address data are deleted or irreversibly obscured 30 days after handoff. VNPay references and business audit evidence are retained for five years. No card data is stored.
 * **Privacy notice and consent:** Mland's general Terms and Privacy Policy states image-processing purposes, approved retention periods, Google attribution, and delivery-recipient data handling. Booking-design image processing additionally requires an affirmative, versioned, purpose-specific Member consent recorded before temporary storage or AI analysis.
-* **Integration boundaries:** Google Places content is not persisted; GHTK has no V1 API/quote/tracking/failure/return workflow; Klook cancellation events are not consumed; workflow SMTP only delivers requested messages.
+* **Integration boundaries:** Google Places content is not persisted; GHTK has no V1 API/quote/tracking/failure/return workflow; OTA callbacks are processed only by an approved 003.4 provider adapter and go-live gate; workflow SMTP only delivers requested messages.
 * **Hosting and caching:** Firebase Hosting is preview-only. Cache behavior applies only to deliberately public content; never cache identity tokens, authenticated responses, booking capacity, payment status, invoices, Member history, or administration data.
 * **Auditability:** Payment confirmation, price publication, booking-design review, custom final amount, pickup, and carrier handoff retain business audit evidence under the stated retention period.
 * **Workshop settlement authorization:** Account/personnel owns role-code mapping and capability grants. Workshop settlement uses branch-scoped capabilities `workshop.settlement.defer`, `workshop.settlement.reschedule`, and `workshop.settlement.refund`; an inactive actor loses them immediately. A feature MUST NOT infer `Manager = OWNER`.
@@ -115,7 +122,7 @@ Physical schemas remain owned by feature plans, migrations, and the evolving [DB
 | Firebase UID / `external_user_id` | Firebase identity mapped by Mland MySQL | Unique Member lookup identity; never use email as an automatic merge key. |
 | Account status, business roles, entitlements, policy acceptance, and auth audit | Mland MySQL / Members domain | Provider claims do not grant roles; role-code reconciliation remains `TBD`. |
 | Profile/contact snapshot | Mland account/profile capability | Contact values may be absent or change; they are not authorization keys. |
-| Workshop packages, schedules, capacity, bookings, and check-in evidence | Mland business domains | Mland owns workshop capacity, including when exchanging availability with Klook. |
+| Workshop packages, schedules, capacity, bookings, and check-in evidence | Mland business domains | Mland owns workshop capacity, including when exchanging availability with an approved OTA. |
 | Catalogue, component/material and published-price data | Mland catalogue domain | Staff maintains product catalogue; Managers decide published prices for newly priced packages/products. |
 | Booking-design input, AI analysis, review outcome, and custom-order request | Separate Mland workflows | Workshop booking-design review is distinct from custom manufacturing; AI does not decide custom orders. |
 | Retail cart/order, invoices, loyalty/voucher application, payment references, and fulfilment milestones | Mland sales/payment/fulfilment domains | Full verified retail payment precedes sale completion; fulfilment evidence ends at pickup or carrier handoff. This does not create accounting or reconciliation scope. |
