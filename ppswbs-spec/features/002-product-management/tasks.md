@@ -1,0 +1,385 @@
+# Tasks: Product Management — FE-02
+
+**Date created**: 2026-10-24
+**Date updated**: 2026-10-24
+**Author**: Đặng Thị Khương
+**Last updated by**: Đặng Thị Khương
+
+**Feature**: `002-product-management`  
+**Status**: Draft task list để review và chạy speckit-analyze; mọi task chưa thực hiện. Tác vụ hiện tại chỉ tạo tài liệu.  
+**Input**: [spec.md](spec.md), [plan.md](plan.md), [research.md](research.md), [data-model.md](data-model.md), [OpenAPI](contracts/product-management.openapi.json), [interfaces](contracts/interfaces.md), [quickstart.md](quickstart.md), [prerequisites](blocker-report.md), [Constitution 3.0.0](../../.specify/memory/constitution.md).
+
+**Organization**: Setup → Foundational → các story P1 (US1–US6, US8) → story P2 (US7) → Polish. Thứ tự story phản ánh ưu tiên; dependency cụ thể ở cuối tài liệu quyết định task nào được bắt đầu.
+
+**Verification**: Các task kiểm chứng dưới đây phục vụ acceptance scenarios/SC-001–SC-007 và gate API/security/schema/integration bắt buộc của Constitution IV, cùng V-01–V-14 trong quickstart. Không yêu cầu TDD toàn dự án hoặc thêm framework test. Viết coverage liên quan trước implementation của story và chạy lại khi implementation hoàn tất; kết quả trước khi có implementation không phải evidence đạt. Không tạo production/test code từ bước speckit-tasks.
+
+## Format and path conventions
+
+- Dạng task: `- [ ] Tnnn [P?] [USn?] Hành động với đường dẫn`. `[P]` chỉ áp dụng sau khi dependency ghi trong task đã hoàn thành và không sửa chung file với task đang chạy.
+- Đường dẫn trong task tính từ workspace root `D:/mland-operations-hub/mland-operations-hub/`; các tên class mới là vị trí dự kiến theo plan, không phải source đã tồn tại. Không tạo module/service thứ hai.
+- Migration mới được cấp tên tại T001 theo high-water mark thực tế; T017 ghi thư mục đích, không đặt trước số V4/V5 có thể bị feature khác sử dụng. T001 phải ghi tên file cụ thể đã cấp trước khi T017 bắt đầu.
+- Các task kiểm tra FE-01/FE-08 là dependency của owner tương ứng. Không biến chúng thành yêu cầu FE-02 tự thiết kế MFA, tạo RBAC hoặc triển khai cart/order/payment/hold lifecycle.
+- Trước bất kỳ production/test code nào: spec/plan/tasks được review đúng phạm vi, speckit-analyze hoàn tất và prerequisite ảnh hưởng tác vụ đã được giải quyết theo AGENT.md. Việc tạo task không tự đáp ứng những gate đó.
+
+## Phase 1: Setup — xác nhận nguồn và dependency
+
+**Purpose**: Chốt đầu vào kỹ thuật có thể thực thi mà không hỏi lại các quyết định nghiệp vụ đã được người dùng đồng ý.
+
+- [ ] T001 Rà lại baseline Java 21/Boot 3.4.1/Modulith 1.3.1/Firebase Admin 9.11.0 trong `ppswbs_backend/pom.xml`, high-water mark tại `ppswbs_backend/src/main/resources/db/migration/` và kết quả analyze; ghi revision nguồn, filename migration catalogue được cấp và gate review vào `ppswbs-spec/features/002-product-management/blocker-report.md`. Không sửa migration đã áp dụng, không tự đổi trạng thái phê duyệt hoặc chạy code khi thiếu quyết định ảnh hưởng implementation.
+- [ ] T002 Xác nhận dependency FE-01 với owner từ `ppswbs-spec/features/001-account-management/spec.md`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/members/facade/MemberFacade.java` và `ppswbs-spec/features/002-product-management/contracts/interfaces.md`; ghi contract actor/capability/privileged-auth assurance, bearer cho mọi REST API (frontend React dùng cùng bearer), phiên nội bộ cố định 8 giờ tính từ auth_time của Firebase ID token, không gia hạn trượt; hết hạn thì API trả 401 và React yêu cầu đăng nhập lại qua Firebase SDK, revocation/status, fixed authentication destination và evidence tại `ppswbs-spec/features/002-product-management/blocker-report.md`. MFA method/enrollment/recovery phải do identity owner thiết kế và cung cấp; nếu chưa có thì dependency chưa đạt, không chọn TOTP hoặc sửa luồng 001 để thay thế.
+- [ ] T003 Xác nhận thiết kế/ownership và lịch bàn giao dependency FE-08 theo AvailabilityGuardPort/CatalogueSalesFacade tại `ppswbs-spec/features/002-product-management/contracts/interfaces.md`; thống nhất real hold source, stable guard kể cả chưa có hold, cùng transaction/lock order, trusted accepted-transaction reference và contract chuyển lựa chọn mua. Ghi readiness/evidence tại `ppswbs-spec/features/002-product-management/blocker-report.md`; port được tạo ở T019 trước khi owner bàn giao adapter triển khai nó, không yêu cầu adapter compile trước interface tồn tại. Không tạo hold giả, trả held=0 khi unknown hoặc tự định nghĩa checkout route/deadline.
+- [ ] T004 Kiểm tra tương thích và ghi version Java SDK Cloudinary cụ thể cùng tên cấu hình môi trường không chứa secret tại `ppswbs-spec/features/002-product-management/plan.md` và `ppswbs-spec/features/002-product-management/research.md`, dựa trên pom hiện hành và D-06. Adapter dùng server-side signed upload, resource_type=image/type=authenticated/overwrite=false, same-origin streaming; review phần pin/config này trước T015. Không kích hoạt billing, tạo account hoặc thay version stack đã có.
+
+**Checkpoint**: Đầu vào được truy xuất; T002/T003 chưa có deliverable thì giữ dependency mở. Không dùng sự tồn tại của contract để đánh dấu adapter đã chạy.
+
+## Phase 2: Foundational — nền tảng dùng chung
+
+**Purpose**: Xây nền tảng catalogue sau Phase 1 và gate triển khai. T005–T019 phải hoàn thành trước story; G-01/G-02 cần deliverable thật theo T002/T003.
+
+- [ ] T005 Cập nhật module boundary tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/package-info.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/facade/package-info.java`: chỉ facade là named export, catalogue chỉ gọi identity qua members::facade, readyringsales phụ thuộc catalogue::facade; không thêm catalogue → readyringsales hoặc business code trong common.
+- [ ] T006 Tạo validation/value conversion tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/CatalogueValues.java`: giữ nguyên constraints “Product/variant ID là positive signed BIGINT sinh bởi hệ thống, JSON decimal string”, “Giá và lượng là DECIMAL(19,0), dùng BigInteger, không floating point; miền kỹ thuật 0–9999999999999999999, giá phải lớn hơn 0”, “Version là nonnegative signed BIGINT; timestamp UTC microsecond” và “Text lưu utf8mb4, đo Unicode code point sau Unicode trim đầu/cuối.” JSON amount/quantity không exponent/fraction/leading zero; timestamps UTC ISO-8601, không tự đặt trần kinh doanh.
+- [ ] T007 Sau T002/T005/T006, tích hợp actor/capability adapter tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/CatalogueAuthorization.java` và scoped security wiring tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/configuration/CatalogueSecurityConfiguration.java`. mọi REST API (kể cả gọi từ React) dùng verified bearer, phiên nội bộ 8 giờ tính từ auth_time không sliding theo shared identity contract (cookie/CSRF của 001 không áp dụng cho SPA); kiểm tra accountActive/capability/assurance mỗi action; 401/403/503 an toàn. Không cấp quyền từ ROLE_MEMBER/OWNER/Firebase claims/cookie profile, không tạo login/MFA riêng hoặc thay global fallback và luồng Member cũ. FR-001/002, V-01.
+- [ ] T008 Tạo scoped errors/advice tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/CatalogueExceptionHandler.java` dùng common.ErrorResponse có code/message/correlationId/timestamp/fieldErrors; khớp toàn bộ codes/HTTP trong interfaces/OpenAPI, kể cả 409 stale/digest conflict, 413/415 media, 503 dependency/busy/save. Strict DTO từ chối extra/missing/wrong-type fields; management/errors no-store, không lộ entity/secret hoặc biến lỗi tải thành danh sách rỗng.
+- [ ] T009 [P] Sau T006/T008, tạo audit model/repository/writer tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/domain/CatalogueAuditEvent.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/infrastructure/CatalogueAuditRepository.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/CatalogueAuditWriter.java`: fields “id, actor_id nullable, action, resource_type/id, version/revision nullable, changed_fields/safe_changes JSON, outcome, correlation_id, occurred_at”; “Mutation + success audit cùng transaction; lỗi audit rollback mutation”, “Business audit giữ 5 năm từ sự kiện theo Report 3.” Business rejection được ghi độc lập sau rollback, không full payload/token/secret; không tái dùng FK member audit. FR-027.
+- [ ] T010 [P] Sau T006/T008, tạo receipt model/repository/executor tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/domain/CatalogueCommandReceipt.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/infrastructure/CatalogueCommandReceiptRepository.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/CatalogueCommandExecutor.java`: “command_id UUID”, “result_version nullable, safe_result JSON, committed_at”, “Unique(actor_id, action, command_id)”, “Giữ kết quả tối thiểu 5 năm từ commit, không full request/token.” Auth trước lookup/replay; same digest trả committed result, khác digest 409; concurrent loser rollback trước đọc receipt, không tiếp tục failed transaction; expired receipt không bỏ qua state/version/deletion checks. FR-026/028, V-11.
+- [ ] T011 [P] Sau T006, tạo category entity/repository và read-only lookup cho US1 tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/domain/ProductCategory.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/infrastructure/ProductCategoryRepository.java`: “name VARCHAR(200), name_key VARBINARY(1600), description TEXT nullable, active, version, created_at/updated_at”; “Unique name_key toàn hệ thống kể cả inactive; tên 1–200, mô tả tùy chọn tối đa 5.000 và active=true lúc tạo đã được chốt. Không xóa danh mục đã tham chiếu.” Key NFC/Unicode trim/lowercase Locale.ROOT/binary, giữ dấu; write/UI thuộc US7. Danh mục cho kiểm chứng US1 là dữ liệu test đã persist, không production seed.
+- [ ] T012 [P] Sau T006, tạo proposal model/repository tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/domain/PriceProposal.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/infrastructure/PriceProposalRepository.java`: fields “variant_id FK, review_id nullable FK, revision, version, state, effective, proposed_amount, approved_amount nullable, currency=VND, base_applied_sequence, terms_digest, submitted_by/at, decided_by/at, reason nullable, supersedes_id nullable FK”. DRAFT/PENDING/APPROVED/REJECTED; amount theo T006; “Proposal revision mới là row mới”, “chỉ current effective PENDING được variant.pending_proposal_id tham chiếu”, “quantity không phải điều khoản giá.” Decision reason bắt buộc khi REJECT, 1–2.000 sau trim; null/decision fields theo từng state, không dùng APPROVED như đã apply. FR-013/014.
+- [ ] T013 [P] Sau T006, tạo review model/repository tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/domain/ProductReview.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/infrastructure/ProductReviewRepository.java`: fields “product_id FK, revision, content_version, state, effective, submitted_by/at, decided_by/at nullable, rejection_reason nullable, snapshot JSON”; DRAFT/PENDING/APPROVED/REJECTED; “Unique(product_id, revision)”, “snapshot chứa content/category/media references/size IDs và proposal revisions đúng hồ sơ, không chứa raw identity tokens hoặc hold records. Decision/history bất biến; effective=false không xóa quyết định.” Reject reason 1–2.000 ký tự; không tự yêu cầu Manager thứ hai. FR-009–011.
+- [ ] T014 [P] Sau T006, tạo media entities/repositories tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/domain/CatalogueMediaObject.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/domain/ProductImage.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/domain/MediaReference.java` và tương ứng `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/infrastructure/CatalogueMediaRepository.java`. Giữ constraints “id opaque UUID, storage_key unique, provider_asset_id nullable, provider_version nullable, provider_format nullable”, các timestamp “last_verified_at nullable, first_attached_at nullable, last_unreferenced_at nullable, delete_requested_at nullable, deleted_at nullable”, “STAGED/READY/UNAVAILABLE/DELETE_PENDING/DELETED”, “các provider fields bắt buộc trước READY”, “JPEG/PNG/WebP, byte_count <= 5.000.000”. ProductImage có “alt_text VARCHAR(200), display_position, version”, “Unique(product_id, display_position), tối đa 10 ảnh, alt text 1–200”; reference có “released_at nullable”, “Unique(media_object_id, owner_module, owner_record_ref)”. Lưu checksum/content_type/uploaded_by/command_id/created_at; FK restrict, không cascade hard-delete lịch sử. FR-008.
+- [ ] T015 Sau T004/T014, thêm dependency pin đã review trong `ppswbs_backend/pom.xml`, environment binding tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/infrastructure/CloudinaryMediaConfiguration.java`, MediaStoragePort tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/MediaStoragePort.java` và adapter tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/infrastructure/CloudinaryMediaStorageAdapter.java`. Signed backend upload với deterministic public_id/type=authenticated/overwrite=false; verifyReadable/open/destroy đúng metadata, missing khác transient error. Checksum đối chiếu retry, không lộ URL ký/secret, không đổi delivery type khi publish; không remote call dưới domain lock.
+- [ ] T016 Sau T009/T010/T014/T015, tạo staging/reference services tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/CatalogueMediaService.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/MediaReferenceService.java`: reserve actor/command/checksum trước upload, READY chỉ sau verify, reconcile timeout retry cùng key; JPEG/PNG/WebP cần MIME/signature/decodability đồng nhất, một file/request <=5.000.000 bytes, multipart transport limit 5.100.000 bytes theo contract. Attach/retain cùng transaction ghi registry, media locks sorted, chặn DELETE_PENDING; không tự xóa khi detach/soft-delete. FR-008/026/028.
+- [ ] T017 Sau T001 và schema review, tạo migration filename đã cấp trong `ppswbs_backend/src/main/resources/db/migration/` từ `ppswbs-spec/features/002-product-management/data-model.md`: đủ 11 bảng catalogue, FK restrict/unique/check/index, supporting key cho circular variant/proposal references. Giữ nguyên “Unique(product_id, ring_size), unique sku”, pending proposal pointer, unique application/proposal và media/receipt keys; không tạo bảng role/session/MFA/hold/order/credential. Không sửa V1–V3, seed provider/role, reset dữ liệu hoặc coi H2 là proof MySQL.
+- [ ] T018 [P] Sau Phase 1, chuẩn bị MySQL 8.4 test configuration tại `ppswbs_backend/src/test/resources/application-catalogue-mysql-test.properties` và reusable environment/clock/actor fixtures tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/support/CatalogueTestSupport.java`. Datasource external disposable, kiểm tra product/version và từ chối H2, environment override được hardcoded test defaults; dữ liệu Member/workshop cũ, categories active/inactive, size 5–29 và actors không chứa secret. Real identity/media/hold cases cần environments từ owner; fixture unit scope không trở thành production fallback hoặc integration evidence.
+- [ ] T019 Sau T003/T005 và trước quantity/public integration, khai báo AvailabilityGuardPort/immutable snapshots tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/facade/AvailabilityGuardPort.java`, binding tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/CatalogueAvailabilityService.java`. readSnapshots batch và withGuard giữ source lock tới commit, stable guard khi chưa có hold, asOf UTC/deadline từ FE-08; kết nối adapter thật owner FE-08 cung cấp. Không import readyringsales entities/repositories hoặc tạo catalogue-owned hold lifecycle; missing/unverifiable trả AVAILABILITY_DEPENDENCY_UNAVAILABLE, không zero-held fallback. FR-019/020/024.
+
+**Checkpoint**: Foundation đáp ứng dependency thật, module/identity boundary, schema, audit/receipt và media staging. Khả năng dùng fixture để test domain không thay điều kiện tích hợp của T002/T003.
+
+## Phase 3: US1 — Tạo và tra cứu sản phẩm nháp (P1) — MVP nội bộ
+
+**Goal**: Staff/Manager có quyền tạo draft với size/SKU cố định và tìm lại dữ liệu quản trị.
+
+**Independent Test**: Category active đã persist; tạo size 5/12, SKU SP000123-S05/SP000123-S12, giá áp dụng null, ảnh rỗng vẫn lưu; tìm theo mã/tên/SKU, phân trang 20; denied actors và retry không tạo trùng. US1.1–10, V-01/02/11/13; chưa cần public checkout.
+
+- [ ] T020 [P] [US1] Sau Phase 2, viết coverage biên SKU/size/amount/trim/domain invariants tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueDomainTests.java`: mã dưới/trên 6 chữ số, đủ 25 size 5–29, 4/30/noninteger/duplicate, zero/negative price, overflow/Unicode boundaries, không size mutation/khắc/client SKU. FR-004–007, SC-003.
+- [ ] T021 [P] [US1] Sau Phase 2, viết US1 API/security/atomic rollback/replay coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueApiIT.java`: Guest/Member/inactive/missing privilege denied, bearer quá 8 giờ từ auth_time hoặc revoked bị 401, no auto-role, creation không ảnh hợp lệ, receipt auth/digest/lost response, q/page/DTO errors. FR-001–007/026–028/038; integration identity dùng dependency T002.
+- [ ] T022 [P] [US1] Tạo product entity/repository tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/domain/Product.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/infrastructure/ProductRepository.java`: “name VARCHAR(200), description TEXT, category_id FK, published, first_published_at nullable, deleted_at/by nullable, content_version, version, created_at/updated_at”; “Tên 1–200, mô tả 1–5.000”, “first_published_at chỉ được đặt lần đầu, không reset khi ẩn.” deleted_at chặn public/commands; category inactive không rewrite history. Scalar/version/timestamp theo T006, identity không tái cấp sau xóa mềm.
+- [ ] T023 [P] [US1] Tạo variant entity/repository/SKU generator tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/domain/ProductVariant.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/infrastructure/ProductVariantRepository.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/SkuGenerator.java`: “ring_size SMALLINT, sku VARCHAR(25), remaining_unsold DECIMAL(19,0), sale_enabled, applied_price DECIMAL(19,0) nullable, applied_proposal_id nullable, applied_sequence, pending_proposal_id nullable, version”, “Unique(product_id, ring_size), unique sku; size 5–29 cố định sau tạo; 1–25 rows/product”, “SKU tối đa 2 + 19 + 2 + 2 = 25 ASCII chars”, “remaining_unsold >= held under guard.” Giá null trước áp dụng; SKU SP{productNumber tối thiểu 6 chữ số}-S{size 2 chữ số}, không sửa/cắt/tái dùng. saleEnabled=true ban đầu không cấp quyền mua.
+- [ ] T024 [US1] Sau T011/T022/T023, bổ sung JPA pessimistic/optimistic lock coordination tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/CatalogueLockCoordinator.java` và các repository đã nêu: identity prefix → sorted category IDs → product IDs → variant IDs → stable source guard; category chuyển cần khóa source/target. Product @Version/contentVersion và variant @Version/appliedSequence riêng; không gọi remote provider hoặc đảo lock order, timeout/deadlock rollback typed retryable error. FR-026.
+- [ ] T025 [US1] Sau T009–T016/T022–T024, tạo draft use case tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/CreateProductService.java`: validate active category, scalar constraints, 1–25 unique configured sizes; cấp product ID/SKU, draft review/proposals, remaining và image references (có thể rỗng) trong transaction cùng audit/receipt. Không tự approve/apply/publish; không persisted partial data khi audit/attach lỗi. FR-004–009/026–028.
+- [ ] T026 [US1] Tạo quản trị query/DTO tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/ManagementProductQueryService.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/ManagementProductDtos.java`: tìm mã/tên/SKU, trả matched size, category/published filters, q <=200 sau trim, page 20/thứ tự ổn định; loại deleted khỏi normal list, tách review/proposed/approved/applied/publication fields. FR-003, A-002.
+- [ ] T027 [US1] Sau T007/T008/T010/T025/T026, expose listManagementProducts/createProduct/getManagementProduct tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/ManagementProductApiController.java` và getCommandReceipt tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/CommandReceiptApiController.java`; khớp OpenAPI, command UUID/digest/action query, auth trước resource lookup, 404 unknown receipt không khẳng định command chưa xử lí. Không expose JPA/provider fields.
+- [ ] T028 [US1] Tạo màn hình quản trị sản phẩm (danh sách, tạo mới, chi tiết) trong React + Vite tại `ppswbs_frontend/src/features/catalogue/management/` (vị trí dự kiến; `ppswbs_frontend/` chưa khởi tạo, cấu trúc do kế hoạch frontend chốt), gọi REST `/api/v1/catalogue-management/products`; nhãn và thông báo vi/en theo cơ chế i18n frontend đã chốt. Create chọn size chỉ lúc tạo; field error từ typed error gắn đúng trường và giữ dữ liệu đã nhập, sinh commandId và gửi expectedVersion, đủ loading/empty/validation/success/failure; thành công điều hướng client tới chi tiết/danh sách. Chạy lại T020/T021 trước checkpoint.
+
+**Checkpoint**: MVP nội bộ US1 hoàn chỉnh với real authorized actors và persisted category fixture; chưa tuyên bố shop có luồng bán công khai hoặc category management UI.
+
+## Phase 4: US2 — Gửi và phê duyệt sản phẩm mới (P1)
+
+**Goal**: Gửi toàn bộ hồ sơ cùng các giá size; Manager duyệt/từ chối đúng revision, được tự duyệt.
+
+**Independent Test**: Draft có ảnh READY và mọi giá size; submit/approve/reject/resubmit, stale decision và audit rollback; chưa apply/public. US2.1–7, V-03; ảnh chuẩn bị qua staging service T016, không cần UI chỉnh ảnh US4.
+
+- [ ] T029 [US2] Sau US1, viết coverage whole-review atomicity/self-approval/revision/reject reason/cancel/replay tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueReviewIT.java`; Staff approve 403, thiếu ảnh/category/price bị chặn, concurrent submissions không tạo hai pending/size, snapshot không drift, failed audit không partial approve. FR-009–011/013/026–028.
+- [ ] T030 [US2] Tạo snapshot/submission service tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/ProductReviewService.java`: validate version/content/active category/ít nhất một usable READY image/giá mọi size, capture immutable content/category/media/variant/proposal revision, persist PENDING và pending pointers cùng transaction/reference registry. Submit cùng nội dung không yêu cầu gửi giá hai lần. FR-009/013.
+- [ ] T031 [US2] Trong `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/ProductReviewService.java`, thêm Manager decision theo reviewId/reviewRevision/contentVersion/prices đầy đủ đúng mọi variant; APPROVE cho điều chỉnh approvedPrice hợp lệ, REJECT reason 1–2.000 sau trim. Commit review và mọi size decision cùng audit/receipt; self-approval hợp lệ, hủy form không gọi command, không apply/publish. FR-002/010/014.
+- [ ] T032 [US2] Tạo invalidation coordinator tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/ProductReviewInvalidationService.java`: trước firstPublishedAt, content/image/proposed-price edit đổi contentVersion/revision và làm review/proposals cũ ineffective cho publication; giữ decision/application lịch sử. quantity/hold/saleEnabled không tự invalidation; sau first publication không buộc content duyệt lại. Dùng chung từ US4/US5. FR-011/012/013.
+- [ ] T033 [US2] Expose submitProductReview/decideProductReview tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/ProductReviewApiController.java` và DTO tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/ProductReviewDtos.java`: payload/decision branches/required reason/approved prices theo OpenAPI, no extra fields, version/idempotency và safe stale/deleted denial.
+- [ ] T034 [US2] Thêm màn hình gửi duyệt/quyết định/từ chối/lịch sử trong `ppswbs_frontend/src/features/catalogue/management/review/` (vị trí dự kiến; `ppswbs_frontend/` chưa khởi tạo, cấu trúc do kế hoạch frontend chốt), gọi `review-submissions`/`review-decisions`, liên kết từ màn hình chi tiết sản phẩm. Hiển thị đúng snapshot và quantity hiện tại riêng, lý do Manager lỗi vẫn giữ dữ liệu đã nhập, hủy không gọi API ghi, 409 tải latest để xác nhận lại. Chạy lại T029 và US1 regression.
+
+**Checkpoint**: Review đã duyệt chỉ tạo approved prices; catalogue vẫn chưa public và chưa có giá áp dụng tự động.
+
+## Phase 5: US3 — Áp dụng giá và công khai lần đầu (P1)
+
+**Goal**: Apply đúng approved revision rồi chủ động publish, cho phép product hết hàng xuất hiện.
+
+**Independent Test**: Reviewed product; thiếu một applied price không publish, apply đủ rồi publish; quantity=0 không chặn; stale apply không ghi đè. US3.1–6, V-04; public projection fixture/service được kiểm chứng ở US8.
+
+- [ ] T035 [US3] Sau US2, viết apply/publication integration coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CataloguePublicationIT.java`: approved chưa applied, amount/size/terms/revision sai, missing image/category, lost-response replay, stale base sequence và zero stock; kiểm tra publication state/persisted price/audit riêng trước public UI. FR-015–018/026–028.
+- [ ] T036 [US3] Tạo application entity/repository tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/domain/PriceApplication.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/infrastructure/PriceApplicationRepository.java`: “variant_id FK, proposal_id FK, applied_sequence, old_amount nullable, new_amount, actor_id, applied_at”; “Unique(variant_id, applied_sequence), unique proposal_id cho một lần áp dụng; new_amount khớp approved_amount của revision còn hiệu lực. Không áp dụng proposal có base sequence cũ sau giá mới hơn.” BigInteger/DECIMAL/timestamps theo T006. FR-015/016.
+- [ ] T037 [US3] Tạo apply service tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/PriceApplicationService.java`: kiểm tra quyền, đúng variant/currency/terms/current approved proposal/baseAppliedSequence và valid initial review; không nhận amount mới từ client. Lock/update appliedPrice/appliedSequence/application/audit/receipt atomically; same proposal không apply lần hai, không overwrite giá mới hoặc thay transaction snapshot FE-08. FR-015/016/024.
+- [ ] T038 [US3] Tạo eligibility/publication service tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/ProductPublicationService.java`: chưa deleted, valid initial review chỉ trước firstPublishedAt, content/category/media hợp lệ, mọi size có valid approved applied price; quantity=0 không chặn. firstPublishedAt chỉ đặt một lần, explicit publication và replay no-change, không sinh hold. Chuẩn bị cùng gate cho unpublish/republish US6. FR-017/018/020.
+- [ ] T039 [US3] Expose applyApprovedPrice/setProductPublication tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/PriceApplicationApiController.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/ProductPublicationApiController.java`; expectedVersion/idempotency/typed prerequisites theo OpenAPI, approve không gọi các endpoint này ngầm.
+- [ ] T040 [US3] Thêm màn hình áp dụng giá/công khai trong `ppswbs_frontend/src/features/catalogue/management/publication/` (vị trí dự kiến; `ppswbs_frontend/` chưa khởi tạo, cấu trúc do kế hoạch frontend chốt), gọi publication và price-application operations, liên kết từ chi tiết sản phẩm; trình bày proposed/approved/applied/publication riêng và prerequisite errors theo typed error. Chạy lại T035; không coi UI publish là checkout integration.
+
+**Checkpoint**: Tạo → duyệt → áp dụng → công khai là các command riêng; public browsing hoàn chỉnh phụ thuộc US8.
+
+## Phase 6: US4 — Cập nhật nội dung, ảnh và số lượng (P1)
+
+**Goal**: Sửa trực tiếp nội dung sau lần public đầu, quản lí ảnh qua Cloudinary và lượng bán theo real held guard; giữ cố định size/SKU.
+
+**Independent Test**: Product đã first-published (kể cả đang ẩn), remaining=10/held=2, update xuống 1 bị chặn và xuống 2 hợp lệ khi hold không đổi; sửa ảnh/content không đổi giao dịch cũ, không gỡ ảnh cuối đang public, cleanup an toàn với attach đồng thời. US4.1–9, V-05/06/13/14.
+
+- [ ] T041 [P] [US4] Sau US3, viết media/content/cleanup coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueMediaIT.java`: 10/11 ảnh, JPEG/PNG/WebP signature/byte/alt/order boundaries, ảnh cuối public, foreign actor media, upload/attach lỗi, retry checksum, 24h/30 ngày/reference guard và attach-delete race. Domain assertions dùng controlled port; Cloudinary thật cần T051, không gọi fixture là provider integration. FR-008/011/012/026/028.
+- [ ] T042 [P] [US4] Sau US3/T003/T019, viết quantity/source guard integration coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueQuantityIT.java`: 10−2=8, reject remaining<held, stale version/changed hold, barrier race với create/settle/release và stable guard khi chưa có hold row; real MySQL/adapter FE-08, source unavailable 503 thay vì held=0. FR-019/020/024/026.
+- [ ] T043 [US4] Tạo content update service tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/UpdateProductService.java`: tên/mô tả/category theo T006/T022, khóa source/target category; trước firstPublishedAt gọi T032 invalidation, sau đó direct edit kể cả đang hidden. Nếu published phải giữ đủ public prerequisites; reject variants/size/SKU/engraving/price fields, giữ audit/history và old accepted terms. FR-005/011/012/024/026.
+- [ ] T044 [US4] Expose uploadCatalogueMedia tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/CatalogueMediaUploadApiController.java` và thêm màn hình tải ảnh trong `ppswbs_frontend/src/features/catalogue/management/media/` (vị trí dự kiến; `ppswbs_frontend/` chưa khởi tạo, cấu trúc do kế hoạch frontend chốt); API gọi staging service T016, một verified file/request, trả mediaId/state không provider URL, lỗi không attach tự động. Frontend gửi multipart tới `media-uploads` rồi attach bằng mediaId qua operation riêng, hiển thị tiến trình/lỗi/thử lại cùng commandId. FR-008/038.
+- [ ] T045 [US4] Sau T043/T044, tạo image replacement service tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/ProductImageService.java`: validated READY ownership/registry, “Unique(product_id, display_position), tối đa 10 ảnh, alt text 1–200”; reorder tránh unique collision bằng JPA trong transaction. Reject gỡ ảnh cuối public; pre-first-public invalidation theo T032; detach giữ media/history, attach từ chối DELETE_PENDING, provider calls ngoài khóa. FR-008/011/012/024/026.
+- [ ] T046 [US4] Tạo quantity update service tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/VariantQuantityService.java`: remainingUnsold global theo T006, không theo chi nhánh, check current variant.version và valid held snapshot trong withGuard giữ tới commit cùng quantity/audit/receipt. Không hủy/giải phóng hold để ép giảm, không cho stock edit invalidation review/price; stale/unavailable có lỗi riêng và giữ dữ liệu. FR-019/020/024/026.
+- [ ] T047 [US4] Tạo cleanup job/service tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/CatalogueMediaCleanupService.java`: never-attached >=24h không còn dùng, detached >=30 ngày không còn bất cứ reference nào; lịch sử giữ theo owning record. Lock media IDs sorted, kiểm tra registry/state, mark DELETE_PENDING/commit trước signed destroy ngoài transaction; missing success, transient retry idempotent, attach/retain không phục hồi object đang xóa. Không dùng soft-delete hoặc unknown references làm quyền xóa; audit không chứa image payload. FR-008/024/027.
+- [ ] T048 [US4] Bổ sung retainMediaReferences và release theo owning-record eligibility vào `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/facade/CatalogueSalesFacade.java`, implementation tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/CatalogueSalesService.java` dùng MediaReferenceService T016. FE-08 retain trước commit accepted snapshot, không export JPA hoặc đọc bảng order; historical media truy cập qua trusted consumer đã xác minh. Reference unknown chặn cleanup, soft-delete không release history; media locks không gọi hold source ngược. FR-008/024.
+- [ ] T049 [US4] Expose updateProduct/replaceProductImages/setVariantQuantity tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/ManagementProductApiController.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/ProductImageApiController.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/VariantQuantityApiController.java`. DTO/expectedVersion/request digest/errors theo OpenAPI; product PUT không có variants hoặc direct price, mutation lỗi không partial update.
+- [ ] T050 [US4] Thêm màn hình sửa nội dung/thay ảnh/lượng bán trong `ppswbs_frontend/src/features/catalogue/management/` (vị trí dự kiến; `ppswbs_frontend/` chưa khởi tạo, cấu trúc do kế hoạch frontend chốt) gọi `PUT products/{id}`, `PUT products/{id}/images`, `PUT variants/{id}/quantity`. Size/SKU read-only, available/held/remaining phân biệt, 409 cho xem latest và xác nhận lại; lỗi giữ dữ liệu đã nhập. Chạy T041/T042 và regression API/UI.
+- [ ] T051 [US4] Kiểm chứng Cloudinary adapter thật trong test namespace tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueCloudinaryIT.java`: signed authenticated upload/open/destroy đúng metadata, original/derived unsigned bị chặn, timeout reconciliation không duplicate/overwrite, actor ownership/READY failure, cleanup giữ ảnh có reference; không lộ signed URL/key qua response/log. Evidence V-14 tại `ppswbs-spec/features/002-product-management/validation-report.md`; thiếu environment ghi NOT RUN, không dùng mocked port thay bằng chứng provider.
+
+**Checkpoint**: Nội dung/số lượng/ảnh cập nhật an toàn; FE-08 snapshot giữ nguyên và media lifecycle không xóa lịch sử.
+
+## Phase 7: US5 — Thay đổi giá cho size đã có (P1)
+
+**Goal**: Draft/submit/revise/decide giá từng size, chỉ một pending revision; apply riêng và không ảnh hưởng giá giao dịch cũ.
+
+**Independent Test**: Product public có accepted hold, hai đề xuất đồng thời cùng size, sửa proposal thành revision mới, approve/reject/apply đúng sequence; FE-04 vắng vẫn quyết định thủ công. US5.1–6, V-03/04/11/14.
+
+- [ ] T052 [US5] Sau US3/US4, viết proposal revision/decision/concurrency coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CataloguePriceIT.java`: PENDING uniqueness kể cả initial review, reject second independent draft/submit khi pending, revision supersedes, Manager self-approval/manual decision khi AI không có, reject reason/amount fields, stale apply không overwrite. FR-013–016/026–028.
+- [ ] T053 [US5] Tạo create/revise/submit service tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/PriceProposalService.java`: amount/size/terms/version theo T006/T012, draft không đổi applied price/publication. Lock variant/current pending pointer, chặn proposal độc lập thứ hai khi pending, revision mới là row mới và clear/supersede old effect; submit mới đặt đúng một pending. Trước firstPublishedAt gọi review invalidation T032; không inherit approval cũ. FR-011/013.
+- [ ] T054 [US5] Trong `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/PriceProposalService.java`, thêm Manager-only decision cho revision PENDING hiện hành: APPROVE/adjust approvedPrice hợp lệ, REJECT reason 1–2.000 sau trim/không amount, lưu actor/time/terms/input và audit/receipt. Không phụ thuộc AI/FE-04, không tự apply/publish; initial whole-review phải đi ProductReviewService, không duyệt lẻ để né hồ sơ. FR-002/014/016.
+- [ ] T055 [US5] Tích hợp revision và current applied sequence mới vào `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/PriceApplicationService.java` và quản trị projection tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/ManagementProductQueryService.java`. Apply dùng chung command T037, kiểm tra đúng immutable approved amount/currency/terms/base sequence, lưu old/new và không sửa accepted hold/order; pending/rejected/approved price hiển thị riêng, giá bán hiện hành không mất trong lúc chờ. FR-015/016/024.
+- [ ] T056 [US5] Expose createPriceProposal/revisePriceProposal/submitPriceProposal/decidePriceProposal tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/PriceProposalApiController.java` và DTO tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/PriceProposalDtos.java`; đúng routes/strict branch DTOs/version/idempotency/409 codes theo OpenAPI, API không nhận direct sale-price write.
+- [ ] T057 [US5] Tạo màn hình đề xuất giá (chi tiết/nháp/revise/submit/decision/apply) trong `ppswbs_frontend/src/features/catalogue/management/price/` (vị trí dự kiến; `ppswbs_frontend/` chưa khởi tạo, cấu trúc do kế hoạch frontend chốt), liên kết từ chi tiết sản phẩm. Hiện revision/terms/proposed/approved/applied, pending conflict hướng dẫn revise, Manager tự duyệt; không thêm AI flow hoặc amount field ở apply. Chạy lại T052.
+- [ ] T058 [US5] Sau dependency T003 có accepted hold thật, viết giá cũ/deadline/snapshot preservation và retention coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueAcceptedPriceIT.java`: price application mới chỉ tác động sale context mới, old accepted terms không đổi; “Business audit giữ 5 năm từ sự kiện theo Report 3”, receipt tối thiểu 5 năm từ commit không full request/token. Test clock trước/đúng mốc, không purge sớm hoặc replay resurrect; fixture-only không được nhận đã tích hợp FE-08. FR-016/024/027/028.
+
+**Checkpoint**: Quyết định giá luôn qua Manager và apply riêng; duyệt thủ công không bị chặn bởi FE-04.
+
+## Phase 8: US6 — Ẩn, ngừng bán và xóa sản phẩm (P1)
+
+**Goal**: Ngừng bán size, ẩn/công khai lại, soft-delete không restore; ngăn mua mới và giữ giao dịch đã chấp nhận.
+
+**Independent Test**: Product hai size, accepted hold/order thật; lần lượt disable size/unpublish/republish/delete mọi state và barrier race với hold/approve/apply. Không restore, đổi quantity hoặc hủy giao dịch cũ. US6.1–7, V-07/11.
+
+- [ ] T059 [US6] Sau US3/US4/US5, viết lifecycle/stale/deleted/replay coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueLifecycleIT.java`: disable giữ remaining, republish check prerequisites/firstPublishedAt, delete draft/pending/approved/public/hidden, cancel không mutation, version conflict, old URLs/commands không resurrect. FR-018/021–025.
+- [ ] T060 [US6] Tạo sale-status service tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/VariantSaleStatusService.java`: ENABLED ↔ DISABLED cho size đã có, version/current permission, mở lại kiểm tra dữ liệu/giá, không đổi size/SKU/quantity/giá/publication/variant khác. Disable chặn new sale gate nhưng giữ nhãn/quantity và accepted holds. FR-020/021/024.
+- [ ] T061 [US6] Tạo soft-delete service tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/DeleteProductService.java` và hoàn thiện unpublish/republish trong `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/ProductPublicationService.java`: “Any not-deleted → DELETED”, set deleted_at/by, effective publication=false, giữ identity/SKU/FK/history/images, không restore hoặc release references tự động. Deleted chặn edit/submit/decide/apply/publish/sale-enable/new hold; no-op replay auth đúng, cancel không command, không trừ/hoàn lượng vì hide/delete. FR-018/022–025.
+- [ ] T062 [US6] Hoàn thiện withLockedSaleContext/withLockedHistoricalContext/recordAcceptedSale tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/facade/CatalogueSalesFacade.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/CatalogueSalesService.java`. New sale phải public/sale/price/current availability gate; historical path chỉ trusted acceptedTransactionRef đã được FE-08 xác minh, cho settle/release giao dịch cũ dù hidden/deleted. operationRef duy nhất chốt quantity đúng một lần trong cùng guarded local transaction với FE-08, kiểm tra remaining_after theo snapshot post-settlement, rollback cả hai khi lỗi. Không tạo hold/payment/order lifecycle trong catalogue. FR-020/023–025.
+- [ ] T063 [US6] Expose softDeleteProduct/setVariantSaleStatus tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/ManagementProductApiController.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/VariantSaleStatusApiController.java`; DELETE expectedVersion query + Idempotency-Key, sale-status strict body; dùng setProductPublication T039 cho hide/republish, không tạo restore endpoint.
+- [ ] T064 [US6] Thêm hộp thoại xác nhận xóa và điều khiển ẩn/mở bán-ngừng bán trong `ppswbs_frontend/src/features/catalogue/management/` (vị trí dự kiến; `ppswbs_frontend/` chưa khởi tạo, cấu trúc do kế hoạch frontend chốt). Xóa có xác nhận riêng và hủy không gọi API ghi, phân biệt hide/disable/delete, gửi expectedVersion, xử lý stale latest view. Chạy lại T059.
+- [ ] T065 [US6] Sau T003/T048/T060–T062, viết real-source races và old payment/hold preservation tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueLifecycleConcurrencyIT.java`: barrier delete vs new-hold/approve/apply/publish, settle/release sau hidden/deleted, duplicate accepted sale không trừ lần hai, rollback hai module và image snapshot còn đọc qua trusted boundary. Dùng MySQL/FE-08 adapter thật, gồm chưa có hold row; không giả xác nhận thanh toán bằng catalogue fixture. FR-024–026, SC-002/004.
+
+**Checkpoint**: Sản phẩm đã xóa không sống lại; các nghĩa vụ/giữ/giá/thời hạn đã chấp nhận vẫn được xử lí đúng tại FE-08.
+
+## Phase 9: US8 — Tra cứu catalogue và chọn size (P1)
+
+**Goal**: Public search/filter/sort/detail/media theo đúng applied price và khả dụng của cùng một size; chỉ chuyển lựa chọn sang FE-08.
+
+**Independent Test**: Guest đọc tập draft/public/hidden/deleted/inactive-category/sold-out/disabled; case size rẻ ngừng bán + size đắt mua được không được vượt filter; mất ảnh/lỗi dependency khác empty. US8.1–11, V-09/10/13.
+
+- [ ] T066 [US8] Sau US3/US4/US6, viết public contract/predicate/filter/sort coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CataloguePublicIT.java`: hidden/deleted/draft/proposal isolation, category inactive, range inclusive, same-variant buyability, sold-out không tự biến mất, max q/page/sort tie, `%`/`_` literal và media outage vs empty. FR-020/031–036, SC-005.
+- [ ] T067 [US8] Tạo public eligibility/availability projection tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/PublicCatalogueProjection.java`: published/not-deleted/active category/valid content/usable media/approved applied prices mọi size; available=remaining−real validHeld, canBuy thêm saleEnabled/available>0. Disabled size vẫn có label nhưng không chọn mua; không export proposal/hold nội bộ, recheck từng read. FR-020/031/034.
+- [ ] T068 [US8] Tạo query/filter/paging service tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/PublicCatalogueQueryService.java` và JPA query adapter tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/infrastructure/PublicCatalogueQueryRepository.java`: Unicode trim/case-insensitive literal substring tên/mô tả, q<=200, category/min/max/canBuy cùng thỏa, cùng variant thỏa giá+canBuy. Query ordered IDs/sort keys trước rồi batch fetch/availability, không collection-fetch pagination; mặc định name A–Z/id, price cả hai chiều dùng MIN của matching/displayed variants, newest createdAt/id, 20 products/page. Invalid filter/range/sort/category lỗi typed; không underfill trang bằng lọc sau khi đã phân trang. FR-032/033/035.
+- [ ] T069 [US8] Expose listPublicProducts/getPublicProduct/listPublicCategories tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/PublicProductApiController.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/PublicCategoryApiController.java` và DTO tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/PublicCatalogueDtos.java`: public no login, approved applied price string VND/range, variant size/available/canBuy, same-origin image URLs, matching page/sort contract; hidden/deleted/ineligible detail 404. FR-031–035.
+- [ ] T070 [US8] Expose getPublicProductMedia tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/PublicProductMediaController.java`: mediaId phải đang attached tới ít nhất một eligible public product, chưa DELETE_PENDING/DELETED và dùng được; fetch Cloudinary stream bằng signed URL nội bộ, return verified image content type/bytes và no-store, không redirect/expose URL. Ineligible 404, transient dependency 503; history qua trusted path T048/T062, không cho public bypass bằng mediaId cũ. FR-008/031/036.
+- [ ] T071 [US8] Tạo màn hình danh sách/chi tiết sản phẩm công khai trong `ppswbs_frontend/src/features/catalogue/public/` (vị trí dự kiến; `ppswbs_frontend/` chưa khởi tạo, cấu trúc do kế hoạch frontend chốt), gọi `GET /api/v1/products` và `/api/v1/product-categories`. Search/filter/sort/paging giữ tiêu chí trong trạng thái client/URL; giá VND/range/disabled/sold-out hiển thị đúng, invalid size không tạo biến thể; empty/error/retry riêng, nhãn có thể truy cập, dữ liệu được escape, vi/en theo baseline. FR-034–038.
+- [ ] T072 [US8] Sau T003 có handoff contract owner FE-08, nối lựa chọn productId/variantId/quantity từ `ppswbs_frontend/src/features/catalogue/public/` (vị trí dự kiến; `ppswbs_frontend/` chưa khởi tạo, cấu trúc do kế hoạch frontend chốt). Chỉ chuyển khi chọn Mua ngay/Thêm giỏ, GET browse không tạo cart/order/payment/hold/voucher/points; FE-08 kiểm tra lại identity/eligibility/price và xác nhận giá thay đổi. Không tự đặt route hoặc gọi giữ hàng từ catalogue read; thiếu target contract giữ task chưa hoàn thành. FR-037.
+- [ ] T073 [US8] Hoàn thiện media unavailable/restore/dependency semantics tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/PublicCatalogueProjection.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/CatalogueMediaService.java`: mất toàn bộ ảnh dùng được loại public mà không đổi published/history; verify thành công phục hồi eligibility khi điều kiện khác đạt. Không fake stock/empty trong timeout; public reads không bảo đảm giá/hold tương lai, không thêm cache policy mới. FR-028/031/036.
+- [ ] T074 [US8] Bổ sung public API/recovery/handoff/DTO leakage coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CataloguePublicApiIT.java` và chạy lại T066: range đúng cùng size, label disabled, invalid size/filter, q 200/201, 20/page, tie sorting, old URL sau hide/delete, provider failure/recovery, browse zero writes và FE-08 handoff không giữ giá cũ. Ghi manual browser journey của frontend React vào `ppswbs-spec/features/002-product-management/validation-report.md`; chưa có integration environment thì ghi rõ NOT RUN. FR-031–038.
+
+**Checkpoint**: Catalogue công khai hoạt động đúng trên category dữ liệu thật; category lifecycle UI tiếp tục ở US7/P2.
+
+## Phase 10: US7 — Quản lí danh mục (P2)
+
+**Goal**: Staff có quyền tạo/sửa, xem tác động rồi kích hoạt/ngừng kích hoạt danh mục; giữ unique/history.
+
+**Independent Test**: Active/inactive categories có public/hidden/deleted products; create/rename case/trim collisions, impact confirmation/deactivate/reactivate; không unhide sản phẩm hoặc xóa reference. US7.1–5, V-08.
+
+- [ ] T075 [US7] Sau foundation/US1 và trước category writes, viết category boundary/permission/lifecycle coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueCategoryIT.java`: tên 1/200/201, mô tả optional 5.000/5.001, case/trim/NFC/dấu, unique kể cả inactive, Staff có quyền/không suy Manager permission, impact pagination, optimistic conflict/audit rollback và kích hoạt không unhide. FR-029/030.
+- [ ] T076 [US7] Tạo category CRUD/query service tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/ProductCategoryService.java`: entity/repo T011, active=true khi tạo, Unicode trim/NFC/lowercase Locale.ROOT/binary unique kể cả inactive; giữ hoa/thường/dấu display, required name 1–200/description nullable <=5.000. Staff category.manage hiện hành, expectedVersion/command/audit/receipt, concurrent duplicate map 409; không xóa category đã reference. FR-029.
+- [ ] T077 [US7] Thêm impact/activation vào `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/application/ProductCategoryService.java`: đọc count + paged affected products + current category version trước xác nhận, transaction category lock serialize với product update/publication/new hold. Inactive chặn public/new sale mà không đổi product.published/history/old accepted holds; reactivate chỉ làm eligible product còn public và đủ điều kiện xuất hiện, không auto-unhide. FR-030/024/026.
+- [ ] T078 [US7] Expose listManagementCategories/createCategory/updateCategory/getCategoryImpact/setCategoryActivation tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/ManagementCategoryApiController.java` và DTO tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/web/ManagementCategoryDtos.java`; exact OpenAPI routes/shape/version/idempotency, impact protected, không tạo DELETE category endpoint hoặc tự thêm Manager quyền danh mục.
+- [ ] T079 [US7] Tạo màn hình danh sách/sửa/xác nhận tác động danh mục trong `ppswbs_frontend/src/features/catalogue/management/categories/` (vị trí dự kiến; `ppswbs_frontend/` chưa khởi tạo, cấu trúc do kế hoạch frontend chốt). Show affected products/version, confirm/cancel riêng, lỗi giữ dữ liệu đã nhập, gửi commandId/expectedVersion; tích hợp danh mục lựa chọn khi tạo/sửa product mà không import entity cross-module.
+- [ ] T080 [US7] Viết MySQL concurrent duplicate name/category activation vs public-read/publication/new-hold coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueCategoryConcurrencyIT.java`; verify binary key semantics tiếng Việt/unique inactive, sorted source/target category locks, old snapshot/hold history không đổi, reactivate không restore deleted/hidden. Chạy lại T075/public regression; proof giữ hàng cần real FE-08 adapter T003. FR-024/026/029/030, V-08.
+
+**Checkpoint**: Tất cả 8 story có implementation và acceptance coverage, không đồng nghĩa mọi integration check đã chạy hoặc đạt.
+
+## Phase 11: Polish and cross-cutting verification
+
+**Purpose**: Chạy bằng chứng xuyên story, bảo toàn dữ liệu và handoff; không mở rộng phạm vi sản phẩm.
+
+- [ ] T081 [P] Sau mọi story, viết/chạy fresh/upgrade MySQL 8.4 migration coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueMySqlIT.java`: đủ 11 bảng, FK/check/unique/index/circular proposal references, bảo toàn Member/workshop records và catalogue history, audit rollback, MySQL collation/locking đúng; test thiếu môi trường phải fail/NOT RUN rõ, không silently H2. Không sửa/reset DB thật; V-12, Constitution IV.
+- [ ] T082 [P] Sau mọi story, kiểm tra boundary bằng `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/ModulithArchitectureTests.java` với ApplicationModules.verify() và real adapter dependency coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueDependenciesIT.java`. Identity/FE-08/Cloudinary phải có deliverable/evidence; missing dependency typed safe error, catalogue không import owner entity/repo hoặc giữ guard sai transaction. Không bật runtime fail-fast ngoài quyết định hiện hành, không gọi fixture pass là integration pass.
+- [ ] T083 Sau mọi controller hoàn tất, hoàn thiện `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueApiIT.java`: đối chiếu đủ 27 operationIds/43 schemas của `ppswbs-spec/features/002-product-management/contracts/product-management.openapi.json`, strict DTO/range/type/errors, bearer bắt buộc (cookie không thay bearer), phiên 8 giờ từ auth_time/revocation/action capability và không lộ draft/secret. Chạy regression Member/workshop; không sửa 001 authentication behavior để làm test đạt.
+- [ ] T084 Hoàn thiện cross-story locking/replay/rollback/retention coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/CatalogueConcurrencyIT.java`: delete vs publish/approve/apply/new hold, quantity vs settle/release, command receipt unique loser/lost response, audit failure rollback, media attach/retain/delete guard, lịch sử/receipts/audit giữ đủ thời hạn. Barrier hai transaction trên MySQL/real FE-08; không sequential-only concurrency test, không thêm queue/cache/fake source. V-06/07/11/14, SC-001–004/006.
+- [ ] T085 Rà toàn bộ màn hình và key vi/en trong `ppswbs_frontend/src/features/catalogue/` (vị trí dự kiến; `ppswbs_frontend/` chưa khởi tạo, cấu trúc do kế hoạch frontend chốt); bổ sung kiểm thử UI/API integration cho create/edit/upload/submit/decide/apply/publish/hide/delete/category/public scenarios. Nhãn/field errors/dữ liệu được escape, 409 latest view, 503 retry/receipt guidance nhất quán với typed error; không thêm backend password fallback hoặc backend-rendered form. V-13, FR-038.
+- [ ] T086 Chạy đầy đủ lệnh trong `ppswbs-spec/features/002-product-management/quickstart.md`, gồm `.\mvnw.cmd '-Dtest=Catalogue*Tests,Catalogue*IT,ModulithArchitectureTests' test` từ `ppswbs_backend/` để không bỏ các lớp story IT, rồi suite regression `test` theo cấu hình Surefire hiện hành; ghi revision/environment/MySQL version/commands/test counts và V-01–V-14 expected/actual/pass/fail/not-run tại `ppswbs-spec/features/002-product-management/validation-report.md`. Xác nhận tên test được discover thực sự, real identity/Cloudinary/FE-08 evidence; thiếu dependency không ghi pass hoặc enable quản trị. Không chạy production deployment.
+- [ ] T087 Đồng bộ actual validation commands/evidence links/remaining prerequisites tại `ppswbs-spec/features/002-product-management/quickstart.md`, `ppswbs-spec/features/002-product-management/blocker-report.md` và `ppswbs-spec/features/002-product-management/validation-report.md`; đối chiếu FR/SC/task/API coverage phía dưới với implementation thực. Chỉ đóng dependency khi có evidence, không tự đổi spec/plan/checklist thành approved, không commit/push/deploy hoặc sửa Member Profile từ task hoàn thiện tài liệu.
+
+**Checkpoint**: Chỉ báo implementation hoàn tất khi acceptance/integration/migration/security evidence bắt buộc thực sự đạt và được review; task checkbox không thay bằng chứng.
+
+## Dependencies and execution order
+
+### External prerequisites
+
+| Dependency | Required deliverable / tasks | Completion condition |
+| --- | --- | --- |
+| FE-01 / identity, G-01 | T002 → T007; các task quản trị sau đó | Owner có thiết kế MFA/recovery/assurance cụ thể và facade/session/capability thật, phiên nội bộ 8 giờ (tính từ auth_time) theo quyết định đã chốt. Thiếu deliverable ảnh hưởng implementation thì chưa qua foundation; không tự tạo hệ thống auth riêng. |
+| FE-08 / readyringsales, G-02 | T003 → T019 → T042/T048/T058/T062/T065/T067/T072/T080 | Real source/guard/accepted reference/handoff; deadline/price/hold lifecycle vẫn owner FE-08. Catalogue SPI có thể mô tả trước source code; nghiệm thu tích hợp không dùng zero-hold hoặc fixture-only. |
+| Cloudinary, G-03 | T004 → T015 → T016 → T044/T047/T051/T070 | SDK/config đã review, private authenticated namespace và account permissions cần thiết; adapter/evidence thật. Secrets qua môi trường, không chat/file committed; không billing/deploy từ task này. |
+| Retention, G-04 | T009/T010/T014/T016 → T047/T048/T058/T084 | Policy 24h/30 ngày/5 năm đã chốt; reference guard/cleanup/audit/receipt được kiểm chứng, không mở lại quyết định. |
+
+### Phase and story dependencies
+
+```text
+Setup T001–T004
+  -> Foundation T005–T019
+      -> US1 T020–T028
+          -> US2 T029–T034
+              -> US3 T035–T040
+                  -> US4 T041–T051
+                      -> US5 T052–T058
+                          -> US6 T059–T065
+                              -> US8 T066–T074 (P1)
+          -> US7 T075–T080 (P2, phase placed after all P1)
+All eight stories -> Polish T081–T087
+```
+
+Đây là thứ tự tích hợp bảo thủ, không tuyên bố các story độc lập dữ liệu hoàn toàn. US2 cần US1 và media staging foundation, không cần UI US4. US3 cần review US2. US4 cần first-public/price/hold baseline US3; US5 dùng chung invalidation/apply từ US2/US3 và preservation từ US4. US6 dùng guard/reference/price foundations đã tích hợp; US8 kiểm chứng public projection sau lifecycle đầy đủ. US7 write/UI có thể bắt đầu sau foundation+US1 nếu có nhân lực; public/hold impact test T080 cần US3/US6/US8 và dependency FE-08. Không đổi priority US7 từ P2 chỉ để có category fixture cho US1.
+
+Trong mỗi phase: dependency trước, coverage liên quan trước implementation, model/repository trước service, transaction/authorization trước controller/màn hình, rồi chạy lại coverage/evidence trước checkpoint. Không thực thi task mới nếu gate thiết kế/phạm vi cần thiết chưa đạt.
+
+### Parallel opportunities and examples per story
+
+| Scope | Safe parallel example | Prerequisite / limit |
+| --- | --- | --- |
+| Foundation | T009 audit, T010 receipts, T011 category, T012 proposals, T013 reviews, T014 media; T018 test support | Chỉ sau prerequisite từng task; file ownership tách biệt. T015→T016 tuần tự; T017 chỉ một người cấp/sửa migration. |
+| US1 | T020 domain tests + T021 API/web tests; sau đó T022 Product + T023 Variant | Phase 2 xong; JPA model dùng scalar foreign IDs/approved relationships, không cross-import làm cycle. T024/T025 cần cả hai entity xong. |
+| US2 | T033 API DTO/controller + T034 review view/template sau service T030–T032 | Hai tập file riêng; không đồng thời sửa product-detail với story khác. Không chạy T030 và T031 song song vì cùng service. |
+| US3 | T039 API controllers + T040 publication view/template sau T036–T038 | Service/contracts ổn định. T035 coverage chạy độc lập khi prerequisite story có sẵn. |
+| US4 | T041 media tests + T042 quantity tests; T045 image service + T046 quantity service sau T043/T044 | Không sửa cùng file. T047 cleanup và T048 reference facade phối hợp contract/lock scope, không đánh dấu độc lập khi API chưa thống nhất. |
+| US5 | T056 API/DTO + T057 proposal view/template sau T053–T055 | T053/T054 cùng PriceProposalService phải tuần tự; shared apply/projection không chỉnh đồng thời với US3/US8. |
+| US6 | T063 API controllers + T064 lifecycle views sau T060–T062 | Product API/view/detail là shared files với US1/US4, tránh merge/ghi đè. T065 đòi real source và hoàn thiện facade. |
+| US8 | T069 public product/category API + T071 public views sau T067/T068 | API/view files khác nhau; T073 sửa projection/media service phải hoàn tất trước chạy T066/T074 nghiệm thu. |
+| US7 | T078 category API/DTO + T079 category views sau T076/T077 | T075/T080 test classes riêng; T080 integration chờ related P1 stories. |
+| Polish | T081 migration evidence + T082 Modulith/dependency checks | Chạy database suites trên disposable namespaces/fixtures cách ly; không song song các test có chung external state. |
+
+`[P]` trong checklist chỉ đánh dấu task có thể lấy song song ngay trong nhóm nêu prerequisite. Các cặp API/view phía trên là cơ hội song song có điều kiện sau service, không phải quyền bỏ dependency hoặc tự khởi chạy agent.
+
+## Traceability
+
+### Requirements → tasks → acceptance evidence
+
+| Requirement | Tasks | Acceptance / planned evidence |
+| --- | --- | --- |
+| FR-001 | T002, T007, T021, T083 | US1.8–10, US8.1; V-01 |
+| FR-002 | T007, T021, T031, T054, T075 | US1.9, US2.3/6, US7.1; V-01 |
+| FR-003 | T026–T028 | US1.5/7; V-02 |
+| FR-004 | T006, T020, T022, T023, T025 | US1.1/4; V-02 |
+| FR-005 | T020, T023, T043, T049 | US1.4, US4.4; V-02/05 |
+| FR-006 | T020, T023, T025 | US1.2; SC-003, V-02 |
+| FR-007 | T021, T025, T028 | US1.1/3/6; V-02/11 |
+| FR-008 | T014–T016, T041, T044, T045, T047, T048, T051, T070 | US4.5/6/9; V-05/14 |
+| FR-009 | T013, T029, T030, T033 | US2.1/6; V-03 |
+| FR-010 | T029, T031, T033, T034 | US2.2–4/6/7; V-03 |
+| FR-011 | T029, T032, T043, T045, T053 | US2.5, US4.1; V-03/05 |
+| FR-012 | T032, T043, T045, T050 | US4.1; V-05 |
+| FR-013 | T012, T030, T052, T053, T056 | Clarification pending proposal; US5.1/5; V-03 |
+| FR-014 | T031, T052, T054, T057 | US2.3, US5.2/3; V-03/04 |
+| FR-015 | T035–T037, T039, T055 | US3.1/2/6, US5.4/5; V-04 |
+| FR-016 | T036, T037, T055, T058 | US5.1/4, US3.1; V-04/07 |
+| FR-017 | T035, T038–T040 | US3.3–5; SC-001, V-04 |
+| FR-018 | T038–T040, T059, T061, T064 | US3.6, US6.3; V-07/11 |
+| FR-019 | T019, T042, T046, T049 | US4.2/3; V-06 |
+| FR-020 | T019, T046, T060, T062, T067 | US4.2, US8.3–5; V-06/09 |
+| FR-021 | T059, T060, T063, T064 | US6.1/2; V-07 |
+| FR-022 | T059, T061, T063, T064 | US6.4/5; V-07 |
+| FR-023 | T059, T061–T063, T065 | US6.4/7; V-07 |
+| FR-024 | T003, T042, T048, T058, T062, T065, T080 | US4.7, US5.4, US6.6; SC-004, V-06/07 |
+| FR-025 | T059, T061, T065, T084 | US6.5/7; SC-002, V-07 |
+| FR-026 | T008–T010, T024, T025, T042, T046, T084 | US1.6, US2.7, US4.3/6, US7.1; V-06/11/12 |
+| FR-027 | T009, T031, T037, T047, T058, T076, T084 | US5.6, audit mutation scenarios; V-11/14 |
+| FR-028 | T010, T021, T027, T037, T058, T073, T084 | US1.6, US3.6, US5.6, US8.9; V-10/11/14 |
+| FR-029 | T011, T075, T076, T078–T080 | US7.1/4/5; V-08 |
+| FR-030 | T075, T077–T080 | US7.2–4; V-08 |
+| FR-031 | T066, T067, T069, T070, T073, T074 | US8.1/9; V-09/10 |
+| FR-032 | T066, T068, T069, T071, T074 | US8.2/8/11; V-09 |
+| FR-033 | T066–T068, T074 | US8.3–5; SC-005, V-09 |
+| FR-034 | T067, T069, T071, T074 | US8.1/3/5/7; V-09 |
+| FR-035 | T066, T068, T069, T071, T074 | US8.6/11; V-09 |
+| FR-036 | T041, T066, T070, T073, T074 | US8.9; V-10/14 |
+| FR-037 | T003, T062, T071, T072, T074 | US8.10; V-09/13 |
+| FR-038 | T028, T034, T040, T044, T050, T057, T064, T071, T079, T085 | US4.8, SC-006; V-13 |
+
+SC-001: T029/T035/T066; SC-002: T021/T059/T065/T084; SC-003: T020/T023; SC-004: T042/T058/T065/T080; SC-005: T066/T068/T074; SC-006: T041/T075/T083/T085; SC-007: bảng 38 FR phía trên và T087. Các chỉ số này chỉ được nhận đạt khi T086 có kết quả chạy thực tương ứng.
+
+### OpenAPI operation coverage
+
+| Operation ID | Implementation task | Story |
+| --- | --- | --- |
+| listPublicProducts | T069 | US8 |
+| getPublicProduct | T069 | US8 |
+| listPublicCategories | T069 | US8 |
+| getPublicProductMedia | T070 | US8 |
+| listManagementProducts | T027 | US1 |
+| createProduct | T027 | US1 |
+| getManagementProduct | T027 | US1 |
+| updateProduct | T049 | US4 |
+| softDeleteProduct | T063 | US6 |
+| replaceProductImages | T049 | US4 |
+| uploadCatalogueMedia | T044 | US4 |
+| submitProductReview | T033 | US2 |
+| decideProductReview | T033 | US2 |
+| setProductPublication | T039, T063 | US3/US6 |
+| setVariantQuantity | T049 | US4 |
+| setVariantSaleStatus | T063 | US6 |
+| createPriceProposal | T056 | US5 |
+| revisePriceProposal | T056 | US5 |
+| submitPriceProposal | T056 | US5 |
+| decidePriceProposal | T056 | US5 |
+| applyApprovedPrice | T039, T055 | US3/US5 |
+| listManagementCategories | T078 | US7 |
+| createCategory | T078 | US7 |
+| updateCategory | T078 | US7 |
+| getCategoryImpact | T078 | US7 |
+| setCategoryActivation | T078 | US7 |
+| getCommandReceipt | T027 | US1/shared |
+
+### Data ownership coverage
+
+| Table | Model/use-case tasks | Schema / verification |
+| --- | --- | --- |
+| catalogue_categories | T011, T076, T077 | T017, T075, T080, T081 |
+| catalogue_products | T022, T025, T043, T061 | T017, T021, T059, T081 |
+| catalogue_variants | T023, T025, T046, T060 | T017, T020, T042, T081 |
+| catalogue_product_reviews | T013, T030–T032 | T017, T029, T081 |
+| catalogue_price_proposals | T012, T025, T030, T053, T054 | T017, T029, T052, T081 |
+| catalogue_price_applications | T036, T037 | T017, T035, T058, T081 |
+| catalogue_media_objects | T014–T016, T047 | T017, T041, T051, T081 |
+| catalogue_product_images | T014, T025, T045 | T017, T041, T081 |
+| catalogue_media_references | T014, T016, T030, T048 | T017, T041, T065, T081 |
+| catalogue_command_receipts | T010, T027 | T017, T021, T058, T084 |
+| catalogue_audit_events | T009, all mutations | T017, T029, T058, T084 |
+
+Data-model hiện có 11 bảng trong bảng entities; T017/T081 phải dùng đúng danh sách này, không tự thêm bảng hold hoặc role. Mỗi field/constraint/state thuộc task entity nêu trên và migration T017; các ghi chú về phiên/MFA không tạo thêm schema trong catalogue.
+
+## Implementation strategy
+
+### MVP first
+
+MVP nhỏ nhất là US1 nội bộ: Setup + Foundation + T020–T028. Có thể nghiệm thu tạo/tìm draft bằng category test fixture đã persist và actor nội bộ thật, chưa có luồng khách mua. Không deploy/demo production hoặc tuyên bố bán được khi chỉ xong US1.
+
+Mốc có ý nghĩa để demo toàn bộ FE-02 gồm US1–US6 + US8, với category tồn tại và các prerequisite thật; bổ sung US7 cho vận hành danh mục đầy đủ. Không tự bỏ P2/retention/soft-delete khỏi phạm vi đã giao để rút MVP.
+
+### Incremental delivery
+
+1. Hoàn thiện dependency/design review/analyze trước code; sau đó làm foundation.
+2. Hoàn thành US1 và nghiệm thu draft độc lập.
+3. Thêm US2/US3 để tách review/price application/publication; nghiệm thu state trước public UI.
+4. Thêm US4/US5/US6 để vận hành ảnh/lượng/giá và dừng bán/xóa an toàn.
+5. Thêm US8 public browsing/handoff, sau đó US7/P2 category lifecycle; chạy regression mỗi checkpoint.
+6. Chạy toàn bộ verification/migration/module/security/real adapter evidence và cập nhật actual status. Không đánh dấu DONE nếu thiếu evidence bắt buộc.
+
+## Task inventory and generation verification
+
+| Phase / story | Range | Count | Independent checkpoint |
+| --- | --- | --- | --- |
+| Setup | T001–T004 | 4 | Sources/prerequisites/SDK pin recorded |
+| Foundational | T005–T019 | 15 | Identity/schema/audit/receipt/media/availability boundaries |
+| US1 (P1) | T020–T028 | 9 | Draft create/search, fixed size/SKU, denied actors/replay |
+| US2 (P1) | T029–T034 | 6 | Whole-review approve/reject/self-approve/version |
+| US3 (P1) | T035–T040 | 6 | Exact applied price then explicit publication |
+| US4 (P1) | T041–T051 | 11 | Direct content/media/quantity update, cleanup/reference safety |
+| US5 (P1) | T052–T058 | 7 | One pending price/revision, Manager decision, preserved old terms |
+| US6 (P1) | T059–T065 | 7 | Disable/hide/delete vs new sale/old accepted transaction |
+| US8 (P1) | T066–T074 | 9 | Same-variant public filter/sort/media and FE-08 handoff |
+| US7 (P2) | T075–T080 | 6 | Unique categories/impact/activation/history |
+| Polish | T081–T087 | 7 | Complete fresh evidence and documentation |
+| Total | T001–T087 | 87 | All unchecked; no implementation claimed |
+
+Static check ngày 2026-10-24 đạt: 87 task IDs liên tục/unique, tất cả checkbox chưa tick, story labels đúng phase, mọi task có đường dẫn; đủ 8 story, 38 FR, 27 operationIds, 11 bảng dữ liệu và 9 source links tồn tại. Có 15 task đánh dấu `[P]` cùng ví dụ song song có điều kiện cho mọi story. Không có placeholder mẫu/conflict marker hoặc reference tới task ID không tồn tại. `git diff --check` không có lỗi whitespace. Đây là kiểm tra cấu trúc tài liệu, không thay speckit-analyze hay proof logic/implementation.
+
+Chưa chạy speckit-analyze hoặc bất kỳ runtime test/migration nào từ bước tạo tasks. Không có before_tasks/after_tasks hook vì `.specify/extensions.yml` không tồn tại. Git branch `khuong` giữ nguyên; không commit/push/deploy hoặc sửa production/test code.

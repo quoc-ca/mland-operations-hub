@@ -1,0 +1,2074 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "FE-06 Loyalty & Promotion API",
+    "version": "1.0.0",
+    "description": "PROPOSED design only. Shared verified bearer identity plus current local capability/ownership/privileged assurance required. The separate React + Vite frontend uses these REST operations with the same bearer; source-owned checkout integration is in interfaces.md. No public reserve/settle/earn/restore endpoints. All protected responses no-store."
+  },
+  "tags": [
+    {
+      "name": "Public promotions"
+    },
+    {
+      "name": "Manager programs"
+    },
+    {
+      "name": "Member loyalty"
+    },
+    {
+      "name": "Admin policy"
+    }
+  ],
+  "paths": {
+    "/api/v1/promotions": {
+      "get": {
+        "operationId": "listPublicPromotions",
+        "tags": [
+          "Public promotions"
+        ],
+        "summary": "listPublicPromotions",
+        "security": [],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        },
+        "description": "Only currently effective programs. Cards do not reserve quota or prove checkout eligibility."
+      }
+    },
+    "/api/v1/promotions/{promotionId}": {
+      "get": {
+        "operationId": "getPublicPromotion",
+        "tags": [
+          "Public promotions"
+        ],
+        "summary": "getPublicPromotion",
+        "security": [],
+        "parameters": [
+          {
+            "name": "promotionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/PositiveId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicPromotion"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        },
+        "description": "Public effective program details; inactive saved voucher information is returned by own wallet, not treated as redeemable."
+      }
+    },
+    "/api/v1/promotion-programs": {
+      "get": {
+        "operationId": "listPromotionPrograms",
+        "tags": [
+          "Manager programs"
+        ],
+        "summary": "listPromotionPrograms",
+        "security": [
+          {
+            "firebaseBearer": []
+          }
+        ],
+        "x-required-business-role": "MANAGER",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Scope"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ENABLED",
+                "PAUSED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPromotionProgram",
+        "tags": [
+          "Manager programs"
+        ],
+        "summary": "createPromotionProgram",
+        "security": [
+          {
+            "firebaseBearer": []
+          }
+        ],
+        "x-required-business-role": "MANAGER",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Same actor/action/key+same canonical request replays; changed payload gives 409."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProgram"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Program"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/promotion-programs/{programId}": {
+      "get": {
+        "operationId": "getPromotionProgram",
+        "tags": [
+          "Manager programs"
+        ],
+        "summary": "getPromotionProgram",
+        "security": [
+          {
+            "firebaseBearer": []
+          }
+        ],
+        "x-required-business-role": "MANAGER",
+        "parameters": [
+          {
+            "name": "programId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/PositiveId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Program"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updatePromotionProgram",
+        "tags": [
+          "Manager programs"
+        ],
+        "summary": "updatePromotionProgram",
+        "security": [
+          {
+            "firebaseBearer": []
+          }
+        ],
+        "x-required-business-role": "MANAGER",
+        "parameters": [
+          {
+            "name": "programId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/PositiveId"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Same actor/action/key+same canonical request replays; changed payload gives 409."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgramUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Program"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/promotion-programs/{programId}/pauses": {
+      "post": {
+        "operationId": "pausePromotionProgram",
+        "tags": [
+          "Manager programs"
+        ],
+        "summary": "pausePromotionProgram",
+        "security": [
+          {
+            "firebaseBearer": []
+          }
+        ],
+        "x-required-business-role": "MANAGER",
+        "parameters": [
+          {
+            "name": "programId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/PositiveId"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Same actor/action/key+same canonical request replays; changed payload gives 409."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PauseProgram"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Program"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/promotion-programs/{programId}/usage": {
+      "get": {
+        "operationId": "getPromotionUsage",
+        "tags": [
+          "Manager programs"
+        ],
+        "summary": "getPromotionUsage",
+        "security": [
+          {
+            "firebaseBearer": []
+          }
+        ],
+        "x-required-business-role": "MANAGER",
+        "parameters": [
+          {
+            "name": "programId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/PositiveId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        },
+        "description": "Return current usage totals excluding validly cancelled workshop bookings after applying their cancellation outcome; retain consumption/restoration history. Counters are never decremented again on replay."
+      }
+    },
+    "/api/v1/members/me/saved-vouchers": {
+      "get": {
+        "operationId": "listOwnSavedVouchers",
+        "tags": [
+          "Member loyalty"
+        ],
+        "summary": "listOwnSavedVouchers",
+        "security": [
+          {
+            "firebaseBearer": []
+          }
+        ],
+        "x-required-business-role": "MEMBER",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedVoucherPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/members/me/saved-vouchers/{programId}": {
+      "put": {
+        "operationId": "saveOwnVoucher",
+        "tags": [
+          "Member loyalty"
+        ],
+        "summary": "saveOwnVoucher",
+        "security": [
+          {
+            "firebaseBearer": []
+          }
+        ],
+        "x-required-business-role": "MEMBER",
+        "parameters": [
+          {
+            "name": "programId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/PositiveId"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Same actor/action/key+same canonical request replays; changed payload gives 409."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedVoucher"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        },
+        "description": "Save current voucher once; same resource is idempotent, no reservation/quota use. No memberId in input."
+      }
+    },
+    "/api/v1/members/me/loyalty-accounts/current": {
+      "get": {
+        "operationId": "getOwnLoyaltyAccount",
+        "tags": [
+          "Member loyalty"
+        ],
+        "summary": "getOwnLoyaltyAccount",
+        "security": [
+          {
+            "firebaseBearer": []
+          }
+        ],
+        "x-required-business-role": "MEMBER",
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/members/me/loyalty-transactions": {
+      "get": {
+        "operationId": "listOwnLoyaltyTransactions",
+        "tags": [
+          "Member loyalty"
+        ],
+        "summary": "listOwnLoyaltyTransactions",
+        "security": [
+          {
+            "firebaseBearer": []
+          }
+        ],
+        "x-required-business-role": "MEMBER",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/loyalty-policies/current": {
+      "get": {
+        "operationId": "getCurrentLoyaltyPolicy",
+        "tags": [
+          "Admin policy"
+        ],
+        "summary": "getCurrentLoyaltyPolicy",
+        "security": [
+          {
+            "firebaseBearer": []
+          }
+        ],
+        "x-required-business-role": "ADMIN",
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Policy"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateCurrentLoyaltyPolicy",
+        "tags": [
+          "Admin policy"
+        ],
+        "summary": "updateCurrentLoyaltyPolicy",
+        "security": [
+          {
+            "firebaseBearer": []
+          }
+        ],
+        "x-required-business-role": "ADMIN",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Same actor/action/key+same canonical request replays; changed payload gives 409."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Policy"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        },
+        "description": "Creates immutable policy revision; affects future acceptances only."
+      }
+    },
+    "/api/v1/promotion-programs/{programId}/resumptions": {
+      "post": {
+        "operationId": "resumePromotionProgram",
+        "tags": [
+          "Manager programs"
+        ],
+        "summary": "Resume a paused promotion without resetting quota or history",
+        "security": [
+          {
+            "firebaseBearer": []
+          }
+        ],
+        "x-required-business-role": "MANAGER",
+        "parameters": [
+          {
+            "name": "programId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/PositiveId"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Same actor/action/key+same canonical request replays; changed payload gives 409."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeProgram"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Confirmed result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Program"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/BusinessRuleViolation"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        },
+        "description": "PAUSED to ENABLED on same program and code. Preserve used/held quota, history, existing accepted terms and validity dates. New transactions still require current conditions. Stale version or wrong state conflicts; same committed command replays."
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "firebaseBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Firebase ID token"
+      }
+    },
+    "schemas": {
+      "PositiveId": {
+        "type": "string",
+        "pattern": "^[1-9][0-9]{0,18}$",
+        "description": "Signed BIGINT positive decimal string; validate <=9223372036854775807."
+      },
+      "Version": {
+        "type": "string",
+        "pattern": "^[0-9]{1,19}$",
+        "description": "Nonnegative BIGINT version; enforce exact range."
+      },
+      "NonnegativeAmount": {
+        "type": "string",
+        "pattern": "^(0|[1-9][0-9]{0,18})$",
+        "description": "Exact integer VND or points, DECIMAL(19,0), no float."
+      },
+      "PositiveAmount": {
+        "type": "string",
+        "pattern": "^[1-9][0-9]{0,18}$"
+      },
+      "Quota": {
+        "type": "string",
+        "pattern": "^[1-9][0-9]{0,18}$",
+        "description": "Positive signed BIGINT; exact upper bound enforced."
+      },
+      "Percentage": {
+        "type": "string",
+        "pattern": "^(?:100(?:\\.0{1,6})?|[0-9]{1,2}(?:\\.[0-9]{1,6})?)$",
+        "description": "Decimal percent string, strictly >0 and <=100; at most 6 fractional digits."
+      },
+      "Timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO-8601 instant with UTC Z."
+      },
+      "Scope": {
+        "type": "string",
+        "enum": [
+          "PRODUCT",
+          "WORKSHOP"
+        ]
+      },
+      "Code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "description": "Trim ends; Locale.ROOT uppercase comparison; reject control characters; never reuse."
+      },
+      "Discount": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "PERCENT"
+                ]
+              },
+              "percentage": {
+                "$ref": "#/components/schemas/Percentage"
+              },
+              "maxDiscountAmount": {
+                "$ref": "#/components/schemas/PositiveAmount"
+              }
+            },
+            "required": [
+              "kind",
+              "percentage",
+              "maxDiscountAmount"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "FIXED"
+                ]
+              },
+              "amount": {
+                "$ref": "#/components/schemas/PositiveAmount"
+              },
+              "maxDiscountAmount": {
+                "$ref": "#/components/schemas/PositiveAmount"
+              }
+            },
+            "required": [
+              "kind",
+              "amount",
+              "maxDiscountAmount"
+            ]
+          }
+        ]
+      },
+      "ProductTargets": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "productIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PositiveId"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "variantIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PositiveId"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        },
+        "required": [],
+        "anyOf": [
+          {
+            "required": [
+              "productIds"
+            ]
+          },
+          {
+            "required": [
+              "variantIds"
+            ]
+          }
+        ],
+        "description": "At least one product/variant set, no branch restriction."
+      },
+      "WorkshopTargets": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "packageIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PositiveId"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "branchIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PositiveId"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "workshopDates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "sessionIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PositiveId"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "packageIds"
+        ],
+        "description": "Optional dimensions narrow package scope; booking window separate from workshop dates."
+      },
+      "ProductVoucherCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "startAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "endAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "discount": {
+            "$ref": "#/components/schemas/Discount"
+          },
+          "minimumEligibleAmount": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          },
+          "allowPoints": {
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "VOUCHER"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "PRODUCT"
+            ]
+          },
+          "targets": {
+            "$ref": "#/components/schemas/ProductTargets"
+          },
+          "code": {
+            "$ref": "#/components/schemas/Code"
+          },
+          "totalLimit": {
+            "$ref": "#/components/schemas/Quota"
+          },
+          "perMemberLimit": {
+            "$ref": "#/components/schemas/Quota"
+          }
+        },
+        "required": [
+          "name",
+          "startAt",
+          "endAt",
+          "discount",
+          "minimumEligibleAmount",
+          "allowPoints",
+          "kind",
+          "scope",
+          "targets",
+          "code",
+          "totalLimit",
+          "perMemberLimit"
+        ]
+      },
+      "WorkshopVoucherCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "startAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "endAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "discount": {
+            "$ref": "#/components/schemas/Discount"
+          },
+          "minimumEligibleAmount": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          },
+          "allowPoints": {
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "VOUCHER"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "WORKSHOP"
+            ]
+          },
+          "targets": {
+            "$ref": "#/components/schemas/WorkshopTargets"
+          },
+          "code": {
+            "$ref": "#/components/schemas/Code"
+          },
+          "totalLimit": {
+            "$ref": "#/components/schemas/Quota"
+          },
+          "perMemberLimit": {
+            "$ref": "#/components/schemas/Quota"
+          }
+        },
+        "required": [
+          "name",
+          "startAt",
+          "endAt",
+          "discount",
+          "minimumEligibleAmount",
+          "allowPoints",
+          "kind",
+          "scope",
+          "targets",
+          "code",
+          "totalLimit",
+          "perMemberLimit"
+        ]
+      },
+      "AutoDiscountCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "startAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "endAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "discount": {
+            "$ref": "#/components/schemas/Discount"
+          },
+          "minimumEligibleAmount": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          },
+          "allowPoints": {
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "AUTO_DISCOUNT"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "PRODUCT"
+            ]
+          },
+          "targets": {
+            "$ref": "#/components/schemas/ProductTargets"
+          }
+        },
+        "required": [
+          "name",
+          "startAt",
+          "endAt",
+          "discount",
+          "minimumEligibleAmount",
+          "allowPoints",
+          "kind",
+          "scope",
+          "targets"
+        ]
+      },
+      "CreateProgram": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ProductVoucherCreate"
+          },
+          {
+            "$ref": "#/components/schemas/WorkshopVoucherCreate"
+          },
+          {
+            "$ref": "#/components/schemas/AutoDiscountCreate"
+          }
+        ],
+        "description": "startAt<endAt; source target validation required. Voucher quota required; auto has no code/quota."
+      },
+      "ProgramUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expectedVersion": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "startAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "endAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "discount": {
+            "$ref": "#/components/schemas/Discount"
+          },
+          "minimumEligibleAmount": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          },
+          "allowPoints": {
+            "type": "boolean"
+          },
+          "targets": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProductTargets"
+              },
+              {
+                "$ref": "#/components/schemas/WorkshopTargets"
+              }
+            ]
+          },
+          "totalLimit": {
+            "$ref": "#/components/schemas/Quota"
+          },
+          "perMemberLimit": {
+            "$ref": "#/components/schemas/Quota"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ],
+        "minProperties": 2,
+        "description": "PATCH merges supplied allowed fields into a full new valid revision. Cannot change code/scope/kind. Targets must match original scope; auto rejects quotas."
+      },
+      "PauseProgram": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expectedVersion": {
+            "$ref": "#/components/schemas/Version"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "Program": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/PositiveId"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/PositiveId"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "VOUCHER",
+              "AUTO_DISCOUNT"
+            ]
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ENABLED",
+              "PAUSED"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "startAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "endAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "discount": {
+            "$ref": "#/components/schemas/Discount"
+          },
+          "minimumEligibleAmount": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          },
+          "allowPoints": {
+            "type": "boolean"
+          },
+          "targets": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProductTargets"
+              },
+              {
+                "$ref": "#/components/schemas/WorkshopTargets"
+              }
+            ]
+          },
+          "totalLimit": {
+            "type": "string",
+            "nullable": true
+          },
+          "perMemberLimit": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "revision",
+          "kind",
+          "scope",
+          "code",
+          "status",
+          "name",
+          "startAt",
+          "endAt",
+          "discount",
+          "minimumEligibleAmount",
+          "allowPoints",
+          "targets",
+          "totalLimit",
+          "perMemberLimit",
+          "createdAt"
+        ]
+      },
+      "PublicPromotion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/PositiveId"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "VOUCHER",
+              "AUTO_DISCOUNT"
+            ]
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "startAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "endAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "discount": {
+            "$ref": "#/components/schemas/Discount"
+          },
+          "minimumEligibleAmount": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          },
+          "allowPoints": {
+            "type": "boolean"
+          },
+          "targets": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProductTargets"
+              },
+              {
+                "$ref": "#/components/schemas/WorkshopTargets"
+              }
+            ]
+          },
+          "totalLimit": {
+            "type": "string",
+            "nullable": true
+          },
+          "perMemberLimit": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "scope",
+          "code",
+          "name",
+          "startAt",
+          "endAt",
+          "discount",
+          "minimumEligibleAmount",
+          "allowPoints",
+          "targets",
+          "totalLimit",
+          "perMemberLimit"
+        ]
+      },
+      "ProgramUsage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "programId": {
+            "$ref": "#/components/schemas/PositiveId"
+          },
+          "totalLimit": {
+            "$ref": "#/components/schemas/Quota"
+          },
+          "perMemberLimit": {
+            "$ref": "#/components/schemas/Quota"
+          },
+          "heldCount": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          },
+          "consumedCount": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          },
+          "committedDiscountAmount": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          }
+        },
+        "required": [
+          "programId",
+          "totalLimit",
+          "perMemberLimit",
+          "heldCount",
+          "consumedCount",
+          "committedDiscountAmount"
+        ],
+        "description": "Current voucher usage: consumedCount and committedDiscountAmount exclude previews, holds and validly cancelled workshop bookings whose cancellation outcome has been applied. Preserve original consume/restore history. Program expiry or pause does not remove uncancelled settled usage. Repeated cancellation never subtracts twice."
+      },
+      "AutoUsage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "programId": {
+            "$ref": "#/components/schemas/PositiveId"
+          },
+          "acceptedCount": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          },
+          "committedDiscountAmount": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          }
+        },
+        "required": [
+          "programId",
+          "acceptedCount",
+          "committedDiscountAmount"
+        ],
+        "description": "Only settled automatic discount transactions count; previews and held-only acceptances are excluded."
+      },
+      "UsageSummary": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ProgramUsage"
+          },
+          {
+            "$ref": "#/components/schemas/AutoUsage"
+          }
+        ]
+      },
+      "SavedVoucher": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "promotion": {
+            "$ref": "#/components/schemas/PublicPromotion"
+          },
+          "savedAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "SCHEDULED",
+              "PAUSED",
+              "EXPIRED"
+            ]
+          }
+        },
+        "required": [
+          "promotion",
+          "savedAt",
+          "availability"
+        ]
+      },
+      "Policy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/PositiveId"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "earnUnitAmount": {
+            "$ref": "#/components/schemas/PositiveAmount"
+          },
+          "redeemPointValue": {
+            "$ref": "#/components/schemas/PositiveAmount"
+          },
+          "minRedeemPoints": {
+            "$ref": "#/components/schemas/PositiveAmount"
+          },
+          "maxRedeemPercent": {
+            "$ref": "#/components/schemas/Percentage"
+          },
+          "roundingMode": {
+            "type": "string",
+            "enum": [
+              "FLOOR"
+            ]
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "earnUnitAmount",
+          "redeemPointValue",
+          "minRedeemPoints",
+          "maxRedeemPercent",
+          "roundingMode",
+          "createdAt"
+        ]
+      },
+      "PolicyUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expectedVersion": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "earnUnitAmount": {
+            "$ref": "#/components/schemas/PositiveAmount"
+          },
+          "redeemPointValue": {
+            "$ref": "#/components/schemas/PositiveAmount"
+          },
+          "minRedeemPoints": {
+            "$ref": "#/components/schemas/PositiveAmount"
+          },
+          "maxRedeemPercent": {
+            "$ref": "#/components/schemas/Percentage"
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "earnUnitAmount",
+          "redeemPointValue",
+          "minRedeemPoints",
+          "maxRedeemPercent"
+        ]
+      },
+      "Account": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "balancePoints": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          },
+          "heldPoints": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          },
+          "availablePoints": {
+            "$ref": "#/components/schemas/NonnegativeAmount"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/Policy"
+          }
+        },
+        "required": [
+          "balancePoints",
+          "heldPoints",
+          "availablePoints",
+          "policy"
+        ]
+      },
+      "LoyaltyTransaction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/PositiveId"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "HOLD",
+              "CONSUME",
+              "RELEASE",
+              "RESTORE",
+              "EARN"
+            ]
+          },
+          "sourceKind": {
+            "type": "string",
+            "enum": [
+              "RETAIL",
+              "WORKSHOP"
+            ]
+          },
+          "sourceRef": {
+            "type": "string"
+          },
+          "balanceChange": {
+            "type": "string",
+            "pattern": "^-?(0|[1-9][0-9]{0,18})$"
+          },
+          "heldChange": {
+            "type": "string",
+            "pattern": "^-?(0|[1-9][0-9]{0,18})$"
+          },
+          "occurredAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "originalDebitId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "sourceKind",
+          "sourceRef",
+          "balanceChange",
+          "heldChange",
+          "occurredAt",
+          "originalDebitId"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "correlationId": {
+            "type": "string"
+          },
+          "timestamp": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "fieldErrors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "correlationId",
+          "timestamp"
+        ]
+      },
+      "ProgramPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Program"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "PromotionPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicPromotion"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "SavedVoucherPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SavedVoucher"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "TransactionPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LoyaltyTransaction"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "ResumeProgram": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expectedVersion": {
+            "$ref": "#/components/schemas/Version"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Malformed or invalid fields",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Invalid missing expired or revoked credentials",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Wrong role ownership or privileged assurance",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource unavailable",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Stale version duplicate code quota conflict or changed idempotent payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "BusinessRuleViolation": {
+        "description": "Business condition not satisfied",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "DependencyUnavailable": {
+        "description": "Required dependency unavailable or retryable lock contention",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}
