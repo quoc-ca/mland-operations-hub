@@ -3,7 +3,7 @@
   "info": {
     "title": "FE-06 Loyalty & Promotion API",
     "version": "1.0.0",
-    "description": "PROPOSED design only. Shared verified bearer identity plus current local capability/ownership/privileged assurance required. The separate React + Vite frontend uses these REST operations with the same bearer; source-owned checkout integration is in interfaces.md. No public reserve/settle/earn/restore endpoints. All protected responses no-store."
+    "description": "Approved technical contract (2026-10-24, Đặng Thị Khương); not yet implemented. Shared verified bearer identity plus current local capability/ownership/privileged assurance required. The separate React + Vite frontend uses these REST operations with the same bearer; source-owned checkout integration is in interfaces.md. No public reserve/settle/earn/restore endpoints. All protected responses no-store."
   },
   "tags": [
     {
@@ -16,7 +16,7 @@
       "name": "Member loyalty"
     },
     {
-      "name": "Admin policy"
+      "name": "Manager policy"
     }
   ],
   "paths": {
@@ -834,7 +834,7 @@
       "get": {
         "operationId": "getCurrentLoyaltyPolicy",
         "tags": [
-          "Admin policy"
+          "Manager policy"
         ],
         "summary": "getCurrentLoyaltyPolicy",
         "security": [
@@ -842,7 +842,7 @@
             "firebaseBearer": []
           }
         ],
-        "x-required-business-role": "ADMIN",
+        "x-required-business-role": "MANAGER",
         "responses": {
           "200": {
             "description": "Confirmed result",
@@ -880,7 +880,7 @@
       "put": {
         "operationId": "updateCurrentLoyaltyPolicy",
         "tags": [
-          "Admin policy"
+          "Manager policy"
         ],
         "summary": "updateCurrentLoyaltyPolicy",
         "security": [
@@ -888,7 +888,7 @@
             "firebaseBearer": []
           }
         ],
-        "x-required-business-role": "ADMIN",
+        "x-required-business-role": "MANAGER",
         "parameters": [
           {
             "name": "Idempotency-Key",

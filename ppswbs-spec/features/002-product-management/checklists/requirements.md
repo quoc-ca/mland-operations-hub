@@ -20,7 +20,7 @@
 ## Requirement Completeness
 
 - [x] Không còn marker yêu cầu làm rõ hoặc placeholder của template.
-- [x] FR có thể kiểm chứng; A-001/A-002, Cloudinary và hướng A/phiên nội bộ 8 giờ đã được người dùng chốt ngày 2026-10-24; phương thức MFA chung còn là dependency FE-01, không tự coi đã được chọn.
+- [x] FR có thể kiểm chứng; A-001/A-002, Cloudinary và hướng A đã được người dùng chốt ngày 2026-10-24; phương thức MFA chung còn là dependency FE-01, không tự coi đã được chọn.
 - [x] SC-001–SC-007 có số lượng/tỷ lệ và tập nghiệm thu xác định.
 - [x] Tiêu chí thành công không phụ thuộc công nghệ hoặc kết quả kiểm thử chưa có.
 - [x] Có kịch bản chấp nhận cho tất cả 38 FR; xem ánh xạ dưới đây.
@@ -41,7 +41,7 @@ Ký hiệu `USn.m` là kịch bản số m trong User Story n; các khoảng FR 
 
 | Requirements | Acceptance scenarios | Evidence reviewed |
 | --- | --- | --- |
-| FR-001, FR-002 | US1.8–US1.10; US2.3, US2.6; US7.1; US8.1 | Xác thực dùng chung/phiên 8 giờ, quyền quản trị, gate đặc quyền, Admin cấp quyền, duyệt chỉ Manager, tự duyệt, tra cứu công khai. |
+| FR-001, FR-002 | US1.8–US1.10; US2.3, US2.6; US7.1; US8.1 | Xác thực dùng chung theo 001, quyền quản trị, gate đặc quyền, Admin cấp quyền, duyệt chỉ Manager, tự duyệt, tra cứu công khai. |
 | FR-003 | US1.5, US1.7 | Danh sách/chi tiết, tìm mã/tên/SKU, phân biệt dữ liệu giá. |
 | FR-004–FR-007 | US1.1–US1.4, US1.6; US4.4; Edge Cases | Giới hạn dữ liệu, size/SKU, nháp và tính toàn vẹn; mã trên 6 chữ số. |
 | FR-008 | US4.5, US4.6, US4.9; Edge Cases | Ảnh, dung lượng, alt text, thứ tự, lỗi lưu và cleanup 24h/30 ngày có bảo vệ lịch sử. |
@@ -56,12 +56,12 @@ Ký hiệu `USn.m` là kịch bản số m trong User Story n; các khoảng FR 
 | FR-029, FR-030 | US7.1–US7.5 | Nhập liệu danh mục, ảnh hưởng hoạt động và giữ lịch sử. |
 | FR-031–FR-036 | US8.1–US8.9, US8.11 | Tập kết quả công khai, lọc cùng size, giá/sắp xếp và mất ảnh. |
 | FR-037 | US8.10; US6.6 | Chuyển FE-08, không tạo giao dịch từ việc tra cứu. |
-| FR-038 | US4.8 | Hành trình cốt lõi hoàn thành từ frontend React qua REST, có đủ trạng thái loading/empty/validation/success/failure/recovery. |
+| FR-038 | US4.8 | Hành trình cốt lõi hoàn thành từ giao diện web tách riêng qua API, có đủ trạng thái loading/empty/validation/success/failure/recovery. |
 
 ## Notes
 
-- Vòng review 1 đã bổ sung kịch bản riêng về quyền quản trị, phân trang, biên nhập danh mục, độ dài từ khóa và hành trình frontend React qua REST để làm rõ ánh xạ nghiệm thu. Vòng review 2 kiểm tra lại toàn bộ 38 FR và các quyết định hội thoại.
-- A-001/A-002, role codes, hướng A/phiên nội bộ 8 giờ, Cloudinary, retention và các mặc định đã được người dùng đồng ý ngày 2026-10-24 và đồng bộ vào FE-02 research. Không hỏi lại các quyết định này.
+- Vòng review 1 đã bổ sung kịch bản riêng về quyền quản trị, phân trang, biên nhập danh mục, độ dài từ khóa và hành trình từ giao diện web tách riêng qua API để làm rõ ánh xạ nghiệm thu. Vòng review 2 kiểm tra lại toàn bộ 38 FR và các quyết định hội thoại.
+- A-001/A-002, role codes, hướng A, Cloudinary, retention và các mặc định đã được người dùng đồng ý ngày 2026-10-24 và đồng bộ vào FE-02 research. Không hỏi lại các quyết định này.
 - MFA/recovery cụ thể vẫn là dependency thiết kế identity/FE-01; không sửa luồng Member hoặc tự chọn phương thức từ FE-02. Adapter FE-08/identity/Cloudinary là dependency triển khai; miền số/cách đếm ký tự là thiết kế kỹ thuật. Không dùng checklist chất lượng để nhận dependency đã chạy hoặc code đã được phê duyệt.
 - Không có hooks.before_specify hoặc hooks.after_specify để thực thi vì dự án không có `.specify/extensions.yml`; không tạo/switch nhánh và không commit/push.
 - Checklist này xác nhận chất lượng bản nháp để review/lập plan; không phải kết quả chạy nghiệm thu, phê duyệt plan hoặc cho phép triển khai.

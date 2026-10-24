@@ -13,7 +13,7 @@
 ## Content Quality
 
 - [x] Không lựa chọn ngôn ngữ, framework, giao thức, schema hoặc cách triển khai.
-- [x] Tập trung giá trị khách quay lại hai dịch vụ và nhu cầu quản lí của Manager/Admin.
+- [x] Tập trung giá trị khách quay lại hai dịch vụ và nhu cầu quản lí của Manager.
 - [x] Viết cho stakeholder nghiệp vụ, giải thích rõ điểm, phần giữ và quyền lợi đã ghi nhận.
 - [x] Hoàn thành các phần bắt buộc theo thứ tự spec-template đã resolve.
 
@@ -41,7 +41,7 @@ Ký hiệu `USn.m` là kịch bản m của User Story n. Khoảng số bao gồ
 
 | Requirements | Acceptance scenarios | Nội dung đã đối chiếu |
 | --- | --- | --- |
-| FR-001 | US1.6; US3.3, US3.6; US4.10; US6.4; US8.3 | Quyền Manager/Admin, dữ liệu Member và xem công khai. |
+| FR-001 | US1.6; US3.3, US3.6; US4.10; US6.4; US8.3 | Quyền Manager (Admin bị từ chối), dữ liệu Member và xem công khai. |
 | FR-002 | US1.1–US1.3, US1.7; US5.8; US6.3, US6.5 | Hai phạm vi, ngày lễ, không hạng và giới hạn website. |
 | FR-003–FR-005 | US1.1–US1.3 | Đủ điều kiện tạo ba loại chương trình. |
 | FR-006 | US1.4; US2.2; US3.4 | Mã chuẩn hóa, duy nhất, không tái dùng/đổi mã hoặc phạm vi. |
@@ -62,17 +62,17 @@ Ký hiệu `USn.m` là kịch bản m của User Story n. Khoảng số bao gồ
 | FR-032, FR-033 | US4.9; US5.4; US7.1, US7.2, US7.6, US7.9 | Giữ/chốt một lần, không vượt hạn mức và giải phóng. |
 | FR-034–FR-036 | US7.3–US7.6 | Hủy xác nhận, trả lượng gốc/từng quyền lợi và không trả trùng. |
 | FR-037, FR-038 | US7.7–US7.9; US6.6 | Không đến/hủy sai, ngoài phạm vi và kết quả chưa rõ. |
-| FR-039 | US8.6; US3.6; US6.8 | Hành trình biểu mẫu cốt lõi và lỗi an toàn. |
-| FR-040 | US8.7 | Xác thực dùng chung, phiên cố định 8 giờ tính từ auth_time, quyền/trạng thái và thu hồi. |
+| FR-039 | US8.6; US3.6; US6.8 | Hành trình cốt lõi hoàn thành từ giao diện web tách riêng qua API và lỗi an toàn. |
+| FR-040 | US8.7 | Xác thực dùng chung, phiên theo contract FE-01/001, quyền/trạng thái và thu hồi. |
 | FR-041 | US6.9 | Lưu tối thiểu 5 năm, bảo vệ tham chiếu, số dư và bằng chứng chống trùng. |
 
 ## Notes
 
 - Nguồn nghiệp vụ là [FE-06 research](../../../research.md#fe-06) và các xác nhận của người dùng; không dùng report/screen cũ để đổi phạm vi. Bộ thông số điểm và quyết định 1–10 đã chốt ngày 2026-10-24.
-- Spec có 8 user stories, 41 FR, 64 kịch bản chấp nhận và 8 SC sau hai xác nhận khi lập plan. Thông số voucher/cọc trong ví dụ là dữ liệu kiểm thử, không phải chính sách mới.
-- Review vòng 1 đã bổ sung tra mã có khoảng trắng/khác hoa thường tại US3.4 và miền dữ liệu hợp lệ tại US1.5/FR-007. Review vòng 2 đối chiếu đủ 39 FR với 62 kịch bản và kiểm tra các quyết định 1–10, công thức tiền/điểm, phạm vi đã loại bỏ.
+- Spec hiện có 8 user stories, 41 FR, 66 kịch bản chấp nhận và 8 SC (sau hai xác nhận khi lập plan và clarification ngày 2026-10-24). Thông số voucher/cọc trong ví dụ là dữ liệu kiểm thử, không phải chính sách mới.
+- Review vòng 1 đã bổ sung tra mã có khoảng trắng/khác hoa thường tại US3.4 và miền dữ liệu hợp lệ tại US1.5/FR-007. Review vòng 2 (mốc lúc đó, trước khi thêm FR-040/FR-041) đối chiếu đủ 39 FR với 62 kịch bản và kiểm tra các quyết định 1–10, công thức tiền/điểm, phạm vi đã loại bỏ.
 - Cập nhật khi lập plan: thêm FR-040/FR-041 và US8.7/US6.9 theo câu trả lời trực tiếp của người dùng ngày 2026-10-24; không suy rộng chính sách retention/xác thực của feature khác mà chưa có xác nhận.
 - Static verification: thứ tự phần template, số FR/SC/user story, đánh số và tham chiếu kịch bản, liên kết nguồn và feature pointer đều hợp lệ; không có placeholder yêu cầu làm rõ. Băm research.md giữ nguyên sau tác vụ; kiểm tra whitespace và đường dẫn SpecKit được thực hiện trước bàn giao. Không chạy test sản phẩm vì chỉ tạo tài liệu.
 - Dependency D-004: spec booking 003 hiện hoãn hậu xử lí; cần FE-03 cung cấp kết quả hủy/hoàn thành/trả đủ đã xác nhận trước bật các hành trình tương ứng. Không nhận dependency đã có code hoặc đã được spec 003 bao phủ.
 - Hooks.before_specify và hooks.after_specify không có để chạy vì không tồn tại `.specify/extensions.yml` tại dự án SpecKit hoặc gốc workspace. Không tạo/chuyển nhánh, không commit/push.
-- Đây là checklist chất lượng spec trước review/plan; chưa có plan/tasks, thiết kế tích hợp/lưu dữ liệu hoặc nghiệm thu trên sản phẩm cho FE-06.
+- Đây là checklist chất lượng spec, được tạo trước plan/tasks. Plan, tasks, data model và contracts đã có sau đó; chưa có nghiệm thu trên sản phẩm cho FE-06.

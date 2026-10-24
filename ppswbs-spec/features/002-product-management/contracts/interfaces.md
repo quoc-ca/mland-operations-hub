@@ -5,16 +5,16 @@
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
-**Status**: Proposed, provider/identity/FE-08 prerequisites chưa có implementation.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; contract là baseline, provider/identity/FE-08 prerequisites chưa có implementation.  
 **REST contract**: [OpenAPI 3.0.3](product-management.openapi.json). Trường, URL và errors ở đây phải khớp OpenAPI trước khi code; đây không phải endpoint đã hoạt động.
 
 ## Identity and capability boundary
 
 Identity owner cung cấp qua members::facade một actor value gồm opaque actorId, verified identity reference, accountActive và capability result hiện hành. Catalogue không đọc members entity, không log raw token và không suy role từ Firebase/email. Staff/Manager là nhãn nghiệp vụ, không tự chuyển sang OWNER hoặc mã role khác.
 
-Ngày 2026-10-24 người dùng đã chốt MEMBER/STAFF/MANAGER/ADMIN, MANAGER là vai trò riêng, Admin cấp quyền nội bộ và đăng ký khách không cấp quyền nội bộ. Người dùng cũng đồng ý hướng A: dùng chung primitive xác thực theo [spec 001](../../001-account-management/spec.md) qua identity owner, bearer cho mọi REST API, phiên nội bộ cố định 8 giờ tính từ auth_time không gia hạn trượt, revocation/trạng thái và thành công về `/`. Cookie web/CSRF của 001 không áp dụng cho FE-02 vì UI là React SPA; credential transport cuối cùng do identity owner xác nhận. Không yêu cầu xác minh email lại trên session hợp lệ. Đây là quyết định FE-02, chưa phải RBAC/session đã triển khai; MFA/recovery cụ thể vẫn thuộc dependency thiết kế FE-01.
+Ngày 2026-10-24 người dùng đã chốt MEMBER/STAFF/MANAGER/ADMIN, MANAGER là vai trò riêng, Admin quản lí tài khoản, vai trò, trạng thái khóa, RBAC, tham số vận hành và credential tích hợp, nhưng ADMIN không có capability catalogue nào ở dưới (không quản lí sản phẩm, danh mục, giá, số lượng, công khai hay duyệt); đăng ký khách không cấp quyền nội bộ. Người dùng cũng đồng ý hướng A: dùng chung primitive xác thực theo [spec 001](../../001-account-management/spec.md) qua identity owner, bearer cho mọi REST API, revocation/trạng thái và thành công về `/`. API không dùng cookie thay bearer (001 FR-001); contract xác thực cho frontend React do 001 chốt. Không yêu cầu xác minh email lại trên session hợp lệ. Đây là quyết định FE-02, chưa phải RBAC/session đã triển khai; MFA/recovery cụ thể vẫn thuộc dependency thiết kế FE-01.
 
-Không dùng Member allowlist ACTIVE/PENDING_POLICY_ACCEPTANCE hoặc Member bootstrap làm quyền nội bộ. `/member-auth/profile-session`, `__Host-mland_profile` và logout thuộc scope 001; không tự thay đổi hoặc coi cookie này là bằng chứng hoàn tất MFA. Identity owner cung cấp contract dùng chung/mở rộng, bao gồm gate đặc quyền và recovery theo FE-01; catalogue chỉ tiêu thụ actor/capability/xác thực đạt yêu cầu. Không tạo trang đăng nhập/MFA riêng trong catalogue hoặc ép người dùng Member xác minh email lại.
+Không dùng Member allowlist ACTIVE/PENDING_POLICY_ACCEPTANCE hoặc Member bootstrap làm quyền nội bộ. `/member-auth/profile-session`, `__Host-mland_profile` và logout thuộc scope 001; không tự thay đổi hoặc coi cookie này là bằng chứng hoàn tất MFA. Identity owner cung cấp contract dùng chung/mở rộng, bao gồm gate đặc quyền và recovery theo FE-01; productmanagement chỉ tiêu thụ actor/capability/xác thực đạt yêu cầu. Không tạo trang đăng nhập/MFA riêng trong productmanagement hoặc ép người dùng Member xác minh email lại.
 
 | Action | Required business authority | Denial |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ Không dùng Member allowlist ACTIVE/PENDING_POLICY_ACCEPTANCE hoặc Member boo
 
 Capability names đề xuất: catalogue.read-internal, product.create, product.edit, product.submit, product.approve, product.publish, product.delete, media.manage, variant.quantity, variant.sale-status, price.propose, price.approve, price.apply, category.manage. Đây là action vocabulary của hợp đồng, không phải các DB role/capability đã được provision.
 
-API management chỉ nhận backend-verified bearer identity; cookie không thay bearer. Frontend React gửi cùng bearer; mỗi lệnh ghi mang commandId và expectedVersion trong DTO. Phiên nội bộ hết 8 giờ tính từ auth_time thì trả 401 AUTHENTICATION_REQUIRED và frontend yêu cầu đăng nhập lại qua Firebase SDK. CORS theo origin của frontend, không vô hiệu hóa toàn cục. Chưa có session/capability facade thật nên đường quản trị không được enable bằng fallback permitAll hiện tại. Lỗi session không tự điều hướng sang hồ sơ/chính sách Member; identity owner phải cung cấp đích đăng nhập nội bộ cố định, không nhận arbitrary returnTo.
+API management chỉ nhận backend-verified bearer identity; cookie không thay bearer. Frontend React gửi cùng bearer; mỗi lệnh ghi mang commandId và expectedVersion trong DTO. Hết phiên hoặc credential không hợp lệ trả 401 AUTHENTICATION_REQUIRED; hành vi đăng nhập lại/recovery do 001 định nghĩa. CORS theo origin của frontend, không vô hiệu hóa toàn cục. Chưa có session/capability facade thật nên đường quản trị không được enable bằng fallback permitAll. Lỗi session không tự điều hướng sang hồ sơ/chính sách Member; identity owner phải cung cấp đích đăng nhập nội bộ cố định, không nhận arbitrary returnTo.
 
 ## API conventions
 
@@ -104,22 +104,28 @@ Hành vi chung: mỗi màn hình có loading, empty (khác dependency error), va
 
 Không dùng facade kiểu getEntity/setField và không cho frontend gọi method nội bộ này để né quyền. FE-08 phải hoàn thiện boundary invocation/authentication của consumer trước integration; facade chỉ nhận records/scalars và callback nghiệp vụ giới hạn.
 
-### AvailabilityGuardPort — catalogue owns SPI, FE-08 implements
+### AvailabilityGuardPort — productmanagement owns SPI, FE-08 implements
 
 - `readSnapshots(variantIds, asOf)`: Batch exact active held quantity + source revision theo variant; không cache và không thay unknown bằng 0. Bộ chưa có hold trả 0 chỉ khi nguồn thật xác minh thành công.
 - `withGuard(variantIds, asOf, work)`: Join transaction bắt buộc; giữ guard row ổn định trên từng variant kể cả khi chưa có hold, đọc snapshot hợp lệ và giữ khóa xuyên callback/commit. Không trả lazy entity, không mở REQUIRES_NEW tách source khỏi quantity save.
-- FE-08 tạo/chốt/giải phóng giữ cũng phải dùng guard trên. asOf là thời điểm UTC của operation, cùng deadline semantics FE-08; event late/uncertain không được catalogue tự giải thích hoặc hủy giữ.
-- Adapter readyringsales có compile dependency vào catalogue::facade, không gọi ngược catalogue khi đã giữ source guard. Catalogue không import readyringsales và không sao chép hold lifecycle. Thiếu adapter trả typed 503; test-only fixture phải được gắn rõ, không enable trong runtime thường.
+- FE-08 tạo/chốt/giải phóng giữ cũng phải dùng guard trên. asOf là thời điểm UTC của operation, cùng deadline semantics FE-08; event late/uncertain không được productmanagement tự giải thích hoặc hủy giữ.
+- Adapter readyringsales có compile dependency vào productmanagement::facade, không gọi ngược productmanagement khi đã giữ source guard. Productmanagement không import readyringsales và không sao chép hold lifecycle. Thiếu adapter trả typed 503; test-only fixture phải được gắn rõ, không enable trong runtime thường.
 
-### MediaStoragePort — catalogue infrastructure boundary
+### PromotionTargetPort — FE-06 owns SPI, productmanagement implements
+
+- Port và boundary types thuộc `loyaltypromotion::facade` ([FE-06 interfaces](../../006-loyalty-promotion/contracts/interfaces.md)). productmanagement triển khai bằng `LoyaltyProductTargetAdapter` trong `service/` cho dimension PRODUCT/VARIANT.
+- Phụ thuộc được phép: `productmanagement → loyaltypromotion::facade`. Không import service/entity của FE-06; FE-06 không gọi ngược productmanagement.
+- Adapter kiểm tra product/variant tồn tại, chưa xóa mềm và trạng thái công khai/sale, trả immutable facts/guard; không trả entity và không gọi remote dưới khóa. Thiếu dữ liệu hoặc lỗi phụ thuộc trả lỗi an toàn để FE-06 trả DEPENDENCY_UNAVAILABLE.
+
+### MediaStoragePort — productmanagement service boundary
 
 - Cloudinary đã được người dùng chọn. MediaStoragePort vẫn độc lập provider; adapter dùng signed backend upload, resource_type=image/type=authenticated, deterministic public_id và overwrite=false. Cloudinary cloud_name/api_key/api_secret lấy từ môi trường; SDK version pin sau kiểm tra tương thích, chưa thêm dependency từ tác vụ tài liệu.
 - `putIfAbsent(commandKey, verifiedContent)`: Object được bảo vệ theo deterministic key + checksum, retry cùng key/content không sinh thêm object; key khác nội dung báo conflict. Reserve media/command và checksum trước remote call, reconcile asset đã tồn tại sau timeout; chưa xác minh được đúng object thì không đánh READY. Không dựa riêng vào overwrite=false để khẳng định nội dung giống nhau.
 - `verifyReadable(objectKey)`, `open(objectKey)`: Trả trạng thái/read stream an toàn, không expose credential; phân biệt unavailable với missing. Backend lấy signed authenticated URL từ metadata tin cậy và chỉ dùng nội bộ để mở stream; application/web kiểm tra quyền trước mỗi lần phục vụ bytes qua same-origin endpoint, no-store, không redirect/lộ provider URL. Object vẫn authenticated sau publish; không dựa vào CDN invalidation để thi hành unpublish/delete.
 - Không xóa ngay trên detach/product-delete. Policy đã chốt: ảnh chưa từng gắn đủ 24 giờ không còn sử dụng, ảnh đã gỡ đủ 30 ngày không còn tham chiếu mới đủ điều kiện dọn; ảnh lịch sử giữ theo bản ghi liên quan. Cleanup phải khóa media, kiểm tra registry tham chiếu, đặt DELETE_PENDING và commit trước remote delete; attach/retain từ chối state đang xóa. `deleteIfExists(objectKey)` là idempotent: provider missing được coi đã xóa, transient failure giữ DELETE_PENDING để thử lại, không tự đưa về READY. Không gọi provider dưới khóa DB.
-- CatalogueSalesFacade cung cấp `retainMediaReferences(ownerRecordRef, mediaIds)` cho FE-08 trong transaction tạo snapshot, và release chỉ qua owning record đã đủ điều kiện hết giữ. Registry thuộc catalogue, tham chiếu unknown/unverifiable chặn cleanup, không mặc định không có tham chiếu. Product/review cũng ghi registry qua application cùng transaction. Xóa mềm product không release historical refs.
-- Business audit giữ 5 năm từ sự kiện theo Report 3; command receipt tối thiểu giữ 5 năm từ commit theo quyết định người dùng. Chỉ giữ kết quả/metadata cần thiết, không full request/token. Authentication/security log riêng vẫn thuộc chính sách identity owner. Provider timeout/failure không đổi catalogue state đã commit; metadata READY đòi xác minh thành công.
+- CatalogueSalesFacade cung cấp `retainMediaReferences(ownerRecordRef, mediaIds)` cho FE-08 trong transaction tạo snapshot, và release chỉ qua owning record đã đủ điều kiện hết giữ. Registry thuộc productmanagement, tham chiếu unknown/unverifiable chặn cleanup, không mặc định không có tham chiếu. Product/review cũng ghi registry qua application cùng transaction. Xóa mềm product không release historical refs.
+- Business audit giữ 5 năm từ sự kiện theo Report 3; command receipt tối thiểu giữ 5 năm từ commit theo quyết định người dùng. Chỉ giữ kết quả/metadata cần thiết, không full request/token. Authentication/security log riêng vẫn thuộc chính sách identity owner. Provider timeout/failure không đổi productmanagement state đã commit; metadata READY đòi xác minh thành công.
 
 ## Contract dependencies and evidence limits
 
-Trong [blocker-report](../blocker-report.md), G-01 đã chốt hướng xác thực dùng chung/phiên 8 giờ/roles, G-03 Cloudinary và G-04 retention đã chốt. Phương thức MFA/recovery và contract đạt xác thực đặc quyền là dependency thiết kế identity/FE-01 cần hoàn thiện trước enable quản trị; không tự chọn TOTP hoặc bỏ kiểm tra. FE-08/identity/Cloudinary adapter là dependency triển khai được sắp thứ tự, không phải câu hỏi nghiệp vụ phải hỏi lại. OpenAPI/SPI không chứng minh endpoint/adapter hiện hữu; nghiệm thu giữ chỗ/identity/media vẫn cần adapter thật, không dùng fixture thay integration evidence.
+Trong [blocker-report](../blocker-report.md), G-01 đã chốt hướng xác thực dùng chung/roles, G-03 Cloudinary và G-04 retention đã chốt. Phương thức MFA/recovery và contract đạt xác thực đặc quyền là dependency thiết kế identity/FE-01 cần hoàn thiện trước enable quản trị; không tự chọn TOTP hoặc bỏ kiểm tra. FE-08/identity/Cloudinary adapter là dependency triển khai được sắp thứ tự, không phải câu hỏi nghiệp vụ phải hỏi lại. OpenAPI/SPI không chứng minh endpoint/adapter hiện hữu; nghiệm thu giữ chỗ/identity/media vẫn cần adapter thật, không dùng fixture thay integration evidence.
