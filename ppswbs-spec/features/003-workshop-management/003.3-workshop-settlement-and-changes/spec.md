@@ -70,18 +70,23 @@ rescheduling, or process OTA payments/refunds.
 - OTA customer payments, refunds, commission, payout, and reconciliation are
   outside this feature.
 
-## Decisions Requiring Resolution Before Planning
+## Confirmed Decisions
 
-1. **Deferred-payment link duration**: the inherited feature decision specifies
-   a 24-hour Manager-approved final-balance link with one reminder. The shared
-   `spec-general.md` §4 states that a payment link expires after 10 minutes.
-   The responsible authority must explicitly decide whether final settlement is
-   a narrow 24-hour exception or revise one rule. No plan/contract may silently
-   choose either value.
-2. **Manager role-code mapping**: this spec uses the business role “Manager”;
-   `spec-general.md` §2 leaves its mapping to implementation role codes TBD.
-   Server authorization must use the approved account/personnel capability
-   contract, never infer it from a label.
+### Session 2026-10-24
+
+- A final-payment link is a 24-hour exception only for a Manager-approved
+  Workshop Final Bill. Deposit/payment-hold links remain valid for 10 minutes
+  and their associated holds last at most 15 minutes. The final-payment link
+  may send at most one reminder before expiry; expiry never automatically renews
+  the link, releases the item, or erases the balance. A new link requires an
+  audited authorized action.
+- The system MUST NOT infer `Manager = OWNER`. Account/personnel owns capability
+  grants and role-code mapping. Feature 003.3 authorizes actions using active
+  actor status plus the relevant branch-scoped capability:
+  `workshop.settlement.defer` for deferred payment/link issue or reissue,
+  `workshop.settlement.reschedule` for item reschedule, and
+  `workshop.settlement.refund` for refund exceptions and Mland-caused item
+  refund. An inactive actor loses these authorities immediately.
 
 ## User Scenarios and Testing
 
@@ -171,8 +176,11 @@ an item-scoped refund; only that item’s tickets/capacity change after confirma
   amount, expiry, and audit; it MUST retain the item and create no default credit.
 - **FR-011**: The system MUST send at most one pre-expiry reminder and MUST NOT
   automatically renew an expired request, release the item, or erase its balance.
-- **FR-012**: Deferred-payment duration/reminder timing MUST remain unresolved
-  until the documented 10-minute/24-hour conflict is approved.
+- **FR-012**: A Manager-approved final-payment link MUST be valid for 24 hours,
+  send at most one reminder before expiry, and apply only to a Workshop Final
+  Bill. Deposit/payment-hold links remain subject to the 10-minute/15-minute
+  shared rule. A new final-payment link after expiry requires an authorized,
+  audited action.
 - **FR-013**: Guest/authorized Member cancellation MUST be whole-booking only;
   item/ticket/participant self-service cancellation/refund is prohibited.
 - **FR-014**: Normal customer cancellation MUST require all items/tickets unused,
@@ -231,8 +239,9 @@ an item-scoped refund; only that item’s tickets/capacity change after confirma
   Provider details and credentials belong to later approved plan/contracts.
 - Payment/audit evidence follows the five-year baseline in `spec-general.md`;
   no card data is stored.
-- Performance, availability, accessibility, deployment origins, role-code mapping,
-  and deferred-payment duration remain TBD as documented above.
+- Performance, availability, accessibility, deployment origins, and role-code
+  mapping remain TBD. Capability-to-role-code mapping is explicitly owned by
+  account/personnel and must not be inferred by this feature.
 
 ## Out of Scope
 
