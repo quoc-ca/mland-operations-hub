@@ -1,0 +1,74 @@
+openapi: 3.0.3
+info:
+  title: Member Profile API
+  version: 1.0.0
+  description: >-
+    Own-profile access requires backend-validated Firebase credentials, verified email
+    and local Member status ACTIVE or PENDING_POLICY_ACCEPTANCE. Policy acceptance
+    and policy version state do not gate profile reads or writes. SUSPENDED is denied.
+paths:
+  /api/v1/members/me/profile:
+    get:
+      operationId: getOwnProfile
+      security: [{firebaseIdToken: []}]
+      responses:
+        '200':
+          description: Own profile; null profile fields when not yet saved
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Profile'}
+        '401': {description: Missing invalid expired or revoked ID token}
+        '403': {description: Email is missing or unverified or local Member status is not allowed}
+        '409': {description: MEMBER_INITIALIZATION_REQUIRED}
+        '503': {description: Credential validation service unavailable}
+    put:
+      operationId: replaceOwnProfile
+      security: [{firebaseIdToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProfileUpdate'}
+      responses:
+        '200':
+          description: Saved profile; last committed valid save wins
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Profile'}
+        '400': {description: Unknown missing mistyped or invalid fields}
+        '401': {description: Missing invalid expired or revoked ID token}
+        '403': {description: Email is missing or unverified or local Member status is not allowed}
+        '409': {description: MEMBER_INITIALIZATION_REQUIRED}
+        '503': {description: Credential validation service unavailable}
+components:
+  securitySchemes:
+    firebaseIdToken:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID token
+  schemas:
+    ProfileUpdate:
+      type: object
+      additionalProperties: false
+      required: [fullName, phone]
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Outer Unicode whitespace stripped; no ISO control characters
+        phone:
+          type: string
+          nullable: true
+          maxLength: 16
+          description: Empty becomes null; otherwise international + and 2 to 15 digits
+          pattern: '^\+[1-9]\d{1,14}$'
+    Profile:
+      type: object
+      required: [fullName, phone, email, emailVerified, updatedAt]
+      properties:
+        fullName: {type: string, nullable: true}
+        phone: {type: string, nullable: true, description: Unverified contact only}
+        email: {type: string, format: email, readOnly: true}
+        emailVerified: {type: boolean, enum: [true], readOnly: true}
+        updatedAt: {type: string, format: date-time, nullable: true}

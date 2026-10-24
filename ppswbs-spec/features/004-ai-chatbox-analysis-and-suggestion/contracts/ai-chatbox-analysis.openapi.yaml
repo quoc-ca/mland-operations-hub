@@ -1,0 +1,420 @@
+openapi: 3.0.3
+info:
+  title: AI Chatbox Analysis and Suggestion API
+  version: 1.0.0-draft
+  description: >-
+    Draft contract for basic AI support, Member booking-design analysis and
+    Manager advisory package/product price suggestions. AI responses never
+    directly mutate Mland business state.
+servers:
+  - url: /api/v1
+paths:
+  /ai-support/messages:
+    post:
+      summary: Ask basic AI support (Guest/Member/public context)
+      description: >-
+        Validates scope, prompt-injection policy and rate limit before invoking
+        the provider. The response cannot mutate Mland business state.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiSupportRequest'
+      responses:
+        '200':
+          description: Validated support response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSupportResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableInput'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ProviderUnavailable'
+  /design-requests:
+    post:
+      summary: Submit a Member booking-design request
+      description: >-
+        Member-only endpoint. Requires eligible booking context, current consent,
+          valid image input, maximum 10 MB file size, maximum 4096x4096 dimensions,
+          atomic three-attempt/five-minute rate limiting and an idempotency key
+          before temporary storage or provider processing.
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DesignRequestMultipart'
+      responses:
+        '202':
+          description: Analysis request accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesignRequestView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableInput'
+        '429':
+          $ref: '#/components/responses/ImageRateLimited'
+  /design-requests/{designRequestId}:
+    get:
+      summary: Read an authorized design request projection
+      description: >-
+        Returns only the owning Member projection, an authorized Staff/Manager
+        scope projection or approved Admin technical/audit evidence. Raw image and
+        provider payloads are never returned.
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/DesignRequestId'
+      responses:
+        '200':
+          description: Authorized request projection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesignRequestView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /design-review-requests:
+    get:
+      summary: List requests within Staff or Manager review scope
+      description: >-
+        Returns only requests within the authenticated reviewer's branch,
+        delegation, value and authority scope.
+      security:
+        - firebaseBearer: []
+      responses:
+        '200':
+          description: Scoped review queue
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DesignRequestView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /design-review-requests/{reviewRequestId}/decisions:
+    post:
+      summary: Record a human review decision
+      description: >-
+        Staff or Manager only. Requires current design version, valid role scope,
+        separation of duties and an atomic terminal-state transition.
+      security:
+        - firebaseBearer: []
+      parameters:
+        - name: reviewRequestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewDecisionRequest'
+      responses:
+        '200':
+          description: Decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesignRequestView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /price-proposals/{proposalId}/ai-suggestions:
+    post:
+      summary: Request an advisory package/product price suggestion
+      description: >-
+        Manager-only endpoint for a new workshop package or retail product. The
+        result is advisory and cannot apply or publish a price directly.
+      security:
+        - firebaseBearer: []
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Advisory suggestion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceSuggestionView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableInput'
+        '503':
+          $ref: '#/components/responses/ProviderUnavailable'
+components:
+  securitySchemes:
+    firebaseBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase-ID-Token
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        maxLength: 128
+    DesignRequestId:
+      name: designRequestId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    AiSupportRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    AiSupportResponse:
+      type: object
+      required: [message, scope]
+      properties:
+        message:
+          type: string
+        scope:
+          type: string
+          enum: [PRODUCT, WORKSHOP, STORE, FAQ, OUT_OF_SCOPE]
+        providerCorrelationId:
+          type: string
+    DesignRequestMultipart:
+      type: object
+      required: [bookingCode, consentVersion, designVersion, image]
+      properties:
+        bookingCode:
+          type: string
+        consentVersion:
+          type: string
+        designVersion:
+          type: integer
+          minimum: 1
+        image:
+          type: string
+          format: binary
+    DesignRequestView:
+      type: object
+      required: [id, analysisStatus, reviewStatus, designVersion]
+      properties:
+        id:
+          type: string
+          format: uuid
+        designVersion:
+          type: integer
+        analysisStatus:
+          type: string
+          enum: [PENDING, PROCESSING, SUCCEEDED, FAILED]
+        reviewStatus:
+          type: string
+          enum: [NEED_REVIEW, ACCEPTED, REJECTED, CLARIFICATION_REQUIRED]
+        nextAction:
+          type: string
+        safeFailureCode:
+          type: string
+          nullable: true
+        candidateFeatures:
+          type: object
+          description: Structured candidate ring features only; never raw provider output.
+          additionalProperties: true
+          nullable: true
+        imageQuality:
+          type: object
+          description: Structured image-quality assessment safe for the authorized actor.
+          additionalProperties: true
+          nullable: true
+        confidence:
+          type: object
+          description: Structured confidence or uncertainty metadata when supported.
+          additionalProperties: true
+          nullable: true
+        safeExplanation:
+          type: string
+          description: Policy-filtered explanation; never raw provider reasoning or payload.
+          nullable: true
+    ReviewDecisionRequest:
+      type: object
+      required: [decision, designVersion, reason]
+      properties:
+        decision:
+          type: string
+          enum: [ACCEPTED, REJECTED, CLARIFICATION_REQUIRED]
+        designVersion:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    PriceSuggestionView:
+      type: object
+      required: [proposalId, advisory, suggestionStatus]
+      properties:
+        proposalId:
+          type: string
+          format: uuid
+        advisory:
+          type: boolean
+          enum: [true]
+        suggestionStatus:
+          type: string
+          enum: [SUCCEEDED, INVALID, FAILED]
+        suggestedPrice:
+          type: number
+          format: double
+          nullable: true
+        explanation:
+          type: string
+          nullable: true
+        providerCorrelationId:
+          type: string
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - AUTHENTICATION_REQUIRED
+            - NOT_FOUND
+            - FORBIDDEN_ROLE
+            - BOOKING_CONTEXT_INVALID
+            - DESIGN_VERSION_STALE
+            - CONSENT_REQUIRED
+            - IMAGE_INVALID
+            - IMAGE_TOO_LARGE
+            - IMAGE_QUALITY_INSUFFICIENT
+            - IMAGE_RATE_LIMITED
+            - AI_RATE_LIMITED
+            - AI_INPUT_INVALID
+            - AI_PROMPT_INJECTION_DETECTED
+            - AI_CONTEXT_NOT_ALLOWED
+            - AI_UNAVAILABLE
+            - AI_RESPONSE_INVALID
+            - AI_OUTPUT_POLICY_VIOLATION
+            - AI_SCOPE_UNSUPPORTED
+            - REVIEW_NOT_AUTHORIZED
+            - REVIEW_STATE_CONFLICT
+            - PRICE_INPUT_INCOMPLETE
+            - PRICE_SUGGESTION_INVALID
+            - AI_FEATURE_NOT_APPLICABLE
+        message:
+          type: string
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+          nullable: true
+  responses:
+    BadRequest:
+      description: Invalid request or input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid Firebase identity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Authenticated actor lacks the required Mland permission
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource is not visible to the actor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Idempotency, stale version or review state conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    RateLimited:
+      description: Configured request limit exceeded
+      headers:
+        Retry-After:
+          description: Seconds until the client may retry
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ImageRateLimited:
+      description: Member exceeded the limit of three image attempts in five minutes
+      headers:
+        Retry-After:
+          description: Seconds until the image quota may be retried
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableInput:
+      description: Input failed schema, context or AI security policy validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ProviderUnavailable:
+      description: AI provider unavailable or timed out
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

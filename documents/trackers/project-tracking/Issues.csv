@@ -1,0 +1,5 @@
+Date,Issue,Priority,Created,Owner,Due Date,Status,Notes
+2026-09-18,Configure actual capacity and product capability for each location/session,High,SEP490_G22,SEP490_G22,,Open,Operational values are required before booking availability can be implemented
+2026-09-18,Approve catalogue data price rules hard constraints and feasibility thresholds,High,SEP490_G22,SEP490_G22,,Open,No numeric thresholds or component prices are approved
+2026-09-18,Select Payment Gateway and define verified event contract,High,SEP490_G22,SEP490_G22,,Open,Webhook/IPN duplicate retry reconciliation and refund rules remain open
+2026-09-18,Approve consent wording retention and delivery data retention,High,SEP490_G22,SEP490_G22,,Open,Privacy and operating policy remains required

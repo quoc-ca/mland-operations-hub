@@ -28,8 +28,8 @@ def main() -> int:
             ) from exc
         if args.validate:
             bundle = load_bundle(bundle_path)
-            diagrams = validate_bundle(bundle)
-            print(f"[VALID] report_id={bundle.report_id!r} fragments={len(bundle.fragments)} diagrams={len(diagrams)}")
+            validate_bundle(bundle)
+            print(f"[VALID] report_id={bundle.report_id!r} fragments={len(bundle.fragments)}")
         else:
             build_bundle(bundle_path, root, output_dir)
     except GenerationError as exc:
