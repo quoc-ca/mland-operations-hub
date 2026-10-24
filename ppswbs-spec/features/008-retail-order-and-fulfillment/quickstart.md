@@ -25,7 +25,7 @@ that FE-08 is implemented or that production GHTK credentials are available.
 | QS-04 | Member pays a grouped checkout containing two branch orders | One verified VNPay payment applies to all branch orders exactly once. |
 | QS-05 | Member submits stale cart or unavailable quantity | Complete grouped checkout rejected; no partial branch order or hold. |
 | QS-06 | Member selects pickup for one branch order | That branch quote excludes GHTK charge; grouped checkout can continue to payment. |
-| QS-07 | Member selects GHTK with valid recipient data for one branch order | Mock fee quote returns; that branch's delivery fee and approved mandatory surcharge are shown before payment. |
+| QS-07 | Member selects GHTK with valid recipient data for one branch order | The development/test mock or approved provider returns a server-issued quote ID; that branch's delivery fee and approved mandatory surcharge are shown before payment. |
 | QS-08 | GHTK recipient data is unsupported | GHTK option is blocked for that branch with correction/pickup guidance; no payment attempt is created. |
 | QS-09 | Full VNPay payment is verified for a grouped checkout | All branch orders become paid once; duplicate callback is a no-op. |
 | QS-10 | Payment is absent after 15-minute hold | Quantities and benefits are released for the grouped checkout; late evidence does not reopen the hold. |
@@ -40,6 +40,10 @@ that FE-08 is implemented or that production GHTK credentials are available.
 | QS-19 | Member opens FE-08 while cart/order data is loading, empty, rejected, stale or unavailable | React displays the approved distinct UI state, preserves safe editable input where applicable, and never fabricates success or authorization. |
 | QS-20 | Browser displays a successful VNPay return but backend verification is pending or rejected | React shows pending/error from the Mland API; no branch order is presented as paid from browser state alone. |
 | QS-21 | Frontend attempts to request GHTK directly or expose provider configuration | Verification fails; all provider calls and credentials remain server-side. |
+| QS-22 | Production GHTK access is absent or disabled | GHTK is disabled with contact-Staff guidance; pickup remains available and no mock/provider call occurs. |
+| QS-23 | GHTK is unavailable for one branch in a mixed-branch checkout | Only that branch requires explicit pickup; unaffected branches retain eligible GHTK choices and the recalculated grouped total requires reconfirmation. |
+| QS-24 | A referenced GHTK quote expires or changes before payment | Checkout rejects the stale quote ID and creates no payment attempt; the replacement quote, difference and new grouped total are displayed for explicit reconfirmation. |
+| QS-25 | Fee quotation times out | Cart and in-memory recipient draft remain available; no order/payment is created and the Member can retry or select pickup for the affected branch. |
 
 ## Required validation commands after implementation
 
