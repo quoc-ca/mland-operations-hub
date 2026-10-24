@@ -35,6 +35,6 @@
 
 ## Notes
 
-- Content quality passes. Planning remains blocked by the explicit deferred-payment
-  link-duration conflict and project-wide Manager/role-code mapping; neither is
-  silently defaulted.
+- Content quality passes. The 24-hour final-payment-link exception and the
+  branch-scoped settlement capabilities are confirmed. The broader role-code
+  mapping remains owned by account/personnel and is not inferred here.
