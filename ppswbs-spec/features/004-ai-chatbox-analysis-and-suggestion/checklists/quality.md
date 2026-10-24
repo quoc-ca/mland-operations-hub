@@ -1,6 +1,9 @@
 # Quality Checklist: Feature-04
 
 - [ ] `spec.md` has no unresolved business decision that blocks implementation.
+- [ ] Permission Matrix is the single source of truth for Feature-04 actor access.
+- [ ] Validation Matrix order is deterministic and provider calls cannot bypass prior validation.
+- [ ] Matrix entries are consistent with OpenAPI routes, security schemes and error responses.
 - [ ] OpenAPI routes, access rules and error responses match `spec.md`.
 - [ ] JPA/Flyway mapping preserves existing domain ownership and does not use raw SQL in application code.
 - [ ] Provider calls have timeout, safe mapping, correlation and retry behavior.
@@ -8,6 +11,8 @@
 - [ ] AI output policy validation rejects final approvals, price publication commands and data leakage.
 - [ ] Raw tokens, credentials, images, provider payloads and unnecessary PII are excluded from logs/audit.
 - [ ] Guest/Member/Staff/Manager/Admin authorization tests cover allowed and denied paths.
+- [ ] Permission tests cover endpoint access, ownership, branch/delegation scope and price-suggestion visibility.
+- [ ] Validation tests cover field errors, business-context errors and prohibited side effects.
 - [ ] Concurrent duplicate submissions and review decisions are safe.
 - [ ] Concurrent image submissions cannot bypass the three-per-five-minute Member quota.
 - [ ] Fourth image attempt returns `429 IMAGE_RATE_LIMITED` with `Retry-After`.

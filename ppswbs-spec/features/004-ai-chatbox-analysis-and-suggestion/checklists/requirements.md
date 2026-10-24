@@ -1,6 +1,12 @@
 # Requirements Checklist: Feature-04
 
 - [ ] Three use cases are specified separately.
+- [ ] Permission Matrix covers Guest, Member, Staff, Manager, Admin, AI Provider and Cloud Storage.
+- [ ] Every Feature-04 endpoint has allowed actor, denied actor, scope condition and forbidden side effect.
+- [ ] Validation Matrix covers transport, identity, role, scope, rate limit, schema, context, security, provider output and persistence order.
+- [ ] Field-level validation covers booking, consent, design version and image constraints.
+- [ ] Human-review validation covers threshold, branch/delegation, current version, separation of duties and atomic decisions.
+- [ ] Price-suggestion validation covers Manager proposal scope, advisory-only output and catalogue handoff.
 - [ ] Guest cannot submit a booking-design image.
 - [ ] Member consent is affirmative, versioned and recorded before image storage/processing.
 - [ ] Package, location, session and booking context are checked before image submission.
@@ -13,6 +19,7 @@
 - [ ] Price suggestion is limited to new packages/retail products.
 - [ ] Manager confirmation and separate catalogue publication are required.
 - [ ] Error codes, idempotency, retry and stale-version behavior are specified.
+- [ ] Matrix error codes and side effects match the OpenAPI contract.
 - [ ] Every provider input is normalized, schema-validated and restricted to an allowlisted context.
 - [ ] Prompt-injection attempts are rejected before provider invocation.
 - [ ] Provider output is checked for schema, data leakage and prohibited business decisions.

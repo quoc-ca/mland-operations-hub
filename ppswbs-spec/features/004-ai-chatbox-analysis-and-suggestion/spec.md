@@ -28,6 +28,154 @@ The Report 3 display roles are authoritative for this feature: `Guest`, `Member`
 | AI API | Return text support, candidate image features/image quality, or advisory package/product price suggestions. It cannot mutate Mland business state. |
 | Cloud Storage | Temporarily store booking-design image input and retain only according to the feature retention rule. |
 
+## Permission Matrix
+
+The following matrix is authoritative for Feature-04. `Allow` always requires the
+actor to satisfy Firebase identity, Mland account status, role, resource ownership
+and scope checks. A client-supplied role, reviewer, price, estimate or decision is
+never trusted. Physical role-code mapping remains a separate approved decision.
+
+| Action | Guest | Member | Staff | Manager | Admin |
+| --- | --- | --- | --- | --- | --- |
+| Basic AI support | Allow, public context only | Allow, public context only | Allow, public context only | Allow, public context only | Allow, public context only |
+| Upload booking-design image | Deny | Allow, own eligible booking only | Deny | Deny | Deny |
+| View own design result | Deny | Own data only | Deny | Deny | Deny |
+| View scoped design request | Deny | Own data only | Branch/value scope | Branch/authority scope | Technical/audit evidence only if authorized |
+| Review booking-design request | Deny | Deny | Up to 3,000,000 VND within scope | Above 3,000,000 VND or Manager-authority request | Deny |
+| Record review decision | Deny | Deny | Allow within scope and separation-of-duties rules | Allow within scope and separation-of-duties rules | Deny |
+| Request price suggestion | Deny | Deny | Deny | Allow for authorized new package/product proposal | Deny |
+| View internal price suggestion | Deny | Deny | Deny by default | Authorized proposal scope | Technical/audit evidence only if authorized |
+| Confirm final catalogue price | Deny | Deny | Deny | Allow through catalogue workflow | Deny |
+| Publish catalogue price | Deny | Deny | Deny | Through Catalogue facade only | Deny through Feature-04 |
+| Configure provider credentials | Deny | Deny | Deny | Deny | Allow technical configuration |
+| Mutate booking/payment/custom order | Deny through Feature-04 | Deny through Feature-04 | Deny through Feature-04 | Deny through Feature-04 | Deny through Feature-04 |
+
+### Permission conditions
+
+- Staff may review only requests in the delegated branch/scope whose estimated value
+  is at or below 3,000,000 VND.
+- Manager may review requests above 3,000,000 VND or requests explicitly requiring
+  Manager authority.
+- A reviewer must not review a request created by the reviewer or a request where
+  the reviewer is the protected beneficiary.
+- Admin may inspect technical/audit evidence only when the configured permission
+  allows it. Admin cannot replace Manager business approval.
+- AI Provider and Cloud Storage are infrastructure actors, not Mland business
+  actors. Neither receives permission to mutate Mland business state.
+- Price suggestions are internal evidence. Guest, Member and Staff do not receive
+  the suggestion projection; a customer sees a price only after Manager confirmation
+  and successful catalogue publication.
+
+### Endpoint permission mapping
+
+| Endpoint | Allowed actor | Denied or restricted actor | Scope/business condition | Denied side effect |
+| --- | --- | --- | --- | --- |
+| `POST /api/v1/ai-support/messages` | Guest, Member, authorized internal actors | None for public-support scope; unsupported business requests are rejected | Public catalogue, workshop, store-information or approved FAQ context | No booking, payment, review, order or price mutation |
+| `POST /api/v1/design-requests` | Authenticated eligible Member | Guest, Staff, Manager, Admin | Own package/location/session/booking context, current consent and valid design version | No storage/provider call when authorization or validation fails |
+| `GET /api/v1/design-requests/{id}` | Owning Member, scoped Staff/Manager, authorized Admin audit view | Other Members and out-of-scope staff | Ownership, branch/delegation and authority scope | No raw image, raw provider payload or another Member's data |
+| `GET /api/v1/design-review-requests` | Staff and Manager | Guest, Member, Admin unless approved audit view | Reviewer branch/delegation/value/authority scope | No mutation |
+| `POST /api/v1/design-review-requests/{id}/decisions` | Scoped Staff or Manager | Guest, Member, Admin and out-of-scope reviewer | Current version, non-terminal state, separation of duties | No automatic booking/payment/custom-order mutation |
+| `POST /api/v1/price-proposals/{id}/ai-suggestions` | Authorized Manager | Guest, Member, Staff, Admin | New workshop package or retail product proposal | No price application or publication from AI response alone |
+
+## Validation Matrix
+
+All protected operations MUST validate in this order:
+
+```text
+Transport
+→ Firebase identity
+→ Mland role/status
+→ Resource ownership/scope
+→ Rate limit/idempotency
+→ Input schema
+→ Business context
+→ Security screening
+→ Provider call
+→ Provider output validation
+→ Persistence/state transition
+```
+
+A failed validation stops the pipeline immediately. A provider call MUST NOT occur
+when a preceding validation fails.
+
+### Basic AI support validation
+
+| Validation | Error | Provider call | Persistence | Response |
+| --- | --- | --- | --- | --- |
+| Empty prompt | `AI_INPUT_INVALID` | No | None | 400/422 |
+| Prompt exceeds configured maximum length | `AI_INPUT_INVALID` | No | None | 400/422 |
+| Unsupported topic | `AI_SCOPE_UNSUPPORTED` | No | Safe interaction evidence only | 422 |
+| Private data or business-decision request | `AI_CONTEXT_NOT_ALLOWED` | No | Minimal safe audit evidence | 422 |
+| Prompt injection | `AI_PROMPT_INJECTION_DETECTED` | No | Minimal safe audit evidence | 422 |
+| Basic AI rate limit | `AI_RATE_LIMITED` | No | Safe rate-limit evidence | 429 |
+| Provider timeout/unavailable | `AI_UNAVAILABLE` | Attempted | Failure evidence only | 503 |
+| Empty, unsafe or policy-violating output | `AI_OUTPUT_POLICY_VIOLATION` | Yes | No raw output | 422 |
+| Valid public question and validated response | None | Yes | Minimized interaction with retention deadline | 200 |
+
+### Booking-design image validation
+
+| Order | Validation | Error on failure | Provider call | Side effect on failure |
+| ---: | --- | --- | --- | --- |
+| 1 | Firebase identity | `AUTHENTICATION_REQUIRED` | No | No storage/request creation |
+| 2 | Member role and active status | `FORBIDDEN_ROLE` | No | No storage/request creation |
+| 3 | Idempotency key format and duplicate lookup | `AI_INPUT_INVALID` or existing result | No for duplicate | Duplicate returns existing result |
+| 4 | Member image rate limit | `IMAGE_RATE_LIMITED` | No | No storage/request creation; return `Retry-After` |
+| 5 | `bookingCode` format and existence | `BOOKING_CONTEXT_INVALID` | No | No storage/request creation |
+| 6 | Package exists and is eligible | `BOOKING_CONTEXT_INVALID` | No | No storage/request creation |
+| 7 | Location/session exists and belongs to selected package | `BOOKING_CONTEXT_INVALID` | No | No storage/request creation |
+| 8 | Booking ownership and active context | `BOOKING_CONTEXT_INVALID` | No | No storage/request creation |
+| 9 | Design path supports booking image | `AI_FEATURE_NOT_APPLICABLE` | No | No storage/request creation |
+| 10 | Consent version, purpose, actor and time | `CONSENT_REQUIRED` | No | No storage/request creation |
+| 11 | `designVersion` is current and positive | `DESIGN_VERSION_STALE` | No | No storage/request creation |
+| 12 | Image is present and has valid MIME/file signature | `IMAGE_INVALID` | No | No storage/request creation |
+| 13 | File size and dimensions are within configuration | `IMAGE_TOO_LARGE` or `IMAGE_INVALID` | No | No storage/request creation |
+| 14 | Malware/security scan and ownership check | `IMAGE_INVALID` | No | No storage/request creation |
+| 15 | Image metadata is minimized and provider context is allowlisted | `AI_INPUT_INVALID` or `AI_CONTEXT_NOT_ALLOWED` | No | No storage/request creation |
+| 16 | Prompt-injection/security screening | `AI_PROMPT_INJECTION_DETECTED` | No | No storage/request creation |
+| 17 | Temporary storage succeeds | `AI_UNAVAILABLE` | No | No provider request |
+| 18 | Gemini response matches result schema and policy | `AI_RESPONSE_INVALID` or `AI_OUTPUT_POLICY_VIOLATION` | Yes | Delete image; record safe failure |
+| 19 | Estimate snapshot and review routing are valid | `AI_INPUT_INVALID` or routing error | Yes | No review decision |
+| 20 | Persistence and state transition succeed | `AI_UNAVAILABLE` or transaction error | Yes | Retry-safe cleanup and no duplicate decision |
+
+The image rate-limit rule is fixed: scope is authenticated Member ID, the window is
+rolling five minutes, and the limit is three image-submission attempts. The fourth
+attempt returns HTTP 429 with `IMAGE_RATE_LIMITED` and `Retry-After`; it performs no
+storage call, Gemini call or request creation. Missing consent, invalid context and
+invalid file requests after identity verification still consume an attempt.
+Duplicate idempotent retries return the existing command result and do not consume a
+new quota slot. The quota check/reservation is atomic.
+
+### Human review validation
+
+| Validation | Error | Required behavior |
+| --- | --- | --- |
+| Review request exists and is visible | `REVIEW_NOT_AUTHORIZED` or `NOT_FOUND` | Do not reveal another request's data |
+| Reviewer has Staff/Manager role and active status | `REVIEW_NOT_AUTHORIZED` | No decision mutation |
+| Request is in reviewer branch/delegation/value scope | `REVIEW_NOT_AUTHORIZED` | No decision mutation |
+| Staff threshold is at or below 3,000,000 VND | `REVIEW_NOT_AUTHORIZED` | Route higher value to Manager |
+| Manager authority applies when required | `REVIEW_NOT_AUTHORIZED` | Staff cannot decide Manager-authority request |
+| Reviewer is not creator or protected beneficiary | `REVIEW_NOT_AUTHORIZED` | No self-review or conflict review |
+| Request has no terminal decision | `REVIEW_STATE_CONFLICT` | Reject competing decision |
+| `designVersion` is the current version | `DESIGN_VERSION_STALE` | Require current version |
+| Decision is `ACCEPTED`, `REJECTED` or `CLARIFICATION_REQUIRED` | `AI_INPUT_INVALID` | Reject unknown enum |
+| Reason is present and within configured length | `AI_INPUT_INVALID` | Do not persist incomplete decision |
+| Decision and audit evidence commit atomically | `REVIEW_STATE_CONFLICT` on race | At most one terminal decision |
+
+### AI price suggestion validation
+
+| Validation | Error | Provider call | Side effect on failure |
+| --- | --- | --- | --- |
+| Actor is authenticated Manager | `FORBIDDEN_ROLE` | No | No suggestion |
+| Manager owns or is authorized for proposal | `REVIEW_NOT_AUTHORIZED` | No | No suggestion |
+| Proposal is a new workshop package or retail product | `AI_FEATURE_NOT_APPLICABLE` | No | No suggestion |
+| Target is not custom-manufacturing, Member quotation, invoice or payment | `AI_FEATURE_NOT_APPLICABLE` | No | No suggestion |
+| Materials/components/pricing context are complete | `PRICE_INPUT_INCOMPLETE` | No | Manager can complete inputs |
+| Input excludes private data and uses allowlisted context | `AI_CONTEXT_NOT_ALLOWED` | No | No provider call |
+| Provider output is numeric, non-negative and within configured range | `PRICE_SUGGESTION_INVALID` | Yes | Store failure evidence only |
+| Response has advisory flag and valid schema | `AI_RESPONSE_INVALID` | Yes | Do not expose invalid response |
+| Manager decision is recorded | `REVIEW_STATE_CONFLICT` on race | No additional call | Do not apply/publish price |
+| Catalogue facade confirms application/publication | Owning catalogue error | No | Feature-04 cannot publish directly |
+
 ## Journey rules
 
 The workshop booking order is:

@@ -11,7 +11,10 @@ servers:
 paths:
   /ai-support/messages:
     post:
-      summary: Ask basic AI support
+      summary: Ask basic AI support (Guest/Member/public context)
+      description: >-
+        Validates scope, prompt-injection policy and rate limit before invoking
+        the provider. The response cannot mutate Mland business state.
       security: []
       requestBody:
         required: true
@@ -37,6 +40,10 @@ paths:
   /design-requests:
     post:
       summary: Submit a Member booking-design request
+      description: >-
+        Member-only endpoint. Requires eligible booking context, current consent,
+        valid image input, atomic three-attempt/five-minute rate limiting and an
+        idempotency key before temporary storage or provider processing.
       security:
         - firebaseBearer: []
       parameters:
@@ -69,6 +76,9 @@ paths:
   /design-requests/{designRequestId}:
     get:
       summary: Read an authorized design request projection
+      description: >-
+        Returns only the owning Member projection or an authorized Staff/Manager
+        scope projection. Raw image and provider payloads are never returned.
       security:
         - firebaseBearer: []
       parameters:
@@ -89,6 +99,9 @@ paths:
   /design-review-requests:
     get:
       summary: List requests within Staff or Manager review scope
+      description: >-
+        Returns only requests within the authenticated reviewer's branch,
+        delegation, value and authority scope.
       security:
         - firebaseBearer: []
       responses:
@@ -107,6 +120,9 @@ paths:
   /design-review-requests/{reviewRequestId}/decisions:
     post:
       summary: Record a human review decision
+      description: >-
+        Staff or Manager only. Requires current design version, valid role scope,
+        separation of duties and an atomic terminal-state transition.
       security:
         - firebaseBearer: []
       parameters:
@@ -138,6 +154,9 @@ paths:
   /price-proposals/{proposalId}/ai-suggestions:
     post:
       summary: Request an advisory package/product price suggestion
+      description: >-
+        Manager-only endpoint for a new workshop package or retail product. The
+        result is advisory and cannot apply or publish a price directly.
       security:
         - firebaseBearer: []
       parameters:
@@ -287,6 +306,7 @@ components:
           type: string
           enum:
             - AUTHENTICATION_REQUIRED
+            - NOT_FOUND
             - FORBIDDEN_ROLE
             - BOOKING_CONTEXT_INVALID
             - DESIGN_VERSION_STALE
@@ -323,12 +343,28 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
       description: Missing or invalid Firebase identity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     Forbidden:
       description: Authenticated actor lacks the required Mland permission
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     NotFound:
       description: Resource is not visible to the actor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     Conflict:
       description: Idempotency, stale version or review state conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     RateLimited:
       description: Configured request limit exceeded
       headers:
@@ -361,3 +397,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     ProviderUnavailable:
       description: AI provider unavailable or timed out
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
