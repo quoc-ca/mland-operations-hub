@@ -1,7 +1,7 @@
 # Research: Retail Order and Fulfillment
 
 **Feature**: `008-retail-order-and-fulfillment`
-**Date**: 2026-10-23
+**Date**: 2026-10-23 | **Updated**: 2026-10-24
 
 This research resolves design choices needed to plan FE-08. It does not create
 production credentials, approve a migration, or claim that the external
@@ -132,4 +132,45 @@ provider contract is ready for go-live.
 - **Alternatives considered**: Rejecting mixed-branch carts was rejected because
   the intended user experience is marketplace-like. Separate payment sessions
   per branch were rejected because the Member explicitly requires one payment.
+
+## Decision 10: Replace the superseded SSR structure with separate React and REST
+
+- **Decision**: FE-08 application UI belongs to the separate React + Vite client.
+  Spring Boot exposes versioned REST endpoints and does not render FE-08 pages or
+  use htmx. Backend modules follow
+  `features/<feature>/{controller,dto,dao,entity,service,facade}`.
+- **Rationale**: Constitution v3.0.0 supersedes the older progressive
+  Thymeleaf/htmx baseline. Keeping the old structure would make the plan fail
+  the current architecture gate even if the resulting screens worked.
+- **Alternatives considered**: Retaining Thymeleaf as a temporary FE-08 UI was
+  rejected because there is no ratified exception. Creating a second shared
+  order service was rejected because the existing modular monolith is enough.
+
+## Decision 11: Keep frontend state feature-local and provider-neutral
+
+- **Decision**: The React client owns only transient view/form/request state for
+  FE-08. The backend remains authoritative for cart ownership, current price,
+  availability, holds, payment, order and shipment status. The browser calls
+  Mland REST APIs only and never calls GHTK directly.
+- **Rationale**: This avoids treating route guards, local totals, prototype
+  fixtures or browser payment redirects as business evidence. It also keeps
+  provider credentials and raw callbacks outside the frontend bundle.
+- **Alternatives considered**: Persisting authenticated order state in browser
+  storage was rejected without a lifecycle/security decision. Adding a state
+  library by default was rejected because the required complexity and version
+  have not been approved.
+
+## Decision 12: Treat frontend foundation and package relocation as explicit gates
+
+- **Decision**: Before scaffold or production code, approve pinned frontend
+  versions/tools and the migration path from current root-level module shells to
+  Constitution v3 `features/` modules. Verification must prove each feature is a
+  distinct Spring Modulith module and must include frontend build/UI/API states.
+- **Rationale**: `ppswbs_frontend` currently has no package or lockfile, while the
+  backend package tree predates Constitution v3. Guessing versions or silently
+  layering new code over both structures would create two competing baselines.
+- **Alternatives considered**: Scaffolding with whatever CLI version happens to
+  be installed was rejected as non-reproducible. Copying the static prototype
+  into production was rejected because it contains fixture behavior and no real
+  authorization or API lifecycle.
 
