@@ -5,12 +5,12 @@
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
-**Status**: Validation plan, chưa có implementation để chạy nghiệm thu.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; kế hoạch kiểm chứng, chưa có implementation để chạy nghiệm thu.  
 **References**: [spec](spec.md), [plan](plan.md), [data model](data-model.md), [OpenAPI](contracts/product-management.openapi.json), [interfaces](contracts/interfaces.md).
 
 ## Prerequisites
 
-1. Hướng A đã chốt: dùng chung cơ chế xác thực theo FE-01/001, phiên nội bộ cố định 8 giờ (tính từ auth_time) và kiểm tra quyền từng action; Cloudinary/roles/retention/defaults cũng đã chốt. Trước enable quản trị, identity owner cần hoàn thiện thiết kế MFA/recovery và triển khai/kiểm chứng kết quả xác thực đặc quyền; chưa chọn phương thức cụ thể từ FE-02. Spec/plan/tasks được review và có phân tích trước code. Các adapter chưa có được sắp thứ tự như dependency; nghiệm thu tích hợp cần implementation thật, không yêu cầu code phải có sẵn để viết plan.
+1. Hướng A đã chốt: dùng chung cơ chế xác thực theo FE-01/001, phiên theo contract FE-01/001 và kiểm tra quyền từng action; Cloudinary/roles/retention/defaults cũng đã chốt. Trước enable quản trị, identity owner cần hoàn thiện thiết kế MFA/recovery và triển khai/kiểm chứng kết quả xác thực đặc quyền; chưa chọn phương thức cụ thể từ FE-02. Spec/plan/tasks được review và có phân tích trước code. Các adapter chưa có được sắp thứ tự như dependency; nghiệm thu tích hợp cần implementation thật, không yêu cầu code phải có sẵn để viết plan.
 2. JDK 21, Maven wrapper của repository, disposable MySQL 8.4 được phép dùng. H2 hiện là default, không dùng H2-only làm kết luận migration/concurrency/collation pass.
 3. Identity test environment đã được owner cung cấp, actor Guest/Member/Staff/Manager/Manager-self/inactive và capability đúng; không tạo role từ Firebase client claim hoặc suy quyền từ cookie profile 001. Cloudinary test namespace dùng authenticated assets, signed backend upload và stream cùng origin; cấu hình qua môi trường. Adapter FE-08 thật có guard theo contract.
 4. Không dùng database, token, ảnh hoặc credential production. Không đọc/ghi/reset dữ liệu thực. Biến môi trường được cấp qua secret channel, không paste credential vào output/evidence.
@@ -43,7 +43,7 @@ Tên test là mục tiêu thiết kế, không có test code được tạo tron
 
 | ID | Execute | Expected result and reference |
 | --- | --- | --- |
-| V-01 | Guest/Member/inactive truy cập quản trị; Staff gọi approve; Manager tự tạo/tự duyệt. Kiểm tra bearer API và frontend React với bearer trước/đúng/sau mốc 8 giờ từ auth_time, token revoked và thiếu kết quả đạt xác thực đặc quyền. | Từ chối đúng 401/403/503 theo contract; không trượt thời hạn phiên, không suy quyền từ cookie Member, không truy cập quản trị khi thiếu assurance từ identity. Self-approval hợp lệ; giữ luồng Member, không policy-profile redirect. US1.8–10, US2.3/6. |
+| V-01 | Guest/Member/inactive truy cập quản trị; Staff gọi approve; Manager tự tạo/tự duyệt. Kiểm tra bearer API và frontend React với bearer token hết hạn, token revoked và thiếu kết quả đạt xác thực đặc quyền. | Từ chối đúng 401/403/503 theo contract; không trượt thời hạn phiên, không suy quyền từ cookie Member, không truy cập quản trị khi thiếu assurance từ identity. Self-approval hợp lệ; giữ luồng Member, không policy-profile redirect. US1.8–10, US2.3/6. |
 | V-02 | Tạo bản nháp và lỗi field/size/quantity/price, thử tạo thêm/đổi size/khắc/SKU. | Atomic create, SKU đúng, size cố định, lỗi trường rõ, bản nháp chưa có ảnh vẫn lưu. US1, US4.4. |
 | V-03 | Gửi cùng hồ sơ mới, sửa trước approve, stale decision, reject/resubmit, Manager cancel, audit failure. | Review/price revision đúng, một pending proposal/size kể cả gửi đồng thời, không partial decision. US2; Clarifications Q1. |
 | V-04 | Duyệt nhưng chưa apply; apply đủ rồi publish; zero quantity; apply amount khác/old proposal. | Không publish sớm, tách giá và publication, old application không ghi đè, sold-out vẫn public. US3/5. |
@@ -55,10 +55,10 @@ Tên test là mục tiêu thiết kế, không có test code được tạo tron
 | V-10 | Mất toàn bộ ảnh/dependency error/empty catalogue và media khôi phục. | Safe error khác empty, không fake held=0; visibility phục hồi đúng, publication flag/history không bị đổi. US8.9/FR-036. |
 | V-11 | Same command retry sau commit mất response; khác payload cùng key; mất quyền trước receipt lookup. | Không duplicate; digest conflict 409; receipt không cấp quyền hoặc lộ protected result. FR-028. |
 | V-12 | Fresh/upgrade migration MySQL, rollback failure/audit/unique, baseline member/workshop regression. | Preserve V1–V3 data, correct FK/check/index, zero changes migration cũ, real concurrency evidence. |
-| V-13 | Chạy frontend React + Vite với backend REST: public search/filter/paging và mọi hành trình quản trị cốt lõi; kiểm tra loading/empty/validation/success/failure/recovery. | Journeys hoàn thành chỉ qua REST; backend không trả HTML UI; token hết hạn trả 401 và UI yêu cầu đăng nhập lại. FR-038. |
+| V-13 | Chạy frontend React + Vite với backend REST: public search/filter/paging và mọi hành trình quản trị cốt lõi; kiểm tra loading/empty/validation/success/failure/recovery. | Journeys hoàn thành chỉ qua REST; backend không trả HTML UI; hết phiên/thu hồi trả 401 và UI xử lý theo hành vi đăng nhập lại/recovery do 001 định nghĩa. FR-038. |
 | V-14 | Kiểm tra mốc 24h ảnh chưa gắn, 30 ngày sau ảnh gỡ; attach/retain đồng thời cleanup; audit/receipt dưới 5 năm. Kiểm tra Cloudinary upload timeout/retry, unsigned access và ảnh sau unpublish/delete. | Chỉ dọn object không tham chiếu, DELETE_PENDING chặn attach; retry không tạo trùng/ghi đè. Provider URL không lộ, original/derived unsigned bị từ chối; public media bị chặn khi không còn tham chiếu công khai hợp lệ, quyền đọc lịch sử kiểm tra riêng. Không xóa ảnh lịch sử hoặc purge audit/receipt trước hạn. US4.9, US5.6. |
 
-Chạy V-06/V-07 có barrier điều phối hai transaction để thực sự va chạm, không chỉ gọi tuần tự. Lock order được kiểm tra cả catalogue và source FE-08, gồm source không có hold row để bắt phantom race. Nếu adapter chưa có, ghi NOT RUN/BLOCKED, không dùng fixture-only kết quả thay integration pass.
+Chạy V-06/V-07 có barrier điều phối hai transaction để thực sự va chạm, không chỉ gọi tuần tự. Lock order được kiểm tra cả productmanagement và source FE-08, gồm source không có hold row để bắt phantom race. Nếu adapter chưa có, ghi NOT RUN/BLOCKED, không dùng fixture-only kết quả thay integration pass.
 
 ## Evidence and recovery
 
@@ -66,4 +66,4 @@ Lưu kết quả mới cho từng V-ID/FR/US: revision, môi trường, MySQL ve
 
 Đối với documentation-only planning, static checks về links, OpenAPI JSON/refs, FR traceability và placeholders là kiểm chứng phù hợp; không tạo test code chỉ để chứng minh tài liệu đã viết. Runtime/security/MySQL/real-adapter scenarios chưa chạy vì implementation/dependency chưa tồn tại; manual reading không thay các gate này.
 
-Khi validation fail: giữ nguyên dữ liệu, kiểm tra command receipt trước retry, xác định correlation ID; không reset schema hoặc xóa giữ để ép test pass. Rollout/recovery production phải có phê duyệt riêng; plan chỉ đề xuất disable catalogue routes và additive fix, không hard-delete/down-migrate.
+Khi validation fail: giữ nguyên dữ liệu, kiểm tra command receipt trước retry, xác định correlation ID; không reset schema hoặc xóa giữ để ép test pass. Rollout/recovery production phải có phê duyệt riêng; plan chỉ đề xuất disable routes productmanagement và additive fix, không hard-delete/down-migrate.

@@ -9,8 +9,8 @@
 
 | Gate | Evidence hiện có | Owner/việc còn phải có | Điều kiện đạt |
 | --- | --- | --- | --- |
-| G-01 Identity/capability | MemberFacade chỉ lookup/entitlement; SecurityConfiguration fallback permitAll/CSRF disabled; 001/002 có shared-auth design | FE-01/identity cung cấp verified bearer và phiên fixed8h tính từ auth_time, revocation/state, current Member/Manager/Admin capabilities, privileged assurance và authorization guard | Contract/API/web checks với identity thật, deny thiếu quyền/assurance, expiry/revocation và existing Member journeys không regression. Không chọn MFA method từ loyalty. |
-| G-02 Catalogue targets/source sales | Catalogue/readyringsales code hiện shell; 002 có design/catalogue SPI | FE-02 cung cấp product/variant facts và guard; FE-08 sở hữu price/quantity source snapshot và accepted order | Không raw repository access/fake provider; create/quote/accept scope và source guard races qua provider thật, Module verify pass. |
+| G-01 Identity/capability | MemberFacade chỉ lookup/entitlement; SecurityConfiguration fallback permitAll/CSRF disabled; 001/002 có shared-auth design | FE-01/identity cung cấp verified bearer và phiên theo contract FE-01/001, revocation/state, current Member/Manager/Admin capabilities, privileged assurance và authorization guard | Contract/API/web checks với identity thật, deny thiếu quyền/assurance, expiry/revocation và existing Member journeys không regression. 001 giao contract và facade xác thực cho frontend React. Không chọn MFA method từ loyalty. |
+| G-02 Catalogue targets/source sales | Catalogue/readyringsales code hiện shell; 002 có design/catalogue SPI | FE-02 cung cấp product/variant facts và guard qua `LoyaltyProductTargetAdapter` (T091 của feature 002, triển khai PromotionTargetPort sau T004 của FE-06); FE-08 sở hữu price/quantity source snapshot và accepted order | Không raw repository access/fake provider; create/quote/accept scope và source guard races qua provider thật, Module verify pass. |
 | G-03 Retail owner | FE-08 chưa có order/payment runtime | FE-08 tích hợp preview/accept reserve atomic, full-paid/zero outcome, original deadline, expiry/arbitration và source delivery receipts nếu cần bridge | Rollback cả hai chiều, zero không gateway, callback duplicate/late, expired/unresolved không release sai, snapshot tiền/points không đổi. |
 | G-04 Booking acceptance/deposit | WorkshopBookingService đang tính invoice/cọc theo giá gốc, có callback/expiry nhưng chưa owner lock contract đủ | FE-03 thêm selection/quote acknowledgement, net fee trước cọc, snapshot/boundary, lifecycle source lock | Invoice/cọc/remain đúng after-voucher/points, deposit settle một lần, không grant sớm; atomic creation/capacity/loyalty rollback và payment-vs-expiry test thật. |
 | G-05 Workshop hậu xử lí | Spec002 hoãn completion/cancel/no-show/final-payment; runtime chưa cấp authoritative outcomes đủ FE06 | FE-03 cung cấp xác nhận completed AND fully-paid, valid paid-cancellation trước completion, no-show final và phân xử late/conflicting outcomes | Chứng minh both conditions, policy cũ, valid cancellation restore đúng, no-show không auto restore; Guest import không retro-earn; source và loyalty history đồng bộ. |
@@ -23,7 +23,7 @@
 - 10.000đ→1 điểm, 1 điểm→100đ, tối thiểu10, trần10%, floor từng giao dịch.
 - Quyết định 1–10 trong hội thoại đã chốt trước specify.
 - Lịch sử/audit/receipts tối thiểu5 năm, bảo vệ refs/unfinished transactions.
-- Dùng chung FE-01/001, session fixed8h, current rights và privileged assurance dependency.
+- Dùng chung FE-01/001, session theo 001, current rights và privileged assurance dependency.
 
 ## Handoff boundaries
 

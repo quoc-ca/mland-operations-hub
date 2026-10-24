@@ -10,10 +10,10 @@
 
 ## 1. Module boundaries
 
-- `loyalty::facade` là named interface duy nhất public của module; web/application/domain/infrastructure đóng.
-- `readyringsales → loyalty::facade` và `workshopbooking → loyalty::facade`. Loyalty không import nguồn order/booking/catalogue/payment.
-- `loyalty → members::facade` cho verified actor/capabilities/authorization guard. Identity owner phải cung cấp contract này, không suy quyền từ MemberDto/email/ROLE_MEMBER.
-- `PromotionTargetPort` thuộc loyalty facade, catalogue/workshop triển khai trong adapter component độc lập; chỉ trả immutable scope facts/guard để kiểm tra cấu hình. Không inject WorkshopBookingService đang phụ thuộc loyalty vào port này.
+- `loyaltypromotion::facade` là named interface duy nhất public của module; controller/dto/dao/entity/service đóng.
+- `readyringsales → loyaltypromotion::facade` và `workshopbooking → loyaltypromotion::facade`. Loyalty không import nguồn order/booking/productmanagement/payment.
+- `loyaltypromotion → members::facade` cho verified actor/capabilities/authorization guard. Identity owner phải cung cấp contract này, không suy quyền từ MemberDto/email/ROLE_MEMBER.
+- `PromotionTargetPort` thuộc loyaltypromotion facade, productmanagement/workshop triển khai trong adapter component độc lập; chỉ trả immutable scope facts/guard để kiểm tra cấu hình. Không inject WorkshopBookingService đang phụ thuộc loyalty vào port này.
 - Không đọc repository/entity nguồn, không chuyển business entity vào common. Technical common chỉ correlation/error conventions.
 - DAG thực tế được kiểm chứng bằng ApplicationModules.verify(); một allowedDependencies declaration không chứng minh dependency đã được triển khai.
 
@@ -51,10 +51,10 @@ Không có public HTTP endpoint để reserve/consume/release/earn/restore, khô
 ## 3. Auth/session/error
 
 - REST API (kể cả gọi từ React): bearer Firebase token được backend xác minh, kiểm tra revocation và local identity state/capabilities hiện tại. API không chấp nhận web cookie thay bearer.
-- Frontend React gửi cùng bearer; phiên nội bộ cố định 8 giờ tính từ auth_time của Firebase ID token, không sliding (áp dụng đề xuất cho React SPA, identity owner xác nhận); role/ownership kiểm mỗi thao tác. Cookie/CSRF của thiết kế chung [001](../../001-account-management/plan.md) không áp dụng cho SPA; loyalty không tạo cookie auth mới.
+- Frontend React gửi cùng bearer; phiên theo contract FE-01/001; role/ownership kiểm mỗi thao tác. API không dùng cookie thay bearer theo [001](../../001-account-management/plan.md); loyaltypromotion không tạo cookie auth mới.
 - Manager quản lí programs; Admin policy; Member own resources. Một vai trò không tự suy là vai trò kia. Nội bộ phải có privileged assurance do FE-01 cung cấp; chưa có dependency thì từ chối, không fallback permitAll.
 - Trusted lifecycle continuation không đòi Member còn đang active tại callback để xử lí cam kết đã chấp nhận; chỉ source component nội bộ có quyền gọi, không credential của browser.
-- 400 INVALID_INPUT cho malformed/type/bounds; 401 INVALID_TOKEN/SESSION_EXPIRED; 403 ACCESS_DENIED/PRIVILEGED_AUTH_REQUIRED; 404 PROMOTION_NOT_FOUND; 409 CODE_EXISTS, STALE_VERSION, IDEMPOTENCY_CONFLICT, QUOTA_LIMIT_CONFLICT, BENEFIT_STATE_CONFLICT, QUOTE_CHANGED, POINTS_LIMIT_CHANGED; 422 PROMOTION_INELIGIBLE, POINTS_USE_NOT_ALLOWED, WORKSHOP_NET_AMOUNT_INVALID; 503 DEPENDENCY_UNAVAILABLE hoặc RETRYABLE_CONTENTION.
+- 400 INVALID_INPUT cho malformed/type/bounds; 401 INVALID_TOKEN và mã hết phiên theo contract của 001; 403 ACCESS_DENIED/PRIVILEGED_AUTH_REQUIRED; 404 PROMOTION_NOT_FOUND; 409 CODE_EXISTS, STALE_VERSION, IDEMPOTENCY_CONFLICT, QUOTA_LIMIT_CONFLICT, BENEFIT_STATE_CONFLICT, QUOTE_CHANGED, POINTS_LIMIT_CHANGED; 422 PROMOTION_INELIGIBLE, POINTS_USE_NOT_ALLOWED, WORKSHOP_NET_AMOUNT_INVALID; 503 DEPENDENCY_UNAVAILABLE hoặc RETRYABLE_CONTENTION.
 - Error envelope `code,message,correlationId,timestamp,fieldErrors` theo common convention; không stack trace, token, member data hoặc raw source proof. Retryable contention không tự đổi key hoặc total; client kiểm tra/retry cùng intent.
 - Frontend hiển thị lỗi theo trường và giữ dữ liệu hợp lệ đã nhập; stale/quote changed hiển thị latest để khách xác nhận lại; 401 đưa về đăng nhập Firebase của owner; sau thành công điều hướng client.
 
@@ -103,14 +103,14 @@ Facade mutation MANDATORY, không REQUIRES_NEW. Nontransactional call bị từ 
 
 ### Target port
 
-`PromotionTargetPort.validateAndGuard(scope, targets)` được gọi trước registry lock, trong transaction Manager khi cần kiểm tra target tồn tại/hợp lệ. PRODUCT provider ở catalogue; WORKSHOP provider ở workshopbooking. Provider trả guard/immutable references, không remote call dưới khóa. Không có provider thì DEPENDENCY_UNAVAILABLE; không bỏ qua phạm vi hoặc dùng list giả.
+`PromotionTargetPort.validateAndGuard(scope, targets)` được gọi trước registry lock, trong transaction Manager khi cần kiểm tra target tồn tại/hợp lệ. PRODUCT provider ở productmanagement; WORKSHOP provider ở workshopbooking. Provider trả guard/immutable references, không remote call dưới khóa. Không có provider thì DEPENDENCY_UNAVAILABLE; không bỏ qua phạm vi hoặc dùng list giả.
 
 Loyalty không gọi target port trong reserve sau khi giữ registry: source owner đã giữ business guards và cung cấp authoritative line/session facts. Cần test owner serialize product deletion/schedule change với accept để không tạo quyền lợi trên nguồn không còn hợp lệ.
 
 ## Transaction and lock order
 
 1. Identity resolve/guard (nếu tương tác người dùng), kiểm tra ownership/capability; không giữ registry rồi gọi identity.
-2. Source resource guards theo contracts của catalogue/workshop/retail; callbacks khóa source lifecycle record để phân xử payment/expiry/cancel.
+2. Source resource guards theo contracts của productmanagement/workshop/retail; callbacks khóa source lifecycle record để phân xử payment/expiry/cancel.
 3. Registry READ cho accept, WRITE cho program/policy mutation.
 4. Program rows tăng ID; selected voucher quota serialized bằng program lock.
 5. Wallet Member, sau đó MemberQuota tăng program ID.

@@ -172,8 +172,8 @@ Là Admin, tôi muốn quản lí thông số chung và giữ chính sách đã 
 3. **Given** Guest, Member, Staff, Manager hoặc tài khoản thiếu quyền Admin hiện hành, **When** đổi cấu hình điểm, **Then** từ chối; Manager chỉ quyết định kết hợp điểm trong chương trình được quản lí.
 4. **Given** booking đã chấp nhận với 10.000đ/điểm tích và 100đ/điểm quy đổi, **When** Admin đổi thông số trước ngày hoàn thành, **Then** booking giữ chính sách/cách tính ban đầu, giao dịch được chấp nhận sau đổi dùng chính sách mới; không tính lại khoản giảm/điểm đã giữ/tổng đã đồng ý.
 5. **Given** lưu chưa xác nhận hoặc mất phản hồi, **When** kiểm tra lại, **Then** không báo cập nhật chỉ từ thao tác; giao dịch mới dùng một chính sách hợp lệ đã xác nhận.
-6. **Given** hành trình quản lí chương trình, Kho Voucher, My Loyalty, chọn ưu đãi và cấu hình, **When** dùng frontend React + Vite qua REST, **Then** xem/gửi dữ liệu/nhận lỗi và hoàn thành hành trình cốt lõi với đủ loading/empty/validation/success/failure/recovery; thao tác trình duyệt không thay bằng chứng quyền/thanh toán.
-7. **Given** Member/Manager/Admin vào FE-06, **When** xác thực và thao tác, **Then** dùng cơ chế chung FE-01/001, phiên nội bộ cố định 8 giờ tính từ auth_time, kiểm tra trạng thái/quyền hiện tại qua bearer đã xác minh; phiên hết hạn/thu hồi bị từ chối, không kéo dài trượt. Yêu cầu xác thực đặc quyền do FE-01 cung cấp, FE-06 không tự chọn phương thức hoặc bỏ qua điều kiện đó.
+6. **Given** hành trình quản lí chương trình, Kho Voucher, My Loyalty, chọn ưu đãi và cấu hình, **When** dùng giao diện web tách riêng qua API, **Then** xem/gửi dữ liệu/nhận lỗi và hoàn thành hành trình cốt lõi với đủ loading/empty/validation/success/failure/recovery; thao tác trình duyệt không thay bằng chứng quyền/thanh toán.
+7. **Given** Member/Manager/Admin vào FE-06, **When** xác thực và thao tác, **Then** dùng cơ chế chung FE-01/001, phiên theo contract FE-01/001, kiểm tra trạng thái/quyền hiện tại qua bearer đã xác minh; phiên hết hạn/thu hồi bị từ chối, không kéo dài trượt. Yêu cầu xác thực đặc quyền do FE-01 cung cấp, FE-06 không tự chọn phương thức hoặc bỏ qua điều kiện đó.
 
 ### Edge Cases
 
@@ -252,8 +252,8 @@ Là Admin, tôi muốn quản lí thông số chung và giữ chính sách đã 
 - **FR-036**: Kết quả giải phóng/hoàn MUST phân biệt từng quyền lợi để thử lại an toàn; không trả trùng hoặc vừa giải phóng vừa hoàn. Kết quả trước thiếu phần nào chỉ hoàn tất phần đó, bảo toàn lịch sử.
 - **FR-037**: Không đến, hủy không hợp lệ/chưa xác nhận hoặc đã hoàn thành MUST không tự hoàn quyền lợi đã dùng. Phiên bản này không trả hàng/hoàn tiền sản phẩm, hủy workshop đã hoàn thành, thu hồi điểm kiếm từ giao dịch hoàn tất hoặc số dư âm.
 - **FR-038**: Khi thanh toán/hết hạn/hủy gần nhau hoặc kết quả muộn/chưa rõ, hệ thống MUST theo FE-03/FE-08 xác nhận, không vừa chốt vừa giải phóng, không cấp/hoàn từ trình duyệt hoặc tự tạo giao dịch/thời hạn mới do mất phản hồi.
-- **FR-039**: Hành trình FE-06 cốt lõi MUST hoàn thành được từ frontend React + Vite tách riêng chỉ qua REST API có version; backend MUST NOT render UI. Lỗi an toàn, cho sửa/đăng nhập/thử lại, không thông báo thành công trước xác nhận.
-- **FR-040**: FE-06 MUST dùng chung cơ chế xác thực FE-01/001: phiên nội bộ cố định 8 giờ tính từ auth_time, bearer đã xác minh, kiểm tra thu hồi/trạng thái/quyền hiện tại; không tự cấp quyền từ cookie Member hoặc kéo dài phiên trượt. Xác thực đặc quyền do FE-01 sở hữu và phải cung cấp kết quả đủ điều kiện trước thao tác nội bộ được bảo vệ.
+- **FR-039**: Hành trình FE-06 cốt lõi MUST hoàn thành được từ giao diện web chạy tách riêng với backend, chỉ thông qua API có version; backend MUST NOT dựng giao diện. Lỗi an toàn, cho sửa/đăng nhập/thử lại, không thông báo thành công trước xác nhận.
+- **FR-040**: FE-06 MUST dùng chung cơ chế xác thực FE-01/001: phiên theo contract FE-01/001, bearer đã xác minh, kiểm tra thu hồi/trạng thái/quyền hiện tại; không tự cấp quyền từ cookie Member hoặc kéo dài phiên trượt. Xác thực đặc quyền do FE-01 sở hữu và phải cung cấp kết quả đủ điều kiện trước thao tác nội bộ được bảo vệ.
 - **FR-041**: Hệ thống MUST giữ lịch sử điểm/lượt voucher, nhật ký thay đổi và kết quả thao tác tối thiểu 5 năm; không dọn dữ liệu khi còn tham chiếu hoặc giao dịch chưa kết thúc. Thời hạn lưu không làm điểm hết hạn, mất bằng chứng chống cộng/trừ/hoàn trùng hoặc cho tái sử dụng mã voucher cũ.
 
 ### Key Entities *(include if feature involves data)*
@@ -277,7 +277,7 @@ Là Admin, tôi muốn quản lí thông số chung và giữ chính sách đã 
 - **SC-005**: 100% giao dịch cũ ở US2.4 và US8.4 giữ đúng chính sách ban đầu; giao dịch mới dùng điều kiện mới. Không workshop nào tích khi thiếu hoàn thành hoặc trả đủ.
 - **SC-006**: Tất cả truy cập/thao tác trái quyền trong US1.6, US3.6, US4.10, US6.4, US8.3 và US8.7 bị từ chối; không xem/dùng quyền lợi Member khác hoặc tiếp tục thao tác với phiên hết hạn/thu hồi.
 - **SC-007**: Trong US7.1–US7.7, điểm/lượt giải phóng hoặc hoàn đúng lượng gốc kể cả chỉ dùng một quyền lợi/mã hết hạn; điểm khả dụng/lịch sử nhất quán sau tải lại. Trong US6.9, dữ liệu dưới 5 năm, còn tham chiếu hoặc giao dịch chưa kết thúc không bị dọn.
-- **SC-008**: Các hành trình cốt lõi US8.6 hoàn thành được từ frontend React qua REST; lỗi tải/lưu không gây thông báo thành công sai.
+- **SC-008**: Các hành trình cốt lõi US8.6 hoàn thành được từ giao diện web tách riêng qua API; lỗi tải/lưu không gây thông báo thành công sai.
 
 ## Assumptions
 
@@ -288,7 +288,7 @@ Là Admin, tôi muốn quản lí thông số chung và giữ chính sách đã 
 - A-003: Tiền VND, điểm nguyên; phép tính dùng chính sách ghi nhận cho giao dịch. Công thức với 10.000đ/100đ/10 điểm/10% là bộ khởi đầu, không cấm Admin đổi hợp lệ cho tương lai.
 - A-004: Các kiểm tra dấu/miền giá trị tại FR-007 và FR-026 cụ thể hóa dữ liệu hợp lệ để nghiệm thu; không đặt thêm mức giảm thương mại, ngưỡng đơn hoặc hạn mức cố định cho Manager. Giới hạn độ dài nhập liệu và thiết kế lưu dữ liệu thuộc bước thiết kế tiếp theo.
 - A-005: Khi lập plan ngày 2026-10-24, người dùng chốt lưu lịch sử điểm/lượt voucher, audit/kết quả thao tác tối thiểu 5 năm, không dọn dữ liệu còn tham chiếu hoặc giao dịch chưa kết thúc; điểm vẫn không hết hạn và mã cũ không tái sử dụng.
-- A-006: Cùng phiên lập plan, người dùng chốt dùng chung hướng FE-01/001 và FE-02 cho Member/Manager/Admin FE-06: phiên nội bộ cố định 8 giờ tính từ auth_time, quyền/trạng thái mỗi thao tác và dependency xác thực đặc quyền do FE-01 sở hữu.
+- A-006: Cùng phiên lập plan, người dùng chốt dùng chung hướng FE-01/001 và FE-02 cho Member/Manager/Admin FE-06: phiên theo contract FE-01/001, quyền/trạng thái mỗi thao tác và dependency xác thực đặc quyền do FE-01 sở hữu.
 
 ### Phụ thuộc và ranh giới
 

@@ -18,11 +18,11 @@
 
 ## D-02 — Ownership và hướng phụ thuộc
 
-**Decision**: Module mới `loyalty` sở hữu voucher/ưu đãi, policy, wallet, ledger, snapshots/receipts. Chỉ `loyalty::facade` xuất interface/immutable records. `readyringsales` và `workshopbooking` gọi facade; loyalty chỉ phụ thuộc `members::facade` và technical common, không import entity/repository nguồn. Source-specific target validation qua `PromotionTargetPort` thuộc loyalty facade, được catalogue/workshop triển khai bằng adapter riêng; không inject source application service quay ngược loyalty.
+**Decision**: Module mới `loyaltypromotion` sở hữu voucher/ưu đãi, policy, wallet, ledger, snapshots/receipts. Chỉ `loyaltypromotion::facade` xuất interface/immutable records. `readyringsales` và `workshopbooking` gọi facade; loyalty chỉ phụ thuộc `members::facade` và technical common, không import entity/repository nguồn. Source-specific target validation qua `PromotionTargetPort` thuộc loyaltypromotion facade, được productmanagement/workshop triển khai bằng adapter riêng; không inject source application service quay ngược loyalty.
 
 **Rationale**: Catalogue/retail hiện chỉ shell. MemberFacade hiện chỉ lookup/entitlement, chưa đủ capability nội bộ. Quyền loyalty và provider scope là dependency có thật phải bổ sung, không dùng entity xuyên module để né chúng. Research xác nhận members có stale allowed-dependency workshopbooking nhưng không tìm thấy actual import gọi WorkshopBookingFacade từ members; allowance không chứng minh cycle.
 
-**Alternatives considered**: Loyalty gọi lại booking/order để tự hiểu paid/cancelled dễ tạo cycle và owner thứ hai. Chuyển nghiệp vụ vào common vi phạm constitution. Identity SPI riêng chưa cần khi DAG loyalty → members và sources → loyalty giữ một chiều.
+**Alternatives considered**: Loyalty gọi lại booking/order để tự hiểu paid/cancelled dễ tạo cycle và owner thứ hai. Chuyển nghiệp vụ vào common vi phạm constitution. Identity SPI riêng chưa cần khi DAG loyaltypromotion → members và sources → loyaltypromotion giữ một chiều.
 
 [Spring Modulith 1.3 verification](https://docs.spring.io/spring-modulith/reference/1.3/verification.html) mô tả kiểm tra cycle, truy cập nội bộ và allowed dependencies. Đây là cơ sở kiểm chứng thiết kế, không phải kết quả verify của code FE-06.
 
@@ -70,7 +70,7 @@ Benefit có trạng thái points/voucher riêng (NONE/HELD/CONSUMED/RELEASED/RES
 
 ## D-07 — Auth dùng chung, được xác nhận cho FE-06
 
-**Decision confirmed by user 2026-10-24**: Kế thừa FE-01/001 và hướng FE-02: mọi REST API (kể cả frontend React) dùng bearer đã xác minh; phiên cố định 8 giờ tính từ auth_time, không sliding (áp dụng đề xuất cho SPA, identity owner xác nhận); revocation/trạng thái/quyền hiện tại; privileged assurance do FE-01 sở hữu. Không tạo login/MFA mới, không lấy ROLE_MEMBER/Firebase claim/email làm quyền Manager/Admin.
+**Decision confirmed by user 2026-10-24**: Kế thừa FE-01/001 và hướng FE-02: mọi REST API (kể cả frontend React) dùng bearer đã xác minh; phiên theo contract FE-01/001; revocation/trạng thái/quyền hiện tại; privileged assurance do FE-01 sở hữu. Không tạo login/MFA mới, không lấy ROLE_MEMBER/Firebase claim/email làm quyền Manager/Admin.
 
 **Rationale**: Cùng cơ chế cho Member/Manager/Admin mà không chia danh tính theo feature. MemberFacade/cookie/capability trong 001/002 là thiết kế phụ thuộc, chưa đủ code hiện tại.
 
@@ -104,7 +104,7 @@ Không implement destructive purge trong feature v1. Thiết kế giữ evidence
 
 **Evidence**:
 
-- [SecurityConfiguration](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/configuration/SecurityConfiguration.java): global CSRF disabled/stateless và fallback permitAll; routes loyalty cần security chain riêng (bearer, CORS theo origin frontend).
+- [SecurityConfiguration](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/configuration/SecurityConfiguration.java): global CSRF disabled/stateless và fallback permitAll; routes loyaltypromotion cần security chain riêng (bearer, CORS theo origin frontend).
 - [MemberFacade](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/members/facade/MemberFacade.java): chưa có capability/assurance guard.
 - [WorkshopBookingService](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/WorkshopBookingService.java): booking/cọc/hold có transaction, invoice hiện lấy giá gốc; callback/expiry cần source lifecycle serialization khi tích hợp.
 - [BookingStatus](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/domain/BookingStatus.java): chưa có lifecycle hoàn thành thực; [spec 003](../003-workshop-management/003.1-workshop-booking/spec.md) hoãn hậu xử lí.

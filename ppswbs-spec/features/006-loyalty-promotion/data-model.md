@@ -10,7 +10,7 @@
 
 ## 1. Ownership và kiểu dữ liệu
 
-Module `loyalty` sở hữu tất cả bảng `loyalty_*`/`promotion_*` dưới đây. Không map JPA association tới entity Member/product/order/booking; các ID nguồn là logical references được facade owner kiểm tra. FK chỉ giữa bảng loyalty. Không có bảng hạng thành viên, inventory hoặc payment.
+Module `loyaltypromotion` sở hữu tất cả bảng `loyalty_*`/`promotion_*` dưới đây. Không map JPA association tới entity Member/product/order/booking; các ID nguồn là logical references được facade owner kiểm tra. FK chỉ giữa bảng loyalty. Không có bảng hạng thành viên, inventory hoặc payment.
 
 - ID, revision, counters: BIGINT signed; ID/revision dương, counters không âm, kiểm tra overflow.
 - Money/points: DECIMAL(19,0), Java BigInteger; 0..9.999.999.999.999.999.999, điểm ledger delta cho phép âm trong giới hạn đối xứng. Intermediate arithmetic dùng exact numbers và kiểm tra bounds trước persist.
