@@ -42,8 +42,9 @@ paths:
       summary: Submit a Member booking-design request
       description: >-
         Member-only endpoint. Requires eligible booking context, current consent,
-        valid image input, atomic three-attempt/five-minute rate limiting and an
-        idempotency key before temporary storage or provider processing.
+          valid image input, maximum 10 MB file size, maximum 4096x4096 dimensions,
+          atomic three-attempt/five-minute rate limiting and an idempotency key
+          before temporary storage or provider processing.
       security:
         - firebaseBearer: []
       parameters:
@@ -77,8 +78,9 @@ paths:
     get:
       summary: Read an authorized design request projection
       description: >-
-        Returns only the owning Member projection or an authorized Staff/Manager
-        scope projection. Raw image and provider payloads are never returned.
+        Returns only the owning Member projection, an authorized Staff/Manager
+        scope projection or approved Admin technical/audit evidence. Raw image and
+        provider payloads are never returned.
       security:
         - firebaseBearer: []
       parameters:
@@ -260,7 +262,22 @@ components:
           nullable: true
         candidateFeatures:
           type: object
+          description: Structured candidate ring features only; never raw provider output.
           additionalProperties: true
+          nullable: true
+        imageQuality:
+          type: object
+          description: Structured image-quality assessment safe for the authorized actor.
+          additionalProperties: true
+          nullable: true
+        confidence:
+          type: object
+          description: Structured confidence or uncertainty metadata when supported.
+          additionalProperties: true
+          nullable: true
+        safeExplanation:
+          type: string
+          description: Policy-filtered explanation; never raw provider reasoning or payload.
           nullable: true
     ReviewDecisionRequest:
       type: object

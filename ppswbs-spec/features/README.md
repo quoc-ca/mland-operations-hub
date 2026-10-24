@@ -1,7 +1,8 @@
 # Feature map
 
-`research.md` is the umbrella business map for FE-03. The feature folders below
-are buildable slices; they do not imply separate applications, services, or
+Each feature or subfeature keeps its own specification and may keep a local
+`research.md` when research evidence is useful. The feature folders below are
+buildable slices; they do not imply separate applications, services, or
 databases.
 
 | Feature | Ownership | Status |
