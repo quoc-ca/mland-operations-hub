@@ -1,0 +1,2 @@
+Test Case ID,Pre-conditions,Input parameters,Expected Results,Type,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+UT-BOOK-001,Implementation baseline available,Booking payment event is browser redirect only,Booking remains pending; no confirmation is created,Abnormal,Not Run,,,,,,,,,,Requirement baseline only

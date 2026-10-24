@@ -1,0 +1,571 @@
+openapi: 3.0.3
+info:
+  title: Retail Order and Fulfillment API
+  version: 1.0.0-draft
+  description: >-
+    FE-08 contract for Member retail checkout, order visibility, Staff
+    fulfilment operations, and the inbound GHTK status callback. Provider
+    credentials and raw provider payloads never cross the client boundary.
+servers:
+  - url: /api/v1
+paths:
+  /ready-rings:
+    get:
+      summary: List published ready-to-sell products
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/BranchIdQuery'
+      responses:
+        '200':
+          description: Published catalogue projection
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductSummary'
+  /ready-rings/{readyRingId}:
+    get:
+      summary: Read a published product
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/BranchIdQuery'
+        - $ref: '#/components/parameters/ReadyRingId'
+      responses:
+        '200':
+          description: Published product detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /ready-ring-orders:
+    post:
+      summary: Create or return an idempotent grouped retail checkout
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupedCheckoutRequest'
+      responses:
+        '201':
+          description: Grouped checkout accepted for one payment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupedCheckoutView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /ready-ring-checkouts/{checkoutId}/payment:
+    post:
+      summary: Initiate one VNPay payment for a grouped checkout
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/CheckoutId'
+      responses:
+        '200':
+          description: One payment initiation for all branch orders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentRedirectView'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /ready-ring-fulfilment-options:
+    get:
+      summary: Read available fulfilment methods for a branch
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/BranchIdQuery'
+      responses:
+        '200':
+          description: Branch fulfilment capability without provider secrets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FulfilmentAvailabilityView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /ready-ring-shipping-quotes:
+    post:
+      summary: Quote GHTK delivery from current cart and branch before order creation
+      security:
+        - firebaseBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShippingQuoteRequest'
+      responses:
+        '200':
+          description: Accepted quote projection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingQuoteView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnsupportedDestination'
+        '503':
+          $ref: '#/components/responses/ProviderUnavailable'
+  /ready-ring-orders/{orderId}/fulfilment-choice:
+    put:
+      summary: Choose pickup or GHTK fulfilment before payment
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FulfilmentChoiceRequest'
+      responses:
+        '200':
+          description: Updated order projection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetailOrderView'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /members/me/ready-ring-orders:
+    get:
+      summary: List the authenticated Member's retail orders
+      security:
+        - firebaseBearer: []
+      responses:
+        '200':
+          description: Own order projections only
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RetailOrderView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /members/me/ready-ring-orders/{orderId}:
+    get:
+      summary: Read one own retail order
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Own order detail with latest normalized shipment status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetailOrderView'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /ready-ring-orders/{orderId}/preparation:
+    post:
+      summary: Record authorized Staff preparation
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Updated operational order projection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetailOrderView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /ready-ring-orders/{orderId}/pickup-confirmations:
+    post:
+      summary: Record authenticated Member pickup
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Pickup recorded once
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetailOrderView'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /ready-ring-orders/{orderId}/carrier-handoffs:
+    post:
+      summary: Record physical GHTK handoff
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Carrier custody recorded once
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetailOrderView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /integrations/ghtk/webhooks:
+    post:
+      summary: Receive a GHTK shipment status update
+      description: >-
+        Provider-authenticated inbound callback. It is not a Firebase client
+        endpoint. The exact provider callback authentication/hash contract is a
+        go-live gate and must be configured before production exposure.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GhtkWebhookRequest'
+      responses:
+        '200':
+          description: Valid update accepted or safe duplicate acknowledged
+        '400':
+          description: Invalid callback fields
+        '401':
+          description: Provider authentication failed
+components:
+  securitySchemes:
+    firebaseBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase-ID-Token
+  parameters:
+    BranchIdQuery:
+      name: branchId
+      in: query
+      required: true
+      description: Active processing branch selected for the catalogue journey.
+      schema:
+        type: string
+    ReadyRingId:
+      name: readyRingId
+      in: path
+      required: true
+      schema:
+        type: string
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: string
+    CheckoutId:
+      name: checkoutId
+      in: path
+      required: true
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        maxLength: 128
+  schemas:
+    ProductSummary:
+      type: object
+      required: [id, name, published]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        published:
+          type: boolean
+    ProductDetail:
+      allOf:
+        - $ref: '#/components/schemas/ProductSummary'
+        - type: object
+          properties:
+            variants:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductVariant'
+    ProductVariant:
+      type: object
+      required: [id, quantityAvailable]
+      properties:
+        id:
+          type: string
+        quantityAvailable:
+          type: integer
+          minimum: 0
+    CreateGroupedCheckoutRequest:
+      type: object
+      required: [lines]
+      properties:
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            required: [variantId, quantity]
+            properties:
+              variantId:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+                maximum: 99
+        branchOrders:
+          type: array
+          description: Fulfilment choices keyed by the branch recorded on cart lines.
+          items:
+            $ref: '#/components/schemas/BranchOrderCheckoutInput'
+    BranchOrderCheckoutInput:
+      type: object
+      required: [branchId, fulfilment]
+      properties:
+        branchId:
+          type: string
+        fulfilment:
+          $ref: '#/components/schemas/FulfilmentChoiceRequest'
+    FulfilmentChoiceRequest:
+      type: object
+      required: [method]
+      properties:
+        method:
+          type: string
+          enum: [PICKUP, GHTK]
+        shippingQuoteId:
+          type: string
+          description: Required for GHTK; omitted for pickup. The server revalidates this quote before checkout acceptance.
+        recipient:
+          $ref: '#/components/schemas/Recipient'
+    ShippingQuoteRequest:
+      type: object
+      required: [branchId, recipient]
+      properties:
+        branchId:
+          type: string
+        recipient:
+          $ref: '#/components/schemas/Recipient'
+    Recipient:
+      type: object
+      required: [name, phone, province, ward, address]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        phone:
+          type: string
+          pattern: '^(0[0-9]{9}|\+84[0-9]{9})$'
+        province:
+          type: string
+        district:
+          type: string
+        ward:
+          type: string
+        address:
+          type: string
+          minLength: 10
+          maxLength: 500
+        note:
+          type: string
+          maxLength: 500
+    FulfilmentAvailabilityView:
+      type: object
+      required: [branchId, availableMethods, contactStaffRequired]
+      properties:
+        branchId:
+          type: string
+        availableMethods:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [PICKUP, GHTK]
+        contactStaffRequired:
+          type: boolean
+        guidanceCode:
+          type: string
+          nullable: true
+    ShippingQuoteView:
+      type: object
+      required: [quoteId, branchId, currency, deliveryFee, totalCharge, expiresAt]
+      properties:
+        quoteId:
+          type: string
+          description: Opaque server-issued identifier; shipping amounts submitted by clients are never trusted.
+        branchId:
+          type: string
+        currency:
+          type: string
+        deliveryFee:
+          type: integer
+          minimum: 0
+        approvedMandatorySurcharge:
+          type: integer
+          minimum: 0
+        totalCharge:
+          type: integer
+          minimum: 0
+        expiresAt:
+          type: string
+          format: date-time
+    RetailOrderView:
+      type: object
+      required: [id, branchId, paymentState, fulfilmentState, subtotal, shippingCharge, payableAmount]
+      properties:
+        id:
+          type: string
+        branchId:
+          type: string
+        subtotal:
+          type: integer
+          minimum: 0
+        shippingCharge:
+          type: integer
+          minimum: 0
+        payableAmount:
+          type: integer
+          minimum: 0
+        paymentState:
+          type: string
+          enum: [PENDING, PAID, FAILED, EXPIRED, EXCEPTION]
+        fulfilmentState:
+          type: string
+          enum: [NOT_SELECTED, PREPARING, READY_FOR_PICKUP, CREATING_SHIPMENT, SHIPMENT_PENDING, SHIPMENT_CREATED, HANDED_TO_CARRIER, PICKED_UP]
+        shipmentStatus:
+          type: string
+          nullable: true
+        shipmentLastUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        estimatedDeliveryDate:
+          type: string
+          format: date
+          nullable: true
+    GroupedCheckoutView:
+      type: object
+      required: [id, branchOrders, combinedSubtotal, combinedShippingCharge, combinedPayableAmount, paymentState]
+      properties:
+        id:
+          type: string
+        branchOrders:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/RetailOrderView'
+        combinedSubtotal:
+          type: integer
+          minimum: 0
+        combinedShippingCharge:
+          type: integer
+          minimum: 0
+        combinedPayableAmount:
+          type: integer
+          minimum: 0
+        paymentState:
+          type: string
+          enum: [PENDING, PAID, FAILED, EXPIRED, EXCEPTION]
+    PaymentRedirectView:
+      type: object
+      required: [checkoutId, paymentUrl, expiresAt]
+      properties:
+        checkoutId:
+          type: string
+        paymentUrl:
+          type: string
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+    GhtkWebhookRequest:
+      type: object
+      required: [partner_id, label_id, status_id, action_time]
+      properties:
+        partner_id:
+          type: string
+        label_id:
+          type: string
+        status_id:
+          type: integer
+        action_time:
+          type: string
+          format: date-time
+        reason_code:
+          type: string
+        reason:
+          type: string
+        weight:
+          type: number
+        fee:
+          type: integer
+        return_part_package:
+          type: integer
+    ErrorResponse:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        correlationId:
+          type: string
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid Firebase identity
+    Forbidden:
+      description: Actor lacks the required Mland authority or scope
+    Conflict:
+      description: Stale, duplicate, expired, or invalid state transition
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource is not visible to the actor
+    UnsupportedDestination:
+      description: GHTK cannot quote the recipient destination
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ProviderUnavailable:
+      description: GHTK is disabled, unavailable, or timed out; no payment attempt is created
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
