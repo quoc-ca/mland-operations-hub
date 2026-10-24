@@ -139,25 +139,29 @@ Mỗi luồng được mô tả tại một nơi. Các điểm dùng chung đư�
 
 # FE-02 — Product Management
 
-Feature này gồm quản lí nhẫn bán sẵn do Staff thực hiện và tra cứu catalogue công khai. Mua ngay, giỏ hàng, checkout, tạo đơn, thanh toán và giao nhận được mô tả tại [FE-08](#fe-08); voucher và điểm thưởng tại [FE-06](#fe-06). Các nội dung **Đề xuất** và tham số **chưa chốt** được ghi tại luồng liên quan.
+Feature này gồm quản lí nhẫn bán sẵn, Manager phê duyệt sản phẩm/giá và tra cứu catalogue công khai. Luồng sản phẩm mới là **Staff tạo bản nháp → gửi Manager duyệt → áp dụng giá đã duyệt → công khai sản phẩm**. Mua ngay, giỏ hàng, checkout, tạo đơn, thanh toán và giao nhận được mô tả tại [FE-08](#fe-08); voucher và điểm thưởng tại [FE-06](#fe-06). Các nội dung **Đề xuất** và tham số **chưa chốt** được ghi tại luồng liên quan.
+
+Các quyết định bổ sung đã chốt ngày 2026-10-24: mã vai trò MEMBER/STAFF/MANAGER/ADMIN, Manager không tự đồng nhất OWNER; Admin cấp quyền nội bộ, khách đăng ký không tự nhận quyền. Danh mục mới mặc định hoạt động; size lúc tạo mặc định được phép bán nhưng chỉ mua được khi sản phẩm đủ điều kiện công khai. Lý do từ chối duyệt bắt buộc, tối đa 2.000 ký tự. Người dùng đã đồng ý dùng chung cơ chế xác thực theo spec Member Profile 003 và FE-01: API dùng bearer, web dùng phiên cố định 8 giờ, kiểm tra thu hồi/trạng thái và CSRF; FE-02 kiểm tra thêm quyền nội bộ trên từng thao tác, giữ luồng Member. MFA đặc quyền và recovery do identity/FE-01 sở hữu; phương thức cụ thể chưa được chọn từ FE-02.
 
 ## Quản lí catalogue sản phẩm
 
 ### Điều kiện và quy tắc chung
 
-1. Chỉ Staff có tài khoản hoạt động và quyền quản lí sản phẩm được tạo/sửa sản phẩm, ảnh, biến thể, giá, danh mục và trạng thái bán. Backend kiểm tra vai trò/quyền tại từng thao tác; Guest/Member tra cứu catalogue; luồng mua hàng tham chiếu [FE-08](#fe-08).
-2. Sản phẩm mới ở trạng thái **Chưa công khai**. Staff nhập/lưu trực tiếp giá bán; công khai sản phẩm là thao tác riêng.
-3. Mỗi biến thể có tổ hợp kích thước/lựa chọn khắc được cấu hình trước, SKU tự sinh cố định, giá và số lượng cho phép bán riêng. Khách chỉ chọn biến thể đã có.
-4. Mỗi biến thể dùng một số lượng còn cho phép bán **chung toàn hệ thống**, không chia theo chi nhánh. Staff cập nhật thủ công; số lượng khả dụng bằng lượng bán chung còn lại trừ phần đang tạm giữ. Staff tự điều phối nơi chuẩn bị hàng tại FE-08. Không làm quản lí kho, nhập/xuất, kiểm kê hay điều chuyển.
+1. Staff và Manager có tài khoản hoạt động và quyền quản lí sản phẩm tương ứng được tạo/sửa sản phẩm, ảnh, biến thể, đề xuất giá, quản lí trạng thái công khai và xóa sản phẩm. Các bước bên dưới mô tả Staff thực hiện quản lí catalogue; Manager có quyền tương ứng cũng được thực hiện. Riêng quyết định duyệt sản phẩm và giá thuộc Manager, Staff không được tự duyệt. Manager được tự duyệt sản phẩm và đề xuất giá do chính mình tạo, vẫn phải xác nhận quyết định và ghi audit. Backend kiểm tra vai trò/quyền tại từng thao tác; Guest/Member tra cứu catalogue; luồng mua hàng tham chiếu [FE-08](#fe-08).
+2. Sản phẩm mới ở trạng thái **Chưa công khai**. Staff nhập **giá đề xuất**, không lưu trực tiếp thành giá bán. Trạng thái duyệt hồ sơ, trạng thái duyệt/áp dụng giá và trạng thái công khai được theo dõi riêng. Manager duyệt không tự áp dụng giá hay công khai; người có quyền phải áp dụng đúng giá đã duyệt rồi chủ động công khai.
+3. Mỗi biến thể tương ứng với **một size nhẫn** của sản phẩm, có SKU tự sinh cố định, giá và số lượng cho phép bán riêng; không có lựa chọn khắc. Size nhẫn là số nguyên từ **5 đến 29**, chọn theo bảng size bên dưới; không nhận size ngoài khoảng hoặc size tự nhập. Khi tạo sản phẩm, người dùng chọn các size thực tế có bán, không bắt buộc đủ 25 size; mỗi size chỉ có một biến thể trong cùng sản phẩm. Sau khi lưu sản phẩm, không có thao tác thêm size hoặc đổi size đã cấu hình; chỉ cập nhật giá, số lượng và trạng thái bán của biến thể đã có. Khách chỉ chọn size đã cấu hình.
+4. Mỗi biến thể dùng một số lượng còn cho phép bán **chung toàn hệ thống**, không chia theo chi nhánh. Staff cập nhật thủ công; **số lượng khả dụng** bằng lượng bán chung còn lại trừ phần đang tạm giữ hợp lệ. **Có thể mua** khi đồng thời: số lượng khả dụng lớn hơn 0, biến thể đang bán, sản phẩm chưa bị xóa và đang công khai, danh mục hoạt động, các điều kiện công khai và giá đã duyệt/áp dụng vẫn hợp lệ. Biến thể ngừng bán không thể mua dù còn số lượng; sản phẩm có thể mua khi có ít nhất một biến thể có thể mua. Staff tự điều phối nơi chuẩn bị hàng tại FE-08. Không làm quản lí kho, nhập/xuất, kiểm kê hay điều chuyển.
 5. Backend ghi người thực hiện, thay đổi, thời điểm và kết quả của thao tác quản trị. Cập nhật thất bại không được lưu một phần; đơn và quyền giữ hợp lệ đã chấp nhận được bảo toàn theo điều khoản gốc.
+6. Giới hạn tên/mô tả và ảnh tại luồng tạo/quản lí ảnh áp dụng cho cả tạo lẫn sửa. Sửa thông tin, ảnh hoặc giá đề xuất của sản phẩm mới làm mất hiệu lực phiên bản duyệt theo luồng Sửa thông tin sản phẩm; cập nhật số lượng không tự thay đổi giá đã duyệt. Các lượt đọc công khai chỉ trả giá đang áp dụng đã được Manager duyệt, không lộ bản nháp, giá đề xuất hay giá đã duyệt nhưng chưa áp dụng.
+7. Sản phẩm đã xóa bị loại khỏi danh sách quản trị thông thường và mọi lượt đọc công khai; Backend từ chối sửa, gửi/duyệt hồ sơ, áp dụng giá, công khai hoặc mở bán lại dù truy cập bằng mã hay trang cũ. Các thao tác xử lí giao dịch đã chấp nhận và tra cứu lịch sử theo quyền vẫn được bảo toàn.
 
 ### Xem danh sách và chi tiết quản trị — Luồng thành công
 
 1. Staff có quyền mở **Quản lí sản phẩm**. Backend kiểm tra tài khoản và quyền trước khi trả dữ liệu nội bộ.
-2. Frontend hiển thị mã tham chiếu sản phẩm, tên, danh mục, ảnh, trạng thái công khai và giá bán hiện tại. Chi tiết biến thể hiển thị trạng thái đang bán/ngừng bán và SKU do hệ thống tự sinh; SKU là trường chỉ đọc.
-3. Staff tìm theo mã tham chiếu/tên sản phẩm hoặc SKU biến thể; lọc theo danh mục và trạng thái công khai. Kết quả tìm SKU chỉ rõ biến thể khớp trong sản phẩm. Tiêu chí lọc bổ sung và kích thước trang **chưa chốt**.
+2. Frontend hiển thị mã tham chiếu sản phẩm, tên, danh mục, ảnh và trạng thái công khai; phân biệt trạng thái duyệt hồ sơ, mã đề xuất, giá đề xuất, giá đã duyệt và giá bán đang áp dụng. Sản phẩm mới chưa áp dụng giá không được hiển thị giá đề xuất như giá bán. Chi tiết biến thể hiển thị trạng thái đang bán/ngừng bán và SKU do hệ thống tự sinh; SKU là trường chỉ đọc.
+3. Staff tìm theo mã tham chiếu/tên sản phẩm hoặc SKU biến thể; lọc theo danh mục và trạng thái công khai. Kết quả tìm SKU chỉ rõ biến thể khớp trong sản phẩm. Mỗi trang có 20 bản ghi; từ khóa sau trim tối đa 200 ký tự. Tiêu chí lọc bổ sung ngoài danh mục/trạng thái chưa nằm trong phạm vi.
 4. Người dùng mở một sản phẩm để xem mô tả, danh mục, thứ tự ảnh, biến thể, giá và số lượng cho phép bán. Frontend chỉ hiển thị các thao tác phù hợp với quyền hiện tại.
-5. Staff chọn tạo mới, sửa thông tin/giá bán, quản lí ảnh/biến thể hoặc công khai/ngừng công khai theo các luồng bên dưới.
+5. Staff chọn tạo mới, sửa thông tin, quản lí ảnh/biến thể, đề xuất giá, gửi duyệt, áp dụng giá đã duyệt, công khai/ngừng công khai hoặc xóa theo quyền. Manager có quyền mở hồ sơ chờ duyệt và quyết định theo luồng phê duyệt bên dưới.
 
 ### Danh sách và chi tiết quản trị — Nhánh lỗi
 
@@ -168,18 +172,18 @@ Feature này gồm quản lí nhẫn bán sẵn do Staff thực hiện và tra c
 ### Tạo sản phẩm — Luồng thành công
 
 1. Staff có quyền mở danh sách sản phẩm và chọn **Tạo sản phẩm**.
-2. Người dùng nhập tên, mô tả và chọn một danh mục đang hoạt động. Frontend loại bỏ khoảng trắng thừa để kiểm tra trường bắt buộc; Backend kiểm tra lại dữ liệu khi lưu.
-3. Người dùng cấu hình các biến thể kích thước/lựa chọn khắc có sẵn, nhập giá bán và số lượng cho phép bán chung ban đầu cho từng biến thể. Giá là số nguyên VND dương; số lượng là số nguyên không âm. Backend tự sinh SKU duy nhất, cố định cho từng biến thể theo luồng SKU; người dùng không nhập hoặc sửa mã.
+2. Người dùng nhập tên dài 1–200 ký tự, mô tả dài 1–5.000 ký tự sau khi loại bỏ khoảng trắng đầu/cuối và chọn một danh mục đang hoạt động. Frontend kiểm tra trường bắt buộc; Backend kiểm tra lại dữ liệu khi lưu.
+3. Người dùng chọn ít nhất một size từ bảng 5–29, không chọn trùng size; mỗi size tạo thành một biến thể. Người dùng nhập giá đề xuất và số lượng cho phép bán chung ban đầu cho từng biến thể. Giá đề xuất là số nguyên VND dương; số lượng là số nguyên không âm. Backend tự sinh SKU duy nhất, cố định cho từng biến thể theo luồng SKU; người dùng không nhập hoặc sửa mã.
 4. Người dùng có thể tải ảnh, nhập văn bản thay thế và sắp xếp thứ tự hiển thị theo luồng ảnh bên dưới. Bản nháp có thể chưa có ảnh; sản phẩm phải có ảnh sử dụng được trước khi công khai.
-5. Frontend kiểm tra dữ liệu rồi gửi yêu cầu lưu; Backend kiểm tra quyền, danh mục, tổ hợp biến thể không trùng, dữ liệu giá/số lượng và các ảnh đã tải hợp lệ.
-6. Backend lưu sản phẩm và các dữ liệu liên quan ở trạng thái **Chưa công khai**, ghi nhận audit rồi trả kết quả. Giá Staff nhập được lưu trực tiếp thành giá bán của từng biến thể.
-7. Frontend mở chi tiết sản phẩm vừa tạo. Staff kiểm tra thông tin, ảnh, biến thể và giá bán đã lưu; khi đủ điều kiện thì chủ động chọn công khai sản phẩm.
-8. Giới hạn độ dài tên/mô tả, số lượng biến thể và giới hạn giá/số lượng cụ thể **chưa chốt**.
+5. Frontend kiểm tra dữ liệu rồi gửi yêu cầu lưu; Backend kiểm tra quyền, danh mục, size hợp lệ và không trùng trong cùng sản phẩm, dữ liệu giá/số lượng và các ảnh đã tải hợp lệ.
+6. Backend lưu sản phẩm và các dữ liệu liên quan ở trạng thái **Chưa công khai**, hồ sơ duyệt ở trạng thái **Nháp**, ghi nhận audit rồi trả kết quả. Giá Staff nhập chỉ là giá đề xuất cho từng biến thể, chưa được áp dụng để bán.
+7. Frontend mở chi tiết sản phẩm vừa tạo. Staff kiểm tra thông tin, ảnh, biến thể và giá đề xuất rồi chọn **Gửi duyệt** theo luồng bên dưới; chưa được công khai trước khi Manager duyệt và giá đã duyệt được áp dụng.
+8. Mỗi sản phẩm có từ 1 đến 25 biến thể tương ứng các size đã chọn. Giới hạn giá/số lượng bổ sung ngoài các điều kiện trên **chưa chốt**.
 
 ### Tạo sản phẩm — Nhánh lỗi
 
 1. Thiếu tên/mô tả, danh mục không hoạt động hoặc dữ liệu không hợp lệ: hiển thị lỗi tại trường tương ứng, giữ nội dung người dùng đã nhập để sửa.
-2. Thiếu biến thể, trùng tổ hợp kích thước/lựa chọn khắc, giá không hợp lệ hoặc số lượng âm/không nguyên: chỉ rõ dòng lỗi, chưa tạo sản phẩm một phần.
+2. Chưa chọn size, size không phải số nguyên từ 5–29, trùng size, giá không hợp lệ hoặc số lượng âm/không nguyên: chỉ rõ dòng lỗi, chưa tạo sản phẩm một phần. Dữ liệu yêu cầu lựa chọn khắc không được chấp nhận.
 3. Ảnh tải lên lỗi hoặc tham chiếu ảnh chưa hợp lệ: yêu cầu sửa/thử lại hoặc chủ động bỏ ảnh lỗi trước khi lưu bản nháp; không lưu liên kết ảnh hỏng.
 4. Mất phản hồi sau khi gửi yêu cầu: kiểm tra kết quả đã lưu trước khi tạo lại; không tạo thêm sản phẩm chỉ vì chưa nhận được thông báo thành công.
 5. Lỗi lưu hoặc audit: thông báo chưa hoàn tất, không ghi nhận sản phẩm ở trạng thái được tạo thành công một phần.
@@ -190,7 +194,7 @@ Feature này gồm quản lí nhẫn bán sẵn do Staff thực hiện và tra c
 2. Người dùng sửa các trường được phép như tên, mô tả, danh mục; thay đổi ảnh, biến thể hoặc giá đi theo các quy tắc riêng bên dưới.
 3. Backend kiểm tra quyền, phiên bản dữ liệu và trạng thái hiện tại trước khi lưu. Nếu sản phẩm đang công khai, bản cập nhật phải tiếp tục đáp ứng điều kiện công khai. Giỏ hàng chưa tạo đơn dùng thông tin mới khi tải lại và được kiểm tra lại ở checkout; giá hoặc điều kiện thay đổi phải được khách xem và xác nhận trước khi đặt.
 4. Backend lưu các thay đổi hợp lệ và audit; không sửa thông tin đã chụp của đơn hoặc điều khoản của quyền giữ đã được chấp nhận.
-5. Frontend hiển thị kết quả đã lưu, gồm giá bán mới nếu Staff có sửa giá. Lưu thông tin/giá không thay cho thao tác công khai/ngừng công khai.
+5. Frontend hiển thị kết quả đã lưu; nếu sửa giá thì hiển thị đề xuất riêng, giữ nguyên giá bán đang áp dụng đến khi đề xuất được Manager duyệt và được áp dụng. Lưu thông tin/đề xuất không thay cho thao tác công khai/ngừng công khai. Với hồ sơ sản phẩm mới chưa từng công khai, sửa nội dung/ảnh hoặc giá đề xuất đã gửi hay đã được duyệt làm phiên bản duyệt cũ không còn hiệu lực; phải gửi Manager duyệt lại trước lần công khai đầu tiên. Với sản phẩm đã từng công khai, sửa tên, mô tả, ảnh hoặc danh mục được lưu trực tiếp nếu hợp lệ, không phải gửi duyệt lại nội dung; quy tắc này vẫn áp dụng khi sản phẩm đang tạm ẩn. Nếu sản phẩm đang công khai, cập nhật phải duy trì các điều kiện công khai. Thay đổi giá luôn đi qua quy trình duyệt giá; không bổ sung hoặc đổi size của sản phẩm đã lưu.
 
 ### Sửa sản phẩm — Nhánh lỗi
 
@@ -201,7 +205,7 @@ Feature này gồm quản lí nhẫn bán sẵn do Staff thực hiện và tra c
 ### Quản lí ảnh sản phẩm — Luồng thành công
 
 1. Người dùng có quyền chọn thêm, thay thế, đổi thứ tự hoặc gỡ ảnh trong biểu mẫu tạo/sửa sản phẩm.
-2. Frontend hiển thị ảnh xem trước, văn bản thay thế và thứ tự hiển thị; cho chọn định dạng ảnh được hệ thống hỗ trợ. Các định dạng cụ thể, số ảnh tối đa, dung lượng mỗi ảnh và giới hạn văn bản thay thế **chưa chốt**.
+2. Frontend hiển thị ảnh xem trước, văn bản thay thế và thứ tự hiển thị; chấp nhận tối đa 10 ảnh JPEG/PNG/WebP, mỗi ảnh không quá 5.000.000 bytes, văn bản thay thế dài 1–200 ký tự. Backend kiểm tra lại các giới hạn này khi lưu.
 3. Backend kiểm tra ảnh, quyền truy cập và dữ liệu mô tả; lưu tệp qua dịch vụ lưu trữ ảnh được cấu hình, rồi gắn tham chiếu hợp lệ vào sản phẩm.
 4. Backend kiểm tra thứ tự ảnh không trùng. Với sản phẩm công khai, sau thay đổi phải còn ảnh sử dụng được; muốn gỡ toàn bộ ảnh thì người dùng phải ngừng công khai trước.
 5. Backend lưu danh sách ảnh và audit rồi trả kết quả. Gỡ tham chiếu ảnh catalogue không mặc định cho phép xóa tệp dùng chung hoặc ảnh còn phục vụ lịch sử giao dịch.
@@ -212,58 +216,138 @@ Feature này gồm quản lí nhẫn bán sẵn do Staff thực hiện và tra c
 2. Dịch vụ lưu trữ lỗi hoặc tệp chưa tải xong: giữ danh sách ảnh đang có, cho thử lại; không thay ảnh hợp lệ bằng liên kết lỗi.
 3. Thao tác làm mất ảnh cuối cùng của sản phẩm công khai: từ chối cập nhật và hướng dẫn ngừng công khai hoặc thêm ảnh thay thế trước.
 
+### Lưu trữ và dọn ảnh sản phẩm
+
+1. Ảnh được lưu qua **Cloudinary**, nhà cung cấp Cloud Storage Service được người dùng xác nhận ngày 2026-10-24. Ảnh nháp và ảnh lịch sử vẫn phải được bảo vệ theo quyền truy cập; chọn provider không làm thay đổi điều kiện công khai hoặc chính sách giữ/dọn ảnh.
+2. Ảnh tải lên chưa từng gắn vào sản phẩm đủ 24 giờ được dọn nếu không còn sử dụng. Ảnh đã gỡ đủ 30 ngày chỉ được dọn nếu không còn sản phẩm, hồ sơ duyệt, đơn hoặc lịch sử tham chiếu.
+3. Ảnh phục vụ lịch sử được giữ theo bản ghi liên quan; xóa mềm sản phẩm không tự xóa ảnh này. Dọn ảnh phải kiểm tra lại tham chiếu để không tranh chấp với thao tác gắn ảnh.
+4. Audit nghiệp vụ giữ 5 năm theo Report 3; bản ghi kết quả thao tác tối thiểu để xử lí gửi lặp giữ 5 năm, không lưu toàn bộ request hoặc token.
+
+### Bảng size nhẫn tham chiếu
+
+Size từ 5–29 và các số đo dưới đây được ghi theo ảnh bảng size người dùng cung cấp, giữ nguyên số liệu nguồn. Đường kính và chu vi dùng để tham khảo chọn size; hệ thống lưu/chọn mã size nguyên, không tự suy ra biến thể mới từ số đo.
+
+| Size | Đường kính (mm) | Chu vi (mm) |
+| --- | --- | --- |
+| 5 | 14.7 | 45 |
+| 6 | 14.8 | 46 |
+| 7 | 15 | 47–48 |
+| 8 | 15.3 | 49 |
+| 9 | 15.8 | 49.6 |
+| 10 | 15.9 | 51 |
+| 11 | 16.1 | 52 |
+| 12 | 16.5 | 53 |
+| 13 | 16.7 | 54 |
+| 14 | 16.9 | 55 |
+| 15 | 17.3 | 56 |
+| 16 | 17.9 | 57 |
+| 17 | 18 | 58 |
+| 18 | 18.2 | 59 |
+| 19 | 19.1 | 60 |
+| 20 | 19.4 | 62 |
+| 21 | 19.8 | 62.2 |
+| 22 | 20.2 | 63 |
+| 23 | 20.3 | 63.8 |
+| 24 | 20.6 | 65 |
+| 25 | 21 | 66 |
+| 26 | 21.4 | 67 |
+| 27 | 21.6 | 67.9 |
+| 28 | 22 | 68.8 |
+| 29 | 22.3 | 70.1 |
+
 ### Quản lí biến thể và số lượng cho phép bán — Luồng thành công
 
-1. Staff có quyền mở danh sách biến thể của sản phẩm để thêm tổ hợp kích thước/lựa chọn khắc đã được hỗ trợ hoặc cập nhật dữ liệu được phép.
-2. Backend kiểm tra tổ hợp không trùng và định danh ổn định. Biến thể đã được dùng trong giao dịch không được đổi lựa chọn làm thay đổi ý nghĩa của định danh cũ.
+1. Staff có quyền mở danh sách các size đã cấu hình khi tạo sản phẩm để cập nhật số lượng, đề xuất giá hoặc đổi trạng thái đang bán/ngừng bán; không có thao tác thêm size hay lựa chọn khắc.
+2. Backend giữ nguyên danh sách size, định danh biến thể và SKU từ khi tạo. Không cho đổi size của biến thể hoặc bổ sung biến thể size mới vào sản phẩm đã lưu, kể cả khi chưa có giao dịch.
 3. Staff nhập số lượng còn cho phép bán chung của từng biến thể theo thông tin shop xác nhận bên ngoài hệ thống. Backend chỉ chấp nhận số nguyên không âm và không thấp hơn phần đang giữ hợp lệ. Khi đơn được chốt, Backend trừ lượng đã mua khỏi số lượng chung đúng một lần; hết hạn chưa thanh toán chỉ giải phóng phần giữ.
-4. Staff nhập/sửa giá bán trực tiếp theo luồng Nhập và cập nhật giá bán sản phẩm. Backend kiểm tra giá hợp lệ và dữ liệu mới nhất trước khi lưu; không sửa giá của đơn hoặc quyền giữ đã được chấp nhận.
-5. Backend kiểm tra tính hợp lệ của sản phẩm sau thay đổi, lưu dữ liệu và audit rồi hiển thị kết quả. Biến thể mới chưa có giá bán hợp lệ phải được hoàn tất bước giá trước khi đáp ứng điều kiện công khai.
+4. Staff nhập/sửa giá đề xuất theo luồng Đề xuất, phê duyệt và áp dụng giá sản phẩm. Backend kiểm tra giá hợp lệ và dữ liệu mới nhất trước khi lưu đề xuất; không đổi giá bán đang áp dụng, giá của đơn hoặc quyền giữ đã được chấp nhận.
+5. Backend kiểm tra tính hợp lệ của sản phẩm sau thay đổi, lưu dữ liệu và audit rồi hiển thị kết quả. Các biến thể đã tạo phải hoàn tất bước Manager duyệt giá và áp dụng giá trước lần công khai đầu tiên; cập nhật số lượng không yêu cầu ẩn sản phẩm hay duyệt lại giá.
 
 ### Biến thể và số lượng cho phép bán — Nhánh lỗi
 
-1. Tổ hợp bị trùng, dữ liệu không hợp lệ hoặc thay đổi lựa chọn của biến thể đã dùng: từ chối, hướng dẫn tạo tổ hợp mới hợp lệ thay vì sửa định danh cũ.
+1. Yêu cầu thêm size, đổi size, thêm lựa chọn khắc hoặc dữ liệu không hợp lệ: từ chối, giữ nguyên danh sách biến thể đã lưu; không chỉ dựa vào việc ẩn thao tác trên giao diện.
 2. Số lượng nhập thấp hơn lượng đang giữ, hoặc lượng giữ thay đổi khi đang sửa: Backend trả tình trạng mới và yêu cầu kiểm tra lại; không hủy giữ chỗ để ép lưu số lượng.
-3. Thay đổi khiến sản phẩm đang công khai không đủ điều kiện, chẳng hạn biến thể mới chưa có giá bán: từ chối bản cập nhật; người dùng hoàn tất dữ liệu qua quy trình phù hợp hoặc ngừng công khai trước khi cấu hình lại.
+3. Thay đổi khiến sản phẩm đang công khai không đủ điều kiện: từ chối bản cập nhật, nêu điều kiện cần sửa. Việc ngừng công khai không mở quyền thêm hoặc đổi size; đề xuất giá mới không làm mất giá đang áp dụng hợp lệ trong thời gian chờ duyệt.
 4. Lỗi lưu/audit: giữ dữ liệu trước đó, chưa báo cập nhật thành công và cho kiểm tra lại kết quả.
 
 ### Cấp và quản lí SKU biến thể — Luồng thành công
 
-1. Khi tạo biến thể, Backend cấp SKU để Staff tra cứu và phân biệt các lựa chọn bán hàng.
-2. Khi tạo biến thể, Backend tự sinh SKU duy nhất và cố định cho biến thể đó; Staff không nhập hoặc sửa mã. Định dạng và độ dài mã cụ thể **chưa chốt**.
-3. Backend kiểm tra SKU không trùng với biến thể khác trên hệ thống. Không dùng chung một SKU cho nhiều tổ hợp; việc trùng tên sản phẩm không quyết định SKU.
+1. Khi tạo sản phẩm, Backend cấp SKU cho từng size đã chọn. SKU là mã hàng để phân biệt chính xác một sản phẩm ở một size, giúp Staff tra cứu và đối chiếu đúng biến thể trong đơn hàng; không phải mã riêng cho từng chiếc nhẫn vật lí.
+2. Khi tạo biến thể, Backend tự sinh SKU duy nhất và cố định theo định dạng **`SP{mã sản phẩm}-S{size}`**; Staff không nhập hoặc sửa mã. Phần mã sản phẩm là số duy nhất do hệ thống cấp một lần cho sản phẩm, thêm số 0 bên trái để có tối thiểu 6 chữ số; nếu dài hơn 6 chữ số thì giữ nguyên toàn bộ, không cắt mã. Phần size luôn có 2 chữ số từ `05` đến `29`. Ví dụ sản phẩm có mã số `123`, size 5 có SKU `SP000123-S05`, size 12 có SKU `SP000123-S12`. Dùng chữ `SP`, `S` viết hoa và dấu gạch nối như mẫu; không lấy tên hoặc danh mục sản phẩm để sinh mã.
+3. Backend kiểm tra SKU không trùng với biến thể khác trên hệ thống. Hai size của cùng mẫu nhẫn có SKU khác nhau; hai sản phẩm khác nhau cùng size cũng có SKU khác nhau. Nhiều chiếc của cùng sản phẩm và cùng size dùng chung một SKU, phân biệt bằng số lượng; việc trùng tên sản phẩm không quyết định SKU.
 4. Sau khi lưu thành công, Frontend hiển thị SKU chỉ đọc trong chi tiết quản trị và cho tìm kiếm theo SKU. Mã giữ nguyên từ khi cấp, kể cả khi biến thể chưa có giao dịch.
-5. Đổi tên sản phẩm, đổi giá hoặc ngừng bán không tự sinh SKU mới. SKU không được tái cấp cho một biến thể khác chỉ vì biến thể cũ ngừng bán.
+5. Đổi tên sản phẩm, đổi danh mục, đổi giá hoặc ngừng bán không tự sinh mã sản phẩm hay SKU mới. Mã sản phẩm và SKU không được tái cấp cho sản phẩm/biến thể khác khi ngừng bán hoặc xóa mềm.
 
 ### SKU biến thể — Nhánh lỗi
 
-1. Hệ thống chưa cấp được mã hợp lệ hoặc phát hiện mã trùng: không lưu biến thể với SKU thiếu/trùng; thông báo chưa hoàn tất để thử lại, không yêu cầu Staff nhập mã thay thế.
+1. Hệ thống chưa cấp được mã hợp lệ, mã sai định dạng/không khớp sản phẩm và size, hoặc phát hiện mã trùng: không lưu biến thể với SKU thiếu/sai/trùng; thông báo chưa hoàn tất để thử lại, không yêu cầu Staff nhập mã thay thế.
 2. Yêu cầu cố sửa SKU đã được cấp hoặc gán SKU của biến thể khác: Backend từ chối, kể cả khi chưa có giao dịch; không chỉ dựa vào trường chỉ đọc trên giao diện.
 3. Cấp mã hoặc lưu dữ liệu lỗi: không tạo biến thể thiếu mã hay tạo thêm biến thể khi thử lại; kiểm tra kết quả đã ghi nhận trước khi gửi lại.
 
-## Nhập và cập nhật giá bán sản phẩm
+## Gửi và phê duyệt sản phẩm mới
 
-### Lưu giá bán — Luồng thành công
+### Staff gửi sản phẩm — Luồng thành công
 
-1. Staff có tài khoản hoạt động và quyền quản lí sản phẩm nhập giá bán khi tạo biến thể, hoặc mở biến thể đã có và chọn sửa giá. Frontend hiển thị SKU và giá hiện tại để Staff xác định đúng đối tượng.
-2. Staff nhập giá bán là số nguyên VND dương, xem lại rồi chọn **Lưu**. Giá nhập hợp lệ sau khi lưu thành công chính là giá bán của biến thể.
-3. Backend kiểm tra vai trò Staff, quyền quản lí sản phẩm, đối tượng, dữ liệu mới nhất và giá hợp lệ; lưu giá cùng audit gồm người sửa, thời điểm và giá trước/sau.
-4. Frontend hiển thị giá đã lưu. Với sản phẩm công khai và đủ điều kiện, lượt xem/checkout mới sử dụng giá mới; với sản phẩm chưa công khai, lưu giá không tự công khai sản phẩm.
+1. Staff mở sản phẩm chưa công khai, hoàn tất thông tin, ít nhất một ảnh sử dụng được, các biến thể, số lượng và giá đề xuất rồi chọn **Gửi duyệt**.
+2. Backend kiểm tra quyền, sản phẩm chưa bị xóa, phiên bản mới nhất, danh mục hoạt động và dữ liệu hồ sơ. Backend lưu phiên bản hồ sơ cùng các đề xuất giá đúng sản phẩm/biến thể, chuyển sang **Chờ duyệt** và ghi audit.
+3. Frontend hiển thị mã hồ sơ, phiên bản và trạng thái chờ Manager xử lí. Sản phẩm vẫn chưa công khai; giá đề xuất chưa phải giá bán.
+4. Staff có thể xem tiến độ. Nếu cần sửa nội dung đã gửi, hệ thống làm phiên bản chờ duyệt cũ mất hiệu lực, đưa hồ sơ về **Nháp** và yêu cầu gửi lại sau khi sửa; không cho Manager duyệt nhầm dữ liệu cũ.
+
+### Manager duyệt sản phẩm — Luồng thành công
+
+1. Manager có tài khoản hoạt động và quyền phê duyệt mở hồ sơ **Chờ duyệt**, xem đúng phiên bản thông tin, ảnh, danh mục, biến thể, số lượng và giá đề xuất. Hồ sơ có thể do Staff hoặc chính Manager đó tạo; không yêu cầu một Manager khác duyệt.
+2. Manager kiểm tra hồ sơ và quyết định giá từng biến thể theo luồng phê duyệt giá bên dưới. Manager có thể chấp nhận hoặc điều chỉnh giá đề xuất trước khi xác nhận; AI nếu được dùng tại FE-04 chỉ hỗ trợ quyết định.
+3. Manager chọn **Duyệt**. Backend kiểm tra lại quyền, phiên bản hồ sơ, trạng thái sản phẩm và tính hợp lệ của các giá cuối cùng; ghi nhận hồ sơ **Đã duyệt**, giá đã duyệt từng biến thể, người duyệt, thời điểm và audit.
+4. Frontend hiển thị kết quả duyệt. Sản phẩm vẫn **Chưa công khai**; người có quyền tiếp tục áp dụng các giá đã duyệt rồi thực hiện **Công khai** riêng.
+
+### Gửi và duyệt sản phẩm — Nhánh lỗi
+
+1. Thiếu quyền, hồ sơ thiếu dữ liệu/ảnh, danh mục không hoạt động hoặc sản phẩm đã bị xóa: từ chối thao tác, nêu điều kiện cần sửa; không tự duyệt hay công khai.
+2. Manager chọn **Từ chối**, ghi lý do: lưu kết quả **Bị từ chối** cùng audit; Staff xem lý do, sửa thành phiên bản mới và gửi lại. Không áp dụng các giá của hồ sơ bị từ chối.
+3. Hồ sơ đã thay đổi, đã có quyết định hoặc phiên bản gửi không còn hiệu lực: không ghi đè quyết định hay duyệt dữ liệu cũ; tải trạng thái mới để người dùng kiểm tra.
+4. Manager hủy thao tác trước khi xác nhận: không lưu quyết định, hồ sơ vẫn chờ duyệt. Lỗi lưu/audit phải giữ trạng thái trước đó, không ghi nhận một phần hồ sơ/giá là đã duyệt.
+5. Mất phản hồi hoặc gửi lặp: tra kết quả theo hồ sơ/phiên bản trước khi thử lại; không tạo hồ sơ trùng hoặc thêm quyết định cho cùng phiên bản đã xử lí.
+
+## Đề xuất, phê duyệt và áp dụng giá sản phẩm
+
+### Staff lập đề xuất giá — Luồng thành công
+
+1. Staff có tài khoản hoạt động và quyền quản lí sản phẩm nhập giá đề xuất khi tạo biến thể, hoặc mở biến thể đã có và chọn **Đề xuất giá**. Frontend hiển thị sản phẩm, SKU, giá đang áp dụng và giá đề xuất riêng để xác định đúng đối tượng.
+2. Staff nhập giá đề xuất là số nguyên VND dương, xem lại rồi chọn **Lưu nháp** hoặc **Gửi duyệt**. Các giới hạn giá bổ sung nếu có **chưa chốt**.
+3. Backend kiểm tra quyền, sản phẩm chưa bị xóa, biến thể, phiên bản và dữ liệu giá; lưu mã đề xuất riêng, đối tượng/điều khoản đề xuất, số tiền và trạng thái cùng audit. Với sản phẩm mới, các đề xuất được gửi cùng phiên bản hồ sơ sản phẩm; không phải gửi trùng hai lần.
+4. Frontend hiển thị trạng thái **Nháp**, **Chờ duyệt**, **Đã duyệt** hoặc **Bị từ chối** của đề xuất và trạng thái đã/chưa áp dụng riêng. Lưu hay gửi đề xuất không thay đổi giá bán hoặc trạng thái công khai hiện tại.
+
+### Manager quyết định giá — Luồng thành công
+
+1. Manager có quyền mở đề xuất chờ duyệt, xem đúng sản phẩm/biến thể, phiên bản, giá đang áp dụng, giá đề xuất và các đầu vào/quy tắc định giá liên quan. Với sản phẩm mới, bước này nằm trong phiên duyệt hồ sơ sản phẩm.
+2. Manager xem gợi ý AI nếu sử dụng luồng tại FE-04; gợi ý chỉ mang tính tham khảo. AI không khả dụng không ngăn Manager quyết định giá thủ công dựa trên đầu vào nghiệp vụ hợp lệ.
+3. Manager chấp nhận giá đề xuất, điều chỉnh thành giá cuối cùng hợp lệ hoặc từ chối kèm lý do, rồi xác nhận quyết định.
+4. Backend kiểm tra vai trò Manager, quyền duyệt, trạng thái/phiên bản và giá cuối cùng; lưu quyết định, số tiền đã duyệt, đối tượng/điều khoản tương ứng, đầu vào quyết định, người duyệt, thời điểm và audit. Quyết định duyệt chưa thay đổi giá đang áp dụng hay tự công khai sản phẩm.
+5. Staff xem kết quả; nếu bị từ chối thì sửa thành phiên bản đề xuất mới và gửi lại, không sửa quyết định đã lưu.
+
+### Áp dụng giá đã duyệt — Luồng thành công
+
+1. Staff hoặc Manager có quyền áp dụng giá mở đúng biến thể, đối chiếu giá hiện tại và giá Manager đã duyệt rồi chọn **Áp dụng giá**.
+2. Backend kiểm tra quyền, sản phẩm chưa bị xóa, đề xuất đã được duyệt và còn hiệu lực với đúng đối tượng/điều khoản, dữ liệu mới nhất và số tiền khớp nguyên giá đã duyệt. Với sản phẩm mới, hồ sơ sản phẩm cũng phải đã được Manager duyệt và còn hiệu lực. Người áp dụng không được sửa số tiền ngay tại bước này.
+3. Backend lưu giá bán mới, tham chiếu quyết định duyệt và dấu vết áp dụng cùng audit gồm người thực hiện, thời điểm, giá trước/sau. Yêu cầu áp dụng đề xuất cũ không được ghi đè một giá mới hơn đã được áp dụng.
+4. Frontend hiển thị giá đã áp dụng. Với sản phẩm công khai và đủ điều kiện, lượt xem/checkout mới sử dụng giá mới; với sản phẩm chưa công khai, áp dụng giá không tự công khai sản phẩm.
 5. Đơn và quyền giữ hợp lệ đã được chấp nhận trước đó giữ giá đã chốt trong thời hạn gốc. Giỏ chưa tạo đơn phải tải và kiểm tra lại giá hiện tại, cho khách xác nhận tổng tiền trước khi đặt.
 
-### Lưu giá bán — Nhánh lỗi
+### Đề xuất, duyệt và áp dụng giá — Nhánh lỗi
 
-1. Không có vai trò Staff/quyền quản lí sản phẩm hoặc chọn sai biến thể: từ chối, không thay đổi giá.
-2. Giá không hợp lệ: hiển thị lỗi tại trường nhập và giữ giá cũ; các giới hạn giá bổ sung nếu có **chưa chốt**.
-3. Dữ liệu đã bị người khác thay đổi: từ chối ghi đè, tải lại giá hiện tại để Staff xem và xác nhận lại.
-4. Lỗi lưu/audit hoặc mất phản hồi: chưa báo đã cập nhật; kiểm tra kết quả đã ghi nhận trước khi thử lại, không ghi đè giá mới hơn bằng yêu cầu cũ.
+1. Không có quyền tương ứng, Staff tự gọi thao tác duyệt, chọn sai biến thể hoặc sản phẩm đã bị xóa: từ chối, không thay đổi đề xuất/quyết định/giá đang áp dụng.
+2. Giá không hợp lệ: hiển thị lỗi tại trường nhập, giữ dữ liệu đã xác nhận trước đó; không lưu hoặc áp dụng giá không hợp lệ.
+3. Đề xuất chưa được duyệt, bị từ chối, đã mất hiệu lực, sai đối tượng/điều khoản hoặc số tiền khác giá đã duyệt: không áp dụng; yêu cầu lập/gửi lại đề xuất phù hợp để Manager quyết định.
+4. Dữ liệu đã thay đổi khi đang sửa, duyệt hoặc áp dụng: từ chối yêu cầu cũ, tải lại thông tin để người có quyền xem và xác nhận lại. Sửa đề xuất đã gửi phải tạo phiên bản mới, không kế thừa phê duyệt cũ cho số tiền/điều khoản khác.
+5. Lỗi lưu/audit hoặc mất phản hồi: không báo hoàn tất khi chưa xác nhận; kiểm tra kết quả trước khi thử lại, không lưu một phần quyết định/giá hoặc ghi đè giá mới hơn bằng yêu cầu cũ.
+6. Gửi lặp thao tác đã thành công: trả kết quả hiện tại của cùng yêu cầu, không duyệt hay áp dụng thêm một lần.
 
 ## Công khai và ngừng công khai sản phẩm
 
 ### Công khai sản phẩm — Luồng thành công
 
-1. Staff có quyền mở sản phẩm **Chưa công khai**, kiểm tra thông tin rồi chọn **Công khai**.
-2. Backend kiểm tra quyền, danh mục đang hoạt động, thông tin hợp lệ, có ảnh sử dụng được, có biến thể và mọi biến thể được cấu hình đều có giá bán đã lưu hợp lệ.
+1. Staff hoặc Manager có quyền mở sản phẩm **Chưa công khai**, kiểm tra thông tin và kết quả Manager duyệt rồi chọn **Công khai**.
+2. Backend kiểm tra quyền, sản phẩm chưa bị xóa, hồ sơ sản phẩm mới đã được Manager duyệt và còn hiệu lực, danh mục đang hoạt động, thông tin hợp lệ, có ít nhất một ảnh sử dụng được, có biến thể và mọi biến thể được cấu hình đều có giá đã được Manager duyệt và đã áp dụng. Không dùng giá đề xuất hoặc giá đã duyệt nhưng chưa áp dụng để vượt qua kiểm tra.
 3. Số lượng cho phép bán bằng 0 không tự chặn công khai: sản phẩm vẫn có thể được hiển thị với tình trạng chưa có hàng để mua.
 4. Backend cập nhật trạng thái công khai và ghi audit. Khách được xem sản phẩm ở các lượt đọc catalogue tiếp theo khi các điều kiện công khai vẫn đạt.
 
@@ -272,13 +356,13 @@ Feature này gồm quản lí nhẫn bán sẵn do Staff thực hiện và tra c
 1. Staff có quyền mở sản phẩm, chọn **Ngừng công khai** và xác nhận.
 2. Backend kiểm tra trạng thái hiện tại, cập nhật và ghi audit. Sản phẩm không còn xuất hiện trong catalogue công khai và không được tạo quyền giữ mới ở checkout.
 3. Giỏ hoặc màn hình cũ không cho phép vượt qua kiểm tra hiện tại. Quyền giữ hợp lệ đã được chấp nhận, giá của đơn và lịch sử mua được bảo toàn; không tự hủy đơn hay gia hạn thanh toán.
-4. Staff có thể công khai lại sau khi sản phẩm đáp ứng điều kiện. Luồng xóa sản phẩm sẽ được bổ sung sau; lần này chỉ mô tả công khai/ngừng công khai.
+4. Staff hoặc Manager có quyền có thể công khai lại sau khi sản phẩm đáp ứng điều kiện và chưa bị xóa. Ngừng công khai giữ sản phẩm trong danh sách quản trị để tiếp tục chỉnh sửa/công khai lại; xóa sản phẩm thực hiện theo luồng riêng bên dưới.
 
 ### Công khai và ngừng công khai — Nhánh lỗi
 
-1. Thiếu ảnh, danh mục không hoạt động, thiếu biến thể hoặc chưa có giá bán hợp lệ: không công khai, nêu rõ điều kiện cần hoàn tất.
+1. Thiếu ảnh, danh mục không hoạt động, thiếu biến thể, hồ sơ sản phẩm mới chưa được duyệt hợp lệ hoặc có biến thể chưa áp dụng giá đã được Manager duyệt: không công khai, nêu rõ điều kiện cần hoàn tất.
 2. Gửi lại thao tác khi sản phẩm đã ở trạng thái yêu cầu: trả trạng thái hiện tại, không thực hiện thêm một lần chuyển trạng thái.
-3. Dữ liệu thay đổi trong lúc xác nhận, không có quyền hoặc lưu/audit lỗi: giữ trạng thái trước đó, cho tải lại và thử lại sau khi kiểm tra.
+3. Sản phẩm đã bị xóa, dữ liệu thay đổi trong lúc xác nhận, không có quyền hoặc lưu/audit lỗi: từ chối thao tác, giữ trạng thái trước đó, cho tải lại và thử lại sau khi kiểm tra.
 
 ### Ngừng bán và mở bán lại từng biến thể — Luồng thành công
 
@@ -296,19 +380,38 @@ Feature này gồm quản lí nhẫn bán sẵn do Staff thực hiện và tra c
 3. Gửi lặp cùng trạng thái: trả kết quả hiện tại, không tạo thêm lần chuyển trạng thái hoặc trừ/khôi phục số lượng bán.
 4. Lưu/audit lỗi hoặc mất phản hồi: kiểm tra kết quả đã ghi nhận trước khi thử lại; không hủy các giao dịch đã chấp nhận để xử lí lỗi quản trị.
 
+## Xóa sản phẩm
+
+### Xóa sản phẩm — Luồng thành công
+
+1. Staff hoặc Manager có quyền xóa mở sản phẩm, chọn **Xóa sản phẩm**. Có thể xóa sản phẩm nháp, chờ duyệt, bị từ chối, đã duyệt, đang công khai hoặc đang ẩn; xóa là thao tác riêng với ngừng công khai.
+2. Frontend hiển thị đúng mã/tên sản phẩm và cảnh báo sản phẩm sẽ rời catalogue, danh sách quản trị thông thường, không thể sửa hay công khai lại; yêu cầu người dùng xác nhận. FE-02 không cung cấp luồng khôi phục sản phẩm đã xóa hoặc xử lí xóa nhầm.
+3. Backend kiểm tra lại quyền, phiên bản và trạng thái hiện tại; thực hiện **xóa mềm**, lưu người xóa/thời điểm và audit. Trong cùng thao tác, sản phẩm bị loại khỏi các lượt đọc công khai, bị chặn thêm mới vào giỏ/tạo quyền giữ mới và các hồ sơ/đề xuất chưa áp dụng không còn được duyệt hoặc áp dụng. Không tự giải phóng lượng giữ hợp lệ.
+4. Backend giữ định danh sản phẩm/biến thể, SKU, quyết định duyệt, dấu vết giá và các tham chiếu cần cho đối soát, đơn hàng, quyền giữ hợp lệ và lịch sử. Không xóa vật lí hay tái cấp SKU; không xóa tệp ảnh dùng chung hoặc ảnh còn phục vụ lịch sử giao dịch.
+5. Đơn đã chấp nhận và quyền giữ còn hợp lệ tiếp tục thanh toán/xử lí theo FE-08 với điều khoản và thời hạn gốc. Xóa không tự hủy đơn, đổi giá, gia hạn hoặc ngăn xử lí kết quả thanh toán hợp lệ của giao dịch đã chấp nhận.
+6. Frontend quay lại danh sách quản trị và bỏ sản phẩm đã xóa khỏi kết quả thông thường. Trang/giỏ cũ phải kiểm tra lại; khách được thông báo sản phẩm không còn bán và phải sửa lựa chọn trước checkout mới, không tự đổi sang sản phẩm khác.
+
+### Xóa sản phẩm — Nhánh lỗi
+
+1. Người dùng hủy xác nhận: không thay đổi dữ liệu hay trạng thái sản phẩm.
+2. Thiếu quyền hoặc không tìm thấy sản phẩm: từ chối an toàn, không tiết lộ dữ liệu ngoài quyền và không báo xóa thành công.
+3. Sản phẩm đã thay đổi trong lúc xác nhận: từ chối yêu cầu cũ, tải lại để người dùng kiểm tra trước khi xác nhận lại. Backend kiểm tra trạng thái xóa cùng lúc với duyệt/áp dụng giá/công khai/tạo quyền giữ, không cho yêu cầu chạy đồng thời khôi phục sản phẩm đã xóa hoặc tạo quyền giữ mới sau khi xóa.
+4. Gửi lặp yêu cầu đã xóa thành công: trả kết quả đã xóa theo quyền, không xóa thêm dữ liệu, không trừ/hoàn số lượng và không làm mất lịch sử.
+5. Lỗi lưu/audit: giữ trạng thái trước thao tác, không để sản phẩm bị xóa một phần. Mất phản hồi thì kiểm tra kết quả đã ghi nhận trước khi thử lại; không suy đoán thao tác chưa thực hiện.
+
 ## Quản lí danh mục sản phẩm
 
 ### Tạo, sửa và đổi trạng thái danh mục — Luồng thành công
 
 1. Chỉ Staff có quyền quản lí sản phẩm được tạo, sửa, kích hoạt hoặc ngừng kích hoạt danh mục. Backend kiểm tra tài khoản hoạt động và quyền hiện tại trước mỗi thao tác.
-2. Người có quyền mở danh sách danh mục, chọn tạo mới hoặc sửa, nhập tên/mô tả rồi xác nhận. Backend kiểm tra quyền, trường bắt buộc và quy tắc tên trước khi lưu cùng audit. Quy tắc duy nhất tên và giới hạn nhập liệu **chưa chốt**.
+2. Người có quyền mở danh sách danh mục, chọn tạo mới hoặc sửa, nhập tên/mô tả rồi xác nhận. Backend kiểm tra quyền, trường bắt buộc và quy tắc tên trước khi lưu cùng audit. Tên sau trim dài 1–200 ký tự, duy nhất toàn hệ thống kể cả danh mục không hoạt động khi so khớp không phân biệt hoa/thường; mô tả tùy chọn tối đa 5.000 ký tự. Danh mục mới mặc định hoạt động.
 3. Khi ngừng kích hoạt danh mục, Frontend cho xem các sản phẩm bị ảnh hưởng trước khi xác nhận. Backend loại danh mục và sản phẩm liên quan khỏi các lượt tra cứu công khai mới; lịch sử sản phẩm, đơn và quyền giữ hợp lệ không bị viết lại.
 4. Khi kích hoạt lại, chỉ sản phẩm còn công khai và đủ các điều kiện khác mới được hiển thị. Không tự công khai các sản phẩm người dùng đã chủ động ẩn.
-5. **Đề xuất:** ngừng kích hoạt thay cho xóa danh mục đã được tham chiếu; chuyển sản phẩm sang danh mục khác qua luồng Sửa sản phẩm.
+5. Ngừng kích hoạt thay cho xóa danh mục đã được tham chiếu; chuyển sản phẩm sang danh mục khác qua luồng Sửa sản phẩm.
 
 ### Quản lí danh mục — Nhánh lỗi
 
-1. Thiếu quyền, dữ liệu sai hoặc trùng tên theo quy tắc sau khi chốt: từ chối, chỉ rõ điều kiện cần sửa; không thay đổi danh mục một phần.
+1. Thiếu quyền, dữ liệu sai hoặc trùng tên theo quy tắc đã chốt: từ chối, chỉ rõ điều kiện cần sửa; không thay đổi danh mục một phần.
 2. Danh mục thay đổi trong lúc thao tác hoặc lưu/audit lỗi: giữ dữ liệu đã xác nhận trước đó, yêu cầu tải lại/kiểm tra kết quả trước khi thử lại.
 
 ## Tra cứu sản phẩm công khai
@@ -316,17 +419,17 @@ Feature này gồm quản lí nhẫn bán sẵn do Staff thực hiện và tra c
 ### Xem, tìm kiếm và lọc catalogue — Luồng thành công
 
 1. Guest hoặc Member mở catalogue mà không cần đăng nhập. Backend chỉ trả sản phẩm công khai, thuộc danh mục hoạt động và đáp ứng điều kiện nội dung/ảnh/giá.
-2. Frontend hiển thị tên, mô tả tóm tắt, danh mục, ảnh sử dụng được, khoảng giá bán hiện tại của các biến thể và tình trạng còn được phép mua.
-3. Khách nhập từ khóa hoặc lọc theo danh mục, khoảng giá và tình trạng khả dụng. Backend bỏ khoảng trắng thừa, tìm trong tên/mô tả không phân biệt hoa thường và kết hợp các bộ lọc bằng điều kiện cùng thỏa mãn.
-4. Khoảng giá bao gồm hai đầu mút. Nếu lọc đồng thời giá và khả dụng, cùng một biến thể phải thỏa cả hai; không lấy giá của biến thể này ghép với tình trạng của biến thể khác.
-5. Mặc định Backend sắp theo tên sản phẩm A–Z rồi định danh để thứ tự ổn định. Khách có thể đổi sang giá tăng dần, giá giảm dần hoặc mới nhất theo luồng bên dưới. Kích thước trang và giới hạn từ khóa cụ thể **chưa chốt**.
+2. Frontend hiển thị tên, mô tả tóm tắt, danh mục, ảnh sử dụng được, khoảng giá bán hiện tại của các biến thể và tình trạng **Có thể mua** khi ít nhất một biến thể đáp ứng quy tắc chung. Nếu không có biến thể nào có thể mua, sản phẩm vẫn hiển thị khi đủ điều kiện công khai nhưng không được gắn nhãn có thể mua.
+3. Khách nhập từ khóa hoặc lọc theo danh mục, khoảng giá và tình trạng **Có thể mua**. Backend bỏ khoảng trắng thừa, tìm trong tên/mô tả không phân biệt hoa thường và kết hợp các bộ lọc bằng điều kiện cùng thỏa mãn. Khi bật bộ lọc **Có thể mua**, chỉ trả sản phẩm có ít nhất một biến thể thỏa đầy đủ điều kiện mua; không chỉ kiểm tra số lượng khả dụng lớn hơn 0.
+4. Khoảng giá bao gồm hai đầu mút. Nếu lọc đồng thời giá và **Có thể mua**, cùng một biến thể phải có giá trong khoảng và đáp ứng đầy đủ điều kiện mua; không lấy giá của biến thể ngừng bán ghép với tình trạng có thể mua của biến thể khác.
+5. Mặc định Backend sắp theo tên sản phẩm A–Z rồi định danh để thứ tự ổn định. Khách có thể đổi sang giá tăng dần, giá giảm dần hoặc mới nhất theo luồng bên dưới. Mỗi trang có 20 sản phẩm, từ khóa sau trim tối đa 200 ký tự.
 6. Khách sửa/xóa bộ lọc hoặc mở một sản phẩm để xem chi tiết. Tra cứu chưa tạo giỏ, đơn, giữ lượng bán, giữ voucher hay điểm.
 
 ### Khách chọn sắp xếp sản phẩm — Luồng thành công
 
 1. Khách mở lựa chọn **Sắp xếp** trên catalogue: tên A–Z, giá tăng dần, giá giảm dần hoặc mới nhất. Mặc định là **Tên A–Z**.
 2. Frontend giữ từ khóa và các bộ lọc đang chọn khi đổi cách sắp xếp; Backend kiểm tra lựa chọn thuộc danh sách được hỗ trợ.
-3. Với tên A–Z, Backend sắp theo tên; **đề xuất:** với mới nhất, dùng thời điểm tạo sản phẩm, không dùng thời điểm sửa giá để làm sản phẩm thành mới.
+3. Với tên A–Z, Backend sắp theo tên; với mới nhất, dùng thời điểm tạo sản phẩm, không dùng thời điểm sửa giá để làm sản phẩm thành mới.
 4. Với sản phẩm có nhiều biến thể, dùng **giá thấp nhất của các biến thể đang hiển thị và thỏa bộ lọc** làm giá đại diện cho cả sắp xếp tăng/giảm. Frontend vẫn hiển thị khoảng giá; giá chính xác được xem khi chọn biến thể.
 5. Backend dùng định danh sản phẩm làm tiêu chí phụ khi trùng tên/giá/thời điểm để thứ tự ổn định; trả kết quả và cách sắp xếp đang áp dụng để Frontend hiển thị.
 6. Frontend hiển thị kết quả và giữ bộ lọc hiện tại; thay đổi cách sắp xếp không tạo đơn hoặc giữ số lượng bán.
@@ -339,9 +442,9 @@ Feature này gồm quản lí nhẫn bán sẵn do Staff thực hiện và tra c
 ### Xem chi tiết và chọn biến thể — Luồng thành công
 
 1. Khách mở sản phẩm từ catalogue; Backend kiểm tra lại điều kiện công khai trước khi trả dữ liệu.
-2. Frontend hiển thị thông tin, ảnh và các tổ hợp kích thước/lựa chọn khắc được cấu hình; chỉ hiển thị giá bán hiện tại của sản phẩm công khai, không lộ thông tin của sản phẩm chưa công khai.
-3. Khách chọn một tổ hợp đã có. Backend trả đúng định danh biến thể, giá và tình trạng khả dụng hiện tại; không tự tạo biến thể từ nội dung khách nhập.
-4. Nếu một biến thể hết lượng bán, Frontend đánh dấu biến thể đó chưa mua được; biến thể khác vẫn được xem và chọn theo tình trạng riêng. Sản phẩm vẫn hiển thị khi đủ điều kiện công khai dù mọi biến thể hiện không còn lượng bán.
+2. Frontend hiển thị thông tin, ảnh và các size đã cấu hình; không có lựa chọn khắc. Chỉ hiển thị giá bán hiện tại của sản phẩm công khai, không lộ thông tin của sản phẩm chưa công khai.
+3. Khách chọn một size đã cấu hình. Backend trả đúng định danh biến thể, giá và tình trạng khả dụng hiện tại; không tự tạo biến thể từ nội dung khách nhập.
+4. Frontend xác định khả năng mua theo đầy đủ quy tắc chung: biến thể hết số lượng khả dụng được đánh dấu chưa mua được; biến thể ngừng bán hiển thị nhãn **Ngừng bán** và bị chặn mua dù còn số lượng. Các biến thể khác vẫn được xem và chọn theo tình trạng riêng. Sản phẩm vẫn hiển thị khi đủ điều kiện công khai dù không còn biến thể nào có thể mua, nhưng bị loại khỏi kết quả khi bật bộ lọc **Có thể mua**.
 5. Khách chọn **Mua ngay** hoặc **Thêm vào giỏ hàng** thì chuyển sang [FE-08 — Mua hàng](#fe-08), mang theo sản phẩm, biến thể và số lượng đã chọn. FE-08 kiểm tra đăng nhập/xác minh và điều kiện mua trước khi chấp nhận.
 
 ### Tra cứu và chọn biến thể — Nhánh lỗi
@@ -350,7 +453,7 @@ Feature này gồm quản lí nhẫn bán sẵn do Staff thực hiện và tra c
 2. Không có kết quả: hiển thị thông báo và cho xóa/đổi bộ lọc. Lỗi tải dữ liệu phải được báo riêng, không hiển thị nhầm thành catalogue rỗng.
 3. Sản phẩm ngừng công khai hoặc danh mục không còn hoạt động sau lần xem trước: không trả nội dung công khai mới và không cho dùng trang/giỏ cũ để bỏ qua kiểm tra checkout. Biến thể ngừng bán vẫn hiển thị với nhãn **Ngừng bán** và bị chặn mua mới dù còn số lượng, theo luồng trạng thái biến thể.
 4. Mất toàn bộ ảnh sử dụng được: loại khỏi kết quả công khai mà không tự sửa cờ công khai hay lịch sử; khi ảnh khôi phục, chỉ hiển thị lại nếu các điều kiện khác vẫn đạt. Với lỗi tải ảnh tạm thời, hiển thị thông tin lỗi/thử lại phù hợp.
-5. Tổ hợp không tồn tại hoặc nhập lựa chọn ngoài catalogue: yêu cầu khách chọn đúng biến thể Staff đã cấu hình; không tạo thêm biến thể từ dữ liệu khách nhập.
+5. Size không được cấu hình cho sản phẩm hoặc nhập lựa chọn ngoài catalogue: yêu cầu khách chọn đúng size đã có; không tạo thêm biến thể từ dữ liệu khách nhập.
 
 <a id="fe-03"></a>
 
@@ -378,7 +481,7 @@ Chưa mô tả luồng thiết kế cá nhân hóa, review, báo giá và đơn 
 
 # FE-06 — Loyalty & Promotion Management
 
-Feature này gồm quản lí chương trình voucher/giảm giá và điểm thưởng, nhằm khuyến khích Member quay lại mua sản phẩm và tham gia workshop. Luồng mua sản phẩm tham chiếu [FE-08](#fe-08), đặt workshop tham chiếu [FE-03](#fe-03), cấu hình tham số tham chiếu [FE-09](#fe-09). Nội dung dưới đây là thiết kế mong muốn; các quy tắc có nhãn **Đề xuất** còn cần quyết định. Các giá trị cụ thể về mức giảm, giá trị giao dịch tối thiểu, hạn mức lượt dùng, tỷ lệ cộng/quy đổi điểm, lượng điểm tối thiểu và trần giảm bằng điểm đều **chưa chốt**; Manager/Admin cấu hình theo phạm vi phụ trách sau khi thống nhất chính sách.
+Feature này gồm quản lí chương trình voucher/giảm giá và điểm thưởng, nhằm khuyến khích Member quay lại mua sản phẩm và tham gia workshop. Luồng mua sản phẩm tham chiếu [FE-08](#fe-08), đặt workshop tham chiếu [FE-03](#fe-03), cấu hình tham số tham chiếu [FE-09](#fe-09). Nội dung dưới đây là thiết kế nghiệp vụ đã thống nhất để làm spec, chưa phải chức năng đã triển khai. Mức giảm, giá trị giao dịch tối thiểu và hạn mức lượt dùng là dữ liệu Manager cấu hình cho từng chương trình, không phải thông số cố định cần chốt chung. Bộ thông số điểm và cách tính đã chốt được mô tả tại phần Điểm thưởng; Admin quản lí cấu hình chính sách điểm. Tỷ lệ cọc, điều kiện hủy và thời hạn thanh toán tham chiếu FE-03/FE-08 theo loại giao dịch.
 
 ## Quản lí chương trình ưu đãi
 
@@ -387,13 +490,16 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 1. Manager tạo, sửa, tạm dừng chương trình và theo dõi lượt sử dụng, số tiền đã giảm. Admin cấu hình chính sách điểm; Member xem, lưu và sử dụng quyền lợi của mình.
 2. Voucher có hai phạm vi riêng: **sản phẩm** và **workshop**. Voucher sản phẩm không dùng cho workshop và ngược lại. Voucher workshop dành cho Member đặt trực tiếp trên website.
 3. Voucher ngày lễ là chương trình có thời gian áp dụng riêng và vẫn thuộc phạm vi sản phẩm hoặc workshop; không phải một lớp voucher được cộng thêm vào giao dịch.
-4. Với mua sản phẩm, mỗi đơn áp dụng **một chương trình giảm tự động hoặc một voucher**, sau đó có thể dùng thêm điểm nếu chính sách cho phép. **Đề xuất:** mỗi booking dùng một voucher; trần giảm không nhân theo số người tham gia.
+4. Với mua sản phẩm, mỗi đơn áp dụng **một chương trình giảm tự động hoặc một voucher**, sau đó có thể dùng thêm điểm nếu chính sách cho phép. Mỗi booking dùng tối đa một voucher; trần giảm áp dụng cho cả booking, không nhân theo số người tham gia.
+5. Chương trình ưu đãi sản phẩm chưa giới hạn theo chi nhánh trong phiên bản này; Staff điều phối nơi chuẩn bị hàng theo FE-08. Voucher workshop có thể giới hạn theo chi nhánh tổ chức do Manager cấu hình.
+6. Mã voucher không phân biệt chữ hoa/thường, bỏ khoảng trắng đầu/cuối khi tạo và tra cứu. Mã là duy nhất toàn hệ thống, không tái sử dụng mã cũ kể cả khi chương trình đã hết hạn hoặc bị dừng. Sau khi tạo không đổi mã hoặc phạm vi sản phẩm/workshop.
+7. Với ưu đãi sản phẩm, cơ sở kiểm tra giá trị tối thiểu và tính giảm là tổng tiền các dòng sản phẩm/biến thể thuộc phạm vi chương trình, trước khi trừ ưu đãi và điểm, không gồm phí giao hàng. Các dòng không thuộc phạm vi không được tính vào cơ sở này. Giảm số tiền cố định một lần/đơn, không nhân theo số lượng sản phẩm; giảm phần trăm làm tròn xuống đến đồng. Khoản giảm không vượt mức giảm tối đa đã cấu hình hoặc giá trị phần đủ điều kiện, không làm tiền hàng âm.
 
 ### Tạo voucher sản phẩm — Luồng thành công
 
 1. Manager mở phần quản lí ưu đãi, chọn **Tạo chương trình** và phạm vi **Sản phẩm**.
-2. Manager nhập tên chương trình, mã voucher, thời gian sử dụng, sản phẩm và chi nhánh áp dụng.
-3. Manager chọn giảm theo phần trăm hoặc số tiền cố định, nhập mức giảm, mức giảm tối đa và giá trị đơn tối thiểu.
+2. Manager nhập tên chương trình, mã voucher, thời gian sử dụng và phạm vi sản phẩm/biến thể áp dụng; không cấu hình giới hạn chi nhánh cho sản phẩm.
+3. Manager chọn giảm theo phần trăm hoặc số tiền cố định, nhập mức giảm, mức giảm tối đa và giá trị tối thiểu của phần sản phẩm/biến thể đủ điều kiện theo quy tắc chung.
 4. Manager cấu hình tổng lượt sử dụng, số lượt mỗi Member và có cho phép dùng thêm điểm hay không.
 5. Frontend kiểm tra trường bắt buộc và dữ liệu nhập; Backend kiểm tra quyền Manager, phạm vi và tính hợp lệ của các điều kiện trước khi lưu.
 6. Backend lưu chương trình cùng các điều kiện đã xác nhận. Khi chương trình được đưa vào áp dụng và trong thời gian hiệu lực, hệ thống cho Member đủ điều kiện xem và chọn mã tại checkout sản phẩm.
@@ -409,26 +515,26 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 
 ### Tạo chương trình giảm tự động cho sản phẩm — Luồng thành công
 
-1. Manager chọn tạo chương trình giảm tự động, cấu hình phạm vi sản phẩm, chi nhánh, thời gian, mức giảm và các điều kiện áp dụng.
+1. Manager chọn tạo chương trình giảm tự động, cấu hình phạm vi sản phẩm/biến thể, thời gian, mức giảm và các điều kiện áp dụng theo quy tắc chung; không giới hạn chi nhánh.
 2. Manager xác định chương trình có cho phép dùng thêm điểm hay không rồi xác nhận lưu.
 3. Backend kiểm tra quyền và điều kiện trước khi ghi nhận chương trình.
-4. Tại checkout sản phẩm, Backend xác định chương trình tự động hợp lệ và trả khoản giảm để Member xem; Member không cần nhập mã.
+4. Tại checkout sản phẩm, Backend tính riêng khoản giảm của từng chương trình tự động hợp lệ, chọn một chương trình có khoản giảm lớn nhất; nếu bằng nhau, ưu tiên chương trình tạo trước. Backend trả chương trình được chọn và khoản giảm để Member xem; Member không cần nhập mã.
 5. Nếu Member chọn voucher thay cho giảm tự động, hệ thống tính lại tổng tiền với voucher đó; không cộng dồn cả hai khoản giảm.
 
 ### Tạo chương trình — Nhánh lỗi
 
 1. Thiếu trường bắt buộc, thời gian không hợp lệ, mức giảm hoặc hạn mức sai: hiển thị lỗi tại trường tương ứng; chưa lưu chương trình.
-2. Mã voucher đã được sử dụng cho chương trình khác hoặc phạm vi sản phẩm/gói/phiên không hợp lệ: yêu cầu Manager sửa lựa chọn trước khi lưu.
+2. Mã voucher sau khi bỏ khoảng trắng đầu/cuối và so sánh không phân biệt hoa/thường trùng mã đã cấp, hoặc phạm vi sản phẩm/biến thể/gói/phiên không hợp lệ: yêu cầu Manager sửa lựa chọn trước khi lưu; không cho tái sử dụng mã cũ.
 3. Tài khoản không có quyền quản lí chương trình: Backend từ chối thao tác; không chỉ ẩn nút trên giao diện.
 4. Lỗi lưu hoặc mất phản hồi: thông báo chưa xác nhận được kết quả và cho kiểm tra lại danh sách chương trình trước khi gửi lại; không báo tạo thành công khi chưa có xác nhận.
 
 ### Sửa, tạm dừng và theo dõi chương trình
 
 1. Manager mở danh sách, chọn một chương trình để xem điều kiện, thời gian, tổng lượt, số lượt đã dùng và số tiền đã giảm; có thể lọc theo phạm vi sản phẩm hoặc workshop.
-2. Manager chọn **Sửa**, cập nhật điều kiện rồi xác nhận. Backend kiểm tra quyền và dữ liệu trước khi lưu, Frontend tải lại thông tin sau khi lưu thành công.
-3. Các thay đổi chỉ dùng cho giao dịch được chấp nhận sau đó; không tính lại khoản giảm của đơn/booking đã được hệ thống chấp nhận.
+2. Manager chọn **Sửa**, cập nhật điều kiện rồi xác nhận; không đổi mã hoặc phạm vi sản phẩm/workshop. Backend kiểm tra quyền và dữ liệu trước khi lưu. Tổng hạn mức không được thấp hơn tổng lượt đã dùng cộng lượt đang giữ; hạn mức mỗi Member không được thấp hơn lượt đã dùng cộng lượt đang giữ của bất kỳ Member nào. Nếu vi phạm, từ chối thay đổi và nêu lý do; Frontend tải lại thông tin sau khi lưu thành công.
+3. Các thay đổi chỉ dùng cho giao dịch được chấp nhận sau đó. Đơn/booking đã được hệ thống chấp nhận giữ khoản giảm, số điểm dùng, giá trị quy đổi và tỷ lệ tích điểm đã ghi nhận; không tính lại theo chính sách mới.
 4. Manager chọn **Tạm dừng** khi muốn ngừng nhận thêm giao dịch mới theo chương trình. Backend cập nhật trạng thái; mã đã lưu trong Kho Voucher không còn đủ điều kiện cho giao dịch mới khi chương trình bị dừng.
-5. Tạm dừng không tự hủy quyền lợi đã chốt. Với lượt đang tạm giữ, xử lí theo phần Chốt và giải phóng quyền lợi bên dưới, không tự xóa phần đang giữ.
+5. Tạm dừng hoặc hết hạn chương trình không tự hủy quyền lợi đã chốt hay đang giữ hợp lệ. Giao dịch đã được chấp nhận tiếp tục dùng quyền lợi đã ghi nhận trong thời hạn thanh toán gốc; không gia hạn phần giữ. Xử lí hết hạn giao dịch theo phần Chốt và giải phóng quyền lợi bên dưới.
 6. Nếu cập nhật lỗi hoặc mất phản hồi, giữ khả năng tải lại trạng thái để kiểm tra; không hiển thị đã sửa hoặc đã dừng khi chưa được Backend xác nhận.
 
 ## Kho Voucher
@@ -436,7 +542,7 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 ### Xem và lưu voucher — Luồng thành công
 
 1. Khách xem ưu đãi tại trang sản phẩm, gói workshop hoặc trang ưu đãi. Trên thẻ voucher, Frontend hiển thị rõ phạm vi **Mua sản phẩm** hoặc **Đặt workshop**, mức giảm, mức giảm tối đa, giá trị tối thiểu, thời hạn và có cho phép dùng thêm điểm hay không.
-2. Khách mở **Điều kiện sử dụng** để xem sản phẩm/gói workshop, chi nhánh, ngày/phiên áp dụng nếu có, tổng hạn mức lượt dùng và số lượt mỗi Member. Các thông tin này lấy từ cấu hình chương trình; các giá trị cụ thể hiện **chưa chốt**. Khách chọn **Lưu voucher**; nếu chưa đăng nhập, hệ thống hướng dẫn đăng nhập trước khi lưu vào tài khoản.
+2. Khách mở **Điều kiện sử dụng** để xem sản phẩm/biến thể hoặc gói workshop, chi nhánh workshop, ngày/phiên áp dụng nếu có, tổng hạn mức lượt dùng và số lượt mỗi Member. Các thông tin này lấy từ cấu hình của từng chương trình. Khách chọn **Lưu voucher**; nếu chưa đăng nhập, hệ thống hướng dẫn đăng nhập trước khi lưu vào tài khoản.
 3. Backend kiểm tra Member và ghi nhận voucher trong **Kho Voucher** của Member đó; lưu lại cùng mã không tạo thêm quyền sử dụng.
 4. Member mở Kho Voucher để xem các mã đã lưu và điều kiện hiện tại, hoặc chọn mã đã lưu khi checkout. Member vẫn có thể nhập mã trực tiếp mà không cần lưu trước.
 5. Lưu voucher chưa giữ lượt, chưa tiêu dùng hạn mức và chưa bảo đảm dùng được. Backend kiểm tra lại điều kiện khi áp dụng và khi Member xác nhận giao dịch.
@@ -451,12 +557,12 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 
 ### Checkout — Luồng thành công
 
-1. Member tiếp tục checkout từ [FE-08](#fe-08). Backend lấy các dòng mua, giá, chi nhánh xử lí và thông tin Member để xác định ưu đãi hợp lệ.
+1. Member tiếp tục checkout từ [FE-08](#fe-08). Backend lấy các dòng mua, giá và thông tin Member để xác định ưu đãi hợp lệ; không dùng chi nhánh xử lí làm điều kiện ưu đãi sản phẩm.
 2. Frontend hiển thị giảm tự động nếu có, các voucher sản phẩm phù hợp và số điểm khả dụng. Member chọn một voucher từ kho, nhập mã trực tiếp hoặc sử dụng giảm tự động.
-3. Backend kiểm tra thời gian, trạng thái chương trình, phạm vi, giá trị tối thiểu, tổng lượt và lượt của Member; trả khoản giảm hợp lệ. Chỉ áp dụng một giảm tự động hoặc một voucher.
-4. Backend tính số điểm tối đa được dùng cho giao dịch dựa trên điểm khả dụng, giá trị giao dịch và chính sách kết hợp ưu đãi, rồi trả kết quả cho Frontend. Frontend hiển thị điểm khả dụng, số điểm tối đa được dùng và số tiền giảm tương ứng để Member chủ động chọn dùng điểm trong giới hạn đó. Nếu ưu đãi không cho kết hợp điểm, Frontend không cho chọn dùng điểm và hiển thị lý do. **Đề xuất:** áp dụng lượng dùng tối thiểu và trần giảm bằng điểm do Admin cấu hình; các mức cụ thể **chưa chốt**.
-5. Frontend hiển thị tiền hàng, giảm tự động/voucher, giảm bằng điểm, phí giao hàng và tổng cuối cùng để Member xem và xác nhận. **Đề xuất:** phí giao hàng không thuộc cơ sở cộng điểm.
-6. Mở checkout hoặc thử mã chưa giữ lượt voucher hay điểm. Khi Member xác nhận đặt hàng, Backend kiểm tra lại điều kiện và tạo đơn cùng phần quyền lợi tạm giữ theo [FE-08](#fe-08).
+3. Backend kiểm tra thời gian, trạng thái chương trình, phạm vi sản phẩm/biến thể, giá trị tối thiểu trên phần đủ điều kiện, tổng lượt và lượt của Member; trả khoản giảm hợp lệ theo quy tắc chung. Chỉ áp dụng một giảm tự động hoặc một voucher; khi có nhiều giảm tự động hợp lệ, chọn theo khoản giảm lớn nhất và thời điểm tạo như luồng quản lí chương trình.
+4. Backend tính số điểm tối đa được dùng cho giao dịch dựa trên điểm khả dụng và chính sách kết hợp ưu đãi, với trần giảm bằng điểm là 10% tiền hàng sau giảm tự động/voucher, trước khi trừ điểm và không gồm phí giao hàng. Mỗi điểm giảm 100đ, dùng tối thiểu 10 điểm/lần. Frontend hiển thị điểm khả dụng, số điểm tối đa được dùng và số tiền giảm tương ứng để Member chủ động chọn dùng điểm trong giới hạn đó. Nếu ưu đãi không cho kết hợp điểm hoặc số điểm tối đa nhỏ hơn mức tối thiểu, Frontend không cho chọn dùng điểm và hiển thị lý do.
+5. Frontend hiển thị tiền hàng, giảm tự động/voucher, giảm bằng điểm, phí giao hàng và tổng cuối cùng để Member xem và xác nhận. Phí giao hàng không thuộc cơ sở cộng điểm hoặc trần giảm bằng điểm.
+6. Mở checkout hoặc thử mã chưa giữ lượt voucher hay điểm. Khi Member xác nhận đặt hàng, Backend kiểm tra lại điều kiện và tạo đơn cùng phần quyền lợi tạm giữ theo [FE-08](#fe-08), ghi nhận điều kiện ưu đãi, khoản giảm, điểm dùng, giá trị quy đổi và tỷ lệ tích điểm áp dụng cho đơn.
 7. Khi thanh toán đầy đủ được xác minh thành công, hệ thống chốt voucher, trừ điểm đã dùng và xử lí cộng điểm mới theo phần Điểm thưởng. Với đơn 0 đồng hợp lệ, chốt quyền lợi khi Backend xác nhận đơn theo nhánh tương ứng tại FE-08, không chờ thanh toán qua cổng.
 
 ### Checkout sản phẩm — Nhánh lỗi
@@ -473,11 +579,11 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 
 1. Member chọn gói workshop, chi nhánh, ngày, phiên và thông tin booking theo [FE-03](#fe-03), rồi mở bước xác nhận đặt chỗ trên website.
 2. Frontend hiển thị các voucher workshop phù hợp. Member chọn mã đã lưu hoặc nhập mã trực tiếp.
-3. Backend kiểm tra phạm vi workshop, thời gian được đặt bằng mã, gói/ngày/phiên, tổng phí gói tối thiểu và hạn mức sử dụng; trả mức giảm hợp lệ. **Đề xuất:** mỗi booking chỉ dùng một voucher, trần giảm không nhân theo số người.
-4. Voucher được trừ trên tổng phí gói trước khi tính cọc. Nếu chính sách cho phép dùng thêm điểm, Backend tính số điểm tối đa hợp lệ theo điểm khả dụng, giá trị booking và giới hạn chính sách. Frontend hiển thị điểm khả dụng, số điểm tối đa được dùng và số tiền giảm tương ứng để Member lựa chọn; nếu voucher không cho kết hợp điểm thì không cho chọn dùng điểm và nêu lý do. **Đề xuất:** trừ giá trị quy đổi của điểm đã chọn sau voucher và trước khi tính cọc; lượng dùng tối thiểu và trần giảm bằng điểm cụ thể **chưa chốt**.
-5. Frontend hiển thị phí gói ban đầu, giảm voucher, giảm bằng điểm, phí gói sau giảm, tiền cọc và phần còn phải thu để Member xác nhận. Tiền cọc được tính theo chính sách booking trên phí gói sau giảm; tỷ lệ cọc cụ thể trong luồng này **chưa chốt**.
-6. Khi Member xác nhận booking, Backend kiểm tra lại điều kiện và tạm giữ lượt voucher, điểm cần dùng cùng việc ghi nhận booking. **Đề xuất:** xác minh cọc thành công thì chốt lượt voucher và trừ điểm.
-7. Khi thu phần còn lại, hệ thống dùng số tiền đã ghi nhận của booking; không áp dụng lại voucher hay trừ lại điểm. **Đề xuất:** chỉ cộng điểm mới sau khi Member đã tham gia xong và thanh toán đủ, không cộng khi mới tạo booking hoặc mới trả cọc.
+3. Backend kiểm tra phạm vi workshop, thời gian được đặt bằng mã, chi nhánh, gói/ngày/phiên, tổng phí gói tối thiểu và hạn mức sử dụng; trả mức giảm hợp lệ. Mỗi booking dùng tối đa một voucher, trần giảm áp dụng cho cả booking và không nhân theo số người.
+4. Voucher được trừ trên tổng phí gói trước khi tính cọc. Nếu chính sách cho phép dùng thêm điểm, Backend tính số điểm tối đa hợp lệ theo điểm khả dụng, với trần giảm bằng điểm là 10% phí gói sau voucher, trước khi trừ điểm. Mỗi điểm giảm 100đ, dùng tối thiểu 10 điểm/lần. Frontend hiển thị điểm khả dụng, số điểm tối đa được dùng và số tiền giảm tương ứng để Member lựa chọn; nếu voucher không cho kết hợp điểm hoặc số điểm tối đa nhỏ hơn mức tối thiểu thì không cho chọn dùng điểm và nêu lý do. Giá trị quy đổi của điểm đã chọn được trừ sau voucher và trước khi tính cọc.
+5. Frontend hiển thị phí gói ban đầu, giảm voucher, giảm bằng điểm, phí gói sau giảm, tiền cọc và phần còn phải thu để Member xác nhận. Tiền cọc được tính theo chính sách booking tại FE-03 trên phí gói sau voucher và điểm. Phiên bản đầu chưa hỗ trợ workshop miễn phí: phí gói sau giảm phải lớn hơn 0; nghĩa vụ cọc/thanh toán phải đáp ứng điều kiện thanh toán của FE-03.
+6. Khi Member xác nhận booking, Backend kiểm tra lại điều kiện và tạm giữ lượt voucher, điểm cần dùng cùng việc ghi nhận booking, lưu điều kiện ưu đãi, khoản giảm, điểm dùng, giá trị quy đổi và tỷ lệ tích điểm áp dụng. Xác minh cọc thành công thì chốt lượt voucher và trừ điểm.
+7. Khi thu phần còn lại, hệ thống dùng số tiền đã ghi nhận của booking; không áp dụng lại voucher hay trừ lại điểm. Chỉ cộng điểm mới sau khi Member đã hoàn thành workshop và thanh toán đủ; tạo booking, trả cọc hoặc mới check-in chưa được cộng điểm.
 
 ### Đặt workshop — Nhánh lỗi
 
@@ -485,7 +591,8 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 2. Gói, chi nhánh, ngày/phiên, thời gian đặt hoặc giá trị tối thiểu không phù hợp: thông báo điều kiện chưa đạt, chưa áp dụng voucher.
 3. Voucher hết lượt hoặc điểm không còn đủ trước lúc xác nhận: Backend cập nhật ưu đãi hợp lệ và số điểm tối đa được dùng; Frontend yêu cầu chọn lại, tính lại phí gói/cọc và cho Member xác nhận lại.
 4. Booking hết hạn trước khi thanh toán được chấp nhận: giải phóng lượt voucher và điểm đang giữ; không ghi nhận là đã sử dụng.
-5. **Đề xuất:** trường hợp hủy, hoàn tiền hoặc không đến sau khi đã chốt quyền lợi cần quy tắc riêng về hoàn voucher, hoàn điểm đã dùng và điều chỉnh điểm đã ghi nhận; chưa tự coi các trường hợp này giống hết hạn chưa thanh toán.
+5. Khi booking được hủy hợp lệ trước khi hoàn thành workshop theo FE-03, xử lí điểm và lượt voucher theo phần **Hoàn điểm và lượt voucher khi hủy workshop** bên dưới. Không đến mà không có kết quả hủy hợp lệ thì không tự hoàn điểm hoặc lượt voucher đã dùng và không cộng điểm mới.
+6. Phí gói sau giảm bằng 0 hoặc âm, hoặc nghĩa vụ thanh toán không đáp ứng điều kiện FE-03: từ chối xác nhận, nêu lý do và cho Member điều chỉnh ưu đãi/booking; không tạo booking miễn phí hoặc để lại phần quyền lợi đang giữ dở dang.
 
 ## Điểm thưởng
 
@@ -493,29 +600,30 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 
 1. Member có một số dư điểm dùng chung: được kiếm điểm từ mua sản phẩm và workshop, rồi dùng điểm để giảm tiền cho một trong hai dịch vụ. Điểm không chia thành ví sản phẩm và ví workshop.
 2. Điểm chỉ dùng được sau khi đã cộng thành công; không dùng điểm dự kiến kiếm từ giao dịch để giảm chính giao dịch đó. **Điểm chưa hết hạn.**
-3. Admin cấu hình tỷ lệ cộng điểm và giá trị quy đổi. **Đề xuất:** ban đầu dùng cùng tỷ lệ cộng điểm cho cả hai dịch vụ; cấu hình lượng dùng tối thiểu, trần giảm bằng điểm và điều kiện kết hợp ưu đãi. Tỷ lệ cộng điểm, giá trị quy đổi mỗi điểm, lượng dùng tối thiểu, mức trần và cách làm tròn đều **chưa chốt**.
-4. Backend kiểm tra quyền Admin và tính hợp lệ của cấu hình trước khi lưu. Nếu dữ liệu sai hoặc lưu lỗi, yêu cầu sửa/thử lại; không báo đã cập nhật chính sách khi chưa có xác nhận.
-5. Luồng dùng điểm tại checkout được mô tả ở phần mua sản phẩm và đặt workshop; việc giữ/chốt điểm được mô tả ở phần Chốt và giải phóng quyền lợi bên dưới.
+3. Bộ thông số khởi đầu đã chốt, dùng chung cho sản phẩm và workshop: mỗi 10.000đ thực trả đủ điều kiện được 1 điểm; mỗi điểm quy đổi thành 100đ giảm giá; dùng tối thiểu 10 điểm/lần; giảm bằng điểm tối đa 10% giá trị sau giảm tự động/voucher, trước khi trừ điểm. Với sản phẩm, cơ sở tính không gồm phí giao hàng; với workshop, cơ sở tính là phí gói của booking, không phải riêng tiền cọc. Admin quản lí các thông số này trong cấu hình; việc có cho kết hợp điểm với ưu đãi hay không lấy từ chương trình tương ứng.
+4. Chỉ cộng và dùng điểm nguyên. Điểm được cộng bằng phần nguyên làm tròn xuống của tiền thực trả đủ điều kiện chia 10.000đ, tính riêng từng giao dịch; không cộng dồn phần tiền lẻ chưa đủ đổi thành điểm sang giao dịch sau. Số điểm tối đa được dùng là số nhỏ hơn giữa điểm khả dụng và phần nguyên làm tròn xuống của 10% giá trị sau ưu đãi chia 100đ. Khi được phép kết hợp, Member có thể chọn số điểm nguyên từ 10 đến mức tối đa; nếu mức tối đa dưới 10 thì chưa được dùng điểm. Trần này chỉ giới hạn lượng điểm được dùng, không phải tỷ lệ tích điểm.
+5. Backend kiểm tra quyền Admin và tính hợp lệ của cấu hình trước khi lưu. Thay đổi chỉ áp dụng cho giao dịch được chấp nhận sau đó; đơn/booking đã chấp nhận giữ tỷ lệ tích điểm, giá trị quy đổi và quyền lợi đã ghi nhận. Nếu dữ liệu sai hoặc lưu lỗi, yêu cầu sửa/thử lại; không báo đã cập nhật chính sách khi chưa có xác nhận.
+6. Luồng dùng điểm tại checkout được mô tả ở phần mua sản phẩm và đặt workshop; việc giữ/chốt điểm được mô tả ở phần Chốt và giải phóng quyền lợi bên dưới.
 
 ### Cộng điểm từ giao dịch — Luồng thành công
 
-1. Backend nhận kết quả nghiệp vụ đã được xác minh: với sản phẩm là thanh toán đầy đủ thành công; **Đề xuất:** với workshop là đã tham gia xong và thanh toán đủ.
-2. Backend kiểm tra giao dịch thuộc Member và chưa được cộng điểm. Workshop mới trả cọc chưa đủ điều kiện theo đề xuất này.
-3. **Đề xuất:** Backend tính điểm trên tiền thực trả sau các khoản giảm và điểm đã dùng, không gồm phí giao hàng. Workshop tính một lần trên phí gói thực trả; không cộng riêng tiền cọc rồi cộng lại toàn bộ phí.
-4. Backend áp dụng chính sách tương ứng để tính số điểm được cộng, ghi lịch sử gắn với giao dịch và cập nhật số dư Member. Tỷ lệ tính điểm và cách làm tròn cụ thể **chưa chốt**; chỉ áp dụng sau khi chính sách đã được thống nhất và cấu hình hợp lệ.
+1. Backend nhận kết quả nghiệp vụ đã được xác minh: với sản phẩm là thanh toán đầy đủ thành công; với workshop là đã hoàn thành và thanh toán đủ. Phiên bản này không có luồng trả hàng/hoàn tiền sản phẩm hoặc hủy workshop đã hoàn thành, nên không có nghiệp vụ thu hồi điểm đã kiếm từ các giao dịch hoàn tất đó.
+2. Backend kiểm tra giao dịch thuộc Member và chưa được cộng điểm. Workshop mới tạo booking, mới trả cọc hoặc mới check-in chưa đủ điều kiện; booking hủy trước khi hoàn thành không được cộng điểm.
+3. Backend tính điểm trên tiền thực trả sau các khoản giảm và điểm đã dùng, không gồm phí giao hàng. Workshop tính một lần trên phí gói thực trả; không cộng riêng tiền cọc rồi cộng lại toàn bộ phí.
+4. Backend dùng tỷ lệ tích điểm đã ghi nhận khi giao dịch được chấp nhận, với bộ thông số khởi đầu là 10.000đ đủ điều kiện được 1 điểm, làm tròn xuống theo từng giao dịch; ghi lịch sử gắn với giao dịch và cập nhật số dư Member. Workshop hoàn thành sau khi Admin đổi tỷ lệ vẫn dùng tỷ lệ đã ghi nhận lúc đặt, không dùng cấu hình mới để tính lại. Chỉ xử lí khi chính sách đã ghi nhận hợp lệ.
 5. Khi xử lí lại cùng một kết quả, Backend trả trạng thái đã ghi nhận; không cộng thêm điểm lần nữa.
 
 ### Xem điểm và lịch sử — Luồng thành công
 
 1. Member đăng nhập, mở **My Loyalty**.
-2. Backend trả số dư điểm, phần đang tạm giữ, điểm khả dụng và lịch sử cộng/dùng điểm của chính Member đó.
+2. Backend trả số dư điểm, phần đang tạm giữ, điểm khả dụng và lịch sử cộng/dùng/hoàn điểm của chính Member đó.
 3. Frontend hiển thị giá trị quy đổi theo chính sách hiện hành; mỗi mục lịch sử cho biết giao dịch liên quan và số điểm thay đổi.
-4. Sau khi phát sinh cộng điểm, chốt dùng điểm hoặc giải phóng phần đang giữ, Member có thể tải lại để xem số liệu đã được Backend xác nhận.
+4. Sau khi phát sinh cộng điểm, chốt dùng điểm, giải phóng phần đang giữ hoặc hoàn điểm, Member có thể tải lại để xem số liệu đã được Backend xác nhận.
 
 ### Điểm thưởng — Nhánh lỗi
 
 1. Giao dịch chưa đủ điều kiện hoặc workshop mới trả cọc: chưa cộng điểm; không hiển thị điểm dự kiến như điểm khả dụng.
-2. Chưa có chính sách hợp lệ hoặc lỗi ghi nhận điểm: chưa báo cộng thành công; giữ khả năng xử lí lại giao dịch mà không cộng trùng.
+2. Thiếu chính sách hợp lệ đã ghi nhận của giao dịch hoặc lỗi ghi nhận điểm: chưa báo cộng thành công; giữ khả năng xử lí lại giao dịch mà không cộng trùng, không tự lấy cấu hình mới thay thế chính sách bị thiếu.
 3. Mất phản hồi khi cộng/trừ điểm: kiểm tra kết quả đã ghi nhận trước khi thử lại, không thực hiện thêm một lần chỉ vì Frontend chưa nhận được kết quả.
 4. Phiên đăng nhập hết hạn hoặc tải My Loyalty lỗi: yêu cầu đăng nhập lại hoặc thử tải lại; không hiển thị số dư cũ như số điểm hiện tại đã xác nhận.
 
@@ -523,9 +631,9 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 
 ### Chốt lượt voucher và điểm — Luồng thành công
 
-1. Khi Member xác nhận đặt hàng/booking, Backend tạm giữ lượt voucher và điểm cần dùng cùng thao tác ghi nhận giao dịch. Điểm đang giữ không còn khả dụng cho giao dịch khác.
+1. Khi Member xác nhận đặt hàng/booking, Backend tạm giữ lượt voucher và điểm cần dùng cùng thao tác ghi nhận giao dịch, lưu chính sách và quyền lợi áp dụng. Điểm đang giữ không còn khả dụng cho giao dịch khác. Khi chương trình hoặc cấu hình điểm thay đổi, giao dịch đã được chấp nhận tiếp tục theo chính sách đã ghi nhận trong thời hạn gốc, kể cả khi chương trình bị dừng hoặc hết hạn.
 2. Với sản phẩm, khi thanh toán được xác minh thành công, Backend chốt lượt voucher và trừ điểm đang giữ đúng một lần. Đơn 0 đồng hợp lệ được chốt khi Backend xác nhận đơn theo FE-08.
-3. **Đề xuất:** với workshop, khi cọc được xác minh thành công, Backend chốt lượt voucher và trừ điểm đang giữ; đợi hoàn thành và trả đủ mới cộng điểm mới.
+3. Với workshop, khi cọc được xác minh thành công, Backend chốt lượt voucher và trừ điểm đang giữ. Điểm mới chỉ được cộng khi workshop đã hoàn thành và thanh toán đủ.
 4. Backend ghi kết quả sử dụng theo giao dịch để xử lí lại an toàn; gửi lại cùng kết quả thanh toán không tiêu dùng thêm lượt hoặc trừ thêm điểm.
 
 ### Hết hạn khi chưa thanh toán được chấp nhận
@@ -533,7 +641,22 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 1. Backend xác định đơn/booking đã hết hạn và chưa có kết quả thanh toán thành công được chấp nhận theo luồng nghiệp vụ tương ứng.
 2. Backend giải phóng lượt voucher và điểm đang giữ, trả điểm về khả dụng; không ghi nhận đã dùng voucher hoặc đã tiêu điểm.
 3. Giải phóng không gia hạn chương trình. Nếu Member đặt lại, Backend kiểm tra điều kiện hiện hành; voucher có thể đã hết hạn hoặc hết lượt.
-4. Việc giải phóng phần chưa dùng không đồng nghĩa hoàn quyền lợi đã chốt. **Đề xuất:** quy tắc hoàn sau hủy/hoàn tiền/không đến cần được xác định riêng.
+4. Giải phóng quyền lợi đang giữ và hoàn quyền lợi đã dùng là hai thao tác khác nhau; hủy workshop hợp lệ được xử lí theo phần bên dưới.
+
+### Hoàn điểm và lượt voucher khi hủy workshop — Luồng thành công
+
+1. FE-03 kiểm tra điều kiện và xác nhận kết quả hủy booking hợp lệ trước khi hoàn thành workshop. FE-06 nhận kết quả đã được xác nhận; yêu cầu bấm Hủy trên giao diện chưa phải căn cứ hoàn điểm hoặc lượt voucher. Điều kiện hủy và việc hoàn tiền cọc thuộc FE-03.
+2. Backend kiểm tra booking thuộc Member, quyền sử dụng điểm đã ghi nhận và kết quả xử lí trước đó. Nếu điểm mới tạm giữ, giải phóng phần giữ để điểm khả dụng trở lại; không ghi thêm một khoản cộng hoàn điểm.
+3. Nếu điểm đã được trừ để giảm phí booking, Backend trả lại đúng số điểm đã trừ cho Member, ghi lịch sử hoàn điểm gắn booking và lần dùng điểm ban đầu. Không tính lại theo tỷ lệ quy đổi hiện tại, không đổi điểm thành tiền hoàn và không cộng điểm kiếm mới cho booking bị hủy.
+4. Điểm hoàn trở lại số dư khả dụng và không hết hạn như chính sách điểm hiện tại. Hệ thống không xử lí số dư âm hoặc thu hồi điểm mới đã tiêu ở giao dịch khác, vì booking bị hủy chưa đủ điều kiện kiếm điểm và các giao dịch hoàn tất không có luồng hoàn trong phiên bản này.
+5. Với voucher mới tạm giữ, Backend giải phóng lượt đang giữ. Với voucher đã chốt, Backend trả lại đúng lượt sử dụng của Member và lượt trong tổng hạn mức của chương trình, ghi nhận gắn với booking và lần dùng ban đầu. Không gia hạn hoặc kích hoạt lại chương trình; mã đã hết hạn hoặc bị dừng vẫn không dùng được cho giao dịch mới. Việc hoàn lượt độc lập với booking có dùng điểm hay không.
+6. Backend ghi nhận kết quả hoàn điểm và lượt voucher đúng một lần cho từng quyền lợi; nhận lại cùng kết quả hủy không trả thêm lần nữa. Nếu booking không dùng điểm hoặc voucher thì không tạo khoản hoàn tương ứng; lượt/điểm mới tạm giữ chỉ được giải phóng, không đồng thời ghi thêm khoản hoàn đã dùng.
+
+### Hoàn điểm và lượt voucher khi hủy workshop — Nhánh lỗi
+
+1. Booking đã hoàn thành, hủy không hợp lệ hoặc chỉ không đến mà chưa có kết quả hủy hợp lệ: không tự hoàn điểm hoặc lượt voucher. Nếu kết quả hủy chưa rõ, chờ FE-03 xác nhận thay vì suy đoán từ trạng thái giao diện.
+2. Kết quả xử lí đã cho thấy điểm hoặc lượt voucher được giải phóng/hoàn trước đó: trả trạng thái hiện có cho quyền lợi đó, không trả lần nữa và không vừa giải phóng vừa hoàn cùng quyền lợi.
+3. Lỗi lưu hoặc mất phản hồi: chưa báo hoàn thành; kiểm tra kết quả từng quyền lợi đã ghi nhận trước khi xử lí lại để hoàn tất phần còn thiếu, không hoàn trùng phần đã xong. Bảo toàn lịch sử điểm, lượt voucher và trạng thái booking, không sửa giao dịch hoàn tất để tạo khoản hoàn.
 
 ### Chốt và giải phóng — Nhánh lỗi
 

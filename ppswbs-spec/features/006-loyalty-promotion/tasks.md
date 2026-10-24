@@ -1,0 +1,299 @@
+# Tasks: Loyalty & Promotion Management
+
+**Feature**: `006-loyalty-promotion` — FE-06  
+**Created**: 2026-10-24  
+**Status**: Draft task decomposition — chưa bắt đầu triển khai; tất cả task để unchecked.  
+**Input**: [spec.md](spec.md), [plan.md](plan.md), [research.md](research.md), [data-model.md](data-model.md), [interfaces](contracts/interfaces.md), [OpenAPI](contracts/loyalty-promotion.openapi.json), [quickstart](quickstart.md), [integration gates](integration-gates.md).
+
+**Prerequisites**: Review thiết kế kỹ thuật và task list, chạy speckit-analyze, được giao phạm vi triển khai cụ thể, dependency owners cung cấp contract/adapter theo thứ tự bên dưới. Tác vụ tạo file này chỉ làm tài liệu, không cấp quyền code, migration, test production hoặc deploy. Nếu prerequisite ảnh hưởng phạm vi chưa đạt, dừng và báo gate; không tự làm phần khác để né dependency.
+
+**Tests**: Có test tasks vì spec có acceptance/error/concurrency criteria và plan/constitution yêu cầu bằng chứng cho thay đổi tiền/điểm, quyền, API, schema và tích hợp. Viết các tests được chỉ định trước phần implementation tương ứng, ghi nhận failure ban đầu rồi chạy lại sau thay đổi. Không thêm test chỉ để phản chiếu implementation. Không có test nào đã chạy từ việc tạo task list.
+
+**Organization**: Giữ số US1–US8 và priorities của spec. Các P1 cùng mức được xếp theo dependency: US1 → US8 → US6 → US2 → US4 → US5 → US7; US3 là P2. Shared release/restore engine thuộc Foundation vì cả checkout hết hạn và workshop hủy đều dùng; source hooks/verification vẫn thuộc US7. Không tạo facade phụ thuộc service chưa có rồi lấp bằng production stub.
+
+## Format và path conventions
+
+- Mỗi task: `- [ ] Tnnn [P?] [USn?] mô tả + đường dẫn + dependencies`.
+- `[P]` chỉ cho phần việc trên file khác, được chạy song song khi tất cả dependency chỉ định và phase gate đã đạt; không có nghĩa task có thể bỏ prerequisite.
+- Đường dẫn trong task tính từ repository root. Đường dẫn code chưa có là vị trí dự kiến, không phải implementation hiện hữu. Không tự tạo thay thế production provider.
+- Named interface duy nhất là `loyalty::facade`; owner FE-03/FE-08 xác minh lifecycle, loyalty không có public grant/refund endpoint.
+- Current migration directory phải kiểm tra trước khi cấp filename; không gán version theo số feature và không sửa migration đã áp dụng.
+- Current branch giữ nguyên. Không commit/push, reset DB, deploy hoặc thay spec/research tổng từ việc hoàn thành một checkbox.
+
+## Phase 1: Setup — nguồn, phạm vi và dependency handoff
+
+**Goal**: Chốt đầu vào kỹ thuật và điều kiện nhận việc, không coi tài liệu/fixture là provider đã hoạt động.
+
+**Independent Test / Gate**: Chỉ chuyển sang code sau review/analyze và giao việc triển khai rõ phạm vi; ghi trạng thái từng gate, không tự tick bằng chứng thiếu.
+
+- [ ] T001 Đối chiếu spec41FR/66scenarios, plan/clarifications, contracts15operations, constitution và kit; ghi source hashes, nhánh hiện tại, stack/pom, danh sách migration đang có và phạm vi không làm vào `ppswbs-spec/features/006-loyalty-promotion/verification.md`. Không sửa research tổng, feature005, migrations cũ hoặc production khi chỉ được giao làm tài liệu.
+- [ ] T002 Cập nhật handoff cụ thể tại `ppswbs-spec/features/006-loyalty-promotion/integration-gates.md`: G01 identity current-capability/assurance/session/Member guard; G02 product/workshop target providers; G03 retail; G04 booking acceptance/deposit; G05 completed+fully-paid/valid-cancel/no-show. Ghi owner, contract delivery và thứ tự adapter sau facade; nếu scope owner chưa được giao thì báo dependency, không tự viết toàn FE01/FE03/FE08 hoặc stub production. (Phụ thuộc: T001.)
+- [ ] T003 Trước bất kỳ production/test/migration change, ghi kết quả review spec/plan/tasks, speckit-analyze và readiness tại `ppswbs-spec/features/006-loyalty-promotion/verification.md`; kiểm tra quyết định kỹ thuật chưa duyệt ảnh hưởng task. Nếu chưa đạt thì dừng triển khai toàn phạm vi và báo theo kit; task list không tự cấp quyền code/deploy. (Phụ thuộc: T002.)
+
+**Checkpoint**: Hoàn tất và kiểm chứng các task trong phase; ghi dependency/error/NOT RUN đúng thực tế, không chuyển quyền deploy hoặc tự đóng gate bằng fixture.
+
+## Phase 2: Foundational — schema, boundaries và invariants dùng chung
+
+**Goal**: Chuẩn bị các cấu phần chia sẻ trước mọi user story; dependency thiếu phải fail closed.
+
+**Independent Test / Gate**: Kiểm chứng model/codec, append-only migration trên MySQL8.4, authorization/lock/receipt contracts; chưa tuyên bố flow người dùng hoàn thành.
+
+- [ ] T004 Tạo module đóng và immutable facade contracts trong `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/package-info.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/facade/package-info.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/facade/LoyaltyFacade.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/facade/PromotionTargetPort.java` và các records cùng thư mục: trusted context, selection, outcome, preview/result theo interfaces mục4. Giữ source→loyalty→members, named interface facade, không business trong common; facade mutation MANDATORY và không public paid/grant/refund endpoint. (Phụ thuộc: T003.)
+- [ ] T005 [P] Tạo `ppswbs_backend/src/test/resources/application-loyalty-mysql-test.properties` và `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/support/LoyaltyTestSupport.java`: MySQL8.4 database riêng qua môi trường, từ chối H2 cho DB evidence, deterministic clock, two-transaction barriers và Member/Manager/Admin fixtures. Không lưu credentials; test doubles chỉ trong test scope, không đóng G01–G05 bằng fixture. (Phụ thuộc: T004.)
+- [ ] T006 [P] Tạo exact values/codecs/validation tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/LoyaltyValues.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/LoyaltyScalarCodec.java`. Giữ nguyên constraints model: “ID, revision, counters: BIGINT signed; ID/revision dương, counters không âm, kiểm tra overflow.”; “Money/points: DECIMAL(19,0), Java BigInteger; 0..9.999.999.999.999.999.999, điểm ledger delta cho phép âm trong giới hạn đối xứng.”; “Discount/redeem percentages: DECIMAL(9,6), 0 < value <= 100; input decimal string, tối đa 6 chữ số thập phân, không tự làm tròn input.”; “UTC Instant trong DB với độ chính xác microsecond; UI hiển thị Asia/Ho_Chi_Minh.”; “Khoảng hiệu lực theo Instant là [startAt, endAt); startAt < endAt.” JSON/HTML decimal strings, exact Long bridge, không rounding input/overflow âm. (Phụ thuộc: T004.)
+- [ ] T007 Sau identity owner delivery G01, bind capability/authorization guard bằng `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltyAuthorization.java` và route-scoped `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/configuration/LoyaltySecurityConfiguration.java`: bearer verified/revoked, web fixed8h/no sliding, CSRF, current role/state/ownership, privileged assurance; private no-store. Không tạo login/MFA/cookie mới, không ROLE_MEMBER/claim/email/permitAll fallback; terminal trusted owner calls không cần Member còn active để xử lí cam kết cũ. Thiếu provider phải fail closed. (Phụ thuộc: T004.)
+- [ ] T008 [P] Tạo safe DTO/error mapping trong `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/LoyaltyExceptionHandler.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/LoyaltyErrorDtos.java` khớp OpenAPI: 400/401/403/404/409/422/503, correlationId/timestamp/fieldErrors, retryable contention và stale/idempotency/state conflicts; không log raw payload/token/source proof/PII hoặc đổi common behavior cho feature khác. (Phụ thuộc: T004.)
+- [ ] T009 [P] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/PromotionProgram.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/PromotionRevision.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/PromotionTarget.java` với fields đúng model mục2: “kind VOUCHER/AUTO_DISCOUNT, scope PRODUCT/WORKSHOP, codeOriginal/codeKey nullable cho auto, status ENABLED/PAUSED”; “Unique codeKey binary toàn bộ lịch sử; auto chỉ PRODUCT. Không đổi kind/scope/code sau tạo.”; “Unique(programId,revisionNo); immutable. Percent hoặc fixed đúng một loại, trần nguyên dương, ngưỡng không âm.”; “Unique(revisionId,dimension,targetKey). Không BRANCH cho PRODUCT; PACKAGE/... chỉ workshop.” Dùng dimensions PRODUCT/VARIANT/PACKAGE/BRANCH/WORKSHOP_DATE/SESSION; createdAt/by và business version, targets kết hợp theo dimensions, không OR sai. (Phụ thuộc: T006.)
+- [ ] T010 [P] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/ProgramQuota.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/MemberQuota.java` đủ limit/held/consumed/version: “Chỉ VOUCHER. held+consumed <= totalLimit.”; “Unique(programId,memberId), held+consumed <= current memberLimit. Tạo row dưới program lock.”; “Trả voucher giảm consumed, không xóa lịch sử dùng gốc.” Không quota cho AUTO_DISCOUNT hoặc hạ limit dưới held+consumed. (Phụ thuộc: T006.)
+- [ ] T011 [P] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/LoyaltyRegistry.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/LoyaltyPolicy.java`: “singleton id=1, currentPolicyId, version”; “Migrations khởi tạo đúng một row. READ lock khi accept, WRITE khi thay cấu hình/chương trình.”; “Immutable; unit/value dương, min nguyên dương, percent (0,100]. Defaults 10000/100/10/10. Registry trỏ policy hiện hành.” Policy có revisionNo, roundingMode FLOOR, createdAt/by; không mutate revision cũ. (Phụ thuộc: T006.)
+- [ ] T012 [P] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/LoyaltyWallet.java`: “memberId PK, balancePoints, heldPoints, version”; “0 <= heldPoints <= balancePoints. available tính balance-held; không tách ví theo source, không expiresAt.” Không dùng FK/JPA association sang Member entity; first-create dưới identity Member guard, GET thiếu wallet đọc0 không tạo row. (Phụ thuộc: T006.)
+- [ ] T013 [P] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/AcceptedBenefit.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/BenefitEffect.java` đủ fields model mục2: sourceKind RETAIL/WORKSHOP, sourceRef/member/origin, acceptedAt/originalDeadline/sourceRevision/terms digest, policyId, “programId/revisionId nullable”, money/points snapshot, component/earn states, “settledAt/settlementOutcomeKey nullable”, sourceTerminalAt; “Unique(sourceKind,sourceRef). Accepted snapshots immutable; status/effect fields có version.”; “settledAt/outcomeKey ghi một lần từ source proof kể cả khi các component đều NONE”; effects có component POINTS/VOUCHER/EARN và “Unique(acceptedBenefitId,component,action)”. States points/voucher NONE/HELD/CONSUMED/RELEASED/RESTORED, earn PENDING/GRANTED/INELIGIBLE. Không retrofit Guest import. (Phụ thuộc: T006.)
+- [ ] T014 [P] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/PointLedger.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/CommandReceipt.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/LoyaltyAudit.java` theo fields model mục2: ledger có balance/held deltas/after, source/effect refs, “originalDebitId nullable”; “Unique(effectId,entryKind). Append-only, delta != 0 ít nhất một thành phần; RESTORE trỏ debit gốc.” Receipt có actor/action/“commandId UUID”/digest/result/committedAt và “Unique(actorKey,action,commandId). Same digest replay result sau auth; khác digest 409.” Audit actor/object/revisions/correlation/time, “Ghi cùng transaction thay đổi; không chứa full request/PII/secret.” Không purge v1, không xóa dedup/code evidence. (Phụ thuộc: T006.)
+- [ ] T015 Viết empty/upgrade migration tests trước DDL tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyMySqlMigrationIT.java` với populated V1–V3 fixture, code binary uniqueness, FK nội loyalty, decimal/percentage/unique/check constraints, immutable history, policy seed, không retrofit Guest/source cũ. Xác nhận DB product/version, không H2-only proof. FR-006/023/024/041. (Phụ thuộc: T005, T009, T010, T011, T012, T013, T014.)
+- [ ] T016 Sau schema review và kiểm tra lại migration directory, cấp tên version thực tiếp theo và ghi vào `ppswbs-spec/features/006-loyalty-promotion/verification.md`; tạo đúng file mới trong `ppswbs_backend/src/main/resources/db/migration/` cho14 bảng của data-model, kể cả saved voucher dùng ở US3, FK/index/check/unique và seed registry/policy10000/100/10/10. Không dùng sốfeature006 làm version, không sửaV1–V3/drop/reset/backfill giả; chạy migration tests của task trước. Filename chỉ được cấp tại implementation để tránh đụng work khác. (Phụ thuộc: T015.)
+- [ ] T017 Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltyLockCoordinator.java` và JPA repositories tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/infrastructure/`: identity guard→source guards→registry→sorted programs→wallet→member quotas→effects. Registry READ accept/WRITE program-policy edits, pessimistic program/wallet/counter locks; first wallet under identity guard, counter dưới program guard, optimistic expectedVersion cho edits. Không source/remote calls sau lock loyalty; deadlock/timeout rollback typed retryable error. (Phụ thuộc: T016, T007.)
+- [ ] T018 Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltyCommandService.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltyAuditService.java`: canonical digest, actor/action/key replay sau auth, khác payload409, outcome/effect unique keys; state+ledger+receipt+audit cùng transaction. Unique violation phải rollback rồi đọc receipt bằng transaction mới, không catch-save trong rollback-only context; giữ audit/results tối thiểu5 năm và references/unfinished sources, không ghi raw request/token. (Phụ thuộc: T017, T014.)
+- [ ] T019 Viết `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyCalculationTest.java` cho mixed eligible subtotal, fixed một lần,33.333×7%=2.333, cap điểm sau một promo/trước điểm, không shipping, min9/10, policy exact bounds/overflow, earn9.999/10.000/19.999→0/1/1, không carry. Test expectations từ quickstart/spec, không mirror implementation. (Phụ thuộc: T006, T011.)
+- [ ] T020 Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/LoyaltyCalculator.java` với nguyên văn formulas model mục3: “MaxPoints=min(wallet.available, floor(NetBeforePoints × R / (100 × V))).”; “P=0 hoặc minRedeemPoints <= P <= MaxPoints, P nguyên. Không được kết hợp thì P=0.”; “EarnedPoints=floor(EarnBase / policy.earnUnitAmount)”. Eligible min và fixed/percentage cap/floor đúng, BigInteger/BigDecimal, không tối ưu auto theo tổng điểm; chạy calculation tests. (Phụ thuộc: T019.)
+- [ ] T021 [P] Viết `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyLifecycleTest.java` và `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyCancellationIT.java` cho engine dùng chung: NONE/HELD/CONSUMED/RELEASED/RESTORED, hiệu lực duy nhất, không giải phóng hoặc hoàn hai lần, trả200 điểm gốc dù tỷ lệ thay đổi, trả cả hai hạn mức, points-only/voucher-only và không tạo ledger0 giả. Kiểm tra từ chối hủy sai/no-show/đã hoàn thành, rollback và retry phần còn thiếu. Phần này chỉ kiểm tra release/restore/component NONE; grant được kiểm tra trong US6. FR-033–FR-038. (Phụ thuộc: T020, T018, T005.)
+- [ ] T022 Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltyReleaseService.java` implement releaseHeldBenefits: sourceconfirmedunpaidexpiry/validcancel only, HELD→RELEASED, “RELEASE: deltaBalance=0, deltaHeld=-P.”; quotaheld-- cảtổng/member, noextracredit/expiryextension; conflictingsettled/unresolvedoutcome không tựrelease từclock. Recordstate/ledger/effectreceipt/audit cùng TX. (Phụ thuộc: T021.)
+- [ ] T023 Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltyRestorationService.java` implement restoreCancelledWorkshopBenefits: validatedprecancelcompletion ownerproof; held→release, consumed→restore đúngcomponent, “RESTORE: deltaBalance=+P, deltaHeld=0, liên kết debit ban đầu.”; trảbothquotađúng một lần, snapshot không recompute, không tiền mặt/điểm kiếm mới, khôngactivateexpiredcode. Appendhistory, state percomponent đểretryphần thiếu không trả trùng; không thu hồi earnedcompletedpoints. (Phụ thuộc: T022.)
+
+**Checkpoint**: Hoàn tất và kiểm chứng các task trong phase; ghi dependency/error/NOT RUN đúng thực tế, không chuyển quyền deploy hoặc tự đóng gate bằng fixture.
+
+## Phase 3: User Story 1 — Tạo chương trình ưu đãi (P1) — MVP nội bộ
+
+**Goal**: Manager tạo voucher sản phẩm/workshop và giảm tự động sản phẩm đúng phạm vi.
+
+**Independent Test / Gate**: US1.1–US1.8: dùng product/workshop targets thật hoặc isolated test fixtures được ghi rõ, tạo từng kind, normalize code, reject invalid/unauthorized, retry không trùng; chưa cần payment.
+
+- [ ] T024 [P] [US1] Viết `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/PromotionCreateContractIT.java` cho createPromotionProgram, strict discriminated payload, bad bounds/targets, code`TET10`/` tet10 ` và old-code reuse, Member/Staff/Admin thiếu quyềnManager, rollback/lost response cùng key. Endpoint trả đúng schema/status, fixture không đóng G02. FR-001–FR-007, US1.1–US1.8. (Phụ thuộc: T020, T018, T008, T023.)
+- [ ] T025 [US1] Bind provider G02 cho `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/PromotionTargetValidationService.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/infrastructure/LoyaltyProductTargetAdapter.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/infrastructure/LoyaltyWorkshopTargetAdapter.java` theo owner handoff: adapter component riêng implement PromotionTargetPort, immutable facts/guard trước registry lock, no source service constructor cycle. Không provider thì503, không direct cross-module repo hoặc production fake; source owner delivery/test evidence trước checkpoint. (Phụ thuộc: T020, T018, T023.)
+- [ ] T026 [P] [US1] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/PromotionWriteDtos.java` với literal model constraints “tên chương trình 1–200 ký tự sau trim, mã 1–128 ký tự sau trim, không control characters”; “mã so sánh qua uppercase Locale.ROOT, không bỏ dấu/không thêm chuẩn hóa ngoài trim/case.” Strict schema cho3 create kinds, percent/fixed exclusive, positive money/quotas, min không âm, start<end, targets đúng scope; không owner/counter/status tampering. (Phụ thuộc: T020, T008, T023.)
+- [ ] T027 [US1] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/PromotionCreationService.java`: authorize Manager→validate source targets/guards→registry WRITE→persist program ENABLED/revision/targets/voucher quota cùng audit/receipt. Auto chỉ PRODUCT không code/quota, voucher ngày lễ là thời gian riêng, product khôngbranch; chương trình tương lai chưa effective. Không partial insert/reuse code; FR-002–FR-007. (Phụ thuộc: T025, T026, T024.)
+- [ ] T028 [US1] Tạo list/detail query và safe management DTO tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/PromotionManagementQueryService.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/PromotionReadDtos.java`, đủ read-after-create để MVP không trỏ tới view chưa có; scope/status filter, “Phân trang mặc định 20, tối đa 100”, createdAt/id stable, không trả entity/PII. Usage mở rộng bởi US2. (Phụ thuộc: T027.)
+- [ ] T029 [US1] Expose createPromotionProgram/listPromotionPrograms/getPromotionProgram tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/PromotionManagementApiController.java` theo OpenAPI, commandUUID/auth/safe errors/no-store; POST201 chỉ sau commit. Chạy create contract suite, không expose callback/lifecycle mutation. (Phụ thuộc: T028.)
+- [ ] T030 [US1] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/PromotionManagementViewController.java` và `ppswbs_backend/src/main/resources/templates/loyalty/management/programs.html`, `ppswbs_backend/src/main/resources/templates/loyalty/management/program-new.html`, `ppswbs_backend/src/main/resources/templates/loyalty/management/program-detail.html`: CSRF/UUID, field errors giữ input, PRG fixed local path, labels/keyboard, no-JS form, show created program/conditions và không mở edit/pause route chưa có. Chuẩn bị các keys tại `ppswbs_backend/src/main/resources/i18n/messages_vi.properties` và counterparts theo owner convention; kiểm tra US1 độc lập. (Phụ thuộc: T029.)
+
+**Checkpoint**: Hoàn tất và kiểm chứng các task trong phase; ghi dependency/error/NOT RUN đúng thực tế, không chuyển quyền deploy hoặc tự đóng gate bằng fixture.
+
+## Phase 4: User Story 8 — Quản lí chính sách điểm (P1)
+
+**Goal**: Admin quản lí policy chung, bảo toàn chính sách giao dịch cũ.
+
+**Independent Test / Gate**: US8.1–US8.7: default10000/100/10/10, update hợp lệ/invalid/stale/role/CSRF/session, persisted old snapshot giữ policyA trong khi giao dịch mới dùngB; không cần checkout UI.
+
+- [ ] T031 [P] [US8] Viết `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyPolicyContractIT.java` cho getCurrentLoyaltyPolicy/updateCurrentLoyaltyPolicy, positive unit/value/integer min, percent(0,100], currentVersion/stale/replay, Manager không thànhAdmin; accepted fixture policy A giữ nguyên sau đổiB, audit fail rollback. Shared8h/CSRF/privileged-assurance denial. FR-024/026/027/040. (Phụ thuộc: T020, T018, T008, T023.)
+- [ ] T032 [US8] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltyPolicyService.java`: Admin current capability/assurance, registry WRITE, expectedVersion, immutable policy revision+pointer+audit+receipt commit nguyên tử. Không update wallet/oldAcceptedBenefit hoặc recompute cam kết cũ; thiếu old policy không dùngnew thay. FR-026/027. (Phụ thuộc: T031.)
+- [ ] T033 [US8] Tạo strict policy DTO/controller tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/LoyaltyPolicyApiController.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/LoyaltyPolicyDtos.java` cho hai operations, decimalstrings/bounds/errors/version/key theo contract; không chọn MFA/login/provider mới. Chạy policy contract suite. (Phụ thuộc: T032.)
+- [ ] T034 [US8] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/LoyaltyPolicyViewController.java` và `ppswbs_backend/src/main/resources/templates/loyalty/admin/point-policy.html`: show current rates/ảnh hưởng tương lai, CSRF/UUID/expectedVersion, PRG, keep fields onvalidation, showlatest on409; no-JS, không hiển thị save-success khi response chưa xác nhận. Kiểm tra US8 và current sharedauth. (Phụ thuộc: T033.)
+
+**Checkpoint**: Hoàn tất và kiểm chứng các task trong phase; ghi dependency/error/NOT RUN đúng thực tế, không chuyển quyền deploy hoặc tự đóng gate bằng fixture.
+
+## Phase 5: User Story 6 — Tích điểm và My Loyalty (P1)
+
+**Goal**: Cấp điểm từ authoritative outcomes và hiển thị số dư/lịch sử cá nhân.
+
+**Independent Test / Gate**: US6.1–US6.9: source outcome/accepted snapshot fixtures đã consume hoặcNONE, floor/net/no-shipping, cả hai dịch vụ, grant exactlyonce, zero-grantreceipt, own consistent reads, retention; adapters thật được nghiệm thu ở US4/US5.
+
+- [ ] T035 [P] [US6] Viết `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyEarnIT.java` cho full-paid retail/zero, workshop completed AND fully-paid ở cả thứ tự facts, deposit/check-in/Guest-import/cancel không grant; không credit khi component cònHELD, missingoldpolicy, grant0/duplicate/lostresponse và immutable acceptance ratio. Ledger/balance rollback cùng receipt, không nonexpiringpointsclawback. (Phụ thuộc: T020, T018, T032, T005, T023.)
+- [ ] T036 [P] [US6] Viết `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyAccountContractIT.java` cho getOwnLoyaltyAccount/listOwnLoyaltyTransactions: balance200-held50=available150, absentwalletread0 khônginsert, private own scope/no-store, paging/decimalstrings, unauth/expired/revoked/forgedMember rejected, error không xác nhận số dư stale. FR-023/031/040. (Phụ thuộc: T020, T018, T005, T023.)
+- [ ] T037 [US6] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltyEarnService.java` implement grantEarnedPoints và finishIneligibleEarn: MANDATORY, trusted outcome+source/snapshot match, components CONSUMED/NONE, correct Member-origin, accepted earnBase/policy, oneGRANTEDeffect, amount0 receipt không ledger0. PENDING→INELIGIBLE chỉ validatedterminal outcomes, không grant early hoặc thu hồi completedpoints. (Phụ thuộc: T035.)
+- [ ] T038 [US6] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltyAccountQueryService.java`: wallet+held+available+current conversion/history đọc cùng consistent snapshot, logicalsource refs và signed deltas, stablepaging; giữ ledger append-only, current wallet không expiry. FR-031/041. (Phụ thuộc: T036.)
+- [ ] T039 [US6] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/LoyaltyAccountApiController.java` và DTOs tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/LoyaltyAccountDtos.java` khớp hai own operations, no supplied memberId, safeerrors/no-store; chạy account và earn suites, facade không mở endpoint publicgrant/restore. (Phụ thuộc: T037, T038.)
+- [ ] T040 [US6] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/LoyaltyAccountViewController.java` và `ppswbs_backend/src/main/resources/templates/loyalty/member/loyalty.html`: balance/held/available, conversion và cộng/dùng/hoàn links thuộcowner; empty khác tải lỗi, no-JS/navigation/paging, reloadconfirmed sau effect. Retention evidence5năm không cópurge/points expiry UI. US6.4–US6.9. (Phụ thuộc: T039.)
+
+**Checkpoint**: Hoàn tất và kiểm chứng các task trong phase; ghi dependency/error/NOT RUN đúng thực tế, không chuyển quyền deploy hoặc tự đóng gate bằng fixture.
+
+## Phase 6: User Story 2 — Sửa, tạm dừng, mở lại và theo dõi (P1)
+
+**Goal**: Manager thay đổi tương lai, resume cùng mã và xem usage hiện tại đúng sau hủy.
+
+**Independent Test / Gate**: US2.1–US2.9: dùng consumed/held/restored fixtures, quota6+2 hạ7reject/hạ8accept, stale/rollback, pause/resume không reset; cancelvoucher100.000 làmreport0/0 nhưng history còn.
+
+- [ ] T041 [P] [US2] Viết `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/PromotionManagementContractIT.java` cho updatePromotionProgram/pausePromotionProgram/resumePromotionProgram/getPromotionUsage, forbiddenimmutable fields, stale/command replay/lostresponse, wrongstate409, limits theo allMember current counts. Fixtures PAUSED/hết hạn/hết lượt và acceptedA giữ sau edits; thiếuManager/assurance bị từ chối. (Phụ thuộc: T029, T018, T023.)
+- [ ] T042 [P] [US2] Viết `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/PromotionUsageIT.java`: held không count, CONSUMEDvoucher counts/currentdiscount không gộp points, restoredcancel loại khỏi tổng nhưng giữhistory, repeatedcancel không âm, expired/pausedprogram vẫn count uncancelledsettled. AUTO_DISCOUNTkhông points dùng settledAt/outcomekey chứ khôngvoucherState. US2.1/US2.9, FR-008. (Phụ thuộc: T029, T018, T005, T023.)
+- [ ] T043 [US2] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/PromotionMaintenanceService.java`: auth/targetguards→registryWRITE/programlock→expectedVersion→newimmutable revision; khôngcode/scope/kind mutation. Limitupdates không dưới tổng hoặc bất kỳMember held+consumed hiện tại, không thu hồi hold đểép save; preserveacceptance terms. FR-009/010. (Phụ thuộc: T041, T025.)
+- [ ] T044 [US2] Trong `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/PromotionMaintenanceService.java` thêm ENABLED→PAUSED/PAUSED→ENABLED với idempotentcommand/audit/version; resume giữsame program/code, quotas/history/time window, không tự gia hạn/reset/restore old source. Hiển thịinactive nếu endpassed/exhausted theo eligibility; operationstale/conflictingstate typed409. (Phụ thuộc: T043.)
+- [ ] T045 [US2] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/PromotionUsageQueryService.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/infrastructure/PromotionUsageRepository.java`: đọc nhất quán held/consumed/tiền giảm hiện tại, loại booking đã ghi nhận hủy hợp lệ, giữ và truy vấn lịch sử consume/restore cho chi tiết Manager; giảm tự động dùng settlement fact. Không đếm preview/held hoặc loại giao dịch đã chốt chưa hủy chỉ vì chương trình hiện đã hết hạn/bị dừng. FR-008. (Phụ thuộc: T042, T044.)
+- [ ] T046 [US2] Mở rộng `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/PromotionManagementApiController.java` cho patch/pause/resume/usage và DTOs trong `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/PromotionWriteDtos.java`: expectedVersion+key/auth và normalized immutablefields đúng OpenAPI. Chạymanagement/usage suites; no client quota/history writes. (Phụ thuộc: T045.)
+- [ ] T047 [US2] Mở rộng `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/PromotionManagementViewController.java` và `ppswbs_backend/src/main/resources/templates/loyalty/management/program-edit.html`/`ppswbs_backend/src/main/resources/templates/loyalty/management/program-detail.html`: core edit/pause/resume forms, hiển thị latest khi409, current usage/history không xóa cancellation evidence, no-JS/CSRF/UUID/version, không báo thành công trước commit. Không sửa samefiles parallel với US1. (Phụ thuộc: T046.)
+
+**Checkpoint**: Hoàn tất và kiểm chứng các task trong phase; ghi dependency/error/NOT RUN đúng thực tế, không chuyển quyền deploy hoặc tự đóng gate bằng fixture.
+
+## Phase 7: User Story 4 — Dùng ưu đãi mua sản phẩm (P1)
+
+**Goal**: Owner FE08 dùng trusted quotes, reserve nguyên tử và settle/grant đúng khi fullpaid/zero.
+
+**Independent Test / Gate**: US4.1–US4.10: mixedeligible600k+other200k, discount50k,200points vàshipping30k→pay760k/earn73; retry/quoteschange rollback, lastslot vàscope/security. Source tích hợp thật mới đóngG03.
+
+- [ ] T048 [P] [US4] Viết retail selection/preview tests tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyRetailQuoteTest.java`: eligiblemin không lấycartgross, fixedonce/cap/floor, bestauto/tiecreatedAtID, voucher thayauto, no promo vẫn dùngpoints, no-combine reason,9/10min vàmin/max UI; previewkhôngwrites. FR-014–FR-016/025. (Phụ thuộc: T027, T020, T037, T023.)
+- [ ] T049 [P] [US4] Viết `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyRetailSourceIntegrationIT.java` cho trustedquote ack, owner/loyalty fault rollback cả hai chiều, holdsame wallet/lastvoucher, full-paid/zero consume+grant, không dùng quyền lợi Member khác, no branch repricing, conflict/duplicates/lostresponse. G03 owner fixture chỉ unit thì không ghi integration pass. US4.4/US4.7–US4.10. (Phụ thuộc: T027, T020, T037, T005, T023.)
+- [ ] T050 [US4] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltyQuoteService.java` và eligibilityquery tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/infrastructure/PromotionEligibilityRepository.java`: previewBenefits read-only, trustedsource facts/Member, activecandidates/binarycode normalize, scope/eligiblemin, onepromo/Dmax tiebreak, exactpointsmax/reasons/breakdown/termsdigest. Không loyalty đọc sourcerepo hoặc tin browser money. (Phụ thuộc: T048, T044.)
+- [ ] T051 [US4] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltyReservationService.java` implement reserveAcceptedTransaction: MANDATORY sourceTX, registryREAD→program→wallet→memberquota, compareacceptedquote/policy/revision/digest, quota+points available, persist snapshot+HOLDledger/effects/receipt/audit cùng source. sourceRef repeat khôngholdthêm; khácintent/terms rollback409; noprogram/nopoints vẫn snapshot. FR-017/027/032. (Phụ thuộc: T050, T018.)
+- [ ] T052 [US4] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltySettlementService.java`: trustedpaid/zero/deposit outcomes, HELD→CONSUMED walletbalance/held and both quotas, “CONSUME: deltaBalance=-P, deltaHeld=-P.”, record settledAt/outcome once cả componentNONE; replay khôngeffectlặp, conflictingreleasedterminal deny. KhôngrequireactiveMember choacceptedcontinuation; no externalcalls underlock. (Phụ thuộc: T051, T049.)
+- [ ] T053 [US4] Bind implementation `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/DefaultLoyaltyFacade.java` vào quote/reserve/settle/earn/release/restore/finishIneligibleEarn/result lookup, enforce sourceowner/sourceRef/evidence consistency và MANDATORY; khôngpublicHTTPeffectcommands, không REQUIRES_NEW/HTTPinternal. Receipt lookup onlytrustedowner, khôngleak transactions khác. (Phụ thuộc: T052, T037, T023.)
+- [ ] T054 [US4] Phối hợp owner FE-08 sau G03 để đặt `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/application/LoyaltyCheckoutAdapter.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/application/LoyaltyOutcomeAdapter.java`: source-owned quoteRef/ack, prices/quantity/fee guards trước loyalty, same TX sourceaccept+reserve, full-paid/zero settle rồigrant cùng TX, confirmed unpaid expiry→release/finishIneligibleEarn, original deadline/retry/arbitration. Không viết lại toànFE08, không tự implementGHTK/payment hoặc fakeorder; cần ownerdelivery review, có evidence actualintegration. (Phụ thuộc: T053.)
+- [ ] T055 [US4] Tạo `ppswbs_backend/src/main/resources/templates/loyalty/fragments/promotion-selection.html` và `ppswbs_backend/src/main/resources/templates/loyalty/fragments/benefit-breakdown.html` để owner FE-08 embed trong checkout: inputvoucher/directcode/points, maxusablepoints, combine/minreasons, goods/program/points/shipping/finaltotal, Tính lại/Xác nhận no-JS, csrf và explicitack. Source owns route/forms; chạy retail suites và manualUI theo quickstart. (Phụ thuộc: T054.)
+
+**Checkpoint**: Hoàn tất và kiểm chứng các task trong phase; ghi dependency/error/NOT RUN đúng thực tế, không chuyển quyền deploy hoặc tự đóng gate bằng fixture.
+
+## Phase 8: User Story 5 — Dùng ưu đãi đặt workshop (P1)
+
+**Goal**: Áp voucher→điểm→cọc, consume khi accepteddeposit, grant chỉ completed+fullypaid.
+
+**Independent Test / Gate**: US5.1–US5.8: gross1m-voucher100k-points20k→net880k, FE03fixture50%→440k/440k; noearlyearn, no reapply, rejectzero vàexternal/Guest.
+
+- [ ] T056 [P] [US5] Viết `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyWorkshopQuoteTest.java` cho scope/gói/branch/date/session/bookingwindow, singlevoucher/capkhông nhân số người, maxpoints từphígói khôngcọc, phí0/âm reject; retailcode/AUTO/Guest/external denied, quotechange xácnhậnlại. FR-019–FR-022. (Phụ thuộc: T055, T020, T023.)
+- [ ] T057 [P] [US5] Viết `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyWorkshopSourceIntegrationIT.java`: realFE03 acceptance/deposit invoice/net/remaining, sourcecapacity+loyalty rollback cả hai chiều, duplicate/latecallbacks dướisourceguard, depositconsumeonly, completedANDfullypaid earn88theo policy acceptance; noGuest-importretrogrant. Không dùng fixture final status giả đóng G04/G05. (Phụ thuộc: T055, T005, T023.)
+- [ ] T058 [US5] Bổ sung WORKSHOP eligibility tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/WorkshopBenefitEvaluator.java` dùng bởi `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltyQuoteService.java`: onevoucher before points, conditions localdates/session suppliedowner, exactnet fee>0 và providerpaymentvalidity doFE03 cungcấp, preservegross/discount/points/net snapshot. Khôngđặt cọc50% thànhpolicyFE06. (Phụ thuộc: T056.)
+- [ ] T059 [US5] Phối hợp owner FE-03 sau G04 để thêm `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/LoyaltyBookingAdapter.java` và tíchhợp córeview tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/WorkshopBookingService.java`: trustedMemberwebsite/quoteack, source guards/lifecycle lock→MANDATORY reserve, invoice/cọc dựatrênnet fee, sourceaccept/holds/loyalty chungTX. Không làm lại toànspec002 hoặc thayguestflow từFE06. (Phụ thuộc: T058, T057.)
+- [ ] T060 [US5] Sau G05 owner proofs, bind `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/LoyaltyWorkshopOutcomeAdapter.java`: verifieddeposit→settlekhôngearn, completedANDfullypaid→settle/earn đúng một lần theo accepted policy, remainingcollectionkhôngdiscountagain; outcomeVersionserialize với nguồn, no raw browser proof/force completed. Kết quả cancellation chuyểnUS7, không tự tạo lifecycle owner đểnéG05. (Phụ thuộc: T059, T037.)
+- [ ] T061 [US5] Mở rộng `ppswbs_backend/src/main/resources/templates/loyalty/fragments/promotion-selection.html` và `ppswbs_backend/src/main/resources/templates/loyalty/fragments/benefit-breakdown.html` bằng workshopcontext đểowner FE-03embed: gross/voucher/points/net/deposit/remain, maxpoints/calcreasons, no-JS confirmchanges/CSRF. Chạy workshop quote/source integration suites và chứng minh cọc/remainingkhông trừlặppoints. (Phụ thuộc: T060.)
+
+**Checkpoint**: Hoàn tất và kiểm chứng các task trong phase; ghi dependency/error/NOT RUN đúng thực tế, không chuyển quyền deploy hoặc tự đóng gate bằng fixture.
+
+## Phase 9: User Story 7 — Giải phóng và hoàn quyền lợi (P1)
+
+**Goal**: Hết hạn chưa paid thì release; validcancel thì release/restore từngcomponent và giữ usage/history đúng.
+
+**Independent Test / Gate**: US7.1–US7.9: HELD/CONSUMED/NONE, cancel/expiry/payment races, points/voucher-only, duplicate/partialretry, restoreoldquantity kểcảpolicychanged/expiredcode; no-show khôngautohoàn.
+
+- [ ] T062 [P] [US7] Viết kiểm thử nguồn thật tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyRecoverySourceIntegrationIT.java`: payment/expiry/cancel/completion được owner phân xử dưới source guard, hủy hợp lệ sau deposit hoàn đúng điểm/lượt, no-show hoặc hủy sai không hoàn, outcome trễ/gửi lặp không làm lệch source/loyalty hoặc báo cáo. Mỗi source phải có proof/version và kiểm tra rollback hai chiều, không dùng fixture để đóng G03–G05. (Phụ thuộc: T061, T005, T023.)
+- [ ] T063 [P] [US7] Viết `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyMySqlConcurrencyIT.java` trênMySQL8.4 với transaction/barrier thật: retail/workshop tranhsame wallet/last slot, Managerquota edit/program pause/resume/policy update vsaccept, source paid-vs-expiry/cancel/completionproofs, first wallet/quota insert races, duplicateeffect/command, deadlocktimeout vàretry. Khôngmocks/H2 làmproof. FR-009/010/027/032/038. (Phụ thuộc: T061, T005, T023.)
+- [ ] T064 [US7] Phối hợp owner nối các kết quả expiry/cancel/no-show tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/application/LoyaltyOutcomeAdapter.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/LoyaltyWorkshopOutcomeAdapter.java` dưới source lifecycle guard. Phân xử theo proof/version; thanh toán chưa rõ thì đối soát, không tự release hoặc gia hạn. Reconciler của source gọi result lookup. Nếu owner sử dụng bridge legacy đã review thì cần durable delivery và settle trước grant, không in-memory event hoặc polling repository nguồn. Không viết luồng hoàn tiền của owner. (Phụ thuộc: T023, T063, T062.)
+- [ ] T065 [US7] Chạy real-source lifecycle+usage integration và ghi evidence tại `ppswbs-spec/features/006-loyalty-promotion/verification.md`: report bookingvoucher100k cancel→0used/0discount, historycòn, repeatreportkhông âm, expiredpausedprogramuncancelledusagecòn. Memberreloadbalance/historyđúng; source cancel phải FE-03 xác nhận, no-show/invalid/unclear/completedkhông tự hoàn. ĐóngG03–G05chỉ khi cóproofownerthật, không dùngfixtuređểtick. (Phụ thuộc: T064, T045.)
+
+**Checkpoint**: Hoàn tất và kiểm chứng các task trong phase; ghi dependency/error/NOT RUN đúng thực tế, không chuyển quyền deploy hoặc tự đóng gate bằng fixture.
+
+## Phase 10: User Story 3 — Xem và lưu voucher (P2)
+
+**Goal**: Public hiểu ưu đãi, Member lưu mã trong kho cá nhân và vẫn nhập trực tiếp.
+
+**Independent Test / Gate**: US3.1–US3.6: cards2scope/terms/allowPoints/limits, login save, save-repeatnohold, expiredstatus/ownsecurity, no-JS/empty-vs-error; không cần tạo mới payment.
+
+- [ ] T066 [P] [US3] Viết `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/SavedVoucherContractIT.java` cho listPublicPromotions/getPublicPromotion/listOwnSavedVouchers/saveOwnVoucher, scope/time/status/current terms, codecase/trimsourcedirectexistingquote, Guestlogin/ownMember isolation, savedexpired vẫnstatus, repeatnoquota, empty-vs-dependencyfail và no-store. (Phụ thuộc: T029, T039, T044, T023.)
+- [ ] T067 [US3] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/domain/SavedVoucher.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/infrastructure/SavedVoucherRepository.java` đủ memberId/programId/savedAt: “Unique(memberId,programId), program phải VOUCHER. Không lưu entitlement, không giữ quota.”; không delete/reissue quyềnlợi hoặc tạoquota vìsave; logicalMemberref, FKprogramlocal. Schema đã có ởmigrationfoundation. (Phụ thuộc: T066.)
+- [ ] T068 [US3] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/SavedVoucherService.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/PublicPromotionQueryService.java`: activepubliccards/details, ownsavedcurrentstates ACTIVE/SCHEDULED/PAUSED/EXPIRED, idempotentsave/receipt, publicprojection khôngmanagement/PII, limits/allowPoints/targets rõ; paging20/max100, stableorder và noquota/pointwritekhisave. (Phụ thuộc: T067.)
+- [ ] T069 [US3] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/PublicPromotionApiController.java` và `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/SavedVoucherApiController.java` cho4operations, currentownauth/idempotency/typederrors/responseprojection theoOpenAPI; savecannotgrantuse/couponquota, khôngclientmemberId/expiryoverride. (Phụ thuộc: T068.)
+- [ ] T070 [US3] Tạo `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/web/PromotionDiscoveryViewController.java`, `ppswbs_backend/src/main/resources/templates/loyalty/public/promotions.html` và `ppswbs_backend/src/main/resources/templates/loyalty/member/vouchers.html`; current terms/cardlabels, loginbeforeSave/CSRF/PRG, no-JS save/filter/paging/keyboard/empty/error. Nối savedselection vào sharedfragment khi đã available, vẫn cho nhậpdirectcodekhông cầnsave; chạy SavedVoucherContractIT và manual US3. (Phụ thuộc: T069, T055, T061.)
+
+**Checkpoint**: Hoàn tất và kiểm chứng các task trong phase; ghi dependency/error/NOT RUN đúng thực tế, không chuyển quyền deploy hoặc tự đóng gate bằng fixture.
+
+## Phase 11: Polish & Cross-Cutting Concerns
+
+**Goal**: Kiểm chứng xuyên flow, giữ ranh giới và bàn giao evidence thật; không tự deploy.
+
+**Independent Test / Gate**: Đủ41FR/66scenarios được map sangtests/evidence,15APIops, no-JS/auth/migration/concurrency/sourceintegration đạt hoặc ghi NOTRUN/blocker đúng.
+
+- [ ] T071 [P] Tổng hợp `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyApiContractIT.java` cho toàn15operations trongOpenAPI: refs/strictDTO/decimalstrings/paging, bearerroles/private-no-store, mutationkeys/expectedVersion, errorenvelope/security. Khôngpublicreserve/earn/restore; saocho testbao actualroutebehavior khôngchỉparseJSON. BaoUS1–US8/FR-001–FR-041, cácbusinesscalculations dùngsuitesđã có không nhân bản implementation. (Phụ thuộc: T070, T065, T047, T034, T040.)
+- [ ] T072 [P] Tạo/chạy `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/LoyaltyWebSecurityIT.java` và regression của MemberProfile003: webfixed8h/CSRF/revocation/currentcapability/assurance, no Member→Manager/Admin, core forms/discovery/manage/policy/points khôngJS, error/empty/loading accessibility vàsafeescaping. Chỉsửa messagekeys cầnthiết trong `ppswbs_backend/src/main/resources/i18n/messages_vi.properties`/counterparts, không đổiidentityownerflow. (Phụ thuộc: T070, T065, T047, T034, T040.)
+- [ ] T073 Chạy `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/ModulithArchitectureTests.java` cùng full relevant MySQL migration/concurrency/source suites; verify sources→loyalty→members, targetadapters khôngbean/compilecycle hoặc nội bộcrossaccess. Đốichiếupomversionskhông nâng, noSQLapp; ghi exactcommands/environment/testcounts/failures tại `ppswbs-spec/features/006-loyalty-promotion/verification.md`, không dùng generatedschema/staticpass thayruntime. (Phụ thuộc: T071, T072.)
+- [ ] T074 Đối chiếu retention/ref/unfinishedguards và operational recovery trong `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/loyalty/application/LoyaltyAuditService.java` và `ppswbs-spec/features/006-loyalty-promotion/quickstart.md`: tối thiểu 5 năm, nodata-purge/balance-delete/code-reuse/dedup-loss; correlation/sourceRefs/minimalreceipts khôngPII, observe conflicts/timeouts/deliverybacklog/invariants; disablingroutes không tựrelease/restoreacceptedholds hoặcdownmigrate. Đo contention/query paging trênfixtureMySQL, không tựchốtproductionSLA. (Phụ thuộc: T073.)
+- [ ] T075 Cập nhật `ppswbs-spec/features/006-loyalty-promotion/verification.md` và `ppswbs-spec/features/006-loyalty-promotion/integration-gates.md` bằng bằng chứng actual,41FR→task→scenario→result; ghi owner/dependency còn thiếu, NOTRUN/cần đối soát/minimalproofs. Không tick reviewerchecklist hoặcG01–G07chỉvìfileđủ; giữ source financial history và không claim testdoubles làrealintegration. (Phụ thuộc: T074.)
+- [ ] T076 Đối chiếu `ppswbs-spec/features/006-loyalty-promotion/spec.md`, `ppswbs-spec/features/006-loyalty-promotion/plan.md`, `ppswbs-spec/features/006-loyalty-promotion/tasks.md`, `ppswbs-spec/features/006-loyalty-promotion/contracts/interfaces.md` và `ppswbs-spec/features/006-loyalty-promotion/contracts/loyalty-promotion.openapi.json` vớiimplementation/evidence; chạy speckit-analyze theoartifact hiện hành, ghi limitations/handoff. Không tựcommit/push/deploy hoặc sửaresearchtổng; chỉ đánh hoàn thành task nếu đúng acceptance và evidence. (Phụ thuộc: T075.)
+
+**Checkpoint**: Hoàn tất và kiểm chứng các task trong phase; ghi dependency/error/NOT RUN đúng thực tế, không chuyển quyền deploy hoặc tự đóng gate bằng fixture.
+
+## Dependencies & Execution Order
+
+### Phase gates
+
+1. T001–T003: kiểm tra nguồn, owner handoff, review/analyze và phạm vi giao việc trước code. Thiếu thiết kế/authorization không được tự suy ra từ file có sẵn.
+2. T004–T023: foundation chặn mọi user story. Target providers/source owners được nối ở phase sử dụng; interface đã được review trước khi adapter gọi, không tạo dependency vòng do yêu cầu adapter compile trước facade.
+3. Các story P1 thực hiện theo đồ thị dưới; đầu vào fixture chỉ cho isolated tests không thay provider cần để nghiệm thu. US3 P2 sau luồng P1. Tích hợp owner còn thiếu thì task tương ứng bị chặn, không coi lookup giả là đủ.
+4. Polish T071–T076 chỉ sau các story được chọn đầy đủ; không bật retail/workshop trước release/restore/source arbitration và evidence bắt buộc.
+
+| Story | Prerequisites để nghiệm thu | Phạm vi độc lập |
+| --- | --- | --- |
+| US1 | Foundation; G01 và target providers G02 cho cả hai scope | Manager tạo chương trình; chưa cần order/payment UI. |
+| US8 | Foundation; identity Admin/assurance thật | Policy defaults/update/version/auth, accepted fixtures kiểm tra snapshot. |
+| US6 | Foundation + policy service US8 | Grant qua accepted/outcome fixtures, My Loyalty; source wiring nghiệm thu ở US4/US5. |
+| US2 | Foundation + US1 read/create | Edit/pause/resume/report trên held/consumed/restored fixtures; cancel thật xác minh lại tại US7. |
+| US4 | Foundation + US1 + US2 + US6; G03 retail contract/adapter | Retail quote/reserve/paid/zero; không tự làm GHTK/tra cứu đơn. |
+| US5 | US4 shared facade/quote + US6; G04/G05 nguồn workshop | Phí sau ưu đãi trước cọc, deposit không grant, completed+paid mới grant. |
+| US7 | Foundation recovery + US2 + US4 + US5; source arbitration/cancel outcomes thật | Hết hạn/hủy/partial retry, concurrency và report sau hủy. |
+| US3 | Foundation + US1 + US2 + US6; P2 | Public cards và kho; save không giữ quyền lợi, có thể dùng direct code trước US3. |
+
+Đồ thị completion: Setup → Foundation; Foundation → US1/US8; US8 → US6; US1 → US2; US1+US2+US6 → US4 → US5; US2+US4+US5 → US7; US1+US2+US6 → US3(P2); tất cả → Polish. Mỗi task còn có dependencies T-ID cụ thể; không chạy task có dependency chưa hoàn tất.
+
+### Parallel opportunities và ví dụ theo story
+
+| Scope | Tasks có thể song song sau prerequisite | Lý do/giới hạn |
+| --- | --- | --- |
+| Foundation | T005, T006, T008 sau T004; T009–T014 sau T006 | File tách biệt; registry/wallet models không tự ghi vào migration trước schema review. |
+| US1 | T024 và T026 | Test create và write DTO khác file; services/API tuần tự sau đó. |
+| US8 | T031 cùng T024 khi Foundation đạt | Test Admin policy và create programs tách file; policy service/API/UI vẫn tuần tự. |
+| US6 | T035 và T036 | Grant tests và own-account contract khác file. |
+| US2 | T041 và T042 | Maintenance contract và report semantics khác file. |
+| US4 | T048 và T049 | Pure quote rules và source integration tests tách file; không sửa facade/adapter trước dependencies. |
+| US5 | T056 và T057 | Workshop calculator và source integration khác file. |
+| US7 | T062 và T063 | Outcome integration và real MySQL races tách file. |
+| US3 | T066 có thể viết cùng T062 nếu prerequisites của cả hai đã đạt | Không có hai implementation task US3 độc lập để gắn P giả; ưu tiên hoàn P1, không sửa chung templates/controller. |
+| Polish | T071 và T072 | API suite và web/security suite tách file; evidence/architecture chạy sau. |
+
+Không parallel các task sửa cùng PromotionManagementApiController, cùng policy/application service, shared fragments hoặc i18n bundles. Nếu cần chia người, giữ một người sở hữu file chung và tích hợp tuần tự.
+
+## Requirements and acceptance traceability
+
+Ký hiệu USn.m trỏ kịch bản trong spec; bảng này là kế hoạch coverage, không phải kết quả test.
+
+| Requirements | Implementation/verification tasks | Acceptance |
+| --- | --- | --- |
+| FR-001–FR-002 | T007, T004, T025, T027, T033, T072 | US1.1–US1.7; US3.3/US3.6; US5.8; US6.3/US6.5; US8.3/US8.7. |
+| FR-003–FR-007 | T006–T009, T010, T024–T030 | US1.1–US1.8; US2.2; US3.4. |
+| FR-008–FR-010 | T041–T047, T065, T017, T018 | US2.1–US2.9; US8.4. |
+| FR-011–FR-013 | T066–T070, T055, T061 | US3.1–US3.6; US4.8; US5.6. |
+| FR-014–FR-018 | T019–T020, T048–T055 | US4.1–US4.10; US7.9. |
+| FR-019–FR-022 | T056–T061, T052 | US5.1–US5.8. |
+| FR-023–FR-027 | T011, T012, T020, T031–T034, T051 | US4.4–US4.6; US5.2/US5.3; US6.3/US6.5/US6.7; US8.1–US8.5. |
+| FR-028–FR-031 | T035–T040, T054, T060 | US5.5; US6.1–US6.8. |
+| FR-032–FR-038 | T017–T018, T021–T023, T051–T053, T062–T065 | US4.7–US4.9; US5.4–US5.7; US7.1–US7.9; US2.9. |
+| FR-039–FR-040 | T007, T030, T034, T040, T047, T055, T061, T070, T072 | US8.6–US8.7; US3.6; US6.8. |
+| FR-041 | T014, T015–T016, T018, T074–T075 | US6.9; migration/history/audit preservation. |
+
+### Public API operation ownership
+
+| Operations trong OpenAPI | Story / task |
+| --- | --- |
+| createPromotionProgram, listPromotionPrograms, getPromotionProgram | US1 — T029 |
+| updatePromotionProgram, pausePromotionProgram, resumePromotionProgram, getPromotionUsage | US2 — T046 |
+| getCurrentLoyaltyPolicy, updateCurrentLoyaltyPolicy | US8 — T033 |
+| getOwnLoyaltyAccount, listOwnLoyaltyTransactions | US6 — T039 |
+| listPublicPromotions, getPublicPromotion, listOwnSavedVouchers, saveOwnVoucher | US3 — T069 |
+
+Internal facade source/effect operations thuộc T004, T022–T023, T037, T050–T053 và source adapters; chúng không được biến thành public HTTP endpoints.
+
+## Implementation Strategy
+
+### MVP first
+
+MVP nội bộ là Setup + Foundation + US1 (T001–T030), với quyền Manager và target providers thật. Demo tạo đúng ba loại chương trình, validation/code uniqueness/replay và server forms; chưa tuyên bố khách có luồng sử dụng ưu đãi đầu cuối. Đây là phạm vi đề xuất để review kế hoạch, không phải quyền tự triển khai một phần khi còn gate chặn.
+
+### Incremental delivery
+
+Hoàn P1 theo dependency, kiểm chứng từng checkpoint; sau đó US3 P2 và Polish. Reuse default policy ở Foundation để tests không phụ thuộc có sẵn Admin UI, source fixtures chỉ cho isolated tests. Không activate mua hàng/workshop trước khi source owners và recovery/arbitration đầy đủ. Không triển khai provider/FE08/FE03 thiếu thiết kế để làm một task có vẻ xong.
+
+### Completion and evidence
+
+Chỉ đánh [x] trên task khi implementation đúng file/phạm vi, acceptance và fresh evidence đã đạt. Không thay marker reviewer ở checklists để vượt gate. Cần chạy speckit-analyze sau tạo task list và trước implement; nếu thay đổi spec/plan phải đánh giá lại tasks/traceability. Không có production/test/migration nào được tạo từ lệnh speckit-tasks.
+
+## Task summary
+
+| Group | Tasks | Count |
+| --- | --- | --- |
+| Phase 1 | T001–T003 | 3 |
+| Phase 2 | T004–T023 | 20 |
+| Phase 3 / US1 | T024–T030 | 7 |
+| Phase 4 / US8 | T031–T034 | 4 |
+| Phase 5 / US6 | T035–T040 | 6 |
+| Phase 6 / US2 | T041–T047 | 7 |
+| Phase 7 / US4 | T048–T055 | 8 |
+| Phase 8 / US5 | T056–T061 | 6 |
+| Phase 9 / US7 | T062–T065 | 4 |
+| Phase 10 / US3 | T066–T070 | 5 |
+| Phase 11 | T071–T076 | 6 |
+| **Total** | T001–T076 | **76** |
+
+Có 26 task gắn [P] với điều kiện prerequisite rõ. Các test/setup task không được coi là triển khai đã hoàn thành. Static format/ID/dependency/FR/operation coverage được kiểm tra khi tạo file; runtime tests chưa chạy.
+
