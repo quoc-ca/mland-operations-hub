@@ -26,7 +26,7 @@ Không dùng Member allowlist ACTIVE/PENDING_POLICY_ACCEPTANCE hoặc Member boo
 
 Capability names đề xuất: catalogue.read-internal, product.create, product.edit, product.submit, product.approve, product.publish, product.delete, media.manage, variant.quantity, variant.sale-status, price.propose, price.approve, price.apply, category.manage. Đây là action vocabulary của hợp đồng, không phải các DB role/capability đã được provision.
 
-API management chỉ nhận backend-verified bearer identity; cookie không thay bearer. Frontend React gửi cùng bearer; mỗi lệnh ghi mang commandId và expectedVersion trong DTO. Hết phiên hoặc credential không hợp lệ trả 401 AUTHENTICATION_REQUIRED; hành vi đăng nhập lại/recovery do 001 định nghĩa. CORS theo origin của frontend, không vô hiệu hóa toàn cục. Chưa có session/capability facade thật nên đường quản trị không được enable bằng fallback permitAll hiện tại. Lỗi session không tự điều hướng sang hồ sơ/chính sách Member; identity owner phải cung cấp đích đăng nhập nội bộ cố định, không nhận arbitrary returnTo.
+API management chỉ nhận backend-verified bearer identity; cookie không thay bearer. Frontend React gửi cùng bearer; mỗi lệnh ghi mang commandId và expectedVersion trong DTO. Hết phiên hoặc credential không hợp lệ trả 401 AUTHENTICATION_REQUIRED; hành vi đăng nhập lại/recovery do 001 định nghĩa. CORS theo origin của frontend, không vô hiệu hóa toàn cục. Chưa có session/capability facade thật nên đường quản trị không được enable bằng fallback permitAll. Lỗi session không tự điều hướng sang hồ sơ/chính sách Member; identity owner phải cung cấp đích đăng nhập nội bộ cố định, không nhận arbitrary returnTo.
 
 ## API conventions
 

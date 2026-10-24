@@ -7,7 +7,7 @@
 
 **Feature context**: `006-loyalty-promotion` | **Spec**: [spec.md](spec.md)  
 **Git branch**: `khuong` giữ nguyên. `006-loyalty-promotion` là feature context của SpecKit, không phải nhánh Git được tạo trong tác vụ.  
-**Status**: Draft technical design — bộ tài liệu Phase0/Phase1; chưa triển khai hoặc phê duyệt code/deploy.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; thiết kế là baseline cho triển khai, các task phụ thuộc bên ngoài (FE-01 contract xác thực, FE-02 T088/T089/T091, FE-03 và FE-08 source owner theo integration gates G-01–G-05) chỉ bắt đầu khi dependency tương ứng đạt; không phê duyệt deploy.  
 **Input**: FE-06 và quyết định1–10, bộ thông số điểm đã chốt; xác nhận bổ sung khi plan về retention tối thiểu5 năm và shared auth theo 001. Chỉ soạn thiết kế.
 
 ## Summary
@@ -37,9 +37,9 @@ Bốn thông số khởi đầu 10.000đ→1 điểm,1 điểm→100đ,min10,tr�
 | Principle/gate | Before research | After design | Evidence/condition |
 | --- | --- | --- | --- |
 | I. Closed modules/ownership | PASS | PASS DESIGN | loyalty owns state, public facade only; source→loyaltypromotion, loyaltypromotion→members; target adapters qua SPI. Không common business logic. |
-| I. JPA/Flyway | PASS | PASS DESIGN | JPA locks, append-only migrations, exact numbers; allocate migration number tại implementation, không sửaV1–V3. |
+| I. JPA/Flyway | PASS | PASS DESIGN | JPA locks, append-only migrations, exact numbers; allocate migration number tại implementation, không sửa migration đã áp dụng. |
 | I. Acyclic integration | REVIEW REQUIRED | PASS DESIGN / PROVIDERS OPEN | [interfaces](contracts/interfaces.md); actual verify cần implementation và source adapters. Không suy cycle từ stale allowedDependencies. |
-| II. Identity/authority | DEPENDENCY OPEN | DECISION CONFIRMED / CODE OPEN | User chốt sharedFE01/001 auth; MemberFacade chưa có capabilities/assurance. Fail closed, không ROLE_MEMBER/claims/permitAll fallback. |
+| II. Identity/authority | DEPENDENCY OPEN | DECISION CONFIRMED / CODE OPEN | User chốt sharedFE01/001 auth; facade identity của FE-01 chưa có (backend đã bị xóa). Fail closed, không ROLE_MEMBER/claims/permitAll fallback. |
 | II. Sensitive data/retention | POLICY QUESTION | DECISION CONFIRMED | User chọn tối thiểu5 năm, no purge referenced/unfinished; [research D08](research.md#d-08--retention-được-xác-nhận-cho-fe-06), data-model mục7. Không raw payload/token/PII thừa. |
 | III. Contracts/separate frontend | PASS | PASS DESIGN | OpenAPI3.0.3, strict DTO/typed errors, protected routes, bearer cho mọi REST; frontend React + Vite tách riêng, backend không render UI. |
 | IV. Fresh evidence | PASS FOR DOCS | PASS FOR DOCS | Static checks và source review cho tài liệu; runtime/migration/auth/concurrency NOT RUN vì chưa code. |
@@ -79,8 +79,8 @@ ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/
     facade/          LoyaltyFacade, PromotionTargetPort, immutable inputs/results
   members/facade/     dependency: verified actor/current capability/authorization guard
   features/productmanagement/  dependency adapter for product target validation
-  workshopbooking/   source adapter for workshop target and accepted lifecycle
-  readyringsales/    source adapter for retail checkout/paid/zero/expiry
+  features/workshopbooking/  source adapter for workshop target and accepted lifecycle (FE-03, chờ owner chốt layout)
+  features/readyringsales/   source adapter for retail checkout/paid/zero/expiry (FE-08 theo 008 plan)
   configuration/    route-scoped API security/CORS wiring
 ppswbs_backend/src/main/resources/
   db/migration/      new additive migration, number allocated at implementation
@@ -90,7 +90,7 @@ ppswbs_frontend/      (chưa khởi tạo; vị trí dự kiến)
   src/features/loyaltypromotion/  promotions, wallet/account, management, policy screens và checkout components
 ```
 
-**Structure Decision**: Theo constitution I, backend tổ chức `features/<feature>/{controller,dto,dao,entity,service,facade}`; FE-06 là module Modulith riêng tên `loyaltypromotion` (gói `features/loyaltypromotion`, chưa tồn tại trong code hiện tại nên không có shell cần chuyển). Plan phải kiểm chứng bằng `ApplicationModules.verify()` rằng `loyaltypromotion` được nhận diện là module riêng, không chỉ gói grouping `features`. Trong văn bản tài liệu FE-06, chữ "loyalty" khi nói về module nghĩa là module `loyaltypromotion`; tên bảng `loyalty_*`/`promotion_*` và tên class `Loyalty*`/`Promotion*` giữ nguyên. Module riêng theo ownership FE06, không nhét vào billing/common hoặc dùng frontend-only local storage cho điểm. Danh sách source tree là vị trí dự kiến, chưa tạo code.
+**Structure Decision**: Theo constitution I, backend tổ chức `features/<feature>/{controller,dto,dao,entity,service,facade}`; FE-06 là module Modulith riêng tên `loyaltypromotion` (gói `features/loyaltypromotion`, backend đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24), nên module tạo mới). Plan phải kiểm chứng bằng `ApplicationModules.verify()` rằng `loyaltypromotion` được nhận diện là module riêng, không chỉ gói grouping `features`. Trong văn bản tài liệu FE-06, chữ "loyalty" khi nói về module nghĩa là module `loyaltypromotion`; tên bảng `loyalty_*`/`promotion_*` và tên class `Loyalty*`/`Promotion*` giữ nguyên. Module riêng theo ownership FE06, không nhét vào billing/common hoặc dùng frontend-only local storage cho điểm. Danh sách source tree là vị trí dự kiến, chưa tạo code.
 
 ## Phase 0 — Research and decisions
 
@@ -132,7 +132,7 @@ Theo constitution V, mỗi tương tác của FE-06 được phân loại như s
 | Ví điểm và ledger | Retained | loyaltypromotion | MySQL; giữ tối thiểu 5 năm, không có hết hạn điểm | Không purge dữ liệu còn tham chiếu hoặc chưa xong |
 | Quyền lợi đã chấp nhận (reserve, settle, release, restore) | Retained, cùng transaction với nguồn | Owner FE-03/FE-08 điều phối, loyaltypromotion ghi | MySQL; snapshot chính sách và số tiền tại thời điểm chấp nhận | Replay theo sourceRef và sourceOutcomeVersion; mâu thuẫn trạng thái terminal trả conflict để owner đối soát |
 | Command receipt | Retained | loyaltypromotion | MySQL; giữ tối thiểu 5 năm | Cùng digest trả receipt đã commit; khác digest trả 409 |
-| Chính sách điểm | Retained, có version | loyaltypromotion (Admin cập nhật) | MySQL; chỉ ảnh hưởng giao dịch mới | Snapshot cũ giữ nguyên |
+| Chính sách điểm | Retained, có version | loyaltypromotion (Manager cập nhật) | MySQL; chỉ ảnh hưởng giao dịch mới | Snapshot cũ giữ nguyên |
 | Lựa chọn ưu đãi trong checkout (nháp) | Client-side, tạm thời | Frontend của owner FE-03/FE-08 | Không là nguồn sự thật; quote do API của owner trả | Mất khi tải lại; tính lại qua nút Tính lại |
 
 Trạng thái xác thực và trạng thái nghiệp vụ được tách riêng: cookie hay cơ sở dữ liệu một mình không xác lập mô hình xác thực.
@@ -140,8 +140,8 @@ Trạng thái xác thực và trạng thái nghiệp vụ được tách riêng:
 ### Security and web
 
 - API bearer đã verify/revocation; private responses no-store. Frontend React dùng cùng bearer, phiên identity theo FE-01/001, current role/ownership, privileged assurance; không làm login/MFA riêng.
-- Identity chưa đủ authority thì fail closed. Technical management chains không thừa hưởng permitAll hiện tại; không thay global security hoặc Member journeys từ feature này.
-- Manager forms quản lí/sửa/dừng/mở lại programs; Admin policy; Member kho/My Loyalty; checkout components do màn hình của owner FE-03/FE-08 nhúng. Resume PAUSED→ENABLED dùng cùng quyền, registry WRITE lock, command UUID/expectedVersion và audit; giữ quota/history, không gia hạn hoặc đổi accepted snapshots. React gọi REST với field/conflict errors theo typed error, điều hướng client sau thành công.
+- Identity chưa đủ authority thì fail closed. Technical management chains không dùng permitAll; không thay global security hoặc Member journeys từ feature này.
+- Manager forms quản lí/sửa/dừng/mở lại programs và chính sách điểm; Member kho/My Loyalty; checkout components do màn hình của owner FE-03/FE-08 nhúng. Resume PAUSED→ENABLED dùng cùng quyền, registry WRITE lock, command UUID/expectedVersion và audit; giữ quota/history, không gia hạn hoặc đổi accepted snapshots. React gọi REST với field/conflict errors theo typed error, điều hướng client sau thành công.
 - Không public reserve/paid/completed/earn/refund endpoint. API input strict, safe correlation errors; không log full source proof/token.
 
 ### Data, calculation and revisions
@@ -150,7 +150,7 @@ Trạng thái xác thực và trạng thái nghiệp vụ được tách riêng:
 
 ### Migration, retention and operations
 
-- Thêm migration mới sau kiểm tra version folder hiện tại, không lấy sốfeature006 làm version, không sửa/drop/resetV1–V3 hoặc retro-credit source cũ thiếu facts.
+- Thêm migration mới sau kiểm tra version folder hiện tại, không lấy sốfeature006 làm version, không sửa/drop/reset migration đã áp dụng hoặc retro-credit source cũ thiếu facts.
 - MySQL8.4 empty + upgrade populated baseline; FK nội loyalty, cross-module logical refs; test decimals/collation/unique/check constraints/locks thật. Không chỉ H2.
 - History/audit/results tối thiểu5 năm, source chưa terminal/refs vẫn protected; không purge v1, không xóa wallet/code registry/dedup keys để mở replay/reuse. Không chứa raw credential/PII không cần thiết.
 - Theo dõi correlation, command/sourceRef, conflict/lock timeout, delivery backlog, imbalance invariant errors và component retry; không tạo consumer tự quyết business outcome.
@@ -167,7 +167,7 @@ Trạng thái xác thực và trạng thái nghiệp vụ được tách riêng:
 | FR-011–FR-013 | OpenAPI public/member paths, webcontracts | Cards/detail limits/allowPoints, own wallet, save no hold, status/errors/no-store. |
 | FR-014–FR-018 | calculation/snapshot and atomic source contract | Mixed eligible rows, floor/fixed cap, best auto, points min/cap, quote changes, paid/zero. |
 | FR-019–FR-022 | booking source contract, gatesG04/G05 | Net-fee-before-deposit, single voucher cap, deposit consume only, zero reject/rollback. |
-| FR-023–FR-027 | policy/wallet immutable revisions, Admin API | Shared balance, exact conversion, version policy change and old snapshot/no-early-use. |
+| FR-023–FR-027 | policy/wallet immutable revisions, Manager policy API | Shared balance, exact conversion, version policy change and old snapshot/no-early-use. |
 | FR-028–FR-031 | earn effects/ledger and MyLoyalty | Completed+paid only, net earning/floor, once/retry, own consistent balance/history. |
 | FR-032–FR-038 | lock order/effect states/source proof | Last-slot/same-wallet races, callback vs expiry/cancel, restore partial retry, no guessing unresolved. |
 | FR-039–FR-040 | frontend/error/security and shared identity | React journeys over REST, revoked/current roles, privileged assurance, no Member regression. |

@@ -20,7 +20,7 @@
 
 **Decision**: Module mới `loyaltypromotion` sở hữu voucher/ưu đãi, policy, wallet, ledger, snapshots/receipts. Chỉ `loyaltypromotion::facade` xuất interface/immutable records. `readyringsales` và `workshopbooking` gọi facade; loyalty chỉ phụ thuộc `members::facade` và technical common, không import entity/repository nguồn. Source-specific target validation qua `PromotionTargetPort` thuộc loyaltypromotion facade, được productmanagement/workshop triển khai bằng adapter riêng; không inject source application service quay ngược loyalty.
 
-**Rationale**: Catalogue/retail hiện chỉ shell. MemberFacade hiện chỉ lookup/entitlement, chưa đủ capability nội bộ. Quyền loyalty và provider scope là dependency có thật phải bổ sung, không dùng entity xuyên module để né chúng. Research xác nhận members có stale allowed-dependency workshopbooking nhưng không tìm thấy actual import gọi WorkshopBookingFacade từ members; allowance không chứng minh cycle.
+**Rationale**: Toàn bộ `ppswbs_backend/src` đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24); productmanagement, readyringsales và facade identity đều chưa có code. Quyền loyalty và provider scope là dependency có thật phải bổ sung, không dùng entity xuyên module để né chúng.
 
 **Alternatives considered**: Loyalty gọi lại booking/order để tự hiểu paid/cancelled dễ tạo cycle và owner thứ hai. Chuyển nghiệp vụ vào common vi phạm constitution. Identity SPI riêng chưa cần khi DAG loyaltypromotion → members và sources → loyaltypromotion giữ một chiều.
 
@@ -40,7 +40,7 @@
 
 **Decision**: JPA pessimistic locks cho quyền lợi; version kiểm tra sửa cũ là lớp riêng. Thứ tự: identity guard → source business guards theo owner → singleton loyalty registry gate → programs tăng ID → wallet Member → member-quota rows tăng program ID → benefit/receipts. Không gọi ngược source để lấy thêm khóa sau registry.
 
-Registry dùng PESSIMISTIC_READ cho accept; Manager tạo/sửa/dừng và Admin đổi policy dùng PESSIMISTIC_WRITE. Nó ổn định tập chương trình/policy khi chọn giảm tự động, tránh vừa tính vừa thêm chương trình. Program/quota và wallet dùng PESSIMISTIC_WRITE. Lượt giữ chưa có được tạo dưới khóa program; wallet chưa có tạo dưới identity Member guard. Không dùng exists-then-save như bảo đảm chống trùng.
+Registry dùng PESSIMISTIC_READ cho accept; Manager tạo/sửa/dừng chương trình và đổi policy dùng PESSIMISTIC_WRITE. Nó ổn định tập chương trình/policy khi chọn giảm tự động, tránh vừa tính vừa thêm chương trình. Program/quota và wallet dùng PESSIMISTIC_WRITE. Lượt giữ chưa có được tạo dưới khóa program; wallet chưa có tạo dưới identity Member guard. Không dùng exists-then-save như bảo đảm chống trùng.
 
 **Rationale**: Khóa registry chia sẻ không serial hóa mọi checkout; tranh quota cùng chương trình/wallet vẫn được khóa riêng. Quota giảm kiểm tra committed current state của tất cả Member bị ảnh hưởng. Không giữ khóa qua remote calls. Timeout/deadlock rollback toàn transaction và trả retryable conflict, retry với cùng key.
 
@@ -72,9 +72,9 @@ Benefit có trạng thái points/voucher riêng (NONE/HELD/CONSUMED/RELEASED/RES
 
 **Decision confirmed by user 2026-10-24**: Kế thừa FE-01/001 và hướng FE-02: mọi REST API (kể cả frontend React) dùng bearer đã xác minh; phiên theo contract FE-01/001; revocation/trạng thái/quyền hiện tại; privileged assurance do FE-01 sở hữu. Không tạo login/MFA mới, không lấy ROLE_MEMBER/Firebase claim/email làm quyền Manager/Admin.
 
-**Rationale**: Cùng cơ chế cho Member/Manager/Admin mà không chia danh tính theo feature. MemberFacade/cookie/capability trong 001/002 là thiết kế phụ thuộc, chưa đủ code hiện tại.
+**Rationale**: Cùng cơ chế cho Member/Manager mà không chia danh tính theo feature; Admin không có quyền nghiệp vụ FE-06. MemberFacade/cookie/capability trong 001/002 là thiết kế phụ thuộc, chưa có code.
 
-**Alternatives considered**: Tin global permitAll/CSRF disabled/stateless hiện tại sẽ bỏ qua ranh giới đã chốt. Tự chọn phương thức MFA từ loyalty vượt phạm vi identity.
+**Alternatives considered**: Dùng global permitAll/CSRF disabled sẽ bỏ qua ranh giới đã chốt. Tự chọn phương thức MFA từ loyalty vượt phạm vi identity.
 
 ## D-08 — Retention được xác nhận cho FE-06
 
@@ -88,7 +88,7 @@ Không implement destructive purge trong feature v1. Thiết kế giữ evidence
 
 ## D-09 — Giao diện và contracts
 
-**Decision**: Frontend React + Vite tách riêng gọi REST với `Idempotency-Key`, expectedVersion và hiển thị typed error. Public ưu đãi, kho/My Loyalty, Manager programs và Admin policy có API versioned riêng trong [OpenAPI](contracts/loyalty-promotion.openapi.json). Quote/accept/payment/cancel thuộc owner FE-03/FE-08, không thêm endpoint public để reserve/settle/earn/restore.
+**Decision**: Frontend React + Vite tách riêng gọi REST với `Idempotency-Key`, expectedVersion và hiển thị typed error. Public ưu đãi, kho/My Loyalty, Manager programs và Manager policy có API versioned riêng trong [OpenAPI](contracts/loyalty-promotion.openapi.json). Quote/accept/payment/cancel thuộc owner FE-03/FE-08, không thêm endpoint public để reserve/settle/earn/restore.
 
 **Clarification confirmed 2026-10-24**: Manager được mở lại chương trình PAUSED theo lựa chọn A; giữ cùng program/code, quota/history và accepted snapshots, không tự gia hạn/reset lượt. Resume dùng expectedVersion, command receipt, cùng quyền và registry WRITE lock như pause; giao dịch mới vẫn kiểm tra điều kiện hiện hành.
 
@@ -104,12 +104,9 @@ Không implement destructive purge trong feature v1. Thiết kế giữ evidence
 
 **Evidence**:
 
-- [SecurityConfiguration](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/configuration/SecurityConfiguration.java): global CSRF disabled/stateless và fallback permitAll; routes loyaltypromotion cần security chain riêng (bearer, CORS theo origin frontend).
-- [MemberFacade](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/members/facade/MemberFacade.java): chưa có capability/assurance guard.
-- [WorkshopBookingService](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/WorkshopBookingService.java): booking/cọc/hold có transaction, invoice hiện lấy giá gốc; callback/expiry cần source lifecycle serialization khi tích hợp.
-- [BookingStatus](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/domain/BookingStatus.java): chưa có lifecycle hoàn thành thực; [spec 003](../003-workshop-management/003.1-workshop-booking/spec.md) hoãn hậu xử lí.
-- [FE-02 plan](../002-product-management/plan.md) là thiết kế catalogue/availability, chưa có provider thật. Retail hiện package skeleton.
-- Migration directory hiện V1–V3; FE-06 thêm migration mới, không kế thừa DROP/reset cũ của V2. Allocate version tại implementation để không đụng feature khác.
+- Toàn bộ `ppswbs_backend/src` đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24): chưa có security configuration, facade identity, code workshop booking hay migration nào. Routes loyaltypromotion cần security chain riêng (bearer, CORS theo origin frontend); facade identity do FE-01 tạo; lifecycle booking/cọc do FE-03 thiết kế lại ([spec 003](../003-workshop-management/003.1-workshop-booking/spec.md) hoãn hậu xử lí).
+- [FE-02 plan](../002-product-management/plan.md) là thiết kế catalogue/availability, chưa có provider thật. Retail (FE-08) đang ở giai đoạn thiết kế ([008 plan](../008-retail-order-and-fulfillment/plan.md)).
+- Hiện chưa có migration nào; FE-06 thêm migration mới và allocate version tại implementation để không đụng feature khác.
 
 **Rationale**: Các gap là prerequisite triển khai/tích hợp, không phải câu hỏi nghiệp vụ cần người dùng chốt lại. Plan không tự sửa code nguồn/feature 003/002 hoặc nhận permission deploy.
 

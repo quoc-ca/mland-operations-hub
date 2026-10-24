@@ -38,7 +38,7 @@ Giữ module đóng; JPA/Flyway và MySQL 8.4, REST API versioned phục vụ fr
 | --- | --- | --- | --- |
 | I. Module ownership | PASS | PASS DESIGN | productmanagement sở hữu entity/repo/use case; chỉ facade/SPI ra ngoài; không nghiệp vụ trong common. |
 | I. Acyclic dependencies | RISK | PASS DESIGN / INTEGRATION OPEN | FE-08 implements productmanagement SPI; productmanagement implements `PromotionTargetPort` của FE-06 (chỉ dùng `loyaltypromotion::facade`, không có chiều ngược lại); lock contract tại [interfaces](contracts/interfaces.md); adapter chưa có. |
-| I. JPA/migrations | PASS | PASS DESIGN | Khóa JPA, append-only migration, không raw SQL application, không thay V1–V3. |
+| I. JPA/migrations | PASS | PASS DESIGN | Khóa JPA, append-only migration, không raw SQL application, không sửa migration đã áp dụng (hiện chưa có migration nào). |
 | II. Identity/authority | OPEN | FE-02 DECISION CLOSED / IDENTITY DEPENDENCY OPEN | Roles, dùng chung xác thực theo 001 đã chốt. Phương thức MFA/recovery chung còn cần thiết kế tại identity/FE-01; facade/session/quyền cần triển khai. Không suy quyền từ Member cookie/ROLE_MEMBER/OWNER. |
 | II. Sensitive data | PASS | POLICY CONFIRMED / IMPLEMENTATION PENDING | Retention ảnh 24h/30 ngày có reference guard, business audit/command result 5 năm đã chốt; cleanup/audit cần triển khai và kiểm chứng. |
 | III. Contract/web | PASS | PASS DESIGN | OpenAPI 3.0.3, typed errors/DTO, bearer cho mọi REST, frontend React tách riêng; backend không render UI. |
@@ -91,7 +91,7 @@ ppswbs_frontend/        (chưa khởi tạo; vị trí dự kiến)
   src/features/productmanagement/  public/ và management/ screens, REST client, vi/en messages
 ```
 
-**Structure Decision**: Theo constitution I, backend tổ chức `features/<feature>/{controller,dto,dao,entity,service,facade}`. Feature 002 là module Modulith riêng tên `productmanagement` (Java package hợp lệ; slug tài liệu là `product-management`). Shell `catalogue` hiện có ở gốc gói (chỉ có `package-info` và `facade/package-info`) sẽ được nhóm xóa; `productmanagement` là module mới, không kế thừa hay phụ thuộc shell đó. Các module đang khai báo `catalogue::facade` trong allowedDependencies (`readyringsales`, `designreview`) do owner của chúng cập nhật khi shell bị xóa; FE-02 không sửa các module đó. Plan phải kiểm chứng bằng `ApplicationModules.verify()` rằng `productmanagement` được nhận diện là module riêng, không chỉ gói grouping `features`. Không tạo service mới hoặc làm chung module FE-08. Tên bảng `catalogue_*`, route `/api/v1/catalogue-management/...` và tên class `Catalogue*` giữ nguyên trong tài liệu này (không thuộc yêu cầu đổi gói). Member Profile không được triển khai/sửa từ tác vụ này. Những file trên là vị trí dự kiến, không phải file production đã tạo.
+**Structure Decision**: Theo constitution I, backend tổ chức `features/<feature>/{controller,dto,dao,entity,service,facade}`. Feature 002 là module Modulith riêng tên `productmanagement` (Java package hợp lệ; slug tài liệu là `product-management`). Toàn bộ `ppswbs_backend/src`, kể cả shell `catalogue` cũ, đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24); `productmanagement` là module mới tạo từ đầu, không kế thừa code cũ. Plan phải kiểm chứng bằng `ApplicationModules.verify()` rằng `productmanagement` được nhận diện là module riêng, không chỉ gói grouping `features`. Không tạo service mới hoặc làm chung module FE-08. Tên bảng `catalogue_*`, route `/api/v1/catalogue-management/...` và tên class `Catalogue*` giữ nguyên trong tài liệu này (không thuộc yêu cầu đổi gói). Member Profile không được triển khai/sửa từ tác vụ này. Những file trên là vị trí dự kiến, không phải file production đã tạo.
 
 ## Phase 0 — Research and decisions
 
@@ -139,7 +139,7 @@ Xem [data-model](data-model.md), [OpenAPI](contracts/product-management.openapi.
 
 ### Migration, rollout and recovery
 
-- Kiểm tra lại migration directory trước cấp số; không dựa số feature để chọn version. Không chỉnh V1–V3 và không backfill role/provider từ phỏng đoán.
+- Kiểm tra lại migration directory trước cấp số; không dựa số feature để chọn version. Không sửa migration đã áp dụng của feature khác và không backfill role/provider từ phỏng đoán.
 - Apply schema mới trên MySQL trống và bản nâng cấp có member/workshop/price/hold fixture; verify FK, unique name/SKU, pending proposal và rollback audit.
 - Enable route sau khi dependency identity đã hoàn thiện thiết kế MFA chung và triển khai/kiểm chứng auth/session/capability, các dependency cần cho route đã sẵn sàng và spec/plan/tasks review + speckit-analyze. Dùng chung xác thực/Cloudinary/retention đã chốt không hỏi lại. Không mở quyền qua global fallback; default deny khi boundary bắt buộc không có.
 - Có thể disable riêng routes productmanagement để recovery; giữ additive tables/history. Không down-migrate/drop hoặc hard-delete sản phẩm, không vô hiệu transaction đã chấp nhận. Tác vụ không triển khai production rollout.

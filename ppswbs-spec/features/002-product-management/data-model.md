@@ -76,7 +76,7 @@ Indexes dự kiến: product(category_id, published, deleted_at, name, id); prod
 
 ## Migration and preservation
 
-Migration tiếp theo được cấp sau khi re-scan V1–V3 và migration mới của feature khác; chưa ghi một file SQL từ bước plan. Validate schema fresh/upgrade MySQL 8.4, giữ members/workshop invoices/holds đang tồn tại. Existing product import không có trong phạm vi; không tự migrate dữ liệu giả từ README/prototype. Không đổi migration cũ hoặc data reset.
+Migration tiếp theo được cấp sau khi kiểm tra thư mục migration lúc triển khai (hiện trống vì backend đã bị xóa) và migration mới của feature khác; chưa ghi một file SQL từ bước plan. Validate schema fresh/upgrade MySQL 8.4, giữ members/workshop invoices/holds đang tồn tại. Existing product import không có trong phạm vi; không tự migrate dữ liệu giả từ README/prototype. Không đổi migration cũ hoặc data reset.
 
 ## Open prerequisite decisions
 

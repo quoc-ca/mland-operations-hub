@@ -28,7 +28,7 @@ Nguồn chính là FE-02 hiện tại và các quyết định trực tiếp c�
 - Q: Admin có tham gia nghiệp vụ FE-02 không? → A: Không. Admin quản lí tài khoản, vai trò, trạng thái khóa tài khoản, RBAC, tham số vận hành và credential tích hợp đã được duyệt (gồm cấu hình dịch vụ lưu ảnh); không quản lí sản phẩm, danh mục, giá hay quyết định duyệt.
 - Q: FE-02 có dùng chung cơ chế xác thực theo Account Management 001 không? → A: Có. Người dùng đồng ý kế thừa Firebase bearer cho mọi API, kể cả từ giao diện web tách riêng, phiên theo contract FE-01/001, kiểm tra thu hồi/trạng thái qua identity owner; kiểm tra thêm quyền Staff/Manager trước từng thao tác. Giữ hành trình Member và điều hướng đăng nhập thành công về `/`. MFA đặc quyền và recovery thuộc identity/FE-01; chưa chọn Authenticator hoặc phương thức cụ thể từ FE-02.
 
-[Spec 001](../001-account-management/spec.md) là nguồn thiết kế cơ chế xác thực dùng chung. FE-02 theo contract xác thực của 001, không biến Member bootstrap/cookie thành quyền Staff/Manager và không sửa luồng 001. Thiết kế/triển khai MFA chung là dependency FE-01 cần hoàn thiện trước bật quản trị.
+[Spec 001](../001-account-management/spec.md) là nguồn thiết kế cơ chế xác thực dùng chung. FE-02 theo contract xác thực của 001, không biến phiên/luồng khởi tạo Member thành quyền Staff/Manager và không sửa luồng 001. Thiết kế/triển khai MFA chung là dependency FE-01 cần hoàn thiện trước bật quản trị.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -51,7 +51,7 @@ Là Staff hoặc Manager có quyền quản lí sản phẩm, tôi muốn tạo 
 7. **Given** hơn 20 sản phẩm khớp tiêu chí, **When** xem danh sách quản trị và chuyển trang, **Then** mặc định 20 bản ghi/trang, giữ tiêu chí và thứ tự xác định; không hiện sản phẩm đã xóa trong danh sách thông thường.
 8. **Given** Guest/Member, tài khoản không hoạt động hoặc thiếu quyền tương ứng, **When** đọc dữ liệu quản trị hay gửi thao tác thay đổi, **Then** không được cấp dữ liệu nội bộ/quyền thay đổi; yêu cầu bị từ chối an toàn.
 9. **Given** khách đăng ký hoặc đăng nhập social lần đầu, **When** hoàn tất luồng Member, **Then** không tự nhận STAFF/MANAGER/ADMIN; tài khoản nội bộ chỉ có quyền do Admin cấp và hệ thống xác nhận bằng các mã đã chốt, không suy MANAGER từ OWNER.
-10. **Given** Staff/Manager có quyền dùng quản trị, **When** xác thực và truy cập FE-02, **Then** xác thực theo contract của FE-01/001 với kiểm tra thu hồi/trạng thái; từng thao tác vẫn kiểm tra quyền hiện tại. Phiên hết hạn/thu hồi bị từ chối, session hợp lệ không buộc xác minh email lại và cookie Member không tự cấp quyền nội bộ. Khi identity chưa xác nhận đạt yêu cầu xác thực đặc quyền, không được vào quản trị.
+10. **Given** Staff/Manager có quyền dùng quản trị, **When** xác thực và truy cập FE-02, **Then** xác thực theo contract của FE-01/001 với kiểm tra thu hồi/trạng thái; từng thao tác vẫn kiểm tra quyền hiện tại. Phiên hết hạn/thu hồi bị từ chối, session hợp lệ không buộc xác minh email lại và phiên Member không tự cấp quyền nội bộ. Khi identity chưa xác nhận đạt yêu cầu xác thực đặc quyền, không được vào quản trị.
 
 ### User Story 2 - Gửi và phê duyệt sản phẩm mới (Priority: P1)
 
@@ -279,6 +279,7 @@ Là Guest hoặc Member, tôi muốn tìm, lọc, sắp xếp và xem đúng gi�
 ### Phạm vi và quyết định nguồn
 
 - Sở hữu nhẫn bán sẵn, quản trị catalogue và tra cứu công khai. Không triển khai kho/nhập-xuất/kiểm kê/điều chuyển, tồn theo chi nhánh, booking, thiết kế cá nhân hóa/custom, đơn hàng, checkout, thanh toán, giao nhận, voucher hoặc điểm.
+- Cân nặng/kích thước đóng gói dùng để báo giá giao hàng thuộc FE-08; FE-02 không lưu dữ liệu này.
 - Mua ngay/Thêm giỏ chỉ chuyển sang FE-08; FE-08 sở hữu giỏ, quyền Member, checkout, giữ/chốt/giải phóng lượng và xử lí giao dịch cũ sau xóa. Không đặt thời hạn giữ hoặc quy tắc thanh toán mới trong FE-02.
 - Bảng đường kính/chu vi tham chiếu lấy nguyên từ ảnh người dùng cung cấp tại [FE-02 research](../../research.md#fe-02); chọn bằng mã size nguyên, không tính lại số đo để tạo size.
 - Sửa trực tiếp sau công khai, Manager tự duyệt, không thêm size/khắc và xóa mềm không khôi phục là các quyết định đã chốt trong phiên; tài liệu Draft không làm mất các quyết định đó, cũng không phê duyệt code/plan chưa có.

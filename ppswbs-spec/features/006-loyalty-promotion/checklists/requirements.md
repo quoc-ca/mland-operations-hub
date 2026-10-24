@@ -13,7 +13,7 @@
 ## Content Quality
 
 - [x] Không lựa chọn ngôn ngữ, framework, giao thức, schema hoặc cách triển khai.
-- [x] Tập trung giá trị khách quay lại hai dịch vụ và nhu cầu quản lí của Manager/Admin.
+- [x] Tập trung giá trị khách quay lại hai dịch vụ và nhu cầu quản lí của Manager.
 - [x] Viết cho stakeholder nghiệp vụ, giải thích rõ điểm, phần giữ và quyền lợi đã ghi nhận.
 - [x] Hoàn thành các phần bắt buộc theo thứ tự spec-template đã resolve.
 
@@ -41,7 +41,7 @@ Ký hiệu `USn.m` là kịch bản m của User Story n. Khoảng số bao gồ
 
 | Requirements | Acceptance scenarios | Nội dung đã đối chiếu |
 | --- | --- | --- |
-| FR-001 | US1.6; US3.3, US3.6; US4.10; US6.4; US8.3 | Quyền Manager/Admin, dữ liệu Member và xem công khai. |
+| FR-001 | US1.6; US3.3, US3.6; US4.10; US6.4; US8.3 | Quyền Manager (Admin bị từ chối), dữ liệu Member và xem công khai. |
 | FR-002 | US1.1–US1.3, US1.7; US5.8; US6.3, US6.5 | Hai phạm vi, ngày lễ, không hạng và giới hạn website. |
 | FR-003–FR-005 | US1.1–US1.3 | Đủ điều kiện tạo ba loại chương trình. |
 | FR-006 | US1.4; US2.2; US3.4 | Mã chuẩn hóa, duy nhất, không tái dùng/đổi mã hoặc phạm vi. |

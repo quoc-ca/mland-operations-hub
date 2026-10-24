@@ -12,12 +12,7 @@
 | Source | Observed fact |
 | --- | --- |
 | [Backend pom](../../../ppswbs_backend/pom.xml) | Java 21, Spring Boot 3.4.1, Modulith 1.3.1, Firebase Admin 9.11.0; JPA, Flyway, Thymeleaf (còn trong pom, không dùng cho UI theo constitution 3.0.0), Validation, Spring Security, JUnit/MockMvc có sẵn. |
-| [Catalogue module (shell hiện có, sẽ bị nhóm xóa)](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/package-info.java) | Module shell, chưa có entity/repository/service, allowedDependencies rỗng. |
-| [Ready-ring sales module](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/package-info.java) | Module shell, hiện khai báo phụ thuộc `catalogue::facade` (shell sẽ bị nhóm xóa; FE-08 cần chuyển sang `productmanagement::facade`); chưa có giữ hàng bán lẻ. |
-| [Security](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/configuration/SecurityConfiguration.java) | Fallback permitAll, CSRF tắt, stateless bearer; không đủ bảo vệ quản trị sản phẩm. |
-| [Token verifier](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/configuration/DefaultFirebaseTokenVerifier.java), [Member facade](../../../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/members/facade/MemberFacade.java) | Identity hiện gán ROLE_MEMBER; chưa có hợp đồng quyền Staff/Manager hay phiên quản trị. |
-| [Migration directory](../../../ppswbs_backend/src/main/resources/db/migration/) | Chỉ có V1–V3 tại lúc khảo sát; V4 trong tài liệu feature khác chưa phải migration tồn tại. |
-| [Test configuration](../../../ppswbs_backend/src/test/resources/application-test.properties) | H2 MySQL mode; không chứng minh hành vi khóa, collation hoặc migration MySQL. |
+| Backend source | Toàn bộ `ppswbs_backend/src` đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24). Hiện không có module, facade, security configuration, Firebase token verifier, migration hay test nào để kế thừa; backend chỉ còn pom, Maven wrapper và AGENT. Module, cấu hình bảo mật, migration và cấu hình test của FE-02 phải tạo mới; facade identity do FE-01 tạo, nguồn giữ hàng do FE-08 tạo. |
 | [001 spec](../001-account-management/spec.md), [001 plan](../001-account-management/plan.md), [001 blockers](../001-account-management/blocker-report.md) | Member API dùng bearer; web dùng Firebase session cookie, revocation/trạng thái và CSRF. Scope chỉ Member, không cấp quyền nội bộ/MFA; còn là thiết kế, không phải khả năng đã có. MySQL 8.4 được chọn cho kiểm chứng. |
 | [DB working document](../../DB.md) | Working document chưa đồng bộ quyết định vai trò mới. Ngày 2026-10-24 người dùng chốt MEMBER/STAFF/MANAGER/ADMIN, Manager riêng với OWNER; không tự sửa DB working document từ FE-02. Quy tắc cấm tự review chung không ghi đè Manager tự duyệt ở FE-02. |
 
@@ -96,7 +91,7 @@ Khảo sát không tìm thấy adapter lưu ảnh catalogue, cấu hình provide
 
 ### D-09 — Additive migration and compatibility
 
-- **Decision**: Tạo migration catalogue mới sau khi kiểm tra lại high-water mark; không dành sẵn tên V4/V5 trong plan, không chỉnh V1–V3, không seed role/provider hoặc reset dữ liệu. Kiểm chứng fresh MySQL và upgrade có members/workshop records.
+- **Decision**: Tạo migration mới cho các bảng `catalogue_*` sau khi kiểm tra high-water mark lúc triển khai (hiện chưa có migration nào vì `ppswbs_backend/src` đã bị xóa); không dành sẵn số version trong plan, không sửa migration đã áp dụng của feature khác, không seed role/provider hoặc reset dữ liệu. Kiểm chứng fresh MySQL và upgrade trên schema có dữ liệu của các feature khác đã có lúc triển khai.
 - **Rationale**: Feature 001 có thể tạo migration trước khi 002 được triển khai. Soft-delete giữ toàn bộ identity/FK; rollback triển khai ưu tiên disable routes và migration sửa tiếp, không drop dữ liệu mới.
 
 ## Phase 0 outcome and remaining gates

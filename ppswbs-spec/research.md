@@ -1158,7 +1158,7 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 
 ### Phạm vi và quy tắc chung
 
-1. Manager tạo, sửa, tạm dừng chương trình và theo dõi lượt sử dụng, số tiền đã giảm. Admin cấu hình chính sách điểm; Member xem, lưu và sử dụng quyền lợi của mình.
+1. Manager tạo, sửa, tạm dừng chương trình, theo dõi lượt sử dụng, số tiền đã giảm và cấu hình chính sách điểm (tỷ lệ tích điểm, giá trị quy đổi, số điểm tối thiểu mỗi lần dùng, trần giảm bằng điểm). Admin không cấu hình chính sách điểm hay chương trình ưu đãi; Admin chỉ quản lí tài khoản và cấp quyền. Member xem, lưu và sử dụng quyền lợi của mình.
 2. Voucher có hai phạm vi riêng: **sản phẩm** và **workshop**. Voucher sản phẩm không dùng cho workshop và ngược lại. Voucher workshop dành cho Member đặt trực tiếp trên website.
 3. Voucher ngày lễ là chương trình có thời gian áp dụng riêng và vẫn thuộc phạm vi sản phẩm hoặc workshop; không phải một lớp voucher được cộng thêm vào giao dịch.
 4. Với mua sản phẩm, mỗi đơn áp dụng **một chương trình giảm tự động hoặc một voucher**, sau đó có thể dùng thêm điểm nếu chính sách cho phép. Mỗi booking dùng tối đa một voucher; trần giảm áp dụng cho cả booking, không nhân theo số người tham gia.
@@ -1273,7 +1273,7 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 2. Điểm chỉ dùng được sau khi đã cộng thành công; không dùng điểm dự kiến kiếm từ giao dịch để giảm chính giao dịch đó. **Điểm chưa hết hạn.**
 3. Bộ thông số khởi đầu đã chốt, dùng chung cho sản phẩm và workshop: mỗi 10.000đ thực trả đủ điều kiện được 1 điểm; mỗi điểm quy đổi thành 100đ giảm giá; dùng tối thiểu 10 điểm/lần; giảm bằng điểm tối đa 10% giá trị sau giảm tự động/voucher, trước khi trừ điểm. Với sản phẩm, cơ sở tính không gồm phí giao hàng; với workshop, cơ sở tính là phí gói của booking, không phải riêng tiền cọc. Admin quản lí các thông số này trong cấu hình; việc có cho kết hợp điểm với ưu đãi hay không lấy từ chương trình tương ứng.
 4. Chỉ cộng và dùng điểm nguyên. Điểm được cộng bằng phần nguyên làm tròn xuống của tiền thực trả đủ điều kiện chia 10.000đ, tính riêng từng giao dịch; không cộng dồn phần tiền lẻ chưa đủ đổi thành điểm sang giao dịch sau. Số điểm tối đa được dùng là số nhỏ hơn giữa điểm khả dụng và phần nguyên làm tròn xuống của 10% giá trị sau ưu đãi chia 100đ. Khi được phép kết hợp, Member có thể chọn số điểm nguyên từ 10 đến mức tối đa; nếu mức tối đa dưới 10 thì chưa được dùng điểm. Trần này chỉ giới hạn lượng điểm được dùng, không phải tỷ lệ tích điểm.
-5. Backend kiểm tra quyền Admin và tính hợp lệ của cấu hình trước khi lưu. Thay đổi chỉ áp dụng cho giao dịch được chấp nhận sau đó; đơn/booking đã chấp nhận giữ tỷ lệ tích điểm, giá trị quy đổi và quyền lợi đã ghi nhận. Nếu dữ liệu sai hoặc lưu lỗi, yêu cầu sửa/thử lại; không báo đã cập nhật chính sách khi chưa có xác nhận.
+5. Backend kiểm tra quyền Manager và tính hợp lệ của cấu hình trước khi lưu. Thay đổi chỉ áp dụng cho giao dịch được chấp nhận sau đó; đơn/booking đã chấp nhận giữ tỷ lệ tích điểm, giá trị quy đổi và quyền lợi đã ghi nhận. Nếu dữ liệu sai hoặc lưu lỗi, yêu cầu sửa/thử lại; không báo đã cập nhật chính sách khi chưa có xác nhận.
 6. Luồng dùng điểm tại checkout được mô tả ở phần mua sản phẩm và đặt workshop; việc giữ/chốt điểm được mô tả ở phần Chốt và giải phóng quyền lợi bên dưới.
 
 ### Cộng điểm từ giao dịch — Luồng thành công
