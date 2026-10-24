@@ -364,7 +364,7 @@ bản đồ nghiệp vụ của feature, không phải tuyên bố rằng tất 
 triển khai.
 
 Phần **đã có phạm vi V1** được xác định trong
-`features/002-workshop-booking`: khách xem package, tạo booking chờ thanh toán,
+`features/003-workshop-management/003.1-workshop-booking`: khách xem package, tạo booking chờ thanh toán,
 thanh toán cọc, nhận xác nhận/QR/Magic Link và tra cứu booking. Cấu hình lịch,
 check-in, completion/no-show, huỷ sau xác nhận, đổi lịch, refund và đồng bộ
 kênh ngoài chưa thuộc implementation scope của feature 002. Các phần này được

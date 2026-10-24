@@ -1,8 +1,8 @@
 # Feature Specification: Workshop OTA Connectivity
 
-**Feature**: `005-workshop-ota-connectivity`  
+**Feature**: `003.4-workshop-ota-connectivity`  
 **Status**: Future draft — not implemented  
-**Source**: FE-03 in `../../research.md`
+**Source**: FE-03 in `../../../research.md`
 
 ## Scope
 

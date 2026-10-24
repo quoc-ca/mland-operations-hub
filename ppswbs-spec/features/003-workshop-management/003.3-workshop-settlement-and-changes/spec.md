@@ -1,8 +1,8 @@
 # Feature Specification: Workshop Settlement and Changes
 
-**Feature**: `004-workshop-settlement-and-changes`  
+**Feature**: `003.3-workshop-settlement-and-changes`  
 **Status**: Draft — not implemented  
-**Source**: FE-03 in `../../research.md`
+**Source**: FE-03 in `../../../research.md`
 
 ## Scope
 

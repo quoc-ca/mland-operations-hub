@@ -1,6 +1,6 @@
 # Implementation Plan: Customer Workshop Booking Lifecycle
 
-**Branch**: `002-workshop-booking` | **Date**: 2026-10-07 | **Spec**: [spec.md](spec.md)
+**Feature**: `003.1-workshop-booking` | **Date**: 2026-10-07 | **Spec**: [spec.md](spec.md)
 
 ## Summary
 
@@ -77,7 +77,7 @@ synchronization and final payment are not implemented here.
 ## Project Structure
 
 ```text
-ppswbs-spec/features/002-workshop-booking/
+ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/
 ├── spec.md
 ├── plan.md
 ├── research.md

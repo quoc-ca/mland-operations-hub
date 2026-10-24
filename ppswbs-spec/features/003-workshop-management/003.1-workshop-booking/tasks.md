@@ -1,6 +1,6 @@
 # Tasks: Customer Workshop Booking Lifecycle
 
-**Input**: Design documents from `ppswbs-spec/features/002-workshop-booking/`
+**Input**: Design documents from `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/`
 
 **Prerequisites**: `spec.md`, `plan.md`, `research.md`, `data-model.md`,
 `contracts/workshop-booking.openapi.yaml`, and `quickstart.md`.
@@ -20,8 +20,8 @@ payment, or External Registration System synchronization in this feature.
 
 - [x] T001 [P] Create the feature package directories under `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/{web,application,domain,infrastructure,facade}` and matching test directories.
 - [x] T002 [P] Add the payment adapter boundary under `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/payments/{facade,infrastructure}` without coupling booking code to VNPay SDK details.
-- [x] T003 [P] Copy and register the Workshop Booking OpenAPI contract at `ppswbs-spec/features/002-workshop-booking/contracts/workshop-booking.openapi.yaml` as the source contract for package, booking, payment and lookup endpoints.
-- [x] T004 Remove the legacy email-confirmation classes, endpoints, token states and pre-payment flow from `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/`; replace their customer-facing behavior with post-payment notification/Magic Link tasks and record the migration decision in `ppswbs-spec/features/002-workshop-booking/plan.md`.
+- [x] T003 [P] Copy and register the Workshop Booking OpenAPI contract at `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/contracts/workshop-booking.openapi.yaml` as the source contract for package, booking, payment and lookup endpoints.
+- [x] T004 Remove the legacy email-confirmation classes, endpoints, token states and pre-payment flow from `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/`; replace their customer-facing behavior with post-payment notification/Magic Link tasks and record the migration decision in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/plan.md`.
 - [x] T004a Verify the active database target is development/test, record the target/schema and backup decision, and obtain explicit confirmation before any reset; never run a reset against production or real customer data.
 
 ## Phase 2: Foundational
@@ -118,7 +118,7 @@ ticket without exposing another customer's data.
 **Independent Test**: Valid lookup returns the correct summary; malformed,
 unknown or unauthorized lookup returns a safe result.
 
-- [x] T034 [US4] Finalize and document Guest lookup proof as `booking_code + (normalized contact_phone OR normalized contact_email)`, Member ownership lookup, and protected post-payment Magic Link rules in `ppswbs-spec/features/002-workshop-booking/plan.md` and `contracts/workshop-booking.openapi.yaml` before endpoint implementation.
+- [x] T034 [US4] Finalize and document Guest lookup proof as `booking_code + (normalized contact_phone OR normalized contact_email)`, Member ownership lookup, and protected post-payment Magic Link rules in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/plan.md` and `contracts/workshop-booking.openapi.yaml` before endpoint implementation.
 - [x] T035 [US4] Implement booking lookup DTO, ownership/lookup authorization and safe projection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/` and `facade/`.
 - [x] T036 [US4] Implement the lookup endpoint and Thymeleaf page in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/web/` and `ppswbs_backend/src/main/resources/templates/workshop-bookings/`.
 - [x] T037 [P] [US4] Add lookup authorization and information-disclosure tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/BookingLookupIT.java` for valid Guest/Member access, wrong proof, unknown code and safe errors.
@@ -137,7 +137,7 @@ unknown or unauthorized lookup returns a safe result.
 - [x] T039 [P] Add security/error-path checks for correlation IDs, safe errors, authorization, log redaction and absence of raw OTP/provider payloads in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopBookingSecurityIT.java`.
 - [x] T040 Run MySQL migration/upgrade verification and record exact command/result in the feature evidence; verify empty-database creation, approved development/test reset/recreate behavior and an explicit production/real-customer-data guard.
 - [x] T041 Run `ApplicationModules.verify()` and all Workshop Booking tests; record any verification exception and manual alternative in the feature evidence.
-- [x] T042 Run every scenario in `ppswbs-spec/features/002-workshop-booking/quickstart.md` and reconcile any failure before claiming completion.
+- [x] T042 Run every scenario in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/quickstart.md` and reconcile any failure before claiming completion.
 - [x] T043 Run `speckit-analyze` against `spec.md`, `plan.md` and `tasks.md`; resolve critical coverage, ordering or constitution findings before `speckit-implement`.
 
 ## Dependencies and execution order

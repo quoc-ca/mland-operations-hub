@@ -1,6 +1,6 @@
 # Feature Specification: Customer Workshop Booking Core
 
-**Feature Branch**: `002-workshop-booking`
+**Feature**: `003.1-workshop-booking`
 
 **Created**: 2026-10-06
 
