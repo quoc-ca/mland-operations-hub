@@ -18,7 +18,7 @@ Tasks are ordered by dependency. Code tasks must wait for the feature spec, plan
 - [ ] T010 Implement Clarification Required and new design-version flow; prevent stale decision reuse.
 - [ ] T011 Implement Manager advisory price suggestion, validation, manual fallback and separate catalogue application/publication handoff.
 - [ ] T011a Enforce price-suggestion visibility: authorized Manager access, limited Admin technical/audit access and no default Staff/customer access.
-- [ ] T012 Add Thymeleaf/htmx screens and no-JavaScript fallback for core actions and safe error states.
+- [ ] T012 Implement React + Vite screens for customer and operational flows, including consent, image upload, analysis/review states, Manager price suggestion, safe error states and responsive/accessibility behavior defined in `design.md`.
 - [ ] T013 Add cleanup/background-job handling for text retention and temporary image deletion.
 - [ ] T014 Add unit, controller, integration, provider-contract, migration, authorization, concurrency/idempotency and Modulith tests.
 - [ ] T014a Add endpoint authorization tests traced to the Permission Matrix.
