@@ -1,7 +1,7 @@
 # Specification Quality Checklist: Product Management
 
 **Date created**: 2026-10-23
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-24 (bổ sung FR-039–FR-045, SC-008, US9)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -21,16 +21,16 @@
 
 - [x] Không còn marker yêu cầu làm rõ hoặc placeholder của template.
 - [x] FR có thể kiểm chứng; A-001/A-002, Cloudinary và hướng A đã được người dùng chốt ngày 2026-10-24; phương thức MFA chung còn là dependency FE-01, không tự coi đã được chọn.
-- [x] SC-001–SC-007 có số lượng/tỷ lệ và tập nghiệm thu xác định.
+- [x] SC-001–SC-008 có số lượng/tỷ lệ và tập nghiệm thu xác định.
 - [x] Tiêu chí thành công không phụ thuộc công nghệ hoặc kết quả kiểm thử chưa có.
-- [x] Có kịch bản chấp nhận cho tất cả 38 FR; xem ánh xạ dưới đây.
+- [x] Có kịch bản chấp nhận cho tất cả 45 FR; xem ánh xạ dưới đây.
 - [x] Có biên dữ liệu, ảnh, SKU, hồ sơ cũ, thử lại, giữ chỗ và thao tác đồng thời.
 - [x] Ranh giới FE-02/FE-04/FE-08, không khắc, không thêm/đổi size và xóa mềm không khôi phục được nêu rõ.
 - [x] Có nguồn, giả định, phụ thuộc và giới hạn trước triển khai; không tự quyết mapping vai trò, provider, retention hoặc payment.
 
 ## Feature Readiness
 
-- [x] Mỗi FR có ít nhất một kịch bản nghiệm thu rõ trong US1–US8.
+- [x] Mỗi FR có ít nhất một kịch bản nghiệm thu rõ trong US1–US9.
 - [x] User story có mức ưu tiên, giá trị, cách kiểm tra độc lập và đường đi chính/lỗi.
 - [x] SC bao phủ luồng chính, quyền, dữ liệu, trạng thái, giá, khả dụng và bảo toàn giao dịch.
 - [x] Không biến spec thành plan/code hoặc tuyên bố đã sẵn sàng triển khai.
@@ -56,11 +56,18 @@ Ký hiệu `USn.m` là kịch bản số m trong User Story n; các khoảng FR 
 | FR-029, FR-030 | US7.1–US7.5 | Nhập liệu danh mục, ảnh hưởng hoạt động và giữ lịch sử. |
 | FR-031–FR-036 | US8.1–US8.9, US8.11 | Tập kết quả công khai, lọc cùng size, giá/sắp xếp và mất ảnh. |
 | FR-037 | US8.10; US6.6 | Chuyển FE-08, không tạo giao dịch từ việc tra cứu. |
-| FR-038 | US4.8 | Hành trình cốt lõi hoàn thành từ giao diện web tách riêng qua API, có đủ trạng thái loading/empty/validation/success/failure/recovery. |
+| FR-038 | US4.8; US9.1–US9.5 | Hành trình cốt lõi hoàn thành từ giao diện web tách riêng qua API, có đủ trạng thái loading/empty/validation/success/failure/recovery. |
+| FR-039 | US9.1, US9.3, US9.7 | Import là cách tạo khác của tạo tay; quyền Staff/Manager, từ chối Guest/Member/Admin. |
+| FR-040 | US9.1, US9.4 | Mẫu và cột theo form tạo, nhóm theo Mã nhóm, không ảnh/SKU/trạng thái. |
+| FR-041 | US9.2, US9.4 | Xem trước không tạo dữ liệu hay cấp mã/SKU; báo cáo mọi lỗi theo dòng/cột. |
+| FR-042 | US9.3, US9.4, US9.9 | Tất cả hoặc không; kiểm tra lại dữ liệu mới nhất khi xác nhận. |
+| FR-043 | US9.5, US9.10 | Giới hạn file, không thực thi công thức, vô hiệu hóa ô nguy hiểm, hết hạn 60 phút. |
+| FR-044 | US9.6 | Xác nhận idempotent, kiểm tra kết quả sau mất phản hồi. |
+| FR-045 | US9.3, US9.8 | Audit từng lần import, không ghi toàn bộ nội dung file. |
 
 ## Notes
 
-- Vòng review 1 đã bổ sung kịch bản riêng về quyền quản trị, phân trang, biên nhập danh mục, độ dài từ khóa và hành trình từ giao diện web tách riêng qua API để làm rõ ánh xạ nghiệm thu. Vòng review 2 kiểm tra lại toàn bộ 38 FR và các quyết định hội thoại.
+- Vòng review 1 đã bổ sung kịch bản riêng về quyền quản trị, phân trang, biên nhập danh mục, độ dài từ khóa và hành trình từ giao diện web tách riêng qua API để làm rõ ánh xạ nghiệm thu. Vòng review 2 kiểm tra lại toàn bộ 38 FR và các quyết định hội thoại. Vòng review 3 (2026-10-24) bổ sung US9 import Excel: rà FR-039–FR-045, SC-008 và ánh xạ nghiệm thu mới; các mặc định import đã được người dùng chốt.
 - A-001/A-002, role codes, hướng A, Cloudinary, retention và các mặc định đã được người dùng đồng ý ngày 2026-10-24 và đồng bộ vào FE-02 research. Không hỏi lại các quyết định này.
 - MFA/recovery cụ thể vẫn là dependency thiết kế identity/FE-01; không sửa luồng Member hoặc tự chọn phương thức từ FE-02. Adapter FE-08/identity/Cloudinary là dependency triển khai; miền số/cách đếm ký tự là thiết kế kỹ thuật. Không dùng checklist chất lượng để nhận dependency đã chạy hoặc code đã được phê duyệt.
 - Không có hooks.before_specify hoặc hooks.after_specify để thực thi vì dự án không có `.specify/extensions.yml`; không tạo/switch nhánh và không commit/push.

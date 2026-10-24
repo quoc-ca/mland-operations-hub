@@ -31,6 +31,6 @@ Người dùng đã đồng ý hướng A, gồm dùng chung cơ chế xác th�
 
 Đã khảo sát nguồn, soạn plan, research, data model, provider-neutral API/web/facade contracts và validation guide. Các quyết định người dùng đã chốt được giữ nguyên, gồm Manager tự duyệt; không áp cấm tự review từ DB working document sang FE-02.
 
-Đã tạo [tasks.md](tasks.md) ngày 2026-10-24 theo yêu cầu speckit-tasks: 90 task chưa thực hiện (87 ban đầu, thêm T088–T090 cho frontend sau analyze), chia theo 8 user story, có dependency FE-01/FE-08/Cloudinary, ánh xạ đủ 38 FR/27 operationIds/11 bảng. Static check format/links/traceability đạt; chưa có runtime evidence hoặc kết quả speckit-analyze.
+Đã tạo [tasks.md](tasks.md) ngày 2026-10-24 theo yêu cầu speckit-tasks: 90 task chưa thực hiện ở thời điểm đó (hiện 101 task sau thêm T091 và T092–T101 cho US9), chia theo 9 user story, có dependency FE-01/FE-08/Cloudinary, ánh xạ đủ 38 FR/27 operationIds/11 bảng (trước US9; sau bổ sung import Excel ngày 2026-10-24: 45 FR, 32 operationIds, 12 bảng, thêm T092–T101 — xem tasks.md). Static check format/links/traceability đạt; chưa có runtime evidence hoặc kết quả speckit-analyze.
 
 Bước kế tiếp là review tasks và speckit-analyze khi được giao. Task generation không đóng dependency thiết kế MFA/capability/session hoặc adapter FE-08/Cloudinary. Không hỏi lại hướng A/provider; chưa bắt đầu code từ việc được giao hoàn thiện tài liệu. Không tạo task giả lập dependency để nhận integration pass và không tự hoàn tác research/spec hiện có.

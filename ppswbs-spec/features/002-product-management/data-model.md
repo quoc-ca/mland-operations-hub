@@ -1,11 +1,11 @@
 # Data Model: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-24 (bổ sung bảng import Excel — US9)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
-**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; thiết kế dữ liệu vật lí là baseline, chưa có migration được tạo/chạy.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; thiết kế dữ liệu vật lí là baseline, chưa có migration được tạo/chạy.   Phần bổ sung import Excel (US9) được duyệt bởi Đặng Thị Khương ngày 2026-10-24.
 **Sources**: [spec](spec.md), [research decisions](research.md), [interfaces](contracts/interfaces.md).
 
 ## Ownership and representation
@@ -29,6 +29,7 @@ Text lưu utf8mb4, đo Unicode code point sau Unicode trim đầu/cuối. Tên d
 | catalogue_media_references | id, media_object_id FK, owner_module, owner_record_ref, linked_at, released_at nullable | Unique(media_object_id, owner_module, owner_record_ref). Product/review ghi cùng transaction; FE-08 retain qua productmanagement facade trước commit snapshot. Không release history chỉ vì product deleted. Reference chưa xác minh thì cleanup từ chối; không đọc bảng module khác hoặc giả count=0. |
 | catalogue_command_receipts | id, actor_id, action, command_id UUID, request_digest, resource_type/id, result_status, result_version nullable, safe_result JSON, committed_at | Unique(actor_id, action, command_id). Same key/digest xác định kết quả cũ, khác digest 409. Giữ kết quả tối thiểu 5 năm từ commit, không full request/token. Kiểm tra quyền hiện tại trước replay/query, không dùng receipt cấp quyền. |
 | catalogue_audit_events | id, actor_id nullable, action, resource_type/id, version/revision nullable, changed_fields/safe_changes JSON, outcome, correlation_id, occurred_at | Mutation + success audit cùng transaction; lỗi audit rollback mutation. Business audit giữ 5 năm từ sự kiện theo Report 3. Rejected business attempt ghi độc lập sau rollback, không token/secret/full upload/PII thừa. Security-authentication log thuộc identity owner. |
+| catalogue_import_batches | id UUID, actor_id, file_name VARCHAR(255), file_sha256 CHAR(64), state, row_count, product_count, variant_count, error_count, errors JSON nullable (mọi lỗi, tối đa 500 dòng × 7 cột + lỗi nhóm = 4.000 phần tử, không cắt bớt), parsed_payload JSON nullable, created_command_id UUID, confirm_command_id UUID nullable, created_product_ids JSON nullable, expires_at, imported_at nullable, version, created_at/updated_at | State VALIDATED / REJECTED / IMPORTED / EXPIRED. Chỉ VALIDATED mới có parsed_payload (các dòng đã chuẩn hóa: groupKey, name, description, categoryId, size, proposedPrice, quantity); payload bị xóa (set null) khi IMPORTED/EXPIRED và không lưu file `.xlsx` gốc. `errors` (chứa giá trị ô gốc) chỉ tồn tại đến expires_at: job dọn đặt `errors` và `parsed_payload` về null cho mọi batch quá hạn; error_count và các số đếm vẫn giữ. Báo cáo lỗi của batch quá hạn không tải được (409 IMPORT_BATCH_EXPIRED). row_count ≤ 500, mỗi nhóm 1–25 size. expires_at = created_at + 60 phút (mặc định kỹ thuật, không phải quyết định nghiệp vụ). Metadata batch (không payload, không errors) giữ tối thiểu 5 năm cùng receipt/audit. Unique(actor_id, created_command_id) và unique(confirm_command_id). Không FK sang product (created_product_ids là danh sách id mô tả kết quả); không thay thế receipt. |
 
 FK vòng variant.pending_proposal_id/applied_proposal_id được thêm sau khi tạo bảng liên quan; validate proposal thuộc chính variant bằng invariant trong transaction. Nếu cần composite FK để tăng bảo vệ thì migration phải có supporting unique key tương ứng. Không export JPA relationships sang module khác; mọi FK xóa dùng restrict, không cascade hard-delete lịch sử.
 
@@ -53,6 +54,9 @@ Không tạo bảng hold, cart, retail order, user role hoặc media-provider cr
 | Product | UNPUBLISHED → PUBLISHED | Chưa deleted, initial review valid nếu chưa từng published; mọi size có approved applied price, category/media/content valid. 0 quantity không chặn. |
 | Product | PUBLISHED → UNPUBLISHED | Chặn new public reads/holds; giữ first_published_at và các hold/đơn cũ. |
 | Product | Any not-deleted → DELETED | User xác nhận; set deleted_at/by, effective publication=false; block new commands; không xóa identity/FK/image history. Không restore. |
+| Import batch | (kiểm tra file) → VALIDATED / REJECTED | VALIDATED khi mọi dòng hợp lệ; REJECTED khi có lỗi dòng (kèm báo cáo lỗi). Không tạo product/variant, không cấp product id/SKU. Lỗi mức file (sai định dạng, quá dung lượng/dòng) bị từ chối trước khi tạo batch. |
+| Import batch | VALIDATED → IMPORTED | Xác nhận với expectedVersion + command UUID; kiểm tra lại toàn bộ payload với dữ liệu mới nhất (category còn active), tạo mọi product/variant/review draft/proposal draft + audit + receipt trong một transaction. Lỗi tái kiểm tra → batch REJECTED (409 IMPORT_PREVIEW_STALE), không tạo gì. |
+| Import batch | VALIDATED → EXPIRED | Quá expires_at hoặc được dọn; xóa parsed_payload; xác nhận trả 409 IMPORT_BATCH_EXPIRED, phải tải file lại. |
 | Variant | ENABLED ↔ DISABLED | Check version/quyền; không sửa size/SKU/quantity từ hành động này. Mở bán lại không tự publish. |
 | Category | ACTIVE ↔ INACTIVE | Show impact, version/quyền; tác động public eligibility, không rewrite product publication flags/history. |
 
@@ -68,15 +72,23 @@ Không có mutation thêm/đổi/xóa size; size không còn bán dùng DISABLED
 6. Khoảng request lost-response: receipt commit cùng aggregate. Concurrent unique command receipt loser đọc kết quả đã commit sau rollback transaction của mình; không catch unique violation rồi tiếp tục cùng failed transaction. Command cũ không có receipt phải validate state/version lại.
 7. State command đã ở đúng trạng thái có thể trả no-change theo spec sau auth và kiểm tra resource; nếu cần chuyển trạng thái thì expectedVersion bắt buộc khớp. Replay receipt không bỏ qua auth/deletion visibility.
 
+## Import từ Excel (FR-039–FR-045)
+
+- Import chỉ là đường tạo khác của create: dùng chung `CatalogueValues` và phương thức lõi `createDraft` của `CreateProductService` (không tự mở receipt/transaction; cùng giới hạn tên/mô tả/size/giá/số lượng, cùng cấp product id + SKU, cùng khởi tạo review DRAFT, proposal DRAFT mỗi size, `remaining_unsold`, `sale_enabled=true`, `published=false`, `applied_price` null, không ảnh). Không có đường ghi tắt vào bảng product/variant.
+- Preview không insert product/variant nên không tiêu thụ id/SKU. Khi xác nhận, id và SKU do cùng cơ chế sinh khi tạo tay; transaction thất bại rollback toàn bộ (id auto-increment có thể bị bỏ qua, SKU không bị tái cấp vì gắn product id).
+- Lock order khi xác nhận: category IDs tăng dần (mọi category trong payload, kiểm tra còn active) → product mới (chưa có lock cạnh tranh) → variant mới. Không giữ guard FE-08 (variant mới chưa thể có hold).
+- parsed_payload là dữ liệu nghiệp vụ tối thiểu (không chứa công thức, hyperlink, nội dung ô thô). Giá trị bắt đầu bằng `=`, `+`, `-`, `@` chỉ bị vô hiệu hóa ở báo cáo lỗi xuất file; trong payload/DB lưu nguyên giá trị đã trim.
+- Dọn payload: job nền xóa parsed_payload và errors của batch quá hạn, chuyển VALIDATED → EXPIRED (REJECTED giữ trạng thái, errors null); không xóa metadata batch/audit/receipt (5 năm).
+
 ## Public reads and indexes
 
 Public predicates gồm published, not-deleted, category.active, usable image và giá áp dụng của mọi size. Buyability thêm sale_enabled và remaining_unsold - valid_held > 0 từ nguồn FE-08. Cùng variant phải thỏa price range và buyability. Không join proposal/review history vào public DTO.
 
-Indexes dự kiến: product(category_id, published, deleted_at, name, id); product(created_at, id); variant(product_id, ring_size); unique sku; proposal(variant_id, state, effective); media usage(product_id, display_position); receipt unique actor/action/command. Query IDs/sort-key theo filter trước, batch fetch payload sau; không paginate trên fetch-join ảnh/variants. Batch availability phải có nguồn thật; nếu nguồn không khả dụng trả lỗi riêng, không trả catalogue rỗng hoặc giả remaining=available.
+Indexes dự kiến: product(category_id, published, deleted_at, name, id); product(created_at, id); variant(product_id, ring_size); unique sku; proposal(variant_id, state, effective); media usage(product_id, display_position); receipt unique actor/action/command; import_batch(actor_id, created_at), import_batch(state, expires_at) cho job dọn payload. Query IDs/sort-key theo filter trước, batch fetch payload sau; không paginate trên fetch-join ảnh/variants. Batch availability phải có nguồn thật; nếu nguồn không khả dụng trả lỗi riêng, không trả catalogue rỗng hoặc giả remaining=available.
 
 ## Migration and preservation
 
-Migration tiếp theo được cấp sau khi kiểm tra thư mục migration lúc triển khai (hiện trống vì backend đã bị xóa) và migration mới của feature khác; chưa ghi một file SQL từ bước plan. Validate schema fresh/upgrade MySQL 8.4, giữ members/workshop invoices/holds đang tồn tại. Existing product import không có trong phạm vi; không tự migrate dữ liệu giả từ README/prototype. Không đổi migration cũ hoặc data reset.
+Migration tiếp theo được cấp sau khi kiểm tra thư mục migration lúc triển khai (hiện trống vì backend đã bị xóa) và migration mới của feature khác; chưa ghi một file SQL từ bước plan. Validate schema fresh/upgrade MySQL 8.4, giữ members/workshop invoices/holds đang tồn tại. Import dữ liệu sản phẩm có sẵn từ hệ thống cũ không có trong phạm vi (khác với import Excel của US9, chỉ tạo sản phẩm mới); không tự migrate dữ liệu giả từ README/prototype. Không đổi migration cũ hoặc data reset.
 
 ## Open prerequisite decisions
 
