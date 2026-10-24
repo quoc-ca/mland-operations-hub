@@ -96,13 +96,14 @@ provider contract is ready for go-live.
 ## Decision 7: Scope reconciliation and verification
 
 - **Decision**: This feature plan follows the newly clarified FE-08 spec for
-  automatic GHTK creation/tracking, while the older project baseline still
-  describes manual GHTK handoff and no tracking. Before production code is
-  merged, the baseline API/background-job inventories and the feature contract
-  must be synchronized and ratified.
-- **Rationale**: The conflict is documented evidence, not a reason to silently
-  alter another report. A mock provider and contract tests can proceed without
-  production credentials, but production activation cannot.
+  automatic GHTK creation/tracking. That decision is approved for V1 and
+  supersedes the older project baseline that describes manual GHTK handoff and
+  no tracking. Before production code is merged, Report 3 and the cross-feature
+  API/background-job inventories must be synchronized with the approved scope.
+- **Rationale**: Keeping an active manual-only baseline would make the SRS and
+  implementation contract contradict each other. A mock provider and contract
+  tests can proceed without production credentials, but production must expose
+  pickup instead of fabricated carrier behavior until access is approved.
 - **Alternatives considered**: Ignoring the conflict was rejected because it
   would leave the API catalog and SRS inconsistent.
 
@@ -173,4 +174,64 @@ provider contract is ready for go-live.
   be installed was rejected as non-reproducible. Copying the static prototype
   into production was rejected because it contains fixture behavior and no real
   authorization or API lifecycle.
+
+## Decision 13: Quote before order and recover per branch
+
+- **Decision**: Request GHTK fees using the authenticated Member's current cart
+  and branch context before creating an order. A quote request creates no order,
+  hold or payment attempt. A successful response contains a server-issued quote
+  identifier, branch, fee components and expiry; checkout submits that identifier
+  rather than a client-trusted fee. Checkout acceptance revalidates/requotes as
+  needed; changed or expired fees are shown for explicit reconfirmation. On
+  timeout, React retains the recipient draft only in current in-memory checkout
+  state and offers retry or explicit pickup for the affected branch.
+- **Rationale**: The previous draft route required an `orderId` before the
+  operation that creates orders, which was circular and could introduce a draft
+  order lifecycle absent from the specification. Per-branch recovery preserves
+  unaffected GHTK choices and the all-or-nothing grouped checkout invariant.
+- **Alternatives considered**: Creating a provisional order for quotation was
+  rejected because quoting must not create purchase-side effects. Trusting a
+  client-supplied old fee or silently switching to pickup was rejected because
+  the Member must accept the payable terms.
+
+## Decision 14: Production carrier capability fails closed to pickup
+
+- **Decision**: When approved GHTK access is absent or disabled, the backend
+  reports GHTK unavailable without calling a mock. React disables GHTK, shows
+  safe contact-Staff guidance, and leaves pickup available. A failure for one
+  branch does not remove items or disable eligible choices for other branches.
+- **Rationale**: Mock shipment identifiers cannot represent real custody, and a
+  silent manual fallback would reintroduce an unapproved workflow. Pickup keeps
+  retail checkout usable without fabricating carrier behavior.
+- **Alternatives considered**: Mock-in-production, automatic manual handoff and
+  whole-checkout blocking were rejected because they either create false
+  evidence or unnecessarily block unaffected/pickup orders.
+
+## Decision 15: FE-08 owns the retail side of the FE-06 benefit transaction
+
+- **Decision**: Integrate FE-08 with the FE-06 named interface
+  `loyalty::facade`, following FE-06 gate G-03 and tasks T054/T064. FE-08 builds
+  trusted retail facts for read-only benefit preview. When the Member accepts
+  checkout, `readyringsales` opens the source transaction and calls
+  `reserveAcceptedTransaction` with mandatory participation before committing
+  the grouped checkout, branch orders, inventory holds, benefit snapshot, and
+  benefit hold together. Under the source lifecycle guard, verified full
+  payment or approved zero-total acceptance calls `settleAcceptedBenefits`
+  followed by `grantEarnedPoints`; authoritative unpaid expiry calls
+  `releaseHeldBenefits` and `finishIneligibleEarn`. All outcome calls use the
+  same source reference, monotonic outcome version, and idempotent receipt.
+- **Rationale**: Merely revalidating a promotion result does not protect voucher
+  quota or Member points and leaves a split-brain window where the retail order
+  commits while the benefit reservation fails. Source-owned atomic reservation
+  and lifecycle arbitration keep order, inventory, payment, points, promotion
+  quota, and earned-points evidence consistent without creating a reverse
+  dependency from loyalty into retail repositories.
+- **Alternatives considered**: Browser-side reservation, direct access to FE-06
+  entities/repositories, `REQUIRES_NEW`, and post-commit in-memory events were
+  rejected because they cannot provide rollback in both directions. Releasing
+  benefits from a timer, browser return, carrier cancellation, or ambiguous late
+  payment was rejected; FE-08 must first establish an authoritative source
+  outcome or preserve the case for reconciliation. An approved future retail
+  cancellation may use the same outcome adapter, but cancellation/refund UX is
+  not added by this plan.
 
