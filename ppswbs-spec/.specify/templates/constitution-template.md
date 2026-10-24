@@ -1,4 +1,10 @@
 # [PROJECT_NAME] Constitution
+
+**Date created**: [YYYY-MM-DD]
+**Date updated**: [YYYY-MM-DD]
+**Author**: [RESPONSIBLE_MEMBER]
+**Last updated by**: [RESPONSIBLE_MEMBER]
+
 <!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
 
 ## Core Principles

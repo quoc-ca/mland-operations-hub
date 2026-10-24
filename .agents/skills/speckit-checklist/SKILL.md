@@ -46,6 +46,18 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## Project Document Metadata
+
+Before any setup, hook, template copy, or other step that can write a project
+Markdown artifact, read the shared [metadata policy](../../../ppswbs-spec/.specify/metadata-policy.md)
+(`.specify/metadata-policy.md` under the active SpecKit project).
+Establish the responsible team member before writing; if missing, ask first.
+Preserve creation provenance on updates, refresh update fields only for actual
+content/allowed marker changes, and leave no-op artifacts byte-for-byte unchanged.
+This applies to generated Markdown companions as well as the primary artifact;
+do not insert Markdown metadata into OpenAPI/JSON/schema contracts. Do not
+bulk-backfill legacy artifacts or widen this command's write/approval scope.
+
 ## Pre-Execution Checks
 
 **Check for extension hooks (before checklist generation)**:
@@ -147,7 +159,10 @@ You **MUST** consider the user input before proceeding (if not empty).
    - File handling behavior:
      - If file does NOT exist: Create new file and number items starting from CHK001
      - If file exists: Append new items to existing file, continuing from the last CHK ID (e.g., if last item is CHK015, start new items at CHK016)
-   - Never delete or replace existing checklist content - always preserve and append
+   - Never delete or replace existing checklist content - preserve and append;
+     the sole header exception is updating `Date updated` and `Last updated by`
+     under the metadata policy when items are actually appended. Keep creation
+     provenance and existing item text/markers unchanged; no appended items means no write.
    - Leave every newly generated item unchecked (`[ ]`); checkbox state belongs to the reviewer
 
    **CORE PRINCIPLE - Test the Requirements, Not the Implementation**:
@@ -258,7 +273,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - ✅ "Are [edge cases/scenarios] addressed in requirements?"
    - ✅ "Does the spec define [missing aspect]?"
 
-7. **Structure Reference**: Generate the checklist following the canonical template in `.specify/templates/checklist-template.md` for title, meta section, category headings, ownership note, notes section, and ID formatting. If template is unavailable, use: H1 title, purpose/created meta lines, an ownership note explaining that `[x]` means reviewer approval of requirements quality, `##` category sections containing `- [ ] CHK### <requirement item>` lines with globally incrementing IDs starting at CHK001, and notes that `$speckit-implement` reads checklist state but does not modify markers.
+7. **Structure Reference**: Generate the checklist following the canonical template in `.specify/templates/checklist-template.md` for title, meta section, category headings, ownership note, notes section, and ID formatting. If the template is unavailable, use an H1 title followed by `Date created`, `Date updated`, `Author`, and `Last updated by` from the shared metadata policy, then Purpose/Feature, an ownership note explaining that `[x]` means reviewer approval of requirements quality, `##` category sections containing `- [ ] CHK### <requirement item>` lines with globally incrementing IDs starting at CHK001, and notes that `$speckit-implement` reads checklist state but does not modify markers.
 
 8. **Report**: Output full path to checklist file, item count, and summarize whether the run created a new file or appended to an existing one. Summarize:
    - Focus areas selected

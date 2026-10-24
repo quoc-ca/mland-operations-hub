@@ -16,6 +16,18 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## Project Document Metadata
+
+Before any setup, hook, template copy, or other step that can write a project
+Markdown artifact, read the shared [metadata policy](../../../ppswbs-spec/.specify/metadata-policy.md)
+(`.specify/metadata-policy.md` under the active SpecKit project).
+Establish the responsible team member before writing; if missing, ask first.
+Preserve creation provenance on updates, refresh update fields only for actual
+content/allowed marker changes, and leave no-op artifacts byte-for-byte unchanged.
+This applies to generated Markdown companions as well as the primary artifact;
+do not insert Markdown metadata into OpenAPI/JSON/schema contracts. Do not
+bulk-backfill legacy artifacts or widen this command's write/approval scope.
+
 ## Pre-Execution Checks
 
 **Check for extension hooks (before planning)**:
@@ -64,6 +76,9 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Evaluate gates (ERROR if violations unjustified)
    - Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
    - Phase 1: Generate data-model.md, contracts/, quickstart.md
+   - Give every generated Markdown companion the canonical metadata block; preserve
+     existing creation provenance on reruns. Machine-readable contracts keep their
+     own format and MUST NOT receive Markdown metadata fields.
    - Re-evaluate Constitution Check post-design
 
 ## Mandatory Post-Execution Hooks

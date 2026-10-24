@@ -1,8 +1,11 @@
 # Feature Specification: [FEATURE NAME]
 
-**Feature Branch**: `[###-feature-name]`
+**Date created**: [YYYY-MM-DD]
+**Date updated**: [YYYY-MM-DD]
+**Author**: [RESPONSIBLE_MEMBER]
+**Last updated by**: [RESPONSIBLE_MEMBER]
 
-**Created**: [DATE]
+**Feature Branch**: `[###-feature-name]`
 
 **Status**: Draft
 

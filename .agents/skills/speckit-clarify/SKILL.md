@@ -16,6 +16,18 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## Project Document Metadata
+
+Before any setup, hook, template copy, or other step that can write a project
+Markdown artifact, read the shared [metadata policy](../../../ppswbs-spec/.specify/metadata-policy.md)
+(`.specify/metadata-policy.md` under the active SpecKit project).
+Establish the responsible team member before writing; if missing, ask first.
+Preserve creation provenance on updates, refresh update fields only for actual
+content/allowed marker changes, and leave no-op artifacts byte-for-byte unchanged.
+This applies to generated Markdown companions as well as the primary artifact;
+do not insert Markdown metadata into OpenAPI/JSON/schema contracts. Do not
+bulk-backfill legacy artifacts or widen this command's write/approval scope.
+
 ## Pre-Execution Checks
 
 **Check for extension hooks (before clarification)**:
@@ -218,7 +230,12 @@ Execution steps:
         - If the item now passes and was unchecked: change `[ ]` to `[x]`.
         - If the item now fails and was checked: change `[x]`/`[X]` to `[ ]`.
         - If the state is unchanged: leave the marker as-is (preserve existing case to avoid cosmetic diffs).
-     6. Save the updated checklist file. **Only toggle the `[ ]`/`[x]` marker portion of checkbox lines whose state changed.** All other file content — headings, metadata, notes, line ordering, whitespace — must remain unchanged to avoid noisy diffs.
+     6. If no marker changes, leave the checklist byte-for-byte unchanged. Otherwise,
+        save only the changed `[ ]`/`[x]` marker portions and update existing
+        `Date updated`/`Last updated by` fields under the shared metadata policy.
+        Preserve `Date created`/`Author`, headings, item text, notes, line order,
+        and unrelated whitespace. Do not add a legacy provenance block as part
+        of this marker-only operation; report missing metadata instead.
      7. Compare the before-snapshot with the current state to compute three lists for the Completion Report:
         - **Newly passing**: items that changed from unchecked to checked.
         - **Regressions**: items that changed from checked to unchecked.

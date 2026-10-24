@@ -16,6 +16,18 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## Project Document Metadata
+
+Before any setup, hook, template copy, or other step that can write a project
+Markdown artifact, read the shared [metadata policy](../../../ppswbs-spec/.specify/metadata-policy.md)
+(`.specify/metadata-policy.md` under the active SpecKit project).
+Establish the responsible team member before writing; if missing, ask first.
+Preserve creation provenance on updates, refresh update fields only for actual
+content/allowed marker changes, and leave no-op artifacts byte-for-byte unchanged.
+This applies to generated Markdown companions as well as the primary artifact;
+do not insert Markdown metadata into OpenAPI/JSON/schema contracts. Do not
+bulk-backfill legacy artifacts or widen this command's write/approval scope.
+
 ## Pre-Execution Checks
 
 **Check for extension hooks (before convergence)**:
@@ -73,8 +85,11 @@ of the code relative to the feature's artifacts — no git, no branch comparison
 
 ## Operating Constraints
 
-**APPEND-ONLY, NEVER REWRITE**: The command's **only** write is appending a new
-`## Phase N: Convergence` section to `tasks.md`. It MUST NOT:
+**APPEND-ONLY, NEVER REWRITE TASKS**: The command may append a new
+`## Phase N: Convergence` section to `tasks.md`. Only when tasks are appended,
+it may also update existing `Date updated` and `Last updated by` fields under
+the shared metadata policy. Preserve `Date created`/`Author`; do not backfill
+legacy provenance in this operation. Report missing metadata. It MUST NOT:
 
 - modify `spec.md` or `plan.md` in any way;
 - rewrite, renumber, reorder, or delete any existing task (including tasks from a prior

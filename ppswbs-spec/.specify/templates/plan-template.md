@@ -1,6 +1,11 @@
 # Implementation Plan: [FEATURE]
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**Date created**: [YYYY-MM-DD]
+**Date updated**: [YYYY-MM-DD]
+**Author**: [RESPONSIBLE_MEMBER]
+**Last updated by**: [RESPONSIBLE_MEMBER]
+
+**Branch**: `[###-feature-name]` | **Spec**: [link]
 
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
