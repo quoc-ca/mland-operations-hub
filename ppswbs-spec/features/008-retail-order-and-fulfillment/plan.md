@@ -11,8 +11,11 @@ Implement FE-08 as a bounded retail-sales and fulfilment capability. The
 `fulfilment` module owns preparation, GHTK shipment creation, status
 synchronization, and physical handoff evidence. A grouped checkout is paid
 once, then each paid branch order can start its own shipment creation after
-commit. The GHTK adapter is contract-first and uses a mock provider until the
-partner account, callback security, and prepaid/no-COD service are approved.
+commit. The GHTK adapter is contract-first; a mock provider is permitted only
+in development and automated tests while production fails closed to pickup
+until partner access, callback security, and prepaid/no-COD service are approved.
+The 2026-10-24 clarification makes automatic GHTK integration official V1
+scope and defines pickup-only recovery when production carrier access is absent.
 
 ## Technical Context
 
@@ -69,14 +72,13 @@ carrier integration.
 | Separate frontend baseline | PASS with foundation gate | Application UI is React + Vite CSR in `ppswbs_frontend`; backend serves REST and HTML email only. Frontend versions, router, state approach and test tools must be approved before scaffold. |
 | UI state and authorization | PASS | React handles loading, empty, validation, pending, success, error and recovery states from the REST contract; backend rechecks Member ownership and branch/action scope on every protected operation. |
 | Evidence-based verification | PASS | Quickstart and tasks must cover backend API/migration/idempotency/provider mock/authorization/module verification and frontend build/UI/API-state verification. |
-| Unknown provider/lifecycle decisions | PASS with go-live gates | GHTK provider auth, credentials, quotas and prepaid/no-COD service mapping remain explicit gates; mock provider is used before approval. |
+| Provider/lifecycle decisions | PASS with go-live gates | Automatic GHTK is approved V1 scope. Without approved production access, GHTK is disabled with contact-Staff guidance and pickup remains available; mock responses stay development/test only. Exact provider authentication, credentials, quotas and prepaid/no-COD service mapping remain integration gates. |
 
 No constitution violation is accepted as an exception. Implementation remains
 gated by (1) frontend-foundation versions/tools, (2) the package-layout migration
-for touched modules and dependencies, and (3) the business-baseline conflict
-between manual GHTK and this proposed automatic integration. The latter must be
-ratified and synchronized before automatic carrier behavior is implemented,
-not merely before production activation.
+for touched modules and dependencies, and (3) synchronization of Report 3 and
+cross-feature inventories with the now-approved automatic GHTK V1 decision.
+No implementation may preserve contradictory manual-only behavior.
 
 ## Project Structure
 
@@ -159,19 +161,22 @@ Completed in [data-model.md](data-model.md),
 
 ## Delivery Slices
 
-1. Ratify baseline synchronization and update the cross-feature API/background
-   job inventory for automatic GHTK scope.
+1. Synchronize Report 3 and the cross-feature API/background-job inventories
+   with the approved automatic GHTK V1 scope.
 2. Approve the React/Vite foundation (pinned versions, route/state/auth
    integration, API base/origin handling and test tools) without adding an
    unapproved UI kit or state library.
 3. Confirm the `features/` module relocation, facade dependencies, module
    detection and physical database mapping; add append-only migrations only
    after mapping review.
-4. Implement or complete catalogue shipping-profile facade consumption and the
-   Member cart/branch grouping/grouped-checkout snapshot with 15-minute holds
-   and 10-minute payment links.
+4. Implement or complete catalogue shipping-profile facade consumption, embed
+   FE-06 benefit preview, and call `loyalty::facade` to reserve the accepted
+   benefit in the same transaction that atomically creates the grouped checkout,
+   branch orders, inventory holds, and 15-minute benefit hold.
 5. Integrate verified VNPay payment events without direct provider coupling;
-   make payment/hold/order effects idempotent.
+   make payment/hold/order effects idempotent and call the FE-06 outcome facade
+   to settle then grant after verified full payment or zero-total acceptance,
+   and to release held benefits after authoritative unpaid expiry.
 6. Implement the mock `ShippingProviderPort`, per-branch GHTK fee quotes,
    shipment-create retry using the same partner ID, and normalized shipment
    projections for each branch order.
@@ -187,13 +192,40 @@ Completed in [data-model.md](data-model.md),
 
 ## Internal and External Boundary Design
 
-- `readyringsales` calls catalogue/member/payment facades only; it does not
-  access their repositories or entities.
+- `readyringsales` calls catalogue, member, payment, and `loyalty::facade`
+  boundaries only; it does not access their repositories, entities, or internal
+  services. This is the FE-06 G-03 retail-owner adapter boundary.
+- Before acceptance, `readyringsales` supplies server-priced line facts and
+  shipping as a separate non-discountable amount to FE-06 benefit preview. The
+  browser may select benefits and acknowledge quoted terms but is never trusted
+  for Member ownership, price, discount, points, shipping, or payment facts.
+- During grouped-checkout acceptance, `readyringsales` owns the transaction and
+  calls `reserveAcceptedTransaction` through `loyalty::facade` with mandatory
+  transaction participation. Benefit reservation, all branch orders, inventory
+  holds, and source snapshots commit together or roll back together. A changed
+  benefit quote returns a reconfirmation result instead of silently changing the
+  payable amount.
+- Under the source lifecycle guard, a verified full-payment or approved
+  zero-total outcome calls `settleAcceptedBenefits` and then
+  `grantEarnedPoints` idempotently in the same outcome transaction. A confirmed
+  unpaid expiry calls `releaseHeldBenefits` and `finishIneligibleEarn` before
+  completing source expiry. Duplicate outcomes replay the committed receipt.
+  Ambiguous, late, or conflicting payment evidence remains unresolved for
+  reconciliation and must not release, consume, grant, or extend benefits.
+- A source-authoritative retail cancellation outcome, if supplied by an
+  approved retail cancellation workflow, follows the same FE-06 outcome adapter
+  and version guard. This plan does not add refund or cancellation UX and does
+  not infer cancellation from a browser action or carrier status.
 - A verified grouped-payment projection contains only the paid branch-order
   ID, accepted fulfilment method, version and correlation data needed by
   `fulfilment`; one event is processed independently for each branch order.
 - `fulfilment` calls the provider only through `ShippingProviderPort`; the GHTK
   adapter maps provider DTOs to provider-neutral results.
+- Shipping quotes are requested against the authenticated Member's branch/cart
+  context before any order exists. Checkout acceptance revalidates the current
+  cart and the referenced server-issued quote and then creates all branch orders
+  or none; a quote endpoint never creates an order or payment attempt. The
+  client submits only the quote identifier, never a trusted shipping amount.
 - The webhook handler validates provider authentication and required fields,
   persists an idempotent status event, then returns the provider-required
   acknowledgement. It never accepts a Firebase bearer token as provider proof.
@@ -202,6 +234,13 @@ Completed in [data-model.md](data-model.md),
   and visible route state as untrusted until the backend returns verified state.
 - Authenticated client state follows the project-wide approved Firebase/token
   transport contract; FE-08 does not invent a second token/session mechanism.
+- On quote timeout the React client keeps cart state and the recipient draft in
+  current in-memory checkout state, creates no payment attempt, and offers retry
+  or explicit pickup for only the affected branch. Recipient drafts are not put
+  in browser persistence by this feature.
+- If a quote expires or changes, the backend returns a safe stale-quote result;
+  React displays the difference/new grouped total and requires confirmation
+  before payment initiation.
 
 ## Complexity Tracking
 
@@ -214,8 +253,9 @@ transactions; a new service or message broker is not introduced.
 CONDITIONALLY PASS for design, but NOT READY FOR IMPLEMENTATION until these
 pre-implementation gates are resolved and approved:
 
-- synchronize and ratify the automatic GHTK scope against the older API/SRS/
-  background-job baseline;
+- synchronize the approved automatic GHTK scope into the older API/SRS/
+  background-job baseline so no active source still mandates manual-only retail
+  fulfilment;
 - approve pinned React/Vite/TypeScript versions, router, frontend state/auth
   integration, API origin handling and frontend test tools;
 - approve migration of touched business modules into `features/` and prove that

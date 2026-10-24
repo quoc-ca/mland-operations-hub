@@ -1,277 +1,159 @@
 ---
-
 description: "Dependency-ordered implementation tasks for FE-08"
-
 ---
 
 # Tasks: Retail Order and Fulfillment
 
-**Input**: Design documents from `features/008-retail-order-and-fulfillment/`
+**Date created**: 2026-10-24
+**Date updated**: 2026-10-24
+**Author**: thinh
+**Last updated by**: thinh
 
-**Prerequisites**: [spec.md](spec.md), [plan.md](plan.md),
-[research.md](research.md), [data-model.md](data-model.md),
-[quickstart.md](quickstart.md), and [contracts/](contracts/)
+**Input**: Design documents in ppswbs-spec/features/008-retail-order-and-fulfillment/
 
-**Tests**: Verification tasks are included because the project constitution
-requires evidence for API, persistence, authorization, module-boundary and
-integration changes.
+**Tests**: Required for API, persistence, authorization, payment, loyalty,
+provider, frontend state, migration, and module-boundary changes.
 
-**Path convention**: Backend paths below are relative to the repository root;
-documentation paths are relative to `ppswbs-spec/` unless stated otherwise.
+**Path convention**: Repository-relative. Backend uses
+features/feature/{controller,dto,dao,entity,service,facade}; UI uses the separate
+React + Vite client, never Thymeleaf/htmx.
 
-## Phase 1: Setup and scope synchronization
+## Phase 1: Setup and decision gates
 
-**Purpose**: Make the clarified FE-08 scope visible to the project catalogs and
-prepare the existing module skeleton for implementation.
+- [ ] T001 Synchronize automatic GHTK V1 and pickup-only production fallback in documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/05-system-fuctionalities/02-external-api-inventory.md and documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/05-system-fuctionalities/03-background-job-inventory.md.
+- [ ] T002 [P] Align FE-08 route/provider maturity with the feature contracts in ppswbs-spec/APIs.md.
+- [ ] T003 Resolve and approve FE-06 benefit preview, BenefitSelection, accepted-terms acknowledgement, quote reference, and typed benefit errors in ppswbs-spec/features/008-retail-order-and-fulfillment/contracts/retail-order-and-fulfillment.openapi.yaml; lifecycle commands remain internal to loyalty::facade.
+- [ ] T004 Record pinned React/Vite/TypeScript versions, router, state/auth integration, API origin, and test tools in ppswbs-spec/features/008-retail-order-and-fulfillment/implementation-readiness.md.
+- [ ] T005 Record approved backend module relocation, schema, role/delegation mapping, facade graph, and migration allocation in ppswbs-spec/features/008-retail-order-and-fulfillment/implementation-readiness.md.
+- [ ] T006 Record approved GHTK callback authentication, credentials channel, quotas, timeout/retry budget, and prepaid/no-COD mapping in ppswbs-spec/features/008-retail-order-and-fulfillment/implementation-readiness.md.
 
-- [ ] T001 Update the approved FE-08 scope references in `documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/05-system-fuctionalities/02-external-api-inventory.md` and `documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/05-system-fuctionalities/03-background-job-inventory.md` to include GHTK fee quote, shipment creation, webhook, status fallback, retry, and the mock-provider boundary.
-- [ ] T002 [P] Update the cross-feature API catalog in `ppswbs-spec/APIs.md` to align FE-08 routes and GHTK integration maturity with `features/008-retail-order-and-fulfillment/contracts/retail-order-and-fulfillment.openapi.yaml`.
-- [ ] T003 [P] Add the FE-08 contract and provider references to `ppswbs-spec/features/008-retail-order-and-fulfillment/checklists/requirements.md` and preserve the explicit production gates for credentials, callback authentication, quotas, and prepaid/no-COD service mapping.
-
----
+**Checkpoint**: T001–T006 reviewed; prototypes and mocks close no production gate.
 
 ## Phase 2: Foundational prerequisites
 
-**Purpose**: Blocking work required before any user story implementation.
+- [ ] T007 Create the approved frontend foundation in ppswbs_frontend/package.json, ppswbs_frontend/package-lock.json, ppswbs_frontend/vite.config.ts, and ppswbs_frontend/src/app/App.tsx after T004.
+- [ ] T008 [P] Create the typed REST client and bearer/error/correlation mapping in ppswbs_frontend/src/features/retail-order/api/retailOrderApi.ts and ppswbs_frontend/src/features/retail-order/model/contracts.ts.
+- [ ] T009 Create separately detected modules in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/package-info.java and ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/package-info.java.
+- [ ] T010 [P] Define minimal boundaries in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/facade/RetailOrderPaid.java and ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/facade/RetailShipmentStatusView.java.
+- [ ] T011 [P] Define typed errors and ownership/branch/delegation guards in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/RetailAuthorization.java, features/fulfilment/service/FulfilmentAuthorization.java, and common/web/ApiErrorCode.java.
+- [ ] T012 Create the next unused append-only migration under ppswbs_backend/src/main/resources/db/migration/ for carts, branch orders/items, holds, quotes, fulfilment, shipments, events, evidence, idempotency/version, and retention indexes; record its filename in implementation-readiness.md.
+- [ ] T013 [P] Define provider-neutral GHTK port, deterministic test mock, and fail-closed config in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/facade/ShippingProviderPort.java, features/fulfilment/service/MockShippingProviderAdapter.java, and configuration/GhtkProperties.java.
+- [ ] T014 Verify separate modules and the facade/event graph, including readyringsales to loyalty::facade, in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/ModuleArchitectureTest.java.
 
-**CRITICAL**: No user-story implementation should start until this phase is
-complete and the scope/migration gates are approved.
+## Phase 3: User Story 1 — Prepare a retail purchase (Priority: P1) — MVP
 
-- [ ] T004 Update Spring Modulith ownership metadata in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/package-info.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/package-info.java` so the permitted facade/event dependencies match the approved two-module design.
-- [ ] T005 [P] Define the minimal per-branch-order paid event and shipment projection boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/facade/RetailOrderPaid.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/facade/RetailShipmentStatusView.java`; expose branch-order identifiers, grouped-checkout correlation, version and safe correlation data only, never entities or provider payloads.
-- [ ] T006 [P] Add typed FE-08 error codes, correlation handling, and server-side authorization hooks in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/common/web/` and the owning module web packages, covering ownership, branch scope, stale state, unsupported destination, provider unavailable, and idempotency conflict.
-- [ ] T007 Create the next approved append-only Flyway migration under `ppswbs_backend/src/main/resources/db/migration/` for the physical mapping of carts/cart-line branch context, grouped checkouts, branch retail orders/items, checkout holds, fulfilment snapshots, shipments, status events, handoff evidence, and required uniqueness/retention indexes from `data-model.md`.
-- [ ] T008 [P] Define the provider-neutral shipping port and deterministic mock adapter in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/facade/ShippingProviderPort.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/infrastructure/MockShippingProviderAdapter.java`, including fee, create, status, timeout, duplicate-partner-ID, and webhook-replay fixtures.
-- [ ] T009 [P] Add server-side GHTK configuration binding and redacted diagnostics in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/infrastructure/GhtkProperties.java` and `ppswbs_backend/src/main/resources/application.yml`; keep token, partner code, callback secret/hash and URLs outside source control.
-- [ ] T010 Add the durable post-commit event publication/consumption registration for grouped-payment-to-per-branch-fulfilment processing in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/payments/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/application/`, with restart-safe processing markers for each branch order.
+**Goal**: An active Member manages an own branch-bound cart without purchase effects.
 
-**Checkpoint**: Module verification, migration mapping, provider mock and safe
-error/auth foundations are ready before user-story work begins.
+**Independent Test**: Cart changes work while order, payment, stock hold, and
+benefit reservation counts remain unchanged.
 
----
+- [ ] T015 [P] [US1] Write ownership, branch, stale-version, maximum-50-line, and quantity-1–99 tests in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/CartJourneyTest.java.
+- [ ] T016 [P] [US1] Write loading, empty, validation, conflict, retry, and grouping tests in ppswbs_frontend/src/features/retail-order/pages/CartPage.test.tsx.
+- [ ] T017 [P] [US1] Create RetailCart and CartLine mappings in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/entity/RetailCart.java and CartLine.java.
+- [ ] T018 [US1] Implement member/catalogue-facade cart commands in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/CartService.java and dao/RetailCartRepository.java; branch changes must not rewrite old lines.
+- [ ] T019 [US1] Implement validated cart DTOs/endpoints in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/dto/CartDtos.java and controller/CartController.java.
+- [ ] T020 [US1] Implement branch selection and cart UI in ppswbs_frontend/src/features/retail-order/pages/CataloguePage.tsx, pages/CartPage.tsx, and components/BranchCartGroup.tsx.
 
-## Phase 3: User Story 1 - Prepare a retail purchase (Priority: P1) 🎯 MVP
+## Phase 4: User Story 2 — Checkout and pay (Priority: P1)
 
-**Goal**: An authenticated active Member can select a processing branch and
-manage an own cart using published, eligible configured variants without
-creating an order or payment effect.
+**Goal**: Atomically create all branch orders, reserve FE-06 benefits, and apply
+one verified grouped payment exactly once.
 
-**Independent Test**: Select a branch, add/edit/remove a valid cart line, keep
-the recorded branch when the selected branch changes, and reject another
-Member's cart, invalid quantity, unpublished variant, and stale concurrent edit.
+**Independent Test**: Mixed branches, voucher/points, rollback, zero-total,
+VNPay, duplicate callback, deadlines, expiry, and late evidence create no partial
+or duplicate source/loyalty effects.
 
-### Implementation for User Story 1
+- [ ] T021 [P] [US2] Write MySQL atomic checkout/concurrency tests in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/GroupedCheckoutIntegrationTest.java.
+- [ ] T022 [P] [US2] Write FE-06 G-03 tests for preview, changed terms, reserve, paid/zero settle-then-grant, confirmed-expiry release, duplicate receipt, and unresolved evidence in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/LoyaltyRetailOwnerIntegrationTest.java.
+- [ ] T023 [P] [US2] Write payment/idempotency tests rejecting browser success, bad signature, mismatched amount/currency, late evidence, and key conflicts in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/RetailPaymentIntegrationTest.java.
+- [ ] T024 [P] [US2] Write React voucher/points/recalculation/acknowledgement/totals/payment/error tests in ppswbs_frontend/src/features/retail-order/pages/CheckoutPage.test.tsx.
+- [ ] T025 [P] [US2] Create GroupedCheckout, RetailOrder, OrderItem, and CheckoutHold mappings with immutable snapshots and 10/15-minute deadlines under ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/entity/.
+- [ ] T026 [US2] Implement trusted preview and MANDATORY same-transaction reserveAcceptedTransaction through loyalty::facade in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/LoyaltyCheckoutAdapter.java; shipping is excluded from discount/earn base.
+- [ ] T027 [US2] Implement all-or-nothing grouping, catalogue/quote/benefit revalidation, snapshots, and replay in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/RetailCheckoutService.java.
+- [ ] T028 [US2] Implement one verified VNPay attempt and approved zero-total bypass in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/RetailPaymentService.java.
+- [ ] T029 [US2] Implement source-serialized settle/grant/release/finish-ineligible outcomes in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/LoyaltyOutcomeAdapter.java.
+- [ ] T030 [US2] Implement source-locked expiry and late-evidence review in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/RetailHoldExpiryJob.java.
+- [ ] T031 [US2] Implement T003-approved checkout/payment DTOs/endpoints in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/dto/CheckoutDtos.java and controller/CheckoutController.java.
+- [ ] T032 [US2] Integrate voucher/points controls and full breakdown in ppswbs_frontend/src/features/retail-order/pages/CheckoutPage.tsx and components/CheckoutTotals.tsx, requiring reconfirmation after changes.
 
-- [ ] T011 [P] [US1] Create the `RetailCart` and `CartLine` JPA/domain mapping in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/domain/` with Member ownership, the selected processing branch captured when a line is added, positive integer quantity, indicative price, and version/timestamp invariants.
-- [ ] T012 [US1] Implement branch-scoped cart repositories and ownership-scoped application operations in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/infrastructure/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/application/`, using the `members` and `catalogue` facades instead of direct repository access; changing the selected branch must not rewrite existing cart lines.
-- [ ] T013 [US1] Implement the Member branch-selection, catalogue-context, and cart REST/Thymeleaf entry points in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/web/CartController.java` and `ppswbs_backend/src/main/resources/templates/readyringsales/cart/`, preserving a server-rendered/no-JavaScript form path.
-- [ ] T014 [US1] Add Bean Validation and safe conflict handling in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/web/CartRequest.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/application/CartApplicationService.java` for active branch, positive integer quantity, published/eligible variants, ownership, stale version, and concurrent edit.
-- [ ] T015 [US1] Verify the US1 scenarios from `quickstart.md` in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/CartJourneyTest.java`, including branch selection, branch preservation per cart line, no order/payment/hold effect from cart edits, and safe rejection of cross-member access.
+## Phase 5: User Story 3 — Choose fulfilment and track delivery (Priority: P1)
 
-**Checkpoint**: US1 is independently usable and testable as the MVP entry
-point; cart changes have no purchase side effect.
+**Goal**: Pickup or GHTK per branch with server-issued pre-order quotes and safe recovery.
 
----
+**Independent Test**: Recipient limits, quote binding/expiry/change, per-branch
+failure, no-access fallback, draft preservation, and own tracking satisfy QS-06–08/22–25.
 
-## Phase 4: User Story 2 - Checkout and pay for a retail order (Priority: P1)
+- [ ] T033 [P] [US3] Write quote/provider tests for package data, fee components, timeout, binding, and expiry in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/ShippingQuoteContractTest.java.
+- [ ] T034 [P] [US3] Write React recovery tests for in-memory recipient draft, contact-Staff guidance, affected-branch pickup, unaffected branches, fee difference, and reconfirmation in ppswbs_frontend/src/features/retail-order/pages/CheckoutFulfilment.test.tsx.
+- [ ] T035 [P] [US3] Consume FE-02 eligibility and authoritative package data in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/CatalogueShippingProfileAdapter.java.
+- [ ] T036 [P] [US3] Create bound ShippingQuote and immutable FulfilmentSelection mappings in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/entity/ShippingQuote.java and FulfilmentSelection.java.
+- [ ] T037 [US3] Implement provider-neutral quote and fail-closed capability in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/service/ShippingQuoteService.java and GhtkShippingProviderAdapter.java.
+- [ ] T038 [US3] Implement quote DTOs/endpoints and exact recipient limits in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/dto/FulfilmentDtos.java and controller/FulfilmentQuoteController.java.
+- [ ] T039 [US3] Revalidate quote IDs and freeze selection in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/FulfilmentSelectionService.java; never trust client fees or create orders during quote.
+- [ ] T040 [US3] Implement fulfilment choice, recipient/quote/recovery states, and normalized tracking in ppswbs_frontend/src/features/retail-order/components/FulfilmentSelector.tsx and pages/OrderTrackingPage.tsx.
 
-**Goal**: Revalidate a complete multi-branch cart, create one branch order per
-branch group, freeze each branch quote, create one grouped payment attempt, and
-mark every branch order paid only from verified VNPay evidence.
+## Phase 6: User Story 4 — Process and hand over orders (Priority: P1)
 
-**Independent Test**: Given a valid cart containing one or more branch groups,
-accept one grouped checkout, show each branch subtotal and shipping charge,
-pay the combined amount once, reject invalid/duplicate/late callbacks, and
-expire the hold without partial branch-order effects.
+**Goal**: Authorized branch actors prepare paid orders and record pickup/carrier custody.
 
-### Implementation for User Story 2
+**Independent Test**: Redelivery, ambiguous create, duplicate partner/webhook,
+wrong branch/state, pickup, and handoff create no duplicate terminal effect.
 
-- [ ] T016 [P] [US2] Create `GroupedCheckout`, `RetailOrder`, `OrderItem`, and `CheckoutHold` JPA/domain mappings in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/domain/` with one grouped payment state, one branch-specific order per group, immutable snapshots, separate payment/fulfilment state, a 10-minute payment-link deadline, and a maximum 15-minute unpaid hold.
-- [ ] T017 [US2] Implement atomic grouped checkout in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/application/RetailCheckoutService.java`, revalidating every line's recorded branch, variant, quantity, price, promotion/loyalty result, fulfilment input, package weight, quote, and benefit limits before creating all branch orders/holds or nothing.
-- [ ] T018 [US2] Implement grouped checkout totals, per-branch item/shipping snapshots, immutable order/item/benefit snapshots, and idempotent checkout command handling in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/infrastructure/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/application/`, rejecting conflicting reuse of an existing command key.
-- [ ] T019 [US2] Integrate one grouped payment-attempt initiation with the existing payment boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/payments/facade/PaymentGatewayPort.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/application/RetailPaymentApplicationService.java`; include the sum of branch subtotals and accepted per-branch shipping charges in the VNPay amount and never treat browser return as payment proof.
-- [ ] T020 [US2] Implement the verified-grouped-payment event consumer in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/application/RetailPaymentEventConsumer.java` so matching full payment settles the grouped checkout and every branch order once, converts/releases all holds correctly, rejects invalid/late/duplicate evidence, and publishes one `RetailOrderPaid` event per paid branch order only after commit.
-- [ ] T021 [US2] Implement automatic hold/payment-link expiry in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/application/RetailHoldExpiryJob.java`, releasing quantities and benefits after the 15-minute hold and routing late payment evidence to manual review without reopening the hold.
-- [ ] T022 [US2] Implement grouped checkout, one-payment initiation, and per-branch summary REST/Thymeleaf endpoints in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/web/RetailOrderController.java` and `ppswbs_backend/src/main/resources/templates/readyringsales/checkout/`, showing each branch subtotal and GHTK fee separately, with typed errors, idempotency header handling, safe totals, and no-JavaScript fallback.
-- [ ] T023 [US2] Verify grouped checkout/payment scenarios in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/RetailCheckoutPaymentTest.java`, including multiple branch groups, one VNPay payment, per-branch shipping display, no partial branch order, exact full-payment match, duplicate callback no-op, expiry release, and late-payment manual-review outcome.
+- [ ] T041 [P] [US4] Write GHTK create/retry/webhook/reconciliation tests in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/GhtkLifecycleIntegrationTest.java.
+- [ ] T042 [P] [US4] Write branch/delegation/preparation/pickup/handoff tests in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/FulfilmentOperationsTest.java.
+- [ ] T043 [P] [US4] Create shipment, status-event, and evidence mappings in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/entity/GhtkShipment.java, CarrierStatusEvent.java, and FulfilmentEvidence.java.
+- [ ] T044 [US4] Implement durable paid-event consumption and same-partner-ID retry in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/service/RetailShipmentCreationService.java.
+- [ ] T045 [US4] Implement reconciliation, authenticated callback, deduplication, and non-regressing mapping in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/service/GhtkReconciliationJob.java and controller/GhtkWebhookController.java.
+- [ ] T046 [US4] Implement authorized preparation, pickup, and handoff in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/service/FulfilmentOperationsService.java and controller/FulfilmentOperationsController.java.
+- [ ] T047 [US4] Implement scoped operations UI in ppswbs_frontend/src/features/retail-order/pages/RetailOperationsPage.tsx and components/OrderOperationActions.tsx.
 
-**Checkpoint**: US1 and US2 work together; the system can create a paid
-grouped checkout containing branch orders with frozen per-branch quotes and one
-safe payment/hold lifecycle.
+## Phase 7: User Story 5 — View order history/details (Priority: P2)
 
----
+**Goal**: Members see only own frozen purchase and permitted fulfilment facts.
 
-## Phase 5: User Story 3 - Review and choose order fulfilment (Priority: P1)
+**Independent Test**: Own reads work; foreign references reveal nothing; raw
+callbacks, secrets, and expired recipient PII are absent.
 
-**Goal**: A Member can choose pickup or GHTK independently for each branch
-order before payment, obtain separate valid quotes, and freeze each accepted
-fulfilment/recipient snapshot.
-
-**Independent Test**: Use a grouped checkout with multiple branch orders to
-select pickup or GHTK per branch, validate recipient coverage, show each
-accepted quote separately, and reject changes after payment or preparation.
-
-### Implementation for User Story 3
-
-- [ ] T024 [P] [US3] Extend the catalogue facade in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/catalogue/facade/` to return branch-contextual eligibility plus authoritative product/variant shipping weight and required package dimensions, rejecting eligible variants without required package data for GHTK quotation.
-- [ ] T025 [P] [US3] Create branch-order-scoped `FulfilmentSelection`, recipient snapshot, and fee-quote value objects in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/domain/` with `PICKUP`/`GHTK` enums, required recipient fields, approved-fee components, and quote expiry.
-- [ ] T026 [US3] Implement provider-neutral per-branch fee quotation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/application/ShippingQuoteService.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/infrastructure/GhtkShippingProviderAdapter.java`, mapping each branch's weight in grams, declared value, pickup/destination and approved mandatory surcharges without automatic insurance charging.
-- [ ] T027 [US3] Implement pre-payment fulfilment choice and per-branch quote orchestration in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/application/FulfilmentChoiceService.java`, requiring valid recipient data for each GHTK branch order, refreshing changed quotes, and freezing each method/recipient/fee at grouped-checkout acceptance.
-- [ ] T028 [US3] Implement the quote and fulfilment-choice endpoints from `ppswbs-spec/features/008-retail-order-and-fulfillment/contracts/retail-order-and-fulfillment.openapi.yaml` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/web/FulfilmentChoiceController.java`.
-- [ ] T029 [US3] Verify pickup/GHTK selection and per-branch fee scenarios in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/FulfilmentQuoteTest.java`, including multiple branch quotes, unsupported destination, missing shipping profile, quote expiry, approved surcharge calculation, separate fee display, and rejection of post-payment changes.
-
-**Checkpoint**: US3 is independently testable before carrier shipment creation;
-checkout displays a stable accepted charge and method.
-
----
-
-## Phase 6: User Story 4 - Process and complete a retail order (Priority: P1)
-
-**Goal**: Authorized Staff/Manager can prepare, pick up, create/reconcile the
-GHTK shipment for a paid branch order, and record physical custody exactly once
-within branch scope.
-
-**Independent Test**: Process a paid pickup order or paid GHTK order through
-preparation and the correct final handoff while rejecting wrong-branch,
-unpaid, stale, duplicate, and provider-failure operations.
-
-### Implementation for User Story 4
-
-- [ ] T030 [P] [US4] Create `GhtkShipment`, `CarrierStatusEvent`, and `FulfilmentEvidence` domain/JPA mappings in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/domain/` with unique partner ID/provider identifiers, normalized status, duplicate/stale outcome, actor/branch/time evidence, and safe failure state.
-- [ ] T031 [US4] Implement the per-branch-order `RetailOrderPaid` consumer in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/application/RetailShipmentCreationService.java` to create one GHTK shipment after grouped payment, persist provider identifiers once, preserve the paid branch order/shipment-pending state on ambiguity, and use the same partner order ID for retry.
-- [ ] T032 [US4] Implement shipment retry and status-reconciliation jobs in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/application/GhtkReconciliationJob.java`, handling provider duplicate-partner responses, timeouts, stale shipments and status GET fallback without creating a second shipment.
-- [ ] T033 [US4] Implement GHTK webhook authentication/validation, form parsing, deduplication, action-time ordering, normalized status mapping, and HTTP 200 acknowledgement in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/web/GhtkWebhookController.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/application/GhtkWebhookApplicationService.java`.
-- [ ] T034 [US4] Implement Staff/Manager preparation, authenticated pickup confirmation, and physical carrier handoff use cases in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/application/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/web/FulfilmentOperationsController.java`, enforcing current account status, branch, delegated action, payment state and valid transition.
-- [ ] T035 [US4] Add branch/delegation authorization and safe audit evidence for preparation, pickup, shipment creation, webhook processing, retry, rejection and handoff in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/application/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/infrastructure/`.
-- [ ] T036 [US4] Verify shipment creation, retry, webhook, pickup and handoff scenarios in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/RetailFulfilmentJourneyTest.java`, including lost response recovery, duplicate/out-of-order webhook, wrong branch, duplicate terminal command, and no automatic refund/return workflow.
-
-**Checkpoint**: US4 provides auditable operational completion for pickup and
-GHTK handoff while preserving payment and shipment idempotency.
-
----
-
-## Phase 7: User Story 5 - View retail order history and details (Priority: P2)
-
-**Goal**: A Member can view only owned grouped checkouts and branch orders with
-frozen purchase facts, one grouped payment state, per-branch fulfilment
-milestones, and latest normalized GHTK statuses.
-
-**Independent Test**: List and open own grouped checkout/branch orders, verify
-frozen item/payment data, separate branch totals and latest shipment status,
-and confirm another Member's order is not disclosed.
-
-### Implementation for User Story 5
-
-- [ ] T037 [P] [US5] Implement the Member-safe grouped checkout and branch-order read projection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/application/RetailOrderQueryService.java`, exposing only frozen item/payment facts, per-branch totals, and each branch's latest normalized status, update time, and provider estimate.
-- [ ] T038 [US5] Implement grouped checkout/branch-order reads through `GET /api/v1/members/me/ready-ring-orders` and `GET /api/v1/members/me/ready-ring-orders/{orderId}` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/web/RetailOrderQueryController.java`, enforcing Member ownership and safe not-found behavior.
-- [ ] T039 [US5] Add the Member order-history/detail Thymeleaf views and htmx enhancement in `ppswbs_backend/src/main/resources/templates/readyringsales/orders/`, preserving a no-JavaScript link/form fallback and not exposing raw provider callbacks or recipient PII.
-- [ ] T040 [US5] Implement post-handoff recipient-data deletion/irreversible-obscuring in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/application/RecipientDataRetentionJob.java`, preserving minimized order/payment/custody evidence after 30 days.
-- [ ] T041 [US5] Verify Member grouped-history/detail authorization and per-branch latest-status display in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/RetailOrderQueryTest.java`, including cross-member access, separate branch totals, shipment-pending state, delivery estimate absence, and raw callback/credential redaction.
-
-**Checkpoint**: All five user stories are independently demonstrable with the
-Member read journey and the authorized shop workflow complete.
-
----
+- [ ] T048 [P] [US5] Write ownership/snapshot/status/redaction tests in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/RetailOrderQueryTest.java.
+- [ ] T049 [P] [US5] Write React history/detail states in ppswbs_frontend/src/features/retail-order/pages/OrderHistoryPage.test.tsx and OrderDetailPage.test.tsx.
+- [ ] T050 [US5] Implement ownership-scoped projections/endpoints in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/RetailOrderQueryService.java, dto/RetailOrderView.java, and controller/RetailOrderQueryController.java.
+- [ ] T051 [US5] Implement history/detail views in ppswbs_frontend/src/features/retail-order/pages/OrderHistoryPage.tsx and OrderDetailPage.tsx.
+- [ ] T052 [US5] Implement/test 30-day recipient obscuring in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/service/RecipientDataRetentionJob.java and ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/RecipientRetentionTest.java.
 
 ## Phase 8: Polish and cross-cutting verification
 
-**Purpose**: Complete integration evidence, documentation, security review and
-operational readiness without expanding FE-08 scope.
-
-- [ ] T042 [P] Add post-commit workflow notification intents for payment accepted, shipment pending, shipment created, and permitted status changes in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/fulfilment/`, keeping email delivery out of payment proof.
-- [ ] T043 [P] Validate the generated OpenAPI contract and synchronize route maturity/documentation in `ppswbs-spec/features/008-retail-order-and-fulfillment/contracts/retail-order-and-fulfillment.openapi.yaml`, `ppswbs-spec/features/008-retail-order-and-fulfillment/contracts/ghtk-integration.md`, and `ppswbs-spec/APIs.md`.
-- [ ] T044 [P] Add migration fresh/upgrade verification and database invariant coverage under `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/` for grouped-checkout atomicity, one-payment-to-many-branch-order mapping, unique partner order IDs, payment/hold deadlines, shipment status ordering, retention boundary, and required nullability.
-- [ ] T045 Run Spring Modulith `ApplicationModules.verify()` and resolve any undeclared access in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/` without adding broad package exposure.
-- [ ] T046 Run the scenarios in `ppswbs-spec/features/008-retail-order-and-fulfillment/quickstart.md` with the mock providers and record actual commands/results in the feature verification handoff; do not enable live GHTK credentials for routine tests.
-- [ ] T047 Perform final security and scope review in `ppswbs-spec/features/008-retail-order-and-fulfillment/` and `ppswbs_backend/` confirming no provider secret/raw callback/avoidable recipient PII is logged or returned, no COD/refund/return/accounting workflow was added, and all unresolved provider gates are documented.
-
----
+- [ ] T053 [P] Add post-commit notification intents in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/RetailNotificationPublisher.java and features/fulfilment/service/FulfilmentNotificationPublisher.java; email is never proof.
+- [ ] T054 [P] Validate OpenAPI, Bean Validation, errors, and frontend mapping in ppswbs-spec/features/008-retail-order-and-fulfillment/contracts/retail-order-and-fulfillment.openapi.yaml and ppswbs_frontend/src/features/retail-order/model/contracts.ts.
+- [ ] T055 [P] Add MySQL empty/upgrade migration verification in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/RetailMigrationTest.java.
+- [ ] T056 Run module/backend/frontend/API checks and record exact evidence in ppswbs-spec/features/008-retail-order-and-fulfillment/verification.md; prototype checks are not production evidence.
+- [ ] T057 Execute QS-01–QS-25 and record environment, result, failure, and mock/live status in ppswbs-spec/features/008-retail-order-and-fulfillment/verification.md.
+- [ ] T058 Record final security/scope review in ppswbs-spec/features/008-retail-order-and-fulfillment/verification.md.
 
 ## Dependencies and execution order
 
-### Phase dependencies
+- Phase 1 gates Phase 2: T003 blocks loyalty APIs, T004 frontend, T005 backend,
+  and T006 live GHTK.
+- Phase 2 blocks every story. US1 is the MVP. US2 depends on US1 and T003.
+- US3 quote work may proceed after Phase 2, but checkout freezing integrates with US2.
+- US4 depends on US2 paid orders and US3 GHTK choice. US5 depends on US2.
+- Phase 8 follows all selected stories.
 
-- **Phase 1**: Can begin immediately; scope synchronization must be approved.
-- **Phase 2**: Depends on Phase 1 and blocks all user stories.
-- **US1**: Depends on Phase 2; MVP cart journey.
-- **US2**: Depends on US1 cart behavior and Phase 2 payment/event foundation.
-- **US3**: Depends on US1/US2 order model and the catalogue shipping-profile facade.
-- **US4**: Depends on verified payment events and US3 accepted fulfilment data.
-- **US5**: Depends on the order/shipment projections from US2–US4, but its read
-  projection work can begin after the foundational schema is stable.
-- **Polish**: Depends on the desired user stories being implemented.
+## Parallel opportunities
 
-### User story dependencies
-
-- **US1 (P1)**: No user-story dependency after Phase 2.
-- **US2 (P1)**: Requires US1 cart commands and the shared payment boundary.
-- **US3 (P1)**: Requires the US2 order/quote snapshot and FE-02 shipping data.
-- **US4 (P1)**: Requires US2 verified payment and US3 fulfilment selection.
-- **US5 (P2)**: Reads projections produced by US2–US4; can be implemented in
-  parallel with late US4 work if projection contracts are frozen.
-
-### Parallel opportunities
-
-- T002–T003 can run in parallel after T001's scope decision.
-- T005–T009 can run in parallel once the module ownership decision is fixed;
-  T010 depends on the event shape from T005.
-- T011 and T013 can be split after the branch-aware cart command shape is agreed;
-  T012/T014 remain dependent on the domain/repository work.
-- T016 and T017 can be split by grouped-checkout domain mapping versus branch
-  grouping/payment orchestration.
-- T024–T026 can run in parallel after the FE-02 facade shape is approved.
-- T030 and T033 can run in parallel after the shipment/status schema is fixed.
-- T037 and T039 can run in parallel after the read projection contract is fixed.
-- T042–T044 can run in parallel after the core story flows stabilize.
-
-## Parallel example: MVP
-
-```text
-T001 -> T004/T005/T006/T007/T008/T009/T010
-        -> T011/T012/T013/T014/T015 (US1)
-        -> T016/T017/T018/T019/T020/T021/T022/T023 (US2 grouped checkout)
-```
-
-US2 should not be started in production implementation until US1 cart behavior
-and the foundational event/migration decisions are complete. The first demo
-scope is US1 plus the minimum US2 checkout/payment path.
+- T001/T002, T008/T010/T011/T013, and each story's [P] tests touch separate files.
+- US3 quote work can proceed beside US1 after Phase 2 but cannot bypass US2 acceptance.
+- US5 UI may use contract fixtures while US4 is built; fixtures prove no backend integration.
 
 ## Implementation strategy
 
-### MVP first
+1. Complete gates and foundation.
+2. Deliver US1 as the independently testable MVP.
+3. Add US2 loyalty/payment, US3 quotation, US4 operations, and US5 reads.
+4. Complete Phase 8 before claiming readiness.
 
-1. Complete scope synchronization and foundational module/schema/provider-mock
-   work.
-2. Complete US1 and validate cart ownership/concurrency.
-3. Complete the minimum US2 grouped-checkout/payment path and validate the
-   10/15-minute deadlines, per-branch fee display, one payment, and exact
-   verified payment.
-4. Stop and review before enabling carrier integration.
+## Reality-check constraints
 
-### Incremental delivery
-
-1. Add US3 fulfilment choice and pre-payment GHTK fee quote.
-2. Add US4 post-payment shipment creation, webhook/status reconciliation, and
-   Staff handoff.
-3. Add US5 Member order history/latest tracking status.
-4. Run polish, migration, module, contract and quickstart verification.
-
-### Parallel team strategy
-
-1. One developer owns the `readyringsales` cart/checkout/order path.
-2. One developer owns `fulfilment` provider adapter/shipment/webhook path after
-   the foundational event and schema contracts are frozen.
-3. One developer owns Member/Staff REST and Thymeleaf projections after the
-   OpenAPI contract is stable.
-4. All contributors use the same mock provider fixtures and do not add live
-   credentials.
-
-## Notes
-
-- Every task uses the required checkbox, sequential ID, story label where
-  applicable, and an explicit file path.
-- Do not implement production GHTK activation until the documented partner,
-  callback-authentication, quota, and prepaid/no-COD gates are approved.
-- Run `speckit-analyze` after this task list is reviewed and before
-  `speckit-implement`.
-
+- A voucher widget does not prove points/quota atomicity.
+- A mock GHTK label does not prove custody.
+- A browser VNPay return does not prove payment.
+- A timer cannot release benefits while payment is unresolved.

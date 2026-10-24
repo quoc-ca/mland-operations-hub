@@ -84,13 +84,27 @@ paths:
                 $ref: '#/components/schemas/PaymentRedirectView'
         '409':
           $ref: '#/components/responses/Conflict'
-  /ready-ring-orders/{orderId}/shipping-quotes:
-    post:
-      summary: Quote GHTK delivery before payment
+  /ready-ring-fulfilment-options:
+    get:
+      summary: Read available fulfilment methods for a branch
       security:
         - firebaseBearer: []
       parameters:
-        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/BranchIdQuery'
+      responses:
+        '200':
+          description: Branch fulfilment capability without provider secrets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FulfilmentAvailabilityView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /ready-ring-shipping-quotes:
+    post:
+      summary: Quote GHTK delivery from current cart and branch before order creation
+      security:
+        - firebaseBearer: []
       requestBody:
         required: true
         content:
@@ -110,6 +124,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/UnsupportedDestination'
+        '503':
+          $ref: '#/components/responses/ProviderUnavailable'
   /ready-ring-orders/{orderId}/fulfilment-choice:
     put:
       summary: Choose pickup or GHTK fulfilment before payment
@@ -311,6 +327,7 @@ components:
         lines:
           type: array
           minItems: 1
+          maxItems: 50
           items:
             type: object
             required: [variantId, quantity]
@@ -320,6 +337,7 @@ components:
               quantity:
                 type: integer
                 minimum: 1
+                maximum: 99
         branchOrders:
           type: array
           description: Fulfilment choices keyed by the branch recorded on cart lines.
@@ -340,12 +358,17 @@ components:
         method:
           type: string
           enum: [PICKUP, GHTK]
+        shippingQuoteId:
+          type: string
+          description: Required for GHTK; omitted for pickup. The server revalidates this quote before checkout acceptance.
         recipient:
           $ref: '#/components/schemas/Recipient'
     ShippingQuoteRequest:
       type: object
-      required: [recipient]
+      required: [branchId, recipient]
       properties:
+        branchId:
+          type: string
         recipient:
           $ref: '#/components/schemas/Recipient'
     Recipient:
@@ -354,8 +377,11 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          maxLength: 100
         phone:
           type: string
+          pattern: '^(0[0-9]{9}|\+84[0-9]{9})$'
         province:
           type: string
         district:
@@ -364,12 +390,37 @@ components:
           type: string
         address:
           type: string
+          minLength: 10
+          maxLength: 500
         note:
           type: string
+          maxLength: 500
+    FulfilmentAvailabilityView:
+      type: object
+      required: [branchId, availableMethods, contactStaffRequired]
+      properties:
+        branchId:
+          type: string
+        availableMethods:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [PICKUP, GHTK]
+        contactStaffRequired:
+          type: boolean
+        guidanceCode:
+          type: string
+          nullable: true
     ShippingQuoteView:
       type: object
-      required: [currency, deliveryFee, totalCharge, expiresAt]
+      required: [quoteId, branchId, currency, deliveryFee, totalCharge, expiresAt]
       properties:
+        quoteId:
+          type: string
+          description: Opaque server-issued identifier; shipping amounts submitted by clients are never trusted.
+        branchId:
+          type: string
         currency:
           type: string
         deliveryFee:
@@ -507,4 +558,14 @@ components:
       description: Resource is not visible to the actor
     UnsupportedDestination:
       description: GHTK cannot quote the recipient destination
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ProviderUnavailable:
+      description: GHTK is disabled, unavailable, or timed out; no payment attempt is created
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
 
