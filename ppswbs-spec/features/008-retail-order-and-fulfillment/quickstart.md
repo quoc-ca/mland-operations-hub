@@ -6,10 +6,14 @@ that FE-08 is implemented or that production GHTK credentials are available.
 ## Prerequisites
 
 - Java 21 and the backend Maven toolchain.
+- Approved and pinned Node.js, React, Vite and TypeScript versions plus the
+  frontend build/test tools selected by the frontend-foundation task.
 - MySQL test database or the repository's approved integration-test setup.
 - Firebase Auth emulator or an approved non-production Firebase project.
 - Mock payment and mock GHTK adapters enabled for automated tests.
 - No provider token or secret committed to the repository.
+- Constitution v3 package relocation approved and Spring Modulith configured to
+  detect `features.readyringsales` and `features.fulfilment` as separate modules.
 
 ## Scenarios
 
@@ -33,10 +37,13 @@ that FE-08 is implemented or that production GHTK credentials are available.
 | QS-16 | Staff attempts wrong-branch handoff | Operation rejected and audited; no custody milestone is recorded. |
 | QS-17 | Authorized Staff records GHTK handoff | One custody record is created with actor, branch, time, and carrier reference. |
 | QS-18 | Recipient data reaches 30 days after handoff | Recipient/contact/address fields are deleted or irreversibly obscured; minimized order/custody evidence remains. |
+| QS-19 | Member opens FE-08 while cart/order data is loading, empty, rejected, stale or unavailable | React displays the approved distinct UI state, preserves safe editable input where applicable, and never fabricates success or authorization. |
+| QS-20 | Browser displays a successful VNPay return but backend verification is pending or rejected | React shows pending/error from the Mland API; no branch order is presented as paid from browser state alone. |
+| QS-21 | Frontend attempts to request GHTK directly or expose provider configuration | Verification fails; all provider calls and credentials remain server-side. |
 
 ## Required validation commands after implementation
 
-Run from `ppswbs_backend` after the feature tasks are implemented:
+Run from `ppswbs_backend` after the backend feature tasks are implemented:
 
 ```text
 mvn.cmd test
@@ -47,4 +54,9 @@ Also run the approved MySQL fresh/upgrade migration checks, OpenAPI validation
 for the feature contract, Spring Modulith `ApplicationModules.verify()`, and
 the mock-provider contract suite. Record actual command results; do not claim
 runtime evidence from this plan alone.
+
+Run the approved frontend build, type, UI-state and API-integration commands
+from `ppswbs_frontend` after its package, lockfile and test tools have been
+approved and created. This guide intentionally does not invent command names
+before that foundation decision exists.
 
