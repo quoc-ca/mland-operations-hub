@@ -811,7 +811,233 @@ feature sau, chưa phải transition triển khai của V1.
 
 # FE-04 — AI Chatbox Analysis & Suggestion
 
-Chưa mô tả luồng AI/chat, consent ảnh và phân tích/gợi ý.
+## Phạm vi và trạng thái nghiên cứu
+
+FE-04 hiện được đặc tả trong
+[`features/004-ai-chatbox-analysis-and-suggestion`](features/004-ai-chatbox-analysis-and-suggestion/).
+Phần này là bản tổng hợp nghiên cứu và đối chiếu context; không tuyên bố rằng
+backend đã được triển khai. Nguồn chi tiết hiện hành là `spec.md`, OpenAPI
+contract, `data-model.md`, `plan.md`, `tasks.md` và các checklist của Feature-004.
+
+Feature-04 gồm ba use case tách biệt:
+
+1. **Basic AI Support:** Guest và Member hỏi về catalogue sản phẩm, workshop,
+   thông tin cửa hàng và FAQ đã được duyệt.
+2. **Booking-design image analysis:** chỉ Member được gửi ảnh trong một workshop
+   booking hợp lệ, sau khi đồng ý consent riêng; kết quả luôn được Staff hoặc
+   Manager review.
+3. **Advisory price suggestion:** chỉ Manager yêu cầu AI gợi ý giá cho workshop
+   package mới hoặc retail product mới; Manager quyết định giá cuối và catalogue
+   workflow mới được phép apply/publish giá.
+
+AI là provider hỗ trợ, không phải actor có quyền nghiệp vụ. AI không được xác nhận
+booking, payment, feasibility, review decision, custom-manufacturing order hoặc
+final price.
+
+## Baseline đã chốt
+
+### Actor và quyền
+
+| Actor | Quyền trong FE-04 |
+| --- | --- |
+| Guest | Chỉ dùng Basic AI Support với public context; không được upload booking-design image. |
+| Member | Dùng Basic AI Support; gửi ảnh booking-design của booking thuộc chính mình sau khi có consent; chỉ xem projection của request của mình. |
+| Staff | Review request trong branch/delegation scope với estimated value không vượt quá 3.000.000 VND; không yêu cầu hoặc xem price suggestion nội bộ theo mặc định. |
+| Manager | Review request trên 3.000.000 VND hoặc cần Manager authority; yêu cầu và quyết định price suggestion cho package/product mới. |
+| Admin | Quản lý cấu hình kỹ thuật và có thể xem technical/audit evidence khi được cấp quyền; không thay Manager quyết định nghiệp vụ hoặc publish giá. |
+| AI Provider | Trả text support, image quality/candidate features hoặc advisory price suggestion; không được mutate Mland business state. |
+| Cloud Storage | Lưu tạm booking-design image và xử lý xóa theo retention rule; không sở hữu quyết định nghiệp vụ. |
+
+### Booking context và image consent
+
+Thứ tự booking được giữ là:
+
+```text
+Workshop Package
+→ Location and Session
+→ Booking Information
+→ Design Path
+→ Booking Summary
+→ Payment
+```
+
+Image path chỉ mở cho Member có package, location, session, booking ownership,
+design path và design version hợp lệ. Consent phải là consent riêng cho mục đích
+booking-design image analysis, có version, purpose, Member identity, timestamp và
+affirmative action. General Terms/Privacy không thay thế evidence này.
+
+Ảnh booking-design chỉ được lưu tạm thời, gửi provider sau khi validation thành
+công và phải bị xóa sau processing ở cả success/failure path. Ảnh của
+custom-manufacturing là luồng riêng, có retention riêng và không được gộp vào
+Feature-04.
+
+### AI boundary
+
+Basic AI Support chỉ nhận public context đã được allowlist. Không gửi Firebase
+token, provider credential, password, payment data, private customer data hoặc raw
+operational data.
+
+Đối với image analysis, AI chỉ có thể trả:
+
+- Image quality.
+- Candidate ring shape/material/component.
+- Candidate design attributes.
+- Confidence/uncertainty metadata nếu provider hỗ trợ.
+
+Đối với price suggestion, AI chỉ trả advisory suggestion cho package/product mới.
+Suggestion không được tự động thay đổi hoặc publish giá. Price suggestion nội bộ
+chỉ Manager có quyền trên proposal được xem; Admin chỉ xem technical/audit evidence
+nếu được cấp quyền; Staff, Guest và Member không xem projection này.
+
+### Human review và state
+
+Mọi booking-design request hợp lệ đều cần human decision:
+
+```text
+analysis: PENDING → PROCESSING → SUCCEEDED / FAILED
+review:   NEED_REVIEW → ACCEPTED / REJECTED / CLARIFICATION_REQUIRED
+```
+
+AI không auto-accept hoặc auto-reject. Staff xử lý request ở mức không quá
+3.000.000 VND trong scope; Manager xử lý request trên ngưỡng hoặc có Manager
+authority. Reviewer không được review request do mình tạo hoặc request có conflict
+of interest. Material design change tạo version mới và không tái sử dụng decision cũ.
+
+`CLARIFICATION_REQUIRED` không phải là rejection tự động; Member được quay lại
+current design context và phải tạo version mới nếu thay đổi material design.
+
+### Input security và rate limiting
+
+Provider request phải được tạo từ normalized allowlisted command model, không forward
+raw request body. Input phải qua schema/type/length/size/ownership/business-context
+validation trước provider call. Image phải kiểm tra MIME type, file signature, size,
+dimensions, malware policy, metadata và ownership.
+
+User input là untrusted data, không phải system instruction. Prompt injection hoặc
+request cố đổi role, policy, output schema, pricing rule hay review decision phải bị
+reject trước provider call với các error code tương ứng:
+
+```text
+AI_INPUT_INVALID
+AI_PROMPT_INJECTION_DETECTED
+AI_CONTEXT_NOT_ALLOWED
+AI_OUTPUT_POLICY_VIOLATION
+```
+
+Provider output phải được schema/policy validate; output chứa final approval, final
+price, publication command, hidden instruction hoặc data leakage không được persist
+và không được tạo business mutation.
+
+Mỗi authenticated Member được tối đa **3 image-submission attempts trong rolling
+window 5 phút**, tính theo Member ID. Attempt sau khi identity đã xác thực vẫn được
+tính dù bị reject vì consent, context hoặc file không hợp lệ. Attempt thứ tư trả
+`429 IMAGE_RATE_LIMITED` và `Retry-After`, không storage, không Gemini call, không
+tạo request. Duplicate retry với cùng idempotency key không tiêu tốn thêm quota;
+quota phải được check/reserve atomically.
+
+## API và data ownership
+
+Các endpoint của Feature-04 gồm:
+
+```text
+POST /api/v1/ai-support/messages
+POST /api/v1/design-requests
+GET  /api/v1/design-requests/{id}
+GET  /api/v1/design-review-requests
+POST /api/v1/design-review-requests/{id}/decisions
+POST /api/v1/price-proposals/{id}/ai-suggestions
+```
+
+Feature-04 sở hữu provider interaction evidence, consent, temporary image reference,
+analysis projection, review linkage và price suggestion evidence. Workshop Booking
+sở hữu booking/session/payment; Catalogue sở hữu apply/publish price; Custom
+Manufacturing sở hữu custom-order acceptance/pricing/retention. Không dùng Feature-04
+để ghi trực tiếp repository của module khác.
+
+Các logical records cần duy trì gồm AI text interaction, BookingDesignRequest,
+ImageConsent, TemporaryImageReference, AnalysisResult, HumanReviewDecision và
+PriceSuggestion. Technical analysis status phải tách khỏi business review status.
+
+## Kết quả đối chiếu với context mới
+
+### Điểm đã đồng bộ
+
+1. `spec-general.md`, Report 3 actors/use cases/context, Feature-004 `spec.md` và
+   OpenAPI đều thống nhất Member-only image flow, consent riêng, human review và
+   advisory AI output.
+2. Custom-manufacturing reference image và booking-design image đã được mô tả là
+   hai loại dữ liệu/retention khác nhau.
+3. Role nghiệp vụ hiện dùng `Guest`, `Member`, `Staff`, `Manager`, `Admin`; không
+   tự ánh xạ Manager thành `OWNER` hoặc Admin thành một physical role code khi
+   chưa có quyết định identity mapping.
+4. Permission Matrix và Validation Matrix trong Feature-004 đã quy định actor,
+   scope, thứ tự validation, error code và side effect trước/provider sau.
+5. Luồng price suggestion đã được giới hạn cho package/product mới, không dùng cho
+   custom-manufacturing quotation, invoice hoặc payment amount.
+
+### Mâu thuẫn hoặc điểm cần đồng bộ tiếp
+
+1. **API design request còn gộp configured design choice.**
+   `ppswbs-spec/APIs.md` hiện mô tả `POST /api/v1/design-requests` có thể submit
+   booking-design image *hoặc validated configured design choice*, trong khi
+   Feature-004 `spec.md` và OpenAPI đang đặc tả endpoint này cho Member image
+   request có consent. Cần quyết định tách configured design submission sang
+   owning design/booking facade hoặc mở rộng contract của Feature-004; không được
+   để request body và permission rule hiểu theo hai nghĩa.
+
+2. **Screen context còn mô tả consent chưa thống nhất.**
+   `ppswbs-spec/screen.md` có đoạn nói image-specific consent trong UC30 chưa
+   thống nhất và không tự thêm consent screen, nhưng Feature-004 và Report 3 đã
+   chốt consent form riêng trước storage/provider call. Đoạn screen cũ cần được
+   cập nhật hoặc đánh dấu obsolete trước khi dùng làm source cho UI/spec.
+
+3. **Một số screen text vẫn có thể hiểu là AI tự đánh giá khả năng.**
+   `screen.md` mô tả các kết quả “có thể tự làm / cần tư vấn / không thể tự làm” và
+   cập nhật estimate khi đổi options. Cách diễn đạt này chỉ hợp lệ nếu đó là
+   candidate/system estimate context để Staff/Manager xem; không được hiểu là AI
+   auto-reject hoặc quyết định feasibility. Cần ghi rõ nguồn decision là human
+   review và candidate result không phải terminal business state.
+
+4. **Tên use case price còn gây hiểu nhầm.**
+   Report 3 vẫn dùng tên `Approve Custom Design Pricing`, dù nội dung hiện chỉ áp
+   dụng cho workshop package/product mới và không pricing custom-manufacturing.
+   Nên đổi tên thành `Request and Decide Advisory Catalogue Price Suggestion` hoặc
+   đánh dấu tên cũ là legacy để tránh suy luận rằng AI pricing custom order.
+
+5. **Configured design và image analysis có ranh giới persistence chưa hoàn toàn
+   rõ.** `DB.md` xác định `ring_designs` không chứa Member image request, AI output
+   hoặc review status và custom request lifecycle độc lập. Điều này phù hợp với
+   Feature-004 nếu analysis/request/result dùng record riêng; physical table,
+   FK/version mapping và facade ownership vẫn phải được chốt trước migration.
+
+6. **Ngưỡng review phụ thuộc estimate source chưa hoàn tất.** Feature-004 đã chốt
+   Staff `≤ 3.000.000 VND`, Manager `> 3.000.000 VND` hoặc Manager authority,
+   nhưng nguồn/phiên bản estimate, rounding, unknown estimate và routing khi
+   không tính được vẫn cần được Catalogue/Design Review owner xác nhận. Unknown
+   estimate không được route về AI auto-decision; phải đi Manager hoặc
+   `CLARIFICATION_REQUIRED`.
+
+7. **Rate-limit và prompt-injection mới nằm chủ yếu ở Feature-004.** General spec,
+   Report 3 và các screen artifact chưa mô tả đầy đủ giới hạn 3 ảnh/5 phút,
+   atomic reservation, `Retry-After` và các error code security. Khi đồng bộ UI,
+   API gateway và test plan, phải dùng Feature-004 matrix làm nguồn tham chiếu,
+   không tự đặt limit khác ở frontend.
+
+## Kết luận nghiên cứu và việc cần làm tiếp
+
+Feature-004 đã đủ baseline để tiếp tục hoàn thiện implementation design, nhưng chưa
+nên coi là code-ready tuyệt đối cho đến khi xử lý các điểm trên. Việc ưu tiên là:
+
+1. Chốt endpoint ownership cho configured design choice.
+2. Đồng bộ `screen.md` với consent form bắt buộc và human-review boundary.
+3. Đổi/ghi chú tên use case price để tách package/product pricing khỏi custom order.
+4. Chốt physical persistence mapping cho booking-design request, consent, analysis
+   result, review version và temporary image reference.
+5. Chốt estimate source/routing cho unknown estimate và kiểm chứng matrix-to-API.
+
+Các mục trên là dependency của `plan.md`, `data-model.md`, migration design và
+implementation tasks; không được giải quyết bằng cách suy ra hành vi từ code hoặc
+browser response.
 
 <a id="fe-05"></a>
 
