@@ -11,7 +11,10 @@ servers:
 paths:
   /ai-support/messages:
     post:
-      summary: Ask basic AI support
+      summary: Ask basic AI support (Guest/Member/public context)
+      description: >-
+        Validates scope, prompt-injection policy and rate limit before invoking
+        the provider. The response cannot mutate Mland business state.
       security: []
       requestBody:
         required: true
@@ -28,6 +31,8 @@ paths:
                 $ref: '#/components/schemas/AiSupportResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableInput'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -35,6 +40,10 @@ paths:
   /design-requests:
     post:
       summary: Submit a Member booking-design request
+      description: >-
+        Member-only endpoint. Requires eligible booking context, current consent,
+        valid image input, atomic three-attempt/five-minute rate limiting and an
+        idempotency key before temporary storage or provider processing.
       security:
         - firebaseBearer: []
       parameters:
@@ -60,9 +69,16 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableInput'
+        '429':
+          $ref: '#/components/responses/ImageRateLimited'
   /design-requests/{designRequestId}:
     get:
       summary: Read an authorized design request projection
+      description: >-
+        Returns only the owning Member projection or an authorized Staff/Manager
+        scope projection. Raw image and provider payloads are never returned.
       security:
         - firebaseBearer: []
       parameters:
@@ -83,6 +99,9 @@ paths:
   /design-review-requests:
     get:
       summary: List requests within Staff or Manager review scope
+      description: >-
+        Returns only requests within the authenticated reviewer's branch,
+        delegation, value and authority scope.
       security:
         - firebaseBearer: []
       responses:
@@ -101,6 +120,9 @@ paths:
   /design-review-requests/{reviewRequestId}/decisions:
     post:
       summary: Record a human review decision
+      description: >-
+        Staff or Manager only. Requires current design version, valid role scope,
+        separation of duties and an atomic terminal-state transition.
       security:
         - firebaseBearer: []
       parameters:
@@ -132,6 +154,9 @@ paths:
   /price-proposals/{proposalId}/ai-suggestions:
     post:
       summary: Request an advisory package/product price suggestion
+      description: >-
+        Manager-only endpoint for a new workshop package or retail product. The
+        result is advisory and cannot apply or publish a price directly.
       security:
         - firebaseBearer: []
       parameters:
@@ -154,6 +179,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableInput'
         '503':
           $ref: '#/components/responses/ProviderUnavailable'
 components:
@@ -277,8 +304,36 @@ components:
       properties:
         code:
           type: string
+          enum:
+            - AUTHENTICATION_REQUIRED
+            - NOT_FOUND
+            - FORBIDDEN_ROLE
+            - BOOKING_CONTEXT_INVALID
+            - DESIGN_VERSION_STALE
+            - CONSENT_REQUIRED
+            - IMAGE_INVALID
+            - IMAGE_TOO_LARGE
+            - IMAGE_QUALITY_INSUFFICIENT
+            - IMAGE_RATE_LIMITED
+            - AI_RATE_LIMITED
+            - AI_INPUT_INVALID
+            - AI_PROMPT_INJECTION_DETECTED
+            - AI_CONTEXT_NOT_ALLOWED
+            - AI_UNAVAILABLE
+            - AI_RESPONSE_INVALID
+            - AI_OUTPUT_POLICY_VIOLATION
+            - AI_SCOPE_UNSUPPORTED
+            - REVIEW_NOT_AUTHORIZED
+            - REVIEW_STATE_CONFLICT
+            - PRICE_INPUT_INCOMPLETE
+            - PRICE_SUGGESTION_INVALID
+            - AI_FEATURE_NOT_APPLICABLE
         message:
           type: string
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+          nullable: true
   responses:
     BadRequest:
       description: Invalid request or input
@@ -288,13 +343,61 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
       description: Missing or invalid Firebase identity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     Forbidden:
       description: Authenticated actor lacks the required Mland permission
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     NotFound:
       description: Resource is not visible to the actor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     Conflict:
       description: Idempotency, stale version or review state conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     RateLimited:
       description: Configured request limit exceeded
+      headers:
+        Retry-After:
+          description: Seconds until the client may retry
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ImageRateLimited:
+      description: Member exceeded the limit of three image attempts in five minutes
+      headers:
+        Retry-After:
+          description: Seconds until the image quota may be retried
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableInput:
+      description: Input failed schema, context or AI security policy validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     ProviderUnavailable:
       description: AI provider unavailable or timed out
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
