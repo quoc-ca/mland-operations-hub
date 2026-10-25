@@ -1,11 +1,11 @@
 # General Spec
 
 **Date created**: 2026-09-29
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-25
 **Author**: Phan Son
-**Last updated by**: Hồ Hoàng Quốc
+**Last updated by**: Phan Sơn
 
-**Version**: 0.3
+**Version**: 0.4
 **Status**: Working Agreement
 
 > This working agreement summarizes product context and shared design constraints. [Report 2 scope](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/01-scope-purpose.md), [constraints](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/02-assumptions-constraints.md), and [decision evidence](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/07-evidences.md) govern business scope; Report 3 governs detailed requirements. The [constitution](.specify/memory/constitution.md) governs architecture. This update records the group's confirmed technical decisions; it does not reconcile unrelated business-source conflicts or approve feature designs.
@@ -46,9 +46,11 @@
 | Delivery Provider | External provider | Giao Hàng Tiết Kiệm (GHTK), used only for Staff-recorded manual handoff; no V1 carrier API integration. |
 | External Registration System | External provider | Klook and GetYourGuide are OTA candidates. Mland remains source of truth for capacity; each provider requires separate onboarding and proof of ticket-per-participant delivery before 003.4 go-live. |
 
-**Role-code reconciliation:** Report 2/3 use the business labels `Member`, `Staff`, `Manager`, and `Admin`; the authentication feature and DB working material use codes including `MEMBER`, `STAFF`, `OWNER`, and `ADMIN_TECHNICAL`. The mapping and any permission differences remain `TBD`. Do not silently map Manager to Owner or Admin to Admin Technical, change a role code, or grant authority based on a display label.
+**Role-code vocabulary (approved, closed):** V1 uses exactly four role codes: `MEMBER`, `STAFF`, `MANAGER`, and `ADMIN`. The codes `OWNER` and `ADMIN_TECHNICAL` are retired and must not be introduced, mapped to, or inferred from client input or display labels. A Firebase provider claim, email, or display name does not confer any Mland role.
 
-The existing authentication working agreement requires MFA for privileged internal roles. Preserve this requirement; the role-code mapping and the approved enforcement/recovery mechanism must be resolved before enabling those roles.
+**MFA:** MFA is not required in V1. Reauthentication is required only for Firebase-sensitive credential changes (e.g. email or password update via Firebase). Do not introduce forced re-login after a fixed session duration; idle expiry is handled by Firebase token lifetime alone.
+
+**Post-authentication routing:** After a successful sign-in, every role is routed to `/`. Feature dashboards are outside FE-001 scope. Unverified users see a non-blocking email-verification reminder; per-feature access controls enforce their own verified-email requirement.
 
 ## 3. Functional Requirements
 
@@ -109,8 +111,9 @@ Detailed requirements remain in the [Report 3 NFR baseline](../documents/docs/re
 * **Privacy notice and consent:** Mland's general Terms and Privacy Policy states image-processing purposes, approved retention periods, Google attribution, and delivery-recipient data handling. Booking-design image processing additionally requires an affirmative, versioned, purpose-specific Member consent recorded before temporary storage or AI analysis.
 * **Integration boundaries:** Google Places content is not persisted; GHTK has no V1 API/quote/tracking/failure/return workflow; OTA callbacks are processed only by an approved 003.4 provider adapter and go-live gate; workflow SMTP only delivers requested messages.
 * **Hosting and caching:** Firebase Hosting is preview-only. Cache behavior applies only to deliberately public content; never cache identity tokens, authenticated responses, booking capacity, payment status, invoices, Member history, or administration data.
-* **Auditability:** Payment confirmation, price publication, booking-design review, custom final amount, pickup, and carrier handoff retain business audit evidence under the stated retention period.
-* **Workshop settlement authorization:** Account/personnel owns role-code mapping and capability grants. Workshop settlement uses branch-scoped capabilities `workshop.settlement.defer`, `workshop.settlement.reschedule`, and `workshop.settlement.refund`; an inactive actor loses them immediately. A feature MUST NOT infer `Manager = OWNER`.
+* **Auditability:** Payment confirmation, price publication, booking-design review, custom final amount, pickup, and carrier handoff retain business audit evidence under the stated retention period. FE-001 account-management audit/security evidence (role changes, status changes, location assignment, lock/unlock) is retained for five years. Audit metadata includes actor account ID, target account ID, action, outcome, timestamp, and correlation ID; it records only before/after values for role, status, location, or lock reason. It never includes raw passwords, Firebase tokens, Firebase action links, or unnecessary PII (full name, phone, unrelated contact data).
+* **Workshop settlement authorization:** Account/personnel owns role-code mapping and capability grants. Workshop settlement uses branch-scoped capabilities `workshop.settlement.defer`, `workshop.settlement.reschedule`, and `workshop.settlement.refund`; an inactive actor loses them immediately. A feature MUST NOT infer `Manager = OWNER` or use any retired role code.
+* **Location deactivation:** Deactivating a `workshop_location` does not automatically change any Account's role or status. However, commands scoped to a deactivated location (e.g. role/location assignment, check-in) must be denied. `workshop_locations` is the canonical authority for active locations; Account Management stores assignments and validates them through the workshop-location facade only.
 * **Unbaselined quality targets:** Performance, availability/SLA, accessibility standard, supported browser/device baseline, production hosting/deployment, and production backend origin remain `TBD`. Do not infer numeric targets from the preview setup.
 
 ## 5. Data Model
@@ -119,8 +122,10 @@ Physical schemas remain owned by feature plans, migrations, and the evolving [DB
 
 | Data | Authority/owner | Constraint |
 | --- | --- | --- |
-| Firebase UID / `external_user_id` | Firebase identity mapped by Mland MySQL | Unique Member lookup identity; never use email as an automatic merge key. |
-| Account status, business roles, entitlements, policy acceptance, and auth audit | Mland MySQL / Members domain | Provider claims do not grant roles; role-code reconciliation remains `TBD`. |
+| Firebase UID / `external_user_id` | Firebase identity mapped by Mland MySQL | Unique Account lookup identity; never use email as an automatic merge key. One Firebase UID maps to exactly one Mland Account. |
+| Account status and role | Mland MySQL / `accountmanagement` module | Closed role vocabulary: `MEMBER`, `STAFF`, `MANAGER`, `ADMIN`. Account statuses: `ACTIVE`, `PENDING_SETUP`, `SUSPENDED`. Email verification is a separate Firebase-backed condition, not a fourth status. Provider claims do not grant roles. |
+| Location scope | `workshop_locations` table (canonical authority owned by FE-03) | Staff has exactly one active location assignment; Manager has one or more. Account Management stores assignments and validates them through the workshop-location facade only; it does not maintain a local copy of location data. |
+| Business role entitlements, policy acceptance, and auth audit | Mland MySQL / `accountmanagement` module | Provider, Firebase email, display name, photo, or Firebase custom claims do not grant business authority. Five-year retention for account security/audit evidence. |
 | Profile/contact snapshot | Mland account/profile capability | Contact values may be absent or change; they are not authorization keys. |
 | Workshop packages, schedules, capacity, bookings, and check-in evidence | Mland business domains | Mland owns workshop capacity, including when exchanging availability with an approved OTA. |
 | Catalogue, component/material and published-price data | Mland catalogue domain | Staff maintains product catalogue; Managers decide published prices for newly priced packages/products. |
@@ -183,11 +188,11 @@ Firebase Authentication ──verified ID token──► Mland account, status a
 
 * **Decided on 2026-10-24:** separate React + Vite frontend, Java 21/Spring Boot backend, no application SSR, feature-oriented layers, retained Modulith, and hybrid state direction. These are not architecture TBDs; mechanism details belong to the owning feature/shared contract.
 * **Deferred synchronization:** existing feature specs/plans/tasks/contracts, APIs.md, design kit, and code may retain old SSR, package, or persona assumptions. Review the affected material before implementation; do not silently rewrite or mark it ready in this update. The [account-management artifacts](features/001-account-management/) are a current design source, not proof of compliance with the amended baseline.
-* How should Report 3 business labels `Manager`/`Admin` reconcile with implementation role codes `OWNER`/`ADMIN_TECHNICAL` without changing approved permission boundaries? This remains `TBD`; do not infer a mapping.
+* **Role-code mapping resolved (2026-10-25):** The closed role vocabulary `MEMBER`, `STAFF`, `MANAGER`, `ADMIN` is approved. The codes `OWNER` and `ADMIN_TECHNICAL` are retired. Any Report 2/3 reference to those codes must be treated as resolved to the approved vocabulary; no further TBD mapping is open.
 * Which Firebase project hierarchy, billing owner, access roles, secret-management process, and provider approvals will be used for development/staging/production?
 * Will Firebase Auth Emulator or a separate non-production Firebase project be used for authentication integration tests? The production project must not be used for tests.
 * What is the final safe account-linking, recovery, and support path for provider collisions or same-email/different-UID cases?
-* How will MFA be enforced, recovered, and audited for privileged internal roles under the selected Firebase/Identity Platform capability and role mapping?
+* MFA is not required in V1. Post-V1 MFA design (enforcement, recovery, auditing) is deferred and must not be inferred from this agreement.
 * Which provider contracts, credentials, callback URLs, quotas, supplier approvals, and SMTP/cloud-storage configuration are required for go-live? Keep credentials out of this repository.
 * What frontend/backend origins, production deployment model, performance/availability targets, accessibility standard, and browser/device baseline will be approved? CORS, credential transport, and CSRF design must match the selected origins and owning feature contracts.
 * Which preview content may be published through Firebase Hosting, with what access boundary and expiry lifecycle?

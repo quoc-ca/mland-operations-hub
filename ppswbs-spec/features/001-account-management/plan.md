@@ -106,7 +106,7 @@ FE-001 delivers the full account lifecycle for Mland: registration and sign-in (
 | R08 | Location validation source | Account feature validates Staff/Manager location scope against FE-03 facade; does not own a duplicate location record | FR-012 | Local copy of location table — rejected (violates module data ownership) |
 | R09 | Notification integration | Post-commit notification request persisted in same DB transaction; FE-07 job delivers after commit | FR-024 | Synchronous SMTP in request — rejected (FR-024 forbids blocking on delivery) |
 | R10 | Audit retention | Audit events retained 5 years in DB; no automatic purge mechanism in V1 scope | FR-023 | 90-day retention — rejected (FR-023 specifies 5 years) |
-| R11 | MFA for internal roles | spec-general.md requires MFA for privileged internal roles; role-code mapping and enforcement mechanism remain TBD (product/security owner) | spec-general.md | Not implementing MFA — blocked pending TBD resolution |
+| R11 | MFA for internal roles | Not required in V1 (approved decision 2026-10-25; see spec-general.md v0.4 §2). Reauthentication applies only to Firebase-sensitive credential changes (email/password via Firebase). | spec-general.md v0.4, req-change.md 2026-10-25 | — |
 | R12 | Resend cooldown | 5-minute resend cooldown for invitation resend enforced server-side by comparing last-sent timestamp | FR-015 | Client-side throttle — rejected (bypassable) |
 
 ### Open items (require decision before implementation)
@@ -114,10 +114,10 @@ FE-001 delivers the full account lifecycle for Mland: registration and sign-in (
 | ID | Gap | Impact | Owner | Condition to proceed |
 |----|-----|--------|-------|---------------------|
 | G01 | Idempotency key TTL for internal account creation | Tasks cannot specify purge/expiry logic | Product | Owner sets TTL (suggested: 30 days) |
-| G02 | MFA for Staff/Manager/Admin roles | Affects activation flow and login sequence | Product + Security | Explicit decision to defer to V2 or specify mechanism |
+| G02 | MFA for Staff/Manager/Admin roles | **RESOLVED (2026-10-25)**: MFA is not required in V1. Deferred post-V1. No implementation change needed. | — | — |
 | G03 | FE-03 facade readiness | `AccountLocationAssignment` validation depends on FE-03's public boundary | FE-03 team | FE-03 publishes a facade method returning active location IDs |
 | G04 | FE-07 facade readiness | Post-commit notification request pattern requires FE-07's accepted DTO/event contract | FE-07 team | FE-07 publishes facade or event interface for notification requests |
-| G05 | Role-code mapping (MANAGER vs OWNER, ADMIN vs ADMIN_TECHNICAL) | spec-general.md notes TBD; misalignment would break existing permission checks | Product | Explicit role-code decision document |
+| G05 | Role-code mapping (MANAGER vs OWNER, ADMIN vs ADMIN_TECHNICAL) | **RESOLVED (2026-10-25)**: Closed vocabulary is `MEMBER`, `STAFF`, `MANAGER`, `ADMIN`. `OWNER` and `ADMIN_TECHNICAL` are retired. See spec-general.md v0.4 §2 and req-change.md. | — | — |
 
 ---
 
