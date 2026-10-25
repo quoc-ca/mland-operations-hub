@@ -9,37 +9,67 @@ info:
 servers:
   - url: /api/v1
 paths:
-  /ready-rings:
+  /members/me/ready-ring-cart:
     get:
-      summary: List published ready-to-sell products
-      security: []
-      parameters:
-        - $ref: '#/components/parameters/BranchIdQuery'
+      summary: Read the authenticated Member's branch-bound retail cart
+      security:
+        - firebaseBearer: []
       responses:
         '200':
-          description: Published catalogue projection
+          description: Current cart; product facts remain FE-02 projections.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ProductSummary'
-  /ready-rings/{readyRingId}:
-    get:
-      summary: Read a published product
-      security: []
-      parameters:
-        - $ref: '#/components/parameters/BranchIdQuery'
-        - $ref: '#/components/parameters/ReadyRingId'
+                $ref: '#/components/schemas/RetailCartView'
+  /members/me/ready-ring-cart/lines:
+    post:
+      summary: Add an FE-02-eligible variant to the authenticated Member's cart
+      security:
+        - firebaseBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartLineRequest'
       responses:
         '200':
-          description: Published product detail
+          description: Updated cart
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProductDetail'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                $ref: '#/components/schemas/RetailCartView'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /members/me/ready-ring-cart/lines/{lineId}:
+    patch:
+      summary: Change quantity of one owned cart line
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/CartLineId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartLineRequest'
+      responses:
+        '200':
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetailCartView'
+    delete:
+      summary: Remove one owned cart line
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/CartLineId'
+      responses:
+        '204':
+          description: Cart line removed
   /ready-ring-orders:
     post:
       summary: Create or return an idempotent grouped retail checkout
@@ -66,6 +96,43 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /ready-ring-benefit-previews:
+    post:
+      summary: Preview FE-06-approved promotion and loyalty benefits for the current cart
+      security:
+        - firebaseBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BenefitPreviewRequest'
+      responses:
+        '200':
+          description: Server-priced benefit preview; shipping is excluded from benefit calculations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenefitPreviewView'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /ready-ring-checkouts/{checkoutId}/cancellations:
+    post:
+      summary: Cancel an accepted unpaid checkout before VNPay payment initiation
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/CheckoutId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Checkout cancelled; holds released and cart restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupedCheckoutView'
         '409':
           $ref: '#/components/responses/Conflict'
   /ready-ring-checkouts/{checkoutId}/payment:
@@ -126,28 +193,6 @@ paths:
           $ref: '#/components/responses/UnsupportedDestination'
         '503':
           $ref: '#/components/responses/ProviderUnavailable'
-  /ready-ring-orders/{orderId}/fulfilment-choice:
-    put:
-      summary: Choose pickup or GHTK fulfilment before payment
-      security:
-        - firebaseBearer: []
-      parameters:
-        - $ref: '#/components/parameters/OrderId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FulfilmentChoiceRequest'
-      responses:
-        '200':
-          description: Updated order projection
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RetailOrderView'
-        '409':
-          $ref: '#/components/responses/Conflict'
   /members/me/ready-ring-orders:
     get:
       summary: List the authenticated Member's retail orders
@@ -266,8 +311,8 @@ components:
       description: Active processing branch selected for the catalogue journey.
       schema:
         type: string
-    ReadyRingId:
-      name: readyRingId
+    CartLineId:
+      name: lineId
       in: path
       required: true
       schema:
@@ -292,57 +337,70 @@ components:
         type: string
         maxLength: 128
   schemas:
-    ProductSummary:
+    RetailCartView:
       type: object
-      required: [id, name, published]
+      required: [lines, version]
       properties:
-        id:
-          type: string
-        name:
-          type: string
-        published:
-          type: boolean
-    ProductDetail:
-      allOf:
-        - $ref: '#/components/schemas/ProductSummary'
-        - type: object
-          properties:
-            variants:
-              type: array
-              items:
-                $ref: '#/components/schemas/ProductVariant'
-    ProductVariant:
-      type: object
-      required: [id, quantityAvailable]
-      properties:
-        id:
-          type: string
-        quantityAvailable:
+        version:
           type: integer
           minimum: 0
-    CreateGroupedCheckoutRequest:
-      type: object
-      required: [lines]
-      properties:
         lines:
           type: array
-          minItems: 1
           maxItems: 50
           items:
-            type: object
-            required: [variantId, quantity]
-            properties:
-              variantId:
-                type: string
-              quantity:
-                type: integer
-                minimum: 1
-                maximum: 99
+            $ref: '#/components/schemas/CartLineView'
+    CartLineView:
+      type: object
+      required: [id, variantId, branchId, quantity]
+      properties:
+        id:
+          type: string
+        variantId:
+          type: string
+        branchId:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+    AddCartLineRequest:
+      type: object
+      required: [variantId, branchId, quantity]
+      properties:
+        variantId:
+          type: string
+        branchId:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+    UpdateCartLineRequest:
+      type: object
+      required: [quantity]
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+    CreateGroupedCheckoutRequest:
+      type: object
+      required: [branchOrders, benefitPreviewId, benefitSelection, benefitTermsAccepted]
+      properties:
         branchOrders:
           type: array
+          minItems: 1
           description: Fulfilment choices keyed by the branch recorded on cart lines.
           items:
             $ref: '#/components/schemas/BranchOrderCheckoutInput'
+        benefitPreviewId:
+          type: string
+          description: Server-issued benefit preview for the current cart and selected benefits.
+        benefitSelection:
+          $ref: '#/components/schemas/BenefitSelection'
+        benefitTermsAccepted:
+          type: boolean
+          description: Must be true for the server-priced benefit preview being accepted.
     BranchOrderCheckoutInput:
       type: object
       required: [branchId, fulfilment]
@@ -352,17 +410,109 @@ components:
         fulfilment:
           $ref: '#/components/schemas/FulfilmentChoiceRequest'
     FulfilmentChoiceRequest:
+      oneOf:
+        - $ref: '#/components/schemas/PickupFulfilmentChoice'
+        - $ref: '#/components/schemas/GhtkFulfilmentChoice'
+      discriminator:
+        propertyName: method
+        mapping:
+          PICKUP: '#/components/schemas/PickupFulfilmentChoice'
+          GHTK: '#/components/schemas/GhtkFulfilmentChoice'
+    PickupFulfilmentChoice:
       type: object
       required: [method]
       properties:
         method:
           type: string
-          enum: [PICKUP, GHTK]
+          enum: [PICKUP]
+    GhtkFulfilmentChoice:
+      type: object
+      required: [method, shippingQuoteId, recipient]
+      properties:
+        method:
+          type: string
+          enum: [GHTK]
         shippingQuoteId:
           type: string
-          description: Required for GHTK; omitted for pickup. The server revalidates this quote before checkout acceptance.
+          description: Server-issued quote to revalidate at checkout acceptance.
         recipient:
           $ref: '#/components/schemas/Recipient'
+    BenefitPreviewRequest:
+      type: object
+      required: [selection]
+      properties:
+        selection:
+          $ref: '#/components/schemas/BenefitSelection'
+    BenefitSelection:
+      oneOf:
+        - $ref: '#/components/schemas/NoBenefitSelection'
+        - $ref: '#/components/schemas/AutoBenefitSelection'
+        - $ref: '#/components/schemas/VoucherBenefitSelection'
+      discriminator:
+        propertyName: choice
+        mapping:
+          NONE: '#/components/schemas/NoBenefitSelection'
+          AUTO: '#/components/schemas/AutoBenefitSelection'
+          VOUCHER: '#/components/schemas/VoucherBenefitSelection'
+    NoBenefitSelection:
+      type: object
+      required: [choice, requestedPoints]
+      properties:
+        choice:
+          type: string
+          enum: [NONE]
+        requestedPoints:
+          $ref: '#/components/schemas/DecimalString'
+    AutoBenefitSelection:
+      type: object
+      required: [choice, requestedPoints]
+      properties:
+        choice:
+          type: string
+          enum: [AUTO]
+        requestedPoints:
+          $ref: '#/components/schemas/DecimalString'
+    VoucherBenefitSelection:
+      type: object
+      required: [choice, voucherCode, requestedPoints]
+      properties:
+        choice:
+          type: string
+          enum: [VOUCHER]
+        voucherCode:
+          type: string
+          minLength: 1
+          maxLength: 128
+        requestedPoints:
+          $ref: '#/components/schemas/DecimalString'
+    DecimalString:
+      type: string
+      pattern: '^(0|[1-9][0-9]{0,18})$'
+      description: Non-negative base-10 integer string. Used for VND amounts and loyalty points to avoid JavaScript precision loss.
+    BenefitPreviewView:
+      type: object
+      required: [previewId, currency, merchandiseSubtotal, shippingExcluded, discountAmount, pointsDiscountAmount, payableAmount, expiresAt]
+      properties:
+        previewId:
+          type: string
+        currency:
+          type: string
+        merchandiseSubtotal:
+          $ref: '#/components/schemas/DecimalString'
+        shippingExcluded:
+          type: boolean
+          enum: [true]
+        discountAmount:
+          $ref: '#/components/schemas/DecimalString'
+        pointsDiscountAmount:
+          $ref: '#/components/schemas/DecimalString'
+        payableAmount:
+          $ref: '#/components/schemas/DecimalString'
+        projectedEarnedPoints:
+          $ref: '#/components/schemas/DecimalString'
+        expiresAt:
+          type: string
+          format: date-time
     ShippingQuoteRequest:
       type: object
       required: [branchId, recipient]
@@ -424,14 +574,11 @@ components:
         currency:
           type: string
         deliveryFee:
-          type: integer
-          minimum: 0
+          $ref: '#/components/schemas/DecimalString'
         approvedMandatorySurcharge:
-          type: integer
-          minimum: 0
+          $ref: '#/components/schemas/DecimalString'
         totalCharge:
-          type: integer
-          minimum: 0
+          $ref: '#/components/schemas/DecimalString'
         expiresAt:
           type: string
           format: date-time
@@ -444,17 +591,13 @@ components:
         branchId:
           type: string
         subtotal:
-          type: integer
-          minimum: 0
+          $ref: '#/components/schemas/DecimalString'
         shippingCharge:
-          type: integer
-          minimum: 0
+          $ref: '#/components/schemas/DecimalString'
         payableAmount:
-          type: integer
-          minimum: 0
+          $ref: '#/components/schemas/DecimalString'
         paymentState:
-          type: string
-          enum: [PENDING, PAID, FAILED, EXPIRED, EXCEPTION]
+          $ref: '#/components/schemas/PaymentLifecycleState'
         fulfilmentState:
           type: string
           enum: [NOT_SELECTED, PREPARING, READY_FOR_PICKUP, CREATING_SHIPMENT, SHIPMENT_PENDING, SHIPMENT_CREATED, HANDED_TO_CARRIER, PICKED_UP]
@@ -481,17 +624,21 @@ components:
           items:
             $ref: '#/components/schemas/RetailOrderView'
         combinedSubtotal:
-          type: integer
-          minimum: 0
+          $ref: '#/components/schemas/DecimalString'
         combinedShippingCharge:
-          type: integer
-          minimum: 0
+          $ref: '#/components/schemas/DecimalString'
         combinedPayableAmount:
-          type: integer
-          minimum: 0
+          $ref: '#/components/schemas/DecimalString'
         paymentState:
+          $ref: '#/components/schemas/PaymentLifecycleState'
+        paymentInitiatedAt:
           type: string
-          enum: [PENDING, PAID, FAILED, EXPIRED, EXCEPTION]
+          format: date-time
+          nullable: true
+          description: Null only while self-cancellation remains permitted.
+    PaymentLifecycleState:
+      type: string
+      enum: [ACCEPTED_UNPAID, PAYMENT_INITIATED, PAID, FAILED, EXPIRED, CANCELLED, EXCEPTION]
     PaymentRedirectView:
       type: object
       required: [checkoutId, paymentUrl, expiresAt]

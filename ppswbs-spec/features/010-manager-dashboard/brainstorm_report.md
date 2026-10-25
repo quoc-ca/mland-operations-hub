@@ -12,13 +12,14 @@ Managers need one read-only view of verified business performance instead of ope
 
 The feature must:
 
-- Provide a Manager Dashboard entry point.
-- Provide an Executive Revenue Dashboard view.
-- Show verified retail revenue, workshop utilization, and branch KPIs.
+- Provide one Manager Dashboard with the Executive Revenue view as its only V1
+  journey.
+- Show exactly five KPI cards: verified retail revenue, verified workshop
+  revenue, total verified revenue, paid retail order count, and workshop
+  utilization, plus branch KPI rows.
 - Allow filtering by a valid reporting period and permitted branch scope.
-- Clearly identify missing, delayed, or partial data.
+- Clearly identify empty, unavailable, or partial data.
 - Keep every dashboard action read-only.
-- Allow navigation to authorized operational lists without granting new permissions.
 - Hide revenue values from Member, Staff, and Admin users.
 
 The feature does not include order creation or editing, payment processing, product or workshop management, promotion management, GHTK tracking, accounting reconciliation, scheduled reports, or file export.
@@ -42,7 +43,7 @@ The dashboard should:
 3. Accept a valid period and branch filter.
 4. Aggregate verified records from retail and workshop domains.
 5. Display revenue, utilization, and branch KPI results.
-6. Mark empty, delayed, failed, or partial data instead of presenting it as complete.
+6. Mark empty, unavailable, or partial data instead of presenting it as complete.
 7. Preserve the last valid view when a new filter is rejected.
 
 ## Approved Admin parameter-impact boundary
@@ -83,7 +84,7 @@ This separation lets an Admin validate configuration consequences without turnin
 - An authorized Manager can open the dashboard and see the default scoped metrics in one journey.
 - A Manager can change the reporting period and branch scope without seeing data outside that scope.
 - Every displayed revenue value can be traced to verified recorded business data.
-- Empty, delayed, failed, and partial data states are visibly distinguishable from complete data.
+- Empty, unavailable, and partial data states are visibly distinguishable from complete data.
 - Unauthorized roles cannot view executive revenue values.
 - Dashboard actions do not change order, payment, workshop, or master-data records.
 - An authorized Admin can understand the before/after effect and aggregated operational impact of a configurable parameter without seeing executive revenue, customer details, or unrelated branch KPIs.

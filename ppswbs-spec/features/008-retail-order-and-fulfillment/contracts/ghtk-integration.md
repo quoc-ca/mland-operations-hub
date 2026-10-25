@@ -12,7 +12,9 @@ the mock adapter.
 ## Grouped checkout relationship
 
 The Member pays one grouped checkout through VNPay, but GHTK remains scoped per
-branch order. Each branch order receives its own fee quote, recipient snapshot,
+branch order. Each branch order receives its own fee quote; the recipient draft
+exists only in the current checkout session and becomes an immutable snapshot
+only when the grouped checkout is accepted.
 partner order identifier, shipment, and normalized carrier status. The combined
 VNPay amount is the sum of the branch-order item totals and the accepted GHTK
 charges shown separately in checkout; one GHTK shipment is never shared across

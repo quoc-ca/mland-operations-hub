@@ -189,6 +189,18 @@ other business records. Secrets are never returned through these APIs. The
 configuration model, integration-monitoring data, and technical-auth mechanism
 remain unapproved.
 
+### 3.8 Executive reporting (`reporting`)
+
+| Owner | Boundary | Method and route | Access | UC | Purpose | Maturity |
+| --- | --- | --- | --- | --- | --- | --- |
+| `reporting` | Protected client REST | `GET /api/v1/executive-reports` | Active Manager account with `REPORTING_EXECUTIVE_VIEW` and at least one active MySQL `staff_branch_assignment`; requested branch UUIDs must be within that assignment scope | UC-10 | Return read-only, aggregated executive KPIs for an authorized reporting period and branch scope. This is not the FE-09 Admin parameter-impact view and never grants Admin access to executive revenue, ranking, customer, order, or payment data. | Draft — feature OpenAPI is defined; endpoint is not implemented. |
+
+The authoritative schema, period validation, source-quality semantics, and error
+contract are in
+[`features/010-manager-dashboard/contracts/manager-dashboard.openapi.yaml`](./features/010-manager-dashboard/contracts/manager-dashboard.openapi.yaml).
+The capability and branch-assignment checks are deny-by-default; a Firebase
+identity or Admin technical-configuration permission alone is insufficient.
+
 ## 4. External integration contracts
 
 These rows are deliberately separate from client REST. They require their own

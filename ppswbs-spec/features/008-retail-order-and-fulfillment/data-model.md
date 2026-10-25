@@ -54,10 +54,18 @@ logical availability.
 - Member owner
 - Branch-order membership and combined subtotal/shipping/payable totals
 - One payment state and one payment deadline
+- Payment lifecycle state: `ACCEPTED_UNPAID`, `PAYMENT_INITIATED`, `PAID`,
+  `FAILED`, `EXPIRED`, `CANCELLED`, or `EXCEPTION`, with
+  `paymentInitiatedAt` recorded when the server initiates VNPay
 - Complete grouped quote and benefit snapshot
 
 The grouped checkout is the Member-facing payment unit. It must not replace
 branch-specific order ownership or fulfilment state.
+
+Benefit selection stored with an accepted checkout uses the FE-06 canonical
+shape: `choice` (`NONE`, `AUTO`, or `VOUCHER`), `voucherCode` only for
+`VOUCHER`, and non-negative `requestedPoints`. API monetary and point values
+are decimal strings; quantities remain bounded integers.
 
 ### RetailOrder
 
@@ -92,8 +100,9 @@ Later catalogue changes must not alter the order snapshot.
 - Released/converted outcome and reason
 
 The maximum unpaid hold is 15 minutes. A payment link is valid for at most 10
-minutes. Expiry releases held quantities and benefits; late payment evidence is
-recorded for manual review and does not reopen the hold automatically.
+minutes. An authoritative unpaid payment failure or expiry releases held
+quantities and benefits and restores the source cart; late or ambiguous payment
+evidence is recorded for manual review and does not reopen the hold automatically.
 
 ### FulfilmentSelection
 
@@ -164,8 +173,11 @@ Pickup and carrier handoff are idempotent terminal business effects.
 ```text
 Checkout accepted
         |
-Pending full payment -- 15-minute hold expires/payment fails --> Hold released
-        | verified full payment
+ACCEPTED_UNPAID -- Member cancels --> Hold released / cart restored
+        |
+        +-- authoritative payment failure/15-minute expiry --> Hold released / cart restored
+        +-- server persists VNPay initiation --> PAYMENT_INITIATED
+                                                | verified full payment
 Paid / fulfilment selected
         +-- Pickup --> Preparing --> Ready for pickup --> Picked up
         +-- GHTK --> Creating shipment --> Shipment created
@@ -189,12 +201,21 @@ Paid / fulfilment selected
    branch; it never substitutes a mock or manual carrier workflow.
 9. Quote failure for one branch does not silently change fulfilment, remove cart
    lines, or invalidate eligible choices for another branch.
-10. Checkout acceptance reserves FE-06 benefits through `loyalty::facade` in
+10. Checkout acceptance reserves FE-06 benefits through `loyaltypromotion::facade` in
     the same transaction as all branch orders and source holds; either every
     source and benefit record commits or all roll back.
 11. Verified full payment or approved zero-total acceptance settles benefits
-    before granting earned points. Confirmed unpaid expiry releases HELD
-    benefits and marks pending earn ineligible. Duplicate outcomes are no-ops;
+    before granting earned points. An authoritative unpaid payment failure or
+    expiry releases HELD benefits, marks pending earn ineligible, and restores
+    the source cart. Duplicate outcomes are no-ops;
     ambiguous or conflicting outcomes remain unresolved and never release,
     consume, grant, or extend a benefit automatically.
+12. The recipient draft and a shipping quote exist only for the current
+    checkout session before acceptance. An immutable fulfilment/recipient
+    snapshot is persisted only with accepted branch orders.
+13. A Member cancellation is allowed only while the grouped checkout is
+    `ACCEPTED_UNPAID`. The server transition to `PAYMENT_INITIATED` records
+    `paymentInitiatedAt`; after that point, provider evidence is reconciled
+    rather than self-cancelled. Cancellation releases the complete hold bundle
+    and restores the source cart.
 
