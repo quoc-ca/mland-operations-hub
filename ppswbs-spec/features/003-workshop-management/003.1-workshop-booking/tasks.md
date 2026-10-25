@@ -1,15 +1,28 @@
 # Tasks: Customer Workshop Booking Lifecycle
 
-**Input**: Design documents from `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/`
+**Date created**: 2026-10-07
+**Date updated**: 2026-10-24
+**Author**: Hồ Hoàng Quốc
+**Last updated by**: Codex — documentation rebase review only
+
+**Feature Branch**: `003.1-workshop-booking`
+**Status**: Historical task record — blocked; do not execute
+**Governing baseline**: [spec-general.md](../../../spec-general.md),
+constitution v3.0.0, [spec.md](spec.md), and
+[REVIEW-2026-10-24.md](REVIEW-2026-10-24.md).
+
+**Input**: Historical design documents from `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/`
 
 **Prerequisites**: `spec.md`, `plan.md`, `research.md`, `data-model.md`,
 `contracts/workshop-booking.openapi.yaml`, and `quickstart.md`.
 
-> **Rebase required — 2026-10-23.** These tasks describe the original V1
+> **Rebase required — 2026-10-24.** These tasks describe the original V1
 > single-session, `participant_count` implementation. Do not schedule new work
 > from them until the booking → workshop item → individual attendance-ticket
 > model in [REBASE-NOTES.md](REBASE-NOTES.md) has been applied to all design
-> artifacts.
+> artifacts. Existing `[x]` markers are historical claims, not fresh evidence
+> of compliance with the 2026-10-24 baseline. A replacement dependency-ordered
+> task list must be generated only after the blockers in the review are resolved.
 
 **Scope gate**: Do not implement `CHECKED_IN`, `COMPLETED`, `NO_SHOW`, final
 payment, or External Registration System synchronization in this feature.

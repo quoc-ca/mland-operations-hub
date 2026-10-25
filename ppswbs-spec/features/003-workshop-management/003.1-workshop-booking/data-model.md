@@ -1,83 +1,72 @@
-# Data Model: Customer Workshop Booking Lifecycle
+# Data Model: Workshop Booking Core
 
-## WorkshopBooking
+**Date created**: 2026-10-07
+**Date updated**: 2026-10-25
+**Author**: Hồ Hoàng Quốc
+**Last updated by**: Hồ Hoàng Quốc
 
-One Guest or Member request for a package/session. Owns a unique booking code,
-booking-contact snapshot, participant count, package/price/currency snapshots
-and the current service/financial states. V1 does not create participant identity
-or contact snapshots for the individual purchased seats.
+**Status**: Draft design — schema names and migrations require approval before implementation.
 
-- Current service states: `PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED`, `CANCELLED`.
-- `CANCELLED` is only used when the Guest or Member explicitly releases an
-  active pre-payment hold. Post-confirmation cancellation and refund remain
-  deferred to a later feature.
-- Future reserved states: `CHECKED_IN`, `COMPLETED`, `NO_SHOW`.
-- Booking financial states: `UNPAID`, `DEPOSIT_PAID`, `FULLY_PAID`,
-  `REFUND_PENDING`, `REFUNDED`. `FAILED` belongs to `PaymentAttempt`, not to
-  the booking financial state.
-- Confirmation requires one valid, signed, non-duplicate deposit result.
+## Ownership and aggregate
 
-## WorkshopSession and CapacityHold
+`WorkshopBooking` is one direct-Mland commercial aggregate for one package. It
+is not a cart and does not own session configuration, check-in, attendance,
+settlement, refund, reschedule, or OTA facts.
 
-The session is a dated location/session with configured capacity. A hold stores
-participant count, booking/session identity, creation time, expiry time and a
-release generation. Holds are released exactly once and availability is based
-on participants, not booking-row count.
+```text
+WorkshopBooking (1) ── (1) BookingInvoice
+        │             └── (N) PaymentAttempt / (N) PaymentEventReceipt
+        ├── (1..2 for V1) BookingSessionCommitment ── WorkshopSession (003.2)
+        ├── (N) BookingTicket ── (1..2) TicketSessionEntitlement
+        └── (0..N) NotificationIntent / (0..N) MagicLinkAccess
+```
 
-## WorkshopInvoice and PaymentAttempt
+## Entities and invariants
 
-The invoice freezes the total booking amount, deposit percentage, deposit amount
-and currency. The total is calculated once from the package's approved
-participant-pricing policy and the requested participant count. A payment attempt
-stores safe provider references and attempt state; an attempt failure does not
-fail the booking while its hold is active. One booking has one invoice and one
-accepted deposit transaction, regardless of its participant count.
+| Entity | Owned data | Required invariant |
+| --- | --- | --- |
+| WorkshopBooking | booking code; package snapshot; contact email/phone snapshot; optional Member owner reference; participant count; service/financial status; expiry | Exactly one package and one contact. `participant_count` is positive and determines ticket count. |
+| BookingSessionCommitment | booking; session reference; chronological ordinal; branch snapshot; held/committed seat count | Basic Ring has one commitment. Silverclay has exactly two, distinct, same-branch commitments; ordinal is chronological; each seat count equals booking participant count. |
+| CapacityHold | 003.2 hold reference and safe outcome snapshot for a booking-session commitment | 003.2 is authoritative for the hold. Booking retains only the reference/status needed for its own pending, expiry and release behavior; one requested set is reserved/released atomically and exactly once. |
+| BookingInvoice | booking; frozen even-VND price per participant; participant count; frozen total; 50% deposit | `total = participant_count × price_per_participant`; price is even VND and deposit is exactly total/2. |
+| PaymentAttempt / PaymentEventReceipt | booking/invoice; safe provider references; attempt outcome; unique provider event identity | Only valid, matching, non-duplicate provider evidence settles the invoice. `FAILED` belongs to an attempt, not booking state. |
+| BookingTicket | booking; delivery-safe ticket identity/QR reference and ticket code received from 003.2; delivery state | A booking-side delivery projection, not the authoritative Operations ticket. Exactly N tickets are available only after confirmation; no participant identity/contact is stored. |
+| TicketSessionEntitlement | ticket delivery projection; booking-session commitment | A booking-side view of each 003.2 ticket/session entitlement. A Silverclay ticket has two; 003.2 owns entitlement validation and check-in/attendance state on that pair. |
+| MagicLinkAccess | booking; protected token hash; expiry; revoke/consume metadata | Raw token is never persisted/logged. Access ends no later than associated workshop end. |
+| NotificationIntent | booking; delivery channel/result/retry evidence | Delivery failure cannot reverse a confirmed payment. |
 
-## PaymentEventReceipt
-
-Immutable deduplication evidence for provider callbacks. Provider event identity
-is unique; mismatched, unsigned or unknown events cannot confirm a booking.
-
-## BookingTicket and NotificationIntent
-
-`WorkshopBooking 1 → N BookingTicket`, where `N` is exactly the booking's
-`participant_count` at confirmation. Tickets are individual purchased-seat
-credentials, not separate bookings or payment obligations. Each ticket has a
-unique `ticket_code` for manual fallback, an opaque signed QR token/reference,
-its own revocation and later check-in state, and no PII, payment data, Magic
-Link token or secret. A booking code identifies the booking and ticket set; it
-does not identify a specific ticket for check-in.
-
-Tickets are issued only after confirmation. Notification failure does not roll
-back confirmation; notification intent retries are safe and auditable. Every
-ticket remains valid until the associated workshop ends and supports explicit
-revocation without mutating historical payment evidence. Resending confirmation
-reuses the same active ticket set and does not create, revoke or rotate tickets.
-V1 uses `BOOKING_CONTACT_RECEIVES_ALL_TICKETS`: all tickets and the Magic Link
-are delivered only to the submitted booking contact, who may distribute tickets
-to the group. No individual participant contact is required or inferred. A later
-`EACH_PARTICIPANT_RECEIVES_TICKET` feature must introduce participant contact,
-claim/delivery and transfer rules explicitly rather than altering this model.
-
-## ExternalRegistrationHandoff
-
-A durable post-confirmation handoff for the later synchronization feature. Its
-processing cannot block local confirmation and must be idempotent later.
-
-## Transitions
+## Lifecycle
 
 ```text
 PENDING_PAYMENT + UNPAID
-  ├─ valid deposit callback → CONFIRMED + DEPOSIT_PAID
-  ├─ failed/cancelled attempt → PENDING_PAYMENT + UNPAID
-  ├─ explicit customer release while hold is active → CANCELLED + UNPAID
-  └─ hold expiry → EXPIRED + UNPAID; any failed payment attempt remains
-     recorded as `FAILED` on `PaymentAttempt`
-
-CONFIRMED + DEPOSIT_PAID
-  └─ CHECKED_IN / COMPLETED / NO_SHOW are later-feature transitions
+  ├─ verified deposit event → CONFIRMED + DEPOSIT_PAID
+  ├─ hold expiry → EXPIRED + UNPAID
+  └─ customer release while active → CANCELLED + UNPAID
 ```
 
-The `workshopbooking` module owns these records. Payment provider access is
-behind a payments facade/adapter; no module accesses another module's
-repositories or entities directly.
+Only the listed transitions belong to 003.1. Final payment, refund,
+reschedule, `CHECKED_IN`, `NO_SHOW`, and attendance finalization are outside it.
+
+## Validation and concurrency
+
+- Selected sessions must be customer-selectable and capacity-eligible through
+  the 003.2 sale-eligibility snapshot; no direct access to 003.2 persistence is
+  permitted.
+- 003.2 atomically reserves the requested participant count in every selected
+  session or creates no hold. It commits the complete active set or commits
+  none, and releases active holds idempotently; `SALES_PAUSED` rejects new holds
+  while preserving unexpired existing holds to their deadline.
+- Silverclay sessions must be distinct, same branch and non-adjacent if on the
+  same local day; different days have no maximum gap.
+- All packages consume the one shared capacity pool per session. A multi-session
+  booking consumes N seats in every selected session.
+- Create, capacity reservation and expiry/release have one all-or-nothing
+  business outcome through the 003.2 boundary. The cross-module transaction
+  mechanism remains unselected. Provider-event receipt uniqueness and command
+  idempotency prevent duplicate confirmation or release.
+
+## Migration boundary
+
+This document does not authorize a migration. Existing applied migrations stay
+unchanged. Dev/test reset requires an environment preflight; production/customer
+data needs an append-only preservation migration and upgrade/recovery evidence.
