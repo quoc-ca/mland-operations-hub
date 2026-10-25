@@ -44,7 +44,9 @@ variant has no authoritative shipping weight required for GHTK quotation.
 - Last edit/version timestamp
 
 Cart edits never create a retail order, payment attempt, sold quantity, or
-benefit redemption.
+benefit redemption. One cart contains at most 50 lines, and total quantity for
+one variant across all lines is an integer from 1 through 99 subject to current
+logical availability.
 
 ### GroupedCheckout
 
@@ -99,13 +101,26 @@ recorded for manual review and does not reopen the hold automatically.
 - Method: `PICKUP` or `GHTK`
 - Recipient name, phone, address and optional note while retention applies
 - Pickup location snapshot when applicable
-- Accepted GHTK quote components and total
+- Accepted server-issued GHTK quote identifier, components and total
 - Branch-specific shipping fee shown in the grouped checkout
 - Quote timestamp and provider correlation
+
+Recipient validation uses name 1–100 Unicode characters, a domestic mobile
+number in 10-digit `0` form or equivalent `+84` form, address 10–500 Unicode
+characters, and an optional note of at most 500 characters after trimming.
 
 The snapshot becomes immutable after checkout acceptance. Recipient data is
 deleted or irreversibly obscured 30 days after actual GHTK handoff, while
 minimized custody/order evidence remains.
+
+Before checkout acceptance, a quote request uses the current cart/branch and
+recipient input but creates no order, hold or payment attempt. The React client
+keeps a failed-request recipient draft only in current in-memory checkout state;
+FE-08 does not persist it in browser storage. A successful quote projection has
+an immutable identifier, branch, expiry and fee components. The client submits
+the identifier, not a trusted fee. Acceptance revalidates the quote against its
+Member, branch, cart version and recipient input; expiry or fee change requires
+a new quote and explicit grouped-total reconfirmation.
 
 ### GhtkShipment
 
@@ -170,4 +185,16 @@ Paid / fulfilment selected
    Manager reads are restricted by branch and delegated action scope.
 7. Provider delivery failure, cancellation, or return status does not create an
    automatic refund, cancellation, or return workflow.
+8. Production without approved GHTK access exposes pickup only for the affected
+   branch; it never substitutes a mock or manual carrier workflow.
+9. Quote failure for one branch does not silently change fulfilment, remove cart
+   lines, or invalidate eligible choices for another branch.
+10. Checkout acceptance reserves FE-06 benefits through `loyalty::facade` in
+    the same transaction as all branch orders and source holds; either every
+    source and benefit record commits or all roll back.
+11. Verified full payment or approved zero-total acceptance settles benefits
+    before granting earned points. Confirmed unpaid expiry releases HELD
+    benefits and marks pending earn ineligible. Duplicate outcomes are no-ops;
+    ambiguous or conflicting outcomes remain unresolved and never release,
+    consume, grant, or extend a benefit automatically.
 

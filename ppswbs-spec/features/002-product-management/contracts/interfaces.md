@@ -1,20 +1,20 @@
 # Interface Contracts: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-24 (bổ sung API import Excel — US9)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
-**Status**: Proposed, provider/identity/FE-08 prerequisites chưa có implementation.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; contract là baseline, provider/identity/FE-08 prerequisites chưa có implementation.   Phần bổ sung import Excel (US9) được duyệt bởi Đặng Thị Khương ngày 2026-10-24.
 **REST contract**: [OpenAPI 3.0.3](product-management.openapi.json). Trường, URL và errors ở đây phải khớp OpenAPI trước khi code; đây không phải endpoint đã hoạt động.
 
 ## Identity and capability boundary
 
 Identity owner cung cấp qua members::facade một actor value gồm opaque actorId, verified identity reference, accountActive và capability result hiện hành. Catalogue không đọc members entity, không log raw token và không suy role từ Firebase/email. Staff/Manager là nhãn nghiệp vụ, không tự chuyển sang OWNER hoặc mã role khác.
 
-Ngày 2026-10-24 người dùng đã chốt MEMBER/STAFF/MANAGER/ADMIN, MANAGER là vai trò riêng, Admin cấp quyền nội bộ và đăng ký khách không cấp quyền nội bộ. Người dùng cũng đồng ý hướng A: dùng chung primitive xác thực theo [spec 001](../../001-account-management/spec.md) qua identity owner, bearer cho mọi REST API, phiên nội bộ cố định 8 giờ tính từ auth_time không gia hạn trượt, revocation/trạng thái và thành công về `/`. Cookie web/CSRF của 001 không áp dụng cho FE-02 vì UI là React SPA; credential transport cuối cùng do identity owner xác nhận. Không yêu cầu xác minh email lại trên session hợp lệ. Đây là quyết định FE-02, chưa phải RBAC/session đã triển khai; MFA/recovery cụ thể vẫn thuộc dependency thiết kế FE-01.
+Ngày 2026-10-24 người dùng đã chốt MEMBER/STAFF/MANAGER/ADMIN, MANAGER là vai trò riêng, Admin quản lí tài khoản, vai trò, trạng thái khóa, RBAC, tham số vận hành và credential tích hợp, nhưng ADMIN không có capability catalogue nào ở dưới (không quản lí sản phẩm, danh mục, giá, số lượng, công khai hay duyệt); đăng ký khách không cấp quyền nội bộ. Người dùng cũng đồng ý hướng A: dùng chung primitive xác thực theo [spec 001](../../001-account-management/spec.md) qua identity owner, bearer cho mọi REST API, revocation/trạng thái và thành công về `/`. API không dùng cookie thay bearer (001 FR-001); contract xác thực cho frontend React do 001 chốt. Không yêu cầu xác minh email lại trên session hợp lệ. Đây là quyết định FE-02, chưa phải RBAC/session đã triển khai; MFA/recovery cụ thể vẫn thuộc dependency thiết kế FE-01.
 
-Không dùng Member allowlist ACTIVE/PENDING_POLICY_ACCEPTANCE hoặc Member bootstrap làm quyền nội bộ. `/member-auth/profile-session`, `__Host-mland_profile` và logout thuộc scope 001; không tự thay đổi hoặc coi cookie này là bằng chứng hoàn tất MFA. Identity owner cung cấp contract dùng chung/mở rộng, bao gồm gate đặc quyền và recovery theo FE-01; catalogue chỉ tiêu thụ actor/capability/xác thực đạt yêu cầu. Không tạo trang đăng nhập/MFA riêng trong catalogue hoặc ép người dùng Member xác minh email lại.
+Không dùng Member allowlist ACTIVE/PENDING_POLICY_ACCEPTANCE hoặc Member bootstrap làm quyền nội bộ. `/member-auth/profile-session`, `__Host-mland_profile` và logout thuộc scope 001; không tự thay đổi hoặc coi cookie này là bằng chứng hoàn tất MFA. Identity owner cung cấp contract dùng chung/mở rộng, bao gồm gate đặc quyền và recovery theo FE-01; productmanagement chỉ tiêu thụ actor/capability/xác thực đạt yêu cầu. Không tạo trang đăng nhập/MFA riêng trong productmanagement hoặc ép người dùng Member xác minh email lại.
 
 | Action | Required business authority | Denial |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ Không dùng Member allowlist ACTIVE/PENDING_POLICY_ACCEPTANCE hoặc Member boo
 
 Capability names đề xuất: catalogue.read-internal, product.create, product.edit, product.submit, product.approve, product.publish, product.delete, media.manage, variant.quantity, variant.sale-status, price.propose, price.approve, price.apply, category.manage. Đây là action vocabulary của hợp đồng, không phải các DB role/capability đã được provision.
 
-API management chỉ nhận backend-verified bearer identity; cookie không thay bearer. Frontend React gửi cùng bearer; mỗi lệnh ghi mang commandId và expectedVersion trong DTO. Phiên nội bộ hết 8 giờ tính từ auth_time thì trả 401 AUTHENTICATION_REQUIRED và frontend yêu cầu đăng nhập lại qua Firebase SDK. CORS theo origin của frontend, không vô hiệu hóa toàn cục. Chưa có session/capability facade thật nên đường quản trị không được enable bằng fallback permitAll hiện tại. Lỗi session không tự điều hướng sang hồ sơ/chính sách Member; identity owner phải cung cấp đích đăng nhập nội bộ cố định, không nhận arbitrary returnTo.
+API management chỉ nhận backend-verified bearer identity; cookie không thay bearer. Frontend React gửi cùng bearer; mỗi lệnh ghi mang commandId và expectedVersion trong DTO. Hết phiên hoặc credential không hợp lệ trả 401 AUTHENTICATION_REQUIRED; hành vi đăng nhập lại/recovery do 001 định nghĩa. CORS theo origin của frontend, không vô hiệu hóa toàn cục. Chưa có session/capability facade thật nên đường quản trị không được enable bằng fallback permitAll. Lỗi session không tự điều hướng sang hồ sơ/chính sách Member; identity owner phải cung cấp đích đăng nhập nội bộ cố định, không nhận arbitrary returnTo.
 
 ## API conventions
 
@@ -56,10 +56,16 @@ API management chỉ nhận backend-verified bearer identity; cookie không thay
 | POST price-proposals/{proposalId}/submissions | expectedVersion; submit current draft dưới variant lock, một pending/size. |
 | POST price-proposals/{proposalId}/decisions | expectedVersion, decision APPROVE/REJECT, approvedPrice/reason tương ứng; Manager only. Với initial product review phải đi review-decisions để whole-review atomic, không approve riêng lẻ rồi coi hồ sơ đã duyệt. |
 | POST price-proposals/{proposalId}/applications | expectedVersion; body không nhận số tiền mới. Check đúng approved revision/baseAppliedSequence; initial review phải valid. |
+| GET product-imports/template | `downloadProductImportTemplate`: trả `.xlsx` mẫu (sheet "Sản phẩm" với cột Mã nhóm, Tên sản phẩm, Mô tả, Danh mục, Size, Giá đề xuất (VND), Số lượng; sheet hướng dẫn; sheet danh mục đang hoạt động). Cần `product.create`. |
+| POST product-imports | `validateProductImport`: multipart đúng một file `.xlsx`; kiểm tra MIME + chữ ký ZIP/OOXML, không macro (`.xlsm`/vbaProject), ≤ 5.000.000 bytes (request ≤ 5.100.000), ≤ 500 dòng dữ liệu, chỉ sheet đầu. Trả 201 `ProductImportBatch` state VALIDATED (kèm `preview`) hoặc REJECTED (kèm `errors[{row,column,value,code,message}]`, mọi lỗi, tối đa 4.000 phần tử). Lỗi dòng không phải HTTP lỗi; lỗi mức file là 400/413/415. Không tạo product, product id hoặc SKU. Cần `Idempotency-Key`; cùng key/cùng digest (file SHA-256) trả lại batch cũ. |
+| GET product-imports/{batchId}, GET product-imports/{batchId}/error-report | `getProductImport` đọc trạng thái/kết quả (kiểm tra sau mất phản hồi); `downloadProductImportErrorReport` tải `.xlsx` lỗi (ô bắt đầu bằng `=`,`+`,`-`,`@` được vô hiệu hóa). Chỉ actor tạo batch và còn `product.create`; batch người khác trả 404 `IMPORT_BATCH_NOT_FOUND`; batch quá hạn trả 409 `IMPORT_BATCH_EXPIRED` cho `error-report` (errors đã bị xóa). `template` là đoạn đường dẫn cố định, `batchId` luôn là UUID nên không va chạm. |
+| POST product-imports/{batchId}/confirmations | `confirmProductImport`: body `expectedVersion` của batch + `Idempotency-Key`. Chỉ batch VALIDATED chưa hết hạn (60 phút). Tái kiểm tra toàn bộ payload với dữ liệu mới nhất rồi tạo mọi sản phẩm bằng đúng `CreateProductService` trong **một** transaction cùng audit + receipt; trả `ProductImportBatch` state IMPORTED với `created[{groupKey, productId, skus}]`. Có lỗi/lỗi lưu/lỗi audit → không tạo gì. Gửi lặp cùng key trả kết quả đã commit. |
 | GET/POST categories, PUT categories/{categoryId} | List/create/update name/description với unique normalized name toàn hệ thống. |
 | GET categories/{categoryId}/impact | Số lượng và danh sách phân trang các sản phẩm bị ảnh hưởng; active/version hiện hành. Không public dữ liệu quản trị. |
 | PUT categories/{categoryId}/activation | expectedVersion + active; phản ánh kết quả sau xác nhận impact. Không xóa product publication flag/history. |
 | GET command-receipts/{commandId} | Chỉ actor sở hữu, có quyền hiện tại; query action bắt buộc để đúng receipt scope. Chưa có receipt trả 404 COMMAND_RESULT_NOT_FOUND, không khẳng định command chắc chắn chưa được xử lí. |
+
+**Quy tắc import Excel (FR-039–FR-045)**: dùng capability `product.create` (không thêm capability mới); Admin/Guest/Member bị 403/401 ở mọi operation import. Hàng tiêu đề cố định ở dòng 1, đúng 7 cột như mẫu (không cột lạ/thiếu; thứ tự cột phải đúng mẫu); dòng trống hoàn toàn ở cuối bị bỏ qua, dòng trống xen giữa là lỗi. Ô công thức, ô gộp, hyperlink và giá trị lỗi Excel bị báo lỗi (không đọc giá trị cache). Ô số: số thật phải là số nguyên không vượt 15 chữ số có nghĩa; ô văn bản chỉ nhận chuỗi chữ số đúng quy tắc Amount/Quantity (không dấu phân tách, không `+`, thập phân, mũ, leading zero) — còn lại báo `INVALID_NUMBER`. Size nhận số nguyên 5–29 (`5.0` bị từ chối). Danh mục so khớp tên đã trim, không phân biệt hoa/thường với danh mục đang hoạt động (sai → `CATEGORY_NOT_ACTIVE_OR_UNKNOWN`). Nhóm theo `Mã nhóm` (trim, phân biệt hoa/thường, ≤ 100 ký tự); các dòng cùng nhóm phải trùng tên/mô tả/danh mục (`GROUP_FIELD_MISMATCH`), size không trùng (`DUPLICATE_SIZE_IN_GROUP`), ≤ 25 size/nhóm. Mã lỗi dòng: `REQUIRED`, `TOO_LONG`, `INVALID_NUMBER`, `OUT_OF_RANGE`, `CATEGORY_NOT_ACTIVE_OR_UNKNOWN`, `GROUP_FIELD_MISMATCH`, `DUPLICATE_SIZE_IN_GROUP`, `TOO_MANY_SIZES`, `FORMULA_NOT_SUPPORTED`, `EMPTY_ROW_IN_DATA`. Tên sản phẩm không yêu cầu duy nhất nên không có lỗi trùng tên. Một file không chứa ảnh/SKU/trạng thái/giá bán.
 
 Decision reason đã được chốt tối đa 2.000 ký tự, bắt buộc không rỗng sau trim khi REJECT; contract đề xuất đếm code point. Không nhận số tiền ở REJECT. APPROVE product cần prices của mọi variant đúng snapshot, không duplicate; Manager có thể điều chỉnh approvedPrice hợp lệ. Danh sách variant bất biến nên update product không có variants. saleEnabled=true cho size mới và active=true cho danh mục mới đã được chốt, chưa cấp quyền mua cho product unpublished.
 
@@ -69,13 +75,13 @@ Giữ shape common.ErrorResponse: code, message an toàn, correlationId, timesta
 
 | HTTP | Codes | Behavior |
 | --- | --- | --- |
-| 400 | VALIDATION_ERROR, UNSUPPORTED_FILTER, INVALID_SORT, UNKNOWN_FIELD | Trường/dòng lỗi; không query/ghi với tiêu chí sai. |
+| 400 | VALIDATION_ERROR, UNSUPPORTED_FILTER, INVALID_SORT, UNKNOWN_FIELD, IMPORT_FILE_INVALID (hỏng/không phải OOXML/có macro/header sai-thiếu cột/sheet đầu trống), IMPORT_ROW_LIMIT_EXCEEDED (> 500 dòng) | Trường/dòng lỗi; không query/ghi với tiêu chí sai. |
 | 401 | AUTHENTICATION_REQUIRED, INVALID_CREDENTIAL | Không tạo phiên/quyền từ credential lỗi. |
 | 403 | CATALOGUE_ACCESS_DENIED | Không tiết lộ protected resource. |
-| 404 | PRODUCT_NOT_FOUND, VARIANT_NOT_FOUND, CATEGORY_NOT_FOUND, MEDIA_NOT_FOUND, PROPOSAL_NOT_FOUND, COMMAND_RESULT_NOT_FOUND | Public hidden/deleted giống không có; không reveal draft. |
-| 409 | STALE_VERSION, DUPLICATE_CATEGORY_NAME, PENDING_PRICE_PROPOSAL_EXISTS, REVIEW_NOT_CURRENT, PRICE_NOT_APPROVED, PRICE_TERMS_CHANGED, PRICE_APPLICATION_STALE, PUBLICATION_PREREQUISITES_MISSING, QUANTITY_BELOW_HELD, SIZE_LIST_IMMUTABLE, PRODUCT_DELETED, IDEMPOTENCY_KEY_REUSED | Tải latest trong quyền hiện tại, sửa/xác nhận lại; không ghi đè/hủy giao dịch cũ. |
-| 413 | MEDIA_TOO_LARGE | Không attach object một phần; file quá giới hạn bị từ chối. |
-| 415 | MEDIA_TYPE_UNSUPPORTED | Không nhận định dạng ảnh khác. |
+| 404 | PRODUCT_NOT_FOUND, VARIANT_NOT_FOUND, CATEGORY_NOT_FOUND, MEDIA_NOT_FOUND, PROPOSAL_NOT_FOUND, COMMAND_RESULT_NOT_FOUND, IMPORT_BATCH_NOT_FOUND | Public hidden/deleted giống không có; không reveal draft. |
+| 409 | STALE_VERSION, DUPLICATE_CATEGORY_NAME, PENDING_PRICE_PROPOSAL_EXISTS, REVIEW_NOT_CURRENT, PRICE_NOT_APPROVED, PRICE_TERMS_CHANGED, PRICE_APPLICATION_STALE, PUBLICATION_PREREQUISITES_MISSING, QUANTITY_BELOW_HELD, SIZE_LIST_IMMUTABLE, PRODUCT_DELETED, IDEMPOTENCY_KEY_REUSED, IMPORT_HAS_ERRORS (xác nhận batch REJECTED), IMPORT_BATCH_EXPIRED, IMPORT_PREVIEW_STALE (tái kiểm tra khi xác nhận thấy dữ liệu đổi; batch chuyển REJECTED, không tạo gì) | Tải latest trong quyền hiện tại, sửa/xác nhận lại; không ghi đè/hủy giao dịch cũ. |
+| 413 | MEDIA_TOO_LARGE, IMPORT_FILE_TOO_LARGE | Không attach object một phần / không tạo batch; file quá giới hạn bị từ chối. |
+| 415 | MEDIA_TYPE_UNSUPPORTED, IMPORT_FILE_TYPE_UNSUPPORTED | Không nhận định dạng ảnh khác / chỉ nhận `.xlsx`. |
 | 503 | IDENTITY_DEPENDENCY_UNAVAILABLE, AVAILABILITY_DEPENDENCY_UNAVAILABLE, MEDIA_DEPENDENCY_UNAVAILABLE, CATALOGUE_SAVE_UNAVAILABLE, CATALOGUE_BUSY | Lỗi tạm thời riêng, không trả empty/held=0; cho kiểm tra receipt/thử lại cùng key. |
 
 ## Frontend journeys (React + Vite, REST-only)
@@ -91,6 +97,7 @@ Frontend là ứng dụng React + Vite tách riêng, render phía client và ch�
 | Công khai / ẩn / lượng bán / ngừng bán | PUT `publication`, PUT `variants/{variantId}/quantity`, sale-status operation | Proposed/approved/applied amounts và state hiển thị riêng. |
 | Đề xuất giá | price-proposal operations (revise/submit/decide/apply) | Chỉ apply đúng giá đã duyệt; không có amount field ở apply. |
 | Danh mục | category operations và impact | Tên duy nhất, xác nhận tác động, không mất lịch sử. |
+| Import sản phẩm từ Excel | `product-imports/template`, `POST product-imports`, `GET product-imports/{batchId}`, `error-report`, `confirmations` | Tải mẫu → chọn file (kiểm tra phía client chỉ là gợi ý: đuôi `.xlsx`, dung lượng) → xem kết quả kiểm tra: bảng lỗi theo dòng/cột + nút tải báo cáo lỗi, hoặc bản xem trước số sản phẩm/biến thể → hộp thoại xác nhận riêng → kết quả liệt kê mã sản phẩm/SKU với liên kết sang chi tiết. Sinh commandId cho từng bước; sau mất phản hồi gọi `getProductImport` trước khi thử lại cùng key; batch hết hạn hoặc 409 `IMPORT_PREVIEW_STALE` yêu cầu tải/kiểm tra lại. Nhắc rõ sản phẩm import chưa có ảnh và phải thêm ảnh trước khi gửi duyệt. |
 
 Hành vi chung: mỗi màn hình có loading, empty (khác dependency error), validation (lỗi gắn đúng trường, giữ dữ liệu đã nhập), success và failure/recovery. 409 STALE_VERSION tải latest và yêu cầu xác nhận lại; 503 cho kiểm tra receipt/thử lại cùng commandId; lỗi hiển thị correlation ID. Nhãn/input có tên rõ, hỗ trợ vi/en theo cơ chế i18n frontend, không tự tuyên bố đạt một accessibility standard chưa phê chuẩn. Ẩn nút hoặc route guard phía client không thay authorization phía server.
 
@@ -104,22 +111,28 @@ Hành vi chung: mỗi màn hình có loading, empty (khác dependency error), va
 
 Không dùng facade kiểu getEntity/setField và không cho frontend gọi method nội bộ này để né quyền. FE-08 phải hoàn thiện boundary invocation/authentication của consumer trước integration; facade chỉ nhận records/scalars và callback nghiệp vụ giới hạn.
 
-### AvailabilityGuardPort — catalogue owns SPI, FE-08 implements
+### AvailabilityGuardPort — productmanagement owns SPI, FE-08 implements
 
 - `readSnapshots(variantIds, asOf)`: Batch exact active held quantity + source revision theo variant; không cache và không thay unknown bằng 0. Bộ chưa có hold trả 0 chỉ khi nguồn thật xác minh thành công.
 - `withGuard(variantIds, asOf, work)`: Join transaction bắt buộc; giữ guard row ổn định trên từng variant kể cả khi chưa có hold, đọc snapshot hợp lệ và giữ khóa xuyên callback/commit. Không trả lazy entity, không mở REQUIRES_NEW tách source khỏi quantity save.
-- FE-08 tạo/chốt/giải phóng giữ cũng phải dùng guard trên. asOf là thời điểm UTC của operation, cùng deadline semantics FE-08; event late/uncertain không được catalogue tự giải thích hoặc hủy giữ.
-- Adapter readyringsales có compile dependency vào catalogue::facade, không gọi ngược catalogue khi đã giữ source guard. Catalogue không import readyringsales và không sao chép hold lifecycle. Thiếu adapter trả typed 503; test-only fixture phải được gắn rõ, không enable trong runtime thường.
+- FE-08 tạo/chốt/giải phóng giữ cũng phải dùng guard trên. asOf là thời điểm UTC của operation, cùng deadline semantics FE-08; event late/uncertain không được productmanagement tự giải thích hoặc hủy giữ.
+- Adapter readyringsales có compile dependency vào productmanagement::facade, không gọi ngược productmanagement khi đã giữ source guard. Productmanagement không import readyringsales và không sao chép hold lifecycle. Thiếu adapter trả typed 503; test-only fixture phải được gắn rõ, không enable trong runtime thường.
 
-### MediaStoragePort — catalogue infrastructure boundary
+### PromotionTargetPort — FE-06 owns SPI, productmanagement implements
+
+- Port và boundary types thuộc `loyaltypromotion::facade` ([FE-06 interfaces](../../006-loyalty-promotion/contracts/interfaces.md)). productmanagement triển khai bằng `LoyaltyProductTargetAdapter` trong `service/` cho dimension PRODUCT/VARIANT.
+- Phụ thuộc được phép: `productmanagement → loyaltypromotion::facade`. Không import service/entity của FE-06; FE-06 không gọi ngược productmanagement.
+- Adapter kiểm tra product/variant tồn tại, chưa xóa mềm và trạng thái công khai/sale, trả immutable facts/guard; không trả entity và không gọi remote dưới khóa. Thiếu dữ liệu hoặc lỗi phụ thuộc trả lỗi an toàn để FE-06 trả DEPENDENCY_UNAVAILABLE.
+
+### MediaStoragePort — productmanagement service boundary
 
 - Cloudinary đã được người dùng chọn. MediaStoragePort vẫn độc lập provider; adapter dùng signed backend upload, resource_type=image/type=authenticated, deterministic public_id và overwrite=false. Cloudinary cloud_name/api_key/api_secret lấy từ môi trường; SDK version pin sau kiểm tra tương thích, chưa thêm dependency từ tác vụ tài liệu.
 - `putIfAbsent(commandKey, verifiedContent)`: Object được bảo vệ theo deterministic key + checksum, retry cùng key/content không sinh thêm object; key khác nội dung báo conflict. Reserve media/command và checksum trước remote call, reconcile asset đã tồn tại sau timeout; chưa xác minh được đúng object thì không đánh READY. Không dựa riêng vào overwrite=false để khẳng định nội dung giống nhau.
 - `verifyReadable(objectKey)`, `open(objectKey)`: Trả trạng thái/read stream an toàn, không expose credential; phân biệt unavailable với missing. Backend lấy signed authenticated URL từ metadata tin cậy và chỉ dùng nội bộ để mở stream; application/web kiểm tra quyền trước mỗi lần phục vụ bytes qua same-origin endpoint, no-store, không redirect/lộ provider URL. Object vẫn authenticated sau publish; không dựa vào CDN invalidation để thi hành unpublish/delete.
 - Không xóa ngay trên detach/product-delete. Policy đã chốt: ảnh chưa từng gắn đủ 24 giờ không còn sử dụng, ảnh đã gỡ đủ 30 ngày không còn tham chiếu mới đủ điều kiện dọn; ảnh lịch sử giữ theo bản ghi liên quan. Cleanup phải khóa media, kiểm tra registry tham chiếu, đặt DELETE_PENDING và commit trước remote delete; attach/retain từ chối state đang xóa. `deleteIfExists(objectKey)` là idempotent: provider missing được coi đã xóa, transient failure giữ DELETE_PENDING để thử lại, không tự đưa về READY. Không gọi provider dưới khóa DB.
-- CatalogueSalesFacade cung cấp `retainMediaReferences(ownerRecordRef, mediaIds)` cho FE-08 trong transaction tạo snapshot, và release chỉ qua owning record đã đủ điều kiện hết giữ. Registry thuộc catalogue, tham chiếu unknown/unverifiable chặn cleanup, không mặc định không có tham chiếu. Product/review cũng ghi registry qua application cùng transaction. Xóa mềm product không release historical refs.
-- Business audit giữ 5 năm từ sự kiện theo Report 3; command receipt tối thiểu giữ 5 năm từ commit theo quyết định người dùng. Chỉ giữ kết quả/metadata cần thiết, không full request/token. Authentication/security log riêng vẫn thuộc chính sách identity owner. Provider timeout/failure không đổi catalogue state đã commit; metadata READY đòi xác minh thành công.
+- CatalogueSalesFacade cung cấp `retainMediaReferences(ownerRecordRef, mediaIds)` cho FE-08 trong transaction tạo snapshot, và release chỉ qua owning record đã đủ điều kiện hết giữ. Registry thuộc productmanagement, tham chiếu unknown/unverifiable chặn cleanup, không mặc định không có tham chiếu. Product/review cũng ghi registry qua application cùng transaction. Xóa mềm product không release historical refs.
+- Business audit giữ 5 năm từ sự kiện theo Report 3; command receipt tối thiểu giữ 5 năm từ commit theo quyết định người dùng. Chỉ giữ kết quả/metadata cần thiết, không full request/token. Authentication/security log riêng vẫn thuộc chính sách identity owner. Provider timeout/failure không đổi productmanagement state đã commit; metadata READY đòi xác minh thành công.
 
 ## Contract dependencies and evidence limits
 
-Trong [blocker-report](../blocker-report.md), G-01 đã chốt hướng xác thực dùng chung/phiên 8 giờ/roles, G-03 Cloudinary và G-04 retention đã chốt. Phương thức MFA/recovery và contract đạt xác thực đặc quyền là dependency thiết kế identity/FE-01 cần hoàn thiện trước enable quản trị; không tự chọn TOTP hoặc bỏ kiểm tra. FE-08/identity/Cloudinary adapter là dependency triển khai được sắp thứ tự, không phải câu hỏi nghiệp vụ phải hỏi lại. OpenAPI/SPI không chứng minh endpoint/adapter hiện hữu; nghiệm thu giữ chỗ/identity/media vẫn cần adapter thật, không dùng fixture thay integration evidence.
+Trong [blocker-report](../blocker-report.md), G-01 đã chốt hướng xác thực dùng chung/roles, G-03 Cloudinary và G-04 retention đã chốt. Phương thức MFA/recovery và contract đạt xác thực đặc quyền là dependency thiết kế identity/FE-01 cần hoàn thiện trước enable quản trị; không tự chọn TOTP hoặc bỏ kiểm tra. FE-08/identity/Cloudinary adapter là dependency triển khai được sắp thứ tự, không phải câu hỏi nghiệp vụ phải hỏi lại. OpenAPI/SPI không chứng minh endpoint/adapter hiện hữu; nghiệm thu giữ chỗ/identity/media vẫn cần adapter thật, không dùng fixture thay integration evidence.

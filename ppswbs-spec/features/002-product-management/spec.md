@@ -1,13 +1,13 @@
 # Feature Specification: Product Management
 
 **Date created**: 2026-10-23
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-24 (bổ sung import Excel — US9)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
 **Feature**: `002-product-management` — FE-02  
 **Feature Branch**: Không tạo nhánh mới; không có hook tạo nhánh được cấu hình.  
-**Status**: Draft — đặc tả nghiệp vụ để review và lập kế hoạch, chưa phải phê duyệt triển khai.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; đặc tả nghiệp vụ là baseline cho triển khai FE-02. Phần bổ sung **US9 / FR-039–FR-045 (import Excel)** cùng các mặc định import đã được Đặng Thị Khương duyệt ngày 2026-10-24.  
 **Input**: Viết spec cho FE-02 Product Management trong [research.md](../../research.md#fe-02), bao gồm các quyết định người dùng đã chốt trong hội thoại.
 
 Nguồn chính là FE-02 hiện tại và các quyết định trực tiếp của người dùng. Report 3 cung cấp baseline Browse Product Catalogue và Manage Products. Các khác biệt đã chốt cho feature này gồm: chỉ phân biệt biến thể theo size 5–29, không có lựa chọn khắc, không thêm/đổi size sau khi lưu, Manager được tự duyệt, sửa thông tin trực tiếp sau lần công khai đầu tiên, xóa mềm không có khôi phục và định dạng SKU đã xác định. Không dùng Report 3 cũ để khôi phục hành vi đã bị loại bỏ.
@@ -24,11 +24,18 @@ Nguồn chính là FE-02 hiện tại và các quyết định trực tiếp c�
 - Q: Thống nhất các vai trò nội bộ như thế nào? → A: Người dùng đồng ý dùng MEMBER, STAFF, MANAGER, ADMIN; Manager là vai trò riêng, không tự đồng nhất OWNER; Admin tạo/cấp quyền tài khoản nội bộ, đăng ký khách không tự nhận quyền nội bộ. Mland kiểm tra quyền từ dữ liệu của mình sau xác thực.
 - Q: Dịch vụ lưu ảnh sản phẩm là gì? → A: Người dùng chọn Cloud Storage Service và xác nhận nhà cung cấp cụ thể là Cloudinary ngày 2026-10-24.
 - Q: Chính sách giữ/dọn ảnh và kết quả thao tác thế nào? → A: Đồng ý ảnh chưa gắn đủ 24 giờ được dọn nếu không còn sử dụng; ảnh đã gỡ đủ 30 ngày chỉ dọn khi không còn sản phẩm/hồ sơ/đơn/lịch sử tham chiếu; giữ ảnh lịch sử theo bản ghi liên quan. Kết quả thao tác tối thiểu giữ 5 năm; business audit 5 năm kế thừa Report 3.
-- Q: Các mặc định nhập liệu và hiển thị có được chốt không? → A: Đồng ý tên danh mục 1–200 ký tự, mô tả tùy chọn tối đa 5.000, từ khóa tối đa 200, 20 sản phẩm/trang, mới nhất theo createdAt, lý do từ chối bắt buộc tối đa 2.000, mỗi ảnh tối đa 5.000.000 bytes, danh mục mới active=true và size mới saleEnabled=true nhưng chưa mua được trước công khai hợp lệ.
+- Q: Các mặc định nhập liệu và hiển thị có được chốt không? → A: Đồng ý tên danh mục 1–200 ký tự, mô tả tùy chọn tối đa 5.000, từ khóa tối đa 200, 20 sản phẩm/trang, mới nhất theo thời điểm tạo, lý do từ chối bắt buộc tối đa 2.000, mỗi ảnh tối đa 5.000.000 bytes, danh mục mới mặc định hoạt động và size mới mặc định được phép bán nhưng chưa mua được trước công khai hợp lệ.
+- Q: Admin có tham gia nghiệp vụ FE-02 không? → A: Không. Admin quản lí tài khoản, vai trò, trạng thái khóa tài khoản, RBAC, tham số vận hành và credential tích hợp đã được duyệt (gồm cấu hình dịch vụ lưu ảnh); không quản lí sản phẩm, danh mục, giá hay quyết định duyệt.
+- Q: FE-02 có dùng chung cơ chế xác thực theo Account Management 001 không? → A: Có. Người dùng đồng ý kế thừa Firebase bearer cho mọi API, kể cả từ giao diện web tách riêng, phiên theo contract FE-01/001, kiểm tra thu hồi/trạng thái qua identity owner; kiểm tra thêm quyền Staff/Manager trước từng thao tác. Giữ hành trình Member và điều hướng đăng nhập thành công về `/`. MFA đặc quyền và recovery thuộc identity/FE-01; chưa chọn Authenticator hoặc phương thức cụ thể từ FE-02.
 
-- Q: FE-02 có dùng chung cơ chế xác thực theo Member Profile 001 không? → A: Có. Người dùng đồng ý kế thừa Firebase bearer (Authorization: Bearer) cho mọi REST API, kể cả frontend React + Vite, phiên nội bộ cố định 8 giờ tính từ auth_time của Firebase ID token, không gia hạn trượt; hết hạn thì API trả 401 và React yêu cầu đăng nhập lại qua Firebase SDK, kiểm tra thu hồi/trạng thái qua identity owner; kiểm tra thêm quyền Staff/Manager trước từng thao tác. Giữ hành trình Member và điều hướng đăng nhập thành công về `/`. MFA đặc quyền và recovery thuộc identity/FE-01; chưa chọn Authenticator hoặc phương thức cụ thể từ FE-02.
+### Session 2026-10-24 (bổ sung import Excel)
 
-[Spec 001](../001-account-management/spec.md) là nguồn thiết kế cơ chế xác thực dùng chung. Quyết định trên mở rộng chính sách phiên 8 giờ cho nội bộ trong phạm vi FE-02, không biến Member bootstrap/cookie thành quyền Staff/Manager và không sửa luồng 001. Cookie web và CSRF của 001 không áp dụng cho FE-02 vì UI là React SPA gọi REST; nếu identity owner chọn credential transport khác thì cập nhật theo contract dùng chung. Thiết kế/triển khai MFA chung là dependency FE-01 cần hoàn thiện trước bật quản trị.
+- Q: Có cần tạo sản phẩm hàng loạt bằng file ngoài tạo từng sản phẩm không? → A: Có. Thêm import file Excel (.xlsx) dùng đúng các trường của form tạo sản phẩm (tên, mô tả, danh mục, size, giá đề xuất, số lượng). Import chỉ là một cách tạo khác của US1: kết quả vẫn là sản phẩm Chưa công khai, hồ sơ Nháp, không tự gửi duyệt/duyệt/áp dụng giá/công khai.
+- Q: Cách xử lí lỗi? → A (đã chốt 2026-10-24): kiểm tra toàn bộ file trước (xem trước kết quả), chỉ tạo khi người dùng xác nhận; nếu có bất kỳ dòng lỗi thì không tạo gì (tất cả hoặc không), trả báo cáo lỗi theo dòng/cột.
+- Q: Ảnh? → A (đã chốt 2026-10-24): file Excel không chứa ảnh; sản phẩm import là bản nháp chưa có ảnh (FR-007 cho phép) và phải thêm ảnh bằng chức năng ảnh hiện có (FR-008) trước khi gửi duyệt.
+- Q: Giới hạn file? → A (đã chốt 2026-10-24): tối đa 5.000.000 bytes và 500 dòng dữ liệu mỗi file, sheet đầu tiên.
+
+[Spec 001](../001-account-management/spec.md) là nguồn thiết kế cơ chế xác thực dùng chung. FE-02 theo contract xác thực của 001, không biến phiên/luồng khởi tạo Member thành quyền Staff/Manager và không sửa luồng 001. Thiết kế/triển khai MFA chung là dependency FE-01 cần hoàn thiện trước bật quản trị.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -50,8 +57,8 @@ Là Staff hoặc Manager có quyền quản lí sản phẩm, tôi muốn tạo 
 6. **Given** lưu thất bại hoặc mất phản hồi, **When** kiểm tra kết quả và thử lại cùng yêu cầu, **Then** không có sản phẩm/biến thể trùng, SKU thiếu hoặc thông báo thành công khi chưa xác nhận kết quả.
 7. **Given** hơn 20 sản phẩm khớp tiêu chí, **When** xem danh sách quản trị và chuyển trang, **Then** mặc định 20 bản ghi/trang, giữ tiêu chí và thứ tự xác định; không hiện sản phẩm đã xóa trong danh sách thông thường.
 8. **Given** Guest/Member, tài khoản không hoạt động hoặc thiếu quyền tương ứng, **When** đọc dữ liệu quản trị hay gửi thao tác thay đổi, **Then** không được cấp dữ liệu nội bộ/quyền thay đổi; yêu cầu bị từ chối an toàn.
-9. **Given** khách đăng ký hoặc đăng nhập social lần đầu, **When** hoàn tất luồng Member, **Then** không tự nhận STAFF/MANAGER/ADMIN; tài khoản nội bộ chỉ có quyền do Admin cấp và backend xác nhận bằng các mã đã chốt, không suy MANAGER từ OWNER.
-10. **Given** Staff/Manager có quyền dùng quản trị, **When** xác thực và truy cập FE-02, **Then** mọi REST API (kể cả frontend React) dùng bearer đã xác minh, phiên nội bộ cố định 8 giờ tính từ auth_time với kiểm tra thu hồi/trạng thái; từng thao tác vẫn kiểm tra quyền hiện tại. Phiên hết hạn/thu hồi bị từ chối, session hợp lệ không buộc xác minh email lại và cookie Member không tự cấp quyền nội bộ. Khi identity chưa xác nhận đạt yêu cầu xác thực đặc quyền, không được vào quản trị.
+9. **Given** khách đăng ký hoặc đăng nhập social lần đầu, **When** hoàn tất luồng Member, **Then** không tự nhận STAFF/MANAGER/ADMIN; tài khoản nội bộ chỉ có quyền do Admin cấp và hệ thống xác nhận bằng các mã đã chốt, không suy MANAGER từ OWNER.
+10. **Given** Staff/Manager có quyền dùng quản trị, **When** xác thực và truy cập FE-02, **Then** xác thực theo contract của FE-01/001 với kiểm tra thu hồi/trạng thái; từng thao tác vẫn kiểm tra quyền hiện tại. Phiên hết hạn/thu hồi bị từ chối, session hợp lệ không buộc xác minh email lại và phiên Member không tự cấp quyền nội bộ. Khi identity chưa xác nhận đạt yêu cầu xác thực đặc quyền, không được vào quản trị.
 
 ### User Story 2 - Gửi và phê duyệt sản phẩm mới (Priority: P1)
 
@@ -67,7 +74,7 @@ Là Staff, tôi muốn gửi hồ sơ hoàn chỉnh để Manager duyệt; là M
 2. **Given** hồ sơ Chờ duyệt còn hiệu lực, **When** Manager duyệt với các giá cuối cùng hợp lệ, **Then** ghi hồ sơ Đã duyệt, các giá được duyệt, người/thời điểm quyết định; chưa áp dụng giá hoặc công khai.
 3. **Given** sản phẩm/đề xuất do chính Manager tạo, **When** Manager có quyền xác nhận duyệt, **Then** được tự duyệt với cùng kiểm tra và audit, không bắt buộc Manager thứ hai.
 4. **Given** Manager từ chối và nhập lý do, **When** xác nhận, **Then** lưu Bị từ chối và lý do; Staff được sửa thành phiên bản mới/gửi lại, các giá bị từ chối không được áp dụng.
-5. **Given** sản phẩm chưa từng công khai đã gửi hoặc được duyệt, **When** sửa nội dung, ảnh hoặc giá đề xuất, **Then** phiên bản cũ mất hiệu lực cho việc công khai, phải gửi duyệt lại; quyết định lịch sử không bị viết lại.
+5. **Given** sản phẩm chưa từng công khai đã gửi hoặc được duyệt, **When** sửa nội dung, ảnh hoặc giá đề xuất, **Then** phiên bản cũ mất hiệu lực cho việc công khai, hồ sơ trở về Nháp và phải gửi duyệt lại; quyết định lịch sử không bị viết lại.
 6. **Given** Staff cố tự duyệt, hồ sơ thiếu ảnh, sản phẩm đã xóa hoặc phiên bản đã thay đổi/được xử lí, **When** gửi hay quyết định, **Then** từ chối mà không ghi đè quyết định hay duyệt dữ liệu cũ.
 7. **Given** Manager hủy trước xác nhận hoặc lưu quyết định thất bại, **When** thao tác kết thúc, **Then** không tạo quyết định một phần; gửi lặp cùng yêu cầu không tạo thêm hồ sơ/quyết định.
 
@@ -105,7 +112,7 @@ Là Staff/Manager có quyền, tôi muốn cập nhật thông tin và số lư�
 5. **Given** thêm/thay/sắp xếp/gỡ ảnh hợp lệ, **When** lưu, **Then** giữ ảnh có vị trí riêng và alt text; gỡ ảnh cuối cùng của sản phẩm đang công khai bị từ chối.
 6. **Given** ảnh sai định dạng, vượt giới hạn, thiếu alt text, trùng vị trí hoặc lưu ảnh thất bại, **When** lưu, **Then** chỉ rõ lỗi, không thay ảnh hợp lệ bằng liên kết hỏng hoặc xóa tệp dùng chung/lịch sử.
 7. **Given** đơn/quyền giữ hợp lệ đã chấp nhận, **When** sửa thông tin, số lượng hoặc ảnh, **Then** không sửa thông tin giao dịch đã chốt, thời hạn giữ hoặc giá đã chấp nhận.
-8. **Given** frontend React + Vite tách riêng gọi REST API, **When** thực hiện xem/tìm/lọc hoặc các thao tác quản trị cốt lõi trong US1–US8, **Then** hoàn thành được hành trình hợp lệ, nhận lỗi nhập liệu/quyền phù hợp qua typed error và có thể sửa/thử lại; mỗi màn hình có loading, empty, validation, success, failure và recovery.
+8. **Given** dùng giao diện web tách riêng, **When** thực hiện xem/tìm/lọc hoặc các thao tác quản trị cốt lõi trong US1–US9, **Then** hoàn thành được hành trình hợp lệ, nhận thông báo lỗi nhập liệu/quyền chỉ rõ nguyên nhân và có thể sửa/thử lại; mỗi màn hình có loading, empty, validation, success, failure và recovery.
 9. **Given** ảnh chưa gắn quá 24 giờ hoặc ảnh đã gỡ không còn tham chiếu quá 30 ngày, **When** dọn ảnh, **Then** chỉ xóa object đủ điều kiện, không xóa ảnh còn được sản phẩm/hồ sơ/đơn/lịch sử sử dụng; attach đồng thời không được trỏ tới object đang bị xóa. Xóa mềm sản phẩm không tự làm ảnh lịch sử đủ điều kiện dọn.
 
 ### User Story 5 - Thay đổi giá cho size đã có (Priority: P1)
@@ -181,8 +188,30 @@ Là Guest hoặc Member, tôi muốn tìm, lọc, sắp xếp và xem đúng gi�
 10. **Given** khách chọn Mua ngay/Thêm vào giỏ, **When** đi tiếp, **Then** chuyển sản phẩm, biến thể và số lượng sang FE-08 để kiểm tra lại quyền/điều kiện; tra cứu không tạo giỏ, đơn, giữ hàng hoặc bảo đảm giá cũ.
 11. **Given** từ khóa vượt 200 ký tự sau trim hoặc hơn 20 kết quả khớp, **When** tra cứu, **Then** báo lỗi từ khóa quá dài hoặc chia trang mặc định 20 bản ghi, giữ tiêu chí và thứ tự xác định theo A-002.
 
+### User Story 9 - Import sản phẩm nháp từ file Excel (Priority: P2)
+
+Là Staff hoặc Manager có quyền tạo sản phẩm, tôi muốn tải lên một file Excel theo mẫu để tạo nhiều sản phẩm nháp cùng lúc thay vì nhập từng sản phẩm.
+
+**Why this priority**: Rút ngắn việc nhập danh mục ban đầu hoặc lô sản phẩm lớn; không thay đổi vòng đời duyệt/giá/công khai của US1–US3.
+
+**Independent Test**: Tải file mẫu, điền vài sản phẩm nhiều size (gồm cả dòng lỗi), tải lên, xem kết quả kiểm tra, sửa file và xác nhận import; đối chiếu sản phẩm nháp, SKU, giá đề xuất, số lượng và audit mà chưa cần ảnh, gửi duyệt hay công khai.
+
+**Acceptance Scenarios**:
+
+1. **Given** người dùng có quyền tạo sản phẩm, **When** chọn Tải file mẫu, **Then** nhận file `.xlsx` có đúng các cột của form tạo (xem FR-040), hướng dẫn điền, ví dụ và danh sách danh mục đang hoạt động; file mẫu không chứa dữ liệu nội bộ khác.
+2. **Given** file hợp lệ có nhiều dòng, mỗi dòng một size và các dòng cùng *Mã nhóm* thuộc cùng một sản phẩm, **When** tải lên, **Then** hệ thống chỉ kiểm tra và hiển thị bản xem trước (số sản phẩm, số biến thể, lỗi nếu có) mà chưa tạo dữ liệu và chưa cấp mã sản phẩm/SKU.
+3. **Given** bản xem trước không có lỗi, **When** người dùng xác nhận import, **Then** tạo mọi sản phẩm với hồ sơ Nháp, Chưa công khai, mỗi size một biến thể với giá đề xuất, số lượng, SKU `SP{mã}-S{size}` theo FR-006; chưa có giá bán áp dụng, chưa có ảnh.
+4. **Given** có ít nhất một dòng lỗi (tên/mô tả sai độ dài, danh mục không tồn tại hoặc không hoạt động, size ngoài 5–29, không nguyên hoặc trùng trong cùng sản phẩm, giá không phải nguyên VND dương, số lượng âm/không nguyên, thiếu cột bắt buộc, các dòng cùng Mã nhóm khác tên/mô tả/danh mục), **When** kiểm tra hoặc xác nhận, **Then** không tạo sản phẩm nào; báo cáo nêu số dòng, tên cột, giá trị và lý do cho mọi lỗi (tải được dưới dạng file) để sửa và tải lại.
+5. **Given** file sai định dạng (không phải `.xlsx`, hỏng, có macro, vượt giới hạn dung lượng/số dòng, sheet đầu trống, tiêu đề cột sai/thiếu), **When** tải lên, **Then** bị từ chối ngay với lý do rõ, không tạo dữ liệu.
+6. **Given** xác nhận import bị mất phản hồi hoặc gửi lặp cùng yêu cầu, **When** kiểm tra kết quả và thử lại, **Then** không tạo sản phẩm/biến thể/SKU trùng; hệ thống trả kết quả lần import đã có.
+7. **Given** Guest/Member, Admin, tài khoản không hoạt động hoặc thiếu quyền tạo, **When** tải mẫu, tải file lên hoặc xác nhận, **Then** bị từ chối an toàn như US1 kịch bản 8.
+8. **Given** sản phẩm đã import, **When** xem danh sách quản trị, **Then** thấy như sản phẩm nháp tạo tay (tìm theo mã/tên/SKU, lọc, phân trang); thêm ảnh bằng chức năng ảnh rồi gửi duyệt theo US2; sản phẩm không tự động gửi duyệt.
+9. **Given** danh mục bị ngừng kích hoạt/đổi tên hoặc có import khác chạy giữa lúc xem trước và xác nhận, **When** xác nhận, **Then** hệ thống kiểm tra lại dữ liệu mới nhất; nếu không còn hợp lệ thì không tạo gì và yêu cầu kiểm tra lại, không dùng kết quả xem trước cũ.
+10. **Given** kết quả xem trước đã quá 60 phút, **When** xác nhận, **Then** bị từ chối, không tạo gì và yêu cầu tải file lại; báo cáo lỗi của batch hết hạn không còn tải được.
+
 ### Edge Cases
 
+- Import Excel: ô trống/chỉ khoảng trắng, số lưu dạng văn bản hoặc có phân tách nghìn/thập phân (`1.000.000`, `12,5`), size dạng `5.0`, công thức hoặc ô gộp, dòng trống xen giữa, nhiều sheet, cột thừa hoặc đổi thứ tự cột, giá trị bắt đầu bằng `=`/`+`/`-`/`@` (chống chèn công thức khi xuất báo cáo lỗi), tên trùng sản phẩm đã có (cho phép, tên sản phẩm không yêu cầu duy nhất), 500/501 dòng, một sản phẩm tối đa 25 dòng size.
 - Biên 0/1/200/201 ký tự tên, 0/1/5.000/5.001 ký tự mô tả, size 4/5/29/30, size không nguyên/trùng, giá 0/âm/không nguyên và số lượng âm/không nguyên.
 - SKU với mã sản phẩm hơn 6 chữ số không được cắt hay va chạm; không tái cấp sau xóa mềm.
 - Hồ sơ, giá và công khai là ba trạng thái riêng: đã duyệt chưa áp dụng không cho công khai; đã áp dụng nhưng chưa Công khai không cho khách thấy.
@@ -199,20 +228,20 @@ Là Guest hoặc Member, tôi muốn tìm, lọc, sắp xếp và xem đúng gi�
 
 #### Phạm vi, quyền và dữ liệu sản phẩm
 
-- **FR-001**: Tra cứu công khai MUST không yêu cầu đăng nhập. Mọi thao tác quản trị MUST kiểm tra danh tính, tài khoản hoạt động, vai trò và quyền hiện tại trước khi trả dữ liệu nội bộ hoặc thay đổi trạng thái; Guest/Member không có quyền quản trị sản phẩm. FE-02 MUST dùng chung cơ chế xác thực theo 001 qua identity owner: bearer đã xác minh cho API, cookie web cố định 8 giờ không gia hạn trượt, kiểm tra thu hồi/trạng thái và CSRF cho thao tác web. Phiên Member không tự cấp quyền nội bộ; quản trị MUST chỉ chấp nhận kết quả xác thực đạt yêu cầu đặc quyền do identity/FE-01 cung cấp, không tự triển khai luồng login/MFA riêng.
-- **FR-002**: Staff và Manager có quyền tương ứng MUST được quản lí sản phẩm, ảnh, giá đề xuất, số lượng, trạng thái và xóa. Mã vai trò được chốt là MEMBER, STAFF, MANAGER, ADMIN; MANAGER là vai trò riêng, không tự ánh xạ OWNER. Admin tạo/cấp quyền tài khoản nội bộ qua FE-01; đăng ký khách không tự cấp quyền Staff/Manager/Admin. Chỉ Manager có quyền quyết định duyệt sản phẩm/giá; Manager MUST được tự duyệt sản phẩm/đề xuất của mình. Danh mục theo FR-029 dành cho Staff có quyền. Vai trò kỹ thuật Admin không tự cấp quyền quyết định nghiệp vụ.
+- **FR-001**: Tra cứu công khai MUST không yêu cầu đăng nhập. Mọi thao tác quản trị MUST kiểm tra danh tính, tài khoản hoạt động, vai trò và quyền hiện tại trước khi trả dữ liệu nội bộ hoặc thay đổi trạng thái; Guest/Member không có quyền quản trị sản phẩm. FE-02 MUST dùng chung cơ chế xác thực theo 001 qua identity owner: danh tính đã được xác minh và kiểm tra thu hồi/trạng thái theo contract xác thực của 001. Phiên Member không tự cấp quyền nội bộ; quản trị MUST chỉ chấp nhận kết quả xác thực đạt yêu cầu đặc quyền do identity/FE-01 cung cấp, không tự triển khai luồng login/MFA riêng.
+- **FR-002**: Staff và Manager có quyền tương ứng MUST được quản lí sản phẩm, ảnh, giá đề xuất, số lượng, trạng thái và xóa. Mã vai trò được chốt là MEMBER, STAFF, MANAGER, ADMIN; MANAGER là vai trò riêng, không tự ánh xạ OWNER. Admin tạo/cấp quyền tài khoản nội bộ qua FE-01; đăng ký khách không tự cấp quyền Staff/Manager/Admin. Chỉ Manager có quyền quyết định duyệt sản phẩm/giá; Manager MUST được tự duyệt sản phẩm/đề xuất của mình. Danh mục theo FR-029 dành cho Staff có quyền. Admin quản lí tài khoản, vai trò, trạng thái khóa tài khoản, RBAC, tham số vận hành và credential tích hợp đã được duyệt (gồm cấu hình dịch vụ lưu ảnh); Admin MUST NOT quản lí sản phẩm, danh mục, giá, số lượng, công khai hoặc quyết định duyệt sản phẩm/giá.
 - **FR-003**: Người quản lí MUST xem danh sách/chi tiết và tìm theo mã sản phẩm, tên hoặc SKU, lọc theo danh mục/trạng thái công khai. Kết quả SKU MUST chỉ rõ size khớp; giao diện MUST phân biệt hồ sơ, đề xuất giá, giá đã duyệt, giá đang áp dụng và công khai.
 - **FR-004**: Tên MUST dài 1–200 ký tự, mô tả 1–5.000 ký tự sau bỏ khoảng trắng đầu/cuối; sản phẩm MUST có một danh mục hoạt động lúc tạo/chọn danh mục mới. Giá đề xuất/giá cuối cùng MUST là số nguyên VND dương, số lượng MUST là số nguyên không âm.
 - **FR-005**: Khi tạo, người dùng MUST chọn 1–25 size nguyên khác nhau trong 5–29, mỗi size một biến thể; không bắt buộc đủ 25 size. Sau lưu, hệ thống MUST từ chối thêm/đổi size, kể cả nháp/ẩn/chưa có giao dịch. Không có lựa chọn khắc hoặc biến thể khách tự tạo.
 - **FR-006**: Hệ thống MUST cấp mã sản phẩm số duy nhất, ổn định và SKU `SP{mã sản phẩm}-S{size}`. Mã sản phẩm đệm 0 bên trái tới tối thiểu 6 chữ số, dài hơn giữ nguyên; size 2 chữ số `05`–`29`. SKU MUST chỉ đọc, duy nhất, không đổi khi sửa tên/danh mục/giá/trạng thái, không tái cấp sau xóa. Nhiều chiếc cùng sản phẩm/size dùng chung SKU và được biểu diễn bằng số lượng.
 - **FR-007**: Tạo hợp lệ MUST lưu toàn bộ sản phẩm, size, giá đề xuất, số lượng ở trạng thái Chưa công khai, hồ sơ Nháp; không tự duyệt/áp dụng/công khai. Size tạo mới mặc định được phép bán nhưng chưa mua được trước khi sản phẩm đủ điều kiện công khai. Bản nháp được chưa có ảnh. Tạo/lưu lỗi MUST không sinh sản phẩm hoặc biến thể thiếu dữ liệu một phần.
-- **FR-008**: Quản lí ảnh MUST dùng Cloudinary, hỗ trợ thêm/thay/đổi thứ tự/gỡ, tối đa 10 JPEG/PNG/WebP, mỗi ảnh không quá 5.000.000 bytes, alt text 1–200 ký tự, vị trí không trùng. MUST kiểm tra giới hạn, tham chiếu hợp lệ và quyền; lỗi ảnh giữ ảnh cũ, không lưu liên kết hỏng hoặc xóa ảnh dùng chung/lịch sử. Ảnh chưa từng gắn đủ 24 giờ và không còn sử dụng được dọn; ảnh đã gỡ đủ 30 ngày chỉ được dọn nếu không còn sản phẩm/hồ sơ/đơn/lịch sử tham chiếu. Ảnh lịch sử giữ theo bản ghi liên quan; không dùng xóa mềm sản phẩm để bỏ qua điều kiện này.
+- **FR-008**: Quản lí ảnh MUST dùng dịch vụ lưu ảnh đám mây đã được chọn (xem Clarifications 2026-10-24), hỗ trợ thêm/thay/đổi thứ tự/gỡ, tối đa 10 JPEG/PNG/WebP, mỗi ảnh không quá 5.000.000 bytes, alt text 1–200 ký tự, vị trí không trùng. MUST kiểm tra giới hạn, tham chiếu hợp lệ và quyền; lỗi ảnh giữ ảnh cũ, không lưu liên kết hỏng hoặc xóa ảnh dùng chung/lịch sử. Ảnh chưa từng gắn đủ 24 giờ và không còn sử dụng được dọn; ảnh đã gỡ đủ 30 ngày chỉ được dọn nếu không còn sản phẩm/hồ sơ/đơn/lịch sử tham chiếu. Ảnh lịch sử giữ theo bản ghi liên quan; không dùng xóa mềm sản phẩm để bỏ qua điều kiện này.
 
 #### Hồ sơ duyệt, quyết định giá và công khai
 
 - **FR-009**: Gửi duyệt mới MUST kiểm tra phiên bản, danh mục hoạt động, thông tin, ít nhất một ảnh dùng được và giá đề xuất mọi size; lưu một hồ sơ Chờ duyệt gắn các đề xuất đúng đối tượng/điều khoản, không bắt gửi hai lần cùng nội dung.
 - **FR-010**: Quyết định MUST chỉ áp dụng cho hồ sơ Chờ duyệt còn hiệu lực. Manager MUST xem thông tin và giá từng size, chấp nhận/điều chỉnh giá cuối cùng hoặc từ chối có lý do bắt buộc 1–2.000 ký tự sau trim; lưu người/thời điểm, phiên bản và đầu vào quyết định. Hủy trước xác nhận không tạo quyết định.
-- **FR-011**: Trước lần công khai đầu, sửa nội dung, ảnh hoặc giá đề xuất đã gửi/duyệt MUST làm phiên bản đó không còn hiệu lực cho công khai, yêu cầu sửa/gửi duyệt lại; không sửa quyết định lịch sử. Hồ sơ Bị từ chối được sửa/gửi phiên bản mới, giá bị từ chối không được áp dụng.
+- **FR-011**: Trước lần công khai đầu, sửa nội dung, ảnh hoặc giá đề xuất đã gửi/duyệt MUST làm phiên bản đó không còn hiệu lực cho công khai, đưa hồ sơ về Nháp và yêu cầu gửi duyệt lại; không sửa quyết định lịch sử. Hồ sơ Bị từ chối được sửa/gửi phiên bản mới, giá bị từ chối không được áp dụng.
 - **FR-012**: Sau khi đã từng công khai, tên, mô tả, ảnh, danh mục MUST được cập nhật trực tiếp khi hợp lệ, kể cả đang ẩn, không duyệt lại nội dung. Nếu đang công khai, MUST duy trì điều kiện công khai; size cố định, giá vẫn theo FR-013–FR-016.
 - **FR-013**: Staff/Manager có quyền MUST lập giá đề xuất từng size và lưu Nháp/Gửi duyệt. MUST giữ mã đề xuất, phiên bản, sản phẩm/size, điều khoản, số tiền, người gửi, trạng thái riêng; không dùng giá đề xuất làm giá bán. Mỗi size MUST chỉ có một phiên bản đề xuất Chờ duyệt hiện hành, kể cả đề xuất gửi cùng hồ sơ sản phẩm mới. Khi đã có đề xuất Chờ duyệt, MUST chặn tạo/gửi đề xuất độc lập thứ hai cho cùng size; người có quyền sửa đề xuất hiện hành thành phiên bản mới rồi gửi lại, làm phiên bản cũ mất hiệu lực. Yêu cầu đồng thời MUST không tạo hai phiên bản Chờ duyệt hiện hành cho cùng size.
 - **FR-014**: Manager MUST quyết định giá cuối cùng hợp lệ, chấp nhận/điều chỉnh hoặc từ chối có lý do, kể cả đề xuất của mình. Gợi ý AI thuộc FE-04 chỉ tham khảo; AI không quyết định và không có gợi ý không chặn quyết định thủ công hợp lệ. Sửa đề xuất cần phiên bản mới, không kế thừa duyệt cũ.
@@ -248,7 +277,17 @@ Là Guest hoặc Member, tôi muốn tìm, lọc, sắp xếp và xem đúng gi�
 - **FR-035**: MUST mặc định tên A–Z rồi định danh; hỗ trợ giá tăng/giảm và mới nhất. Sắp theo giá MUST dùng giá nhỏ nhất của size đang hiển thị/thỏa bộ lọc cho cả hai chiều; bằng nhau dùng định danh phụ. MUST giữ từ khóa/bộ lọc, giới hạn từ khóa 200 ký tự sau trim và phân trang 20 bản ghi/trang. Mới nhất MUST theo thời điểm tạo, không theo sửa giá hoặc công khai lại.
 - **FR-036**: Mất toàn bộ ảnh dùng được MUST loại khỏi đọc công khai không đổi cờ công khai/lịch sử; khi ảnh và điều kiện khác khôi phục thì hiện lại. Lỗi ảnh/tải tạm thời MUST có hướng dẫn an toàn/thử lại, khác catalogue rỗng hoặc không khớp.
 - **FR-037**: Khách MUST chỉ chọn size đã cấu hình, được chuyển sản phẩm/biến thể/số lượng sang FE-08 khi chọn mua. FE-02 MUST không tạo giỏ, đơn, thanh toán, giữ số lượng, voucher hoặc điểm từ tra cứu; FE-08 kiểm tra đăng nhập/điều kiện và xác nhận thay đổi giá trước giao dịch mới.
-- **FR-038**: Các hành trình cốt lõi xem/tìm/lọc và tạo/sửa/gửi duyệt/quyết định/công khai/ẩn/xóa MUST hoàn thành được từ frontend React + Vite tách riêng chỉ qua REST API có version; backend MUST NOT render UI. Mỗi màn hình MUST có trạng thái loading, empty, validation, success, failure và recovery xác định; không mở rộng ngoại lệ xác thực của dự án sang FE-02.
+- **FR-038**: Các hành trình cốt lõi xem/tìm/lọc và tạo/sửa/import Excel/gửi duyệt/quyết định/công khai/ẩn/xóa MUST hoàn thành được từ giao diện web chạy tách riêng; hệ thống MUST NOT phụ thuộc giao diện do máy chủ dựng. Mỗi màn hình MUST có trạng thái loading, empty, validation, success, failure và recovery xác định; không mở rộng ngoại lệ xác thực của dự án sang FE-02.
+
+#### Import sản phẩm từ file Excel
+
+- **FR-039**: Staff/Manager có quyền tạo sản phẩm MUST tạo được nhiều sản phẩm nháp bằng cách tải lên file Excel `.xlsx` theo mẫu. Import MUST là cách tạo khác của FR-004–FR-007: cùng quy tắc kiểm tra, cùng cách cấp mã sản phẩm/SKU, cùng kết quả (Chưa công khai, hồ sơ Nháp, không tự gửi duyệt/duyệt/áp dụng giá/công khai). MUST kiểm tra danh tính, tài khoản hoạt động và quyền hiện tại theo FR-001/FR-002 ở mọi bước (tải mẫu, tải lên/kiểm tra, xác nhận); Admin, Guest, Member MUST NOT dùng.
+- **FR-040**: File mẫu MUST gồm các cột tương ứng trường form tạo: *Mã nhóm* (khóa nhóm các dòng cùng một sản phẩm, chỉ có nghĩa trong file, bắt buộc), *Tên sản phẩm* (1–200), *Mô tả* (1–5.000), *Danh mục* (tên danh mục đang hoạt động, so khớp bỏ khoảng trắng đầu/cuối, không phân biệt hoa/thường), *Size* (nguyên 5–29), *Giá đề xuất (VND)* (nguyên dương), *Số lượng* (nguyên không âm). Mỗi dòng dữ liệu là một biến thể; các dòng cùng Mã nhóm MUST có cùng tên, mô tả, danh mục và tạo thành một sản phẩm gồm 1–25 size khác nhau. Không có cột ảnh, SKU, trạng thái công khai, giá bán áp dụng hay khắc; cột lạ hoặc thiếu cột bắt buộc MUST bị từ chối.
+- **FR-041**: Hệ thống MUST kiểm tra toàn bộ file và trả kết quả xem trước (số sản phẩm, số biến thể, danh sách lỗi) trước khi tạo dữ liệu; chỉ tạo sau khi người dùng xác nhận. Mọi lỗi MUST nêu số dòng, tên cột, giá trị và lý do, có thể tải báo cáo lỗi. Xem trước MUST không tiêu thụ mã sản phẩm/SKU và không tạo dữ liệu.
+- **FR-042**: Import MUST là tất cả hoặc không: nếu có bất kỳ dòng không hợp lệ, lỗi lưu hoặc lỗi audit thì MUST không tạo sản phẩm, biến thể, SKU hay audit một phần (FR-007, FR-026). Khi xác nhận, hệ thống MUST kiểm tra lại với dữ liệu mới nhất (đặc biệt danh mục còn hoạt động) và từ chối dùng kết quả xem trước đã cũ.
+- **FR-043**: File tải lên MUST là `.xlsx` hợp lệ, không macro, tối đa 5.000.000 bytes và 500 dòng dữ liệu, chỉ đọc sheet đầu tiên; MUST đọc ô như dữ liệu, không thực thi công thức hay liên kết ngoài, và không lưu lâu dài nội dung file gốc ngoài bản ghi kết quả. Giá trị bắt đầu bằng `=`, `+`, `-`, `@` MUST được vô hiệu hóa khi đưa vào báo cáo lỗi xuất ra file. Số MUST theo đúng miền FR-004; không làm tròn, cắt hay chuyển đổi ngầm (ví dụ `12.5`, `1e3`).
+- **FR-044**: Xác nhận import MUST idempotent: gửi lặp cùng yêu cầu xác nhận MUST không tạo trùng và trả kết quả lần import đã có, theo FR-028. Kết quả MUST liệt kê mã sản phẩm và SKU đã tạo.
+- **FR-045**: Mỗi lần import thành công hoặc bị từ chối MUST có audit gồm người thực hiện, tên file, số dòng/sản phẩm/biến thể, mã sản phẩm tạo ra (nếu có), thời điểm và kết quả, giữ theo FR-027/FR-028; MUST NOT ghi toàn bộ nội dung file hay bí mật xác thực.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -260,6 +299,7 @@ Là Guest hoặc Member, tôi muốn tìm, lọc, sắp xếp và xem đúng gi�
 - **Price Proposal and Decision**: Sản phẩm/size, điều khoản/phiên bản, giá đề xuất/Manager quyết định, trạng thái, lý do/đầu vào, người/thời điểm; áp dụng tách khỏi duyệt.
 - **Price Application**: Liên kết quyết định còn hiệu lực với giá bán, giá trước/sau, người/thời điểm áp dụng; không đổi giá giao dịch cũ.
 - **Availability Context**: Giữ hợp lệ do FE-08 cung cấp cùng lượng còn bán để xác định khả dụng; FE-02 không tạo vòng đời giữ riêng.
+- **Product Import Batch**: Lần kiểm tra/import file Excel: người thực hiện, tên file, số dòng/sản phẩm/biến thể, trạng thái (Đã kiểm tra / Đã import / Bị từ chối / Hết hạn), báo cáo lỗi theo dòng/cột (chỉ giữ đến khi hết hạn), danh sách sản phẩm tạo ra; không lưu file gốc.
 - **Catalogue Audit**: Người, thao tác, đối tượng/phiên bản, thay đổi, thời điểm/kết quả, không chứa bí mật xác thực hoặc dữ liệu thừa.
 
 ## Success Criteria *(mandatory)*
@@ -271,28 +311,31 @@ Là Guest hoặc Member, tôi muốn tìm, lọc, sắp xếp và xem đúng gi�
 - **SC-003**: Với 25 size 5–29 và mã sản phẩm dưới/trên 6 chữ số, 100% SKU đúng định dạng/duy nhất; 0 yêu cầu thêm/đổi size, khắc hoặc sửa SKU sau lưu được chấp nhận.
 - **SC-004**: 100% kịch bản đổi giá/ẩn/ngừng bán/đổi danh mục/xóa giữ nguyên giá, thời hạn và định danh giao dịch hợp lệ đã chấp nhận; gửi lại cùng yêu cầu không tạo trùng hoặc điều chỉnh lượng lần hai.
 - **SC-005**: Trong tập size hết hàng/ngừng bán/nhiều giá, 100% kết quả lọc giá/Có thể mua có một size thỏa cả hai; 0 giá đề xuất hoặc nội dung nháp lộ công khai.
-- **SC-006**: Mọi nhóm biên nhập liệu/ảnh/hồ sơ/danh mục tại US1–US8 có kết quả xác định, giữ dữ liệu cũ khi lỗi và cho tiếp tục sửa/thử lại; 100% hành trình cốt lõi hoàn thành được từ frontend React qua REST với loading/empty/validation/success/failure/recovery xác định.
-- **SC-007**: Mỗi FR-001–FR-038 được ánh xạ ít nhất một kịch bản nghiệm thu trong checklist chất lượng. Các chỉ số trên là tiêu chí cần xác minh khi triển khai, không phải tuyên bố đã vượt kiểm thử.
+- **SC-006**: Mọi nhóm biên nhập liệu/ảnh/hồ sơ/danh mục/file import tại US1–US9 có kết quả xác định, giữ dữ liệu cũ khi lỗi và cho tiếp tục sửa/thử lại; 100% hành trình cốt lõi hoàn thành được từ giao diện web tách riêng với loading/empty/validation/success/failure/recovery xác định.
+- **SC-007**: Trong tập nghiệm thu US1–US9, 100% thao tác quản trị thành công (gồm import Excel theo FR-045) có bản ghi audit đúng người, đối tượng/phiên bản, thay đổi, thời điểm và kết quả theo FR-027; thao tác bị từ chối được ghi theo chính sách audit; 0 bản ghi audit chứa bí mật xác thực. Các chỉ số trên là tiêu chí cần xác minh khi triển khai, không phải tuyên bố đã vượt kiểm thử.
+- **SC-008**: Trong tập file import nghiệm thu (hợp lệ, mỗi loại lỗi biên, sai định dạng, vượt giới hạn, gửi lặp, đồng thời), 100% file có lỗi không tạo dữ liệu nào và báo đúng dòng/cột; 100% file hợp lệ tạo sản phẩm nháp đúng SKU/giá/số lượng như tạo tay; 0 sản phẩm import tự gửi duyệt, áp dụng giá hoặc công khai; 0 sản phẩm/SKU trùng khi gửi lặp.
 
 ## Assumptions
 
 ### Phạm vi và quyết định nguồn
 
 - Sở hữu nhẫn bán sẵn, quản trị catalogue và tra cứu công khai. Không triển khai kho/nhập-xuất/kiểm kê/điều chuyển, tồn theo chi nhánh, booking, thiết kế cá nhân hóa/custom, đơn hàng, checkout, thanh toán, giao nhận, voucher hoặc điểm.
+- Cân nặng/kích thước đóng gói dùng để báo giá giao hàng thuộc FE-08; FE-02 không lưu dữ liệu này.
 - Mua ngay/Thêm giỏ chỉ chuyển sang FE-08; FE-08 sở hữu giỏ, quyền Member, checkout, giữ/chốt/giải phóng lượng và xử lí giao dịch cũ sau xóa. Không đặt thời hạn giữ hoặc quy tắc thanh toán mới trong FE-02.
 - Bảng đường kính/chu vi tham chiếu lấy nguyên từ ảnh người dùng cung cấp tại [FE-02 research](../../research.md#fe-02); chọn bằng mã size nguyên, không tính lại số đo để tạo size.
 - Sửa trực tiếp sau công khai, Manager tự duyệt, không thêm size/khắc và xóa mềm không khôi phục là các quyết định đã chốt trong phiên; tài liệu Draft không làm mất các quyết định đó, cũng không phê duyệt code/plan chưa có.
 
 ### Các mặc định đã được người dùng chốt ngày 2026-10-24
 
-- **A-001 — Danh mục**: Unique toàn hệ thống sau trim/case-insensitive kể cả inactive, tên 1–200 ký tự, mô tả tùy chọn tối đa 5.000, danh mục mới active=true. Các quy tắc này đã được chốt trong Clarifications; không có xóa danh mục đã tham chiếu.
+- **A-001 — Danh mục**: Unique toàn hệ thống sau trim/case-insensitive kể cả inactive, tên 1–200 ký tự, mô tả tùy chọn tối đa 5.000, danh mục mới mặc định hoạt động. Các quy tắc này đã được chốt trong Clarifications; không có xóa danh mục đã tham chiếu.
 - **A-002 — Tìm kiếm/sắp xếp**: Mới nhất theo thời điểm tạo, không theo sửa giá/công khai lại; từ khóa tối đa 200 ký tự sau trim; danh sách công khai/quản trị 20 bản ghi/trang với thứ tự xác định. Đã chốt, không bổ sung bộ lọc/sắp xếp khác.
+- **A-003 — Import Excel (đã chốt 2026-10-24)**: Định dạng `.xlsx`, sheet đầu tiên, tối đa 5.000.000 bytes và 500 dòng dữ liệu/file; kết quả xem trước (và báo cáo lỗi) hết hạn sau 60 phút; báo cáo nêu mọi lỗi, không cắt bớt; tất cả-hoặc-không; không có ảnh trong file (ảnh thêm sau qua FR-008); không chặn trùng tên với sản phẩm có sẵn; chỉ tạo mới, không cập nhật/ghi đè sản phẩm đã có; không import danh mục, giá áp dụng hay số lượng cho sản phẩm đã tồn tại.
 - Giới hạn giá/số lượng bổ sung ngoài nguyên VND dương/số lượng nguyên không âm chưa phê chuẩn. Không tự đặt trần kinh doanh; miền số biểu diễn, thông báo vượt miền và cách đo ký tự cần ghi rõ tại plan/contracts trước triển khai, không làm tròn/cắt/tràn âm thầm.
 
 ### Phụ thuộc và ranh giới lập kế hoạch
 
 - Tuân thủ [Constitution 3.0.0](../../.specify/memory/constitution.md). Đây là hành vi nghiệp vụ; kiến trúc, hợp đồng giao tiếp, dữ liệu vật lí và cách bảo đảm xử lí đồng thời thuộc bước plan.
-- Cần danh tính, quyền nội bộ và trạng thái tài khoản đã xác minh. Mã MEMBER/STAFF/MANAGER/ADMIN, dùng chung cơ chế xác thực theo 001 và phiên nội bộ cố định 8 giờ đã chốt. Chi tiết model tài khoản, facade phiên/quyền và phương thức MFA/recovery thuộc identity/FE-01; không tự map OWNER, tự chọn TOTP hoặc bỏ yêu cầu xác thực đặc quyền. Dependency thiết kế/triển khai MFA chung cần hoàn thiện trước bật quản trị; không phải câu hỏi mở lại quyết định dùng chung cơ chế của FE-02.
+- Cần danh tính, quyền nội bộ và trạng thái tài khoản đã xác minh. Mã MEMBER/STAFF/MANAGER/ADMIN, dùng chung cơ chế xác thực theo 001 đã chốt. Chi tiết model tài khoản, facade phiên/quyền và phương thức MFA/recovery thuộc identity/FE-01; không tự map OWNER, tự chọn TOTP hoặc bỏ yêu cầu xác thực đặc quyền. Dependency thiết kế/triển khai MFA chung cần hoàn thiện trước bật quản trị; không phải câu hỏi mở lại quyết định dùng chung cơ chế của FE-02.
 - Cloudinary đã được chọn; adapter/cấu hình và thông tin giữ hợp lệ từ FE-08 là dependency triển khai. Retention ảnh/audit/receipt đã chốt ở FR-008/027/028. Không kích hoạt billing hoặc tạo tài nguyên provider từ tác vụ tài liệu. Không phụ thuộc FE-07 để hoàn thành duyệt trong quản trị.
-- FE-04 có thể cho gợi ý giá nhưng không bắt buộc để duyệt thủ công; không sửa spec FE-04 hoặc Member Profile trong tác vụ này.
+- FE-04 có thể cho gợi ý giá nhưng không bắt buộc để duyệt thủ công; không sửa spec FE-04 hoặc Account Management (001) trong tác vụ này.
 - Tải, tốc độ, khả dụng và môi trường sản xuất chưa baselined, không suy ra từ preview. Sẵn sàng review/lập plan không đồng nghĩa các phụ thuộc hoặc vận hành đã sẵn sàng triển khai.

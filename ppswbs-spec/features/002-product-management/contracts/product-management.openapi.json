@@ -3,7 +3,7 @@
   "info": {
     "title": "Mland Product Management API",
     "version": "0.1.0-draft",
-    "description": "FE-02 draft technical contract updated 2026-10-24. User confirmed MEMBER/STAFF/MANAGER/ADMIN, Admin-provisioned authority, defaults, retention, Cloudinary and shared authentication using FE-01 primitives: verified Firebase bearer for all REST calls including the separate React frontend, a fixed eight-hour internal session counted from auth_time without sliding renewal, and revocation/status checks. Internal capabilities remain required per action; a Member cookie grants no internal authority. MFA method/recovery and privileged-auth assurance contract remain an identity-owned design dependency before enabling management. FE-08 and identity/Cloudinary adapters are implementation dependencies, not evidence of an implemented service. See interfaces.md for state, reference-guard and audit rules."
+    "description": "FE-02 technical contract approved 2026-10-24 by Đặng Thị Khương. User confirmed MEMBER/STAFF/MANAGER/ADMIN, Admin-provisioned authority, defaults, retention, Cloudinary and shared authentication using FE-01 primitives: verified Firebase bearer for all REST calls including the separate React frontend, the FE-01/001 authentication contract, and revocation/status checks. Internal capabilities remain required per action; a Member cookie grants no internal authority. MFA method/recovery and privileged-auth assurance contract remain an identity-owned design dependency before enabling management. FE-08 and identity/Cloudinary adapters are implementation dependencies, not evidence of an implemented service. See interfaces.md for state, reference-guard and audit rules."
   },
   "tags": [
     {
@@ -3142,6 +3142,518 @@
           }
         }
       }
+    },
+    "/api/v1/catalogue-management/product-imports/template": {
+      "get": {
+        "operationId": "downloadProductImportTemplate",
+        "summary": "Download the .xlsx import template",
+        "tags": [
+          "Catalogue management"
+        ],
+        "security": [
+          {
+            "bearerIdentity": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Template with sheet \"Sản phẩm\" (headers: Mã nhóm, Tên sản phẩm, Mô tả, Danh mục, Size, Giá đề xuất (VND), Số lượng), a guide sheet and a sheet listing active category names. No other internal data.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "description": "No storage of management data."
+              }
+            },
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogue-management/product-imports": {
+      "post": {
+        "operationId": "validateProductImport",
+        "summary": "Upload and validate an .xlsx file without creating products",
+        "tags": [
+          "Catalogue management"
+        ],
+        "security": [
+          {
+            "bearerIdentity": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "One .xlsx, no macros, max 5,000,000 bytes and 500 data rows; only the first sheet is read; request max 5,100,000 bytes."
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Batch created with state VALIDATED (no errors) or REJECTED (row errors). No product, product id or SKU is created.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "description": "No storage of management data."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductImportBatch"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogue-management/product-imports/{batchId}": {
+      "get": {
+        "operationId": "getProductImport",
+        "summary": "Read a batch owned by the current actor (validation or import result)",
+        "tags": [
+          "Catalogue management"
+        ],
+        "security": [
+          {
+            "bearerIdentity": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batchId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Import batch owned by the current actor."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current batch state. Lets the client check the outcome after a lost response.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "description": "No storage of management data."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductImportBatch"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogue-management/product-imports/{batchId}/confirmations": {
+      "post": {
+        "operationId": "confirmProductImport",
+        "summary": "Confirm a VALIDATED batch: re-validate and create all draft products atomically",
+        "tags": [
+          "Catalogue management"
+        ],
+        "security": [
+          {
+            "bearerIdentity": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batchId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Import batch owned by the current actor."
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch IMPORTED with created product ids and SKUs; same-key retry returns the committed result after current authorization.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "description": "No storage of management data."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductImportBatch"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogue-management/product-imports/{batchId}/error-report": {
+      "get": {
+        "operationId": "downloadProductImportErrorReport",
+        "summary": "Download row/column errors of a REJECTED batch as .xlsx",
+        "tags": [
+          "Catalogue management"
+        ],
+        "security": [
+          {
+            "bearerIdentity": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batchId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Import batch owned by the current actor."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Error report; cells starting with =, +, - or @ are neutralized.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "description": "No storage of management data."
+              }
+            },
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IMPORT_BATCH_EXPIRED: errors were purged after expiry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4330,6 +4842,196 @@
           "active",
           "affectedProducts"
         ]
+      },
+      "ProductImportError": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "row": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Excel row number (header is row 1)."
+          },
+          "column": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Template column name."
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Offending value, truncated; never a formula result."
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "row",
+          "column",
+          "code",
+          "message"
+        ]
+      },
+      "ProductImportPreviewProduct": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "groupKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "categoryId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "sizes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Size"
+            },
+            "minItems": 1,
+            "maxItems": 25
+          }
+        },
+        "required": [
+          "groupKey",
+          "name",
+          "categoryId",
+          "sizes"
+        ],
+        "description": "Preview only: no product id or SKU is allocated before confirmation."
+      },
+      "ProductImportCreated": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "groupKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "productId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "skus": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Sku"
+            },
+            "minItems": 1,
+            "maxItems": 25
+          }
+        },
+        "required": [
+          "groupKey",
+          "productId",
+          "skus"
+        ]
+      },
+      "ProductImportBatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "VALIDATED",
+              "REJECTED",
+              "IMPORTED",
+              "EXPIRED"
+            ]
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "rowCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500
+          },
+          "productCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500
+          },
+          "variantCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500
+          },
+          "errorCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "errors": {
+            "type": "array",
+            "maxItems": 4000,
+            "items": {
+              "$ref": "#/components/schemas/ProductImportError"
+            },
+            "description": "All row/column errors (not truncated; at most 500 rows x 7 columns plus group errors). Emptied after expiresAt; errorCount is kept."
+          },
+          "preview": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/ProductImportPreviewProduct"
+            },
+            "description": "Present only when state=VALIDATED."
+          },
+          "created": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/ProductImportCreated"
+            },
+            "description": "Present only when state=IMPORTED."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "importedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "batchId",
+          "fileName",
+          "state",
+          "version",
+          "rowCount",
+          "productCount",
+          "variantCount",
+          "errorCount",
+          "errors",
+          "expiresAt"
+        ],
+        "description": "Validation result or import result. A file with row errors is a successful validation call with state=REJECTED, not an HTTP error. The original file is not retained."
       }
     }
   }

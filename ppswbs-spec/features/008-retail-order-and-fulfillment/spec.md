@@ -117,6 +117,35 @@ configuration, accounting, or executive reporting in FE-10.
   separately, then shows the combined payable total. A verified result applies
   to all branch orders in that grouped checkout exactly once.
 
+### Session 2026-10-24
+
+- Q: Does FE-08 officially replace Report 3's manual-only GHTK rule with
+  automatic GHTK API integration in the first release? → A: Yes. Automatic
+  GHTK fee quotation, shipment creation, webhook/status synchronization and
+  Member tracking are official V1 FE-08 scope. Development and automated tests
+  use a mock provider until approved GHTK Partner access is available; Report 3
+  must be synchronized with this decision.
+- Q: If production does not have approved GHTK Partner access or the GHTK
+  integration is disabled, which fulfilment choices remain available? → A: The
+  system displays a safe notice asking the Member to contact Staff for support,
+  disables GHTK selection, and continues to offer store pickup. It does not use
+  mock GHTK responses or silently create a manual carrier workflow in production.
+- Q: In a multi-branch checkout, what happens when GHTK is unavailable for only
+  one branch? → A: Only the affected branch loses its GHTK option and requires
+  the Member to select store pickup; other eligible branches may continue with
+  GHTK. The system recalculates the grouped total and requires the Member to
+  confirm it again without silently changing fulfilment or removing items.
+- Q: If a GHTK quote expires or changes before the Member starts payment, how
+  is the new total handled? → A: The system obtains a new quote, displays the
+  fee difference and recalculated grouped total, and requires the Member to
+  confirm the complete checkout again before creating a payment attempt. It
+  does not silently update the payable amount or redirect to VNPay.
+- Q: If GHTK fails or times out while the Member requests a shipping quote,
+  what checkout data and recovery actions remain available? → A: The system
+  preserves the cart and recipient draft within the current checkout session,
+  creates no payment attempt, and lets the Member retry the quote or explicitly
+  change only the affected branch to pickup.
+
 ## Actors and permissions
 
 | Actor | Permission |
@@ -321,6 +350,17 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   the destination.
 - GHTK fee quotation, shipment creation, status retrieval, or webhook delivery
   times out or returns an invalid response.
+- A GHTK fee request fails or times out; the cart and current recipient draft
+  remain available, no payment attempt is created, and the Member may retry or
+  explicitly select pickup for the affected branch.
+- A GHTK quote expires or changes before payment; the system shows the new fee
+  and grouped total and requires explicit reconfirmation before payment.
+- Approved GHTK Partner access is absent or the production integration is
+  disabled; GHTK selection is unavailable with contact-Staff guidance while
+  store pickup remains available.
+- GHTK is unavailable for only one branch in a grouped checkout; that branch
+  requires an explicit pickup selection and grouped-total reconfirmation while
+  unaffected branches retain their eligible fulfilment choices.
 - A shipment creation response is lost after GHTK has already accepted the
   partner order identifier.
 - The same GHTK webhook is delivered more than once or arrives out of order.
@@ -339,8 +379,9 @@ including frozen items, amounts, payment state, and fulfilment evidence.
 - **FR-08-001**: The system MUST allow only an authenticated active Member to
   create or modify a retail cart owned by that Member.
 - **FR-08-002**: The system MUST accept only published, eligible, configured
-  product variants and positive integer quantities within the approved cart
-  limits.
+  product variants, MUST limit a cart to at most 50 lines, and MUST accept an
+  integer quantity from 1 through 99 per variant across all lines, subject to
+  current logical availability.
 - **FR-08-003**: The system MUST keep cart values indicative until checkout and
   MUST not create an order, payment, hold, or sold-quantity deduction from a
   cart edit alone.
@@ -377,7 +418,11 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   payment acceptance.
 - **FR-08-013**: The system MUST validate and store GHTK recipient name, phone,
   address, and optional note as order-specific fulfilment data before requesting
-  a shipping quote; it MUST not assume an address book or copy a profile
+  a shipping quote; recipient name MUST contain 1–100 Unicode characters,
+  domestic mobile phone MUST use 10 digits beginning with `0` or the equivalent
+  `+84` form, address MUST contain 10–500 Unicode characters, and the optional
+  note MUST contain at most 500 characters after trimming leading/trailing
+  whitespace. The system MUST not assume an address book or copy a profile
   address automatically.
 - **FR-08-014**: The system MUST freeze the fulfilment method, recipient
   snapshot, and shipping fee after checkout acceptance; any change before
@@ -430,6 +475,25 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   permitted order status, last update time, and estimated delivery information;
   it MUST not expose provider credentials, raw callback data, or unnecessary
   recipient PII.
+- **FR-08-031**: When approved GHTK Partner access is unavailable or the
+  production GHTK integration is disabled, the system MUST display safe
+  contact-Staff guidance, MUST prevent GHTK selection, MUST continue to offer
+  store pickup, and MUST NOT substitute mock responses or an unapproved manual
+  carrier workflow.
+- **FR-08-032**: When GHTK is unavailable for only one branch in a grouped
+  checkout, the system MUST require the Member to select pickup for that branch,
+  MUST preserve eligible fulfilment choices for unaffected branches, MUST
+  recalculate and require confirmation of the complete grouped total, and MUST
+  NOT silently change fulfilment or remove items.
+- **FR-08-033**: When an accepted GHTK quote expires or changes before payment
+  initiation, the system MUST obtain a new quote, MUST display the fee
+  difference and recalculated grouped total, and MUST require the Member to
+  confirm the complete checkout again before creating a payment attempt; it
+  MUST NOT silently change the payable amount or redirect to VNPay.
+- **FR-08-034**: When a GHTK fee request fails or times out, the system MUST
+  preserve the Member's cart and recipient draft within the current checkout
+  session, MUST create no payment attempt, and MUST allow the Member to retry
+  the quote or explicitly change only the affected branch to pickup.
 
 ### Logical Data Ownership
 
@@ -519,8 +583,9 @@ not be inferred from a browser redirect.
   signed callbacks, or unnecessary delivery PII.
 - The system MUST preserve accepted order snapshots when catalogue prices,
   product publication, promotion policy, or Member profile data changes later.
-- Core order forms and links MUST retain the project's approved safe fallback
-  behavior when enhanced browser scripting is unavailable.
+- The React client MUST provide explicit loading, empty, validation, pending,
+  success, failure, stale-session, and retry states for applicable FE-08
+  requests without presenting client state as authorization or payment proof.
 - Payment, hold release, order settlement, and fulfilment transitions MUST be
   safe to retry without duplicating terminal business effects.
 - GHTK credentials MUST remain server-side, and frontend clients MUST NOT call
@@ -582,9 +647,11 @@ not be inferred from a browser redirect.
   approved identity/authorization decision.
 - Exact payment-provider event fields, provider reference uniqueness, and
   recovery behavior require a feature plan and contract review.
-- GHTK API creation, fee calculation, status retrieval, and webhook access are
-  available to the project's partner account. Until production credentials are
-  available, feature development uses a mock provider contract.
+- Automatic GHTK fee calculation, shipment creation, webhook/status
+  synchronization and Member tracking are approved V1 FE-08 scope. Until
+  approved production credentials and provider access are available, feature
+  development and automated tests use a mock provider contract; mock responses
+  do not constitute a production carrier operation.
 - The customer pays the quoted GHTK delivery fee and explicitly approved
   mandatory surcharges through the Mland checkout; optional insurance fees are
   not automatically charged. The shipment uses prepaid delivery with no COD
@@ -601,11 +668,12 @@ not be inferred from a browser redirect.
 - GHTK API creation, fee calculation, status retrieval, and webhook access are
   server-to-server boundaries; their exact authentication, payload, timeout,
   retry, and status-mapping contract must be approved before implementation.
-- The selected GHTK integration extends the current project baseline, which
-  still describes GHTK as a manual-only boundary. The baseline and Report 3
-  API/background-job inventories must be synchronized before implementation;
-  until real credentials are available, the contract is exercised through a
-  mock provider.
-- Numeric cart limits, recipient validation limits, retention behavior, and
-  error codes follow the current Report 3 baseline and must be reconciled with
-  the final contract before implementation.
+- This approved FE-08 V1 decision supersedes the current manual-only GHTK rule
+  for retail orders. Report 3 and the API/background-job inventories must be
+  synchronized before implementation so that no active baseline continues to
+  require contradictory manual-only behavior. Until approved GHTK Partner
+  access is available, the contract is exercised through a mock provider for
+  development and automated testing only.
+- Cart and recipient validation limits in this specification follow the current
+  Report 3 rules. Retention behavior and typed error codes must remain aligned
+  with the final contract before implementation.

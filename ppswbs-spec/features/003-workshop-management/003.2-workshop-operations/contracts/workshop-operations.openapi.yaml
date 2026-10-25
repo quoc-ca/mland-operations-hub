@@ -1,0 +1,332 @@
+openapi: 3.0.3
+info:
+  title: Mland Workshop Operations API
+  version: 1.0.0-draft
+  description: >-
+    Internal Manager and Staff API for workshop branches, slots, sessions,
+    attendance and exception audit. Authorization is evaluated server-side.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /workshop-branches:
+    get:
+      summary: List branches visible to the actor
+      responses:
+        '200': { $ref: '#/components/responses/BranchList' }
+        '401': { $ref: '#/components/responses/Problem' }
+    post:
+      summary: Create a workshop branch
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BranchWrite' } } } }
+      responses:
+        '201': { $ref: '#/components/responses/Branch' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /workshop-branches/{branchId}/slots:
+    parameters: [ { $ref: '#/components/parameters/BranchId' } ]
+    get:
+      summary: List branch slots
+      responses:
+        '200': { $ref: '#/components/responses/SlotList' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      summary: Create a reusable non-overlapping slot
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SlotWrite' } } } }
+      responses:
+        '201': { $ref: '#/components/responses/Slot' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-slots/{slotId}:
+    parameters: [ { $ref: '#/components/parameters/SlotId' } ]
+    patch:
+      summary: Edit a reusable slot or change its active flag
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SlotWrite' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Slot' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions:
+    get:
+      summary: Search sessions within the actor's branch scope
+      parameters:
+        - { name: branchId, in: query, schema: { type: string, format: uuid } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: state, in: query, schema: { $ref: '#/components/schemas/SessionState' } }
+      responses:
+        '200': { $ref: '#/components/responses/SessionList' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      summary: Create one future session in DRAFT by default
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SessionWrite' } } } }
+      responses:
+        '201': { $ref: '#/components/responses/Session' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/bulk:
+    post:
+      summary: Generate bounded future sessions and report duplicates skipped
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BulkSessionRequest' } } } }
+      responses:
+        '201': { $ref: '#/components/responses/BulkGenerationResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    get:
+      summary: Get a session within authorized branch scope
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      summary: Update allowed session fields and return any schedule warning
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SessionWrite' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/state-transitions:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Apply a non-cancellation authorized lifecycle transition; cancellation uses the reasoned cancellation endpoint
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StateTransitionRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/staff-assignments:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    put:
+      summary: Add or replace a Staff assignment
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StaffAssignmentRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+    delete:
+      summary: Remove one Staff assignment when responsibility remains
+      parameters: [ { name: personnelId, in: query, required: true, schema: { type: string } } ]
+      responses:
+        '204': { description: Assignment removed }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/operational-lead:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    put:
+      summary: Take or hand over the single Manager operational lead role
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OperationalLeadRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/check-ins:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Normal QR or exact ticket-code check-in; repeat scan returns the existing result without another attendance action
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/CheckInResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/check-in-overrides:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Authorised exception check-in for an eligible ticket at the same session and branch
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInOverrideRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Ticket' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/booking-lookups/{bookingCode}:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+      - { name: bookingCode, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Lookup only eligible tickets for the active session and branch
+      responses:
+        '200': { $ref: '#/components/responses/TicketList' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/ticket-resends:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Request auditable resend of the buyer's tickets
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TicketResendRequest' } } } }
+      responses:
+        '202': { description: Delivery request accepted }
+        '403': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/attendance-finalizations:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Finalise the whole session's attendance
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/attendance-corrections:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Manager-only post-finalisation attendance correction
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AttendanceCorrectionRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Ticket' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/check-in-reversals:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Manager-only reversal of an erroneous check-in before attendance finalization
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInReversalRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Ticket' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/cancellation-requests:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Cancel directly when no commitment exists, otherwise stop operations and create a 003.3 cancellation handoff
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReasonedRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '202': { description: Cancellation handoff created }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: Firebase-ID-token }
+  parameters:
+    BranchId: { name: branchId, in: path, required: true, schema: { type: string, format: uuid } }
+    SlotId: { name: slotId, in: path, required: true, schema: { type: string, format: uuid } }
+    SessionId: { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+  responses:
+    Branch: { description: Branch, content: { application/json: { schema: { $ref: '#/components/schemas/Branch' } } } }
+    BranchList: { description: Branches, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Branch' } } } } }
+    Slot: { description: Slot, content: { application/json: { schema: { $ref: '#/components/schemas/Slot' } } } }
+    SlotList: { description: Slots, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Slot' } } } } }
+    Session: { description: Session, content: { application/json: { schema: { $ref: '#/components/schemas/Session' } } } }
+    SessionList: { description: Sessions, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Session' } } } } }
+    Ticket: { description: Ticket, content: { application/json: { schema: { $ref: '#/components/schemas/Ticket' } } } }
+    CheckInResult: { description: Normal check-in result, including a repeated-scan result, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInResult' } } } }
+    TicketList: { description: Tickets, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Ticket' } } } } }
+    BulkGenerationResult: { description: Generation outcome, content: { application/json: { schema: { $ref: '#/components/schemas/BulkGenerationResult' } } } }
+    Problem: { description: Problem response, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+  schemas:
+    BranchWrite:
+      type: object
+      required: [code, name]
+      properties: { code: { type: string }, name: { type: string }, address: { type: string }, active: { type: boolean } }
+    Branch:
+      allOf: [ { $ref: '#/components/schemas/BranchWrite' }, { type: object, required: [id], properties: { id: { type: string, format: uuid } } } ]
+    SlotWrite:
+      type: object
+      required: [label, startsAtLocal, endsAtLocal, defaultCapacity, active]
+      properties:
+        label: { type: string }
+        startsAtLocal: { type: string, format: time }
+        endsAtLocal: { type: string, format: time }
+        defaultCapacity: { type: integer, minimum: 1 }
+        active: { type: boolean }
+    Slot:
+      allOf: [ { $ref: '#/components/schemas/SlotWrite' }, { type: object, required: [id, branchId], properties: { id: { type: string, format: uuid }, branchId: { type: string, format: uuid } } } ]
+    SessionState:
+      type: string
+      enum: [DRAFT, PUBLISHED, SALES_PAUSED, IN_PROGRESS, ATTENDANCE_FINALIZED, CANCELLATION_REQUESTED, CANCELLED]
+    SessionWrite:
+      type: object
+      required: [branchId, slotId, workshopDate, capacity]
+      properties:
+        branchId: { type: string, format: uuid }
+        slotId: { type: string, format: uuid }
+        workshopDate: { type: string, format: date }
+        capacity: { type: integer, minimum: 1 }
+        checkInOpensAt: { type: string, format: date-time, nullable: true }
+    Session:
+      allOf:
+        - { $ref: '#/components/schemas/SessionWrite' }
+        - type: object
+          required: [id, state, scheduledStartAt, scheduledEndAt, checkInOpeningSource]
+          properties:
+            id: { type: string, format: uuid }
+            state: { $ref: '#/components/schemas/SessionState' }
+            scheduledStartAt: { type: string, format: date-time }
+            scheduledEndAt: { type: string, format: date-time }
+            checkInOpeningSource: { type: string, enum: [DEFAULT, MANAGER_SET] }
+            operationalLeadPersonnelId: { type: string, nullable: true }
+    BulkSessionRequest:
+      type: object
+      required: [branchId, slotIds, from, to, weekdays]
+      properties:
+        branchId: { type: string, format: uuid }
+        slotIds: { type: array, minItems: 1, items: { type: string, format: uuid } }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        weekdays: { type: array, minItems: 1, items: { type: string, enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY] } }
+        initialState: { type: string, enum: [DRAFT, PUBLISHED], default: DRAFT }
+    BulkGenerationResult:
+      type: object
+      required: [createdSessionIds, skippedDuplicates]
+      properties:
+        createdSessionIds: { type: array, items: { type: string, format: uuid } }
+        skippedDuplicates: { type: array, items: { type: string } }
+    StateTransitionRequest:
+      type: object
+      required: [targetState]
+      properties:
+        targetState: { type: string, enum: [PUBLISHED, SALES_PAUSED, IN_PROGRESS, ATTENDANCE_FINALIZED] }
+    StaffAssignmentRequest:
+      type: object
+      required: [personnelId]
+      properties: { personnelId: { type: string } }
+    OperationalLeadRequest:
+      type: object
+      required: [managerPersonnelId, reasonCode]
+      properties: { managerPersonnelId: { type: string }, reasonCode: { type: string }, reasonNote: { type: string }, evidenceReference: { type: string } }
+    CheckInRequest:
+      type: object
+      properties: { qrToken: { type: string }, ticketCode: { type: string } }
+      oneOf: [ { required: [qrToken] }, { required: [ticketCode] } ]
+    CheckInOverrideRequest:
+      allOf: [ { $ref: '#/components/schemas/CheckInRequest' }, { $ref: '#/components/schemas/ReasonedRequest' } ]
+    TicketResendRequest:
+      type: object
+      required: [bookingCode]
+      properties: { bookingCode: { type: string } }
+    AttendanceCorrectionRequest:
+      allOf: [ { $ref: '#/components/schemas/ReasonedRequest' }, { type: object, required: [ticketCode, correctedAttendanceState], properties: { ticketCode: { type: string }, correctedAttendanceState: { type: string, enum: [CHECKED_IN, NO_SHOW] } } } ]
+    CheckInReversalRequest:
+      allOf: [ { $ref: '#/components/schemas/ReasonedRequest' }, { type: object, required: [ticketCode], properties: { ticketCode: { type: string } } } ]
+    ReasonedRequest:
+      type: object
+      required: [reasonCode]
+      properties: { reasonCode: { type: string }, reasonNote: { type: string }, evidenceReference: { type: string } }
+    Ticket:
+      type: object
+      required: [ticketCode, sessionId, branchId, validityState, attendanceState]
+      properties:
+        ticketCode: { type: string }
+        sessionId: { type: string, format: uuid }
+        branchId: { type: string, format: uuid }
+        validityState: { type: string, enum: [ACTIVE, CANCELLED, REVOKED, REFUNDED] }
+        attendanceState: { type: string, enum: [NOT_CHECKED_IN, CHECKED_IN, NO_SHOW] }
+        checkedInAt: { type: string, format: date-time, nullable: true }
+    CheckInResult:
+      allOf:
+        - { $ref: '#/components/schemas/Ticket' }
+        - type: object
+          required: [checkInResult, checkedInAt]
+          properties:
+            checkInResult: { type: string, enum: [CHECKED_IN, ALREADY_CHECKED_IN] }
+            checkedInAt: { type: string, format: date-time }
+    Problem:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        code: { type: string, example: TICKET_ALREADY_CHECKED_IN }
+        detail: { type: string }

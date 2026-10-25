@@ -5,12 +5,12 @@
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
-**Status**: Proposed design — chưa tạo entity hoặc migration.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; thiết kế dữ liệu là baseline, chưa tạo entity hoặc migration.  
 **Traceability**: [FR-003–FR-010, FR-023–FR-038, FR-041](spec.md), [research D-03–D-08](research.md).
 
 ## 1. Ownership và kiểu dữ liệu
 
-Module `loyalty` sở hữu tất cả bảng `loyalty_*`/`promotion_*` dưới đây. Không map JPA association tới entity Member/product/order/booking; các ID nguồn là logical references được facade owner kiểm tra. FK chỉ giữa bảng loyalty. Không có bảng hạng thành viên, inventory hoặc payment.
+Module `loyaltypromotion` sở hữu tất cả bảng `loyalty_*`/`promotion_*` dưới đây. Không map JPA association tới entity Member/product/order/booking; các ID nguồn là logical references được facade owner kiểm tra. FK chỉ giữa bảng loyalty. Không có bảng hạng thành viên, inventory hoặc payment.
 
 - ID, revision, counters: BIGINT signed; ID/revision dương, counters không âm, kiểm tra overflow.
 - Money/points: DECIMAL(19,0), Java BigInteger; 0..9.999.999.999.999.999.999, điểm ledger delta cho phép âm trong giới hạn đối xứng. Intermediate arithmetic dùng exact numbers và kiểm tra bounds trước persist.
@@ -106,9 +106,9 @@ Tạo wallet đầu tiên dưới Member creation/authorization guard do identit
 
 ## 7. Migration và retention
 
-- Append-only Flyway migration mới, cấp số sau kiểm tra directory lúc implementation; không sửa V1–V3, không DROP/reset/backfill giả điểm cho giao dịch cũ.
+- Append-only Flyway migration mới, cấp số sau kiểm tra directory lúc implementation; không sửa migration đã áp dụng, không DROP/reset/backfill giả điểm cho giao dịch cũ.
 - Khởi tạo registry/policy một lần trong migration; wallet tạo lazy cho Member khi accept. Member chưa có wallet đọc số dư 0, không cần write ở GET.
-- FK nội module, unique keys và CHECK invariants phải kiểm chứng trên MySQL 8.4 trống và upgrade populated V1–V3; không chỉ H2.
+- FK nội module, unique keys và CHECK invariants phải kiểm chứng trên MySQL 8.4 trống và upgrade trên schema có dữ liệu của các feature khác lúc triển khai; không chỉ H2.
 - Tối thiểu 5 năm từ mốc muộn hơn của record event/commit và source terminal nếu có. Chưa terminal hoặc còn references thì không eligible cleanup. Current wallet/policy, code registry và minimal source/action uniqueness evidence không bị xóa vì tuổi.
 - V1 không có purge/delete history command. Future cleanup phải giữ tombstones/dedup keys và lịch sử cần cho nonexpiring points; cần review riêng trước thao tác phá hủy.
 - Recovery disable route/consumer mới, giữ schema/ledger/receipts; không down-migrate hoặc sửa trực tiếp balance để “khớp” sự cố.

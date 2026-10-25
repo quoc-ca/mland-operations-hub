@@ -5,7 +5,7 @@
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
-**Status**: Hướng dẫn kiểm chứng dự kiến sau implementation. Hiện chưa có loyalty code/tests/migration, không tuyên bố các lệnh test dưới đây đã chạy.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; hướng dẫn kiểm chứng dự kiến sau implementation. Hiện chưa có loyalty code/tests/migration, không tuyên bố các lệnh test dưới đây đã chạy.  
 **References**: [spec](spec.md), [model](data-model.md), [interfaces](contracts/interfaces.md), [gates](integration-gates.md).
 
 ## 1. Prerequisites
@@ -32,7 +32,7 @@ Sau khi implementation có các test classes:
 
 ```powershell
 .\mvnw.cmd '-Dtest=ModulithArchitectureTests' test
-.\mvnw.cmd '-Dtest=LoyaltyCalculationTest,LoyaltyLifecycleTest,LoyaltyApiContractIT,LoyaltyWebSecurityIT' test
+.\mvnw.cmd '-Dtest=LoyaltyCalculationTest,LoyaltyLifecycleTest,LoyaltyApiContractIT,LoyaltySecurityIT' test
 .\mvnw.cmd '-Dtest=LoyaltyMySqlMigrationIT,LoyaltyMySqlConcurrencyIT,LoyaltyRetailSourceIntegrationIT,LoyaltyWorkshopSourceIntegrationIT,LoyaltyRecoverySourceIntegrationIT' test
 ```
 
@@ -57,14 +57,14 @@ Dữ liệu chương trình sau là fixture, không cấu hình mặc định th
 
 1. **Programs/quotas — US1–US2**: tạo đủ ba kind/scope; mã `TET10`/` tet10 ` trùng; không reuse mã cũ, không đổi immutable fields. Giảm limit6used+2held xuống7 reject; xuống8 accept. Pause rồi resume cùng mã giữ counters/history/deadline; hết hạn/hết lượt vẫn không dùng mới, same command không chuyển trạng thái thêm, stale version/thiếu quyền bị từ chối. Counter và audit rollback cùng update.
 2. **Kho/UI — US3/US8.6**: public labels/terms/allowPoints/limits, Member own kho, nhập trực tiếp normalize, save lặp không quota. Empty khác error. Chạy frontend React + Vite với backend REST và hoàn thành các hành trình cốt lõi qua REST; token thiếu/hết hạn bị từ chối.
-3. **Auth — US1.6/US3.6/US6.4/US8.3/US8.7**: bearer đúng chain, session fixed8h từ auth_time/revoked, current DB role/state, privileged assurance; không Member cookie→Manager hoặc Manager→Admin. Private response no-store; không leak token/member data qua lỗi.
+3. **Auth — US1.6/US3.6/US6.4/US8.3/US8.7**: bearer đúng chain, session theo 001/revoked, current DB role/state, privileged assurance; không Member cookie→Manager; Admin bị từ chối chính sách điểm và chương trình ưu đãi. Private response no-store; không leak token/member data qua lỗi.
 4. **Snapshots — US2.4/US8.4**: accept booking theo policyA, đổi policyB và dừng/hết hạn mã trước ngày hoàn thành; accepted giữ policyA và original deadline, booking mới dùngB/current terms.
 5. **Same wallet/last slot — US7.2**: hai transaction DB độc lập đồng thời retail/workshop tranh point/quota cuối; không âm, không vượt limit, một bên nhận conflict/changed limits phù hợp.
 6. **Atomic creation — US4.7/US5.4**: fault trước/sau reserve/source invoice/capacity/quantity hold; rollback toàn bộ, không accepted source thiếu benefit hoặc orphan held points.
 7. **Lifecycle — US4.9/US5.5/US6.6/US7**: paid/deposit/expiry/cancel races dưới source lock; repeat/lost response; không release từ deadline nếu payment unresolved; source proof out-of-order/conflicting không sửa terminal.
 8. **Restore — US7.3–US7.7, US2.9**: held chỉ release; consumed hoàn exactly points gốc và cả hai quota; points-only/voucher-only/no-benefit, mã hết hạn/dừng không reactivation. Simulate component đã hoàn và retry phần thiếu; không cộng hai lần. Một booking duy nhất đã giảm voucher100.000đ hủy hợp lệ thì report còn0 lượt/0đ; giữ lịch sử dùng/hoàn, repeat không làm âm, chương trình hết hạn/dừng không xóa usage giao dịch chưa hủy.
 9. **Eligibility**: Guest booking import không retro-earn; workshop chưa đủ một điều kiện không grant; cùng giao dịch grant0/positive một lần; không có route public tự báo complete/refund.
-10. **Migration/retention — FR-041**: database empty và populatedV1–V3 upgrade; preserve members/bookings/receipts, constraints/UTC/code uniqueness/decimal bounds. Audit/results tối thiểu5 năm, protected references/unfinished, không purge v1 hoặc xóa balances/tombstones.
+10. **Migration/retention — FR-041**: database empty và upgrade trên schema có dữ liệu của các feature khác; preserve members/bookings/receipts, constraints/UTC/code uniqueness/decimal bounds. Audit/results tối thiểu5 năm, protected references/unfinished, không purge v1 hoặc xóa balances/tombstones.
 
 ## 5. Recording results
 

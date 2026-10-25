@@ -1,28 +1,37 @@
 # Feature Specification: Customer Workshop Booking Core
 
-**Feature**: `003.1-workshop-booking`
+**Date created**: 2026-10-06
+**Date updated**: 2026-10-25
+**Author**: Hồ Hoàng Quốc
+**Last updated by**: Hồ Hoàng Quốc
 
-**Created**: 2026-10-06
-
-**Status**: Draft
-
-**Input**: User description: "Create the first customer-facing Workshop Booking lifecycle: browse workshop packages, create a booking, pay the deposit, and look up booking details."
+**Feature Branch**: `003.1-workshop-booking`
+**Status**: Draft — blocked from implementation pending rebase decisions
+**Input**: Customer-facing workshop booking lifecycle; the current aggregate
+model is defined in [REBASE-NOTES.md](REBASE-NOTES.md).
+**Governing baseline**: [spec-general.md](../../../spec-general.md) and the
+project constitution. The React + Vite frontend consumes versioned REST APIs;
+the Java backend does not render application UI.
 
 ## Scope and source alignment
 
 This feature defines the first customer-facing Workshop Booking slice for Guests
-and Members. It owns the commercial order, the chosen workshop item(s), capacity
-holds, attendance-ticket issuance, deposit payment, and booking lookup.
+and Members. It owns one booking for one selected workshop package/course,
+capacity holds for that package's required session(s), attendance-ticket
+issuance, deposit payment, and booking lookup. It does not provide a generic
+cart for unrelated workshop packages.
 
-> **Rebase required — 2026-10-23.** The original V1 artifacts below were written
-> for a single-session booking with a single `participant_count`. FE-03 now uses
-> a more accurate model: a **booking** is the commercial order; each **workshop
-> item** is one physical result (for example, one ring) and is assigned to one
-> session; each actual attendee has one independent **attendance ticket** and
-> QR. A booking may therefore contain several items and sessions, and two people
-> can share one item while receiving two tickets. The legacy data model, API
+> **Rebase required — 2026-10-24.** The original V1 requirements below were written
+> for a single-session booking with a single `participant_count`. The V1 model
+> is a **booking** for one workshop package/course; the package may include one
+> or more required sessions, while each actual attendee has one independent
+> **attendance ticket** and QR. V1 does not provide a generic multi-package
+> cart. Pricing is strictly per participant; a shared-item/co-maker price is
+> out of scope. The legacy data model, API
 > contract, plan, and tasks in this directory must be rebased before they guide
-> any further implementation. See [REBASE-NOTES.md](REBASE-NOTES.md).
+> any further implementation. See [REBASE-NOTES.md](REBASE-NOTES.md) and
+> [REVIEW-2026-10-24.md](REVIEW-2026-10-24.md). No legacy requirement in this
+> file authorizes server-rendered UI, a single-session data model, or code work.
 
 The source use cases are:
 
@@ -89,6 +98,128 @@ a later feature. The implemented state enum is therefore
 - Q: What happens if confirmation email delivery fails after payment? → A: The booking remains `CONFIRMED`; the system stores a notification retry intent and retries automatically. Email delivery is not a condition for booking confirmation.
 - Q: How should automatic confirmation-email retry stop? → A: Retry at most three times with backoff, then mark the notification for authorized Staff/Owner follow-up.
 
+### Session 2026-10-25
+
+#### Approved resolution for V1 participant pricing
+
+**Decision owner: Hồ Hoàng Quốc.** 003.1 V1 supports `PER_PERSON` pricing only.
+The frozen total for a booking item is its selected `participant_count` multiplied
+by the package's frozen price per participant. A participant is one purchased
+seat and receives one independent ticket after valid payment confirmation.
+
+- Q: Does V1 retain `BASE_PLUS_EXTRA` or a selectable pricing model? → A: No.
+  `BASE_PLUS_EXTRA`, `base_price`, included-participant counts, extra-person
+  prices, and a `pricing_model` selection are out of scope for V1.
+- Q: How is a two-session package such as Silverclay priced? → A: Its displayed
+  per-participant package price covers every required session. For four
+  participants, the total is four times that price; the booking holds four
+  participant seats in each required session and issues four tickets after a
+  valid payment confirmation.
+- Q: Is a rare co-maker request an online material add-on? → A: No. A material
+  add-on does not create a participant, ticket, or capacity commitment. A rare
+  request for several people to make one physical item is handled manually by
+  Staff outside the V1 customer booking flow.
+- Q: Does V1 provide a cart for unrelated workshop packages? → A: No. One
+  booking purchases one package/course only. A package may contain one or more
+  required sessions; a Silverclay two-session package is one purchase, not two
+  cart items or two independent bookings.
+- Q: Which packages are available through an OTA in V1? → A: Only basic ring
+  packages completed in one session. The two-session Silverclay package is
+  direct-Mland only; OTA does not select, hold, or sell its session pair.
+- Q: How does a direct-Mland Silverclay booking select its two sessions? → A:
+  The customer selects exactly two distinct published, customer-selectable
+  workshop sessions. Sessions use the same common slot concept as other
+  workshop packages; the earlier session is automatically treated as session 1
+  and the later session as session 2. Both capacity holds succeed or the booking
+  is not created.
+- Q: How are QR tickets issued for a confirmed Silverclay booking? → A: Each
+  participant receives one independent QR ticket that is valid for both selected
+  Silverclay sessions. Later attendance is recorded separately for each
+  ticket/session pair; this feature does not implement check-in.
+- Q: May the two selected Silverclay sessions belong to different branches? →
+  A: No. In V1, both selected sessions must belong to the same branch.
+- Q: What minimum separation applies between the two selected Silverclay
+  sessions? → A: If both sessions are on the same local calendar day, at least
+  one scheduled workshop slot must occur between them. Sessions on different
+  local calendar days are valid even when the first is the final slot on one day
+  and the second is the first slot on the next day.
+- Q: With Silverclay, may a customer combine any two sessions at booking? → A:
+  Yes. The customer may combine any two published, customer-selectable workshop
+  sessions. A session is always a common workshop slot; V1 has no
+  Silverclay-only slot type or preconfigured session-pair/cohort requirement.
+- Q: Must the same physical person attend both sessions under one Silverclay
+  ticket? → A: No. In V1, a ticket reserves one seat in both sessions but is
+  not identity-bound or verified against a physical attendee. The booking
+  contact receives and is responsible for distributing the ticket set.
+- Q: When Basic Ring and Silverclay select the same workshop session, do they
+  share its capacity pool? → A: Yes. Each participant seat reserved by either
+  package consumes one place from the same configured session capacity.
+- Q: How is a 50% deposit handled if the booking total is an odd VND amount? →
+  A: V1 permits publication only of an even-VND price per participant, so every
+  booking total and its 50% deposit are exact whole-VND amounts.
+- Q: What maximum gap applies between two selected Silverclay sessions? → A:
+  None in V1. The sessions may be any distance apart while each remains
+  published and customer-selectable, provided they meet the same-branch and
+  minimum-separation rules.
+
+- Q: When is signed QueryDR used if a valid IPN has not been processed? → A:
+  V1 runs a bounded automatic QueryDR recovery while the payment hold remains
+  active and only for an attempt without a terminal IPN outcome. A QueryDR
+  success still passes all normal booking, amount, currency, signature,
+  idempotency and capacity-commit validation; browser return is never evidence.
+
+- Q: Which VNPAY signature policy applies in V1? → A: V1 accepts only the
+  approved VNPAY HMAC-SHA512 checksum configuration. It verifies the checksum
+  before any booking or capacity processing; missing or invalid checksum is
+  rejected and cannot confirm a booking.
+
+- Q: How are duplicate and out-of-order valid payment results handled? → A:
+  An accepted success is terminal. Repeated IPN/QueryDR success is acknowledged
+  idempotently without another settlement, capacity commit or ticket delivery;
+  a failure result arriving later cannot downgrade the confirmed booking and is
+  retained only as safe payment-attempt evidence.
+
+- Q: What payment evidence is retained for idempotency and reconciliation? → A:
+  Store only the redacted minimum: merchant booking/payment reference, VNPAY
+  transaction reference/number when supplied, amount, currency, outcome/status
+  codes, provider/received time and correlation/idempotency evidence. Do not
+  retain raw IPN/QueryDR payload, checksum or signing secret.
+
+### Session 2026-10-25
+
+- Q: When should bounded automatic QueryDR recovery run during the payment
+  hold? → A: For a payment attempt without a terminal IPN outcome, run it at
+  payment-link expiry (minute 10) and once one minute before the 15-minute hold
+  expiry (minute 14). It never runs after hold expiry and never treats browser
+  return as payment evidence.
+
+- Q: Should the post-payment Magic Link be reusable or single-use? → A:
+  Reusable until the associated workshop/package ends or the link is revoked.
+  It grants only read-only access to that booking and its ticket set; it never
+  authenticates a Member or grants Member account access.
+
+- Q: What happens to an active Magic Link when the post-payment booking
+  confirmation email is resent? → A: Resend reuses the existing active Magic
+  Link. Revocation or rotation is a separate authorized incident-response
+  action; resending neither creates another active link nor changes QR tickets.
+
+- Q: How can a booking contact recover booking access after losing access to
+  the submitted email? → A: Use Guest lookup with the booking code and stored
+  contact phone to open the same read-only booking/ticket view. V1 neither
+  changes the contact email automatically nor sends a Magic Link to a new email.
+
+- Q: Is a valid Magic Link alone sufficient to open the allowed booking and
+  ticket projection? → A: Yes. It is a bearer credential for that read-only
+  projection until expiry or revocation, not Member authentication. The booking
+  contact may forward it; suspected exposure is handled by authorized revoke or
+  rotation rather than another proof on every use.
+
+- Q: What is the minimum data visible through a valid Magic Link? → A: Booking
+  code, booking/deposit status, package, branch, required-session schedule,
+  participant count, and QR tickets/ticket codes only. It excludes contact
+  email/phone, VNPay reference, detailed monetary amounts, Staff, attendance,
+  and audit evidence.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Discover a workshop package (Priority: P1)
@@ -116,21 +247,24 @@ package, and see enough information to decide whether to continue to booking.
 
 ### User Story 2 - Create a pending workshop booking (Priority: P1)
 
-As a Guest or Member, I want to select a package, location, date, session, and
-participant count so that the system can prepare my deposit payment.
+As a Guest or Member, I want to select a package/course and participant count
+so that the system can prepare my deposit payment and reserve every session
+required by that package.
 
 **Why this priority**: Creating a valid pending booking is the core value of the
 feature and provides the transaction context for payment.
 
-**Independent Test**: A visitor can select an available package and session,
-submit valid booking-contact details and a participant count, and receive a pending booking with
-an exact deposit amount and temporary capacity hold.
+**Independent Test**: A visitor can select an available package/course, submit
+valid booking-contact details and a participant count, and receive a pending
+booking with an exact deposit amount and temporary capacity hold in every
+required session.
 
 **Acceptance Scenarios**:
 
-1. **Given** a published package and a session with configured remaining
-   capacity, **When** the visitor submits valid booking details, **Then** the
-   system creates one payment-pending booking and package invoice.
+1. **Given** a published package/course and every required session has
+   configured remaining capacity, **When** the visitor submits valid booking
+   details, **Then** the system creates one payment-pending booking and package
+   invoice.
 2. **Given** a Member has verified profile details, **When** the Member confirms
    them for the booking, **Then** the system uses the applicable profile data
    without requiring duplicate entry.
@@ -165,7 +299,7 @@ payment confirmation is received.
 
 1. **Given** a pending booking with an active capacity hold, **When** the visitor
    starts payment, **Then** the system requests the deposit equal to 50% of the
-   selected package price.
+   frozen total for the selected participant seats.
 2. **Given** a valid signed payment confirmation with the expected booking
    reference and amount, **When** the system receives it within the allowed
    window, **Then** it records one deposit transaction, sets payment status to
@@ -230,7 +364,18 @@ appropriate booking summary without exposing another customer's booking.
 
 - A package becomes unpublished or unavailable while a visitor is completing a
   booking; the system must revalidate it before creating the booking.
-- A selected session has no configured capacity; it cannot accept a booking.
+- A required session has no configured capacity; the package cannot accept a
+  booking.
+- A Silverclay customer selects the same session twice, or one of the two
+  selected sessions becomes unavailable: the system rejects the selection and
+  creates neither a pending booking nor a partial capacity hold.
+- A Silverclay customer selects sessions from different branches: the system
+  rejects the selection and creates neither a pending booking nor a partial
+  capacity hold.
+- A Silverclay customer selects two adjacent slots on the same local calendar
+  day: the system rejects the selection and creates neither a pending booking
+  nor a partial capacity hold. A final slot on one day followed by a first slot
+  on the next day remains valid.
 - Capacity is consumed concurrently by another booking; the system must not
   create a booking that exceeds the configured capacity.
 - The visitor abandons or cancels before submission; no booking, invoice, or
@@ -249,7 +394,7 @@ appropriate booking summary without exposing another customer's booking.
   confirmed and the failure is available for operational retry.
 - A lookup request is malformed or attempts to access another booking; the system
   returns a safe error without exposing sensitive data.
-- An invalid, expired, revoked, or reused Magic Link must not reveal booking
+- An invalid, expired, or revoked Magic Link must not reveal booking
   details; the token is stored only as a protected hash and is never logged.
 - A pending booking lookup after hold expiry must not offer resume payment or
   display a QR ticket.
@@ -265,28 +410,46 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-002**: The system MUST display the selected package's current price,
   description, participant constraints, supported design/material information,
   and booking availability information.
-- **FR-003**: The system MUST allow a Guest or Member to select a published
-  package, location, date, session, participant count, and required booking
-  contact information before submitting a booking. It MUST NOT require, infer,
-  or persist a separate name or contact method for each participant in V1.
+- **FR-003**: The system MUST allow a Guest or Member to select one published
+  package/course, its offered required-session set, participant count, and
+  required booking contact information before submitting a booking. It MUST NOT
+  provide a generic cart for unrelated packages or require, infer, or persist a
+  separate name or contact method for each participant in V1.
 - **FR-003a**: Guest booking creation MUST require a valid contact email and
   contact phone. Member booking forms MUST auto-fill both fields from the Member
   profile, allow edits for booking on behalf of another person, and persist the
   submitted values as immutable booking contact snapshots.
-- **FR-004**: The system MUST revalidate package availability, session
-  availability, configured capacity, participant count, and required information
-  at booking submission time.
-- **FR-005**: The system MUST reject a booking when the selected session has no
-  configured capacity or insufficient remaining capacity.
+- **FR-003b**: For a direct-Mland Silverclay package, the system MUST require
+  exactly two distinct published, customer-selectable workshop sessions at the
+  same branch at booking submission. A session is a common workshop slot, not a
+  Silverclay-only slot type, and V1 MUST NOT require a preconfigured
+  session-pair or cohort. The system MUST order the selected sessions
+  chronologically as session 1 and session 2. If both selected sessions are on
+  the same local calendar day, at least one scheduled workshop slot MUST occur
+  between them; sessions on different local calendar days have no further
+  minimum-gap requirement. V1 has no maximum gap between the two sessions while
+  each remains published and customer-selectable.
+- **FR-004**: The system MUST revalidate package availability, every required
+  session's availability and configured capacity, participant count, and
+  required information at booking submission time.
+- **FR-004a**: All packages selecting the same workshop session MUST consume the
+  same configured session-capacity pool. Each participant seat reserved by a
+  Basic Ring or Silverclay booking consumes one place from that pool.
+- **FR-005**: The system MUST reject a booking when any required session has no
+  configured capacity or insufficient remaining capacity; it MUST leave no
+  partial booking or capacity hold.
 - **FR-006**: The system MUST create at most one customer-facing pending booking
   for a single accepted booking submission and must not leave an incomplete
   booking when creation fails.
 - **FR-007**: The system MUST create one payment-pending package invoice per
-  booking, freeze the total booking amount derived from the selected package's
-  approved participant-pricing policy, and calculate the required deposit as
-  50% of that total booking amount.
-- **FR-008**: The system MUST hold the requested capacity temporarily for a
-  pending booking for no longer than 15 minutes.
+  booking, freeze the total booking amount as the selected participant count
+  multiplied by the selected package's price per participant, and calculate the
+  required deposit as 50% of that total booking amount.
+- **FR-007a**: V1 MUST permit publication only of an even-VND price per
+  participant, so that the frozen booking total and its 50% deposit are exact
+  whole-VND amounts; V1 MUST NOT apply a deposit-rounding rule.
+- **FR-008**: The system MUST hold the requested capacity temporarily in every
+  required session for a pending booking, for no longer than 15 minutes.
 - **FR-009**: The system MUST release the temporary capacity hold when valid
   deposit confirmation is not received before the hold expires.
 - **FR-010**: The system MUST support the configured workshop deposit payment
@@ -295,6 +458,19 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-010a**: The Payment Gateway MUST own payment authorization steps such as
   QR scanning or OTP entry; the Workshop Booking system MUST NOT capture, store,
   or independently validate gateway OTP values.
+- **FR-010b**: While the payment hold remains active, the system MUST run
+  bounded automatic signed QueryDR recovery only for a payment attempt with no
+  terminal IPN outcome. A QueryDR result MUST pass the same signature, booking
+  reference, amount, currency, status, idempotency and capacity-commit
+  validation as IPN before it can confirm a booking.
+- **FR-010d**: For a payment attempt with no terminal IPN outcome, automatic
+  QueryDR recovery MUST run at payment-link expiry (minute 10) and once one
+  minute before the 15-minute hold expires (minute 14). It MUST NOT run after
+  hold expiry or treat a browser return as payment evidence.
+- **FR-010c**: V1 MUST accept only the approved VNPAY HMAC-SHA512 checksum
+  configuration. It MUST verify checksum validity before reading a callback or
+  QueryDR result as payment evidence; a missing or invalid checksum MUST be
+  rejected without booking, capacity or ticket side effects.
 - **FR-011**: The system MUST confirm a booking only after one valid, signed,
   non-duplicate deposit payment confirmation is accepted, and MUST set its
   financial status to `DEPOSIT_PAID`.
@@ -305,10 +481,30 @@ appropriate booking summary without exposing another customer's booking.
   active, and the visitor MUST be allowed to retry payment within that window.
 - **FR-013**: The system MUST record payment outcomes idempotently so repeated
   payment events do not create duplicate transactions or duplicate settlement.
+- **FR-013a**: After an accepted successful payment result, the booking MUST
+  remain confirmed. A later failure result MUST NOT downgrade it; a duplicate
+  success MUST be acknowledged without a second payment settlement, capacity
+  commit, ticket delivery, or notification intent.
+- **FR-013b**: A signed success result received after the related hold has
+  expired MUST NOT confirm or reactivate the booking, restore capacity, issue a
+  ticket, or start a new payment link. The system MUST retain only safe
+  reconciliation evidence for authorized manual follow-up.
+- **FR-013c**: For payment idempotency and reconciliation, the system MUST
+  retain only merchant booking/payment reference, VNPAY transaction
+  reference/number when supplied, amount, currency, outcome/status codes,
+  provider/received time and correlation/idempotency evidence. It MUST NOT
+  retain raw IPN/QueryDR payload, checksum or signing secret.
 - **FR-014**: The system MUST generate a booking code and exactly
   `participant_count` independent QR check-in tickets after successful deposit
   confirmation. One booking/invoice/payment transaction settles the whole ticket
   set; each ticket represents one purchased participant seat.
+- **FR-014f**: For a confirmed Silverclay booking, each issued participant QR
+  ticket MUST be valid for both selected sessions. Later check-in and attendance
+  state are per ticket/session pair and remain owned by 003.2.
+- **FR-014g**: V1 Silverclay tickets MUST reserve one seat in both selected
+  sessions but MUST NOT be bound to or used to verify an individual participant
+  identity. The booking contact receives the ticket set and is responsible for
+  its distribution.
 - **FR-014a**: The confirmation email MUST be delivered only to the submitted
   booking contact in V1 and include the complete QR ticket set directly and a
   protected Magic Link to the read-only booking details. The contact may share
@@ -344,11 +540,28 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-017b**: After successful payment confirmation, the system MUST send a
   protected Magic Link that grants read-only access to the corresponding booking
   details and complete ticket set until the associated workshop ends; the token MUST be
-  stored only as a hash, MUST expire automatically when the workshop ends, and
-  MUST be revocable.
+  stored only as a hash, MUST be reusable until it expires or is revoked, MUST
+  expire automatically when the workshop ends, and MUST be revocable. It MUST
+  act as a bearer credential only for that projection and MUST NOT authenticate
+  a Member or grant Member account access. A valid link alone MUST be sufficient
+  to open the allowed projection; suspected exposure is handled by authorized
+  revocation or rotation, not an additional proof on every use.
 - **FR-017b1**: The confirmation notification and Magic Link MUST be sent to the
   submitted booking contact email for both Guest and Member bookings; the Member
   profile email MUST NOT override an edited booking contact email.
+- **FR-017b2**: Resending the post-payment booking confirmation email MUST reuse
+  the existing active Magic Link. It MUST NOT create an additional active link,
+  revoke or rotate the existing link, or change any QR ticket. Only a separate
+  authorized incident-response action may revoke or rotate the link.
+- **FR-017b3**: If the booking contact no longer has access to the submitted
+  contact email, Guest lookup using the booking code and stored contact phone
+  MUST provide the same read-only booking and ticket view. V1 MUST NOT
+  automatically change the contact email or send a Magic Link to a new email.
+- **FR-017b4**: A valid Magic Link projection MUST contain only booking code,
+  booking/deposit status, package, branch, required-session schedule,
+  participant count, and QR tickets/ticket codes. It MUST NOT contain contact
+  email or phone, VNPay reference, detailed monetary amounts, Staff,
+  attendance, or audit evidence.
 - **FR-017e**: The current booking flow MUST NOT require or invoke the legacy
   pre-payment email-confirmation classes, endpoints, token states, or email gate.
 - **FR-017c**: An authenticated Member MUST access bookings through Member
@@ -401,10 +614,12 @@ appropriate booking summary without exposing another customer's booking.
 
 - **Workshop Package**: A published customer-selectable workshop offering with
   description, price, participant constraints, and supported options.
-- **Workshop Session**: A selectable location/date/session combination that can
-  accept participants when operational capacity is configured.
-- **Workshop Booking**: A customer's request for one package/session and its
-  participants, with a lifecycle from pending payment to confirmed or expired.
+- **Workshop Session**: A location/date/session combination that is required by
+  a package/course and can accept participants when operational capacity is
+  configured.
+- **Workshop Booking**: A customer's request for one package/course and its
+  participants. The package may have one or more required sessions; the booking
+  has a lifecycle from pending payment to confirmed or expired.
 - **Package Invoice**: The financial record containing the package price and
   required deposit state for a booking.
 - **Payment Transaction**: A record of a payment attempt or verified payment
@@ -415,7 +630,9 @@ appropriate booking summary without exposing another customer's booking.
   associated with a booking.
 - **Booking Ticket**: One independently scannable QR representation of a
   purchased participant seat, available after booking confirmation. A confirmed
-  booking has exactly `participant_count` tickets.
+  booking has exactly `participant_count` tickets. For Silverclay, each ticket
+  is valid for both selected sessions; later attendance remains per
+  ticket/session pair.
 - **Payment Status**: The financial state of a booking, including unpaid,
   deposit paid, fully paid, failed, refund pending, or refunded.
 

@@ -1,5 +1,7 @@
 # Mland — UX prototypes
 
+- [008 · Retail Order and Fulfillment](008-retail-order-and-fulfillment/README.md): catalogue theo chi nhánh, giỏ hàng đa chi nhánh, một lần thanh toán, phí GHTK tách riêng, theo dõi giao hàng và màn vận hành Staff.
+
 Các bản mẫu độc lập để review trải nghiệm, không phải frontend production.
 
 - [001 · Trang chủ Mland](001-home-page/README.md): Màn hình Home Page (`01-home-page 1` #15:802) từ Figma, thiết kế theo tokens xưởng thủ công (vàng nghệ, canvas tối, typography Oswald & Inter).

@@ -3,8 +3,11 @@
 **Status**: Draft / mock-provider target
 
 This document is the provider boundary companion to the client OpenAPI
-contract. The production GHTK account, callback authentication, quotas,
-prepaid/no-COD service mapping, and partner approval are still go-live gates.
+contract. Automatic GHTK is approved V1 FE-08 scope. The production GHTK
+account, callback authentication, quotas, prepaid/no-COD service mapping, and
+partner approval are still go-live gates. If those gates are not met,
+production fails closed to pickup with contact-Staff guidance and never uses
+the mock adapter.
 
 ## Grouped checkout relationship
 
@@ -31,7 +34,7 @@ branches.
 
 | Operation | Provider shape | Mland behavior |
 | --- | --- | --- |
-| Fee quote | `GET /services/shipment/fee` | Call once per GHTK branch order before payment using that branch's pickup location, destination, weight in grams, declared value and approved service. Snapshot only delivery fee plus approved mandatory surcharge. |
+| Fee quote | `GET /services/shipment/fee` | Call before order creation using the authenticated Member's current cart/branch context, destination, weight in grams, declared value and approved service. Return a server-issued quote identifier bound to the Member, branch, cart version, recipient input, fee components and expiry. The quote request creates no order, hold or payment attempt, and checkout never trusts a client-supplied fee. |
 | Create shipment | `POST /services/shipment/order` | Call after verified grouped payment for each paid GHTK branch order. Use that order's immutable Mland partner order ID. Store provider label/tracking identifiers exactly once. No COD collection. |
 | Read status | `GET /services/shipment/v2/{TRACKING_ORDER}` | Use the stored label ID or partner ID to reconcile a missing/stale webhook. Normalize current status and estimate. |
 | Status webhook | Provider `POST` to Mland callback | Validate required fields, deduplicate, reject stale regressions, persist normalized evidence, then acknowledge valid updates with HTTP 200. |
@@ -61,7 +64,8 @@ refund, cancellation, or return workflow in FE-08.
 ## Retry and idempotency
 
 1. A fee quote timeout is retryable before payment; checkout must not accept an
-   unquoted GHTK charge.
+   unquoted GHTK charge. The client preserves the cart and current in-memory
+   recipient draft and may retry or explicitly select pickup for that branch.
 2. A create timeout after payment preserves the paid order and shipment-pending
    state. Retry with the same partner order ID.
 3. If the provider reports that the partner ID already exists, retrieve the
@@ -70,4 +74,8 @@ refund, cancellation, or return workflow in FE-08.
    cannot move the normalized current status backward.
 5. Missing or stale webhook data triggers a controlled status GET rather than a
    second shipment creation.
+6. An expired or changed quote is re-requested and the difference/new grouped
+   total is shown for explicit Member reconfirmation before payment initiation.
+7. Production without approved GHTK access returns a safe unavailable result,
+   keeps pickup available, and never falls back to mock or manual shipment creation.
 
