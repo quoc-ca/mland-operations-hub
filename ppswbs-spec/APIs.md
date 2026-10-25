@@ -23,7 +23,7 @@ and status codes. The FE-001 Account Management contract is at
 
 | Label | Meaning |
 | --- | --- |
-| **Confirmed** | The route and behaviour are described by an existing approved source or detailed feature contract. The referenced Member Auth OpenAPI remains versioned `1.0.0-draft`; this label does not promote it to a released public API. |
+| **Confirmed** | The route and behaviour are described by an existing approved source or detailed feature contract. This label does not promote a draft contract to a released public API. |
 | **Draft** | A proposed REST contract derived from an approved V1 use case. It must receive its own feature specification and OpenAPI contract before implementation. |
 | **TBD dependency** | A system boundary is required, but its provider, payload, security, retry, governance, or other material detail is not approved. It must not be implemented as though it were final. |
 

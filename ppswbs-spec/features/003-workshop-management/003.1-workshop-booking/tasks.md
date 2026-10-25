@@ -21,7 +21,7 @@ facades are internal synchronous boundaries, not HTTP APIs.
 
 **Purpose**: Resolve decisions that implementation agents must not infer.
 
-- [ ] T001 Approve 003.2 capacity-facade and ticket-projection-facade boundary types plus result/error categories in `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/plan.md`.
+- [ ] T001 Implement and contract-test the consumed `WorkshopOperationsFacade` boundary from `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`.
 - [ ] T002 Approve public REST request/response, validation, error, and compatibility details in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/contracts/workshop-booking.openapi.yaml`.
 - [ ] T003 Approve VNPay environment values, callback authentication operation, QueryDR configuration, and safe secret channel in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/plan.md`.
 - [ ] T004 Approve data-bearing-environment release owner, preservation migration approach, upgrade evidence, and recovery/rollback runbook in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/plan.md`.
@@ -35,15 +35,15 @@ relevant design blocker rather than guess.
 
 ## Phase 2: Foundational booking module
 
-- [ ] T007 [BLOCKED until T001] Establish the `workshopbooking` Modulith boundary and permitted 003.2 facade dependencies in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T007 Establish the `workshopbooking` Modulith boundary and permitted 003.2 facade dependencies from T001 in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
 - [ ] T008 [P] [BLOCKED until T004] Add only the approved append-only aggregate migration and MySQL preservation/upgrade coverage in `ppswbs_backend/src/main/resources/db/migration/` and `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
-- [ ] T009 [BLOCKED until T001] Implement approved persistence for Booking, session commitment, invoice, payment evidence, delivery state, and safe audit evidence in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
-- [ ] T010 [BLOCKED until T001] Implement the synchronous 003.2 capacity-facade consumer for eligibility, all-or-nothing reserve/commit, and idempotent release in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/`.
-- [ ] T011 [BLOCKED until T001] Implement the synchronous 003.2 ticket-projection-facade consumer retaining only ticket/QR reference, ticket code, schedule, branch, and entitlement projection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/`.
+- [ ] T009 Implement approved persistence for Booking, session commitment, invoice, payment evidence, delivery state, and safe audit evidence in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T010 Implement the synchronous `WorkshopOperationsFacade` consumer for eligibility, all-or-nothing reserve/commit, and idempotent release in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/` after T001.
+- [ ] T011 Implement the synchronous `WorkshopOperationsFacade` ticket-projection consumer retaining only ticket/QR reference, ticket code, schedule, branch, and entitlement projection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/` after T001.
 - [ ] T012 [BLOCKED until T006] Implement Firebase identity verification and Mland account status, ownership, entitlement, and branch-scope checks through approved Account boundaries in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
 - [ ] T013 [P] [BLOCKED until T002] Implement approved safe problem responses, correlation, validation, and Idempotency-Key handling in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
-- [ ] T014 [P] [BLOCKED until T001,T004] Add MySQL tests proving every booking-critical command is one local transaction across Booking writes and the capacity facade, rolls back partial local work, and excludes gateway I/O in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
-- [ ] T015 [P] [BLOCKED until T001] Add Modulith tests proving Booking reads no Operations entities/repositories and depends only on approved facades in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/`.
+- [ ] T014 [P] [BLOCKED until T004] Add MySQL tests proving every booking-critical command is one local transaction across Booking writes and the capacity facade, rolls back partial local work, and excludes gateway I/O in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T015 [P] Add Modulith tests proving Booking reads no Operations entities/repositories and depends only on approved facades in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/` after T001.
 
 ---
 
@@ -109,7 +109,7 @@ invalid proof/link reveals no booking data.
 - [ ] T035 [US4] [BLOCKED until T002,T012] Implement Guest code plus one stored contact proof and authenticated Member ownership lookup with safe no-disclosure outcomes in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
 - [ ] T036 [US4] [BLOCKED until T002] Implement reusable Magic-Link hash, expiry/revocation, fragment-token HTTPS exchange, memory-only projection contract, and stored-phone recovery outcome in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
 - [ ] T037 [US4] [BLOCKED until T006] Implement self-service/internal confirmation resend, Manager-only Magic-Link revoke/rotate, rate limits, late-payment follow-up, and minimal business audit evidence in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
-- [ ] T038 [US4] [BLOCKED until T001,T010] Implement idempotent pending-hold release through the capacity facade, preserving `CANCELLED/UNPAID`, releasing capacity once, and issuing no ticket in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T038 [US4] [BLOCKED until T010] Implement idempotent pending-hold release through the capacity facade, preserving `CANCELLED/UNPAID`, releasing capacity once, and issuing no ticket in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
 - [ ] T039 [P] [US4] [BLOCKED until T002,T012] Add tests for Guest proof, Member ownership, pending/confirmed/cancelled projections, expired holds, and pending-hold release in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
 - [ ] T040 [P] [US4] [BLOCKED until T002,T006] Add Magic-Link and audit tests for reusable access, expiry, revoke/rotate, resend reuse, raw-credential redaction, branch scope, denial, and delivery-log separation in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
 - [ ] T041 [US4] [BLOCKED until T005,T002] Implement approved React lookup, pending-resume, confirmed-ticket, cancelled, and Magic-Link fragment-exchange/recovery states in `ppswbs_frontend/src/`.
@@ -129,10 +129,10 @@ invalid proof/link reveals no booking data.
 
 **Purpose**: allow 003.1 to remain owner of Booking financial status without implementing Settlement inside Booking.
 
-- [ ] T046 **BLOCKED — approved 003.3 facade type**: implement the approved idempotent final-balance-resolved consumer in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/`; Booking alone records `FULLY_PAID` once from a safe correlation/reference, never raw final-payment evidence or a deferred-link delivery.
-- [ ] T047 **BLOCKED — T046**: add replay, raw-data non-disclosure, and deferred-link-not-settlement coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/FinalSettlementStatusIT.java`.
+- [ ] T046 Implement the approved `WorkshopBookingFacade` idempotent final-balance-resolved consumer in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/`; Booking alone records `FULLY_PAID` once from a safe correlation/reference, never raw final-payment evidence or a deferred-link delivery.
+- [ ] T047 Add replay, raw-data non-disclosure, and deferred-link-not-settlement coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/FinalSettlementStatusIT.java` after T046.
 
-- [ ] T048 **BLOCKED — approved 003.2 current-projection facade type**: make every authorized Guest, Member, and Magic-Link booking read obtain the current delivery-safe ticket/session-entitlement projection from Operations; add replacement/refund freshness coverage without reading Operations entities in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/CurrentTicketProjectionIT.java`.
+- [ ] T048 Make every authorized Guest, Member, and Magic-Link booking read obtain the current delivery-safe ticket/session-entitlement projection from `WorkshopOperationsFacade`; add replacement/refund freshness coverage without reading Operations entities in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/CurrentTicketProjectionIT.java` after T001.
 
 ## Dependencies and execution order
 
@@ -145,7 +145,7 @@ invalid proof/link reveals no booking data.
   T038; it must expose ticket-projection types before T011, T028, T032, or T033.
 - No 003.1 task implements Operations capacity, entitlement, check-in, or
   attendance internals.
-- T046–T047 depend on an approved 003.3-to-Booking internal facade type; they do
+- T046–T047 implement the fixed 003.3-to-Booking internal facade type; they do
   not authorize 003.1 to verify final VNPay evidence or calculate settlement.
 - T048 depends on an approved 003.2 read-only current-projection facade; it does
   not authorize Booking to own entitlement, attendance, or session schedule.

@@ -18,10 +18,10 @@ migration, role mapping, locking mechanism, or payment-provider policy.
 
 - [ ] T001 Replace legacy item/session financial vocabulary with one booking/package final-bill vocabulary in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/tasks.md`.
 - [ ] T002 [P] Confirm a distinct `workshopsettlement` Spring Modulith module and retain boundary verification in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementModuleTest.java`.
-- [ ] T003 [P] Define approved internal Booking, Operations, Account and Notification facade boundaries in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/` without exposing entities, repositories or HTTP DTOs.
-- [ ] T004 **BLOCKED — FE-001 owner**: publish active-account, capability, branch/resource scope and central-policy-editor authority in `ppswbs-spec/features/001-account-management/`.
-- [ ] T005 **BLOCKED — 003.1 facade type**: approve the concrete facade type for confirmed booking/package and accepted-deposit projection, plus the already specified idempotent final-balance-resolved conclusion that 003.1 alone records as `FULLY_PAID`, in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/plan.md`.
-- [ ] T006 **BLOCKED — 003.2 facade type**: approve concrete facade types/outcomes for the already specified settlement-readiness, all-or-none complete required-session replacement, and post-refund ticket/capacity consequence in `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/plan.md`.
+- [ ] T003 [P] Implement the consumed `WorkshopBookingFacade`, `WorkshopOperationsFacade`, and Account boundary dependencies plus the published `WorkshopSettlementFacade` from `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`, without exposing entities, repositories, or HTTP DTOs.
+- [ ] T004 Consume the published Account Management active-account, capability, branch/resource-scope, and central-policy-editor authority through its facade; do not map roles or edit `features/001-account-management/`.
+- [ ] T005 Consume the fixed `WorkshopBookingFacade` confirmed booking/package/deposit projection and invoke its idempotent final-balance-resolved conclusion; only 003.1 records `FULLY_PAID`.
+- [ ] T006 Consume the fixed `WorkshopOperationsFacade` settlement-readiness, all-or-none complete required-session replacement, post-refund ticket/capacity consequence, and cancellation-completion outcomes.
 - [ ] T007 **BLOCKED — integration owner**: approve VNPay merchant, signed IPN/QueryDR verification and refund-operation configuration without credentials in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/research.md`.
 - [ ] T008 **BLOCKED — notification owner**: publish post-commit final-payment-link, one-reminder and outcome-delivery handoff in `ppswbs-spec/features/007-notification-management/`.
 
@@ -65,7 +65,7 @@ migration, role mapping, locking mechanism, or payment-provider policy.
 
 **Independent Test**: Operations atomically applies a complete compatible replacement or applies none; Silverclay retains branch/order/same-day-gap constraints.
 
-- [ ] T024 [US3] **BLOCKED — T006**: implement complete required-session-change orchestration in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/RequiredSessionChangeService.java` after Operations exposes its atomic semantic facade.
+- [ ] T024 [US3] Implement complete required-session-change orchestration in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/RequiredSessionChangeService.java` after T006's `WorkshopOperationsFacade` integration.
 - [ ] T025 [US3] Add one/two-session change, no-capacity rollback, persistent QR, current customer-projection handoff, and Silverclay branch/distinct/chronological/gap coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/RequiredSessionChangeIT.java` after T024.
 - [ ] T026 [US3] **BLOCKED — T013**: implement approved Manager-change transport and React + Vite recovery states in paths approved by `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml`.
 
@@ -76,7 +76,7 @@ migration, role mapping, locking mechanism, or payment-provider policy.
 **Independent Test**: unavailable/declined replacement refunds all collected funds under confirmation-time snapshot; default is 100%; later revision cannot change historical bookings.
 
 - [ ] T027 [US4] **BLOCKED — T006**: implement replacement-first cancellation-case orchestration in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/MlandCancellationRemedyService.java` after Operations supplies the cancellation/replacement boundary.
-- [ ] T028 [US4] **BLOCKED — T004**: implement prospective central-policy revision authorization and immutable snapshot selection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/MlandCancellationPolicyService.java` after FE-001 supplies central authority.
+- [ ] T028 [US4] Implement prospective central-policy revision authorization and immutable snapshot selection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/MlandCancellationPolicyService.java` through T004's published Account authority.
 - [ ] T029 [US4] Add replacement-first, declined/unavailable, default-100%, historical-snapshot and no-partial-refund coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/MlandCancellationRemedyIT.java` after T027–T028.
 - [ ] T030 [US4] **BLOCKED — T013**: implement approved remedy/policy transport and React + Vite states in paths approved by `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml`.
 
@@ -84,7 +84,7 @@ migration, role mapping, locking mechanism, or payment-provider policy.
 
 - [ ] T031 [P] Run [quickstart validation](./quickstart.md) non-production scenarios and retain redacted evidence in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/quickstart.md`.
 - [ ] T032 [P] Verify `ApplicationModules.verify()`, authorization denial, provider idempotency, facade-only access and data-bearing upgrade/recovery path in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/`.
-- [ ] T033 Review T004–T008 and T013 against owner artifacts before unblocking dependent implementation work in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/tasks.md`.
+- [ ] T033 Review T004, T007, T008 and T013 against owner artifacts before unblocking their dependent implementation work in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/tasks.md`; verify T003/T005/T006 against the shared 003 facade contract.
 
 ## Dependencies and execution order
 
@@ -105,6 +105,6 @@ All intended stories → T031–T033
 
 ## Implementation strategy
 
-**MVP**: T001–T019, but only after the named Booking, FE-001, VNPay, Notification
+**MVP**: T001–T019, but only after the named Booking facade implementation, VNPay, Notification
 and public-transport blockers are actually resolved. Add US2, then US3 and US4.
 All 33 tasks are intentionally unchecked.

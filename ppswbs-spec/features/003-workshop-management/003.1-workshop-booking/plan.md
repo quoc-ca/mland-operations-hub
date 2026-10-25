@@ -36,7 +36,7 @@ ticket issuance/delivery and authorized lookup.
 | State | Persisted booking/hold/payment/ticket state; 15-minute holds and 10-minute payment links; booking-critical local work uses one MySQL transaction; no new global session/token store. |
 | Payment | VNPay adapter boundary; signed gateway result is authoritative and payment handling is idempotent. |
 | Verification | Unit/integration, contract, concurrency, callback/idempotency, migration, and Spring Modulith boundary verification. |
-| Unknowns | VNPay integration values/environments and exact callback recovery operation, concrete cross-feature facade boundary types, and production rollout approval. |
+| Unknowns | VNPay integration values/environments and exact callback recovery operation, and production rollout approval. The 003 facade types are defined in the shared internal contract. |
 
 ## Constitution Check
 
@@ -47,7 +47,7 @@ ticket issuance/delivery and authorized lookup.
 | Identity and sensitive data | PASS | No participant identity, OTP, raw gateway payload, raw Magic-Link secret, or unnecessary PII is exposed/logged. |
 | Data evolution | CONDITIONAL | Reset is permitted only for dev/test environments with no booking/customer data requiring retention after preflight. Any staging, production, or data-bearing environment needs an append-only preservation migration plus upgrade and recovery/rollback evidence. |
 | Evidence and concurrency | PASS | Atomic multi-session hold, payment callback idempotency, late-payment rejection, and capacity races have explicit verification scenarios. |
-| Explicit decisions | CONDITIONAL | The FE-001 approved change note closes the role vocabulary, but it is not yet synchronized into shared documents. Public HTTP and cross-feature facade shapes remain drafts until their owners approve them. |
+| Explicit decisions | CONDITIONAL | The shared baseline fixes the role vocabulary and the approved [003 internal facade contract](../contracts/workshop-interfeature-facades.md) fixes cross-feature shapes. Public HTTP remains a separate approved contract. |
 
 ## Module boundaries and flows
 
@@ -55,10 +55,10 @@ ticket issuance/delivery and authorized lookup.
 payment attempt/receipt, booking-contact delivery state, Magic-Link record and
 notification intent. It synchronously reads only a 003.2 sale-eligibility snapshot
 (customer-selectability, sale state, branch, scheduled start/end and remaining
-capacity), and calls the exposed 003.2-owned capacity facade. It does not
+capacity), and calls the exposed 003.2-owned `WorkshopOperationsFacade`. It does not
 configure sessions, assign staff, read Operations entities, check in, or
-finalize attendance. After capacity commits, it calls the separate 003.2
-delivery-safe ticket-projection facade for customer delivery; it never derives
+finalize attendance. After capacity commits, it calls that facade's
+delivery-safe ticket-projection operation for customer delivery; it never derives
 attendance. On every authorized booking/Magic-Link read, it obtains the current
 delivery-safe projection again, so a later 003.3/003.2 replacement or verified
 refund consequence cannot leave the customer seeing an old schedule.
@@ -175,13 +175,14 @@ are not product decisions to guess:
 
 1. **Resolved semantically and by interaction mode:** Booking synchronously
    obtains sale eligibility and reserve/commit/release outcomes from the 003.2
-   capacity facade; `SALES_PAUSED` rejects new holds while preserving unexpired
+   `WorkshopOperationsFacade`; `SALES_PAUSED` rejects new holds while preserving unexpired
    ones. After a successful capacity commit it obtains only the safe
-   ticket/session-entitlement projection from the separate 003.2
-   ticket-projection facade. Each booking-critical command shares one local
-   MySQL transaction across Booking and the synchronous capacity facade; gateway
-   communication remains outside that transaction. Concrete facade boundary
-   types remain an approval dependency, not implementation details to invent.
+   ticket/session-entitlement projection from its ticket-projection operation.
+   Each booking-critical command shares one local MySQL transaction across
+   Booking and the synchronous facade call; gateway
+   communication remains outside that transaction. The named facade operations,
+   boundary types, outcomes, and idempotency rules are fixed in the shared
+   [003 internal facade contract](../contracts/workshop-interfeature-facades.md).
 2. VNPay callback integration values, authenticated callback handling and
    QueryDR recovery need provider/environment-approved detail before
    implementation; the business semantics are already specified.
