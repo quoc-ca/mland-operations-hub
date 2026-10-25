@@ -31,193 +31,107 @@ description: "A bilingual design system for Mland customer booking and commerce 
 # used by managers and employees for daily operational workflows."
 
 colors:
+  # Brand Primary: Màu vàng nghệ đặc trưng từ biển hiệu M.land (dùng cho CTA chính, highlight)
+  primary: "#EEDC35"
+  primary-hover: "#D6C526"
 
-primary: "#1A73E8"
+  # Nền tối mang phong cách xưởng chế tác thủ công (Workshop Craft Canvas)
+  canvas-dark: "#121316"
+  surface: "#FFFFFF"
+  surface-secondary: "#F4F5F7"
 
-# Màu thương hiệu / primary action chính.
+  # Phân cấp màu chữ
+  text-primary: "#1A1A1A"
+  text-secondary: "#6B7280"
+  text-on-dark: "#FFFFFF"
+  text-disabled: "#9CA3AF"
 
-# Ví dụ: "#2563EB"
+  border: "#E5E7EB"
+  border-dark: "#2A2B30"
 
-primary-hover: "#1558B0"
-
-# Trạng thái hover của primary.
-
-surface: "#FFFFFF"
-
-# Background chính của card, form, dialog.
-
-surface-secondary: "#F8F9FA"
-
-# Background phụ dùng để phân chia các vùng giao diện.
-
-text-primary: "#202124"
-
-# Màu chữ chính.
-
-text-secondary: "#5F6368"
-
-# Metadata, description, supporting information.
-
-text-disabled: "#9AA0A6"
-
-# Disabled state.
-
-border: "#DADCE0"
-
-# Border mặc định.
-
-success: "#1E8E3E"
-
-# Completed / approved / success states.
-
-warning: "#F9AB00"
-
-# Pending / attention required.
-
-error: "#D93025"
-
-# Error / rejected / destructive.
-
-info: "#1A73E8"
-
-# Informational states.
+  # Trạng thái hệ thống (Semantic)
+  success: "#16A34A"
+  warning: "#EAB308"
+  error: "#DC2626"
+  info: "#2563EB"
 
 typography:
+  # Heading XL & LG dùng font Condensed Bold (All-caps) tương tự tiêu đề "RING MAKING WORKSHOP"
+  heading-xl:
+    fontFamily: "'Oswald', 'Barlow Condensed', sans-serif"
+    fontSize: "36px"
+    fontWeight: 700
+    lineHeight: "1.15"
+    letterSpacing: "0.03em"
+    textTransform: "uppercase"
 
-heading-xl:
-fontFamily: "Roboto, Arial, sans-serif"
-fontSize: "32px"
-fontWeight: 700
-lineHeight: "1.2"
-# Dùng cho page title.
+  heading-lg:
+    fontFamily: "'Oswald', 'Barlow Condensed', sans-serif"
+    fontSize: "26px"
+    fontWeight: 600
+    lineHeight: "1.2"
+    letterSpacing: "0.02em"
+    textTransform: "uppercase"
 
-heading-lg:
-fontFamily: "Roboto, Arial, sans-serif"
-fontSize: "24px"
-fontWeight: 600
-lineHeight: "1.3"
-# Major section / modal title.
+  heading-md:
+    fontFamily: "'Inter', 'Roboto', sans-serif"
+    fontSize: "18px"
+    fontWeight: 600
+    lineHeight: "1.35"
 
-heading-md:
-fontFamily: "Roboto, Arial, sans-serif"
-fontSize: "20px"
-fontWeight: 600
-lineHeight: "1.35"
-# Card title / subsection.
+  body-md:
+    fontFamily: "'Inter', 'Roboto', sans-serif"
+    fontSize: "15px"
+    fontWeight: 400
+    lineHeight: "1.5"
 
-body-md:
-fontFamily: "Roboto, Arial, sans-serif"
-fontSize: "16px"
-fontWeight: 400
-lineHeight: "1.5"
-# Default UI text.
+  label-md:
+    fontFamily: "'Inter', 'Roboto', sans-serif"
+    fontSize: "14px"
+    fontWeight: 600
+    lineHeight: "1.4"
+    letterSpacing: "0.01em"
 
-label-md:
-fontFamily: "Roboto, Arial, sans-serif"
-fontSize: "14px"
-fontWeight: 500
-lineHeight: "1.4"
-# Buttons, labels, navigation.
-
-caption:
-fontFamily: "Roboto, Arial, sans-serif"
-fontSize: "12px"
-fontWeight: 400
-lineHeight: "1.35"
-# Metadata / timestamp / helper text.
+  caption:
+    fontFamily: "'Inter', 'Roboto', sans-serif"
+    fontSize: "12px"
+    fontWeight: 400
+    lineHeight: "1.4"
 
 spacing:
-
-xs: 4px
-sm: 8px
-md: 16px
-lg: 24px
-xl: 32px
-2xl: 48px
-
-# Định nghĩa spacing scale dùng toàn project.
-
-#
-
-# Ví dụ:
-
-# xs: 4px
-
-# sm: 8px
-
-# md: 16px
-
-# lg: 24px
-
-# xl: 32px
-
-# 2xl: 48px
-
-#
-
-# Agent phải ưu tiên các giá trị này thay vì tự tạo spacing mới.
+  xs: 4px
+  sm: 8px
+  md: 16px
+  lg: 24px
+  xl: 32px
+  2xl: 48px
 
 rounded:
-
-sm: 4px
-md: 8px
-lg: 12px
-full: 9999px
-
-# Corner radius scale.
-
-#
-
-# Ví dụ:
-
-# sm: 4px
-
-# md: 8px
-
-# lg: 12px
-
-# full: 9999px
+  sm: 4px
+  md: 8px
+  lg: 12px
+  full: 9999px
 
 components:
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.md}"
+    height: "44px"
+    fontWeight: 700
+    padding: "0 20px"
 
-button-primary:
-backgroundColor: "{colors.primary}"
-textColor: "{colors.surface}"
-rounded: "{rounded.md}"
-height: "{colors.surface}"
-padding: "40px"
+  input:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.md}"
+    height: "40px"
+    padding: "0 12px"
 
-input:
-backgroundColor: "{colors.surface}"
-textColor: "{colors.text-primary}"
-rounded: "{rounded.md}"
-height: "0 16px"
-padding: "40px"
-
-card:
-backgroundColor: "{colors.surface}"
-rounded: "{rounded.lg}"
-padding: "0 12px"
-
-# Chỉ thêm component token nếu component đó thực sự cần
-
-# visual token dùng chung.
-
-#
-
-# Ưu tiên reference token:
-
-#
-
-# "{colors.primary}"
-
-#
-
-# thay vì duplicate:
-
-#
-
-# "#2563EB"
+  card:
+    backgroundColor: "{colors.surface}"
+    rounded: "{rounded.lg}"
+    padding: "16px"
 
 ---
 
@@ -315,7 +229,7 @@ DESIGN.md không có rule cụ thể.
 
 ## Color Usage
 
-Use light neutral surfaces as the default canvas. Blue communicates the primary action and active state; semantic colors communicate real status only. Customer imagery may provide warmth and character, while controls and data remain visually quiet.
+Use light neutral surfaces as the default canvas, with dark canvas (#121316) for workshop craft atmosphere. The signature brand primary yellow (#EEDC35) communicates the primary action, CTA highlight, and active state; semantic colors communicate real status only. Customer imagery may provide warmth and character, while controls and data remain visually quiet.
 
 <!--
 Giải thích cách sử dụng màu.
@@ -333,7 +247,7 @@ Semantic colors should only communicate semantic state.
 
 ## Primary
 
-Use primary blue for the single most important action in a region, active navigation, selected controls and keyboard focus. Do not use it as a decorative fill or to represent destructive actions.
+Use brand primary yellow (#EEDC35) for the single most important action in a region, active navigation, selected controls and keyboard focus. Do not use it as a decorative fill or to represent destructive actions.
 
 <!--
 Agent cần biết primary được dùng khi nào.
@@ -350,7 +264,7 @@ Do not use primary purely as decoration.
 
 ## Surfaces
 
-Use surface-secondary for the page canvas and low-emphasis grouped regions. Use surface for cards, forms, dialogs and tables. Separate adjacent surfaces with spacing and the border token before adding elevation.
+Use surface-secondary (or canvas-dark for craft workshop scenes) for the page canvas and low-emphasis grouped regions. Use surface for cards, forms, dialogs and tables. Separate adjacent surfaces with spacing and the border token (border or border-dark) before adding elevation.
 
 <!--
 Ví dụ:
@@ -364,7 +278,7 @@ Cards/forms/dialogs
 
 ## Text Colors
 
-Use text-primary for headings, values and instructions. Use text-secondary for descriptions, metadata and supporting context. Use text-disabled only for unavailable controls and never for information that must be read.
+Use text-primary for headings, values and instructions (or text-on-dark on dark surfaces). Use text-secondary for descriptions, metadata and supporting context. Use text-disabled only for unavailable controls and never for information that must be read.
 
 <!--
 Giải thích:
@@ -407,7 +321,7 @@ Ví dụ:
 
 ## Font Strategy
 
-Use Roboto, Arial, sans-serif throughout the interface for a clear, familiar and technically neutral reading experience. Use monospace only for identifiers, logs, reference codes or technical values.
+Use 'Oswald', 'Barlow Condensed', sans-serif for prominent titles (Heading XL & LG) with uppercase condensed styling, and 'Inter', 'Roboto', sans-serif for content, body, and operational interfaces for a clear, readable experience. Use monospace only for identifiers, logs, reference codes or technical values.
 
 <!--
 Ví dụ:
@@ -679,7 +593,7 @@ Use for a valid alternative action that does not compete with the primary outcom
 
 ### Destructive Button
 
-Use only for a confirmed destructive action, such as cancel, reject or delete; it must use the error token rather than primary blue.
+Use only for a confirmed destructive action, such as cancel, reject or delete; it must use the error token rather than primary yellow.
 
 ### Button Rules
 
@@ -1272,7 +1186,7 @@ All interactive elements are reachable and usable by keyboard in a logical order
 
 ## Focus
 
-Use a visible 2px primary-blue focus outline with sufficient offset. Move focus into opened modal or drawer content, return it to the triggering control when closed, and never remove focus indication.
+Use a visible 2px primary focus outline with sufficient offset. Move focus into opened modal or drawer content, return it to the triggering control when closed, and never remove focus indication.
 
 ## Contrast
 

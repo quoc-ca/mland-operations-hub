@@ -1,58 +1,192 @@
-# Feature Specification: Member Profile
-**Feature**: 001-account-management | **Date**: 2026-10-19
-**Status**: Approved scope/design recorded from the user's explicit “PLEASE IMPLEMENT THIS PLAN” instruction in this conversation on 2026-10-19. Approval is limited to this feature, plan and tasks; it does not ratify any other feature.
-**Revision**: The user approved the revision that sends authentication to the home page and does not block the profile by policy acceptance. This revision supersedes the earlier combined authentication/verification/policy journey; implementation remains pending.
-## Scope and source alignment
-Constitution 2.0.0 applies. Report 3 Manage Personal Profile and User Profile supply the business context. Firebase owns credentials and email verification; MySQL owns Member status, policy records and profile. Policy acceptance is not a prerequisite for 003. Booking, ring design, policy prompts in other features and implementation of the home page are outside scope.
+# Feature Specification: Account Management
 
-## Authentication and navigation
+**Date created**: 2026-10-19
+**Date updated**: 2026-10-25
+**Author**: Phan Sơn
+**Last updated by**: Phan Sơn
 
-This table is the authoritative journey reference for [plan](plan.md), [tasks](tasks.md) and [verification scenarios](quickstart.md). Checking a credential or its verified-email claim at the backend is automatic; it is not another user-facing email-verification step or MFA.
+**Feature Branch**: `son`
 
-| Situation | Required result |
-| --- | --- |
-| New email/password registration | Create the Firebase identity, send the initial verification email and show the verification state of the Member Auth page. Do not open the profile yet. |
-| Sign-in with an unverified email | Show the unfinished email-verification step. Do not resend automatically; resend only on the user's explicit request. |
-| Sign-in with an already verified email | Complete backend credential/status checks and the session/bootstrap flow, then navigate to `/`. No verification screen or policy gate. |
-| Email verification completed | Refresh/reload Firebase identity state and obtain a current ID token. Backend checks verified email; establish the session and navigate to `/` when eligible. A browser-supplied flag cannot grant access. |
-| Credential no longer eligible for a new session | Ask the user to sign in again, then navigate to `/` on success. Do not make them verify an already verified email again. |
-| Open the profile with a valid session | Check the credential and local Member eligibility, then show the profile; no sign-in, email-verification or policy step is repeated. A missing profile shows empty fields. |
-| Missing/invalid/revoked credential, suspended account or credential-validation service failure | Keep the safe denial/recovery behavior in FR-013/016. Neither email verification nor lack of policy acceptance bypasses those checks. |
+**Status**: Draft — business decisions clarified; planning, contract, and task artifacts must be regenerated before implementation.
 
-`/` is the fixed post-authentication destination, not an instruction to implement the home page. Authentication never automatically redirects to the profile. A protected web request without a usable session returns to the fixed sign-in page; successful authentication still ends at `/`. API failures remain typed JSON responses, not browser redirects.
+**Input**: Replace the obsolete Member Profile scope with FE-001 Account Management, using `research.md` and the decisions recorded during the 2026-10-24–2026-10-25 clarification.
 
-## User scenarios
-US1: A Member with verified email and an allowed local status reads their own profile, regardless of policy acceptance; missing profile returns null fields without writes.
-US2: The Member saves a Unicode full name and optional international contact phone. The last successfully committed valid save replaces both fields. Failed validation/save leaves accepted data intact.
-US3: A new registrant completes the registration and verification journey in the navigation table, reaches the home page and can subsequently open/save the server-rendered profile without JavaScript.
-US4: Missing/invalid/revoked authentication, unverified email, suspension or a missing local Member cannot grant profile access. Safe UI recovery and typed API errors are supplied; policy state is not a denial reason.
-US5: A returning user with verified email signs in and reaches `/` without repeating email verification or accepting policy.
-US6: A user who left registration unfinished signs in, resumes verification without an automatic resend, and reaches `/` after successful verification/session establishment.
-## Functional Requirements
-- FR-001: GET/PUT /api/v1/members/me/profile require backend-validated Bearer Firebase ID tokens, including revocation checks. Cookie alone never authenticates the API.
-- FR-002: Resolve ownership only from verified UID and local Member; never client account IDs/email, provider role claims or automatic email merging.
-- FR-003: Before reading/writing profile, require nonempty backend-checked verified email and a local Member in ACTIVE or PENDING_POLICY_ACCEPTANCE. Deny SUSPENDED and any status outside this allowlist. Missing, outdated or unaccepted policy is not a profile access condition; this allowance grants no rights in other features.
-- FR-004: GET returns fullName, phone, email, emailVerified, updatedAt; absent profile returns null profile fields and performs no persistence writes.
-- FR-005: PUT requires exactly fullName and phone keys, replacing both; reject additional/missing/wrong-type fields with 400. No role, status, password, UID, email or verification updates.
-- FR-006: Strip outer Unicode whitespace from fullName, preserve accents/case/internal spacing; require 1–100 Unicode code points and no ISO control characters.
-- FR-007: Blank phone becomes null; nonblank phone is not reformatted and matches ^\\+[1-9]\\d{1,14}$. No OTP, identity proof or uniqueness requirement.
-- FR-008: Serialize valid profile writes on the owning Member row; last committed save wins. No version/ETag conflict gate. Concurrent first saves create only one profile.
-- FR-009: Persist profile and minimal successful-update audit atomically. Audit includes Member ID, changed-field names, action, time, outcome, correlation; no full names, phones, passwords or tokens.
-- FR-010: Web GET/POST /member/profile use Firebase session cookies, CSRF-protected writes, server-side validation and post/redirect/get on success. Validation errors retain escaped submitted data.
-- FR-011: The Member Auth entry supports distinct Firebase email/password registration, sign-in and unfinished verification states according to the navigation table. After the initial registration email, resend is user-initiated only. Already verified users skip the verification state; all successful session flows end at `/`, not the profile or policy. No password reaches Mland. JS is limited to this authentication page under the ratified Member Auth exception.
-- FR-012: POST /member-auth/profile-session verifies ID token, verified email and auth_time no older than 5 minutes, checks Member eligibility via FR-014, then creates a fixed eight-hour Firebase cookie with HttpOnly, Secure, SameSite=Lax and Path=/; no sliding expiry. Reject future auth_time beyond clock tolerance (30 seconds). Recent authentication is a new-session condition, not a request to reverify email or renew a valid session on each profile visit.
-- FR-013: Verify cookie revocation and local status on protected web requests. Logout clears this profile session cookie via CSRF-protected POST; it does not change unrelated auth flows.
-- FR-014: After credential/email verification, session bootstrap idempotently creates local Member by UID only, retaining existing account/policy state. ACTIVE and PENDING_POLICY_ACCEPTANCE are eligible for the 003 session/profile; never reactivate suspended Member or merge by email. No policy acceptance or account-status transition is needed for this allowance.
-- FR-015: Policy acceptance must not gate sign-in, the post-authentication home redirect or profile reads/writes. Do not require a policy lookup, prompt or acceptance mutation for these operations, even when policy versions change or no current policy is available. Dedicated profile policy pages/routes are outside 003. Other features own any necessary policy prompts/acceptance rules; their behavior and existing policy history are unchanged.
-- FR-016: API returns 400 validation, 401 absent/invalid/expired/revoked credential, 403 unverified/missing email or disallowed Member status, 409 MEMBER_INITIALIZATION_REQUIRED for missing local Member. Credential-validation service outage returns safe 503 without granting access. Web recovery uses fixed local authentication states/routes; success navigates only to `/`. No arbitrary returnTo or policy redirect is accepted.
-- FR-017: Add a versioned member_profiles migration with Member PK/FK and timestamps; never edit existing migrations or reset existing data. Scope HTTP security to the new profile/API/auth routes.
-- FR-018: Keep public profile responses/private pages non-cacheable; no cross-domain facade/entity leakage, credentials in logs or unsupported fields silently accepted.
-## Success Criteria
-SC-001: Every FR has tasks and fresh verification evidence; tests cover successful and denied paths.
-SC-002: Empty/upgrade MySQL migration tests preserve preexisting members/policies and create profile PK/FK correctly.
-SC-003: A real Firebase Auth Emulator smoke exercises the distinct registration, verified sign-in and unfinished-verification journeys, ID tokens and session cookies/revocation. Verify the fixed home redirect, user-initiated resend and credential-too-old recovery; controlled verifier tests cover denied paths.
-SC-004: A rendered profile form can submit without JS after Firebase authentication, with CSRF, validation feedback and safe PRG. Profile access/save works for both allowed statuses without policy checks or prompts.
-## Boundaries and assumptions
-No changes to booking/design, production Firebase setup, roles/RBAC or unrelated authentication/entitlement flows. Existing Firebase support is assessed for compatibility, not assumed correct. API first entry for a missing Member is the session/bootstrap flow. Uninitialized/new profiles may show empty names; the name becomes mandatory on save. Cookie Secure is not disabled for normal runtime; local manual checks use HTTPS or browser localhost secure-cookie support. Initial languages are Vietnamese/English using the existing message mechanism.
+## Purpose and scope
 
-**Prototype alignment**: The [web prototype and Figma handoff](../../../prototypes/003-member-profile/FIGMA-HANDOFF.md) were subsequently synchronized at the user's request: distinct authentication journeys, a minimal home destination and no profile policy gate. They are UX review artifacts, not production authentication/database evidence; this spec remains the implementation source.
+FE-001 provides the account lifecycle for Mland: registration and sign-in, profile and credential self-service, and administration of internal Staff and Manager accounts. It provides a stable identity, role, status, location scope, and audit boundary for other business features.
+
+The feature serves a small-to-medium business. It deliberately uses fixed roles and a small number of account states rather than configurable roles, permission rules, or complex account-linking flows.
+
+### In scope
+
+- Email/password registration and sign-in; Google and Facebook sign-in when those providers are configured.
+- Sign-out, email verification, password reset, password change, and login-email change.
+- Account bootstrap, own-profile management, and email synchronization after a verified email change.
+- Admin list/detail, internal-account creation, invitation resend, internal profile edit, role/location assignment, account suspension/restoration, and fixed-role reference.
+- Account lifecycle audit, safe retry/recovery, and notification requests to FE-07.
+
+### Out of scope
+
+- Dynamic RBAC: creating roles, changing permissions, or assigning multiple roles.
+- A web UI/API to create, change, suspend, or restore an Admin account. Admin bootstrap is an operations process outside this feature.
+- Automatic merging/linking of accounts that merely share an email address.
+- Dashboard content, Home-page implementation, frontend application scaffolding, production deployment, and production identity-provider setup.
+- Direct email delivery; FE-07 owns delivery after Account records a notification request.
+
+## User Scenarios & Testing *(mandatory)*
+
+### User Story 1 - Register and use a personal account (Priority: P1)
+
+A customer creates or signs in to a personal account through an allowed identity method. The system recognizes the person by their verified identity rather than by a client-supplied email or role. The customer reaches Home after sign-in and can complete the self-service actions for which they meet the requirements.
+
+**Why this priority**: Account access is the entry point for every customer journey that needs a known person.
+
+**Independent Test**: A new and a returning customer can register/sign in, reach Home, and repeatedly bootstrap the same account without receiving a duplicate account or another person's data.
+
+**Acceptance Scenarios**:
+
+1. **Given** a person completes an allowed registration or sign-in, **When** their identity is verified, **Then** the system creates or returns exactly one account for that identity and sends them to Home.
+2. **Given** the same verified identity retries account bootstrap after a lost response, **When** the request is repeated, **Then** the system returns the existing account without changing its role, status, or business history.
+3. **Given** a different identity has the same-looking email as an existing account, **When** it signs in, **Then** the system does not merge, link, or grant access to the existing account and gives safe recovery guidance.
+
+---
+
+### User Story 2 - Complete account verification and self-service (Priority: P1)
+
+A signed-in person can see that their email still needs verification, verify it explicitly, manage their own profile, and use supported credential recovery/change flows without the business system ever receiving their password.
+
+**Why this priority**: Customers need a safe path to recover access and maintain the personal information used by later features.
+
+**Independent Test**: A customer with an unverified email can sign in and reach Home but is prevented from using verification-required profile functions until verification completes; a verified customer can update their profile and credential-related information safely.
+
+**Acceptance Scenarios**:
+
+1. **Given** a signed-in person whose email is not verified, **When** they open Home, **Then** they see a non-blocking verification reminder and can explicitly request another verification email.
+2. **Given** that person attempts a function that requires a verified email, **When** verification is still incomplete, **Then** the function is denied without losing the entered form data and the person is guided to verification.
+3. **Given** a verified active account, **When** its owner saves a valid full name and optional phone number, **Then** the account shows the newly saved values and no role, status, email, or location changes.
+4. **Given** an owner completes an identity-provider email change and returns with a current verified identity, **When** the system synchronizes the account, **Then** it records the current email for the same account and never accepts an email value supplied only by the browser.
+
+---
+
+### User Story 3 - Admin provision and maintain an internal account (Priority: P1)
+
+An Admin creates a Staff or Manager account with a fixed role and valid location scope. The invited person completes their own setup before receiving internal access. The Admin can later maintain allowed information and role/location scope without accidentally changing unrelated security state.
+
+**Why this priority**: Internal operations cannot begin until the business can safely provision and scope employees.
+
+**Independent Test**: An Admin can create one pending Staff or Manager account, resend a setup invitation, and activate it only after its intended identity completes the required setup; duplicate create attempts do not create another account or invitation.
+
+**Acceptance Scenarios**:
+
+1. **Given** an Admin supplies a new Staff or Manager with valid location scope, **When** the creation is accepted, **Then** exactly one internal account is created in `PENDING_SETUP` and a post-commit invitation request is recorded.
+2. **Given** an Admin retries the same interrupted create action, **When** the request is retried unchanged, **Then** the original result is returned; a reuse of the retry key with changed details is rejected.
+3. **Given** a pending internal account signs in with its intended verified identity and has valid active location scope, **When** it completes account bootstrap, **Then** it becomes `ACTIVE` and is never replaced by a Member account.
+4. **Given** an Admin edits internal details, **When** they change profile, role/location, or status, **Then** each action is separate, records an audit event, and cannot silently overwrite a newer Admin change.
+
+---
+
+### User Story 4 - Admin protect the business from an unsafe account (Priority: P1)
+
+An Admin can find an allowed account, suspend it with a reason, and later restore it only after existing sessions have been invalidated. Suspension takes effect even when a downstream provider or email delivery is temporarily unavailable.
+
+**Why this priority**: Immediate account containment is a core operational safety need.
+
+**Independent Test**: An Admin suspends an account and its next protected action is denied immediately; restoration cannot make a stale session valid or bypass incomplete setup.
+
+**Acceptance Scenarios**:
+
+1. **Given** an allowed Member, Staff, or Manager account, **When** an Admin suspends it with a reason, **Then** protected access is denied immediately and the suspension is audited.
+2. **Given** the identity-provider session invalidation is still pending, **When** an Admin tries to restore the account, **Then** restoration is unavailable until that invalidation completes.
+3. **Given** an account is restored after session invalidation, **When** its owner returns, **Then** they must sign in again and the system restores the account's prior eligible state rather than granting new rights.
+
+---
+
+### User Story 5 - Understand fixed access without configuring permissions (Priority: P2)
+
+An Admin can search and inspect accounts, see the fixed role catalogue, and make only the role/location assignments supported by the business. The Admin cannot create a new role, edit permissions, create another Admin, or use account administration to obtain unrelated business powers.
+
+**Why this priority**: Clear administration avoids role mistakes while keeping V1 manageable.
+
+**Independent Test**: An Admin can filter the account list and view the static role descriptions, while every attempt to configure dynamic permissions, assign an unsupported role, or manage an Admin account is rejected.
+
+**Acceptance Scenarios**:
+
+1. **Given** an Admin searches by email or full name and filters by role/status, **When** the list is displayed, **Then** results are paginated, ordered by recent change/creation, and do not expose credentials, provider identifiers, or unrelated business records.
+2. **Given** a Staff assignment, **When** an Admin saves it, **Then** it has exactly one active location; a Manager assignment has one or more active locations.
+3. **Given** an Admin opens the role catalogue, **When** it is displayed, **Then** it explains the fixed role scope without offering permission or role editing.
+
+### Edge Cases
+
+- A configured external sign-in provider is unavailable, a popup is blocked, or the provider reports an account-method conflict: no local account is created until a valid identity is established, and the person receives retry/alternative-method guidance.
+- A password-reset or verification request must not reveal whether an email account exists.
+- A person can sign in with an unverified email but cannot bypass an operation's verified-email requirement, even by refreshing the UI or presenting stale identity information.
+- An email change that succeeds at the identity provider but initially fails to synchronize can be retried from the current identity without reverting to an older email.
+- A location becomes inactive after a Staff/Manager account is active: the account's role/status is not changed automatically, but actions in that location are denied.
+- An invitation expires, is not delivered, or an internal creation partly fails: the original account remains pending; an authorized resend/recovery never creates a second identity or account.
+- A notification-delivery failure does not undo a committed account, role, status, or audit change; it remains recoverable through FE-07.
+- A concurrent Admin edit is rejected rather than overwriting the latest profile, role/location, or status state.
+
+## Requirements *(mandatory)*
+
+### Functional Requirements
+
+- **FR-001**: The system MUST create or return one Account for each verified identity and MUST use that identity, not a client-supplied email, account ID, role, or provider profile, to determine account ownership.
+- **FR-002**: The system MUST support email/password registration and sign-in and MAY show Google/Facebook sign-in only when the corresponding provider is configured for the environment.
+- **FR-003**: The system MUST send every successful sign-in to Home and MUST NOT make a role dashboard or policy acceptance a sign-in prerequisite.
+- **FR-004**: The system MUST permit a person with an unverified email to sign in and see a clear verification reminder; each protected function MUST independently enforce its verified-email requirement.
+- **FR-005**: The system MUST let an account owner explicitly sign out, request email verification, reset an eligible password, change an eligible password after required reauthentication, and change login email only through a verified identity-provider flow.
+- **FR-006**: The system MUST synchronize a changed login email only from the current verified identity for the same Account and MUST reject stale or browser-supplied email data as an authority source.
+- **FR-007**: The system MUST allow an active, verified account owner to view and replace their own full name and optional phone number. A full name is required after outer-whitespace trimming, contains 1–100 Unicode characters, and contains no ISO control character. A phone is optional, trimmed, 7–30 characters when present, and is neither normalized, verified by OTP, nor required to be unique.
+- **FR-008**: The system MUST keep profile, role/location, status, email, credential, and identity changes as distinct actions. Profile editing MUST NOT change role, status, login email, identity, or location scope.
+- **FR-009**: The system MUST support exactly the fixed roles `MEMBER`, `STAFF`, `MANAGER`, and `ADMIN`. Each Account has exactly one role; provider claims and frontend visibility MUST NOT grant a business role.
+- **FR-010**: The system MUST expose a read-only fixed-role catalogue to Admins. It MUST NOT provide user-configurable permissions, custom roles, multiple role assignment, or a dynamic RBAC administration interface.
+- **FR-011**: The system MUST allow an Admin to create only Staff or Manager internal accounts. An internal account starts as `PENDING_SETUP`; an Admin account is created and managed only by the separate operations bootstrap process.
+- **FR-012**: The system MUST require exactly one active location for Staff and one or more active locations for Manager. It MUST validate assignments against the authoritative workshop-location source and MUST NOT own a duplicate location record.
+- **FR-013**: The system MUST activate a pending Staff/Manager account only when its intended identity signs in, its email is verified, and its assigned location scope remains valid. This activation MUST NOT create or overwrite a Member account.
+- **FR-014**: The system MUST make internal-account creation safely retryable and MUST preserve one result for a repeated unchanged creation request. A changed request using the same retry key MUST be rejected.
+- **FR-015**: The system MUST let an Admin resend a setup invitation only for a pending internal account, subject to a five-minute resend cooldown. A resend uses a fresh identity-provider setup link and MUST NOT retain the raw link in audit or log records.
+- **FR-016**: The system MUST let an Admin search and filter allowed account records by full name/email, role, and status; paginate the results; order them with recently changed/created records first; and exclude credentials, provider identifiers, and unrelated business data from the list/detail responses.
+- **FR-017**: The system MUST allow an Admin to edit only full name and phone for Staff/Manager accounts. Member profile values are self-managed; login-email change remains an owner flow.
+- **FR-018**: The system MUST make Admin changes to internal profile, role/location, and status conflict-safe. A change based on an older displayed version MUST be rejected and require reload rather than overwrite current data.
+- **FR-019**: The system MUST allow an Admin to suspend or restore only Member, Staff, or Manager accounts. Suspension requires a reason, takes effect immediately for protected access, and does not depend on notification delivery or identity-provider invalidation completing first.
+- **FR-020**: The system MUST invalidate prior identity sessions after suspension. Restoration MUST wait until the invalidation is complete, restore the eligible pre-suspension state (`ACTIVE` or `PENDING_SETUP`), and require the person to sign in again.
+- **FR-021**: The system MUST use the states `ACTIVE`, `PENDING_SETUP`, and `SUSPENDED`; email verification is a separate condition. Deactivating a location MUST NOT itself change account role/status, but location-scoped access MUST be denied.
+- **FR-022**: The system MUST never automatically merge, link, upgrade, or reuse accounts merely because emails match while identities differ. It MUST provide safe guidance to use the original sign-in method or contact support.
+- **FR-023**: Every account-security or administrative mutation MUST create a safe audit record with actor, target, action, outcome, time, and correlation information. Required role/status/location before/after data and suspension reason may be included; raw passwords, tokens, action links, full names, and phone values MUST NOT be included. Audit/security evidence is retained for five years.
+- **FR-024**: The system MUST record account invitation, lock, unlock, and role-change notification requests together with their successful account mutation. FE-07 delivery occurs after that mutation; a delivery failure MUST NOT roll back the accepted account decision.
+- **FR-025**: The system MUST provide safe, actionable recovery for invalid identity, unverified email, suspended account, forbidden role/location, invalid input, stale Admin change, duplicate creation retry, missing record, and temporarily unavailable dependency. Error responses MUST not expose protected data, credentials, tokens, stack traces, or another account's existence beyond what the caller is authorized to know.
+- **FR-026**: The system MUST ensure that every protected action uses the current Account role, status, ownership, and location scope on the server. Hiding a frontend control or retaining an old token/UI state MUST NOT preserve a revoked capability.
+
+### Key Entities *(include if feature involves data)*
+
+- **Account**: The business account for one verified identity; holds current login email, fixed role, lifecycle state, location-scope relationship, concurrency version, and security-recovery state.
+- **Account Profile**: The owner-editable full name and optional phone attached to one Account.
+- **Account Location Assignment**: The relationship between a Staff/Manager Account and authoritative workshop location(s), constrained by the Account role.
+- **Internal Account Provisioning**: The retryable record of one Admin request to create and invite a Staff/Manager account, including its setup progress.
+- **Account Audit Event**: Redacted evidence of an account/security action and its outcome, retained for support and accountability.
+- **Notification Request**: The post-commit request consumed by FE-07 to deliver an invitation or account-change message.
+
+## Success Criteria *(mandatory)*
+
+### Measurable Outcomes
+
+- **SC-001**: Each supported registration/sign-in method can create or return exactly one account for the same identity across repeated bootstrap attempts, with no account created for a failed identity flow.
+- **SC-002**: A verified active account owner can complete profile save, password-recovery initiation, and verified email synchronization without an operator handling the credential or manually editing the account.
+- **SC-003**: Every tested Staff/Manager creation retry results in at most one internal account and one intended identity; no pending internal account can access internal work before activation.
+- **SC-004**: Every tested suspension denies the account's next protected action immediately; no restoration succeeds while prior-session invalidation remains incomplete, and a restored user must sign in again.
+- **SC-005**: Every tested Admin mutation records a redacted audit event and remains effective when the corresponding notification delivery is delayed or fails.
+- **SC-006**: Every documented unauthorized, stale, invalid, or provider-unavailable scenario returns a safe recovery outcome without revealing credentials, provider identifiers, or another account's protected information.
+
+## Assumptions and dependencies
+
+- A separate frontend foundation supplies routing, identity-client initialization, current-authentication state, and authenticated request transport. FE-001 does not create that foundation or Home/dashboard content.
+- The configured identity provider remains responsible for passwords, verification messages, password reset, external sign-in, and proof of identity. V1 does not require MFA, an additional identity tier, a forced eight-hour re-login, or a separate application password/session store.
+- Google/Facebook choices are visible only when their provider configuration is available; their absence does not block email/password sign-in.
+- The workshop-location owner supplies authoritative active-location validation and display data through its permitted boundary.
+- FE-07 accepts and delivers post-commit notification requests. It is responsible for mail delivery status/retry, while Account remains authoritative for the account decision and audit record.
+- An operations procedure creates the initial Admin identity and bootstraps its Mland Account outside the web UI. That procedure is a dependency, not a self-service feature requirement.
+- Existing `plan.md`, `tasks.md`, `data-model.md`, and `contracts/member-profile.openapi.yaml` describe the superseded Member Profile design. They must be regenerated from this specification before implementation and must not be treated as current instructions.
+
+## Supersession note
+
+This specification replaces the legacy FE-001 Member Profile/SSR/cookie-session scope at the same feature path. It is a business specification, not evidence that a backend, frontend, migration, identity-provider configuration, or operational bootstrap has been implemented or approved for release.
