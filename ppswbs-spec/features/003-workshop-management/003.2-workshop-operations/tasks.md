@@ -1,7 +1,7 @@
 # Tasks: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-25
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -50,10 +50,10 @@ Booking ownership.
 
 **⚠️ CRITICAL**: Complete this phase before building a Manager or Staff flow.
 
-- [ ] T005 Define the Account Management public capability/scope boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/accountmanagement/facade/WorkshopOperationsActorAccessFacade.java`; return active status, required capability decision and Manager branch scope without mapping display roles inside Operations.
+- [ ] T005 **BLOCKED — Account Management facade owned by feature 001** Verify the approved active-account, capability-decision, and Manager branch-scope contract through `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/accountmanagement/facade/`; Operations must consume the published boundary without mapping display roles or editing Account Management code.
 - [ ] T006 Define the Booking-to-Operations public boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/WorkshopOperationsFacade.java` for capacity hold, confirm/release, individual ticket issue, delivery-safe ticket view and commercial ticket-validity projection; expose no JPA entity.
 - [ ] T007 [P] Create Operations DTO boundary types in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/dto/` for actor scope, hold, issued ticket and delivery-safe ticket data; keep Firebase tokens, booking-contact PII and entities out of these types.
-- [ ] T008 Add the next free append-only migration after verifying deployed Flyway history, starting from `ppswbs_backend/src/main/resources/db/migration/V4__workshop_operations.sql`; create Operations tables, keys and indexes for branch, slot, session, Staff assignment, operational lead, capacity hold, individual ticket, attendance action, audit event and cancellation handoff without editing `V1`–`V3`.
+- [ ] T008 Inspect deployed Flyway history, select the next append-only migration identifier, then add Operations tables, keys and indexes under `ppswbs_backend/src/main/resources/db/migration/` for branch, slot, session, Staff assignment, operational lead, capacity hold, individual ticket, attendance action, audit event and cancellation handoff; do not edit an applied migration or reset retained data.
 - [ ] T009 Implement JPA entities and DAOs in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/entity/` and `dao/`, including unique `(branch_id, workshop_date, slot_id)`, unique public ticket code/QR reference, positive capacity, version fields and lock-capable queries.
 - [ ] T010 Implement `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/WorkshopOperationsAuthorizationService.java` and `controller/WorkshopOperationsCorsConfiguration.java` to enforce server-side Firebase identity, active actor state, Manager branch scope, explicit Staff session assignment, deny-by-default capability checks through T005, environment allowlist CORS, no credentialed CORS by default and no global CSRF disable.
 - [ ] T011 Implement typed, correlation-linked module error mapping in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/controller/WorkshopOperationsExceptionHandler.java` for validation, authorization, lifecycle, capacity and ticket-conflict errors without exposing entities, booking-contact PII or token details.
@@ -125,7 +125,7 @@ observe exactly one check-in plus the recorded time on the later response.
 - [ ] T029 [US3] Implement individual opaque QR reference and unique ticket-code issue plus delivery-safe ticket retrieval in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/AttendanceTicketService.java`; do not retain a one-ticket-per-booking constraint.
 - [ ] T030 [US3] Implement normal QR/exact-ticket-code verification in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/CheckInService.java`; require online request, `PUBLISHED` or `IN_PROGRESS`, `check_in_opens_at`, same session/branch, active unused ticket and assigned Staff or operational lead.
 - [ ] T031 [US3] Implement Operations facade and check-in/booking-lookup REST handlers in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/WorkshopOperationsFacade.java` and `controller/WorkshopCheckInController.java`; booking code locates tickets only and never itself checks in an unspecified ticket, while a repeat scan returns `200 OK`, `ALREADY_CHECKED_IN` and the original `checkedInAt`.
-- [ ] T032 [US3] Implement `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/WorkshopBookingOperationsService.java` so the Booking-owned verified payment-confirmation flow calls the Operations facade to confirm the hold and issue individual tickets; it must not read Operations entities/DAOs or issue tickets before that commercial confirmation.
+- [ ] T032 [US3] **BLOCKED — Workshop Booking consumer implementation owned by 003.1** Add Operations-side facade contract coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/AttendanceTicketContractIT.java` proving a Booking caller can confirm the complete active hold set and receive delivery-safe individual ticket projections only after verified commercial confirmation; do not edit Booking code or expose Operations entities/DAOs.
 - [ ] T033 [US3] Add atomicity, capacity and privacy integration tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/CheckInIT.java` for concurrent scans, `200 OK` duplicate response with `ALREADY_CHECKED_IN` and original time, wrong branch/session, early scan, booking-code generic no-eligible result and non-disclosure of booking contact data.
 
 **Checkpoint**: Capacity commitment, individual tickets and ordinary check-in are
@@ -146,7 +146,7 @@ verify the fourth is denied.
 
 - [ ] T034 [P] [US4] Add resend and reasoned override DTOs in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/dto/`, including the standardized reason, required note/evidence behavior and failed-redelivery correlation.
 - [ ] T035 [P] [US4] Add resend/override contract tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/TicketRecoveryContractIT.java` for the matching OpenAPI endpoints and typed problem responses.
-- [ ] T036 [US4] Implement the Booking delivery-facade request adapter in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/WorkshopTicketDeliveryFacade.java`; resend only the full active unused ticket set to the stored channel, never change recipient data or expose contact PII to Operations.
+- [ ] T036 [US4] **BLOCKED — Workshop Booking delivery facade owned by 003.1** Verify through `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/` that Operations can request only the delivery-safe active-unused ticket projection; Booking owns delivery to the stored contact channel and Operations must neither change recipient data nor access contact PII or Booking code.
 - [ ] T037 [US4] Implement audited resend authorization/throttling in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/TicketResendService.java`; permit only assigned Staff or lead in `PUBLISHED`, `SALES_PAUSED` or `IN_PROGRESS`, and enforce at most three requests per booking in 15 minutes.
 - [ ] T038 [US4] Implement the separate authorized check-in override path in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/CheckInOverrideService.java`; require `workshop.checkin.override` for assigned Staff or lead authority for Manager, a reason/audit record, unused valid same-session/same-branch ticket and `TICKET_REDELIVERY_UNAVAILABLE` evidence after a failed resend.
 - [ ] T039 [US4] Implement ticket resend and override REST handlers in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/controller/WorkshopCheckInController.java` without permitting offline scan queues or booking-code bulk check-in.
@@ -191,6 +191,20 @@ handoff to the implementation persona.
 - [ ] T050 Update `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/ModulithArchitectureTests.java` so Booking calls only the Operations facade and Operations never imports Booking entity, DAO, service or controller packages.
 - [ ] T051 Execute the approved legacy mapping/reissue release runbook in `ppswbs_backend/docs/workshop-operations-legacy-rebase.md` before retiring `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/domain/WorkshopSession.java` and `BookingTicket.java`; do not delete or alter live legacy tickets without the separately approved operator decision and audit evidence.
 - [ ] T052 Run the commands in `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/quickstart.md`, record actual results and any verification exception in `ppswbs_backend/ERROR-LOG.md` only if the backend AGENT requires it after a failed readiness/implementation check.
+- [ ] T053 Implement OTA-observable schedule and availability/sale-state projection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/`; advance one per-session source version exactly once for each completed transaction that changes an OTA-observable value, emit the complete post-state only for the eligible lifecycle changes in `spec.md`, and do not expose PII, booking/payment/ticket detail, OTA mapping, or a public HTTP contract.
+- [ ] T054 Implement the persistent internal Spring Modulith publication and authoritative one-session resync boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/` and `service/`; record the publication in the same local Operations transaction, use no broker or external OTA call, return resync at the existing source version, and do not make resync a business change.
+- [ ] T055 Add MySQL/Modulith integration coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/WorkshopOtaSnapshotIT.java` for `DRAFT`/internal-only no-publication, schedule/availability/sale-state version behavior, hold create/release/expiry, unchanged hold-to-ticket commit, consumer failure/restart at-least-once replay, duplicate/older handling, gap resync, and proof that a 003.4 mapping failure cannot change Operations capacity, sale state, or direct-Mland booking.
+
+---
+
+## Phase 9: Settlement and required-session-change facade handoff
+
+**Purpose**: Supply 003.3 with authoritative outcomes without exposing Operations data or inventing a public REST contract.
+
+- [ ] T056 **BLOCKED — approved internal facade types**: implement the approved 003.3 settlement-readiness boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/`; it returns only whether every required session is `ATTENDANCE_FINALIZED`, never attendance/ticket/Staff/audit/PII detail or a conclusion inferred from schedule time.
+- [ ] T057 **BLOCKED — approved internal facade types**: implement the approved complete required-session replacement and post-refund-consequence boundaries in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/` and `service/`; enforce future eligible sources, future `PUBLISHED` customer-selectable targets, full participant capacity, all-or-none entitlement/capacity transfer, persistent QR, no `SALES_PAUSED` exception, and no attendance-history rewrite.
+- [ ] T058 **BLOCKED — T056/T057**: add facade integration coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/SettlementChangeFacadeIT.java` for readiness only after every finalization, cancelled/unfinalized false, one/two-session atomic replacement, target/source rejection, unchanged QR, no partial capacity/entitlement result, and verified-refund-only consequence.
+- [ ] T059 **BLOCKED — approved internal facade types**: implement and test the authorized read-only current delivery-safe ticket/session-entitlement projection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/`; after replacement or verified refund it exposes current branch/schedule/entitlement only, never attendance, Staff, audit or PII.
 
 ---
 
@@ -209,7 +223,9 @@ handoff to the implementation persona.
 - **US5** depends on US2 and US3; its cancellation handoff depends on the 003.3
   consumer contract but not on 003.3 settlement implementation.
 - **Phase 8** depends on all desired stories. T051 is a release gate, not a
-  prerequisite for local feature development.
+  prerequisite for local feature development. T053–T055 are the implementation
+  prerequisite for 003.4 task T011; they make the approved persistent
+  Operations-to-OTA handoff available but do not call an external OTA.
 
 ### User Story Dependencies
 
@@ -219,7 +235,8 @@ Foundation
         └── US2: Onsite responsibility and lifecycle
               └── US3: Capacity, ticket and normal check-in
                     ├── US4: Resend and override recovery
-                    └── US5: Finalisation, correction and cancellation handoff
+              └── US5: Finalisation, correction and cancellation handoff
+                    └── Phase 8: OTA-observable snapshot publication/resync
 ```
 
 ### Parallel Opportunities
@@ -229,6 +246,8 @@ Foundation
 - In each story, the `[P]` DTO and contract-test tasks can proceed together.
 - US4 and US5 can proceed in parallel once US3 is complete, provided different
   developers avoid editing the same controller aggregation files at once.
+- T053 and T054 follow the session/capacity/lifecycle changes they project; T055
+  follows both and may run in parallel with unrelated release-runbook work.
 
 ## Parallel Example: User Story 3
 
@@ -263,9 +282,13 @@ Task: "T029 Implement AttendanceTicketService.java"
 
 - No task authorizes a new role mapping, payment/refund behavior, OTA behavior,
   offline queue or group-assignment model.
-- T005, T032 and T036 are cross-feature contracts. Their consumer behavior is
-  specified here; the owning Account Management and Workshop Booking features
-  must expose compatible facades before an implementation agent marks them done.
+- T005, T032 and T036 are cross-feature contracts. Their producer implementation
+  is owned by Account Management or Workshop Booking, respectively; Operations
+  may verify and consume compatible facades but must not edit those features.
+- T053–T055 provide the cross-feature dependency consumed by 003.4: a persistent
+  internal Spring Modulith publication with one source-version sequence and
+  authoritative one-session resync. They are not a provider adapter, broker,
+  public REST API, or permission to change OTA mapping/capacity outside 003.2.
 - The known legacy model is deliberately not a shortcut. The critical review
   found that retaining Booking-owned session/ticket state would recreate a
   circular dependency and allow capacity/attendance divergence.

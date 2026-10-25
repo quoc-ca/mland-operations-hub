@@ -32,11 +32,11 @@ ticket issuance/delivery and authorized lookup.
 | --- | --- |
 | Runtime | Java 21, Spring Boot REST, Spring Modulith, JPA/Spring Data, MySQL and append-only Flyway migrations. |
 | Client | Separate React + Vite client using versioned REST APIs; no backend-rendered booking UI. |
-| Identity | Firebase verifies identity; Mland authorizes Member ownership. Guest access uses booking-contact proof or a protected Magic Link. |
-| State | Persisted booking/hold/payment/ticket state; 15-minute holds and 10-minute payment links; no new global session/token store. |
+| Identity and authorization | Firebase bearer tokens prove identity only. Mland/MySQL decides `MEMBER`, `STAFF`, `MANAGER`, or `ADMIN`, active status, entitlement, and branch/location scope. Guest access uses booking-contact proof or a protected Magic Link. |
+| State | Persisted booking/hold/payment/ticket state; 15-minute holds and 10-minute payment links; booking-critical local work uses one MySQL transaction; no new global session/token store. |
 | Payment | VNPay adapter boundary; signed gateway result is authoritative and payment handling is idempotent. |
 | Verification | Unit/integration, contract, concurrency, callback/idempotency, migration, and Spring Modulith boundary verification. |
-| Unknowns | Provider callback details, concrete cross-feature facade boundary types, Magic-Link client exchange/recovery, internal-role mapping, and production rollout approval. |
+| Unknowns | VNPay integration values/environments and exact callback recovery operation, concrete cross-feature facade boundary types, and production rollout approval. |
 
 ## Constitution Check
 
@@ -45,57 +45,94 @@ ticket issuance/delivery and authorized lookup.
 | Module and data ownership | PASS | `workshopbooking` owns booking aggregate records and accesses other features only through approved facades/events. |
 | Separate frontend/REST | PASS | Contract is JSON `/api/v1`; Magic Link resolves to client-readable data, never server-rendered HTML. |
 | Identity and sensitive data | PASS | No participant identity, OTP, raw gateway payload, raw Magic-Link secret, or unnecessary PII is exposed/logged. |
-| Data evolution | CONDITIONAL | Dev/test reset was approved only for old state data; any production/customer-data change needs an append-only preservation migration and rollout evidence. |
+| Data evolution | CONDITIONAL | Reset is permitted only for dev/test environments with no booking/customer data requiring retention after preflight. Any staging, production, or data-bearing environment needs an append-only preservation migration plus upgrade and recovery/rollback evidence. |
 | Evidence and concurrency | PASS | Atomic multi-session hold, payment callback idempotency, late-payment rejection, and capacity races have explicit verification scenarios. |
-| Explicit decisions | CONDITIONAL | The proposed HTTP and facade shapes below are design drafts until their owners approve them; role mapping is not inferred. |
+| Explicit decisions | CONDITIONAL | The FE-001 approved change note closes the role vocabulary, but it is not yet synchronized into shared documents. Public HTTP and cross-feature facade shapes remain drafts until their owners approve them. |
 
 ## Module boundaries and flows
 
 `workshopbooking` owns booking, booking-session commitment, frozen invoice,
 payment attempt/receipt, booking-contact delivery state, Magic-Link record and
-notification intent. It reads only a 003.2 sale-eligibility snapshot
+notification intent. It synchronously reads only a 003.2 sale-eligibility snapshot
 (customer-selectability, sale state, branch, scheduled start/end and remaining
-capacity), and calls the 003.2-owned semantic capacity boundary. It does not
+capacity), and calls the exposed 003.2-owned capacity facade. It does not
 configure sessions, assign staff, read Operations entities, check in, or
-finalize attendance. After capacity commits, it uses the 003.2 delivery-safe
-ticket projection for its customer delivery; it never derives attendance.
+finalize attendance. After capacity commits, it calls the separate 003.2
+delivery-safe ticket-projection facade for customer delivery; it never derives
+attendance. On every authorized booking/Magic-Link read, it obtains the current
+delivery-safe projection again, so a later 003.3/003.2 replacement or verified
+refund consequence cannot leave the customer seeing an old schedule.
 003.3 consumes frozen deposit/base-price evidence for later settlement, refund
-and reschedule; 003.4 owns OTA completely.
+and reschedule. It returns only an idempotent final-balance-resolved conclusion
+when final settlement or an authorized audited deferred-payment resolution is
+complete; Booking alone records `FULLY_PAID` from that conclusion and never
+receives raw final-payment evidence or calculates the final balance. 003.4 owns
+OTA completely. For internal booking support,
+Mland rechecks active account state, entitlement and booking-branch scope at
+action time. Assigned Staff or branch-responsible Managers may resend the
+confirmation; only the responsible Manager may revoke or rotate a Magic Link.
+The `ADMIN` role alone grants neither action.
 
 Create flow: validate package/contact/participant count and selected sessions;
 enforce Basic Ring = one session or Silverclay = two distinct sessions at the
 same branch; order Silverclay sessions; reject adjacent same-day sessions;
 atomically reserve `participant_count` places in every session and persist the
-pending booking, invoice and expiry. Any validation/capacity failure rolls back
-the whole operation. Capacity is always the one shared pool of a session.
+pending booking, invoice and expiry in one local MySQL transaction. Any
+validation/capacity failure rolls back the whole operation. Capacity is always
+the one shared pool of a session.
 
 Payment flow: start/retry only while the hold is active. The provider result
 must authenticate, match the frozen reference/amount/currency, and be accepted
-only once. Success asks 003.2 to commit the complete active hold set; if any
-expected hold is absent or expired, nothing commits and Booking remains
-unconfirmed. On success, Booking obtains the delivery-safe projection for N
-tickets, stores notification intent and emits a durable downstream handoff.
+only once. After gateway evidence has been validated, one local MySQL
+transaction asks 003.2 to commit the complete active hold set and confirms the
+Booking state; if any expected hold is absent or expired, nothing commits and
+Booking remains unconfirmed. On success, Booking obtains the delivery-safe projection for N
+tickets and stores notification intent.
 Failure leaves `PENDING_PAYMENT/UNPAID`; expiry/release requests release of all
-active holds exactly once.
+active holds exactly once. A signed success after hold expiry never confirms;
+only the responsible Manager may inspect safe evidence and record or escalate a
+follow-up, without restoring capacity, issuing tickets, or creating a new
+payment link.
+Events occur only after Booking's local state transition for non-critical
+notification; an event never determines the capacity result or whether Booking
+confirms payment.
 
 ## Contract and state design
 
-The draft OpenAPI contract defines public browse/detail, create, payment start,
-inbound payment event, contact-proof lookup, Member-owned lookup, Magic-Link
-exchange/read, and pending-hold release. It intentionally excludes staff resend,
-check-in, cancellation/refund, reschedule, final payment, and OTA routes.
+The existing draft OpenAPI contract defines public browse/detail, create,
+payment start, inbound payment event, contact-proof lookup, Member-owned
+lookup, Magic-Link exchange/read, and pending-hold release. It intentionally
+excludes staff resend, internal Magic-Link incident handling, check-in,
+cancellation/refund, reschedule, final payment, and OTA routes: no approved
+public HTTP contract exists for those internal operations.
 
 Booking service states are `PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED`, and
-`CANCELLED`; financial states are `UNPAID` and `DEPOSIT_PAID` here. `FAILED`
-belongs to a payment attempt. `FULLY_PAID`, refund, attendance and ticket-use
-states are reserved/owned downstream. A client Idempotency-Key protects create,
+`CANCELLED`; financial states are `UNPAID` and `DEPOSIT_PAID` for deposit flow.
+`FULLY_PAID` is recorded by Booking exactly once only from 003.3's idempotent
+final-balance-resolved conclusion; 003.1 does not implement final settlement.
+`FAILED` belongs to a payment attempt. Refund, attendance and ticket-use states
+remain downstream-owned. A client Idempotency-Key protects create,
 payment-start and release commands; provider event identity protects callbacks.
 
-Magic Link is a one-time opaque secret delivered to the booking-contact email.
-Only a protected hash and expiry/revocation state are persisted. The proposed
-client exchange returns a short-lived read-only booking access result; exact
-credential transport, retention cleanup and frontend recovery remain approval
-dependencies, not an authorization to invent a shared auth system.
+Magic Link is a reusable bearer credential for the read-only booking/ticket
+projection until the associated workshop ends or the link is revoked. Only a
+protected hash and safe lifecycle state are persisted. Rotation immediately
+revokes the old link, creates a replacement for the submitted booking-contact
+email and queues delivery; delivery failure never restores the old link.
+Guest booking-code plus stored-phone lookup remains the recovery route. The
+email opens a React route with the opaque value in the URL fragment; the client
+immediately submits it by HTTPS POST, clears the fragment, and retains only the
+allowed projection in memory. Each later opening exchanges again. This does not
+authorize a Member login, shared session, cookie, or persistent client
+credential storage.
+
+Business audit records cover accepted self-service resend, every internal
+resend, Magic-Link revoke/rotate, and Manager late-payment follow-up. They hold
+only the actor type or identity reference when available, booking code,
+applicable branch, action, outcome, correlation reference and timestamp; a
+revoke/rotate also has its Manager reason. Contact proof, raw Magic Link, QR,
+and token data are excluded. Notification delivery attempts and retries are
+operational logs, not business audit records.
 
 ## Data, migration, and operational constraints
 
@@ -106,10 +143,14 @@ be checked independently in either session without storing a participant
 identity. Monetary snapshots are integer VND, with even `price_per_participant`.
 
 No existing applied migration may be edited. Development/test reset is allowed
-only after environment preflight. Production or real-customer data requires a
-separate append-only migration, preservation test, rollback/recovery plan, and
-owner approval. Deployment topology, origins, provider credentials, monitoring
-ownership, SLOs, and role mapping remain outside this plan's decision authority.
+only after preflight confirms no booking/customer data requires retention. Any
+staging, production, or data-bearing environment requires a separate append-only
+preservation migration, upgrade test and recovery/rollback plan. Deployment
+topology, origins, provider credentials, monitoring
+ownership and SLOs remain outside this plan's decision authority. The FE-001
+note is the approved dependency for the fixed role vocabulary and Mland-owned
+account/scope checks, pending synchronization into `spec-general.md` and
+`APIs.md`.
 
 ## Verification plan
 
@@ -117,8 +158,13 @@ Use [quickstart.md](quickstart.md) to verify: one-session Basic Ring; two-sessio
 Silverclay with shared capacity; all-or-nothing failure; same-branch/ordering/
 same-day-gap rules; 50% exact VND deposit; valid/invalid/duplicate/late gateway
 events; ticket issuance and lookup; Magic-Link revocation; hold expiry; and
-authorization-safe lookup. Implementers must also evidence MySQL migration
-coverage, API contract validation, and `ApplicationModules.verify()`.
+authorization-safe lookup. The approved frontend E2E suite must prove that a
+visitor reaches booking entry from the workshop listing in no more than three
+primary interactions. It additionally verifies authorization denial without
+side effects, resend rate limits, replacement-link delivery failure, and the
+separation of business audit evidence from delivery logs. Implementers must also
+evidence MySQL migration coverage, API contract validation, and
+`ApplicationModules.verify()`.
 
 ## Design risks and handoff conditions
 
@@ -127,17 +173,22 @@ slot/capacity type: both contradict the approved one-package booking and shared
 slot model while adding avoidable allocation complexity. The remaining blockers
 are not product decisions to guess:
 
-1. **Resolved semantically by 003.2:** Booking reads the sale-eligibility
-   snapshot; reserve/commit/release are all-or-nothing; `SALES_PAUSED` rejects
-   new holds while preserving unexpired ones; and ticket delivery uses only the
-   safe ticket/session-entitlement projection. Concrete facade boundary types
-   remain an approval dependency, not an implementation detail to invent.
-2. Payment-provider contract, callback authentication and recovery rules need
-   provider-approved detail before implementation.
-3. Magic-Link client transport, expiry cleanup, revocation recovery and frontend
-   ownership require an approved shared credential/state contract.
-4. Production migration/rollout and internal support role mapping require their
-   respective owners' approval.
+1. **Resolved semantically and by interaction mode:** Booking synchronously
+   obtains sale eligibility and reserve/commit/release outcomes from the 003.2
+   capacity facade; `SALES_PAUSED` rejects new holds while preserving unexpired
+   ones. After a successful capacity commit it obtains only the safe
+   ticket/session-entitlement projection from the separate 003.2
+   ticket-projection facade. Each booking-critical command shares one local
+   MySQL transaction across Booking and the synchronous capacity facade; gateway
+   communication remains outside that transaction. Concrete facade boundary
+   types remain an approval dependency, not implementation details to invent.
+2. VNPay callback integration values, authenticated callback handling and
+   QueryDR recovery need provider/environment-approved detail before
+   implementation; the business semantics are already specified.
+3. The rollout policy is decided, but each data-bearing environment still needs
+   its preservation migration, upgrade/recovery evidence and accountable release
+   owner. FE-001's role and account-scope decisions are approved but must be
+   synchronized into shared documents before implementation handoff.
 
 This plan is ready to inform task drafting only after those dependencies are
 represented as approved contracts or explicit blocked tasks; it does not itself
