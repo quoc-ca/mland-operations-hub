@@ -22,7 +22,7 @@ React + Vite client, never Thymeleaf/htmx.
 
 - [ ] T001 Synchronize automatic GHTK V1 and pickup-only production fallback in documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/05-system-fuctionalities/02-external-api-inventory.md and documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/05-system-fuctionalities/03-background-job-inventory.md.
 - [ ] T002 [P] Align FE-08 route/provider maturity with the feature contracts in ppswbs-spec/APIs.md.
-- [ ] T003 Resolve and approve FE-06 benefit preview, BenefitSelection, accepted-terms acknowledgement, quote reference, and typed benefit errors in ppswbs-spec/features/008-retail-order-and-fulfillment/contracts/retail-order-and-fulfillment.openapi.yaml; lifecycle commands remain internal to loyalty::facade.
+- [x] T003 Resolve and approve FE-06 benefit preview, canonical `BenefitSelection` (`choice`, `voucherCode`, `requestedPoints`), decimal-string money/points, accepted-terms acknowledgement, quote reference, zero-total acceptance, and typed benefit errors in ppswbs-spec/features/008-retail-order-and-fulfillment/contracts/retail-order-and-fulfillment.openapi.yaml; lifecycle commands remain internal to loyaltypromotion::facade.
 - [ ] T004 Record pinned React/Vite/TypeScript versions, router, state/auth integration, API origin, and test tools in ppswbs-spec/features/008-retail-order-and-fulfillment/implementation-readiness.md.
 - [ ] T005 Record approved backend module relocation, schema, role/delegation mapping, facade graph, and migration allocation in ppswbs-spec/features/008-retail-order-and-fulfillment/implementation-readiness.md.
 - [ ] T006 Record approved GHTK callback authentication, credentials channel, quotas, timeout/retry budget, and prepaid/no-COD mapping in ppswbs-spec/features/008-retail-order-and-fulfillment/implementation-readiness.md.
@@ -38,7 +38,7 @@ React + Vite client, never Thymeleaf/htmx.
 - [ ] T011 [P] Define typed errors and ownership/branch/delegation guards in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/RetailAuthorization.java, features/fulfilment/service/FulfilmentAuthorization.java, and common/web/ApiErrorCode.java.
 - [ ] T012 Create the next unused append-only migration under ppswbs_backend/src/main/resources/db/migration/ for carts, branch orders/items, holds, quotes, fulfilment, shipments, events, evidence, idempotency/version, and retention indexes; record its filename in implementation-readiness.md.
 - [ ] T013 [P] Define provider-neutral GHTK port, deterministic test mock, and fail-closed config in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/facade/ShippingProviderPort.java, features/fulfilment/service/MockShippingProviderAdapter.java, and configuration/GhtkProperties.java.
-- [ ] T014 Verify separate modules and the facade/event graph, including readyringsales to loyalty::facade, in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/ModuleArchitectureTest.java.
+- [ ] T014 Verify separate modules and the facade/event graph, including readyringsales to loyaltypromotion::facade, in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/ModuleArchitectureTest.java.
 
 ## Phase 3: User Story 1 — Prepare a retail purchase (Priority: P1) — MVP
 
@@ -64,17 +64,17 @@ VNPay, duplicate callback, deadlines, expiry, and late evidence create no partia
 or duplicate source/loyalty effects.
 
 - [ ] T021 [P] [US2] Write MySQL atomic checkout/concurrency tests in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/GroupedCheckoutIntegrationTest.java.
-- [ ] T022 [P] [US2] Write FE-06 G-03 tests for preview, changed terms, reserve, paid/zero settle-then-grant, confirmed-expiry release, duplicate receipt, and unresolved evidence in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/LoyaltyRetailOwnerIntegrationTest.java.
-- [ ] T023 [P] [US2] Write payment/idempotency tests rejecting browser success, bad signature, mismatched amount/currency, late evidence, and key conflicts in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/RetailPaymentIntegrationTest.java.
-- [ ] T024 [P] [US2] Write React voucher/points/recalculation/acknowledgement/totals/payment/error tests in ppswbs_frontend/src/features/retail-order/pages/CheckoutPage.test.tsx.
-- [ ] T025 [P] [US2] Create GroupedCheckout, RetailOrder, OrderItem, and CheckoutHold mappings with immutable snapshots and 10/15-minute deadlines under ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/entity/.
-- [ ] T026 [US2] Implement trusted preview and MANDATORY same-transaction reserveAcceptedTransaction through loyalty::facade in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/LoyaltyCheckoutAdapter.java; shipping is excluded from discount/earn base.
+- [ ] T022 [P] [US2] Write FE-06 G-03 tests for preview invalidation and changed terms, reserve, paid/zero settle-then-grant, authoritative unpaid failure/expiry release with cart restoration, duplicate receipt, and unresolved evidence in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/LoyaltyRetailOwnerIntegrationTest.java.
+- [ ] T023 [P] [US2] Write payment/idempotency tests rejecting browser success, bad signature, mismatched amount/currency, late evidence, key conflicts, and self-cancellation after `PAYMENT_INITIATED`; prove that `ACCEPTED_UNPAID` cancellation releases inventory/benefits and restores the cart in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/RetailPaymentIntegrationTest.java.
+- [ ] T024 [P] [US2] Write React voucher/points/recalculation/acknowledgement/totals/payment/error tests, including canonical FE-06 `BenefitSelection` and decimal-string money/point rendering, in ppswbs_frontend/src/features/retail-order/pages/CheckoutPage.test.tsx.
+- [ ] T025 [P] [US2] Create GroupedCheckout, RetailOrder, OrderItem, and CheckoutHold mappings with immutable snapshots, payment lifecycle/`paymentInitiatedAt`, and 10/15-minute deadlines under ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/entity/.
+- [ ] T026 [US2] Implement trusted preview and MANDATORY same-transaction reserveAcceptedTransaction through loyaltypromotion::facade in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/LoyaltyCheckoutAdapter.java; shipping is excluded from discount/earn base.
 - [ ] T027 [US2] Implement all-or-nothing grouping, catalogue/quote/benefit revalidation, snapshots, and replay in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/RetailCheckoutService.java.
-- [ ] T028 [US2] Implement one verified VNPay attempt and approved zero-total bypass in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/RetailPaymentService.java.
-- [ ] T029 [US2] Implement source-serialized settle/grant/release/finish-ineligible outcomes in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/LoyaltyOutcomeAdapter.java.
+- [ ] T028 [US2] Implement one verified VNPay attempt, approved zero-total internal acceptance, and pre-initiation cancellation guard in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/RetailPaymentService.java.
+- [ ] T029 [US2] Implement source-serialized settle/grant/release/finish-ineligible outcomes, including pre-initiation cancellation and authoritative unpaid failure/expiry release with cart restoration, in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/LoyaltyOutcomeAdapter.java.
 - [ ] T030 [US2] Implement source-locked expiry and late-evidence review in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/RetailHoldExpiryJob.java.
-- [ ] T031 [US2] Implement T003-approved checkout/payment DTOs/endpoints in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/dto/CheckoutDtos.java and controller/CheckoutController.java.
-- [ ] T032 [US2] Integrate voucher/points controls and full breakdown in ppswbs_frontend/src/features/retail-order/pages/CheckoutPage.tsx and components/CheckoutTotals.tsx, requiring reconfirmation after changes.
+- [ ] T031 [US2] Implement T003-approved cart-backed checkout, payment, zero-total, and pre-initiation cancellation DTOs/endpoints in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/dto/CheckoutDtos.java and controller/CheckoutController.java.
+- [ ] T032 [US2] Integrate voucher/points controls, full breakdown, zero-total confirmation, and pre-initiation cancellation in ppswbs_frontend/src/features/retail-order/pages/CheckoutPage.tsx and components/CheckoutTotals.tsx, requiring reconfirmation after changes.
 
 ## Phase 5: User Story 3 — Choose fulfilment and track delivery (Priority: P1)
 
@@ -88,7 +88,7 @@ failure, no-access fallback, draft preservation, and own tracking satisfy QS-06�
 - [ ] T035 [P] [US3] Consume FE-02 eligibility and authoritative package data in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/CatalogueShippingProfileAdapter.java.
 - [ ] T036 [P] [US3] Create bound ShippingQuote and immutable FulfilmentSelection mappings in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/entity/ShippingQuote.java and FulfilmentSelection.java.
 - [ ] T037 [US3] Implement provider-neutral quote and fail-closed capability in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/fulfilment/service/ShippingQuoteService.java and GhtkShippingProviderAdapter.java.
-- [ ] T038 [US3] Implement quote DTOs/endpoints and exact recipient limits in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/dto/FulfilmentDtos.java and controller/FulfilmentQuoteController.java.
+- [ ] T038 [US3] Implement quote DTOs/endpoints, exact recipient limits, and the OpenAPI conditional rule that a GHTK checkout choice includes both `shippingQuoteId` and recipient data in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/dto/FulfilmentDtos.java and controller/FulfilmentQuoteController.java.
 - [ ] T039 [US3] Revalidate quote IDs and freeze selection in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/FulfilmentSelectionService.java; never trust client fees or create orders during quote.
 - [ ] T040 [US3] Implement fulfilment choice, recipient/quote/recovery states, and normalized tracking in ppswbs_frontend/src/features/retail-order/components/FulfilmentSelector.tsx and pages/OrderTrackingPage.tsx.
 
@@ -123,10 +123,10 @@ callbacks, secrets, and expired recipient PII are absent.
 ## Phase 8: Polish and cross-cutting verification
 
 - [ ] T053 [P] Add post-commit notification intents in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/RetailNotificationPublisher.java and features/fulfilment/service/FulfilmentNotificationPublisher.java; email is never proof.
-- [ ] T054 [P] Validate OpenAPI, Bean Validation, errors, and frontend mapping in ppswbs-spec/features/008-retail-order-and-fulfillment/contracts/retail-order-and-fulfillment.openapi.yaml and ppswbs_frontend/src/features/retail-order/model/contracts.ts.
+- [ ] T054 [P] Validate OpenAPI, Bean Validation, canonical FE-06 selection/decimal-string mapping, errors, and frontend mapping in ppswbs-spec/features/008-retail-order-and-fulfillment/contracts/retail-order-and-fulfillment.openapi.yaml and ppswbs_frontend/src/features/retail-order/model/contracts.ts.
 - [ ] T055 [P] Add MySQL empty/upgrade migration verification in ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/RetailMigrationTest.java.
 - [ ] T056 Run module/backend/frontend/API checks and record exact evidence in ppswbs-spec/features/008-retail-order-and-fulfillment/verification.md; prototype checks are not production evidence.
-- [ ] T057 Execute QS-01–QS-25 and record environment, result, failure, and mock/live status in ppswbs-spec/features/008-retail-order-and-fulfillment/verification.md.
+- [ ] T057 Execute QS-01–QS-27, including a timed QS-03 checkout-review walkthrough proving the under-three-minute target excluding external payment, and record environment, result, failure, duration, and mock/live status in ppswbs-spec/features/008-retail-order-and-fulfillment/verification.md.
 - [ ] T058 Record final security/scope review in ppswbs-spec/features/008-retail-order-and-fulfillment/verification.md.
 
 ## Dependencies and execution order

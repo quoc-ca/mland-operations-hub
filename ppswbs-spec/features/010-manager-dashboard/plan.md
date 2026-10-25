@@ -19,11 +19,12 @@ or Admin analytics surface.
 
 ## Technical Context
 
-**Language/Version**: Java 21
+**Language/Version**: Java 21 backend; TypeScript with React + Vite frontend
 
 **Primary Dependencies**: Spring Boot 3.4.1, Spring Modulith 1.3.1, Spring
-Security, Spring MVC, Thymeleaf with htmx enhancement, Bean Validation, Spring
-Data JPA for source modules, and Flyway for any source-owned schema evolution
+Security, Spring MVC, Bean Validation, Spring Data JPA for source modules, and
+Flyway for any source-owned schema evolution; React + Vite for the separate
+frontend. Frontend dependency versions and test tooling remain a foundation gate.
 
 **Storage**: No FE-10 persistence or migration. Verified retail, workshop,
 attendance, branch, and authorization facts remain in their owning MySQL/JPA
@@ -31,10 +32,11 @@ modules; the dashboard composes request-time projections only.
 
 **Testing**: JUnit 5, Spring Boot Test, MockMvc authorization/contract tests,
 facade-boundary integration tests, calendar-boundary tests using a fixed clock,
-and Spring Modulith `ApplicationModules.verify()`
+Spring Modulith `ApplicationModules.verify()`, and frontend build/type/UI/API
+state verification using the approved frontend foundation.
 
-**Target Platform**: Server-rendered Java web application with a versioned REST
-read contract and progressive htmx enhancement
+**Target Platform**: Separate React + Vite client-side application consuming a
+versioned Spring Boot REST read contract
 
 **Project Type**: Spring Modulith modular monolith
 
@@ -45,8 +47,9 @@ can be based on measurements rather than invented values.
 
 **Constraints**: No raw SQL in application code; no cross-module entity,
 repository, controller, or internal DTO access; Firebase proves identity only;
-MySQL authorization grants the Manager capability and branch scope; do not sum
-different currencies; do not count pending/failed payments, delivery fees, or
+MySQL authorization grants the Manager capability and branch scope; V1 accepts
+only VND monetary facts and treats another currency as partial rather than
+converting it; do not count pending/failed payments, delivery fees, or
 the workshop deposit twice; do not expose executive revenue to Admin through
 FE-09 parameter-impact permission; no cache, materialized analytics table,
 scheduled aggregation, export, comparison report, or timer refresh in V1.
@@ -65,9 +68,9 @@ than return raw transactions to `reporting`.
 | --- | --- | --- |
 | Module integrity and data ownership | PASS with source-facade prerequisites | New `reporting` module owns composition only. Retail, workshop, attendance, branch, and authorization facts stay with their owning modules and cross boundaries through named facades. |
 | JPA/Flyway persistence | PASS | FE-10 adds no table and performs no direct repository access. Any missing source fact is added by its owner through an append-only migration, not by `reporting`. |
-| Identity and sensitive-data boundary | PASS with role-mapping gate | Firebase UID is verified, then Mland authorization resolves the Manager capability and permitted branches. Dashboard DTOs contain aggregate facts and stable branch references, not customer/order/payment details. |
+| Identity and sensitive-data boundary | PASS | Firebase UID is verified, then Mland authorization requires `REPORTING_EXECUTIVE_VIEW` and resolves active assigned branches. Dashboard DTOs contain aggregate facts and stable branch references, not customer/order/payment details. |
 | Versioned REST and safe errors | PASS | [manager-dashboard.openapi.yaml](contracts/manager-dashboard.openapi.yaml) defines a versioned plural kebab-case GET endpoint, typed validation, safe errors, and no JPA entities. |
-| Progressive web baseline | PASS | Thymeleaf GET forms and links work without JavaScript; htmx only refreshes the same authorized fragment. No new JavaScript-only exception is proposed. |
+| Separate frontend baseline | PASS with foundation gate | The dashboard is a React + Vite route consuming REST only. The backend exposes no rendered application page; frontend dependencies, routing, token transport, and test tools must be approved before scaffold. |
 | Evidence-based verification | PASS | [quickstart.md](quickstart.md) covers KPI formulas, authorization, scope, period boundaries, data-quality states, refresh behavior, contract behavior, and Modulith verification. |
 | Simplicity and explicit decisions | PASS | Request-time composition is selected over snapshots, cache, background jobs, or a separate analytics service. Unapproved role-code mapping and missing source facts remain explicit implementation gates. |
 
@@ -95,6 +98,14 @@ features/010-manager-dashboard/
 
 ### Source Code (repository root)
 
+The legacy tree below is superseded where it shows a backend root-level
+`reporting` package or server templates. Under Constitution v3, implementation
+uses `features/reporting/{controller,dto,dao,entity,service,facade}` in the
+backend and `ppswbs_frontend/src/features/manager-dashboard/{api,components,pages,model}`
+in the separate React + Vite client. Source facades likewise live under their
+own `features/<feature>/facade` package. No Thymeleaf template or htmx fragment
+is part of FE-10.
+
 ```text
 ../ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/
 ├── reporting/
@@ -120,7 +131,7 @@ features/010-manager-dashboard/
 └── ModulithArchitectureTests.java
 ```
 
-**Structure Decision**: Add one closed `reporting` module because executive
+**Structure Decision**: Add one closed `features.reporting` module because executive
 analytics is a distinct read/composition responsibility and must not be owned
 by retail, workshop, operations, or technical administration. Its declared
 dependencies are only `technicaladmin::facade`, `readyringsales::facade`,
@@ -138,14 +149,14 @@ does not import their entities or repositories.
 3. Use source-owned aggregate facade contracts rather than raw record transfer.
 4. Use half-open UTC instant ranges derived from `Asia/Ho_Chi_Minh` calendar
    day/week/month/year boundaries.
-5. Recognize retail and workshop revenue only from the approved verified-payment
-   facts and preserve branch/currency ownership.
+5. Recognize retail and workshop revenue only from approved verified-payment
+   facts, preserve branch ownership, and accept VND monetary facts only.
 6. Calculate consolidated workshop utilization as total checked-in people
    divided by total configured capacity, never as an average of percentages.
 7. Return partial results only with explicit per-source quality metadata; do not
    fabricate a consolidated total when a required revenue source is unavailable.
-8. Use server-rendered GET behavior with an equivalent REST representation;
-   no timer polling or background aggregation.
+8. Use React + Vite client-side reads through the versioned REST contract; no
+   timer polling or background aggregation.
 
 ## Phase 1: Design Outputs
 
@@ -168,10 +179,10 @@ does not import their entities or repositories.
    and actual check-ins. Do not infer them from location names or current draft
    records that lack the required facts.
 4. Add the `reporting` module, period resolver with a fixed/injected clock, KPI
-   composition, currency/incomplete-data safeguards, and safe typed errors.
-5. Implement the Manager Thymeleaf dashboard and REST read endpoint with
-   no-JavaScript GET fallback, htmx fragment enhancement, explicit Refresh, and
-   last-updated/data-quality notices.
+   composition, VND-only/incomplete-data safeguards, and safe typed errors.
+5. Implement the Manager REST endpoint and React dashboard route with explicit
+   Refresh, loading/empty/validation/error/recovery states, and last-updated/
+   data-quality notices.
 6. Add authorization, formula, boundary, partial-failure, contract, i18n, and
    Modulith verification; record fresh evidence from [quickstart.md](quickstart.md).
 
@@ -194,14 +205,17 @@ readyringsales::facade  workshopbooking::facade  operations::facade
                               v
              KPI composition + quality metadata
                               |
-                    REST/Thymeleaf response
+                    REST response to React + Vite
 ```
 
 - Authorization is evaluated before source metrics are requested.
 - The requested branch set is intersected with, and must be wholly contained
   in, the authorized branch set; an unauthorized explicit branch is rejected.
 - Facades accept a half-open `[startInclusive, endExclusive)` instant range and
-  the authorized stable branch IDs, then return aggregates plus `asOf`/quality.
+  the authorized stable branch IDs, then return aggregates plus aggregate-read
+  `asOf`/quality. Successfully verified payment outcomes are committed by their
+  source owner before a refresh can read them; pending or failed attempts are
+  excluded.
 - A source exception is mapped to safe `UNAVAILABLE` metadata. One missing
   source yields a `PARTIAL` response; all required sources unavailable yields a
   typed service-unavailable response and the UI preserves its previous view.
@@ -211,8 +225,8 @@ readyringsales::facade  workshopbooking::facade  operations::facade
 
 | Gate | Current evidence | Required before the affected implementation slice |
 | --- | --- | --- |
-| Manager capability and branch scope | Current backend authentication grants only `ROLE_MEMBER`; project documents leave `Manager`/`OWNER` mapping unresolved. | Approved capability/role mapping and a MySQL-authoritative facade that returns permitted stable branch IDs. |
-| Stable branch identity | FE-08 plans `branchId`; current workshop migration stores a free-text `location`. `DB.md` proposes stable location IDs but marks the design draft. | Approved source-owned stable branch mapping. FE-10 must never join or authorize by display name/location text. |
+| Manager capability and branch scope | `REPORTING_EXECUTIVE_VIEW` and active MySQL `staff_branch_assignment` are approved. Current backend authentication still grants only `ROLE_MEMBER`. | Implement a MySQL-authoritative facade that verifies the capability and returns active assigned stable branch IDs; no assignment denies access. Admin parameter authority does not imply the capability. |
+| Stable branch identity | One immutable UUID `branchId` is approved for `staff_branch_assignment`, retail branch orders, workshop sessions/final invoices, and check-ins. Current workshop free-text `location` is display-only. | Implement the source-owned common UUID branch-ID mapping. FE-10 must never join or authorize by display name/location text. |
 | Retail paid facts | FE-08 design owns branch order snapshots and verified grouped payment but is not implemented in the current backend. | `readyringsales::facade` aggregate contract with net product revenue, paid-order count, paid time, branch and currency. |
 | Workshop final revenue | Current workshop code records only deposit-era invoices; the clarified FE-10 rule requires the final invoice after surcharges and its fully-paid time. | Workshop owner provides a reviewed final-invoice lifecycle and aggregate facade; FE-10 must not reconstruct it from deposit attempts. |
 | Actual utilization | Report 3 defines Staff check-in; current `operations` module is a package shell and current booking migration lacks actual participant fields. | Operations/workshop owners provide completed-session capacity and idempotent actual participant check-in projections by session and branch. |
@@ -227,7 +241,7 @@ verified.
 - Unit-test period boundaries with a fixed clock, including midnight, month,
   year, and Monday/Sunday transitions in `Asia/Ho_Chi_Minh`.
 - Unit-test money/count aggregation, discount/shipping exclusions, final-invoice
-  recognition, weighted utilization, zero capacity, and currency mismatch.
+  recognition, weighted utilization, zero capacity, and non-VND source facts.
 - MVC-test `401`, `403`, invalid period/branch `400`, partial `200`, empty `200`,
   complete `200`, and all-sources-unavailable `503` with correlation-linked
   safe errors.
@@ -252,8 +266,8 @@ PASS for Phase 1 design:
 - No source entity/repository leakage or raw SQL is proposed.
 - Authentication, Manager capability, branch authorization, data minimization,
   and Admin denial are contract-visible.
-- REST errors, validation, no-JavaScript fallback, and htmx enhancement are
-  designed without a new constitution exception.
+- REST errors, validation, and React loading/empty/validation/error/recovery
+  states are designed without a new constitution exception.
 - No provider, role-code, branch mapping, source lifecycle, performance target,
   or scale assumption is silently invented; unresolved source prerequisites are
   implementation gates.

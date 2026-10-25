@@ -44,6 +44,8 @@ that FE-08 is implemented or that production GHTK credentials are available.
 | QS-23 | GHTK is unavailable for one branch in a mixed-branch checkout | Only that branch requires explicit pickup; unaffected branches retain eligible GHTK choices and the recalculated grouped total requires reconfirmation. |
 | QS-24 | A referenced GHTK quote expires or changes before payment | Checkout rejects the stale quote ID and creates no payment attempt; the replacement quote, difference and new grouped total are displayed for explicit reconfirmation. |
 | QS-25 | Fee quotation times out | Cart and in-memory recipient draft remain available; no order/payment is created and the Member can retry or select pickup for the affected branch. |
+| QS-26 | Member cancels an `ACCEPTED_UNPAID` checkout before FE-08 initiates VNPay | The complete inventory/benefit hold is released, the cart is restored, and no provider payment request is made; a `PAYMENT_INITIATED` checkout rejects the same action. |
+| QS-27 | A valid grouped checkout has a payable total of zero | No VNPay request is made; one internal acceptance settles benefits, grants eligible points, and enables fulfilment exactly once. |
 
 ## Required validation commands after implementation
 

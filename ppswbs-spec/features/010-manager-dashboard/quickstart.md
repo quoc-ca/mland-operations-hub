@@ -37,11 +37,12 @@ dashboard must remain disabled for production revenue decisions.
 | QS-11 | All sources respond successfully but have no qualifying facts | HTTP 200 with dashboard status `EMPTY` and known zero values, distinct from source failure. |
 | QS-12 | Attendance is unavailable while both revenue sources are complete | HTTP 200 with status `PARTIAL`; utilization and attendance-dependent values are null, while verified revenue remains visible. |
 | QS-13 | One required revenue source is unavailable | HTTP 200 `PARTIAL`; the unavailable component and total revenue are null rather than zero. |
-| QS-14 | All required reporting sources are unavailable | Typed HTTP 503 `REPORTING_SOURCES_UNAVAILABLE`; server-rendered UI keeps the previous valid view and shows safe retry guidance. |
-| QS-15 | Source currencies conflict | Currencies are not summed; affected total is null/incomplete with safe quality evidence. |
+| QS-14 | All required reporting sources are unavailable | Typed HTTP 503 `REPORTING_SOURCES_UNAVAILABLE`; the React dashboard keeps the previous valid view and shows safe retry guidance. |
+| QS-15 | A source returns a non-`VND` monetary fact | The fact is not converted or summed; the affected source and KPI are `PARTIAL` with safe quality evidence. |
 | QS-16 | Manager changes a filter, explicitly refreshes, and then waits without interaction | Data reloads on successful filter and explicit refresh only; no timer-triggered request occurs. |
 | QS-17 | The dashboard request is completed | No order, payment, workshop, check-in, configuration, or accounting record is created or updated. |
-| QS-18 | htmx is unavailable | The Thymeleaf GET form and links still load the authorized complete page response. |
+| QS-18 | React dashboard loads, filters, or refreshes | The client calls only the authorized REST endpoint, renders an explicit loading/empty/validation/partial/unavailable state, and makes no timer-triggered request. |
+| QS-19 | A retail payment is pending at 10:00, is successfully verified and committed at 10:03, then the Manager refreshes | The pending payment is absent at 10:00. After the refresh at 10:03, its branch revenue and paid-order contribution appear exactly once. |
 
 ## Contract and architecture checks
 
