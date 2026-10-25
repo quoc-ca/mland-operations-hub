@@ -1,0 +1,875 @@
+openapi: 3.1.0
+
+info:
+  title: Mland PPSWBS — Account Management API
+  description: |
+    Feature FE-001 Account Management. Covers the full account lifecycle:
+    self-registration bootstrap, profile self-service, credential/email management,
+    Admin-driven internal account provisioning (Staff/Manager), role and location
+    scope assignment, account suspension and restoration, and the fixed role catalogue.
+
+    **Identity model**: Firebase Authentication proves identity only. The backend verifies
+    every Firebase ID token with `checkRevoked=true`. MySQL is authoritative for account
+    status, role, location scope, and audit.
+
+    **Role vocabulary**: `MEMBER`, `STAFF`, `MANAGER`, `ADMIN`. The codes `OWNER` and
+    `ADMIN_TECHNICAL` are retired and must not appear in requests or responses.
+
+    **Error envelope**: All error responses follow the typed error contract below.
+    Stack traces, raw tokens, secrets, and unnecessary PII are never included.
+
+    **OpenAPI maturity**: Draft. This contract must be ratified before implementation.
+    Exact enum values, field constraints, and pagination schemas are authoritative here;
+    summary rows in APIs.md are informational only.
+  version: 0.1.0-draft
+  contact:
+    name: Phan Sơn (Spec Author)
+
+servers:
+  - url: /api/v1
+    description: Versioned REST base path
+
+tags:
+  - name: account-self
+    description: Authenticated user's own account operations
+  - name: admin-accounts
+    description: Admin-only account management operations
+  - name: roles
+    description: Fixed role catalogue (read-only)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECURITY SCHEME
+# ─────────────────────────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    FirebaseBearerToken:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID Token
+      description: |
+        Firebase ID token obtained from the Firebase Web SDK.
+        Backend verifies with `checkRevoked=true` on every protected request.
+        The token proves identity only; Mland MySQL determines role and status.
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # SHARED SCHEMAS
+  # ─────────────────────────────────────────────────────────────────────────
+  schemas:
+
+    AccountRole:
+      type: string
+      enum: [MEMBER, STAFF, MANAGER, ADMIN]
+      description: Closed V1 role vocabulary. OWNER and ADMIN_TECHNICAL are retired.
+
+    AccountStatus:
+      type: string
+      enum: [ACTIVE, PENDING_SETUP, SUSPENDED]
+      description: |
+        ACTIVE — operational.
+        PENDING_SETUP — internal account created by Admin; awaiting invitation completion.
+        SUSPENDED — locked by Admin; Firebase session revocation queued or confirmed.
+        Email verification is a Firebase-backed condition, not a status value.
+
+    AccountSummary:
+      type: object
+      required: [accountId, role, status, createdAt, updatedAt]
+      properties:
+        accountId:
+          type: integer
+          format: int64
+          description: Mland surrogate account ID (never the Firebase UID).
+        role:
+          $ref: '#/components/schemas/AccountRole'
+        status:
+          $ref: '#/components/schemas/AccountStatus'
+        loginEmail:
+          type: string
+          format: email
+          nullable: true
+          description: Last email synced from a verified Firebase ID token. Null if never synced.
+        revocationStatus:
+          type: string
+          enum: [NOT_APPLICABLE, PENDING, CONFIRMED]
+          description: |
+            PENDING — Firebase session revocation queued but not yet confirmed
+            (restoration blocked).
+            CONFIRMED — revocation confirmed; restoration available.
+            NOT_APPLICABLE — account is not SUSPENDED.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AccountProfile:
+      type: object
+      properties:
+        fullName:
+          type: string
+          nullable: true
+          maxLength: 400
+          description: Up to 100 Unicode code points (400 bytes at 4 bytes/cp). Null if not yet saved.
+        phone:
+          type: string
+          nullable: true
+          minLength: 7
+          maxLength: 30
+          description: Stored as-is; not normalized, not OTP-verified.
+
+    LocationAssignment:
+      type: object
+      required: [locationId, assignedAt, active]
+      properties:
+        locationId:
+          type: integer
+          format: int64
+        assignedAt:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+
+    AccountDetail:
+      allOf:
+        - $ref: '#/components/schemas/AccountSummary'
+        - type: object
+          properties:
+            profile:
+              $ref: '#/components/schemas/AccountProfile'
+            locationAssignments:
+              type: array
+              items:
+                $ref: '#/components/schemas/LocationAssignment'
+            version:
+              type: integer
+              format: int64
+              description: Optimistic-lock version. Required for Admin write operations.
+
+    InternalProvisioningStatus:
+      type: string
+      enum: [INVITATION_SENT, SETUP_COMPLETE, INVITATION_FAILED]
+
+    InternalAccountSummary:
+      allOf:
+        - $ref: '#/components/schemas/AccountSummary'
+        - type: object
+          properties:
+            provisioningStatus:
+              $ref: '#/components/schemas/InternalProvisioningStatus'
+            invitationLastSentAt:
+              type: string
+              format: date-time
+              nullable: true
+
+    RoleEntry:
+      type: object
+      required: [code, displayName]
+      properties:
+        code:
+          $ref: '#/components/schemas/AccountRole'
+        displayName:
+          type: string
+          description: Bilingual display label (vi/en as configured).
+
+    PageMeta:
+      type: object
+      required: [page, size, totalElements, totalPages]
+      properties:
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: [code, messageKey, correlationId]
+      properties:
+        code:
+          type: string
+          description: |
+            Stable typed error code. Known values include:
+            ACCOUNT_SUSPENDED, EMAIL_NOT_VERIFIED, REVOCATION_PENDING,
+            OPTIMISTIC_LOCK_CONFLICT, IDEMPOTENCY_KEY_CONFLICT,
+            INVITATION_COOLDOWN_ACTIVE, LOCATION_NOT_ACTIVE,
+            ACCOUNT_NOT_FOUND, VALIDATION_ERROR, UNAUTHORIZED, FORBIDDEN.
+        messageKey:
+          type: string
+          description: Bilingual i18n message key (never a stack trace or raw error).
+        correlationId:
+          type: string
+          description: Request trace ID.
+        fieldErrors:
+          type: array
+          nullable: true
+          items:
+            type: object
+            required: [field, messageKey]
+            properties:
+              field:
+                type: string
+              messageKey:
+                type: string
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GLOBAL SECURITY
+# ─────────────────────────────────────────────────────────────────────────────
+security:
+  - FirebaseBearerToken: []
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────────────────────────────────────
+paths:
+
+  # ── OWN ACCOUNT ────────────────────────────────────────────────────────────
+
+  /accounts/me:
+    put:
+      operationId: bootstrapOwnAccount
+      summary: Bootstrap or return own account (idempotent)
+      description: |
+        Provisions a new Mland Account for the verified Firebase UID, or returns
+        the existing one. Idempotent: multiple calls with the same UID always
+        return the same accountId. The Firebase UID is extracted from the verified
+        token; client-supplied UID or email fields are rejected.
+        Default role on creation: MEMBER.
+      tags: [account-self]
+      responses:
+        '200':
+          description: Account bootstrapped or existing account returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountSummary'
+        '401':
+          description: Missing, malformed, expired, revoked, or unverifiable Firebase token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      operationId: getOwnAccount
+      summary: Get own account summary and profile
+      tags: [account-self]
+      responses:
+        '200':
+          description: Own account detail including profile and location assignments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Account is SUSPENDED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /accounts/me/profile:
+    put:
+      operationId: updateOwnProfile
+      summary: Update own profile (full name and phone)
+      description: |
+        Own-profile writes follow last-successful-commit-wins (no optimistic lock).
+        Requires the caller's Firebase ID token to carry a verified email
+        (`email_verified = true`). Profile row is created on first valid save.
+      tags: [account-self]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName]
+              properties:
+                fullName:
+                  type: string
+                  minLength: 1
+                  maxLength: 400
+                  description: 1–100 Unicode code points (application-enforced).
+                phone:
+                  type: string
+                  nullable: true
+                  minLength: 7
+                  maxLength: 30
+      responses:
+        '200':
+          description: Profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountProfile'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: EMAIL_NOT_VERIFIED or ACCOUNT_SUSPENDED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /accounts/me/email-sync:
+    post:
+      operationId: syncOwnEmail
+      summary: Synchronize login email from verified Firebase token
+      description: |
+        Updates `accounts.login_email` using only the email from the verified
+        Firebase ID token. The token must carry `email_verified = true`.
+        Browser-supplied email in the request body is not accepted (body is empty).
+      tags: [account-self]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Empty body; email is read from the verified token only.
+      responses:
+        '200':
+          description: Email synchronized.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  loginEmail:
+                    type: string
+                    format: email
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: EMAIL_NOT_VERIFIED or ACCOUNT_SUSPENDED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /accounts/me/session:
+    delete:
+      operationId: signOut
+      summary: Sign out (revoke server-side session state)
+      description: |
+        Revokes Firebase refresh tokens for the caller's UID and clears any
+        server-side session state. The Firebase Web SDK client should also call
+        `signOut()` independently.
+      tags: [account-self]
+      responses:
+        '204':
+          description: Session revoked. Client must discard the Firebase token.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── ADMIN — ACCOUNT LIST / DETAIL ──────────────────────────────────────────
+
+  /admin/accounts:
+    get:
+      operationId: listAccounts
+      summary: List and search accounts (Admin only)
+      description: |
+        Returns a paginated list of accounts. Newest-changed-or-created first.
+        Does not expose Firebase UID, raw tokens, passwords, or unrelated
+        booking/order data.
+      tags: [admin-accounts]
+      parameters:
+        - name: q
+          in: query
+          description: Free-text search across login_email and full_name (prefix match).
+          schema:
+            type: string
+            maxLength: 200
+        - name: role
+          in: query
+          schema:
+            $ref: '#/components/schemas/AccountRole'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/AccountStatus'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Paginated account list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AccountSummary'
+                  meta:
+                    $ref: '#/components/schemas/PageMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/accounts/{id}:
+    get:
+      operationId: getAccountDetail
+      summary: Get full account detail (Admin only)
+      tags: [admin-accounts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Full account detail including profile, location assignments, and optimistic-lock version.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Account not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── ADMIN — INTERNAL ACCOUNT CREATION ──────────────────────────────────────
+
+  /admin/accounts/internal:
+    post:
+      operationId: createInternalAccount
+      summary: Create a Staff or Manager internal account (Admin only)
+      description: |
+        Creates a new `STAFF` or `MANAGER` account and queues a setup invitation
+        (FE-07 post-commit delivery). The `Idempotency-Key` header is required.
+
+        Identical repeat (same key, same payload): returns the original result (`200`).
+        Same key, different payload: `409 IDEMPOTENCY_KEY_CONFLICT`.
+
+        The Firebase action link is generated and sent via FE-07; it is never
+        stored in the provisioning record or audit log.
+      tags: [admin-accounts]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: UUID per create intent. Recommended format UUIDv4.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role, fullName, locationIds]
+              properties:
+                role:
+                  type: string
+                  enum: [STAFF, MANAGER]
+                  description: Only STAFF and MANAGER may be created through this endpoint.
+                fullName:
+                  type: string
+                  minLength: 1
+                  maxLength: 400
+                phone:
+                  type: string
+                  nullable: true
+                  minLength: 7
+                  maxLength: 30
+                locationIds:
+                  type: array
+                  items:
+                    type: integer
+                    format: int64
+                  minItems: 1
+                  description: |
+                    STAFF: exactly 1 active location required.
+                    MANAGER: 1 or more active locations required.
+                    Each locationId is validated against the FE-03 workshop-location facade.
+      responses:
+        '200':
+          description: Account created (or idempotent repeat returning same result).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalAccountSummary'
+        '400':
+          description: Validation error (missing fields, invalid locationId count, etc.).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: |
+            IDEMPOTENCY_KEY_CONFLICT — same key reused with different payload.
+            LOCATION_NOT_ACTIVE — one or more provided locationIds are inactive or unknown.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── ADMIN — INVITATION RESEND ───────────────────────────────────────────────
+
+  /admin/accounts/{id}/invitation/resend:
+    post:
+      operationId: resendSetupInvitation
+      summary: Resend setup invitation for a PENDING_SETUP account (Admin only)
+      description: |
+        Regenerates a Firebase action link and queues a new invitation email via FE-07.
+        The action link is never stored in the provisioning record or audit log.
+        Enforces a 5-minute server-side cooldown since the last send.
+        Only valid when `provisioningStatus = INVITATION_SENT` or `INVITATION_FAILED`.
+      tags: [admin-accounts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Invitation resent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalAccountSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Account not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: |
+            INVITATION_COOLDOWN_ACTIVE — fewer than 5 minutes since last send.
+            SETUP_ALREADY_COMPLETE — account is no longer PENDING_SETUP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── ADMIN — PROFILE EDIT ────────────────────────────────────────────────────
+
+  /admin/accounts/{id}/profile:
+    put:
+      operationId: updateAccountProfileAdmin
+      summary: Edit an internal account's profile (Admin only)
+      description: |
+        Updates `full_name` and/or `phone` for a STAFF, MANAGER, or ADMIN account.
+        Requires the current `version` for optimistic locking; stale version returns `409`.
+        An audit event is created for this action.
+      tags: [admin-accounts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, fullName]
+              properties:
+                version:
+                  type: integer
+                  format: int64
+                  description: Current accounts.version (optimistic lock).
+                fullName:
+                  type: string
+                  minLength: 1
+                  maxLength: 400
+                phone:
+                  type: string
+                  nullable: true
+                  minLength: 7
+                  maxLength: 30
+      responses:
+        '200':
+          description: Profile updated. Response includes new version.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Account not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: OPTIMISTIC_LOCK_CONFLICT — version mismatch.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── ADMIN — ROLE / LOCATION ASSIGNMENT ─────────────────────────────────────
+
+  /admin/accounts/{id}/role-location:
+    put:
+      operationId: assignRoleAndLocation
+      summary: Change role and/or location assignments (Admin only)
+      description: |
+        Updates the account's role and active location assignments atomically.
+        Location IDs are validated against the FE-03 workshop-location facade at write time.
+        STAFF must have exactly 1 active location; MANAGER must have 1 or more.
+        MEMBER and ADMIN must have empty locationIds.
+        Requires `version` for optimistic locking. An audit event is created.
+      tags: [admin-accounts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, role, locationIds]
+              properties:
+                version:
+                  type: integer
+                  format: int64
+                role:
+                  $ref: '#/components/schemas/AccountRole'
+                locationIds:
+                  type: array
+                  items:
+                    type: integer
+                    format: int64
+                  description: Full desired set of active location IDs after this operation.
+      responses:
+        '200':
+          description: Role and locations updated. Response includes new version.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Account not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: OPTIMISTIC_LOCK_CONFLICT or LOCATION_NOT_ACTIVE.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── ADMIN — SUSPEND ─────────────────────────────────────────────────────────
+
+  /admin/accounts/{id}/suspend:
+    post:
+      operationId: suspendAccount
+      summary: Suspend an account (Admin only)
+      description: |
+        Transitions the account to SUSPENDED immediately.
+        Queues Firebase `revokeRefreshTokens` post-commit (via backend service).
+        Sets `session_revocation_confirmed_at = NULL` to reset the restoration gate.
+        Restoration is unavailable until `session_revocation_confirmed_at IS NOT NULL`.
+        An audit event is created with the lock reason.
+      tags: [admin-accounts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  description: Administrative lock reason; stored in audit metadata.
+      responses:
+        '200':
+          description: Account suspended.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Account not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Account is already SUSPENDED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── ADMIN — RESTORE ─────────────────────────────────────────────────────────
+
+  /admin/accounts/{id}/restore:
+    post:
+      operationId: restoreAccount
+      summary: Restore a suspended account (Admin only)
+      description: |
+        Restores the account to its pre-suspension status (ACTIVE or PENDING_SETUP).
+        Only permitted when `session_revocation_confirmed_at IS NOT NULL`.
+        If `session_revocation_confirmed_at IS NULL`, returns `409 REVOCATION_PENDING`.
+        An audit event is created.
+      tags: [admin-accounts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Empty body; no additional input required.
+      responses:
+        '200':
+          description: Account restored to pre-suspension status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Account not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: |
+            REVOCATION_PENDING — `session_revocation_confirmed_at` IS NULL; restoration blocked.
+            ACCOUNT_NOT_SUSPENDED — account is not currently SUSPENDED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── ROLE CATALOGUE ──────────────────────────────────────────────────────────
+
+  /admin/roles:
+    get:
+      operationId: listRoles
+      summary: Return the fixed role catalogue (Admin only)
+      description: |
+        Returns the closed set of V1 role codes with display names.
+        No dynamic RBAC. The returned list is always exactly 4 entries:
+        MEMBER, STAFF, MANAGER, ADMIN.
+      tags: [roles]
+      responses:
+        '200':
+          description: Fixed role catalogue.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [roles]
+                properties:
+                  roles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RoleEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REUSABLE RESPONSES
+# ─────────────────────────────────────────────────────────────────────────────
+  responses:
+    Unauthorized:
+      description: Missing, malformed, expired, revoked, wrong-project, or unverifiable Firebase token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Valid identity but insufficient Mland role, inactive status, or account suspended.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

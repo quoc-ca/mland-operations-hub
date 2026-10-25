@@ -1,9 +1,11 @@
 # Mland V1 API Contract Catalog
 
 **Date created**: 2026-09-30
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-25
 **Author**: Ngô Tiến Đạt
-**Last updated by**: Ngô Tiến Đạt
+**Last updated by**: Phan Sơn
+
+**Version**: 0.4
 
 ## 1. Purpose and scope
 
@@ -14,14 +16,14 @@ contract maturity.
 
 It is **not** a substitute for a feature-level OpenAPI contract. A detailed
 feature contract is authoritative for its request/response schemas, validation,
-and status codes. The existing Member Authentication contract is at
-[`features/001-member-authentication/contracts/member-auth.openapi.yaml`](./features/001-member-authentication/contracts/member-auth.openapi.yaml).
+and status codes. The FE-001 Account Management contract is at
+[`features/001-account-management/contracts/account-management.openapi.yaml`](./features/001-account-management/contracts/account-management.openapi.yaml).
 
 ### Contract maturity
 
 | Label | Meaning |
 | --- | --- |
-| **Confirmed** | The route and behaviour are described by an existing approved source or detailed feature contract. The referenced Member Auth OpenAPI remains versioned `1.0.0-draft`; this label does not promote it to a released public API. |
+| **Confirmed** | The route and behaviour are described by an existing approved source or detailed feature contract. This label does not promote a draft contract to a released public API. |
 | **Draft** | A proposed REST contract derived from an approved V1 use case. It must receive its own feature specification and OpenAPI contract before implementation. |
 | **TBD dependency** | A system boundary is required, but its provider, payload, security, retry, governance, or other material detail is not approved. It must not be implemented as though it were final. |
 
@@ -41,11 +43,10 @@ and status codes. The existing Member Authentication contract is at
   `application/json`. Server-rendered pages and Thymeleaf/htmx fragments are
   outside this REST catalog.
 - `Authorization: Bearer <Firebase ID token>` proves identity only. Spring
-  verifies the token; Mland MySQL is authoritative for account status, logical
-  roles (`Member`, `Staff`, `Manager`, and `Admin`), and entitlement. The physical
-  role-code mapping is explicit for this feature: `Manager` uses `OWNER` and
-  `Admin` uses `ADMIN_TECHNICAL`. The mapping must not expand logical business or
-  technical authority and must never be inferred from client input.
+  verifies the token; Mland MySQL is authoritative for account status and logical
+  roles. V1 uses a closed four-code vocabulary: `MEMBER`, `STAFF`, `MANAGER`, and
+  `ADMIN`. The codes `OWNER` and `ADMIN_TECHNICAL` are retired and must not be
+  introduced or inferred from client input.
 - Protected requests with a missing, malformed, expired, revoked, wrong-project,
   or unverifiable token receive `401`. A valid identity without the required
   Mland authority or current entitlement receives `403`.
@@ -64,22 +65,33 @@ and status codes. The existing Member Authentication contract is at
 All entries below are client-facing HTTP contracts. A route labelled Draft is a
 design target, not an implementation instruction or final wire contract.
 
-### 3.1 Member and policy (`members`)
+### 3.1 Account management (`accountmanagement`)
 
-| Boundary | Method and route | Access | UC | Purpose | Maturity |
-| --- | --- | --- | --- | --- | --- |
-| Protected client REST | `PUT /api/v1/members/me` | Verified Firebase identity | UC-02 | Provision or return the Member for the verified Firebase UID. | Confirmed |
-| Protected client REST | `GET /api/v1/members/me/entitlement` | Verified Firebase identity | UC-02 | Return current Member entitlement. | Confirmed |
-| Public client REST | `GET /api/v1/policies/current` | Public | UC-02 | Return current Terms and Privacy metadata/content locations. | Confirmed |
-| Protected client REST | `POST /api/v1/members/me/policy-acceptances` | Verified Firebase identity | UC-02 | Record acceptance of exactly the effective policy pair. | Confirmed |
-| Protected client REST | `GET /api/v1/members/me/guest-booking-import-preview` | Eligible Member | UC-02, UC-05 | Preview verified-email Guest bookings that can be explicitly linked. | Confirmed |
-| Protected client REST | `POST /api/v1/members/me/guest-booking-imports` | Eligible Member | UC-02, UC-05 | Idempotently link currently eligible Guest bookings after explicit confirmation. | Confirmed |
-| Public client REST | `POST /api/v1/workshop-bookings/{bookingCode}/email-confirmations` | One-time confirmation token | UC-01 | Consume a Guest booking email-confirmation token. | Confirmed |
-| Protected client REST | `GET /api/v1/members/me/workshop-bookings` | Active Member | UC-01, UC-05 | List the caller's permitted workshop history and upcoming bookings. | Draft |
-| Protected client REST | `GET /api/v1/members/me/ready-ring-orders` | Active Member | UC-04 | List the caller's permitted retail orders and transactions. | Draft |
+> The legacy `/api/v1/members/...` account-profile routes from the superseded Member Profile
+> feature are retired. The canonical contract for account management is `/api/v1/accounts`.
+> The FE-001 OpenAPI is authoritative for exact schemas, field types, enum values, and error payloads.
 
-The seven Confirmed routes above, including their documented outcomes and three
-documented request bodies, are defined by the Member Auth OpenAPI file.
+| Boundary | Method and route | Access | Purpose | Maturity |
+| --- | --- | --- | --- | --- |
+| Protected client REST | `PUT /api/v1/accounts/me` | Verified Firebase identity | Bootstrap or return the Account for the verified Firebase UID (idempotent upsert). | Draft |
+| Protected client REST | `GET /api/v1/accounts/me` | Verified Firebase identity | Return the caller's own account summary (role, status, location assignments). | Draft |
+| Protected client REST | `PUT /api/v1/accounts/me/profile` | Active `MEMBER` or `PENDING_SETUP` internal account | Update own profile fields (full name, phone); last-successful-commit wins. | Draft |
+| Protected client REST | `POST /api/v1/accounts/me/email-sync` | Verified-email Firebase identity | Synchronize email from the verified Firebase ID token into the Account record; never accepts browser-supplied email. | Draft |
+| Protected client REST | `DELETE /api/v1/accounts/me/session` | Verified Firebase identity | Sign out: revoke Firebase refresh tokens and clear session state. | Draft |
+| Protected client REST | `GET /api/v1/admin/accounts` | `ADMIN` | List accounts; search by email/full name; filter by role/status; paginated; newest changed first. Does not expose Firebase UID, tokens, passwords, or unrelated booking/order data. | Draft |
+| Protected client REST | `GET /api/v1/admin/accounts/{id}` | `ADMIN` | Read permitted account detail for a single account. | Draft |
+| Protected client REST | `POST /api/v1/admin/accounts/internal` | `ADMIN` | Create a `STAFF` or `MANAGER` internal account and queue an invitation. `Idempotency-Key` header required; identical retries return the original provisioning result; a reused key with a changed payload returns `409`. | Draft |
+| Protected client REST | `POST /api/v1/admin/accounts/{id}/invitation/resend` | `ADMIN` | Resend the setup invitation for a `PENDING_SETUP` internal account; regenerates the Firebase action link (never stores the link in audit/log). | Draft |
+| Protected client REST | `PUT /api/v1/admin/accounts/{id}/profile` | `ADMIN` | Edit an internal account's profile; requires `version` for optimistic locking; stale version returns `409`. | Draft |
+| Protected client REST | `PUT /api/v1/admin/accounts/{id}/role-location` | `ADMIN` | Change role and/or location assignment for a `STAFF` or `MANAGER` account; requires `version`; stale version returns `409`. Location must be active via workshop-location facade. | Draft |
+| Protected client REST | `POST /api/v1/admin/accounts/{id}/suspend` | `ADMIN` | Lock an account to `SUSPENDED`; queues Firebase session revocation. Unlock is unavailable until `session_revocation_confirmed_at` is set. | Draft |
+| Protected client REST | `POST /api/v1/admin/accounts/{id}/restore` | `ADMIN` | Restore a `SUSPENDED` account to its pre-suspension state; only available after Firebase session revocation is confirmed. | Draft |
+| Protected client REST | `GET /api/v1/admin/roles` | `ADMIN` | Return the fixed role catalog (`MEMBER`, `STAFF`, `MANAGER`, `ADMIN`); no dynamic RBAC. | Draft |
+
+All Admin account-management writes are audited (actor, target, action, outcome,
+timestamp, correlation ID, before/after role/status/location). Firebase token
+revocation for suspension is queued post-commit; FE-07 notification delivery is
+post-commit and does not block account mutations.
 
 ### 3.2 Public catalogue, availability, and booking
 
