@@ -1,7 +1,7 @@
 # Feature Specification: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-25
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -50,6 +50,14 @@ are evidenced.
 - Q: Ai được phép force re-sync lịch/availability và xử lý reconciliation của một OTA? → A: Manager theo branch xử lý sync/reconciliation nghiệp vụ; Admin quản lý connection/credentials và có quyền toàn cục.
 - Q: Sau khi retry đồng bộ lịch/availability thất bại và chưa reconcile được, Mland phải xử lý khả năng bán của OTA đó thế nào? → A: Đóng bán mapping bị lỗi sau retry; chỉ mở lại sau resync xác nhận.
 - Q: Nếu một OTA gửi booking sau khi Mland đã đóng bán mapping do lỗi sync, Mland phải xử lý booking đó thế nào? → A: Giữ TBD; chỉ bật OTA booking sau khi provider xác nhận bằng văn bản quy tắc late booking, timeout/retry và trách nhiệm capacity.
+
+### Session 2026-10-25
+
+- Q: Khi 003.4 phát hiện thiếu source version hoặc không xác định được thứ tự update từ 003.2 cho một mapping đang mở bán, mapping OTA đó phải xử lý thế nào? → A: Suspend riêng mapping OTA ngay và yêu cầu authoritative resync từ 003.2; chỉ mở lại sau resync thành công. Direct-Mland booking không bị ảnh hưởng.
+- Q: Khi thời gian của một Basic Ring session thay đổi, 003.4 phải nhận lịch mới từ 003.2 bằng cách nào? → A: 003.2 cung cấp schedule snapshot nội bộ, authoritative và versioned, gồm opaque session identity, branch, scheduled start/end, source version/change identity và effective time. 003.4 không đọc entity hoặc repository của 003.2.
+- Q: Khi 003.2 chuyển một Basic Ring session sang `SALES_PAUSED`, 003.4 phải phản ánh lên OTA thế nào? → A: Publish trạng thái closed/zero availability theo sale state session nhưng giữ mapping OTA hợp lệ; khi 003.2 resume sales, publish mở lại theo snapshot mới.
+- Q: Nếu 003.4 phát hiện thiếu version hoặc không xác định thứ tự của schedule snapshot từ 003.2, có phải suspend mapping OTA giống availability gap không? → A: Có. Suspend riêng mapping OTA, authoritative resync schedule từ 003.2, chỉ mở lại sau khi xác nhận thành công; direct-Mland không đổi.
+- Q: 003.2 nên cấp cho 003.4 một source version tăng dần chung cho mọi thay đổi OTA-observable của cùng session, hay version riêng cho schedule và availability? → A: Một source version tăng dần chung theo từng session cho mọi thay đổi schedule, availability và sale state gửi sang 003.4.
 
 ## Confirmed Decisions and Boundaries
 
@@ -235,6 +243,16 @@ Mland payment. The counter bill remains separate from OTA financial facts.
   to the applicable OTA candidates. It MUST retry failed delivery, queue an
   unresolved difference for reconciliation, and permit an authorized, audited
   force re-sync without creating a booking or capacity commitment.
+- **FR-004a1**: For a mapped Basic Ring session's creation or schedule change,
+  003.4 MUST consume an authoritative, versioned internal 003.2 schedule
+  snapshot containing only opaque session identity, branch, scheduled start/end,
+  source version/change identity, and effective time. It MUST NOT read 003.2
+  entities or repositories or infer schedule values from availability data.
+- **FR-004a2**: When 003.2 reports `SALES_PAUSED` for a mapped Basic Ring
+  session, 003.4 MUST publish that session as closed or zero-availability while
+  retaining the OTA mapping as valid. When 003.2 resumes sales, 003.4 MUST
+  publish the reopened state from the new authoritative snapshot. Neither normal
+  transition may be treated as mapping sync failure or require re-onboarding.
 - **FR-004b**: A Manager MAY force re-sync and resolve a business reconciliation
   item only for an assigned branch. Admin owns OTA credentials and connection
   configuration and MAY perform these actions across branches. Every action
@@ -249,6 +267,22 @@ Mland payment. The counter bill remains separate from OTA financial facts.
   timeout/retry/idempotency, and capacity responsibility. Until then, Mland MAY
   synchronize schedule/availability only in sales-closed preparation mode; it
   MUST NOT apply an invented late-booking confirmation or rejection policy.
+- **FR-004e**: When the OTA consumer detects a missing 003.2 source version or
+  cannot establish the order of availability/sale-state updates for an
+  open-for-sale mapping, it MUST suspend only that OTA mapping and request an
+  authoritative 003.2 resync. It MUST reopen the mapping only after successful
+  resync confirmation. This condition MUST NOT change 003.2 capacity or sale
+  state, or direct-Mland booking behaviour.
+- **FR-004f**: When the OTA consumer detects a missing 003.2 source version or
+  cannot establish the order of schedule snapshots for an open-for-sale mapping,
+  it MUST suspend only that OTA mapping and request an authoritative 003.2
+  schedule resync. It MUST reopen the mapping only after successful resync
+  confirmation and MUST NOT change 003.2 or direct-Mland booking behaviour.
+- **FR-004g**: For each session, 003.2 MUST supply one monotonically increasing
+  source version for every OTA-observable schedule, availability, or sale-state
+  change. 003.4 MUST use that one per-session sequence for duplicate/older
+  update rejection, gap detection, and authoritative resync; it MUST NOT merge
+  independent schedule and availability version streams.
 - **FR-005**: Klook configuration MUST remain
   `PENDING_COMMERCIAL_CONFIRMATION` until price semantics, commission,
   taxes/fees, currency/FX, and payout terms are confirmed.

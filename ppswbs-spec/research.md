@@ -382,43 +382,39 @@ trách. Đây là workflow vận hành riêng, không phải quyền của khác
 - Package, material/design option và branch/session phải được kiểm tra lại tại
   thời điểm submit, không chỉ dựa vào dữ liệu frontend đã hiển thị.
 
-### Chính sách giá theo số người — Đề xuất đã chọn
+### Chính sách giá theo người — Quyết định V1 cập nhật 2026-10-25
 
-Mỗi package phải khai báo một `pricing_model`; hệ thống không được suy diễn giá
-từ `participant_count` nếu package chưa có chính sách giá hợp lệ.
+Quyết định của **Hồ Hoàng Quốc** cho Workshop Booking V1: package chỉ bán theo
+`PER_PERSON`. Mỗi package có một `price_per_participant` hợp lệ; hệ thống tính
+`booking_total = participant_count × price_per_participant`. Ví dụ giá
+750.000 VND/người, 4 người thì tổng booking là 3.000.000 VND.
 
-| `pricing_model` | Ví dụ | Cách tính tổng booking |
-| --- | --- | --- |
-| `PER_PERSON` | 750.000 VND/người; 4 người | `participant_count × unit_price` = 3.000.000 VND |
-| `BASE_PLUS_EXTRA` | Giá một suất làm nhẫn gồm 1 người; thêm người cùng làm trả phụ phí | `base_price + max(0, participant_count - included_participant_count) × extra_person_price` |
+Package vẫn phải có giới hạn participant tối thiểu/tối đa. Tiền cọc được tính
+từ **tổng booking đã chốt**, không chỉ từ giá niêm yết ban đầu của package. Ví
+dụ cọc 50% cho booking 3.000.000 VND là 1.500.000 VND.
 
-Với cả hai model, package phải có giới hạn participant tối thiểu/tối đa và số
-tiền cọc được tính từ **tổng booking đã chốt**, không chỉ từ giá niêm yết ban
-đầu của package. Ví dụ cọc 50% cho booking 3.000.000 VND là 1.500.000 VND.
+`BASE_PLUS_EXTRA`, `base_price`, `included_participant_count`, và
+`extra_person_price` không thuộc V1. Trường hợp hiếm nhiều người cùng làm một
+sản phẩm được Staff xử lý thủ công ngoài booking flow V1; không được suy diễn
+thành pricing mode hoặc customer-facing add-on.
 
 #### Chú thích — suất làm và vé check-in
 
 **Workshop item/suất làm** là một sản phẩm hoặc kết quả làm ra, ví dụ một chiếc
 nhẫn. **Attendance ticket** là quyền của một người vào session và check-in bằng
-QR. Hai khái niệm không đồng nhất: hai người cùng làm **một** chiếc nhẫn tạo một
-workshop item có giá nhẫn cơ bản cộng phụ phí người cùng làm, nhưng phát **hai**
-attendance ticket/QR. Ngược lại, hai người mỗi người làm một chiếc nhẫn tạo hai
-workshop item và hai QR.
+QR. Trong V1, mỗi participant mua một suất theo giá package/người và nhận một
+attendance ticket/QR; nhiều participant tương ứng nhiều suất và nhiều QR.
 
-Một booking là **đơn thương mại/thanh toán** của người đặt; nó có thể có nhiều
-workshop item và ticket ở nhiều session. Capacity, check-in và no-show tính theo
-attendance ticket/session; giá cơ bản, cọc và khoản còn lại tính theo workshop
-item/booking line. Phụ phí phát sinh sau workshop gắn với workshop item và có
-thể liên kết thêm ticket/người liên quan để truy vết.
+Một booking là **đơn thương mại/thanh toán** của người đặt cho đúng một package
+hoặc course; V1 không có giỏ hàng hay nhiều package độc lập trong một booking.
+Một package có thể có một hoặc nhiều session bắt buộc (ví dụ Silverclay hai
+buổi). Capacity, check-in và no-show tính theo attendance ticket/session; giá,
+cọc và khoản còn lại tính theo package booking đó. Phụ phí phát sinh sau
+workshop gắn với booking/package và có thể liên kết ticket/người liên quan để
+truy vết.
 
-Mô hình workshop item và phụ phí người cùng làm này chỉ áp dụng cho booking trực
-tiếp trên Mland. Đợt OTA đầu chỉ mở package `PER_PERSON`; OTA không nhận hoặc
-đồng bộ workshop item, người cùng làm hay phụ phí này.
-
-Với `PER_PERSON`, mỗi workshop item thường có một ticket và giá cơ bản snapshot
-riêng. Với `BASE_PLUS_EXTRA`, tất cả participant cùng làm một workshop item phải
-thuộc cùng một session/booking line; không được tự ghép người ở các session khác
-nhau vào một workshop item.
+Đợt OTA đầu chỉ mở package theo giá mỗi participant. OTA không nhận hoặc đồng
+bộ group-pricing hay phụ phí người cùng làm.
 
 ## Khám phá package và tạo booking — Đã có phạm vi V1
 
@@ -426,20 +422,20 @@ Guest hoặc Member chỉ thấy package được công khai và đang cho phép
 package hiển thị giá hiện hành, thời lượng, giới hạn người tham gia, lựa chọn
 material/design được hỗ trợ và điểm bắt đầu booking.
 
-Khách có thể chọn nhiều workshop item; mỗi item chọn package, branch, ngày và
-session riêng, cùng số người sẽ tham gia làm item đó. Hệ thống phát một attendance
-ticket cho mỗi người tham gia. Một booking chỉ có một contact và một lần thanh
-toán cọc, nhưng các item/ticket trong đó không bắt buộc cùng slot. Guest bắt buộc
-có email và số điện thoại; Member được điền sẵn hai trường này nhưng có thể sửa
-khi đặt cho người khác. Booking phải lưu contact snapshot, không phụ thuộc các
-thay đổi hồ sơ sau đó.
+Khách chọn đúng một package/course cho mỗi booking; không có giỏ hàng hay chọn
+nhiều package độc lập trong một booking. Package có thể công bố một hoặc nhiều
+session bắt buộc, và cùng số participant sẽ được giữ chỗ trong từng session đó.
+Hệ thống phát một attendance ticket cho mỗi người tham gia. Một booking chỉ có
+một contact và một lần thanh toán cọc. Guest bắt buộc có email và số điện thoại;
+Member được điền sẵn hai trường này nhưng có thể sửa khi đặt cho người khác.
+Booking phải lưu contact snapshot, không phụ thuộc các thay đổi hồ sơ sau đó.
 
 Sau khi kiểm tra package, session, sức chứa và dữ liệu bắt buộc trong cùng một
 ngữ cảnh giao dịch, hệ thống tạo:
 
 - booking `PENDING_PAYMENT` với trạng thái tài chính `UNPAID`;
-- các workshop item/booking line và attendance ticket theo session, giá snapshot
-  cùng phần cọc được phân bổ theo workshop item;
+- package đã chọn, các session bắt buộc của package, attendance ticket theo
+  session, và giá snapshot theo participant;
 - một invoice cọc bằng 50% tổng giá workshop cơ bản đã chốt;
 - capacity hold tối đa 15 phút cho từng ticket tại session tương ứng.
 
@@ -474,8 +470,7 @@ booking đã xác nhận.
 
 ## Thanh toán phần còn lại và phụ phí — Đề xuất đã chọn
 
-Mland chỉ thu cọc 50% của tổng giá workshop cơ bản đã chốt khi đặt và phân bổ
-phần cọc đó cho từng workshop item/booking line. Khách được check-in bình thường
+Mland chỉ thu cọc 50% của tổng giá package đã chốt khi đặt. Khách được check-in bình thường
 khi attendance ticket hợp lệ thuộc booking `CONFIRMED` có cọc `DEPOSIT_PAID`;
 không yêu cầu toàn bộ booking `FULLY_PAID`, vì phụ phí vật liệu/dịch vụ chỉ có
 thể biết sau khi workshop item hoàn thành session của nó.
@@ -719,12 +714,9 @@ lưu mã tham chiếu và metadata tối thiểu cần đối soát.
 
 ### Phạm vi package mở bán OTA — Đề xuất đã chọn
 
-Đợt tích hợp OTA đầu chỉ publish package có `pricing_model = PER_PERSON`.
-Package `BASE_PLUS_EXTRA` tiếp tục bán trên website Mland; không được tự suy diễn
-công thức giá nhóm, workshop item hoặc phụ phí người cùng làm sang OTA. Muốn mở
-bán sau này, Mland phải tạo và map các option group-size có giá cố định (ví dụ
-2, 3, 4 người) cho từng channel, rồi kiểm thử giá, capacity và ticket-per-person
-của từng option trước khi bật bán.
+Đợt tích hợp OTA đầu chỉ publish package theo giá mỗi participant. Group-size
+pricing hoặc phụ phí người cùng làm không thuộc V1; nếu được đề xuất sau này,
+Mland phải thiết kế và xác thực riêng theo từng channel trước khi bật bán.
 
 ### Giá theo channel và điều kiện publish — Đề xuất đã chọn
 

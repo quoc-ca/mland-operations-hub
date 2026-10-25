@@ -8,11 +8,15 @@
 This is a future implementation-validation guide, not evidence that code exists.
 Read [spec.md](spec.md), [data-model.md](data-model.md), and the draft
 [OpenAPI contract](contracts/workshop-booking.openapi.yaml) first.
+Keep observed test results in the approved CI report/artifact; do not append
+per-run evidence to this guide.
 
 ## Preconditions
 
 1. Use a verified non-production environment with the approved Firebase and
    VNPay test arrangements; never use production customer data.
+   If legacy booking/customer data is present, use an approved append-only
+   preservation migration and upgrade/recovery evidence instead of resetting it.
 2. Seed one published Basic Ring package and one direct-Mland Silverclay package
    with an even VND price per participant.
 3. Create published common workshop sessions in one branch with a shared
@@ -21,41 +25,77 @@ Read [spec.md](spec.md), [data-model.md](data-model.md), and the draft
 
 ## Core scenarios
 
-1. Create a Basic Ring booking for N participants and one session. Verify one
+1. Run the approved frontend end-to-end journey from workshop listing to booking
+   entry. Verify it requires no more than three primary interactions using
+   user-visible controls; retain the result in the approved CI report/artifact.
+2. Create a Basic Ring booking for N participants and one session. Verify one
    pending booking, one invoice at `N × price_per_participant`, exact 50% VND
    deposit, and an N-seat hold in that session.
-2. Create a Silverclay booking for N participants and two valid same-branch
+3. Create a Silverclay booking for N participants and two valid same-branch
    sessions. Verify chronological ordinals, N held seats in both shared pools,
    one invoice and no cart/multiple booking records.
-3. Attempt a duplicate session, different branch, adjacent same-day pair, full
+4. Attempt a duplicate session, different branch, adjacent same-day pair, full
    second session, or concurrent last-seat race. Verify no partial booking or
    hold persists. Verify final-slot-today/first-slot-tomorrow is accepted. Put
    one selected session in `SALES_PAUSED` and verify no new hold is created,
-   while a pre-existing unexpired hold remains eligible to commit.
-4. Start payment, submit a valid signed matching gateway event, and verify one
+   while a pre-existing unexpired hold remains eligible to commit. Verify the
+   Booking flow receives each sale-eligibility and hold outcome synchronously
+   from the separate 003.2 capacity facade; a later event cannot change that
+   outcome. Inject a local persistence failure during creation and verify that
+   neither the booking nor any session hold commits.
+5. Start payment, submit a valid signed matching gateway event, and verify one
    confirmed booking, one accepted deposit, and an N-ticket delivery-safe
-   projection from 003.2. For Silverclay, each ticket projection carries both
-   session entitlements. Verify Booking neither receives attendance state nor
-   derives ticket entitlement. Browser return alone must not confirm payment.
-5. Resubmit the same provider event and send invalid, mismatched, and late
+   projection from the separate 003.2 ticket-projection facade. For Silverclay,
+   each ticket projection carries both session entitlements. Verify Booking
+   neither receives attendance state nor derives ticket entitlement. Browser
+   return alone must not confirm payment. Inject a local persistence failure
+   during the post-validation commit and verify neither hold nor booking becomes
+   confirmed.
+6. Resubmit the same provider event and send invalid, mismatched, and late
    events. Verify no duplicate settlement/tickets and no confirmation after hold
    expiry. Verify failed attempts remain retryable before expiry.
-6. Test Guest lookup using code plus exactly one matching contact proof, Member
+7. Test Guest lookup using code plus exactly one matching contact proof, Member
    ownership lookup, and protected Magic-Link access. Verify pending projections
-   contain no ticket; confirmed projections contain the full ticket set.
-7. Release a pending hold and let another expire. Verify all relevant session
+   contain no ticket; confirmed projections contain the full ticket set. Verify
+   a Magic Link opens the React route with its opaque value in the fragment,
+   immediately exchanges it by HTTPS POST, clears the fragment, and retains only
+   the allowed projection in memory. Verify expired/revoked access shows no
+   booking data and offers code-plus-stored-phone recovery.
+8. Release a pending hold and let another expire. Verify all relevant session
    capacity is returned once, no QR is issued, and later payment cannot resume.
+9. Exercise Guest/Member self-service resend with valid proof and an assigned
+   Staff or branch-responsible Manager resend. Verify rate limits are enforced
+   separately, an accepted request does not change booking/payment/ticket/contact
+   or Magic Link state, and each required business audit record is safe and
+   complete. Verify delivery retries appear only in operational delivery logs.
+10. With a responsible Manager, revoke and rotate a Magic Link. Verify revoke is
+   immediate; rotate revokes the old link, queues replacement delivery only to
+   the existing booking-contact email, and a delivery failure never restores the
+   old link. Verify Guest booking-code plus stored-phone lookup remains usable.
+11. Submit a signed success after hold expiry. Verify it cannot confirm the
+    booking, restore capacity, issue tickets, or create another payment link.
+    Verify only the branch-responsible Manager can record/escalate a safe audited
+    follow-up. Attempt the same internal actions with inactive, unentitled, or
+    wrong-branch actors and verify safe denial without business side effects.
+12. Supply the approved idempotent final-balance-resolved conclusion from 003.3
+    for a confirmed deposit-paid booking. Verify Booking changes only its
+    financial status to `FULLY_PAID` once, retains only safe correlation/reference
+    evidence, and does not receive raw final-payment data or calculate final
+    balance. Replay the conclusion and verify no second transition. Verify a
+    deferred-payment-link send alone cannot set `FULLY_PAID`.
 
 ## Required evidence
 
 - API contract/validation/error tests, including safe unauthorised lookup.
 - MySQL empty-baseline and approved upgrade/preservation migration evidence.
 - Concurrent capacity-hold and idempotent payment-event tests.
+- Authorization, scope and audit-evidence tests for internal resend, Magic-Link
+  incident handling and late-payment follow-up, plus separate delivery-log tests.
 - Spring Modulith `ApplicationModules.verify()` evidence.
 - React client loading, validation, success, failure and Magic-Link recovery
-  evidence after the client contract/owner is approved.
+  evidence in the approved frontend implementation environment.
 
 **Verification exception**: No commands are run by this document because this
 repository scope is specification/design only. Manual verification above becomes
-executable only after the listed provider, facade, frontend and migration
-dependencies are approved.
+executable only after the listed provider, facade and migration dependencies are
+approved and a frontend implementation environment is available.

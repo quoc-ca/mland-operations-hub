@@ -1,81 +1,110 @@
 # Tasks: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-25
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
-**Input**: [spec.md](./spec.md), [plan.md](./plan.md), [data-model.md](./data-model.md), [research.md](./research.md), [contract](./contracts/workshop-settlement.openapi.yaml)
+**Input**: [spec.md](./spec.md), [plan.md](./plan.md), [research.md](./research.md), [data-model.md](./data-model.md), [quickstart.md](./quickstart.md), and [contract status](./contracts/workshop-settlement.openapi.yaml).
 
-## Phase 1: Setup
+**Scope rule**: This is an implementation handoff checklist, not approval to code.
+Each **BLOCKED** item remains unchecked until its named owner supplies the missing
+boundary/configuration. No task authorizes inventing endpoints, DTOs, schema,
+migration, role mapping, locking mechanism, or payment-provider policy.
 
-- [ ] T001 Create `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/{controller,dto,dao,entity,service,facade}/` as a distinct Modulith module.
-- [ ] T002 [P] Add module-boundary verification in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementModuleTest.java`.
+## Phase 1: Setup and boundary handoff
 
-## Phase 2: Foundational
+**Purpose**: retire item/session financial assumptions and establish legitimate dependencies.
 
-- [ ] T003 Complete request/result DTO schemas, required fields, validation rules, typed problem responses, and the existing notification facade/outbox contract, delivery retry behavior and safe audit outcome for the one deferred-payment reminder in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml` before controller implementation.
-- [ ] T004 Add the next append-only settlement migration in `ppswbs_backend/src/main/resources/db/migration/` for bills, charges, exceptions, refunds, reschedules and audit references.
-- [ ] T005 [P] Add empty/upgrade migration tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementMigrationIT.java`.
-- [ ] T006 Define Booking, Operations and Account/personnel facade boundaries in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/`.
-- [ ] T007 Implement active-account, branch-scope and settlement-capability authorization in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/WorkshopSettlementAuthorizationService.java`, and add denial/redacted-audit/safe-error coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementAuthorizationIT.java` proving no raw Firebase token, payment payload, secret or unnecessary PII is exposed.
-- [ ] T008 [P] [US1] Add bill, charge-line and adjustment entities/DAOs in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/{entity,dao}/`.
+- [ ] T001 Replace legacy item/session financial vocabulary with one booking/package final-bill vocabulary in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/tasks.md`.
+- [ ] T002 [P] Confirm a distinct `workshopsettlement` Spring Modulith module and retain boundary verification in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementModuleTest.java`.
+- [ ] T003 [P] Define approved internal Booking, Operations, Account and Notification facade boundaries in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/` without exposing entities, repositories or HTTP DTOs.
+- [ ] T004 **BLOCKED — FE-001 owner**: publish active-account, capability, branch/resource scope and central-policy-editor authority in `ppswbs-spec/features/001-account-management/`.
+- [ ] T005 **BLOCKED — 003.1 facade type**: approve the concrete facade type for confirmed booking/package and accepted-deposit projection, plus the already specified idempotent final-balance-resolved conclusion that 003.1 alone records as `FULLY_PAID`, in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/plan.md`.
+- [ ] T006 **BLOCKED — 003.2 facade type**: approve concrete facade types/outcomes for the already specified settlement-readiness, all-or-none complete required-session replacement, and post-refund ticket/capacity consequence in `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/plan.md`.
+- [ ] T007 **BLOCKED — integration owner**: approve VNPay merchant, signed IPN/QueryDR verification and refund-operation configuration without credentials in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/research.md`.
+- [ ] T008 **BLOCKED — notification owner**: publish post-commit final-payment-link, one-reminder and outcome-delivery handoff in `ppswbs-spec/features/007-notification-management/`.
 
-## Phase 3: User Story 1 — Counter settlement (P1)
+## Phase 2: Foundational settlement integrity
 
-**Goal**: Finalize item bills and release only after verified payment.
+**Purpose**: shared financial/audit foundation; no user story bypasses current authorization or an approved facade.
 
-**Independent Test**: Replay valid callback and observe one payment/release; reject unpaid release and invalid/duplicate evidence.
+- [ ] T009 Create approved persistence design for final booking bill, charge/correction, provider evidence, deferred case, refund case, required-session-change case and redacted audit in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/entity/`.
+- [ ] T010 Create append-only preservation migration plus empty/upgrade/recovery verification in `ppswbs_backend/src/main/resources/db/migration/` and `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementMigrationIT.java`; reset only empty dev/test after preflight.
+- [ ] T011 [P] Implement current-account/capability/branch authorization and redacted business-audit recording in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/WorkshopSettlementAuthorizationService.java` after T004, with denial/no-side-effect coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementAuthorizationIT.java`.
+- [ ] T012 [P] Implement safe idempotency/reconciliation support for final-payment/refund outcomes in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/SettlementProviderEvidenceService.java` after T007; retain no raw payload, checksum, token or secret.
+- [ ] T013 **BLOCKED — public transport decision**: approve REST operations, DTOs, validation and safe errors, then replace the empty contract in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml` before controller work.
 
-- [ ] T009 [P] [US1] Add bill/charge contract tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopFinalBillContractIT.java`.
-- [ ] T010 [US1] Implement immutable bill calculation/finalization in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalBillService.java`.
-- [ ] T011 [US1] Implement idempotent verified final payment and release transition in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalPaymentService.java`.
-- [ ] T012 [US1] Implement final-bill REST handlers in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/controller/FinalItemBillController.java`.
-- [ ] T013 [US1] Add callback replay, invalid evidence and unpaid-release tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/FinalPaymentIT.java`.
+## Phase 3: User Story 1 — Staff settles a completed booking/package (P1) 🎯 MVP
 
-## Phase 4: User Story 2 — Whole-booking cancellation/refund (P1)
+**Goal**: After the final required session, Staff finalizes one package bill and releases output only after verified payment or approved exception.
 
-**Goal**: Apply policy-correct whole-booking direct refunds.
+**Independent Test**: Basic Ring and Silverclay each create one final bill after their final required session; valid VNPay settles once, while invalid/duplicate/mismatched/late/browser-return-only evidence cannot release output.
 
-**Independent Test**: Verify 100%, 50% and rejection bands; ticket/capacity changes follow verified refund only.
+- [ ] T014 [US1] Implement one-final-bill eligibility and balance calculation (frozen package price + accepted charges − accepted deposit) in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalBookingBillService.java`; require only Operations' settlement-readiness conclusion, never create item/session/participant/ticket bills.
+- [ ] T015 [P] [US1] Implement permitted fixed-price package/branch add-on and Staff/Manager-confirmed variable-charge handling in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/AdditionalChargeService.java`; reject arbitrary customer amounts and preserve correction evidence.
+- [ ] T016 [US1] Implement matched signed VNPay IPN/QueryDR once-only settlement/release in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalPaymentService.java` after T005 and T007; send 003.1 only the idempotent final-balance-resolved conclusion, never mutate Booking directly; browser redirect/manual counter record cannot settle.
+- [ ] T017 [US1] Implement authorized 24-hour deferred-payment case, at-most-one reminder and audited reissue after expiry in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/DeferredPaymentService.java` after T008; delivery failure cannot change financial truth.
+- [ ] T018 [US1] Add bill, charge, payment replay, unpaid-release and deferred-expiry coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/FinalBookingSettlementIT.java`.
+- [ ] T019 [US1] **BLOCKED — T013**: implement approved final-bill transport and React + Vite flow states only in paths approved by `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml`.
 
-- [ ] T014 [P] [US2] Add refund-case entity/DAO and policy snapshot in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/{entity,dao}/`.
-- [ ] T015 [US2] Implement eligibility and earliest-session refund policy in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/WorkshopRefundService.java`.
-- [ ] T016 [US2] Implement idempotent refund callback and Operations facade consequences in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/WorkshopRefundCallbackService.java`.
-- [ ] T017 [US2] Implement customer cancellation request/result DTOs and `WorkshopCancellationController.java` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/controller/`, then add lifecycle tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopRefundIT.java`.
+## Phase 4: User Story 2 — Customer cancels a whole booking (P1)
 
-## Phase 5: User Story 3 — Manual reschedule (P2)
+**Goal**: Guest/authorized Member obtains a whole-booking cancellation/refund decision, never a per-session/ticket/participant refund.
 
-**Goal**: Atomically move one eligible item to a compatible session.
+**Independent Test**: 72+ hour and 24–72 hour requests yield correct 100%/50% deposit outcome; ineligible requests fail; capacity/tickets remain unchanged before verified refund success.
 
-**Independent Test**: Verify ticket/capacity transfer and QR replacement; no-capacity target changes nothing.
+- [ ] T020 [US2] Implement whole-booking eligibility, earliest-session policy snapshot and refund request in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/CustomerBookingCancellationService.java` using approved 003.1/003.2 projections only.
+- [ ] T021 [US2] Implement idempotent verified-refund handling and request Operations consequence only after success in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/WorkshopRefundService.java` after T006 and T007.
+- [ ] T022 [US2] Add timing bands, checked-in/no-show denial, refund retry/out-of-order and no-pre-success-capacity-effect tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/CustomerCancellationIT.java`.
+- [ ] T023 [US2] **BLOCKED — T013**: implement approved customer cancellation transport and React + Vite recovery states in the paths approved by `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml`.
 
-- [ ] T018 [P] [US3] Add reschedule-record entity/DAO in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/{entity,dao}/`.
-- [ ] T019 [US3] Implement target validation, price rule and Operations atomic transfer in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/WorkshopRescheduleService.java`.
-- [ ] T020 [US3] Implement reschedule request/result DTOs and `WorkshopRescheduleController.java` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/controller/`, then add atomic rollback tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopRescheduleIT.java`.
+## Phase 5: User Story 3 — Manager changes future required sessions (P2)
 
-## Phase 6: User Story 4 — Financial exceptions (P2)
+**Goal**: Manager replaces one/two future required sessions as one complete booking-level result while ticket QR persists.
 
-**Goal**: Support audited deferred payment and Mland-caused item remedy.
+**Independent Test**: Operations atomically applies a complete compatible replacement or applies none; Silverclay retains branch/order/same-day-gap constraints.
 
-**Independent Test**: Retain item through expiry; confirmed item refund changes no other booking item.
+- [ ] T024 [US3] **BLOCKED — T006**: implement complete required-session-change orchestration in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/RequiredSessionChangeService.java` after Operations exposes its atomic semantic facade.
+- [ ] T025 [US3] Add one/two-session change, no-capacity rollback, persistent QR, current customer-projection handoff, and Silverclay branch/distinct/chronological/gap coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/RequiredSessionChangeIT.java` after T024.
+- [ ] T026 [US3] **BLOCKED — T013**: implement approved Manager-change transport and React + Vite recovery states in paths approved by `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml`.
 
-- [ ] T021 [P] [US4] Add deferred-payment and item-remedy entities/DAOs in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/{entity,dao}/`.
-- [ ] T022 [US4] Implement the approved 24-hour exception, one reminder, expiry and audited reissue contract in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/DeferredPaymentService.java`.
-- [ ] T023 [US4] Implement replacement-first item remedy in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/MlandCancellationRemedyService.java`.
-- [ ] T024 [US4] Implement deferred-payment/remedy DTOs and `WorkshopSettlementExceptionController.java` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/controller/`, then add duplicate-event tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopExceptionIT.java`.
+## Phase 6: User Story 4 — Manager remedies Mland-caused package disruption (P2)
 
-## Phase 7: Polish
+**Goal**: replacement is offered first; unresolved disruption becomes an audited whole-package refund under its retained policy snapshot.
 
-- [ ] T025 Run and retain evidence for `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/quickstart.md`.
-- [ ] T026 Define the approved frontend repository/path, route ownership, and loading/empty/validation/success/error/recovery states for cancellation, final payment, deferred-payment expiry and reschedule in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/plan.md` before creating frontend implementation tasks.
+**Independent Test**: unavailable/declined replacement refunds all collected funds under confirmation-time snapshot; default is 100%; later revision cannot change historical bookings.
 
-## Dependencies
+- [ ] T027 [US4] **BLOCKED — T006**: implement replacement-first cancellation-case orchestration in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/MlandCancellationRemedyService.java` after Operations supplies the cancellation/replacement boundary.
+- [ ] T028 [US4] **BLOCKED — T004**: implement prospective central-policy revision authorization and immutable snapshot selection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/MlandCancellationPolicyService.java` after FE-001 supplies central authority.
+- [ ] T029 [US4] Add replacement-first, declined/unavailable, default-100%, historical-snapshot and no-partial-refund coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/MlandCancellationRemedyIT.java` after T027–T028.
+- [ ] T030 [US4] **BLOCKED — T013**: implement approved remedy/policy transport and React + Vite states in paths approved by `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml`.
 
-T001–T007 block all stories. US1 and US2 are P1; US3 and US4 can proceed after
-foundational facade/authorization work. T026 is a design prerequisite for
-frontend implementation; T025 follows all intended stories.
+## Phase 7: Cross-cutting verification and handoff
 
-## MVP
+- [ ] T031 [P] Run [quickstart validation](./quickstart.md) non-production scenarios and retain redacted evidence in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/quickstart.md`.
+- [ ] T032 [P] Verify `ApplicationModules.verify()`, authorization denial, provider idempotency, facade-only access and data-bearing upgrade/recovery path in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/`.
+- [ ] T033 Review T004–T008 and T013 against owner artifacts before unblocking dependent implementation work in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/tasks.md`.
 
-Complete T001–T013 first, then validate counter settlement independently.
+## Dependencies and execution order
+
+```text
+T001–T003 → T004/T005/T006/T007/T008/T009–T013
+T009–T013 → US1 (T014–T019) and US2 (T020–T023)
+T006 + T013 → US3 (T024–T026)
+T004 + T006 + T013 → US4 (T027–T030)
+All intended stories → T031–T033
+```
+
+## Parallel opportunities
+
+- T002 and T003 can run in parallel.
+- Once approved, T011 and T012 use different services and can run in parallel.
+- T015 can proceed alongside T016 after the common foundation is available.
+- US2 has no dependency on US3/US4 beyond its explicit Operations refund facade.
+
+## Implementation strategy
+
+**MVP**: T001–T019, but only after the named Booking, FE-001, VNPay, Notification
+and public-transport blockers are actually resolved. Add US2, then US3 and US4.
+All 33 tasks are intentionally unchecked.

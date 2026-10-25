@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-25
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -12,6 +12,29 @@
 Design a provider-neutral OTA-connectivity module that lets Mland publish approved workshop schedule, availability, and sales-closed state while Mland remains the source of truth for capacity, bookings, and tickets. Klook and GetYourGuide are candidate adapters, not enabled integrations. Each provider can move from preparation synchronization to booking only after its separate onboarding, commercial, callback, ticket/QR, and late-booking gates are evidenced.
 
 The planned design uses an adapter boundary, durable change delivery, idempotent inbound processing, audit-safe reconciliation, and facade calls to Booking, Operations, Settlement, and Account/Personnel. It deliberately does not promise a real-time SLA or accept an OTA booking before the provider gate is approved.
+
+### Resolved Operations Snapshot Consumer Boundary
+
+003.4 consumes, but never constructs or recalculates, the authoritative
+schedule snapshot and availability/sale-state snapshot from 003.2. The schedule
+input is limited to opaque session identity, branch, scheduled start/end, source
+change identity/version, and effective time. The availability/sale-state input
+is limited to opaque session identity, branch scope, sellable availability, sale
+state, source change identity/version, and effective time. The input excludes
+PII, Booking/payment/ticket detail, and OTA mapping. Sellable availability
+already subtracts confirmed ticket seats and active, unexpired direct-Mland holds.
+Each session has one monotonically increasing source-version sequence shared by
+both snapshot kinds. 003.4 uses it to ignore duplicates or older updates and
+requests an authoritative 003.2 resync when it detects a gap or cannot establish
+ordering. This internal boundary is not a public REST API or provider payload.
+
+If provider publication fails, only the affected 003.4 mapping may be
+sales-closed/suspended and reconciled. It must not change a 003.2 session's
+capacity or sale state, or alter direct-Mland booking behaviour. Basic Ring is
+the only OTA package in V1; Silverclay remains direct-Mland only. A normal
+`SALES_PAUSED` snapshot closes sale or publishes zero availability for the
+affected session while retaining its mapping; only a source gap/order failure or
+provider delivery failure suspends the mapping.
 
 ## Technical Context
 
@@ -29,7 +52,12 @@ The planned design uses an adapter boundary, durable change delivery, idempotent
 
 **Performance Goals**: No approved numeric latency, retry, or throughput target. Correctness, idempotency, auditability, and safe sales closure take priority over apparent immediacy.
 
-**Constraints**: Mland is authoritative for capacity and ticket issuance; no provider secret, customer card data, or raw callback payload may appear in logs; server-side capability and branch scope decide authorization; all OTA booking effects must be idempotent; a failed mapping closes OTA sales until confirmed re-sync.
+**Constraints**: Mland is authoritative for schedule, capacity and ticket
+issuance; 003.4 consumes the 003.2 schedule and availability/sale-state
+snapshots without recalculating or writing them; no provider secret, customer
+card data, or raw callback payload may appear in logs; server-side capability
+and branch scope decide authorization; all OTA booking effects must be
+idempotent; a failed mapping closes OTA sales until confirmed re-sync.
 
 **Scale/Scope**: Initial `PER_PERSON` workshop offers only. Preparation synchronization may cover schedule, availability, and sales-closed state. Booking, ticket delivery, cancellation/refund handling, and payout reconciliation are enabled per provider only after the go-live gates in [spec.md](./spec.md) are approved.
 
@@ -63,7 +91,8 @@ ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/
     └── ota-connectivity.openapi.yaml
 ```
 
-`tasks.md` is intentionally absent; it is Phase 2 output of `$speckit-tasks`.
+`tasks.md` is the dependency-ordered implementation handoff generated after
+this plan. It must be rebased when an approved design decision changes.
 
 ### Intended implementation boundaries
 
@@ -97,7 +126,21 @@ The source tree is a proposed boundary, not an instruction to create it before t
 ## Design Decisions
 
 - Use one provider-neutral adapter port per candidate OTA. A provider-specific payload never leaks into Booking, Operations, Settlement, UI, or public REST DTOs.
-- Record a versioned outbound change before attempting delivery. Delivery attempts are append-only evidence; retry exhaustion moves the affected mapping to sales-closed and creates reconciliation work rather than silently retrying forever.
+- Record a versioned outbound change from the authoritative 003.2 source change
+  identity/version before attempting delivery. Delivery attempts are append-only
+  evidence; retry exhaustion moves only the affected mapping to sales-closed and
+  creates reconciliation work rather than silently retrying forever.
+- Apply at-least-once Operations schedule and availability/sale-state snapshots
+  through persistent internal Spring Modulith event publications recorded in
+  the same Operations local transaction as the authoritative source change;
+  V1 uses no message broker. Consume them idempotently through one
+  monotonically increasing per-session source version: ignore duplicates or
+  older updates, and request an authoritative Operations resync for a gap or
+  uncertain ordering. Before any provider call, materialize an accepted update
+  as this module's durable outbound change record. Do not create a provider
+  call or mutate a mapping from an update that has not been accepted as current.
+  Publish `SALES_PAUSED` as normal closed/zero availability while retaining the
+  mapping.
 - Deduplicate inbound callbacks by provider, provider event reference, and safe payload fingerprint before invoking Mland booking/ticket effects. A duplicate therefore returns the prior outcome and never consumes additional capacity.
 - Permit only `PER_PERSON` sale and require one successful Mland ticket for each participant. A provider booking cannot become confirmed until the Operations facade atomically reserves capacity and returns those tickets.
 - Separate OTA guest payment evidence, OTA payout owed to Mland, and any direct Mland add-on bill. None is derived from a browser redirect or from another ledger.
@@ -107,7 +150,16 @@ The source tree is a proposed boundary, not an instruction to create it before t
 
 ## Risk Review: shortcuts rejected
 
-Calling this merely a calendar sync would conceal the failure paths that create overbooking: stale inventory, duplicate callbacks, missing ticket delivery, and bookings arriving after a sales-close update. Likewise, enabling both Klook and GetYourGuide from public API examples would make Mland responsible for terms it does not know. The plan therefore permits useful catalogue/preparation sync but keeps booking disabled until each provider passes the evidence checklist. No invented SLA, retention period, role code, credential store, or pricing rule is treated as an approved requirement.
+Calling this merely a calendar sync would conceal the failure paths that create
+overbooking: stale inventory, duplicate callbacks, missing ticket delivery, and
+bookings arriving after a sales-close update. Recalculating availability in
+003.4 would be another hidden oversell path because holds and confirmed tickets
+belong to Operations. Likewise, enabling both Klook and GetYourGuide from public
+API examples would make Mland responsible for terms it does not know. The plan
+therefore permits useful catalogue/preparation sync but keeps booking disabled
+until each provider passes the evidence checklist. No invented SLA, retention
+period, role code, credential store, or pricing rule is treated as an approved
+requirement.
 
 ## Complexity Tracking
 
@@ -115,4 +167,17 @@ No constitution violation or additional project is required.
 
 ## Delivery and Verification
 
-Before implementation, approve the proposed schema/REST/adapter boundary and obtain a provider readiness record for each provider to be enabled. Implement using the next append-only Flyway migration after checking deployed history. Verify `ApplicationModules.verify()`, empty/upgrade migration behavior, authorization, callback authentication/redaction, duplicate and out-of-order delivery, outage-to-sales-close, confirmed re-sync, per-ticket check-in, and the quickstart scenarios. Do not deploy booking capability merely because preparation synchronization succeeds.
+Before implementation, approve the proposed schema/REST/adapter boundary and
+obtain a provider readiness record for each provider to be enabled. Implement
+using the next append-only Flyway migration after checking deployed history.
+Verify `ApplicationModules.verify()`, empty/upgrade migration behavior,
+authorization, callback authentication/redaction, duplicate and out-of-order
+delivery, authoritative Operations resync after any schedule/availability/sale-
+state version gap, normal pause/resume publication, outage-to-mapping-sales-
+close, confirmed re-sync, per-ticket check-in, and the quickstart scenarios.
+Verify that mapping suspension never mutates Operations capacity/sale state or
+direct-Mland booking behaviour. Also verify that a failed or restarted 003.4
+consumer receives the persistent internal Operations publication again and
+creates no duplicate logical outbound change before its separately durable
+provider delivery. Do not deploy booking capability merely because preparation
+synchronization succeeds.
