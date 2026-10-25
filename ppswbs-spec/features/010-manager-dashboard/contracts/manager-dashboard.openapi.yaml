@@ -41,7 +41,7 @@ paths:
             uniqueItems: true
             items:
               type: string
-              minLength: 1
+              format: uuid
       responses:
         '200':
           description: Complete, empty, or explicitly partial dashboard data.
@@ -92,7 +92,7 @@ components:
       enum: [RETAIL, WORKSHOP_REVENUE, WORKSHOP_CAPACITY, ATTENDANCE]
     SourceStatus:
       type: string
-      enum: [COMPLETE, EMPTY, DELAYED, UNAVAILABLE]
+      enum: [COMPLETE, EMPTY, UNAVAILABLE]
     ReportingScope:
       type: object
       additionalProperties: false
@@ -129,20 +129,11 @@ components:
         - workshopUtilizationPercent
       properties:
         retailRevenue:
-          type: integer
-          format: int64
-          nullable: true
-          minimum: 0
+          $ref: '#/components/schemas/NullableDecimalString'
         workshopRevenue:
-          type: integer
-          format: int64
-          nullable: true
-          minimum: 0
+          $ref: '#/components/schemas/NullableDecimalString'
         totalRevenue:
-          type: integer
-          format: int64
-          nullable: true
-          minimum: 0
+          $ref: '#/components/schemas/NullableDecimalString'
         paidRetailOrderCount:
           type: integer
           format: int64
@@ -164,6 +155,11 @@ components:
           nullable: true
           minimum: 0
           description: Weighted checked-in participants divided by configured capacity, multiplied by 100.
+    NullableDecimalString:
+      type: string
+      nullable: true
+      pattern: '^(0|[1-9][0-9]{0,18})$'
+      description: Non-negative base-10 integer string for VND values, preventing JavaScript precision loss.
     BranchKpi:
       type: object
       additionalProperties: false
@@ -171,13 +167,13 @@ components:
       properties:
         branchId:
           type: string
+          format: uuid
         branchName:
           type: string
         currency:
           type: string
-          nullable: true
-          pattern: '^[A-Z]{3}$'
-          description: Null only when the selected aggregates cannot be safely consolidated into one currency.
+          enum: [VND]
+          description: FE-10 V1 reporting currency. A non-VND source fact is reported through partial quality metadata and is never converted.
         values:
           $ref: '#/components/schemas/KpiValues'
     SourceQuality:
@@ -189,6 +185,7 @@ components:
           $ref: '#/components/schemas/SourceName'
         status:
           $ref: '#/components/schemas/SourceStatus'
+          description: A successful source read is COMPLETE or EMPTY. UNAVAILABLE means the source could not be read and its affected KPI is not treated as zero.
         asOf:
           type: string
           format: date-time
@@ -208,7 +205,8 @@ components:
           $ref: '#/components/schemas/DashboardStatus'
         currency:
           type: string
-          pattern: '^[A-Z]{3}$'
+          enum: [VND]
+          description: FE-10 V1 reporting currency.
         totals:
           $ref: '#/components/schemas/KpiValues'
         branches:

@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-25
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -10,7 +10,7 @@
 **Input**: Feature specification from
 `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/spec.md`
 
-**Status**: Design ready; implementation has not started.
+**Status**: Design draft — internal capacity semantics clarified; implementation-contract details remain unapproved.
 
 ## Summary
 
@@ -22,9 +22,68 @@ The agreed target boundary is deliberately different from legacy code:
 `workshopoperations` owns every operational record needed to decide capacity or
 attendance, including the attendance ticket, QR reference and ticket code.
 `workshopbooking` owns the commercial booking, payment, invoice and customer
-ticket delivery. Booking reaches Operations only through a named facade to hold
-capacity and issue/retrieve tickets after the commercial event that permits it.
-No module may read another module's repositories or entities directly.
+ticket delivery. Booking reaches Operations only through two named synchronous
+facade boundaries: a capacity boundary and a delivery-safe ticket-projection
+boundary. No module may read another module's repositories or entities directly.
+
+### Resolved OTA-Observable Snapshot Boundary
+
+Operations remains the sole source of session schedule, capacity and direct-
+Mland sale state. For a mapped Basic Ring session, it makes a schedule snapshot
+and an availability/sale-state snapshot available to 003.4 only after a
+completed local change alters OTA-observable data. The schedule snapshot is
+limited to opaque session identity, branch, scheduled start/end, source change
+identity/version and effective time. The availability/sale-state snapshot is
+limited to opaque session identity, branch scope, sellable availability, sale
+state, source change identity/version and effective time. Neither contains PII,
+Booking/payment data, ticket detail or OTA mapping. Sellable availability
+subtracts confirmed ticket seats and active, unexpired direct-Mland holds.
+
+Each session has one monotonically increasing source-version sequence shared by
+both snapshot kinds. A completed transaction that changes one or more
+OTA-observable values advances it once and exposes the complete post-state; an
+internal-only change does neither. An authoritative resync returns the current
+complete snapshot for one affected session at its existing version. 003.4 owns
+provider mapping/delivery: it deduplicates at-least-once delivery, resyncs after
+a gap, and suspends only its affected mapping on a gap/order or provider
+delivery failure. Operations does not call an external OTA and that failure
+never pauses direct-Mland sales or changes Operations capacity.
+
+### Resolved Ticket/Session Boundary
+
+One participant has one persistent QR ticket, including for Silverclay. Its
+validity is evaluated against its entitled session in the scanner's current
+session/branch context, and attendance is independent for every ticket/session
+pair. Operations supplies Booking only a delivery-safe ticket projection: QR
+reference or ticket identity, ticket code, and each entitled session's branch
+and scheduled start/end. Booking adds commercial/contact information and sends
+it to the customer. The capacity facade supplies sale eligibility and atomic
+reserve/commit/release outcomes; the ticket-projection facade supplies only the
+delivery-safe projection after successful commitment. This is an internal
+synchronous boundary only: database shape, facade types, Java methods and
+public HTTP routes remain unapproved.
+
+### Resolved Settlement and Required-Session-Change Boundary
+
+For a booking/package context supplied by 003.3, Operations alone determines
+settlement readiness. It returns only the conclusion: ready is true only when
+every required session is `ATTENDANCE_FINALIZED`; any unfinished or cancelled
+required session yields false. It exposes no attendance, ticket, Staff, audit or
+PII detail, and Settlement must not infer readiness from schedule time or
+per-session records.
+
+For a Manager-mediated customer change, 003.3 supplies the complete resulting
+required-session set. Operations accepts a source only while future and outside
+`IN_PROGRESS`, `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` and `CANCELLED`.
+Every target must be future, `PUBLISHED`, customer-selectable and have capacity
+for the full participant count. Operations updates all affected entitlements and
+capacity together or changes none. The persistent QR is retained; a replaced
+session retains neither entitlement nor capacity. `SALES_PAUSED` has no V1
+Manager-reschedule exception. A cancellation-requested source uses 003.3's
+separate Mland-caused remedy instead.
+
+These are synchronous internal semantic boundaries. They do not approve facade
+types, Java methods, DTO fields, tables, locks, events or public HTTP routes.
 
 ## Technical Context
 
@@ -99,29 +158,76 @@ boundary.
 
 ## Implementation Sequence
 
-1. **Establish integration contracts.** Define an Operations facade for
-   capacity holds, commitment confirmation/release, ticket issue and
-   ticket-validity projection for commercial outcomes reported by 003.3, plus
-   delivery-safe ticket summaries. Define the consumed account/personnel facade
+1. **Establish integration contracts.** Define separate Operations capacity and
+   delivery-safe ticket-projection facades. The capacity facade handles holds,
+   commitment confirmation/release and sale eligibility; the ticket-projection
+   facade supplies customer-delivery summaries after successful commitment.
+   Define the consumed account/personnel facade
    for actor activity, required capability and Manager branch scope. Do not map
    a UI role name to permissions inside Operations.
+   For 003.1, the facade boundary exposes only a sale-eligibility snapshot
+   (customer-selectability, sale state, branch, scheduled start/end, remaining
+   capacity) and atomic group operations: reserve N seats in every requested
+   session or none; commit every active hold of a booking or none; and release
+   active holds once. It also supplies Booking a delivery-safe ticket
+   projection, never attendance, Staff/audit or PII. The two facades are
+   synchronous. Every booking-critical capacity call joins the caller's one
+   local MySQL transaction; events are limited to non-critical post-transition
+   handoff. For an authorized Booking customer read, the same delivery-safe
+   boundary returns the current entitlement/branch/schedule rather than an
+   initial snapshot. A successful replacement or verified-refund consequence
+   therefore becomes visible to the existing Booking/Magic-Link access without
+   Booking copying or owning a session schedule.
+   For 003.4, Operations exposes only the approved semantic schedule and
+   availability/sale-state snapshots for mapped Basic Ring sessions. `DRAFT`
+   produces none; `PUBLISHED` and `SALES_PAUSED` expose or refresh the current
+   snapshot, while `CANCELLATION_REQUESTED` and `CANCELLED` expose closed sale
+   state. Hold creation, release and expiry notify when availability changes;
+   pause/resume and session cancellation/closure notify when sale state changes.
+   Hold-to-ticket commitment creates no notification when the post-state is
+   unchanged. Both snapshot kinds use one per-session source-version sequence;
+   a resync returns the one affected session's complete current post-state at
+   its existing version. The handoff is a persistent internal Spring Modulith
+   event publication recorded in the same Operations transaction; 003.4 consumes
+   it at-least-once and owns its separate durable provider delivery. V1 uses no
+   message broker. Concrete event/facade types, payload, schema, retry values
+   and provider policy remain unapproved.
+   Public HTTP routes, Java
+   method names, DTO fields and locking mechanics remain unapproved design
+   details.
 2. **Create the operational aggregate.** Model branch, reusable branch slot,
    session, active Staff assignment, one Manager operational lead, capacity hold
-   and individual attendance ticket. Enforce branch/date/slot uniqueness,
-   positive capacity and the no-overlap slot rule.
+   and individual attendance ticket with session entitlements. Enforce
+   branch/date/slot uniqueness, positive capacity and the no-overlap slot rule.
 3. **Implement session administration.** Support single and bounded bulk
    session generation (at most 90 future days), duplicate reporting, slot
    activation/deactivation, lifecycle transitions, schedule change warnings and
    state-aware assignment/lead handover.
 4. **Make capacity transactional.** Reserve only against `PUBLISHED` sessions;
-   retain pre-pause unexpired holds; confirm or release holds atomically. Lock
-   the session/commitment rows within a transaction so concurrent reservations
-   cannot oversell capacity.
+   retain pre-pause unexpired holds; confirm or release holds atomically.
+   Protect concurrent reservations from oversell using an approved
+   implementation mechanism; the particular lock or concurrency technique is
+   deliberately deferred.
+   A multi-session request is one all-or-nothing business result. A commit with
+   a missing/expired hold commits nothing; an expiry/customer-release retry is
+   idempotent and cannot return capacity twice. Each booking-critical capacity
+   command joins the caller's one local MySQL transaction, while gateway calls
+   remain outside that transaction.
+   After a completed local transaction alters OTA-observable schedule,
+   sellable availability or sale state, advance that session's unified source
+   version once and make its complete post-state available to 003.4. The
+   notification is persisted as an internal Spring Modulith event in that same
+   transaction and is at-least-once: 003.4 applies only a newer source
+   version/change identity and requests an authoritative resync of the one
+   affected session on a gap or uncertain order. Resync does not advance the
+   source version. A 003.4 sync failure affects only that feature's OTA mapping
+   and reconciliation; it never changes an Operations session or direct booking.
 5. **Implement tickets and check-in.** Generate individual opaque QR references
-   and unique ticket codes. Validate session, branch, state, opening time,
-   actor scope and unused status in one transaction. QR is primary, exact ticket
-   code is normal fallback, booking code is lookup-only. Overrides remain in a
-   separate permissioned, reasoned and audited path.
+   and unique ticket codes. Validate the scanner's current session/branch,
+   ticket entitlement, ticket validity, that ticket/session pair's attendance
+   state, opening time and actor scope as one result. QR is primary, exact
+   ticket code is normal fallback, booking code is lookup-only. Overrides remain
+   in a separate permissioned, reasoned and audited path.
    A repeated normal scan returns its existing check-in result as `200 OK` with
    `ALREADY_CHECKED_IN` and `checkedInAt`; it does not create another action.
 6. **Close attendance correctly.** Let an assigned active Staff member or the
@@ -149,6 +255,14 @@ boundary.
   `contracts/workshop-operations.openapi.yaml`.
 - Modulith-test that Operations does not depend on Booking internals and that
   Booking uses only the Operations facade.
+- Verify the OTA-observable boundary using session publication, schedule change,
+  active-hold creation/release/expiry, sale pause/resume and session
+  cancellation/closure; verify `DRAFT` and internal-only changes produce no
+  snapshot and a hold-to-ticket commitment produces none when the exposed
+  post-state is unchanged. Verify duplicate/older notifications are harmless,
+  a gap triggers one-session authoritative resync at the existing version, and
+  003.4 mapping suspension never changes Operations capacity or direct-Mland
+  sale state.
 
 ## Complexity Tracking
 

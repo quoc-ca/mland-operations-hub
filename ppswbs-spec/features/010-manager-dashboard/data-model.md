@@ -8,7 +8,7 @@ owning modules and cross into `reporting` only as minimized aggregates.
 
 | Logical value | Owner | Purpose |
 | --- | --- | --- |
-| Manager capability and branch assignments | `technicaladmin` authorization facade, pending approved role mapping | Establish authorized reporting scope |
+| Manager capability and branch assignments | `technicaladmin` authorization facade; approved `REPORTING_EXECUTIVE_VIEW` capability and active MySQL `staff_branch_assignment` records | Establish authorized reporting scope |
 | Retail paid aggregate | `readyringsales` | Net product revenue and paid branch-order count |
 | Workshop final-revenue aggregate | `workshopbooking` | Final fully paid workshop invoice revenue |
 | Completed-session capacity aggregate | `workshopbooking` | Capacity denominator for completed sessions |
@@ -30,18 +30,24 @@ current instant. A fixed/injected clock is required for deterministic tests.
 ## AuthorizedBranchScope
 
 - Authenticated principal reference
-- Required business capability: Manager executive reporting
-- Complete set of stable authorized branch identifiers
+- Required business capability: `REPORTING_EXECUTIVE_VIEW`
+- Complete set of stable branch identifiers from active MySQL
+  `staff_branch_assignment` records
 - Effective requested branch identifiers
 
-If no branches are requested, the effective set is all authorized branches. If
+If no branches are requested, the effective set is all active assigned branches.
+No active assignment denies FE-10 access. If
 any explicitly requested branch is outside the authorized set, the complete
 request is rejected; unauthorized branches are not silently removed.
+
+`branchId` is one immutable UUID key referenced by `staff_branch_assignment`,
+retail branch orders, workshop sessions/final invoices, and check-ins. The
+branch display name is not an authorization or aggregation key.
 
 ## RetailBranchAggregate
 
 - Stable branch identifier
-- Currency code
+- Currency code: `VND` only
 - Net product revenue after allocated discounts
 - Fully paid branch-order count
 - Source `asOf` instant
@@ -54,7 +60,7 @@ the reporting interval.
 ## WorkshopRevenueAggregate
 
 - Stable branch identifier
-- Currency code
+- Currency code: `VND` only
 - Final fully paid invoice revenue
 - Qualifying final-invoice count, for validation evidence only
 - Source `asOf` instant
@@ -89,19 +95,21 @@ count is not a substitute for actual attendance.
 ## SourceQuality
 
 - Source: `RETAIL`, `WORKSHOP_REVENUE`, `WORKSHOP_CAPACITY`, or `ATTENDANCE`
-- Status: `COMPLETE`, `EMPTY`, `DELAYED`, or `UNAVAILABLE`
-- Optional `asOf` instant
+- Status: `COMPLETE`, `EMPTY`, or `UNAVAILABLE`
+- Optional `asOf` instant identifying the aggregate-read time
 - Optional safe reason code
 
 `EMPTY` means the source was successfully evaluated and no qualifying facts
 exist. `UNAVAILABLE` means the value is unknown and must not be represented as
-zero. Safe reason codes must not reveal SQL, stack traces, provider payloads,
-secrets, or customer information.
+zero. A successfully verified payment is committed by its owning source before
+it can appear in an aggregate; pending or failed payments are excluded. Safe
+reason codes must not reveal SQL, stack traces, provider payloads, secrets, or
+customer information.
 
 ## BranchKpi
 
 - Stable branch identifier and display name
-- Currency code
+- Currency code: `VND` only
 - Retail revenue, nullable when unknown
 - Workshop revenue, nullable when unknown
 - Total verified revenue, nullable when a required revenue component is unknown
@@ -113,13 +121,15 @@ secrets, or customer information.
 - Relevant source-quality references
 
 The branch display name is presentation data only. It is never used as a join
-key or authorization key.
+key or authorization key. Revenue values are serialized to the React client as
+non-negative base-10 decimal strings; count and percentage fields retain their
+respective numeric types.
 
 ## DashboardSnapshot
 
 - Resolved reporting period
 - Effective authorized branch scope
-- Single currency code when totals are composable
+- Currency code: `VND`
 - Consolidated KPI values
 - Ordered collection of `BranchKpi`
 - Overall status: `COMPLETE`, `EMPTY`, or `PARTIAL`
@@ -140,9 +150,9 @@ record nor a persisted analytics snapshot.
 4. Workshop revenue uses the final invoice total once at `fullyPaidAt`; the
    deposit is never added separately.
 5. Total revenue equals retail revenue plus workshop revenue only when both
-   required values are known and have the same currency.
-6. Different currencies are never summed. The affected total is incomplete and
-   receives safe quality evidence.
+   required values are known and both source facts use `VND`.
+6. A non-`VND` source fact is never converted or summed. The affected source
+   and KPI are incomplete and receive safe quality evidence.
 7. Consolidated utilization is weighted:
    `sum(checkedInParticipants) / sum(completedSessionCapacity) * 100`.
    It is not the average of branch percentages.

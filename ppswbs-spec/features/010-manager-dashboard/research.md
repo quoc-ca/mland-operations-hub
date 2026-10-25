@@ -24,10 +24,18 @@ that production revenue reporting may be enabled before the listed gates pass.
 
 ## Decision 2: Authorize capability and branch scope before reading metrics
 
-- **Decision**: Verify identity, resolve the Mland Manager capability, and load
-  stable authorized branch identifiers before calling any metric facade. An
-  explicitly requested branch must belong to the complete authorized set.
-  Missing or unresolved role mapping is denied by default.
+- **Decision**: Verify identity, require the Mland
+  `REPORTING_EXECUTIVE_VIEW` capability, and load
+  stable authorized branch identifiers from active MySQL
+  `staff_branch_assignment` records before calling any metric facade. An
+  explicitly requested branch must belong to the complete authorized set; no
+  active assignment denies FE-10 access. Admin parameter-configuration
+  authority does not imply this capability; missing capability evidence is
+  denied by default.
+
+The same immutable `branchId` must be carried by assignment, retail, workshop,
+and attendance facts. Reporting never authorizes or aggregates by display name
+or free-text workshop location.
 - **Rationale**: Firebase proves identity only; MySQL remains authoritative for
   Mland roles and branch assignments. Early authorization also prevents timing
   and error behavior from leaking the existence of another branch's data.
@@ -39,7 +47,7 @@ that production revenue reporting may be enabled before the listed gates pass.
 ## Decision 3: Read minimized aggregate projections through source facades
 
 - **Decision**: The source modules expose immutable aggregate read contracts by
-  branch, currency, and half-open time interval. `reporting` does not access
+  branch, `VND` monetary facts, and half-open time interval. `reporting` does not access
   their repositories, entities, internal DTOs, or raw transaction lists.
 - **Rationale**: Source modules own recognition rules and can aggregate close to
   their data. This respects Modulith boundaries and avoids transferring
@@ -104,12 +112,15 @@ that production revenue reporting may be enabled before the listed gates pass.
 
 ## Decision 8: Make incomplete data explicit
 
-- **Decision**: Every source projection includes `COMPLETE`, `EMPTY`, `DELAYED`,
-  or `UNAVAILABLE`, an optional `asOf` instant, and a safe reason code. One
-  unavailable source returns HTTP 200 with dashboard status `PARTIAL` and null
-  affected values. If a required revenue source is unavailable, consolidated
-  revenue is null. If all required sources are unavailable, return a typed 503
-  and preserve the previously rendered valid view.
+- **Decision**: Every source projection includes `COMPLETE`, `EMPTY`, or
+  `UNAVAILABLE`, an optional aggregate-read `asOf` instant, and a safe reason
+  code. An order/payment becomes visible only after its owning source commits a
+  successfully verified outcome; an explicit dashboard refresh reads those
+  latest committed facts. One unavailable source returns HTTP 200 with dashboard
+  status `PARTIAL` and null affected values. If a required revenue source is
+  unavailable, consolidated revenue is null. If all required sources are
+  unavailable, return a typed 503 and preserve the previously rendered valid
+  view.
 - **Rationale**: Zero is a valid business value and must not be confused with a
   failed source. Explicit quality state lets a Manager interpret the dashboard
   without exposing stack traces or internal payloads.
@@ -117,17 +128,20 @@ that production revenue reporting may be enabled before the listed gates pass.
   whole dashboard for any one source were rejected as respectively misleading
   and unnecessarily fragile.
 
-## Decision 9: Use request-time REST and server-rendered reads
+## Decision 9: Use request-time REST and React client reads
 
-- **Decision**: Expose a versioned Manager-only GET contract and a Thymeleaf GET
-  view. htmx may replace the report fragment after a successful filter or
-  explicit refresh. There is no timer polling, mutation endpoint, export, or
-  background aggregation in V1.
+- **Decision**: Expose a versioned Manager-only GET contract consumed by the
+  separate React + Vite client. React reloads after an initial route load,
+  successful filter application, or explicit refresh and renders distinct
+  loading, empty, validation, partial, unavailable, and recovery states. There
+  is no timer polling, mutation endpoint, export, or background aggregation in
+  V1.
 - **Rationale**: Request-time composition is the smallest design that satisfies
-  the approved scope and progressive-web baseline. It also avoids stale cache
-  semantics before scale and latency targets are established.
+  the approved separate-frontend baseline. It also avoids stale cache semantics
+  before scale and latency targets are established.
 - **Alternatives considered**: Scheduled snapshots, WebSockets, automatic
-  polling, and client-only rendering were rejected as unsupported complexity.
+  polling, and a new client state library were rejected as unsupported
+  complexity.
 
 ## Decision 10: Keep Admin parameter-impact evidence outside FE-10
 

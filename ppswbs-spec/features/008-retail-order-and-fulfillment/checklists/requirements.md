@@ -39,7 +39,10 @@
 
 ## Notes
 
-- Draft is ready for `speckit-clarify`.
+- Clarification session completed on 2026-10-24. Decisions cover the
+  FE-06 benefit lifecycle, recipient-data persistence, immutable fulfilment
+  after checkout acceptance, FE-02 catalogue ownership, unpaid cancellation,
+  and zero-total checkout acceptance.
 - The payment-hold lifecycle, role/delegation mapping, GHTK fee/weight inputs,
   provider contract, and actual credentials are recorded as clarification gates
   in the Spec assumptions rather than being silently invented.

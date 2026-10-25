@@ -2,36 +2,13 @@ openapi: 3.0.3
 info:
   title: Mland Workshop Settlement API
   version: 1.0.0-draft
-  description: Direct-Mland workshop final settlement; server authorization is mandatory.
-servers:
-  - url: /api/v1
-security:
-  - bearerAuth: []
-paths:
-  /workshop-item-bills/{itemId}:
-    get:
-      summary: Get authorized final item bill
-      responses: { '200': { description: Bill }, '403': { description: Forbidden }, '404': { description: Not found } }
-  /workshop-item-bills/{itemId}/charges:
-    post:
-      summary: Assess or finalize charge line
-      responses: { '201': { description: Charge created }, '403': { description: Forbidden }, '409': { description: State conflict } }
-  /workshop-item-bills/{itemId}/deferred-payment-exceptions:
-    post:
-      summary: Approve 24-hour final-bill payment exception
-      responses: { '201': { description: Exception created }, '403': { description: Missing capability }, '409': { description: Invalid bill state } }
-  /workshop-bookings/{bookingId}/cancellation-requests:
-    post:
-      summary: Request direct whole-booking cancellation and refund
-      responses: { '202': { description: Refund pending }, '409': { description: Ineligible request } }
-  /workshop-items/{itemId}/reschedules:
-    post:
-      summary: Authorize atomic workshop-item reschedule
-      responses: { '200': { description: Rescheduled }, '403': { description: Missing capability }, '409': { description: Capacity or state conflict } }
-  /workshop-items/{itemId}/mland-cancellation-remedies:
-    post:
-      summary: Authorize Mland-caused item remedy
-      responses: { '202': { description: Refund pending }, '403': { description: Missing capability }, '409': { description: Remedy conflict } }
-components:
-  securitySchemes:
-    bearerAuth: { type: http, scheme: bearer, bearerFormat: Firebase-ID-token }
+  description: |
+    No public REST contract is approved for Workshop Settlement and Changes yet.
+    Legacy workshop-item bill paths were retired: V1 uses one final bill for one
+    booking/package, and no clarified source approves replacement HTTP paths,
+    request/response DTOs, or errors.
+
+    Boundaries with Booking, Operations, Account Management, VNPay and
+    Notification are semantic internal facades, not public HTTP APIs. A later
+    transport decision must update this document before implementation relies on it.
+paths: {}

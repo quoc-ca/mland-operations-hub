@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-25
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -19,7 +19,7 @@ This feature owns Manager and Staff operation of published workshop sessions:
 session/branch capacity, Staff assignment, individual attendance-ticket
 check-in, audited exception handling and attendance finalization. It consumes
 confirmed direct bookings from feature 003.1; it does not create customer bookings,
-collect money, perform refunds or connect to OTAs.
+collect money, perform refunds or connect directly to external OTAs.
 
 ## Clarifications
 
@@ -121,10 +121,124 @@ collect money, perform refunds or connect to OTAs.
 - Q: May Manager permanently delete a configured slot? → A: No. V1 retains the slot and Manager only changes whether it is active or inactive.
 - Q: How far ahead may Manager create a session? → A: At most 90 days in the future.
 
+### Session 2026-10-25
+
+- Q: What sale-eligibility information does 003.2 provide to 003.1 before a
+  booking? → A: For each requested session, 003.2 provides only a public
+  snapshot of whether it exists and is customer-selectable, its sale state,
+  branch, scheduled start/end, and remaining capacity. 003.1 uses that snapshot
+  for booking rules but never reads 003.2 entities or repositories directly.
+- Q: When a booking requests capacity in multiple sessions, may the capacity
+  result be partial? → A: No. 003.2 decides the entire requested session set
+  atomically: it holds the requested participant seats in every session or
+  creates no hold in any session.
+- Q: How does 003.2 commit capacity after 003.1 receives valid payment
+  evidence? → A: 003.2 commits all and only the active holds of that booking as
+  one result. If any expected hold is missing or expired, it commits none and
+  003.1 must not confirm the booking.
+- Q: How does 003.2 process a repeated or late request to release booking
+  capacity holds? → A: It releases only the active holds once. A repeated or
+  late request is an idempotent no-op and must not change capacity again.
+
+- Q: When 003.2 makes session availability available to 003.4, must OTA
+  sellable availability subtract active direct-Mland holds? → A: Yes. It is
+  total capacity minus confirmed ticket seats and every active, unexpired
+  direct-Mland capacity hold. A release or expiry makes those seats sellable
+  again; 003.4 never calculates or writes the capacity itself.
+- Q: Which 003.2 changes create an OTA availability/sale-state notification?
+  → A: Only a completed local change that alters the sellable-availability or
+  sale-state snapshot exposed to OTA. Active-hold creation, release, and expiry
+  notify when they change availability; `SALES_PAUSED`, resumed sale, session
+  cancellation, or closure notify when they change sale state. Committing a hold
+  to a ticket creates no separate notification when the exposed snapshot is
+  unchanged.
+- Q: What minimum snapshot does 003.2 provide to 003.4 for availability and
+  sale-state synchronization? → A: Only opaque session identity, branch scope,
+  sellable availability, sale state, source change identity/version, and
+  effective time. It includes no PII, Booking/payment data, ticket detail, or
+  package/provider mapping; 003.4 owns its own mapping.
+- Q: How do 003.2 and 003.4 handle duplicate, out-of-order, or missed
+  availability notifications? → A: Delivery is at-least-once. 003.4 applies
+  only a newer source version/change identity, ignores duplicate or older
+  snapshots, and requests an authoritative 003.2 snapshot resync when it
+  detects a gap or cannot establish order. It does not require exactly-once
+  delivery.
+- Q: What happens to a session when 003.4 cannot synchronize availability to
+  one OTA? → A: 003.4 closes or suspends only the affected OTA mapping and
+  creates reconciliation work. It does not change 003.2 session sale state,
+  capacity, or direct-Mland booking behaviour.
+- Q: When 003.4 detects a gap for one session, what scope must authoritative
+  003.2 resync return? → A: The current complete snapshot of that one affected
+  session at one source version: schedule, availability, and sale state. It does
+  not return a whole branch or separate schedule/availability reads.
+- Q: When 003.2 changes only internal session data that does not affect
+  OTA-observable schedule, availability, or sale state, does it increase the
+  session source version? → A: No. The OTA source version increases and a
+  snapshot is sent only when OTA-observable schedule, sellable availability, or
+  sale state changes.
+- Q: In which lifecycle states must 003.2 start or continue making an
+  OTA-observable snapshot available for a session? → A: It does not send
+  `DRAFT`. It sends or refreshes the snapshot for `PUBLISHED` and
+  `SALES_PAUSED`, and sends the closed state when the session enters
+  `CANCELLATION_REQUESTED` or `CANCELLED`.
+- Q: If one completed 003.2 local change changes several OTA-observable values
+  of the same session, how does its source version increase? → A: It increases
+  exactly once for the transaction's complete post-state. The snapshot at that
+  version contains the session's current schedule, availability, and sale state.
+- Q: When 003.4 requests authoritative resync but the current session state has
+  not changed, does 003.2 increase its source version? → A: No. It returns the
+  current snapshot at its existing source version; 003.4 may retry or republish
+  it without treating the resync as a business change.
+- Q: What V1 mechanism carries an OTA-observable session snapshot from 003.2 to
+  003.4? → A: A persistent internal Spring Modulith event publication recorded
+  in the same Operations local transaction. 003.4 consumes it at-least-once and
+  owns its separate durable outbound OTA delivery; V1 uses no broker.
+
+- Q: Should a Silverclay participant have one QR ticket or one QR per session?
+  → A: Each participant has one persistent QR ticket. It is valid for every
+  required session of the package; attendance remains independently recorded
+  for each ticket/session pair.
+- Q: How is a persistent Silverclay QR validated at a session? → A: The
+  scanner operates in its current session/branch context. It accepts the QR
+  only when the ticket is entitled to that session and branch and has not
+  already checked in at that session; it does not let the QR select a session.
+- Q: What does a prior check-in at the first Silverclay session do to the
+  second session? → A: Check-in is independent for each ticket/session pair.
+  A repeat scan at the first session returns already checked-in there, while
+  the same QR remains eligible for the second session until it is checked in
+  there.
+- Q: What ticket projection does Operations provide for Booking's customer
+  delivery? → A: It provides only a delivery-safe projection: ticket identity
+  or QR reference, ticket code, and entitled sessions with their branch and
+  scheduled start/end. It excludes attendance, Staff/audit data and PII;
+  003.1 adds its own booking, package and contact information.
+- Q: How does Settlement know that a booking/package has completed every
+  required session? → A: 003.2 is the authoritative owner of that conclusion.
+  For the booking/package context requested by 003.3, it provides a minimal
+  settlement-readiness result that is true only when every required session is
+  `ATTENDANCE_FINALIZED`. It is false while any required session is not
+  finalized, including when it is cancelled. The result includes no individual
+  attendance, ticket, Staff, audit or PII detail; 003.3 must not infer it from
+  scheduled end time or calculate it from per-session states.
+- Q: May a Manager replace a booking's required session with a target session
+  that is `SALES_PAUSED`? → A: No. Every replacement target must be future,
+  `PUBLISHED`, customer-selectable and have capacity for the booking's complete
+  participant count. If any source/target condition or any target capacity check
+  fails, 003.2 applies no change to any required session, ticket entitlement or
+  capacity. `SALES_PAUSED` has no Manager reschedule exception in V1.
+- Q: May a Manager use the ordinary customer-requested session-change flow
+  after a source session has started, finalized, or entered cancellation? → A:
+  No. A source required session must still be future and must not be
+  `IN_PROGRESS`, `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` or
+  `CANCELLED`. A `CANCELLATION_REQUESTED` session follows 003.3's separate
+  Mland-caused cancellation remedy; the ordinary change flow never rewrites
+  check-in or attendance history.
+
 ## Business model
 
 - A booking is the commercial order. A workshop item is the product being made;
-  an attendance ticket is one person's QR right to join its session.
+  an attendance ticket is one person's persistent QR right to join every
+  required session of its package. Attendance remains per ticket/session pair.
 - Capacity is counted from active attendance tickets in each session.
 - Mland schedules sessions in fixed, non-overlapping time slots. A session is the
   branch's shared slot for booking and capacity, not one customer group. Shop
@@ -503,18 +617,20 @@ correction, with before/after audit evidence.
   code and immutable before/after audit evidence; it MUST NOT delete the
   original scan. Before finalization it MUST return the ticket to not checked-in;
   after finalization it MUST require Manager to select `CHECKED_IN` or `NO_SHOW`.
-- **FR-002c**: When a ticket is scanned after it has been checked in, the system
-  MUST return `200 OK` with `checkInResult` `ALREADY_CHECKED_IN` and the most
-  recent `checkedInAt`; it MUST show only its already-checked-in status and
-  most recent check-in time;
+- **FR-002c**: When a ticket is scanned again at the same session after it has
+  been checked in there, the system MUST return `200 OK` with `checkInResult`
+  `ALREADY_CHECKED_IN` and the most recent `checkedInAt`; it MUST show only its
+  already-checked-in status and most recent check-in time;
   it MUST NOT expose booking-contact data or the prior Staff actor.
-- **FR-002d**: The system MUST make check-in atomic per ticket. If concurrent
-  valid check-in requests target the same ticket, exactly one request MUST
-  create the check-in record; every other request MUST return the
-  already-checked-in result with its recorded check-in time.
-- **FR-003**: The system MUST validate ticket state, session and branch before
-  normal check-in and MUST permit it only to a Staff member assigned to that
-  session or the Manager recorded as that session's operational lead.
+- **FR-002d**: The system MUST make check-in atomic per ticket/session pair. If
+  concurrent valid check-in requests target the same ticket at the same
+  session, exactly one request MUST create the check-in record; every other
+  request MUST return the already-checked-in result with its recorded check-in
+  time.
+- **FR-003**: The system MUST validate ticket state, entitlement to the current
+  session, and branch before normal check-in and MUST permit it only to a Staff
+  member assigned to that session or the Manager recorded as that session's
+  operational lead.
 - **FR-003a**: The system MUST limit ticket lookup/check-in results to ticket
   code, session/branch, ticket status and check-in outcome; booking lookup may
   show ticket used/unused status but MUST NOT expose the booking contact's full
@@ -529,6 +645,11 @@ correction, with before/after audit evidence.
   current session and branch, the Staff check-in flow MUST return only a generic
   no-eligible-ticket result and MUST NOT reveal another ticket, session or
   branch.
+- **FR-003e**: The feature MUST provide 003.1 only a delivery-safe ticket
+  projection containing ticket identity or QR reference, ticket code, and the
+  entitled sessions' branch and scheduled start/end. It MUST NOT expose
+  attendance, Staff/audit data, or personally identifiable information in that
+  projection.
 - **FR-003c**: The system MUST allow only an assigned Staff member or the
   session's Manager operational lead to request resend of a booking's full
   set of active, unused tickets to the booking contact's existing delivery
@@ -622,6 +743,105 @@ correction, with before/after audit evidence.
 - **FR-010c**: The system MUST reject new bookings and capacity holds while a
   session is `SALES_PAUSED`, but MUST allow an unexpired hold created before
   the pause to complete payment until its existing deadline.
+- **FR-010h**: For a requested booking session, the feature MUST provide 003.1
+  only a public sale-eligibility snapshot containing existence/customer-
+  selectability, sale state, branch, scheduled start/end, and remaining
+  capacity. The snapshot MUST NOT expose this feature's entities or repositories.
+- **FR-010i**: When 003.1 requests participant capacity for more than one
+  session, the feature MUST decide the complete requested set atomically. It
+  MUST hold the requested number of seats in every requested session or create
+  no hold in any requested session; it MUST NOT return a partial result.
+- **FR-010j**: On valid payment confirmation, the feature MUST commit all and
+  only the active holds belonging to that booking as one result. If any expected
+  hold is missing or expired, it MUST commit none; 003.1 then MUST NOT confirm
+  the booking.
+- **FR-010k**: A request to release booking capacity holds for expiry or pending
+  cancellation MUST release only active holds exactly once. A repeated or late
+  request MUST be an idempotent no-op and MUST NOT change capacity again.
+- **FR-010l**: When this feature makes session availability available to 003.4,
+  its sellable capacity MUST equal total capacity minus confirmed ticket seats
+  and all active, unexpired direct-Mland capacity holds. Feature 003.4 MAY
+  consume that availability but MUST NOT calculate or write the capacity itself.
+- **FR-010m**: This feature MUST create an availability/sale-state notification
+  for 003.4 only after a completed local change alters the sellable-capacity or
+  sale-state snapshot. Active-hold creation, release, and expiry notify when
+  availability changes; sales pause/resume and session cancellation/closure
+  notify when sale state changes. Hold-to-ticket commitment MUST NOT create a
+  separate notification when that snapshot is unchanged.
+- **FR-010n**: The availability/sale-state snapshot provided to 003.4 MUST
+  contain only opaque session identity, branch scope, sellable availability,
+  sale state, source change identity/version, and effective time. It MUST NOT
+  contain PII, Booking/payment data, ticket detail, or package/provider mapping.
+- **FR-010o**: Availability/sale-state notification delivery to 003.4 MUST be
+  treated as at-least-once. 003.4 MUST apply only a newer source version/change
+  identity and ignore duplicate or older snapshots; when it detects a gap or
+  cannot establish order, it MUST obtain an authoritative 003.2 snapshot resync.
+  This requirement MUST NOT depend on exactly-once delivery.
+- **FR-010p**: A failed 003.4 synchronization MUST close or suspend only the
+  affected OTA mapping and create its reconciliation work. It MUST NOT change
+  this feature's session sale state, capacity, or direct-Mland booking behaviour.
+- **FR-010q**: When 003.4 requests authoritative resync for a source-version
+  gap or uncertain order, this feature MUST return the current complete
+  OTA-observable snapshot of the one affected session at one source version:
+  schedule, sellable availability, and sale state. It MUST NOT require 003.4 to
+  merge separate schedule/availability reads or consume an entire branch.
+- **FR-010r**: The per-session OTA source version MUST increase, and an
+  OTA-observable snapshot MUST be made available, only when that session's
+  schedule, sellable availability, or sale state changes. Internal-only changes,
+  including Staff assignment or audit evidence, MUST NOT increase that version
+  or produce an OTA snapshot.
+- **FR-010s**: The feature MUST NOT make an OTA-observable snapshot available
+  for a `DRAFT` session. It MUST make or refresh the snapshot when a mapped
+  Basic Ring session is `PUBLISHED` or `SALES_PAUSED`, and MUST make the closed
+  sale-state snapshot available when it enters `CANCELLATION_REQUESTED` or
+  `CANCELLED`.
+- **FR-010t**: A completed local transaction that changes one or more
+  OTA-observable values of one session MUST increase that session's OTA source
+  version exactly once. The snapshot at that version MUST represent the complete
+  post-transaction schedule, sellable availability, and sale state; it MUST NOT
+  expose an intermediate combination of those values.
+- **FR-010u**: An authoritative resync that does not change the session's
+  OTA-observable post-state MUST return the current complete snapshot at its
+  existing source version. It MUST NOT increase that version or create a new
+  business change; 003.4 MAY retry or republish the returned snapshot under its
+  own mapping/delivery controls.
+- **FR-010v**: For V1, every OTA-observable session snapshot from this feature
+  to 003.4 MUST be carried by a persistent internal Spring Modulith event
+  publication recorded in the same local Operations transaction as its source
+  change. 003.4 consumes that publication at-least-once and owns separate
+  durable outbound delivery to providers. V1 MUST NOT require a message broker.
+- **FR-010w**: For a booking/package context requested by 003.3, this feature
+  MUST provide only its authoritative settlement-readiness conclusion. It MUST
+  be true only when every required session is `ATTENDANCE_FINALIZED`, and false
+  when any required session is not finalized, including cancellation. It MUST
+  not expose individual attendance, ticket, Staff, audit or PII detail, and
+  003.3 MUST NOT derive readiness from scheduled end time or per-session state.
+- **FR-010x**: For a 003.3-requested complete required-session replacement,
+  every target session MUST be future, `PUBLISHED`, customer-selectable and
+  have capacity for the booking's complete participant count. This feature MUST
+  apply every requested capacity and ticket-entitlement change together or none;
+  if any source/target eligibility or capacity condition fails, it MUST leave
+  every existing required session, ticket entitlement and capacity unchanged.
+  `SALES_PAUSED` MUST have no Manager reschedule exception in V1.
+- **FR-010y**: An ordinary 003.3-requested customer session change MUST accept
+  a source required session only while it is future and not `IN_PROGRESS`,
+  `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` or `CANCELLED`. It MUST NOT
+  rewrite check-in or attendance history. A source in
+  `CANCELLATION_REQUESTED` MUST use the separate Mland-caused cancellation
+  remedy instead.
+- **FR-010z**: When a complete required-session replacement succeeds, this
+  feature MUST update every affected ticket's entitlement to the resulting
+  required-session set and transfer the booking's complete participant capacity
+  from replaced sessions to replacement sessions as the same all-or-none result.
+  The persistent ticket QR MUST remain unchanged; this feature MUST NOT issue a
+  replacement ticket or retain entitlement/capacity in a replaced session.
+- **FR-010aa**: This feature MUST provide 003.1 an authorized, read-only,
+  current delivery-safe ticket/session-entitlement projection for booking and
+  Magic-Link reads. Following a successful required-session replacement or a
+  verified-refund consequence, that projection MUST reflect the resulting
+  entitlement, branch and schedule rather than a superseded session. It MUST
+  continue to exclude attendance, Staff, audit and PII detail; it does not make
+  003.1 an owner of tickets or schedules.
 - **FR-010a**: The system MUST transition `CANCELLATION_REQUESTED` to terminal
   `CANCELLED` only after feature 003.3 reports all affected customer cases
   resolved or an audited Manager decision for each. `CANCELLED` MUST reject

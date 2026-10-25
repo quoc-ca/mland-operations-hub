@@ -170,13 +170,14 @@ Completed in [data-model.md](data-model.md),
    detection and physical database mapping; add append-only migrations only
    after mapping review.
 4. Implement or complete catalogue shipping-profile facade consumption, embed
-   FE-06 benefit preview, and call `loyalty::facade` to reserve the accepted
+   FE-06 benefit preview, and call `loyaltypromotion::facade` to reserve the accepted
    benefit in the same transaction that atomically creates the grouped checkout,
    branch orders, inventory holds, and 15-minute benefit hold.
 5. Integrate verified VNPay payment events without direct provider coupling;
    make payment/hold/order effects idempotent and call the FE-06 outcome facade
    to settle then grant after verified full payment or zero-total acceptance,
-   and to release held benefits after authoritative unpaid expiry.
+   and to release held benefits after authoritative unpaid payment failure or
+   expiry.
 6. Implement the mock `ShippingProviderPort`, per-branch GHTK fee quotes,
    shipment-create retry using the same partner ID, and normalized shipment
    projections for each branch order.
@@ -192,15 +193,20 @@ Completed in [data-model.md](data-model.md),
 
 ## Internal and External Boundary Design
 
-- `readyringsales` calls catalogue, member, payment, and `loyalty::facade`
+- `readyringsales` calls catalogue, member, payment, and `loyaltypromotion::facade`
   boundaries only; it does not access their repositories, entities, or internal
   services. This is the FE-06 G-03 retail-owner adapter boundary.
 - Before acceptance, `readyringsales` supplies server-priced line facts and
   shipping as a separate non-discountable amount to FE-06 benefit preview. The
   browser may select benefits and acknowledge quoted terms but is never trusted
   for Member ownership, price, discount, points, shipping, or payment facts.
+- The FE-08 checkout contract uses the same `BenefitSelection` vocabulary as
+  `loyaltypromotion::facade`: `choice` (`NONE`, `AUTO`, or `VOUCHER`),
+  `voucherCode` only for `VOUCHER`, and `requestedPoints`. All Member-facing
+  monetary and point values are non-negative decimal strings so the React
+  client cannot lose precision before the server rebuilds trusted facts.
 - During grouped-checkout acceptance, `readyringsales` owns the transaction and
-  calls `reserveAcceptedTransaction` through `loyalty::facade` with mandatory
+  calls `reserveAcceptedTransaction` through `loyaltypromotion::facade` with mandatory
   transaction participation. Benefit reservation, all branch orders, inventory
   holds, and source snapshots commit together or roll back together. A changed
   benefit quote returns a reconfirmation result instead of silently changing the
@@ -208,14 +214,18 @@ Completed in [data-model.md](data-model.md),
 - Under the source lifecycle guard, a verified full-payment or approved
   zero-total outcome calls `settleAcceptedBenefits` and then
   `grantEarnedPoints` idempotently in the same outcome transaction. A confirmed
-  unpaid expiry calls `releaseHeldBenefits` and `finishIneligibleEarn` before
-  completing source expiry. Duplicate outcomes replay the committed receipt.
+  unpaid payment failure or expiry calls `releaseHeldBenefits` and
+  `finishIneligibleEarn` before completing the terminal outcome. Duplicate
+  outcomes replay the committed receipt.
   Ambiguous, late, or conflicting payment evidence remains unresolved for
   reconciliation and must not release, consume, grant, or extend benefits.
-- A source-authoritative retail cancellation outcome, if supplied by an
-  approved retail cancellation workflow, follows the same FE-06 outcome adapter
-  and version guard. This plan does not add refund or cancellation UX and does
-  not infer cancellation from a browser action or carrier status.
+- Before payment initiation, the Member may cancel an accepted unpaid checkout.
+  The source outcome releases inventory and held benefits through the same FE-06
+  outcome adapter/version guard and restores the cart. The server records the
+  `ACCEPTED_UNPAID` to `PAYMENT_INITIATED` transition with `paymentInitiatedAt`
+  before returning a VNPay redirect. Once VNPay has been initiated,
+  self-cancellation is rejected and payment evidence is reconciled;
+  this does not add a refund, carrier-cancellation, or return workflow.
 - A verified grouped-payment projection contains only the paid branch-order
   ID, accepted fulfilment method, version and correlation data needed by
   `fulfilment`; one event is processed independently for each branch order.

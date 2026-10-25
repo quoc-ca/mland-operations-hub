@@ -86,14 +86,14 @@ components:
       type: object
       required: [token]
       properties:
-        token: {type: string, writeOnly: true, minLength: 32}
+        token: {type: string, writeOnly: true, description: Opaque bearer value extracted by the React client from the Magic Link URL fragment; never persist or log it.}
     BookingSummary:
       type: object
       required: [bookingCode, bookingStatus, paymentStatus, participantCount, sessions]
       properties:
         bookingCode: {type: string}
         bookingStatus: {type: string, enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED]}
-        paymentStatus: {type: string, enum: [UNPAID, DEPOSIT_PAID]}
+        paymentStatus: {type: string, enum: [UNPAID, DEPOSIT_PAID, FULLY_PAID]}
         participantCount: {type: integer}
         holdExpiresAt: {type: string, format: date-time, nullable: true}
         sessions: {type: array, items: {$ref: '#/components/schemas/BookedSession'}}

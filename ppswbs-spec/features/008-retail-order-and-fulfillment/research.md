@@ -210,15 +210,16 @@ provider contract is ready for go-live.
 ## Decision 15: FE-08 owns the retail side of the FE-06 benefit transaction
 
 - **Decision**: Integrate FE-08 with the FE-06 named interface
-  `loyalty::facade`, following FE-06 gate G-03 and tasks T054/T064. FE-08 builds
+  `loyaltypromotion::facade`, following FE-06 gate G-03 and tasks T054/T064. FE-08 builds
   trusted retail facts for read-only benefit preview. When the Member accepts
   checkout, `readyringsales` opens the source transaction and calls
   `reserveAcceptedTransaction` with mandatory participation before committing
   the grouped checkout, branch orders, inventory holds, benefit snapshot, and
   benefit hold together. Under the source lifecycle guard, verified full
   payment or approved zero-total acceptance calls `settleAcceptedBenefits`
-  followed by `grantEarnedPoints`; authoritative unpaid expiry calls
-  `releaseHeldBenefits` and `finishIneligibleEarn`. All outcome calls use the
+  followed by `grantEarnedPoints`; an authoritative unpaid payment failure or
+  expiry calls `releaseHeldBenefits` and `finishIneligibleEarn` and restores
+  the source cart. All outcome calls use the
   same source reference, monotonic outcome version, and idempotent receipt.
 - **Rationale**: Merely revalidating a promotion result does not protect voucher
   quota or Member points and leaves a split-brain window where the retail order
@@ -231,7 +232,7 @@ provider contract is ready for go-live.
   rejected because they cannot provide rollback in both directions. Releasing
   benefits from a timer, browser return, carrier cancellation, or ambiguous late
   payment was rejected; FE-08 must first establish an authoritative source
-  outcome or preserve the case for reconciliation. An approved future retail
-  cancellation may use the same outcome adapter, but cancellation/refund UX is
-  not added by this plan.
+  outcome or preserve the case for reconciliation. A Member cancellation before
+  payment initiation uses the same outcome adapter to release holds and restore
+  the cart; refund and carrier-cancellation UX are not added by this plan.
 

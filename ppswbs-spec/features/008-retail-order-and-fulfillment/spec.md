@@ -42,7 +42,8 @@ with this decision before implementation:
   followed by the combined payable total.
 - The whole cart is revalidated before the complete set of branch orders is
   accepted.
-- A verified full payment is required before the retail sale is completed.
+- A verified full payment is required before the retail sale is completed,
+  except for an approved checkout whose payable total is zero.
 - The Member chooses store pickup or GHTK fulfilment during checkout. GHTK
   recipient data is required before the shipping quote and payment are
   accepted.
@@ -119,6 +120,40 @@ configuration, accounting, or executive reporting in FE-10.
 
 ### Session 2026-10-24
 
+- Q: Does FE-08 own the complete retail promotion and loyalty lifecycle through
+  the FE-06 named interface? → A: Yes. FE-08 obtains benefit previews from
+  trusted server-priced facts, calls `reserveAcceptedTransaction` through
+  `loyaltypromotion::facade` in the same source transaction that creates the
+  grouped checkout and all holds, settles benefits and grants earned points
+  once after verified full payment or approved zero-total acceptance, and
+  releases held benefits plus marks pending earn ineligible only after an
+  authoritative unpaid payment failure or expiry. Ambiguous or conflicting payment evidence
+  remains unresolved for reconciliation and does not release, consume, grant,
+  or extend benefits.
+- Q: When does FE-08 persist GHTK recipient data used to obtain a shipping
+  quote? → A: The validated recipient draft remains only in the current
+  checkout session while the Member requests or refreshes a quote. FE-08
+  persists the immutable recipient snapshot only when the Member accepts the
+  complete grouped checkout; it creates neither a server-side checkout draft
+  nor a draft order merely to obtain a quote.
+- Q: Can a Member change fulfilment after accepting checkout? → A: No. The
+  accepted checkout freezes each branch's fulfilment method, recipient snapshot,
+  and shipping fee. If an unpaid checkout needs a different fulfilment choice,
+  the Member cancels that checkout and creates a new checkout, which obtains a
+  new quote before acceptance.
+- Q: Which feature owns the product-list API consumed by the retail journey?
+  → A: FE-02 owns catalogue endpoints and authoritative product, variant, price,
+  stock, and shipping facts. FE-08 owns cart and checkout commands and consumes
+  only FE-02-validated facts; it does not publish a competing product-list API.
+- Q: When may a Member cancel an accepted unpaid checkout? → A: The Member may
+  cancel only before FE-08 initiates payment with VNPay. Cancellation immediately
+  releases inventory and held benefits and restores the cart; once payment has
+  been initiated, the checkout cannot be self-cancelled because provider payment
+  evidence may still arrive and must be reconciled safely.
+- Q: How is an approved zero-total grouped checkout completed? → A: FE-08 does
+  not initiate VNPay. It records one idempotent internal zero-total acceptance,
+  settles the reserved benefits, grants any eligible earned points, and proceeds
+  to fulfilment using the same safeguards as a verified paid checkout.
 - Q: Does FE-08 officially replace Report 3's manual-only GHTK rule with
   automatic GHTK API integration in the first release? → A: Yes. Automatic
   GHTK fee quotation, shipment creation, webhook/status synchronization and
@@ -145,6 +180,28 @@ configuration, accounting, or executive reporting in FE-10.
   preserves the cart and recipient draft within the current checkout session,
   creates no payment attempt, and lets the Member retry the quote or explicitly
   change only the affected branch to pickup.
+
+### Session 2026-10-25
+
+- Q: When must a benefit preview be recalculated and accepted again? → A: FE-08
+  invalidates the prior preview/acceptance when the cart, selected benefit,
+  fulfilment choice, or shipping quote and fee changes. The Member must review
+  the recalculated complete total and accept it again before checkout.
+- Q: How are stock and FE-06 benefits reserved at checkout acceptance? → A:
+  `reserveAcceptedTransaction` is mandatory in the same source transaction as
+  grouped checkout creation, inventory holds, and immutable snapshots. Any
+  required failure rolls back the complete acceptance.
+- Q: What happens after payment succeeds? → A: After the backend verifies a
+  full VNPay payment, FE-08 settles the held benefit and then asks FE-06 to
+  grant earned points exactly once under FE-06 policy. Shipping is excluded
+  from the promotion and point-earning base.
+- Q: What happens after an authoritative unpaid payment failure or expiry? →
+  A: FE-08 releases the complete inventory/benefit hold bundle, marks pending
+  point earning ineligible, and restores the source cart. Ambiguous or late
+  payment evidence remains in reconciliation and does not release holds.
+- Q: When may a Member cancel? → A: Only in `ACCEPTED_UNPAID`, before FE-08
+  persists VNPay initiation. Once `PAYMENT_INITIATED`, self-cancellation is
+  rejected and provider payment evidence is reconciled.
 
 ## Actors and permissions
 
@@ -227,6 +284,10 @@ or duplicate payment effects.
    VNPay returns matching verified evidence for the full amount and currency,
    **Then** the system marks the grouped payment and every branch order as
    accepted exactly once.
+5. **Given** a valid grouped checkout has an approved payable total of zero,
+   **When** the Member accepts the complete quote, **Then** the system records
+   one idempotent zero-total acceptance without initiating VNPay and makes the
+   branch orders available for fulfilment exactly once.
 5. **Given** a browser redirect, invalid signature, mismatched amount, late
    result, or duplicate provider event, **When** payment processing occurs,
    **Then** the system does not falsely mark the order as paid or repeat sale
@@ -261,9 +322,11 @@ status and estimated delivery information for the own order.
 3. **Given** GHTK does not support the recipient address or cannot provide a
    valid quote, **When** the Member submits checkout, **Then** the system blocks
    the GHTK option and provides safe correction or pickup guidance.
-4. **Given** the order is unpaid, already prepared, or already handed over,
-   **When** the Member submits a fulfilment change, **Then** the system rejects
-   it without changing the order state or payment quote.
+4. **Given** the Member has accepted checkout, **When** the Member needs a
+   different fulfilment choice before payment, **Then** the system requires the
+   Member to cancel the unpaid checkout and create a new checkout with a fresh
+   quote; it does not modify the accepted checkout, order state, or payment
+   quote.
 5. **Given** a paid GHTK order has a provider tracking identifier, **When** the
    Member views the order, **Then** the system displays the mapped carrier
    status, last update time, and estimated delivery information when supplied,
@@ -407,27 +470,33 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   manual operational review.
 - **FR-08-009**: The system MUST require one verified full payment matching the
   grouped checkout target, combined amount, and currency before marking the
-  grouped payment and all branch orders complete.
+  grouped payment and all branch orders complete, except that an approved
+  zero-total grouped checkout MUST complete through one idempotent internal
+  acceptance without initiating VNPay.
 - **FR-08-010**: The system MUST reject browser-only success, invalid provider
   evidence, mismatched payment data, late payment, and duplicate payment
   effects without falsely completing the sale.
 - **FR-08-011**: The system MUST make unchanged checkout and payment retries
   idempotent and MUST reject conflicting reuse of an existing command key.
 - **FR-08-012**: The system MUST allow the order-owning Member to choose pickup
-  or GHTK fulfilment independently for each branch order during checkout before
-  payment acceptance.
-- **FR-08-013**: The system MUST validate and store GHTK recipient name, phone,
-  address, and optional note as order-specific fulfilment data before requesting
-  a shipping quote; recipient name MUST contain 1–100 Unicode characters,
+  or GHTK fulfilment independently for each branch order before accepting
+  checkout; after acceptance, the chosen fulfilment method is immutable.
+- **FR-08-013**: The system MUST validate GHTK recipient name, phone, address,
+  and optional note before requesting a shipping quote; the validated recipient
+  draft MUST remain only in the current checkout session until checkout
+  acceptance, and the system MUST persist an order-specific immutable recipient
+  snapshot only when the Member accepts the complete grouped checkout. Recipient
+  name MUST contain 1–100 Unicode characters,
   domestic mobile phone MUST use 10 digits beginning with `0` or the equivalent
   `+84` form, address MUST contain 10–500 Unicode characters, and the optional
   note MUST contain at most 500 characters after trimming leading/trailing
   whitespace. The system MUST not assume an address book or copy a profile
   address automatically.
 - **FR-08-014**: The system MUST freeze the fulfilment method, recipient
-  snapshot, and shipping fee after checkout acceptance; any change before
-  acceptance MUST trigger a fresh quote, and no fulfilment change may reprice or
-  change a paid order.
+  snapshot, and shipping fee after checkout acceptance. A Member needing a
+  different fulfilment choice for an unpaid checkout MUST cancel it and create a
+  new checkout with a fresh quote; no fulfilment change may reprice or change an
+  accepted or paid order.
 - **FR-08-015**: The system MUST restrict Staff and Manager order operations by
   current account status, assigned branch, delegated action, and current order
   state.
@@ -494,6 +563,35 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   preserve the Member's cart and recipient draft within the current checkout
   session, MUST create no payment attempt, and MUST allow the Member to retry
   the quote or explicitly change only the affected branch to pickup.
+- **FR-08-035**: FE-08 MUST request promotion and loyalty benefit previews
+  through `loyaltypromotion::facade` using trusted server-priced checkout facts;
+  it MUST NOT trust browser-supplied prices, discounts, point values, or payable
+  totals. Its accepted selection MUST use the FE-06 canonical `choice`,
+  `voucherCode`, and `requestedPoints` fields, and shipping fees MUST be
+  excluded from the discount and point-earning base. A cart, selected-benefit,
+  fulfilment, or shipping-quote/fee change MUST invalidate the prior
+  preview/acceptance and require the Member to accept the recalculated complete
+  total again.
+- **FR-08-036**: When the Member accepts a grouped checkout, FE-08 MUST call
+  `reserveAcceptedTransaction` in the same source transaction that creates all
+  branch orders, inventory holds, immutable price snapshots, and benefit holds;
+  failure of any required operation MUST roll back the complete acceptance.
+- **FR-08-037**: After verified full payment or approved zero-total acceptance,
+  FE-08 MUST settle reserved benefits and then grant earned points exactly once,
+  using the same source reference and idempotent outcome version for retries.
+- **FR-08-038**: After authoritative unpaid payment failure or expiry, FE-08
+  MUST release held benefits, mark pending point earning ineligible, release
+  inventory holds, and restore the source cart. Ambiguous, late, or conflicting
+  payment evidence MUST remain unresolved for reconciliation and MUST NOT
+  automatically release, consume, grant, or extend benefits.
+- **FR-08-039**: Before FE-08 initiates payment with VNPay, the order-owning
+  Member MUST be able to cancel an accepted unpaid checkout. The system MUST
+  immediately release its inventory and held benefits, restore the cart, and
+  create no payment initiation. The grouped checkout MUST move from
+  `ACCEPTED_UNPAID` to `PAYMENT_INITIATED` only when the server has persisted
+  the VNPay initiation attempt and its `paymentInitiatedAt` time. Once in
+  `PAYMENT_INITIATED`, the system MUST reject self-cancellation and retain the
+  checkout for payment-result reconciliation.
 
 ### Logical Data Ownership
 
@@ -516,8 +614,10 @@ its own fulfilment and carrier facts separately.
 ```text
 Checkout accepted
         ↓
-Pending full payment ── payment expires/fails ──> Hold released
-        ↓ verified full payment
+ACCEPTED_UNPAID ── Member cancels ──> Hold released / cart restored
+        ├── payment expires/fails ──> Hold released
+        └── VNPay initiation persisted ──> PAYMENT_INITIATED
+                                              ↓ verified full payment
 Paid / fulfilment selected
         ├── Pickup selected ──> Preparing ──> Ready for pickup ──> Picked up
         └── GHTK selected ──> Creating shipment ──> Shipment created
@@ -612,8 +712,8 @@ not be inferred from a browser redirect.
 - **SC-08-001**: 100% of checkout attempts containing an invalid or unavailable
   line create no partial accepted order or partial quantity hold.
 - **SC-08-002**: 100% of completed grouped checkouts have exactly one matching
-  verified full payment evidence record before their branch orders are marked
-  paid.
+  verified full-payment evidence record, or exactly one approved zero-total
+  acceptance record, before their branch orders are marked paid.
 - **SC-08-003**: Repeating an unchanged checkout, payment callback, pickup
   confirmation, or carrier handoff request creates zero additional terminal
   business effects.
@@ -642,7 +742,11 @@ not be inferred from a browser redirect.
   to manual operational review. The payment link remains valid for at most 10
   minutes, subject to the earlier hold expiry.
 - FE-02 supplies valid published product variants, approved prices, and logical
-  availability; FE-06 supplies approved promotion and loyalty policy results.
+  availability. FE-06 owns promotion and loyalty policy and state and exposes
+  the approved `loyaltypromotion::facade`; FE-08 owns trusted retail facts and
+  source lifecycle arbitration for preview, atomic reserve, paid or zero-total
+  settlement and grant, and authoritative unpaid payment-failure or expiry
+  release.
 - Exact physical role-code mapping and Manager delegation rules remain an
   approved identity/authorization decision.
 - Exact payment-provider event fields, provider reference uniqueness, and

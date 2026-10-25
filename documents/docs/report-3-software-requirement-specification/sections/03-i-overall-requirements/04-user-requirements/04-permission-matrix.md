@@ -39,7 +39,7 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Custom manufacturing|Fulfil by Member pickup or Staff-recorded GHTK handoff|No|No|Full|Restricted|Restricted|
 |Operational parameters|Configure deadlines, loyalty rates, point value, and discount caps|No|No|No|Restricted|Full|
 |Third-party integrations|Manage approved credentials, endpoints, and activation status|No|No|No|No|Full|
-|Executive dashboard|View consolidated revenue, utilization, and branch KPIs|No|No|Restricted|Full|Full|
+|Executive dashboard|View consolidated revenue, utilization, and branch KPIs|No|No|No|Restricted|No|
 |Public store review|Open the Google Maps review link|Full|Full|Full|Full|Full|
 
 #### Permission Matrix Footnotes
@@ -48,5 +48,5 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 2. Guests may book workshops and pay workshop deposits, but they cannot submit booking-design images, complete retail checkout, or create custom-manufacturing orders.
 3. Members may access and modify only their own profile, cart, orders, loyalty records, booking-design requests, and custom-manufacturing orders.
 4. Staff may review booking-design requests estimated at or below 3,000,000 VND, while Managers review requests above that threshold. Managers, not AI, decide published package and product prices.
-5. Admin manages technical configuration, accounts, RBAC, and approved integration credentials. Admin does not replace Staff or Manager business approvals unless an explicit authorized override is defined.
+5. Admin manages technical configuration, accounts, RBAC, and approved integration credentials. Admin may view purpose-limited parameter-impact information in FE-09 but has no access to FE-10 executive revenue, branch rankings, customer details, or individual order/payment details. Admin does not replace Staff or Manager business approvals unless an explicit authorized override is defined.
 6. GHTK actions are internal records of manual handoff. The matrix does not grant any role access to GHTK tracking or delivery-management APIs because V1 has no such integration.

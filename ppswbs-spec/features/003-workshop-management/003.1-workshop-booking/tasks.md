@@ -1,200 +1,175 @@
-# Tasks: Customer Workshop Booking Lifecycle
+# Tasks: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-25
 **Author**: Hồ Hoàng Quốc
-**Last updated by**: Codex — documentation rebase review only
+**Last updated by**: Hồ Hoàng Quốc
 
 **Feature Branch**: `003.1-workshop-booking`
-**Status**: Historical task record — blocked; do not execute
-**Governing baseline**: [spec-general.md](../../../spec-general.md),
-constitution v3.0.0, [spec.md](spec.md), and
-[REVIEW-2026-10-24.md](REVIEW-2026-10-24.md).
+**Status**: Rebased task plan — implementation is blocked until listed contract
+and environment gates are approved.
 
-**Input**: Historical design documents from `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/`
+**Input**: [spec.md](spec.md), [research.md](research.md), [plan.md](plan.md),
+[data-model.md](data-model.md), [quickstart.md](quickstart.md), and
+[workshop-booking.openapi.yaml](contracts/workshop-booking.openapi.yaml).
 
-**Prerequisites**: `spec.md`, `plan.md`, `research.md`, `data-model.md`,
-`contracts/workshop-booking.openapi.yaml`, and `quickstart.md`.
+**Scope rule**: Never invent a public endpoint, DTO field, schema, migration
+version, locking mechanism, role mapping, or provider configuration. Cross-feature
+facades are internal synchronous boundaries, not HTTP APIs.
 
-> **Rebase required — 2026-10-24.** These tasks describe the original V1
-> single-session, `participant_count` implementation. Do not schedule new work
-> from them until the booking → workshop item → individual attendance-ticket
-> model in [REBASE-NOTES.md](REBASE-NOTES.md) has been applied to all design
-> artifacts. Existing `[x]` markers are historical claims, not fresh evidence
-> of compliance with the 2026-10-24 baseline. A replacement dependency-ordered
-> task list must be generated only after the blockers in the review are resolved.
+## Phase 1: Approval and delivery gates
 
-**Scope gate**: Do not implement `CHECKED_IN`, `COMPLETED`, `NO_SHOW`, final
-payment, or External Registration System synchronization in this feature.
+**Purpose**: Resolve decisions that implementation agents must not infer.
 
-## Phase 1: Setup
+- [ ] T001 Approve 003.2 capacity-facade and ticket-projection-facade boundary types plus result/error categories in `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/plan.md`.
+- [ ] T002 Approve public REST request/response, validation, error, and compatibility details in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/contracts/workshop-booking.openapi.yaml`.
+- [ ] T003 Approve VNPay environment values, callback authentication operation, QueryDR configuration, and safe secret channel in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/plan.md`.
+- [ ] T004 Approve data-bearing-environment release owner, preservation migration approach, upgrade evidence, and recovery/rollback runbook in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/plan.md`.
+- [ ] T005 Approve React booking route, screen-state, validation, and recovery design beyond Magic-Link fragment exchange in `ppswbs_frontend/`.
+- [ ] T006 Synchronize approved FE-001 role vocabulary and Mland account/scope authority, and reconcile shared booking/ring-design language with the approved 003.1 V1 boundary, in `ppswbs-spec/spec-general.md` and `ppswbs-spec/APIs.md`.
 
-**Purpose**: Establish the feature contract and implementation boundaries.
+**Checkpoint**: T001–T006 block code. An implementation agent must report the
+relevant design blocker rather than guess.
 
-- [x] T001 [P] Create the feature package directories under `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/{web,application,domain,infrastructure,facade}` and matching test directories.
-- [x] T002 [P] Add the payment adapter boundary under `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/payments/{facade,infrastructure}` without coupling booking code to VNPay SDK details.
-- [x] T003 [P] Copy and register the Workshop Booking OpenAPI contract at `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/contracts/workshop-booking.openapi.yaml` as the source contract for package, booking, payment and lookup endpoints.
-- [x] T004 Remove the legacy email-confirmation classes, endpoints, token states and pre-payment flow from `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/`; replace their customer-facing behavior with post-payment notification/Magic Link tasks and record the migration decision in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/plan.md`.
-- [x] T004a Verify the active database target is development/test, record the target/schema and backup decision, and obtain explicit confirmation before any reset; never run a reset against production or real customer data.
+---
 
-## Phase 2: Foundational
+## Phase 2: Foundational booking module
 
-**Purpose**: Blocking persistence, state, security and transaction foundations.
+- [ ] T007 [BLOCKED until T001] Establish the `workshopbooking` Modulith boundary and permitted 003.2 facade dependencies in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T008 [P] [BLOCKED until T004] Add only the approved append-only aggregate migration and MySQL preservation/upgrade coverage in `ppswbs_backend/src/main/resources/db/migration/` and `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T009 [BLOCKED until T001] Implement approved persistence for Booking, session commitment, invoice, payment evidence, delivery state, and safe audit evidence in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T010 [BLOCKED until T001] Implement the synchronous 003.2 capacity-facade consumer for eligibility, all-or-nothing reserve/commit, and idempotent release in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/`.
+- [ ] T011 [BLOCKED until T001] Implement the synchronous 003.2 ticket-projection-facade consumer retaining only ticket/QR reference, ticket code, schedule, branch, and entitlement projection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/`.
+- [ ] T012 [BLOCKED until T006] Implement Firebase identity verification and Mland account status, ownership, entitlement, and branch-scope checks through approved Account boundaries in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T013 [P] [BLOCKED until T002] Implement approved safe problem responses, correlation, validation, and Idempotency-Key handling in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T014 [P] [BLOCKED until T001,T004] Add MySQL tests proving every booking-critical command is one local transaction across Booking writes and the capacity facade, rolls back partial local work, and excludes gateway I/O in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T015 [P] [BLOCKED until T001] Add Modulith tests proving Booking reads no Operations entities/repositories and depends only on approved facades in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/`.
 
-- [x] T005 Create append-only Flyway migration `ppswbs_backend/src/main/resources/db/migration/V2__workshop_booking.sql` for packages, sessions/slots, bookings, invoices, capacity holds, payment attempts/events, tickets, notification intents and external handoff records; preserve migration history and production/customer data, while applying any approved reset only to verified development/test data.
-- [x] T006 Define JPA entities and repositories in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/domain/` and `infrastructure/` with unique booking code, participant-count capacity, immutable amount/currency snapshots and required timestamps from `data-model.md`.
-- [x] T007 [P] Replace the legacy booking enum with explicit service states `PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED`, `CANCELLED` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/domain/`; allow `CANCELLED` only for explicit pre-payment hold release, define booking financial states `UNPAID`, `DEPOSIT_PAID`, `FULLY_PAID`, `REFUND_PENDING`, `REFUNDED`, define `FAILED` only on `PaymentAttempt`, and reserve later booking states without implementing their transitions.
-- [x] T008 [P] Implement typed safe errors, correlation IDs and redacted audit events using the existing `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/common/` conventions; prohibit OTP, raw tokens, secrets and provider payloads in logs.
-- [x] T008a [P] Implement the Member identity boundary using the existing Firebase Admin verification conventions in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/`; verify the Firebase ID token before reading its UID, map only the verified UID to Member ownership, and reject missing, expired, malformed or mismatched tokens without logging raw tokens.
-- [x] T009 Implement booking state-transition and financial-state guards in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/domain/` so failed payment attempts remain `PENDING_PAYMENT/UNPAID` while the hold is active and invalid jumps are rejected.
-- [x] T009a Add attempt-level payment state handling in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/payments/` so `FAILED` is stored on `PaymentAttempt` only and booking retry remains available during the active hold.
-- [x] T010 Implement transactional capacity-hold primitives in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/` and `infrastructure/`; lock the selected session, reserve `participant_count`, persist a 15-minute deadline and release each hold generation at most once.
-- [x] T011 [P] Define the payment facade and VNPay adapter port in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/payments/facade/` and `infrastructure/`; model signed result, provider reference, amount/currency matching and provider-event idempotency without exposing OTP.
-- [x] T012 [P] Add MySQL migration and repository integration tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/` for constraints, unique booking code, participant holds, immutable snapshots, production-data protection and the approved development/test reset/recreate path.
-- [x] T013 Verify module boundaries with `ApplicationModules.verify()` and add/adjust the test under `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/` so controllers, entities, repositories and adapters are not accessed across module boundaries.
+---
 
-**Checkpoint**: Foundation is complete only when the migration, state guards,
-capacity locking, payment facade and module-boundary tests pass.
+## Phase 3: User Story 1 — Discover a workshop package (Priority: P1)
 
-## Phase 3: User Story 1 - Discover a workshop package (Priority: P1)
+**Goal**: Browse customer-selectable published packages and their booking entry.
 
-**Goal**: Guests and Members can browse published packages and view details.
+**Independent Test**: Published packages are visible; unavailable ones cannot
+begin booking.
 
-**Independent Test**: Published package listing and details work without
-creating a booking and unpublished packages cannot start a booking.
+- [ ] T016 [US1] [BLOCKED until T001,T002] Implement approved package/session browse-detail reads in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T017 [P] [US1] [BLOCKED until T001] Add integration tests for published filtering, customer-selectable details, unavailable packages, and safe not-found outcomes in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T018 [US1] [BLOCKED until T005,T002] Implement approved React package listing/detail states and booking entry, including approved user-visible E2E coverage that proves listing-to-booking entry takes no more than three primary interactions, in `ppswbs_frontend/src/`.
 
-- [x] T014 [P] [US1] Add package/session read DTOs and validation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/` for current price, currency, deposit basis, supported options and selectable sessions.
-- [x] T015 [US1] Implement published-package and package-detail queries in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/WorkshopBookingService.java` using repositories/facades only and excluding unpublished or inactive packages.
-- [x] T016 [US1] Implement REST endpoints from the contract in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/web/WorkshopPackageApiController.java` with versioned plural kebab-case paths and typed safe errors.
-- [x] T017 [P] [US1] Implement Thymeleaf package listing/details pages and core links in `ppswbs_backend/src/main/resources/templates/workshop-bookings/` that remain usable without htmx/JavaScript.
-- [x] T018 [P] [US1] Add package contract and integration tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopPackageApiIT.java` for published filtering, details, unavailable package and safe not-found behavior.
+---
 
-**Checkpoint**: US1 can be demonstrated independently with published package
-listing and details.
+## Phase 4: User Story 2 — Create a pending workshop booking (Priority: P1)
 
-## Phase 4: User Story 2 - Create a pending workshop booking (Priority: P1)
+**Goal**: Create one pending booking for one package and atomically hold every
+required session.
 
-**Goal**: A Guest or Member can submit valid booking details and obtain a
-`PENDING_PAYMENT/UNPAID` booking with a 15-minute participant hold.
+**Independent Test**: Basic Ring holds N seats in one session; Silverclay holds
+N seats in two valid sessions; invalid input leaves no booking or partial hold.
 
-**Independent Test**: Valid submission creates one pending booking/invoice;
-invalid package/session/capacity/contact input creates no customer booking.
+- [ ] T019 [US2] [BLOCKED until T001,T002,T012] Implement one-package contact, positive participant-count, and frozen even-VND `PER_PERSON` validation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T020 [US2] [BLOCKED until T001,T002] Implement Basic Ring one-session and direct-Mland Silverclay exactly-two-session selection rules, including distinct, same-branch, chronological, and non-adjacent-same-day validation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T021 [US2] [BLOCKED until T001,T009,T010] Implement one local-transaction create-and-reserve command that persists one `PENDING_PAYMENT` booking, one exact 50-percent invoice, and every required hold or rolls back all work in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T022 [US2] [BLOCKED until T002] Implement approved pending-booking REST transport without a multi-package cart or server-rendered flow in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T023 [P] [US2] [BLOCKED until T001,T009,T010] Add MySQL concurrency and rollback tests for full capacity, `SALES_PAUSED`, duplicate session, cross-branch, adjacent same-day, and last-seat races in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T024 [P] [US2] [BLOCKED until T001,T009] Add tests proving `total = participant_count × price_per_participant`, even VND price, and exact 50-percent deposit in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T025 [US2] [BLOCKED until T005,T002] Implement approved React Guest/Member contact, session-selection, validation, pending, and capacity-failure states in `ppswbs_frontend/src/`.
 
-- [x] T019 [P] [US2] Add create-booking DTOs in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/` requiring valid Guest email and phone, auto-filling Member defaults from the Member facade, allowing edited contact values for booking on behalf of another person, and excluding raw credential fields.
-- [x] T020 [US2] Implement package/session/capacity/design revalidation and invoice snapshot calculation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/WorkshopBookingService.java`; deposit uses the approved 50% baseline and preserves amount/currency snapshots.
-- [x] T021 [US2] Implement atomic booking creation plus capacity hold in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/WorkshopBookingService.java`, including unique booking code, `PENDING_PAYMENT`, `UNPAID`, hold expiry and no incomplete customer-facing row on rollback.
-- [x] T022 [US2] Implement the create-booking REST endpoint in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/web/WorkshopBookingApiController.java` and matching Thymeleaf form/fragment in `ppswbs_backend/src/main/resources/templates/workshop-bookings/`.
-- [x] T023 [P] [US2] Add authorization tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/BookingAuthorizationIT.java` for Guest booking, Member profile use, ownership boundaries and safe validation errors.
-- [x] T023a [P] [US2] Add Member-owned pending-payment authorization tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/BookingAuthorizationIT.java` proving an authenticated Member can retry only an owned active pending booking and cannot access another Member's booking.
-- [x] T023b [P] [US2] Add contact validation tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopBookingCreationIT.java` proving Guest email/phone are both required and Member profile values are auto-filled but editable and snapshotted.
-- [x] T023c [P] [US2] Add Firebase identity and ownership tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/FirebaseIdentityAuthorizationIT.java` proving valid verified UID access, missing/expired/malformed token rejection, UID-to-Member mismatch rejection, and absence of raw token values in logs or audit records.
-- [x] T024 [P] [US2] Add booking creation integration tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopBookingCreationIT.java` for valid booking, unpublished package, unavailable session, missing capacity, insufficient capacity, invalid contact data and transaction rollback.
-- [x] T025 [P] [US2] Add concurrency tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/CapacityHoldConcurrencyIT.java` proving two requests cannot oversubscribe the last participant capacity and expiry releases exactly one hold.
+---
 
-**Checkpoint**: US2 is an independently testable MVP booking creation slice.
+## Phase 5: User Story 3 — Pay the workshop deposit (Priority: P1)
 
-## Phase 5: User Story 3 - Pay the workshop deposit (Priority: P1)
+**Goal**: A valid VNPay result confirms one booking once and makes its ticket
+set deliverable.
 
-**Goal**: A pending booking can start/retry payment and becomes confirmed only
-after one valid signed non-duplicate provider result.
+**Independent Test**: Only valid signed matching evidence confirms; redirect,
+unsigned, duplicate, expired, and late evidence cannot confirm.
 
-**Independent Test**: Success confirms once and issues QR/notification intent;
-failure, mismatch, duplicate, late and redirect-only paths never settle twice.
+- [ ] T026 [US3] [BLOCKED until T003,T002] Implement approved VNPay payment initiation and 10-minute payment-link lifecycle using frozen 50-percent VND deposit in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T027 [US3] [BLOCKED until T003] Implement approved VNPay HMAC-SHA512 IPN, bounded QueryDR recovery, redacted payment evidence, and provider-event idempotency in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/payments/`.
+- [ ] T028 [US3] [BLOCKED until T001,T009,T010,T011] Implement post-validation local confirmation: commit every active hold or none, confirm only on success, then obtain the N-ticket delivery-safe projection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T029 [US3] [BLOCKED until T002] Implement approved payment initiation and provider-callback REST transport, with browser return reading only committed state, in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T030 [US3] [BLOCKED until T002] Implement booking-contact confirmation delivery intent with complete active ticket set and reusable Magic Link, independent from notification delivery outcome, in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T031 [P] [US3] [BLOCKED until T003,T009,T010,T011] Add tests for signed success, invalid checksum, reference/amount/currency mismatch, duplicate/out-of-order result, redirect-only result, QueryDR timing, expiry, and late-payment follow-up in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T032 [P] [US3] [BLOCKED until T001,T009,T011] Add tests proving one aggregate deposit yields N persistent tickets and each Silverclay ticket carries both session entitlements without attendance data in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T033 [P] [US3] [BLOCKED until T002] Add tests proving delivery retry/resend reuses active ticket/Magic-Link access and delivery failure never rolls back confirmation in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T034 [US3] [BLOCKED until T005,T002] Implement approved React payment-pending, gateway-return, confirmation-ticket, and retry states in `ppswbs_frontend/src/`.
 
-- [x] T026 [P] [US3] Add payment initiation DTOs and gateway request mapping in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/payments/` using exact booking amount/currency and a 10-minute provider link expiry.
-- [x] T027 [US3] Implement start/retry payment in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/WorkshopBookingService.java`; permit retry only for active `PENDING_PAYMENT/UNPAID` holds and never capture or validate gateway OTP.
-- [x] T028 [US3] Implement signed payment callback verification and idempotent application in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/payments/infrastructure/` and workshop application services; match signature, provider event, booking reference, amount, currency and state before confirming.
-- [x] T029 [US3] Implement the payment initiation and callback endpoints in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/web/WorkshopPaymentApiController.java` with safe typed responses; browser Return URL must only display committed state.
-- [x] T030 [P] [US3] Implement confirmed booking QR ticket and notification intent creation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/` and mail adapter under `infrastructure/`; notification failure must not roll back confirmation.
-- [x] T030a [P] [US3] Add notification recipient tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopDepositPaymentIT.java` proving Guest and Member confirmations/Magic Links use the submitted contact email snapshot, including a Member booking for another person.
-- [x] T030b [P] [US3] Add confirmation-email content tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopDepositPaymentIT.java` proving the email contains both the QR Check-in ticket and protected Magic Link, without raw tokens or payment payloads.
-- [x] T030c [P] [US3] Add QR payload security tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopDepositPaymentIT.java` proving the ticket uses only a signed opaque reference and contains no PII, payment data, Magic Link token or secret.
-- [x] T030d [P] [US3] Add QR lifecycle tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopDepositPaymentIT.java` proving the ticket is valid before workshop end, rejected at/after workshop end, and can be revoked without changing payment evidence.
-- [x] T030e [P] [US3] Add notification-resend tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopDepositPaymentIT.java` proving resend reuses the same active QR/ticket and does not duplicate or revoke it.
-- [x] T030f [P] [US3] Add notification-resend authorization/rate-limit tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopBookingSecurityIT.java` proving Guest/Member proof, Staff/Owner authorization/audit, safe errors and abuse throttling.
-- [x] T030g [P] [US3] Add notification delivery-failure tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopDepositPaymentIT.java` proving confirmation remains committed, payment evidence remains settled, and automatic retry intent is retained without raw email/provider payloads.
-- [x] T030h [P] [US3] Add notification retry-policy tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopDepositPaymentIT.java` proving at most three backoff retries, then safe Staff/Owner follow-up without changing booking/payment state.
-- [x] T031 [P] [US3] Add VNPay/payment adapter contract tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/payments/VnPayAdapterContractTest.java` for signed success, failure, cancellation, pending and unknown provider outcomes without OTP leakage.
-- [x] T032 [P] [US3] Add payment integration tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopDepositPaymentIT.java` for success, amount/currency/reference mismatch, invalid signature, duplicate callback, failed retry, browser redirect-only, expired hold and notification failure.
-- [x] T033 [P] [US3] Add callback race/restart tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/payments/PaymentIdempotencyIT.java` proving one provider event applies at most once and late success cannot confirm an expired booking.
-- [x] T033a [US3] Create the durable `ExternalRegistrationHandoff` record and post-confirmation handoff service in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/`, recording booking code, event identity, payload reference, status and retry metadata without blocking local confirmation or storing provider secrets.
-- [x] T033b [P] [US3] Add handoff reliability tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/ExternalRegistrationHandoffIT.java` proving one handoff is created per confirmed booking event, duplicate confirmation is idempotent, handoff failure does not roll back booking/payment confirmation, and retry metadata is auditable and redacted.
+---
 
-**Checkpoint**: US3 is complete when a valid payment confirms the booking once
-and all failure paths remain safe and retryable where specified.
+## Phase 6: User Story 4 — Look up and recover a booking (Priority: P2)
 
-## Phase 6: User Story 4 - Look up a booking (Priority: P2)
+**Goal**: Return only an authorized booking/ticket projection and provide safe
+recovery without client credential persistence.
 
-**Goal**: Guest or Member can retrieve an authorized booking summary and QR
-ticket without exposing another customer's data.
+**Independent Test**: Valid Guest proof, Member ownership, or Magic Link works;
+invalid proof/link reveals no booking data.
 
-**Independent Test**: Valid lookup returns the correct summary; malformed,
-unknown or unauthorized lookup returns a safe result.
+- [ ] T035 [US4] [BLOCKED until T002,T012] Implement Guest code plus one stored contact proof and authenticated Member ownership lookup with safe no-disclosure outcomes in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T036 [US4] [BLOCKED until T002] Implement reusable Magic-Link hash, expiry/revocation, fragment-token HTTPS exchange, memory-only projection contract, and stored-phone recovery outcome in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T037 [US4] [BLOCKED until T006] Implement self-service/internal confirmation resend, Manager-only Magic-Link revoke/rotate, rate limits, late-payment follow-up, and minimal business audit evidence in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T038 [US4] [BLOCKED until T001,T010] Implement idempotent pending-hold release through the capacity facade, preserving `CANCELLED/UNPAID`, releasing capacity once, and issuing no ticket in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T039 [P] [US4] [BLOCKED until T002,T012] Add tests for Guest proof, Member ownership, pending/confirmed/cancelled projections, expired holds, and pending-hold release in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T040 [P] [US4] [BLOCKED until T002,T006] Add Magic-Link and audit tests for reusable access, expiry, revoke/rotate, resend reuse, raw-credential redaction, branch scope, denial, and delivery-log separation in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/`.
+- [ ] T041 [US4] [BLOCKED until T005,T002] Implement approved React lookup, pending-resume, confirmed-ticket, cancelled, and Magic-Link fragment-exchange/recovery states in `ppswbs_frontend/src/`.
 
-- [x] T034 [US4] Finalize and document Guest lookup proof as `booking_code + (normalized contact_phone OR normalized contact_email)`, Member ownership lookup, and protected post-payment Magic Link rules in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/plan.md` and `contracts/workshop-booking.openapi.yaml` before endpoint implementation.
-- [x] T035 [US4] Implement booking lookup DTO, ownership/lookup authorization and safe projection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/application/` and `facade/`.
-- [x] T036 [US4] Implement the lookup endpoint and Thymeleaf page in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/web/` and `ppswbs_backend/src/main/resources/templates/workshop-bookings/`.
-- [x] T037 [P] [US4] Add lookup authorization and information-disclosure tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/BookingLookupIT.java` for valid Guest/Member access, wrong proof, unknown code and safe errors.
-- [x] T037a [P] [US4] Add Magic Link security tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/BookingMagicLinkIT.java` for hashed storage, expiry, revocation, reuse prevention, read-only access and token/log redaction.
-- [x] T037b [P] [US4] Add workshop-end expiry coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/BookingMagicLinkIT.java` proving a link is valid before the workshop end and rejected at/after the workshop end.
-- [x] T037c [P] [US4] Add pending-versus-confirmed projection tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/BookingLookupIT.java` proving pending lookup shows countdown/resume-payment without QR and confirmed lookup shows QR/details without payment countdown.
-- [x] T037d [US4] Add active pending-hold release behavior and tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/BookingLookupIT.java`; release must be idempotent, must not confirm or issue a ticket, and must append a redacted audit event with actor type/reference, required reason, booking code, outcome and correlation ID.
-- [x] T037e [P] [US4] Add tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/BookingLookupIT.java` proving explicit pending-hold release changes status to `CANCELLED`, keeps financial status `UNPAID`, releases capacity once and cannot be retried for payment.
-- [x] T037f [P] [US4] Add cancelled-booking view/UI tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/BookingLookupIT.java` and `ppswbs_backend/src/main/resources/templates/workshop-bookings/` proving no payment/QR action is shown and a new-workshop booking action is offered.
+---
 
-**Checkpoint**: US4 is independently testable after US2/US3 data exists.
+## Phase 7: Cross-cutting verification and release evidence
 
-## Phase 7: Polish and Cross-Cutting Verification
+- [ ] T042 [BLOCKED until T001–T006] Run approved quickstart scenarios and the approved listing-to-booking-entry E2E assertion; retain observed evidence only in the approved CI report/artifact, not in `quickstart.md`.
+- [ ] T043 [BLOCKED until T004] Run approved empty-baseline or preservation-upgrade migration plus recovery/rollback evidence in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/`.
+- [ ] T044 [BLOCKED until T001–T006] Run contract, MySQL concurrency, payment idempotency, authorization/audit, React client, and `ApplicationModules.verify()` checks from `ppswbs_backend/` and `ppswbs_frontend/`.
+- [ ] T045 Run `$speckit-analyze` against `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/spec.md`, `plan.md`, and this `tasks.md` before implementation approval.
 
-- [x] T038 [P] Update the authoritative API documentation in `ppswbs-spec/APIs.md` and link it to `contracts/workshop-booking.openapi.yaml` without exposing provider secrets or OTP details.
-- [x] T039 [P] Add security/error-path checks for correlation IDs, safe errors, authorization, log redaction and absence of raw OTP/provider payloads in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopBookingSecurityIT.java`.
-- [x] T040 Run MySQL migration/upgrade verification and record exact command/result in the feature evidence; verify empty-database creation, approved development/test reset/recreate behavior and an explicit production/real-customer-data guard.
-- [x] T041 Run `ApplicationModules.verify()` and all Workshop Booking tests; record any verification exception and manual alternative in the feature evidence.
-- [x] T042 Run every scenario in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/quickstart.md` and reconcile any failure before claiming completion.
-- [x] T043 Run `speckit-analyze` against `spec.md`, `plan.md` and `tasks.md`; resolve critical coverage, ordering or constitution findings before `speckit-implement`.
+---
+
+## Phase 8: Final-settlement status facade handoff
+
+**Purpose**: allow 003.1 to remain owner of Booking financial status without implementing Settlement inside Booking.
+
+- [ ] T046 **BLOCKED — approved 003.3 facade type**: implement the approved idempotent final-balance-resolved consumer in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/`; Booking alone records `FULLY_PAID` once from a safe correlation/reference, never raw final-payment evidence or a deferred-link delivery.
+- [ ] T047 **BLOCKED — T046**: add replay, raw-data non-disclosure, and deferred-link-not-settlement coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/FinalSettlementStatusIT.java`.
+
+- [ ] T048 **BLOCKED — approved 003.2 current-projection facade type**: make every authorized Guest, Member, and Magic-Link booking read obtain the current delivery-safe ticket/session-entitlement projection from Operations; add replacement/refund freshness coverage without reading Operations entities in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/CurrentTicketProjectionIT.java`.
 
 ## Dependencies and execution order
 
-- Setup T001–T004 precedes all other work.
-- Foundational T005–T013 blocks every user story.
-- US1 T014–T018 can proceed after foundation.
-- US2 T019–T025 depends on package/session reads from US1 and foundation.
-- US3 T026–T033b depends on the booking/hold/invoice model from US2; T033b depends on T033a.
-- US4 T034–T037 depends on the booking data from US2 and confirmed ticket behavior from US3.
-- Polish T038–T043 depends on the desired user stories being complete.
+- Phase 1 precedes all implementation; no task may bypass a listed gate.
+- Phase 2 requires approved 003.2 facades and blocks every user story.
+- US1 provides discovery; US2 is the booking/hold MVP; US3 depends on US2;
+  US4 needs the aggregate and authorization boundary plus confirmed data for
+  complete tests.
+- 003.2 must expose approved capacity types before T010, T021, T023, T028, or
+  T038; it must expose ticket-projection types before T011, T028, T032, or T033.
+- No 003.1 task implements Operations capacity, entitlement, check-in, or
+  attendance internals.
+- T046–T047 depend on an approved 003.3-to-Booking internal facade type; they do
+  not authorize 003.1 to verify final VNPay evidence or calculate settlement.
+- T048 depends on an approved 003.2 read-only current-projection facade; it does
+  not authorize Booking to own entitlement, attendance, or session schedule.
 
 ## Parallel opportunities
 
-- T001–T003 can run in parallel.
-- T007, T008, T011 and T012 can run in parallel after the initial structure exists.
-- T014, T017 and T018 can be split after foundation.
-- T023–T025 can run in parallel after the create-booking contract is fixed.
-- T026, T030 and T031 can run in parallel after payment/domain contracts are fixed.
-- T037–T039 can run in parallel after endpoint behavior is stable.
-
-Dependency note: T033b depends on T033a, and both handoff tasks must complete before the final verification gates.
+- T001–T006 can progress in parallel by their decision owners.
+- After their gates, T008, T012–T015 can proceed in parallel.
+- T023–T024, T031–T033, and T039–T040 are parallel test groups after the
+  corresponding implementation behavior exists.
 
 ## Implementation strategy
 
-1. Finish setup and foundation; stop if migration, state or module gates fail.
-2. Deliver US1 package discovery as the first independently demonstrable slice.
-3. Deliver US2 as the MVP booking/hold slice and validate concurrency.
-4. Deliver US3 payment confirmation and QR/notification behavior.
-5. Deliver US4 lookup and disclosure controls.
-6. Run polish, quickstart, migration, boundary and `speckit-analyze` gates.
+1. Resolve Phase 1 rather than scaffolding around missing contracts.
+2. Establish Phase 2 and the 003.2 facade dependencies.
+3. Deliver US1, then US2 as the booking MVP.
+4. Add US3 payment/ticket delivery, then US4 lookup/recovery/support safety.
+5. Complete Phase 7 before requesting implementation approval.
 
-No task in this file authorizes implementation before the user approves the
-complete SpecKit artifact set.
+## Legacy tasks deliberately removed
 
-## Phase 8: Revision — Aggregate Deposit, Individual Participant Tickets
-
-**Goal**: Retain one booking, invoice and deposit payment for a group while
-issuing one independently scannable ticket for every purchased participant seat.
-
-- [ ] T044 Define the approved migration/rollout path from the legacy one-ticket-per-booking model to `WorkshopBooking 1 → N BookingTicket`; preserve production/customer evidence and do not reset production data.
-- [ ] T045 Add an append-only Flyway migration, JPA model and repository constraints for individual `ticket_code`, opaque QR value, ticket lifecycle and uniqueness per booking/seat in `ppswbs_backend/src/main/resources/db/migration/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/`; remove any writable booking-level `actual_participant_count` in favour of totals derived from checked-in tickets.
-- [ ] T046 Update confirmation handling in `WorkshopBookingService` so one accepted aggregate deposit transaction atomically issues exactly `participant_count` tickets; duplicate callbacks and notification resends must reuse, not duplicate or rotate, the ticket set.
-- [ ] T047 Update booking lookup DTOs, REST/OpenAPI implementation and Thymeleaf/Magic-Link views to return/show the complete ticket set only after confirmation, without exposing PII, payment payloads or secrets.
-- [ ] T048 Update the confirmation email renderer so the booking contact receives every active ticket in the confirmed ticket set; delivery retry/resend must preserve the original set.
-- [ ] T049 Add integration/security tests covering aggregate deposit calculation, exact ticket count, individual opaque QR uniqueness, duplicate callback idempotency, ticket-set resend and pending/expired/cancelled projections.
-- [ ] T050 Update `ppswbs-spec/APIs.md`, `quickstart.md` and feature evidence to reflect aggregate payment and individual-ticket behaviour, then run `speckit-analyze` before implementation.
+- Historical `[x]` completion claims.
+- Thymeleaf/SSR/htmx tasks and `OWNER`/`ADMIN_TECHNICAL` assumptions.
+- Single-session-only booking, generic cart, `BASE_PLUS_EXTRA`, and single-use
+  Magic-Link behavior.
+- Direct cross-feature entity/repository access and 003.2/003.3/003.4 work
+  incorrectly assigned to 003.1.
