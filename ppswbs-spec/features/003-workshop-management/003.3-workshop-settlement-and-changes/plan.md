@@ -31,8 +31,8 @@ ticket implementation.
 
 | Gate | Result | Evidence/condition |
 | --- | --- | --- |
-| Module integrity | PASS with dependency | 003.3 owns cases only; 003.2 replacement facade remains unspecified. |
-| Identity/data | PASS with dependency | Firebase is identity-only; FE-001 must publish authorization/scope/central-policy authority. |
+| Module integrity | PASS | 003.3 owns cases only and consumes the fixed 003 owner facades; it never reads 003.1/003.2 internals. |
+| Identity/data | PASS with external provider | Firebase is identity-only; 003.3 consumes the assumed-published Account authorization, scope, and central-policy authority. |
 | REST/frontend | PASS | Approved stack retained; no public settlement transport is inferred. |
 | Security/audit | PASS | Verified provider evidence; redacted immutable business audit; no raw secret/token/payload. |
 | Data evolution | PASS with rollout condition | Only empty dev/test may reset after preflight; data-bearing environments require append-only preservation migration, upgrade test and recovery evidence. |
@@ -73,7 +73,9 @@ Required semantic boundaries:
   never settlement truth.
 - Notification receives post-commit payment-link/reminder/outcome intent.
 
-These statements do not choose methods, endpoints, DTOs, schema, queues, locks or
+The owner facade operations, boundary types, typed outcomes, and idempotency
+rules are defined in the shared [003 internal facade contract](../contracts/workshop-interfeature-facades.md).
+It does not choose public endpoints, persistence schema, queues, locks, or
 provider configuration.
 
 ## Lifecycle decisions
@@ -107,10 +109,10 @@ provider configuration.
 
 | Dependency | Status | Task implication |
 | --- | --- | --- |
-| 003.1 booking/deposit projection and `FULLY_PAID` conclusion | Semantic contract now specified | Concrete facade type remains to be approved; 003.3 cannot mutate Booking directly. |
-| 003.2 settlement-readiness conclusion | Semantic contract now specified | 003.3 uses only that conclusion; it cannot infer completion from schedule or attendance detail. |
-| 003.2 settlement-readiness, complete replacement and post-refund consequence | Semantic contracts now specified | Concrete facade types/outcomes remain to be approved; 003.3 cannot access Operations data directly. |
-| FE-001 authorization/capability | Direction approved, shared docs pending | Do not infer role/capability in tasks. |
+| 003.1 booking/deposit projection and `FULLY_PAID` conclusion | Concrete facade contract approved | 003.3 consumes typed projection/outcome only; it cannot mutate Booking directly. |
+| 003.2 settlement-readiness conclusion | Concrete facade contract approved | 003.3 uses only that conclusion; it cannot infer completion from schedule or attendance detail. |
+| 003.2 settlement-readiness, complete replacement and post-refund consequence | Concrete facade contract approved | 003.3 consumes typed outcomes only; it cannot access Operations data directly. |
+| Account authorization/capability | Shared baseline fixed; provider owned externally | Consume current Account decisions; do not infer role/capability or edit FE-001. |
 | VNPay merchant/IPN/QueryDR/refund config | Pending | Provider adapter/config task blocked. |
 | Notification handoff | Pending | Delivery task blocked; must not block settlement. |
 | Public REST transport | Not approved | HTTP/OpenAPI implementation tasks blocked. |

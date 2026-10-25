@@ -22,9 +22,11 @@ The agreed target boundary is deliberately different from legacy code:
 `workshopoperations` owns every operational record needed to decide capacity or
 attendance, including the attendance ticket, QR reference and ticket code.
 `workshopbooking` owns the commercial booking, payment, invoice and customer
-ticket delivery. Booking reaches Operations only through two named synchronous
-facade boundaries: a capacity boundary and a delivery-safe ticket-projection
-boundary. No module may read another module's repositories or entities directly.
+ticket delivery. Booking reaches Operations only through the synchronous
+`WorkshopOperationsFacade`, whose capacity and delivery-safe ticket-projection
+operations are fixed in the shared
+[003 internal facade contract](../contracts/workshop-interfeature-facades.md).
+No module may read another module's repositories or entities directly.
 
 ### Resolved OTA-Observable Snapshot Boundary
 
@@ -57,11 +59,11 @@ session/branch context, and attendance is independent for every ticket/session
 pair. Operations supplies Booking only a delivery-safe ticket projection: QR
 reference or ticket identity, ticket code, and each entitled session's branch
 and scheduled start/end. Booking adds commercial/contact information and sends
-it to the customer. The capacity facade supplies sale eligibility and atomic
-reserve/commit/release outcomes; the ticket-projection facade supplies only the
-delivery-safe projection after successful commitment. This is an internal
-synchronous boundary only: database shape, facade types, Java methods and
-public HTTP routes remain unapproved.
+it to the customer. `WorkshopOperationsFacade` supplies sale eligibility and
+atomic reserve/commit/release outcomes, plus only the delivery-safe projection
+after successful commitment. This is an internal synchronous boundary: its
+facade types and operations are fixed in the shared 003 contract; database
+shape, locking mechanism, and public HTTP routes remain unapproved.
 
 ### Resolved Settlement and Required-Session-Change Boundary
 
@@ -82,8 +84,10 @@ session retains neither entitlement nor capacity. `SALES_PAUSED` has no V1
 Manager-reschedule exception. A cancellation-requested source uses 003.3's
 separate Mland-caused remedy instead.
 
-These are synchronous internal semantic boundaries. They do not approve facade
-types, Java methods, DTO fields, tables, locks, events or public HTTP routes.
+These are synchronous internal boundaries. Their facade operations, boundary
+types, typed outcomes, and idempotency rules are fixed in the shared 003
+contract; tables, locks, events, and public HTTP routes remain separate
+decisions.
 
 ## Technical Context
 
@@ -136,11 +140,11 @@ ppswbs_backend/src/main/java/.../
 └── features/
     ├── workshopoperations/
     │   ├── controller/      # versioned REST transport and validation
-    │   ├── dto/             # request/response and facade boundary types
+    │   ├── dto/             # REST request/response types only
     │   ├── dao/             # JPA repositories and persistence access
     │   ├── entity/          # internal JPA session, ticket and audit entities
     │   ├── service/         # transactions, use cases and workshop policies
-    │   └── facade/          # only supported cross-module entry points
+    │   └── facade/          # only supported cross-module entry points and boundary types
     ├── workshopbooking/
     │   ├── controller/
     │   ├── dto/
@@ -158,10 +162,11 @@ boundary.
 
 ## Implementation Sequence
 
-1. **Establish integration contracts.** Define separate Operations capacity and
-   delivery-safe ticket-projection facades. The capacity facade handles holds,
-   commitment confirmation/release and sale eligibility; the ticket-projection
-   facade supplies customer-delivery summaries after successful commitment.
+1. **Implement approved integration contracts.** Implement
+   `WorkshopOperationsFacade` from the shared 003 contract: its capacity
+   operations handle holds, commitment confirmation/release and sale
+   eligibility; its ticket-projection operation supplies customer-delivery
+   summaries after successful commitment.
    Define the consumed account/personnel facade
    for actor activity, required capability and Manager branch scope. Do not map
    a UI role name to permissions inside Operations.
@@ -170,8 +175,8 @@ boundary.
    capacity) and atomic group operations: reserve N seats in every requested
    session or none; commit every active hold of a booking or none; and release
    active holds once. It also supplies Booking a delivery-safe ticket
-   projection, never attendance, Staff/audit or PII. The two facades are
-   synchronous. Every booking-critical capacity call joins the caller's one
+   projection, never attendance, Staff/audit or PII. The facade is synchronous.
+   Every booking-critical capacity call joins the caller's one
    local MySQL transaction; events are limited to non-critical post-transition
    handoff. For an authorized Booking customer read, the same delivery-safe
    boundary returns the current entitlement/branch/schedule rather than an

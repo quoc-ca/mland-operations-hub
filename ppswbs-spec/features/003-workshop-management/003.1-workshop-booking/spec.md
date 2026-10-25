@@ -197,6 +197,43 @@ seat and receives one independent ticket after valid payment confirmation.
 
 ### Session 2026-10-25
 
+- Q: How do 003.1, 003.2, and 003.3 interact for booking-critical work? → A:
+  Each owning feature exposes its own synchronous, in-process facade and
+  explicit boundary types. Reserve, commit, release, settlement-readiness,
+  required-session replacement, refund consequence, booking financial
+  projection, and `FULLY_PAID` conclusion use those facades because their
+  caller needs an immediate all-or-none answer. Events occur only after the
+  local transaction commits for notification, OTA, or other downstream work;
+  they never decide booking confirmation or capacity. No caller accesses another
+  feature's controller, HTTP DTO, entity, repository, or internal service.
+- Q: How granular is the inter-feature facade surface? → A: V1 exposes one
+  owner-specific facade per feature: `WorkshopOperationsFacade` (003.2),
+  `WorkshopBookingFacade` (003.1), and `WorkshopSettlementFacade` (003.3).
+  Each facade has explicit immutable command/query boundary types; it is not a
+  shared `WorkshopManagementFacade` and does not expose split repository-like
+  facades for every internal concern.
+- Q: How are repeated inter-feature commands made safe? → A: Every command with
+  a business side effect carries a caller-supplied opaque `operationReference`
+  that identifies exactly one business action. A retry uses the same reference
+  and semantically identical command; the owner returns the original outcome.
+  Reusing a reference with different command content is rejected safely.
+  Correlation reference remains available for trace/audit and is not a substitute
+  for idempotency.
+- Q: How do facades report a business refusal? → A: Each command returns an
+  immutable typed outcome. `ACCEPTED` represents the completed all-or-none
+  business result; `REJECTED` carries an approved safe reason such as
+  `INSUFFICIENT_CAPACITY`, `SALE_NOT_ELIGIBLE`, `HOLD_EXPIRED`, `NOT_READY`, or
+  `INVALID_REPLACEMENT`. Exceptions are reserved for unexpected technical
+  failure and must not be used to encode normal business refusals.
+- Q: Which inter-feature operations are public in V1? → A: Only the minimum
+  owner operations in the shared
+  [003 internal facade contract](../contracts/workshop-interfeature-facades.md)
+  are public: Operations owns eligibility, hold, ticket-projection, settlement-
+  readiness, replacement, refund-consequence and cancellation-completion;
+  Booking owns confirmed-financial projection, final-balance conclusion and
+  ticket redelivery; Settlement owns cancellation-handoff creation/resolution.
+  Any other cross-feature access is prohibited until separately approved.
+
 - Q: When should bounded automatic QueryDR recovery run during the payment
   hold? → A: For a payment attempt without a terminal IPN outcome, run it at
   payment-link expiry (minute 10) and once one minute before the 15-minute hold
