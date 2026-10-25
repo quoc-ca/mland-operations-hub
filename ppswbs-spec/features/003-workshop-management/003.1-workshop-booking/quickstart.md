@@ -40,12 +40,12 @@ per-run evidence to this guide.
    one selected session in `SALES_PAUSED` and verify no new hold is created,
    while a pre-existing unexpired hold remains eligible to commit. Verify the
    Booking flow receives each sale-eligibility and hold outcome synchronously
-   from the separate 003.2 capacity facade; a later event cannot change that
+   from 003.2 `WorkshopOperationsFacade`; a later event cannot change that
    outcome. Inject a local persistence failure during creation and verify that
    neither the booking nor any session hold commits.
 5. Start payment, submit a valid signed matching gateway event, and verify one
    confirmed booking, one accepted deposit, and an N-ticket delivery-safe
-   projection from the separate 003.2 ticket-projection facade. For Silverclay,
+   projection from 003.2 `WorkshopOperationsFacade`. For Silverclay,
    each ticket projection carries both session entitlements. Verify Booking
    neither receives attendance state nor derives ticket entitlement. Browser
    return alone must not confirm payment. Inject a local persistence failure

@@ -1,9 +1,9 @@
 # Mland V1 API Contract Catalog
 
 **Date created**: 2026-09-30
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-25
 **Author**: Ngô Tiến Đạt
-**Last updated by**: Ngô Tiến Đạt
+**Last updated by**: Hồ Hoàng Quốc
 
 ## 1. Purpose and scope
 
@@ -14,14 +14,15 @@ contract maturity.
 
 It is **not** a substitute for a feature-level OpenAPI contract. A detailed
 feature contract is authoritative for its request/response schemas, validation,
-and status codes. The existing Member Authentication contract is at
-[`features/001-member-authentication/contracts/member-auth.openapi.yaml`](./features/001-member-authentication/contracts/member-auth.openapi.yaml).
+and status codes. The former Member Authentication/Profile contract is legacy;
+FE-001 Account Management owns its replacement contract and its detailed
+schemas are not defined by this catalog.
 
 ### Contract maturity
 
 | Label | Meaning |
 | --- | --- |
-| **Confirmed** | The route and behaviour are described by an existing approved source or detailed feature contract. The referenced Member Auth OpenAPI remains versioned `1.0.0-draft`; this label does not promote it to a released public API. |
+| **Confirmed** | The route and behaviour are described by an existing approved source or detailed feature contract. This label does not promote a draft contract to a released public API. |
 | **Draft** | A proposed REST contract derived from an approved V1 use case. It must receive its own feature specification and OpenAPI contract before implementation. |
 | **TBD dependency** | A system boundary is required, but its provider, payload, security, retry, governance, or other material detail is not approved. It must not be implemented as though it were final. |
 
@@ -41,11 +42,10 @@ and status codes. The existing Member Authentication contract is at
   `application/json`. Server-rendered pages and Thymeleaf/htmx fragments are
   outside this REST catalog.
 - `Authorization: Bearer <Firebase ID token>` proves identity only. Spring
-  verifies the token; Mland MySQL is authoritative for account status, logical
-  roles (`Member`, `Staff`, `Manager`, and `Admin`), and entitlement. The physical
-  role-code mapping is explicit for this feature: `Manager` uses `OWNER` and
-  `Admin` uses `ADMIN_TECHNICAL`. The mapping must not expand logical business or
-  technical authority and must never be inferred from client input.
+  verifies the token; Mland MySQL is authoritative for account status, fixed
+  roles (`MEMBER`, `STAFF`, `MANAGER`, and `ADMIN`), ownership, location scope,
+  and entitlement. `OWNER` and `ADMIN_TECHNICAL` are not V1 role codes. A
+  provider claim, email, display name, or client input never grants authority.
 - Protected requests with a missing, malformed, expired, revoked, wrong-project,
   or unverifiable token receive `401`. A valid identity without the required
   Mland authority or current entitlement receives `403`.
@@ -64,22 +64,21 @@ and status codes. The existing Member Authentication contract is at
 All entries below are client-facing HTTP contracts. A route labelled Draft is a
 design target, not an implementation instruction or final wire contract.
 
-### 3.1 Member and policy (`members`)
+### 3.1 Account and policy (`accounts`)
 
 | Boundary | Method and route | Access | UC | Purpose | Maturity |
 | --- | --- | --- | --- | --- | --- |
-| Protected client REST | `PUT /api/v1/members/me` | Verified Firebase identity | UC-02 | Provision or return the Member for the verified Firebase UID. | Confirmed |
-| Protected client REST | `GET /api/v1/members/me/entitlement` | Verified Firebase identity | UC-02 | Return current Member entitlement. | Confirmed |
-| Public client REST | `GET /api/v1/policies/current` | Public | UC-02 | Return current Terms and Privacy metadata/content locations. | Confirmed |
-| Protected client REST | `POST /api/v1/members/me/policy-acceptances` | Verified Firebase identity | UC-02 | Record acceptance of exactly the effective policy pair. | Confirmed |
-| Protected client REST | `GET /api/v1/members/me/guest-booking-import-preview` | Eligible Member | UC-02, UC-05 | Preview verified-email Guest bookings that can be explicitly linked. | Confirmed |
-| Protected client REST | `POST /api/v1/members/me/guest-booking-imports` | Eligible Member | UC-02, UC-05 | Idempotently link currently eligible Guest bookings after explicit confirmation. | Confirmed |
-| Public client REST | `POST /api/v1/workshop-bookings/{bookingCode}/email-confirmations` | One-time confirmation token | UC-01 | Consume a Guest booking email-confirmation token. | Confirmed |
-| Protected client REST | `GET /api/v1/members/me/workshop-bookings` | Active Member | UC-01, UC-05 | List the caller's permitted workshop history and upcoming bookings. | Draft |
-| Protected client REST | `GET /api/v1/members/me/ready-ring-orders` | Active Member | UC-04 | List the caller's permitted retail orders and transactions. | Draft |
+| Protected client REST | `PUT /api/v1/accounts/me` | Verified Firebase identity | UC-02 | Bootstrap or return the Account bound to the verified Firebase UID; it does not grant a role from provider data. | Confirmed dependency |
+| Protected client REST | `/api/v1/accounts/me` family | Verified Firebase identity and current Mland authority | UC-02 | Own-profile, verified-email synchronization, and policy operations. Exact routes and schemas remain owned by FE-001. | TBD dependency |
+| Protected client REST | `/api/v1/accounts` administration family | `ADMIN` with current Mland authority | UC-02 | Internal-account provisioning and Account role/location/status administration. Exact routes and schemas remain owned by FE-001. | TBD dependency |
+| Public client REST | `GET /api/v1/policies/current` | Public | UC-02 | Return current Terms and Privacy metadata/content locations, if retained by the FE-001 contract. | TBD dependency |
+| Protected client REST | Account-owned booking-history projection | Active `MEMBER` with current ownership | UC-01, UC-05 | A consumer-specific history view may be supplied by the owning booking feature; it is not a legacy `/members` contract. | Draft |
+| Protected client REST | Account-owned retail-order projection | Active `MEMBER` with current ownership | UC-04 | A consumer-specific order view may be supplied by the owning retail feature; it is not a legacy `/members` contract. | Draft |
 
-The seven Confirmed routes above, including their documented outcomes and three
-documented request bodies, are defined by the Member Auth OpenAPI file.
+The former `/api/v1/members/...` routes and one-time workshop-booking email
+confirmation route are legacy and MUST NOT be used as implementation
+instructions. Magic Link and booking lookup behaviour are owned by Workshop
+Booking (003.1), not by this Account catalog.
 
 ### 3.2 Public catalogue, availability, and booking
 
