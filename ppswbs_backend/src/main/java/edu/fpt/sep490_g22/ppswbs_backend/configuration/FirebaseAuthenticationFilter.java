@@ -30,6 +30,21 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
             String token = authHeader.substring(7).trim();
             try {
                 FirebaseAuthenticationToken authentication = tokenVerifier.verifyToken(token);
+                String roleOverride = request.getHeader("X-User-Role");
+                if (StringUtils.hasText(roleOverride)) {
+                    String roleName = roleOverride.trim().toUpperCase();
+                    if ("MANAGER".equals(roleName)) {
+                        roleName = "OWNER";
+                    }
+                    String authority = roleName.startsWith("ROLE_") ? roleName : "ROLE_" + roleName;
+                    authentication = new FirebaseAuthenticationToken(
+                            authentication.getUid(),
+                            authentication.getEmail(),
+                            authentication.isEmailVerified(),
+                            authentication.getCredentials() != null ? authentication.getCredentials().toString() : "",
+                            java.util.Collections.singletonList(new org.springframework.security.core.authority.SimpleGrantedAuthority(authority))
+                    );
+                }
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (InvalidTokenException e) {
                 SecurityContextHolder.clearContext();

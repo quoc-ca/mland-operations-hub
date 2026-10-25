@@ -41,12 +41,16 @@ public class SecurityConfiguration {
                     "/policies/**",
                     "/api/v1/policies/current",
                     "/api/v1/workshop-bookings/*/email-confirmations",
+                    "/api/v1/ai-support/messages",
                     "/css/**",
                     "/js/**",
                     "/images/**",
                     "/favicon.ico"
                 ).permitAll()
                 .requestMatchers("/api/v1/members/me/**").authenticated()
+                .requestMatchers("/api/v1/design-requests/**").authenticated()
+                .requestMatchers("/api/v1/design-review-requests/**").hasAnyRole("STAFF", "OWNER", "MANAGER")
+                .requestMatchers("/api/v1/price-proposals/**").hasAnyRole("OWNER", "MANAGER", "ADMIN_TECHNICAL")
                 .anyRequest().permitAll()
             )
             .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class)

@@ -22,12 +22,19 @@ public class DefaultFirebaseTokenVerifier implements FirebaseTokenVerifier {
             String email = decodedToken.getEmail();
             boolean emailVerified = decodedToken.isEmailVerified();
 
+            Object roleClaim = decodedToken.getClaims().get("role");
+            String roleName = roleClaim != null ? roleClaim.toString().toUpperCase() : "MEMBER";
+            if ("MANAGER".equals(roleName)) {
+                roleName = "OWNER";
+            }
+            String authority = roleName.startsWith("ROLE_") ? roleName : "ROLE_" + roleName;
+
             return new FirebaseAuthenticationToken(
                     uid,
                     email,
                     emailVerified,
                     idToken,
-                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_MEMBER"))
+                    Collections.singletonList(new SimpleGrantedAuthority(authority))
             );
         } catch (FirebaseAuthException | IllegalArgumentException e) {
             log.warn("Firebase ID Token verification failed: {}", e.getMessage());

@@ -67,6 +67,31 @@ public class WorkshopBookingFacade {
         return linkedCount;
     }
 
+    @Transactional(readOnly = true)
+    public java.util.Optional<BookingEligibilityDto> getBookingEligibilityForDesign(String bookingCode, Long memberId) {
+        if (bookingCode == null || bookingCode.isBlank() || memberId == null) {
+            return java.util.Optional.empty();
+        }
+        return bookingRepository.findByBookingCode(bookingCode.trim())
+                .filter(b -> memberId.equals(b.getMemberId()))
+                .map(b -> {
+                    boolean eligible = b.getBookingStatus() != BookingStatus.CANCELLED
+                            && b.getBookingStatus() != BookingStatus.EXPIRED;
+                    return BookingEligibilityDto.builder()
+                            .bookingId(b.getId())
+                            .bookingCode(b.getBookingCode())
+                            .memberId(b.getMemberId())
+                            .packageId(b.getPackageId())
+                            .packageName(b.getPackageNameSnapshot())
+                            .sessionId(b.getSessionId())
+                            .priceSnapshot(b.getPriceSnapshot())
+                            .bookingStatus(b.getBookingStatus().name())
+                            .paymentStatus(b.getPaymentStatus().name())
+                            .eligibleForDesign(eligible)
+                            .build();
+                });
+    }
+
     private WorkshopBookingDto toDto(WorkshopBooking b) {
         return WorkshopBookingDto.builder()
                 .id(b.getId())
