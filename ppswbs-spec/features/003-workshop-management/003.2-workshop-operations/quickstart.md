@@ -1,7 +1,7 @@
 # Quickstart: Workshop Operations Verification
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -14,7 +14,7 @@ authorize a production migration or a reset of existing workshop data.
 - A non-production MySQL database configured for the Spring test/integration
   profile; Flyway must run against that database, not a shared or production
   database.
-- Firebase test identity configuration and account/personnel fixtures for an
+- Firebase test identity configuration and Account Management fixtures for an
   active scoped Manager, assigned active Staff, inactive Staff and an unscoped
   Manager.
 

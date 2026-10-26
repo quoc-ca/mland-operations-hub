@@ -1,7 +1,7 @@
 # Quickstart Validation: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -13,7 +13,7 @@ This is an evidence-oriented validation flow for implementation and provider onb
 
 - The 003.1 booking, 003.2 operations, and 003.3 settlement/change facades are available in the test environment.
 - An approved Basic Ring test workshop session uses `PER_PERSON` pricing and has known capacity; no group/co-maker/base-plus-extra scenario is used. Silverclay is direct-Mland only and has no OTA mapping in V1.
-- Test actors have explicitly granted branch/capability permissions. A separate Admin test actor owns provider connection actions.
+- Test actors have active canonical Account Management role/status/location facts and satisfy the applicable OTA Connectivity action rule for the target branch. A separate Admin test actor owns provider connection actions.
 - The provider adapter simulator can capture outbound messages and submit authenticated, redacted representative callbacks. A real sandbox is used only after credential and callback approval.
 
 ## Validation sequence
@@ -59,4 +59,4 @@ Record the mapping/provider, environment, safe correlation IDs, timestamp, actor
 
 ## Release stop conditions
 
-Do not enable a provider for booking if any of the following is missing or failing: commercial/onboarding approval, credential/callback verification, ticket-and-scan proof, cancellation/refund agreement, payout semantics, late-booking/capacity rule, adapter contract tests, or the failure-close and reconciliation scenario. Preparation synchronization may remain sales-closed while those gaps are resolved.
+Do not enable a provider for booking if any of the following is missing or failing: commercial/onboarding approval, credential/callback verification, ticket-and-scan proof, cancellation/refund agreement, payout semantics, evidence that provider acknowledgement/retry honors Mland's reject-without-capacity late-booking rule, adapter contract tests, or the failure-close and reconciliation scenario. Preparation synchronization may remain sales-closed while those gaps are resolved.

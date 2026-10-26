@@ -1,7 +1,7 @@
 # Research: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -49,8 +49,10 @@ validate capacity and entitlement and apply all changes or none. Persistent QR i
 kept. A Silverclay result remains same-branch, distinct, chronological, with at
 least one slot between same-day sessions.
 
-**Open dependency**: 003.2 has not specified this replacement facade. Do not
-invent its transport, method, DTO, lock, or transaction protocol.
+The approved `WorkshopOperationsFacade` now exposes the semantic complete-set
+replacement operation. It remains an in-process named-interface boundary, not a
+REST endpoint; concrete Java type details, locks and transaction protocol remain
+implementation-owned.
 
 ### Refund and cancellation policy
 
@@ -73,17 +75,31 @@ level handling matches course-booking patterns such as [Bookwhen cancellation gu
 | Sessions, capacity, ticket, attendance | 003.2 | Semantic facade only. |
 | Final bill, charge, settlement/refund/change case | 003.3 | Authoritative owner. |
 | Identity and authorization | FE-001 | Query at command time. |
-| Delivery | Notification feature | Post-commit intent; delivery is not financial truth. |
+| Delivery | Feature 007 | 003.3 persists an immutable handoff with accepted Settlement state, then publishes a reference-only post-commit event. Feature 007 deduplicates and reads an immutable payload only through `WorkshopSettlementFacade`; delivery is not financial truth. |
 
 Audit protected financial/change commands with actor reference when available,
 booking reference, applicable branch, action, outcome, required reason,
 correlation and time. Exclude raw provider payload/signature/secret, Firebase
 token, card data, OTP and unnecessary PII. Operational retries are separate.
 
+## Public REST decision
+
+The approved public contract is resource-oriented: one booking-scoped final bill
+with nested charges/finalization, and auditable booking-scoped cancellation,
+required-session-change, deferred-payment and Mland-remedy cases. Prospective
+Mland cancellation refund policy is a central resource because it applies across
+branches only to later-confirmed bookings. Client commands use an
+`Idempotency-Key`; VNPay IPN remains signed provider evidence replay-protected by
+its provider transaction reference. This separates a browser/client retry from a
+gateway callback and preserves the rule that browser return is never payment
+truth.
+
 ## Implementation dependencies
 
 1. 003.2 must expose semantic all-or-none replacement of a complete required-session set.
-2. FE-001 must expose authorization/capability/scope and central-policy-editor authority.
+2. FE-001 must expose current canonical role/status, ownership and location-scope
+   facts; 003.3 applies its own approved branch/resource action rules and
+   central-policy-editor rule.
 3. VNPay merchant, IPN/QueryDR and refund configuration must be provider-approved.
 4. Notification owner must provide the post-commit link/reminder/outcome handoff.
 

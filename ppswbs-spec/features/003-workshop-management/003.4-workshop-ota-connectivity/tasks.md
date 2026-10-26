@@ -1,7 +1,7 @@
 # Tasks: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -17,7 +17,7 @@
 
 - **[P]**: Different files with no dependency on unfinished task.
 - **[USn]**: User-story traceability label.
-- All server authorization is resolved through Account/Personnel capability and branch scope; no task may invent a role code or use UI visibility as authorization.
+- Account Management supplies canonical role/status and location-scope facts; OTA Connectivity applies its own server-side action rules with the target branch/resource. No task may use UI visibility, Firebase claims or retired role codes as authorization.
 
 ## Phase 1: Setup and design-gate evidence
 
@@ -40,9 +40,9 @@
 - [ ] T006 Inspect deployed Flyway history, select the next append-only migration identifier, then create the OTA migration in `ppswbs_backend/src/main/resources/db/migration/` for channel connection, mapping, price snapshot, outbound change, delivery attempt, inbound event, channel booking, booking-ticket link, customer-payment evidence, payout position/ledger entry, add-on bill link, and reconciliation work item; preserve `data-model.md` integrity rules, including provider-scoped uniqueness for external/event references and source-version change keys.
 - [ ] T007 [P] Create JPA entities, enums, repositories, and migration test support for foundational mapping/change/event/reconciliation records in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/persistence/` and `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/persistence/`.
 - [ ] T008 [P] Verify 003.1/003.2/003.3 facade compatibility and opaque identifier conversion against the upstream-facade section of `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity-contract.md`, then define the OTA public facade and adapter-neutral boundary types in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/{facade,adapter}/`; stop and report an upstream gap rather than access another feature's entity, repository, or service.
-- [ ] T009 Implement server-side active-actor, branch-scope, and capability authorization plus safe typed/correlation-linked error mapping in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaAuthorizationService.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/api/OtaExceptionHandler.java`.
+- [ ] T009 Implement server-side canonical account fact, branch-scope and OTA action-rule authorization plus safe typed/correlation-linked error mapping in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaAuthorizationService.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/api/OtaExceptionHandler.java`.
 - [ ] T010 [P] Implement redacted integration audit logging and safe correlation generation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/integration/OtaAuditCorrelationService.java`; exclude credentials, access tokens, signing secrets, raw sensitive bodies, payment cards, and avoidable customer data.
-- [ ] T011 **BLOCKED — 003.2 persistent publication implementation** Consume the persistent internal Spring Modulith OTA-observable publication from 003.2 in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/integration/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaSyncDeliveryService.java`; accept at-least-once replay idempotently, materialize one durable outbound change before any provider call, retain append-only delivery attempts, move only the affected mapping to sales-closed with reconciliation after retry exhaustion, and use no broker or provider call inside the Operations transaction.
+- [ ] T011 **DEPENDS ON 003.2 T053–T055**: Consume the persistent internal Spring Modulith OTA-observable publication from 003.2 in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/integration/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaSyncDeliveryService.java`; accept at-least-once replay idempotently, materialize one durable outbound change before any provider call, retain append-only delivery attempts, move only the affected mapping to sales-closed with reconciliation after retry exhaustion, and use no broker or provider call inside the Operations transaction.
 - [ ] T012 Implement authenticated inbound-event receipt, provider-scoped deduplication, safe payload fingerprinting, and replay outcome storage in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/integration/OtaInboundEventService.java`.
 - [ ] T013 Add module-boundary verification in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/OtaConnectivityModuleTest.java` and verify that other features can access OTA only through `facade/` boundary types.
 - [ ] T014 [P] Add empty-database and supported-upgrade migration coverage for the append-only OTA migration selected after Flyway history inspection in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/persistence/OtaConnectivityMigrationIT.java`.
@@ -93,7 +93,7 @@
 ### Implementation for User Story 1
 
 - [ ] T029 [P] [US1] Implement channel booking, booking-ticket link, provider-event correlation, and immutable booking snapshot persistence in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/persistence/`; snapshot sales channel, displayed policy/version, booking cutoff, cutoff timezone, retail/target-net amounts, commission/fee facts, currency, accepted amounts, and external correlation; enforce unique provider + external booking reference and one ticket link per participant entitlement.
-- [ ] T030 [US1] Implement booking-enable enforcement in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaBookingReadinessService.java`; require all provider readiness evidence, `PER_PERSON`, individual ticket/QR and scan proof, and the written late-booking/capacity rule before accepting any booking.
+- [ ] T030 [US1] Implement booking-enable enforcement in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaBookingReadinessService.java`; require all provider readiness evidence, `PER_PERSON`, individual ticket/QR and scan proof, and evidence that provider acknowledgement/retry can honor Mland's reject-without-capacity late-booking rule before accepting any booking.
 - [ ] T031 [US1] Implement authenticated provider callback adaptation and idempotent booking orchestration in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/integration/OtaProviderEventHandler.java`; use only the verified 003.1/003.2 facade semantics from the upstream-facade section of `contracts/ota-connectivity-contract.md` to obtain/retain one booking plus `N` active tickets for `N` participants, and return the prior persisted result on replay.
 - [ ] T032 [US1] Implement the versioned provider-event controller and safe correlation-linked acknowledgement in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/api/OtaProviderEventController.java`; provider authentication is separate from a Mland user session.
 - [ ] T033 [US1] Implement authorized, audited shared-voucher incident fallback handling in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaVoucherFallbackService.java`; prohibit automatic whole-booking check-in and keep the normal option disabled where individual ticket proof is absent.
@@ -183,7 +183,7 @@
 ### Phase dependencies
 
 - **Phase 1** can start immediately. T004 is a hard gate for a real provider's booking enablement, but it does not block simulator-backed preparation synchronization.
-- **Phase 2** depends on T001 and blocks all story implementation. T008 must verify the upstream facade contract before any booking, cancellation consequence, or direct-bill integration. T011 remains blocked until 003.2 implements its persistent internal Spring Modulith publication.
+- **Phase 2** depends on T001 and blocks all story implementation. T008 must verify the upstream facade contract before any booking, cancellation consequence, or direct-bill integration. T011 follows 003.2 T053–T055, which implement the already-approved persistent internal Spring Modulith publication.
 - **US2 (Phase 3)** depends on Phase 2 and is the dependency for US1 because it establishes mapping/readiness/sales-closed behavior.
 - **US1 (Phase 4)** depends on Phase 2, US2 lifecycle/readiness work, and T004 for the specific provider that will accept bookings.
 - **US3 (Phase 5)** depends on US1 channel-booking/event correlation.
@@ -198,7 +198,7 @@
 ## Parallel opportunities
 
 - T002, T003, and T005 can run in parallel after T001.
-- T007, T008, T009, and T010 can run in parallel after T006's migration design is agreed; T011/T012 then consume that foundation, with T011 waiting for 003.2.
+- T007, T008, T009, and T010 can run in parallel after T006's migration design is agreed; T011/T012 then consume that foundation, with T011 following 003.2 T053–T055.
 - Within US2, T016–T018 and T019 can run in parallel; T020–T025 follow the lifecycle boundary.
 - Within US1, T026–T029 can run in parallel; T030–T033 follow readiness/persistence work.
 - US3, US4, and US5 can be staffed in parallel after their stated prerequisites, with ownership coordination for shared controller/dto files.

@@ -1,7 +1,7 @@
 # Tasks: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -37,10 +37,10 @@ facade.
 **Purpose**: Establish the target Modulith module without extending legacy
 Booking ownership.
 
-- [ ] T001 Create `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/package-info.java` and register `workshopoperations` as a distinct Modulith module with only `facade` boundary types public; retain `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/common/` outside `features/` as the technical kernel.
-- [ ] T002 [P] Create the target package skeleton at `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/{controller,dto,dao,entity,service,facade}/` without moving business behavior into the root `common` package.
-- [ ] T003 [P] Update `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/ModulithArchitectureTests.java` to discover only `features/*` business modules and verify that Operations has no dependency on Booking internals.
-- [ ] T004 Record the legacy-to-target rebase inventory in `ppswbs_backend/docs/workshop-operations-legacy-rebase.md`, covering the old Booking-owned `WorkshopSession` and one-ticket-per-booking `BookingTicket`; prohibit automatic ticket split, revoke, reset or email during schema migration.
+- [X] T001 Create `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/package-info.java` and register `workshopoperations` as a distinct Modulith module with only `facade` boundary types public; retain `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/common/` outside `features/` as the technical kernel.
+- [X] T002 [P] Create the target package skeleton at `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/{controller,dto,dao,entity,service,facade}/` without moving business behavior into the root `common` package.
+- [X] T003 [P] Update `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/ModulithArchitectureTests.java` to discover only `features/*` business modules and verify that Operations has no dependency on Booking internals.
+- [X] T004 Record the legacy-to-target rebase inventory in `ppswbs_backend/docs/workshop-operations-legacy-rebase.md`, covering the old Booking-owned `WorkshopSession` and one-ticket-per-booking `BookingTicket`; prohibit automatic ticket split, revoke, reset or email during schema migration.
 
 ---
 
@@ -50,12 +50,12 @@ Booking ownership.
 
 **⚠️ CRITICAL**: Complete this phase before building a Manager or Staff flow.
 
-- [ ] T005 Consume the published Account Management boundary for active-account, capability-decision, and Manager branch scope through `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/accountmanagement/facade/`; Operations must not map display roles or edit Account Management code.
+- [ ] T005 Consume the published Account Management boundary for canonical account role, active status and location scope through `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/accountmanagement/facade/`; Operations applies its own action rules with target branch and explicit Staff-session assignment, and must not use a display role, Firebase claim or retired code as authority or edit Account Management code.
 - [ ] T006 Implement `WorkshopOperationsFacade` from `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md` for capacity hold, confirm/release, individual ticket issue, delivery-safe ticket view and commercial ticket-validity projection; expose no JPA entity.
 - [ ] T007 [P] Create immutable `WorkshopOperationsFacade` boundary types in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/` for hold, issued-ticket and delivery-safe ticket data; keep Firebase tokens, booking-contact PII, HTTP DTOs and entities out of these types.
 - [ ] T008 Inspect deployed Flyway history, select the next append-only migration identifier, then add Operations tables, keys and indexes under `ppswbs_backend/src/main/resources/db/migration/` for branch, slot, session, Staff assignment, operational lead, capacity hold, individual ticket, attendance action, audit event and cancellation handoff; do not edit an applied migration or reset retained data.
 - [ ] T009 Implement JPA entities and DAOs in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/entity/` and `dao/`, including unique `(branch_id, workshop_date, slot_id)`, unique public ticket code/QR reference, positive capacity, version fields and lock-capable queries.
-- [ ] T010 Implement `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/WorkshopOperationsAuthorizationService.java` and `controller/WorkshopOperationsCorsConfiguration.java` to enforce server-side Firebase identity, active actor state, Manager branch scope, explicit Staff session assignment, deny-by-default capability checks through T005, environment allowlist CORS, no credentialed CORS by default and no global CSRF disable.
+- [ ] T010 Implement `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/WorkshopOperationsAuthorizationService.java` and `controller/WorkshopOperationsCorsConfiguration.java` to enforce server-side Firebase identity, active actor state, canonical-role/location-scope facts from T005, target-branch scope, explicit Staff session assignment, and deny-by-default Operations action rules; use environment allowlist CORS, no credentialed CORS by default and no global CSRF disable.
 - [ ] T011 Implement typed, correlation-linked module error mapping in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/controller/WorkshopOperationsExceptionHandler.java` for validation, authorization, lifecycle, capacity and ticket-conflict errors without exposing entities, booking-contact PII or token details.
 - [ ] T012 Create MySQL/Flyway, module-boundary and API-security verification coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/WorkshopOperationsFoundationIT.java`, including migration application, CORS allow/deny behavior, CSRF not globally disabled and the invariants introduced by T008–T011.
 

@@ -1,7 +1,7 @@
 # Research: Workshop Operations Design
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -24,7 +24,9 @@ treated as legacy, not extended.
 confirms/releases it and requests ticket issue after the relevant commercial
 state is reached. Booking then reads a delivery-safe ticket view to send the
 buyer QR codes. Operations consumes account/personnel decisions through a
-separate facade: actor active status, capability and Manager branch scope.
+separate facade: canonical actor role, active status and location scope.
+Operations then applies its own action rules with the target branch and explicit
+Staff-session assignment.
 
 **Why:** A facade preserves module ownership, allows the account module to
 change its account model later, and makes Module/Modulith tests meaningful. It
@@ -98,7 +100,8 @@ The tempting shortcuts below are rejected:
 - **Put the new aggregate in `common`:** common infrastructure must not own
   workshop business rules.
 - **Trust the legacy global security configuration:** every new route must make
-  a server-side capability/scope decision; a client-provided branch or user id
+  canonical server-side account facts plus an Operations action rule; a
+  client-provided branch or user id
   is not authority.
 - **Reuse one ticket per booking:** it contradicts individual QR check-in and
   permits the wrong person to be marked present.
