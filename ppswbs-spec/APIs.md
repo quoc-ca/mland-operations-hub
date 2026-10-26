@@ -1,7 +1,7 @@
 # Mland V1 API Contract Catalog
 
 **Date created**: 2026-09-30
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Ngô Tiến Đạt
 **Last updated by**: Phan Sơn
 
@@ -99,9 +99,12 @@ post-commit and does not block account mutations.
 | --- | --- | --- | --- | --- | --- | --- |
 | `catalogue` | Public client REST | `GET /api/v1/workshop-locations` | Public | UC-01 | Discover bookable locations. | Draft |
 | `catalogue` | Public client REST | `GET /api/v1/workshop-packages` | Public | UC-01 | Discover workshop packages and published prices. | Draft |
-| `workshopbooking` | Public client REST | `GET /api/v1/workshop-sessions` | Public | UC-01 | Discover configured daily sessions and availability for selected location/date criteria. | Draft |
+| `workshopbooking` | Public client REST | `GET /api/v1/workshop-sessions` | Public | UC-01 | Discover customer-selectable sessions for one selected package, one branch, and a requested time range. | Draft |
 | `workshopbooking` | Public client REST | `POST /api/v1/workshop-bookings` | Guest or Member | UC-01 | Submit a booking after capacity and selected design-path checks. | Draft |
 | `workshopbooking` | Public client REST | `POST /api/v1/booking-lookups` | Guest or Member with booking-contact proof | UC-05 | Return the minimum permitted booking status, invoice/deposit state, and QR only when lookup proof matches. | Draft |
+| `workshopbooking` | Public or protected client REST | `POST /api/v1/workshop-bookings/{bookingCode}/confirmation-deliveries` | Guest with stored-contact proof; owning Member; authorized in-branch Staff/Manager | UC-05 | Resend confirmation only to the existing booking contact; no booking, payment, ticket, or Magic-Link state changes. | Draft |
+| `workshopbooking` | Protected client REST | `POST /api/v1/workshop-bookings/{bookingCode}/magic-link-incidents` | Manager responsible for booking branch | UC-05 | Revoke or rotate a booking Magic Link with reason and safe audit evidence. | Draft |
+| `workshopbooking` | Protected client REST | `POST /api/v1/workshop-bookings/{bookingCode}/late-payment-follow-ups` | Manager responsible for booking branch | UC-05 | Record or escalate late signed-payment follow-up without confirming/reviving booking state. | Draft |
 
 `POST /booking-lookups` deliberately keeps booking contact proof out of a URL.
 Capacity values, expiry behaviour, booking schema, and payment-provider handoff
@@ -220,7 +223,7 @@ provider-specific contract, security review, and feature approval.
 
 | Owner | Boundary | Contract / route | Counterparty | Trace | Required invariant | Maturity |
 | --- | --- | --- | --- | --- | --- | --- |
-| `payments` | Inbound integration | `POST /api/v1/integrations/payments/{provider}/events` | Payment Gateway | UC-01, UC-04 | Verify provider authenticity and event validity; process duplicates idempotently; only a valid event confirms booking/order payment. | TBD dependency |
+| `paymentintegration` | Inbound integration | `GET /api/v1/integrations/payments/vnpay/events` | VNPay | UC-01, UC-04 | One HTTPS ingress verifies the signed VNPay callback once, deduplicates delivery, resolves immutable owner-qualified merchant reference, and dispatches redacted evidence to exactly one owner facade. It never confirms business state itself. Canonical contract: `features/003-workshop-management/contracts/vnpay-payment-ingress.openapi.yaml`. | Confirmed 003 boundary; provider configuration TBD |
 | `designreview` | Outbound integration port | `ImageFeatureAnalysisPort.analyse(...)` | AI Vision API | UC-03 | Send a reference image only after explicit consent and accepted validation; treat output only as candidate features. | TBD dependency |
 | `workshopbooking`, `readyringsales` | Outbound integration port | `NotificationDeliveryPort.send(...)` | Email Sender | UC-01, UC-04 | Send requested booking/order notifications without leaking tokens or unnecessary PII. | TBD dependency |
 | Review-import owner (to be assigned) | Outbound integration port | `GoogleReviewImportPort.importPermittedReviews(...)` | Google Business Profile | Supporting capability; Google review-import detail diagram | One-way, authorized business-requested manual import only after verified profile, authorised API access, and approved retention/attribution/appeal policy. | TBD dependency |

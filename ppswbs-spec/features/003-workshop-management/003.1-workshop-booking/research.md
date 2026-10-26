@@ -54,7 +54,13 @@ that price. `BASE_PLUS_EXTRA`, shared-item/co-maker pricing, and a
 - A rare request for several people to make one physical item is a Staff manual
   exception outside the V1 booking flow. It is not a customer-facing material
   add-on, because an additional person would affect ticket and capacity facts.
-- The deposit is **50% of the frozen booking total**. One deposit invoice/payment exists per booking; a package's displayed per-participant price covers all of its required sessions.
+- The deposit is one half of the frozen post-promotion booking amount, rounded
+  up to whole VND: `ceil(post_promotion_amount / 2)`. The remaining amount is
+  the exact difference. One deposit invoice/payment exists per booking; a
+  package's displayed per-participant price covers all of its required sessions.
+- FE-006 owns voucher/point calculation. It must provide the post-promotion
+  amount before 003.1 accepts the booking; 003.1 freezes the resulting amount,
+  deposit and remaining amount together and never recalculates a later discount.
 - Later material/service charges and the remaining balance are outside 003.1; their ownership belongs to 003.3.
 
 ### Atomic creation, holds, and pending state

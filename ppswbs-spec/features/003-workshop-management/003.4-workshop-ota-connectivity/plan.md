@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -144,7 +144,12 @@ The source tree is a proposed boundary, not an instruction to create it before t
 - Deduplicate inbound callbacks by provider, provider event reference, and safe payload fingerprint before invoking Mland booking/ticket effects. A duplicate therefore returns the prior outcome and never consumes additional capacity.
 - Permit only `PER_PERSON` sale and require one successful Mland ticket for each participant. A provider booking cannot become confirmed until the Operations facade atomically reserves capacity and returns those tickets.
 - Separate OTA guest payment evidence, OTA payout owed to Mland, and any direct Mland add-on bill. None is derived from a browser redirect or from another ledger.
-- Treat provider-specific timeout, retries, idempotency header, cancellation, voucher, and late-booking behavior as adapter configuration backed by written evidence, not constants inferred from public docs.
+- Treat provider-specific timeout, retries, idempotency header, cancellation,
+  and voucher behavior as adapter configuration backed by written evidence, not
+  constants inferred from public docs. Mland's late-booking rule is fixed:
+  reject/not confirm after mapping sales-close or suspension, reserve no
+  capacity, issue no ticket, and create reconciliation; provider acknowledgement
+  and retry behavior must evidence compatibility before booking enablement.
 - Treat Mland REST API details as an explicit contract now, but keep provider callback wire formats out of shared OpenAPI until each adapter's onboarding material is approved.
 - Gate booking/cancellation/add-on integration on verified upstream facades: OTA records/replays correlations, while the owning module provides atomic capacity/ticket or direct-bill effects.
 

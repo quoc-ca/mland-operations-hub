@@ -1,7 +1,7 @@
 # Feature Specification: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -49,7 +49,7 @@ are evidenced.
 - Q: Những thay đổi lịch nào từ Mland phải tự động đồng bộ sang từng OTA candidate? → A: Tự động đồng bộ toàn bộ thay đổi ảnh hưởng lịch/availability; có retry, reconciliation và force re-sync.
 - Q: Ai được phép force re-sync lịch/availability và xử lý reconciliation của một OTA? → A: Manager theo branch xử lý sync/reconciliation nghiệp vụ; Admin quản lý connection/credentials và có quyền toàn cục.
 - Q: Sau khi retry đồng bộ lịch/availability thất bại và chưa reconcile được, Mland phải xử lý khả năng bán của OTA đó thế nào? → A: Đóng bán mapping bị lỗi sau retry; chỉ mở lại sau resync xác nhận.
-- Q: Nếu một OTA gửi booking sau khi Mland đã đóng bán mapping do lỗi sync, Mland phải xử lý booking đó thế nào? → A: Giữ TBD; chỉ bật OTA booking sau khi provider xác nhận bằng văn bản quy tắc late booking, timeout/retry và trách nhiệm capacity.
+- Q: Nếu một OTA gửi booking sau khi Mland đã đóng hoặc suspend mapping do lỗi sync, Mland phải xử lý booking đó thế nào? → A: Mland từ chối/không xác nhận booking đến muộn, không giữ capacity, và tạo reconciliation case có audit. Mapping chỉ được mở lại sau authoritative resync và xác nhận reconciliation; không dùng overbooking hoặc tự chuyển khách sang session khác.
 
 ### Session 2026-10-25
 
@@ -262,11 +262,15 @@ Mland payment. The counter bill remains separate from OTA financial facts.
   synchronization retries are exhausted. It MUST keep inbound provider events
   available for reconciliation and MUST reopen sales only after a successful
   confirmed re-sync, with audit of the close and reopen outcomes.
-- **FR-004d**: Before an OTA may accept bookings, the provider MUST confirm in
-  writing its handling of bookings delivered after a sales-close update, booking
-  timeout/retry/idempotency, and capacity responsibility. Until then, Mland MAY
-  synchronize schedule/availability only in sales-closed preparation mode; it
-  MUST NOT apply an invented late-booking confirmation or rejection policy.
+- **FR-004d**: An inbound OTA booking received while its mapping is
+  sales-closed or suspended MUST be rejected/not confirmed, MUST NOT reserve
+  capacity or issue tickets, and MUST create an audited reconciliation case.
+  Mland MUST NOT overbook or automatically move the customer to another
+  session. The mapping reopens only after authoritative resync and confirmed
+  reconciliation. Before an OTA may enable bookings, its documented callback
+  acknowledgement, timeout/retry/idempotency, and capacity-responsibility
+  behaviour must support this fixed Mland rule; until then, the mapping remains
+  sales-closed preparation mode.
 - **FR-004e**: When the OTA consumer detects a missing 003.2 source version or
   cannot establish the order of availability/sale-state updates for an
   open-for-sale mapping, it MUST suspend only that OTA mapping and request an
@@ -371,8 +375,10 @@ Mland payment. The counter bill remains separate from OTA financial facts.
 - 003.3 owns direct-Mland final payment/refund. OTA money never uses its direct
   deposit/refund gateway flow.
 - Provider contracts, credentials, callback verification, quotas, commercial
-  terms, production onboarding, and written late-booking/capacity handling
-  remain per-OTA go-live gates.
+  terms, and production onboarding remain per-OTA go-live gates. The fixed
+  late-booking/capacity rule is rejection without capacity commitment; each
+  provider must evidence that its callback acknowledgement/retry behaviour can
+  honor it before booking enablement.
 - Payment/audit retention follows the approved baseline. The feature stores no
   card data, secret, raw token, or unapproved participant PII.
 - Channel availability/event processing needs durable business/audit state;
