@@ -1,7 +1,7 @@
 # Quickstart Validation: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -17,7 +17,7 @@ credentials, provider calls, schema changes or deployment.
   with frozen post-promotion amount, accepted deposit and remaining amount.
 - Provide approved 003.2 facade outcomes for settlement readiness, complete
   replacement, verified-refund consequence and cancellation handoff.
-- Use active test Member, Guest contact proof, in-scope Staff, branch Manager and
+- Use active test Member, Guest contact proof, in-scope Staff, location-scoped Manager and
   designated central Manager actors. Do not guess an FE-001 role code.
 - Use the routes and safe schemas in
   [`contracts/workshop-settlement.openapi.yaml`](./contracts/workshop-settlement.openapi.yaml).

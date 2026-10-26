@@ -1,7 +1,7 @@
 # Quickstart: Workshop Operations Verification
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -34,7 +34,7 @@ run is not sufficient proof of index, lock or migration behaviour.
 
 ## Acceptance Walkthrough
 
-1. Create the three default non-overlapping slots at a branch. Attempt an
+1. Create the three default non-overlapping slots at a workshop location. Attempt an
    overlapping slot and verify it is rejected. Deactivate a slot and verify
    existing sessions remain intact while new generation cannot use it.
 2. Create a future `DRAFT` session, then publish it. Run a bulk generation for
@@ -85,11 +85,11 @@ run is not sufficient proof of index, lock or migration behaviour.
    Once open, scan a two-session ticket at session one successfully. Scan it
    concurrently or twice at that session and verify exactly one check-in is
    recorded. Verify the same QR can still check in once at session two, while a
-   scan in a session/branch without entitlement is rejected. Confirm a booking
+   scan in a session/location without entitlement is rejected. Confirm a booking
    code never by itself checks a ticket in.
 7. Perform an authorised override and a post-finalisation Manager correction.
    Verify both require a reason and create immutable audit events. Verify an
-   override cannot move a ticket to another session or branch.
+   override cannot move a ticket to another session or location.
 8. Finalise the session after actual end time. Checked-in tickets remain
    checked-in and unchecked active tickets become `NO_SHOW`. Verify a regular
    Staff member cannot correct this result after finalisation.

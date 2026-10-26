@@ -1,7 +1,7 @@
 # Data Model: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -24,7 +24,7 @@ This is a proposed implementation model for review, not an approved database sch
 | Customer payment evidence | Tracks OTA-reported guest payment/refund evidence. | References channel booking; it is evidence, not Mland card processing. State transitions are append-only/auditable and never infer a refund from a browser redirect. |
 | Payout position and ledger entry | Tracks what the OTA owes Mland and the evidence that changes the position. | References booking/price snapshot where applicable. Ledger entries are append-only; payout settlement cannot overwrite prior evidence. |
 | Direct OTA add-on bill link | Connects an accepted paid add-on to the Settlement-owned direct-Mland bill. | Only quotation/acceptance correlation is OTA-owned; card/payment/refund truth stays Settlement. Laser engraving has no bill. |
-| Reconciliation work item | Makes unresolved delivery, booking, ticket, payment, or payout discrepancies actionable. | References the affected mapping/event/booking/position; includes branch scope, safe evidence links, assignee/decision audit, and resolution state. |
+| Reconciliation work item | Makes unresolved delivery, booking, ticket, payment, or payout discrepancies actionable. | References the affected mapping/event/booking/position; includes canonical location scope, safe evidence links, assignee/decision audit, and resolution state. |
 
 ## Lifecycle rules
 
@@ -38,9 +38,9 @@ The final state names are proposed. Their required behavior is not: an unconfirm
 
 003.4 consumes 003.2 semantic snapshots only after Operations completes a local
 change that alters the OTA-observable result. The schedule snapshot contains
-opaque session identity, branch, scheduled start/end, source change
+opaque session identity, canonical location, scheduled start/end, source change
 identity/version, and effective time. The availability/sale-state snapshot
-contains opaque session identity, branch scope, sellable availability, sale
+contains opaque session identity, canonical location scope, sellable availability, sale
 state, source change identity/version, and effective time. Both exclude PII,
 Booking, payment, ticket detail, and OTA mapping. Sellable availability is
 authoritative: it already accounts for total capacity, confirmed ticket seats,
@@ -84,7 +84,7 @@ work; it cannot mutate Operations or direct-Mland booking behaviour.
 | Schedule, capacity, session, attendance, ticket scan | Workshop Operations | Consume only authoritative schedule and availability/sale-state snapshots for publication, using their one per-session source-version sequence; use approved Operations facades for booking/cancellation effects. OTA never calculates or writes schedule/capacity/tickets directly. |
 | Customer booking and booking lifecycle | Workshop Booking | Request idempotent booking creation/lookup; retain only correlation. |
 | Direct-Mland bill and payment/refund | Workshop Settlement | Request a quote/bill link for accepted paid add-ons; do not own money processing. |
-| Canonical Mland actor role/status/location scope | Account Management | Consume facts through facade; OTA Connectivity applies its own action rule with target branch/resource. Provider identity is not mapped to a Mland user. |
+| Canonical Mland actor role/status/location scope | Account Management | Consume facts through facade; OTA Connectivity applies its own action rule with target location/resource. The location is directly comparable to `activeLocationIds`; provider identity is not mapped to a Mland user. |
 
 ## Integrity and privacy rules
 

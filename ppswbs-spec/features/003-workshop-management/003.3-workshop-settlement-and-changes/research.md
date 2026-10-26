@@ -1,7 +1,7 @@
 # Research: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -26,7 +26,7 @@ package price plus accepted charges less accepted deposit. A future internal
 per-session allocation cannot change V1 checkout, final bill, or refund.
 
 A customer may select only an allowed fixed-price catalogue add-on for the
-package/branch. A variable material/service charge enters the bill only after
+package/location. A variable material/service charge enters the bill only after
 Staff/Manager confirmation. Customers cannot enter arbitrary price. This follows
 the controlled-option / merchant-confirmed pattern seen in [Square modifiers](https://squareup.com/help/us/en/article/5119-create-and-manage-item-modifiers)
 and [Shopify draft orders](https://help.shopify.com/en/manual/fulfillment/managing-orders/create-orders/create-draft).
@@ -46,7 +46,7 @@ and its [FAQ](https://sandbox.vnpayment.vn/apis/docs/faqs/).
 There is no customer self-service reschedule. An authorized Manager requests one
 complete booking-level replacement set (one or both future sessions); 003.2 must
 validate capacity and entitlement and apply all changes or none. Persistent QR is
-kept. A Silverclay result remains same-branch, distinct, chronological, with at
+kept. A Silverclay result remains same-location, distinct, chronological, with at
 least one slot between same-day sessions.
 
 The approved `WorkshopOperationsFacade` now exposes the semantic complete-set
@@ -63,7 +63,7 @@ policy snapshot. The current default is 100% of every collected payment,
 including deposit/final payment, even if an earlier session was attended.
 
 One designated central Manager may change this policy prospectively. Existing
-snapshots stay immutable; branch Managers resolve individual cases under the
+snapshots stay immutable; location-scoped Managers resolve individual cases under the
 existing snapshot. This is business authority, not a new role mapping. Booking
 level handling matches course-booking patterns such as [Bookwhen cancellation guidance](https://support.bookwhen.com/en/articles/3790128-cancelling-an-event).
 
@@ -78,7 +78,7 @@ level handling matches course-booking patterns such as [Bookwhen cancellation gu
 | Delivery | Feature 007 | 003.3 persists an immutable handoff with accepted Settlement state, then publishes a reference-only post-commit event. Feature 007 deduplicates and reads an immutable payload only through `WorkshopSettlementFacade`; delivery is not financial truth. |
 
 Audit protected financial/change commands with actor reference when available,
-booking reference, applicable branch, action, outcome, required reason,
+booking reference, applicable canonical location, action, outcome, required reason,
 correlation and time. Exclude raw provider payload/signature/secret, Firebase
 token, card data, OTP and unnecessary PII. Operational retries are separate.
 
@@ -88,7 +88,7 @@ The approved public contract is resource-oriented: one booking-scoped final bill
 with nested charges/finalization, and auditable booking-scoped cancellation,
 required-session-change, deferred-payment and Mland-remedy cases. Prospective
 Mland cancellation refund policy is a central resource because it applies across
-branches only to later-confirmed bookings. Client commands use an
+locations only to later-confirmed bookings. Client commands use an
 `Idempotency-Key`; VNPay IPN remains signed provider evidence replay-protected by
 its provider transaction reference. This separates a browser/client retry from a
 gateway callback and preserves the rule that browser return is never payment
@@ -98,7 +98,7 @@ truth.
 
 1. 003.2 must expose semantic all-or-none replacement of a complete required-session set.
 2. FE-001 must expose current canonical role/status, ownership and location-scope
-   facts; 003.3 applies its own approved branch/resource action rules and
+   facts; 003.3 applies its own approved location/resource action rules and
    central-policy-editor rule.
 3. VNPay merchant, IPN/QueryDR and refund configuration must be provider-approved.
 4. Notification owner must provide the post-commit link/reminder/outcome handoff.

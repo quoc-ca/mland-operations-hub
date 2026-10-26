@@ -1,7 +1,7 @@
 # Tasks: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -24,7 +24,7 @@ owner boundaries.
 - [ ] T001 [P] Establish the `workshopsettlement` Spring Modulith module boundary and add `ApplicationModules.verify()` coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementModuleTest.java`.
 - [ ] T002 [P] Implement 003.3's named `WorkshopSettlementFacade`, including `ApplyVerifiedSettlementPaymentEvidenceCommand`, in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/` exactly as limited by `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`.
 - [ ] T003 Consume `WorkshopBookingFacade` confirmed financial projection and idempotent final-balance conclusion, and `WorkshopOperationsFacade` readiness/replacement/refund/cancellation outcomes, only through facade adapters in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/`.
-- [ ] T004 Consume current canonical Mland account role/status, ownership and location scope through the approved FE-001 boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/WorkshopSettlementAuthorizationService.java`; Settlement applies its approved branch/resource action rules and central-policy-editor rule, and does not use display roles, Firebase claims or retired codes as authority or edit FE-001.
+- [ ] T004 Consume current canonical Mland account role/status, ownership and location scope through the approved FE-001 boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/WorkshopSettlementAuthorizationService.java`; Settlement applies its approved location/resource action rules and central-policy-editor rule, directly compares the booking/session canonical `workshop_location.id` with `activeLocationIds`, and does not use display roles, Firebase claims or retired codes as authority or edit FE-001.
 - [ ] T005 **BLOCKED — external VNPay configuration**: obtain the environment-approved Merchant identity, runtime-only HMAC-SHA512 secret, HTTPS IPN registration, outbound QueryDR/refund authority, and redacted sandbox evidence listed in `ppswbs-spec/features/003-workshop-management/contracts/vnpay-configuration-preflight.md`; keep every credential outside the repository.
 - [ ] T006 Implement the approved post-commit `SettlementNotificationReady` handoff and immutable notification-delivery payload facade for deferred-payment links/reissues, their permitted reminder, and verified settlement/refund outcomes in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/`; publish references only after the local transaction, let Feature 007 deduplicate/read the payload, and never let delivery outcome reverse settlement truth.
 
@@ -58,9 +58,9 @@ valid final evidence resolves it once, while invalid, duplicate, mismatched,
 late, or browser-return-only evidence cannot release output.
 
 - [ ] T013 [US1] Implement one-final-bill creation from the 003.1 frozen projection and 003.2 `ready` conclusion in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalBookingBillService.java`; never calculate voucher, points, deposit, or participant/session/ticket bills again.
-- [ ] T014 [P] [US1] Implement customer fixed catalogue add-on selection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/CatalogueAddOnService.java`; Member ownership or Guest booking code plus exactly one stored phone/email may supply only `catalogueAddOnReference`, and the server derives its permitted package/branch snapshot price before bill finalization.
+- [ ] T014 [P] [US1] Implement customer fixed catalogue add-on selection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/CatalogueAddOnService.java`; Member ownership or Guest booking code plus exactly one stored phone/email may supply only `catalogueAddOnReference`, and the server derives its permitted package/location snapshot price before bill finalization.
 - [ ] T015 [P] [US1] Implement Staff/Manager variable-charge confirmation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/VariableChargeService.java`; accept description, whole-VND amount, and reason only, then retain an immutable audited correction path rather than editing evidence.
-- [ ] T016 [US1] Implement finalization and package-output release gating in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalBookingBillService.java`; require final required-session completion, active booking-branch Staff authority, and zero balance unless an audited Manager exception exists.
+- [ ] T016 [US1] Implement finalization and package-output release gating in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalBookingBillService.java`; require final required-session completion, active booking-location Staff authority, and zero balance unless an audited Manager exception exists.
 - [ ] T017 [US1] Implement idempotent final-payment/refund evidence application in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalPaymentService.java`; consume T011 only, record immutable safe evidence once, and send 003.1 only `RecordFinalBalanceResolvedCommand` after a valid final-balance resolution.
 - [ ] T018 [US1] Implement Manager deferred-payment case in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/DeferredPaymentService.java`; server derives outstanding amount and fixed 24-hour expiry, retains output, permits at most one reminder, creates the approved notification handoff for issue/reissue/reminder, and requires audited reissue after expiry.
 - [ ] T019 [US1] Implement `GET/POST /workshop-bookings/{bookingCode}/final-bill`, `POST /final-bill/charges`, and `POST /final-bill/finalizations` exactly from `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/controller/`.
@@ -91,12 +91,12 @@ dispatches verified refund evidence.
 without changing package price or persistent ticket QR.
 
 **Independent Test**: Operations applies the complete compatible replacement or
-none; Silverclay retains its branch, distinctness, chronological, and same-day
+none; Silverclay retains its location, distinctness, chronological, and same-day
 gap constraints.
 
 - [ ] T025 [US3] Implement complete required-session-change case orchestration via `WorkshopOperationsFacade` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/RequiredSessionChangeService.java`; pass only the complete target set and preserve frozen price/deposit.
 - [ ] T026 [US3] Implement required-session-change POST/GET routes from `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/controller/`.
-- [ ] T027 [US3] Add one/two-session change, no-capacity rollback, persistent QR, current ticket/session projection, and Silverclay branch/distinct/chronological/same-day-gap coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/RequiredSessionChangeIT.java`.
+- [ ] T027 [US3] Add one/two-session change, no-capacity rollback, persistent QR, current ticket/session projection, and Silverclay same-location/distinct/chronological/same-day-gap coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/RequiredSessionChangeIT.java`.
 
 ---
 

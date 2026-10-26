@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -29,6 +29,15 @@ types in its owner's named `facade` interface. They contain opaque identifiers
 and only the minimum data listed below; they never expose JPA entities, contact
 PII, attendance detail, Staff/audit data, raw Magic-Link/QR material, or raw
 VNPay payloads.
+
+### Canonical workshop location identity
+
+Every location reference in this contract denotes the same canonical physical
+resource: `workshop_location.id`. In particular, an Operations session's
+location, a Booking's package/session location and Account Management
+`activeLocationIds` use that one identity directly. This contract has no
+independent branch identifier, branch-to-location mapping or duplicate location
+resource; `branch` is a retired synonym, not a boundary field.
 
 ## Shared VNPay ingress boundary
 
@@ -72,11 +81,11 @@ durable and immutable for the payment-attempt lifetime.
 
 | Operation | Input boundary type | Result boundary type | Invariant / disclosure limit |
 | --- | --- | --- | --- |
-| Read sale eligibility | `SaleEligibilityQuery(sessionReference)` | `SaleEligibilitySnapshot(customerSelectable, saleState, branchReference, scheduledStart, scheduledEnd, remainingCapacity)` | Read-only, per session; no booking/contact/Staff data. |
+| Read sale eligibility | `SaleEligibilityQuery(sessionReference)` | `SaleEligibilitySnapshot(customerSelectable, saleState, locationReference, scheduledStart, scheduledEnd, remainingCapacity)` | Read-only, per session; no booking/contact/Staff data. |
 | Reserve all required-session capacity | `ReserveBookingCapacityCommand(bookingReference, orderedRequiredSessionReferences, participantCount, operationReference, correlationReference)` | `CapacityHoldOutcome(ACCEPTED + holdReferences + expiresAt, or REJECTED reason)` | Holds `participantCount` seats in every requested session or none. |
 | Commit holds after valid deposit evidence | `CommitBookingHoldsCommand(bookingReference, expectedHoldReferences, operationReference, correlationReference)` | `CapacityCommitOutcome(ACCEPTED, or REJECTED reason)` | Commits all active expected holds or none. |
 | Release pending holds | `ReleaseBookingHoldsCommand(bookingReference, expectedHoldReferences, operationReference, correlationReference)` | `CapacityReleaseOutcome(ACCEPTED or prior equivalent outcome)` | Releases active holds once only; late/repeated release is idempotent. |
-| Read current delivery-safe ticket set | `BookingTicketProjectionQuery(bookingReference)` | `DeliverySafeTicketSet(ticketReferenceOrQrReference, ticketCode, sessionEntitlements(branchReference, scheduledStart, scheduledEnd))` | Read-only; no attendance, Staff/audit, PII, or raw QR payload. |
+| Read current delivery-safe ticket set | `BookingTicketProjectionQuery(bookingReference)` | `DeliverySafeTicketSet(ticketReferenceOrQrReference, ticketCode, sessionEntitlements(locationReference, scheduledStart, scheduledEnd))` | Read-only; no attendance, Staff/audit, PII, or raw QR payload. |
 | Read settlement readiness | `BookingSettlementReadinessQuery(bookingReference)` | `SettlementReadiness(ready)` | `ready` is true only if every required session is `ATTENDANCE_FINALIZED`; no underlying attendance detail. |
 | Replace the complete future required-session set | `ReplaceRequiredSessionsCommand(bookingReference, completeTargetSessionReferences, operationReference, correlationReference)` | `RequiredSessionReplacementOutcome(ACCEPTED, or REJECTED reason)` | Operations validates all current/target rules, transfers all capacity and entitlement or none, and preserves ticket QR. |
 | Apply verified whole-booking refund consequence | `ApplyVerifiedRefundConsequenceCommand(bookingReference, verifiedRefundReference, operationReference, correlationReference)` | `RefundConsequenceOutcome(ACCEPTED, or REJECTED reason)` | Only after verified refund; revoke unused future ticket entitlement and release future capacity; never rewrite attendance history. |
@@ -86,7 +95,7 @@ durable and immutable for the payment-attempt lifetime.
 
 | Operation | Input boundary type | Result boundary type | Invariant / disclosure limit |
 | --- | --- | --- | --- |
-| Read confirmed booking financial projection | `ConfirmedBookingFinancialProjectionQuery(bookingReference)` | `ConfirmedBookingFinancialProjection(packageReference, frozenPackagePrice, frozenPostPromotionAmount, acceptedDepositAmount, frozenRemainingAmount, participantCount, requiredSessionReferences, bookingBranchReference)` | Available only for the confirmed direct-Mland booking/package context required by 003.3. Deposit is `ceil(frozenPostPromotionAmount / 2)` and remaining amount is the exact difference; no contact, raw provider evidence, or ticket payload. |
+| Read confirmed booking financial projection | `ConfirmedBookingFinancialProjectionQuery(bookingReference)` | `ConfirmedBookingFinancialProjection(packageReference, frozenPackagePrice, frozenPostPromotionAmount, acceptedDepositAmount, frozenRemainingAmount, participantCount, requiredSessionReferences, bookingLocationReference)` | Available only for the confirmed direct-Mland booking/package context required by 003.3. Deposit is `ceil(frozenPostPromotionAmount / 2)` and remaining amount is the exact difference; no contact, raw provider evidence, or ticket payload. |
 | Record final-balance resolution | `RecordFinalBalanceResolvedCommand(bookingReference, settlementReference, operationReference, correlationReference)` | `FinalBalanceResolutionOutcome(ACCEPTED or prior equivalent outcome, or REJECTED reason)` | Only Booking changes its financial state to `FULLY_PAID`, exactly once; it receives no raw final-payment detail. |
 | Apply verified deposit evidence | `ApplyVerifiedDepositPaymentEvidenceCommand(bookingReference, verifiedEvidenceReference, operationReference, correlationReference)` | `DepositPaymentEvidenceOutcome(ACCEPTED or prior equivalent outcome, or REJECTED reason)` | Called only by `paymentintegration` after one successful verified dispatch. Booking checks its frozen reference/amount/currency, commits capacity atomically, and never receives raw VNPay payload or checksum. |
 | Request delivery of existing ticket set | `RequestBookingTicketRedeliveryCommand(bookingReference, activeUnusedTicketReferences, operationReference, correlationReference)` | `TicketRedeliveryOutcome(ACCEPTED or REJECTED reason)` | Existing ticket/QR only; Booking delivers to the stored contact channel and does not change contact, tickets, payment, or Magic Link. This supports the already-approved Operations resend flow. |

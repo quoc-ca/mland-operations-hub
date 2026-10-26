@@ -1,7 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -55,6 +55,10 @@ or acceptance path for 003.1 V1. A later feature may reference a booking only
 through an approved boundary.
 
 ## Clarifications
+
+### Session 2026-10-27
+
+- Q: Is the Booking “branch” a resource separate from Account Management location scope? → A: No. It is the same canonical physical Workshop Location identified by `workshop_location.id`. Every existing booking/session/audit use of “branch” in this specification means that location; no separate branch ID, branch-to-location mapping, or duplicate location resource is permitted. Public REST field and schema terminology is `locationId`.
 
 ### Session 2026-10-26
 
@@ -586,10 +590,10 @@ appropriate booking summary without exposing another customer's booking.
   description, participant constraints, supported design/material information,
   and booking availability information.
 - **FR-002a**: The public REST contract MUST expose session discovery as
-  `GET /workshop-sessions`, requiring one package reference, one branch
+  `GET /workshop-sessions`, requiring one package reference, one `locationId`
   reference, and `from`/`to` range criteria. It MUST return only the
   customer-safe sale-eligibility snapshot from 003.2 for sessions applicable
-  to that package and branch; it MUST NOT disclose holds, bookings, customers,
+  to that package and canonical location; it MUST NOT disclose holds, bookings, customers,
   payments, tickets, staff, or internal capacity implementation details.
 - **FR-003**: The system MUST allow a Guest or Member to select one published
   package/course, its offered required-session set, participant count, and
@@ -602,7 +606,7 @@ appropriate booking summary without exposing another customer's booking.
   submitted values as immutable booking contact snapshots.
 - **FR-003b**: For a direct-Mland Silverclay package, the system MUST require
   exactly two distinct published, customer-selectable workshop sessions at the
-  same branch at booking submission. A session is a common workshop slot, not a
+  same canonical location at booking submission. A session is a common workshop slot, not a
   Silverclay-only slot type, and V1 MUST NOT require a preconfigured
   session-pair or cohort. The system MUST order the selected sessions
   chronologically as session 1 and session 2. If both selected sessions are on

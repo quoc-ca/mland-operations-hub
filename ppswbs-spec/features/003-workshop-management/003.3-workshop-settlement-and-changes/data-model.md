@@ -1,7 +1,7 @@
 # Data Model: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | Confirmed booking, frozen financial projection, booking contact | 003.1 | Projection/authorization proof only; 003.3 never mutates Booking directly. |
 | Sessions, capacity, ticket entitlements, attendance and cancellation state | 003.2 | Semantic facade outcomes only. |
-| Canonical account role/status, ownership and location scope | FE-001 | Current account facts only. Settlement applies its own action rule with booking branch/resource scope. |
+| Canonical account role/status, ownership and location scope | FE-001 | Current account facts only. Settlement applies its own action rule with booking location/resource scope. The location is the canonical `workshop_location.id`, directly comparable to `activeLocationIds`. |
 | Final bill, charge, settlement evidence, case, policy snapshot and audit | 003.3 | Authoritative owner. |
 
 ## Conceptual Records
@@ -32,7 +32,7 @@ item and never recalculates voucher/point/deposit effects.
 
 An immutable accepted charge records its final-bill context, source category,
 VND amount/currency, acceptance/confirmation state and audit linkage. A customer
-charge is only an allowed package/branch catalogue add-on at its server-derived
+charge is only an allowed package/location catalogue add-on at its server-derived
 catalogue snapshot price; a variable material/service charge has internal
 description, amount, reason and Staff/Manager confirmation. A correction is an
 audited void/adjustment record, never an overwrite.
@@ -88,7 +88,7 @@ snapshots are never rewritten.
 ### Authorization, Audit and Idempotency Evidence
 
 Protected command evidence records the actor reference when applicable, booking,
-branch when applicable, action, reason, outcome, correlation reference and time.
+canonical location when applicable, action, reason, outcome, correlation reference and time.
 It excludes contact proof, raw Magic Link, QR, Firebase token, provider secret,
 raw callback, card data, OTP and unnecessary PII.
 

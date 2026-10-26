@@ -13,10 +13,10 @@ paths:
       responses: {'200': {description: Packages}}
   /api/v1/workshop-sessions:
     get:
-      summary: Discover customer-selectable workshop sessions for one package and branch
+      summary: Discover customer-selectable workshop sessions for one package and location
       parameters:
         - {$ref: '#/components/parameters/PackageId'}
-        - {$ref: '#/components/parameters/BranchId'}
+        - {$ref: '#/components/parameters/LocationId'}
         - {$ref: '#/components/parameters/From'}
         - {$ref: '#/components/parameters/To'}
       responses:
@@ -60,7 +60,7 @@ paths:
   /api/v1/workshop-bookings/{bookingCode}/confirmation-deliveries:
     post:
       summary: Resend booking confirmation only to the stored booking contact
-      description: Guest supplies exactly one stored contact proof; Member uses ownership; authorized in-branch Staff or Manager may act without customer proof.
+      description: Guest supplies exactly one stored contact proof; Member uses ownership; authorized Staff or Manager in the booking location may act without customer proof.
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/ConfirmationDeliveryRequest'}}}}
@@ -74,7 +74,7 @@ paths:
   /api/v1/workshop-bookings/{bookingCode}/magic-link-incidents:
     post:
       summary: Revoke or rotate a Magic Link
-      description: Manager responsible for the booking branch only.
+      description: Manager responsible for the booking location only.
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MagicLinkIncidentRequest'}}}}
@@ -86,7 +86,7 @@ paths:
   /api/v1/workshop-bookings/{bookingCode}/late-payment-follow-ups:
     post:
       summary: Record or escalate a late-payment follow-up
-      description: Manager responsible for the booking branch only; this command never changes booking, capacity, ticket, or payment-link state.
+      description: Manager responsible for the booking location only; this command never changes booking, capacity, ticket, or payment-link state.
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/LatePaymentFollowUpRequest'}}}}
@@ -101,7 +101,7 @@ components:
   parameters:
     BookingCode: {name: bookingCode, in: path, required: true, schema: {type: string}}
     PackageId: {name: packageId, in: query, required: true, schema: {type: integer, format: int64}}
-    BranchId: {name: branchId, in: query, required: true, schema: {type: integer, format: int64}}
+    LocationId: {name: locationId, in: query, required: true, schema: {type: integer, format: int64}}
     From: {name: from, in: query, required: true, schema: {type: string, format: date-time}}
     To: {name: to, in: query, required: true, schema: {type: string, format: date-time}}
     IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
@@ -130,10 +130,10 @@ components:
         token: {type: string, writeOnly: true, description: Opaque bearer value extracted by the React client from the Magic Link URL fragment; never persist or log it.}
     SessionAvailability:
       type: object
-      required: [sessionId, branchId, scheduledStart, scheduledEnd, saleState, customerSelectable, remainingCapacity]
+      required: [sessionId, locationId, scheduledStart, scheduledEnd, saleState, customerSelectable, remainingCapacity]
       properties:
         sessionId: {type: integer, format: int64}
-        branchId: {type: integer, format: int64}
+        locationId: {type: integer, format: int64}
         scheduledStart: {type: string, format: date-time}
         scheduledEnd: {type: string, format: date-time}
         saleState: {type: string}
@@ -178,10 +178,10 @@ components:
         tickets: {type: array, items: {$ref: '#/components/schemas/BookingTicket'}}
     BookedSession:
       type: object
-      required: [sessionId, branchId, ordinal]
+      required: [sessionId, locationId, ordinal]
       properties:
         sessionId: {type: integer, format: int64}
-        branchId: {type: integer, format: int64}
+        locationId: {type: integer, format: int64}
         ordinal: {type: integer, minimum: 1}
     BookingTicket:
       type: object
