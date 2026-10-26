@@ -251,3 +251,51 @@
   - `mvn -f .\ppswbs_backend\pom.xml test "-Dtest=WorkshopOperationsFoundationIT,ModulithArchitectureTests"`
   - `Tests run: 24, Failures: 0, Errors: 0, Skipped: 0` (`BUILD SUCCESS` thời gian 14.563s).
 - **Kết luận**: Race condition khi insert initial claim đã được giải quyết triệt để ở tầng transaction boundary. Cả 9 integration test trên MySQL và 24 foundation/architecture test đều pass. T062, T066 và T006 đủ điều kiện nghiệm thu hoàn thành `[X]`.
+
+---
+
+## Record BE-DESIGN-0003
+
+- **ID**: `BE-DESIGN-0003`
+- **Timestamp**: `2026-10-27T00:18:45+07:00`
+- **Reporter**: Hồ Hoàng Quốc (tác nhân thực tế: Codex)
+- **Feature / Task**: `features/003-workshop-management/003.2-workshop-operations/tasks.md` — `T020–T025`, blocker trực tiếp tại `T023` Staff assignment và operational-lead handover
+- **Trạng thái**: `BLOCKED`
+
+### 1. Phạm vi dừng và nguồn thiết kế
+
+- Phạm vi dừng: toàn bộ cụm `T020–T025`; không triển khai DTO, contract test, lifecycle service, responsibility service, REST handler hoặc test integration của cụm này.
+- Nguồn: `003.2-workshop-operations/spec.md` FR-010e, FR-010f, FR-012a, FR-012b; `data-model.md` phần `SessionStaffAssignment and SessionOperationalLead`; `contracts/workshop-operations.openapi.yaml` schemas `StaffAssignmentRequest` và `OperationalLeadRequest`; `tasks.md` T023.
+- Ràng buộc đã phê duyệt: Account Management sở hữu canonical role, active status và location scope; Operations chỉ tiêu thụ public facade, không đọc entity/repository Account Management và không tự map role.
+
+### 2. Fact, impact và unknown
+
+- **Fact**: `StaffAssignmentRequest` chỉ cung cấp `personnelId`; `OperationalLeadRequest` chỉ cung cấp `managerPersonnelId` cùng reason/evidence.
+- **Fact**: `AccountFacade` hiện chỉ có `resolveAccount(firebaseUid)`, `getAccountStatus(accountId)` và `getLocationScope(accountId)`. Nó không có public semantic query cho canonical role/capability của một account được tham chiếu bằng `personnelId`, cũng không trả về combined active-role-location result theo account ID.
+- **Fact**: T023 bắt buộc tạo active Staff assignment và một Manager operational lead. FR-012a yêu cầu authority bị thu hồi ngay khi assignee/lead inactive.
+- **Impact**: Operations không thể xác minh rằng `personnelId` là active `STAFF`, hoặc `managerPersonnelId` là active `MANAGER` có scope hợp lệ cho branch, mà không (a) tự suy đoán role, (b) đọc entity/repository của Account Management, hoặc (c) chấp nhận assignment sai loại. Cả ba lựa chọn đều vi phạm design/AGENT.md và có thể cấp onsite authority sai.
+- **Unknown**: Account Management sẽ cung cấp semantic/capability decision nào cho subject account ID, và kết quả phải bao gồm chính xác những facts nào để Operations xác minh Staff assignment, Manager lead handover và branch scope tại thời điểm command.
+
+### 3. Evidence đã kiểm tra
+
+- Đọc `AccountFacade.java`, `AccountSummary.java`, `WorkshopOperationsAuthorizationService.java`, entity/repository của `SessionStaffAssignment` và `SessionOperationalLead`, cùng các artifact 003.2 nêu trên.
+- `AccountFacade.resolveAccount` nhận Firebase UID của actor hiện tại, không nhận target `personnelId`; `getAccountStatus` không trả canonical role; `getLocationScope` không đủ để phân biệt Staff và Manager.
+- Không có code, migration, DTO, contract hoặc task marker T020–T025 nào được sửa trong attempt này.
+
+### 4. Vì sao không thể implement đúng nếu tự quyết
+
+- Tự dùng role enum/entity/repository của Account Management phá Modulith facade boundary.
+- Tự coi mọi account active trong branch scope là Staff hoặc Manager tạo lỗ hổng phân quyền.
+- Chỉ kiểm tra actor hiện tại không chứng minh target assignee/lead hợp lệ, nên không đáp ứng T023, FR-010e, FR-010f và FR-012a.
+
+### 5. Thay đổi hiện trạng và kiểm tra
+
+- Giữ nguyên toàn bộ thay đổi đang có của `T016–T019`; chúng không bị sửa, reset hoặc stage bởi attempt này.
+- `T020–T025` vẫn unchecked trong `tasks.md`.
+- Không chạy implementation/test của `T020–T025` vì design gate thất bại trước code.
+
+### 6. Quyết định cần bổ sung để tiếp tục
+
+- Owner FE-001 cần xuất bản public Account Management facade/capability decision cho một target account ID, tối thiểu trả typed semantic facts: account exists/active, canonical workshop-relevant role or capability, và active branch/location scope.
+- Cần chốt Operations dùng query đó như thế nào cho: (1) assign/revoke Staff, (2) take/handover Manager operational lead, và (3) recheck target authority khi session `IN_PROGRESS`.
+- Sau khi contract được phê duyệt, re-check gate, rebase artifact nếu cần, rồi mới triển khai lại `T020–T025`.
