@@ -11,5 +11,5 @@ public interface SessionOperationalLeadRepository extends JpaRepository<SessionO
 
     Optional<SessionOperationalLead> findBySessionIdAndActiveTrue(Long sessionId);
 
-    boolean existsBySessionIdAndManagerPersonnelIdAndActiveTrue(Long sessionId, Long managerPersonnelId);
+    boolean existsBySessionIdAndManagerAccountIdAndActiveTrue(Long sessionId, Long managerAccountId);
 }

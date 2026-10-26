@@ -27,9 +27,9 @@ public interface WorkshopSessionRepository extends JpaRepository<WorkshopSession
     @Query("SELECT s FROM WorkshopSession s WHERE s.reference IN :references")
     List<WorkshopSession> findByReferenceInWithLock(@Param("references") Collection<String> references);
 
-    boolean existsByBranchIdAndWorkshopDateAndSlotId(Long branchId, LocalDate workshopDate, Long slotId);
+    boolean existsByLocationIdAndWorkshopDateAndSlotId(Long locationId, LocalDate workshopDate, Long slotId);
 
-    List<WorkshopSession> findByBranchIdAndWorkshopDateBetween(Long branchId, LocalDate from, LocalDate to);
+    List<WorkshopSession> findByLocationIdAndWorkshopDateBetween(Long locationId, LocalDate from, LocalDate to);
 
-    List<WorkshopSession> findByBranchIdAndState(Long branchId, SessionState state);
+    List<WorkshopSession> findByLocationIdAndState(Long locationId, SessionState state);
 }

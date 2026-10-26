@@ -35,9 +35,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
 /**
- * Integration verification test targeting real MySQL database and Flyway migration V7.
+ * Integration verification test targeting real MySQL database and Flyway migration V8.
  * Covers all mandatory scenarios for T066:
- * 1. Flyway V7 applied + ledger table structure & unique constraints
+ * 1. Flyway V8 applied + ledger table structure & unique constraints
  * 2. Sequential equivalent duplicate (original outcome returned, single ledger record, single audit event)
  * 3. Concurrent duplicate with active lease returns IN_PROGRESS without side effects
  * 4. Semantic fingerprint mismatch returns safe rejection (INVALID_STATE)
@@ -72,7 +72,7 @@ class WorkshopOperationsMySQLIT {
     private OperationsAuditEventRepository auditEventRepository;
 
     @Autowired
-    private WorkshopBranchRepository branchRepository;
+    private WorkshopLocationRepository locationRepository;
 
     @Autowired
     private WorkshopSlotRepository slotRepository;
@@ -101,7 +101,7 @@ class WorkshopOperationsMySQLIT {
     @Autowired
     private SessionOperationalLeadRepository operationalLeadRepository;
 
-    private WorkshopBranch testBranch;
+    private WorkshopLocation testLocation;
     private WorkshopSlot testSlot;
     private WorkshopSession testSession;
 
@@ -124,19 +124,18 @@ class WorkshopOperationsMySQLIT {
         auditEventRepository.deleteAll();
         sessionRepository.deleteAll();
         slotRepository.deleteAll();
-        branchRepository.deleteAll();
+        locationRepository.deleteAll();
 
-        testBranch = branchRepository.save(WorkshopBranch.builder()
-                .reference(UUID.randomUUID().toString())
-                .code("BR-MYSQL-01")
-                .displayName("MySQL Verification Branch")
+        testLocation = locationRepository.save(WorkshopLocation.builder()
+                .code("LOC-MYSQL-01")
+                .displayName("MySQL Verification Location")
                 .addressSnapshot("456 Nguyen Hue, District 1, HCMC")
                 .active(true)
                 .build());
 
         testSlot = slotRepository.save(WorkshopSlot.builder()
                 .reference(UUID.randomUUID().toString())
-                .branch(testBranch)
+                .location(testLocation)
                 .label("Afternoon Verification Slot")
                 .startTime(LocalTime.of(14, 0))
                 .endTime(LocalTime.of(17, 0))
@@ -146,7 +145,7 @@ class WorkshopOperationsMySQLIT {
 
         testSession = sessionRepository.save(WorkshopSession.builder()
                 .reference(UUID.randomUUID().toString())
-                .branch(testBranch)
+                .location(testLocation)
                 .slot(testSlot)
                 .workshopDate(LocalDate.now().plusDays(7))
                 .scheduledStartAt(Instant.now().plus(7, ChronoUnit.DAYS))
@@ -159,13 +158,13 @@ class WorkshopOperationsMySQLIT {
     }
 
     @Test
-    @DisplayName("T066-1: Verify Flyway V7 idempotency ledger migration applied on MySQL")
-    void verifyV7MigrationAppliedOnMySQL() {
-        Integer v7Count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '7' AND success = 1",
+    @DisplayName("T066-1: Verify Flyway V8 idempotency ledger migration applied on MySQL")
+    void verifyV8MigrationAppliedOnMySQL() {
+        Integer v8Count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '8' AND success = 1",
                 Integer.class
         );
-        assertThat(v7Count).as("Flyway migration V7 must be applied successfully").isNotNull().isGreaterThanOrEqualTo(1);
+        assertThat(v8Count).as("Flyway migration V8 must be applied successfully").isNotNull().isGreaterThanOrEqualTo(1);
 
         Integer ledgerTableExists = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'facade_command_idempotency_records'",

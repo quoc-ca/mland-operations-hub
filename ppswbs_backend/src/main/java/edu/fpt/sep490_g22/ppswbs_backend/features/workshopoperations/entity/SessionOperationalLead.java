@@ -22,8 +22,8 @@ public class SessionOperationalLead {
     @JoinColumn(name = "session_id", nullable = false)
     private WorkshopSession session;
 
-    @Column(name = "manager_personnel_id", nullable = false)
-    private Long managerPersonnelId;
+    @Column(name = "manager_account_id", nullable = false)
+    private Long managerAccountId;
 
     @Column(name = "active", nullable = false)
     @Builder.Default

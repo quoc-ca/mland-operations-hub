@@ -1,10 +1,14 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.controller.WorkshopOperationsExceptionHandler;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.*;
@@ -18,6 +22,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,18 +43,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 @TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:h2:mem:workshop_ops_test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.datasource.driver-class-name=org.h2.Driver",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
-        "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
-        "spring.flyway.enabled=true",
-        "spring.flyway.locations=classpath:db/migration",
         "workshop.operations.cors.allowed-origins=http://localhost:3000,http://localhost:5173",
         "workshop.operations.auth.allow-test-tokens=true",
         "workshop.operations.idempotency.lease-duration=PT30S"
@@ -64,14 +65,20 @@ public class WorkshopOperationsFoundationIT {
     @MockBean
     private AccountFacade accountFacade;
 
+    @MockBean
+    private TokenVerificationService tokenVerificationService;
+
     @Autowired
     private WorkshopOperationsAuthorizationService authorizationService;
 
     @Autowired
     private WorkshopOperationsFacade operationsFacade;
 
+    @Autowired(required = false)
+    private JdbcTemplate jdbcTemplate;
+
     @Autowired
-    private WorkshopBranchRepository branchRepository;
+    private WorkshopLocationRepository locationRepository;
 
     @Autowired
     private WorkshopSlotRepository slotRepository;
@@ -106,7 +113,7 @@ public class WorkshopOperationsFoundationIT {
     @Autowired
     private CancellationHandoffRepository handoffRepository;
 
-    private WorkshopBranch testBranch;
+    private WorkshopLocation testLocation;
     private WorkshopSlot testSlot;
     private WorkshopSession testSession;
 
@@ -123,11 +130,10 @@ public class WorkshopOperationsFoundationIT {
         auditEventRepository.deleteAll();
         sessionRepository.deleteAll();
         slotRepository.deleteAll();
-        branchRepository.deleteAll();
+        locationRepository.deleteAll();
 
-        testBranch = branchRepository.save(WorkshopBranch.builder()
-                .reference(UUID.randomUUID().toString())
-                .code("BR-01")
+        testLocation = locationRepository.save(WorkshopLocation.builder()
+                .code("LOC-01")
                 .displayName("District 1 Workshop Hub")
                 .addressSnapshot("123 Le Loi, District 1, HCMC")
                 .active(true)
@@ -135,7 +141,7 @@ public class WorkshopOperationsFoundationIT {
 
         testSlot = slotRepository.save(WorkshopSlot.builder()
                 .reference(UUID.randomUUID().toString())
-                .branch(testBranch)
+                .location(testLocation)
                 .label("Morning Slot")
                 .startTime(LocalTime.of(9, 0))
                 .endTime(LocalTime.of(12, 0))
@@ -145,7 +151,7 @@ public class WorkshopOperationsFoundationIT {
 
         testSession = sessionRepository.save(WorkshopSession.builder()
                 .reference(UUID.randomUUID().toString())
-                .branch(testBranch)
+                .location(testLocation)
                 .slot(testSlot)
                 .workshopDate(LocalDate.now().plusDays(5))
                 .scheduledStartAt(Instant.now().plus(5, ChronoUnit.DAYS))
@@ -155,6 +161,13 @@ public class WorkshopOperationsFoundationIT {
                 .checkInOpensAt(Instant.now().plus(4, ChronoUnit.DAYS))
                 .checkInOpeningSource(CheckInOpeningSource.DEFAULT)
                 .build());
+
+        when(tokenVerificationService.verify("test-token")).thenReturn(
+                new VerifiedIdentity("test-uid", "test@fpt.edu.vn", true, Instant.now())
+        );
+        when(accountFacade.resolveActor("test-uid", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(10L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of(testLocation.getId()))
+        ));
     }
 
     // =========================================================================
@@ -165,16 +178,26 @@ public class WorkshopOperationsFoundationIT {
     class SchemaInvariantTests {
 
         @Test
+        @DisplayName("Flyway V5 through V8 should be applied in canonical sequence on MySQL")
+        void flywayMigrationsAppliedInCanonicalSequence() {
+            List<String> versions = jdbcTemplate.query(
+                    "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank ASC",
+                    (rs, rowNum) -> rs.getString("version")
+            );
+            assertThat(versions).contains("5", "6", "7", "8");
+        }
+
+        @Test
         @DisplayName("Should successfully persist all operational entities across schema")
         void shouldPersistAllOperationalEntities() {
-            assertThat(testBranch.getId()).isNotNull();
+            assertThat(testLocation.getId()).isNotNull();
             assertThat(testSlot.getId()).isNotNull();
             assertThat(testSession.getId()).isNotNull();
 
             // Staff Assignment
             SessionStaffAssignment assignment = staffAssignmentRepository.save(SessionStaffAssignment.builder()
                     .session(testSession)
-                    .personnelId(100L)
+                    .accountId(100L)
                     .assignedById(1L)
                     .active(true)
                     .build());
@@ -183,7 +206,7 @@ public class WorkshopOperationsFoundationIT {
             // Operational Lead
             SessionOperationalLead lead = operationalLeadRepository.save(SessionOperationalLead.builder()
                     .session(testSession)
-                    .managerPersonnelId(100L)
+                    .managerAccountId(100L)
                     .reasonCode("MGR_COVERAGE")
                     .active(true)
                     .build());
@@ -251,11 +274,11 @@ public class WorkshopOperationsFoundationIT {
         }
 
         @Test
-        @DisplayName("Should enforce unique constraint on (branch_id, workshop_date, slot_id)")
-        void shouldRejectDuplicateSessionSlotDateBranch() {
+        @DisplayName("Should enforce unique constraint on (location_id, workshop_date, slot_id)")
+        void shouldRejectDuplicateSessionSlotDateLocation() {
             WorkshopSession duplicate = WorkshopSession.builder()
                     .reference(UUID.randomUUID().toString())
-                    .branch(testBranch)
+                    .location(testLocation)
                     .slot(testSlot)
                     .workshopDate(testSession.getWorkshopDate())
                     .scheduledStartAt(testSession.getScheduledStartAt())
@@ -307,69 +330,69 @@ public class WorkshopOperationsFoundationIT {
     class AuthorizationTests {
 
         @Test
-        @DisplayName("Manager with in-scope branch should be authorized")
+        @DisplayName("Manager with in-scope location should be authorized")
         void managerInScopeShouldBeAuthorized() {
             when(accountFacade.resolveAccount("mgr-uid")).thenReturn(Optional.of(
-                    new AccountSummary(10L, AccountRole.MANAGER, AccountStatus.ACTIVE, "mgr@fpt.edu.vn", Instant.now(), Instant.now())));
-            when(accountFacade.getLocationScope(10L)).thenReturn(List.of(testBranch.getId()));
+                    new AccountSummary(10L, ActorRole.MANAGER, ActorStatus.ACTIVE, "mgr@fpt.edu.vn", Instant.now(), Instant.now())));
+            when(accountFacade.getLocationScope(10L)).thenReturn(List.of(testLocation.getId()));
 
-            AccountSummary summary = authorizationService.requireManagerBranchScope("Bearer test-uid:mgr-uid", testBranch.getId());
+            AccountSummary summary = authorizationService.requireManagerLocationScope("Bearer test-uid:mgr-uid", testLocation.getId());
             assertThat(summary.accountId()).isEqualTo(10L);
         }
 
         @Test
-        @DisplayName("Manager out of scope should be denied with WorkshopBranchScopeException")
+        @DisplayName("Manager out of scope should be denied with WorkshopLocationScopeException")
         void managerOutOfScopeShouldBeDenied() {
             when(accountFacade.resolveAccount("mgr-uid")).thenReturn(Optional.of(
-                    new AccountSummary(10L, AccountRole.MANAGER, AccountStatus.ACTIVE, "mgr@fpt.edu.vn", Instant.now(), Instant.now())));
+                    new AccountSummary(10L, ActorRole.MANAGER, ActorStatus.ACTIVE, "mgr@fpt.edu.vn", Instant.now(), Instant.now())));
             when(accountFacade.getLocationScope(10L)).thenReturn(List.of(999L));
 
-            assertThatThrownBy(() -> authorizationService.requireManagerBranchScope("Bearer test-uid:mgr-uid", testBranch.getId()))
-                    .isInstanceOf(WorkshopBranchScopeException.class);
+            assertThatThrownBy(() -> authorizationService.requireManagerLocationScope("Bearer test-uid:mgr-uid", testLocation.getId()))
+                    .isInstanceOf(WorkshopLocationScopeException.class);
         }
 
         @Test
-        @DisplayName("Assigned Staff with in-scope branch should be authorized for session action")
+        @DisplayName("Assigned Staff with in-scope location should be authorized for session action")
         void assignedStaffInScopeShouldBeAuthorizedForSession() {
             staffAssignmentRepository.save(SessionStaffAssignment.builder()
                     .session(testSession)
-                    .personnelId(20L)
+                    .accountId(20L)
                     .assignedById(10L)
                     .active(true)
                     .build());
 
             when(accountFacade.resolveAccount("staff-uid")).thenReturn(Optional.of(
-                    new AccountSummary(20L, AccountRole.STAFF, AccountStatus.ACTIVE, "staff@fpt.edu.vn", Instant.now(), Instant.now())));
-            when(accountFacade.getLocationScope(20L)).thenReturn(List.of(testBranch.getId()));
+                    new AccountSummary(20L, ActorRole.STAFF, ActorStatus.ACTIVE, "staff@fpt.edu.vn", Instant.now(), Instant.now())));
+            when(accountFacade.getLocationScope(20L)).thenReturn(List.of(testLocation.getId()));
 
             AccountSummary summary = authorizationService.requireStaffSessionAssignment("Bearer test-uid:staff-uid", testSession.getId());
             assertThat(summary.accountId()).isEqualTo(20L);
         }
 
         @Test
-        @DisplayName("Assigned Staff out of branch location scope should be denied with WorkshopBranchScopeException")
+        @DisplayName("Assigned Staff out of location scope should be denied with WorkshopLocationScopeException")
         void assignedStaffOutOfScopeShouldBeDenied() {
             staffAssignmentRepository.save(SessionStaffAssignment.builder()
                     .session(testSession)
-                    .personnelId(20L)
+                    .accountId(20L)
                     .assignedById(10L)
                     .active(true)
                     .build());
 
             when(accountFacade.resolveAccount("staff-uid")).thenReturn(Optional.of(
-                    new AccountSummary(20L, AccountRole.STAFF, AccountStatus.ACTIVE, "staff@fpt.edu.vn", Instant.now(), Instant.now())));
+                    new AccountSummary(20L, ActorRole.STAFF, ActorStatus.ACTIVE, "staff@fpt.edu.vn", Instant.now(), Instant.now())));
             when(accountFacade.getLocationScope(20L)).thenReturn(List.of(999L)); // Out of scope
 
             assertThatThrownBy(() -> authorizationService.requireStaffSessionAssignment("Bearer test-uid:staff-uid", testSession.getId()))
-                    .isInstanceOf(WorkshopBranchScopeException.class);
+                    .isInstanceOf(WorkshopLocationScopeException.class);
         }
 
         @Test
         @DisplayName("Unassigned Staff should be denied with WorkshopForbiddenException")
         void unassignedStaffShouldBeDenied() {
             when(accountFacade.resolveAccount("staff-uid-2")).thenReturn(Optional.of(
-                    new AccountSummary(21L, AccountRole.STAFF, AccountStatus.ACTIVE, "staff2@fpt.edu.vn", Instant.now(), Instant.now())));
-            when(accountFacade.getLocationScope(21L)).thenReturn(List.of(testBranch.getId()));
+                    new AccountSummary(21L, ActorRole.STAFF, ActorStatus.ACTIVE, "staff2@fpt.edu.vn", Instant.now(), Instant.now())));
+            when(accountFacade.getLocationScope(21L)).thenReturn(List.of(testLocation.getId()));
 
             assertThatThrownBy(() -> authorizationService.requireStaffSessionAssignment("Bearer test-uid:staff-uid-2", testSession.getId()))
                     .isInstanceOf(WorkshopForbiddenException.class);
@@ -379,9 +402,9 @@ public class WorkshopOperationsFoundationIT {
         @DisplayName("Member role should be denied by default with WorkshopForbiddenException")
         void memberRoleShouldBeDeniedByDefault() {
             when(accountFacade.resolveAccount("member-uid")).thenReturn(Optional.of(
-                    new AccountSummary(30L, AccountRole.MEMBER, AccountStatus.ACTIVE, "member@fpt.edu.vn", Instant.now(), Instant.now())));
+                    new AccountSummary(30L, ActorRole.MEMBER, ActorStatus.ACTIVE, "member@fpt.edu.vn", Instant.now(), Instant.now())));
 
-            assertThatThrownBy(() -> authorizationService.requireManagerBranchScope("Bearer test-uid:member-uid", testBranch.getId()))
+            assertThatThrownBy(() -> authorizationService.requireManagerLocationScope("Bearer test-uid:member-uid", testLocation.getId()))
                     .isInstanceOf(WorkshopForbiddenException.class);
         }
 
@@ -389,18 +412,18 @@ public class WorkshopOperationsFoundationIT {
         @DisplayName("Inactive or suspended account should be denied")
         void inactiveAccountShouldBeDenied() {
             when(accountFacade.resolveAccount("suspended-uid")).thenReturn(Optional.of(
-                    new AccountSummary(40L, AccountRole.MANAGER, AccountStatus.SUSPENDED, "suspended@fpt.edu.vn", Instant.now(), Instant.now())));
+                    new AccountSummary(40L, ActorRole.MANAGER, ActorStatus.SUSPENDED, "suspended@fpt.edu.vn", Instant.now(), Instant.now())));
 
-            assertThatThrownBy(() -> authorizationService.requireManagerBranchScope("Bearer test-uid:suspended-uid", testBranch.getId()))
+            assertThatThrownBy(() -> authorizationService.requireManagerLocationScope("Bearer test-uid:suspended-uid", testLocation.getId()))
                     .isInstanceOf(WorkshopForbiddenException.class);
         }
 
         @Test
         @DisplayName("Missing or blank bearer token should throw WorkshopUnauthorizedException")
         void missingTokenShouldThrowUnauthorized() {
-            assertThatThrownBy(() -> authorizationService.requireManagerBranchScope(null, testBranch.getId()))
+            assertThatThrownBy(() -> authorizationService.requireManagerLocationScope(null, testLocation.getId()))
                     .isInstanceOf(WorkshopUnauthorizedException.class);
-            assertThatThrownBy(() -> authorizationService.requireManagerBranchScope("   ", testBranch.getId()))
+            assertThatThrownBy(() -> authorizationService.requireManagerLocationScope("   ", testLocation.getId()))
                     .isInstanceOf(WorkshopUnauthorizedException.class);
         }
     }
@@ -532,8 +555,8 @@ public class WorkshopOperationsFoundationIT {
             assertThat(firstTicket.ticketCode()).isNotNull();
             assertThat(firstTicket.ticketReference()).isNotNull();
             assertThat(firstTicket.sessionEntitlements()).hasSize(1);
-            assertThat(firstTicket.sessionEntitlements().get(0).branchReference())
-                    .isEqualTo(UUID.fromString(testBranch.getReference()));
+            assertThat(firstTicket.sessionEntitlements().get(0).locationReference())
+                    .isEqualTo(testLocation.getId());
         }
 
         @Test
@@ -579,7 +602,7 @@ public class WorkshopOperationsFoundationIT {
 
             assertThat(snapshot.customerSelectable()).isTrue();
             assertThat(snapshot.remainingCapacity()).isEqualTo(20);
-            assertThat(snapshot.branchReference()).isEqualTo(UUID.fromString(testBranch.getReference()));
+            assertThat(snapshot.locationReference()).isEqualTo(testLocation.getId());
         }
     }
 
@@ -589,6 +612,24 @@ public class WorkshopOperationsFoundationIT {
     @Nested
     @DisplayName("CORS Policy & Problem Detail Exception Handler Tests")
     class SecurityAndErrorHandlingTests {
+
+        private MockMvc exceptionMockMvc;
+
+        @BeforeEach
+        void initExceptionMockMvc() {
+            exceptionMockMvc = org.springframework.test.web.servlet.setup.MockMvcBuilders
+                    .standaloneSetup(new TestWorkshopOperationsEndpoint())
+                    .setControllerAdvice(new WorkshopOperationsExceptionHandler())
+                    .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(objectMapper))
+                    .build();
+        }
+
+        @Test
+        @DisplayName("CSRF protection remains enabled for non-API web endpoints")
+        void csrfRemainsEnabledForNonApiEndpoints() throws Exception {
+            mockMvc.perform(post("/non-api/test"))
+                    .andExpect(status().isForbidden());
+        }
 
         @Test
         @DisplayName("Allowed origin receives CORS headers without credentials")
@@ -611,22 +652,22 @@ public class WorkshopOperationsFoundationIT {
         }
 
         @Test
-        @DisplayName("WorkshopBranchScopeException maps to 403 BRANCH_SCOPE_DENIED ProblemDetail")
-        void testBranchScopeExceptionMapping() throws Exception {
-            mockMvc.perform(get("/api/v1/workshop-test/branch-scope-error")
+        @DisplayName("WorkshopLocationScopeException maps to 403 LOCATION_SCOPE_DENIED ProblemDetail")
+        void testLocationScopeExceptionMapping() throws Exception {
+            exceptionMockMvc.perform(get("/api/v1/workshop-test/location-scope-error")
                             .header("X-Correlation-Id", "corr-test-123"))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.status").value(403))
-                    .andExpect(jsonPath("$.code").value("BRANCH_SCOPE_DENIED"))
-                    .andExpect(jsonPath("$.title").value("Branch Scope Denied"))
+                    .andExpect(jsonPath("$.code").value("LOCATION_SCOPE_DENIED"))
+                    .andExpect(jsonPath("$.title").value("Location Scope Denied"))
                     .andExpect(jsonPath("$.correlationId").value("corr-test-123"))
-                    .andExpect(jsonPath("$.detail").value("Target branch is out of scope"));
+                    .andExpect(jsonPath("$.detail").value("Target location is out of scope"));
         }
 
         @Test
         @DisplayName("WorkshopUnauthorizedException maps to 401 UNAUTHORIZED ProblemDetail")
         void testUnauthorizedExceptionMapping() throws Exception {
-            mockMvc.perform(get("/api/v1/workshop-test/unauthorized-error"))
+            exceptionMockMvc.perform(get("/api/v1/workshop-test/unauthorized-error"))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.status").value(401))
                     .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
@@ -636,7 +677,7 @@ public class WorkshopOperationsFoundationIT {
         @Test
         @DisplayName("WorkshopCapacityConflictException maps to 409 INSUFFICIENT_CAPACITY ProblemDetail")
         void testCapacityConflictExceptionMapping() throws Exception {
-            mockMvc.perform(get("/api/v1/workshop-test/capacity-conflict-error"))
+            exceptionMockMvc.perform(get("/api/v1/workshop-test/capacity-conflict-error"))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.status").value(409))
                     .andExpect(jsonPath("$.code").value("INSUFFICIENT_CAPACITY"))
@@ -646,7 +687,7 @@ public class WorkshopOperationsFoundationIT {
         @Test
         @DisplayName("WorkshopLifecycleException maps to 409 INVALID_STATE ProblemDetail")
         void testLifecycleExceptionMapping() throws Exception {
-            mockMvc.perform(get("/api/v1/workshop-test/lifecycle-error"))
+            exceptionMockMvc.perform(get("/api/v1/workshop-test/lifecycle-error"))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.status").value(409))
                     .andExpect(jsonPath("$.code").value("INVALID_STATE"));
@@ -665,9 +706,9 @@ public class WorkshopOperationsFoundationIT {
             return "pong";
         }
 
-        @GetMapping("/branch-scope-error")
-        public void throwBranchScope() {
-            throw new WorkshopBranchScopeException("Target branch is out of scope");
+        @GetMapping("/location-scope-error")
+        public void throwLocationScope() {
+            throw new WorkshopLocationScopeException("Target location is out of scope");
         }
 
         @GetMapping("/unauthorized-error")

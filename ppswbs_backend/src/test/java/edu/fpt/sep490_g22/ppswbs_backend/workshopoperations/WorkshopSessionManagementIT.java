@@ -1,10 +1,10 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.BulkSessionRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SessionRequest;
@@ -58,7 +58,7 @@ public class WorkshopSessionManagementIT {
     private AccountFacade accountFacade;
 
     @Autowired
-    private WorkshopBranchRepository branchRepository;
+    private WorkshopLocationRepository locationRepository;
 
     @Autowired
     private WorkshopSlotRepository slotRepository;
@@ -76,8 +76,8 @@ public class WorkshopSessionManagementIT {
     private static final String MGR_B_TOKEN = "Bearer test-uid:mgr-b";
     private static final String ADMIN_TOKEN = "Bearer test-uid:admin";
 
-    private WorkshopBranch branchA;
-    private WorkshopBranch branchB;
+    private WorkshopLocation branchA;
+    private WorkshopLocation branchB;
     private WorkshopSlot slotMorning;
 
     @BeforeEach
@@ -93,19 +93,17 @@ public class WorkshopSessionManagementIT {
         jdbcTemplate.execute("TRUNCATE TABLE operations_audit_events");
         jdbcTemplate.execute("TRUNCATE TABLE workshop_sessions");
         jdbcTemplate.execute("TRUNCATE TABLE workshop_slots");
-        jdbcTemplate.execute("TRUNCATE TABLE workshop_branches");
+        jdbcTemplate.execute("TRUNCATE TABLE workshop_locations");
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
 
-        branchA = branchRepository.save(WorkshopBranch.builder()
-                .reference(UUID.randomUUID().toString())
+        branchA = locationRepository.save(WorkshopLocation.builder()
                 .code("BR-HCM-01")
                 .displayName("District 1 Branch")
                 .addressSnapshot("123 Le Loi, D1, HCMC")
                 .active(true)
                 .build());
 
-        branchB = branchRepository.save(WorkshopBranch.builder()
-                .reference(UUID.randomUUID().toString())
+        branchB = locationRepository.save(WorkshopLocation.builder()
                 .code("BR-HCM-02")
                 .displayName("District 2 Branch")
                 .addressSnapshot("456 Thao Dien, D2, HCMC")
@@ -114,7 +112,7 @@ public class WorkshopSessionManagementIT {
 
         slotMorning = slotRepository.save(WorkshopSlot.builder()
                 .reference(UUID.randomUUID().toString())
-                .branch(branchA)
+                .location(branchA)
                 .label("Standard Morning Slot")
                 .startTime(LocalTime.of(9, 0))
                 .endTime(LocalTime.of(12, 0))
@@ -124,17 +122,17 @@ public class WorkshopSessionManagementIT {
 
         // Setup AccountFacade mocks: Manager A has scope for Branch A (id=branchA.getId())
         when(accountFacade.resolveAccount("mgr-a")).thenReturn(Optional.of(
-                new AccountSummary(10L, AccountRole.MANAGER, AccountStatus.ACTIVE, "mgra@mland.vn", Instant.now(), Instant.now())));
+                new AccountSummary(10L, ActorRole.MANAGER, ActorStatus.ACTIVE, "mgra@mland.vn", Instant.now(), Instant.now())));
         when(accountFacade.getLocationScope(10L)).thenReturn(List.of(branchA.getId()));
 
         // Manager B has scope for Branch B
         when(accountFacade.resolveAccount("mgr-b")).thenReturn(Optional.of(
-                new AccountSummary(20L, AccountRole.MANAGER, AccountStatus.ACTIVE, "mgrb@mland.vn", Instant.now(), Instant.now())));
+                new AccountSummary(20L, ActorRole.MANAGER, ActorStatus.ACTIVE, "mgrb@mland.vn", Instant.now(), Instant.now())));
         when(accountFacade.getLocationScope(20L)).thenReturn(List.of(branchB.getId()));
 
         // Admin has universal authority
         when(accountFacade.resolveAccount("admin")).thenReturn(Optional.of(
-                new AccountSummary(99L, AccountRole.ADMIN, AccountStatus.ACTIVE, "admin@mland.vn", Instant.now(), Instant.now())));
+                new AccountSummary(99L, ActorRole.ADMIN, ActorStatus.ACTIVE, "admin@mland.vn", Instant.now(), Instant.now())));
     }
 
     // =========================================================================
@@ -142,13 +140,13 @@ public class WorkshopSessionManagementIT {
     // =========================================================================
 
     @Test
-    @DisplayName("Manager A attempting to configure slots or sessions on Branch B is denied with 403 BRANCH_SCOPE_DENIED")
+    @DisplayName("Manager A attempting to configure slots or sessions on Branch B is denied with 403 LOCATION_SCOPE_DENIED")
     void managerDeniedOnOutOfScopeBranch() throws Exception {
         // Manager A attempts to list slots on Branch B
-        mockMvc.perform(get("/api/v1/workshop-branches/" + branchB.getReference() + "/slots")
+        mockMvc.perform(get("/api/v1/workshop-branches/" + branchB.getId() + "/slots")
                         .header("Authorization", MGR_A_TOKEN))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("BRANCH_SCOPE_DENIED"));
+                .andExpect(jsonPath("$.code").value("LOCATION_SCOPE_DENIED"));
 
         // Manager A attempts to create a slot on Branch B
         SlotRequest newSlot = SlotRequest.builder()
@@ -159,12 +157,12 @@ public class WorkshopSessionManagementIT {
                 .active(true)
                 .build();
 
-        mockMvc.perform(post("/api/v1/workshop-branches/" + branchB.getReference() + "/slots")
+        mockMvc.perform(post("/api/v1/workshop-branches/" + branchB.getId() + "/slots")
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(newSlot)))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("BRANCH_SCOPE_DENIED"));
+                .andExpect(jsonPath("$.code").value("LOCATION_SCOPE_DENIED"));
     }
 
     // =========================================================================
@@ -183,7 +181,7 @@ public class WorkshopSessionManagementIT {
                 .active(true)
                 .build();
 
-        mockMvc.perform(post("/api/v1/workshop-branches/" + branchA.getReference() + "/slots")
+        mockMvc.perform(post("/api/v1/workshop-branches/" + branchA.getId() + "/slots")
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(overlapping)))
@@ -203,7 +201,7 @@ public class WorkshopSessionManagementIT {
                 .active(true)
                 .build();
 
-        mockMvc.perform(post("/api/v1/workshop-branches/" + branchA.getReference() + "/slots")
+        mockMvc.perform(post("/api/v1/workshop-branches/" + branchA.getId() + "/slots")
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(overlapInactive)))
@@ -219,7 +217,7 @@ public class WorkshopSessionManagementIT {
                 .active(true)
                 .build();
 
-        mockMvc.perform(post("/api/v1/workshop-branches/" + branchA.getReference() + "/slots")
+        mockMvc.perform(post("/api/v1/workshop-branches/" + branchA.getId() + "/slots")
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(nonOverlapping)))
@@ -237,7 +235,7 @@ public class WorkshopSessionManagementIT {
         LocalDate dateBeyond90 = LocalDate.now().plusDays(95);
 
         SessionRequest request = SessionRequest.builder()
-                .branchId(branchA.getReference())
+                .branchId(String.valueOf(branchA.getId()))
                 .slotId(slotMorning.getReference())
                 .workshopDate(dateBeyond90)
                 .capacity(20)
@@ -257,7 +255,7 @@ public class WorkshopSessionManagementIT {
         LocalDate yesterday = LocalDate.now().minusDays(1);
 
         SessionRequest request = SessionRequest.builder()
-                .branchId(branchA.getReference())
+                .branchId(String.valueOf(branchA.getId()))
                 .slotId(slotMorning.getReference())
                 .workshopDate(yesterday)
                 .capacity(20)
@@ -282,7 +280,7 @@ public class WorkshopSessionManagementIT {
         LocalDate to = LocalDate.now().plusDays(12);
 
         BulkSessionRequest bulkRequest = BulkSessionRequest.builder()
-                .branchId(branchA.getReference())
+                .branchId(String.valueOf(branchA.getId()))
                 .slotIds(List.of(slotMorning.getReference()))
                 .from(from)
                 .to(to)
@@ -326,7 +324,7 @@ public class WorkshopSessionManagementIT {
 
         // 1. Create a session inheriting slotMorning (09:00 - 12:00)
         SessionRequest sessionReq = SessionRequest.builder()
-                .branchId(branchA.getReference())
+                .branchId(String.valueOf(branchA.getId()))
                 .slotId(slotMorning.getReference())
                 .workshopDate(sessionDate)
                 .capacity(20)
@@ -385,7 +383,7 @@ public class WorkshopSessionManagementIT {
         Instant customCheckIn = sessionStart.minusSeconds(7200).toInstant(); // 2 hours before start instead of default 1 hour
 
         SessionRequest request = SessionRequest.builder()
-                .branchId(branchA.getReference())
+                .branchId(String.valueOf(branchA.getId()))
                 .slotId(slotMorning.getReference())
                 .workshopDate(sessionDate)
                 .capacity(15)

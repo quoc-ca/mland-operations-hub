@@ -11,7 +11,7 @@ import java.util.UUID;
 @Table(
     name = "workshop_sessions",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uq_session_branch_date_slot", columnNames = {"branch_id", "workshop_date", "slot_id"}),
+        @UniqueConstraint(name = "uq_session_location_date_slot", columnNames = {"location_id", "workshop_date", "slot_id"}),
         @UniqueConstraint(name = "uq_session_reference", columnNames = {"reference"})
     }
 )
@@ -30,8 +30,8 @@ public class WorkshopSession {
     private String reference;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "branch_id", nullable = false)
-    private WorkshopBranch branch;
+    @JoinColumn(name = "location_id", nullable = false)
+    private WorkshopLocation location;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "slot_id", nullable = false)

@@ -44,20 +44,28 @@ public class WorkshopOperationsAuthorizationService {
         return account;
     }
 
-    public AccountSummary requireAllBranchActor(String authHeader) {
+    public AccountSummary requireAllLocationActor(String authHeader) {
         AccountSummary account = authenticate(authHeader);
 
-        if (!isAllBranchActor(account)) {
-            log.warn("Access denied for accountId={}: expected all-branch/higher-privilege actor, found role={}",
+        if (!isAllLocationActor(account)) {
+            log.warn("Access denied for accountId={}: expected all-location/higher-privilege actor, found role={}",
                     account.accountId(), account.role());
-            throw new WorkshopForbiddenException("Access requires all-branch higher-privilege authority");
+            throw new WorkshopForbiddenException("Access requires all-location higher-privilege authority");
         }
 
         return account;
     }
 
-    public boolean isAllBranchActor(AccountSummary account) {
+    public AccountSummary requireAllBranchActor(String authHeader) {
+        return requireAllLocationActor(authHeader);
+    }
+
+    public boolean isAllLocationActor(AccountSummary account) {
         return account != null && account.role() != null && "ADMIN".equalsIgnoreCase(account.role().name());
+    }
+
+    public boolean isAllBranchActor(AccountSummary account) {
+        return isAllLocationActor(account);
     }
 
     public boolean isManager(AccountSummary account) {
@@ -68,7 +76,7 @@ public class WorkshopOperationsAuthorizationService {
         return account != null && account.role() != null && "STAFF".equalsIgnoreCase(account.role().name());
     }
 
-    public AccountSummary requireManagerBranchScope(String authHeader, Long branchId) {
+    public AccountSummary requireManagerLocationScope(String authHeader, Long locationId) {
         AccountSummary account = authenticate(authHeader);
 
         if (!isManager(account)) {
@@ -77,13 +85,17 @@ public class WorkshopOperationsAuthorizationService {
         }
 
         List<Long> locationScope = accountFacade.getLocationScope(account.accountId());
-        if (!locationScope.contains(branchId)) {
-            log.warn("Branch scope check failed for accountId={}, branchId={}, allowedScope={}",
-                account.accountId(), branchId, locationScope);
-            throw new WorkshopBranchScopeException("Branch ID " + branchId + " is outside actor's active location scope");
+        if (locationScope == null || !locationScope.contains(locationId)) {
+            log.warn("Location scope check failed for accountId={}, locationId={}, allowedScope={}",
+                account.accountId(), locationId, locationScope);
+            throw new WorkshopLocationScopeException("Location ID " + locationId + " is outside actor's active location scope");
         }
 
         return account;
+    }
+
+    public AccountSummary requireManagerBranchScope(String authHeader, Long branchId) {
+        return requireManagerLocationScope(authHeader, branchId);
     }
 
     public AccountSummary requireStaffSessionAssignment(String authHeader, Long sessionId) {
@@ -92,36 +104,36 @@ public class WorkshopOperationsAuthorizationService {
         WorkshopSession session = sessionRepository.findById(sessionId)
             .orElseThrow(() -> new WorkshopNotFoundException("Workshop session not found with ID " + sessionId));
 
-        Long branchId = session.getBranch().getId();
+        Long locationId = session.getLocation().getId();
 
         if (isStaff(account)) {
-            boolean assigned = staffAssignmentRepository.existsBySessionIdAndPersonnelIdAndActiveTrue(sessionId, account.accountId());
+            boolean assigned = staffAssignmentRepository.existsBySessionIdAndAccountIdAndActiveTrue(sessionId, account.accountId());
             if (!assigned) {
                 log.warn("Staff assignment check failed for accountId={}, sessionId={}", account.accountId(), sessionId);
                 throw new WorkshopForbiddenException("Staff member is not assigned to session ID " + sessionId);
             }
 
             List<Long> locationScope = accountFacade.getLocationScope(account.accountId());
-            if (!locationScope.contains(branchId)) {
-                log.warn("Staff location scope check failed for accountId={}, branchId={}, allowedScope={}",
-                    account.accountId(), branchId, locationScope);
-                throw new WorkshopBranchScopeException("Branch ID " + branchId + " is outside Staff member's active location scope");
+            if (locationScope == null || !locationScope.contains(locationId)) {
+                log.warn("Staff location scope check failed for accountId={}, locationId={}, allowedScope={}",
+                    account.accountId(), locationId, locationScope);
+                throw new WorkshopLocationScopeException("Location ID " + locationId + " is outside Staff member's active location scope");
             }
 
             return account;
         }
 
         if (isManager(account)) {
-            boolean isLead = operationalLeadRepository.existsBySessionIdAndManagerPersonnelIdAndActiveTrue(sessionId, account.accountId());
+            boolean isLead = operationalLeadRepository.existsBySessionIdAndManagerAccountIdAndActiveTrue(sessionId, account.accountId());
             if (!isLead) {
                 log.warn("Manager lead check failed for accountId={}, sessionId={}", account.accountId(), sessionId);
                 throw new WorkshopForbiddenException("Manager is not the recorded operational lead for session ID " + sessionId);
             }
 
             List<Long> locationScope = accountFacade.getLocationScope(account.accountId());
-            if (!locationScope.contains(branchId)) {
-                log.warn("Manager operational lead branch scope check failed for accountId={}, branchId={}", account.accountId(), branchId);
-                throw new WorkshopBranchScopeException("Branch ID " + branchId + " is outside Manager location scope");
+            if (locationScope == null || !locationScope.contains(locationId)) {
+                log.warn("Manager operational lead location scope check failed for accountId={}, locationId={}", account.accountId(), locationId);
+                throw new WorkshopLocationScopeException("Location ID " + locationId + " is outside Manager location scope");
             }
 
             return account;
@@ -132,12 +144,12 @@ public class WorkshopOperationsAuthorizationService {
         throw new WorkshopForbiddenException("Access denied: Actor is not assigned Staff or operational lead");
     }
 
-    public AccountSummary requireManagerOrAssignedStaff(String authHeader, Long sessionId, Long branchId) {
+    public AccountSummary requireManagerOrAssignedStaff(String authHeader, Long sessionId, Long locationId) {
         AccountSummary account = authenticate(authHeader);
 
         List<Long> locationScope = accountFacade.getLocationScope(account.accountId());
-        if (!locationScope.contains(branchId)) {
-            throw new WorkshopBranchScopeException("Branch ID " + branchId + " is outside actor location scope");
+        if (locationScope == null || !locationScope.contains(locationId)) {
+            throw new WorkshopLocationScopeException("Location ID " + locationId + " is outside actor location scope");
         }
 
         if (isManager(account)) {
@@ -145,7 +157,7 @@ public class WorkshopOperationsAuthorizationService {
         }
 
         if (isStaff(account)) {
-            boolean assigned = staffAssignmentRepository.existsBySessionIdAndPersonnelIdAndActiveTrue(sessionId, account.accountId());
+            boolean assigned = staffAssignmentRepository.existsBySessionIdAndAccountIdAndActiveTrue(sessionId, account.accountId());
             if (!assigned) {
                 throw new WorkshopForbiddenException("Staff member is not assigned to session ID " + sessionId);
             }

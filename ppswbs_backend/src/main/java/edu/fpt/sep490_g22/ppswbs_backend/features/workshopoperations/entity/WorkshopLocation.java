@@ -4,23 +4,19 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @Entity
-@Table(name = "workshop_branches")
+@Table(name = "workshop_locations")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class WorkshopBranch {
+public class WorkshopLocation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "reference", nullable = false, unique = true, length = 36)
-    private String reference;
 
     @Column(name = "code", nullable = false, unique = true, length = 64)
     private String code;
@@ -43,9 +39,6 @@ public class WorkshopBranch {
 
     @PrePersist
     protected void onCreate() {
-        if (reference == null) {
-            reference = UUID.randomUUID().toString();
-        }
         Instant now = Instant.now();
         createdAt = now;
         updatedAt = now;

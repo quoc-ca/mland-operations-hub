@@ -12,7 +12,7 @@ public interface SessionStaffAssignmentRepository extends JpaRepository<SessionS
 
     List<SessionStaffAssignment> findBySessionIdAndActiveTrue(Long sessionId);
 
-    Optional<SessionStaffAssignment> findBySessionIdAndPersonnelIdAndActiveTrue(Long sessionId, Long personnelId);
+    Optional<SessionStaffAssignment> findBySessionIdAndAccountIdAndActiveTrue(Long sessionId, Long accountId);
 
-    boolean existsBySessionIdAndPersonnelIdAndActiveTrue(Long sessionId, Long personnelId);
+    boolean existsBySessionIdAndAccountIdAndActiveTrue(Long sessionId, Long accountId);
 }

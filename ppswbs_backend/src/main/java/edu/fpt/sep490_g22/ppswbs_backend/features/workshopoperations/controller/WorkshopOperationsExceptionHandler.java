@@ -1,11 +1,11 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.controller;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.ProblemDetailResponse;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopBranchScopeException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopCapacityConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopDuplicateSessionException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopForbiddenException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLifecycleException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLocationScopeException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopNotFoundException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopSlotConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopTicketConflictException;
@@ -49,12 +49,12 @@ public class WorkshopOperationsExceptionHandler {
         return buildResponse(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Unauthorized", ex.getMessage(), correlationId);
     }
 
-    @ExceptionHandler(WorkshopBranchScopeException.class)
-    public ResponseEntity<ProblemDetailResponse> handleBranchScope(
-            WorkshopBranchScopeException ex, HttpServletRequest request) {
+    @ExceptionHandler(WorkshopLocationScopeException.class)
+    public ResponseEntity<ProblemDetailResponse> handleLocationScope(
+            WorkshopLocationScopeException ex, HttpServletRequest request) {
         String correlationId = resolveCorrelationId(request);
-        log.warn("Workshop branch scope denial [correlationId={}]: {}", correlationId, ex.getMessage());
-        return buildResponse(HttpStatus.FORBIDDEN, "BRANCH_SCOPE_DENIED", "Branch Scope Denied", ex.getMessage(), correlationId);
+        log.warn("Workshop location scope denial [correlationId={}]: {}", correlationId, ex.getMessage());
+        return buildResponse(HttpStatus.FORBIDDEN, "LOCATION_SCOPE_DENIED", "Location Scope Denied", ex.getMessage(), correlationId);
     }
 
     @ExceptionHandler(WorkshopForbiddenException.class)

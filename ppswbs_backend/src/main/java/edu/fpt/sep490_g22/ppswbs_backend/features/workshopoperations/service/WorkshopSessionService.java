@@ -11,26 +11,23 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.*;
-import java.util.*;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 /**
- * T017: Service managing future workshop sessions and bulk generation.
- * <p>
- * Enforces:
- * - Sessions inherit start/end from configured slot (no free-form hours).
- * - Only future session creation, maximum 90 days ahead in Asia/Ho_Chi_Minh.
- * - Exactly one session per branch/date/slot combination.
- * - Bulk generation skips and reports duplicates without overwriting.
- * - Default DRAFT or Manager-selected PUBLISHED state.
- * - Audited preservation of Manager-set check_in_opens_at override.
+ * Scoped Workshop Session management service adapting to canonical WorkshopLocation.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class WorkshopSessionService {
 
-    public static final ZoneId WORKSHOP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final ZoneId WORKSHOP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final WorkshopSessionRepository sessionRepository;
     private final WorkshopBranchService branchService;
@@ -39,23 +36,16 @@ public class WorkshopSessionService {
     private final AccountFacade accountFacade;
     private final OperationsAuditEventRepository auditEventRepository;
 
-    /**
-     * Create an individual future workshop session.
-     *
-     * @param authHeader Bearer authorization header
-     * @param request    Session creation request
-     * @return Created SessionResponse
-     */
     @Transactional
     public SessionResponse createSession(String authHeader, SessionRequest request) {
         AccountSummary actor = authorizationService.authenticate(authHeader);
         validateSessionRequest(request);
 
-        WorkshopBranch branch = branchService.requireBranchEntityInScopeByReference(authHeader, request.getBranchId());
+        WorkshopLocation location = branchService.requireBranchEntityInScopeByReference(authHeader, request.getBranchId());
         WorkshopSlot slot = slotService.requireSlotEntityInScope(authHeader, request.getSlotId());
 
-        if (!slot.getBranch().getId().equals(branch.getId())) {
-            throw new WorkshopValidationException("Configured slot does not belong to the target branch");
+        if (!slot.getLocation().getId().equals(location.getId())) {
+            throw new WorkshopValidationException("Configured slot does not belong to the target location");
         }
 
         ZonedDateTime now = Instant.now().atZone(WORKSHOP_ZONE);
@@ -70,10 +60,10 @@ public class WorkshopSessionService {
             throw new WorkshopValidationException("Workshop session date cannot exceed 90 days in the future");
         }
 
-        // Unique (branch_id, workshop_date, slot_id)
-        if (sessionRepository.existsByBranchIdAndWorkshopDateAndSlotId(branch.getId(), workshopDate, slot.getId())) {
-            log.warn("Duplicate session rejection: branchId={}, date={}, slotId={}", branch.getId(), workshopDate, slot.getId());
-            throw new WorkshopDuplicateSessionException("A session already exists for branch " + branch.getCode() +
+        // Unique (location_id, workshop_date, slot_id)
+        if (sessionRepository.existsByLocationIdAndWorkshopDateAndSlotId(location.getId(), workshopDate, slot.getId())) {
+            log.warn("Duplicate session rejection: locationId={}, date={}, slotId={}", location.getId(), workshopDate, slot.getId());
+            throw new WorkshopDuplicateSessionException("A session already exists for location " + location.getCode() +
                     ", date " + workshopDate + ", and slot " + slot.getLabel());
         }
 
@@ -99,7 +89,7 @@ public class WorkshopSessionService {
 
         WorkshopSession session = WorkshopSession.builder()
                 .reference(UUID.randomUUID().toString())
-                .branch(branch)
+                .location(location)
                 .slot(slot)
                 .workshopDate(workshopDate)
                 .scheduledStartAt(scheduledStartAt)
@@ -111,8 +101,8 @@ public class WorkshopSessionService {
                 .build();
 
         WorkshopSession saved = sessionRepository.save(session);
-        log.info("Created workshop session id={}, reference={}, state={}, branch={}",
-                saved.getId(), saved.getReference(), saved.getState(), branch.getCode());
+        log.info("Created workshop session id={}, reference={}, state={}, location={}",
+                saved.getId(), saved.getReference(), saved.getState(), location.getCode());
 
         if (openingSource == CheckInOpeningSource.MANAGER_SET) {
             recordAudit(saved.getId(), actor.accountId(), "CHECK_IN_OVERRIDE_CONFIGURED", "SUCCESS",
@@ -122,26 +112,24 @@ public class WorkshopSessionService {
         return toSessionResponse(saved);
     }
 
-    /**
-     * Generate future sessions in bulk for selected slots across a date range.
-     * Skips and reports duplicates without overwriting or erroring out.
-     *
-     * @param authHeader Bearer authorization header
-     * @param request    Bulk session generation request
-     * @return BulkGenerationResponse with created IDs and skipped duplicate identifiers
-     */
     @Transactional
     public BulkGenerationResponse generateBulkSessions(String authHeader, BulkSessionRequest request) {
-        authorizationService.authenticate(authHeader);
+        AccountSummary actor = authorizationService.authenticate(authHeader);
 
         if (request == null) {
-            throw new WorkshopValidationException("BulkSessionRequest must not be null");
+            throw new WorkshopValidationException("Bulk session request must not be null");
         }
-        if (request.getBranchId() == null || request.getSlotIds() == null || request.getSlotIds().isEmpty()) {
-            throw new WorkshopValidationException("Branch ID and at least one slot ID are required");
+        if (request.getBranchId() == null || request.getBranchId().isBlank()) {
+            throw new WorkshopValidationException("Branch/Location ID is required");
         }
-        if (request.getFrom() == null || request.getTo() == null || !request.isDateRangeValid()) {
-            throw new WorkshopValidationException("Invalid date range: 'from' must be on or before 'to'");
+        if (request.getSlotIds() == null || request.getSlotIds().isEmpty()) {
+            throw new WorkshopValidationException("At least one slot ID is required");
+        }
+        if (request.getFrom() == null || request.getTo() == null) {
+            throw new WorkshopValidationException("From and To dates are required");
+        }
+        if (request.getFrom().isAfter(request.getTo())) {
+            throw new WorkshopValidationException("From date cannot be after To date");
         }
         if (request.getWeekdays() == null || request.getWeekdays().isEmpty()) {
             throw new WorkshopValidationException("At least one weekday must be specified");
@@ -158,14 +146,14 @@ public class WorkshopSessionService {
             throw new WorkshopValidationException("Initial state must be DRAFT or PUBLISHED");
         }
 
-        WorkshopBranch branch = branchService.requireBranchEntityInScopeByReference(authHeader, request.getBranchId());
+        WorkshopLocation location = branchService.requireBranchEntityInScopeByReference(authHeader, request.getBranchId());
         List<WorkshopSlot> slots = request.getSlotIds().stream()
                 .map(slotId -> slotService.requireSlotEntityInScope(authHeader, slotId))
                 .toList();
 
         for (WorkshopSlot slot : slots) {
-            if (!slot.getBranch().getId().equals(branch.getId())) {
-                throw new WorkshopValidationException("Slot " + slot.getReference() + " does not belong to branch " + branch.getCode());
+            if (!slot.getLocation().getId().equals(location.getId())) {
+                throw new WorkshopValidationException("Slot " + slot.getReference() + " does not belong to location " + location.getCode());
             }
         }
 
@@ -178,12 +166,11 @@ public class WorkshopSessionService {
                 for (WorkshopSlot slot : slots) {
                     ZonedDateTime sessionStart = current.atTime(slot.getStartTime()).atZone(WORKSHOP_ZONE);
                     if (!sessionStart.isAfter(now)) {
-                        // Past time slot: skip
                         continue;
                     }
 
-                    String duplicateKey = branch.getCode() + "-" + current + "-" + slot.getLabel();
-                    if (sessionRepository.existsByBranchIdAndWorkshopDateAndSlotId(branch.getId(), current, slot.getId())) {
+                    String duplicateKey = location.getCode() + "-" + current + "-" + slot.getLabel();
+                    if (sessionRepository.existsByLocationIdAndWorkshopDateAndSlotId(location.getId(), current, slot.getId())) {
                         skippedDuplicates.add(duplicateKey);
                     } else {
                         Instant scheduledStartAt = sessionStart.toInstant();
@@ -192,7 +179,7 @@ public class WorkshopSessionService {
 
                         WorkshopSession session = WorkshopSession.builder()
                                 .reference(UUID.randomUUID().toString())
-                                .branch(branch)
+                                .location(location)
                                 .slot(slot)
                                 .workshopDate(current)
                                 .scheduledStartAt(scheduledStartAt)
@@ -220,31 +207,21 @@ public class WorkshopSessionService {
                 .build();
     }
 
-    /**
-     * Search workshop sessions within authorized scope.
-     *
-     * @param authHeader Bearer authorization header
-     * @param branchId   Optional branch UUID
-     * @param from       Optional start date
-     * @param to         Optional end date
-     * @param state      Optional lifecycle state
-     * @return List of SessionResponse
-     */
     @Transactional(readOnly = true)
     public List<SessionResponse> searchSessions(String authHeader, String branchId,
                                                 LocalDate from, LocalDate to, SessionState state) {
         AccountSummary actor = authorizationService.authenticate(authHeader);
 
-        List<Long> allowedBranchIds;
+        List<Long> allowedLocationIds;
         if (branchId != null && !branchId.isBlank()) {
-            WorkshopBranch branch = branchService.requireBranchEntityInScopeByReference(authHeader, branchId);
-            allowedBranchIds = List.of(branch.getId());
+            WorkshopLocation location = branchService.requireBranchEntityInScopeByReference(authHeader, branchId);
+            allowedLocationIds = List.of(location.getId());
         } else {
             if (authorizationService.isAllBranchActor(actor)) {
-                allowedBranchIds = null; // all branches
+                allowedLocationIds = null;
             } else {
-                allowedBranchIds = accountFacade.getLocationScope(actor.accountId());
-                if (allowedBranchIds == null || allowedBranchIds.isEmpty()) {
+                allowedLocationIds = accountFacade.getLocationScope(actor.accountId());
+                if (allowedLocationIds == null || allowedLocationIds.isEmpty()) {
                     return List.of();
                 }
             }
@@ -252,7 +229,7 @@ public class WorkshopSessionService {
 
         List<WorkshopSession> sessions = sessionRepository.findAll();
         return sessions.stream()
-                .filter(s -> allowedBranchIds == null || allowedBranchIds.contains(s.getBranch().getId()))
+                .filter(s -> allowedLocationIds == null || allowedLocationIds.contains(s.getLocation().getId()))
                 .filter(s -> from == null || !s.getWorkshopDate().isBefore(from))
                 .filter(s -> to == null || !s.getWorkshopDate().isAfter(to))
                 .filter(s -> state == null || s.getState() == state)
@@ -260,31 +237,20 @@ public class WorkshopSessionService {
                 .toList();
     }
 
-    /**
-     * Retrieve a single session by reference within authorized scope.
-     *
-     * @param authHeader       Bearer authorization header
-     * @param sessionReference Public UUID reference
-     * @return SessionResponse
-     */
     @Transactional(readOnly = true)
     public SessionResponse getSessionByReference(String authHeader, String sessionReference) {
         WorkshopSession session = requireSessionEntityInScope(authHeader, sessionReference);
         return toSessionResponse(session);
     }
 
-    /**
-     * Update allowed session fields (capacity, checkInOpensAt).
-     *
-     * @param authHeader       Bearer authorization header
-     * @param sessionReference Public UUID reference
-     * @param request          Session update request
-     * @return Updated SessionResponse
-     */
     @Transactional
     public SessionResponse updateSession(String authHeader, String sessionReference, SessionRequest request) {
         AccountSummary actor = authorizationService.authenticate(authHeader);
         WorkshopSession session = requireSessionEntityInScope(authHeader, sessionReference);
+
+        if (request == null) {
+            throw new WorkshopValidationException("Session update request must not be null");
+        }
 
         if (request.getCapacity() != null) {
             if (request.getCapacity() < 1) {
@@ -310,15 +276,12 @@ public class WorkshopSessionService {
         return toSessionResponse(updated);
     }
 
-    /**
-     * Internal helper to retrieve session entity verifying branch scope.
-     */
     @Transactional(readOnly = true)
     public WorkshopSession requireSessionEntityInScope(String authHeader, String sessionReference) {
         WorkshopSession session = sessionRepository.findByReference(sessionReference)
                 .orElseThrow(() -> new WorkshopNotFoundException("Workshop session not found with reference " + sessionReference));
 
-        branchService.requireBranchEntityInScope(authHeader, session.getBranch().getId());
+        branchService.requireBranchEntityInScope(authHeader, session.getLocation().getId());
         return session;
     }
 
@@ -327,7 +290,7 @@ public class WorkshopSessionService {
             throw new WorkshopValidationException("Session request must not be null");
         }
         if (request.getBranchId() == null || request.getBranchId().isBlank()) {
-            throw new WorkshopValidationException("Branch ID is required");
+            throw new WorkshopValidationException("Branch/Location ID is required");
         }
         if (request.getSlotId() == null || request.getSlotId().isBlank()) {
             throw new WorkshopValidationException("Slot ID is required");
@@ -359,7 +322,7 @@ public class WorkshopSessionService {
     private SessionResponse toSessionResponse(WorkshopSession session) {
         return SessionResponse.builder()
                 .id(session.getReference())
-                .branchId(session.getBranch().getReference())
+                .branchId(String.valueOf(session.getLocation().getId()))
                 .slotId(session.getSlot().getReference())
                 .workshopDate(session.getWorkshopDate())
                 .scheduledStartAt(session.getScheduledStartAt())
