@@ -1,7 +1,7 @@
 # Tasks: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -37,10 +37,10 @@ facade.
 **Purpose**: Establish the target Modulith module without extending legacy
 Booking ownership.
 
-- [ ] T001 Create `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/package-info.java` and register `workshopoperations` as a distinct Modulith module with only `facade` boundary types public; retain `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/common/` outside `features/` as the technical kernel.
-- [ ] T002 [P] Create the target package skeleton at `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/{controller,dto,dao,entity,service,facade}/` without moving business behavior into the root `common` package.
-- [ ] T003 [P] Update `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/ModulithArchitectureTests.java` to discover only `features/*` business modules and verify that Operations has no dependency on Booking internals.
-- [ ] T004 Record the legacy-to-target rebase inventory in `ppswbs_backend/docs/workshop-operations-legacy-rebase.md`, covering the old Booking-owned `WorkshopSession` and one-ticket-per-booking `BookingTicket`; prohibit automatic ticket split, revoke, reset or email during schema migration.
+- [X] T001 Create `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/package-info.java` and register `workshopoperations` as a distinct Modulith module with only `facade` boundary types public; retain `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/common/` outside `features/` as the technical kernel.
+- [X] T002 [P] Create the target package skeleton at `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/{controller,dto,dao,entity,service,facade}/` without moving business behavior into the root `common` package.
+- [X] T003 [P] Update `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/ModulithArchitectureTests.java` to discover only `features/*` business modules and verify that Operations has no dependency on Booking internals.
+- [X] T004 Record the legacy-to-target rebase inventory in `ppswbs_backend/docs/workshop-operations-legacy-rebase.md`, covering the old Booking-owned `WorkshopSession` and one-ticket-per-booking `BookingTicket`; prohibit automatic ticket split, revoke, reset or email during schema migration.
 
 ---
 
