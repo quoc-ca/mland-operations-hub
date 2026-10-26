@@ -22,7 +22,7 @@ OTA payment system, capacity owner, or normal check-in system.
 | Platform | Java 21/Spring Boot REST backend and a separate React + Vite client; no SSR. |
 | Module | Spring Modulith; only explicit owner facades cross business modules. |
 | Persistence | MySQL/JPA and append-only Flyway migrations when implementation is authorized. |
-| Identity | Firebase bearer token proves identity; Mland Account status, ownership, capability and branch scope authorize. |
+| Identity | Firebase bearer token proves identity; Account Management supplies canonical role/status, ownership and location scope, while Settlement applies its own branch/resource action rules. |
 | Payment | VNPay only. Shared `paymentintegration` verifies IPN/QueryDR evidence once and routes redacted final-payment/refund evidence to 003.3; browser Return URL is display-only. |
 | Contract | Versioned `/api/v1` REST contract in `contracts/workshop-settlement.openapi.yaml`. |
 | Validation | Module-boundary, authorization, lifecycle, idempotency, facade, contract, migration-upgrade and recovery evidence. |
@@ -32,7 +32,7 @@ OTA payment system, capacity owner, or normal check-in system.
 | Gate | Result | Evidence / condition |
 | --- | --- | --- |
 | Module integrity | PASS | 003.3 consumes only the named 003.1/003.2 facades and owns only settlement records/cases. |
-| Identity and sensitive data | PASS with FE-001 dependency | Firebase is identity-only; server rechecks Mland account status, ownership/capability and branch scope. No contact proof, raw token, QR payload, provider secret or raw callback is retained in audit. |
+| Identity and sensitive data | PASS with FE-001 dependency | Firebase is identity-only; server rechecks canonical account facts plus Settlement's branch/resource action rules. No contact proof, raw token, QR payload, provider secret or raw callback is retained in audit. |
 | REST and frontend | PASS | The OpenAPI contract defines resource routes, authorization alternatives, idempotency, safe projections and typed errors. React consumes REST only. |
 | State, failure and idempotency | PASS | Client commands retain idempotent outcomes; verified provider transaction/reference deduplicates IPN/QueryDR. Cases have explicit lifecycle and correlation. |
 | Data evolution | PASS with rollout condition | Only dev/test without retained booking/customer data may reset after preflight. Data-bearing environments require append-only preservation migration, upgrade test, recovery/rollback evidence. |
@@ -53,7 +53,7 @@ VNPay ─ signed IPN / QueryDR evidence ─► paymentintegration
 | Confirmed booking, frozen price/deposit, `FULLY_PAID` | 003.1 | Read/update only through `WorkshopBookingFacade`. |
 | Sessions, capacity, entitlements, attendance, cancellation state | 003.2 | Read/change only through `WorkshopOperationsFacade`. |
 | Final bill, charge, payment/refund/change case and settlement audit | 003.3 | Authoritative owner. |
-| Account state, role, capability, ownership and branch scope | FE-001 | Recheck at every protected command; do not infer display roles. |
+| Canonical account role/status, ownership and location scope | FE-001 | Recheck facts at every protected command; Settlement applies its own action rules and never infers authority from display roles or claims. |
 | Delivery | Feature 007 | Immutable settlement handoff is persisted with accepted Settlement state; a post-commit reference event only lets Feature 007 read the facade payload, deduplicate and retry. Delivery cannot settle a bill or refund. |
 
 The concrete owner operations and boundary types are fixed by the shared
@@ -175,7 +175,7 @@ by re-reading the safe resource/case projection.
 | --- | --- | --- |
 | 003.1 confirmed booking projection and `FULLY_PAID` conclusion | Concrete facade contract | 003.3 consumes only the typed owner boundary. |
 | 003.2 readiness, replacement, refund consequence and cancellation handoff | Concrete facade contract | 003.3 consumes only typed owner outcomes. |
-| FE-001 authorization/scope | Approved dependency assumption | Implementation must use the account boundary; do not edit FE-001 or infer role codes. |
+| FE-001 account facts/scope | Approved dependency assumption | Implementation consumes canonical role/status, ownership and location scope; Settlement owns its action rules and does not edit FE-001 or use display roles/claims as authority. |
 | VNPay merchant credential, configured callback URL, QueryDR/refund access | Configuration blocker | The shared [VNPay configuration preflight](../contracts/vnpay-configuration-preflight.md) is the sole non-secret checklist for 003.1 and 003.3. Provider adapter/configuration tasks remain blocked; semantics/contract are ready. |
 | Settlement-to-007 notification handoff | Defined cross-feature boundary | Immutable handoff, reference-only event and payload facade are fixed in the shared facade contract. Feature 007 provider configuration remains external; Settlement commits independently. |
 | Shared VNPay ingress/dispatch | Defined cross-feature boundary | Canonical route and dispatch rules live in `../contracts/vnpay-payment-ingress.openapi.yaml` and the facade contract; merchant credentials/configuration remain blocked. |

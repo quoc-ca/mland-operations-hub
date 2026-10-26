@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -111,6 +111,7 @@ collect money, perform refunds or connect directly to external OTAs.
 
 - Q: What happens if an assigned Staff member or operational-lead Manager becomes inactive? → A: Their operational authority is revoked immediately while assignment/lead history remains. The session needs another active assigned Staff member or active operational lead before onsite operation continues.
 - Q: Which feature owns Manager-to-branch assignments? → A: Account/personnel management owns their creation, change and revocation. Workshop operations only reads and enforces the assignment.
+- Q: Does Account Management decide Workshop Operations permissions? → A: No. Account Management supplies canonical role, current status and active location-scope facts through its facade. Operations applies its own server-side action rules using those facts together with the target branch and its explicit Staff-session assignments; it never uses a display role, Firebase claim, or retired code as authority.
 - Q: May a workshop slot span midnight? → A: No. A slot starts and ends on the same `Asia/Ho_Chi_Minh` calendar date. The current default daily slot starts are 09:00, 13:00 and 16:00.
 - Q: What are the default daily slot times? → A: `09:00–12:00`, `13:00–16:00` and `16:00–19:00`. Workshop activity normally takes about 2 hours 30 minutes, and each slot retains 30 minutes of contingency time.
 - Q: May a slot or session have zero capacity? → A: No. Capacity must be at least one; Manager uses `SALES_PAUSED` to stop accepting bookings.

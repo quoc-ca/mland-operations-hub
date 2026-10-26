@@ -11,7 +11,7 @@
 
 Design a provider-neutral OTA-connectivity module that lets Mland publish approved workshop schedule, availability, and sales-closed state while Mland remains the source of truth for capacity, bookings, and tickets. Klook and GetYourGuide are candidate adapters, not enabled integrations. Each provider can move from preparation synchronization to booking only after its separate onboarding, commercial, callback, ticket/QR, and late-booking gates are evidenced.
 
-The planned design uses an adapter boundary, durable change delivery, idempotent inbound processing, audit-safe reconciliation, and facade calls to Booking, Operations, Settlement, and Account/Personnel. It deliberately does not promise a real-time SLA or accept an OTA booking before the provider gate is approved.
+The planned design uses an adapter boundary, durable change delivery, idempotent inbound processing, audit-safe reconciliation, and facade calls to Booking, Operations, Settlement, and Account Management. Account Management supplies canonical account facts while OTA Connectivity applies its own action rules. It deliberately does not promise a real-time SLA or accept an OTA booking before the provider gate is approved.
 
 ### Resolved Operations Snapshot Consumer Boundary
 
@@ -66,7 +66,7 @@ idempotent; a failed mapping closes OTA sales until confirmed re-sync.
 | Gate | Pre-design | Post-design | Evidence / condition |
 | --- | --- | --- | --- |
 | Module integrity | PASS | PASS | A dedicated OTA facade owns channel state and calls Booking, Operations, Settlement, and Account/Personnel only through their facades. |
-| Identity and data | PASS | PASS | Firebase establishes Mland user identity; Mland capability plus branch scope authorizes actions. Provider callback identity is a separate verified integration credential, never a user identity. |
+| Identity and data | PASS | PASS | Firebase establishes Mland user identity; Account Management supplies canonical role/status/location facts and OTA Connectivity applies its branch/resource action rules. Provider callback identity is a separate verified integration credential, never a user identity. |
 | REST and frontend separation | PASS | PASS | Proposed REST paths are versioned/plural; a separate React/Vite client consumes API contracts only. |
 | Persistence and migration safety | PASS | PASS | JPA-owned records and append-only Flyway migrations; uniqueness and state invariants are tested. No raw SQL persistence design is required. |
 | Verification | PASS | PASS | Module, migration, contract, authorization, replay, failure-recovery, and reconciliation scenarios are specified below. |

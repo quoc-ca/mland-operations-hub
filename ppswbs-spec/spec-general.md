@@ -3,7 +3,7 @@
 **Date created**: 2026-09-29
 **Date updated**: 2026-10-26
 **Author**: Phan Son
-**Last updated by**: Phan Sơn
+**Last updated by**: Hồ Hoàng Quốc
 
 **Version**: 0.4
 **Status**: Working Agreement
@@ -113,7 +113,7 @@ Detailed requirements remain in the [Report 3 NFR baseline](../documents/docs/re
 * **Integration boundaries:** Google Places content is not persisted; GHTK has no V1 API/quote/tracking/failure/return workflow; OTA callbacks are processed only by an approved 003.4 provider adapter and go-live gate; workflow SMTP only delivers requested messages.
 * **Hosting and caching:** Firebase Hosting is preview-only. Cache behavior applies only to deliberately public content; never cache identity tokens, authenticated responses, booking capacity, payment status, invoices, Member history, or administration data.
 * **Auditability:** Payment confirmation, price publication, booking-design review, custom final amount, pickup, and carrier handoff retain business audit evidence under the stated retention period. FE-001 account-management audit/security evidence (role changes, status changes, location assignment, lock/unlock) is retained for five years. Audit metadata includes actor account ID, target account ID, action, outcome, timestamp, and correlation ID; it records only before/after values for role, status, location, or lock reason. It never includes raw passwords, Firebase tokens, Firebase action links, or unnecessary PII (full name, phone, unrelated contact data).
-* **Workshop settlement authorization:** Account/personnel owns role-code mapping and capability grants. Workshop settlement uses branch-scoped capabilities `workshop.settlement.defer`, `workshop.settlement.reschedule`, and `workshop.settlement.refund`; an inactive actor loses them immediately. A feature MUST NOT infer `Manager = OWNER` or use any retired role code.
+* **Workshop authorization:** Account Management owns the canonical fixed role code, current Account status, and active location assignment facts. Each Workshop feature owns its action-specific authorization rule and evaluates it server-side from those facts plus its own resource scope/assignment data. A feature MUST NOT infer authority from a display label, Firebase claim, or retired code, and MUST NOT infer `Manager = OWNER`.
 * **Location deactivation:** Deactivating a `workshop_location` does not automatically change any Account's role or status. However, commands scoped to a deactivated location (e.g. role/location assignment, check-in) must be denied. `workshop_locations` is the canonical authority for active locations; Account Management stores assignments and validates them through the workshop-location facade only.
 * **Unbaselined quality targets:** Performance, availability/SLA, accessibility standard, supported browser/device baseline, production hosting/deployment, and production backend origin remain `TBD`. Do not infer numeric targets from the preview setup.
 
@@ -126,7 +126,7 @@ Physical schemas remain owned by feature plans, migrations, and the evolving [DB
 | Firebase UID / `external_user_id` | Firebase identity mapped by Mland MySQL | Unique Account lookup identity; never use email as an automatic merge key. One Firebase UID maps to exactly one Mland Account. |
 | Account status and role | Mland MySQL / `accountmanagement` module | Closed role vocabulary: `MEMBER`, `STAFF`, `MANAGER`, `ADMIN`. Account statuses: `ACTIVE`, `PENDING_SETUP`, `SUSPENDED`. Email verification is a separate Firebase-backed condition, not a fourth status. Provider claims do not grant roles. |
 | Location scope | `workshop_locations` table (canonical authority owned by FE-03) | Staff has exactly one active location assignment; Manager has one or more. Account Management stores assignments and validates them through the workshop-location facade only; it does not maintain a local copy of location data. |
-| Business role entitlements, policy acceptance, and auth audit | Mland MySQL / `accountmanagement` module | Provider, Firebase email, display name, photo, or Firebase custom claims do not grant business authority. Five-year retention for account security/audit evidence. |
+| Canonical role/status/location facts, policy acceptance, and auth audit | Mland MySQL / `accountmanagement` module | Account Management owns the facts; each business feature owns its action-specific authorization policy. Provider, Firebase email, display name, photo, or Firebase custom claims do not grant business authority. Five-year retention for account security/audit evidence. |
 | Profile/contact snapshot | Mland account/profile capability | Contact values may be absent or change; they are not authorization keys. |
 | Workshop packages, schedules, capacity, bookings, and check-in evidence | Mland business domains | Mland owns workshop capacity, including when exchanging availability with an approved OTA. |
 | Catalogue, component/material and published-price data | Mland catalogue domain | Staff maintains product catalogue; Managers decide published prices for newly priced packages/products. |
@@ -138,7 +138,7 @@ Physical schemas remain owned by feature plans, migrations, and the evolving [DB
 
 ## 6. Error Handling & Security
 
-* Missing, malformed, expired, revoked, wrong-project, or unverifiable Firebase bearer tokens SHALL return `401 Unauthorized` without exposing token details. A verified identity whose Mland Account is `PENDING_SETUP` or `SUSPENDED`, lacks an active required location assignment, or lacks entitlement SHALL return `403 Forbidden` without protected data. Additional approved credential flows must define corresponding safe API errors and frontend recovery without granting fallback access.
+* Missing, malformed, expired, revoked, wrong-project, or unverifiable Firebase bearer tokens SHALL return `401 Unauthorized` without exposing token details. A verified identity whose Mland Account is `PENDING_SETUP` or `SUSPENDED`, lacks an active required location assignment, or fails the feature-owned action rule SHALL return `403 Forbidden` without protected data. Additional approved credential flows must define corresponding safe API errors and frontend recovery without granting fallback access.
 * Concurrent provisioning of the same verified Firebase UID SHALL leave at most one Mland Member record through a unique identity constraint and transaction handling.
 * Same-email/different-UID collisions SHALL not merge Member records, bookings, orders, or roles automatically. Provider-link and account-recovery failures must preserve existing account/history and return safe guidance.
 * Every protected operation SHALL authorize using Mland role/status and resource ownership on the server. Do not trust client-supplied role/price/status or provider claims.

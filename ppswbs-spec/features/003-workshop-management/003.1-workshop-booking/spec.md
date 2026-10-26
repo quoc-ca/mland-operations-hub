@@ -349,7 +349,7 @@ seat and receives one independent ticket after valid payment confirmation.
   the booking, restore hold/capacity, issue tickets, or create a payment link.
   Refund, reschedule, and final settlement remain in 003.3.
 
-- Q: What happens if an internal actor is locked, inactive, loses entitlement,
+- Q: What happens if an internal actor is locked, inactive, lacks required action authorization,
   or loses booking-branch scope before the action is submitted? → A: Server
   rechecks authorization at action time, denies without side effects, returns a
   safe error, and records a minimal denied-attempt audit for sensitive internal
@@ -834,8 +834,9 @@ appropriate booking summary without exposing another customer's booking.
   MUST display only current server-confirmed state and MUST NOT use redirect
   parameters as payment evidence or confirmation authority.
 - **FR-017b7**: Before any internal resend, Magic Link incident action, or
-  late-payment follow-up action, the server MUST recheck actor authorization,
-  active account state, entitlement, and booking-branch scope. If any check
+  late-payment follow-up action, the server MUST recheck
+  canonical account facts, the applicable Booking action rule, and
+  booking-branch scope. If any check
   fails, it MUST deny the action without side effects, return a safe error, and
   record a minimal denied-attempt audit for the sensitive internal action.
 - **FR-017e**: The current booking flow MUST NOT require or invoke the legacy

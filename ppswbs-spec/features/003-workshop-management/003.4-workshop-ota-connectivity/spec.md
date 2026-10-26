@@ -393,6 +393,7 @@ adapters, ticket gates, immutable financial facts, idempotency, and reconciliati
 are required boundaries.
 
 **Not implementation-ready yet**: Provider contracts, commercial terms,
-credential/callback configuration, quotas, authorized capability mapping, and
+credential/callback configuration, quotas, approved OTA action-authorization
+rules, and
 deployment ownership need approved follow-up design. This specification grants
 neither implementation nor publication authority.

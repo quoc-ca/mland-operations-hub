@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | Confirmed booking, frozen financial projection, booking contact | 003.1 | Projection/authorization proof only; 003.3 never mutates Booking directly. |
 | Sessions, capacity, ticket entitlements, attendance and cancellation state | 003.2 | Semantic facade outcomes only. |
-| Account status, ownership, capability and branch scope | FE-001 | Current server-side authorization truth. |
+| Canonical account role/status, ownership and location scope | FE-001 | Current account facts only. Settlement applies its own action rule with booking branch/resource scope. |
 | Final bill, charge, settlement evidence, case, policy snapshot and audit | 003.3 | Authoritative owner. |
 
 ## Conceptual Records

@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -95,7 +95,7 @@ decisions.
 | --- | --- |
 | Runtime | Java 21, Spring Boot 3.4.x, Spring Modulith |
 | Persistence | Spring Data JPA, MySQL, append-only Flyway migrations |
-| Identity and access | Firebase Authentication for identity; MySQL-backed account/personnel facade for active status, capabilities and Manager branch scope |
+| Identity and access | Firebase Authentication for identity; Account Management facade for canonical role, active status and location scope; Operations applies its own action rules with target branch and Staff assignment. |
 | API | Versioned REST under `/api/v1`, plural kebab-case resources, DTOs and Bean Validation; contract in `contracts/` |
 | UI boundary | A separate React + Vite client renders Manager and Staff workflows and consumes REST APIs; the backend does not render application UI or use Thymeleaf/htmx as a UI baseline |
 | API security transport | Firebase bearer token on protected API requests. Production origins remain unapproved: use an environment allowlist, deny unspecified origins, do not enable credentialed CORS by default, and do not globally disable CSRF. |
@@ -153,7 +153,7 @@ ppswbs_backend/src/main/java/.../
     │   ├── service/         # commercial booking/payment and delivery
     │   └── facade/          # calls Operations facade; performs delivery
     └── accountmanagement/
-        └── facade/          # account/personnel capability boundary
+        └── facade/          # canonical account role/status/location facts
 ```
 
 The React + Vite client remains outside this backend module tree. It may call
@@ -167,9 +167,10 @@ boundary.
    operations handle holds, commitment confirmation/release and sale
    eligibility; its ticket-projection operation supplies customer-delivery
    summaries after successful commitment.
-   Define the consumed account/personnel facade
-   for actor activity, required capability and Manager branch scope. Do not map
-   a UI role name to permissions inside Operations.
+   Consume the Account Management facade for actor activity, canonical role and
+   location scope. Operations applies its own action rule with target branch and
+   Staff assignment; it does not map a UI role name, Firebase claim or retired
+   role code to authority.
    For 003.1, the facade boundary exposes only a sale-eligibility snapshot
    (customer-selectability, sale state, branch, scheduled start/end, remaining
    capacity) and atomic group operations: reserve N seats in every requested
