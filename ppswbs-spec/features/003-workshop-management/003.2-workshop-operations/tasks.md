@@ -85,7 +85,7 @@ three default non-overlapping slots, create and publish one future session, then
 bulk-create a bounded range twice and observe only missing branch/date/slot
 combinations created.
 
-- [ ] T013 [P] [US1] Add branch, slot and session request/response DTOs in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/dto/` with `Asia/Ho_Chi_Minh` same-day slot times, `defaultCapacity >= 1`, session `capacity >= 1`, and no free-form session start/end fields.
+- [X] T013 [P] [US1] Add branch, slot and session request/response DTOs in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/dto/` with `Asia/Ho_Chi_Minh` same-day slot times, `defaultCapacity >= 1`, session `capacity >= 1`, and no free-form session start/end fields.
 - [ ] T014 [P] [US1] Add contract tests for branch-slot/session endpoints in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/WorkshopSessionContractIT.java` against `contracts/workshop-operations.openapi.yaml`.
 - [ ] T015 [US1] Implement scoped branch creation/listing in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/WorkshopBranchService.java`; preserve branch history and do not expose another Manager's branch data.
 - [ ] T016 [US1] Implement slot creation/edit and active/inactive behavior in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/WorkshopSlotService.java`; reject overlap with every configured slot in the branch, including inactive slots, apply slot changes only to later sessions and never permanently delete a slot.
