@@ -3,9 +3,11 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.controller
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.ProblemDetailResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopBranchScopeException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopCapacityConflictException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopDuplicateSessionException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopForbiddenException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLifecycleException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopNotFoundException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopSlotConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopTicketConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopUnauthorizedException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopValidationException;
@@ -110,6 +112,22 @@ public class WorkshopOperationsExceptionHandler {
             WorkshopTicketConflictException ex, HttpServletRequest request) {
         String correlationId = resolveCorrelationId(request);
         return buildResponse(HttpStatus.CONFLICT, "TICKET_CONFLICT", "Ticket Conflict", ex.getMessage(), correlationId);
+    }
+
+    @ExceptionHandler(WorkshopSlotConflictException.class)
+    public ResponseEntity<ProblemDetailResponse> handleSlotConflict(
+            WorkshopSlotConflictException ex, HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        log.warn("Workshop slot conflict [correlationId={}]: {}", correlationId, ex.getMessage());
+        return buildResponse(HttpStatus.CONFLICT, "SLOT_OVERLAP_CONFLICT", "Slot Overlap Conflict", ex.getMessage(), correlationId);
+    }
+
+    @ExceptionHandler(WorkshopDuplicateSessionException.class)
+    public ResponseEntity<ProblemDetailResponse> handleDuplicateSession(
+            WorkshopDuplicateSessionException ex, HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        log.warn("Workshop duplicate session [correlationId={}]: {}", correlationId, ex.getMessage());
+        return buildResponse(HttpStatus.CONFLICT, "DUPLICATE_SESSION", "Duplicate Session Conflict", ex.getMessage(), correlationId);
     }
 
     @ExceptionHandler({OptimisticLockException.class, ObjectOptimisticLockingFailureException.class})
