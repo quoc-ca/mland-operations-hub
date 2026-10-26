@@ -3,8 +3,6 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseToken;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionOperationalLeadRepository;
@@ -38,7 +36,7 @@ public class WorkshopOperationsAuthorizationService {
         AccountSummary account = accountFacade.resolveAccount(firebaseUid)
             .orElseThrow(() -> new WorkshopForbiddenException("No registered Mland account found for verified identity"));
 
-        if (account.status() != AccountStatus.ACTIVE) {
+        if (account.status() == null || !"ACTIVE".equalsIgnoreCase(account.status().name())) {
             log.warn("Access denied for accountId={}: account status is {}", account.accountId(), account.status());
             throw new WorkshopForbiddenException("Account status is " + account.status() + ", ACTIVE status required");
         }
@@ -46,10 +44,34 @@ public class WorkshopOperationsAuthorizationService {
         return account;
     }
 
+    public AccountSummary requireAllBranchActor(String authHeader) {
+        AccountSummary account = authenticate(authHeader);
+
+        if (!isAllBranchActor(account)) {
+            log.warn("Access denied for accountId={}: expected all-branch/higher-privilege actor, found role={}",
+                    account.accountId(), account.role());
+            throw new WorkshopForbiddenException("Access requires all-branch higher-privilege authority");
+        }
+
+        return account;
+    }
+
+    public boolean isAllBranchActor(AccountSummary account) {
+        return account != null && account.role() != null && "ADMIN".equalsIgnoreCase(account.role().name());
+    }
+
+    public boolean isManager(AccountSummary account) {
+        return account != null && account.role() != null && "MANAGER".equalsIgnoreCase(account.role().name());
+    }
+
+    public boolean isStaff(AccountSummary account) {
+        return account != null && account.role() != null && "STAFF".equalsIgnoreCase(account.role().name());
+    }
+
     public AccountSummary requireManagerBranchScope(String authHeader, Long branchId) {
         AccountSummary account = authenticate(authHeader);
 
-        if (account.role() != AccountRole.MANAGER) {
+        if (!isManager(account)) {
             log.warn("Access denied for accountId={}: expected MANAGER, found {}", account.accountId(), account.role());
             throw new WorkshopForbiddenException("Access requires MANAGER role");
         }
@@ -72,7 +94,7 @@ public class WorkshopOperationsAuthorizationService {
 
         Long branchId = session.getBranch().getId();
 
-        if (account.role() == AccountRole.STAFF) {
+        if (isStaff(account)) {
             boolean assigned = staffAssignmentRepository.existsBySessionIdAndPersonnelIdAndActiveTrue(sessionId, account.accountId());
             if (!assigned) {
                 log.warn("Staff assignment check failed for accountId={}, sessionId={}", account.accountId(), sessionId);
@@ -89,7 +111,7 @@ public class WorkshopOperationsAuthorizationService {
             return account;
         }
 
-        if (account.role() == AccountRole.MANAGER) {
+        if (isManager(account)) {
             boolean isLead = operationalLeadRepository.existsBySessionIdAndManagerPersonnelIdAndActiveTrue(sessionId, account.accountId());
             if (!isLead) {
                 log.warn("Manager lead check failed for accountId={}, sessionId={}", account.accountId(), sessionId);
@@ -118,11 +140,11 @@ public class WorkshopOperationsAuthorizationService {
             throw new WorkshopBranchScopeException("Branch ID " + branchId + " is outside actor location scope");
         }
 
-        if (account.role() == AccountRole.MANAGER) {
+        if (isManager(account)) {
             return account;
         }
 
-        if (account.role() == AccountRole.STAFF) {
+        if (isStaff(account)) {
             boolean assigned = staffAssignmentRepository.existsBySessionIdAndPersonnelIdAndActiveTrue(sessionId, account.accountId());
             if (!assigned) {
                 throw new WorkshopForbiddenException("Staff member is not assigned to session ID " + sessionId);
