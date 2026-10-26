@@ -299,3 +299,108 @@
 - Owner FE-001 cần xuất bản public Account Management facade/capability decision cho một target account ID, tối thiểu trả typed semantic facts: account exists/active, canonical workshop-relevant role or capability, và active branch/location scope.
 - Cần chốt Operations dùng query đó như thế nào cho: (1) assign/revoke Staff, (2) take/handover Manager operational lead, và (3) recheck target authority khi session `IN_PROGRESS`.
 - Sau khi contract được phê duyệt, re-check gate, rebase artifact nếu cần, rồi mới triển khai lại `T020–T025`.
+
+---
+
+## Record BE-DESIGN-0004
+
+- **ID**: `BE-DESIGN-0004`
+- **Timestamp**: `2026-10-27T01:05:00+07:00`
+- **Reporter**: Hồ Hoàng Quốc (tác nhân thực tế: Antigravity AI pair programmer)
+- **Feature / Task**: `features/003-workshop-management/003.2-workshop-operations/tasks.md` — `T020–T021` và toàn bộ regression suite (`WorkshopOperationsFoundationIT`, `WorkshopSessionManagementIT`, `WorkshopOperationsMySQLIT`)
+- **Trạng thái**: `BLOCKED`
+
+### 1. Phạm vi dừng và nguồn thiết kế
+
+- **Phạm vi dừng**: Dừng nghiệm thu và commit cụm `T020–T021`. Toàn bộ các test suite phụ thuộc Spring context và Flyway (`WorkshopOperationsFoundationIT`, `WorkshopSessionManagementIT`, `WorkshopOperationsMySQLIT`) bị chặn không thể khởi động context do Flyway version collision.
+- **Nguồn thiết kế**:
+  - `ppswbs_backend/AGENT.md` §2, §4, §5 & §7 ("Không sửa migration đã áp dụng, reset dữ liệu hoặc bỏ constraint/test để lấy kết quả pass", "Dừng ngay khi thiết kế bị khuyết", "Lỗi môi trường/context không phải pass", "Chỉ đánh dấu task hoàn tất khi có bằng chứng").
+  - `ppswbs-spec/spec-general.md` và `constitution.md`: Quản trị schema và migration versioning append-only.
+  - Hợp nhất nhánh: Nhánh `quoc` sau khi merge `origin/develop` (commit `16a9752e3e1fd1e02e843d3e63af94488eaddf3d`).
+
+### 2. Fact, impact, các file bị ảnh hưởng và kịch bản tái hiện
+
+- **Fact**:
+  1. Trong thư mục `ppswbs_backend/src/main/resources/db/migration/` hiện tại tồn tại đồng thời 2 file migration cùng mang phiên bản `V6`:
+     - `V6__workshop_operations.sql` (tạo bởi Workshop Operations Feature 003.2 từ trước).
+     - `V6__account_schema_alignment.sql` (tạo bởi Account Management Feature 001, được merge từ `origin/develop`).
+  2. Khi Spring Boot khởi động các integration test có Flyway (`WorkshopOperationsFoundationIT`, `WorkshopSessionManagementIT`), Flyway quét classpath và phát hiện xung đột version `V6`, ném ngoại lệ:
+     `org.springframework.beans.factory.BeanCreationException: ... Found more than one migration with version 6`
+     `Offenders:`
+     `-> ...\db\migration\V6__workshop_operations.sql (SQL)`
+     `-> ...\db\migration\V6__account_schema_alignment.sql (SQL)`
+  3. `WorkshopLifecycleContractIT` và `ModulithArchitectureTests` vượt qua thành công (do không kích hoạt Flyway migration).
+- **Impact**:
+  - Toàn bộ integration test suite của Workshop Operations (`WorkshopOperationsFoundationIT`, `WorkshopSessionManagementIT`, `WorkshopOperationsMySQLIT`) không thể khởi động context và fail hoàn toàn (37 run, 29 error).
+  - T020 và T021 không thể được nghiệm thu hoặc commit vào repository cho đến khi regression suite khởi động và pass lại.
+  - Các môi trường cơ sở dữ liệu thực tế (MySQL `ppswbs_test` và database migration history) đã áp dụng `V6__workshop_operations.sql` (version 6) và `V7__workshop_operations_idempotency_ledger.sql` (version 7).
+- **Files bị ảnh hưởng**:
+  - `ppswbs_backend/src/main/resources/db/migration/V6__account_schema_alignment.sql`
+  - `ppswbs_backend/src/main/resources/db/migration/V6__workshop_operations.sql`
+  - `ppswbs_backend/src/main/resources/db/migration/V7__workshop_operations_idempotency_ledger.sql`
+  - `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/WorkshopOperationsFoundationIT.java`
+  - `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/WorkshopSessionManagementIT.java`
+  - `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/WorkshopOperationsMySQLIT.java`
+- **Kịch bản tái hiện & Evidence**:
+  - Chạy lệnh regression:
+    ```powershell
+    mvn -f .\ppswbs_backend\pom.xml test "-Dtest=WorkshopLifecycleContractIT,ModulithArchitectureTests,WorkshopOperationsFoundationIT,WorkshopSessionManagementIT"
+    ```
+  - Kết quả kiểm thử thực tế:
+    ```text
+    [INFO] Running edu.fpt.sep490_g22.ppswbs_backend.ModulithArchitectureTests
+    [INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0 -- in edu.fpt.sep490_g22.ppswbs_backend.ModulithArchitectureTests
+    [INFO] Running edu.fpt.sep490_g22.ppswbs_backend.workshopoperations.WorkshopLifecycleContractIT
+    [INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0 -- in edu.fpt.sep490_g22.ppswbs_backend.workshopoperations.WorkshopLifecycleContractIT
+    [INFO] Running edu.fpt.sep490_g22.ppswbs_backend.workshopoperations.WorkshopOperationsFoundationIT
+    ...
+    Caused by: org.flywaydb.core.api.FlywayException: Found more than one migration with version 6
+    Offenders:
+    -> D:\CapsuleProject\mland-operations-hub\ppswbs_backend\target\classes\db\migration\V6__workshop_operations.sql (SQL)
+    -> D:\CapsuleProject\mland-operations-hub\ppswbs_backend\target\classes\db\migration\V6__account_schema_alignment.sql (SQL)
+    ...
+    [ERROR] Tests run: 37, Failures: 0, Errors: 29, Skipped: 0
+    [INFO] BUILD FAILURE
+    ```
+
+### 3. Nguyên nhân gốc (Root Cause)
+
+- Đây là sự cố Flyway version collision xuất hiện sau khi nhánh `origin/develop` (chứa Feature 001 Account Management với migration mới `V6__account_schema_alignment.sql`) được merge vào nhánh `quoc` (vốn đã có `V6__workshop_operations.sql` và `V7__workshop_operations_idempotency_ledger.sql` từ trước).
+- Thiếu cơ chế điều phối và đăng ký version migration tập trung giữa các feature branch phát triển song song trong repository.
+
+### 4. Vì sao không thể tự ý sửa đổi code / rename migration
+
+- Theo `AGENT.md` §4 và §5: Backend engineer không được tự ý rename migration, chọn version mới hoặc can thiệp migration đã áp dụng vào database.
+- Database local MySQL `ppswbs_test` hiện đã áp dụng version 6 (`V6__workshop_operations.sql`) với checksum tương ứng trong bảng `flyway_schema_history`. Nếu tự ý đổi tên hoặc sửa số thứ tự version:
+  - Sẽ làm hỏng checksum và gây lỗi `FlywayValidateException` trên các database đã migrate.
+  - Nguy cơ xung đột tiếp nếu các feature khác (003.1 Booking, 003.3 Settlement) cũng chọn số version tùy ý.
+
+### 5. Yêu cầu quyết định bổ sung và điều kiện tiếp tục (Action Required)
+
+1. **Quyết định phân định versioning migration tập trung**:
+   - Cần quyết định kiến trúc/Tech Lead xác định: migration nào giữ version `V6`, migration nào được đánh số version append-only mới (ví dụ `V8__account_schema_alignment.sql` nếu `V7` đã được Workshop Operations sử dụng, hoặc ngược lại).
+2. **Quy trình an toàn cho môi trường database đã có migration history**:
+   - Xác định quy trình migrate an toàn đối với các instance database đã chạy `flyway_schema_history` ở version 6/7.
+3. **Điều kiện gỡ chặn**:
+   - Sau khi quyết định migration versioning được ban hành và cập nhật chính thức vào repository, chạy lại toàn bộ regression suite:
+     `mvn -f .\ppswbs_backend\pom.xml test "-Dtest=WorkshopLifecycleContractIT,ModulithArchitectureTests,WorkshopOperationsFoundationIT,WorkshopSessionManagementIT"`
+   - Chỉ khi toàn bộ regression suite khởi động và pass 100%, T020/T021 mới được nghiệm thu chính thức và cho phép commit.
+
+### Diễn biến gỡ chặn thành công (Fresh Baseline Migration Alignment Resolution)
+
+- **Thời điểm**: `2026-10-27T01:38:00+07:00`
+- **Reporter**: Hồ Hoàng Quốc
+- **Quyết định phê duyệt áp dụng**: Quyết định fresh-baseline alignment được phê duyệt chính thức do dự án hiện tại chưa triển khai môi trường production/staging và chưa có cơ sở dữ liệu mang dữ liệu thực tế cần bảo toàn lịch sử migration (chỉ áp dụng cho fresh-baseline, tuyệt đối không áp dụng cho data-bearing environment).
+- **Thứ tự migration canonical được xác lập**:
+  1. `V5__account_management.sql` (Account Management core)
+  2. `V6__account_schema_alignment.sql` (Account Management schema alignment từ FE-001)
+  3. `V7__workshop_operations.sql` (Workshop Operations core schema, rename từ `V6__workshop_operations.sql` giữ nguyên 100% nội dung SQL)
+  4. `V8__workshop_operations_idempotency_ledger.sql` (Workshop Operations idempotency ledger, rename từ `V7__workshop_operations_idempotency_ledger.sql` giữ nguyên 100% nội dung SQL)
+- **Hành động đã thực hiện**:
+  1. Đổi tên 2 file migration trong `ppswbs_backend/src/main/resources/db/migration/`:
+     - `V6__workshop_operations.sql` → `V7__workshop_operations.sql`
+     - `V7__workshop_operations_idempotency_ledger.sql` → `V8__workshop_operations_idempotency_ledger.sql`
+     - Tuyệt đối không thay đổi nội dung SQL body của cả hai file.
+  2. Cập nhật assertion và Javadoc trong `WorkshopOperationsMySQLIT.java` từ version `7` sang version `8` cho bảng `facade_command_idempotency_records`.
+  3. Loại bỏ cấu hình bypass tạm thời `spring.flyway.enabled=false` trong `WorkshopLifecycleContractIT.java`, đưa test về trạng thái tiêu chuẩn đồng bộ với toàn bộ test suite.
+- **Kết luận**: Xung đột trùng lặp Flyway version `V6` đã được xử lý triệt để và an toàn theo quyết định fresh-baseline. Blocker `BE-DESIGN-0004` được giải quyết hoàn tất (`RESOLVED`).

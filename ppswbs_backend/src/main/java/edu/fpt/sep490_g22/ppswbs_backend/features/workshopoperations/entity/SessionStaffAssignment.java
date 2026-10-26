@@ -22,8 +22,8 @@ public class SessionStaffAssignment {
     @JoinColumn(name = "session_id", nullable = false)
     private WorkshopSession session;
 
-    @Column(name = "personnel_id", nullable = false)
-    private Long personnelId;
+    @Column(name = "account_id", nullable = false)
+    private Long accountId;
 
     @Column(name = "assigned_by_id", nullable = false)
     private Long assignedById;

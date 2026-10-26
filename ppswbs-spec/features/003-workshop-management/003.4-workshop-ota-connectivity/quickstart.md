@@ -1,7 +1,7 @@
 # Quickstart Validation: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -13,7 +13,7 @@ This is an evidence-oriented validation flow for implementation and provider onb
 
 - The 003.1 booking, 003.2 operations, and 003.3 settlement/change facades are available in the test environment.
 - An approved Basic Ring test workshop session uses `PER_PERSON` pricing and has known capacity; no group/co-maker/base-plus-extra scenario is used. Silverclay is direct-Mland only and has no OTA mapping in V1.
-- Test actors have active canonical Account Management role/status/location facts and satisfy the applicable OTA Connectivity action rule for the target branch. A separate Admin test actor owns provider connection actions.
+- Test actors have active canonical Account Management role/status/location facts and satisfy the applicable OTA Connectivity action rule for the target location. A separate Admin test actor owns provider connection actions.
 - The provider adapter simulator can capture outbound messages and submit authenticated, redacted representative callbacks. A real sandbox is used only after credential and callback approval.
 
 ## Validation sequence
@@ -55,7 +55,7 @@ This is an evidence-oriented validation flow for implementation and provider onb
 
 ## Required evidence and test suites
 
-Record the mapping/provider, environment, safe correlation IDs, timestamp, actor scope, expected/actual result, and reviewer for every scenario. Automated coverage must include module boundaries, Flyway empty/upgrade migrations, authorization/branch scope, callback authentication, payload redaction, persistent internal Spring Modulith publication replay after consumer failure/restart, duplicate/older/gapped Operations schedule and availability source changes in the one per-session version sequence, authoritative resync, normal sales pause/resume publication, inventory failure closure that does not affect Operations, confirmed re-sync, ticket-per-participant issuance, cancellation handling, and separated financial evidence. Run the backend's Maven test suite and Modulith verification after implementation; frontend validation must exercise only documented REST contracts.
+Record the mapping/provider, environment, safe correlation IDs, timestamp, actor scope, expected/actual result, and reviewer for every scenario. Automated coverage must include module boundaries, Flyway empty/upgrade migrations, authorization/location scope, callback authentication, payload redaction, persistent internal Spring Modulith publication replay after consumer failure/restart, duplicate/older/gapped Operations schedule and availability source changes in the one per-session version sequence, authoritative resync, normal sales pause/resume publication, inventory failure closure that does not affect Operations, confirmed re-sync, ticket-per-participant issuance, cancellation handling, and separated financial evidence. Run the backend's Maven test suite and Modulith verification after implementation; frontend validation must exercise only documented REST contracts.
 
 ## Release stop conditions
 

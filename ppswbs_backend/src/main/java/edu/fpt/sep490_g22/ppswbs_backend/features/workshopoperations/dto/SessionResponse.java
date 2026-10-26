@@ -18,7 +18,7 @@ import java.time.LocalDate;
 public class SessionResponse {
 
     private String id;
-    private String branchId;
+    private Long locationId;
     private String slotId;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
@@ -38,5 +38,5 @@ public class SessionResponse {
     private Instant scheduledEndAt;
 
     private CheckInOpeningSource checkInOpeningSource;
-    private String operationalLeadPersonnelId;
+    private Long operationalLeadAccountId;
 }

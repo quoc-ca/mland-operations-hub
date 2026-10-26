@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -28,6 +28,16 @@ does not create sessions, perform normal check-in, provide customer self-service
 rescheduling, or process OTA payments/refunds.
 
 ## Clarifications
+
+### Session 2026-10-27
+
+- Q: Is a Workshop Branch a separate authorization/resource identity from a
+  Workshop Location? → A: No. Both terms refer to the same canonical physical
+  resource identified by `workshop_location.id`. Every booking/session/catalogue
+  scope and applicable audit location uses that identity directly, as do Account
+  Management `activeLocationIds`. Public terminology is `location`/`locationId`;
+  no separate branch ID, branch-to-location mapping, or local location copy is
+  introduced.
 
 ### Session 2026-10-24
 
@@ -62,7 +72,7 @@ rescheduling, or process OTA payments/refunds.
   Mland may revise the policy for bookings confirmed after its effective time;
   each confirmed booking retains the policy snapshot accepted at confirmation.
 - Q: How are additional material or service charges added? → A: A customer may
-  add a fixed-price catalogue add-on allowed for the package/branch; it enters
+  add a fixed-price catalogue add-on allowed for the package/location; it enters
   the final bill at its displayed price. A variable material or service charge
   becomes part of the bill only after Staff/Manager confirms it. Customers never
   enter arbitrary prices.
@@ -75,7 +85,7 @@ rescheduling, or process OTA payments/refunds.
   as capacity and ticket-entitlement owner, validates the complete result and
   applies all changes or none; it preserves the persistent ticket QR.
 - Q: Who may revise the Mland-caused-cancellation refund policy? → A: One
-  designated central Manager may manage the policy for all Mland branches. Other
+  designated central Manager may manage the policy for all Mland locations. Other
   Managers handle individual cases only under the booking's existing policy
   snapshot; they cannot revise that policy.
 
@@ -87,7 +97,7 @@ rescheduling, or process OTA payments/refunds.
   lead to the cancellation screen but remains read-only and is not sufficient
   cancellation authority.
 - Q: Which internal actor performs routine settlement? → A: Active Staff with
-  applicable booking-branch scope may create/confirm eligible charges and
+  applicable booking-location scope may create/confirm eligible charges and
   finalize a final bill. Manager-only authority remains required for deferred
   payment, required-session change, Mland-caused remedy/refund exception, and
   prospective refund-policy revision.
@@ -99,7 +109,7 @@ rescheduling, or process OTA payments/refunds.
   exposed? → A: Required-session change and Mland-caused remedy are
   booking-scoped commands. Prospective refund-policy revision is a separate
   central resource because it applies only to bookings confirmed after its
-  effective time across Mland branches.
+  effective time across Mland locations.
 - Q: How do public state-changing REST commands handle retries and responses?
   → A: Each requires an `Idempotency-Key`; a same-key, same-content retry returns
   the original outcome. A response contains the current safe settlement
@@ -153,7 +163,7 @@ rescheduling, or process OTA payments/refunds.
   code and correlation reference; policy/amount outcome is included only for an
   authorized caller.
 - Q: How do fixed add-on and variable charge flow? → A: A customer supplies only
-  `catalogueAddOnReference`; the server validates package/branch and creates the
+  `catalogueAddOnReference`; the server validates package/location and creates the
   accepted charge at its catalogue snapshot price. Only Staff/Manager supplies a
   variable description, amount, and reason; that one audited command confirms
   the variable charge. Customers have no variable-charge flow.
@@ -222,7 +232,7 @@ rescheduling, or process OTA payments/refunds.
   additional material/service charges, less the paid deposit. Replacing required
   sessions within the same package never changes the frozen package price.
 - A customer may add a fixed-price catalogue add-on permitted for the package and
-  branch; its displayed price becomes a final-bill charge. A variable material
+  location; its displayed price becomes a final-bill charge. A variable material
   or service charge becomes a final-bill charge only after Staff/Manager confirms
   it. Customers cannot enter an arbitrary charge or price.
 - Charge, payment, void, and adjustment records are immutable evidence. A
@@ -238,7 +248,7 @@ rescheduling, or process OTA payments/refunds.
   all-or-none result. It retains the booking deposit and preserves each
   participant's persistent ticket/QR across the booking's resulting required
   sessions. For Silverclay, 003.2 MUST validate the complete resulting pair as
-  same-branch, distinct and chronologically ordered; if on the same day, the two
+  same-location, distinct and chronologically ordered; if on the same day, the two
   slots MUST have at least one slot between them.
 - A whole-booking refund revokes unused tickets and releases future capacity only
   after the gateway confirms the refund. A failed refund does not restore the
@@ -249,7 +259,7 @@ rescheduling, or process OTA payments/refunds.
   The V1 default is 100% of every successfully collected booking/package
   payment; V1 does not allocate a partial refund or credit to one session.
 - A designated central Manager owns prospective Mland-caused-cancellation refund
-  policy changes for all branches. Other Managers may resolve individual cases
+  policy changes for all locations. Other Managers may resolve individual cases
   only under the policy snapshot already retained by the booking.
 - OTA customer payments, refunds, commission, payout, and reconciliation are
   outside this feature.
@@ -266,7 +276,7 @@ rescheduling, or process OTA payments/refunds.
   audited authorized action.
 - The system MUST NOT infer `Manager = OWNER`. Account Management supplies the
   canonical fixed role, current status and active location-scope facts; 003.3
-  applies its own server-side Settlement action rules with booking branch and
+  applies its own server-side Settlement action rules with booking location and
   resource scope. Active in-scope Staff may perform routine charge/final-bill
   actions; active in-scope Manager may perform deferred payment/link issue or
   reissue, required-session changes, and refund exceptions/Mland-caused remedy.
@@ -349,10 +359,10 @@ outcome.
 - **FR-001**: The system MUST apply this feature only to direct Mland workshop
   bookings and MUST exclude OTA payment/refund/payout/reconciliation.
 - **FR-002**: The system MUST authorize protected actions on the server using
-  active Mland account status, canonical role, and feature-owned branch and
+  active Mland account status, canonical role, and feature-owned location and
   resource action rule;
   client/provider claims and display labels MUST NOT grant authority.
-- **FR-002a**: Active Staff with booking-branch scope MAY create or confirm an
+- **FR-002a**: Active Staff with booking-location scope MAY create or confirm an
   eligible charge and finalize a final bill. Deferred payment, required-session
   change, Mland-caused remedy/refund exception, and prospective refund-policy
   revision remain Manager-only actions under their applicable authority.
@@ -362,13 +372,13 @@ outcome.
 - **FR-004**: The system MUST preserve immutable charge, payment, void, and
   adjustment records for each final bill.
 - **FR-004a**: The system MUST accept a customer-selected charge only for a
-  fixed-price catalogue add-on permitted for the booking's package and branch,
+  fixed-price catalogue add-on permitted for the booking's package and location,
   at its displayed price. A variable material or service charge MUST require
   Staff/Manager confirmation before it enters the final bill; customers MUST NOT
   create arbitrary charge names or prices.
 - **FR-004b**: `POST /workshop-bookings/{bookingCode}/final-bill/charges` MUST
   accept only `catalogueAddOnReference` from a customer and MUST derive the
-  accepted price from the permitted package/branch catalogue snapshot. An owning
+  accepted price from the permitted package/location catalogue snapshot. An owning
   Member uses authenticated ownership; a Guest provides the booking code and one
   stored contact phone or email at each request. Customer catalogue selection
   MUST be rejected after final-bill finalization. A variable charge MUST be
@@ -456,7 +466,7 @@ outcome.
   required session started and no package output released, plus policy
   eligibility.
 - **FR-015**: The system MUST calculate paid-deposit refund against earliest
-  session start in session/branch timezone: 100% ≥72h, 50% ≥24h and <72h, else 0%.
+  session start in session/location timezone: 100% ≥72h, 50% ≥24h and <72h, else 0%.
 - **FR-016**: It MUST snapshot policy, earliest-session reference, paid amount,
   computed amount, request time, and eligibility outcome for each request.
 - **FR-017**: It MUST use `REFUND_PENDING` until gateway outcome is confirmed,
@@ -465,7 +475,7 @@ outcome.
   sessions only with compatible sessions that have capacity for the booking's
   unchanged participant count. For a multi-session package, the complete
   resulting session set MUST remain valid; Silverclay's resulting pair MUST be
-  same-branch, distinct, chronologically ordered and, when on the same day,
+  same-location, distinct, chronologically ordered and, when on the same day,
   separated by at least one slot. Feature 003.3 MUST request the complete
   booking-level replacement set from 003.2 and MUST NOT directly read or change
   its capacity, ticket or session entities.
@@ -502,7 +512,7 @@ outcome.
   caller-selected amount, ticket/session, or QR input.
 - **FR-021a**: Only the designated central Manager may create or revise the
   Mland-caused-cancellation refund policy for future bookings across all
-  branches. The change MUST record an effective time and MUST NOT alter a policy
+  locations. The change MUST record an effective time and MUST NOT alter a policy
   snapshot retained by an already confirmed booking; other Managers MUST NOT
   revise the policy.
 - **FR-021d**: `POST /workshop-refund-policies` MUST accept only `effectiveAt`

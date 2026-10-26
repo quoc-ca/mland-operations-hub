@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -22,7 +22,7 @@ OTA payment system, capacity owner, or normal check-in system.
 | Platform | Java 21/Spring Boot REST backend and a separate React + Vite client; no SSR. |
 | Module | Spring Modulith; only explicit owner facades cross business modules. |
 | Persistence | MySQL/JPA and append-only Flyway migrations when implementation is authorized. |
-| Identity | Firebase bearer token proves identity; Account Management supplies canonical role/status, ownership and location scope, while Settlement applies its own branch/resource action rules. |
+| Identity | Firebase bearer token proves identity; Account Management supplies canonical role/status, ownership and location scope, while Settlement applies its own location/resource action rules. The canonical physical identity is `workshop_location.id`; `session.locationId ∈ actor.activeLocationIds` is a direct comparison. |
 | Payment | VNPay only. Shared `paymentintegration` verifies IPN/QueryDR evidence once and routes redacted final-payment/refund evidence to 003.3; browser Return URL is display-only. |
 | Contract | Versioned `/api/v1` REST contract in `contracts/workshop-settlement.openapi.yaml`. |
 | Validation | Module-boundary, authorization, lifecycle, idempotency, facade, contract, migration-upgrade and recovery evidence. |
@@ -32,7 +32,7 @@ OTA payment system, capacity owner, or normal check-in system.
 | Gate | Result | Evidence / condition |
 | --- | --- | --- |
 | Module integrity | PASS | 003.3 consumes only the named 003.1/003.2 facades and owns only settlement records/cases. |
-| Identity and sensitive data | PASS with FE-001 dependency | Firebase is identity-only; server rechecks canonical account facts plus Settlement's branch/resource action rules. No contact proof, raw token, QR payload, provider secret or raw callback is retained in audit. |
+| Identity and sensitive data | PASS with FE-001 dependency | Firebase is identity-only; server rechecks canonical account facts plus Settlement's location/resource action rules. No contact proof, raw token, QR payload, provider secret or raw callback is retained in audit. |
 | REST and frontend | PASS | The OpenAPI contract defines resource routes, authorization alternatives, idempotency, safe projections and typed errors. React consumes REST only. |
 | State, failure and idempotency | PASS | Client commands retain idempotent outcomes; verified provider transaction/reference deduplicates IPN/QueryDR. Cases have explicit lifecycle and correlation. |
 | Data evolution | PASS with rollout condition | Only dev/test without retained booking/customer data may reset after preflight. Data-bearing environments require append-only preservation migration, upgrade test, recovery/rollback evidence. |
@@ -43,7 +43,7 @@ OTA payment system, capacity owner, or normal check-in system.
 paymentintegration ─ verified final-payment/refund evidence ─► 003.3
 003.1 Booking ─ confirmed financial projection / FULLY_PAID conclusion ─► 003.3
 003.2 Operations ─ readiness / atomic replacement / verified-refund effect ─► 003.3
-FE-001 Account ─ current authorization, ownership and branch scope ─► 003.3
+FE-001 Account ─ current authorization, ownership and location scope ─► 003.3
 VNPay ─ signed IPN / QueryDR evidence ─► paymentintegration
 003.3 ─ reference-only post-commit settlement notification handoff ─► Feature 007
 ```
@@ -55,6 +55,11 @@ VNPay ─ signed IPN / QueryDR evidence ─► paymentintegration
 | Final bill, charge, payment/refund/change case and settlement audit | 003.3 | Authoritative owner. |
 | Canonical account role/status, ownership and location scope | FE-001 | Recheck facts at every protected command; Settlement applies its own action rules and never infers authority from display roles or claims. |
 | Delivery | Feature 007 | Immutable settlement handoff is persisted with accepted Settlement state; a post-commit reference event only lets Feature 007 read the facade payload, deduplicate and retry. Delivery cannot settle a bill or refund. |
+
+Workshop Branch is not a second resource in this feature: every booking,
+session, catalogue and audit scope is the canonical `workshop_location.id`.
+Settlement compares it directly with the actor's `activeLocationIds`; it stores
+neither a separate branch identifier nor a branch-to-location mapping.
 
 The concrete owner operations and boundary types are fixed by the shared
 [003 internal facade contract](../contracts/workshop-interfeature-facades.md).
@@ -79,7 +84,7 @@ The final bill is available only after 003.2 reports every required session as
 ### Charges and bill access
 
 Customer selection is limited to an eligible fixed-price catalogue add-on for
-the booking package/branch. The server derives its price from the catalogue
+the booking package/location. The server derives its price from the catalogue
 snapshot. An owning Member uses authenticated ownership; a Guest supplies the
 booking code plus exactly one stored phone or email per request. The command is
 rejected once the bill is finalized. Magic Link is read-only.
@@ -164,7 +169,7 @@ by re-reading the safe resource/case projection.
   evidence; a browser Return URL must never settle state.
 - Test facade-only module boundaries with `ApplicationModules.verify()` and
   contract tests for all-or-none replacement/refund consequence.
-- Test Guest/Member proof, branch authority, inactive/out-of-scope denial and
+- Test Guest/Member proof, location authority, inactive/out-of-scope denial and
   no-side-effect failure paths.
 - Test preservation migration on an upgrade copy plus recovery/rollback evidence
   before data-bearing deployment. Do not reset staging/production data.

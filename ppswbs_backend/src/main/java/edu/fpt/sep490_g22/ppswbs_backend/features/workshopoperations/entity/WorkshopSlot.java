@@ -24,8 +24,8 @@ public class WorkshopSlot {
     private String reference;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "branch_id", nullable = false)
-    private WorkshopBranch branch;
+    @JoinColumn(name = "location_id", nullable = false)
+    private WorkshopLocation location;
 
     @Column(name = "label", nullable = false, length = 100)
     private String label;

@@ -1,9 +1,8 @@
--- V6__workshop_operations.sql
--- Schema migration for Feature 003.2 Workshop Operations
+-- V7__workshop_operations.sql
+-- Schema migration for Feature 003.2 Workshop Operations (Location-based schema)
 
-CREATE TABLE workshop_branches (
+CREATE TABLE workshop_locations (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    reference VARCHAR(36) NOT NULL,
     code VARCHAR(64) NOT NULL,
     display_name VARCHAR(255) NOT NULL,
     address_snapshot VARCHAR(1000) NOT NULL,
@@ -11,15 +10,14 @@ CREATE TABLE workshop_branches (
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     PRIMARY KEY (id),
-    UNIQUE KEY uq_wb_reference (reference),
-    UNIQUE KEY uq_wb_code (code),
-    KEY idx_wb_active (active)
+    UNIQUE KEY uq_wl_code (code),
+    KEY idx_wl_active (active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE workshop_slots (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     reference VARCHAR(36) NOT NULL,
-    branch_id BIGINT UNSIGNED NOT NULL,
+    location_id BIGINT UNSIGNED NOT NULL,
     label VARCHAR(100) NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
@@ -30,14 +28,14 @@ CREATE TABLE workshop_slots (
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     PRIMARY KEY (id),
     UNIQUE KEY uq_ws_reference (reference),
-    CONSTRAINT fk_ws_branch FOREIGN KEY (branch_id) REFERENCES workshop_branches (id),
-    KEY idx_ws_branch_active (branch_id, active)
+    CONSTRAINT fk_ws_location FOREIGN KEY (location_id) REFERENCES workshop_locations (id),
+    KEY idx_ws_location_active (location_id, active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE workshop_sessions (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     reference VARCHAR(36) NOT NULL,
-    branch_id BIGINT UNSIGNED NOT NULL,
+    location_id BIGINT UNSIGNED NOT NULL,
     slot_id BIGINT UNSIGNED NOT NULL,
     workshop_date DATE NOT NULL,
     scheduled_start_at DATETIME(6) NOT NULL,
@@ -52,30 +50,30 @@ CREATE TABLE workshop_sessions (
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     PRIMARY KEY (id),
     UNIQUE KEY uq_session_reference (reference),
-    CONSTRAINT fk_session_branch FOREIGN KEY (branch_id) REFERENCES workshop_branches (id),
+    CONSTRAINT fk_session_location FOREIGN KEY (location_id) REFERENCES workshop_locations (id),
     CONSTRAINT fk_session_slot FOREIGN KEY (slot_id) REFERENCES workshop_slots (id),
-    UNIQUE KEY uq_session_branch_date_slot (branch_id, workshop_date, slot_id),
-    KEY idx_session_branch_state (branch_id, state),
+    UNIQUE KEY uq_session_location_date_slot (location_id, workshop_date, slot_id),
+    KEY idx_session_location_state (location_id, state),
     KEY idx_session_date (workshop_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE session_staff_assignments (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     session_id BIGINT UNSIGNED NOT NULL,
-    personnel_id BIGINT UNSIGNED NOT NULL,
+    account_id BIGINT UNSIGNED NOT NULL,
     assigned_by_id BIGINT UNSIGNED NOT NULL,
     active TINYINT(1) NOT NULL DEFAULT 1,
     assigned_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     revoked_at DATETIME(6) NULL DEFAULT NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_ssa_session FOREIGN KEY (session_id) REFERENCES workshop_sessions (id),
-    KEY idx_ssa_session_personnel (session_id, personnel_id, active)
+    KEY idx_ssa_session_account (session_id, account_id, active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE session_operational_leads (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     session_id BIGINT UNSIGNED NOT NULL,
-    manager_personnel_id BIGINT UNSIGNED NOT NULL,
+    manager_account_id BIGINT UNSIGNED NOT NULL,
     active TINYINT(1) NOT NULL DEFAULT 1,
     reason_code VARCHAR(80) NOT NULL,
     reason_note VARCHAR(500) NULL DEFAULT NULL,

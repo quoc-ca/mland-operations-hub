@@ -41,6 +41,7 @@ public class WorkshopOperationsCorsConfiguration {
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/v1/workshop-locations/**", configuration);
         source.registerCorsConfiguration("/api/v1/workshop-branches/**", configuration);
         source.registerCorsConfiguration("/api/v1/workshop-slots/**", configuration);
         source.registerCorsConfiguration("/api/v1/workshop-sessions/**", configuration);

@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -245,14 +245,27 @@ collect money, perform refunds or connect directly to external OTAs.
 - Q: What retention and crash-recovery policy applies to Operations idempotency records? → A: A `COMPLETED` record is retained for at least 24 hours before cleanup. A caller must not retry an operation reference after that retention window because duplicate protection is no longer guaranteed. `IN_PROGRESS` uses a configurable lease timeout; after the lease expires, an equivalent retry may reclaim the record for recovery from a crashed execution.
 - Q: How does Operations prevent an expired claim from committing after an equivalent retry reclaims the idempotency record? → A: Each claim or reclaim has an incrementing claim version. Completing the record and committing its business effect require the current claim version; a request that has lost its version is rejected or rolled back.
 
+### Session 2026-10-27
+
+- Q: Are a Workshop Branch and a Workshop Location separate resources or the same resource? → A: They are the same canonical physical Mland workshop location. Every `activeLocationId` supplied by Account Management and every session/slot location reference use the canonical `workshop_location.id`. Operations MUST NOT create, maintain, or authorize against an independent branch identifier or a branch-to-location mapping.
+- Q: Should Workshop Operations use `branch` or `location` in its public contract and data terminology? → A: It uses `location` throughout public API routes, DTO fields and schema terminology. “Branch” is a legacy synonym only in older prose awaiting rebase; it MUST NOT prescribe a separate resource or identifier.
+
 ## Business model
 
+**Terminology rule:** Except for the Git feature-branch label and the ordinary
+word “branch” in a lifecycle decision tree, every remaining legacy prose use of
+“branch” in this document means the canonical Workshop Location. It never means
+an independent resource, identifier, table, route, DTO field, or authorization
+scope. The target implementation and all public contracts use `location` and
+`locationId` only.
+
+- A **Workshop Location** is the canonical physical Mland workshop site, identified by `workshop_location.id`. Account location scope and session/slot location scope compare that one identity directly. “Workshop Branch” is a legacy synonym in older prose only; it is not an API, DTO, schema or independent resource term.
 - A booking is the commercial order. A workshop item is the product being made;
   an attendance ticket is one person's persistent QR right to join every
   required session of its package. Attendance remains per ticket/session pair.
 - Capacity is counted from active attendance tickets in each session.
 - Mland schedules sessions in fixed, non-overlapping time slots. A session is the
-  branch's shared slot for booking and capacity, not one customer group. Shop
+  location's shared slot for booking and capacity, not one customer group. Shop
   may divide attendees into several independent operating groups after booking,
   but those groups do not create separate bookable sessions or capacity pools.
   V1 does not store groups or their attendee/Staff assignments; shop handles
@@ -260,12 +273,12 @@ collect money, perform refunds or connect directly to external OTAs.
   same slot. Booking remains available until the slot's shared capacity is full,
   including close to its start time, subject to the normal booking/payment
   rules of feature 003.1.
-- A Manager creates a session by selecting one configured slot for its branch.
+- A Manager creates a session by selecting one configured slot for its location.
   The session inherits that slot's start and end times; V1 does not allow free
   entry or per-session editing of those times. There is exactly one session for
-  each branch, date and configured slot; onsite operating groups never create
+  each location, date and configured slot; onsite operating groups never create
   another session.
-- Manager may create a session individually or bulk-create sessions by branch,
+- Manager may create a session individually or bulk-create sessions by location,
   selected slots, date range and applicable weekdays. Bulk creation produces
   independent session records once; V1 has no indefinitely running recurrence,
   and a later change to slots or generation settings never alters an existing
@@ -571,20 +584,20 @@ correction, with before/after audit evidence.
 ## Functional requirements
 
 - **FR-001**: The system MUST keep capacity, Staff assignment and attendance
-  isolated by session and branch.
-- **FR-001b**: The system MUST use one shared capacity for each branch's fixed
+  isolated by session and location.
+- **FR-001b**: The system MUST use one shared capacity for each location's fixed
   session slot. V1 MUST NOT store operational groups or ticket-to-group or
   Staff-to-group assignments. Shop may divide attendees onsite, but those
   groups MUST NOT create customer-bookable sessions or separate capacity pools;
   a Staff member MAY operate more than one group in the same session.
 - **FR-001c**: The system MUST require each session to select a configured fixed
-  slot for its branch and derive its start and end time from that slot. V1 MUST
+  slot for its location and derive its start and end time from that slot. V1 MUST
   NOT permit free time entry or per-session time editing.
-- **FR-001d**: The system MUST enforce uniqueness of `branch`, session date and
+- **FR-001d**: The system MUST enforce uniqueness of `location`, session date and
   configured slot. It MUST reject creation of a second session for the same
   combination; onsite operating groups MUST NOT create additional sessions.
 - **FR-001e**: The system MUST allow only Manager to create, change or stop
-  offering configured fixed slots for a branch, with audit. A slot-time change
+  offering configured fixed slots for a location, with audit. A slot-time change
   MUST affect only sessions created after that change; an existing session MUST
   retain the start and end times inherited when it was created. Stopping a slot
   MUST prevent only new-session creation and MUST NOT alter or cancel existing
@@ -596,10 +609,10 @@ correction, with before/after audit evidence.
   retain each configured slot and allow only active/inactive state changes, not
   permanent deletion.
 - **FR-001f**: The system MUST allow only Manager to create a session either
-  individually or by a one-time bulk generation for a branch, selected slots,
+  individually or by a one-time bulk generation for a location, selected slots,
   date range and applicable weekdays. Bulk generation MUST create independent
   session records, create every missing combination, skip every existing
-  `branch`/date/slot combination without overwriting it, and report the created
+  `location`/date/slot combination without overwriting it, and report the created
   and skipped results. It MUST NOT create an indefinitely running recurrence or
   alter an existing session when settings change later.
 - **FR-001g**: The system MUST reject individual or bulk creation of a session
@@ -608,11 +621,11 @@ correction, with before/after audit evidence.
   reject creation when the configured slot start is more than 90 days ahead.
 - **FR-001h**: The system MUST evaluate slot/session scheduling, future-start
   validation and session-date uniqueness in `Asia/Ho_Chi_Minh` for all current
-  Vietnam branches.
+  Vietnam locations.
 - **FR-001j**: The system MUST reject a configured slot whose end is not on the
   same `Asia/Ho_Chi_Minh` calendar date as its start. The initial daily slot
   configuration MUST provide `09:00–12:00`, `13:00–16:00` and `16:00–19:00`.
-  The system MUST reject overlapping configured slots for the same branch.
+  The system MUST reject overlapping configured slots for the same location.
 - **FR-001i**: The system MUST allow Manager to choose `DRAFT` or `PUBLISHED`
   as the initial state for an individual or bulk session creation, and MUST
   default the chosen state to `DRAFT` when none is supplied.
@@ -639,32 +652,32 @@ correction, with before/after audit evidence.
   request MUST return the already-checked-in result with its recorded check-in
   time.
 - **FR-003**: The system MUST validate ticket state, entitlement to the current
-  session, and branch before normal check-in and MUST permit it only to a Staff
+  session, and location before normal check-in and MUST permit it only to a Staff
   member assigned to that session or the Manager recorded as that session's
   operational lead.
 - **FR-003a**: The system MUST limit ticket lookup/check-in results to ticket
-  code, session/branch, ticket status and check-in outcome; booking lookup may
+  code, session/location, ticket status and check-in outcome; booking lookup may
   show ticket used/unused status but MUST NOT expose the booking contact's full
   email or phone number.
 - **FR-003b**: In a Staff check-in flow, the system MUST return from a
-  `booking_code` lookup only tickets assigned to the current session and branch,
+  `booking_code` lookup only tickets assigned to the current session and location,
   and MUST NOT allow another ticket to be selected or checked in. It MUST allow
   Manager-only, audited management lookup of the full ticket set across sessions
-  and branches, without exposing the booking contact's full email or phone
+  and locations, without exposing the booking contact's full email or phone
   number.
 - **FR-003d**: If a `booking_code` lookup has no eligible ticket for the
-  current session and branch, the Staff check-in flow MUST return only a generic
+  current session and location, the Staff check-in flow MUST return only a generic
   no-eligible-ticket result and MUST NOT reveal another ticket, session or
-  branch.
+  location.
 - **FR-003e**: The feature MUST provide 003.1 only a delivery-safe ticket
   projection containing ticket identity or QR reference, ticket code, and the
-  entitled sessions' branch and scheduled start/end. It MUST NOT expose
+  entitled sessions' location and scheduled start/end. It MUST NOT expose
   attendance, Staff/audit data, or personally identifiable information in that
   projection.
 - **FR-003c**: The system MUST allow only an assigned Staff member or the
   session's Manager operational lead to request resend of a booking's full
   set of active, unused tickets to the booking contact's existing delivery
-  channel, including tickets for other sessions or branches. It MUST exclude
+  channel, including tickets for other sessions or locations. It MUST exclude
   tickets that are cancelled, revoked, refunded, `NO_SHOW` or already
   `CHECKED_IN`; apply the feature-003.1 delivery throttle of at most three
   requests per booking in 15 minutes; prohibit recipient replacement or expanded
@@ -678,12 +691,12 @@ correction, with before/after audit evidence.
   actively assigned to the session and hold this permission; an overriding
   Manager MUST be the session's recorded operational lead. Entering an exact
   `ticket_code` is a normal fallback and MUST NOT require this permission when
-  ticket, session and branch validation succeeds. After ticket resend fails, it
+  ticket, session and location validation succeeds. After ticket resend fails, it
   MUST permit only those actors to override each particular unused ticket using
   `TICKET_REDELIVERY_UNAVAILABLE`, a short note and audit linked to the resend
   outcome. Resend failure means either a delivery error or customer confirmation
   of non-receipt/inability to access after resend; it MUST NOT require a fixed
-  wait. Override MUST not bypass the ticket's assigned session or branch.
+  wait. Override MUST not bypass the ticket's assigned session or location.
 - **FR-005**: The system MUST not block check-in merely because a workshop has
   started; it MUST reject normal check-in before `check_in_opens_at` and after
   attendance is finalized.
@@ -712,7 +725,7 @@ correction, with before/after audit evidence.
   request, and MUST require a short note or evidence reference whenever that
   reason code defines it. V1 MUST validate the code against a fixed,
   system-controlled catalogue; Manager MUST NOT create or alter reason codes
-  per branch. The catalogue MUST include `OTHER_REQUIRES_NOTE`, which MUST
+  per location. The catalogue MUST include `OTHER_REQUIRES_NOTE`, which MUST
   require a clear note or evidence reference.
 - **FR-008**: The system MUST allow only Manager to correct finalized attendance
   and MUST preserve the before/after state and correction reason in the audit
@@ -756,7 +769,7 @@ correction, with before/after audit evidence.
   the pause to complete payment until its existing deadline.
 - **FR-010h**: For a requested booking session, the feature MUST provide 003.1
   only a public sale-eligibility snapshot containing existence/customer-
-  selectability, sale state, branch, scheduled start/end, and remaining
+  selectability, sale state, location, scheduled start/end, and remaining
   capacity. The snapshot MUST NOT expose this feature's entities or repositories.
 - **FR-010i**: When 003.1 requests participant capacity for more than one
   session, the feature MUST decide the complete requested set atomically. It
@@ -814,7 +827,7 @@ correction, with before/after audit evidence.
   notify when sale state changes. Hold-to-ticket commitment MUST NOT create a
   separate notification when that snapshot is unchanged.
 - **FR-010n**: The availability/sale-state snapshot provided to 003.4 MUST
-  contain only opaque session identity, branch scope, sellable availability,
+  contain only opaque session identity, location scope, sellable availability,
   sale state, source change identity/version, and effective time. It MUST NOT
   contain PII, Booking/payment data, ticket detail, or package/provider mapping.
 - **FR-010o**: Availability/sale-state notification delivery to 003.4 MUST be
@@ -829,7 +842,7 @@ correction, with before/after audit evidence.
   gap or uncertain order, this feature MUST return the current complete
   OTA-observable snapshot of the one affected session at one source version:
   schedule, sellable availability, and sale state. It MUST NOT require 003.4 to
-  merge separate schedule/availability reads or consume an entire branch.
+  merge separate schedule/availability reads or consume an entire location.
 - **FR-010r**: The per-session OTA source version MUST increase, and an
   OTA-observable snapshot MUST be made available, only when that session's
   schedule, sellable availability, or sale state changes. Internal-only changes,
@@ -884,7 +897,7 @@ correction, with before/after audit evidence.
   current delivery-safe ticket/session-entitlement projection for booking and
   Magic-Link reads. Following a successful required-session replacement or a
   verified-refund consequence, that projection MUST reflect the resulting
-  entitlement, branch and schedule rather than a superseded session. It MUST
+  entitlement, location and schedule rather than a superseded session. It MUST
   continue to exclude attendance, Staff, audit and PII detail; it does not make
   003.1 an owner of tickets or schedules.
 - **FR-010a**: The system MUST transition `CANCELLATION_REQUESTED` to terminal
@@ -892,13 +905,13 @@ correction, with before/after audit evidence.
   resolved or an audited Manager decision for each. `CANCELLED` MUST reject
   normal operation and check-in whether it was reached directly or through
   `CANCELLATION_REQUESTED`.
-- **FR-011**: The system MUST reject a direct session slot or branch change
+- **FR-011**: The system MUST reject a direct session slot or location change
   whenever confirmed tickets or unexpired payment capacity holds exist; Manager
   MUST use the audited `CANCELLATION_REQUESTED` handoff instead.
 - **FR-012**: The system MUST limit each Manager's workshop configuration,
-  session-management lookup and operational-lead authority to branches assigned
+  session-management lookup and operational-lead authority to locations assigned
   to that Manager. Only a higher-privilege actor MAY exercise those authorities
-  across all branches. Staff authority MUST remain limited to explicit session
+  across all locations. Staff authority MUST remain limited to explicit session
   assignment and any required permission.
 - **FR-012a**: The system MUST revoke workshop operational authority immediately
   when an assigned Staff member or operational-lead Manager becomes inactive,
@@ -906,20 +919,20 @@ correction, with before/after audit evidence.
   start, normal check-in and finalization until the session has an active
   assigned Staff member or active operational lead.
 - **FR-012b**: The system MUST consume, but MUST NOT create, modify or revoke,
-  Manager-to-branch assignments. Account/personnel management owns that
+  Manager-to-location assignments. Account/personnel management owns that
   assignment lifecycle.
 
 ## Success Criteria
 
 - **SC-001**: A scoped Manager can create an individual future session or run a
-  bulk generation within 90 future days; duplicate branch/date/slot combinations
+  bulk generation within 90 future days; duplicate location/date/slot combinations
   are skipped and reported without overwriting an existing session.
 - **SC-002**: Confirmed attendance tickets plus unexpired capacity holds never
   exceed the session capacity, including when concurrent hold requests occur.
 - **SC-003**: Concurrent normal scans for one valid ticket produce exactly one
   attendance action; every later scan reports `ALREADY_CHECKED_IN` and the
   original `checkedInAt` without disclosing booking-contact data.
-- **SC-004**: An inactive actor or actor outside the required branch/session
+- **SC-004**: An inactive actor or actor outside the required location/session
   scope cannot configure, start, check in, finalize or retrieve protected
   workshop data.
 

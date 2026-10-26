@@ -1,7 +1,7 @@
 # Data Model: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -26,7 +26,7 @@ WorkshopBooking (1) ── (1) BookingInvoice
 | Entity | Owned data | Required invariant |
 | --- | --- | --- |
 | WorkshopBooking | booking code; package snapshot; contact email/phone snapshot; optional Member owner reference; participant count; service/financial status; expiry | Exactly one package and one contact. `participant_count` is positive and determines ticket count. |
-| BookingSessionCommitment | booking; session reference; chronological ordinal; branch snapshot; held/committed seat count | Basic Ring has one commitment. Silverclay has exactly two, distinct, same-branch commitments; ordinal is chronological; each seat count equals booking participant count. |
+| BookingSessionCommitment | booking; session reference; chronological ordinal; canonical location snapshot; held/committed seat count | Basic Ring has one commitment. Silverclay has exactly two, distinct, same-location commitments; ordinal is chronological; each seat count equals booking participant count. |
 | CapacityHold | 003.2 capacity-facade hold reference and safe outcome snapshot for a booking-session commitment | 003.2 is authoritative for the hold. Booking retains only the reference/status needed for its own pending, expiry and release behavior; one requested set is reserved/released atomically and exactly once. |
 | BookingInvoice | booking; frozen package price/participant count; frozen post-promotion amount; deposit; remaining amount | `package_total = participant_count × price_per_participant`; `deposit = ceil(post_promotion_amount / 2)` and `remaining = post_promotion_amount − deposit`. All three monetary snapshots are whole VND and immutable after acceptance. |
 | PaymentAttempt / PaymentEventReceipt | booking/invoice; safe provider references; attempt outcome; unique provider event identity | Only valid, matching, non-duplicate provider evidence settles the invoice. `FAILED` belongs to an attempt, not booking state. |
@@ -34,7 +34,7 @@ WorkshopBooking (1) ── (1) BookingInvoice
 | TicketSessionEntitlement | `WorkshopOperationsFacade` delivery-safe view; booking-session commitment | A booking-side delivery view of each 003.2 ticket/session entitlement. A Silverclay ticket has two; 003.2 owns entitlement validation and check-in/attendance state on that pair. Customer reads obtain the current projection from 003.2, so this copy never becomes the authority for a replacement/refund schedule. |
 | MagicLinkAccess | booking; protected token hash; issued/expiry/revocation lifecycle state | Raw token is never persisted/logged. Access is reusable until associated workshop end or revocation; rotation revokes the old link and creates its replacement for the stored booking-contact email. |
 | NotificationIntent | booking; immutable notification reference, kind, correlation reference, and immutable render-ready delivery snapshot | Created transactionally with confirmed booking delivery, accepted resend, or accepted Magic-Link rotation. Its post-commit event carries references only; Feature 007 obtains the snapshot through the approved facade and owns delivery attempts/retries as operational logs. Delivery failure cannot reverse the accepted Booking outcome. |
-| BookingAuditEvidence | safe actor type or identity reference when available; booking code; applicable branch; action; outcome; correlation reference; timestamp; Manager reason where required | Covers accepted self-service resend, every internal resend, Magic-Link revoke/rotate, and Manager late-payment `RECORD`/`ESCALATE` follow-up. It excludes contact proof, raw Magic Link, QR, token material and unnecessary PII. |
+| BookingAuditEvidence | safe actor type or identity reference when available; booking code; applicable canonical location; action; outcome; correlation reference; timestamp; Manager reason where required | Covers accepted self-service resend, every internal resend, Magic-Link revoke/rotate, and Manager late-payment `RECORD`/`ESCALATE` follow-up. It excludes contact proof, raw Magic Link, QR, token material and unnecessary PII. |
 
 ## Lifecycle
 
@@ -64,7 +64,7 @@ reschedule, `CHECKED_IN`, `NO_SHOW`, and attendance finalization are outside it.
   session or creates no hold. It commits the complete active set or commits
   none, and releases active holds idempotently; `SALES_PAUSED` rejects new holds
   while preserving unexpired existing holds to their deadline.
-- Silverclay sessions must be distinct, same branch and non-adjacent if on the
+- Silverclay sessions must be distinct, at the same canonical location and non-adjacent if on the
   same local day; different days have no maximum gap.
 - All packages consume the one shared capacity pool per session. A multi-session
   booking consumes N seats in every selected session.
@@ -78,7 +78,7 @@ reschedule, `CHECKED_IN`, `NO_SHOW`, and attendance finalization are outside it.
   state transition and cannot determine capacity or confirmation.
 - Before internal resend, Magic-Link incident handling, or late-payment follow-up,
   Mland rechecks canonical active account facts and booking's own support-action
-  rule against booking-branch scope.
+  rule against booking-location scope, using the same `workshop_location.id` as Account `activeLocationIds`.
   A failed check has no booking/payment/ticket/capacity side effect and records
   only the required minimal denied-attempt audit evidence.
 

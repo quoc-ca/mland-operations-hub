@@ -47,12 +47,12 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
         int remainingCapacity = Math.max(0, session.getCapacity() - activeHolds - confirmedSeats);
 
         boolean selectable = session.getState() == SessionState.PUBLISHED && remainingCapacity > 0;
-        UUID branchRef = UUID.fromString(session.getBranch().getReference());
+        Long locationRef = session.getLocation() != null ? session.getLocation().getId() : null;
 
         return new SaleEligibilitySnapshot(
             selectable,
             session.getState().name(),
-            branchRef,
+            locationRef,
             session.getScheduledStartAt(),
             session.getScheduledEndAt(),
             remainingCapacity
@@ -267,7 +267,7 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
             List<TicketSessionEntitlement> entitlements = entitlementRepository.findByTicketId(ticket.getId());
             List<SessionEntitlementProjection> sessionProjections = entitlements.stream()
                 .map(e -> new SessionEntitlementProjection(
-                    UUID.fromString(e.getSession().getBranch().getReference()),
+                    e.getSession().getLocation() != null ? e.getSession().getLocation().getId() : null,
                     e.getSession().getScheduledStartAt(),
                     e.getSession().getScheduledEndAt()
                 ))

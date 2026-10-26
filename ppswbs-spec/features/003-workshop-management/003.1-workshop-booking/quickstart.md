@@ -1,7 +1,7 @@
 # Quickstart Validation: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -22,13 +22,13 @@ per-run evidence to this guide.
 2. Seed one published Basic Ring package and one direct-Mland Silverclay package
    with a valid VND price per participant; include a promotion case whose
    post-promotion amount is odd VND.
-3. Create published common workshop sessions in one branch with a shared
+3. Create published common workshop sessions in one canonical workshop location with a shared
    capacity pool. Provide two non-adjacent same-day slots and two slots across
    different days.
 
 ## Core scenarios
 
-1. Call session discovery with one package, one branch, and valid `from`/`to`
+1. Call session discovery with one package, one location, and valid `from`/`to`
    range. Verify it returns only customer-safe eligible-session snapshots, then
    run the approved frontend journey from `/workshops` through
    `/workshops/:packageId` to `/workshops/:packageId/book`. Verify it requires
@@ -37,10 +37,10 @@ per-run evidence to this guide.
 2. Create a Basic Ring booking for N participants and one session. Verify one
    pending booking, one invoice at `N × price_per_participant`, exact 50% VND
    deposit, and an N-seat hold in that session.
-3. Create a Silverclay booking for N participants and two valid same-branch
+3. Create a Silverclay booking for N participants and two valid same-location
    sessions. Verify chronological ordinals, N held seats in both shared pools,
    one invoice and no cart/multiple booking records.
-4. Attempt a duplicate session, different branch, adjacent same-day pair, full
+4. Attempt a duplicate session, different location, adjacent same-day pair, full
    second session, or concurrent last-seat race. Verify no partial booking or
    hold persists. Verify final-slot-today/first-slot-tomorrow is accepted. Put
    one selected session in `SALES_PAUSED` and verify no new hold is created,
@@ -75,7 +75,7 @@ per-run evidence to this guide.
 8. Release a pending hold and let another expire. Verify all relevant session
    capacity is returned once, no QR is issued, and later payment cannot resume.
 9. Exercise Guest/Member self-service resend with valid proof and an assigned
-   Staff or branch-responsible Manager resend. Verify rate limits are enforced
+   Staff or location-responsible Manager resend. Verify rate limits are enforced
    separately, an accepted request does not change booking/payment/ticket/contact
    or Magic Link state, and each required business audit record is safe and
    complete. Verify delivery retries appear only in operational delivery logs.
@@ -88,9 +88,9 @@ per-run evidence to this guide.
    in the published event.
 11. Submit a signed success after hold expiry. Verify it cannot confirm the
     booking, restore capacity, issue tickets, or create another payment link.
-    Verify only the branch-responsible Manager can record/escalate a safe audited
+    Verify only the location-responsible Manager can record/escalate a safe audited
     follow-up. Attempt the same internal actions with inactive, unentitled, or
-    wrong-branch actors and verify safe denial without business side effects.
+    wrong-location actors and verify safe denial without business side effects.
 12. Supply the approved idempotent final-balance-resolved conclusion from 003.3
     for a confirmed deposit-paid booking. Verify Booking changes only its
     financial status to `FULLY_PAID` once, retains only safe correlation/reference

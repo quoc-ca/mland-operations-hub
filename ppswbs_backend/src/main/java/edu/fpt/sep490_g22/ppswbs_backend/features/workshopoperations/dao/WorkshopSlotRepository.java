@@ -12,7 +12,7 @@ public interface WorkshopSlotRepository extends JpaRepository<WorkshopSlot, Long
 
     Optional<WorkshopSlot> findByReference(String reference);
 
-    List<WorkshopSlot> findByBranchId(Long branchId);
+    List<WorkshopSlot> findByLocationId(Long locationId);
 
-    List<WorkshopSlot> findByBranchIdAndActiveTrue(Long branchId);
+    List<WorkshopSlot> findByLocationIdAndActiveTrue(Long locationId);
 }

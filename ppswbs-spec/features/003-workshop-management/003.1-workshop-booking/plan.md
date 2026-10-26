@@ -1,7 +1,7 @@
 # Implementation Plan: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -15,7 +15,7 @@
 003.1 is the direct-Mland customer booking core. One booking purchases exactly
 one package/course, with no cart of unrelated packages. Basic Ring selects one
 common workshop session. Direct-Mland Silverclay selects exactly two common
-sessions at one branch, ordered by time; both reservations are committed or
+sessions at one canonical workshop location, ordered by time; both reservations are committed or
 neither exists. Each participant consumes one place in every selected session,
 and every package shares that session's single capacity pool.
 
@@ -34,7 +34,7 @@ ticket issuance/delivery and authorized lookup.
 | --- | --- |
 | Runtime | Java 21, Spring Boot REST, Spring Modulith, JPA/Spring Data, MySQL and append-only Flyway migrations. |
 | Client | Separate React + Vite client using versioned REST APIs; no backend-rendered booking UI. |
-| Identity and authorization | Firebase bearer tokens prove identity only. Account Management supplies canonical `MEMBER`, `STAFF`, `MANAGER`, or `ADMIN` role, active status and location scope; Booking applies its own support-action rules against booking branch/resource scope. Guest access uses booking-contact proof or a protected Magic Link. |
+| Identity and authorization | Firebase bearer tokens prove identity only. Account Management supplies canonical `MEMBER`, `STAFF`, `MANAGER`, or `ADMIN` role, active status and `activeLocationIds`; Booking applies its own support-action rules against the booking's canonical location. Guest access uses booking-contact proof or a protected Magic Link. |
 | State | Persisted booking/hold/payment/ticket state; 15-minute holds and 10-minute payment links; booking-critical local work uses one MySQL transaction; no new global session/token store. |
 | Payment | Shared `paymentintegration` ingress verifies VNPay once and routes redacted evidence by immutable merchant-reference target; 003.1 consumes only `DEPOSIT` evidence through its facade. |
 | Verification | Unit/integration, contract, concurrency, callback/idempotency, migration, and Spring Modulith boundary verification. |
@@ -66,7 +66,7 @@ evidence. These routes are client routes, not Java REST endpoints or SSR pages.
 `workshopbooking` owns booking, booking-session commitment, frozen invoice,
 payment attempt/receipt, booking-contact delivery state, Magic-Link record and
 notification intent. It synchronously reads only a 003.2 sale-eligibility snapshot
-(customer-selectability, sale state, branch, scheduled start/end and remaining
+(customer-selectability, sale state, canonical location, scheduled start/end and remaining
 capacity), and calls the exposed 003.2-owned `WorkshopOperationsFacade`. It does not
 configure sessions, assign staff, read Operations entities, check in, or
 finalize attendance. After capacity commits, it calls that facade's
@@ -81,14 +81,14 @@ complete; Booking alone records `FULLY_PAID` from that conclusion and never
 receives raw final-payment evidence or calculates the final balance. 003.4 owns
 OTA completely. For internal booking support,
 Mland rechecks canonical active account facts and Booking's support-action rule
-against booking-branch scope at
-action time. Assigned Staff or branch-responsible Managers may resend the
+against booking-location scope at
+action time. Assigned Staff or location-responsible Managers may resend the
 confirmation; only the responsible Manager may revoke or rotate a Magic Link.
 The `ADMIN` role alone grants neither action.
 
 Create flow: validate package/contact/participant count and selected sessions;
 enforce Basic Ring = one session or Silverclay = two distinct sessions at the
-same branch; order Silverclay sessions; reject adjacent same-day sessions;
+same canonical location; order Silverclay sessions; reject adjacent same-day sessions;
 atomically reserve `participant_count` places in every session and persist the
 pending booking, invoice and expiry in one local MySQL transaction. Any
 validation/capacity failure rolls back the whole operation. Capacity is always
@@ -116,7 +116,7 @@ confirms payment.
 
 ## Contract and state design
 
-The public OpenAPI contract defines package browse; package-and-branch-scoped
+The public OpenAPI contract defines package browse; package-and-location-scoped
 session discovery over a requested time range; create; payment start;
 contact-proof and Member-owned lookup; Magic-Link exchange/read; pending-hold
 release; confirmation resend; Manager Magic-Link incidents; and Manager
@@ -147,7 +147,7 @@ credential storage.
 Business audit records cover accepted self-service resend, every internal
 resend, Magic-Link revoke/rotate, and Manager late-payment follow-up. They hold
 only the actor type or identity reference when available, booking code,
-applicable branch, action, outcome, correlation reference and timestamp; a
+applicable location, action, outcome, correlation reference and timestamp; a
 revoke/rotate and late-payment follow-up also have their required Manager
 reason. Contact proof, raw Magic Link, QR, and token data are excluded.
 Notification delivery attempts and retries are operational logs, not business
@@ -174,7 +174,7 @@ account/scope checks, pending synchronization into `spec-general.md` and
 ## Verification plan
 
 Use [quickstart.md](quickstart.md) to verify: one-session Basic Ring; two-session
-Silverclay with shared capacity; all-or-nothing failure; same-branch/ordering/
+Silverclay with shared capacity; all-or-nothing failure; same-location/ordering/
 same-day-gap rules; odd/even post-promotion amount with rounded-up deposit and
 exact remaining amount; valid/invalid/duplicate/late gateway
 events; ticket issuance and lookup; Magic-Link revocation; hold expiry; and

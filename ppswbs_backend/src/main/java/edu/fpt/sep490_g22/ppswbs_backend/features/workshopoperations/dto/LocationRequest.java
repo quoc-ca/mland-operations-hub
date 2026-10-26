@@ -10,12 +10,12 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BranchRequest {
+public class LocationRequest {
 
-    @NotBlank(message = "Branch code is required")
+    @NotBlank(message = "Location code is required")
     private String code;
 
-    @NotBlank(message = "Branch name is required")
+    @NotBlank(message = "Location name is required")
     private String name;
 
     private String address;
