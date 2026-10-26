@@ -34,7 +34,7 @@ ticket issuance/delivery and authorized lookup.
 | --- | --- |
 | Runtime | Java 21, Spring Boot REST, Spring Modulith, JPA/Spring Data, MySQL and append-only Flyway migrations. |
 | Client | Separate React + Vite client using versioned REST APIs; no backend-rendered booking UI. |
-| Identity and authorization | Firebase bearer tokens prove identity only. Mland/MySQL decides `MEMBER`, `STAFF`, `MANAGER`, or `ADMIN`, active status, entitlement, and branch/location scope. Guest access uses booking-contact proof or a protected Magic Link. |
+| Identity and authorization | Firebase bearer tokens prove identity only. Account Management supplies canonical `MEMBER`, `STAFF`, `MANAGER`, or `ADMIN` role, active status and location scope; Booking applies its own support-action rules against booking branch/resource scope. Guest access uses booking-contact proof or a protected Magic Link. |
 | State | Persisted booking/hold/payment/ticket state; 15-minute holds and 10-minute payment links; booking-critical local work uses one MySQL transaction; no new global session/token store. |
 | Payment | Shared `paymentintegration` ingress verifies VNPay once and routes redacted evidence by immutable merchant-reference target; 003.1 consumes only `DEPOSIT` evidence through its facade. |
 | Verification | Unit/integration, contract, concurrency, callback/idempotency, migration, and Spring Modulith boundary verification. |
@@ -80,7 +80,8 @@ when final settlement or an authorized audited deferred-payment resolution is
 complete; Booking alone records `FULLY_PAID` from that conclusion and never
 receives raw final-payment evidence or calculates the final balance. 003.4 owns
 OTA completely. For internal booking support,
-Mland rechecks active account state, entitlement and booking-branch scope at
+Mland rechecks canonical active account facts and Booking's support-action rule
+against booking-branch scope at
 action time. Assigned Staff or branch-responsible Managers may resend the
 confirmation; only the responsible Manager may revoke or rotate a Magic Link.
 The `ADMIN` role alone grants neither action.

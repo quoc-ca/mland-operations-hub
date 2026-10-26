@@ -1,7 +1,7 @@
 # Research: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -97,7 +97,9 @@ truth.
 ## Implementation dependencies
 
 1. 003.2 must expose semantic all-or-none replacement of a complete required-session set.
-2. FE-001 must expose authorization/capability/scope and central-policy-editor authority.
+2. FE-001 must expose current canonical role/status, ownership and location-scope
+   facts; 003.3 applies its own approved branch/resource action rules and
+   central-policy-editor rule.
 3. VNPay merchant, IPN/QueryDR and refund configuration must be provider-approved.
 4. Notification owner must provide the post-commit link/reminder/outcome handoff.
 

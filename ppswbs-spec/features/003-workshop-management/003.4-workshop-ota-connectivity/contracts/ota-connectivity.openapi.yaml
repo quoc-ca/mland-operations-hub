@@ -516,7 +516,7 @@ components:
       description: Mland identity is absent or invalid.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     Forbidden:
-      description: Actor lacks active capability or branch scope.
+      description: Actor lacks an active account, required OTA action authorization, or branch scope.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     NotFound:
       description: Resource is not visible in the actor's authorized scope.

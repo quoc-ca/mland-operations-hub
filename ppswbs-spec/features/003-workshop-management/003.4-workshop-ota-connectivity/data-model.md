@@ -84,7 +84,7 @@ work; it cannot mutate Operations or direct-Mland booking behaviour.
 | Schedule, capacity, session, attendance, ticket scan | Workshop Operations | Consume only authoritative schedule and availability/sale-state snapshots for publication, using their one per-session source-version sequence; use approved Operations facades for booking/cancellation effects. OTA never calculates or writes schedule/capacity/tickets directly. |
 | Customer booking and booking lifecycle | Workshop Booking | Request idempotent booking creation/lookup; retain only correlation. |
 | Direct-Mland bill and payment/refund | Workshop Settlement | Request a quote/bill link for accepted paid add-ons; do not own money processing. |
-| Mland actor/branch/capability | Account/Personnel | Ask facade to authorize; provider identity is not mapped to a Mland user. |
+| Canonical Mland actor role/status/location scope | Account Management | Consume facts through facade; OTA Connectivity applies its own action rule with target branch/resource. Provider identity is not mapped to a Mland user. |
 
 ## Integrity and privacy rules
 

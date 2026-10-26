@@ -264,13 +264,14 @@ rescheduling, or process OTA payments/refunds.
   may send at most one reminder before expiry; expiry never automatically renews
   the link, releases the package output, or erases the balance. A new link requires an
   audited authorized action.
-- The system MUST NOT infer `Manager = OWNER`. Account/personnel owns capability
-  grants and role-code mapping. Feature 003.3 authorizes actions using active
-  actor status plus the relevant branch-scoped capability:
-  `workshop.settlement.defer` for deferred payment/link issue or reissue,
-  `workshop.settlement.reschedule` for required-session changes, and
-  `workshop.settlement.refund` for refund exceptions and Mland-caused package
-  refund. An inactive actor loses these authorities immediately.
+- The system MUST NOT infer `Manager = OWNER`. Account Management supplies the
+  canonical fixed role, current status and active location-scope facts; 003.3
+  applies its own server-side Settlement action rules with booking branch and
+  resource scope. Active in-scope Staff may perform routine charge/final-bill
+  actions; active in-scope Manager may perform deferred payment/link issue or
+  reissue, required-session changes, and refund exceptions/Mland-caused remedy.
+  An inactive actor loses these authorities immediately. Display role labels,
+  Firebase claims and retired role codes never grant authority.
 - The Mland-caused-cancellation refund-policy editor is one designated central
   Manager. This business authority does not introduce a role code or alter the
   Account Management role mapping; the feature requires its active authorization
@@ -348,7 +349,8 @@ outcome.
 - **FR-001**: The system MUST apply this feature only to direct Mland workshop
   bookings and MUST exclude OTA payment/refund/payout/reconciliation.
 - **FR-002**: The system MUST authorize protected actions on the server using
-  active Mland account status, approved capability, branch and resource scope;
+  active Mland account status, canonical role, and feature-owned branch and
+  resource action rule;
   client/provider claims and display labels MUST NOT grant authority.
 - **FR-002a**: Active Staff with booking-branch scope MAY create or confirm an
   eligible charge and finalize a final bill. Deferred payment, required-session
@@ -607,8 +609,9 @@ outcome.
 - Payment/audit evidence follows the five-year baseline in `spec-general.md`;
   no card data is stored.
 - Performance, availability, accessibility, deployment origins, and role-code
-  mapping remain TBD. Capability-to-role-code mapping is explicitly owned by
-  account/personnel and must not be inferred by this feature.
+  mapping remain TBD. Account Management owns canonical role codes; this feature
+  owns its Settlement action rules and must not infer them from display labels,
+  Firebase claims or retired codes.
 
 ## Out of Scope
 

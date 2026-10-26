@@ -77,7 +77,8 @@ reschedule, `CHECKED_IN`, `NO_SHOW`, and attendance finalization are outside it.
   duplicate confirmation or release. Events may run only after a local Booking
   state transition and cannot determine capacity or confirmation.
 - Before internal resend, Magic-Link incident handling, or late-payment follow-up,
-  Mland rechecks active account state, entitlement and booking-branch scope.
+  Mland rechecks canonical active account facts and booking's own support-action
+  rule against booking-branch scope.
   A failed check has no booking/payment/ticket/capacity side effect and records
   only the required minimal denied-attempt audit evidence.
 

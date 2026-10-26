@@ -1,7 +1,7 @@
 # Contract Design: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -82,8 +82,8 @@ These paths are specified in the proposed OpenAPI contract. Responses expose saf
 
 | Method and path | Intent | Actor boundary |
 | --- | --- | --- |
-| `GET /api/v1/ota-channels` | List visible connection/mapping readiness and safe status. | Branch scope plus approved read capability. |
-| `POST /api/v1/ota-channels/{channelId}/mappings` | Create a draft mapping; no implicit publish. | Authorized Admin/Manager capability; connection changes remain Admin-only. |
+| `GET /api/v1/ota-channels` | List visible connection/mapping readiness and safe status. | OTA read action rule plus branch scope. |
+| `POST /api/v1/ota-channels/{channelId}/mappings` | Create a draft mapping; no implicit publish. | OTA mapping action rule for canonical Admin/Manager roles; connection changes remain Admin-only. |
 | `PUT /api/v1/ota-channel-mappings/{mappingId}` | Update a draft/sales-closed mapping with optimistic versioning. | Authorized actor; stale version is a conflict. |
 | `POST /api/v1/ota-channel-mappings/{mappingId}/price-terms` | Submit price terms for commercial review; it does not publish or enable sale. | Authorized actor; unconfirmed Klook terms remain pending. |
 | `POST /api/v1/ota-channel-mappings/{mappingId}/sync` | Queue preparation/full re-sync. | Branch Manager for business sync; Admin for cross-branch recovery. |
@@ -102,7 +102,7 @@ OpenAPI contract because its route, authentication, signature, body, response,
 and retry behavior are provider-specific onboarding facts. It is not a Mland
 user-session endpoint; each adapter publishes its approved contract separately.
 
-The exact role/capability identifiers are intentionally not invented. The implementation must query Account/Personnel authorization and return standard safe error responses without exposing mapping/booking existence outside scope.
+Account Management supplies canonical role/status/location facts; OTA Connectivity owns the exact action rules over its mappings and reconciliation resources. The implementation must return standard safe errors without exposing mapping/booking existence outside scope, and must not authorize from a display role, Firebase claim or retired code.
 
 ## Callback, error, and replay rules
 

@@ -1,7 +1,7 @@
 # Data Model: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -9,7 +9,7 @@
 
 | Record | Owning module | Notes |
 | --- | --- | --- |
-| Account, active status, capability, Manager branch assignment | Account/personnel | Consumed through a facade; never copied as authorization truth. |
+| Canonical Account role/status and active location scope | Account Management | Consumed through a facade; never copied as authorization truth. Operations combines those facts with its branch/session-assignment data to apply its own action rules. |
 | Commercial booking, payer, payment, invoice, customer delivery | Workshop Booking | Referenced by immutable external booking IDs/codes only. |
 | Workshop branch, slot, session, hold, attendance ticket, attendance and audit | Workshop Operations | The aggregate model defined below. |
 | Settlement, refunds, reschedule resolution | Workshop Settlement and Changes (003.3) | Receives cancellation handoffs; is not implemented here. |
