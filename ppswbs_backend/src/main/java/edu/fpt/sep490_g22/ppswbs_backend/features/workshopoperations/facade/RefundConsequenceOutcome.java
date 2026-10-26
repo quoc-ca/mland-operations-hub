@@ -11,4 +11,8 @@ public record RefundConsequenceOutcome(
     public static RefundConsequenceOutcome rejected(RejectionReason reason) {
         return new RefundConsequenceOutcome(OutcomeStatus.REJECTED, reason);
     }
+
+    public static RefundConsequenceOutcome inProgress() {
+        return new RefundConsequenceOutcome(OutcomeStatus.IN_PROGRESS, null);
+    }
 }

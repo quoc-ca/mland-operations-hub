@@ -11,4 +11,8 @@ public record CapacityCommitOutcome(
     public static CapacityCommitOutcome rejected(RejectionReason reason) {
         return new CapacityCommitOutcome(OutcomeStatus.REJECTED, reason);
     }
+
+    public static CapacityCommitOutcome inProgress() {
+        return new CapacityCommitOutcome(OutcomeStatus.IN_PROGRESS, null);
+    }
 }

@@ -21,4 +21,8 @@ public record CapacityHoldOutcome(
     public static CapacityHoldOutcome rejected(RejectionReason reason) {
         return new CapacityHoldOutcome(OutcomeStatus.REJECTED, List.of(), null, reason);
     }
+
+    public static CapacityHoldOutcome inProgress() {
+        return new CapacityHoldOutcome(OutcomeStatus.IN_PROGRESS, List.of(), null, null);
+    }
 }

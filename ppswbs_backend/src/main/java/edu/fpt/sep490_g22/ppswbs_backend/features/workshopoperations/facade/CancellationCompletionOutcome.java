@@ -11,4 +11,8 @@ public record CancellationCompletionOutcome(
     public static CancellationCompletionOutcome rejected(RejectionReason reason) {
         return new CancellationCompletionOutcome(OutcomeStatus.REJECTED, reason);
     }
+
+    public static CancellationCompletionOutcome inProgress() {
+        return new CancellationCompletionOutcome(OutcomeStatus.IN_PROGRESS, null);
+    }
 }

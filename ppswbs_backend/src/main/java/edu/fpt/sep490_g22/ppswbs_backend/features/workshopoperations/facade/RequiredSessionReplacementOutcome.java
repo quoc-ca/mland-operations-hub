@@ -11,4 +11,8 @@ public record RequiredSessionReplacementOutcome(
     public static RequiredSessionReplacementOutcome rejected(RejectionReason reason) {
         return new RequiredSessionReplacementOutcome(OutcomeStatus.REJECTED, reason);
     }
+
+    public static RequiredSessionReplacementOutcome inProgress() {
+        return new RequiredSessionReplacementOutcome(OutcomeStatus.IN_PROGRESS, null);
+    }
 }

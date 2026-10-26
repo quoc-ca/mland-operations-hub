@@ -11,4 +11,8 @@ public record CapacityReleaseOutcome(
     public static CapacityReleaseOutcome rejected(RejectionReason reason) {
         return new CapacityReleaseOutcome(OutcomeStatus.REJECTED, reason);
     }
+
+    public static CapacityReleaseOutcome inProgress() {
+        return new CapacityReleaseOutcome(OutcomeStatus.IN_PROGRESS, null);
+    }
 }

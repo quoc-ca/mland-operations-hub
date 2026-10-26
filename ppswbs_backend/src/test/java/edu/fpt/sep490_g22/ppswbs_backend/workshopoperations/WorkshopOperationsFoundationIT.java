@@ -50,7 +50,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.flyway.enabled=true",
         "spring.flyway.locations=classpath:db/migration",
         "workshop.operations.cors.allowed-origins=http://localhost:3000,http://localhost:5173",
-        "workshop.operations.auth.allow-test-tokens=true"
+        "workshop.operations.auth.allow-test-tokens=true",
+        "workshop.operations.idempotency.lease-duration=PT30S"
 })
 public class WorkshopOperationsFoundationIT {
 
@@ -100,6 +101,9 @@ public class WorkshopOperationsFoundationIT {
     private OperationsAuditEventRepository auditEventRepository;
 
     @Autowired
+    private FacadeCommandIdempotencyRecordRepository idempotencyRecordRepository;
+
+    @Autowired
     private CancellationHandoffRepository handoffRepository;
 
     private WorkshopBranch testBranch;
@@ -108,6 +112,7 @@ public class WorkshopOperationsFoundationIT {
 
     @BeforeEach
     void setUp() {
+        idempotencyRecordRepository.deleteAll();
         actionRepository.deleteAll();
         entitlementRepository.deleteAll();
         ticketRepository.deleteAll();
