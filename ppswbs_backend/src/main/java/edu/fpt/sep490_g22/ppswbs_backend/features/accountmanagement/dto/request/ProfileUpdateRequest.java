@@ -13,8 +13,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ProfileUpdateRequest {
 
-    @NotBlank(message = "error.validation.full_name_required")
-    @Size(min = 1, max = 400, message = "error.validation.full_name_length")
+    @NotBlank(message = "Full name is required")
+    @Size(min = 1, max = 100, message = "Full name must be between 1 and 100 characters")
     private String fullName;
 
     @Size(min = 7, max = 30, message = "error.validation.phone_length")

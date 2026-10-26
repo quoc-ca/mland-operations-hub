@@ -19,7 +19,7 @@ public class AccountProfile {
     @Column(name = "account_id", nullable = false)
     private Long accountId;
 
-    @Column(name = "full_name", nullable = false, length = 400)
+    @Column(name = "full_name", length = 400)
     private String fullName;
 
     @Column(name = "phone", length = 30)
