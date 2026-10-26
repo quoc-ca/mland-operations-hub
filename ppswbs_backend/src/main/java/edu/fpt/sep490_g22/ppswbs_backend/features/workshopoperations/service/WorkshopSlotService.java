@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,11 +23,11 @@ import java.util.UUID;
 public class WorkshopSlotService {
 
     private final WorkshopSlotRepository slotRepository;
-    private final WorkshopBranchService branchService;
+    private final WorkshopLocationService locationService;
 
     @Transactional(readOnly = true)
-    public List<SlotResponse> listSlots(String authHeader, String branchIdentifier) {
-        WorkshopLocation location = resolveBranch(authHeader, branchIdentifier);
+    public List<SlotResponse> listSlots(String authHeader, Long locationId) {
+        WorkshopLocation location = locationService.requireLocationEntityInScope(authHeader, locationId);
         List<WorkshopSlot> slots = slotRepository.findByLocationId(location.getId());
 
         return slots.stream()
@@ -35,8 +36,8 @@ public class WorkshopSlotService {
     }
 
     @Transactional
-    public SlotResponse createSlot(String authHeader, String branchIdentifier, SlotRequest request) {
-        WorkshopLocation location = resolveBranch(authHeader, branchIdentifier);
+    public SlotResponse createSlot(String authHeader, Long locationId, SlotRequest request) {
+        WorkshopLocation location = locationService.requireLocationEntityInScope(authHeader, locationId);
         validateSlotRequest(request);
 
         List<WorkshopSlot> existingSlots = slotRepository.findByLocationId(location.getId());
@@ -72,7 +73,7 @@ public class WorkshopSlotService {
     @Transactional
     public SlotResponse updateSlot(String authHeader, String slotIdentifier, SlotRequest request) {
         WorkshopSlot slot = resolveSlot(slotIdentifier);
-        WorkshopLocation location = branchService.requireBranchEntityInScope(authHeader, slot.getLocation().getId());
+        WorkshopLocation location = locationService.requireLocationEntityInScope(authHeader, slot.getLocation().getId());
 
         if (request == null) {
             throw new WorkshopValidationException("Slot patch request must not be null");
@@ -93,6 +94,24 @@ public class WorkshopSlotService {
             slot.setActive(request.getActive());
         }
 
+        if (request.getStartsAtLocal() != null || request.getEndsAtLocal() != null) {
+            LocalTime start = request.getStartsAtLocal() != null ? request.getStartsAtLocal() : slot.getStartTime();
+            LocalTime end = request.getEndsAtLocal() != null ? request.getEndsAtLocal() : slot.getEndTime();
+            if (!start.isBefore(end)) {
+                throw new WorkshopValidationException("Slot start time must be strictly before end time");
+            }
+            List<WorkshopSlot> existingSlots = slotRepository.findByLocationId(location.getId());
+            for (WorkshopSlot existing : existingSlots) {
+                if (!existing.getId().equals(slot.getId()) && isOverlapping(start, end, existing.getStartTime(), existing.getEndTime())) {
+                    throw new WorkshopSlotConflictException("Updated slot interval " + start + " - " + end +
+                            " overlaps with configured slot '" + existing.getLabel() + "' (" +
+                            existing.getStartTime() + " - " + existing.getEndTime() + ")");
+                }
+            }
+            slot.setStartTime(start);
+            slot.setEndTime(end);
+        }
+
         WorkshopSlot saved = slotRepository.save(slot);
         return toSlotResponse(saved, location);
     }
@@ -100,17 +119,8 @@ public class WorkshopSlotService {
     @Transactional(readOnly = true)
     public WorkshopSlot requireSlotEntityInScope(String authHeader, String slotIdentifier) {
         WorkshopSlot slot = resolveSlot(slotIdentifier);
-        branchService.requireBranchEntityInScope(authHeader, slot.getLocation().getId());
+        locationService.requireLocationEntityInScope(authHeader, slot.getLocation().getId());
         return slot;
-    }
-
-    private WorkshopLocation resolveBranch(String authHeader, String branchIdentifier) {
-        try {
-            Long numericId = Long.parseLong(branchIdentifier);
-            return branchService.requireBranchEntityInScope(authHeader, numericId);
-        } catch (NumberFormatException ignored) {
-            return branchService.requireBranchEntityInScopeByReference(authHeader, branchIdentifier);
-        }
     }
 
     private WorkshopSlot resolveSlot(String slotIdentifier) {
@@ -142,15 +152,15 @@ public class WorkshopSlotService {
         }
     }
 
-    private boolean isOverlapping(java.time.LocalTime start1, java.time.LocalTime end1,
-                                  java.time.LocalTime start2, java.time.LocalTime end2) {
+    private boolean isOverlapping(LocalTime start1, LocalTime end1,
+                                  LocalTime start2, LocalTime end2) {
         return start1.isBefore(end2) && end1.isAfter(start2);
     }
 
     private SlotResponse toSlotResponse(WorkshopSlot slot, WorkshopLocation location) {
         return SlotResponse.builder()
                 .id(slot.getReference())
-                .branchId(String.valueOf(location.getId()))
+                .locationId(location.getId())
                 .label(slot.getLabel())
                 .startsAtLocal(slot.getStartTime())
                 .endsAtLocal(slot.getEndTime())

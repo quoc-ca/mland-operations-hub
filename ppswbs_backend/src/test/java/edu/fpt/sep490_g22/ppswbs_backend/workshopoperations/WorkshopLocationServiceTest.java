@@ -3,12 +3,12 @@ package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.BranchRequest;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.BranchResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopLocation;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLocationScopeException;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopBranchService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopForbiddenException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLocationScopeException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLocationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOperationsAuthorizationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopValidationException;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,7 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class WorkshopBranchServiceTest {
+public class WorkshopLocationServiceTest {
 
     @Mock
     private WorkshopLocationRepository locationRepository;
@@ -41,7 +41,7 @@ public class WorkshopBranchServiceTest {
     private AccountFacade accountFacade;
 
     @InjectMocks
-    private WorkshopBranchService branchService;
+    private WorkshopLocationService locationService;
 
     private static final String AUTH_HEADER = "Bearer test-token";
     private static final Long MANAGER_A_ID = 10L;
@@ -50,8 +50,8 @@ public class WorkshopBranchServiceTest {
     private static final Long MEMBER_ID = 40L;
     private static final Long ADMIN_ID = 99L;
 
-    private WorkshopLocation branch1;
-    private WorkshopLocation branch2;
+    private WorkshopLocation location1;
+    private WorkshopLocation location2;
 
     private AccountSummary adminAccount;
     private AccountSummary managerAccountA;
@@ -60,18 +60,18 @@ public class WorkshopBranchServiceTest {
 
     @BeforeEach
     void setUp() {
-        branch1 = WorkshopLocation.builder()
+        location1 = WorkshopLocation.builder()
                 .id(1L)
-                .code("BR-01")
-                .displayName("Branch One")
+                .code("LOC-01")
+                .displayName("Location One")
                 .addressSnapshot("123 Street 1")
                 .active(true)
                 .build();
 
-        branch2 = WorkshopLocation.builder()
+        location2 = WorkshopLocation.builder()
                 .id(2L)
-                .code("BR-02")
-                .displayName("Branch Two")
+                .code("LOC-02")
+                .displayName("Location Two")
                 .addressSnapshot("456 Street 2")
                 .active(true)
                 .build();
@@ -90,38 +90,41 @@ public class WorkshopBranchServiceTest {
     }
 
     @Nested
-    @DisplayName("Branch Listing Tests")
-    class ListBranchesTests {
+    @DisplayName("Location Listing Tests")
+    class ListLocationsTests {
 
         @Test
-        @DisplayName("All-branch actor (Admin) lists all active branches")
-        void adminListsAllBranches() {
+        @DisplayName("All-location actor (Admin) lists all active locations")
+        void adminListsAllLocations() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(adminAccount);
             when(authorizationService.isAllBranchActor(adminAccount)).thenReturn(true);
-            when(locationRepository.findByActiveTrue()).thenReturn(List.of(branch1, branch2));
+            when(locationRepository.findByActiveTrue()).thenReturn(List.of(location1, location2));
 
-            List<BranchResponse> responses = branchService.listBranches(AUTH_HEADER);
+            List<LocationResponse> responses = locationService.listLocations(AUTH_HEADER);
 
             assertThat(responses).hasSize(2);
-            assertThat(responses.get(0).getCode()).isEqualTo("BR-01");
-            assertThat(responses.get(1).getCode()).isEqualTo("BR-02");
+            assertThat(responses.get(0).getCode()).isEqualTo("LOC-01");
+            assertThat(responses.get(0).getId()).isEqualTo(1L);
+            assertThat(responses.get(1).getCode()).isEqualTo("LOC-02");
+            assertThat(responses.get(1).getId()).isEqualTo(2L);
             verify(locationRepository).findByActiveTrue();
             verify(accountFacade, never()).getLocationScope(any());
         }
 
         @Test
-        @DisplayName("Manager lists only branches within their location scope")
-        void managerListsScopedBranchesOnly() {
+        @DisplayName("Manager lists only locations within their location scope")
+        void managerListsScopedLocationsOnly() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(managerAccountA);
             when(authorizationService.isAllBranchActor(managerAccountA)).thenReturn(false);
             when(authorizationService.isManager(managerAccountA)).thenReturn(true);
             when(accountFacade.getLocationScope(MANAGER_A_ID)).thenReturn(List.of(1L));
-            when(locationRepository.findByIdInAndActiveTrue(List.of(1L))).thenReturn(List.of(branch1));
+            when(locationRepository.findByIdInAndActiveTrue(List.of(1L))).thenReturn(List.of(location1));
 
-            List<BranchResponse> responses = branchService.listBranches(AUTH_HEADER);
+            List<LocationResponse> responses = locationService.listLocations(AUTH_HEADER);
 
             assertThat(responses).hasSize(1);
-            assertThat(responses.get(0).getCode()).isEqualTo("BR-01");
+            assertThat(responses.get(0).getCode()).isEqualTo("LOC-01");
+            assertThat(responses.get(0).getId()).isEqualTo(1L);
             verify(locationRepository).findByIdInAndActiveTrue(List.of(1L));
             verify(locationRepository, never()).findByActiveTrue();
         }
@@ -134,69 +137,70 @@ public class WorkshopBranchServiceTest {
             when(authorizationService.isManager(managerAccountA)).thenReturn(true);
             when(accountFacade.getLocationScope(MANAGER_A_ID)).thenReturn(List.of());
 
-            List<BranchResponse> responses = branchService.listBranches(AUTH_HEADER);
+            List<LocationResponse> responses = locationService.listLocations(AUTH_HEADER);
 
             assertThat(responses).isEmpty();
             verify(locationRepository, never()).findByIdInAndActiveTrue(any());
         }
 
         @Test
-        @DisplayName("Member role is denied with WorkshopForbiddenException when listing branches")
-        void memberDeniedFromListingBranches() {
+        @DisplayName("Member role is denied with WorkshopForbiddenException when listing locations")
+        void memberDeniedFromListingLocations() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(memberAccount);
             when(authorizationService.isAllBranchActor(memberAccount)).thenReturn(false);
             when(authorizationService.isManager(memberAccount)).thenReturn(false);
             when(authorizationService.isStaff(memberAccount)).thenReturn(false);
 
-            assertThatThrownBy(() -> branchService.listBranches(AUTH_HEADER))
+            assertThatThrownBy(() -> locationService.listLocations(AUTH_HEADER))
                     .isInstanceOf(WorkshopForbiddenException.class)
                     .hasMessageContaining("Actor cannot access workshop locations");
         }
     }
 
     @Nested
-    @DisplayName("Branch Creation Tests")
-    class CreateBranchTests {
+    @DisplayName("Location Creation Tests")
+    class CreateLocationTests {
 
         @Test
-        @DisplayName("All-branch actor (Admin) successfully creates a new branch")
-        void adminCreatesBranchSuccessfully() {
-            BranchRequest request = BranchRequest.builder()
-                    .code("BR-03")
+        @DisplayName("All-location actor (Admin) successfully creates a new location")
+        void adminCreatesLocationSuccessfully() {
+            LocationRequest request = LocationRequest.builder()
+                    .code("LOC-03")
                     .name("District 3 Workshop")
                     .address("789 Vo Van Tan, D3, HCMC")
                     .active(true)
                     .build();
 
             when(authorizationService.requireAllBranchActor(AUTH_HEADER)).thenReturn(adminAccount);
-            when(locationRepository.findByCode("BR-03")).thenReturn(Optional.empty());
+            when(locationRepository.findByCode("LOC-03")).thenReturn(Optional.empty());
             when(locationRepository.save(any(WorkshopLocation.class))).thenAnswer(invocation -> {
                 WorkshopLocation b = invocation.getArgument(0);
                 b.setId(3L);
                 return b;
             });
 
-            BranchResponse response = branchService.createBranch(AUTH_HEADER, request);
+            LocationResponse response = locationService.createLocation(AUTH_HEADER, request);
 
             assertThat(response).isNotNull();
-            assertThat(response.getCode()).isEqualTo("BR-03");
+            assertThat(response.getId()).isEqualTo(3L);
+            assertThat(response.getCode()).isEqualTo("LOC-03");
             assertThat(response.getName()).isEqualTo("District 3 Workshop");
             verify(locationRepository).save(any(WorkshopLocation.class));
         }
 
         @Test
-        @DisplayName("Duplicate branch code is rejected with WorkshopValidationException")
-        void duplicateBranchCodeRejected() {
-            BranchRequest request = BranchRequest.builder()
-                    .code("BR-01")
-                    .name("Duplicate Branch")
+        @DisplayName("Duplicate location code is rejected with WorkshopValidationException")
+        void duplicateLocationCodeRejected() {
+            LocationRequest request = LocationRequest.builder()
+                    .code("LOC-01")
+                    .name("Duplicate Location")
                     .address("Some Address")
                     .build();
 
             when(authorizationService.requireAllBranchActor(AUTH_HEADER)).thenReturn(adminAccount);
-            when(locationRepository.findByCode("BR-01")).thenReturn(Optional.of(branch1));
+            when(locationRepository.findByCode("LOC-01")).thenReturn(Optional.of(location1));
 
-            assertThatThrownBy(() -> branchService.createBranch(AUTH_HEADER, request))
+            assertThatThrownBy(() -> locationService.createLocation(AUTH_HEADER, request))
                     .isInstanceOf(WorkshopValidationException.class)
                     .hasMessageContaining("already exists");
 

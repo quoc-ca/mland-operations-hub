@@ -3,8 +3,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.BranchRequest;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.BranchResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopLocation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,20 +14,19 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Scoped Workshop Location/Branch management service.
- * Adapts to canonical WorkshopLocation repository.
+ * Scoped Workshop Location management service for canonical WorkshopLocation resource.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class WorkshopBranchService {
+public class WorkshopLocationService {
 
     private final WorkshopLocationRepository locationRepository;
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final AccountFacade accountFacade;
 
     @Transactional(readOnly = true)
-    public List<BranchResponse> listBranches(String authHeader) {
+    public List<LocationResponse> listLocations(String authHeader) {
         AccountSummary actor = authorizationService.authenticate(authHeader);
 
         List<WorkshopLocation> locations;
@@ -48,22 +47,22 @@ public class WorkshopBranchService {
         }
 
         return locations.stream()
-                .map(this::toBranchResponse)
+                .map(this::toLocationResponse)
                 .toList();
     }
 
     @Transactional
-    public BranchResponse createBranch(String authHeader, BranchRequest request) {
+    public LocationResponse createLocation(String authHeader, LocationRequest request) {
         AccountSummary actor = authorizationService.requireAllBranchActor(authHeader);
 
         if (request == null) {
-            throw new WorkshopValidationException("Branch request must not be null");
+            throw new WorkshopValidationException("Location request must not be null");
         }
         if (request.getCode() == null || request.getCode().trim().isBlank()) {
-            throw new WorkshopValidationException("Branch code is required");
+            throw new WorkshopValidationException("Location code is required");
         }
         if (request.getName() == null || request.getName().trim().isBlank()) {
-            throw new WorkshopValidationException("Branch name is required");
+            throw new WorkshopValidationException("Location name is required");
         }
 
         String normalizedCode = request.getCode().trim();
@@ -83,19 +82,26 @@ public class WorkshopBranchService {
         log.info("Created workshop location id={}, code={}, by all-location actor accountId={}",
                 saved.getId(), saved.getCode(), actor.accountId());
 
-        return toBranchResponse(saved);
+        return toLocationResponse(saved);
     }
 
     @Transactional(readOnly = true)
-    public BranchResponse getBranchByReference(String authHeader, String reference) {
-        WorkshopLocation location = requireLocationEntity(reference);
-        AccountSummary actor = authorizationService.authenticate(authHeader);
-        verifyLocationScope(actor, location);
-        return toBranchResponse(location);
+    public LocationResponse getLocationById(String authHeader, Long locationId) {
+        WorkshopLocation location = requireLocationEntityInScope(authHeader, locationId);
+        return toLocationResponse(location);
     }
 
     @Transactional(readOnly = true)
-    public WorkshopLocation requireBranchEntityInScope(String authHeader, Long locationId) {
+    public LocationResponse getLocationByReference(String authHeader, String reference) {
+        WorkshopLocation location = requireLocationEntityByReference(authHeader, reference);
+        return toLocationResponse(location);
+    }
+
+    @Transactional(readOnly = true)
+    public WorkshopLocation requireLocationEntityInScope(String authHeader, Long locationId) {
+        if (locationId == null) {
+            throw new WorkshopValidationException("Location ID must not be null");
+        }
         AccountSummary actor = authorizationService.authenticate(authHeader);
         WorkshopLocation location = locationRepository.findById(locationId)
                 .orElseThrow(() -> new WorkshopNotFoundException("Workshop location not found with ID " + locationId));
@@ -105,7 +111,7 @@ public class WorkshopBranchService {
     }
 
     @Transactional(readOnly = true)
-    public WorkshopLocation requireBranchEntityInScopeByReference(String authHeader, String identifier) {
+    public WorkshopLocation requireLocationEntityByReference(String authHeader, String identifier) {
         AccountSummary actor = authorizationService.authenticate(authHeader);
         WorkshopLocation location = requireLocationEntity(identifier);
 
@@ -140,9 +146,9 @@ public class WorkshopBranchService {
         throw new WorkshopForbiddenException("Access denied: Actor cannot access workshop locations");
     }
 
-    private BranchResponse toBranchResponse(WorkshopLocation location) {
-        return BranchResponse.builder()
-                .id(String.valueOf(location.getId()))
+    private LocationResponse toLocationResponse(WorkshopLocation location) {
+        return LocationResponse.builder()
+                .id(location.getId())
                 .code(location.getCode())
                 .name(location.getDisplayName())
                 .address(location.getAddressSnapshot())

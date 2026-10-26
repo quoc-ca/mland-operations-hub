@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
  * with correlation tracking, preventing entity leakage and PII disclosure.
  */
 @Slf4j
+@org.springframework.core.annotation.Order(org.springframework.core.Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackages = {
     "edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations",
     "edu.fpt.sep490_g22.ppswbs_backend.workshopoperations"

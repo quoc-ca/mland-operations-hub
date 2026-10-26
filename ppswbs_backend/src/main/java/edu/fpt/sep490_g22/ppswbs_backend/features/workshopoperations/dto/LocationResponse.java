@@ -9,9 +9,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BranchResponse {
+public class LocationResponse {
 
-    private String id;
+    private Long id;
     private String code;
     private String name;
     private String address;

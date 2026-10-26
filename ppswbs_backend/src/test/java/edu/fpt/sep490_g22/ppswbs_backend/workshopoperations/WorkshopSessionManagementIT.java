@@ -5,6 +5,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.BulkSessionRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SessionRequest;
@@ -19,6 +22,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.*;
@@ -33,11 +37,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * T019: Real MySQL integration tests for User Story 1 (Manager branch, slot, and session management).
+ * T019: Real MySQL integration tests for User Story 1 (Manager location, slot, and session management).
  * <p>
  * Verifies against MySQL persistence:
- * 1. Branch scope denial across Managers.
- * 2. Slot overlap rejection against both active and inactive slots in the branch.
+ * 1. Location scope denial across Managers.
+ * 2. Slot overlap rejection against both active and inactive slots in the location.
  * 3. 90-day future limit on session creation and bulk generation.
  * 4. Bulk generation duplicate skip and report behavior without duplicate rows.
  * 5. Inherited schedule snapshot immutability (editing slot hours does not alter existing session snapshots).
@@ -46,6 +50,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@TestPropertySource(properties = {
+        "workshop.operations.auth.allow-test-tokens=true"
+})
 public class WorkshopSessionManagementIT {
 
     @Autowired
@@ -56,6 +63,9 @@ public class WorkshopSessionManagementIT {
 
     @MockBean
     private AccountFacade accountFacade;
+
+    @MockBean
+    private TokenVerificationService tokenVerificationService;
 
     @Autowired
     private WorkshopLocationRepository locationRepository;
@@ -76,8 +86,8 @@ public class WorkshopSessionManagementIT {
     private static final String MGR_B_TOKEN = "Bearer test-uid:mgr-b";
     private static final String ADMIN_TOKEN = "Bearer test-uid:admin";
 
-    private WorkshopLocation branchA;
-    private WorkshopLocation branchB;
+    private WorkshopLocation locationA;
+    private WorkshopLocation locationB;
     private WorkshopSlot slotMorning;
 
     @BeforeEach
@@ -96,23 +106,23 @@ public class WorkshopSessionManagementIT {
         jdbcTemplate.execute("TRUNCATE TABLE workshop_locations");
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
 
-        branchA = locationRepository.save(WorkshopLocation.builder()
-                .code("BR-HCM-01")
-                .displayName("District 1 Branch")
+        locationA = locationRepository.save(WorkshopLocation.builder()
+                .code("LOC-HCM-01")
+                .displayName("District 1 Workshop Location")
                 .addressSnapshot("123 Le Loi, D1, HCMC")
                 .active(true)
                 .build());
 
-        branchB = locationRepository.save(WorkshopLocation.builder()
-                .code("BR-HCM-02")
-                .displayName("District 2 Branch")
+        locationB = locationRepository.save(WorkshopLocation.builder()
+                .code("LOC-HCM-02")
+                .displayName("District 2 Workshop Location")
                 .addressSnapshot("456 Thao Dien, D2, HCMC")
                 .active(true)
                 .build());
 
         slotMorning = slotRepository.save(WorkshopSlot.builder()
                 .reference(UUID.randomUUID().toString())
-                .location(branchA)
+                .location(locationA)
                 .label("Standard Morning Slot")
                 .startTime(LocalTime.of(9, 0))
                 .endTime(LocalTime.of(12, 0))
@@ -120,35 +130,50 @@ public class WorkshopSessionManagementIT {
                 .active(true)
                 .build());
 
-        // Setup AccountFacade mocks: Manager A has scope for Branch A (id=branchA.getId())
+        // Setup AccountFacade mocks: Manager A has scope for Location A (id=locationA.getId())
         when(accountFacade.resolveAccount("mgr-a")).thenReturn(Optional.of(
                 new AccountSummary(10L, ActorRole.MANAGER, ActorStatus.ACTIVE, "mgra@mland.vn", Instant.now(), Instant.now())));
-        when(accountFacade.getLocationScope(10L)).thenReturn(List.of(branchA.getId()));
+        when(accountFacade.getLocationScope(10L)).thenReturn(List.of(locationA.getId()));
 
-        // Manager B has scope for Branch B
+        // Manager B has scope for Location B
         when(accountFacade.resolveAccount("mgr-b")).thenReturn(Optional.of(
                 new AccountSummary(20L, ActorRole.MANAGER, ActorStatus.ACTIVE, "mgrb@mland.vn", Instant.now(), Instant.now())));
-        when(accountFacade.getLocationScope(20L)).thenReturn(List.of(branchB.getId()));
+        when(accountFacade.getLocationScope(20L)).thenReturn(List.of(locationB.getId()));
 
         // Admin has universal authority
         when(accountFacade.resolveAccount("admin")).thenReturn(Optional.of(
                 new AccountSummary(99L, ActorRole.ADMIN, ActorStatus.ACTIVE, "admin@mland.vn", Instant.now(), Instant.now())));
+
+        // Setup TokenVerificationService and AccountFacade.resolveActor for IdentityGateFilter
+        when(tokenVerificationService.verify("test-uid:mgr-a")).thenReturn(
+                new VerifiedIdentity("mgr-a", "mgra@mland.vn", true, Instant.now()));
+        when(tokenVerificationService.verify("test-uid:mgr-b")).thenReturn(
+                new VerifiedIdentity("mgr-b", "mgrb@mland.vn", true, Instant.now()));
+        when(tokenVerificationService.verify("test-uid:admin")).thenReturn(
+                new VerifiedIdentity("admin", "admin@mland.vn", true, Instant.now()));
+
+        when(accountFacade.resolveActor("mgr-a", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(10L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of(locationA.getId()))));
+        when(accountFacade.resolveActor("mgr-b", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(20L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of(locationB.getId()))));
+        when(accountFacade.resolveActor("admin", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(99L, ActorRole.ADMIN, ActorStatus.ACTIVE, true, List.of())));
     }
 
     // =========================================================================
-    // 1. Branch Scope Denial
+    // 1. Location Scope Denial
     // =========================================================================
 
     @Test
-    @DisplayName("Manager A attempting to configure slots or sessions on Branch B is denied with 403 LOCATION_SCOPE_DENIED")
-    void managerDeniedOnOutOfScopeBranch() throws Exception {
-        // Manager A attempts to list slots on Branch B
-        mockMvc.perform(get("/api/v1/workshop-branches/" + branchB.getId() + "/slots")
+    @DisplayName("Manager A attempting to configure slots or sessions on Location B is denied with 403 LOCATION_SCOPE_DENIED")
+    void managerDeniedOnOutOfScopeLocation() throws Exception {
+        // Manager A attempts to list slots on Location B
+        mockMvc.perform(get("/api/v1/workshop-locations/" + locationB.getId() + "/slots")
                         .header("Authorization", MGR_A_TOKEN))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("LOCATION_SCOPE_DENIED"));
 
-        // Manager A attempts to create a slot on Branch B
+        // Manager A attempts to create a slot on Location B
         SlotRequest newSlot = SlotRequest.builder()
                 .label("Unauthorized Slot")
                 .startsAtLocal(LocalTime.of(13, 0))
@@ -157,7 +182,7 @@ public class WorkshopSessionManagementIT {
                 .active(true)
                 .build();
 
-        mockMvc.perform(post("/api/v1/workshop-branches/" + branchB.getId() + "/slots")
+        mockMvc.perform(post("/api/v1/workshop-locations/" + locationB.getId() + "/slots")
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(newSlot)))
@@ -170,7 +195,7 @@ public class WorkshopSessionManagementIT {
     // =========================================================================
 
     @Test
-    @DisplayName("Slot overlap is rejected (409) against active and inactive configured slots in the branch")
+    @DisplayName("Slot overlap is rejected (409) against active and inactive configured slots in the location")
     void slotOverlapRejectedAgainstActiveAndInactiveSlots() throws Exception {
         // 1. Attempt overlapping slot with active slotMorning (09:00-12:00): requested 10:00-13:00
         SlotRequest overlapping = SlotRequest.builder()
@@ -181,7 +206,7 @@ public class WorkshopSessionManagementIT {
                 .active(true)
                 .build();
 
-        mockMvc.perform(post("/api/v1/workshop-branches/" + branchA.getId() + "/slots")
+        mockMvc.perform(post("/api/v1/workshop-locations/" + locationA.getId() + "/slots")
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(overlapping)))
@@ -201,7 +226,7 @@ public class WorkshopSessionManagementIT {
                 .active(true)
                 .build();
 
-        mockMvc.perform(post("/api/v1/workshop-branches/" + branchA.getId() + "/slots")
+        mockMvc.perform(post("/api/v1/workshop-locations/" + locationA.getId() + "/slots")
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(overlapInactive)))
@@ -217,7 +242,7 @@ public class WorkshopSessionManagementIT {
                 .active(true)
                 .build();
 
-        mockMvc.perform(post("/api/v1/workshop-branches/" + branchA.getId() + "/slots")
+        mockMvc.perform(post("/api/v1/workshop-locations/" + locationA.getId() + "/slots")
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(nonOverlapping)))
@@ -235,7 +260,7 @@ public class WorkshopSessionManagementIT {
         LocalDate dateBeyond90 = LocalDate.now().plusDays(95);
 
         SessionRequest request = SessionRequest.builder()
-                .branchId(String.valueOf(branchA.getId()))
+                .locationId(locationA.getId())
                 .slotId(slotMorning.getReference())
                 .workshopDate(dateBeyond90)
                 .capacity(20)
@@ -255,7 +280,7 @@ public class WorkshopSessionManagementIT {
         LocalDate yesterday = LocalDate.now().minusDays(1);
 
         SessionRequest request = SessionRequest.builder()
-                .branchId(String.valueOf(branchA.getId()))
+                .locationId(locationA.getId())
                 .slotId(slotMorning.getReference())
                 .workshopDate(yesterday)
                 .capacity(20)
@@ -280,7 +305,7 @@ public class WorkshopSessionManagementIT {
         LocalDate to = LocalDate.now().plusDays(12);
 
         BulkSessionRequest bulkRequest = BulkSessionRequest.builder()
-                .branchId(String.valueOf(branchA.getId()))
+                .locationId(locationA.getId())
                 .slotIds(List.of(slotMorning.getReference()))
                 .from(from)
                 .to(to)
@@ -324,7 +349,7 @@ public class WorkshopSessionManagementIT {
 
         // 1. Create a session inheriting slotMorning (09:00 - 12:00)
         SessionRequest sessionReq = SessionRequest.builder()
-                .branchId(String.valueOf(branchA.getId()))
+                .locationId(locationA.getId())
                 .slotId(slotMorning.getReference())
                 .workshopDate(sessionDate)
                 .capacity(20)
@@ -383,7 +408,7 @@ public class WorkshopSessionManagementIT {
         Instant customCheckIn = sessionStart.minusSeconds(7200).toInstant(); // 2 hours before start instead of default 1 hour
 
         SessionRequest request = SessionRequest.builder()
-                .branchId(String.valueOf(branchA.getId()))
+                .locationId(locationA.getId())
                 .slotId(slotMorning.getReference())
                 .workshopDate(sessionDate)
                 .capacity(15)

@@ -18,8 +18,8 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class SessionRequest {
 
-    @NotBlank(message = "branchId is required")
-    private String branchId;
+    @NotNull(message = "locationId is required")
+    private Long locationId;
 
     @NotBlank(message = "slotId is required")
     private String slotId;

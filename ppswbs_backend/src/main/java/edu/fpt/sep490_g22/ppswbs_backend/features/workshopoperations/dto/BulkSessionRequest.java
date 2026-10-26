@@ -21,8 +21,8 @@ import java.util.List;
 @AllArgsConstructor
 public class BulkSessionRequest {
 
-    @NotBlank(message = "branchId is required")
-    private String branchId;
+    @NotNull(message = "locationId is required")
+    private Long locationId;
 
     @NotEmpty(message = "slotIds must contain at least one slot ID")
     private List<String> slotIds;

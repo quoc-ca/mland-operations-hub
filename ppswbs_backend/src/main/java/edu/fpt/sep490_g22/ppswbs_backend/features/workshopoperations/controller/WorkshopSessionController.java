@@ -44,11 +44,11 @@ public class WorkshopSessionController {
     @GetMapping("/workshop-sessions")
     public ResponseEntity<List<SessionResponse>> searchSessions(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @RequestParam(value = "branchId", required = false) String branchId,
+            @RequestParam(value = "locationId", required = false) Long locationId,
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(value = "state", required = false) SessionState state) {
-        List<SessionResponse> response = sessionService.searchSessions(authHeader, branchId, from, to, state);
+        List<SessionResponse> response = sessionService.searchSessions(authHeader, locationId, from, to, state);
         return ResponseEntity.ok(response);
     }
 

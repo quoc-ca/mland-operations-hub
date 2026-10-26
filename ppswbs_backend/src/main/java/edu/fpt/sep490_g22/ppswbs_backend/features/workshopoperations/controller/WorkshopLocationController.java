@@ -1,10 +1,10 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.controller;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.BranchRequest;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.BranchResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SlotRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SlotResponse;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopBranchService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLocationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopSlotService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,50 +15,50 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * T018: REST controller for Workshop Branch and Branch Slot endpoints.
+ * T018: REST controller for Workshop Location and Location Slot endpoints.
  * Corresponds to OpenAPI paths:
- * - GET  /api/v1/workshop-branches
- * - POST /api/v1/workshop-branches
- * - GET  /api/v1/workshop-branches/{branchId}/slots
- * - POST /api/v1/workshop-branches/{branchId}/slots
+ * - GET  /api/v1/workshop-locations
+ * - POST /api/v1/workshop-locations
+ * - GET  /api/v1/workshop-locations/{locationId}/slots
+ * - POST /api/v1/workshop-locations/{locationId}/slots
  */
 @RestController
-@RequestMapping("/api/v1/workshop-branches")
+@RequestMapping("/api/v1/workshop-locations")
 @RequiredArgsConstructor
-public class WorkshopBranchController {
+public class WorkshopLocationController {
 
-    private final WorkshopBranchService branchService;
+    private final WorkshopLocationService locationService;
     private final WorkshopSlotService slotService;
 
     @GetMapping
-    public ResponseEntity<List<BranchResponse>> listBranches(
+    public ResponseEntity<List<LocationResponse>> listLocations(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        List<BranchResponse> response = branchService.listBranches(authHeader);
+        List<LocationResponse> response = locationService.listLocations(authHeader);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping
-    public ResponseEntity<BranchResponse> createBranch(
+    public ResponseEntity<LocationResponse> createLocation(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @Valid @RequestBody BranchRequest request) {
-        BranchResponse response = branchService.createBranch(authHeader, request);
+            @Valid @RequestBody LocationRequest request) {
+        LocationResponse response = locationService.createLocation(authHeader, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @GetMapping("/{branchId}/slots")
-    public ResponseEntity<List<SlotResponse>> listBranchSlots(
+    @GetMapping("/{locationId}/slots")
+    public ResponseEntity<List<SlotResponse>> listLocationSlots(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @PathVariable("branchId") String branchId) {
-        List<SlotResponse> response = slotService.listSlots(authHeader, branchId);
+            @PathVariable("locationId") Long locationId) {
+        List<SlotResponse> response = slotService.listSlots(authHeader, locationId);
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/{branchId}/slots")
+    @PostMapping("/{locationId}/slots")
     public ResponseEntity<SlotResponse> createSlot(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @PathVariable("branchId") String branchId,
+            @PathVariable("locationId") Long locationId,
             @Valid @RequestBody SlotRequest request) {
-        SlotResponse response = slotService.createSlot(authHeader, branchId, request);
+        SlotResponse response = slotService.createSlot(authHeader, locationId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

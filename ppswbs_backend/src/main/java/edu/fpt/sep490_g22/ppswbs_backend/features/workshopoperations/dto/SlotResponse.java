@@ -15,7 +15,7 @@ import java.time.LocalTime;
 public class SlotResponse {
 
     private String id;
-    private String branchId;
+    private Long locationId;
     private String label;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm[:ss]")

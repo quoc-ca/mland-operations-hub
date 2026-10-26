@@ -30,7 +30,7 @@ public class WorkshopSessionService {
     private static final ZoneId WORKSHOP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final WorkshopSessionRepository sessionRepository;
-    private final WorkshopBranchService branchService;
+    private final WorkshopLocationService locationService;
     private final WorkshopSlotService slotService;
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final AccountFacade accountFacade;
@@ -41,7 +41,7 @@ public class WorkshopSessionService {
         AccountSummary actor = authorizationService.authenticate(authHeader);
         validateSessionRequest(request);
 
-        WorkshopLocation location = branchService.requireBranchEntityInScopeByReference(authHeader, request.getBranchId());
+        WorkshopLocation location = locationService.requireLocationEntityInScope(authHeader, request.getLocationId());
         WorkshopSlot slot = slotService.requireSlotEntityInScope(authHeader, request.getSlotId());
 
         if (!slot.getLocation().getId().equals(location.getId())) {
@@ -115,25 +115,7 @@ public class WorkshopSessionService {
     @Transactional
     public BulkGenerationResponse generateBulkSessions(String authHeader, BulkSessionRequest request) {
         AccountSummary actor = authorizationService.authenticate(authHeader);
-
-        if (request == null) {
-            throw new WorkshopValidationException("Bulk session request must not be null");
-        }
-        if (request.getBranchId() == null || request.getBranchId().isBlank()) {
-            throw new WorkshopValidationException("Branch/Location ID is required");
-        }
-        if (request.getSlotIds() == null || request.getSlotIds().isEmpty()) {
-            throw new WorkshopValidationException("At least one slot ID is required");
-        }
-        if (request.getFrom() == null || request.getTo() == null) {
-            throw new WorkshopValidationException("From and To dates are required");
-        }
-        if (request.getFrom().isAfter(request.getTo())) {
-            throw new WorkshopValidationException("From date cannot be after To date");
-        }
-        if (request.getWeekdays() == null || request.getWeekdays().isEmpty()) {
-            throw new WorkshopValidationException("At least one weekday must be specified");
-        }
+        validateBulkRequest(request);
 
         ZonedDateTime now = Instant.now().atZone(WORKSHOP_ZONE);
         LocalDate today = now.toLocalDate();
@@ -146,7 +128,7 @@ public class WorkshopSessionService {
             throw new WorkshopValidationException("Initial state must be DRAFT or PUBLISHED");
         }
 
-        WorkshopLocation location = branchService.requireBranchEntityInScopeByReference(authHeader, request.getBranchId());
+        WorkshopLocation location = locationService.requireLocationEntityInScope(authHeader, request.getLocationId());
         List<WorkshopSlot> slots = request.getSlotIds().stream()
                 .map(slotId -> slotService.requireSlotEntityInScope(authHeader, slotId))
                 .toList();
@@ -208,13 +190,13 @@ public class WorkshopSessionService {
     }
 
     @Transactional(readOnly = true)
-    public List<SessionResponse> searchSessions(String authHeader, String branchId,
+    public List<SessionResponse> searchSessions(String authHeader, Long locationId,
                                                 LocalDate from, LocalDate to, SessionState state) {
         AccountSummary actor = authorizationService.authenticate(authHeader);
 
         List<Long> allowedLocationIds;
-        if (branchId != null && !branchId.isBlank()) {
-            WorkshopLocation location = branchService.requireBranchEntityInScopeByReference(authHeader, branchId);
+        if (locationId != null) {
+            WorkshopLocation location = locationService.requireLocationEntityInScope(authHeader, locationId);
             allowedLocationIds = List.of(location.getId());
         } else {
             if (authorizationService.isAllBranchActor(actor)) {
@@ -281,7 +263,7 @@ public class WorkshopSessionService {
         WorkshopSession session = sessionRepository.findByReference(sessionReference)
                 .orElseThrow(() -> new WorkshopNotFoundException("Workshop session not found with reference " + sessionReference));
 
-        branchService.requireBranchEntityInScope(authHeader, session.getLocation().getId());
+        locationService.requireLocationEntityInScope(authHeader, session.getLocation().getId());
         return session;
     }
 
@@ -289,8 +271,8 @@ public class WorkshopSessionService {
         if (request == null) {
             throw new WorkshopValidationException("Session request must not be null");
         }
-        if (request.getBranchId() == null || request.getBranchId().isBlank()) {
-            throw new WorkshopValidationException("Branch/Location ID is required");
+        if (request.getLocationId() == null) {
+            throw new WorkshopValidationException("Location ID is required");
         }
         if (request.getSlotId() == null || request.getSlotId().isBlank()) {
             throw new WorkshopValidationException("Slot ID is required");
@@ -300,6 +282,27 @@ public class WorkshopSessionService {
         }
         if (request.getCapacity() != null && request.getCapacity() < 1) {
             throw new WorkshopValidationException("Capacity must be at least 1");
+        }
+    }
+
+    private void validateBulkRequest(BulkSessionRequest request) {
+        if (request == null) {
+            throw new WorkshopValidationException("Bulk session request must not be null");
+        }
+        if (request.getLocationId() == null) {
+            throw new WorkshopValidationException("Location ID is required");
+        }
+        if (request.getSlotIds() == null || request.getSlotIds().isEmpty()) {
+            throw new WorkshopValidationException("At least one slot ID is required");
+        }
+        if (request.getFrom() == null || request.getTo() == null) {
+            throw new WorkshopValidationException("From and To dates are required");
+        }
+        if (request.getFrom().isAfter(request.getTo())) {
+            throw new WorkshopValidationException("From date cannot be after To date");
+        }
+        if (request.getWeekdays() == null || request.getWeekdays().isEmpty()) {
+            throw new WorkshopValidationException("At least one weekday must be specified");
         }
     }
 
@@ -322,7 +325,7 @@ public class WorkshopSessionService {
     private SessionResponse toSessionResponse(WorkshopSession session) {
         return SessionResponse.builder()
                 .id(session.getReference())
-                .branchId(String.valueOf(session.getLocation().getId()))
+                .locationId(session.getLocation().getId())
                 .slotId(session.getSlot().getReference())
                 .workshopDate(session.getWorkshopDate())
                 .scheduledStartAt(session.getScheduledStartAt())
@@ -331,7 +334,7 @@ public class WorkshopSessionService {
                 .checkInOpeningSource(session.getCheckInOpeningSource())
                 .capacity(session.getCapacity())
                 .state(session.getState())
-                .operationalLeadPersonnelId(null)
+                .operationalLeadAccountId(null)
                 .build();
     }
 }

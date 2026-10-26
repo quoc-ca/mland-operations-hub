@@ -37,11 +37,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * T014: Contract verification test for Workshop Operations US1 endpoints
- * (branch, slot, session, bulk session generation) against contracts/workshop-operations.openapi.yaml.
+ * (location, slot, session, bulk session generation) against contracts/workshop-operations.openapi.yaml.
  * <p>
  * Verifies request/response schema shape, validation/error contract (RFC 7807 Problem Detail),
  * timezone Asia/Ho_Chi_Minh same-day constraints, capacity minimums, and security scheme boundaries.
- * Does not implement controller/service/DAO ahead of T015–T018.
+ * Proves that retired branch routes and fields are rejected/absent.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -127,56 +127,57 @@ public class WorkshopSessionContractIT {
     }
 
     // =========================================================================
-    // 2. Branch Endpoint and DTO Contract
+    // 2. Location Endpoint and DTO Contract (replaces Branch)
     // =========================================================================
 
     @Test
-    @DisplayName("T014-2: Branch endpoints (/workshop-branches) and BranchWrite/Branch schema contract")
+    @DisplayName("T014-2: Location endpoints (/workshop-locations) and LocationWrite/Location schema contract (proves /workshop-branches retired)")
     @SuppressWarnings("unchecked")
-    void verifyBranchContractInOpenApiAndDto() {
+    void verifyLocationContractInOpenApiAndDto() {
         Map<String, Object> paths = (Map<String, Object>) openApiSpec.get("paths");
-        assertThat(paths).containsKey("/workshop-branches");
+        assertThat(paths).containsKey("/workshop-locations");
+        assertThat(paths).doesNotContainKey("/workshop-branches");
 
-        Map<String, Object> branchPath = (Map<String, Object>) paths.get("/workshop-branches");
-        assertThat(branchPath).containsKeys("get", "post");
+        Map<String, Object> locationPath = (Map<String, Object>) paths.get("/workshop-locations");
+        assertThat(locationPath).containsKeys("get", "post");
 
-        // POST /workshop-branches schema contract
-        Map<String, Object> postOp = (Map<String, Object>) branchPath.get("post");
+        // POST /workshop-locations schema contract
+        Map<String, Object> postOp = (Map<String, Object>) locationPath.get("post");
         Map<String, Object> requestBody = (Map<String, Object>) postOp.get("requestBody");
         Map<String, Object> content = (Map<String, Object>) requestBody.get("content");
         Map<String, Object> jsonContent = (Map<String, Object>) content.get("application/json");
         Map<String, Object> schemaRef = (Map<String, Object>) jsonContent.get("schema");
-        assertThat(schemaRef.get("$ref")).isEqualTo("#/components/schemas/BranchWrite");
+        assertThat(schemaRef.get("$ref")).isEqualTo("#/components/schemas/LocationWrite");
 
-        // Components: BranchWrite and Branch
+        // Components: LocationWrite and Location
         Map<String, Object> components = (Map<String, Object>) openApiSpec.get("components");
         Map<String, Object> schemas = (Map<String, Object>) components.get("schemas");
 
-        Map<String, Object> branchWrite = (Map<String, Object>) schemas.get("BranchWrite");
-        List<String> requiredFields = (List<String>) branchWrite.get("required");
+        Map<String, Object> locationWrite = (Map<String, Object>) schemas.get("LocationWrite");
+        List<String> requiredFields = (List<String>) locationWrite.get("required");
         assertThat(requiredFields).containsExactlyInAnyOrder("code", "name");
 
-        Map<String, Object> properties = (Map<String, Object>) branchWrite.get("properties");
+        Map<String, Object> properties = (Map<String, Object>) locationWrite.get("properties");
         assertThat(properties).containsKeys("code", "name", "address", "active");
 
-        // DTO validation: BranchRequest enforces @NotBlank on code and name
-        BranchRequest validReq = BranchRequest.builder().code("BR-01").name("Branch 1").build();
+        // DTO validation: LocationRequest enforces @NotBlank on code and name
+        LocationRequest validReq = LocationRequest.builder().code("LOC-01").name("Location 1").build();
         assertThat(validator.validate(validReq)).isEmpty();
 
-        BranchRequest invalidReq = BranchRequest.builder().code("").name("").build();
-        Set<ConstraintViolation<BranchRequest>> violations = validator.validate(invalidReq);
+        LocationRequest invalidReq = LocationRequest.builder().code("").name("").build();
+        Set<ConstraintViolation<LocationRequest>> violations = validator.validate(invalidReq);
         assertThat(violations).hasSize(2);
 
-        // BranchResponse shape matches OpenAPI Branch schema (id, code, name, address, active)
-        BranchResponse response = BranchResponse.builder()
-                .id(UUID.randomUUID().toString())
-                .code("BR-01")
-                .name("Branch 1")
+        // LocationResponse shape matches OpenAPI Location schema (id: int64, code, name, address, active)
+        LocationResponse response = LocationResponse.builder()
+                .id(1L)
+                .code("LOC-01")
+                .name("Location 1")
                 .address("123 Street")
                 .active(true)
                 .build();
-        assertThat(response.getId()).isNotNull();
-        assertThat(response.getCode()).isEqualTo("BR-01");
+        assertThat(response.getId()).isEqualTo(1L);
+        assertThat(response.getCode()).isEqualTo("LOC-01");
     }
 
     // =========================================================================
@@ -188,11 +189,12 @@ public class WorkshopSessionContractIT {
     @SuppressWarnings("unchecked")
     void verifySlotContractInOpenApiAndDto() {
         Map<String, Object> paths = (Map<String, Object>) openApiSpec.get("paths");
-        assertThat(paths).containsKeys("/workshop-branches/{branchId}/slots", "/workshop-slots/{slotId}");
+        assertThat(paths).containsKeys("/workshop-locations/{locationId}/slots", "/workshop-slots/{slotId}");
+        assertThat(paths).doesNotContainKey("/workshop-branches/{branchId}/slots");
 
-        // /workshop-branches/{branchId}/slots (get, post)
-        Map<String, Object> branchSlotsPath = (Map<String, Object>) paths.get("/workshop-branches/{branchId}/slots");
-        assertThat(branchSlotsPath).containsKeys("get", "post");
+        // /workshop-locations/{locationId}/slots (get, post)
+        Map<String, Object> locationSlotsPath = (Map<String, Object>) paths.get("/workshop-locations/{locationId}/slots");
+        assertThat(locationSlotsPath).containsKeys("get", "post");
 
         // /workshop-slots/{slotId} (patch)
         Map<String, Object> slotIdPath = (Map<String, Object>) paths.get("/workshop-slots/{slotId}");
@@ -246,10 +248,10 @@ public class WorkshopSessionContractIT {
         assertThat(validator.validate(overnightSlot)).isNotEmpty();
         assertThat(overnightSlot.isSameDayTimingValid()).isFalse();
 
-        // SlotResponse shape matches OpenAPI Slot schema (id, branchId, label, startsAtLocal, endsAtLocal, defaultCapacity, active)
+        // SlotResponse shape matches OpenAPI Slot schema (id, locationId, label, startsAtLocal, endsAtLocal, defaultCapacity, active)
         SlotResponse slotResp = SlotResponse.builder()
                 .id(UUID.randomUUID().toString())
-                .branchId(UUID.randomUUID().toString())
+                .locationId(1L)
                 .label("Afternoon")
                 .startsAtLocal(LocalTime.of(13, 0))
                 .endsAtLocal(LocalTime.of(16, 0))
@@ -257,7 +259,11 @@ public class WorkshopSessionContractIT {
                 .active(true)
                 .build();
         assertThat(slotResp.getId()).isNotNull();
-        assertThat(slotResp.getBranchId()).isNotNull();
+        assertThat(slotResp.getLocationId()).isEqualTo(1L);
+
+        // Reflection proof: SlotResponse declares locationId and NOT branchId
+        List<String> slotFields = Arrays.stream(SlotResponse.class.getDeclaredFields()).map(Field::getName).toList();
+        assertThat(slotFields).contains("locationId").doesNotContain("branchId");
     }
 
     // =========================================================================
@@ -265,7 +271,7 @@ public class WorkshopSessionContractIT {
     // =========================================================================
 
     @Test
-    @DisplayName("T014-4: Session endpoints and SessionWrite/Session schema contract (no free-form start/end, capacity >= 1)")
+    @DisplayName("T014-4: Session endpoints and SessionWrite/Session schema contract (locationId, no free-form start/end, capacity >= 1)")
     @SuppressWarnings("unchecked")
     void verifySessionContractInOpenApiAndDto() {
         Map<String, Object> paths = (Map<String, Object>) openApiSpec.get("paths");
@@ -285,20 +291,20 @@ public class WorkshopSessionContractIT {
 
         Map<String, Object> sessionWrite = (Map<String, Object>) schemas.get("SessionWrite");
         List<String> requiredFields = (List<String>) sessionWrite.get("required");
-        assertThat(requiredFields).containsExactlyInAnyOrder("branchId", "slotId", "workshopDate", "capacity");
+        assertThat(requiredFields).containsExactlyInAnyOrder("locationId", "slotId", "workshopDate", "capacity");
 
         Map<String, Object> properties = (Map<String, Object>) sessionWrite.get("properties");
-        assertThat(properties).containsKeys("branchId", "slotId", "workshopDate", "capacity", "checkInOpensAt");
+        assertThat(properties).containsKeys("locationId", "slotId", "workshopDate", "capacity", "checkInOpensAt");
 
-        // CRITICAL INVARIANT: SessionWrite does NOT have scheduledStartAt or scheduledEndAt
-        assertThat(properties).doesNotContainKeys("scheduledStartAt", "scheduledEndAt", "startTime", "endTime");
+        // CRITICAL INVARIANT: SessionWrite does NOT have scheduledStartAt or scheduledEndAt or branchId
+        assertThat(properties).doesNotContainKeys("scheduledStartAt", "scheduledEndAt", "startTime", "endTime", "branchId");
 
         Map<String, Object> capacityProp = (Map<String, Object>) properties.get("capacity");
         assertThat(capacityProp.get("minimum")).isEqualTo(1);
 
         // DTO verification: SessionRequest has capacity >= 1 and NO free-form start/end fields
         SessionRequest validSession = SessionRequest.builder()
-                .branchId(UUID.randomUUID().toString())
+                .locationId(1L)
                 .slotId(UUID.randomUUID().toString())
                 .workshopDate(LocalDate.now().plusDays(5))
                 .capacity(20)
@@ -306,16 +312,16 @@ public class WorkshopSessionContractIT {
         assertThat(validator.validate(validSession)).isEmpty();
 
         SessionRequest zeroCapacity = SessionRequest.builder()
-                .branchId(UUID.randomUUID().toString())
+                .locationId(1L)
                 .slotId(UUID.randomUUID().toString())
                 .workshopDate(LocalDate.now().plusDays(5))
                 .capacity(0)
                 .build();
         assertThat(validator.validate(zeroCapacity)).isNotEmpty();
 
-        // Reflection proof: SessionRequest declares no scheduledStartAt or scheduledEndAt
+        // Reflection proof: SessionRequest declares no scheduledStartAt or scheduledEndAt or branchId
         List<String> fieldNames = Arrays.stream(SessionRequest.class.getDeclaredFields()).map(Field::getName).toList();
-        assertThat(fieldNames).doesNotContain("scheduledStartAt", "scheduledEndAt", "startTime", "endTime");
+        assertThat(fieldNames).doesNotContain("scheduledStartAt", "scheduledEndAt", "startTime", "endTime", "branchId");
 
         // Components: SessionState enum matches [DRAFT, PUBLISHED, SALES_PAUSED, IN_PROGRESS, ATTENDANCE_FINALIZED, CANCELLATION_REQUESTED, CANCELLED]
         Map<String, Object> sessionStateSchema = (Map<String, Object>) schemas.get("SessionState");
@@ -326,7 +332,7 @@ public class WorkshopSessionContractIT {
         // SessionResponse has all required properties from OpenAPI Session schema
         SessionResponse sessionResp = SessionResponse.builder()
                 .id(UUID.randomUUID().toString())
-                .branchId(UUID.randomUUID().toString())
+                .locationId(1L)
                 .slotId(UUID.randomUUID().toString())
                 .workshopDate(LocalDate.now().plusDays(5))
                 .capacity(20)
@@ -334,6 +340,7 @@ public class WorkshopSessionContractIT {
                 .checkInOpeningSource(CheckInOpeningSource.DEFAULT)
                 .build();
         assertThat(sessionResp.getId()).isNotNull();
+        assertThat(sessionResp.getLocationId()).isEqualTo(1L);
         assertThat(sessionResp.getState()).isEqualTo(SessionState.DRAFT);
     }
 
@@ -361,10 +368,10 @@ public class WorkshopSessionContractIT {
 
         Map<String, Object> bulkReqSchema = (Map<String, Object>) schemas.get("BulkSessionRequest");
         List<String> requiredFields = (List<String>) bulkReqSchema.get("required");
-        assertThat(requiredFields).containsExactlyInAnyOrder("branchId", "slotIds", "from", "to", "weekdays");
+        assertThat(requiredFields).containsExactlyInAnyOrder("locationId", "slotIds", "from", "to", "weekdays");
 
         Map<String, Object> properties = (Map<String, Object>) bulkReqSchema.get("properties");
-        assertThat(properties).containsKeys("branchId", "slotIds", "from", "to", "weekdays", "initialState");
+        assertThat(properties).containsKeys("locationId", "slotIds", "from", "to", "weekdays", "initialState");
 
         // Components: BulkGenerationResult
         Map<String, Object> bulkResultSchema = (Map<String, Object>) schemas.get("BulkGenerationResult");
@@ -373,7 +380,7 @@ public class WorkshopSessionContractIT {
 
         // DTO verification: BulkSessionRequest validates from <= to and initialState
         BulkSessionRequest validBulk = BulkSessionRequest.builder()
-                .branchId(UUID.randomUUID().toString())
+                .locationId(1L)
                 .slotIds(List.of(UUID.randomUUID().toString()))
                 .from(LocalDate.now().plusDays(1))
                 .to(LocalDate.now().plusDays(14))
@@ -386,7 +393,7 @@ public class WorkshopSessionContractIT {
 
         // Inverted dates rejection
         BulkSessionRequest invertedDates = BulkSessionRequest.builder()
-                .branchId(UUID.randomUUID().toString())
+                .locationId(1L)
                 .slotIds(List.of(UUID.randomUUID().toString()))
                 .from(LocalDate.now().plusDays(14))
                 .to(LocalDate.now().plusDays(1))
@@ -395,10 +402,14 @@ public class WorkshopSessionContractIT {
         assertThat(validator.validate(invertedDates)).isNotEmpty();
         assertThat(invertedDates.isDateRangeValid()).isFalse();
 
+        // Reflection proof: BulkSessionRequest declares locationId and NOT branchId
+        List<String> bulkFields = Arrays.stream(BulkSessionRequest.class.getDeclaredFields()).map(Field::getName).toList();
+        assertThat(bulkFields).contains("locationId").doesNotContain("branchId");
+
         // BulkGenerationResponse / BulkGenerationResult shape matches OpenAPI
         BulkGenerationResponse bulkResp = BulkGenerationResponse.builder()
                 .createdSessionIds(List.of(UUID.randomUUID().toString()))
-                .skippedDuplicates(List.of("BR1-2026-11-01-SL1"))
+                .skippedDuplicates(List.of("LOC1-2026-11-01-SL1"))
                 .build();
         assertThat(bulkResp.getCreatedSessionIds()).hasSize(1);
         assertThat(bulkResp.getSkippedDuplicates()).hasSize(1);
@@ -446,12 +457,12 @@ public class WorkshopSessionContractIT {
     // =========================================================================
 
     @Test
-    @DisplayName("T014-7: US1 HTTP endpoint routes and contract readiness without premature controller implementation")
+    @DisplayName("T014-7: US1 HTTP endpoint routes and contract readiness with Location controllers")
     void verifyHttpEndpointContractReadiness() {
         // Document and verify all 10 operations across the 6 US1 endpoint paths defined in OpenAPI:
         Map<String, List<String>> expectedOperations = Map.of(
-                "/api/v1/workshop-branches", List.of("GET", "POST"),
-                "/api/v1/workshop-branches/{branchId}/slots", List.of("GET", "POST"),
+                "/api/v1/workshop-locations", List.of("GET", "POST"),
+                "/api/v1/workshop-locations/{locationId}/slots", List.of("GET", "POST"),
                 "/api/v1/workshop-slots/{slotId}", List.of("PATCH"),
                 "/api/v1/workshop-sessions", List.of("GET", "POST"),
                 "/api/v1/workshop-sessions/bulk", List.of("POST"),
@@ -460,19 +471,16 @@ public class WorkshopSessionContractIT {
 
         assertThat(expectedOperations).hasSize(6);
 
-        // Check if controllers for T018 are implemented or pending
-        boolean hasBranchController = applicationContext.containsBean("workshopBranchController");
+        // Check controllers for T018: workshopLocationController and workshopSessionController must exist
+        boolean hasLocationController = applicationContext.containsBean("workshopLocationController");
         boolean hasSessionController = applicationContext.containsBean("workshopSessionController");
+        boolean hasRetiredBranchController = applicationContext.containsBean("workshopBranchController");
 
-        log.info("Controller readiness status: workshopBranchController={}, workshopSessionController={}",
-                hasBranchController, hasSessionController);
+        log.info("Controller readiness status: workshopLocationController={}, workshopSessionController={}, workshopBranchController={}",
+                hasLocationController, hasSessionController, hasRetiredBranchController);
 
-        // Contract requirement statement: In T014, controllers must NOT be prematurely implemented
-        // before T015-T017 services. When T018 is implemented, they will handle these exact 10 operations.
-        if (hasBranchController && hasSessionController) {
-            log.info("Controllers deployed: full HTTP live verification active");
-        } else {
-            log.info("T014 contract specifications verified successfully: DTOs, OpenAPI schemas, validations, and routes are aligned for T015-T018");
-        }
+        assertThat(hasLocationController).as("workshopLocationController must be present").isTrue();
+        assertThat(hasSessionController).as("workshopSessionController must be present").isTrue();
+        assertThat(hasRetiredBranchController).as("workshopBranchController must NOT be present").isFalse();
     }
 }
