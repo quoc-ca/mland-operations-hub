@@ -1,7 +1,7 @@
 # Data Model: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -65,7 +65,9 @@ work; it cannot mutate Operations or direct-Mland booking behaviour.
 ### Inbound booking and ticket issuance
 
 1. Authenticate and deduplicate the inbound event before any Mland side effect.
-2. Reject or hold according to the provider-approved late-booking rule. Before that rule exists, booking enablement is forbidden.
+2. If the mapping is sales-closed or suspended, reject/not confirm the late
+   booking, reserve no capacity, issue no ticket, and create an audited
+   reconciliation case. Mland never overbooks or auto-moves the customer.
 3. Through the Booking/Operations facades, create or locate the Mland booking, reserve capacity, and issue `N` tickets for `N` entitled participants as one idempotent outcome.
 4. Persist the channel booking/ticket links and a safe provider response correlation. A replay returns the prior outcome rather than reserving more capacity.
 

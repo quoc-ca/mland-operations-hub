@@ -1,7 +1,7 @@
 # General Spec
 
 **Date created**: 2026-09-29
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Phan Son
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -102,7 +102,7 @@ Detailed requirements remain in the [Report 3 NFR baseline](../documents/docs/re
 
 * **Feature state design:** For retained state, define owner, storage, lifecycle, expiry/invalidation, consistency/concurrency, user isolation, security, and recovery as applicable. Spec owns observable behavior; plan owns mechanisms. Shared state must have one consistent contract referenced by consumers.
 * **Frontend/backend boundary:** Define UI loading/empty/validation/success/error and recovery states; enforce business access on the backend. V1 client requests use Firebase `Authorization: Bearer` identity tokens; plans define CORS for selected origins. CSRF applies only to any later explicitly approved cookie-authenticated flow and is not a substitute for bearer-token verification.
-* **Payment integrity:** VNPay is the sole V1 provider. A browser Return URL is display-only. Payment state changes require a valid signed IPN or the defined signed QueryDR recovery result while the associated hold remains active. Validate signature/checksum, transaction reference, amount, and success status; process duplicate events idempotently.
+* **Payment integrity:** VNPay is the sole V1 provider. A browser Return URL is display-only. One technical `paymentintegration` ingress receives the signed VNPay `GET`, verifies checksum once, deduplicates delivery, and routes redacted evidence by immutable owner-qualified merchant reference to its owning feature; it never changes booking/order state itself. Deposit confirmation additionally requires an active hold; final-payment/refund lifecycle rules remain owned by the settlement feature. Validate transaction reference, amount, currency and success status; process duplicate events idempotently.
 * **Identity and authorization security:** Verify Firebase token signature, issuer, audience, and expiration with Firebase Admin SDK. Authentication proves identity; Mland authorization decides business access on every protected operation. Do not log ID/provider tokens, secrets, or unnecessary PII.
 * **Payment timing:** A payment link expires after 10 minutes. A workshop slot, retail cart, or custom-order queue slot is held for at most 15 minutes. If no valid evidence exists at minute 15, release the hold; late payment evidence does not automatically fulfil and requires manual operational follow-up. The sole exception is a Manager-approved Workshop Final Bill link: it is valid for 24 hours, sends at most one reminder before expiry, never renews automatically, and does not release the completed item or erase the balance on expiry. Reissue requires an authorized, audited action.
 * **AI data:** Gemini is a paid service. Application-level text prompts/responses are retained for no more than 30 days. Booking-design image input requires recorded Member consent, is stored temporarily, and is deleted after processing; AI output supports human decisions only. Custom-manufacturing reference images follow their separate retention rule until pickup or GHTK handoff.

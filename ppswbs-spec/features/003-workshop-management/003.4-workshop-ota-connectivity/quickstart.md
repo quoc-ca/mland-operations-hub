@@ -1,7 +1,7 @@
 # Quickstart Validation: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -59,4 +59,4 @@ Record the mapping/provider, environment, safe correlation IDs, timestamp, actor
 
 ## Release stop conditions
 
-Do not enable a provider for booking if any of the following is missing or failing: commercial/onboarding approval, credential/callback verification, ticket-and-scan proof, cancellation/refund agreement, payout semantics, late-booking/capacity rule, adapter contract tests, or the failure-close and reconciliation scenario. Preparation synchronization may remain sales-closed while those gaps are resolved.
+Do not enable a provider for booking if any of the following is missing or failing: commercial/onboarding approval, credential/callback verification, ticket-and-scan proof, cancellation/refund agreement, payout semantics, evidence that provider acknowledgement/retry honors Mland's reject-without-capacity late-booking rule, adapter contract tests, or the failure-close and reconciliation scenario. Preparation synchronization may remain sales-closed while those gaps are resolved.
