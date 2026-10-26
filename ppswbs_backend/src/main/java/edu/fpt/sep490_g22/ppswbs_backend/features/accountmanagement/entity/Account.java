@@ -28,6 +28,9 @@ public class Account {
     @Column(name = "login_email", length = 320)
     private String loginEmail;
 
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
     @Builder.Default
@@ -37,6 +40,14 @@ public class Account {
     @Column(name = "status", nullable = false)
     @Builder.Default
     private AccountStatus status = AccountStatus.ACTIVE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "resume_status")
+    private AccountStatus resumeStatus;
+
+    @Column(name = "revocation_pending", nullable = false)
+    @Builder.Default
+    private boolean revocationPending = false;
 
     @Version
     @Column(name = "version", nullable = false)

@@ -14,6 +14,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 
@@ -83,7 +84,8 @@ public class AccountBootstrapService {
         try {
             Account newAccount = Account.builder()
                 .firebaseUid(uid)
-                .loginEmail(identity.emailVerified() ? identity.email() : null)
+                .loginEmail(identity.email())
+                .emailVerifiedAt(identity.emailVerified() ? Instant.now() : null)
                 .role(AccountRole.MEMBER)
                 .status(AccountStatus.ACTIVE)
                 .version(0L)

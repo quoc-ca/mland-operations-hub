@@ -26,6 +26,18 @@ public class InternalAccountProvisioning {
     @Column(name = "idempotency_key", nullable = false, unique = true, length = 128)
     private String idempotencyKey;
 
+    @Column(name = "request_digest", length = 64)
+    private String requestDigest;
+
+    @Column(name = "intended_email", length = 320)
+    private String intendedEmail;
+
+    @Column(name = "intended_role", length = 32)
+    private String intendedRole;
+
+    @Column(name = "intended_locations", columnDefinition = "JSON")
+    private String intendedLocations;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     @Builder.Default

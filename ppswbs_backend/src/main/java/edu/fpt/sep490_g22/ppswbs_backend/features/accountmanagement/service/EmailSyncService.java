@@ -36,6 +36,7 @@ public class EmailSyncService {
         }
 
         account.setLoginEmail(identity.email().trim().toLowerCase());
+        account.setEmailVerifiedAt(java.time.Instant.now());
         account = accountRepository.save(account);
 
         auditService.recordEvent(
