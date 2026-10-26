@@ -235,6 +235,16 @@ collect money, perform refunds or connect directly to external OTAs.
   Mland-caused cancellation remedy; the ordinary change flow never rewrites
   check-in or attendance history.
 
+### Session 2026-10-26
+
+- Q: Where does Workshop Operations persist its protection against duplicate facade commands? → A: It owns a dedicated idempotency ledger within the `workshopoperations` module. The ledger is separate from operational audit records and business aggregates such as holds and tickets.
+- Q: Which duplicate-facade-command boundary is unique? → A: The unique boundary is `facadeAction` plus `operationReference`. The ledger stores a semantic request fingerprint: the same pair with equivalent content returns its original outcome; the same pair with different content is rejected safely.
+- Q: What lifecycle does an idempotency record use? → A: It moves from `IN_PROGRESS` to `COMPLETED`. A completed record retains the terminal business outcome `ACCEPTED` or `REJECTED`; a technical or retryable failure rolls back rather than leaving a completed record, so the caller may retry the same command.
+- Q: How does Operations handle an equivalent duplicate command while its first execution is still in progress? → A: It returns the typed safe outcome `IN_PROGRESS` and performs no second business side effect. The caller retries with the same `operationReference` and receives the original completed outcome after the first execution finishes.
+- Q: How is `correlationReference` retained without replacing `operationReference`? → A: The idempotency ledger stores the original execution's `correlationReference` separately, and the business audit event for that execution uses the same value. An equivalent retry creates no new business audit event; its transport correlation belongs only to technical request logging.
+- Q: What retention and crash-recovery policy applies to Operations idempotency records? → A: A `COMPLETED` record is retained for at least 24 hours before cleanup. A caller must not retry an operation reference after that retention window because duplicate protection is no longer guaranteed. `IN_PROGRESS` uses a configurable lease timeout; after the lease expires, an equivalent retry may reclaim the record for recovery from a crashed execution.
+- Q: How does Operations prevent an expired claim from committing after an equivalent retry reclaims the idempotency record? → A: Each claim or reclaim has an incrementing claim version. Completing the record and committing its business effect require the current claim version; a request that has lost its version is rejected or rolled back.
+
 ## Business model
 
 - A booking is the commercial order. A workshop item is the product being made;
@@ -759,6 +769,40 @@ correction, with before/after audit evidence.
 - **FR-010k**: A request to release booking capacity holds for expiry or pending
   cancellation MUST release only active holds exactly once. A repeated or late
   request MUST be an idempotent no-op and MUST NOT change capacity again.
+- **FR-010ka**: Every state-changing `WorkshopOperationsFacade` command MUST
+  use a dedicated idempotency ledger owned by this module. The ledger MUST be
+  separate from operational audit records and from business aggregates such as
+  capacity holds and attendance tickets.
+- **FR-010kb**: The idempotency ledger MUST enforce uniqueness for
+  `facadeAction` plus `operationReference` and retain a semantic request
+  fingerprint. It MUST return the original outcome only for an equivalent
+  command; reuse of the same pair with different content MUST be rejected
+  safely.
+- **FR-010kc**: An idempotency record MUST move from `IN_PROGRESS` to
+  `COMPLETED`. `COMPLETED` MUST retain the immutable terminal business outcome
+  `ACCEPTED` or `REJECTED`; a technical or retryable failure MUST roll back
+  rather than leave a completed record, allowing the equivalent command to be
+  retried with the same `operationReference`.
+- **FR-010kd**: When an equivalent command encounters an existing
+  `IN_PROGRESS` idempotency record, the feature MUST return the typed safe
+  outcome `IN_PROGRESS` and MUST perform no second business side effect. The
+  caller MAY retry with the same `operationReference` to obtain the original
+  completed outcome.
+- **FR-010ke**: The idempotency ledger MUST retain the original execution's
+  `correlationReference` separately from `operationReference`. The business
+  audit event for that execution MUST use that correlation reference. An
+  equivalent retry MUST NOT create a duplicate business audit event; its
+  transport correlation belongs only to technical request logging.
+- **FR-010kf**: A `COMPLETED` idempotency record MUST be retained for at least
+  24 hours before cleanup. A caller MUST NOT retry an `operationReference`
+  after that retention window because duplicate protection is no longer
+  guaranteed. An `IN_PROGRESS` record MUST use a configurable lease timeout;
+  after its lease expires, an equivalent retry MAY reclaim the record to recover
+  from a crashed execution.
+- **FR-010kg**: Each claim or reclaim of an `IN_PROGRESS` idempotency record
+  MUST have an incrementing claim version. Completing the record and committing
+  its business effect MUST require the current claim version; a request that
+  has lost its version MUST be rejected or rolled back.
 - **FR-010l**: When this feature makes session availability available to 003.4,
   its sellable capacity MUST equal total capacity minus confirmed ticket seats
   and all active, unexpired direct-Mland capacity holds. Feature 003.4 MAY
