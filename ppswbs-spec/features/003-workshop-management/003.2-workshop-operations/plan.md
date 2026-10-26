@@ -10,7 +10,9 @@
 **Input**: Feature specification from
 `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/spec.md`
 
-**Status**: Design draft — internal capacity semantics clarified; implementation-contract details remain unapproved.
+**Status**: Design draft — internal capacity semantics and facade-command
+idempotency are clarified; implementation must rebase the affected task before
+changing persistence or code.
 
 ## Summary
 
@@ -89,6 +91,40 @@ types, typed outcomes, and idempotency rules are fixed in the shared 003
 contract; tables, locks, events, and public HTTP routes remain separate
 decisions.
 
+### Resolved Facade Command Idempotency Boundary
+
+Every state-changing `WorkshopOperationsFacade` command is protected by an
+Operations-owned idempotency ledger. The ledger is a technical persistence
+record distinct from capacity holds, tickets and immutable operational audit
+events. Its logical identity is the pair `facadeAction` and caller-generated
+`operationReference`; it retains a semantic request fingerprint so the same
+pair with different semantic content is rejected safely. An equivalent retry
+returns the original immutable typed business outcome after completion.
+
+The ledger starts as `IN_PROGRESS` and completes as `COMPLETED` with the
+terminal business outcome `ACCEPTED` or `REJECTED`. An equivalent duplicate
+that finds a live `IN_PROGRESS` record receives the typed `IN_PROGRESS` outcome
+and creates no business side effect. Technical or retryable failures roll back
+the business transaction without producing a completed outcome, so the caller
+may retry with the same operation reference.
+
+The durable claim includes a configurable lease and an incrementing claim
+version. An equivalent retry may reclaim only an expired claim. The business
+transaction may commit its aggregate changes and complete the ledger only if a
+conditional finalisation proves that its claim version remains current. A
+reclaimed, stale claimant therefore cannot commit an old side effect. The
+initial claim/reclaim is durable so duplicates can observe `IN_PROGRESS`; the
+terminal ledger update and all command business effects share one local MySQL
+transaction and either commit or roll back together.
+
+The ledger retains the original execution's `correlationReference` separately
+from `operationReference`; the one business audit event for that execution uses
+the same correlation reference. Equivalent retries create no duplicate business
+audit event. Completed records are retained for at least 24 hours before
+cleanup; a caller must not retry after that window because duplicate protection
+is no longer guaranteed. No raw request payload, Firebase token, PII, QR value,
+or audit metadata is used as the ledger or outcome store.
+
 ## Technical Context
 
 | Area | Decision |
@@ -101,6 +137,7 @@ decisions.
 | API security transport | Firebase bearer token on protected API requests. Production origins remain unapproved: use an environment allowlist, deny unspecified origins, do not enable credentialed CORS by default, and do not globally disable CSRF. |
 | Time | Store instants; display and validate workshop schedules in `Asia/Ho_Chi_Minh` |
 | Testing | JUnit 5, Spring Boot/Security/Modulith tests, plus MySQL-backed Flyway integration verification |
+| Facade command idempotency | Operations-owned persisted ledger; local MySQL claim/finalisation transactions; configurable in-progress lease; completed records retained at least 24 hours |
 
 The first rollout configures the existing Vietnam branches and three non-overlapping
 default slots: `09:00–12:00`, `13:00–16:00`, and `16:00–19:00`. A normal
@@ -198,18 +235,28 @@ boundary.
    it at-least-once and owns its separate durable provider delivery. V1 uses no
    message broker. Concrete event/facade types, payload, schema, retry values
    and provider policy remain unapproved.
-   Public HTTP routes, Java
-   method names, DTO fields and locking mechanics remain unapproved design
-   details.
-2. **Create the operational aggregate.** Model branch, reusable branch slot,
+   Public HTTP routes, Java method names and REST DTO fields remain unapproved
+   design details. The approved facade-command idempotency boundary uses a
+   dedicated ledger and claim-version conditional finalisation; its concrete
+   JPA/SQL expression remains an implementation detail constrained by the
+   ledger invariants below.
+2. **Establish facade-command idempotency before capacity work.** Add the
+   Operations-owned ledger through an append-only migration selected after
+   inspecting the latest deployed version. Claim or reclaim an equivalent
+   command durably, reject mismatched fingerprints, return `IN_PROGRESS` for a
+   live equivalent claim, and finalise only under the current claim version in
+   the same local transaction as business effects. Retain the original
+   correlation reference separately from audit metadata; do not reuse audit,
+   hold or ticket persistence for deduplication.
+3. **Create the operational aggregate.** Model branch, reusable branch slot,
    session, active Staff assignment, one Manager operational lead, capacity hold
    and individual attendance ticket with session entitlements. Enforce
    branch/date/slot uniqueness, positive capacity and the no-overlap slot rule.
-3. **Implement session administration.** Support single and bounded bulk
+4. **Implement session administration.** Support single and bounded bulk
    session generation (at most 90 future days), duplicate reporting, slot
    activation/deactivation, lifecycle transitions, schedule change warnings and
    state-aware assignment/lead handover.
-4. **Make capacity transactional.** Reserve only against `PUBLISHED` sessions;
+5. **Make capacity transactional.** Reserve only against `PUBLISHED` sessions;
    retain pre-pause unexpired holds; confirm or release holds atomically.
    Protect concurrent reservations from oversell using an approved
    implementation mechanism; the particular lock or concurrency technique is
@@ -228,7 +275,7 @@ boundary.
    affected session on a gap or uncertain order. Resync does not advance the
    source version. A 003.4 sync failure affects only that feature's OTA mapping
    and reconciliation; it never changes an Operations session or direct booking.
-5. **Implement tickets and check-in.** Generate individual opaque QR references
+6. **Implement tickets and check-in.** Generate individual opaque QR references
    and unique ticket codes. Validate the scanner's current session/branch,
    ticket entitlement, ticket validity, that ticket/session pair's attendance
    state, opening time and actor scope as one result. QR is primary, exact
@@ -236,15 +283,15 @@ boundary.
    in a separate permissioned, reasoned and audited path.
    A repeated normal scan returns its existing check-in result as `200 OK` with
    `ALREADY_CHECKED_IN` and `checkedInAt`; it does not create another action.
-6. **Close attendance correctly.** Let an assigned active Staff member or the
+7. **Close attendance correctly.** Let an assigned active Staff member or the
    recorded active operational lead finalise the whole session after its actual
    end; convert still-unchecked valid tickets to `NO_SHOW`. Only a Manager may
    perform a post-finalisation correction, with mandatory audit evidence.
-7. **Handoff cancellation and delivery.** On cancellation request, stop normal
+8. **Handoff cancellation and delivery.** On cancellation request, stop normal
    operation and create the audited case consumed by feature 003.3. Booking
    obtains only delivery-safe ticket views from Operations; it never owns or
    mutates attendance state.
-8. **Migrate and verify.** Add a new Flyway migration after inspecting the
+9. **Migrate and verify.** Add a new Flyway migration after inspecting the
    deployed migration sequence, backfill only through an approved runbook, and
    exercise the flows in `quickstart.md` against MySQL.
 
@@ -255,6 +302,13 @@ boundary.
 - Integration-test JPA constraints and Flyway migration on MySQL.
 - Concurrently attempt capacity holds and duplicate check-ins; exactly one
   transaction must succeed where capacity or a ticket is contested.
+- MySQL-test facade-command idempotency: sequential equivalent retry returns the
+  saved outcome; mismatched fingerprint is rejected; concurrent equivalent
+  command observes `IN_PROGRESS`; an expired claim can be reclaimed; and a
+  stale claimant cannot complete the ledger or commit a business side effect.
+- MySQL-test retention cleanup only for eligible completed ledger records after
+  the configured window; prove that no raw request payload, token, QR value or
+  PII is stored in the ledger.
 - Security-test active/inactive Staff, Manager branch boundaries, operational
   lead handover, normal check-in, and separately-authorised override.
 - Contract-test REST responses and problem codes against

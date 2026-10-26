@@ -12,6 +12,7 @@
 | Canonical Account role/status and active location scope | Account Management | Consumed through a facade; never copied as authorization truth. Operations combines those facts with its branch/session-assignment data to apply its own action rules. |
 | Commercial booking, payer, payment, invoice, customer delivery | Workshop Booking | Referenced by immutable external booking IDs/codes only. |
 | Workshop branch, slot, session, hold, attendance ticket, attendance and audit | Workshop Operations | The aggregate model defined below. |
+| Facade command idempotency ledger | Workshop Operations | Technical persistence for exactly-one business execution within its retention window; not an audit or business aggregate. |
 | Settlement, refunds, reschedule resolution | Workshop Settlement and Changes (003.3) | Receives cancellation handoffs; is not implemented here. |
 
 ## Core Records
@@ -63,8 +64,41 @@ session holds form one logical commitment set. Creation is all-or-nothing:
 every requested session receives the same requested participant count or no
 hold exists. Confirmation succeeds only when every expected hold is active;
 release changes active holds once and is idempotent for repeated or late
-requests. The grouping identity and persistence mechanism remain deferred to
-the approved cross-feature facade and implementation design.
+requests. The business grouping is the booking reference and requested session
+set carried by the approved facade command/outcome. Capacity holds remain
+business records; the separate `FacadeCommandIdempotencyRecord` below owns
+duplicate-command persistence and must not be inferred from audit metadata.
+
+### FacadeCommandIdempotencyRecord
+
+An Operations-owned technical record for every state-changing
+`WorkshopOperationsFacade` command. Its logical identity is
+`facadeAction + operationReference`; that pair is unique. It contains only the
+semantic request fingerprint, status (`IN_PROGRESS` or `COMPLETED`), immutable
+terminal business outcome when completed (`ACCEPTED` or `REJECTED`), original
+`correlationReference`, claim version, in-progress lease-expiry, completed-at,
+retention-expiry and timestamps.
+
+The record is separate from `OperationsAuditEvent`, `CapacityHold`,
+`AttendanceTicket` and their metadata. It stores neither a raw command payload,
+Firebase token, PII, QR value, audit JSON nor a public REST response. Its safe
+outcome is the existing typed facade outcome, sufficient to return the original
+business result for an equivalent retry.
+
+An initial command durably claims `IN_PROGRESS`. The same logical identity with
+a different fingerprint is rejected. The same fingerprint returns `IN_PROGRESS`
+while its lease is live, or may atomically reclaim an expired record by advancing
+the claim version. Completion must conditionally prove the current claim version
+inside the same local MySQL transaction as all command business effects. A
+stale claimant therefore commits neither a terminal ledger outcome nor capacity,
+ticket, attendance or audit side effects. Technical failure rolls back the
+business transaction and leaves no completed outcome.
+
+`COMPLETED` records remain available for at least 24 hours. Cleanup is eligible
+only after their retention expiry. The caller must not retry after that window;
+the ledger does not promise duplicate protection once the record has been
+removed. Lease duration is configuration owned by Operations deployment, not a
+client-supplied value.
 
 ### Cross-module facade boundary
 
@@ -205,9 +239,14 @@ projection; the original action remains immutable.
   session. A ticket may be entitled to more than one session.
 - The database enforces unique public ticket codes and QR references and the
   session branch/date/slot uniqueness; service validation explains failures.
-- Capacity-changing and check-in operations use an approved concurrency
-  mechanism to preserve their respective all-or-nothing and ticket/session
-  idempotency invariants; the mechanism remains unselected.
+- Every state-changing Operations facade command uses the dedicated idempotency
+  ledger. The unique logical identity, semantic fingerprint, lease/reclaim and
+  claim-version conditional completion above preserve no-more-than-one business
+  execution for an equivalent command during the retention window.
+- Capacity-changing and check-in operations additionally use their approved
+  aggregate-level concurrency protection to preserve all-or-nothing capacity
+  and ticket/session invariants; it is independent of the facade-command
+  ledger and must not be substituted by an audit lookup.
 - Every Booking-to-Operations capacity command participates in one local MySQL
   transaction spanning the Booking writes and synchronous capacity-facade work.
   Gateway communication remains outside that transaction; an error rolls back
@@ -229,3 +268,9 @@ the live migration history. Do not edit prior migrations or use the legacy reset
 migration in production. Existing booking-level tickets require a separately
 approved mapping/reissue run; schema migration alone must preserve source IDs
 and must not silently revoke, split or email tickets.
+
+The append-only migration for the idempotency ledger must preserve existing
+Operations data, introduce the logical unique identity and fields needed for
+fingerprint, status, original correlation, claim version, lease and retention,
+and be verified on MySQL for concurrent claim/reclaim/finalisation. The specific
+migration version is selected only at implementation time.

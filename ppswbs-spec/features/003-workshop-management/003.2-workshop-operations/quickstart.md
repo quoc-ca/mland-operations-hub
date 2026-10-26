@@ -67,6 +67,17 @@ run is not sufficient proof of index, lock or migration behaviour.
    returns only the delivery-safe projection after commit, and Booking cannot
    change attendance. Inject a local persistence failure in either module and
    verify neither side commits a partial booking-capacity outcome.
+   For every state-changing facade command, repeat an equivalent command with
+   the same `facadeAction` and `operationReference` and verify the original typed
+   outcome returns without a second hold, ticket, attendance or audit side
+   effect. Reuse the same identity with different semantic content and verify a
+   safe rejection. Submit concurrent equivalents: one may own the claim and the
+   other must receive `IN_PROGRESS`, never a second business execution. Simulate
+   an expired in-progress lease and reclaim with the same fingerprint; verify a
+   stale original claimant cannot complete or commit after claim version changes.
+   Verify completed ledger records remain retryable for at least 24 hours and
+   cleanup affects only eligible completed records; verify the ledger contains no
+   raw request payload, Firebase token, PII, QR value or audit JSON.
 5. Assign active Staff or record an operational lead. Verify transition to
    `IN_PROGRESS` and normal check-in fail with neither responsible operator.
    Verify inactive or unassigned Staff cannot check in.
