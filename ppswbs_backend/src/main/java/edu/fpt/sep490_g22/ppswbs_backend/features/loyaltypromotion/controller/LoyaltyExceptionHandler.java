@@ -10,6 +10,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Loyalt
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.dao.QueryTimeoutException;
@@ -38,6 +40,8 @@ import java.util.stream.Collectors;
  * controllers only. Responses are never cached and never expose entities, payloads, tokens, member
  * data, raw source proof or stack traces.
  */
+// Ordered first: 001 registers an advice for the whole application package that would otherwise answer 500.
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackageClasses = LoyaltyExceptionHandler.class)
 class LoyaltyExceptionHandler {
 

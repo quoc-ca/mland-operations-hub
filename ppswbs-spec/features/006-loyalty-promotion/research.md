@@ -70,7 +70,7 @@ Benefit có trạng thái points/voucher riêng (NONE/HELD/CONSUMED/RELEASED/RES
 
 ## D-07 — Auth dùng chung, được xác nhận cho FE-06
 
-**Decision confirmed by user 2026-10-24**: Kế thừa FE-01/001 và hướng FE-02: mọi REST API (kể cả frontend React) dùng bearer đã xác minh; phiên theo contract FE-01/001; revocation/trạng thái/quyền hiện tại; privileged assurance do FE-01 sở hữu. Không tạo login/MFA mới, không lấy ROLE_MEMBER/Firebase claim/email làm quyền Manager/Admin.
+**Decision confirmed by user 2026-10-24**: Kế thừa FE-01/001 và hướng FE-02: mọi REST API (kể cả frontend React) dùng bearer đã xác minh; phiên theo contract FE-01/001; revocation/trạng thái/quyền hiện tại; V1 không yêu cầu MFA/privileged assurance (theo 001, làm rõ 2026-10-27). Không tạo login/MFA mới, không lấy ROLE_MEMBER/Firebase claim/email làm quyền Manager/Admin.
 
 **Rationale**: Cùng cơ chế cho Member/Manager mà không chia danh tính theo feature; Admin không có quyền nghiệp vụ FE-06. MemberFacade/cookie/capability trong 001/002 là thiết kế phụ thuộc, chưa có code.
 

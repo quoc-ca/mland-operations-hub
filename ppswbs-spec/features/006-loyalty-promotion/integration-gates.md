@@ -1,7 +1,7 @@
 # Integration Gates — FE-06
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26 (G-02: bàn giao provider PRODUCT từ FE-02, T091)
+**Date updated**: 2026-10-27 (T002: cập nhật hiện trạng G-01–G-07 theo `khuong` và `origin/develop` `37d68cf`; T077: frontend chưa có)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -9,7 +9,7 @@
 
 | Gate | Evidence hiện có | Owner/việc còn phải có | Điều kiện đạt |
 | --- | --- | --- | --- |
-| G-01 Identity/capability | Backend đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24): chưa có facade identity hay security configuration; 001/002 có shared-auth design | FE-01/identity cung cấp verified bearer và phiên theo contract FE-01/001, revocation/state, current Member/Manager capabilities (Admin không có capability FE-06), privileged assurance và authorization guard | Contract/API/web checks với identity thật, deny thiếu quyền/assurance, expiry/revocation và existing Member journeys không regression. 001 giao contract và facade xác thực cho frontend React. Không chọn MFA method từ loyalty. |
+| G-01 Identity/capability | Backend đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24): chưa có facade identity hay security configuration; 001/002 có shared-auth design | FE-01/identity cung cấp verified bearer và phiên theo contract FE-01/001, revocation/state, current Member/Manager capabilities (Admin không có capability FE-06) và authorization guard (V1 không MFA theo 001, chốt 2026-10-27) | Contract/API/web checks với identity thật, deny thiếu quyền, expiry/revocation và existing Member journeys không regression. 001 giao contract và facade xác thực cho frontend React. Không chọn MFA method từ loyalty. |
 | G-02 Catalogue targets/source sales | **Phần target (2026-10-26)**: `LoyaltyProductTargetAdapter` của productmanagement đã triển khai `PromotionTargetPort` cho scope PRODUCT, có test MySQL `LoyaltyProductTargetAdapterIT` và Module verify pass (xem mục "Bàn giao G-02 từ FE-02" bên dưới). **Phần source sales**: readyringsales/FE-08 chưa có code, 008 đang thiết kế | FE-02 cung cấp product/variant facts và guard qua `LoyaltyProductTargetAdapter` (T091 của feature 002, triển khai PromotionTargetPort sau T004 của FE-06); FE-08 sở hữu price/quantity source snapshot và accepted order | Không raw repository access/fake provider; create/quote/accept scope và source guard races qua provider thật, Module verify pass. |
 | G-03 Retail owner | FE-08 chưa có order/payment runtime | FE-08 tích hợp preview/accept reserve atomic, full-paid/zero outcome, original deadline, expiry/arbitration và source delivery receipts nếu cần bridge | Rollback cả hai chiều, zero không gateway, callback duplicate/late, expired/unresolved không release sai, snapshot tiền/points không đổi. |
 | G-04 Booking acceptance/deposit | Code workshopbooking cũ đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24); FE-03 thiết kế lại booking/cọc, chưa có owner lock contract đủ | FE-03 thêm selection/quote acknowledgement, net fee trước cọc, snapshot/boundary, lifecycle source lock | Invoice/cọc/remain đúng after-voucher/points, deposit settle một lần, không grant sớm; atomic creation/capacity/loyalty rollback và payment-vs-expiry test thật. |
@@ -17,13 +17,31 @@
 | G-06 Data/module verification | Loyalty chưa có production/test/migration; hiện chưa có migration nào (backend đã bị xóa) | FE-06 implementation sau spec/plan/tasks review và analyze; migration number mới, MySQL8.4 upgrade, locks/receipts/audit | Empty + upgrade không mất data, invariants/concurrency và ApplicationModules.verify(); không H2-only evidence. |
 | G-07 Governance before implementation | Nghiệp vụ/retention/shared-auth đã có xác nhận; plan/contracts đã Approved ngày 2026-10-24 | Review technical design, tạo tasks theo dependency, chạy speckit-analyze; yêu cầu triển khai riêng | Không unknown ảnh hưởng task, thiết kế public contract/locking/data được review, task dependencies đủ bằng chứng. Không dùng checklist spec thay phê duyệt plan. |
 
+## Hiện trạng gate và handoff (T002, 2026-10-27)
+
+Nguồn: nhánh `khuong` (`73ac306` cộng thay đổi chưa commit của 006) và `origin/develop` (`37d68cf`, chưa ghép về `khuong`). Bảng trên giữ nội dung lúc lập plan; bảng này là hiện trạng mới. Không gate nào được đóng ở lượt này.
+
+| Gate | Hiện trạng (fact) | Owner, việc còn thiếu | Trạng thái |
+| --- | --- | --- | --- |
+| G-01 Identity | `AccountFacade.resolveActor`, `CurrentAccountActor`, `ActorContext` của 001 đã có trên `khuong`; 006 dùng chain theo route `LoyaltySecurityConfiguration` và `LoyaltyAuthorization` (T007). `LoyaltySecurityIT` 9 đạt, 1 bỏ qua do preflight CORS 403 (BE-DESIGN-0012). | Owner 001: xác nhận bằng văn bản mục 1, 2 của BE-DESIGN-0005; owner 001 (và 003.2 nếu do `workshopOperationsCorsFilter`): sửa preflight CORS. | MỞ |
+| G-02 Catalogue | Phần target PRODUCT đã bàn giao (mục dưới). Chưa có provider WORKSHOP: thẻ workshop hiển thị phạm vi như cấu hình. | FE-02 xong phần target; FE-03 cung cấp provider target WORKSHOP (gói/chi nhánh/ngày/phiên); FE-08 cung cấp giá/số lượng nguồn và serialize xóa sản phẩm với accept. | MỞ |
+| G-03 Retail (FE-08) | Trên `origin/develop` có module `readyringsales` (`5748a08`, Bùi Trọng Thịnh). Port `RetailBenefitPort` chỉ có `preview` và `requireValidPreview`; bean duy nhất là `LocalRetailBenefitAdapter` (`@Profile("local")`, tự ghi là bản thay thế cục bộ, không đọc hay ghi sổ điểm thật). Chưa có lời gọi `loyaltypromotion::facade`. Plan, research (Decision 15) và data-model của 008 đã thống nhất gọi `previewBenefits`, `reserveAcceptedTransaction`, `settleAcceptedBenefits` + `grantEarnedPoints`, `releaseHeldBenefits` + `finishIneligibleEarn` theo T054/T064. | Owner FE-08 (Bùi Trọng Thịnh) viết `LoyaltyCheckoutAdapter`, `LoyaltyOutcomeAdapter` trong `readyringsales` thay bản local; 006 review và cung cấp test tích hợp (T054, T064). Cần chốt với owner: port hiện dùng `previewId` lưu trong bộ nhớ và `BigDecimal`, còn facade 006 dùng `termsDigest` khách đã xác nhận và `BigInteger` VND. | MỞ |
+| G-04 Booking (FE-03) | Trên `origin/develop` có nền `workshopbooking` mới (`8dfc3b7`, `3821937`, ho-quoc): `WorkshopBookingFacade` gồm projection tài chính cho 003.3, ghi nhận cọc đã xác minh, final balance, gửi lại vé, payload thông báo. Chưa có luồng accept booking, chưa có chỗ gọi preview/reserve của 006. Develop không biên dịch sạch (BE-DESIGN-0011). | Owner 003.1 (ho-quoc) thêm luồng accept có selection/quote ack, gọi `reserveAcceptedTransaction` trong cùng transaction, lấy `postPromotionAmount` để tính cọc; settle khi cọc đã xác minh (T059). | MỞ |
+| G-05 Workshop hậu xử lý | Chưa có outcome hoàn thành + trả đủ, hủy hợp lệ, không đến trên develop. | Owner FE-03 cung cấp outcome có version; 006 nối `grantEarnedPoints`, `restoreCancelledWorkshopBenefits`, `finishIneligibleEarn` (T060, T064). | MỞ |
+| G-06 Data/module | V10, V11 (trên develop), V12 (chỉ trên `khuong`, chưa commit). Toàn bộ test 006 và `ModulithArchitectureTests` đạt trên **build tạm**; `LoyaltyMySqlConcurrencyIT` phía loyalty đạt (verification.md mục 18). Develop có migration trùng số V6, V7, V9. | Owner 008 và 003.1 đổi số migration; nhóm xác nhận V12; chạy lại trên build thật. | MỞ |
+| G-07 Governance | Tài liệu Approved; T001–T003 ghi tại verification.md mục 1, 3, 4 và 18. | Không còn việc của 006. | ĐẠT cho phần đã triển khai |
+
+**Thứ tự adapter sau facade:** (1) G-01 xong CORS; (2) FE-08 thay `LocalRetailBenefitAdapter` bằng adapter qua facade, chạy `LoyaltyRetailSourceIntegrationIT` với nguồn thật; (3) FE-03 thêm accept booking và hook cọc; (4) FE-03 thêm outcome hậu xử lý; (5) 006 chạy T057, T062, T065 và phần nguồn thật của T063. 006 không tự viết adapter thay owner.
+
+**T077 — nền frontend dùng chung (2026-10-27): CHẶN.** `ppswbs_frontend/` trên `khuong` và `origin/develop` chỉ có `AGENT.md`; T088 và T089 của 002 còn `[ ]`. Chưa có React + Vite, REST client hay lệnh build/test. Các task UI T030, T034, T040, T047, T055, T061, T070 và T078 chờ T088/T089. 006 không khởi tạo frontend thứ hai.
+
 ## Không hỏi lại các quyết định đã có
 
 - Voucher/points dùng chung hai dịch vụ, không hạng.
 - 10.000đ→1 điểm, 1 điểm→100đ, tối thiểu10, trần10%, floor từng giao dịch.
 - Quyết định 1–10 trong hội thoại đã chốt trước specify.
 - Lịch sử/audit/receipts tối thiểu5 năm, bảo vệ refs/unfinished transactions.
-- Dùng chung FE-01/001, session theo 001, current rights và privileged assurance dependency.
+- Dùng chung FE-01/001, session theo 001, current rights; V1 không MFA/privileged assurance (theo 001, chốt 2026-10-27).
 
 ## Handoff boundaries
 

@@ -505,6 +505,13 @@
 - Đổi số migration: `origin/develop` đã dùng `V6__account_schema_alignment.sql` (001), `V7__workshop_operations.sql` và `V8__workshop_operations_idempotency_ledger.sql` (003.2). Các file chưa commit/chưa chia sẻ của nhánh `khuong` đổi số: `V6__product_management.sql` → `V9__product_management.sql` (002), `V7__loyalty_promotion.sql` → `V10__loyalty_promotion.sql`, `V8__loyalty_drop_workshop_payable.sql` → `V11__loyalty_drop_workshop_payable.sql` (006). Nội dung SQL không đổi (chỉ dòng chú thích đầu file). Cần báo nhóm (Phan Sơn, Hồ Hoàng Quốc) số V9–V11 đã được 002/006 dùng. Database test `ppswbs_test` đã áp dụng các số cũ nên phải tạo lại sau khi ghép.
 - Fact trên `origin/develop` (`07fa8cf`, chưa merge vào `khuong`, sẽ kiểm chứng lại sau khi merge): `SecurityConfiguration` không còn `permitAll` (`/api/**` cần xác thực, route khác `denyAll`, CORS theo origin); `application.properties` không còn giá trị mặc định cho user/mật khẩu DB; `AccountFacade` có `resolveActor`, `CurrentAccountActor`, `ActorContext`, gói `facade` là `@NamedInterface`, `ActorRole`/`ActorStatus` là enum của facade; `IdentityGateFilter` xác minh bearer cho mọi `/api/**`. Nếu đúng sau khi merge: mục 1, 2 của BE-DESIGN-0005 và cả BE-DESIGN-0006 được giải quyết; còn lại cho T102 là `ddl-auto=validate` và tắt Thymeleaf. Điểm mới cần xử lý ở T007: `IdentityGateFilter` đòi bearer cho cả route catalogue công khai của 002 (khách không đăng nhập).
 
+**Diễn biến BE-DESIGN-0005 và BE-DESIGN-0006 — 2026-10-27 — feature 006 (loyalty-promotion), kiểm tra lại sau khi ghép `origin/develop`.**
+- Reporter: Claude (agent), theo yêu cầu "tiếp tục code backend của 006" của Đặng Thị Khương (owner 006). Chưa đổi trạng thái hai bản ghi gốc; đây là bằng chứng để owner 001 xác nhận gỡ chặn.
+- Fact (đọc trực tiếp mã trên nhánh `khuong` sau merge `73ac306`): `configuration/SecurityConfiguration.java` còn `/api/**` yêu cầu xác thực và `anyRequest().denyAll()`, CORS theo danh sách origin, CSRF chỉ bỏ qua `/api/**` (bearer), có `noopUserDetailsService` nên không còn mật khẩu sinh tự động; `application.properties` dùng `${JDBC_URL}`, `${JDBC_USER}` không còn giá trị mặc định cho URL và user. `AccountFacade` có `resolveActor(firebaseUid, emailVerified)`, `CurrentAccountActor(accountId, role, status, emailVerified, activeLocationIds)` và `ActorContext.requireCurrentActor()`; 002 đã dùng chúng cho `CatalogueAuthorization` và `CatalogueSecurityConfiguration` (chain theo route).
+- Unknown: owner 001 chưa xác nhận bằng văn bản rằng mục 1, 2 của BE-DESIGN-0005 và BE-DESIGN-0006 đã được xử lý; chưa kiểm tra `spring.datasource.password` còn mặc định trong file cấu hình hay không (khóa vẫn có trong file, giá trị không đọc trong lượt này); chưa khởi động ứng dụng để xem log.
+- Quyết định 2026-10-27 (Đặng Thị Khương, owner 006): 006 theo 001 V1 không yêu cầu MFA hay tầng xác thực bổ sung (001 spec.md dòng 193, plan.md dòng 30; 002 chốt tương tự 2026-10-26). Đã bỏ yêu cầu "privileged assurance" và mã `PRIVILEGED_AUTH_REQUIRED` khỏi tài liệu và mã 006.
+- Điều kiện tiếp tục đã có với 006: facade/contexts identity của 001 dùng được. Phần chờ owner 001 xác nhận bằng văn bản chỉ còn các mục BLOCKED gốc; 006 làm T007 bằng chain theo route của riêng mình, không sửa cấu hình chung của 001.
+
 ---
 
 ## BE-DESIGN-0007 — FE-08 shared-boundary prerequisites
@@ -793,3 +800,64 @@ development substitute only: reporting may compose deterministic demo facts
 using `locationId: Long`, while every non-local profile fails closed. This
 does not approve production authorization, real revenue reporting, or source
 schema changes owned by other features.
+
+## Record BE-DESIGN-0011 — `origin/develop` không biên dịch sạch, chặn kiểm chứng của 006
+
+- **Thời điểm**: 2026-10-27T21:03:41+07:00
+- **Reporter**: Claude (agent triển khai, làm theo yêu cầu của Đặng Thị Khương, owner 006)
+- **Feature/task**: 006-loyalty-promotion, T007, T017, T018, T021–T023 (kiểm chứng); ảnh hưởng mọi feature cần build sạch
+- **Trạng thái**: BLOCKED
+
+**Phạm vi bị dừng và nguồn.** Kiểm chứng code 006 sau khi ghép `origin/develop` (`4eaacaa`) vào `khuong` (merge `73ac306`). Không phải khuyết thiết kế của 006: lỗi nằm ở code feature khác đã có trong `origin/develop`.
+
+**Khuyết.** Khi Maven biên dịch lại toàn bộ (`.\mvnw.cmd -q test ...` sau khi thêm nhiều file mới), `compile` thất bại ở bốn file, đều thêm trong commit `bd88645` "[ADD] BE code v1.1 cho feature 004" (tác giả WallOfFloof, 2026-10-25):
+1. `configuration/DefaultFirebaseTokenVerifier.java`: không tìm thấy `FirebaseTokenVerifier`, `FirebaseAuthenticationToken`.
+2. `configuration/FirebaseAuthenticationFilter.java`: như trên.
+3. `designreview/application/DesignAnalysisService.java`: package `edu.fpt.sep490_g22.ppswbs_backend.members.facade` không tồn tại.
+4. `workshopbooking/facade/WorkshopBookingFacade.java`: package `workshopbooking.domain` và `workshopbooking.infrastructure` không tồn tại.
+Ở `test-compile`, `src/test/java/.../designreview/DesignRequestIT.java` cũng tham chiếu `members.domain`, `members.infrastructure`, `workshopbooking.domain` không tồn tại.
+
+**Bằng chứng.**
+- Fact: `git cat-file -e origin/develop:<path>` xác nhận cả bốn file nguồn có trong `origin/develop`; `git ls-tree -r origin/develop` không có file nào dưới `members/` hay `workshopbooking/domain/` và không có lớp `FirebaseTokenVerifier`.
+- Fact: Spring context trong test lỗi `NoClassDefFoundError: FirebaseTokenVerifier` khi nạp `FirebaseAuthenticationFilter` (`LoyaltySecurityIT`, 10/10 lỗi).
+- Fact: các lần chạy "đạt" trước đó sau merge (ví dụ `LoyaltyAuthorizationTests` 8/8, `ModulithArchitectureTests`) dựa trên class cũ còn trong `target/`, không phải biên dịch sạch.
+- Unknown: các file này là phần còn sót cần xóa, hay đang thiếu phần code đi kèm chưa được đẩy lên; chưa biên dịch thử bản sạch của `origin/develop` trong thư mục riêng.
+
+**Vì sao không tự xử lý.** Đây là code của feature 004, của khung xác thực Firebase cũ và của workshopbooking cũ, không thuộc phạm vi 006. Xóa hoặc sửa chúng là quyết định của chủ code; tự xóa có thể làm mất phần đang làm dở của người khác.
+
+**Hiện trạng file 006 tại lúc dừng.** Đã viết, chưa biên dịch sạch được: `LoyaltyAuthorization`, `configuration/LoyaltySecurityConfiguration`, 10 repository trong `dao/`, `LoyaltyLockCoordinator`, `LoyaltyCommandService`, `LoyaltyAuditService`, `BenefitEffectSupport`, `LoyaltyReleaseService`, `LoyaltyRestorationService`; test `LoyaltyAuthorizationTests`, `LoyaltySecurityIT`, `service/LoyaltyLifecycleTest`. Chưa viết `LoyaltyCancellationIT`. Không task nào được tick.
+
+**Cần để tiếp tục.** Chủ code của commit `bd88645` (004) và owner 001 (khung Firebase) chốt cách xử lý bốn file trên và `DesignRequestIT`: bổ sung phần thiếu hoặc gỡ phần sót, sao cho `.\mvnw.cmd clean test-compile` trên `origin/develop` chạy được. Sau đó 006 ghép lại develop và chạy lại toàn bộ test 006 trên MySQL 8.4.
+
+**Diễn biến BE-DESIGN-0011 — 2026-10-27 — kiểm tra lại `origin/develop` mới (`37d68cf`).**
+- Lệnh: `git archive origin/develop ppswbs_backend` vào thư mục tạm, rồi `.\mvnw.cmd -q clean test-compile`. Kết quả: thoát mã 1, `COMPILATION ERROR` ở `main`.
+- File lỗi: `configuration/DefaultFirebaseTokenVerifier`, `configuration/FirebaseAuthenticationFilter`, `designreview/application/DesignAnalysisService`, `designreview/application/HumanReviewService`, `designreview/web/AiSupportController`, `workshopbooking/facade/WorkshopBookingFacade` (thêm hai file so với lần ghi trước).
+- `origin/develop` vẫn không có `FirebaseTokenVerifier` (chỉ có `src/test/.../support/TestFirebaseTokenVerifier.java`), không có package `members/` và `workshopbooking/domain/`. Các commit mới (`8dfc3b7`, `3821937`, `5748a08`, `37d68cf`) không xử lý các file này.
+- Trạng thái vẫn `BLOCKED`.
+
+## Record BE-DESIGN-0012 — Preflight CORS của chain dùng chung bị từ chối cả với origin đã cấu hình
+
+- **Thời điểm**: 2026-10-27T21:25+07:00
+- **Reporter**: Claude (agent triển khai, theo yêu cầu của Đặng Thị Khương, owner 006)
+- **Feature/task**: 006 T007 (`LoyaltySecurityIT`); ảnh hưởng mọi route `/api/**` dùng chain dùng chung của 001
+- **Trạng thái**: BLOCKED (chỉ phần kiểm chứng "origin hợp lệ được phép"; không chặn code 006)
+
+**Khuyết.** Trong context test (MockMvc, profile `loyaltypromotion-mysql-test`), mọi preflight `OPTIONS` với `Origin: http://localhost:5173` đều nhận 403 thân `Invalid CORS request`, kể cả route của 002 (`/api/v1/products`) và kể cả khi chỉ gửi `Access-Control-Request-Method: GET` không kèm header.
+
+**Bằng chứng.** Fact: bean `corsConfigurationSource` của `SecurityConfiguration` trả cho `/api/v1/promotion-programs` đúng cấu hình: origins `[http://localhost:5173, http://localhost:3000]`, methods `GET, POST, PUT, DELETE, PATCH, OPTIONS`, headers `Authorization, Content-Type, X-Correlation-Id, Idempotency-Key`, credentials `true`. Fact: 3 preflight thử (POST có header, GET không header, GET trên route 002) đều 403. Unknown: thành phần nào từ chối (có thể là `CorsFilter` toàn cục `workshopOperationsCorsFilter` thứ tự HIGHEST_PRECEDENCE của 003.2, hoặc thứ tự filter trong chain dùng chung); chưa kiểm tra trên server thật bằng trình duyệt. Chạy trên build tạm loại trừ 004 (xem BE-DESIGN-0011).
+
+**Vì sao không tự sửa.** CORS dùng chung thuộc 001 (và filter CORS riêng của 003.2); sửa thứ tự hay cấu hình filter ảnh hưởng mọi feature.
+
+**Hiện trạng 006.** `LoyaltySecurityIT.theConfiguredFrontendOriginIsAllowedWithoutAWildcard` được đánh `@Disabled("BE-DESIGN-0012 ...")`; hai test từ chối origin lạ vẫn chạy nhưng không phân biệt được với lỗi trên. Các test còn lại đạt.
+
+**Cần để tiếp tục.** Owner 001 (cùng owner 003.2 nếu do `workshopOperationsCorsFilter`) xác định nguyên nhân và cho preflight hợp lệ trả 200 kèm `Access-Control-Allow-Origin`; sau đó 006 bỏ `@Disabled` và chạy lại.
+
+**Diễn biến BE-DESIGN-0011 — 2026-10-27 — `origin/develop` (`37d68cf`) có số migration trùng.**
+- Fact: `git ls-tree -r origin/develop ppswbs_backend/src/main/resources/db/migration` cho thấy hai file cùng version ở ba số: `V6__account_schema_alignment.sql` và `V6__retail_cart.sql`; `V7__workshop_operations.sql` và `V7__retail_mock_checkout.sql`; `V9__product_management.sql` và `V9__workshop_booking.sql`. Flyway từ chối khởi động khi có hai migration cùng version, nên mọi test có Spring context và mọi lần chạy ứng dụng trên develop sẽ lỗi, độc lập với lỗi biên dịch ở trên. Chưa chạy thử để lấy thông báo lỗi.
+- 006 không dùng các số này. 006 giữ `V10`, `V11` (đã có trên develop) và thêm `V12__loyalty_program_config_version.sql` trên nhánh `khuong` (chưa commit); số 12 chưa có trên mọi nhánh remote tại thời điểm kiểm tra.
+- Cần owner 008 (retail) và 003.1 (booking) đổi số migration của mình sang số chưa dùng trước khi develop chạy được.
+
+**Diễn biến BE-DESIGN-0011 và BE-DESIGN-0012 — 2026-10-27 — đổi mã bản ghi và kiểm tra lại `origin/develop`.**
+- Đổi mã: hai bản ghi này trước đây mang mã `BE-DESIGN-0007` (develop không biên dịch sạch, migration trùng số) và `BE-DESIGN-0008` (preflight CORS 403) trên nhánh `khuong`. `ERROR-LOG.md` trên `origin/develop` (`37d68cf`) đã dùng `BE-DESIGN-0007`–`BE-DESIGN-0010` cho FE-08 và FE-10, nên Đặng Thị Khương chốt đổi hai bản ghi của 006 thành `BE-DESIGN-0011` và `BE-DESIGN-0012`. Đã cập nhật tham chiếu trong `verification.md` của 006 và `@Disabled` của `LoyaltySecurityIT`. Nội dung các diễn biến cũ giữ nguyên.
+- Fact: `git fetch origin` lúc này chỉ cập nhật `origin/quoc` (`3821937`) và `origin/thinh` (`37d68cf`); `origin/develop` vẫn ở `37d68cf`, đúng commit đã kiểm tra ở hai diễn biến trước. Migration trùng số V6, V7, V9 vẫn còn; `configuration/` vẫn có `DefaultFirebaseTokenVerifier` và `FirebaseAuthenticationFilter`. Không có commit mới nào sửa CORS dùng chung.
+- Trạng thái: `BE-DESIGN-0011` vẫn `BLOCKED`; `BE-DESIGN-0012` vẫn `BLOCKED` (chỉ phần kiểm chứng origin hợp lệ). Chưa ghép develop về `khuong`.

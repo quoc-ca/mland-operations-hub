@@ -3,8 +3,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade;
 /** Typed failure codes of the loyalty boundary (interfaces section 3). Transport mapping lives in the controller. */
 public enum LoyaltyErrorCode {
     INVALID_INPUT,
+    AUTHENTICATION_REQUIRED,
     ACCESS_DENIED,
-    PRIVILEGED_AUTH_REQUIRED,
     PROMOTION_NOT_FOUND,
     CODE_EXISTS,
     STALE_VERSION,
