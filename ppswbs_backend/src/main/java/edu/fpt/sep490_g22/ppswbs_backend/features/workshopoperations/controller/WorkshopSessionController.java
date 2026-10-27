@@ -2,6 +2,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.controller
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLifecycleService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopResponsibilityService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopSessionService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopSlotService;
 import jakarta.validation.Valid;
@@ -31,6 +33,8 @@ public class WorkshopSessionController {
 
     private final WorkshopSlotService slotService;
     private final WorkshopSessionService sessionService;
+    private final WorkshopLifecycleService lifecycleService;
+    private final WorkshopResponsibilityService responsibilityService;
 
     @PatchMapping("/workshop-slots/{slotId}")
     public ResponseEntity<SlotResponse> updateSlot(
@@ -82,6 +86,46 @@ public class WorkshopSessionController {
             @PathVariable("sessionId") String sessionId,
             @RequestBody SessionRequest request) {
         SessionResponse response = sessionService.updateSession(authHeader, sessionId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/workshop-sessions/{sessionId}/state-transitions")
+    public ResponseEntity<SessionResponse> applyStateTransition(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @PathVariable("sessionId") String sessionId,
+            @Valid @RequestBody StateTransitionRequest request) {
+        SessionResponse response = lifecycleService.transitionState(authHeader, correlationId, sessionId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/workshop-sessions/{sessionId}/staff-assignments")
+    public ResponseEntity<SessionResponse> assignStaff(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @PathVariable("sessionId") String sessionId,
+            @Valid @RequestBody StaffAssignmentRequest request) {
+        SessionResponse response = responsibilityService.assignStaff(authHeader, correlationId, sessionId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/workshop-sessions/{sessionId}/staff-assignments")
+    public ResponseEntity<Void> removeStaff(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @PathVariable("sessionId") String sessionId,
+            @RequestParam("accountId") Long accountId) {
+        responsibilityService.removeStaff(authHeader, correlationId, sessionId, accountId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/workshop-sessions/{sessionId}/operational-lead")
+    public ResponseEntity<SessionResponse> assignOperationalLead(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @PathVariable("sessionId") String sessionId,
+            @Valid @RequestBody OperationalLeadRequest request) {
+        SessionResponse response = responsibilityService.assignOperationalLead(authHeader, correlationId, sessionId, request);
         return ResponseEntity.ok(response);
     }
 }
