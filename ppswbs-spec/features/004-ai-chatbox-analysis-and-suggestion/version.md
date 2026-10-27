@@ -109,3 +109,170 @@ Toàn bộ phần lõi **Backend** của tính năng đã được thiết kế,
 ### Giai đoạn 4: Kiểm thử E2E và Đóng gói (Testing & Deployment)
 - **Bước 4.1**: Viết Cypress / Playwright E2E tests bao quát luồng từ Chatbox -> Đặt booking -> Gửi ảnh -> Nhân viên duyệt -> Xem kết quả.
 - **Bước 4.2**: Bàn giao tài liệu hướng dẫn vận hành cho nhân viên xưởng và quản lý.
+
+---
+
+## 4. Post-merge backend audit and repair plan
+
+**Audit date**: 2026-10-27 (latest merge commit date from Git)  
+**Last updated by**: Ngô Tiến Đạt  
+**Status**: Repair plan only; no backend code is changed by this section  
+**Baseline commits inspected**: `37d68cf` (merged `develop`), `bd88645` (Feature-004 backend), and `ca41fbc` (develop integration baseline)
+
+### 4.1. Audit conclusion
+
+There are no remaining Git-level conflicts. However, Feature-004 was implemented against the previous Firebase authentication and `workshopbooking` facade model, while the merged `develop` branch now uses `IdentityGateFilter`, `CurrentAccountActor`, `VerifiedIdentity`, `features.accountmanagement`, and `features.workshopoperations`. The code can therefore exist in the repository while still failing at runtime, failing authorization, or violating Spring Modulith boundaries.
+
+The previous `53/53 tests pass` statement is historical evidence from before the second merge. It must not be treated as proof that the merged repository still passes. Maven is not available in the current environment, so compilation and integration verification are pending.
+
+### 4.2. P0 — Authentication context incompatibility
+
+**Evidence**:
+
+- `configuration/SecurityConfiguration.java` now registers `identityGateFilter` and protects `/api/**`.
+- `features/accountmanagement/service/IdentityGateFilter.java` stores `CurrentAccountActor` as the Spring Security principal and `VerifiedIdentity` as a request attribute.
+- Feature-004 controllers still convert `authentication.getPrincipal()` to a string and use it as the Firebase UID.
+- `CurrentAccountActor.toString()` is not a Firebase UID. This can break member ownership, booking ownership, reviewer identity, price-proposal ownership and audit data.
+
+**Required repair**:
+
+1. Create or reuse one identity accessor returning both the verified Firebase UID and resolved account actor.
+2. Use `VerifiedIdentity.uid()` for ownership and `CurrentAccountActor` for role/status/location scope.
+3. Replace every Feature-004 use of `authentication.getPrincipal().toString()` with this accessor.
+4. Keep raw Firebase/provider tokens and unnecessary identity data out of logs and responses.
+5. Add tests proving that accounts cannot read or mutate each other's design requests or price proposals.
+
+**Acceptance criteria**:
+
+- Ownership uses the verified Firebase UID, not `CurrentAccountActor.toString()`.
+- Reviewer and Manager audit records contain a stable intended actor identifier.
+- A valid token without an active account follows the account bootstrap policy and is not treated as an arbitrary UID.
+
+### 4.3. P0 — Guest Basic AI Support is blocked by the new filter
+
+**Evidence**:
+
+- Feature-004 allows Guest and Member to use Basic AI Support.
+- `SecurityConfiguration` requires authentication for every `/api/**` route.
+- `IdentityGateFilter.shouldNotFilter()` filters every `/api/**` request and rejects requests without a Bearer token before authorization rules can allow them.
+
+**Required repair**:
+
+1. Preserve the approved Guest Basic AI rule.
+2. Make only `POST /api/v1/ai-support/messages` anonymous-safe when no Bearer token is present; keep validation, scope restrictions, rate limiting and retention in `AiSupportService`.
+3. Keep image upload, design result, review and price-proposal routes authenticated.
+4. Add anonymous, Member, malformed-token and private-data-request tests.
+
+**Acceptance criteria**:
+
+- Guest succeeds only for public catalogue/workshop/store/FAQ questions.
+- Guest cannot upload images, view design requests, review requests or access price suggestions.
+- An invalid Bearer token is not silently downgraded to Guest.
+
+### 4.4. P0 — Role authority mismatch
+
+**Evidence**:
+
+- Account management defines `ActorRole.MANAGER` and `ActorRole.ADMIN`.
+- Feature-004 checks `ROLE_OWNER`, `ROLE_MANAGER` and `ROLE_ADMIN_TECHNICAL`.
+- `IdentityGateFilter` creates `ROLE_MANAGER` and `ROLE_ADMIN`.
+- Feature-004 price-suggestion technical visibility therefore does not recognize the new Admin authority.
+
+**Required repair**:
+
+1. Use one canonical role-mapping adapter at the security/application boundary.
+2. Preserve the business rule: Manager has business/financial authority; Admin has technical/audit authority only.
+3. Map physical account roles to Feature-004 permissions without granting Admin Manager powers.
+4. Decide and document whether logical `OWNER` remains an internal compatibility alias for `MANAGER`.
+5. Replace scattered string comparisons with a central typed permission policy.
+
+**Acceptance criteria**:
+
+- Manager can request, view and decide price suggestions.
+- Admin can view only the technical/audit projection.
+- Staff, Member and Guest cannot view internal price suggestions.
+- Admin cannot create a business price decision or review decision.
+
+### 4.5. P1 — Spring Modulith and facade boundary mismatch
+
+**Evidence**:
+
+- `designreview/package-info.java` still declares `members::facade` and `workshopbooking::facade`.
+- `DesignAnalysisService` imports the legacy `workshopbooking.facade.WorkshopBookingFacade`.
+- The merged backend introduces account management and workshop operations under `features.*` packages.
+
+**Required repair**:
+
+1. Identify the approved current facade for booking owner, package, location, session, payment/status and design eligibility.
+2. If the old facade remains an approved compatibility contract, keep it behind a documented adapter and verify its tables remain valid.
+3. Otherwise create a narrow workshop-eligibility facade in the current workshop module and migrate `DesignAnalysisService` to it.
+4. Update `package-info.java` to actual logical module names and allowed facade dependencies.
+5. Run `ModulithArchitectureTests` and reject illegal entity/repository imports.
+
+**Acceptance criteria**:
+
+- Feature-004 depends only on approved facades.
+- Booking eligibility still enforces member ownership and rejects cancelled/expired bookings.
+- Spring Modulith detects no illegal dependency or cycle.
+
+### 4.6. P1 — Database and migration compatibility
+
+**Required checks**:
+
+1. Run Flyway from V1 through the latest migration on a clean MySQL database and an upgrade database containing account/workshop schema.
+2. Verify V4 foreign keys and booking references against tables from V5–V8.
+3. Verify column types, enum values, ownership identifiers, idempotency constraints and indexes against current entities and API behavior.
+4. Verify retention cleanup, temporary-image cleanup and review decisions when records from other features are present.
+5. Do not reset or recreate the database to hide migration incompatibility.
+
+### 4.7. P1 — Configuration and local/test startup
+
+**Evidence**:
+
+- `application.properties` now requires `JDBC_URL`, `JDBC_USER`, `JDBC_PASSWORD`, Firebase settings and `WORKSHOP_OPERATIONS_IDEMPOTENCY_LEASE_DURATION` without local defaults.
+- The previous Feature-004 baseline used an H2 default for local tests.
+
+**Required repair**:
+
+1. Keep production configuration strict; do not restore insecure production fallbacks.
+2. Add or verify a test profile with explicit H2/MySQL-test settings and a non-empty idempotency lease duration.
+3. Document required local environment variables and startup commands.
+4. Ensure Gemini mock mode is deterministic and never calls the real provider during tests.
+5. Remove secrets from committed defaults and use environment or secret-manager injection.
+
+### 4.8. P1 — Test suite and contract regression
+
+Create or update tests in this order:
+
+1. Compile and Spring context startup.
+2. `ModulithArchitectureTests` and Flyway migration tests.
+3. Authentication-context tests for Guest, Member, Staff, Manager and Admin.
+4. Feature-004 ownership and role-boundary tests.
+5. Guest Basic AI, consent-before-storage, image rate limiting, idempotency and temporary-image deletion tests.
+6. Price suggestion visibility and Manager decision tests.
+7. API/OpenAPI contract validation for `401`, `403`, `409`, `422`, `429` and `Retry-After`.
+8. Re-run the complete backend suite and replace the historical `53/53` claim with the actual post-merge command, result and environment.
+
+### 4.9. P2 — Security cleanup from the first merge
+
+The first merge introduced an `X-User-Role` override in `FirebaseAuthenticationFilter`. A client-controlled role header must never grant production authority.
+
+- Remove the override from production code, or isolate it behind an explicit test-only profile.
+- Add a regression test proving that `X-User-Role` cannot elevate authority.
+- Confirm that the old Firebase filter is not registered alongside `IdentityGateFilter`.
+
+### 4.10. Repair order for the next agent
+
+```text
+1. Read AGENT.md and this section.
+2. Repair identity context and ownership extraction.
+3. Resolve Guest Basic AI routing.
+4. Normalize Manager/Admin/Owner authorities.
+5. Resolve the workshop eligibility facade and Modulith dependencies.
+6. Validate Flyway and configuration profiles.
+7. Update unit, integration, architecture and contract tests.
+8. Run the complete verification suite.
+9. Update this version file with exact commands, results and remaining blockers.
+```
+
+**Do not start frontend integration or claim Feature-004 is production-ready until all P0 items pass and the merged backend test suite has been executed.**
