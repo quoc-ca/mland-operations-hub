@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mland Operations Hub — Prototype Design Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #EEDC35;
+      --primary-hover: #D6C526;
+      --canvas: #121316;
+      --surface: #1E1F24;
+      --surface-light: #282A30;
+      --text-main: #FFFFFF;
+      --text-sub: #9CA3AF;
+      --border: #2E3038;
+      --accent-gold: #F59E0B;
+      --success: #10B981;
+      --font-heading: 'Oswald', 'Barlow Condensed', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--canvas);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 32px 20px 60px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+      margin-bottom: 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .brand-title {
+      font-family: var(--font-heading);
+      font-size: 38px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-title span.badge {
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: normal;
+      background: rgba(238, 220, 53, 0.15);
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      padding: 4px 10px;
+      border-radius: 9999px;
+      text-transform: none;
+    }
+
+    .subtitle {
+      color: var(--text-sub);
+      font-size: 15px;
+      margin-top: 6px;
+      max-width: 750px;
+    }
+
+    .spec-badges {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .spec-tag {
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 4px 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: #93C5FD;
+    }
+
+    /* Grid of prototypes */
+    .prototype-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 28px;
+      margin-bottom: 48px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: var(--primary);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+    }
+
+    .card-preview {
+      height: 180px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    .preview-dark {
+      background: linear-gradient(135deg, #121316 0%, #1c1d22 100%);
+      border-bottom: 2px solid var(--primary);
+    }
+
+    .preview-light {
+      background: linear-gradient(135deg, #F8F9FA 0%, #EDF0F3 100%);
+      border-bottom: 2px solid #111827;
+      color: #111827;
+    }
+
+    .preview-console {
+      background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+      border-bottom: 2px solid #38BDF8;
+    }
+
+    .preview-mockup {
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .preview-light .preview-mockup {
+      border-color: rgba(0, 0, 0, 0.15);
+    }
+
+    .mockup-bar {
+      height: 12px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .preview-light .mockup-bar {
+      background: rgba(0, 0, 0, 0.08);
+    }
+
+    .mockup-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .card-body {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+
+    .card-title {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .style-pill {
+      font-size: 11px;
+      font-family: var(--font-body);
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: normal;
+      text-transform: uppercase;
+    }
+
+    .pill-dark {
+      background: #EEDC35;
+      color: #121316;
+    }
+
+    .pill-light {
+      background: #FFFFFF;
+      color: #111827;
+      border: 1px solid #D1D5DB;
+    }
+
+    .pill-console {
+      background: #38BDF8;
+      color: #0F172A;
+    }
+
+    .card-desc {
+      color: var(--text-sub);
+      font-size: 14px;
+      margin-bottom: 20px;
+      flex-grow: 1;
+    }
+
+    .card-features {
+      list-style: none;
+      margin-bottom: 24px;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
+
+    .card-features li {
+      font-size: 13px;
+      color: #D1D5DB;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-features li::before {
+      content: "✔";
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .btn-launch {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--primary);
+      color: #121316;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      transition: background 0.15s ease, transform 0.1s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-launch:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    /* Comparison Section */
+    .matrix-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 40px;
+    }
+
+    .matrix-title {
+      font-family: var(--font-heading);
+      font-size: 24px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 16px;
+      color: var(--primary);
+    }
+
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .matrix-table th, .matrix-table td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .matrix-table th {
+      color: var(--text-sub);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+    }
+
+    .matrix-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    footer {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-sub);
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1 class="brand-title">
+          Mland Operations Hub
+          <span class="badge">Prototypes Hub</span>
+        </h1>
+        <p class="subtitle">
+          Khảo sát và đối chiếu 3 phong cách giao diện (Vanilla HTML, CSS, JS) cho kịch bản tích hợp
+          <strong>Feature 001 (Account Management & Profile)</strong> và
+          <strong>Feature 008 (Retail Order & Fulfillment)</strong> theo chuẩn <code>ppswbs-spec/DESIGN.md</code>.
+        </p>
+      </div>
+      <div class="spec-badges">
+        <span class="spec-tag">FE-01: Profile/Auth</span>
+        <span class="spec-tag">FE-08: Order/GHTK</span>
+        <span class="spec-tag">Pure HTML/CSS/JS</span>
+        <span class="spec-tag">Bilingual VI/EN</span>
+      </div>
+    </header>
+
+    <div class="prototype-grid">
+      <!-- Style 1: Craft Dark -->
+      <div class="card">
+        <div class="card-preview preview-dark">
+          <div class="preview-mockup">
+            <div class="mockup-bar" style="width: 40%; background: #EEDC35;"></div>
+            <div class="mockup-row">
+              <div class="mockup-bar" style="flex: 2; height: 35px; background: #2A2B30;"></div>
+              <div class="mockup-bar" style="flex: 1; height: 35px; background: #2A2B30;"></div>
+            </div>
+            <div class="mockup-bar" style="width: 70%; background: rgba(255,255,255,0.2);"></div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-title">
+            <span>Style 1: Atelier Noir</span>
+            <span class="style-pill pill-dark">Craft Dark</span>
+          </div>
+          <p class="card-desc">
+            Phong cách xưởng chế tác thủ công (Workshop Craft Canvas) với nền tối sâu (#121316), điểm xuyết sắc vàng nghệ thương hiệu (#EEDC35) và phông chữ Oswald đậm chất kim hoàn cao cấp.
+          </p>
+          <ul class="card-features">
+            <li>Nền xưởng đêm huyền bí, độ tương phản cao, làm nổi bật trang sức.</li>
+            <li>Đặt hàng đa chi nhánh (Hà Nội / TP.HCM) & phí ship GHTK tách biệt.</li>
+            <li>Theo dõi trạng thái giao hàng timeline trực quan & xác thực hồ sơ FE-01.</li>
+            <li>Chuyển đổi góc nhìn Khách hàng & Nhân viên đóng gói (Staff).</li>
+          </ul>
+          <a href="style-1-craft-dark/index.html" class="btn-launch">
+            Khám phá Style 1 &rarr;
+          </a>
+        </div>
+      </div>
+
+      <!-- Style 2: Boutique Light -->
+      <div class="card">
+        <div class="card-preview preview-light">
+          <div class="preview-mockup">
+            <div class="mockup-bar" style="width: 40%; background: #111827;"></div>
+            <div class="mockup-row">
+              <div class="mockup-bar" style="flex: 2; height: 35px; background: #E5E7EB;"></div>
+              <div class="mockup-bar" style="flex: 1; height: 35px; background: #EEDC35;"></div>
+            </div>
+            <div class="mockup-bar" style="width: 70%; background: rgba(0,0,0,0.15);"></div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-title">
+            <span>Style 2: Boutique Épurée</span>
+            <span class="style-pill pill-light">Atelier Light</span>
+          </div>
+          <p class="card-desc">
+            Phong cách showroom đương đại thanh lịch với nền sứ sáng (#F8F9FA), viền tối giản tinh tế, tương phản đạt chuẩn WCAG AA và trải nghiệm thương mại điện tử mượt mà, thư thái.
+          </p>
+          <ul class="card-features">
+            <li>Giao diện sáng sủa, sạch sẽ, chuẩn boutique trang sức hiện đại.</li>
+            <li>Trình bày chi tiết đơn hàng, giỏ hàng popup tinh gọn và dễ quét mắt.</li>
+            <li>Tích hợp hồ sơ thành viên: Cập nhật địa chỉ nhận hàng & xác minh email.</li>
+            <li>Hỗ trợ chuyển đổi song ngữ VI / EN mượt mà.</li>
+          </ul>
+          <a href="style-2-boutique-light/index.html" class="btn-launch">
+            Khám phá Style 2 &rarr;
+          </a>
+        </div>
+      </div>
+
+      <!-- Style 3: Dense Console -->
+      <div class="card">
+        <div class="card-preview preview-console">
+          <div class="preview-mockup">
+            <div class="mockup-bar" style="width: 25%; background: #38BDF8;"></div>
+            <div class="mockup-row">
+              <div class="mockup-bar" style="flex: 1; height: 40px; background: #1E293B;"></div>
+              <div class="mockup-bar" style="flex: 2; height: 40px; background: #334155;"></div>
+            </div>
+            <div class="mockup-bar" style="width: 90%; background: rgba(255,255,255,0.15);"></div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-title">
+            <span>Style 3: Operations Hub</span>
+            <span class="style-pill pill-console">Dense Console</span>
+          </div>
+          <p class="card-desc">
+            Giao diện bàn điều khiển vận hành chuyên nghiệp (lấy cảm hứng từ Firebase Console & Developer Portal) với thanh điều hướng cánh bên, mật độ thông tin cao và xử lý đơn hàng tốc độ cao.
+          </p>
+          <ul class="card-features">
+            <li>Bố cục dạng console với sidebar, bảng dữ liệu chia cột chi tiết và lọc trạng thái.</li>
+            <li>Thao tác đóng gói nhanh cho Staff: Ghi nhận mã vận đơn GHTK trong 1 click.</li>
+            <li>Dễ dàng tra cứu lịch sử mua hàng, mã SKU, trọng lượng kiện và tách đơn.</li>
+            <li>Tối ưu cho màn hình làm việc nghiệp vụ 1366x768 và máy tính để bàn.</li>
+          </ul>
+          <a href="style-3-dense-console/index.html" class="btn-launch">
+            Khám phá Style 3 &rarr;
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Architectural Alignment Table -->
+    <div class="matrix-section">
+      <h2 class="matrix-title">Ma Trận Đối Chiếu Chuẩn Thiết Kế & Nghiệp Vụ</h2>
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>Tiêu chí</th>
+            <th>Style 1: Atelier Noir (Craft Dark)</th>
+            <th>Style 2: Boutique Épurée (Light)</th>
+            <th>Style 3: Operations Hub (Dense Console)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Canvas & Nền</strong></td>
+            <td><code>#121316</code> (Canvas tối xưởng thủ công)</td>
+            <td><code>#F8F9FA</code> / <code>#FFFFFF</code> (Nền sáng thanh lịch)</td>
+            <td><code>#0F172A</code> (Sidebar) + <code>#F1F5F9</code> (Data Canvas)</td>
+          </tr>
+          <tr>
+            <td><strong>Typography</strong></td>
+            <td>Oswald (Heading Bold) + Inter (Body)</td>
+            <td>Oswald / Barlow Condensed + Inter</td>
+            <td>Inter (Data Table) + JetBrains Mono (Mã SKU/Mã GHTK)</td>
+          </tr>
+          <tr>
+            <td><strong>Mục tiêu trải nghiệm</strong></td>
+            <td>Khách hàng cảm nhận độ tinh xảo, thủ công kim hoàn</td>
+            <td>Khách hàng mua sắm nhanh, rõ ràng, cảm giác boutique</td>
+            <td>Nhân viên Staff & Quản lý thao tác đơn hàng cực nhanh</td>
+          </tr>
+          <tr>
+            <td><strong>Nghiệp vụ FE-01 & FE-08</strong></td>
+            <td>Đầy đủ: Đặt nhẫn, giỏ đa chi nhánh, GHTK, hồ sơ Member, Staff packing</td>
+            <td>Đầy đủ: Đặt nhẫn, giỏ đa chi nhánh, GHTK, hồ sơ Member, Staff packing</td>
+            <td>Đầy đủ: Đặt nhẫn, giỏ đa chi nhánh, GHTK, hồ sơ Member, Staff packing</td>
+          </tr>
+          <tr>
+            <td><strong>Song ngữ VI/EN</strong></td>
+            <td>Có nút chuyển đổi VI / EN tức thì</td>
+            <td>Có nút chuyển đổi VI / EN tức thì</td>
+            <td>Có nút chuyển đổi VI / EN tức thì</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer>
+      Mland Operations Hub &bull; Thiết kế tuân thủ nghiêm ngặt <code>ppswbs-spec/DESIGN.md</code> & <code>ppswbs_frontend/AGENT.md</code>
+    </footer>
+  </div>
+</body>
+</html>

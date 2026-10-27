@@ -1,76 +1,121 @@
 package edu.fpt.sep490_g22.ppswbs_backend.configuration;
 
-import edu.fpt.sep490_g22.ppswbs_backend.common.CorrelationIdFilter;
-import edu.fpt.sep490_g22.ppswbs_backend.common.ErrorResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.Filter;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.io.IOException;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
 
 @Configuration
 @EnableWebSecurity
-@RequiredArgsConstructor
 public class SecurityConfiguration {
 
-    private final FirebaseAuthenticationFilter firebaseAuthenticationFilter;
-    private final CorrelationIdFilter correlationIdFilter;
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectProvider<Filter> identityGateFilterProvider;
+    private final List<String> allowedOrigins;
+
+    public SecurityConfiguration(
+        @Qualifier("identityGateFilter") ObjectProvider<Filter> identityGateFilterProvider,
+        @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}") String allowedOriginsStr
+    ) {
+        this.identityGateFilterProvider = identityGateFilterProvider;
+        this.allowedOrigins = Arrays.stream(allowedOriginsStr.split(","))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+            .toList();
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(unauthorizedEntryPoint()))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/",
-                    "/member-auth/**",
-                    "/workshop-bookings/**",
-                    "/policies/**",
-                    "/api/v1/policies/current",
-                    "/api/v1/workshop-bookings/*/email-confirmations",
-                    "/api/v1/ai-support/messages",
-                    "/css/**",
-                    "/js/**",
-                    "/images/**",
-                    "/favicon.ico"
-                ).permitAll()
-                .requestMatchers("/api/v1/members/me/**").authenticated()
-                .requestMatchers("/api/v1/design-requests/**").authenticated()
-                .requestMatchers("/api/v1/design-review-requests/**").hasAnyRole("STAFF", "OWNER", "MANAGER")
-                .requestMatchers("/api/v1/price-proposals/**").hasAnyRole("OWNER", "MANAGER", "ADMIN_TECHNICAL")
-                .anyRequest().permitAll()
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint((request, response, authException) -> {
+                    String correlationId = resolveCorrelationId(request);
+                    writeError(response, HttpStatus.UNAUTHORIZED.value(), "UNAUTHORIZED", "Authentication required", correlationId);
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    String correlationId = resolveCorrelationId(request);
+                    writeError(response, HttpStatus.FORBIDDEN.value(), "FORBIDDEN", "Access denied", correlationId);
+                })
             )
-            .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(firebaseAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/error").permitAll()
+                .requestMatchers("/api/**").authenticated()
+                .anyRequest().denyAll()
+            );
+
+        identityGateFilterProvider.ifAvailable(filter -> {
+            http.addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class);
+        });
 
         return http.build();
     }
 
     @Bean
-    public AuthenticationEntryPoint unauthorizedEntryPoint() {
-        return (request, response, authException) -> {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            ErrorResponse errorResponse = ErrorResponse.builder()
-                    .code("INVALID_TOKEN")
-                    .message("Authentication token is missing, expired, or invalid")
-                    .correlationId(CorrelationIdFilter.getCurrentCorrelationId())
-                    .timestamp(Instant.now())
-                    .build();
-            response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(allowedOrigins);
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key"));
+        configuration.setExposedHeaders(List.of("X-Correlation-Id"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    @Bean
+    public UserDetailsService noopUserDetailsService() {
+        return username -> {
+            throw new UsernameNotFoundException("Local username/password authentication is not supported");
         };
+    }
+
+    private String resolveCorrelationId(HttpServletRequest request) {
+        String correlationId = request.getHeader("X-Correlation-Id");
+        return (correlationId != null && !correlationId.isBlank()) ? correlationId.trim() : UUID.randomUUID().toString();
+    }
+
+    private void writeError(
+        HttpServletResponse response,
+        int status,
+        String code,
+        String message,
+        String correlationId
+    ) throws IOException {
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        String json = String.format(
+            "{\"code\":\"%s\",\"message\":\"%s\",\"correlationId\":\"%s\",\"timestamp\":\"%s\"}",
+            code, message, correlationId, Instant.now()
+        );
+        response.getWriter().write(json);
     }
 }

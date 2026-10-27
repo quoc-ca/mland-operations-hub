@@ -1,25 +1,48 @@
-# Member Profile — planned verification
+# Account Management Validation Guide
 
-Status: specification only. The implementation and executable verification tooling were removed at the user's request on 2026-10-19. The routes below describe the intended contract, not available functionality.
+**Date created**: 2026-10-26
+**Date updated**: 2026-10-26
+**Author**: Phan Sơn
+**Last updated by**: Phan Sơn
 
-Use the [spec navigation table](spec.md#authentication-and-navigation) as the source of truth. The web/Figma prototype was subsequently synchronized for UX review. Its simulated behavior and earlier backend runtime results are not production acceptance evidence for this revision.
+Run only against disposable MySQL and non-production Firebase/Auth Emulator
+configuration. Never use production identities, credentials, or databases.
 
-## Journey acceptance scenarios
+## Prerequisites
 
-The table below is a documentation walkthrough now and a required runtime test inventory for later implementation. T002 defines the checks; T004–T006 implement the behavior; T007–T008 execute/review evidence. All scenarios require safe credential/status checks; no policy requirement is inferred.
+- Required runtime configuration is supplied through environment/secret channel;
+  no database credential default is accepted.
+- Migration version is reserved and database is empty or a supported V5/V6
+  upgrade fixture.
+- Auth Emulator or approved non-production Firebase project is available.
+- FE-07 and workshop-location test adapters expose deterministic outcomes.
 
-| ID | Input / action | Expected result | Requirements |
-| --- | --- | --- | --- |
-| AC-01 | Register a new Firebase email/password identity; then complete email verification. | Registration sends the initial email and shows verification. Backend-checked verified email plus an eligible recent credential permits session/bootstrap and navigation to `/`; no policy or automatic profile redirect. | FR-011–FR-015, SC-003 |
-| AC-02 | Sign in with already verified email, for both ACTIVE and PENDING_POLICY_ACCEPTANCE. | Complete the session/bootstrap checks and go straight to `/`. No verification screen, email send or policy prompt. An already valid session also opens the profile without repeating sign-in. | FR-003, FR-011–FR-015, SC-003 |
-| AC-03 | Sign in with unverified email after leaving registration unfinished; request recheck/resend. | Show verification, not home/profile. Page entry/sign-in/recheck does not resend. Only an explicit resend action sends another email. After verification, follow the same successful session/home path as AC-01. | FR-003, FR-011–FR-014, SC-003 |
-| AC-04 | Sign in, open and save own profile with missing acceptance, outdated acceptance, changed policy versions or no current policy available. Repeat for both allowed statuses. | No policy lookup, prompt or acceptance mutation is required; sign-in still ends at `/`, and web GET/POST plus API GET/PUT profile work when otherwise valid. Missing policy is never a profile 403. No status conversion to ACTIVE or consent-history mutation occurs. | FR-003–FR-005, FR-010, FR-014–FR-016, SC-004 |
-| AC-05 | An eligible, verified Member has no profile; open the page or API, then save valid fields. | GET is read-only with empty/null profile fields. First valid save creates one profile, not a new registration or Member. Distinguish this from a missing Member: API 409, then the UID-based session/bootstrap flow. | FR-002, FR-004, FR-008, FR-014, FR-016 |
-| AC-06 | Missing/invalid/expired/revoked credential, SUSPENDED or other disallowed status, unverified email, or credential-validation outage. | No profile access. API uses 401 for credential failure, 403 for email/status, 409 for missing Member and 503 for credential-validation outage; web uses fixed recovery/authentication destinations. Policy absence cannot bypass these checks. | FR-001–FR-003, FR-012–FR-014, FR-016 |
-| AC-07 | Verification completes but auth_time is older than five minutes, or credential no longer validates; retry with a fresh sign-in. Also check excessive future auth_time. | Do not grant a new session from the ineligible credential. Recover through sign-in and then `/`, without asking to verify an already verified email again. A still-valid existing session is not forced through fresh sign-in on every visit. Reject future auth_time beyond the specified 30-second tolerance. | FR-011–FR-013, FR-016, SC-003 |
+## Scenarios
 
-## Remaining implementation checks
+1. Email/password, Google, and Facebook (when configured) bootstrap the same UID
+   repeatedly without duplicate Account; same email/different UID is denied and
+   not merged.
+2. Unverified Member reaches `/` but profile is denied; after verification and
+   token refresh, profile save succeeds. Password/email changes never send a
+   password to Mland and email sync reads only current identity.
+3. Missing, invalid, expired, revoked, and unavailable identity outcomes return
+   safe `401`/`503`; a non-public undeclared route is denied by the common gate.
+4. Admin creates Staff and Manager with valid scope, retries a lost response with
+   the same idempotency key, and observes one pending Account/invitation only.
+5. Pending identity activates only after verified email and valid location;
+   invalid/inactive scope denies internal action. Staff one-location and Manager
+   multi-location rules are covered.
+6. Admin stale profile/role/status command returns `409`; own profile commits
+   last successful value.
+7. Suspend immediately denies next protected request even when revoke/FE-07
+   fails. Restore remains unavailable until revocation completes and requires
+   fresh sign-in.
+8. Verify safe audit fields, no raw secret/PII, post-commit notification failure
+   isolation, facade-only Modulith dependency, MySQL empty/upgrade migration,
+   OpenAPI/authorization/error coverage, and React loading/error/retry states.
 
-After implementation, exercise strict profile validation, ownership, CSRF, no-JS profile forms/PRG, failed-save draft preservation, concurrent first saves/last-commit wins, atomic audit, MySQL fresh/upgrade migrations and Spring Modulith verification as specified in [plan](plan.md) and [tasks](tasks.md). Web uses the eight-hour Firebase session cookie; API GET/PUT uses Bearer Firebase ID tokens.
+## Evidence
 
-Use Firebase Auth Emulator and an authorized disposable MySQL database, not production data/configuration. Prepare concrete commands and test tooling only when implementation is separately requested. [Historical evidence](verification.md#historical-evidence--removed-implementation) does not validate the current repository or revised journey.
+Record command, revision, Java/MySQL/Firebase environment, scenario result, and
+known limitation in the feature validation report. A mock-only or H2-only check
+does not prove Firebase/MySQL integration behavior.

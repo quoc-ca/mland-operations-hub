@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -10,11 +10,13 @@
 **Input**: Feature specification from
 `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/spec.md`
 
-**Status**: Design draft — internal capacity semantics clarified; implementation-contract details remain unapproved.
+**Status**: Design draft — internal capacity semantics and facade-command
+idempotency are clarified; implementation must rebase the affected task before
+changing persistence or code.
 
 ## Summary
 
-Build the operational backbone for workshop sessions: branches, reusable slots,
+Build the operational backbone for workshop sessions: canonical workshop locations, reusable slots,
 sessions, capacity commitments, individual attendance tickets, authorised
 check-in, exception audit, and manual attendance finalisation.
 
@@ -22,9 +24,36 @@ The agreed target boundary is deliberately different from legacy code:
 `workshopoperations` owns every operational record needed to decide capacity or
 attendance, including the attendance ticket, QR reference and ticket code.
 `workshopbooking` owns the commercial booking, payment, invoice and customer
-ticket delivery. Booking reaches Operations only through two named synchronous
-facade boundaries: a capacity boundary and a delivery-safe ticket-projection
-boundary. No module may read another module's repositories or entities directly.
+ticket delivery. Booking reaches Operations only through the synchronous
+`WorkshopOperationsFacade`, whose capacity and delivery-safe ticket-projection
+operations are fixed in the shared
+[003 internal facade contract](../contracts/workshop-interfeature-facades.md).
+No module may read another module's repositories or entities directly.
+
+### Canonical Workshop Location Boundary
+
+`Workshop Location` is the one physical-site resource for Workshop Operations.
+Its canonical identity is `workshop_location.id` (`Long` / REST `int64`). The
+`activeLocationIds` supplied by Account Management contain those same values;
+authorization therefore compares `session.locationId ∈ actor.activeLocationIds`
+directly. There is no `WorkshopBranch`, `branchId`, `workshop_branches` table,
+UUID branch reference, or branch-to-location mapping in the target.
+
+Public REST routes and DTO fields use `location`, including
+`/workshop-locations` and `locationId`. The current branch-named code,
+contracts and tests are legacy and must be replaced rather than adapted with a
+duplicate identifier.
+
+### Account Target-Authorization Dependency
+
+For an assignment or operational-lead handover, Operations needs a read-only
+semantic Account Management boundary for the target `accountId`: existence,
+canonical role, current status and active location IDs. The current public
+facade provides current-actor facts and location scope, but does not yet expose
+that complete target-account query. Operations must not read Account entities or
+repositories, infer a target role, or create a duplicate role store. Therefore
+implementation of target Staff/Manager validation remains blocked by
+`BE-DESIGN-0003` until FE-001 publishes that boundary and its verification.
 
 ### Resolved OTA-Observable Snapshot Boundary
 
@@ -32,9 +61,9 @@ Operations remains the sole source of session schedule, capacity and direct-
 Mland sale state. For a mapped Basic Ring session, it makes a schedule snapshot
 and an availability/sale-state snapshot available to 003.4 only after a
 completed local change alters OTA-observable data. The schedule snapshot is
-limited to opaque session identity, branch, scheduled start/end, source change
+limited to opaque session identity, location, scheduled start/end, source change
 identity/version and effective time. The availability/sale-state snapshot is
-limited to opaque session identity, branch scope, sellable availability, sale
+limited to opaque session identity, location scope, sellable availability, sale
 state, source change identity/version and effective time. Neither contains PII,
 Booking/payment data, ticket detail or OTA mapping. Sellable availability
 subtracts confirmed ticket seats and active, unexpired direct-Mland holds.
@@ -53,15 +82,16 @@ never pauses direct-Mland sales or changes Operations capacity.
 
 One participant has one persistent QR ticket, including for Silverclay. Its
 validity is evaluated against its entitled session in the scanner's current
-session/branch context, and attendance is independent for every ticket/session
+session/location context, and attendance is independent for every ticket/session
 pair. Operations supplies Booking only a delivery-safe ticket projection: QR
-reference or ticket identity, ticket code, and each entitled session's branch
+reference or ticket identity, ticket code, and each entitled session's location
 and scheduled start/end. Booking adds commercial/contact information and sends
-it to the customer. The capacity facade supplies sale eligibility and atomic
-reserve/commit/release outcomes; the ticket-projection facade supplies only the
-delivery-safe projection after successful commitment. This is an internal
-synchronous boundary only: database shape, facade types, Java methods and
-public HTTP routes remain unapproved.
+it to the customer. `WorkshopOperationsFacade` supplies sale eligibility and
+atomic reserve/commit/release outcomes, plus only the delivery-safe projection
+after successful commitment. This is an internal synchronous boundary: its
+facade types and operations are fixed in the shared 003 contract; database
+shape and locking mechanism remain implementation decisions. Public HTTP
+location routes and DTO fields are defined by this feature's OpenAPI contract.
 
 ### Resolved Settlement and Required-Session-Change Boundary
 
@@ -82,8 +112,44 @@ session retains neither entitlement nor capacity. `SALES_PAUSED` has no V1
 Manager-reschedule exception. A cancellation-requested source uses 003.3's
 separate Mland-caused remedy instead.
 
-These are synchronous internal semantic boundaries. They do not approve facade
-types, Java methods, DTO fields, tables, locks, events or public HTTP routes.
+These are synchronous internal boundaries. Their facade operations, boundary
+types, typed outcomes, and idempotency rules are fixed in the shared 003
+contract; tables, locks, events, and public HTTP routes remain separate
+decisions.
+
+### Resolved Facade Command Idempotency Boundary
+
+Every state-changing `WorkshopOperationsFacade` command is protected by an
+Operations-owned idempotency ledger. The ledger is a technical persistence
+record distinct from capacity holds, tickets and immutable operational audit
+events. Its logical identity is the pair `facadeAction` and caller-generated
+`operationReference`; it retains a semantic request fingerprint so the same
+pair with different semantic content is rejected safely. An equivalent retry
+returns the original immutable typed business outcome after completion.
+
+The ledger starts as `IN_PROGRESS` and completes as `COMPLETED` with the
+terminal business outcome `ACCEPTED` or `REJECTED`. An equivalent duplicate
+that finds a live `IN_PROGRESS` record receives the typed `IN_PROGRESS` outcome
+and creates no business side effect. Technical or retryable failures roll back
+the business transaction without producing a completed outcome, so the caller
+may retry with the same operation reference.
+
+The durable claim includes a configurable lease and an incrementing claim
+version. An equivalent retry may reclaim only an expired claim. The business
+transaction may commit its aggregate changes and complete the ledger only if a
+conditional finalisation proves that its claim version remains current. A
+reclaimed, stale claimant therefore cannot commit an old side effect. The
+initial claim/reclaim is durable so duplicates can observe `IN_PROGRESS`; the
+terminal ledger update and all command business effects share one local MySQL
+transaction and either commit or roll back together.
+
+The ledger retains the original execution's `correlationReference` separately
+from `operationReference`; the one business audit event for that execution uses
+the same correlation reference. Equivalent retries create no duplicate business
+audit event. Completed records are retained for at least 24 hours before
+cleanup; a caller must not retry after that window because duplicate protection
+is no longer guaranteed. No raw request payload, Firebase token, PII, QR value,
+or audit metadata is used as the ledger or outcome store.
 
 ## Technical Context
 
@@ -91,14 +157,15 @@ types, Java methods, DTO fields, tables, locks, events or public HTTP routes.
 | --- | --- |
 | Runtime | Java 21, Spring Boot 3.4.x, Spring Modulith |
 | Persistence | Spring Data JPA, MySQL, append-only Flyway migrations |
-| Identity and access | Firebase Authentication for identity; MySQL-backed account/personnel facade for active status, capabilities and Manager branch scope |
+| Identity and access | Firebase Authentication for identity; Account Management facade for canonical role, active status and location scope; Operations applies its own action rules with target location and Staff assignment. |
 | API | Versioned REST under `/api/v1`, plural kebab-case resources, DTOs and Bean Validation; contract in `contracts/` |
 | UI boundary | A separate React + Vite client renders Manager and Staff workflows and consumes REST APIs; the backend does not render application UI or use Thymeleaf/htmx as a UI baseline |
 | API security transport | Firebase bearer token on protected API requests. Production origins remain unapproved: use an environment allowlist, deny unspecified origins, do not enable credentialed CORS by default, and do not globally disable CSRF. |
 | Time | Store instants; display and validate workshop schedules in `Asia/Ho_Chi_Minh` |
 | Testing | JUnit 5, Spring Boot/Security/Modulith tests, plus MySQL-backed Flyway integration verification |
+| Facade command idempotency | Operations-owned persisted ledger; local MySQL claim/finalisation transactions; configurable in-progress lease; completed records retained at least 24 hours |
 
-The first rollout configures the existing Vietnam branches and three non-overlapping
+The first rollout configures the existing Vietnam locations and three non-overlapping
 default slots: `09:00–12:00`, `13:00–16:00`, and `16:00–19:00`. A normal
 workshop uses about 2.5 hours; the remaining 30 minutes is operational buffer.
 
@@ -109,7 +176,7 @@ workshop uses about 2.5 hours; the remaining 30 minutes is operational buffer.
 | Modular ownership | `workshopoperations` exposes an explicit facade; Booking and account/personnel are dependencies only through facades. | Pass |
 | No business logic in `common` | Session, ticket, capacity and attendance policies remain in Operations. Shared audit plumbing is technical only. | Pass |
 | JPA/Flyway discipline | JPA repositories only; a new append-only migration is selected at implementation time after checking the latest migration. | Pass |
-| Security boundary | Firebase verifies identity; server-side capability/scope checks guard every operation. No client-supplied branch or actor is trusted. | Pass |
+| Security boundary | Firebase verifies identity; server-side capability/scope checks guard every operation. No client-supplied location or actor is trusted. | Pass |
 | API quality | Versioned DTO contract, validation, problem responses and OpenAPI are designed before controllers. | Pass |
 | Verifiability | Lifecycle, capacity races, authorization, check-in and finalisation are explicit test slices. | Pass |
 
@@ -128,6 +195,13 @@ Manager authority from a display role. Existing data needs an operator-approved
 mapping/reissue run before production cut-over; the Flyway schema migration must
 be reversible operationally by preserving source references and audit history.
 
+The current 003.2 implementation independently creates `WorkshopBranch` /
+`workshop_branches`, uses UUID branch references and compares branch IDs with
+Account location scope. That implementation contradicts the canonical-location
+boundary. T013–T019, including their branch-named controllers, DTOs, tests and
+contract assertions, require replacement after this rebase; they are not a
+compatibility layer.
+
 ## Target Module Structure
 
 ```text
@@ -136,11 +210,11 @@ ppswbs_backend/src/main/java/.../
 └── features/
     ├── workshopoperations/
     │   ├── controller/      # versioned REST transport and validation
-    │   ├── dto/             # request/response and facade boundary types
+    │   ├── dto/             # REST request/response types only
     │   ├── dao/             # JPA repositories and persistence access
     │   ├── entity/          # internal JPA session, ticket and audit entities
     │   ├── service/         # transactions, use cases and workshop policies
-    │   └── facade/          # only supported cross-module entry points
+    │   └── facade/          # only supported cross-module entry points and boundary types
     ├── workshopbooking/
     │   ├── controller/
     │   ├── dto/
@@ -149,7 +223,7 @@ ppswbs_backend/src/main/java/.../
     │   ├── service/         # commercial booking/payment and delivery
     │   └── facade/          # calls Operations facade; performs delivery
     └── accountmanagement/
-        └── facade/          # account/personnel capability boundary
+        └── facade/          # canonical account role/status/location facts
 ```
 
 The React + Vite client remains outside this backend module tree. It may call
@@ -158,23 +232,25 @@ boundary.
 
 ## Implementation Sequence
 
-1. **Establish integration contracts.** Define separate Operations capacity and
-   delivery-safe ticket-projection facades. The capacity facade handles holds,
-   commitment confirmation/release and sale eligibility; the ticket-projection
-   facade supplies customer-delivery summaries after successful commitment.
-   Define the consumed account/personnel facade
-   for actor activity, required capability and Manager branch scope. Do not map
-   a UI role name to permissions inside Operations.
+1. **Implement approved integration contracts.** Implement
+   `WorkshopOperationsFacade` from the shared 003 contract: its capacity
+   operations handle holds, commitment confirmation/release and sale
+   eligibility; its ticket-projection operation supplies customer-delivery
+   summaries after successful commitment.
+   Consume the Account Management facade for actor activity, canonical role and
+   location scope. Operations applies its own action rule with target location and
+   Staff assignment; it does not map a UI role name, Firebase claim or retired
+   role code to authority.
    For 003.1, the facade boundary exposes only a sale-eligibility snapshot
-   (customer-selectability, sale state, branch, scheduled start/end, remaining
+   (customer-selectability, sale state, location, scheduled start/end, remaining
    capacity) and atomic group operations: reserve N seats in every requested
    session or none; commit every active hold of a booking or none; and release
    active holds once. It also supplies Booking a delivery-safe ticket
-   projection, never attendance, Staff/audit or PII. The two facades are
-   synchronous. Every booking-critical capacity call joins the caller's one
+   projection, never attendance, Staff/audit or PII. The facade is synchronous.
+   Every booking-critical capacity call joins the caller's one
    local MySQL transaction; events are limited to non-critical post-transition
    handoff. For an authorized Booking customer read, the same delivery-safe
-   boundary returns the current entitlement/branch/schedule rather than an
+   boundary returns the current entitlement/location/schedule rather than an
    initial snapshot. A successful replacement or verified-refund consequence
    therefore becomes visible to the existing Booking/Magic-Link access without
    Booking copying or owning a session schedule.
@@ -192,18 +268,29 @@ boundary.
    it at-least-once and owns its separate durable provider delivery. V1 uses no
    message broker. Concrete event/facade types, payload, schema, retry values
    and provider policy remain unapproved.
-   Public HTTP routes, Java
-   method names, DTO fields and locking mechanics remain unapproved design
-   details.
-2. **Create the operational aggregate.** Model branch, reusable branch slot,
+   Java method names remain implementation details. Public HTTP location routes
+   and REST DTO fields are defined in the OpenAPI contract. The approved
+   facade-command idempotency boundary uses a
+   dedicated ledger and claim-version conditional finalisation; its concrete
+   JPA/SQL expression remains an implementation detail constrained by the
+   ledger invariants below.
+2. **Establish facade-command idempotency before capacity work.** Add the
+   Operations-owned ledger through an append-only migration selected after
+   inspecting the latest deployed version. Claim or reclaim an equivalent
+   command durably, reject mismatched fingerprints, return `IN_PROGRESS` for a
+   live equivalent claim, and finalise only under the current claim version in
+   the same local transaction as business effects. Retain the original
+   correlation reference separately from audit metadata; do not reuse audit,
+   hold or ticket persistence for deduplication.
+3. **Create the operational aggregate.** Model canonical workshop location, reusable location slot,
    session, active Staff assignment, one Manager operational lead, capacity hold
    and individual attendance ticket with session entitlements. Enforce
-   branch/date/slot uniqueness, positive capacity and the no-overlap slot rule.
-3. **Implement session administration.** Support single and bounded bulk
+   location/date/slot uniqueness, positive capacity and the no-overlap slot rule.
+4. **Implement session administration.** Support single and bounded bulk
    session generation (at most 90 future days), duplicate reporting, slot
    activation/deactivation, lifecycle transitions, schedule change warnings and
    state-aware assignment/lead handover.
-4. **Make capacity transactional.** Reserve only against `PUBLISHED` sessions;
+5. **Make capacity transactional.** Reserve only against `PUBLISHED` sessions;
    retain pre-pause unexpired holds; confirm or release holds atomically.
    Protect concurrent reservations from oversell using an approved
    implementation mechanism; the particular lock or concurrency technique is
@@ -222,23 +309,23 @@ boundary.
    affected session on a gap or uncertain order. Resync does not advance the
    source version. A 003.4 sync failure affects only that feature's OTA mapping
    and reconciliation; it never changes an Operations session or direct booking.
-5. **Implement tickets and check-in.** Generate individual opaque QR references
-   and unique ticket codes. Validate the scanner's current session/branch,
+6. **Implement tickets and check-in.** Generate individual opaque QR references
+   and unique ticket codes. Validate the scanner's current session/location,
    ticket entitlement, ticket validity, that ticket/session pair's attendance
    state, opening time and actor scope as one result. QR is primary, exact
    ticket code is normal fallback, booking code is lookup-only. Overrides remain
    in a separate permissioned, reasoned and audited path.
    A repeated normal scan returns its existing check-in result as `200 OK` with
    `ALREADY_CHECKED_IN` and `checkedInAt`; it does not create another action.
-6. **Close attendance correctly.** Let an assigned active Staff member or the
+7. **Close attendance correctly.** Let an assigned active Staff member or the
    recorded active operational lead finalise the whole session after its actual
    end; convert still-unchecked valid tickets to `NO_SHOW`. Only a Manager may
    perform a post-finalisation correction, with mandatory audit evidence.
-7. **Handoff cancellation and delivery.** On cancellation request, stop normal
+8. **Handoff cancellation and delivery.** On cancellation request, stop normal
    operation and create the audited case consumed by feature 003.3. Booking
    obtains only delivery-safe ticket views from Operations; it never owns or
    mutates attendance state.
-8. **Migrate and verify.** Add a new Flyway migration after inspecting the
+9. **Migrate and verify.** Add a new Flyway migration after inspecting the
    deployed migration sequence, backfill only through an approved runbook, and
    exercise the flows in `quickstart.md` against MySQL.
 
@@ -249,7 +336,14 @@ boundary.
 - Integration-test JPA constraints and Flyway migration on MySQL.
 - Concurrently attempt capacity holds and duplicate check-ins; exactly one
   transaction must succeed where capacity or a ticket is contested.
-- Security-test active/inactive Staff, Manager branch boundaries, operational
+- MySQL-test facade-command idempotency: sequential equivalent retry returns the
+  saved outcome; mismatched fingerprint is rejected; concurrent equivalent
+  command observes `IN_PROGRESS`; an expired claim can be reclaimed; and a
+  stale claimant cannot complete the ledger or commit a business side effect.
+- MySQL-test retention cleanup only for eligible completed ledger records after
+  the configured window; prove that no raw request payload, token, QR value or
+  PII is stored in the ledger.
+- Security-test active/inactive Staff, Manager location boundaries, operational
   lead handover, normal check-in, and separately-authorised override.
 - Contract-test REST responses and problem codes against
   `contracts/workshop-operations.openapi.yaml`.

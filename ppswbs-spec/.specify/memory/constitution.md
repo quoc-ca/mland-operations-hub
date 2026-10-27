@@ -1,17 +1,16 @@
 <!--
 Sync Impact Report
-- Version change: 2.0.0 -> 3.0.0 (MAJOR: replaces SSR obligations and redefines persona scope).
-- Decision evidence: the user confirmed the group's architecture decisions and explicitly
-  requested this amendment in the 2026-10-24 session; no additional ratifier identity is inferred.
-- Modified principles: I (feature packaging); II (credential boundary); III (Contract and
-  Progressive-Web Baseline -> Contract and Separate Frontend Baseline); IV (frontend/state
-  verification); V (hybrid design and shared contracts).
-- Added sections: none; Exception 001 is retained as superseded history.
-- Removed obligations: Thymeleaf/htmx, JavaScript-independent core forms and links,
-  and use of the spec-folder AGENT as an implementation persona.
-- Compliance impact: synchronize spec-general.md and AGENT.md in this amendment.
-- Deferred follow-up: detailed feature artifacts, APIs.md, design kit and code are not updated
-  in this amendment; reassess affected designs against v3.0.0 before implementation.
+- Version change: 3.0.0 -> 3.1.0 (MINOR amendment: adds shared
+  fail-closed route security and runtime-credential configuration obligations).
+- Decision evidence: group consensus recorded by the user on 2026-10-26; Hồ Hoàng
+  Quốc (PM, ratification authority confirmed by the user) approved this amendment.
+  Phan Sơn is the responsible document updater.
+- Modified principles: II (runtime credential configuration); III (explicit public
+  routes, deny-by-default, and scoped CORS/CSRF).
+- Added sections: none. Removed sections: none.
+- Compliance impact: synchronize spec-general.md, FE-001 plan/contracts, FE-002
+  identity consumer contract, and backend security/configuration designs.
+- Deferred follow-up: legacy constitution metadata was not backfilled.
 -->
 
 # PPSWBS Project Constitution
@@ -59,12 +58,24 @@ Credential handling MUST stay within the approved identity flow; application
 state MUST NOT become an unapproved credential store. Audit and error records
 MUST contain only safe, redacted data sufficient for support and correlation.
 
+Runtime database, identity-provider, and integration credentials MUST be supplied
+through an approved environment or secret channel. Committed configuration MUST
+NOT contain credential defaults or silently fall back to an unintended service
+when required configuration is absent.
+
 ### III. Contract and Separate Frontend Baseline
 
 Public REST behavior MUST use versioned plural kebab-case routes, explicit DTOs,
 Bean Validation, server-side authorization, and a versioned OpenAPI contract.
 Errors MUST be typed, safe, and correlation-linked; no JPA entity, stack trace,
 secret, or sensitive payload may be exposed to a client.
+
+Every backend route MUST be covered by a security policy. Only routes explicitly
+declared public by their owning versioned contract may proceed unauthenticated;
+all other routes MUST fail closed when a current authenticated actor cannot be
+established. CORS MUST be configured for explicit approved origins, and CSRF
+MUST be scoped to the selected credential transport. Neither control may be
+disabled globally as a shortcut for a feature or test.
 
 The frontend MUST be a separate React + Vite application using client-side
 rendering and REST APIs. The Java 21/Spring Boot backend MUST NOT render the
@@ -175,4 +186,5 @@ ratifier, ratification date, and review condition. No unexplained template
 placeholder is permitted. Reviews and implementation handoffs MUST verify
 constitution compliance before claiming completion.
 
-**Version**: 3.0.0 | **Ratified**: 2026-09-30 | **Last Amended**: 2026-10-24
+**Version**: 3.1.0 | **Ratified**: Hồ Hoàng Quốc (PM), 2026-10-26 |
+**Last Amended**: 2026-10-26

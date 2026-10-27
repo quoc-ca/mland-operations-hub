@@ -54,7 +54,13 @@ that price. `BASE_PLUS_EXTRA`, shared-item/co-maker pricing, and a
 - A rare request for several people to make one physical item is a Staff manual
   exception outside the V1 booking flow. It is not a customer-facing material
   add-on, because an additional person would affect ticket and capacity facts.
-- The deposit is **50% of the frozen booking total**. One deposit invoice/payment exists per booking; a package's displayed per-participant price covers all of its required sessions.
+- The deposit is one half of the frozen post-promotion booking amount, rounded
+  up to whole VND: `ceil(post_promotion_amount / 2)`. The remaining amount is
+  the exact difference. One deposit invoice/payment exists per booking; a
+  package's displayed per-participant price covers all of its required sessions.
+- FE-006 owns voucher/point calculation. It must provide the post-promotion
+  amount before 003.1 accepts the booking; 003.1 freezes the resulting amount,
+  deposit and remaining amount together and never recalculates a later discount.
 - Later material/service charges and the remaining balance are outside 003.1; their ownership belongs to 003.3.
 
 ### Atomic creation, holds, and pending state
@@ -110,7 +116,7 @@ These findings do **not** approve a replacement API, database schema, migration,
 | R-02 | Upgrade/rollout path for existing one-session booking/hold/invoice/ticket data in each environment. Current evidence permits development/test reset only; it does not authorize production/customer-data reset. | Migration and release tasks must remain blocked; applied migrations cannot be changed or silently bypassed. | Obtain a preservation/upgrade decision and evidence by environment. |
 | R-03 | React Magic-Link client flow: token transport/exchange, expiry/revocation recovery, and frontend owner/repository boundary. | The old server-rendered Magic-Link route is incompatible with the current frontend baseline; client/UI/security contract cannot be invented. | Clarify the client/backend contract and recovery behavior. |
 | R-04 | Public cross-feature contract through which 003.1 reads sale eligibility/session capacity from 003.2 and exposes confirmed ticket/capacity evidence downstream. | Facade/event direction, transaction boundaries, and integration verification cannot be designed safely. | Define the owning facade/event contract during plan design; do not use internal entities across feature boundaries. |
-| R-05 | Role-code mapping remains `TBD` in `spec-general.md`. | It blocks any 003.1 action that would authorize business roles beyond the Guest/Member direct customer journey, such as an internal support/resend action. It does not authorize guessing `Manager` = `OWNER`. | Exclude unapproved internal action from 003.1 scope or obtain the approved capability mapping. |
+| R-05 | Account Management's published authorization facade is an external implementation dependency. The shared baseline fixes the role vocabulary as `MEMBER`, `STAFF`, `MANAGER`, and `ADMIN`; 003.1 consumes current authorization/scope decisions and does not map roles itself. | Internal resend, Magic Link revoke/rotate, and late-payment follow-up must call the published Account boundary at command time. The FE-001 provider implementation is outside 003.1 scope. | Treat the Account boundary as available for 003 design and implementation planning; verify the provider facade during integration without editing FE-001. |
 | R-06 | Exact retention/storage mechanics for Magic-Link token material are not selected by the inherited business behavior. | A plan cannot select hashing, persistence/expiry cleanup, audit retention, or recovery behavior by assumption. | Clarify a consistent shared credential/state contract before implementation. |
 
 ## Assumption challenge

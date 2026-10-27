@@ -1,7 +1,7 @@
 # Quickstart: Workshop Operations Verification
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -14,7 +14,7 @@ authorize a production migration or a reset of existing workshop data.
 - A non-production MySQL database configured for the Spring test/integration
   profile; Flyway must run against that database, not a shared or production
   database.
-- Firebase test identity configuration and account/personnel fixtures for an
+- Firebase test identity configuration and Account Management fixtures for an
   active scoped Manager, assigned active Staff, inactive Staff and an unscoped
   Manager.
 
@@ -34,7 +34,7 @@ run is not sufficient proof of index, lock or migration behaviour.
 
 ## Acceptance Walkthrough
 
-1. Create the three default non-overlapping slots at a branch. Attempt an
+1. Create the three default non-overlapping slots at a workshop location. Attempt an
    overlapping slot and verify it is rejected. Deactivate a slot and verify
    existing sessions remain intact while new generation cannot use it.
 2. Create a future `DRAFT` session, then publish it. Run a bulk generation for
@@ -67,6 +67,17 @@ run is not sufficient proof of index, lock or migration behaviour.
    returns only the delivery-safe projection after commit, and Booking cannot
    change attendance. Inject a local persistence failure in either module and
    verify neither side commits a partial booking-capacity outcome.
+   For every state-changing facade command, repeat an equivalent command with
+   the same `facadeAction` and `operationReference` and verify the original typed
+   outcome returns without a second hold, ticket, attendance or audit side
+   effect. Reuse the same identity with different semantic content and verify a
+   safe rejection. Submit concurrent equivalents: one may own the claim and the
+   other must receive `IN_PROGRESS`, never a second business execution. Simulate
+   an expired in-progress lease and reclaim with the same fingerprint; verify a
+   stale original claimant cannot complete or commit after claim version changes.
+   Verify completed ledger records remain retryable for at least 24 hours and
+   cleanup affects only eligible completed records; verify the ledger contains no
+   raw request payload, Firebase token, PII, QR value or audit JSON.
 5. Assign active Staff or record an operational lead. Verify transition to
    `IN_PROGRESS` and normal check-in fail with neither responsible operator.
    Verify inactive or unassigned Staff cannot check in.
@@ -74,11 +85,11 @@ run is not sufficient proof of index, lock or migration behaviour.
    Once open, scan a two-session ticket at session one successfully. Scan it
    concurrently or twice at that session and verify exactly one check-in is
    recorded. Verify the same QR can still check in once at session two, while a
-   scan in a session/branch without entitlement is rejected. Confirm a booking
+   scan in a session/location without entitlement is rejected. Confirm a booking
    code never by itself checks a ticket in.
 7. Perform an authorised override and a post-finalisation Manager correction.
    Verify both require a reason and create immutable audit events. Verify an
-   override cannot move a ticket to another session or branch.
+   override cannot move a ticket to another session or location.
 8. Finalise the session after actual end time. Checked-in tickets remain
    checked-in and unchecked active tickets become `NO_SHOW`. Verify a regular
    Staff member cannot correct this result after finalisation.

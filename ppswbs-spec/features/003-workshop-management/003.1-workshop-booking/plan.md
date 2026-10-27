@@ -1,7 +1,7 @@
 # Implementation Plan: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -15,12 +15,14 @@
 003.1 is the direct-Mland customer booking core. One booking purchases exactly
 one package/course, with no cart of unrelated packages. Basic Ring selects one
 common workshop session. Direct-Mland Silverclay selects exactly two common
-sessions at one branch, ordered by time; both reservations are committed or
+sessions at one canonical workshop location, ordered by time; both reservations are committed or
 neither exists. Each participant consumes one place in every selected session,
 and every package shares that session's single capacity pool.
 
-The booking freezes `participant_count × price_per_participant` in even VND,
-creates one 50% deposit invoice, and creates no participant identity records.
+The booking freezes `participant_count × price_per_participant`, the resulting
+post-promotion amount, `ceil(post_promotion_amount / 2)` deposit, and exact
+remaining amount. It creates one deposit invoice and no participant identity
+records.
 Valid, idempotent gateway evidence — never a browser redirect — confirms the
 booking and issues one QR ticket per participant. A Silverclay ticket admits
 one seat in both selected sessions. It is not identity-bound. 003.1 stops at
@@ -32,11 +34,21 @@ ticket issuance/delivery and authorized lookup.
 | --- | --- |
 | Runtime | Java 21, Spring Boot REST, Spring Modulith, JPA/Spring Data, MySQL and append-only Flyway migrations. |
 | Client | Separate React + Vite client using versioned REST APIs; no backend-rendered booking UI. |
-| Identity and authorization | Firebase bearer tokens prove identity only. Mland/MySQL decides `MEMBER`, `STAFF`, `MANAGER`, or `ADMIN`, active status, entitlement, and branch/location scope. Guest access uses booking-contact proof or a protected Magic Link. |
+| Identity and authorization | Firebase bearer tokens prove identity only. Account Management supplies canonical `MEMBER`, `STAFF`, `MANAGER`, or `ADMIN` role, active status and `activeLocationIds`; Booking applies its own support-action rules against the booking's canonical location. Guest access uses booking-contact proof or a protected Magic Link. |
 | State | Persisted booking/hold/payment/ticket state; 15-minute holds and 10-minute payment links; booking-critical local work uses one MySQL transaction; no new global session/token store. |
-| Payment | VNPay adapter boundary; signed gateway result is authoritative and payment handling is idempotent. |
+| Payment | Shared `paymentintegration` ingress verifies VNPay once and routes redacted evidence by immutable merchant-reference target; 003.1 consumes only `DEPOSIT` evidence through its facade. |
 | Verification | Unit/integration, contract, concurrency, callback/idempotency, migration, and Spring Modulith boundary verification. |
-| Unknowns | VNPay integration values/environments and exact callback recovery operation, concrete cross-feature facade boundary types, and production rollout approval. |
+| Unknowns | VNPay integration values/environments, QueryDR/refund configuration, and production rollout approval. The 003 facade types and shared ingress boundary are defined in the shared internal contract. |
+
+### Approved React route boundary
+
+The React + Vite client owns `/workshops` (browse), `/workshops/:packageId`
+(detail/session selection), `/workshops/:packageId/book` (contact, pending
+booking, and payment), `/workshop-booking/lookup` (Guest/Member recovery), and
+`/workshop-booking/access#token` (Magic-Link exchange). Browser return renders
+at `/workshop-booking/:bookingCode/payment-return`; it reads only current
+server-confirmed state and never promotes redirect parameters to payment
+evidence. These routes are client routes, not Java REST endpoints or SSR pages.
 
 ## Constitution Check
 
@@ -47,18 +59,18 @@ ticket issuance/delivery and authorized lookup.
 | Identity and sensitive data | PASS | No participant identity, OTP, raw gateway payload, raw Magic-Link secret, or unnecessary PII is exposed/logged. |
 | Data evolution | CONDITIONAL | Reset is permitted only for dev/test environments with no booking/customer data requiring retention after preflight. Any staging, production, or data-bearing environment needs an append-only preservation migration plus upgrade and recovery/rollback evidence. |
 | Evidence and concurrency | PASS | Atomic multi-session hold, payment callback idempotency, late-payment rejection, and capacity races have explicit verification scenarios. |
-| Explicit decisions | CONDITIONAL | The FE-001 approved change note closes the role vocabulary, but it is not yet synchronized into shared documents. Public HTTP and cross-feature facade shapes remain drafts until their owners approve them. |
+| Explicit decisions | CONDITIONAL | The shared baseline fixes the role vocabulary and the approved [003 internal facade contract](../contracts/workshop-interfeature-facades.md) fixes cross-feature shapes. Public HTTP remains a separate approved contract. |
 
 ## Module boundaries and flows
 
 `workshopbooking` owns booking, booking-session commitment, frozen invoice,
 payment attempt/receipt, booking-contact delivery state, Magic-Link record and
 notification intent. It synchronously reads only a 003.2 sale-eligibility snapshot
-(customer-selectability, sale state, branch, scheduled start/end and remaining
-capacity), and calls the exposed 003.2-owned capacity facade. It does not
+(customer-selectability, sale state, canonical location, scheduled start/end and remaining
+capacity), and calls the exposed 003.2-owned `WorkshopOperationsFacade`. It does not
 configure sessions, assign staff, read Operations entities, check in, or
-finalize attendance. After capacity commits, it calls the separate 003.2
-delivery-safe ticket-projection facade for customer delivery; it never derives
+finalize attendance. After capacity commits, it calls that facade's
+delivery-safe ticket-projection operation for customer delivery; it never derives
 attendance. On every authorized booking/Magic-Link read, it obtains the current
 delivery-safe projection again, so a later 003.3/003.2 replacement or verified
 refund consequence cannot leave the customer seeing an old schedule.
@@ -68,14 +80,15 @@ when final settlement or an authorized audited deferred-payment resolution is
 complete; Booking alone records `FULLY_PAID` from that conclusion and never
 receives raw final-payment evidence or calculates the final balance. 003.4 owns
 OTA completely. For internal booking support,
-Mland rechecks active account state, entitlement and booking-branch scope at
-action time. Assigned Staff or branch-responsible Managers may resend the
+Mland rechecks canonical active account facts and Booking's support-action rule
+against booking-location scope at
+action time. Assigned Staff or location-responsible Managers may resend the
 confirmation; only the responsible Manager may revoke or rotate a Magic Link.
 The `ADMIN` role alone grants neither action.
 
 Create flow: validate package/contact/participant count and selected sessions;
 enforce Basic Ring = one session or Silverclay = two distinct sessions at the
-same branch; order Silverclay sessions; reject adjacent same-day sessions;
+same canonical location; order Silverclay sessions; reject adjacent same-day sessions;
 atomically reserve `participant_count` places in every session and persist the
 pending booking, invoice and expiry in one local MySQL transaction. Any
 validation/capacity failure rolls back the whole operation. Capacity is always
@@ -87,7 +100,11 @@ only once. After gateway evidence has been validated, one local MySQL
 transaction asks 003.2 to commit the complete active hold set and confirms the
 Booking state; if any expected hold is absent or expired, nothing commits and
 Booking remains unconfirmed. On success, Booking obtains the delivery-safe projection for N
-tickets and stores notification intent.
+tickets and transactionally stores an immutable notification handoff. After
+commit, it publishes a reference-only event to Feature 007. Feature 007
+deduplicates that reference, obtains the immutable render-ready payload only
+through `WorkshopBookingFacade`, and owns provider send/retry logs. Neither a
+handoff nor provider-delivery failure can reverse the Booking outcome.
 Failure leaves `PENDING_PAYMENT/UNPAID`; expiry/release requests release of all
 active holds exactly once. A signed success after hold expiry never confirms;
 only the responsible Manager may inspect safe evidence and record or escalate a
@@ -99,12 +116,13 @@ confirms payment.
 
 ## Contract and state design
 
-The existing draft OpenAPI contract defines public browse/detail, create,
-payment start, inbound payment event, contact-proof lookup, Member-owned
-lookup, Magic-Link exchange/read, and pending-hold release. It intentionally
-excludes staff resend, internal Magic-Link incident handling, check-in,
-cancellation/refund, reschedule, final payment, and OTA routes: no approved
-public HTTP contract exists for those internal operations.
+The public OpenAPI contract defines package browse; package-and-location-scoped
+session discovery over a requested time range; create; payment start;
+contact-proof and Member-owned lookup; Magic-Link exchange/read; pending-hold
+release; confirmation resend; Manager Magic-Link incidents; and Manager
+late-payment follow-up. The shared VNPay ingress is documented separately and
+is never a 003.1 business controller. Check-in, cancellation/refund,
+reschedule, final payment, and OTA routes remain outside 003.1.
 
 Booking service states are `PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED`, and
 `CANCELLED`; financial states are `UNPAID` and `DEPOSIT_PAID` for deposit flow.
@@ -129,10 +147,11 @@ credential storage.
 Business audit records cover accepted self-service resend, every internal
 resend, Magic-Link revoke/rotate, and Manager late-payment follow-up. They hold
 only the actor type or identity reference when available, booking code,
-applicable branch, action, outcome, correlation reference and timestamp; a
-revoke/rotate also has its Manager reason. Contact proof, raw Magic Link, QR,
-and token data are excluded. Notification delivery attempts and retries are
-operational logs, not business audit records.
+applicable location, action, outcome, correlation reference and timestamp; a
+revoke/rotate and late-payment follow-up also have their required Manager
+reason. Contact proof, raw Magic Link, QR, and token data are excluded.
+Notification delivery attempts and retries are operational logs, not business
+audit records.
 
 ## Data, migration, and operational constraints
 
@@ -155,8 +174,9 @@ account/scope checks, pending synchronization into `spec-general.md` and
 ## Verification plan
 
 Use [quickstart.md](quickstart.md) to verify: one-session Basic Ring; two-session
-Silverclay with shared capacity; all-or-nothing failure; same-branch/ordering/
-same-day-gap rules; 50% exact VND deposit; valid/invalid/duplicate/late gateway
+Silverclay with shared capacity; all-or-nothing failure; same-location/ordering/
+same-day-gap rules; odd/even post-promotion amount with rounded-up deposit and
+exact remaining amount; valid/invalid/duplicate/late gateway
 events; ticket issuance and lookup; Magic-Link revocation; hold expiry; and
 authorization-safe lookup. The approved frontend E2E suite must prove that a
 visitor reaches booking entry from the workshop listing in no more than three
@@ -175,16 +195,19 @@ are not product decisions to guess:
 
 1. **Resolved semantically and by interaction mode:** Booking synchronously
    obtains sale eligibility and reserve/commit/release outcomes from the 003.2
-   capacity facade; `SALES_PAUSED` rejects new holds while preserving unexpired
+   `WorkshopOperationsFacade`; `SALES_PAUSED` rejects new holds while preserving unexpired
    ones. After a successful capacity commit it obtains only the safe
-   ticket/session-entitlement projection from the separate 003.2
-   ticket-projection facade. Each booking-critical command shares one local
-   MySQL transaction across Booking and the synchronous capacity facade; gateway
-   communication remains outside that transaction. Concrete facade boundary
-   types remain an approval dependency, not implementation details to invent.
-2. VNPay callback integration values, authenticated callback handling and
-   QueryDR recovery need provider/environment-approved detail before
-   implementation; the business semantics are already specified.
+   ticket/session-entitlement projection from its ticket-projection operation.
+   Each booking-critical command shares one local MySQL transaction across
+   Booking and the synchronous facade call; gateway
+   communication remains outside that transaction. The named facade operations,
+   boundary types, outcomes, and idempotency rules are fixed in the shared
+   [003 internal facade contract](../contracts/workshop-interfeature-facades.md).
+2. Real VNPay callback integration, QueryDR recovery, and refund adapter access
+   need provider/environment-approved inputs before enablement. The complete
+   non-secret handoff checklist is
+   [vnpay-configuration-preflight.md](../contracts/vnpay-configuration-preflight.md);
+   the business semantics are already specified and can use a fake adapter.
 3. The rollout policy is decided, but each data-bearing environment still needs
    its preservation migration, upgrade/recovery evidence and accountable release
    owner. FE-001's role and account-scope decisions are approved but must be

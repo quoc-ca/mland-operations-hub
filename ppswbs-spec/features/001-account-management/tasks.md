@@ -1,15 +1,83 @@
-# Tasks: 001-account-management
-Approval/source: user-approved implementation plan, 2026-10-19. Checkboxes are implementation progress, not reviewer sign-off. Implementation was removed at the user's request on 2026-10-19; only design artifacts remain.
-Revision source: the user's approved authentication/home-redirect/no-policy-gate correction in this conversation. T001 records the original design task; revised-document analysis is separate from runtime completion. Task IDs, dependency order and completion markers are retained. Use the [spec navigation table](spec.md#authentication-and-navigation) and [seven verification scenarios](quickstart.md).
-## Phase 1: Design and prerequisites
-- [x] T001 Create approved spec/plan/data model/OpenAPI, run read-only speckit-analyze and record coverage (FR-001–FR-018, SC-001).
-## Phase 2: Tests and core
-- [ ] T002 Add profile validation/service/API/web security and provider boundary tests, including the seven quickstart scenarios: separate sign-in/registration/resumed verification, both allowed Member statuses, no policy lookup/gate, fixed home redirect, explicit resend and stale-credential recovery (FR-001–FR-016, FR-018, SC-003–SC-004).
-- [ ] T003 Add profile entity/repository/V4 migration; serialized writes and atomic safe audit (FR-004–FR-009, FR-017).
-- [ ] T004 Implement Firebase profile identity/session boundary and isolated API/web filter chains, both allowed statuses without policy gating, CSRF and noncacheable responses; successful session establishment ends at `/` (FR-001–FR-003, FR-010–FR-016, FR-018).
-- [ ] T005 Implement shared profile/bootstrap services and strict API controllers; keep 003 eligibility separate from other features' policy-dependent entitlement, preserving statuses/history and eliminating profile policy lookups (FR-002–FR-009, FR-014–FR-018).
-## Phase 3: UI and verification
-- [ ] T006 Implement Thymeleaf profile/auth pages and auth-only Firebase JS according to the spec navigation table, secure cookie/logout and bilingual feedback. Do not add profile policy pages, automatic resends or automatic profile redirects; do not implement the home page (FR-010–FR-016, FR-018, SC-003–SC-004).
-- [ ] T007 Run focused tests, existing regression suite and Modulith; MySQL migration/upgrade/concurrency/rollback and Firebase Emulator smoke (SC-001–SC-003).
-- [ ] T008 Review diff/requirements, verify no-JS profile forms and all navigation/no-policy scenarios, and record final commands/results/limitations; distinguish the stale web/Figma prototype from the current spec (FR-011–FR-016, SC-001, SC-003–SC-004).
-Dependencies: T001 before any code/test; T002 before T003–T006; T003/T004 before T005/T006; T007 after implementation; T008 after verification. No tasks alter booking/design business logic.
+# Tasks: Account Management
+
+**Date created**: 2026-10-26
+**Date updated**: 2026-10-26
+**Author**: Phan Sơn
+**Last updated by**: Phan Sơn
+
+All tasks are pending. They require separate implementation approval and the
+designs in [spec.md](spec.md), [plan.md](plan.md), [data-model.md](data-model.md),
+and [contracts](contracts/).
+
+## Phase 1: Shared foundation
+
+- [X] T001 Replace global security configuration at `ppswbs_backend/.../configuration/SecurityConfiguration.java` with one explicit-public/default-deny chain, configured CORS origins, scoped CSRF, and no generated default user/password.
+- [X] T002 Create Firebase bearer/revocation identity gate and request actor context under `ppswbs_backend/.../features/accountmanagement/service/` and `facade/` per `CurrentAccountActor` contract.
+- [X] T003 [P] Mark `accountmanagement.facade` as a named Modulith interface and replace entity-enum leaking facade types with boundary records/enums at `ppswbs_backend/.../features/accountmanagement/facade/`.
+- [X] T004 [P] Remove committed runtime credential defaults from `ppswbs_backend/src/main/resources/application*.properties`; require approved environment/secret configuration.
+- [X] T005 Add authorization/identity-gate/Modulith regression coverage at `ppswbs_backend/src/test/java/.../AccountManagementSecurityIT.java` and `ModulithArchitectureTests.java`.
+
+## Phase 2: Persistence and core Account flows
+
+- [X] T006 Reserve the next Flyway integer, then create Account/Profile/Location/Provisioning/Audit schema migration in `ppswbs_backend/src/main/resources/db/migration/` with UID uniqueness, role/state/version constraints, and no duplicate location table.
+- [X] T007 Implement Account/Profile/Location/Provisioning/Audit entities and repositories in `ppswbs_backend/src/main/java/.../features/accountmanagement/{entity,dao}/` according to `data-model.md`.
+- [X] T008 Implement bootstrap, verified-email profile/email sync, identity collision denial, and `CurrentAccountActor` resolution services in `ppswbs_backend/src/main/java/.../features/accountmanagement/service/`.
+- [X] T009 Implement typed Account errors/correlation-safe responses and strict DTO validation in `ppswbs_backend/src/main/java/.../features/accountmanagement/{controller,dto}/`.
+- [X] T010 Implement `/api/v1/accounts/me`, own profile, and email-sync operations from `contracts/account-management.openapi.yaml`.
+- [X] T011 Add MySQL migration/upgrade/UID-race/profile validation/API error tests in `ppswbs_backend/src/test/java/.../features/accountmanagement/`.
+
+## Phase 3: US1 — Personal account bootstrap
+
+**Goal**: A customer can register/sign in and bootstrap exactly one Account.
+
+- [ ] T012 [P] [US1] Implement Firebase client registration/sign-in/sign-out/provider-error flows in `ppswbs_frontend/src/features/accountmanagement/auth/`.
+- [X] T013 [US1] Add Auth Emulator registration/bootstrap/collision coverage at `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/accountmanagement/AccountAuthenticationIT.java`.
+
+## Phase 4: US2 — Verification and self-service
+
+**Goal**: A signed-in customer can verify email and safely manage own profile/credentials.
+
+- [ ] T014 [P] [US2] Implement verification reminder, password reset/change, and email-change/sync flows in `ppswbs_frontend/src/features/accountmanagement/security/`.
+- [ ] T015 [US2] Implement profile page/API integration and `401`/`403`/`503` recovery in `ppswbs_frontend/src/features/accountmanagement/profile/`.
+- [X] T016 [US2] Add unverified/profile/email/password integration coverage at `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/accountmanagement/AccountSelfServiceIT.java`.
+
+## Phase 5: US3 — Internal account administration
+
+**Goal**: Admin can safely provision Staff/Manager without duplicate identity or premature access.
+
+- [X] T017 [P] [US3] Implement workshop-location facade adapter validation and Account location-scope rules in `ppswbs_backend/src/main/java/.../features/accountmanagement/service/`.
+- [X] T018 [US3] Implement idempotent internal provisioning, Firebase reconciliation/action links, five-minute resend cooldown, and FE-07 post-commit intent in `ppswbs_backend/src/main/java/.../features/accountmanagement/service/`.
+- [X] T019 [US3] Implement pending-to-active activation and Admin list/detail/create/invitation endpoints in `ppswbs_backend/src/main/java/.../features/accountmanagement/controller/`.
+- [ ] T020 [P] [US3] Implement Admin accounts list/detail/create/invitation UI in `ppswbs_frontend/src/features/accountmanagement/admin/`.
+- [X] T021 [US3] Add idempotency, partial-Firebase-failure, activation, location-scope, and FE-07 isolation tests in `ppswbs_backend/src/test/java/.../features/accountmanagement/`.
+
+## Phase 6: US4/US5 — Account protection and fixed roles
+
+- [X] T022 [P] [US4] Implement versioned internal profile and role/location assignment services/controllers with safe before/after audit at `ppswbs_backend/src/main/java/.../features/accountmanagement/`.
+- [X] T023 [US4] Implement suspension, durable revocation retry, restore-after-revocation, and lock/unlock notification intent at `ppswbs_backend/src/main/java/.../features/accountmanagement/service/`.
+- [X] T024 [P] [US5] Implement fixed role catalogue endpoint and Admin UI action confirmation/version-conflict recovery in `ppswbs_backend/src/main/java/.../features/accountmanagement/` and `ppswbs_frontend/src/features/accountmanagement/admin/`.
+- [X] T025 [US4] Add stale-version, suspension/revocation/recovery, no-Admin-management, and redacted-audit tests at `ppswbs_backend/src/test/java/.../features/accountmanagement/`.
+
+## Phase 7: Verification and handoff
+
+- [X] T026 Run contract validation against `contracts/account-management.openapi.yaml`, verify all protected/public route decisions, and update `APIs.md` only with approved final route evidence.
+- [X] T027 Run Auth Emulator, disposable MySQL empty/upgrade/concurrency, FE-07 failure, Modulith, backend regression, and frontend build/API tests listed in `quickstart.md`.
+- [X] T028 Record actual commands/results/limitations in `features/001-account-management/verification.md`; do not mark tasks complete without evidence.
+
+## Dependencies and MVP
+
+| Requirement group | Tasks |
+| --- | --- |
+| FR-001–FR-006 identity/bootstrap/self-service | T001–T005, T008–T016 |
+| FR-007–FR-008 profile boundaries | T007–T011, T015–T016 |
+| FR-009–FR-013 fixed role/location/activation | T003, T016–T021 |
+| FR-014–FR-015 provisioning/idempotency/invitation | T017–T021 |
+| FR-016–FR-018 admin list and version conflicts | T018–T025 |
+| FR-019–FR-021 suspension/revocation/state | T022–T025 |
+| FR-022–FR-027 collision/audit/errors/shared gate | T001–T005, T008–T011, T013, T020–T028 |
+| SC-001–SC-006 | T005, T011, T013, T016, T021, T025–T028 |
+
+T001–T005 precede all protected routes. T006–T011 precede story work. US1 can
+ship as the smallest customer increment after Phase 2. US3 requires the
+workshop-location and FE-07 boundaries. US4/US5 require the same core model and
+must not bypass the shared gate. T026–T028 follow all implemented scopes.

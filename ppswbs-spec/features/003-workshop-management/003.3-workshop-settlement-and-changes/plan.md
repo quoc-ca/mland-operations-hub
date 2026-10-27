@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -9,114 +9,196 @@
 
 ## Summary
 
-003.3 owns direct-Mland settlement for one final bill per booking/package,
-accepted additional charges, VNPay-backed final payment, deferred-payment cases,
-whole-booking refunds and Manager-mediated required-session changes. It is not an
-item/session financial system, cart, OTA payment system, or Operations capacity/
-ticket implementation.
+003.3 owns direct-Mland post-workshop settlement: exactly one final bill for one
+booking/package, accepted additional charges, verified final payment, deferred
+payment, whole-booking refund, Manager-mediated required-session change, and
+Mland-caused cancellation remedy. It is not an item/session finance system, cart,
+OTA payment system, capacity owner, or normal check-in system.
 
-## Technical context
+## Technical Context
 
 | Topic | Direction |
 | --- | --- |
-| Platform | Java 21/Spring REST backend; separate React + Vite client; no SSR. |
-| Module | Spring Modulith; facade-only cross-feature access. |
-| Persistence | MySQL/JPA; append-only Flyway when implementation is authorized. |
-| Identity | Firebase bearer token proves identity only; Mland account/status/capability/scope authorizes. |
-| Payment | V1 VNPay only; signed matched IPN or QueryDR evidence. |
-| Scope | Direct-Mland only; OTA payment/refund/commission/payout outside 003.3. |
-| Testing | Module, authorization, lifecycle, idempotency, facade and upgrade/recovery tests. |
+| Platform | Java 21/Spring Boot REST backend and a separate React + Vite client; no SSR. |
+| Module | Spring Modulith; only explicit owner facades cross business modules. |
+| Persistence | MySQL/JPA and append-only Flyway migrations when implementation is authorized. |
+| Identity | Firebase bearer token proves identity; Account Management supplies canonical role/status, ownership and location scope, while Settlement applies its own location/resource action rules. The canonical physical identity is `workshop_location.id`; `session.locationId ∈ actor.activeLocationIds` is a direct comparison. |
+| Payment | VNPay only. Shared `paymentintegration` verifies IPN/QueryDR evidence once and routes redacted final-payment/refund evidence to 003.3; browser Return URL is display-only. |
+| Contract | Versioned `/api/v1` REST contract in `contracts/workshop-settlement.openapi.yaml`. |
+| Validation | Module-boundary, authorization, lifecycle, idempotency, facade, contract, migration-upgrade and recovery evidence. |
 
-## Constitution check
+## Constitution Check
 
-| Gate | Result | Evidence/condition |
+| Gate | Result | Evidence / condition |
 | --- | --- | --- |
-| Module integrity | PASS with dependency | 003.3 owns cases only; 003.2 replacement facade remains unspecified. |
-| Identity/data | PASS with dependency | Firebase is identity-only; FE-001 must publish authorization/scope/central-policy authority. |
-| REST/frontend | PASS | Approved stack retained; no public settlement transport is inferred. |
-| Security/audit | PASS | Verified provider evidence; redacted immutable business audit; no raw secret/token/payload. |
-| Data evolution | PASS with rollout condition | Only empty dev/test may reset after preflight; data-bearing environments require append-only preservation migration, upgrade test and recovery evidence. |
+| Module integrity | PASS | 003.3 consumes only the named 003.1/003.2 facades and owns only settlement records/cases. |
+| Identity and sensitive data | PASS with FE-001 dependency | Firebase is identity-only; server rechecks canonical account facts plus Settlement's location/resource action rules. No contact proof, raw token, QR payload, provider secret or raw callback is retained in audit. |
+| REST and frontend | PASS | The OpenAPI contract defines resource routes, authorization alternatives, idempotency, safe projections and typed errors. React consumes REST only. |
+| State, failure and idempotency | PASS | Client commands retain idempotent outcomes; verified provider transaction/reference deduplicates IPN/QueryDR. Cases have explicit lifecycle and correlation. |
+| Data evolution | PASS with rollout condition | Only dev/test without retained booking/customer data may reset after preflight. Data-bearing environments require append-only preservation migration, upgrade test, recovery/rollback evidence. |
 
-## Boundary design
+## Ownership and Internal Boundaries
 
 ```text
-003.1 Booking ─ frozen booking/package, deposit projection, `FULLY_PAID` update ◄► 003.3
-003.2 Operations ◄ settlement readiness, atomic change and verified-refund effects ► 003.3
-FE-001 Account ─ active authorization/scope ─► 003.3
-VNPay ─ signed IPN or QueryDR evidence ─► 003.3
-003.3 ─ post-commit delivery intent only ─► Notification
+paymentintegration ─ verified final-payment/refund evidence ─► 003.3
+003.1 Booking ─ confirmed financial projection / FULLY_PAID conclusion ─► 003.3
+003.2 Operations ─ readiness / atomic replacement / verified-refund effect ─► 003.3
+FE-001 Account ─ current authorization, ownership and location scope ─► 003.3
+VNPay ─ signed IPN / QueryDR evidence ─► paymentintegration
+003.3 ─ reference-only post-commit settlement notification handoff ─► Feature 007
 ```
 
 | Concern | Owner | 003.3 rule |
 | --- | --- | --- |
-| Booking/frozen price/deposit | 003.1 | Consume projection only. |
-| Required sessions/capacity/ticket/attendance | 003.2 | Semantic facade only; never direct entity/repository access. |
-| Final bill/charges/payment/refund/change cases | 003.3 | Authoritative owner. |
-| Account/capability/branch scope | FE-001 | Recheck at command time; never infer role labels. |
-| Customer delivery | Notification | Post-commit intent; delivery is not financial truth. |
+| Confirmed booking, frozen price/deposit, `FULLY_PAID` | 003.1 | Read/update only through `WorkshopBookingFacade`. |
+| Sessions, capacity, entitlements, attendance, cancellation state | 003.2 | Read/change only through `WorkshopOperationsFacade`. |
+| Final bill, charge, payment/refund/change case and settlement audit | 003.3 | Authoritative owner. |
+| Canonical account role/status, ownership and location scope | FE-001 | Recheck facts at every protected command; Settlement applies its own action rules and never infers authority from display roles or claims. |
+| Delivery | Feature 007 | Immutable settlement handoff is persisted with accepted Settlement state; a post-commit reference event only lets Feature 007 read the facade payload, deduplicate and retry. Delivery cannot settle a bill or refund. |
 
-Required semantic boundaries:
+Workshop Branch is not a second resource in this feature: every booking,
+session, catalogue and audit scope is the canonical `workshop_location.id`.
+Settlement compares it directly with the actor's `activeLocationIds`; it stores
+neither a separate branch identifier nor a branch-to-location mapping.
 
-- 003.1 supplies confirmed direct booking/package, frozen price and deposit
-  evidence; on 003.3's idempotent final-balance-resolved conclusion it alone
-  changes Booking financial status to `FULLY_PAID`.
-- 003.2 supplies its authoritative settlement-readiness conclusion, true only
-  when every required session is `ATTENDANCE_FINALIZED`, without exposing
-  attendance/ticket detail; it applies a complete
-  required-session replacement all-or-none for capacity and entitlement; applies
-  unused-ticket/future-capacity effects after verified refund. Booking's later
-  customer read obtains the current delivery-safe projection from 003.2, rather
-  than a copied replacement/refund schedule.
-- FE-001 supplies current active actor, capability/scope and central policy-editor
-  authority.
-- VNPay supplies safely verified final-payment/refund outcome. Browser return is
-  never settlement truth.
-- Notification receives post-commit payment-link/reminder/outcome intent.
+The concrete owner operations and boundary types are fixed by the shared
+[003 internal facade contract](../contracts/workshop-interfeature-facades.md).
+The facade is synchronous for booking-critical conclusions. Events are emitted
+only after a local commit for delivery/downstream handoff; events never decide
+capacity, final payment, refund, or Booking `FULLY_PAID`.
 
-These statements do not choose methods, endpoints, DTOs, schema, queues, locks or
-provider configuration.
+## Settlement Design
 
-## Lifecycle decisions
+### Financial invariant
 
-1. One direct booking/package has one final bill only after its final required
-   session. Balance = frozen package price + accepted charges − deposit.
-2. Customer charge selection is a permitted fixed-price catalogue add-on; variable
-   material/service charge needs Staff/Manager confirmation. Neither adds capacity,
-   tickets, participants or bookings.
-3. Valid signed, matched VNPay evidence settles once; duplicate/out-of-order is
-   idempotent. Browser return/manual counter record cannot settle.
-4. Deferred payment is audited, lasts 24 hours, permits at most one reminder and
-   creates no default credit/release. Reissue after expiry is a new authorized act.
-5. Customer cancellation is whole booking only; ticket/capacity effects await
-   verified refund success.
-6. Manager session change is complete booking-level and atomic in Operations;
-   persistent QR remains valid. Silverclay keeps its branch/order/gap rules.
-7. Mland-caused cancellation offers replacement first; otherwise whole-package
-   refund uses booking policy snapshot. Default is 100% of collected payment;
-   central policy changes apply only to future confirmed bookings.
+One confirmed direct booking/package has at most one final bill. It receives the
+frozen post-promotion amount, accepted deposit and frozen remaining amount from
+003.1. It never recalculates voucher, points, deposit or remaining amount. Its
+amount due is the frozen remaining amount plus accepted charges, less verified
+final-payment/refund consequences as applicable.
 
-## Artifacts
+The final bill is available only after 003.2 reports every required session as
+`ATTENDANCE_FINALIZED`. On verified final-balance resolution, 003.3 invokes
+`WorkshopBookingFacade`; 003.1 alone changes booking state to `FULLY_PAID`.
 
-- [research.md](./research.md): source decisions and unresolved dependencies.
-- [data-model.md](./data-model.md): conceptual model/invariants, not schema.
-- [quickstart.md](./quickstart.md): non-production validation.
-- [workshop-settlement.openapi.yaml](./contracts/workshop-settlement.openapi.yaml):
-  no paths until a public REST transport is approved; legacy item paths retired.
+### Charges and bill access
 
-## Readiness and blockers
+Customer selection is limited to an eligible fixed-price catalogue add-on for
+the booking package/location. The server derives its price from the catalogue
+snapshot. An owning Member uses authenticated ownership; a Guest supplies the
+booking code plus exactly one stored phone or email per request. The command is
+rejected once the bill is finalized. Magic Link is read-only.
 
-| Dependency | Status | Task implication |
+Only in-scope Staff/Manager may create/confirm variable material or service
+charges. The command has description, VND amount and reason and produces audit
+evidence. A customer cannot submit a variable price/name. Final-bill reads return
+a customer-safe projection only after Member ownership or Guest contact proof.
+
+### Cases and lifecycle
+
+Customer cancellation, required-session change, deferred payment and
+Mland-caused remedy are booking-scoped, auditable cases. A case moves from
+`OPEN` to `RESOLVED`, `REJECTED`, or `FAILED`; only a gateway-waiting refund or
+deferred flow may be `PENDING_PROVIDER`, and only deferred payment may be
+`EXPIRED`. Each case is read through its booking and `caseReference`, never by
+ticket/session.
+
+For a required-session replacement, Manager supplies the whole target session
+set and reason. 003.2 validates/applies every capacity and entitlement change or
+none, preserving ticket QR. For Mland-caused replacement, the change carries the
+authoritative `cancellationHandoffReference`; an `UNAVAILABLE` or `DECLINED`
+remedy references the same handoff. A remedy refund uses the booking's retained
+policy snapshot, not a caller amount.
+
+The central Manager alone reads or revises central refund-policy history. A
+revision has a future effective time, integral percentage `0..100`, applies only
+to later-confirmed bookings, and computes its snapshot refund as
+`floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND. A customer
+may see only their booking's retained snapshot/outcome.
+
+### Payment and retry boundaries
+
+Every client-originated state-changing REST command requires `Idempotency-Key`.
+Same key plus semantically identical input returns the original safe result;
+changed reuse returns `409 IDEMPOTENCY_CONFLICT`. Each booking-critical command
+has one local MySQL transaction for its owned state and audit outcome. Gateway
+calls are outside that transaction.
+
+The shared `paymentintegration` boundary owns VNPay IPN `GET
+/api/v1/integrations/payments/vnpay/events`, validates signature, resolves the
+immutable owner-qualified merchant reference, deduplicates provider delivery,
+and dispatches redacted evidence to exactly one owner facade. 003.3 receives
+only final-payment/refund evidence and checks bill/refund reference, amount and
+currency before its local idempotent outcome. QueryDR is outbound Mland-to-VNPay
+reconciliation only. Browser Return URL has no settlement route and never
+confirms a bill.
+
+## Public REST Design
+
+The contract is the normative transport detail in
+[`contracts/workshop-settlement.openapi.yaml`](./contracts/workshop-settlement.openapi.yaml).
+
+| Resource group | Public route family | Authority / proof |
 | --- | --- | --- |
-| 003.1 booking/deposit projection and `FULLY_PAID` conclusion | Semantic contract now specified | Concrete facade type remains to be approved; 003.3 cannot mutate Booking directly. |
-| 003.2 settlement-readiness conclusion | Semantic contract now specified | 003.3 uses only that conclusion; it cannot infer completion from schedule or attendance detail. |
-| 003.2 settlement-readiness, complete replacement and post-refund consequence | Semantic contracts now specified | Concrete facade types/outcomes remain to be approved; 003.3 cannot access Operations data directly. |
-| FE-001 authorization/capability | Direction approved, shared docs pending | Do not infer role/capability in tasks. |
-| VNPay merchant/IPN/QueryDR/refund config | Pending | Provider adapter/config task blocked. |
-| Notification handoff | Pending | Delivery task blocked; must not block settlement. |
-| Public REST transport | Not approved | HTTP/OpenAPI implementation tasks blocked. |
+| Final bill | `/api/v1/workshop-bookings/{bookingCode}/final-bill` | Member ownership, Guest contact proof for read/customer fixed add-on; in-scope Staff for create/finalization. |
+| Charges | `/final-bill/charges` | Customer fixed catalogue selection, or in-scope Staff/Manager variable charge. |
+| Settlement cases | `/.../{case-collection}` and `/{caseReference}` | Customer cancellation/read by ownership/proof; Manager for change, deferred and remedy. |
+| Refund policy | `/api/v1/workshop-refund-policies` | Central Manager only. |
+| VNPay ingress | Shared integration contract | `paymentintegration` owns the signed GET; this feature never owns the provider route. |
 
-Before `$speckit-tasks`, replace legacy item-bill/session-price/old-QR tasks with
-booking-package tasks, preserving each unresolved dependency as explicit blocked
-work. Implementation later uses one local MySQL transaction per booking-critical
-command and append-only migration/upgrade/recovery practice for data-bearing
-environments.
+All client write routes declare `Idempotency-Key`, and all responses use a safe
+projection or typed, correlation-linked `Problem`. The contract maps malformed
+input to `400`, missing/invalid authentication to `401`, authority denial to
+`403`, absent/not-visible resource to `404`, conflict/idempotency misuse to
+`409`, and business ineligibility to `422`.
+
+## State and Data Design
+
+`data-model.md` describes conceptual records only. Implementation selects actual
+table/column/index/lock/migration details later. In particular, no schema or
+locking technique is approved by this plan. State retention is required for bills,
+charges, cases, redacted payment evidence, policy snapshots, audit evidence and
+idempotency outcomes; a React client holds only response state and must recover
+by re-reading the safe resource/case projection.
+
+## Validation and Rollout
+
+- Contract-test every documented route, proof/authorization alternative,
+  `Idempotency-Key` replay, typed error and safe projection.
+- Test valid, duplicate, mismatched, unsigned, late and out-of-order VNPay
+  evidence; a browser Return URL must never settle state.
+- Test facade-only module boundaries with `ApplicationModules.verify()` and
+  contract tests for all-or-none replacement/refund consequence.
+- Test Guest/Member proof, location authority, inactive/out-of-scope denial and
+  no-side-effect failure paths.
+- Test preservation migration on an upgrade copy plus recovery/rollback evidence
+  before data-bearing deployment. Do not reset staging/production data.
+
+## Readiness and Dependencies
+
+| Dependency | Status | Planning consequence |
+| --- | --- | --- |
+| 003.1 confirmed booking projection and `FULLY_PAID` conclusion | Concrete facade contract | 003.3 consumes only the typed owner boundary. |
+| 003.2 readiness, replacement, refund consequence and cancellation handoff | Concrete facade contract | 003.3 consumes only typed owner outcomes. |
+| FE-001 account facts/scope | Approved dependency assumption | Implementation consumes canonical role/status, ownership and location scope; Settlement owns its action rules and does not edit FE-001 or use display roles/claims as authority. |
+| VNPay merchant credential, configured callback URL, QueryDR/refund access | Configuration blocker | The shared [VNPay configuration preflight](../contracts/vnpay-configuration-preflight.md) is the sole non-secret checklist for 003.1 and 003.3. Provider adapter/configuration tasks remain blocked; semantics/contract are ready. |
+| Settlement-to-007 notification handoff | Defined cross-feature boundary | Immutable handoff, reference-only event and payload facade are fixed in the shared facade contract. Feature 007 provider configuration remains external; Settlement commits independently. |
+| Shared VNPay ingress/dispatch | Defined cross-feature boundary | Canonical route and dispatch rules live in `../contracts/vnpay-payment-ingress.openapi.yaml` and the facade contract; merchant credentials/configuration remain blocked. |
+
+## Design Challenge Review
+
+The main risk is pretending a complete REST contract makes payment integration
+ready. It does not: without an approved VNPay merchant configuration and actual
+callback/QueryDR/refund access, provider adapter work cannot be verified. The
+design therefore keeps that work explicitly blocked while retaining a testable
+semantic contract. A second risk is letting delivery failure alter money/capacity;
+post-commit delivery isolation avoids that. No new framework, queue, state store,
+locking mechanism, role mapping, provider secret, migration version or database
+schema is assumed.
+
+## Next Gate
+
+This design is ready for `$speckit-tasks`. The resulting task set must replace
+legacy item/session-bill and browser-confirmation work, mark the provider/
+notification configuration dependencies blocked, and implement the shared VNPay
+ingress before either business facade consumes payment evidence.
