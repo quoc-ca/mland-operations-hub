@@ -581,7 +581,6 @@ public class AttendanceTicketContractIT {
         // - WorkshopCheckInController (T031)
 
         String[] deferredBeanNames = {
-                "capacityHoldService",
                 "attendanceTicketService",
                 "checkInService",
                 "workshopCheckInController"
