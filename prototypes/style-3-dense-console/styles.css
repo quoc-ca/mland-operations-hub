@@ -279,6 +279,47 @@ body {
   margin-top: 2px;
 }
 
+/* FE-10 Manager Dashboard (local prototype only) */
+.local-demo-notice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border: 1px solid #93C5FD;
+  border-radius: var(--rounded-md);
+  background: var(--color-info-bg);
+  color: #0C4A6E;
+  font-size: 12px;
+}
+
+.local-demo-notice strong { font-family: var(--font-mono); font-size: 11px; }
+
+.dashboard-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 14px;
+  padding: 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--rounded-lg);
+  background: var(--color-surface);
+}
+
+.dashboard-filter-bar label { display: block; margin-bottom: 5px; color: var(--color-text-secondary); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.dashboard-filter-meta { margin-left: auto; display: grid; gap: 2px; color: var(--color-text-secondary); font-size: 11px; }
+.dashboard-filter-meta strong { color: var(--color-success); font-family: var(--font-mono); font-size: 11px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(5, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi-card { min-height: 130px; padding: 14px; border: 1px solid var(--color-border); border-radius: var(--rounded-lg); background: var(--color-surface); box-shadow: 0 1px 3px rgba(15, 23, 42, .04); }
+.kpi-card p { color: var(--color-text-secondary); font-size: 11.5px; font-weight: 600; min-height: 34px; }
+.kpi-card strong { display: block; margin: 9px 0; color: var(--color-text-primary); font-size: 19px; letter-spacing: -.02em; }
+.kpi-card small { color: var(--color-text-secondary); font-size: 10.5px; line-height: 1.35; }
+.dashboard-readonly, .dashboard-muted { color: var(--color-text-secondary); font-size: 11px; }
+
+@media (max-width: 1250px) { .kpi-grid { grid-template-columns: repeat(3, minmax(160px, 1fr)); } }
+@media (max-width: 760px) { .kpi-grid { grid-template-columns: 1fr; } .dashboard-filter-meta { margin-left: 0; width: 100%; } }
+
 /* Data Tables */
 .data-table-container {
   background: var(--color-surface);

@@ -8,7 +8,7 @@ owning modules and cross into `reporting` only as minimized aggregates.
 
 | Logical value | Owner | Purpose |
 | --- | --- | --- |
-| Manager capability and branch assignments | `technicaladmin` authorization facade; approved `REPORTING_EXECUTIVE_VIEW` capability and active MySQL `staff_branch_assignment` records | Establish authorized reporting scope |
+| Manager capability and location assignments | `accountmanagement` authorization facade; approved `REPORTING_EXECUTIVE_VIEW` capability and active MySQL `account_location_assignments` records | Establish authorized reporting scope |
 | Retail paid aggregate | `readyringsales` | Net product revenue and paid branch-order count |
 | Workshop final-revenue aggregate | `workshopbooking` | Final fully paid workshop invoice revenue |
 | Completed-session capacity aggregate | `workshopbooking` | Capacity denominator for completed sessions |
@@ -31,22 +31,22 @@ current instant. A fixed/injected clock is required for deterministic tests.
 
 - Authenticated principal reference
 - Required business capability: `REPORTING_EXECUTIVE_VIEW`
-- Complete set of stable branch identifiers from active MySQL
-  `staff_branch_assignment` records
-- Effective requested branch identifiers
+- Complete set of active `locationId: Long` values from MySQL
+  `account_location_assignments` records
+- Effective requested location identifiers
 
 If no branches are requested, the effective set is all active assigned branches.
 No active assignment denies FE-10 access. If
 any explicitly requested branch is outside the authorized set, the complete
 request is rejected; unauthorized branches are not silently removed.
 
-`branchId` is one immutable UUID key referenced by `staff_branch_assignment`,
-retail branch orders, workshop sessions/final invoices, and check-ins. The
-branch display name is not an authorization or aggregation key.
+`locationId` is one immutable `Long` key referenced by
+`account_location_assignments`, retail orders, workshop sessions/final invoices,
+and check-ins. The location display name is not an authorization or aggregation key.
 
 ## RetailBranchAggregate
 
-- Stable branch identifier
+- Stable `locationId: Long`
 - Currency code: `VND` only
 - Net product revenue after allocated discounts
 - Fully paid branch-order count
@@ -59,7 +59,7 @@ the reporting interval.
 
 ## WorkshopRevenueAggregate
 
-- Stable branch identifier
+- Stable `locationId: Long`
 - Currency code: `VND` only
 - Final fully paid invoice revenue
 - Qualifying final-invoice count, for validation evidence only
@@ -72,7 +72,7 @@ separate revenue fact.
 
 ## WorkshopCapacityAggregate
 
-- Stable branch identifier
+- Stable `locationId: Long`
 - Completed session count
 - Sum of configured capacity for qualifying completed sessions
 - Source `asOf` instant
@@ -84,7 +84,7 @@ converted to zero.
 
 ## AttendanceAggregate
 
-- Stable branch identifier
+- Stable `locationId: Long`
 - Sum of actual checked-in participants for qualifying completed sessions
 - Source `asOf` instant
 - Source quality
@@ -108,7 +108,7 @@ customer information.
 
 ## BranchKpi
 
-- Stable branch identifier and display name
+- Stable `locationId: Long` and display name
 - Currency code: `VND` only
 - Retail revenue, nullable when unknown
 - Workshop revenue, nullable when unknown
@@ -143,7 +143,7 @@ record nor a persisted analytics snapshot.
 
 1. Authorization and branch scope are resolved before any business aggregate
    is requested.
-2. Every source query uses the same branch identifiers and half-open reporting
+2. Every source query uses the same location identifiers and half-open reporting
    interval.
 3. Retail revenue equals product value after allocated discounts and excludes
    shipping charges.

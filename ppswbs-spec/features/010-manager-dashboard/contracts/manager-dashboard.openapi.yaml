@@ -13,7 +13,7 @@ paths:
       description: >-
         Returns verified retail revenue, final paid workshop revenue, paid
         retail order count, workshop utilization, and source-quality metadata.
-        Absence of branchId means all branches authorized for the Manager.
+        Absence of locationId means all locations authorized for the Manager.
       security:
         - bearerAuth: []
       parameters:
@@ -30,7 +30,7 @@ paths:
           schema:
             type: string
             format: date
-        - name: branchId
+        - name: locationId
           in: query
           required: false
           description: Repeat to request multiple authorized branches. Omit for all authorized branches.
@@ -40,8 +40,8 @@ paths:
             type: array
             uniqueItems: true
             items:
-              type: string
-              format: uuid
+              type: integer
+              format: int64
       responses:
         '200':
           description: Complete, empty, or explicitly partial dashboard data.
@@ -96,7 +96,7 @@ components:
     ReportingScope:
       type: object
       additionalProperties: false
-      required: [periodType, startAt, endAt, timezone, branchIds]
+      required: [periodType, startAt, endAt, timezone, locationIds]
       properties:
         periodType:
           $ref: '#/components/schemas/PeriodType'
@@ -111,11 +111,12 @@ components:
         timezone:
           type: string
           enum: [Asia/Ho_Chi_Minh]
-        branchIds:
+        locationIds:
           type: array
           uniqueItems: true
           items:
-            type: string
+            type: integer
+            format: int64
     KpiValues:
       type: object
       additionalProperties: false
@@ -163,11 +164,11 @@ components:
     BranchKpi:
       type: object
       additionalProperties: false
-      required: [branchId, branchName, currency, values]
+      required: [locationId, branchName, currency, values]
       properties:
-        branchId:
-          type: string
-          format: uuid
+        locationId:
+          type: integer
+          format: int64
         branchName:
           type: string
         currency:

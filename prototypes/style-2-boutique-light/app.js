@@ -175,6 +175,9 @@
     activeTab: "catalogue",
     selectedSizes: { P01: 11, P02: 12, P03: 14 },
     cart: [],
+    fulfilmentByBranch: {},
+    appliedVoucher: null,
+    checkoutTermsAccepted: false,
     profile: {
       fullName: "Lê Minh Quân",
       email: "quan.lm@mland.vn",
@@ -220,6 +223,31 @@
 
   function formatCurrency(amount) {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+  }
+
+  const mockGhtkQuoteByBranch = {
+    BRANCH_HN: 32000,
+    BRANCH_SG: 41000
+  };
+
+  function groupCartByBranch() {
+    return appState.cart.reduce((groups, item, index) => {
+      if (!groups[item.branchId]) groups[item.branchId] = [];
+      groups[item.branchId].push({ ...item, originalIndex: index });
+      return groups;
+    }, {});
+  }
+
+  function fulfilmentFor(branchId) {
+    return appState.fulfilmentByBranch[branchId] || "DELIVERY_GHTK";
+  }
+
+  function shippingFeeFor(branchId) {
+    return fulfilmentFor(branchId) === "PICKUP" ? 0 : mockGhtkQuoteByBranch[branchId];
+  }
+
+  function appliedDiscountFor(subtotal) {
+    return appState.appliedVoucher === "MLAND100" ? Math.min(100000, subtotal) : 0;
   }
 
   function showToast(message) {
@@ -526,6 +554,18 @@
       item => item.productId === productId && item.branchId === branchId && item.size === size
     );
 
+    const currentVariantQuantity = appState.cart
+      .filter(item => item.productId === productId && item.size === size)
+      .reduce((sum, item) => sum + item.quantity, 0);
+    if (currentVariantQuantity >= 99) {
+      showToast(appState.lang === 'vi' ? 'Mỗi biến thể chỉ được tối đa 99 sản phẩm trong giỏ.' : 'Each variant is limited to 99 items in the bag.');
+      return;
+    }
+    if (!existing && appState.cart.length >= 50) {
+      showToast(appState.lang === 'vi' ? 'Giỏ hàng chỉ chứa tối đa 50 dòng sản phẩm.' : 'The bag can contain at most 50 product lines.');
+      return;
+    }
+
     if (existing) {
       existing.quantity += 1;
     } else {
@@ -564,18 +604,10 @@
       return;
     }
 
-    const groupedByBranch = {};
-    appState.cart.forEach((item, index) => {
-      if (!groupedByBranch[item.branchId]) {
-        groupedByBranch[item.branchId] = [];
-      }
-      groupedByBranch[item.branchId].push({ ...item, originalIndex: index });
-    });
-
+    const groupedByBranch = groupCartByBranch();
     let overallItemsSubtotal = 0;
     const branchOrderKeys = Object.keys(groupedByBranch);
-    const ghtkFeePerBranch = 32000;
-    const totalShipping = branchOrderKeys.length * ghtkFeePerBranch;
+    const totalShipping = branchOrderKeys.reduce((sum, branchId) => sum + shippingFeeFor(branchId), 0);
 
     let bodyHtml = `
       <div style="font-size: 12px; background: #FEF9C3; border: 1px solid #FDE047; padding: 10px 12px; border-radius: 6px; color: #854D0E; margin-bottom: 14px;">
@@ -587,6 +619,8 @@
       const branchInfo = branches.find(b => b.id === branchId);
       const items = groupedByBranch[branchId];
       const branchSubtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const fulfilment = fulfilmentFor(branchId);
+      const shippingFee = shippingFeeFor(branchId);
       overallItemsSubtotal += branchSubtotal;
 
       bodyHtml += `
@@ -603,15 +637,25 @@
                 <span class="cart-item-meta">Size: ${item.size} &bull; SL: ${item.quantity}</span>
               </div>
               <div class="cart-item-action">
+                <button class="remove-btn" onclick="window.changeCartQuantity(${item.originalIndex}, -1)">−</button>
                 <span style="font-weight: 600; color: var(--color-text-primary);">${formatCurrency(item.price * item.quantity)}</span>
+                <button class="remove-btn" onclick="window.changeCartQuantity(${item.originalIndex}, 1)">+</button>
                 <button class="remove-btn" onclick="window.removeCartItem(${item.originalIndex})">✕</button>
               </div>
             </div>
           `).join('')}
 
+          <label style="display:block; margin-top: 12px; font-size: 12px; font-weight: 600; color: var(--color-text-secondary);">
+            ${t.deliveryOption}
+            <select class="branch-select-box" style="width:100%; margin-top: 6px;" onchange="window.setBranchFulfilment('${branchId}', this.value)">
+              <option value="PICKUP" ${fulfilment === 'PICKUP' ? 'selected' : ''}>${t.pickupStore}</option>
+              <option value="DELIVERY_GHTK" ${fulfilment === 'DELIVERY_GHTK' ? 'selected' : ''}>${t.deliverGhtk} (${formatCurrency(mockGhtkQuoteByBranch[branchId])})</option>
+            </select>
+          </label>
+
           <div style="border-top: 1px dashed var(--color-border); padding-top: 8px; margin-top: 8px; font-size: 12px; color: var(--color-text-secondary); display: flex; justify-content: space-between;">
-            <span>${t.shippingGhtk}</span>
-            <span style="color: var(--color-text-primary); font-family: var(--font-mono);">${formatCurrency(ghtkFeePerBranch)}</span>
+            <span>${fulfilment === 'PICKUP' ? t.pickupStore : t.shippingGhtk}</span>
+            <span style="color: var(--color-text-primary); font-family: var(--font-mono);">${formatCurrency(shippingFee)}</span>
           </div>
         </div>
       `;
@@ -619,7 +663,8 @@
 
     body.innerHTML = bodyHtml;
 
-    const combinedTotal = overallItemsSubtotal + totalShipping;
+    const discount = appliedDiscountFor(overallItemsSubtotal);
+    const combinedTotal = overallItemsSubtotal + totalShipping - discount;
     footer.innerHTML = `
       <div style="margin-bottom: 12px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px;">
         <div style="font-size: 12px; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 4px;">
@@ -638,17 +683,27 @@
         <span>${formatCurrency(overallItemsSubtotal)}</span>
       </div>
       <div class="summary-row">
-        <span>Phí ship GHTK (${branchOrderKeys.length} kiện):</span>
+        <span>${appState.lang === 'vi' ? `Phí giao nhận (${branchOrderKeys.length} chi nhánh):` : `Fulfilment fees (${branchOrderKeys.length} branches):`}</span>
         <span>${formatCurrency(totalShipping)}</span>
       </div>
+      <div style="display:flex; gap:6px; margin: 12px 0;">
+        <input id="voucherCode" class="form-input" style="padding:8px 10px;" placeholder="Voucher demo: MLAND100" value="${appState.appliedVoucher || ''}">
+        <button class="btn-secondary" onclick="window.applyVoucher()">${appState.lang === 'vi' ? 'Áp dụng' : 'Apply'}</button>
+      </div>
+      ${discount > 0 ? `<div class="summary-row"><span>Voucher MLAND100</span><span>−${formatCurrency(discount)}</span></div>` : ''}
       <div class="summary-row total-row">
         <span>${t.totalPayable}</span>
         <span class="total-price">${formatCurrency(combinedTotal)}</span>
       </div>
-      <button class="btn-primary" style="margin-top: 14px;" onclick="window.executeCheckout()">
+      <label style="display:flex; align-items:flex-start; gap:8px; margin-top:14px; font-size:12px; color:var(--color-text-secondary); cursor:pointer;">
+        <input type="checkbox" ${appState.checkoutTermsAccepted ? 'checked' : ''} onchange="window.setCheckoutTermsAccepted(this.checked)">
+        <span>${appState.lang === 'vi' ? 'Tôi xác nhận ưu đãi và tổng tiền hiển thị là dữ liệu demo trước khi thanh toán mô phỏng.' : 'I confirm the displayed benefit and total are demo data before simulated payment.'}</span>
+      </label>
+      <button class="btn-primary" style="margin-top: 14px;" onclick="window.executeCheckout()" ${appState.checkoutTermsAccepted ? '' : 'disabled'}>
         <span>💳</span>
-        <span>${t.checkoutBtn}</span>
+        <span>${appState.lang === 'vi' ? 'Xác nhận thanh toán demo' : 'Confirm demo payment'}</span>
       </button>
+      <p style="font-size:11px; color:var(--color-text-secondary); margin-top:8px;">${appState.lang === 'vi' ? 'Prototype: voucher và phí GHTK là dữ liệu mô phỏng; không gọi VNPay/GHTK thật.' : 'Prototype: voucher and GHTK fees are mock data; no live VNPay/GHTK call is made.'}</p>
     `;
   }
 
@@ -659,23 +714,81 @@
     openCart();
   };
 
+  window.changeCartQuantity = function (index, delta) {
+    const item = appState.cart[index];
+    if (!item) return;
+    if (delta < 0 && item.quantity === 1) {
+      window.removeCartItem(index);
+      return;
+    }
+    const variantQuantity = appState.cart
+      .filter(candidate => candidate.productId === item.productId && candidate.size === item.size)
+      .reduce((sum, candidate) => sum + candidate.quantity, 0);
+    if (delta > 0 && variantQuantity >= 99) {
+      showToast(appState.lang === 'vi' ? 'Mỗi biến thể chỉ được tối đa 99 sản phẩm trong giỏ.' : 'Each variant is limited to 99 items in the bag.');
+      return;
+    }
+    item.quantity += delta;
+    saveState();
+    renderApp();
+    openCart();
+  };
+
+  window.setBranchFulfilment = function (branchId, fulfilment) {
+    appState.fulfilmentByBranch[branchId] = fulfilment;
+    saveState();
+    renderCart();
+  };
+
+  window.applyVoucher = function () {
+    const input = document.getElementById("voucherCode");
+    const code = input ? input.value.trim().toUpperCase() : "";
+    if (code === "MLAND100") {
+      appState.appliedVoucher = code;
+      showToast(appState.lang === 'vi' ? 'Đã áp dụng voucher demo giảm 100.000₫.' : 'Mock voucher discount of 100,000₫ applied.');
+    } else {
+      appState.appliedVoucher = null;
+      showToast(appState.lang === 'vi' ? 'Voucher demo hợp lệ là MLAND100.' : 'The available mock voucher is MLAND100.');
+    }
+    saveState();
+    renderCart();
+  };
+
+  window.setCheckoutTermsAccepted = function (accepted) {
+    appState.checkoutTermsAccepted = accepted;
+    saveState();
+    renderCart();
+  };
+
   window.executeCheckout = function () {
     const t = i18n[appState.lang];
     if (appState.cart.length === 0) return;
 
-    const grouped = {};
-    appState.cart.forEach(item => {
-      if (!grouped[item.branchId]) grouped[item.branchId] = [];
-      grouped[item.branchId].push(item);
-    });
+    const grouped = groupCartByBranch();
+    const branchIds = Object.keys(grouped);
+    const subtotal = appState.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const shipping = branchIds.reduce((sum, branchId) => sum + shippingFeeFor(branchId), 0);
+    const discount = appliedDiscountFor(subtotal);
+    const total = subtotal + shipping - discount;
+    if (!appState.checkoutTermsAccepted) {
+      showToast(appState.lang === 'vi' ? 'Hãy xác nhận điều khoản dữ liệu demo trước khi tiếp tục.' : 'Confirm the demo-data acknowledgement before continuing.');
+      return;
+    }
+    const confirmation = appState.lang === 'vi'
+      ? `Đây là mô phỏng kết quả thanh toán VNPay đã được xác minh. Tạo ${branchIds.length} đơn chi nhánh với tổng ${formatCurrency(total)}?`
+      : `This simulates a verified VNPay result. Create ${branchIds.length} branch orders totalling ${formatCurrency(total)}?`;
+    if (!window.confirm(confirmation)) return;
 
     const now = new Date();
     const timeStr = now.toISOString().slice(0, 16).replace('T', ' ');
 
-    Object.keys(grouped).forEach((branchId) => {
+    Object.keys(grouped).forEach((branchId, index) => {
       const items = grouped[branchId];
       const subtotal = items.reduce((s, it) => s + it.price * it.quantity, 0);
-      const shippingFee = 32000;
+      const fulfilment = fulfilmentFor(branchId);
+      const shippingFee = shippingFeeFor(branchId);
+      // The grouped-checkout discount is applied only once, on the first branch order.
+      const branchDiscount = index === 0 ? discount : 0;
       const orderNum = Math.floor(1000 + Math.random() * 9000);
       const branchCode = branchId === 'BRANCH_HN' ? 'HN' : 'SG';
 
@@ -686,10 +799,11 @@
         items: items,
         subtotal: subtotal,
         shippingFee: shippingFee,
-        total: subtotal + shippingFee,
+        discountAmount: branchDiscount,
+        total: subtotal + shippingFee - branchDiscount,
         status: "PAYMENT_CONFIRMED",
-        carrierCode: `GHTK-${branchCode}-${now.getFullYear()}${now.getMonth() + 1}${now.getDate()}-${orderNum}`,
-        fulfilment: "DELIVERY_GHTK",
+        carrierCode: fulfilment === 'DELIVERY_GHTK' ? `GHTK-${branchCode}-${now.getFullYear()}${now.getMonth() + 1}${now.getDate()}-${orderNum}` : null,
+        fulfilment: fulfilment,
         recipient: {
           name: appState.profile.fullName,
           phone: appState.profile.phone,
@@ -699,6 +813,9 @@
     });
 
     appState.cart = [];
+    appState.fulfilmentByBranch = {};
+    appState.appliedVoucher = null;
+    appState.checkoutTermsAccepted = false;
     appState.activeTab = "orders";
     saveState();
     closeCart();
@@ -736,7 +853,9 @@
                 </div>
 
                 <div>
-                  <span class="carrier-tag">${order.carrierCode}</span>
+                  ${order.carrierCode
+                    ? `<span class="carrier-tag">${order.carrierCode}</span>`
+                    : `<span class="carrier-tag" style="background:#F3F4F6; border-color:#E5E7EB; color:#4B5563;">${appState.lang === 'vi' ? 'Nhận tại cửa hàng' : 'Store pickup'}</span>`}
                   <span class="badge-status ${getStatusBadgeClass(order.status)}" style="margin-left: 8px;">
                     ${getStatusText(order.status)}
                   </span>
@@ -775,9 +894,15 @@
                   </div>
                 `).join('')}
                 <div style="display: flex; justify-content: space-between; color: var(--color-text-secondary); margin-top: 6px;">
-                  <span>${t.shippingGhtk}</span>
+                  <span>${order.fulfilment === 'PICKUP' ? t.pickupStore : t.shippingGhtk}</span>
                   <span>${formatCurrency(order.shippingFee)}</span>
                 </div>
+                ${(order.discountAmount || 0) > 0 ? `
+                  <div style="display: flex; justify-content: space-between; color: var(--color-success); margin-top: 6px;">
+                    <span>Voucher MLAND100</span>
+                    <span>−${formatCurrency(order.discountAmount)}</span>
+                  </div>
+                ` : ''}
                 <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--color-text-primary); border-top: 1px dashed var(--color-border); padding-top: 6px; margin-top: 6px;">
                   <span>${t.totalPayable}</span>
                   <span>${formatCurrency(order.total)}</span>
