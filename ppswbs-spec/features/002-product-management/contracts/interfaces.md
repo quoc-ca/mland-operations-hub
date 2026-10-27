@@ -111,12 +111,21 @@ Hành vi chung: mỗi màn hình có loading, empty (khác dependency error), va
 
 Không dùng facade kiểu getEntity/setField và không cho frontend gọi method nội bộ này để né quyền. FE-08 phải hoàn thiện boundary invocation/authentication của consumer trước integration; facade chỉ nhận records/scalars và callback nghiệp vụ giới hạn.
 
+**Kiểu Java đã có trong `productmanagement::facade` (2026-10-27, phía 002; adapter FE-08 chưa có)**:
+
+- `CatalogueSalesFacade`: `withLockedSaleContext(Collection<Long> variantIds, Function<SaleContext, T> work)`, `withLockedHistoricalContext(String acceptedTransactionRef, Collection<Long> variantIds, Function<SaleContext, T> work)`, `recordAcceptedSale(UUID operationRef, long variantId, BigInteger quantity) → AcceptedSaleResult`, `retainMediaReferences(String ownerRecordRef, Collection<UUID> mediaIds)`, `releaseMediaReferences(String ownerRecordRef, Collection<UUID> mediaIds)`.
+- Record: `SaleContext(asOf, acceptedTransactionRef, variants)`, `SaleVariantFact(productId, productName, variantId, sku, size, appliedPrice, currency, remainingUnsold, saleEnabled, productDeleted, publiclyEligible, productVersion, productContentVersion, variantVersion, appliedSequence, imageMediaIds)`, `HeldSnapshot(variantId, heldQuantity, sourceRevision)`, `AcceptedSaleResult(operationRef, variantId, quantity, remainingAfter, variantVersion, replayed)`.
+- Lỗi: `CatalogueSalesException` với `reason()` ∈ `INVALID_REQUEST`, `NOT_FOUND`, `NOT_FOR_SALE`, `INSUFFICIENT_QUANTITY`, `OPERATION_CONFLICT`, `MEDIA_NOT_AVAILABLE`, `NO_LOCKED_CONTEXT`, `DEPENDENCY_UNAVAILABLE`, `BUSY` và `variantIds()` (các size liên quan). Mọi `CatalogueSalesException` làm transaction của bên gọi rollback-only; exception do callback của FE-08 ném ra được giữ nguyên.
+- Chi tiết triển khai do 002 chọn (contract trước đó chưa ghi): mọi method `MANDATORY` (gọi ngoài transaction bị từ chối); bên gọi nên dùng READ COMMITTED như lệnh catalogue. `operationRef` là UUID do FE-08 sinh; chống trừ hai lần bằng `catalogue_command_receipts` (actor `readyringsales`, action `sale.accepted`), gửi lại cùng size/số lượng trả kết quả cũ (`replayed=true`), khác size/số lượng → `OPERATION_CONFLICT`. `recordAcceptedSale` chỉ chạy khi size đã được khóa bởi một context đang mở trên cùng thread (`NO_LOCKED_CONTEXT` nếu không). Media của FE-08 ghi registry với `owner_module = readyringsales`, `ownerRecordRef` 1–128 ký tự.
+- Chưa có hàm đọc không khóa cho giỏ hàng (`readSaleFacts`); chỉ thêm khi owner FE-08 xác nhận.
+
 ### AvailabilityGuardPort — productmanagement owns SPI, FE-08 implements
 
 - `readSnapshots(variantIds, asOf)`: Batch exact active held quantity + source revision theo variant; không cache và không thay unknown bằng 0. Bộ chưa có hold trả 0 chỉ khi nguồn thật xác minh thành công.
 - `withGuard(variantIds, asOf, work)`: Join transaction bắt buộc; giữ guard row ổn định trên từng variant kể cả khi chưa có hold, đọc snapshot hợp lệ và giữ khóa xuyên callback/commit. Không trả lazy entity, không mở REQUIRES_NEW tách source khỏi quantity save.
 - FE-08 tạo/chốt/giải phóng giữ cũng phải dùng guard trên. asOf là thời điểm UTC của operation, cùng deadline semantics FE-08; event late/uncertain không được productmanagement tự giải thích hoặc hủy giữ.
 - Adapter readyringsales có compile dependency vào productmanagement::facade, không gọi ngược productmanagement khi đã giữ source guard. Productmanagement không import readyringsales và không sao chép hold lifecycle. Thiếu adapter trả typed 503; test-only fixture phải được gắn rõ, không enable trong runtime thường.
+- Kiểu Java (2026-10-27): `Map<Long, HeldSnapshot> readSnapshots(Collection<Long> variantIds, Instant asOf)` và `<T> T withGuard(Collection<Long> variantIds, Instant asOf, Function<Map<Long, HeldSnapshot>, T> work)`. 002 truyền ID theo thứ tự tăng dần; kết quả phải có đúng một snapshot cho mỗi ID yêu cầu, thiếu/thừa/sai ID bị coi là không xác minh được (503). Nguồn không đọc được nên ném `CatalogueSalesException` `DEPENDENCY_UNAVAILABLE`. Binding phía 002 là `CatalogueAvailabilityService` (cũng là `VariantHoldReader` runtime).
 
 ### PromotionTargetPort — FE-06 owns SPI, productmanagement implements
 

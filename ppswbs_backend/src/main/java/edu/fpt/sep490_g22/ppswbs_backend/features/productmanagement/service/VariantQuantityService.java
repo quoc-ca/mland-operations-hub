@@ -4,10 +4,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductV
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ActionResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Product;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.math.BigInteger;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,8 +22,9 @@ import java.util.UUID;
  *       a hold is never cancelled or released to make it fit.</li>
  *   <li>A product that was never published cannot have a hold, so its held quantity is a proven zero.
  *       Otherwise the FE-08 source is required: without it the command fails with
- *       {@code AVAILABILITY_DEPENDENCY_UNAVAILABLE} and nothing changes. The FE-08 stable source guard held
- *       until commit is added with AvailabilityGuardPort (T019).</li>
+ *       {@code AVAILABILITY_DEPENDENCY_UNAVAILABLE} and nothing changes. The held quantity is read and the
+ *       update saved while the FE-08 source guard of the size is held (AvailabilityGuardPort, T019); the
+ *       guard stays held until commit, so no hold can be created or settled in between.</li>
  *   <li>Quantity is not reviewable content and never invalidates a review or a price decision.</li>
  * </ul>
  * The caller authorizes the actor first (T007).
@@ -35,16 +36,16 @@ public class VariantQuantityService {
 
     private final CatalogueLockCoordinator locks;
     private final ProductVariantRepository variants;
-    private final ObjectProvider<VariantHoldReader> holdReader;
+    private final CatalogueAvailabilityService availability;
     private final CatalogueAuditWriter audit;
     private final CatalogueCommandExecutor executor;
 
     public VariantQuantityService(CatalogueLockCoordinator locks, ProductVariantRepository variants,
-                                  ObjectProvider<VariantHoldReader> holdReader, CatalogueAuditWriter audit,
+                                  CatalogueAvailabilityService availability, CatalogueAuditWriter audit,
                                   CatalogueCommandExecutor executor) {
         this.locks = locks;
         this.variants = variants;
-        this.holdReader = holdReader;
+        this.availability = availability;
         this.audit = audit;
         this.executor = executor;
     }
@@ -72,32 +73,26 @@ public class VariantQuantityService {
             if (variant.getRemainingUnsold().equals(value)) {
                 return result(commandId, variant, false);
             }
-            BigInteger old = variant.getRemainingUnsold();
-            variant.updateRemainingUnsold(value, validHeld(product, variant));
-            ProductVariant saved = variants.saveAndFlush(variant);
-            Map<String, Object> changes = new LinkedHashMap<>();
-            changes.put("sku", saved.getSku());
-            changes.put("oldQuantity", old.toString());
-            changes.put("newQuantity", value.toString());
-            audit.recordSuccess(new CatalogueAuditWriter.Entry(actorId, ACTION, "variant", saved.getId().toString(),
-                    saved.getVersion(), null, List.of("remainingUnsold"), changes));
-            return result(commandId, saved, true);
+            if (!product.hasEverBeenPublished()) {
+                return update(actorId, commandId, variant, value, BigInteger.ZERO);
+            }
+            return availability.withGuard(List.of(id), Instant.now(),
+                    snapshots -> update(actorId, commandId, variant, value, snapshots.get(id).heldQuantity()));
         });
     }
 
-    private BigInteger validHeld(Product product, ProductVariant variant) {
-        if (!product.hasEverBeenPublished()) {
-            return BigInteger.ZERO;
-        }
-        VariantHoldReader reader = holdReader.getIfAvailable();
-        if (reader == null) {
-            throw new CatalogueException(CatalogueErrorCode.AVAILABILITY_DEPENDENCY_UNAVAILABLE);
-        }
-        BigInteger held = reader.validHeldByVariant(List.of(variant.getId())).get(variant.getId());
-        if (held == null) {
-            throw new CatalogueException(CatalogueErrorCode.AVAILABILITY_DEPENDENCY_UNAVAILABLE);
-        }
-        return held;
+    private CatalogueCommandExecutor.CommandResult update(String actorId, UUID commandId, ProductVariant variant,
+                                                          BigInteger value, BigInteger validHeld) {
+        BigInteger old = variant.getRemainingUnsold();
+        variant.updateRemainingUnsold(value, validHeld);
+        ProductVariant saved = variants.saveAndFlush(variant);
+        Map<String, Object> changes = new LinkedHashMap<>();
+        changes.put("sku", saved.getSku());
+        changes.put("oldQuantity", old.toString());
+        changes.put("newQuantity", value.toString());
+        audit.recordSuccess(new CatalogueAuditWriter.Entry(actorId, ACTION, "variant", saved.getId().toString(),
+                saved.getVersion(), null, List.of("remainingUnsold"), changes));
+        return result(commandId, saved, true);
     }
 
     private static CatalogueCommandExecutor.CommandResult result(UUID commandId, ProductVariant variant,

@@ -1,7 +1,7 @@
 # Validation Report: Product Management
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-10-27 (sau merge develop, T002/T007, REST API, T051, T073, T083 và các task viết test)
+**Date updated**: 2026-10-27 (sau merge develop, T002/T007, REST API, T051, T073, T083, các task viết test; facade FE-08 phía 002)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -36,6 +36,7 @@ Kết quả ngày 2026-10-27: **481 test**, trong đó **295 test của productm
 | Đơn vị | `CatalogueValuesTests`, `CatalogueDomainTests`, `CatalogueEntityRulesTests`, `CatalogueCommandExecutorTests`, `CatalogueLockCoordinatorTests`, `CatalogueExceptionHandlerTests`, `CatalogueImportTests`, `ExcelLibraryConfigurationTests`, `CatalogueMediaStagingTests`, `CloudinaryMediaStorageAdapterTests`, `CreateProductServiceTests`, `ManagementProductQueryServiceTests` |
 | MySQL, tầng service | `CatalogueMySqlEnvironmentIT`, `CatalogueMySqlSchemaIT`, `CatalogueMySqlIT`, `CatalogueReviewIT`, `CataloguePublicationIT`, `CataloguePriceProposalIT`, `CataloguePriceIT`, `CatalogueSaleStatusAndDeleteIT`, `CatalogueLifecycleIT`, `CatalogueContentEditIT`, `CatalogueMediaIT`, `CatalogueMediaCleanupIT`, `CatalogueMediaAvailabilityIT`, `CatalogueCategoryIT`, `CatalogueImportBatchIT`, `CataloguePublicIT`, `LoyaltyProductTargetAdapterIT`, `CatalogueAuditFailureIT` |
 | Đồng thời thật | `CatalogueConcurrencyIT`, `CatalogueCategoryConcurrencyIT` |
+| Facade cho FE-08 (nguồn giữ hàng giả chỉ trong test) | `CatalogueSalesIT` |
 | HTTP + security thật | `CatalogueApiIT`, `CatalogueImportApiIT`, `CatalogueContractIT` |
 | Provider thật | `CatalogueCloudinaryIT` |
 | Ranh giới module | `CatalogueDependenciesIT`, `ModulithArchitectureTests` |
@@ -51,7 +52,7 @@ Ký hiệu: **PASS** = đạt qua REST với security thật trên MySQL; **PASS
 | V-03 | PASS | Gửi/duyệt nguyên hồ sơ qua REST, một đề xuất chờ duyệt mỗi size kể cả gửi đồng thời, sửa trước khi duyệt tạo revision mới, snapshot không trôi, quyết định cũ bị từ chối, lý do bắt buộc, lỗi audit không duyệt một phần (`CatalogueReviewIT`, `CatalogueConcurrencyIT`, `CatalogueAuditFailureIT`, `CatalogueApiIT`). | "Cancel" là thao tác giao diện, không có lệnh backend. |
 | V-04 | PASS | Duyệt chưa áp dụng thì không công khai; áp dụng đúng giá; điều khoản đổi `PRICE_TERMS_CHANGED`; revision bị thay thế `PRICE_NOT_APPROVED`; quyết định cũ không ghi đè; size hết hàng vẫn công khai; mất phản hồi gửi lại cùng key (`CataloguePublicationIT`, `CataloguePriceIT`, `CatalogueConcurrencyIT`, `CatalogueApiIT`). | — |
 | V-05 | PASS | Sửa thẳng sau lần công khai đầu và khi đang ẩn; không gỡ được ảnh cuối của sản phẩm công khai; 10/11 ảnh, alt 200/201, vị trí; ảnh của người khác bị từ chối; upload thật lên Cloudinary `authenticated`; gửi lại theo checksum; lỗi provider rồi thử lại (`CatalogueContentEditIT`, `CatalogueMediaIT`, `CatalogueCloudinaryIT`, `CatalogueApiIT`). | — |
-| V-06 | BLOCKED | Sản phẩm chưa từng công khai: số giữ = 0 đã chứng minh; đã từng công khai mà không có FE-08 thì 503 và không đổi gì (`CatalogueContentEditIT`, `CatalogueApiIT`). | Va chạm với giữ hàng/settlement cần adapter FE-08 thật. |
+| V-06 | BLOCKED | Sản phẩm chưa từng công khai: số giữ = 0 đã chứng minh; đã từng công khai mà không có FE-08 thì 503 và không đổi gì (`CatalogueContentEditIT`, `CatalogueApiIT`). | Va chạm với giữ hàng/settlement cần adapter FE-08 thật. Phía 002 đã có `AvailabilityGuardPort` + `CatalogueSalesFacade`; số lượng đặt dưới guard và trừ bán một lần đã kiểm bằng nguồn giả chỉ trong test (`CatalogueSalesIT`), không phải bằng chứng tích hợp. |
 | V-07 | PARTIAL | Ngừng/mở bán giữ số lượng và giá; ẩn rồi công khai lại kiểm tra lại điều kiện, giữ `firstPublishedAt`; xóa từ mọi trạng thái; key cũ sau khi xóa không làm sống lại; xóa và công khai đồng thời (`CatalogueSaleStatusAndDeleteIT`, `CatalogueLifecycleIT`, `CatalogueConcurrencyIT`). | Va chạm với giữ hàng mới, thanh toán cũ (FE-08). |
 | V-08 | PASS (trừ phần giữ hàng) | Tên duy nhất kể cả danh mục ngừng, NFC/NFD, biên 200/201 và 5.000/5.001, tạo trùng đồng thời, tác động phân trang, ngừng chặn công khai không đổi cờ, kích hoạt lại không làm sống lại sản phẩm ẩn/xóa, đổi danh mục ngược chiều không deadlock, quyền qua REST (`CatalogueCategoryIT`, `CatalogueCategoryConcurrencyIT`, `CatalogueImportApiIT`). | Va chạm với giữ hàng mới (FE-08). |
 | V-09 | PARTIAL | Lọc giá + "có thể mua" trên cùng size, nhãn size ngừng bán, sắp xếp có định danh phụ, `%`/`_` là ký tự thường, phân trang 20 + 1 (`CataloguePublicIT`, dùng `VariantHoldReader` giả chỉ trong test). | Số giữ thật từ FE-08. |
