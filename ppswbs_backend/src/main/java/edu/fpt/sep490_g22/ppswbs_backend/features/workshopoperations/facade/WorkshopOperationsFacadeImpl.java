@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.AttendanceTicketService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.CapacityHoldService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager.ClaimResult;
@@ -32,6 +33,7 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final FacadeCommandIdempotencyManager idempotencyManager;
     private final ObjectMapper objectMapper;
     private final CapacityHoldService capacityHoldService;
+    private final AttendanceTicketService attendanceTicketService;
 
     @Override
     @Transactional(readOnly = true)
@@ -72,7 +74,7 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     public CapacityCommitOutcome commitBookingHolds(CommitBookingHoldsCommand command) {
         CapacityCommitOutcome outcome = capacityHoldService.commitBookingHolds(command);
         if (outcome.status() == OutcomeStatus.ACCEPTED) {
-            issuePrototypeTicketsIfAbsent(command.bookingReference(), command.expectedHoldReferences());
+            attendanceTicketService.issueTicketsForBooking(command.bookingReference(), command.expectedHoldReferences());
         }
         return outcome;
     }
@@ -83,67 +85,10 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
         return capacityHoldService.releaseBookingHolds(command);
     }
 
-    private void issuePrototypeTicketsIfAbsent(String bookingReference, List<UUID> holdReferences) {
-        List<AttendanceTicket> existingTickets = ticketRepository.findByBookingReference(bookingReference);
-        if (!existingTickets.isEmpty()) {
-            return;
-        }
-        List<String> sortedHoldRefs = holdReferences.stream().map(UUID::toString).sorted().toList();
-        List<CapacityHold> holds = capacityHoldRepository.findByReferenceInWithLock(sortedHoldRefs);
-        if (holds.isEmpty()) {
-            return;
-        }
-        int participantCount = holds.getFirst().getRequestedTicketCount();
-        List<AttendanceTicket> createdTickets = new ArrayList<>();
-        for (int i = 1; i <= participantCount; i++) {
-            String ticketCode = "TK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-            String qrRef = "QR-" + UUID.randomUUID();
-            AttendanceTicket ticket = AttendanceTicket.builder()
-                .bookingReference(bookingReference)
-                .ticketSequence(i)
-                .ticketCode(ticketCode)
-                .qrReference(qrRef)
-                .validityState(TicketValidityState.ACTIVE)
-                .build();
-            ticket = ticketRepository.save(ticket);
-            createdTickets.add(ticket);
-        }
-        for (CapacityHold hold : holds) {
-            for (AttendanceTicket ticket : createdTickets) {
-                TicketSessionEntitlement entitlement = TicketSessionEntitlement.builder()
-                    .ticket(ticket)
-                    .session(hold.getSession())
-                    .attendanceState(AttendanceState.NOT_CHECKED_IN)
-                    .build();
-                entitlementRepository.save(entitlement);
-            }
-        }
-    }
-
     @Override
     @Transactional(readOnly = true)
     public DeliverySafeTicketSet getBookingTicketProjection(BookingTicketProjectionQuery query) {
-        List<AttendanceTicket> tickets = ticketRepository.findByBookingReference(query.bookingReference());
-        List<DeliverySafeTicket> projections = new ArrayList<>();
-
-        for (AttendanceTicket ticket : tickets) {
-            List<TicketSessionEntitlement> entitlements = entitlementRepository.findByTicketId(ticket.getId());
-            List<SessionEntitlementProjection> sessionProjections = entitlements.stream()
-                .map(e -> new SessionEntitlementProjection(
-                    e.getSession().getLocation() != null ? e.getSession().getLocation().getId() : null,
-                    e.getSession().getScheduledStartAt(),
-                    e.getSession().getScheduledEndAt()
-                ))
-                .toList();
-
-            projections.add(new DeliverySafeTicket(
-                UUID.fromString(ticket.getReference()),
-                ticket.getTicketCode(),
-                sessionProjections
-            ));
-        }
-
-        return new DeliverySafeTicketSet(projections);
+        return attendanceTicketService.getBookingTicketProjection(query.bookingReference());
     }
 
     @Override
