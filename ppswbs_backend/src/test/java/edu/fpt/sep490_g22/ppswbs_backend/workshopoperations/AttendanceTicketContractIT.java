@@ -27,6 +27,18 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.Rele
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReserveBookingCapacityCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SessionEntitlementProjection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.controller.WorkshopCheckInController;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSlotRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.CheckInOpeningSource;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopLocation;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopSession;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopSlot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.AttendanceTicketService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.CapacityHoldService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.CheckInService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -41,6 +53,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.ApplicationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.yaml.snakeyaml.Yaml;
 
@@ -50,6 +63,9 @@ import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +92,21 @@ public class AttendanceTicketContractIT {
 
     @Autowired
     private ApplicationContext applicationContext;
+
+    @Autowired(required = false)
+    private WorkshopOperationsFacade operationsFacade;
+
+    @Autowired(required = false)
+    private WorkshopLocationRepository locationRepository;
+
+    @Autowired(required = false)
+    private WorkshopSlotRepository slotRepository;
+
+    @Autowired(required = false)
+    private WorkshopSessionRepository sessionRepository;
+
+    @Autowired(required = false)
+    private JdbcTemplate jdbcTemplate;
 
     @MockBean
     private AccountFacade accountFacade;
@@ -568,32 +599,142 @@ public class AttendanceTicketContractIT {
     }
 
     // =========================================================================
-    // 10. Non-Premature Implementation Guard for T028–T033
+    // 10. Registered Business Services and Check-In Controllers
     // =========================================================================
 
     @Test
-    @DisplayName("T027-10: Guard confirming business services and check-in controllers are deferred to T028-T033")
-    void verifyNonPrematureImplementationGuard() {
-        // Document deferred components:
-        // - CapacityHoldService (T028)
-        // - AttendanceTicketService (T029)
-        // - CheckInService (T030)
-        // - WorkshopCheckInController (T031)
+    @DisplayName("T031-10: Registered business services and check-in controllers in Spring context")
+    void verifyBusinessServicesAndCheckInControllersAreRegistered() {
+        assertThat(applicationContext.getBean(AttendanceTicketService.class)).isNotNull();
+        assertThat(applicationContext.getBean(CheckInService.class)).isNotNull();
+        assertThat(applicationContext.getBean(WorkshopCheckInController.class)).isNotNull();
+        assertThat(applicationContext.getBean(CapacityHoldService.class)).isNotNull();
+        assertThat(applicationContext.getBean(WorkshopOperationsFacade.class)).isNotNull();
+    }
 
-        String[] deferredBeanNames = {
-                "capacityHoldService",
-                "attendanceTicketService",
-                "checkInService",
-                "workshopCheckInController"
-        };
+    // =========================================================================
+    // 11. T032: Booking Caller Hold Confirmation and Delivery-Safe Ticket Projection
+    // =========================================================================
 
-        for (String beanName : deferredBeanNames) {
-            assertThatThrownBy(() -> applicationContext.getBean(beanName))
-                    .as("Deferred component bean '" + beanName + "' must not be implemented prematurely in T026/T027")
-                    .isInstanceOf(NoSuchBeanDefinitionException.class);
+    @Test
+    @DisplayName("T032: Booking caller confirms active hold set after commercial confirmation and receives delivery-safe tickets")
+    void verifyBookingCallerHoldConfirmationAndDeliverySafeTicketProjectionContract() {
+        assertThat(operationsFacade).isNotNull();
+        assertThat(locationRepository).isNotNull();
+        assertThat(sessionRepository).isNotNull();
+
+        // 1. Prior to confirmation, projection query returns empty ticket set
+        String bookingRef = "BK-CTR-" + UUID.randomUUID().toString().substring(0, 8);
+        DeliverySafeTicketSet preCommitTickets = operationsFacade.getBookingTicketProjection(
+                new BookingTicketProjectionQuery(bookingRef));
+        assertThat(preCommitTickets).isNotNull();
+        assertThat(preCommitTickets.tickets()).isEmpty();
+
+        // 2. Setup Location, Slot, and 2 Sessions (simulating multi-session or Silverclay package)
+        WorkshopLocation loc = locationRepository.save(WorkshopLocation.builder()
+                .code("LOC-CTR-" + UUID.randomUUID().toString().substring(0, 6))
+                .displayName("Contract Verification Hub")
+                .addressSnapshot("123 Test Street, D1")
+                .active(true)
+                .build());
+
+        WorkshopSlot slot = slotRepository.save(WorkshopSlot.builder()
+                .reference(UUID.randomUUID().toString())
+                .location(loc)
+                .label("Contract Slot")
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(12, 0))
+                .defaultCapacity(10)
+                .active(true)
+                .build());
+
+        LocalDate workshopDate = LocalDate.now().plusDays(7);
+        WorkshopSession session1 = sessionRepository.save(WorkshopSession.builder()
+                .reference(UUID.randomUUID().toString())
+                .location(loc)
+                .slot(slot)
+                .workshopDate(workshopDate)
+                .scheduledStartAt(workshopDate.atTime(9, 0).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant())
+                .scheduledEndAt(workshopDate.atTime(12, 0).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant())
+                .checkInOpensAt(workshopDate.atTime(8, 0).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant())
+                .checkInOpeningSource(CheckInOpeningSource.DEFAULT)
+                .capacity(10)
+                .state(SessionState.PUBLISHED)
+                .build());
+
+        WorkshopSession session2 = sessionRepository.save(WorkshopSession.builder()
+                .reference(UUID.randomUUID().toString())
+                .location(loc)
+                .slot(slot)
+                .workshopDate(workshopDate.plusDays(1))
+                .scheduledStartAt(workshopDate.plusDays(1).atTime(9, 0).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant())
+                .scheduledEndAt(workshopDate.plusDays(1).atTime(12, 0).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant())
+                .checkInOpensAt(workshopDate.plusDays(1).atTime(8, 0).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant())
+                .checkInOpeningSource(CheckInOpeningSource.DEFAULT)
+                .capacity(10)
+                .state(SessionState.PUBLISHED)
+                .build());
+
+        // 3. Reserve 2 seats across both sessions (N = 2 participants)
+        List<UUID> sessionRefs = List.of(UUID.fromString(session1.getReference()), UUID.fromString(session2.getReference()));
+        CapacityHoldOutcome holdOutcome = operationsFacade.reserveBookingCapacity(
+                new ReserveBookingCapacityCommand(bookingRef, sessionRefs, 2, "op-ctr-hold-" + UUID.randomUUID(), "corr-ctr-hold"));
+        assertThat(holdOutcome.status()).isEqualTo(OutcomeStatus.ACCEPTED);
+        List<UUID> holdRefs = holdOutcome.holdReferences();
+        assertThat(holdRefs).hasSize(2);
+
+        // 4. Incomplete or invalid hold set commit is rejected
+        UUID fakeHoldRef = UUID.randomUUID();
+        CapacityCommitOutcome invalidCommit = operationsFacade.commitBookingHolds(
+                new CommitBookingHoldsCommand(bookingRef, List.of(holdRefs.get(0), fakeHoldRef), "op-fail-" + UUID.randomUUID(), "corr-fail"));
+        assertThat(invalidCommit.status()).isEqualTo(OutcomeStatus.REJECTED);
+        assertThat(invalidCommit.reason()).isEqualTo(RejectionReason.HOLD_MISSING_OR_EXPIRED);
+
+        // 5. Verified commercial confirmation commits the complete active hold set
+        String commitOpRef = "op-success-" + UUID.randomUUID();
+        CapacityCommitOutcome validCommit = operationsFacade.commitBookingHolds(
+                new CommitBookingHoldsCommand(bookingRef, holdRefs, commitOpRef, "corr-success"));
+        assertThat(validCommit.status()).isEqualTo(OutcomeStatus.ACCEPTED);
+        assertThat(validCommit.reason()).isNull();
+
+        // 6. Post-confirmation delivery-safe ticket projection query
+        DeliverySafeTicketSet postCommitTickets = operationsFacade.getBookingTicketProjection(
+                new BookingTicketProjectionQuery(bookingRef));
+        assertThat(postCommitTickets).isNotNull();
+        // N = 2 participants -> exactly 2 individual tickets issued (no one-ticket-per-booking constraint)
+        assertThat(postCommitTickets.tickets()).hasSize(2);
+
+        for (DeliverySafeTicket ticket : postCommitTickets.tickets()) {
+            assertThat(ticket.ticketCode()).matches("^TK-[A-Z0-9]{8}$");
+            assertThat(ticket.ticketReference()).isNotNull();
+            // Entitlements span across both required sessions
+            assertThat(ticket.sessionEntitlements()).hasSize(2);
+            for (SessionEntitlementProjection ent : ticket.sessionEntitlements()) {
+                assertThat(ent.locationReference()).isEqualTo(loc.getId());
+                assertThat(ent.scheduledStart()).isNotNull();
+                assertThat(ent.scheduledEnd()).isNotNull();
+            }
         }
 
-        log.info("T026/T027 contract verification passed 100%: DTOs, Bean Validation, privacy boundary, and OpenAPI alignment verified.");
-        log.info("T028-T033 implementation deferred as planned.");
+        // 7. Non-disclosure boundary: DeliverySafeTicket exposes no buyer PII or JPA entities
+        List<String> ticketFieldNames = Arrays.stream(DeliverySafeTicket.class.getDeclaredFields())
+                .map(Field::getName)
+                .toList();
+        assertThat(ticketFieldNames)
+                .as("DeliverySafeTicket must not expose customer PII or entity types")
+                .doesNotContain("buyerEmail", "email", "phone", "buyerPhone", "customerName", "entity", "repository", "dao");
+
+        // 8. Commit is idempotent: re-calling commit with same operationReference returns ACCEPTED and preserves the same ticket projection
+        CapacityCommitOutcome replayCommit = operationsFacade.commitBookingHolds(
+                new CommitBookingHoldsCommand(bookingRef, holdRefs, commitOpRef, "corr-replay"));
+        assertThat(replayCommit.status()).isEqualTo(OutcomeStatus.ACCEPTED);
+
+        DeliverySafeTicketSet replayedTickets = operationsFacade.getBookingTicketProjection(
+                new BookingTicketProjectionQuery(bookingRef));
+        assertThat(replayedTickets.tickets()).hasSize(2);
+        assertThat(replayedTickets.tickets().stream().map(DeliverySafeTicket::ticketCode).toList())
+                .containsExactlyInAnyOrderElementsOf(postCommitTickets.tickets().stream().map(DeliverySafeTicket::ticketCode).toList());
+
+        log.info("T032 facade contract verification passed: Booking caller confirmed complete hold set and received delivery-safe projection.");
     }
 }

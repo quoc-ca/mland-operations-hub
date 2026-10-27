@@ -35,6 +35,7 @@ public class WorkshopSessionService {
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final AccountFacade accountFacade;
     private final OperationsAuditEventRepository auditEventRepository;
+    private final CapacityHoldService capacityHoldService;
 
     @Transactional
     public SessionResponse createSession(String authHeader, SessionRequest request) {
@@ -238,6 +239,7 @@ public class WorkshopSessionService {
             if (request.getCapacity() < 1) {
                 throw new WorkshopValidationException("Capacity must be at least 1");
             }
+            capacityHoldService.validateCapacityReduction(session.getId(), request.getCapacity());
             session.setCapacity(request.getCapacity());
         }
 
