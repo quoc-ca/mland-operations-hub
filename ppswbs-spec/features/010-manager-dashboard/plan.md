@@ -114,7 +114,7 @@ is part of FE-10.
 │   ├── domain/          # reporting period, KPI and data-quality value objects
 │   ├── infrastructure/  # clock/config adapters only; no business repository
 │   └── facade/          # optional named read boundary for internal consumers
-├── technicaladmin/facade/ # Manager capability and authorized-branch projection
+├── accountmanagement/facade/ # Manager capability and authorized-location projection
 ├── readyringsales/facade/ # verified paid retail aggregate projection
 ├── workshopbooking/facade/# final paid workshop revenue/session-capacity projection
 ├── operations/facade/     # actual checked-in participant projection
@@ -134,7 +134,7 @@ is part of FE-10.
 **Structure Decision**: Add one closed `features.reporting` module because executive
 analytics is a distinct read/composition responsibility and must not be owned
 by retail, workshop, operations, or technical administration. Its declared
-dependencies are only `technicaladmin::facade`, `readyringsales::facade`,
+dependencies are only `accountmanagement::facade`, `readyringsales::facade`,
 `workshopbooking::facade`, and `operations::facade`. The source modules perform
 their own aggregation and expose minimized immutable projections; `reporting`
 does not import their entities or repositories.
@@ -192,7 +192,7 @@ does not import their entities or repositories.
 Verified Firebase identity
         |
         v
-technicaladmin::facade -- capability + authorized branch IDs
+accountmanagement::facade -- capability + authorized location IDs
         |
         v
 reporting application service -- period/scope validation
@@ -225,8 +225,8 @@ readyringsales::facade  workshopbooking::facade  operations::facade
 
 | Gate | Current evidence | Required before the affected implementation slice |
 | --- | --- | --- |
-| Manager capability and branch scope | `REPORTING_EXECUTIVE_VIEW` and active MySQL `staff_branch_assignment` are approved. Current backend authentication still grants only `ROLE_MEMBER`. | Implement a MySQL-authoritative facade that verifies the capability and returns active assigned stable branch IDs; no assignment denies access. Admin parameter authority does not imply the capability. |
-| Stable branch identity | One immutable UUID `branchId` is approved for `staff_branch_assignment`, retail branch orders, workshop sessions/final invoices, and check-ins. Current workshop free-text `location` is display-only. | Implement the source-owned common UUID branch-ID mapping. FE-10 must never join or authorize by display name/location text. |
+| Manager capability and location scope | `REPORTING_EXECUTIVE_VIEW` and active MySQL `account_location_assignments` are approved. Current backend authentication still grants only `ROLE_MEMBER`. | Implement a MySQL-authoritative facade that verifies the capability and returns active assigned `locationId: Long` values; no assignment denies access. Admin parameter authority does not imply the capability. |
+| Stable location identity | One immutable `locationId: Long` is approved for `account_location_assignments`, retail orders, workshop sessions/final invoices, and check-ins. Current workshop free-text `location` is display-only. | Implement the source-owned common location-ID mapping. FE-10 must never join or authorize by display name/location text. |
 | Retail paid facts | FE-08 design owns branch order snapshots and verified grouped payment but is not implemented in the current backend. | `readyringsales::facade` aggregate contract with net product revenue, paid-order count, paid time, branch and currency. |
 | Workshop final revenue | Current workshop code records only deposit-era invoices; the clarified FE-10 rule requires the final invoice after surcharges and its fully-paid time. | Workshop owner provides a reviewed final-invoice lifecycle and aggregate facade; FE-10 must not reconstruct it from deposit attempts. |
 | Actual utilization | Report 3 defines Staff check-in; current `operations` module is a package shell and current booking migration lacks actual participant fields. | Operations/workshop owners provide completed-session capacity and idempotent actual participant check-in projections by session and branch. |
