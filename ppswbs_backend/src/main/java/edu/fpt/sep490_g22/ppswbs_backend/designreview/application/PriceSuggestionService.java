@@ -67,9 +67,7 @@ public class PriceSuggestionService {
                 proposalId, targetTypeStr, managerUid);
 
         // 1. Role Authorization: Manager (Owner) only
-        boolean isOwnerOrManager = authorities.stream().anyMatch(a ->
-                a.getAuthority().equals("ROLE_OWNER") || a.getAuthority().equals("ROLE_MANAGER"));
-        if (!isOwnerOrManager) {
+        if (!DesignReviewPermissions.isManager(authorities)) {
             throw DesignReviewException.forbidden("FORBIDDEN_ROLE", "Chỉ Quản lý (Owner/Manager) mới có quyền yêu cầu gợi ý giá AI.");
         }
 
@@ -128,17 +126,12 @@ public class PriceSuggestionService {
         PriceSuggestion suggestion = priceSuggestionRepository.findFirstByProposalIdOrderByCreatedAtDesc(proposalId.trim())
                 .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy đề xuất giá cho proposalId: " + proposalId));
 
-        boolean isOwnerOrManager = authorities.stream().anyMatch(a ->
-                a.getAuthority().equals("ROLE_OWNER") || a.getAuthority().equals("ROLE_MANAGER"));
-        boolean isAdmin = authorities.stream().anyMatch(a ->
-                a.getAuthority().equals("ROLE_ADMIN_TECHNICAL"));
-
-        if (!isOwnerOrManager && !isAdmin) {
+        if (!DesignReviewPermissions.canViewPriceSuggestion(authorities)) {
             // Staff, Guest, Member are strictly forbidden from viewing internal price suggestions (spec.md lines 297-300)
             throw DesignReviewException.forbidden("FORBIDDEN_ROLE", "Nhân viên và khách hàng không có quyền truy cập đề xuất định giá.");
         }
 
-        if (isAdmin && !isOwnerOrManager) {
+        if (DesignReviewPermissions.isAdmin(authorities) && !DesignReviewPermissions.isManager(authorities)) {
             // Admin only sees approved technical/audit evidence (spec.md lines 298-300, FR-04-029)
             return mapToAdminTechnicalView(suggestion);
         }
@@ -156,9 +149,7 @@ public class PriceSuggestionService {
         log.info("Recording manager price decision: proposalId={}, managerUid={}", proposalId, managerUid);
 
         // 1. Role Authorization: Manager (Owner) only
-        boolean isOwnerOrManager = authorities.stream().anyMatch(a ->
-                a.getAuthority().equals("ROLE_OWNER") || a.getAuthority().equals("ROLE_MANAGER"));
-        if (!isOwnerOrManager) {
+        if (!DesignReviewPermissions.canDecidePriceSuggestion(authorities)) {
             throw DesignReviewException.forbidden("FORBIDDEN_ROLE", "Chỉ Quản lý (Owner/Manager) mới có quyền đưa ra quyết định định giá.");
         }
 

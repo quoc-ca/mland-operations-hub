@@ -4,10 +4,13 @@ import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.AnalysisStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.BookingDesignRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.BookingDesignRequestRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.members.domain.Member;
-import edu.fpt.sep490_g22.ppswbs_backend.members.domain.MemberStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.members.infrastructure.MemberRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.support.TestFirebaseTokenVerifier;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,12 +18,16 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -38,30 +45,24 @@ public class HumanReviewIT {
     @Autowired
     private BookingDesignRequestRepository requestRepository;
 
-    @Autowired
-    private MemberRepository memberRepository;
+    @MockitoBean
+    private TokenVerificationService tokenVerificationService;
 
-    @Autowired
-    private TestFirebaseTokenVerifier tokenVerifier;
+    @MockitoBean
+    private AccountFacade accountFacade;
 
     private String lowValueRequestId;
     private String highValueRequestId;
 
     @BeforeEach
     void setUp() {
-        tokenVerifier.clearTokens();
-
-        Member customer = memberRepository.save(Member.builder()
-                .externalUserId("uid-customer-01")
-                .email("customer@example.com")
-                .status(MemberStatus.ACTIVE)
-                .build());
+        Long customerId = 999L;
 
         // Low value request: 1,800,000 VND (<= 3M, Staff allowed)
         lowValueRequestId = UUID.randomUUID().toString();
         requestRepository.save(BookingDesignRequest.builder()
                 .id(lowValueRequestId)
-                .memberId(customer.getId())
+                .memberId(customerId)
                 .bookingCode("WB-LOW-VAL-01")
                 .designVersion(1)
                 .idempotencyKey("idemp-low-01")
@@ -77,7 +78,7 @@ public class HumanReviewIT {
         highValueRequestId = UUID.randomUUID().toString();
         requestRepository.save(BookingDesignRequest.builder()
                 .id(highValueRequestId)
-                .memberId(customer.getId())
+                .memberId(customerId)
                 .bookingCode("WB-HIGH-VAL-01")
                 .designVersion(1)
                 .idempotencyKey("idemp-high-01")
@@ -89,8 +90,21 @@ public class HumanReviewIT {
                 .updatedAt(Instant.now())
                 .build());
 
-        tokenVerifier.registerToken("token-staff-01", "uid-staff-01", "staff@mland.vn", true, "STAFF");
-        tokenVerifier.registerToken("token-manager-01", "uid-manager-01", "manager@mland.vn", true, "OWNER");
+        // Staff
+        when(tokenVerificationService.verify("token-staff-01")).thenReturn(
+                new VerifiedIdentity("uid-staff-01", "staff@mland.vn", true, Instant.now()));
+        when(accountFacade.resolveActor("uid-staff-01", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(101L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of())));
+        when(accountFacade.resolveAccount("uid-staff-01")).thenReturn(Optional.of(
+                new AccountSummary(101L, ActorRole.STAFF, ActorStatus.ACTIVE, "staff@mland.vn", Instant.now(), Instant.now())));
+
+        // Manager
+        when(tokenVerificationService.verify("token-manager-01")).thenReturn(
+                new VerifiedIdentity("uid-manager-01", "manager@mland.vn", true, Instant.now()));
+        when(accountFacade.resolveActor("uid-manager-01", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(102L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of())));
+        when(accountFacade.resolveAccount("uid-manager-01")).thenReturn(Optional.of(
+                new AccountSummary(102L, ActorRole.MANAGER, ActorStatus.ACTIVE, "manager@mland.vn", Instant.now(), Instant.now())));
     }
 
     @Test

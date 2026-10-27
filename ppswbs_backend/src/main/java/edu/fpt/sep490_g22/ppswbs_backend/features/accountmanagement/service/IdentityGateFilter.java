@@ -66,7 +66,15 @@ public class IdentityGateFilter extends OncePerRequestFilter {
         response.setHeader("X-Correlation-Id", correlationId);
 
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        boolean isAiSupportMessage = "POST".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/ai-support/messages".equals(request.getRequestURI());
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            if (isAiSupportMessage && authHeader == null) {
+                // Anonymous Guest access allowed for Basic AI Support
+                filterChain.doFilter(request, response);
+                return;
+            }
             writeError(response, HttpStatus.UNAUTHORIZED, "MISSING_BEARER_TOKEN", "Bearer authentication token is required", correlationId);
             return;
         }
@@ -108,6 +116,7 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 token,
                 List.of(new SimpleGrantedAuthority("ROLE_" + actor.role().name()))
             );
+            authentication.setDetails(identity);
             SecurityContextHolder.getContext().setAuthentication(authentication);
             request.setAttribute("currentAccountActor", actor);
             request.setAttribute("verifiedIdentity", identity);
@@ -128,6 +137,7 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                     token,
                     List.of(new SimpleGrantedAuthority("ROLE_MEMBER"))
                 );
+                authentication.setDetails(identity);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 request.setAttribute("currentAccountActor", bootstrapActor);
                 request.setAttribute("verifiedIdentity", identity);
