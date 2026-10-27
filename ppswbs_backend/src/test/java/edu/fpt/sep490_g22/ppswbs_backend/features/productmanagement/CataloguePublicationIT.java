@@ -1,19 +1,24 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.CatalogueAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.PriceApplicationRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.PriceProposalRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.CatalogueAuditEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.PriceProposal;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Product;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.PriceApplicationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.PriceProposalService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ProductPublicationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ProposalTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueFlowFixture;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueTestSupport;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -48,6 +53,9 @@ class CataloguePublicationIT {
     @Autowired private PriceProposalRepository proposals;
     @Autowired private PriceApplicationRepository applications;
     @Autowired private TransactionTemplate transaction;
+    @Autowired private PriceProposalService proposalService;
+    @Autowired private CatalogueAuditRepository audits;
+    @PersistenceContext private EntityManager entityManager;
 
     @Test
     void approvedThenAppliedThenPublishedIncludingASoldOutSize() {
@@ -148,6 +156,61 @@ class CataloguePublicationIT {
                 version + 5, true))
                 .isInstanceOfSatisfying(CatalogueException.class,
                         error -> assertThat(error.code()).isEqualTo(CatalogueErrorCode.STALE_VERSION));
+    }
+
+    @Test
+    void anApprovalWhoseTermsNoLongerMatchCannotBeApplied() {
+        long productId = approvedProduct();
+        PriceProposal proposal = approvedProposals(productId).get(0);
+        transaction.executeWithoutResult(status -> entityManager
+                .createQuery("update PriceProposal p set p.termsDigest = :digest where p.id = :id")
+                .setParameter("digest", "0".repeat(64)).setParameter("id", proposal.getId()).executeUpdate());
+
+        assertThatThrownBy(() -> applyService.apply(STAFF, UUID.randomUUID(), proposal.getId().toString(),
+                fixture.proposal(proposal.getId()).getVersion()))
+                .isInstanceOfSatisfying(CatalogueException.class,
+                        error -> assertThat(error.code()).isEqualTo(CatalogueErrorCode.PRICE_TERMS_CHANGED));
+    }
+
+    @Test
+    void aSupersededRevisionCannotBeAppliedAnyMore() {
+        long productId = approvedProduct();
+        PriceProposal old = approvedProposals(productId).get(0);
+        ProductVariant size = transaction.execute(status -> variants.findById(old.getVariantId()).orElseThrow());
+        proposalService.create(STAFF, UUID.randomUUID(), size.getId().toString(), size.getVersion(), "151000");
+
+        assertThatThrownBy(() -> applyService.apply(STAFF, UUID.randomUUID(), old.getId().toString(),
+                fixture.proposal(old.getId()).getVersion()))
+                .isInstanceOfSatisfying(CatalogueException.class,
+                        error -> assertThat(error.code()).isEqualTo(CatalogueErrorCode.PRICE_NOT_APPROVED));
+    }
+
+    @Test
+    void aLostResponseIsRecoveredWithTheSameKeyAndEachStepIsAuditedSeparately() {
+        long productId = approvedProduct();
+        PriceProposal proposal = approvedProposals(productId).get(0);
+        UUID applyKey = UUID.randomUUID();
+        var applied = applyService.apply(STAFF, applyKey, proposal.getId().toString(), proposal.getVersion());
+        var applyAgain = applyService.apply(STAFF, applyKey, proposal.getId().toString(), proposal.getVersion());
+        approvedProposals(productId).stream().skip(1).forEach(other ->
+                applyService.apply(STAFF, UUID.randomUUID(), other.getId().toString(), other.getVersion()));
+        UUID publishKey = UUID.randomUUID();
+        long version = fixture.productVersion(productId);
+        var published = publication.setPublication(STAFF, publishKey, Long.toString(productId), version, true);
+        var publishedAgain = publication.setPublication(STAFF, publishKey, Long.toString(productId), version, true);
+
+        assertThat(applyAgain.replayed()).isTrue();
+        assertThat(applyAgain.body()).isEqualTo(applied.body());
+        assertThat(publishedAgain.replayed()).isTrue();
+        assertThat(publishedAgain.body()).isEqualTo(published.body());
+        List<CatalogueAuditEvent> priceEvents = transaction.execute(status -> audits
+                .findByResourceTypeAndResourceIdOrderByOccurredAtAscIdAsc("price-proposal", proposal.getId().toString()));
+        List<CatalogueAuditEvent> productEvents = transaction.execute(status -> audits
+                .findByResourceTypeAndResourceIdOrderByOccurredAtAscIdAsc("product", Long.toString(productId)));
+        assertThat(priceEvents).extracting(CatalogueAuditEvent::getAction)
+                .containsExactly(PriceApplicationService.APPLY_ACTION);
+        assertThat(productEvents).extracting(CatalogueAuditEvent::getAction)
+                .contains(ProductPublicationService.PUBLISH_ACTION);
     }
 
     private long approvedProduct() {

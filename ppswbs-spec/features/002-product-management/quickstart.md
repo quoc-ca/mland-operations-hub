@@ -1,7 +1,7 @@
 # Quickstart and Validation: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; lệnh và lớp test thực tế, liên kết validation-report)
+**Date updated**: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; lệnh và lớp test thực tế, liên kết validation-report; cập nhật 2026-10-27 sau REST API)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -31,7 +31,7 @@ Set-Location D:/mland-operations-hub/mland-operations-hub/ppswbs_backend
 .\mvnw.cmd '-Dtest=CatalogueConcurrencyIT,CatalogueCategoryConcurrencyIT' test
 ```
 
-Các lớp đã có (2026-10-26): `CatalogueValuesTests`, `CatalogueDomainTests`, `CatalogueEntityRulesTests`, `CatalogueCommandExecutorTests`, `CatalogueLockCoordinatorTests`, `CatalogueExceptionHandlerTests`, `CatalogueImportTests`, `CatalogueMediaStagingTests`, `CloudinaryMediaStorageAdapterTests`, `CreateProductServiceTests`, `ManagementProductQueryServiceTests`, `ExcelLibraryConfigurationTests` và các IT MySQL `CatalogueMySqlEnvironmentIT`, `CatalogueMySqlSchemaIT`, `CatalogueMySqlIT`, `CatalogueReviewIT`, `CataloguePublicationIT`, `CataloguePriceProposalIT`, `CatalogueSaleStatusAndDeleteIT`, `CatalogueContentEditIT`, `CatalogueCategoryIT`, `CatalogueImportBatchIT`, `CatalogueMediaCleanupIT`, `CataloguePublicIT`, `CatalogueConcurrencyIT`, `CatalogueCategoryConcurrencyIT`. Còn là mục tiêu thiết kế, chưa tồn tại (không coi "không tìm thấy test" là pass): `CatalogueApiIT`, `CatalogueImportApiIT`, `CatalogueDependenciesIT`, `CatalogueCloudinaryIT`, `CatalogueQuantityIT`, `CatalogueLifecycleConcurrencyIT`, `CataloguePublicApiIT`, `CatalogueAcceptedPriceIT`.
+Các lớp đã có (2026-10-27): xem bảng "Nhóm test của 002" trong [validation-report](validation-report.md) (đơn vị, MySQL tầng service, đồng thời thật, HTTP với security thật `CatalogueApiIT`/`CatalogueImportApiIT`/`CatalogueContractIT`, Cloudinary thật `CatalogueCloudinaryIT`, ranh giới `CatalogueDependenciesIT`). Còn là mục tiêu thiết kế, chưa tồn tại vì cần adapter FE-08 thật (không coi "không tìm thấy test" là pass): `CatalogueQuantityIT`, `CatalogueLifecycleConcurrencyIT`, `CatalogueAcceptedPriceIT`, `CataloguePublicApiIT`. Chạy `CatalogueCloudinaryIT` cần `CLOUDINARY_CLOUD_NAME`/`CLOUDINARY_API_KEY`/`CLOUDINARY_API_SECRET`; thiếu thì lớp này báo NOT RUN.
 
 Bộ MySQL IT dùng profile `productmanagement-mysql-test`: datasource lấy từ `PM_TEST_JDBC_URL`/`PM_TEST_JDBC_USER`/`PM_TEST_JDBC_PASSWORD`, nếu thiếu thì `JDBC_URL`/`JDBC_USER`/`JDBC_PASSWORD`; không có giá trị mặc định, không H2. `CatalogueMySqlEnvironmentIT` từ chối chạy nếu server không phải MySQL 8.4. `CatalogueMySqlIT` tạo database tạm `ppswbs_pm_fresh_<ngẫu nhiên>` trên cùng server (tài khoản test cần quyền `CREATE`/`DROP` database) và tự xóa sau khi chạy; không đụng tới database test hay database thật. Username/password do môi trường kiểm chứng cấp qua biến môi trường, không ghi ở đây.
 

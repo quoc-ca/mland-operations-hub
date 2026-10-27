@@ -866,11 +866,57 @@
     return publicView(p);
   }
 
-  function toggleMediaAvailability(productId, mediaId) {
+  // ---------------------------------------------------------------- prototype-only simulation
+
+  function requireMedia(mediaId) {
     const media = state.media[mediaId];
     if (!media) fail('MEDIA_NOT_FOUND');
-    media.state = media.state === 'READY' ? 'UNAVAILABLE' : 'READY';
+    return media;
+  }
+
+  /** The provider loses the object: the next read marks it UNAVAILABLE (FR-036). */
+  function breakMedia(mediaId) {
+    const media = requireMedia(mediaId);
+    media.lost = true;
+    media.state = 'UNAVAILABLE';
+  }
+
+  /** The provider can serve the object again; the state stays UNAVAILABLE until it is re-verified. */
+  function restoreAtProvider(mediaId) {
+    requireMedia(mediaId).lost = false;
+  }
+
+  /** Re-verification like CatalogueMediaService.verify: READY only when the provider can read the object. */
+  function verifyMedia(mediaId) {
+    const media = requireMedia(mediaId);
+    media.state = media.lost ? 'UNAVAILABLE' : 'READY';
     return media.state;
+  }
+
+  /** Another user (staff.binh) edits the product while this screen still holds the old version. */
+  function simulateExternalEdit(productId) {
+    const p = requireAlive(productId);
+    p.description = p.description.replace(/ \[staff\.binh .*\]$/, '') + ' [staff.binh ' + new Date().toLocaleTimeString('vi-VN') + ']';
+    p.contentVersion += 1;
+    p.version += 1;
+    invalidateBeforeFirstPublication(p, {});
+    history(p, 'staff.binh', 'product.edit', 'prototype: người khác sửa');
+  }
+
+  function simulateExternalCategoryEdit(id) {
+    const c = category(id);
+    if (!c) fail('CATEGORY_NOT_FOUND');
+    c.description = 'Sửa bởi staff.binh lúc ' + new Date().toLocaleTimeString('vi-VN');
+    c.version += 1;
+  }
+
+  /** Command receipts by Idempotency-Key: a resend with the same key returns the committed result. */
+  function receipt(key) {
+    return (state.receipts || {})[key] || null;
+  }
+  function recordReceipt(key, result) {
+    const summary = result && typeof result === 'object' ? { id: result.id, state: result.state } : result;
+    (state.receipts = state.receipts || {})[key] = { status: 'COMMITTED', result: summary, at: now() };
   }
 
   global.PM = {
@@ -891,6 +937,7 @@
     setSaleEnabled, setQuantity, deleteProduct,
     createCategory, updateCategory, categoryImpact, setCategoryActive,
     importTemplateText, validateImport, importBatch, confirmImport, expireBatchNow,
-    managementList, publicList, publicDetail, toggleMediaAvailability
+    managementList, publicList, publicDetail,
+    STATE_KEY, breakMedia, restoreAtProvider, verifyMedia, simulateExternalEdit, simulateExternalCategoryEdit, receipt, recordReceipt
   };
 })(window);

@@ -26,6 +26,10 @@ public interface CatalogueMediaRepository extends JpaRepository<CatalogueMediaOb
     @Query("select m from CatalogueMediaObject m where m.id in :ids order by m.id")
     List<CatalogueMediaObject> lockAllByIdIn(@Param("ids") Collection<UUID> ids);
 
+    /** IDs of objects in one state, oldest first (re-verification of UNAVAILABLE images, T073). */
+    @Query("select m.id from CatalogueMediaObject m where m.state = :state order by m.createdAt, m.id")
+    List<UUID> findIdsByState(@Param("state") CatalogueMediaObject.State state, Pageable pageable);
+
     /**
      * Possible cleanup candidates, re-checked under the media lock: deletes to retry, objects never attached
      * since {@code neverAttachedBefore} and objects unreferenced since {@code detachedBefore}.

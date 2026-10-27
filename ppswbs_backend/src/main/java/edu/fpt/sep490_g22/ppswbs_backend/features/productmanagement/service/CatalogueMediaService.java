@@ -3,6 +3,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.CatalogueMediaRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.CatalogueMediaObject;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -34,6 +36,7 @@ import java.util.UUID;
 public class CatalogueMediaService {
 
     public static final String UPLOAD_ACTION = "media.upload";
+    public static final String VERIFY_ACTION = "media.verify";
 
     public record UploadResult(UUID mediaId, String state, String contentType, long byteCount) {
     }
@@ -103,6 +106,56 @@ public class CatalogueMediaService {
             return media.saveAndFlush(CatalogueMediaObject.stage(id, storage.storageKeyFor(id), checksum,
                     contentType, byteCount, actorId, commandId, now()));
         });
+    }
+
+    /**
+     * Re-checks one READY or UNAVAILABLE object at the provider's Admin API and records the result (T073, FR-036):
+     * a missing object becomes UNAVAILABLE (its products leave the public catalogue, publication flags and history
+     * stay), a readable UNAVAILABLE object becomes READY again (eligibility comes back when the other conditions
+     * hold). A provider failure changes nothing and surfaces as {@code MEDIA_DEPENDENCY_UNAVAILABLE}: a timeout is
+     * never taken as "missing". The provider is called outside any transaction or lock.
+     */
+    public CatalogueMediaObject.State verify(UUID mediaId) {
+        CatalogueMediaObject current = transaction.execute(status -> media.findById(mediaId)
+                .orElseThrow(() -> new CatalogueException(CatalogueErrorCode.MEDIA_NOT_FOUND)));
+        if (current.getState() != CatalogueMediaObject.State.READY
+                && current.getState() != CatalogueMediaObject.State.UNAVAILABLE) {
+            return current.getState();
+        }
+        MediaStoragePort.Availability availability = storage.verifyReadable(new MediaStoragePort.StoredObject(
+                current.getStorageKey(), current.getProviderAssetId(), current.getProviderVersion(),
+                current.getProviderFormat()));
+        return transaction.execute(status -> {
+            CatalogueMediaObject locked = media.lockAllByIdIn(List.of(mediaId)).get(0);
+            Instant now = now();
+            CatalogueMediaObject.State before = locked.getState();
+            if (availability == MediaStoragePort.Availability.MISSING && before == CatalogueMediaObject.State.READY) {
+                locked.markUnavailable(now);
+            } else if (availability == MediaStoragePort.Availability.READABLE
+                    && before == CatalogueMediaObject.State.UNAVAILABLE) {
+                locked.markReady(locked.getProviderAssetId(), locked.getProviderVersion(), locked.getProviderFormat(), now);
+            } else {
+                return before;
+            }
+            audit.recordSuccess(new CatalogueAuditWriter.Entry(null, VERIFY_ACTION, "media", mediaId.toString(), null,
+                    null, List.of("state"), Map.of("from", before.name(), "to", locked.getState().name())));
+            return locked.getState();
+        });
+    }
+
+    /** Re-checks UNAVAILABLE objects so restored images come back without anyone re-uploading them. */
+    @Scheduled(fixedDelayString = "${catalogue.media.verify.delay:PT30M}",
+            initialDelayString = "${catalogue.media.verify.initial-delay:PT5M}")
+    public void reverifyUnavailable() {
+        List<UUID> ids = transaction.execute(status -> media.findIdsByState(CatalogueMediaObject.State.UNAVAILABLE,
+                PageRequest.of(0, 100)));
+        for (UUID id : ids) {
+            try {
+                verify(id);
+            } catch (CatalogueException e) {
+                // Provider still unavailable: keep the state and try again on the next run.
+            }
+        }
     }
 
     private static UploadResult fromBody(JsonNode body) {

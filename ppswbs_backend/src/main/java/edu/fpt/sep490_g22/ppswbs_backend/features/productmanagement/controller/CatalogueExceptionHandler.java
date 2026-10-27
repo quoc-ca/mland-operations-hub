@@ -9,6 +9,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.Cata
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.dao.QueryTimeoutException;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.time.Instant;
 import java.util.List;
@@ -37,6 +40,7 @@ import java.util.stream.Collectors;
  * FE-02 error contract. Scoped to this module's controllers only, so other features keep their own
  * behavior. Error responses are never cached and never expose entities, payloads or stack traces.
  */
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackageClasses = CatalogueExceptionHandler.class)
 class CatalogueExceptionHandler {
 
@@ -102,6 +106,15 @@ class CatalogueExceptionHandler {
                     request);
         }
         return respond(CatalogueErrorCode.VALIDATION_ERROR, List.of(), request);
+    }
+
+    /** A file or request over the multipart limit: image upload and Excel import have their own 413 codes. */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ResponseEntity<ErrorResponse> handleTooLarge(MaxUploadSizeExceededException error,
+                                                 HttpServletRequest request) {
+        CatalogueErrorCode code = request.getRequestURI().contains("/product-imports")
+                ? CatalogueErrorCode.IMPORT_FILE_TOO_LARGE : CatalogueErrorCode.MEDIA_TOO_LARGE;
+        return respond(code, List.of(), request);
     }
 
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)

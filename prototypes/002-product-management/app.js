@@ -21,12 +21,14 @@
     pub: { q: '', categoryId: '', min: '', max: '', canBuy: false, sort: 'name-asc', page: 0 },
     publicId: null, selectedVariant: null, gallery: 0,
     importText: '', importFile: 'san-pham.xlsx', importBatchId: null,
-    imageDraft: null, createDraft: null, error: null, modal: null
+    imageDraft: null, createDraft: null, error: null, modal: null,
+    sim: { latency: false, fault: 'none' }, simOpen: false
   };
   try {
     const saved = JSON.parse(localStorage.getItem(UI_KEY) || 'null');
     if (saved) ui = { ...ui, ...saved, modal: null, error: null };
   } catch (e) { /* default UI */ }
+  if (ui.imageDraft && ui.imageDraft.baseVersion == null) ui.imageDraft = null;
 
   PM.load();
 
@@ -62,8 +64,22 @@
     IMPORT_BATCH_EXPIRED: ['Bản xem trước đã hết hạn (60 phút). Hãy kiểm tra lại file.', 'The preview has expired.'],
     IMPORT_PREVIEW_STALE: ['Dữ liệu đã thay đổi sau bước kiểm tra. Hãy kiểm tra lại file.', 'The data changed since the preview.'],
     IMPORT_BATCH_NOT_FOUND: ['Không tìm thấy lô import.', 'The import batch was not found.'],
-    INVALID_SORT: ['Kiểu sắp xếp không được hỗ trợ.', 'The sort option is not supported.']
+    INVALID_SORT: ['Kiểu sắp xếp không được hỗ trợ.', 'The sort option is not supported.'],
+    UNAUTHENTICATED: ['Phiên đăng nhập đã hết hạn. Thao tác chưa được lưu; dữ liệu bạn nhập vẫn được giữ.', 'Your session has expired. Nothing was saved; your input is kept.'],
+    MEDIA_DEPENDENCY_UNAVAILABLE: ['Dịch vụ lưu ảnh (Cloudinary) tạm thời không phản hồi. Chưa có gì thay đổi, hãy thử lại.', 'The image storage is unavailable. Nothing changed; try again.'],
+    AVAILABILITY_DEPENDENCY_UNAVAILABLE: ['Chưa lấy được số lượng đang giữ từ FE-08. Chưa có gì thay đổi, hãy thử lại.', 'Held quantities from FE-08 are unavailable. Nothing changed; try again.'],
+    IDEMPOTENCY_KEY_REUSED: ['Khóa lệnh đã dùng cho một yêu cầu khác.', 'The command key was used for another request.']
   };
+  const RETRYABLE = ['MEDIA_DEPENDENCY_UNAVAILABLE', 'AVAILABILITY_DEPENDENCY_UNAVAILABLE'];
+  const LATENCY_MS = 1200;
+  const FAULTS = [
+    ['none', 'Bình thường', 'Normal', ''],
+    ['unauth', '401 hết phiên', '401 expired', 'Thao tác ghi tiếp theo trả 401: hiện hộp thoại đăng nhập lại, dữ liệu đang nhập được giữ.'],
+    ['cloudinary', '503 Cloudinary', '503 Cloudinary', 'Lần tải ảnh hoặc "Kiểm tra lại" ảnh tiếp theo trả 503 MEDIA_DEPENDENCY_UNAVAILABLE, có nút Thử lại.'],
+    ['retail', '503 FE-08', '503 FE-08', 'Lần lưu số lượng hoặc lần mở catalogue công khai tiếp theo trả 503 AVAILABILITY_DEPENDENCY_UNAVAILABLE.'],
+    ['lost', 'Mất phản hồi', 'Lost response', 'Thao tác ghi tiếp theo ĐÃ được lưu nhưng màn hình không nhận được phản hồi: thử "Kiểm tra kết quả" hoặc "Gửi lại cùng khóa".'],
+    ['conflict', '409 người khác sửa', '409 someone edited', 'Ngay trước lần lưu nội dung, ảnh hoặc danh mục tiếp theo, staff.binh sửa cùng bản ghi → 409 STALE_VERSION.']
+  ];
   const FIELD_HINTS = {
     categoryId: ['Danh mục phải đang hoạt động', 'The category must be active'],
     images: ['Cần ít nhất một ảnh dùng được', 'At least one usable image'],
@@ -98,47 +114,159 @@
     } catch (e) { /* ignore */ }
   }
 
-  function toast(message, isError) {
-    const container = document.getElementById('toastContainer');
-    if (!container) return;
-    const el = document.createElement('div');
-    el.className = 'toast' + (isError ? ' error' : '');
-    el.textContent = message;
-    container.appendChild(el);
-    setTimeout(() => el.remove(), 3200);
+  /** Deferred so a render in the same tick (which rebuilds the container) does not drop it. */
+  function toast(text, isError) {
+    setTimeout(() => {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const el = document.createElement('div');
+      el.className = 'toast' + (isError ? ' error' : '');
+      el.textContent = text;
+      container.appendChild(el);
+      setTimeout(() => el.remove(), 3600);
+    }, 0);
   }
 
-  /** Runs a command; on a domain error keeps the screen data and shows the coded message. */
-  function run(action, success) {
-    try {
-      const result = action();
-      ui.error = null;
-      PM.save();
-      if (success) {
-        const message = typeof success === 'function' ? success(result) : success;
-        if (message) setTimeout(() => toast(message), 0);
+  // ---------------------------------------------------------------- simulated network (FR-038)
+
+  let busy = false;
+  let busyNoticed = false;
+  let loadingView = false;
+  let lastRetry = null;
+  let lostCommand = null;
+  let inputMemory = {};
+  const newKey = () => (crypto.randomUUID ? crypto.randomUUID() : 'k' + Date.now().toString(16) + Math.random().toString(16).slice(2));
+  const newCorrelationId = () => Array.from({ length: 4 }, () => Math.random().toString(16).slice(2, 6).padEnd(4, '0')).join('-');
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ui.sim.latency ? (ms || LATENCY_MS) : 0));
+  const message = (code) => (ERRORS[code] || [code, code])[ui.lang === 'vi' ? 0 : 1];
+
+  /** Takes the armed one-shot fault when it applies; otherwise it stays armed for a later action. */
+  function takeFault(applies) {
+    const f = ui.sim.fault;
+    if (f === 'none' || !applies.includes(f)) return null;
+    ui.sim.fault = 'none';
+    saveUi();
+    return f;
+  }
+
+  function setBusy(value) {
+    busy = value;
+    busyNoticed = false;
+    document.body.classList.toggle('is-busy', value);
+  }
+
+  /** A second click while a command is in flight is dropped, so one intent sends one request. */
+  function ignoredWhileBusy() {
+    if (!busy) return false;
+    if (!busyNoticed) { busyNoticed = true; toast(L('Đang xử lý — bỏ qua lần bấm lặp.', 'Working — repeated click ignored.')); }
+    return true;
+  }
+
+  /** Read views show a skeleton for a moment when the slow network is on. */
+  function showLoading() {
+    if (!ui.sim.latency) return;
+    loadingView = true;
+    setTimeout(() => { loadingView = false; render({ keepInputs: true }); }, LATENCY_MS * 0.7);
+  }
+
+  /**
+   * Runs a command like the real client: one Idempotency-Key per intent, a resend with the same key replays the
+   * committed result, a refused command keeps everything the user typed. Options: onOk(result), key,
+   * deps (['cloudinary'] | ['retail']) and conflict { target, id, version, simulate } for versioned commands.
+   */
+  function run(action, success, opts) {
+    const o = opts || {};
+    if (busy) return Promise.resolve({ ok: false, ignored: true });
+    const key = o.key || newKey();
+    const fault = takeFault(['unauth', 'lost'].concat(o.deps || [], o.conflict ? ['conflict'] : []));
+    setBusy(true);
+    return wait().then(() => {
+      setBusy(false);
+      try {
+        if (fault === 'unauth') throw new PM.DomainError('UNAUTHENTICATED');
+        if (fault === 'cloudinary') throw new PM.DomainError('MEDIA_DEPENDENCY_UNAVAILABLE');
+        if (fault === 'retail') throw new PM.DomainError('AVAILABILITY_DEPENDENCY_UNAVAILABLE');
+        if (fault === 'conflict') { o.conflict.simulate(); PM.save(); }
+        const stored = PM.receipt(key);
+        const result = stored ? stored.result : action();
+        if (!stored) PM.recordReceipt(key, result);
+        PM.save();
+        if (fault === 'lost') {
+          lostCommand = { action, success, o, key };
+          ui.modal = { type: 'lost', key, back: ui.modal };
+          render({ keepInputs: true });
+          return { ok: false, lost: true };
+        }
+        ui.error = null;
+        lastRetry = null;
+        inputMemory = {};
+        if (ui.modal && ui.modal.type === 'lost') ui.modal = null;
+        const text = typeof success === 'function' ? success(result) : success;
+        if (text || stored) toast((text || '') + (stored ? ' ' + L('(lệnh đã được ghi trước đó — không tạo bản trùng)', '(already committed — no duplicate)') : ''));
+        render();
+        if (o.onOk) o.onOk(result);
+        return { ok: true, result };
+      } catch (e) {
+        if (!(e instanceof PM.DomainError)) throw e;
+        ui.error = { code: e.code, fieldErrors: e.fieldErrors, correlationId: newCorrelationId(), retry: RETRYABLE.includes(e.code) };
+        lastRetry = RETRYABLE.includes(e.code) ? () => run(action, success, { ...o, key }) : null;
+        if (ui.modal && ui.modal.type === 'lost') ui.modal = ui.modal.back || null;
+        if (e.code === 'UNAUTHENTICATED') ui.modal = { type: 'session', back: ui.modal };
+        if (e.code === 'STALE_VERSION' && o.conflict) ui.modal = { type: 'conflict', ...o.conflict, back: ui.modal };
+        toast(message(e.code), true);
+        render({ keepInputs: true });
+        return { ok: false, error: e };
       }
-      return { ok: true, result };
-    } catch (e) {
-      if (!(e instanceof PM.DomainError)) throw e;
-      ui.error = { code: e.code, fieldErrors: e.fieldErrors };
-      setTimeout(() => toast((ERRORS[e.code] || [e.code, e.code])[ui.lang === 'vi' ? 0 : 1], true), 0);
-      return { ok: false, error: e };
-    } finally {
-      render();
-    }
+    });
   }
 
   function errorBox() {
     if (!ui.error) return '';
-    const [vi, en] = ERRORS[ui.error.code] || [ui.error.code, ui.error.code];
-    return `<div class="alert error"><span class="code">${esc(ui.error.code)}</span> — ${esc(L(vi, en))}
-      ${ui.error.fieldErrors.length ? `<ul>${ui.error.fieldErrors.map((f) => `<li>${esc(fieldText(f))}</li>`).join('')}</ul>` : ''}</div>`;
+    return `<div class="alert error"><span class="code">${esc(ui.error.code)}</span> — ${esc(message(ui.error.code))}
+      ${ui.error.fieldErrors.length ? `<ul>${ui.error.fieldErrors.map((f) => `<li>${esc(fieldText(f))}</li>`).join('')}</ul>` : ''}
+      <div class="error-meta"><span>correlationId <span class="code-mono">${esc(ui.error.correlationId)}</span></span>
+        ${ui.error.retry ? `<button class="btn-secondary" data-action="retry">↻ ${L('Thử lại', 'Retry')}</button>` : ''}</div></div>`;
+  }
+
+  /** Full-panel 503 for a read (public catalogue): nothing is shown as a guess. */
+  function unavailablePanel(code) {
+    return `<div class="panel"><div class="empty-state"><div class="icon">📡</div><strong>503 — ${esc(code)}</strong>
+      <div>${esc(message(code))}</div>
+      <div class="muted">correlationId <span class="code-mono">${newCorrelationId()}</span></div>
+      <button class="btn-secondary" data-action="retry-view">↻ ${L('Thử lại', 'Retry')}</button></div></div>`;
+  }
+
+  // Inputs are remembered by screen + form + field so a refused command re-renders with what the user typed.
+  function inputKey(el) {
+    const name = el.name || el.id || el.getAttribute('data-final');
+    if (!name) return null;
+    const holder = el.closest('[data-modal]');
+    const form = el.closest('[data-form]');
+    const scope = holder ? 'modal-' + holder.getAttribute('data-modal')
+      : form ? form.getAttribute('data-form') + '-' + (form.getAttribute('data-variant') || '') : 'page';
+    return [ui.view, ui.productId, ui.tab, scope, name].join(':');
+  }
+  const editableInputs = () => Array.from(document.querySelectorAll('#app input, #app textarea, #app select'))
+    .filter((el) => el.type !== 'file' && !el.hasAttribute('data-alt'));
+  function captureInputs() {
+    editableInputs().forEach((el) => {
+      const k = inputKey(el);
+      if (k) inputMemory[k] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+  }
+  function restoreInputs() {
+    editableInputs().forEach((el) => {
+      const k = inputKey(el);
+      if (!k || !(k in inputMemory)) return;
+      if (el.type === 'checkbox') el.checked = inputMemory[k]; else el.value = inputMemory[k];
+    });
   }
 
   function go(view, extra) {
     ui = { ...ui, view, error: null, modal: null, ...(extra || {}) };
+    inputMemory = {};
     saveUi();
+    showLoading();
     render();
     window.scrollTo(0, 0);
   }
@@ -159,7 +287,24 @@
 
   // ---------------------------------------------------------------- shell
 
-  function render() {
+  function render(opts) {
+    const keepInputs = opts && opts.keepInputs;
+    if (keepInputs) captureInputs();
+    renderShell();
+    if (keepInputs) restoreInputs();
+  }
+
+  function simBar() {
+    const hint = FAULTS.find(([id]) => id === ui.sim.fault);
+    return `<div class="sim-bar">
+      <label class="sim-toggle"><input type="checkbox" data-sim-latency ${ui.sim.latency ? 'checked' : ''}> ${L('Mạng chậm (≈1,2 giây mỗi thao tác)', 'Slow network (≈1.2 s per action)')}</label>
+      <span class="topbar-label">${L('Lần thao tác tiếp theo:', 'Next action:')}</span>
+      <div class="control-pill-group">${FAULTS.map(([id, vi, en]) => `<button class="control-pill-btn ${ui.sim.fault === id ? 'active' : ''}" data-sim-fault="${id}">${L(vi, en)}</button>`).join('')}</div>
+      <span class="muted sim-hint">${hint && hint[3] ? esc(hint[3]) : L('Không có sự cố nào được cài. Sự cố chỉ xảy ra một lần rồi tự về Bình thường.', 'No fault armed. A fault fires once, then resets.')}</span>
+    </div>`;
+  }
+
+  function renderShell() {
     const root = document.getElementById('app');
     const pendingCount = PM.state.products.filter((p) => !p.deletedAt
       && (PM.currentReview(p).state === 'PENDING' || p.variants.some((v) => v.pendingProposalId && !(PM.proposal(p, v.pendingProposalId) || {}).reviewId))).length;
@@ -194,12 +339,15 @@
             <span class="prototype-note">${L('Prototype — dữ liệu giả, không gọi backend', 'Prototype — mock data, no backend')}</span>
           </div>
           <div class="topbar-right">
+            <span class="busy-indicator"><span class="spinner"></span>${L('Đang xử lý…', 'Working…')}</span>
+            <button class="btn-secondary sim-btn ${ui.simOpen ? 'active' : ''}" data-action="toggle-sim">🧪 ${L('Giả lập sự cố', 'Simulate faults')}${ui.sim.fault !== 'none' || ui.sim.latency ? ' <span class="sim-dot"></span>' : ''}</button>
             <div class="control-pill-group">
               <button class="control-pill-btn ${ui.lang === 'vi' ? 'active' : ''}" data-lang="vi">VI</button>
               <button class="control-pill-btn ${ui.lang === 'en' ? 'active' : ''}" data-lang="en">EN</button>
             </div>
           </div>
         </header>
+        ${ui.simOpen ? simBar() : ''}
         <main class="console-content" id="content">${content()}</main>
       </div>
       ${ui.modal ? modal() : ''}
@@ -209,6 +357,7 @@
   function content() {
     const management = ['products', 'product', 'create', 'approvals', 'categories', 'import'];
     if (management.includes(ui.view) && !canManage()) return denied();
+    if (loadingView) return skeleton();
     switch (ui.view) {
       case 'catalogue': return publicCatalogue();
       case 'publicDetail': return publicDetail();
@@ -220,6 +369,12 @@
       case 'import': return importView();
       default: return publicCatalogue();
     }
+  }
+
+  function skeleton() {
+    return `<div class="skeleton" aria-busy="true" aria-label="${L('Đang tải', 'Loading')}">
+      <div class="skeleton-block" style="height: 22px; width: 32%;"></div><div class="skeleton-block" style="height: 12px; width: 58%;"></div>
+      <div class="skeleton-grid">${'<div class="skeleton-block" style="height: 150px;"></div>'.repeat(6)}</div></div>`;
   }
 
   function denied() {
@@ -332,8 +487,12 @@
             <button type="button" class="btn-link" data-move="${scope}:${i}:-1" ${i === 0 ? 'disabled' : ''}>←</button>
             <button type="button" class="btn-link" data-move="${scope}:${i}:1" ${i === images.length - 1 ? 'disabled' : ''}>→</button>
             <button type="button" class="btn-link" data-remove-image="${scope}:${i}">${L('Gỡ', 'Remove')}</button>
-            ${product ? `<button type="button" class="btn-link" data-toggle-media="${img.mediaId}" title="${L('Giả lập ảnh lỗi phía Cloudinary', 'Simulate provider failure')}">${unavailable ? L('Khôi phục', 'Restore') : L('Giả lập lỗi', 'Break')}</button>` : ''}
-          </div></div></div>`;
+          </div>
+          ${product ? `<div class="btn-row media-sim">${!unavailable
+            ? `<button type="button" class="btn-link" data-media-break="${img.mediaId}" title="${L('Giả lập Cloudinary làm mất file', 'Simulate the provider losing the file')}">${L('Giả lập mất ảnh', 'Lose file')}</button>`
+            : `${media.lost ? `<button type="button" class="btn-link" data-media-restore="${img.mediaId}">${L('Cloudinary có lại ảnh', 'Provider has it again')}</button>` : `<span class="muted">${L('Cloudinary đã có lại file', 'Provider has the file')}</span>`}
+              <button type="button" class="btn-secondary" data-media-verify="${img.mediaId}">↻ ${L('Kiểm tra lại', 'Re-check')}</button>`}</div>` : ''}
+          </div></div>`;
     }).join('')}</div>`;
   }
 
@@ -382,6 +541,7 @@
   function contentTab(p) {
     const cats = PM.state.categories.filter((c) => c.active || c.id === p.categoryId);
     return `<form class="panel" data-form="content" style="display: flex; flex-direction: column; gap: 12px;">
+      <input type="hidden" name="version" value="${p.version}">
       ${p.firstPublishedAt ? `<div class="alert info">${L('Sản phẩm đã từng công khai: sửa nội dung được lưu thẳng, không cần duyệt lại.', 'Already published once: edits are saved directly.')}</div>`
         : `<div class="alert warning">${L('Chưa công khai lần đầu: sửa nội dung sẽ đưa hồ sơ duyệt về nháp (revision mới) và phải gửi duyệt lại.', 'Before first publication an edit returns the review to draft.')}</div>`}
       <div class="form-grid">
@@ -395,14 +555,14 @@
   }
 
   function imagesTab(p) {
-    if (!ui.imageDraft || ui.imageDraft.productId !== p.id) ui.imageDraft = { productId: p.id, images: p.images.map((img) => ({ ...img })) };
+    if (!ui.imageDraft || ui.imageDraft.productId !== p.id) ui.imageDraft = { productId: p.id, baseVersion: p.version, images: p.images.map((img) => ({ ...img })) };
     const draft = ui.imageDraft.images;
     const dirty = JSON.stringify(draft.map((d, i) => ({ ...d, position: i }))) !== JSON.stringify(p.images);
     return `<div class="panel" style="display: flex; flex-direction: column; gap: 12px;">
       <div class="panel-title">${L('Ảnh sản phẩm (tối đa 10, JPEG/PNG/WebP ≤ 5MB)', 'Images (max 10, JPEG/PNG/WebP ≤ 5MB)')}
         <span class="btn-row"><label class="btn-secondary ${p.deletedAt || draft.length >= 10 ? 'disabled' : ''}">📤 ${L('Tải ảnh', 'Upload')}<input type="file" accept="image/jpeg,image/png,image/webp" data-upload="product" hidden ${p.deletedAt ? 'disabled' : ''}></label>
         <button class="btn-secondary" data-action="sample-image" data-target="product" ${p.deletedAt || draft.length >= 10 ? 'disabled' : ''}>🖼️ ${L('Ảnh mẫu', 'Sample image')}</button></span></div>
-      <div class="muted">${L('Gỡ ảnh không xóa file; ảnh cũ vẫn được giữ cho lịch sử. "Giả lập lỗi" mô phỏng ảnh không đọc được từ Cloudinary để thử FR-036.', 'Removing does not delete the file. "Break" simulates an unreadable provider object.')}</div>
+      <div class="muted">${L('Gỡ ảnh không xóa file; ảnh cũ vẫn được giữ cho lịch sử. "Giả lập mất ảnh" mô phỏng Cloudinary không còn file (FR-036): sản phẩm rời catalogue công khai nhưng cờ công khai giữ nguyên. Khi Cloudinary có lại file, ảnh chỉ dùng lại được sau khi "Kiểm tra lại" (backend tự chạy định kỳ).', 'Removing does not delete the file. "Lose file" simulates FR-036; after the provider has it again, "Re-check" restores it (the backend also re-checks on a schedule).')}</div>
       ${imageEditor(draft, 'product', p)}
       <div class="btn-row"><button class="btn-primary" data-action="save-images" ${!dirty || p.deletedAt ? 'disabled' : ''}>${L('Lưu thay đổi ảnh', 'Save images')}</button>
         <button class="btn-secondary" data-action="reset-images" ${!dirty ? 'disabled' : ''}>${L('Bỏ thay đổi', 'Discard')}</button></div></div>`;
@@ -550,6 +710,13 @@
           <td>${b.rowCount}</td><td>${b.errors.length}</td><td class="muted">${date(b.expiresAt)}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
   }
 
+  function countdownText(expiresAt) {
+    const left = Math.max(0, Date.parse(expiresAt) - Date.now());
+    const mm = String(Math.floor(left / 60000)).padStart(2, '0');
+    const ss = String(Math.floor((left % 60000) / 1000)).padStart(2, '0');
+    return L('còn ' + mm + ':' + ss + ' để xác nhận', mm + ':' + ss + ' left to confirm');
+  }
+
   function batchBadge(s) {
     const map = { VALIDATED: ['Hợp lệ', 'Validated', 'info'], REJECTED: ['Có lỗi', 'Rejected', 'error'], IMPORTED: ['Đã nhập', 'Imported', 'success'], EXPIRED: ['Hết hạn', 'Expired', 'warning'] };
     const [vi, en, cls] = map[s];
@@ -570,7 +737,8 @@
         <table class="console-table"><thead><tr><th>${L('Mã nhóm', 'Group')}</th><th>${L('Tên', 'Name')}</th><th>${L('Danh mục', 'Category')}</th><th>${L('Size: giá đề xuất / số lượng', 'Size: price / qty')}</th></tr></thead>
         <tbody>${b.preview.map((g) => `<tr><td class="code-mono">${esc(g.groupKey)}</td><td>${esc(g.name)}</td><td>${esc(g.categoryName)}</td>
           <td>${g.variants.map((v) => `${v.size}: ${money(v.price)} / ${esc(v.qty)}`).join('<br>')}</td></tr>`).join('')}</tbody></table>
-        <div class="pagination muted">${L('Chưa cấp mã sản phẩm hay SKU trước khi xác nhận. Hết hạn lúc', 'No product number or SKU yet. Expires')} ${date(b.expiresAt)}</div></div>`;
+        <div class="pagination muted">${L('Chưa cấp mã sản phẩm hay SKU trước khi xác nhận. Hết hạn lúc', 'No product number or SKU yet. Expires')} ${date(b.expiresAt)} ·
+          <span class="countdown" data-countdown="${esc(b.expiresAt)}">${countdownText(b.expiresAt)}</span></div></div>`;
     }
     if (b.state === 'IMPORTED') {
       return `<div class="data-table-container"><div class="data-table-toolbar"><strong>${batchBadge(b.state)} ${L('Đã tạo', 'Created')} ${b.created.length} ${L('sản phẩm nháp. Thêm ảnh trước khi gửi duyệt.', 'drafts. Add images before submitting.')}</strong></div>
@@ -587,10 +755,12 @@
     const f = ui.pub;
     let result = null;
     let error = null;
+    const header = `<div class="console-header-block"><div><div class="console-title">💍 ${L('Sản phẩm đang bán', 'Products')}</div>
+      <div class="console-subtitle">${L('Chỉ hiện sản phẩm đang công khai, chưa xóa, danh mục hoạt động, có ảnh và đã có giá áp dụng cho mọi size. Không cần đăng nhập.', 'Only published, eligible products. No sign-in needed.')}</div></div></div>`;
+    if (takeFault(['retail'])) return header + unavailablePanel('AVAILABILITY_DEPENDENCY_UNAVAILABLE');
     try { result = PM.publicList(f); } catch (e) { if (!(e instanceof PM.DomainError)) throw e; error = e; }
     const active = PM.state.categories.filter((c) => c.active);
-    return `<div class="console-header-block"><div><div class="console-title">💍 ${L('Sản phẩm đang bán', 'Products')}</div>
-      <div class="console-subtitle">${L('Chỉ hiện sản phẩm đang công khai, chưa xóa, danh mục hoạt động, có ảnh và đã có giá áp dụng cho mọi size. Không cần đăng nhập.', 'Only published, eligible products. No sign-in needed.')}</div></div></div>
+    return `${header}
       <div class="catalogue-layout">
         <form class="panel filter-panel" data-form="public-filter">
           <div class="field"><label>${L('Từ khóa (tên, mô tả)', 'Keyword')}</label><input name="q" value="${esc(f.q)}" placeholder="${L('vd: vàng, kim cương', 'e.g. gold')}"></div>
@@ -617,6 +787,9 @@
   }
 
   function publicDetail() {
+    if (takeFault(['retail'])) {
+      return `<div class="breadcrumb"><button data-go="catalogue">${L('Sản phẩm', 'Products')}</button></div>${unavailablePanel('AVAILABILITY_DEPENDENCY_UNAVAILABLE')}`;
+    }
     let p;
     try { p = PM.publicDetail(ui.publicId); } catch (e) {
       return `<div class="breadcrumb"><button data-go="catalogue">${L('Sản phẩm', 'Products')}</button></div>
@@ -686,12 +859,18 @@
     } else if (m.type === 'impact') {
       const c = PM.category(m.categoryId);
       const affected = PM.categoryImpact(c.id);
+      const pages = Math.max(1, Math.ceil(affected.length / PM.PAGE_SIZE));
+      const pageNo = Math.min(m.page || 0, pages - 1);
       body = `<div class="modal-header">${c.active ? L('Ngừng hoạt động', 'Deactivate') : L('Kích hoạt lại', 'Reactivate')}: ${esc(c.name)}<button class="close-btn" data-action="close-modal">×</button></div>
         <div class="modal-body"><div class="alert ${c.active ? 'warning' : 'info'}">${c.active
           ? L(affected.length + ' sản phẩm sẽ bị loại khỏi catalogue công khai và không mua mới được. Cờ công khai, lịch sử và giao dịch cũ giữ nguyên.', affected.length + ' products leave the public catalogue.')
           : L('Chỉ sản phẩm còn công khai, chưa xóa và đủ điều kiện mới hiện lại. Sản phẩm đã ẩn không tự hiện.', 'Only still-published eligible products reappear.')}</div>
           ${affected.length ? `<table class="console-table"><thead><tr><th>${L('Sản phẩm', 'Product')}</th><th>${L('Công khai', 'Publication')}</th></tr></thead>
-            <tbody>${affected.slice(0, 20).map((p) => `<tr><td>${esc(p.name)}</td><td>${productStatus(p)}</td></tr>`).join('')}</tbody></table>` : `<div class="muted">${L('Không có sản phẩm nào.', 'No product.')}</div>`}
+            <tbody>${affected.slice(pageNo * PM.PAGE_SIZE, (pageNo + 1) * PM.PAGE_SIZE).map((p) => `<tr><td>${esc(p.name)}</td><td>${productStatus(p)}</td></tr>`).join('')}</tbody></table>
+            <div class="pagination"><span class="muted">${affected.length} ${L('sản phẩm', 'products')} · ${L('trang', 'page')} ${pageNo + 1}/${pages} · ${L('20 sản phẩm/trang', '20 per page')}</span>
+              <button class="btn-secondary" data-impact-page="${pageNo - 1}" ${pageNo === 0 ? 'disabled' : ''}>‹</button>
+              <button class="btn-secondary" data-impact-page="${pageNo + 1}" ${pageNo + 1 >= pages ? 'disabled' : ''}>›</button></div>`
+            : `<div class="muted">${L('Không có sản phẩm nào.', 'No product.')}</div>`}
           ${errorBox()}</div>
         ${footer(c.active ? L('Xác nhận ngừng', 'Deactivate') : L('Xác nhận kích hoạt', 'Reactivate'), 'confirm-activation', c.active)}`;
     } else if (m.type === 'edit-category') {
@@ -706,8 +885,32 @@
         <div class="modal-body"><div>${L('Tạo', 'Create')} <strong>${b.preview ? b.preview.length : 0}</strong> ${L('sản phẩm nháp cùng lúc. Có lỗi thì không tạo sản phẩm nào.', 'drafts at once. Any error creates nothing.')}</div>
           <div class="muted">${L('Thử: ngừng một danh mục trong lô ở màn Danh mục rồi xác nhận để thấy IMPORT_PREVIEW_STALE.', 'Tip: deactivate a category first to see IMPORT_PREVIEW_STALE.')}</div>${errorBox()}</div>
         ${footer(L('Xác nhận nhập', 'Confirm'), 'confirm-import')}`;
+    } else if (m.type === 'session') {
+      body = `<div class="modal-header">🔐 ${L('Phiên đăng nhập đã hết hạn', 'Session expired')} (401)</div>
+        <div class="modal-body"><div class="alert warning">${L('Thao tác vừa rồi CHƯA được lưu. Dữ liệu bạn đã nhập trên màn hình vẫn được giữ.', 'Nothing was saved. What you typed is kept.')}</div>
+          <div class="muted">${L('Ở ứng dụng thật, nút dưới chuyển sang trang đăng nhập của 001 rồi quay lại đúng màn hình này. Sau đó bấm lưu lại; khóa lệnh mới sẽ được dùng.', 'In the real app this opens the 001 sign-in and returns here; then save again.')}</div></div>
+        <div class="modal-footer"><button class="btn-primary" data-action="relogin">${L('Đăng nhập lại (giả lập)', 'Sign in again (simulated)')}</button></div>`;
+    } else if (m.type === 'lost') {
+      body = `<div class="modal-header">📶 ${L('Không nhận được phản hồi', 'No response received')}</div>
+        <div class="modal-body"><div class="alert warning">${L('Kết nối bị ngắt trước khi nhận phản hồi. Thao tác có thể ĐÃ hoặc CHƯA được lưu — đừng làm lại từ đầu, vì có thể tạo bản trùng.', 'The connection dropped before the response. The action may or may not be saved — do not start over.')}</div>
+          <dl class="kv"><dt>Idempotency-Key</dt><dd class="code-mono">${esc(m.key)}</dd></dl>
+          ${m.checked === 'NOT_FOUND' ? `<div class="alert info">404 COMMAND_RESULT_NOT_FOUND — ${L('chưa thấy kết quả cho khóa này. Điều này không khẳng định lệnh chưa chạy; gửi lại cùng khóa là an toàn.', 'no receipt yet; resending with the same key is safe.')}</div>` : ''}
+          <div class="muted">${L('"Kiểm tra kết quả" gọi GET /api/v1/catalogue-management/command-receipts/{khóa}. "Gửi lại cùng khóa" gửi đúng yêu cầu cũ với cùng Idempotency-Key: nếu đã lưu, server trả lại kết quả cũ thay vì làm lần hai.', '"Check result" reads the command receipt; "Resend" repeats the request with the same key.')}</div></div>
+        <div class="modal-footer"><button class="btn-secondary" data-action="resend">↻ ${L('Gửi lại cùng khóa', 'Resend with same key')}</button>
+          <button class="btn-primary" data-action="check-receipt">🔎 ${L('Kiểm tra kết quả', 'Check result')}</button></div>`;
+    } else if (m.type === 'conflict') {
+      const latest = m.target === 'category' ? PM.category(m.id) : PM.product(m.id);
+      const last = m.target === 'category' ? null : latest.history[latest.history.length - 1];
+      body = `<div class="modal-header">⚠️ ${L('Dữ liệu vừa bị người khác thay đổi', 'Someone else changed this')} (409)</div>
+        <div class="modal-body"><div class="alert warning"><span class="code">STALE_VERSION</span> — ${L('Thay đổi của bạn CHƯA được lưu. Trong lúc bạn sửa, bản ghi đã được cập nhật.', 'Your change was NOT saved; the record changed meanwhile.')}</div>
+          <dl class="kv"><dt>${L('Phiên bản bạn đang sửa', 'Your version')}</dt><dd>v${esc(m.version)}</dd>
+            <dt>${L('Phiên bản mới nhất', 'Latest version')}</dt><dd>v${esc(latest.version)}</dd>
+            ${last ? `<dt>${L('Sửa gần nhất', 'Last change')}</dt><dd>${esc(last.actor)} · ${date(last.at)}</dd>` : ''}</dl>
+          <div class="muted">${L('"Tải bản mới" bỏ phần bạn nhập và hiện dữ liệu mới nhất. "Giữ bản của tôi" giữ nguyên phần bạn nhập để bạn tự đối chiếu rồi lưu lại (lần lưu sau sẽ ghi đè lên bản mới).', '"Load latest" discards your input. "Keep mine" keeps it so you can compare and save again (overwriting the latest).')}</div></div>
+        <div class="modal-footer"><button class="btn-secondary" data-action="conflict-keep">${L('Giữ bản của tôi', 'Keep mine')}</button>
+          <button class="btn-primary" data-action="conflict-reload">${L('Tải bản mới', 'Load latest')}</button></div>`;
     }
-    return `<div class="modal-backdrop" data-backdrop="1"><div class="modal ${m.type === 'decide-review' ? 'wide' : ''}">${body}</div></div>`;
+    return `<div class="modal-backdrop" ${['session', 'lost', 'conflict'].includes(m.type) ? '' : 'data-backdrop="1"'}><div class="modal ${m.type === 'decide-review' ? 'wide' : ''}" data-modal="${m.type}">${body}</div></div>`;
   }
 
   // ---------------------------------------------------------------- events
@@ -730,12 +933,12 @@
   }
 
   function addImage(target, src, label) {
-    const r = run(() => PM.uploadMedia(ui.role, actor(), src, label));
-    if (!r.ok) return;
-    const list = target === 'create' ? ui.createDraft.images : ui.imageDraft.images;
-    if (list.length >= PM.MAX_IMAGES) { toast(L('Tối đa 10 ảnh.', 'At most 10 images.'), true); return; }
-    list.push({ mediaId: r.result, altText: label, position: list.length });
-    render();
+    const list = () => (target === 'create' ? ui.createDraft.images : ui.imageDraft.images);
+    if (list().length >= PM.MAX_IMAGES) { toast(L('Tối đa 10 ảnh.', 'At most 10 images.'), true); return; }
+    run(() => PM.uploadMedia(ui.role, actor(), src, label), null, {
+      deps: ['cloudinary'],
+      onOk: (mediaId) => { list().push({ mediaId, altText: label, position: list().length }); render({ keepInputs: true }); }
+    });
   }
 
   function syncCreateForm(form) {
@@ -757,6 +960,7 @@
   });
 
   document.addEventListener('change', (e) => {
+    if (e.target.hasAttribute('data-sim-latency')) { ui.sim.latency = e.target.checked; saveUi(); render({ keepInputs: true }); return; }
     const upload = e.target.getAttribute('data-upload');
     if (upload && e.target.files[0]) {
       if (upload === 'create') syncCreateForm(e.target.closest('form'));
@@ -770,27 +974,30 @@
     const kind = form.getAttribute('data-form');
     if (!kind) return;
     e.preventDefault();
+    if (ignoredWhileBusy()) return;
     const p = currentProduct();
     if (kind === 'list-filter') {
       ui.list = { q: form.q.value, categoryId: form.categoryId.value, published: form.published.value, page: 0 };
-      saveUi(); render();
+      saveUi(); showLoading(); render();
     } else if (kind === 'public-filter') {
       ui.pub = { q: form.q.value, categoryId: form.categoryId.value, min: form.min.value, max: form.max.value, canBuy: form.canBuy.checked, sort: form.sort.value, page: 0 };
-      saveUi(); render();
+      saveUi(); showLoading(); render();
     } else if (kind === 'create') {
       syncCreateForm(form);
       const d = ui.createDraft;
-      const r = run(() => PM.createDraft(ui.role, actor(), {
+      run(() => PM.createDraft(ui.role, actor(), {
         name: d.name, description: d.description, categoryId: d.categoryId,
         variants: d.variants, images: d.images.map((img, i) => ({ ...img, position: i }))
-      }), L('Đã lưu bản nháp sản phẩm.', 'Draft saved.'));
-      if (r.ok) { ui.createDraft = null; go('product', { productId: r.result.id, tab: 'overview' }); }
+      }), L('Đã lưu bản nháp sản phẩm.', 'Draft saved.'), { onOk: (created) => { ui.createDraft = null; go('product', { productId: created.id, tab: 'overview' }); } });
     } else if (kind === 'content') {
-      run(() => PM.updateContent(ui.role, actor(), p.id, p.version, { name: form.name.value, description: form.description.value, categoryId: form.categoryId.value }),
-        (changed) => (changed ? L('Đã lưu nội dung.', 'Content saved.') : L('Không có thay đổi.', 'No change.')));
+      // The version the form was loaded with, not the latest one: an edit by someone else must surface as 409.
+      const version = Number(form.version.value);
+      run(() => PM.updateContent(ui.role, actor(), p.id, version, { name: form.name.value, description: form.description.value, categoryId: form.categoryId.value }),
+        (changed) => (changed ? L('Đã lưu nội dung.', 'Content saved.') : L('Không có thay đổi.', 'No change.')),
+        { conflict: { target: 'product', id: p.id, version, simulate: () => PM.simulateExternalEdit(p.id) } });
     } else if (kind === 'quantity') {
       run(() => PM.setQuantity(ui.role, actor(), p.id, form.getAttribute('data-variant'), form.qty.value),
-        (changed) => (changed ? L('Đã cập nhật số lượng.', 'Quantity updated.') : L('Không có thay đổi.', 'No change.')));
+        (changed) => (changed ? L('Đã cập nhật số lượng.', 'Quantity updated.') : L('Không có thay đổi.', 'No change.')), { deps: ['retail'] });
     } else if (kind === 'propose') {
       const variantId = Number(form.getAttribute('data-variant'));
       const v = PM.variant(p, variantId);
@@ -802,18 +1009,30 @@
     } else if (kind === 'import') {
       ui.importText = form.text.value;
       ui.importFile = form.fileName.value;
-      const r = run(() => PM.validateImport(ui.role, actor(), form.fileName.value, form.text.value),
-        (b) => (b.state === 'VALIDATED' ? L('Dữ liệu hợp lệ. Kiểm tra bản xem trước rồi xác nhận.', 'Valid. Review and confirm.') : L('Có lỗi trong dữ liệu.', 'The data has errors.')));
-      if (r.ok) { ui.importBatchId = r.result.id; saveUi(); render(); }
+      run(() => PM.validateImport(ui.role, actor(), form.fileName.value, form.text.value),
+        (b) => (b.state === 'VALIDATED' ? L('Dữ liệu hợp lệ. Kiểm tra bản xem trước rồi xác nhận.', 'Valid. Review and confirm.') : L('Có lỗi trong dữ liệu.', 'The data has errors.')),
+        { onOk: (b) => { ui.importBatchId = b.id; saveUi(); render(); } });
     }
   });
 
   document.addEventListener('click', (e) => {
     const el = e.target.closest('button, tr[data-open], tr[data-batch], [data-backdrop]');
     if (!el) return;
-    if (el.hasAttribute('data-backdrop') && e.target === el) { ui.modal = null; ui.error = null; render(); return; }
+    if (ignoredWhileBusy()) { e.preventDefault(); return; }
+    if (el.hasAttribute('data-backdrop') && e.target === el) { ui.modal = null; ui.error = null; render({ keepInputs: true }); return; }
     const data = (name) => el.getAttribute(name);
     const p = currentProduct();
+
+    if (data('data-sim-fault')) { ui.sim.fault = data('data-sim-fault'); saveUi(); render({ keepInputs: true }); return; }
+    if (data('data-impact-page')) { ui.modal.page = Number(data('data-impact-page')); render({ keepInputs: true }); return; }
+    if (data('data-media-break')) { PM.breakMedia(data('data-media-break')); PM.save(); render({ keepInputs: true }); toast(L('Cloudinary không còn file: ảnh không đọc được, sản phẩm rời catalogue công khai.', 'File lost at the provider.')); return; }
+    if (data('data-media-restore')) { PM.restoreAtProvider(data('data-media-restore')); PM.save(); render({ keepInputs: true }); toast(L('Cloudinary đã có lại file. Bấm "Kiểm tra lại" để dùng lại ảnh.', 'The provider has it again; re-check it.')); return; }
+    if (data('data-media-verify')) {
+      run(() => PM.verifyMedia(data('data-media-verify')),
+        (s) => (s === 'READY' ? L('Ảnh đọc được trở lại; sản phẩm hiện lại nếu đủ điều kiện.', 'Image readable again.') : L('Cloudinary vẫn chưa có file: ảnh tiếp tục không dùng được.', 'Still missing at the provider.')),
+        { deps: ['cloudinary'] });
+      return;
+    }
 
     if (data('data-go')) { go(data('data-go')); return; }
     if (data('data-role')) { ui.role = data('data-role'); ui.error = null; ui.modal = null; saveUi(); render(); return; }
@@ -827,7 +1046,7 @@
     if (data('data-page')) {
       const [scope, n] = data('data-page').split(':');
       if (scope === 'list') ui.list.page = Number(n); else ui.pub.page = Number(n);
-      saveUi(); render(); return;
+      saveUi(); showLoading(); render(); return;
     }
     if (data('data-move')) {
       const [scope, index, delta] = data('data-move').split(':').map((x, i) => (i ? Number(x) : x));
@@ -843,10 +1062,6 @@
       (scope === 'create' ? ui.createDraft.images : ui.imageDraft.images).splice(Number(index), 1);
       render(); return;
     }
-    if (data('data-toggle-media')) {
-      run(() => PM.toggleMediaAvailability(p.id, data('data-toggle-media')), (s) => (s === 'READY' ? L('Ảnh đọc được trở lại.', 'Image restored.') : L('Ảnh giả lập không đọc được.', 'Image unavailable.')));
-      return;
-    }
     if (data('data-sale')) {
       const [variantId, enabled] = data('data-sale').split(':');
       run(() => PM.setSaleEnabled(ui.role, actor(), p.id, variantId, enabled === 'true'), enabled === 'true' ? L('Đã mở bán lại size.', 'Size on sale.') : L('Đã ngừng bán size; số lượng giữ nguyên.', 'Size stopped.'));
@@ -859,8 +1074,9 @@
       ui.error = null; render(); return;
     }
     if (data('data-decide-review')) { ui.modal = { type: 'decide-review', productId: Number(data('data-decide-review')) }; ui.error = null; render(); return; }
-    if (data('data-impact')) { ui.modal = { type: 'impact', categoryId: Number(data('data-impact')) }; ui.error = null; render(); return; }
-    if (data('data-edit-category')) { ui.modal = { type: 'edit-category', categoryId: Number(data('data-edit-category')) }; ui.error = null; render(); return; }
+    // The dialog keeps the version it was opened with, like a real form.
+    if (data('data-impact')) { const c = PM.category(data('data-impact')); ui.modal = { type: 'impact', categoryId: c.id, version: c.version, page: 0 }; ui.error = null; render(); return; }
+    if (data('data-edit-category')) { const c = PM.category(data('data-edit-category')); ui.modal = { type: 'edit-category', categoryId: c.id, version: c.version }; ui.error = null; render(); return; }
 
     const action = data('data-action');
     if (!action) return;
@@ -896,20 +1112,20 @@
         addImage(target, 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), L('Ảnh ', 'Image ') + n);
         break;
       }
-      case 'save-images':
-        run(() => PM.replaceImages(ui.role, actor(), p.id, p.version, ui.imageDraft.images.map((img, i) => ({ ...img, position: i }))),
-          (c) => (c ? L('Đã lưu ảnh.', 'Images saved.') : L('Không có thay đổi.', 'No change.')));
-        if (!ui.error) ui.imageDraft = null;
-        render(); break;
+      case 'save-images': {
+        const version = ui.imageDraft.baseVersion;
+        run(() => PM.replaceImages(ui.role, actor(), p.id, version, ui.imageDraft.images.map((img, i) => ({ ...img, position: i }))),
+          (c) => (c ? L('Đã lưu ảnh.', 'Images saved.') : L('Không có thay đổi.', 'No change.')),
+          { conflict: { target: 'product', id: p.id, version, simulate: () => PM.simulateExternalEdit(p.id) }, onOk: () => { ui.imageDraft = null; render(); } });
+        break;
+      }
       case 'reset-images': ui.imageDraft = null; render(); break;
       case 'publish': run(() => PM.setPublication(ui.role, actor(), p.id, true), L('Sản phẩm đã công khai.', 'Published.')); break;
       case 'unpublish': run(() => PM.setPublication(ui.role, actor(), p.id, false), L('Đã ẩn sản phẩm khỏi catalogue.', 'Hidden.')); break;
       case 'ask-delete': ui.modal = { type: 'delete', productId: p.id }; render(); break;
-      case 'confirm-delete': {
-        const r = run(() => PM.deleteProduct(ui.role, actor(), m.productId), L('Đã xóa mềm sản phẩm.', 'Product deleted.'));
-        if (r.ok) { ui.modal = null; render(); }
+      case 'confirm-delete':
+        run(() => PM.deleteProduct(ui.role, actor(), m.productId), L('Đã xóa mềm sản phẩm.', 'Product deleted.'), { onOk: closeModal });
         break;
-      }
       case 'apply-all': {
         const approved = p.proposals.filter((x) => x.effective && x.state === 'APPROVED' && !x.applied);
         if (!approved.length) { toast(L('Không có giá đã duyệt nào chờ áp dụng.', 'No approved price to apply.'), true); break; }
@@ -922,30 +1138,32 @@
         const prices = {};
         document.querySelectorAll('[data-final]').forEach((input) => { prices[input.getAttribute('data-final')] = input.value; });
         const reason = document.getElementById('decisionReason').value;
-        const r = run(() => PM.decideReview(ui.role, actor(), m.productId, action === 'approve-review' ? { decision: 'APPROVE', prices } : { decision: 'REJECT', reason }),
-          action === 'approve-review' ? L('Đã duyệt hồ sơ. Tiếp theo: áp dụng giá rồi công khai.', 'Approved.') : L('Đã từ chối hồ sơ.', 'Rejected.'));
-        if (r.ok) { ui.modal = null; render(); }
+        run(() => PM.decideReview(ui.role, actor(), m.productId, action === 'approve-review' ? { decision: 'APPROVE', prices } : { decision: 'REJECT', reason }),
+          action === 'approve-review' ? L('Đã duyệt hồ sơ. Tiếp theo: áp dụng giá rồi công khai.', 'Approved.') : L('Đã từ chối hồ sơ.', 'Rejected.'), { onOk: closeModal });
         break;
       }
       case 'approve-proposal': case 'reject-proposal': {
-        const r = run(() => PM.decideProposal(ui.role, actor(), m.productId, m.proposalId, action === 'approve-proposal'
+        const command = action === 'approve-proposal'
           ? { decision: 'APPROVE', approvedPrice: document.getElementById('approvedPrice').value }
-          : { decision: 'REJECT', reason: document.getElementById('decisionReason').value }),
-          action === 'approve-proposal' ? L('Đã duyệt giá. Bấm Áp dụng để đổi giá bán.', 'Approved; apply it next.') : L('Đã từ chối đề xuất.', 'Rejected.'));
-        if (r.ok) { ui.modal = null; render(); }
+          : { decision: 'REJECT', reason: document.getElementById('decisionReason').value };
+        run(() => PM.decideProposal(ui.role, actor(), m.productId, m.proposalId, command),
+          action === 'approve-proposal' ? L('Đã duyệt giá. Bấm Áp dụng để đổi giá bán.', 'Approved; apply it next.') : L('Đã từ chối đề xuất.', 'Rejected.'), { onOk: closeModal });
         break;
       }
       case 'confirm-activation': {
         const c = PM.category(m.categoryId);
-        const r = run(() => PM.setCategoryActive(ui.role, c.id, c.version, !c.active), c.active ? L('Đã ngừng danh mục.', 'Deactivated.') : L('Đã kích hoạt lại.', 'Reactivated.'));
-        if (r.ok) { ui.modal = null; render(); }
+        const activate = !c.active;
+        run(() => PM.setCategoryActive(ui.role, c.id, m.version, activate), activate ? L('Đã kích hoạt lại.', 'Reactivated.') : L('Đã ngừng danh mục.', 'Deactivated.'),
+          { conflict: { target: 'category', id: c.id, version: m.version, simulate: () => PM.simulateExternalCategoryEdit(c.id) }, onOk: closeModal });
         break;
       }
       case 'save-category': {
         const c = PM.category(m.categoryId);
-        const r = run(() => PM.updateCategory(ui.role, c.id, c.version, document.getElementById('categoryName').value, document.getElementById('categoryDescription').value),
-          (changed) => (changed ? L('Đã lưu danh mục.', 'Saved.') : L('Không có thay đổi.', 'No change.')));
-        if (r.ok) { ui.modal = null; render(); }
+        const name = document.getElementById('categoryName').value;
+        const description = document.getElementById('categoryDescription').value;
+        run(() => PM.updateCategory(ui.role, c.id, m.version, name, description),
+          (changed) => (changed ? L('Đã lưu danh mục.', 'Saved.') : L('Không có thay đổi.', 'No change.')),
+          { conflict: { target: 'category', id: c.id, version: m.version, simulate: () => PM.simulateExternalCategoryEdit(c.id) }, onOk: closeModal });
         break;
       }
       case 'import-sample': ui.importText = PM.importTemplateText(); render(); break;
@@ -957,9 +1175,7 @@
       case 'import-confirm': ui.modal = { type: 'confirm-import' }; ui.error = null; render(); break;
       case 'confirm-import': {
         const b = PM.importBatch(actor(), ui.importBatchId);
-        const r = run(() => PM.confirmImport(ui.role, actor(), b.id, b.version), L('Đã nhập sản phẩm.', 'Imported.'));
-        ui.modal = null; render();
-        void r;
+        run(() => PM.confirmImport(ui.role, actor(), b.id, b.version), L('Đã nhập sản phẩm.', 'Imported.'), { onOk: closeModal });
         break;
       }
       case 'import-expire': run(() => PM.expireBatchNow(actor(), ui.importBatchId), L('Đã giả lập hết hạn.', 'Expired.')); break;
@@ -977,10 +1193,91 @@
         toast(L('Chuyển sang FE-08 (chưa có trong prototype): sản phẩm ' + ui.publicId + ', size ' + v.size + ', số lượng 1.', 'Hand-off to FE-08 (not in this prototype).'));
         break;
       }
-      case 'close-modal': ui.modal = null; ui.error = null; render(); break;
+      case 'close-modal': ui.modal = null; ui.error = null; render({ keepInputs: true }); break;
+      case 'toggle-sim': ui.simOpen = !ui.simOpen; saveUi(); render({ keepInputs: true }); break;
+      case 'retry': if (lastRetry) lastRetry(); break;
+      case 'retry-view': showLoading(); render(); break;
+      case 'relogin':
+        ui.modal = m.back || null;
+        ui.error = null;
+        render({ keepInputs: true });
+        toast(L('Đã đăng nhập lại (giả lập). Dữ liệu bạn nhập vẫn còn — bấm lưu lại.', 'Signed in again. Your input is kept — save again.'));
+        break;
+      case 'check-receipt': {
+        const lost = lostCommand;
+        setBusy(true);
+        wait().then(() => {
+          setBusy(false);
+          const found = PM.receipt(lost.key);
+          if (!found) { ui.modal = { ...m, checked: 'NOT_FOUND' }; render({ keepInputs: true }); return; }
+          ui.modal = null;
+          ui.error = null;
+          lastRetry = null;
+          inputMemory = {};
+          lostCommand = null;
+          render();
+          toast(L('Đã kiểm tra: lệnh đã được lưu lúc ' + date(found.at) + ' (COMMITTED). Không cần làm lại.', 'Checked: committed at ' + date(found.at) + '.'));
+          if (lost.o.onOk) lost.o.onOk(found.result);
+        });
+        break;
+      }
+      case 'resend': {
+        const lost = lostCommand;
+        lostCommand = null;
+        run(lost.action, lost.success, { ...lost.o, key: lost.key });
+        break;
+      }
+      case 'conflict-reload':
+        inputMemory = {};
+        ui.error = null;
+        ui.imageDraft = null;
+        ui.modal = m.back && m.target === 'category' ? { ...m.back, version: PM.category(m.id).version } : null;
+        render();
+        toast(L('Đã tải bản mới nhất.', 'Latest version loaded.'));
+        break;
+      case 'conflict-keep': {
+        ui.error = null;
+        const latest = m.target === 'category' ? PM.category(m.id) : PM.product(m.id);
+        if (m.target === 'category') {
+          ui.modal = { ...m.back, version: latest.version };
+          render({ keepInputs: true });
+        } else {
+          ui.modal = null;
+          if (ui.imageDraft && ui.imageDraft.productId === m.id) ui.imageDraft.baseVersion = latest.version;
+          render({ keepInputs: true });
+          const versionInput = document.querySelector('[data-form="content"] [name="version"]');
+          if (versionInput) { versionInput.value = latest.version; inputMemory[inputKey(versionInput)] = versionInput.value; }
+        }
+        toast(L('Đã giữ phần bạn nhập. Đối chiếu rồi bấm lưu lại.', 'Your input is kept. Compare, then save again.'));
+        break;
+      }
       default: break;
     }
   });
+
+  function closeModal() {
+    ui.modal = null;
+    render();
+  }
+
+  // Another tab of the prototype saved: reload the "server" data but keep what this tab's user is typing.
+  window.addEventListener('storage', (e) => {
+    if (e.key !== PM.STATE_KEY) return;
+    PM.load();
+    render({ keepInputs: true });
+    toast(L('Dữ liệu vừa thay đổi ở tab khác; màn hình đã cập nhật, phần bạn đang nhập vẫn giữ nguyên.', 'Data changed in another tab; your input is kept.'));
+  });
+
+  // Import preview countdown (60 minutes); at zero the batch is shown as expired.
+  setInterval(() => {
+    const items = document.querySelectorAll('[data-countdown]');
+    items.forEach((el) => {
+      const expiresAt = el.getAttribute('data-countdown');
+      el.textContent = countdownText(expiresAt);
+      el.classList.toggle('urgent', Date.parse(expiresAt) - Date.now() < 5 * 60000);
+    });
+    if (Array.from(items).some((el) => Date.parse(el.getAttribute('data-countdown')) <= Date.now())) render({ keepInputs: true });
+  }, 1000);
 
   function download(name, textContent) {
     const blob = new Blob(['﻿' + textContent], { type: 'text/csv;charset=utf-8' });

@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductReviewRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.PriceProposal;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductReview;
@@ -10,6 +11,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.Cata
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueLockCoordinator;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ProductReviewInvalidationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ProductReviewService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ProductCategoryService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.UpdateProductService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueFlowFixture;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueTestSupport;
 import org.junit.jupiter.api.Test;
@@ -44,6 +47,9 @@ class CatalogueReviewIT {
     @Autowired private CatalogueLockCoordinator locks;
     @Autowired private ProductVariantRepository variants;
     @Autowired private TransactionTemplate transaction;
+    @Autowired private ProductCategoryService categories;
+    @Autowired private UpdateProductService updates;
+    @Autowired private ProductReviewRepository reviewRepository;
 
     @Test
     void submitFreezesTheWholeFileAndPointsOnePendingProposalPerSize() {
@@ -167,6 +173,40 @@ class CatalogueReviewIT {
                         review.getContentVersion() + 1, ProductReviewService.Decision.REJECT, "x", List.of())))
                 .isInstanceOfSatisfying(CatalogueException.class,
                         error -> assertThat(error.code()).isEqualTo(CatalogueErrorCode.REVIEW_NOT_CURRENT));
+    }
+
+    @Test
+    void anInactiveCategoryBlocksSubmission() {
+        long productId = fixture.draftProduct(STAFF);
+        fixture.addReadyImage(productId, STAFF);
+        long categoryId = fixture.categoryOf(productId);
+        categories.setActive(STAFF, UUID.randomUUID(), Long.toString(categoryId), fixture.category(categoryId).getVersion(),
+                false);
+
+        assertThatThrownBy(() -> fixture.submit(productId, STAFF))
+                .isInstanceOfSatisfying(CatalogueException.class, error -> {
+                    assertThat(error.code()).isEqualTo(CatalogueErrorCode.VALIDATION_ERROR);
+                    assertThat(error.fieldErrors()).extracting(field -> field.field()).contains("categoryId");
+                });
+        assertThat(fixture.currentReview(productId).getState()).isEqualTo(ReviewState.DRAFT);
+    }
+
+    @Test
+    void theSubmittedSnapshotDoesNotDriftWhenTheProductIsEditedLater() {
+        long productId = fixture.draftProduct(STAFF);
+        fixture.addReadyImage(productId, STAFF);
+        fixture.submit(productId, STAFF);
+        ProductReview submitted = fixture.currentReview(productId);
+        String snapshot = submitted.getSnapshot();
+        String newName = "Sau khi gửi " + UUID.randomUUID();
+
+        updates.update(STAFF, UUID.randomUUID(), Long.toString(productId), fixture.productVersion(productId),
+                new UpdateProductService.UpdateCommand(newName, "Mô tả khác", Long.toString(fixture.categoryOf(productId))));
+
+        ProductReview old = transaction.execute(status -> reviewRepository.findById(submitted.getId()).orElseThrow());
+        assertThat(old.getSnapshot()).isEqualTo(snapshot).doesNotContain(newName);
+        assertThat(old.isEffective()).isFalse();
+        assertThat(fixture.currentReview(productId).getRevision()).isEqualTo(submitted.getRevision() + 1);
     }
 
     @Test

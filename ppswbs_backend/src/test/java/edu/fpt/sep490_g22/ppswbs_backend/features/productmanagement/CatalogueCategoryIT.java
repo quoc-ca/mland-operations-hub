@@ -4,6 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductR
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductCategory;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CreateProductService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ProductCategoryService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ProductPublicationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueFlowFixture;
@@ -16,6 +17,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.List;
 import java.util.UUID;
 
 import static edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueTestSupport.MANAGER;
@@ -38,6 +40,7 @@ class CatalogueCategoryIT {
     @Autowired private ProductPublicationService publication;
     @Autowired private ProductRepository products;
     @Autowired private TransactionTemplate transaction;
+    @Autowired private CreateProductService createProducts;
 
     @Test
     void createTrimsKeepsTheDisplayNameAndRejectsANameDifferingOnlyByCase() {
@@ -54,6 +57,51 @@ class CatalogueCategoryIT {
                 CatalogueErrorCode.DUPLICATE_CATEGORY_NAME);
         var accentDiffers = categories.create(MANAGER, UUID.randomUUID(), "Nhan Cuoi " + unique, null);
         assertThat(accentDiffers.status()).isEqualTo(201);
+    }
+
+    @Test
+    void nameAndDescriptionLengthBoundaries() {
+        String unique = UUID.randomUUID().toString().replace("-", "");
+        String name200 = (unique + "x".repeat(200)).substring(0, 200);
+        assertThat(categories.create(STAFF, UUID.randomUUID(), name200, "d".repeat(5000)).status()).isEqualTo(201);
+        assertThat(categories.create(STAFF, UUID.randomUUID(), "Đ" + UUID.randomUUID().toString().substring(0, 4), null)
+                .status()).isEqualTo(201);
+        assertCode(() -> categories.create(STAFF, UUID.randomUUID(), name200 + "y", null), CatalogueErrorCode.VALIDATION_ERROR);
+        assertCode(() -> categories.create(STAFF, UUID.randomUUID(), "   ", null), CatalogueErrorCode.VALIDATION_ERROR);
+        assertCode(() -> categories.create(STAFF, UUID.randomUUID(), "Mô tả dài " + UUID.randomUUID(), "d".repeat(5001)),
+                CatalogueErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    void composedAndDecomposedVietnameseLettersAreTheSameName() {
+        String suffix = " " + UUID.randomUUID();
+        String composed = java.text.Normalizer.normalize("Nhẫn cưới", java.text.Normalizer.Form.NFC) + suffix;
+        String decomposed = java.text.Normalizer.normalize("Nhẫn cưới", java.text.Normalizer.Form.NFD) + suffix;
+        assertThat(decomposed).isNotEqualTo(composed);
+
+        categories.create(STAFF, UUID.randomUUID(), composed, null);
+
+        assertCode(() -> categories.create(MANAGER, UUID.randomUUID(), decomposed, null),
+                CatalogueErrorCode.DUPLICATE_CATEGORY_NAME);
+    }
+
+    @Test
+    void impactIsPagedByTwenty() {
+        long categoryId = fixture.activeCategory();
+        for (int i = 0; i < 21; i++) {
+            createProducts.create(STAFF, UUID.randomUUID(), new CreateProductService.CreateProductCommand(
+                    "Ảnh hưởng " + i + " " + UUID.randomUUID(), "Mô tả", Long.toString(categoryId),
+                    List.of(new CreateProductService.VariantInput(6, "100000", "1")), List.of()));
+        }
+
+        var first = categories.impact(Long.toString(categoryId), 0);
+        var second = categories.impact(Long.toString(categoryId), 1);
+
+        assertThat(first.affectedProducts().totalElements()).isEqualTo("21");
+        assertThat(first.affectedProducts().items()).hasSize(20);
+        assertThat(second.affectedProducts().items()).hasSize(1);
+        assertThat(second.affectedProducts().items().get(0).id())
+                .isNotIn(first.affectedProducts().items().stream().map(item -> item.id()).toList());
     }
 
     @Test

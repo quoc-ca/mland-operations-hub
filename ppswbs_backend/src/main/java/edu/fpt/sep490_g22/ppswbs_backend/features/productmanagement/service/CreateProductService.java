@@ -5,6 +5,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductI
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductReviewRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ActionResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ManagementProductDtos.ManagementProduct;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.PriceProposal;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Product;
@@ -100,8 +101,11 @@ public class CreateProductService {
         return executor.execute(key, () -> {
             long productId = createDraft(actorId, command, Source.MANUAL);
             ManagementProduct created = query.get(Long.toString(productId));
+            // Contract createProduct → ActionResult; the client reads the product with getManagementProduct.
+            ActionResult result = new ActionResult(commandId, Long.toString(productId), "product", CREATE_ACTION,
+                    "DRAFT", created.version(), true);
             return new CatalogueCommandExecutor.CommandResult(201, "product", Long.toString(productId),
-                    created.version(), created);
+                    created.version(), result);
         });
     }
 
