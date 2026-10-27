@@ -185,6 +185,71 @@ paths:
           $ref: '#/components/responses/UnprocessableInput'
         '503':
           $ref: '#/components/responses/ProviderUnavailable'
+    get:
+      summary: Read an internal price suggestion projection
+      description: >-
+        Authorized Manager views advisory price suggestion and confirmed decision;
+        Admin views technical/audit evidence only (price and rationale omitted);
+        Staff, Guest and Member are forbidden.
+      security:
+        - firebaseBearer: []
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Authorized suggestion projection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceSuggestionView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /price-proposals/{proposalId}/ai-suggestions/decisions:
+    post:
+      summary: Record Manager price decision
+      description: >-
+        Manager-only endpoint. Records acceptance, adjustment, rejection or manual
+        fallback with confirmed final price. AI response alone cannot apply or
+        publish catalogue prices.
+      security:
+        - firebaseBearer: []
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceDecisionRequest'
+      responses:
+        '200':
+          description: Decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceSuggestionView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     firebaseBearer:
@@ -293,13 +358,33 @@ components:
           type: string
           minLength: 1
           maxLength: 2000
+    PriceDecisionRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [ACCEPTED, ADJUSTED, REJECTED, MANUAL_FALLBACK]
+        finalPrice:
+          type: number
+          format: double
+          nullable: true
+        note:
+          type: string
+          nullable: true
     PriceSuggestionView:
       type: object
       required: [proposalId, advisory, suggestionStatus]
       properties:
+        id:
+          type: integer
+          format: int64
         proposalId:
           type: string
           format: uuid
+        targetType:
+          type: string
+          enum: [WORKSHOP_PACKAGE, RETAIL_PRODUCT]
         advisory:
           type: boolean
           enum: [true]
@@ -315,6 +400,25 @@ components:
           nullable: true
         providerCorrelationId:
           type: string
+        managerDecision:
+          type: string
+          enum: [ACCEPTED, ADJUSTED, REJECTED, MANUAL_FALLBACK]
+          nullable: true
+        finalPrice:
+          type: number
+          format: double
+          nullable: true
+        requestedBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+        technicalAuditEvidenceOnly:
+          type: boolean
     ErrorResponse:
       type: object
       required: [code, message]
