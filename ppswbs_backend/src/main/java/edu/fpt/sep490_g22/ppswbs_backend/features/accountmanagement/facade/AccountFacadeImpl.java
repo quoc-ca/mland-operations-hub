@@ -4,7 +4,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountL
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountLocationAssignment;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,8 +24,8 @@ public class AccountFacadeImpl implements AccountFacade {
         return accountRepository.findByFirebaseUid(firebaseUid)
             .map(a -> new AccountSummary(
                 a.getId(),
-                a.getRole(),
-                a.getStatus(),
+                mapRole(a.getRole()),
+                mapStatus(a.getStatus()),
                 a.getLoginEmail(),
                 a.getCreatedAt(),
                 a.getUpdatedAt()
@@ -35,9 +34,9 @@ public class AccountFacadeImpl implements AccountFacade {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<AccountStatus> getAccountStatus(Long accountId) {
+    public Optional<ActorStatus> getAccountStatus(Long accountId) {
         return accountRepository.findById(accountId)
-            .map(Account::getStatus);
+            .map(a -> mapStatus(a.getStatus()));
     }
 
     @Override
@@ -46,5 +45,57 @@ public class AccountFacadeImpl implements AccountFacade {
         return locationAssignmentRepository.findByAccountIdAndActiveTrue(accountId).stream()
             .map(AccountLocationAssignment::getLocationId)
             .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<CurrentAccountActor> resolveActor(String firebaseUid, boolean emailVerified) {
+        return accountRepository.findByFirebaseUid(firebaseUid)
+            .map(account -> {
+                List<Long> activeLocations = locationAssignmentRepository.findByAccountIdAndActiveTrue(account.getId()).stream()
+                    .map(AccountLocationAssignment::getLocationId)
+                    .toList();
+                return new CurrentAccountActor(
+                    account.getId(),
+                    mapRole(account.getRole()),
+                    mapStatus(account.getStatus()),
+                    emailVerified,
+                    activeLocations
+                );
+            });
+    }
+
+    /**
+     * Provisional cross-feature contract for Workshop Operations 003.2,
+     * created per FE-001 owner confirmation; FE-001 owner to review upon branch merge.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<TargetAccountSnapshot> getTargetAccount(Long accountId) {
+        if (accountId == null) {
+            return Optional.empty();
+        }
+        return accountRepository.findById(accountId)
+            .map(account -> {
+                List<Long> activeLocations = locationAssignmentRepository.findByAccountIdAndActiveTrue(account.getId()).stream()
+                    .map(AccountLocationAssignment::getLocationId)
+                    .toList();
+                return new TargetAccountSnapshot(
+                    account.getId(),
+                    mapRole(account.getRole()),
+                    mapStatus(account.getStatus()),
+                    activeLocations
+                );
+            });
+    }
+
+    private ActorRole mapRole(edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole role) {
+        if (role == null) return ActorRole.MEMBER;
+        return ActorRole.valueOf(role.name());
+    }
+
+    private ActorStatus mapStatus(edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus status) {
+        if (status == null) return ActorStatus.ACTIVE;
+        return ActorStatus.valueOf(status.name());
     }
 }

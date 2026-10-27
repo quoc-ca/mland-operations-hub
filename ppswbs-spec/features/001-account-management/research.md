@@ -2,6 +2,12 @@
 
 # FE-01 — Account Management
 
+> **Current use (2026-10-26):** This document remains the detailed business-flow
+> source. Its legacy route, cookie/session, and implementation statements are
+> superseded by [spec.md](spec.md), [plan.md](plan.md), and
+> [contracts/account-management.openapi.yaml](contracts/account-management.openapi.yaml).
+> Do not use those legacy technical statements as implementation instructions.
+
 FE-01 gồm authentication, đăng xuất, hồ sơ, đổi email, quản trị tài khoản nội bộ, gán vai trò, khóa/mở khóa và xem quyền cố định. Đây là tài liệu nghiên cứu, chưa phải chức năng đã triển khai. Email xác minh/đặt lại mật khẩu do Firebase Auth xử lý; email quản trị tài khoản dẫn chiếu FE-07. Không thay code, API, database hoặc spec 001-account-management trong lần cập nhật này.
 
 ## Đăng ký

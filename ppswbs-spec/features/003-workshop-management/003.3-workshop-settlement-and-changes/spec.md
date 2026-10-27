@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -28,6 +28,16 @@ does not create sessions, perform normal check-in, provide customer self-service
 rescheduling, or process OTA payments/refunds.
 
 ## Clarifications
+
+### Session 2026-10-27
+
+- Q: Is a Workshop Branch a separate authorization/resource identity from a
+  Workshop Location? → A: No. Both terms refer to the same canonical physical
+  resource identified by `workshop_location.id`. Every booking/session/catalogue
+  scope and applicable audit location uses that identity directly, as do Account
+  Management `activeLocationIds`. Public terminology is `location`/`locationId`;
+  no separate branch ID, branch-to-location mapping, or local location copy is
+  introduced.
 
 ### Session 2026-10-24
 
@@ -62,7 +72,7 @@ rescheduling, or process OTA payments/refunds.
   Mland may revise the policy for bookings confirmed after its effective time;
   each confirmed booking retains the policy snapshot accepted at confirmation.
 - Q: How are additional material or service charges added? → A: A customer may
-  add a fixed-price catalogue add-on allowed for the package/branch; it enters
+  add a fixed-price catalogue add-on allowed for the package/location; it enters
   the final bill at its displayed price. A variable material or service charge
   becomes part of the bill only after Staff/Manager confirms it. Customers never
   enter arbitrary prices.
@@ -75,20 +85,154 @@ rescheduling, or process OTA payments/refunds.
   as capacity and ticket-entitlement owner, validates the complete result and
   applies all changes or none; it preserves the persistent ticket QR.
 - Q: Who may revise the Mland-caused-cancellation refund policy? → A: One
-  designated central Manager may manage the policy for all Mland branches. Other
+  designated central Manager may manage the policy for all Mland locations. Other
   Managers handle individual cases only under the booking's existing policy
   snapshot; they cannot revise that policy.
 
+### Session 2026-10-26
+
+- Q: How may a customer submit a whole-booking cancellation request? → A: An
+  authenticated Member uses verified ownership. A Guest submits the booking code
+  with the stored contact phone or email again at request time. Magic Link may
+  lead to the cancellation screen but remains read-only and is not sufficient
+  cancellation authority.
+- Q: Which internal actor performs routine settlement? → A: Active Staff with
+  applicable booking-location scope may create/confirm eligible charges and
+  finalize a final bill. Manager-only authority remains required for deferred
+  payment, required-session change, Mland-caused remedy/refund exception, and
+  prospective refund-policy revision.
+- Q: At what REST scope are final bill, charge, and finalization exposed? → A:
+  The one final bill is a booking-scoped resource. Its charges and finalization
+  commands are exposed in the context of that final bill, not as a shared or
+  ticket-scoped bill.
+- Q: At what REST scope are Manager change, remedy, and policy-revision actions
+  exposed? → A: Required-session change and Mland-caused remedy are
+  booking-scoped commands. Prospective refund-policy revision is a separate
+  central resource because it applies only to bookings confirmed after its
+  effective time across Mland locations.
+- Q: How do public state-changing REST commands handle retries and responses?
+  → A: Each requires an `Idempotency-Key`; a same-key, same-content retry returns
+  the original outcome. A response contains the current safe settlement
+  projection, or a typed safe correlation-linked error, never unnecessary PII,
+  token, QR payload, secret, or raw gateway payload.
+- Q: How are settlement actions represented in public REST? → A: Settlement
+  actions create or update an auditable business resource. Final bill and charge
+  are resources; customer cancellation, required-session change, and
+  Mland-caused remedy create a case with its own reference and lifecycle.
+- Q: How does Settlement hand an approved final-payment link, its one reminder,
+  or a settlement/refund outcome to Feature 007 without coupling money truth to
+  email delivery? → A: In the same local transaction that accepts the Settlement
+  business outcome, 003.3 creates an immutable notification handoff reference.
+  After commit it publishes an at-least-once reference-only event. Feature 007
+  deduplicates that reference, obtains the immutable delivery payload through
+  the named Settlement facade, and owns provider send/retry logs. A handoff or
+  provider failure never reverses final-bill, payment, refund, case, or Booking
+  `FULLY_PAID` state.
+- Q: Which public REST routes and methods expose settlement resources? → A:
+  Final bill uses `GET/POST /workshop-bookings/{bookingCode}/final-bill`; charge
+  and finalization use `POST` under its final-bill context; customer cancellation,
+  required-session change, deferred payment, and Mland remedy each use a booking-
+  scoped `POST` case collection. Prospective policy uses
+  `GET/POST /workshop-refund-policies`.
+- Q: What minimum input opens a customer cancellation case? → A: Booking code is
+  in the route. An authenticated Member sends no additional ownership proof; a
+  Guest supplies exactly one stored contact phone or email. Neither may submit a
+  refund amount, ticket/session selection, or Magic Link as cancellation authority.
+- Q: What minimum input opens a required-session-change case? → A: Booking code
+  is in the route; an authorized Manager supplies the complete target required-
+  session reference set and a reason. It supplies no capacity seat count,
+  ticket/QR, price, or partial replacement mapping; 003.2 validates/applies the
+  complete result atomically.
+- Q: What minimum input opens a deferred-payment case? → A: An authorized Manager
+  provides only a reason. The server derives the current final-bill outstanding
+  balance and the fixed 24-hour expiry; it accepts no caller-selected amount,
+  expiry, or payment-link URL.
+- Q: What minimum input opens a Mland-caused remedy case that proceeds to refund?
+  → A: An authorized Manager supplies a reason and `replacementOutcome` of
+  `UNAVAILABLE` or `DECLINED`. The server derives the retained policy snapshot
+  and refund amount; it accepts no amount, ticket/session selection, or QR input.
+- Q: What minimum input creates a prospective refund-policy revision? → A: The
+  designated central Manager supplies only `effectiveAt` and
+  `wholeBookingRefundPercent`. The server requires a future effective time and a
+  valid percentage; the policy applies only prospectively and never rewrites an
+  existing booking snapshot.
+- Q: What lifecycle and safe projection do settlement cases use? → A: Every case
+  uses `OPEN` then `RESOLVED`, `REJECTED`, or `FAILED`; refund/deferred cases may
+  additionally use `PENDING_PROVIDER`, and only deferred payment may use
+  `EXPIRED`. The safe projection includes case reference, type, status, booking
+  code and correlation reference; policy/amount outcome is included only for an
+  authorized caller.
+- Q: How do fixed add-on and variable charge flow? → A: A customer supplies only
+  `catalogueAddOnReference`; the server validates package/location and creates the
+  accepted charge at its catalogue snapshot price. Only Staff/Manager supplies a
+  variable description, amount, and reason; that one audited command confirms
+  the variable charge. Customers have no variable-charge flow.
+- Q: How does VNPay evidence enter settlement? → A: HTTPS signed IPN is provider
+  ingress and receives a VNPay acknowledgement; server-to-server QueryDR
+  reconciles missing, late, or ambiguous IPN. Both match reference, amount, and
+  currency and deduplicate by provider transaction/reference. Browser return is
+  display-only and has no settlement route.
+- Q: How are REST errors and client/provider retries distinguished? → A: Client
+  commands use `Idempotency-Key`: same key/same content returns original result;
+  changed reuse returns `409 IDEMPOTENCY_CONFLICT`. VNPay IPN/QueryDR deduplicates
+  by verified provider transaction/reference and safely acknowledges duplicates.
+  Errors use `400` malformed input, `401` invalid/missing authentication, `403`
+  authority denial, `404` missing/not-visible booking, `409` conflict, and `422`
+  valid input but business ineligibility.
+- Q: Can a created settlement case be read again after a reload or retry? → A:
+  Yes. Each booking-scoped case has a `caseReference` and a corresponding `GET`
+  route beneath the same booking. The server returns only the safe case
+  projection permitted to the requesting actor; it does not expose raw payment,
+  token, QR, or unnecessary contact data.
+- Q: May a customer read the final bill and case status for their own booking? →
+  A: Yes. A Member proves authenticated ownership; a Guest proves possession of
+  the booking code plus one stored contact phone or email on each read. The
+  response is read-only and limited to the customer-safe final-bill/case
+  projection, without raw gateway evidence or internal data.
+- Q: How is an offered replacement linked to an Mland-caused cancellation and a
+  possible remedy? → A: The Manager uses the existing required-session-change
+  case with the complete replacement set and the 003.2
+  `cancellationHandoffReference`. A remedy case for replacement `UNAVAILABLE` or
+  `DECLINED` must reference that same handoff; a free-text reason alone is not
+  sufficient.
+- Q: Which public ingress accepts VNPay IPN in V1? → A: VNPay calls shared
+  technical `paymentintegration` at `GET
+  /api/v1/integrations/payments/vnpay/events` with its signed query parameters.
+  After verification and idempotent processing, Mland responds with the VNPay
+  JSON acknowledgement fields `RspCode` and `Message`. QueryDR remains an
+  outbound Mland-to-VNPay reconciliation call; browser Return URL is display-only.
+- Q: Which component owns an IPN shared by deposit and settlement flows? → A:
+  Technical `paymentintegration` owns the one HTTPS `GET` ingress. It verifies
+  the checksum once, deduplicates delivery, resolves the immutable
+  owner-qualified merchant reference, and dispatches redacted verified evidence
+  to 003.1 for `DEPOSIT` or 003.3 for `FINAL_PAYMENT`/`REFUND`. It never
+  broadcasts, guesses an owner, or changes booking/settlement state itself.
+- Q: Which refund percentage and VND rounding rule does a prospective policy
+  revision use? → A: The central Manager supplies a whole-number percentage from
+  `0` through `100`. The system computes the refund as
+  `floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND.
+- Q: Who may select a fixed-price catalogue add-on, and until when? → A: An
+  owning Member may use authenticated ownership and a Guest may use the booking
+  code plus one stored contact phone or email on each request. Both may select
+  only an eligible catalogue add-on before the final bill is finalized; Magic
+  Link remains read-only.
+- Q: Who may read the central refund-policy revision resource? → A: Only the
+  designated central Manager may read all policy revisions. Guest/Member may
+  read only the retained policy snapshot and refund outcome permitted for their
+  own booking; they cannot read central revision history.
+
 ## Business Rules
 
-- A confirmed direct booking freezes its package price and collects a 50%
-  deposit. The one deposit applies to the one booking/package without
-  allocating it across sessions or rewriting original payment evidence.
+- A confirmed direct booking freezes its post-promotion amount, deposit, and
+  remaining amount. Deposit is `ceil(post_promotion_amount / 2)` whole VND and
+  remaining amount is the exact difference. The one deposit applies to the one
+  booking/package without allocating it across sessions or rewriting original
+  payment evidence.
 - A final booking balance equals the remaining frozen package amount, approved
   additional material/service charges, less the paid deposit. Replacing required
   sessions within the same package never changes the frozen package price.
 - A customer may add a fixed-price catalogue add-on permitted for the package and
-  branch; its displayed price becomes a final-bill charge. A variable material
+  location; its displayed price becomes a final-bill charge. A variable material
   or service charge becomes a final-bill charge only after Staff/Manager confirms
   it. Customers cannot enter an arbitrary charge or price.
 - Charge, payment, void, and adjustment records are immutable evidence. A
@@ -104,7 +248,7 @@ rescheduling, or process OTA payments/refunds.
   all-or-none result. It retains the booking deposit and preserves each
   participant's persistent ticket/QR across the booking's resulting required
   sessions. For Silverclay, 003.2 MUST validate the complete resulting pair as
-  same-branch, distinct and chronologically ordered; if on the same day, the two
+  same-location, distinct and chronologically ordered; if on the same day, the two
   slots MUST have at least one slot between them.
 - A whole-booking refund revokes unused tickets and releases future capacity only
   after the gateway confirms the refund. A failed refund does not restore the
@@ -115,7 +259,7 @@ rescheduling, or process OTA payments/refunds.
   The V1 default is 100% of every successfully collected booking/package
   payment; V1 does not allocate a partial refund or credit to one session.
 - A designated central Manager owns prospective Mland-caused-cancellation refund
-  policy changes for all branches. Other Managers may resolve individual cases
+  policy changes for all locations. Other Managers may resolve individual cases
   only under the policy snapshot already retained by the booking.
 - OTA customer payments, refunds, commission, payout, and reconciliation are
   outside this feature.
@@ -130,13 +274,14 @@ rescheduling, or process OTA payments/refunds.
   may send at most one reminder before expiry; expiry never automatically renews
   the link, releases the package output, or erases the balance. A new link requires an
   audited authorized action.
-- The system MUST NOT infer `Manager = OWNER`. Account/personnel owns capability
-  grants and role-code mapping. Feature 003.3 authorizes actions using active
-  actor status plus the relevant branch-scoped capability:
-  `workshop.settlement.defer` for deferred payment/link issue or reissue,
-  `workshop.settlement.reschedule` for required-session changes, and
-  `workshop.settlement.refund` for refund exceptions and Mland-caused package
-  refund. An inactive actor loses these authorities immediately.
+- The system MUST NOT infer `Manager = OWNER`. Account Management supplies the
+  canonical fixed role, current status and active location-scope facts; 003.3
+  applies its own server-side Settlement action rules with booking location and
+  resource scope. Active in-scope Staff may perform routine charge/final-bill
+  actions; active in-scope Manager may perform deferred payment/link issue or
+  reissue, required-session changes, and refund exceptions/Mland-caused remedy.
+  An inactive actor loses these authorities immediately. Display role labels,
+  Firebase claims and retired role codes never grant authority.
 - The Mland-caused-cancellation refund-policy editor is one designated central
   Manager. This business authority does not introduce a role code or alter the
   Account Management role mapping; the feature requires its active authorization
@@ -214,23 +359,48 @@ outcome.
 - **FR-001**: The system MUST apply this feature only to direct Mland workshop
   bookings and MUST exclude OTA payment/refund/payout/reconciliation.
 - **FR-002**: The system MUST authorize protected actions on the server using
-  active Mland account status, approved capability, branch and resource scope;
+  active Mland account status, canonical role, and feature-owned location and
+  resource action rule;
   client/provider claims and display labels MUST NOT grant authority.
+- **FR-002a**: Active Staff with booking-location scope MAY create or confirm an
+  eligible charge and finalize a final bill. Deferred payment, required-session
+  change, Mland-caused remedy/refund exception, and prospective refund-policy
+  revision remain Manager-only actions under their applicable authority.
 - **FR-003**: The system MUST retain immutable, redacted audit evidence for
   settlement, release exception, deferred payment, reschedule, refund, void,
   adjustment, and Mland-caused remedy.
 - **FR-004**: The system MUST preserve immutable charge, payment, void, and
   adjustment records for each final bill.
 - **FR-004a**: The system MUST accept a customer-selected charge only for a
-  fixed-price catalogue add-on permitted for the booking's package and branch,
+  fixed-price catalogue add-on permitted for the booking's package and location,
   at its displayed price. A variable material or service charge MUST require
   Staff/Manager confirmation before it enters the final bill; customers MUST NOT
   create arbitrary charge names or prices.
+- **FR-004b**: `POST /workshop-bookings/{bookingCode}/final-bill/charges` MUST
+  accept only `catalogueAddOnReference` from a customer and MUST derive the
+  accepted price from the permitted package/location catalogue snapshot. An owning
+  Member uses authenticated ownership; a Guest provides the booking code and one
+  stored contact phone or email at each request. Customer catalogue selection
+  MUST be rejected after final-bill finalization. A variable charge MUST be
+  submitted only by Staff/Manager with description, amount, and reason; that
+  audited command confirms it. No customer variable-charge command exists.
 - **FR-005**: The system MUST calculate one booking/package final balance from
-  frozen package price, paid deposit, and approved charges. A required-session
-  change within that package MUST NOT alter its frozen package price.
+  frozen remaining amount, paid deposit evidence, and approved charges. It MUST
+  NOT recalculate a frozen voucher, point, post-promotion amount, deposit, or
+  remaining amount. A required-session change within that package MUST NOT alter
+  its frozen package price.
 - **FR-006**: The system MUST allow charge finalization only after the booking's
   final required session is completed, recording authorizing actor and time.
+- **FR-006a**: The public REST contract MUST expose the one final bill in its
+  booking context. Charge creation/confirmation and finalization commands MUST
+  operate in that final-bill context; no final bill is ticket-scoped or shared
+  by multiple bookings.
+- **FR-006b**: `GET /workshop-bookings/{bookingCode}/final-bill` MUST disclose a
+  customer-safe, read-only final-bill projection to an authenticated Member
+  with booking ownership or a Guest who supplies the booking code and exactly one
+  stored contact phone or email for that request. The projection MAY include the
+  customer-visible charge lines, due/paid/refunded amounts, and bill status, but
+  MUST exclude raw gateway evidence and internal-only data.
 - **FR-007**: The system MUST prevent package-output release before final payment except
   through an authorized audited deferred-payment exception.
 - **FR-008**: The system MUST set booking `FULLY_PAID` only when its one final
@@ -240,6 +410,23 @@ outcome.
   currency. It MUST process that evidence idempotently and reject invalid,
   mismatched, unsigned, duplicate, late, browser-return-only, or manually
   recorded counter-payment evidence without settling twice.
+- **FR-009a**: Signed VNPay IPN MUST be HTTPS provider ingress with a
+  VNPay-compatible acknowledgement. Server-to-server QueryDR MAY reconcile a
+  missing, late, or ambiguous IPN. Both sources MUST match reference, amount,
+  and currency and deduplicate by provider transaction/reference; browser return
+  MUST remain display-only and MUST NOT have a settlement-confirmation route.
+- **FR-009b**: V1 VNPay IPN ingress MUST be `GET`
+  `/api/v1/integrations/payments/vnpay/events` and accept only signed provider
+  query parameters. The technical `paymentintegration` boundary owns this route:
+  it verifies and deduplicates once, then routes redacted evidence by immutable
+  owner-qualified merchant reference to exactly one business owner. Following
+  processing, it returns the VNPay JSON acknowledgement fields `RspCode` and
+  `Message`. QueryDR is an outbound server-to-server reconciliation call and has
+  no inbound public route.
+- **FR-009c**: 003.3 MUST consume redacted verified `FINAL_PAYMENT` or `REFUND`
+  evidence only through `WorkshopSettlementFacade`; it MUST NOT expose or own a
+  VNPay IPN HTTP route, raw callback payload, checksum verification, or routing
+  of deposit evidence.
 - **FR-010**: Deferred final payment MUST require Manager approval with reason,
   amount, expiry, and audit; it MUST retain the package output and create no
   default credit.
@@ -251,13 +438,35 @@ outcome.
   Bill. Deposit/payment-hold links remain subject to the 10-minute/15-minute
   shared rule. A new final-payment link after expiry requires an authorized,
   audited action.
+- **FR-012a**: `POST /workshop-bookings/{bookingCode}/deferred-payment-cases`
+  MUST accept only an authorized Manager reason. The server MUST derive the
+  outstanding final-bill amount and fixed 24-hour expiry; it MUST NOT accept a
+  caller-selected amount, expiry, or payment-link URL.
+- **FR-012b**: When an authorized deferred-payment link/reissue, its permitted
+  reminder, or a customer-facing verified settlement/refund outcome is accepted,
+  003.3 MUST persist one unique immutable settlement notification handoff in
+  the same local transaction and publish its reference only after commit. The
+  event MUST contain only notification reference, settlement/bill or case
+  reference, notification kind, and correlation reference; it MUST NOT contain
+  recipient address, payment-link value, raw gateway evidence, ticket/QR data,
+  or unnecessary PII. Feature 007 obtains the immutable render-ready payload
+  only through the approved 003.3 notification-delivery facade and owns
+  idempotent provider delivery/retry and operational logs. Delivery failure
+  MUST NOT reverse the accepted Settlement outcome.
 - **FR-013**: Guest/authorized Member cancellation MUST be whole-booking only;
-  session/ticket/participant self-service cancellation/refund is prohibited.
+  session/ticket/participant self-service cancellation/refund is prohibited. An
+  authenticated Member MUST pass ownership verification; a Guest MUST provide
+  the booking code and stored contact phone or email at cancellation-request
+  time. Magic Link is read-only and MUST NOT alone authorize cancellation.
+- **FR-013a**: `POST /workshop-bookings/{bookingCode}/cancellation-cases` MUST
+  accept no customer-selected financial or ticket/session input. An authenticated
+  Member requires no additional ownership field; a Guest MUST provide exactly one
+  stored contact phone or email as request-time proof.
 - **FR-014**: Normal customer cancellation MUST require all tickets unused, no
   required session started and no package output released, plus policy
   eligibility.
 - **FR-015**: The system MUST calculate paid-deposit refund against earliest
-  session start in session/branch timezone: 100% ≥72h, 50% ≥24h and <72h, else 0%.
+  session start in session/location timezone: 100% ≥72h, 50% ≥24h and <72h, else 0%.
 - **FR-016**: It MUST snapshot policy, earliest-session reference, paid amount,
   computed amount, request time, and eligibility outcome for each request.
 - **FR-017**: It MUST use `REFUND_PENDING` until gateway outcome is confirmed,
@@ -266,7 +475,7 @@ outcome.
   sessions only with compatible sessions that have capacity for the booking's
   unchanged participant count. For a multi-session package, the complete
   resulting session set MUST remain valid; Silverclay's resulting pair MUST be
-  same-branch, distinct, chronologically ordered and, when on the same day,
+  same-location, distinct, chronologically ordered and, when on the same day,
   separated by at least one slot. Feature 003.3 MUST request the complete
   booking-level replacement set from 003.2 and MUST NOT directly read or change
   its capacity, ticket or session entities.
@@ -280,6 +489,12 @@ outcome.
   current ticket/session projection for existing 003.1 customer access. It
   MUST NOT copy a replacement schedule into Booking or treat Booking's initial
   delivery projection as authoritative.
+- **FR-019b**: `POST /workshop-bookings/{bookingCode}/required-session-change-cases`
+  MUST accept the complete target required-session reference set and a reason
+  from an authorized Manager. When the change is an Mland-caused replacement, it
+  MUST additionally accept the authoritative 003.2 `cancellationHandoffReference`.
+  It MUST NOT accept caller-supplied capacity, ticket/QR, price, or partial
+  replacement mapping.
 - **FR-020**: When Mland cancels a required session, the system MUST offer an
   equivalent replacement before an authorized whole-booking/package refund.
 - **FR-021**: If replacement is unavailable or declined, the authorized remedy
@@ -289,14 +504,77 @@ outcome.
   earlier session was attended. A revised policy applies only to bookings
   confirmed after its effective time; V1 MUST NOT create a session-scoped
   partial refund, credit, voucher or separately settled session.
+- **FR-021c**: `POST /workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases`
+  MUST accept an authorized Manager reason and `replacementOutcome` of
+  `UNAVAILABLE` or `DECLINED` only, plus the authoritative 003.2
+  `cancellationHandoffReference` used for the offered replacement. The server
+  MUST derive the retained policy snapshot and refund amount; it MUST NOT accept
+  caller-selected amount, ticket/session, or QR input.
 - **FR-021a**: Only the designated central Manager may create or revise the
   Mland-caused-cancellation refund policy for future bookings across all
-  branches. The change MUST record an effective time and MUST NOT alter a policy
+  locations. The change MUST record an effective time and MUST NOT alter a policy
   snapshot retained by an already confirmed booking; other Managers MUST NOT
   revise the policy.
+- **FR-021d**: `POST /workshop-refund-policies` MUST accept only `effectiveAt`
+  and `wholeBookingRefundPercent` from the designated central Manager. The
+  effective time MUST be future and the percentage MUST be a whole number from
+  `0` through `100`; the revision MUST apply only to later-confirmed bookings
+  and MUST NOT rewrite retained snapshots. The policy snapshot refund amount MUST
+  be `floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND.
+- **FR-021e**: `GET /workshop-refund-policies` MUST be available only to the
+  designated central Manager and MUST return the central policy revision history.
+  A Guest or Member MUST instead receive only the retained policy snapshot and
+  refund outcome permitted for their own booking through its final-bill/case
+  projection.
+- **FR-021b**: The public REST contract MUST expose required-session change and
+  Mland-caused remedy as commands in the affected booking context. It MUST
+  expose prospective refund-policy revision as a separate central resource, not
+  as an operation scoped to one booking.
 - **FR-022**: The system MUST distinguish service, final-bill, and gateway
   payment/refund states, return safe typed correlation-linked errors, and never
   expose raw tokens, payment payloads, secrets, or unnecessary PII.
+- **FR-022a**: Every public REST command that changes settlement state MUST
+  require an `Idempotency-Key`. A retry with the same key and semantically
+  identical request MUST return the original outcome without repeating the
+  command; a reused key with changed content MUST return a safe typed conflict.
+  A successful command response MUST return the current safe settlement
+  projection.
+- **FR-022d**: Client-originated commands MUST use `Idempotency-Key`; identical
+  same-key retry MUST return the original response and changed reuse MUST return
+  `409 IDEMPOTENCY_CONFLICT`. VNPay IPN/QueryDR MUST instead deduplicate by the
+  verified provider transaction/reference and safely acknowledge a duplicate.
+  The public contract MUST return typed safe errors as `400` for malformed input,
+  `401` for missing/invalid authentication, `403` for authority denial, `404` for
+  missing/not-visible booking, `409` for conflict, and `422` for valid input that
+  is business-ineligible.
+- **FR-022b**: The public REST contract MUST represent final bill and charge as
+  business resources. Customer cancellation, required-session change, and
+  Mland-caused remedy MUST each create or update an auditable case resource with
+  its own reference and lifecycle; they MUST NOT be untracked action-only
+  operations.
+- **FR-022b1**: Settlement cases MUST use `OPEN`, `RESOLVED`, `REJECTED`, or
+  `FAILED`. Only cases awaiting gateway evidence MAY use `PENDING_PROVIDER`; only
+  deferred-payment cases MAY use `EXPIRED`. A safe case projection MUST contain
+  case reference, type, status, booking code, and correlation reference, and
+  MUST disclose policy/amount outcome only to an authorized caller.
+- **FR-022c**: The public REST contract MUST use the booking-scoped routes
+  `GET/POST /workshop-bookings/{bookingCode}/final-bill`,
+  `POST /workshop-bookings/{bookingCode}/final-bill/charges`, and
+  `POST /workshop-bookings/{bookingCode}/final-bill/finalizations`. It MUST use
+  booking-scoped `POST` case collections named `cancellation-cases`,
+  `required-session-change-cases`, `deferred-payment-cases`, and
+  `mland-cancellation-remedy-cases`, plus central
+  `GET/POST /workshop-refund-policies`.
+- **FR-022e**: The public REST contract MUST provide `GET`
+  `/workshop-bookings/{bookingCode}/cancellation-cases/{caseReference}`,
+  `/workshop-bookings/{bookingCode}/required-session-change-cases/{caseReference}`,
+  `/workshop-bookings/{bookingCode}/deferred-payment-cases/{caseReference}`, and
+  `/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases/{caseReference}`.
+  Each route MUST return only the safe case projection authorized for the
+  requesting actor: an owning Member uses authenticated ownership and a Guest
+  supplies the booking code plus one stored contact phone or email for that
+  request. The routes MUST NOT disclose raw gateway evidence, tokens, QR payloads,
+  or unnecessary contact data.
 
 ## Key Entities
 
@@ -341,8 +619,9 @@ outcome.
 - Payment/audit evidence follows the five-year baseline in `spec-general.md`;
   no card data is stored.
 - Performance, availability, accessibility, deployment origins, and role-code
-  mapping remain TBD. Capability-to-role-code mapping is explicitly owned by
-  account/personnel and must not be inferred by this feature.
+  mapping remain TBD. Account Management owns canonical role codes; this feature
+  owns its Settlement action rules and must not infer them from display labels,
+  Firebase claims or retired codes.
 
 ## Out of Scope
 

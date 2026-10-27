@@ -8,7 +8,7 @@
  */
 @ApplicationModule(
         displayName = "Product Management (FE-02)",
-        allowedDependencies = {"common", "features.loyaltypromotion :: facade"})
+        allowedDependencies = {"loyaltypromotion :: facade"})
 package edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement;
 
 import org.springframework.modulith.ApplicationModule;

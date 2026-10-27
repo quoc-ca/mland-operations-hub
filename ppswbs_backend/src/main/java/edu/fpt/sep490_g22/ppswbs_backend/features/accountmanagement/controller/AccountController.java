@@ -4,21 +4,21 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountL
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountProfileRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.ProfileUpdateRequest;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.response.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.response.AccountResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.response.LocationRefResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.response.ProfileResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountLocationAssignment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountProfile;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.RevocationStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorContext;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.*;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,7 +27,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AccountController {
 
-    private final TokenVerificationService tokenVerificationService;
     private final AccountBootstrapService bootstrapService;
     private final ProfileService profileService;
     private final EmailSyncService emailSyncService;
@@ -36,138 +35,131 @@ public class AccountController {
     private final AccountLocationAssignmentRepository locationAssignmentRepository;
 
     @PutMapping
-    public ResponseEntity<AccountSummaryResponse> bootstrapOwnAccount(
-        @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
-        @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader
+    public ResponseEntity<AccountResponse> bootstrapOwnAccount(
+        @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
+        HttpServletRequest request
     ) {
-        String token = extractBearerToken(authHeader);
-        String correlationId = resolveCorrelationId(correlationHeader);
+        String correlationId = resolveCorrelationId(correlationHeader, request);
+        VerifiedIdentity identity = (VerifiedIdentity) request.getAttribute("verifiedIdentity");
+        if (identity == null) {
+            throw new InvalidTokenException("No verified identity available in request");
+        }
 
-        VerifiedIdentity identity = tokenVerificationService.verify(token);
         Account account = bootstrapService.bootstrapAccount(identity, correlationId);
-
-        return ResponseEntity.ok(toSummaryResponse(account));
+        return ResponseEntity.ok(toAccountResponse(account, identity.emailVerified()));
     }
 
     @GetMapping
-    public ResponseEntity<AccountDetailResponse> getOwnAccount(
-        @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader
-    ) {
-        String token = extractBearerToken(authHeader);
-        VerifiedIdentity identity = tokenVerificationService.verify(token);
+    public ResponseEntity<AccountResponse> getOwnAccount(HttpServletRequest request) {
+        CurrentAccountActor actor = ActorContext.requireCurrentActor();
+        VerifiedIdentity identity = (VerifiedIdentity) request.getAttribute("verifiedIdentity");
+        boolean emailVerified = identity != null ? identity.emailVerified() : actor.emailVerified();
 
-        Account account = accountRepository.findByFirebaseUid(identity.uid())
-            .orElseThrow(() -> new ResourceNotFoundException("Account not found for verified identity"));
+        Account account = accountRepository.findById(actor.accountId())
+            .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + actor.accountId()));
 
-        if (account.getStatus() == AccountStatus.SUSPENDED) {
-            throw new AccountSuspendedException("Account is SUSPENDED");
-        }
+        return ResponseEntity.ok(toAccountResponse(account, emailVerified));
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<ProfileResponse> getOwnProfile(HttpServletRequest request) {
+        CurrentAccountActor actor = ActorContext.requireCurrentActor();
+        VerifiedIdentity identity = (VerifiedIdentity) request.getAttribute("verifiedIdentity");
+        boolean emailVerified = identity != null ? identity.emailVerified() : actor.emailVerified();
+
+        Account account = accountRepository.findById(actor.accountId())
+            .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + actor.accountId()));
 
         Optional<AccountProfile> profileOpt = profileRepository.findByAccountId(account.getId());
-        List<AccountLocationAssignment> locAssignments = locationAssignmentRepository.findByAccountIdAndActiveTrue(account.getId());
-
-        AccountDetailResponse detail = AccountDetailResponse.builder()
-            .accountId(account.getId())
-            .role(account.getRole())
-            .status(account.getStatus())
-            .loginEmail(account.getLoginEmail())
-            .revocationStatus(toRevocationStatus(account))
-            .createdAt(account.getCreatedAt())
-            .updatedAt(account.getUpdatedAt())
-            .profile(profileOpt.map(p -> AccountProfileResponse.builder()
-                .fullName(p.getFullName())
-                .phone(p.getPhone())
-                .build()).orElse(null))
-            .locationAssignments(locAssignments.stream().map(a -> LocationAssignmentResponse.builder()
-                .locationId(a.getLocationId())
-                .assignedAt(a.getAssignedAt())
-                .active(a.isActive())
-                .build()).toList())
-            .version(account.getVersion())
-            .build();
-
-        return ResponseEntity.ok(detail);
+        return ResponseEntity.ok(toProfileResponse(account, profileOpt.orElse(null), emailVerified));
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<AccountProfileResponse> updateOwnProfile(
-        @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
+    public ResponseEntity<ProfileResponse> updateOwnProfile(
         @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
-        @Valid @RequestBody ProfileUpdateRequest request
+        @Valid @RequestBody ProfileUpdateRequest updateRequest,
+        HttpServletRequest request
     ) {
-        String token = extractBearerToken(authHeader);
-        String correlationId = resolveCorrelationId(correlationHeader);
+        String correlationId = resolveCorrelationId(correlationHeader, request);
+        CurrentAccountActor actor = ActorContext.requireCurrentActor();
+        VerifiedIdentity identity = (VerifiedIdentity) request.getAttribute("verifiedIdentity");
+        boolean emailVerified = identity != null ? identity.emailVerified() : actor.emailVerified();
 
-        VerifiedIdentity identity = tokenVerificationService.verify(token);
-        if (!identity.emailVerified()) {
+        if (!emailVerified) {
             throw new EmailNotVerifiedException("Email must be verified to update profile");
         }
 
-        Account account = accountRepository.findByFirebaseUid(identity.uid())
-            .orElseThrow(() -> new ResourceNotFoundException("Account not found for verified identity"));
+        Account account = accountRepository.findById(actor.accountId())
+            .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + actor.accountId()));
 
-        AccountProfile profile = profileService.updateProfile(account.getId(), request.getFullName(), request.getPhone(), correlationId);
+        AccountProfile profile = profileService.updateProfile(
+            account.getId(),
+            updateRequest.getFullName(),
+            updateRequest.getPhone(),
+            correlationId
+        );
 
-        return ResponseEntity.ok(AccountProfileResponse.builder()
-            .fullName(profile.getFullName())
-            .phone(profile.getPhone())
-            .build());
+        return ResponseEntity.ok(toProfileResponse(account, profile, emailVerified));
     }
 
-    @PostMapping("/email-sync")
-    public ResponseEntity<Map<String, String>> syncOwnEmail(
-        @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
-        @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader
+    @PutMapping("/email")
+    public ResponseEntity<AccountResponse> syncOwnEmail(
+        @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
+        HttpServletRequest request
     ) {
-        String token = extractBearerToken(authHeader);
-        String correlationId = resolveCorrelationId(correlationHeader);
-
-        VerifiedIdentity identity = tokenVerificationService.verify(token);
-        Account account = accountRepository.findByFirebaseUid(identity.uid())
-            .orElseThrow(() -> new ResourceNotFoundException("Account not found for verified identity"));
-
-        Account updated = emailSyncService.syncEmail(account.getId(), identity, correlationId);
-
-        return ResponseEntity.ok(Map.of("loginEmail", updated.getLoginEmail() != null ? updated.getLoginEmail() : ""));
-    }
-
-    @DeleteMapping("/session")
-    public ResponseEntity<Void> signOut(
-        @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader
-    ) {
-        // Sign-out clears any server-side state (stateless REST)
-        return ResponseEntity.noContent().build();
-    }
-
-    private String extractBearerToken(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new InvalidTokenException("Missing or malformed Authorization header");
+        String correlationId = resolveCorrelationId(correlationHeader, request);
+        CurrentAccountActor actor = ActorContext.requireCurrentActor();
+        VerifiedIdentity identity = (VerifiedIdentity) request.getAttribute("verifiedIdentity");
+        if (identity == null) {
+            throw new InvalidTokenException("No verified identity available in request");
         }
-        return authHeader.substring(7).trim();
+
+        Account account = emailSyncService.syncEmail(actor.accountId(), identity, correlationId);
+        return ResponseEntity.ok(toAccountResponse(account, identity.emailVerified()));
     }
 
-    private String resolveCorrelationId(String header) {
-        return (header != null && !header.isBlank()) ? header.trim() : UUID.randomUUID().toString();
-    }
+    private AccountResponse toAccountResponse(Account account, boolean emailVerified) {
+        List<LocationRefResponse> locations = locationAssignmentRepository.findByAccountIdAndActiveTrue(account.getId()).stream()
+            .map(a -> new LocationRefResponse(String.valueOf(a.getLocationId()), "Location " + a.getLocationId()))
+            .toList();
 
-    private AccountSummaryResponse toSummaryResponse(Account account) {
-        return AccountSummaryResponse.builder()
-            .accountId(account.getId())
+        return AccountResponse.builder()
+            .id(String.valueOf(account.getId()))
+            .email(account.getLoginEmail())
+            .emailVerified(emailVerified)
             .role(account.getRole())
             .status(account.getStatus())
-            .loginEmail(account.getLoginEmail())
-            .revocationStatus(toRevocationStatus(account))
+            .locations(locations)
+            .version(account.getVersion())
             .createdAt(account.getCreatedAt())
             .updatedAt(account.getUpdatedAt())
             .build();
     }
 
-    private RevocationStatus toRevocationStatus(Account account) {
-        if (account.getStatus() != AccountStatus.SUSPENDED) {
-            return RevocationStatus.NOT_APPLICABLE;
-        }
-        return account.getSessionRevocationConfirmedAt() != null
-            ? RevocationStatus.CONFIRMED
-            : RevocationStatus.PENDING;
+    private ProfileResponse toProfileResponse(Account account, AccountProfile profile, boolean emailVerified) {
+        List<LocationRefResponse> locations = locationAssignmentRepository.findByAccountIdAndActiveTrue(account.getId()).stream()
+            .map(a -> new LocationRefResponse(String.valueOf(a.getLocationId()), "Location " + a.getLocationId()))
+            .toList();
+
+        return ProfileResponse.builder()
+            .id(String.valueOf(account.getId()))
+            .email(account.getLoginEmail())
+            .emailVerified(emailVerified)
+            .role(account.getRole())
+            .status(account.getStatus())
+            .locations(locations)
+            .version(account.getVersion())
+            .createdAt(account.getCreatedAt())
+            .updatedAt(account.getUpdatedAt())
+            .fullName(profile != null ? profile.getFullName() : null)
+            .phone(profile != null ? profile.getPhone() : null)
+            .build();
+    }
+
+    private String resolveCorrelationId(String header, HttpServletRequest request) {
+        if (header != null && !header.isBlank()) return header.trim();
+        String reqHeader = request.getHeader("X-Correlation-Id");
+        if (reqHeader != null && !reqHeader.isBlank()) return reqHeader.trim();
+        return UUID.randomUUID().toString();
     }
 }

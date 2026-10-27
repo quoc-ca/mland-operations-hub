@@ -1,52 +1,84 @@
 # Quickstart Validation: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
-This is a design-validation checklist for later implementation; it does not
-authorize production payment calls, credentials, or migrations.
+This is a non-production validation guide. It does not authorize production
+credentials, provider calls, schema changes or deployment.
 
 ## Preconditions
 
-- Use non-production records and test VNPay configuration only.
-- Prepare a confirmed Basic Ring booking and a confirmed Silverclay booking; 003.1
-  provides their deposits and frozen package price.
-- 003.2 must provide approved facade outcomes for required-session completion,
-  attendance, capacity and ticket entitlement.
-- Use active, authorized test actors. The central-policy case needs the eventual
-  FE-001 authority, not a guessed role mapping.
+- Use a test VNPay merchant configuration satisfying the shared
+  [VNPay configuration preflight](../contracts/vnpay-configuration-preflight.md)
+  and synthetic/non-production booking records only.
+- Prepare one confirmed Basic Ring booking and one confirmed Silverclay booking
+  with frozen post-promotion amount, accepted deposit and remaining amount.
+- Provide approved 003.2 facade outcomes for settlement readiness, complete
+  replacement, verified-refund consequence and cancellation handoff.
+- Use active test Member, Guest contact proof, in-scope Staff, location-scoped Manager and
+  designated central Manager actors. Do not guess an FE-001 role code.
+- Use the routes and safe schemas in
+  [`contracts/workshop-settlement.openapi.yaml`](./contracts/workshop-settlement.openapi.yaml).
 
-## Validation scenarios
+## Validation Scenarios
 
-1. **One final bill/package**: after Basic Ring's only required session and after
-   Silverclay's second required session, create/finalize one bill. No session,
-   participant or ticket bill may exist; frozen package price/deposit stay intact.
-2. **Charges**: accept an allowed fixed catalogue add-on at displayed price;
-   reject arbitrary customer amount; require Staff/Manager confirmation and audit
-   before a variable material/service charge enters the bill.
-3. **VNPay**: accept one valid signed reference/amount/currency-matched IPN or
-   QueryDR, then replay it. Browser return, invalid signature, mismatch and
-   out-of-order failure must not settle or release output.
-4. **Deferred payment**: verify authorized 24-hour link, at most one reminder,
-   expiry retaining balance, and an audited reissue action.
-5. **Customer cancellation**: test whole-booking 72h, 24–72h, and below-24h/
-   checked-in conditions; verify 100%, 50%, rejection respectively. Ticket/capacity
-   effects occur only after verified refund success.
-6. **Required-session change**: request one/two future replacements. 003.2 either
-   applies all capacity/entitlement changes and retains QR, or applies none. For
-   Silverclay verify same branch, distinct chronology and the same-day slot gap.
-7. **Mland cancellation**: offer replacement first; otherwise refund whole package
-   by the retained policy snapshot. Confirm the default gives 100% of collected
-   funds, and a prospective policy change affects only later confirmed bookings.
-8. **Authorization/audit**: inactive/out-of-scope/unauthorized actions have no
-   financial/capacity side effect; business evidence omits raw VNPay/Firebase data.
+1. **One bill per package**: once the final required session is attendance-
+   finalized, create/read one final bill for Basic Ring and Silverclay. Verify no
+   session/ticket/participant bill exists and frozen financial values do not
+   change.
+2. **Customer-safe reads and charges**: verify an owning Member and a Guest with
+   booking code plus exactly one stored email/phone can read their bill and case.
+   Each may add only an eligible fixed catalogue add-on before finalization; reject
+   arbitrary price, invalid proof, Magic Link write access and post-finalization
+   add-on selection. Verify Staff/Manager variable-charge reason/audit behavior.
+3. **Finalization and client retries**: verify in-scope Staff finalizes only an
+   eligible bill. Replay every client mutation with the same `Idempotency-Key`
+   and confirm its original safe result; reuse the key with changed input and
+   confirm `409 IDEMPOTENCY_CONFLICT` without a second effect.
+4. **VNPay evidence**: send a valid signed `GET`
+   shared `paymentintegration` `/api/v1/integrations/payments/vnpay/events`
+   test callback with matching
+   reference/amount/currency, then replay it. Confirm JSON `RspCode`/`Message`,
+   exactly-once settlement, and no effect from invalid signature, mismatch, late
+   event, browser Return URL or manual counter record. Exercise outbound QueryDR
+   reconciliation only with approved test configuration.
+5. **Deferred payment**: have a Manager create a case with reason only. Verify the
+   server derives balance and 24-hour expiry, permits at most one reminder,
+   retains balance/output on expiry, and requires a new audited action to reissue.
+   Verify issue/reissue and the permitted reminder each create one immutable,
+   reference-only notification handoff; Feature 007 can deduplicate and obtain
+   its render-ready payload only through the Settlement facade.
+6. **Customer cancellation**: submit Member and Guest whole-booking cancellation
+   cases. Validate the 72-hour, 24-to-72-hour, and below-24-hour/checked-in
+   paths; tickets/capacity change only after verified refund outcome.
+7. **Replacement and Mland remedy**: submit a complete target session set and
+   reason for a Manager change. Verify Operations applies all capacity/entitlement
+   changes or none and QR persists. For Mland cancellation, require the same
+   `cancellationHandoffReference` for replacement and `UNAVAILABLE`/`DECLINED`
+   remedy before refund.
+8. **Policy and authorization**: verify only the central Manager reads/revises
+   refund-policy history. A future 0..100 integral revision affects only later
+   confirmed bookings and uses the stated floor-VND rule; customer views reveal
+   only their own retained snapshot/outcome. Verify inactive/out-of-scope actor
+   denial has no side effect.
+9. **Notification isolation**: for a verified final payment/refund, replay the
+   post-commit handoff event and verify there is no second delivery request.
+   Simulate an unavailable or uncertain notification provider; final-bill,
+   payment, refund, case and Booking `FULLY_PAID` outcomes must remain unchanged.
+   Verify no event or delivery/audit log retains a recipient, payment-action-link
+   value, raw gateway evidence or ticket/QR material.
+10. **Data-bearing rollout**: on an upgrade copy with retained booking/customer
+   data, execute the append-only preservation migration plan and retain
+   upgrade/recovery evidence. A reset is allowed only after dev/test preflight
+   proves no retained booking/customer data.
 
-## Evidence
+## Evidence to Retain
 
-Retain approved contract/facade outcomes, module and upgrade-test output,
-idempotency replay result, authorization denials, redacted audit references, and
-data-bearing-environment recovery/rollback evidence. Dev/test reset is permitted
-only after preflight confirms no retained booking/customer data; otherwise use an
-append-only preservation migration and upgrade test.
+Retain contract-validation output, facade/module-boundary evidence, safe
+correlation references for positive/denied/idempotent outcomes, redacted audit
+references, redacted notification-handoff/deduplication evidence, provider test
+evidence, and data-bearing upgrade/recovery evidence.
+Do not retain raw contact proof, Magic Link/QR values, Firebase tokens, VNPay raw
+payloads, signatures or merchant secrets.

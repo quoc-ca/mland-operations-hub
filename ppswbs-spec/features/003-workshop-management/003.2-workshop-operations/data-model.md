@@ -1,7 +1,7 @@
 # Data Model: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -9,47 +9,52 @@
 
 | Record | Owning module | Notes |
 | --- | --- | --- |
-| Account, active status, capability, Manager branch assignment | Account/personnel | Consumed through a facade; never copied as authorization truth. |
+| Canonical Account role/status and active location scope | Account Management | Consumed through a facade; never copied as authorization truth. Operations compares a session's canonical `location_id` directly with those location IDs and applies its own action rules. |
 | Commercial booking, payer, payment, invoice, customer delivery | Workshop Booking | Referenced by immutable external booking IDs/codes only. |
-| Workshop branch, slot, session, hold, attendance ticket, attendance and audit | Workshop Operations | The aggregate model defined below. |
+| Canonical workshop location, slot, session, hold, attendance ticket, attendance and audit | Workshop Operations | The aggregate model defined below. A location is not duplicated as an independent branch resource. |
+| Facade command idempotency ledger | Workshop Operations | Technical persistence for exactly-one business execution within its retention window; not an audit or business aggregate. |
 | Settlement, refunds, reschedule resolution | Workshop Settlement and Changes (003.3) | Receives cancellation handoffs; is not implemented here. |
 
 ## Core Records
 
-### WorkshopBranch
+### WorkshopLocation
 
-`id`, immutable `code`, display name, address snapshot, active flag, created and
-updated timestamps. A branch is never hard-deleted while it has session history.
+Canonical `workshop_location.id` (`Long`), immutable `code`, display name,
+address snapshot, active flag, created and updated timestamps. A location is
+never hard-deleted while it has session history. This is the same identity held
+in Account Management `activeLocationIds`; it has no separate branch ID,
+UUID reference or mapping record.
 
 ### WorkshopSlot
 
-`id`, `branch_id`, label, local start/end time, default capacity, active flag,
-version and timestamps. Configured slots for a branch may not overlap whether
+`id`, `location_id`, label, local start/end time, default capacity, active flag,
+version and timestamps. Configured slots for a location may not overlap whether
 they are active or inactive. Updating a slot affects only future session
 creation; it never rewrites an existing session.
 
 ### WorkshopSession
 
-`id`, `branch_id`, `slot_id`, local workshop date, `scheduled_start_at`,
+`id`, `location_id`, `slot_id`, local workshop date, `scheduled_start_at`,
 `scheduled_end_at`, `check_in_opens_at`, `check_in_opening_source`
 (`DEFAULT` or `MANAGER_SET`), capacity, lifecycle state, version, timestamps
 and optional cancellation-handoff reference.
 
 Constraints:
 
-- unique `(branch_id, workshop_date, slot_id)`;
+- unique `(location_id, workshop_date, slot_id)`;
 - capacity is at least one;
 - start must precede end;
-- no direct branch/slot change once confirmed tickets or unexpired holds exist;
+- no direct location/slot change once confirmed tickets or unexpired holds exist;
 - only `PUBLISHED` accepts new holds; state rules are in the specification.
 
 ### SessionStaffAssignment and SessionOperationalLead
 
-Assignments retain `session_id`, personnel reference, active interval, assigning
-actor and audit reference. A session has zero or more Staff assignments and at
-most one active Manager operational lead. The lead is a session-level role,
-not a global role grant. Inactive personnel immediately lose operational use
-without erasing their historical assignment.
+Assignments retain `session_id`, target Mland `account_id`, active interval,
+assigning actor and audit reference. A session has zero or more Staff
+assignments and at most one active Manager operational lead. `account_id` is
+the existing Account identity; there is no separate personnel identifier. The
+lead is a session-level role, not a global role grant. Inactive accounts
+immediately lose operational use without erasing their historical assignment.
 
 ### CapacityHold
 
@@ -63,8 +68,41 @@ session holds form one logical commitment set. Creation is all-or-nothing:
 every requested session receives the same requested participant count or no
 hold exists. Confirmation succeeds only when every expected hold is active;
 release changes active holds once and is idempotent for repeated or late
-requests. The grouping identity and persistence mechanism remain deferred to
-the approved cross-feature facade and implementation design.
+requests. The business grouping is the booking reference and requested session
+set carried by the approved facade command/outcome. Capacity holds remain
+business records; the separate `FacadeCommandIdempotencyRecord` below owns
+duplicate-command persistence and must not be inferred from audit metadata.
+
+### FacadeCommandIdempotencyRecord
+
+An Operations-owned technical record for every state-changing
+`WorkshopOperationsFacade` command. Its logical identity is
+`facadeAction + operationReference`; that pair is unique. It contains only the
+semantic request fingerprint, status (`IN_PROGRESS` or `COMPLETED`), immutable
+terminal business outcome when completed (`ACCEPTED` or `REJECTED`), original
+`correlationReference`, claim version, in-progress lease-expiry, completed-at,
+retention-expiry and timestamps.
+
+The record is separate from `OperationsAuditEvent`, `CapacityHold`,
+`AttendanceTicket` and their metadata. It stores neither a raw command payload,
+Firebase token, PII, QR value, audit JSON nor a public REST response. Its safe
+outcome is the existing typed facade outcome, sufficient to return the original
+business result for an equivalent retry.
+
+An initial command durably claims `IN_PROGRESS`. The same logical identity with
+a different fingerprint is rejected. The same fingerprint returns `IN_PROGRESS`
+while its lease is live, or may atomically reclaim an expired record by advancing
+the claim version. Completion must conditionally prove the current claim version
+inside the same local MySQL transaction as all command business effects. A
+stale claimant therefore commits neither a terminal ledger outcome nor capacity,
+ticket, attendance or audit side effects. Technical failure rolls back the
+business transaction and leaves no completed outcome.
+
+`COMPLETED` records remain available for at least 24 hours. Cleanup is eligible
+only after their retention expiry. The caller must not retry after that window;
+the ledger does not promise duplicate protection once the record has been
+removed. Lease duration is configuration owned by Operations deployment, not a
+client-supplied value.
 
 ### Cross-module facade boundary
 
@@ -72,7 +110,7 @@ Operations exposes two synchronous internal boundaries to Booking. The capacity
 boundary returns only sale-eligibility snapshots and the outcomes of atomic
 reserve, commit and idempotent-release requests. The ticket-projection boundary
 returns only a post-commit delivery-safe projection: ticket identity or QR
-reference, ticket code, and entitled sessions with branch and scheduled
+reference, ticket code, and entitled sessions with location and scheduled
 start/end. Neither boundary exposes Operations entities, repositories,
 attendance, Staff/audit data or PII. These are conceptual contracts, not
 approval of Java names, DTO fields, persistence shape or public HTTP routes.
@@ -93,9 +131,9 @@ Operations makes conceptual, non-public schedule and availability/sale-state
 snapshots available to 003.4 after a completed local change alters
 OTA-observable data. They are not Operations entities, physical schema
 proposals, public REST DTOs, or OTA provider payloads. The schedule snapshot
-contains opaque session identity, branch, scheduled start/end, source change
+contains opaque session identity, location, scheduled start/end, source change
 identity/version and effective time. The availability/sale-state snapshot
-contains opaque session identity, branch scope, sellable availability, sale
+contains opaque session identity, location scope, sellable availability, sale
 state, source change identity/version and effective time. Neither contains PII,
 Booking/payment data, ticket detail or OTA mapping.
 
@@ -204,10 +242,15 @@ projection; the original action remains immutable.
 - A ticket references one commercial booking; each entitlement references one
   session. A ticket may be entitled to more than one session.
 - The database enforces unique public ticket codes and QR references and the
-  session branch/date/slot uniqueness; service validation explains failures.
-- Capacity-changing and check-in operations use an approved concurrency
-  mechanism to preserve their respective all-or-nothing and ticket/session
-  idempotency invariants; the mechanism remains unselected.
+  session location/date/slot uniqueness; service validation explains failures.
+- Every state-changing Operations facade command uses the dedicated idempotency
+  ledger. The unique logical identity, semantic fingerprint, lease/reclaim and
+  claim-version conditional completion above preserve no-more-than-one business
+  execution for an equivalent command during the retention window.
+- Capacity-changing and check-in operations additionally use their approved
+  aggregate-level concurrency protection to preserve all-or-nothing capacity
+  and ticket/session invariants; it is independent of the facade-command
+  ledger and must not be substituted by an audit lookup.
 - Every Booking-to-Operations capacity command participates in one local MySQL
   transaction spanning the Booking writes and synchronous capacity-facade work.
   Gateway communication remains outside that transaction; an error rolls back
@@ -229,3 +272,9 @@ the live migration history. Do not edit prior migrations or use the legacy reset
 migration in production. Existing booking-level tickets require a separately
 approved mapping/reissue run; schema migration alone must preserve source IDs
 and must not silently revoke, split or email tickets.
+
+The append-only migration for the idempotency ledger must preserve existing
+Operations data, introduce the logical unique identity and fields needed for
+fingerprint, status, original correlation, claim version, lease and retention,
+and be verified on MySQL for concurrent claim/reclaim/finalisation. The specific
+migration version is selected only at implementation time.

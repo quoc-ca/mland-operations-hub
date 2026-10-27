@@ -2,12 +2,26 @@ openapi: 3.0.3
 info:
   title: Workshop Booking API
   version: 1.0.0-draft
-  description: Draft direct-Mland booking contract; requires owner approval before implementation.
+  description: >-
+    Draft direct-Mland booking contract; requires owner approval before
+    implementation. Shared VNPay provider ingress is documented in
+    ../../contracts/vnpay-payment-ingress.openapi.yaml.
 paths:
   /api/v1/workshop-packages:
     get:
       summary: Browse published customer-selectable packages
       responses: {'200': {description: Packages}}
+  /api/v1/workshop-sessions:
+    get:
+      summary: Discover customer-selectable workshop sessions for one package and location
+      parameters:
+        - {$ref: '#/components/parameters/PackageId'}
+        - {$ref: '#/components/parameters/LocationId'}
+        - {$ref: '#/components/parameters/From'}
+        - {$ref: '#/components/parameters/To'}
+      responses:
+        '200': {description: Customer-safe sale-eligibility snapshots, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/SessionAvailability'}}}}}
+        '400': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings:
     post:
       summary: Create one pending booking for one package
@@ -22,11 +36,6 @@ paths:
       summary: Start or retry the 50 percent deposit while the hold is active
       parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       responses: {'200': {description: Payment initiation}, '409': {$ref: '#/components/responses/Problem'}}
-  /api/v1/integrations/payments/vnpay/events:
-    post:
-      summary: Accept a signed VNPay event; browser redirects never confirm payment
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PaymentEvent'}}}}
-      responses: {'200': {description: Accepted or deduplicated}, '400': {$ref: '#/components/responses/Problem'}, '401': {$ref: '#/components/responses/Problem'}}
   /api/v1/booking-lookups:
     post:
       summary: Look up a Guest booking using booking code and one contact proof
@@ -48,11 +57,53 @@ paths:
       summary: Release an active pending hold
       parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       responses: {'204': {description: Released}, '409': {$ref: '#/components/responses/Problem'}}
+  /api/v1/workshop-bookings/{bookingCode}/confirmation-deliveries:
+    post:
+      summary: Resend booking confirmation only to the stored booking contact
+      description: Guest supplies exactly one stored contact proof; Member uses ownership; authorized Staff or Manager in the booking location may act without customer proof.
+      security: [{}, {bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/ConfirmationDeliveryRequest'}}}}
+      responses:
+        '202': {description: Accepted delivery request, content: {application/json: {schema: {$ref: '#/components/schemas/BookingActionOutcome'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/magic-link-incidents:
+    post:
+      summary: Revoke or rotate a Magic Link
+      description: Manager responsible for the booking location only.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MagicLinkIncidentRequest'}}}}
+      responses:
+        '200': {description: Safe incident outcome, content: {application/json: {schema: {$ref: '#/components/schemas/BookingActionOutcome'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/late-payment-follow-ups:
+    post:
+      summary: Record or escalate a late-payment follow-up
+      description: Manager responsible for the booking location only; this command never changes booking, capacity, ticket, or payment-link state.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/LatePaymentFollowUpRequest'}}}}
+      responses:
+        '200': {description: Safe follow-up outcome, content: {application/json: {schema: {$ref: '#/components/schemas/BookingActionOutcome'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: Firebase-ID-Token}
   parameters:
     BookingCode: {name: bookingCode, in: path, required: true, schema: {type: string}}
+    PackageId: {name: packageId, in: query, required: true, schema: {type: integer, format: int64}}
+    LocationId: {name: locationId, in: query, required: true, schema: {type: integer, format: int64}}
+    From: {name: from, in: query, required: true, schema: {type: string, format: date-time}}
+    To: {name: to, in: query, required: true, schema: {type: string, format: date-time}}
     IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
   schemas:
     CreateBookingRequest:
@@ -64,16 +115,6 @@ components:
         participantCount: {type: integer, minimum: 1}
         contactEmail: {type: string, format: email, maxLength: 254}
         contactPhone: {type: string, minLength: 7, maxLength: 32}
-    PaymentEvent:
-      type: object
-      required: [providerEventId, providerReference, amount, currency, outcome, signature]
-      properties:
-        providerEventId: {type: string, maxLength: 128}
-        providerReference: {type: string, maxLength: 128}
-        amount: {type: integer, format: int64, minimum: 1}
-        currency: {type: string, enum: [VND]}
-        outcome: {type: string, enum: [SUCCESS, FAILED, CANCELLED]}
-        signature: {type: string, writeOnly: true}
     GuestLookupRequest:
       type: object
       required: [bookingCode]
@@ -87,6 +128,43 @@ components:
       required: [token]
       properties:
         token: {type: string, writeOnly: true, description: Opaque bearer value extracted by the React client from the Magic Link URL fragment; never persist or log it.}
+    SessionAvailability:
+      type: object
+      required: [sessionId, locationId, scheduledStart, scheduledEnd, saleState, customerSelectable, remainingCapacity]
+      properties:
+        sessionId: {type: integer, format: int64}
+        locationId: {type: integer, format: int64}
+        scheduledStart: {type: string, format: date-time}
+        scheduledEnd: {type: string, format: date-time}
+        saleState: {type: string}
+        customerSelectable: {type: boolean}
+        remainingCapacity: {type: integer, minimum: 0}
+    ConfirmationDeliveryRequest:
+      type: object
+      properties:
+        contactEmail: {type: string, format: email, writeOnly: true}
+        contactPhone: {type: string, writeOnly: true}
+      description: Guest submits exactly one stored contact value. Member and authorized internal callers submit no proof in the body.
+    MagicLinkIncidentRequest:
+      type: object
+      required: [action, reason]
+      properties:
+        action: {type: string, enum: [REVOKE, ROTATE]}
+        reason: {type: string, minLength: 1, maxLength: 1000}
+    LatePaymentFollowUpRequest:
+      type: object
+      required: [action, reason]
+      properties:
+        action: {type: string, enum: [RECORD, ESCALATE]}
+        reason: {type: string, minLength: 1, maxLength: 1000}
+    BookingActionOutcome:
+      type: object
+      required: [bookingCode, action, outcome, correlationId]
+      properties:
+        bookingCode: {type: string}
+        action: {type: string}
+        outcome: {type: string}
+        correlationId: {type: string}
     BookingSummary:
       type: object
       required: [bookingCode, bookingStatus, paymentStatus, participantCount, sessions]
@@ -100,10 +178,10 @@ components:
         tickets: {type: array, items: {$ref: '#/components/schemas/BookingTicket'}}
     BookedSession:
       type: object
-      required: [sessionId, branchId, ordinal]
+      required: [sessionId, locationId, ordinal]
       properties:
         sessionId: {type: integer, format: int64}
-        branchId: {type: integer, format: int64}
+        locationId: {type: integer, format: int64}
         ordinal: {type: integer, minimum: 1}
     BookingTicket:
       type: object

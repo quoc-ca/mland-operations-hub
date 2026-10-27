@@ -1,7 +1,7 @@
 # Feature Specification: Account Management
 
 **Date created**: 2026-10-19
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-26
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -32,6 +32,15 @@ The feature serves a small-to-medium business. It deliberately uses fixed roles 
 - Automatic merging/linking of accounts that merely share an email address.
 - Dashboard content, Home-page implementation, frontend application scaffolding, production deployment, and production identity-provider setup.
 - Direct email delivery; FE-07 owns delivery after Account records a notification request.
+
+## Clarifications
+
+### Session 2026-10-26
+
+- Q: Bạn chốt dùng một cổng bảo mật chung do FE-001 sở hữu cho toàn backend không? → A: Một cổng chung xác minh bearer/revocation, nạp actor hiện hành, mặc định từ chối route không khai báo; từng feature tự quyết quyền nghiệp vụ từ actor.
+- Q: Bạn có xác nhận các giá trị database mặc định đã commit phải được coi là credential đã lộ và cần xoay vòng không? → A: Các giá trị đó là dữ liệu giả, chưa từng dùng hoặc reuse; phải bỏ khỏi cấu hình versioned nhưng không cần xoay vòng incident.
+- Q: Bạn có chốt quy ước Flyway chung cho toàn repo là version số nguyên tăng dần không? → A: Dùng một dãy số nguyên tăng dần chung; owner kiểm tra/reserve số cao nhất trước khi tạo migration, và chỉ migration chưa merge/chưa áp dụng mới được đổi số.
+- Q: Bạn có chốt FE-001 chỉ công khai một actor context tối thiểu cho feature khác không? → A: Công khai accountId opaque, role, status, emailVerified và activeLocationIds; UID/token ở lại identity gate, còn mỗi feature tự map context sang quyền nghiệp vụ của mình.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -156,6 +165,7 @@ An Admin can search and inspect accounts, see the fixed role catalogue, and make
 - **FR-024**: The system MUST record account invitation, lock, unlock, and role-change notification requests together with their successful account mutation. FE-07 delivery occurs after that mutation; a delivery failure MUST NOT roll back the accepted account decision.
 - **FR-025**: The system MUST provide safe, actionable recovery for invalid identity, unverified email, suspended account, forbidden role/location, invalid input, stale Admin change, duplicate creation retry, missing record, and temporarily unavailable dependency. Error responses MUST not expose protected data, credentials, tokens, stack traces, or another account's existence beyond what the caller is authorized to know.
 - **FR-026**: The system MUST ensure that every protected action uses the current Account role, status, ownership, and location scope on the server. Hiding a frontend control or retaining an old token/UI state MUST NOT preserve a revoked capability.
+- **FR-027**: The system MUST provide one shared server-side identity gate for the backend. It MUST admit only explicitly declared public routes; for all other routes it verifies the bearer identity and revocation state, resolves a safe current Account actor, and denies access when this cannot be done. The actor contract exposes only opaque account ID, role, status, email-verification state, and active location IDs; raw identity-provider UID/token remain inside the gate. The gate MUST NOT own or dynamically configure another feature's business capabilities; each feature derives its action authority from the current actor under its own approved rules.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -181,6 +191,9 @@ An Admin can search and inspect accounts, see the fixed role catalogue, and make
 
 - A separate frontend foundation supplies routing, identity-client initialization, current-authentication state, and authenticated request transport. FE-001 does not create that foundation or Home/dashboard content.
 - The configured identity provider remains responsible for passwords, verification messages, password reset, external sign-in, and proof of identity. V1 does not require MFA, an additional identity tier, a forced eight-hour re-login, or a separate application password/session store.
+- The shared identity gate is the sole backend bearer-verification path. It has an explicit public-route allowlist and a deny-by-default fallback; CORS and CSRF behavior are designed per declared frontend origin and bearer transport rather than disabled globally.
+- Database connection configuration is supplied through the approved environment/secret channel with no committed default credential. The previously observed defaults were confirmed as synthetic and not reused, so no credential-rotation incident is required.
+- Schema migrations use one repository-wide, append-only sequence of increasing integer versions. Existing applied/merged versions retain their number; an owner checks and reserves the next number before creating a new migration.
 - Google/Facebook choices are visible only when their provider configuration is available; their absence does not block email/password sign-in.
 - The workshop-location owner supplies authoritative active-location validation and display data through its permitted boundary.
 - FE-07 accepts and delivers post-commit notification requests. It is responsible for mail delivery status/retry, while Account remains authoritative for the account decision and audit record.

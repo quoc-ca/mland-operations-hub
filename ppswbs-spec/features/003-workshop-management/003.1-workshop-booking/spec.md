@@ -1,12 +1,13 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
 **Feature Branch**: `003.1-workshop-booking`
-**Status**: Draft — blocked from implementation pending rebase decisions
+**Status**: Draft — design-ready; external implementation dependencies are
+recorded in `tasks.md`
 **Input**: Customer-facing workshop booking lifecycle; the current aggregate
 model is defined in [REBASE-NOTES.md](REBASE-NOTES.md).
 **Governing baseline**: [spec-general.md](../../../spec-general.md) and the
@@ -54,6 +55,46 @@ or acceptance path for 003.1 V1. A later feature may reference a booking only
 through an approved boundary.
 
 ## Clarifications
+
+### Session 2026-10-27
+
+- Q: Is the Booking “branch” a resource separate from Account Management location scope? → A: No. It is the same canonical physical Workshop Location identified by `workshop_location.id`. Every existing booking/session/audit use of “branch” in this specification means that location; no separate branch ID, branch-to-location mapping, or duplicate location resource is permitted. Public REST field and schema terminology is `locationId`.
+
+### Session 2026-10-26
+
+- Q: Which component receives a VNPay callback shared by workshop deposit and
+  final-settlement flows? → A: The technical `paymentintegration` boundary owns
+  one HTTPS `GET` VNPay ingress. It verifies the checksum once, deduplicates
+  provider delivery, resolves the immutable owner-qualified merchant reference,
+  and dispatches redacted verified evidence only to 003.1 for `DEPOSIT` or to
+  003.3 for `FINAL_PAYMENT`/`REFUND`. It never broadcasts, guesses an owner,
+  or performs booking/settlement business state changes itself.
+- Q: Should booking recovery actions use dedicated public command resources? →
+  A: Yes. V1 exposes separate booking-scoped commands for confirmation delivery,
+  Magic-Link incident handling, and late-payment follow-up rather than putting
+  an action selector on a general booking update. This keeps each command's
+  proof or authority, idempotency, audit, and safe projection explicit.
+- Q: What may a Manager submit when handling signed VNPay success received after
+  a hold has expired? → A: The late-payment follow-up command accepts only
+  `RECORD` or `ESCALATE` action plus a required reason. It is an auditable
+  operational follow-up, never a financial or booking-state command.
+- Q: Which React routes own the direct-Mland Workshop Booking customer flow? →
+  A: V1 uses `/workshops` for package browsing,
+  `/workshops/:packageId` for package detail and session selection,
+  `/workshops/:packageId/book` for contact/booking/payment,
+  `/workshop-booking/lookup` for Guest/Member lookup,
+  `/workshop-booking/access#token` for Magic-Link exchange, and
+  `/workshop-booking/:bookingCode/payment-return` for browser-return display
+  only. The payment-return route never confirms payment.
+- Q: How does Booking hand an approved confirmation, resend, or Magic-Link
+  rotation delivery to Feature 007 without coupling payment confirmation to
+  email delivery? → A: In the same local transaction that accepts the Booking
+  business outcome, 003.1 creates an immutable notification handoff reference.
+  After commit it publishes an at-least-once reference-only event. Feature 007
+  deduplicates that reference, obtains the immutable delivery payload through
+  the named Booking facade, and owns provider send/retry logs. A handoff or
+  provider failure never reverses Booking, payment, hold, ticket, or Magic-Link
+  incident state.
 
 ### Session 2026-10-07
 
@@ -142,6 +183,11 @@ seat and receives one independent ticket after valid payment confirmation.
   workshop packages; the earlier session is automatically treated as session 1
   and the later session as session 2. Both capacity holds succeed or the booking
   is not created.
+- Q: How does a customer discover selectable workshop sessions before booking?
+  → A: The public session-discovery query is scoped by one selected package,
+  one branch, and a requested `from`/`to` time range. It returns only the
+  customer-safe sale-eligibility snapshot supplied by 003.2; selecting two
+  sessions for Silverclay may use the same range or later range queries.
 - Q: How are QR tickets issued for a confirmed Silverclay booking? → A: Each
   participant receives one independent QR ticket that is valid for both selected
   Silverclay sessions. Later attendance is recorded separately for each
@@ -164,9 +210,11 @@ seat and receives one independent ticket after valid payment confirmation.
 - Q: When Basic Ring and Silverclay select the same workshop session, do they
   share its capacity pool? → A: Yes. Each participant seat reserved by either
   package consumes one place from the same configured session capacity.
-- Q: How is a 50% deposit handled if the booking total is an odd VND amount? →
-  A: V1 permits publication only of an even-VND price per participant, so every
-  booking total and its 50% deposit are exact whole-VND amounts.
+- Q: How is a 50% deposit handled if the post-promotion booking amount is odd
+  VND? → A: The frozen deposit is `ceil(post_promotion_amount / 2)` in whole
+  VND and the frozen remaining amount is `post_promotion_amount − deposit`.
+  Price, voucher, and points may produce an odd post-promotion amount; no value
+  is discarded or recalculated after confirmation.
 - Q: What maximum gap applies between two selected Silverclay sessions? → A:
   None in V1. The sessions may be any distance apart while each remains
   published and customer-selectable, provided they meet the same-branch and
@@ -179,9 +227,10 @@ seat and receives one independent ticket after valid payment confirmation.
   idempotency and capacity-commit validation; browser return is never evidence.
 
 - Q: Which VNPAY signature policy applies in V1? → A: V1 accepts only the
-  approved VNPAY HMAC-SHA512 checksum configuration. It verifies the checksum
-  before any booking or capacity processing; missing or invalid checksum is
-  rejected and cannot confirm a booking.
+  approved VNPAY HMAC-SHA512 checksum configuration. `paymentintegration`
+  verifies the checksum before it dispatches evidence to any booking or capacity
+  processing; missing or invalid checksum is rejected and cannot confirm a
+  booking.
 
 - Q: How are duplicate and out-of-order valid payment results handled? → A:
   An accepted success is terminal. Repeated IPN/QueryDR success is acknowledged
@@ -304,7 +353,7 @@ seat and receives one independent ticket after valid payment confirmation.
   the booking, restore hold/capacity, issue tickets, or create a payment link.
   Refund, reschedule, and final settlement remain in 003.3.
 
-- Q: What happens if an internal actor is locked, inactive, loses entitlement,
+- Q: What happens if an internal actor is locked, inactive, lacks required action authorization,
   or loses booking-branch scope before the action is submitted? → A: Server
   rechecks authorization at action time, denies without side effects, returns a
   safe error, and records a minimal denied-attempt audit for sensitive internal
@@ -540,6 +589,12 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-002**: The system MUST display the selected package's current price,
   description, participant constraints, supported design/material information,
   and booking availability information.
+- **FR-002a**: The public REST contract MUST expose session discovery as
+  `GET /workshop-sessions`, requiring one package reference, one `locationId`
+  reference, and `from`/`to` range criteria. It MUST return only the
+  customer-safe sale-eligibility snapshot from 003.2 for sessions applicable
+  to that package and canonical location; it MUST NOT disclose holds, bookings, customers,
+  payments, tickets, staff, or internal capacity implementation details.
 - **FR-003**: The system MUST allow a Guest or Member to select one published
   package/course, its offered required-session set, participant count, and
   required booking contact information before submitting a booking. It MUST NOT
@@ -551,7 +606,7 @@ appropriate booking summary without exposing another customer's booking.
   submitted values as immutable booking contact snapshots.
 - **FR-003b**: For a direct-Mland Silverclay package, the system MUST require
   exactly two distinct published, customer-selectable workshop sessions at the
-  same branch at booking submission. A session is a common workshop slot, not a
+  same canonical location at booking submission. A session is a common workshop slot, not a
   Silverclay-only slot type, and V1 MUST NOT require a preconfigured
   session-pair or cohort. The system MUST order the selected sessions
   chronologically as session 1 and session 2. If both selected sessions are on
@@ -572,12 +627,16 @@ appropriate booking summary without exposing another customer's booking.
   for a single accepted booking submission and must not leave an incomplete
   booking when creation fails.
 - **FR-007**: The system MUST create one payment-pending package invoice per
-  booking, freeze the total booking amount as the selected participant count
-  multiplied by the selected package's price per participant, and calculate the
-  required deposit as 50% of that total booking amount.
-- **FR-007a**: V1 MUST permit publication only of an even-VND price per
-  participant, so that the frozen booking total and its 50% deposit are exact
-  whole-VND amounts; V1 MUST NOT apply a deposit-rounding rule.
+  booking and freeze the package total, post-promotion amount, deposit, and
+  remaining amount together. The package total is the selected participant count
+  multiplied by the selected package's price per participant; deposit and
+  remaining amount follow FR-007a.
+- **FR-007a**: The system MUST freeze the post-promotion booking amount,
+  deposit, and remaining amount together. Deposit equals
+  `ceil(post_promotion_amount / 2)` whole VND; remaining amount equals
+  `post_promotion_amount − deposit`. It MUST preserve all three snapshots and
+  MUST NOT reject an otherwise valid booking merely because the post-promotion
+  amount is odd VND.
 - **FR-008**: The system MUST hold the requested capacity temporarily in every
   required session for a pending booking, for no longer than 15 minutes.
 - **FR-009**: The system MUST release the temporary capacity hold when valid
@@ -598,9 +657,13 @@ appropriate booking summary without exposing another customer's booking.
   minute before the 15-minute hold expires (minute 14). It MUST NOT run after
   hold expiry or treat a browser return as payment evidence.
 - **FR-010c**: V1 MUST accept only the approved VNPAY HMAC-SHA512 checksum
-  configuration. It MUST verify checksum validity before reading a callback or
-  QueryDR result as payment evidence; a missing or invalid checksum MUST be
-  rejected without booking, capacity or ticket side effects.
+  configuration. `paymentintegration` MUST verify checksum validity once before
+  routing a callback or QueryDR result as payment evidence; a missing or invalid
+  checksum MUST be rejected without booking, capacity or ticket side effects.
+- **FR-010e**: 003.1 MUST consume a redacted verified `DEPOSIT` evidence
+  conclusion only through `WorkshopBookingFacade`; it MUST NOT expose or own a
+  VNPay IPN HTTP route, raw callback payload, checksum verification, or routing
+  of final-payment/refund evidence.
 - **FR-011**: The system MUST confirm a booking only after one valid, signed,
   non-duplicate deposit payment confirmation is accepted, and MUST set its
   financial status to `DEPOSIT_PAID`.
@@ -629,6 +692,12 @@ appropriate booking summary without exposing another customer's booking.
   reference/number when supplied, amount, currency, outcome/status codes,
   provider/received time and correlation/idempotency evidence. It MUST NOT
   retain raw IPN/QueryDR payload, checksum or signing secret.
+- **FR-013d**: The public REST contract MUST expose Manager-only late-payment
+  follow-up as `POST /workshop-bookings/{bookingCode}/late-payment-follow-ups`.
+  It accepts exactly one action, `RECORD` or `ESCALATE`, and a required
+  audit-safe reason, then returns a safe follow-up outcome. It MUST NOT confirm
+  or reactivate a booking, restore capacity, issue tickets, or create or
+  reissue a payment link.
 - **FR-014**: The system MUST generate a booking code and exactly
   `participant_count` independent QR check-in tickets after successful deposit
   confirmation. One booking/invoice/payment transaction settles the whole ticket
@@ -659,6 +728,24 @@ appropriate booking summary without exposing another customer's booking.
   active Magic Link. Server-enforced resend limits MUST be configurable and
   separate for self-service and internal resend. A rejected request MUST send
   no email and create no ticket or Magic Link, and MUST return a safe error.
+- **FR-014h**: The public REST contract MUST expose confirmation resend as
+  `POST /workshop-bookings/{bookingCode}/confirmation-deliveries`. It MUST use
+  existing Member ownership or Guest booking-code plus exactly one stored
+  contact phone/email proof; it MUST also allow an authorized in-branch Staff
+  or Manager. The command MUST deliver only to the stored booking contact and
+  MUST NOT accept a replacement destination, change booking/payment/ticket/
+  Magic-Link state, or disclose unnecessary contact data.
+- **FR-014i**: After a confirmed booking, accepted confirmation resend, or
+  accepted Magic-Link rotation, 003.1 MUST persist a unique immutable booking
+  notification handoff in the same local transaction as that accepted business
+  outcome and publish its reference only after commit. The handoff event MUST
+  contain only notification reference, booking reference, notification kind,
+  and correlation reference; it MUST NOT contain a recipient address, ticket
+  credential/QR payload, Magic-Link value, payment data, or unnecessary PII.
+  Feature 007 obtains the immutable render-ready payload only through the
+  approved 003.1 notification-delivery facade, and owns idempotent provider
+  delivery/retry and operational logs; delivery failure MUST NOT reverse the
+  accepted Booking outcome.
   Every accepted self-service resend MUST create minimal safe business audit
   evidence; delivery attempts and retries remain operational logs.
 - **FR-015a**: A confirmation notification failure MUST NOT roll back a valid
@@ -724,6 +811,11 @@ appropriate booking summary without exposing another customer's booking.
   reason and MUST record audit evidence containing actor reference, booking
   code, branch, action, reason, outcome, and correlation reference. The audit
   evidence MUST NOT retain a raw Magic Link, token, or QR payload.
+- **FR-017b6a**: The public REST contract MUST expose Manager-only Magic-Link
+  incident handling as `POST /workshop-bookings/{bookingCode}/magic-link-incidents`.
+  The command MUST contain exactly one action, `REVOKE` or `ROTATE`, and the
+  required Manager reason. It returns only a safe incident outcome and MUST NOT
+  disclose a Magic Link, QR payload, contact proof, or replacement email.
 - **FR-017b8**: Each required business audit event in this feature MUST contain
   only actor type or identity reference when available, booking code, applicable
   branch, action, outcome, correlation reference, and timestamp; a
@@ -739,9 +831,16 @@ appropriate booking summary without exposing another customer's booking.
   persistent client credential store. Each later link opening MUST exchange the
   value again. An expired or revoked value MUST reveal no booking data and MUST
   offer Guest booking-code plus stored-phone recovery without logging the value.
+- **FR-017b9a**: The React + Vite client MUST use the approved booking route
+  map: `/workshops`, `/workshops/:packageId`, `/workshops/:packageId/book`,
+  `/workshop-booking/lookup`, `/workshop-booking/access#token`, and
+  `/workshop-booking/:bookingCode/payment-return`. The browser-return route
+  MUST display only current server-confirmed state and MUST NOT use redirect
+  parameters as payment evidence or confirmation authority.
 - **FR-017b7**: Before any internal resend, Magic Link incident action, or
-  late-payment follow-up action, the server MUST recheck actor authorization,
-  active account state, entitlement, and booking-branch scope. If any check
+  late-payment follow-up action, the server MUST recheck
+  canonical account facts, the applicable Booking action rule, and
+  booking-branch scope. If any check
   fails, it MUST deny the action without side effects, return a safe error, and
   record a minimal denied-attempt audit for the sensitive internal action.
 - **FR-017e**: The current booking flow MUST NOT require or invoke the legacy

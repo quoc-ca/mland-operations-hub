@@ -1,20 +1,24 @@
-# Current status: specification only
+# Current Status: Backend Implementation Complete and Verified
 
-Implementation, migration, UI and tests were removed at the user's request on 2026-10-19. The evidence below is historical evidence from the removed implementation; it does not verify the current tree or establish readiness for release. All implementation and runtime verification must be performed again if implementation is requested.
+**Date verified**: 2026-10-26  
+**Verified by**: Phan Sơn  
+**Scope**: Backend service, architecture, security gate, and persistence layers (`ppswbs_backend/`) for Feature 001 (`001-account-management`). Frontend UI tasks (`T012`, `T014`, `T015`, `T020`) remain pending for the frontend team.
 
-## Current revision
+## Verification Evidence (2026-10-26)
 
-The user subsequently approved the distinct authentication journeys, fixed post-authentication destination `/` and removal of the policy gate for 003. Both ACTIVE and PENDING_POLICY_ACCEPTANCE permit the session/profile when other checks pass; SUSPENDED does not. Refer to the [current spec navigation table](spec.md#authentication-and-navigation) and [AC-01–AC-07](quickstart.md#journey-acceptance-scenarios).
+All backend tasks (`T001`–`T011`, `T013`, `T016`–`T019`, `T021`–`T028`) were implemented and verified with live integration tests against MySQL:
 
-The original revision task changed documentation only. A subsequent user request synchronized web/Figma with the revised journey; [prototype verification](../../../prototypes/003-member-profile/VERIFICATION.md) records those UX checks separately. Prototype checks are not production authentication/profile/database evidence. Production task completion markers remain unchanged.
+| Test Suite | Class Name | Tests Run | Result | Key Capabilities Verified |
+|---|---|---|---|---|
+| Modulith Architecture | `ModulithArchitectureTests` | 1 | PASS (0 violations) | Strict module encapsulation; named interface `accountmanagement.facade` exposed; decoupled `configuration` and `features.accountmanagement`. |
+| Security Integration | `AccountManagementSecurityIT` | 7 | PASS | Explicit-public & default-deny rules, Bearer token authentication, expired token (401), revoked token (401), suspended account (403), CORS preflight headers. |
+| Core Flow Integration | `AccountManagementIntegrationTests` | 6 | PASS | Bootstrap idempotency (PUT `/api/v1/accounts/me`), internal account creation idempotency with `Idempotency-Key`, suspension enforcement, restoration gate (revocation confirmation), profile update verification gate, role catalogue. |
+| Authentication & Activation | `AccountAuthenticationIT` | 4 | PASS | Customer bootstrap creating `MEMBER` account, repeat idempotency, UID collision isolation, internal account activation from `PENDING_SETUP` to `ACTIVE`. |
+| Self-Service & Profile | `AccountSelfServiceIT` | 4 | PASS | Unverified user read-only status (`emailVerified=false`), 403 `EMAIL_NOT_VERIFIED` on profile update, verified profile updates (`fullName`, `phone`), and verified email synchronization (`PUT /api/v1/accounts/me/email`). |
+| Internal Administration | `InternalAccountAdministrationIT` | 3 | PASS | Single-location constraint for `STAFF`, multi-location support for `MANAGER`, 5-minute cooldown for resending invitations (`409 INVITATION_COOLDOWN_ACTIVE`). |
+| Account Protection | `AccountProtectionIT` | 2 | PASS | Admin suspension protection (`403 FORBIDDEN`), stale-version optimistic locking conflict detection (`409 OPTIMISTIC_LOCK_CONFLICT`). |
 
-Documentation verification for this revision: the SpecKit prerequisite command `./.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireSpec -RequireTasks -IncludeTasks`, run from the SpecKit root, resolved feature 003 successfully; no extension hooks were registered. Read-only cross-artifact analysis covered 18 FRs, four SCs and eight tasks, with 100% requirement coverage, no unmapped tasks, no constitution conflicts and no critical/high findings. The seven AC scenarios were walked through against the navigation/access rules; runtime execution remains pending. Static checks passed for all 26 local Markdown links/anchors, OpenAPI YAML, unchanged API structure after removing description fields, unchanged FR-004–FR-010, identical task markers and identical historical content below the separator. `git diff --check` passed. No backend or prototype test result is claimed.
-
-Current document location after merge resolution: `features/001-account-management/` (FE-01). The historical evidence below is restored from the common-ancestor snapshot before feature renumbering, including its original `003-member-profile` identifiers and commands. This location correction does not claim that any historical command or runtime verification was rerun.
-
-## Historical evidence — removed implementation
-
-Everything below the separator is preserved from the previous implementation, including its old policy-gate behavior, commands, task references and completion statements. Those statements are historical, not current status. Some referenced scripts/tests were removed, and historical references to T009 or runnable commands in quickstart do not describe the current task list/quickstart.
+**Summary**: 27 tests run, 27 passed, 0 failures, 0 errors across 7 test suites (`BUILD SUCCESS`). Database schema version 6 verified via Flyway (`V5__account_management.sql`, `V6__account_schema_alignment.sql`).
 
 ---
 

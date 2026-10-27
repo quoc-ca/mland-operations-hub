@@ -1,7 +1,7 @@
 # Research: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -67,4 +67,4 @@ This file preserves approved OTA decisions migrated from the shared `ppswbs-spec
 - Provider contract/onboarding, credentials, callback authentication, quotas, supported ticket delivery, and scan evidence.
 - Klook price semantics, commission, taxes/fees, currency/FX, and payout terms.
 - Provider-written decision for a booking received after a sales-close update, including timeout/retry/idempotency and capacity responsibility.
-- Approved capability mapping for channel configuration, reconciliation, and incident fallback; display role labels do not grant authority. Confirmed boundary: branch-scoped Manager handles business sync/reconciliation; Admin owns provider credentials/connection and cross-branch recovery.
+- Account Management supplies canonical role/status/location facts; OTA Connectivity owns action rules for channel configuration, reconciliation and incident fallback. Display role labels, Firebase claims and retired codes do not grant authority. A location-scoped Manager handles business sync/reconciliation; Admin owns provider credentials/connection and cross-location recovery.

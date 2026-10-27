@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -11,15 +11,15 @@
 
 Design a provider-neutral OTA-connectivity module that lets Mland publish approved workshop schedule, availability, and sales-closed state while Mland remains the source of truth for capacity, bookings, and tickets. Klook and GetYourGuide are candidate adapters, not enabled integrations. Each provider can move from preparation synchronization to booking only after its separate onboarding, commercial, callback, ticket/QR, and late-booking gates are evidenced.
 
-The planned design uses an adapter boundary, durable change delivery, idempotent inbound processing, audit-safe reconciliation, and facade calls to Booking, Operations, Settlement, and Account/Personnel. It deliberately does not promise a real-time SLA or accept an OTA booking before the provider gate is approved.
+The planned design uses an adapter boundary, durable change delivery, idempotent inbound processing, audit-safe reconciliation, and facade calls to Booking, Operations, Settlement, and Account Management. Account Management supplies canonical account facts while OTA Connectivity applies its own action rules. It deliberately does not promise a real-time SLA or accept an OTA booking before the provider gate is approved.
 
 ### Resolved Operations Snapshot Consumer Boundary
 
 003.4 consumes, but never constructs or recalculates, the authoritative
 schedule snapshot and availability/sale-state snapshot from 003.2. The schedule
-input is limited to opaque session identity, branch, scheduled start/end, source
+input is limited to opaque session identity, canonical location, scheduled start/end, source
 change identity/version, and effective time. The availability/sale-state input
-is limited to opaque session identity, branch scope, sellable availability, sale
+is limited to opaque session identity, canonical location scope, sellable availability, sale
 state, source change identity/version, and effective time. The input excludes
 PII, Booking/payment/ticket detail, and OTA mapping. Sellable availability
 already subtracts confirmed ticket seats and active, unexpired direct-Mland holds.
@@ -56,7 +56,7 @@ provider delivery failure suspends the mapping.
 issuance; 003.4 consumes the 003.2 schedule and availability/sale-state
 snapshots without recalculating or writing them; no provider secret, customer
 card data, or raw callback payload may appear in logs; server-side capability
-and branch scope decide authorization; all OTA booking effects must be
+and location scope decide authorization; all OTA booking effects must be
 idempotent; a failed mapping closes OTA sales until confirmed re-sync.
 
 **Scale/Scope**: Initial `PER_PERSON` workshop offers only. Preparation synchronization may cover schedule, availability, and sales-closed state. Booking, ticket delivery, cancellation/refund handling, and payout reconciliation are enabled per provider only after the go-live gates in [spec.md](./spec.md) are approved.
@@ -66,7 +66,7 @@ idempotent; a failed mapping closes OTA sales until confirmed re-sync.
 | Gate | Pre-design | Post-design | Evidence / condition |
 | --- | --- | --- | --- |
 | Module integrity | PASS | PASS | A dedicated OTA facade owns channel state and calls Booking, Operations, Settlement, and Account/Personnel only through their facades. |
-| Identity and data | PASS | PASS | Firebase establishes Mland user identity; Mland capability plus branch scope authorizes actions. Provider callback identity is a separate verified integration credential, never a user identity. |
+| Identity and data | PASS | PASS | Firebase establishes Mland user identity; Account Management supplies canonical role/status/location facts and OTA Connectivity applies its location/resource action rules. `workshop_location.id` is directly comparable to `activeLocationIds`; provider callback identity is a separate verified integration credential, never a user identity. |
 | REST and frontend separation | PASS | PASS | Proposed REST paths are versioned/plural; a separate React/Vite client consumes API contracts only. |
 | Persistence and migration safety | PASS | PASS | JPA-owned records and append-only Flyway migrations; uniqueness and state invariants are tested. No raw SQL persistence design is required. |
 | Verification | PASS | PASS | Module, migration, contract, authorization, replay, failure-recovery, and reconciliation scenarios are specified below. |
@@ -144,7 +144,12 @@ The source tree is a proposed boundary, not an instruction to create it before t
 - Deduplicate inbound callbacks by provider, provider event reference, and safe payload fingerprint before invoking Mland booking/ticket effects. A duplicate therefore returns the prior outcome and never consumes additional capacity.
 - Permit only `PER_PERSON` sale and require one successful Mland ticket for each participant. A provider booking cannot become confirmed until the Operations facade atomically reserves capacity and returns those tickets.
 - Separate OTA guest payment evidence, OTA payout owed to Mland, and any direct Mland add-on bill. None is derived from a browser redirect or from another ledger.
-- Treat provider-specific timeout, retries, idempotency header, cancellation, voucher, and late-booking behavior as adapter configuration backed by written evidence, not constants inferred from public docs.
+- Treat provider-specific timeout, retries, idempotency header, cancellation,
+  and voucher behavior as adapter configuration backed by written evidence, not
+  constants inferred from public docs. Mland's late-booking rule is fixed:
+  reject/not confirm after mapping sales-close or suspension, reserve no
+  capacity, issue no ticket, and create reconciliation; provider acknowledgement
+  and retry behavior must evidence compatibility before booking enablement.
 - Treat Mland REST API details as an explicit contract now, but keep provider callback wire formats out of shared OpenAPI until each adapter's onboarding material is approved.
 - Gate booking/cancellation/add-on integration on verified upstream facades: OTA records/replays correlations, while the owning module provides atomic capacity/ticket or direct-bill effects.
 

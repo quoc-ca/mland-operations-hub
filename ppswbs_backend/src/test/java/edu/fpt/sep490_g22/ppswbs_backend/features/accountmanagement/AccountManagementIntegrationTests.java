@@ -27,6 +27,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.test.context.TestPropertySource;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -35,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@TestPropertySource(locations = "classpath:application-test.properties")
 class AccountManagementIntegrationTests {
 
     @Autowired
@@ -81,7 +83,7 @@ class AccountManagementIntegrationTests {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.role").value("MEMBER"))
             .andExpect(jsonPath("$.status").value("ACTIVE"))
-            .andExpect(jsonPath("$.loginEmail").value("user@test.com"));
+            .andExpect(jsonPath("$.email").value("user@test.com"));
 
         // Call 2 (idempotent repeat)
         mockMvc.perform(put("/api/v1/accounts/me")
@@ -284,7 +286,18 @@ class AccountManagementIntegrationTests {
     @Test
     @DisplayName("V-08: Fixed Role Catalogue (GET /api/v1/admin/roles returns 4 fixed roles)")
     void testRoleCatalogue() throws Exception {
-        mockMvc.perform(get("/api/v1/admin/roles"))
+        String token = "role-token";
+        String uid = "role-uid-" + UUID.randomUUID();
+        accountRepository.save(Account.builder()
+            .firebaseUid(uid)
+            .role(AccountRole.MEMBER)
+            .status(AccountStatus.ACTIVE)
+            .build());
+        when(tokenVerificationService.verify(eq(token)))
+            .thenReturn(new VerifiedIdentity(uid, "role@mland.vn", true, Instant.now()));
+
+        mockMvc.perform(get("/api/v1/admin/roles")
+                .header("Authorization", "Bearer " + token))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.roles.length()").value(4))
             .andExpect(jsonPath("$.roles[0].code").value("MEMBER"))

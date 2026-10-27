@@ -1,7 +1,7 @@
 # Specification Quality Checklist: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -36,5 +36,5 @@
 ## Notes
 
 - Content quality passes. The 24-hour final-payment-link exception and the
-  branch-scoped settlement capabilities are confirmed. The broader role-code
+  location-scoped settlement capabilities are confirmed. The broader role-code
   mapping remains owned by account/personnel and is not inferred here.

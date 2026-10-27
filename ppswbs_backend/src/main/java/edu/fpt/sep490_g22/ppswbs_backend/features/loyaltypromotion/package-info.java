@@ -9,7 +9,7 @@
  */
 @ApplicationModule(
         displayName = "Loyalty and Promotion (FE-06)",
-        allowedDependencies = {"common"})
+        allowedDependencies = {})
 package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion;
 
 import org.springframework.modulith.ApplicationModule;

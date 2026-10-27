@@ -1,7 +1,7 @@
 # Feature Specification: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-25
+**Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -44,17 +44,25 @@ are evidenced.
 
 ## Clarifications
 
+### Session 2026-10-27
+
+- Q: Is the Branch carried by OTA synchronization a distinct identity from the
+  workshop location used by Operations and Account Management? → A: No. It is
+  the same canonical physical resource, `workshop_location.id`. OTA receives
+  and authorizes using that location identity directly; public terminology is
+  `location`/`locationId`, and there is no branch ID, mapping, or local copy.
+
 ### Session 2026-10-24
 
 - Q: Những thay đổi lịch nào từ Mland phải tự động đồng bộ sang từng OTA candidate? → A: Tự động đồng bộ toàn bộ thay đổi ảnh hưởng lịch/availability; có retry, reconciliation và force re-sync.
-- Q: Ai được phép force re-sync lịch/availability và xử lý reconciliation của một OTA? → A: Manager theo branch xử lý sync/reconciliation nghiệp vụ; Admin quản lý connection/credentials và có quyền toàn cục.
+- Q: Ai được phép force re-sync lịch/availability và xử lý reconciliation của một OTA? → A: Manager theo location xử lý sync/reconciliation nghiệp vụ; Admin quản lý connection/credentials và có quyền toàn cục.
 - Q: Sau khi retry đồng bộ lịch/availability thất bại và chưa reconcile được, Mland phải xử lý khả năng bán của OTA đó thế nào? → A: Đóng bán mapping bị lỗi sau retry; chỉ mở lại sau resync xác nhận.
-- Q: Nếu một OTA gửi booking sau khi Mland đã đóng bán mapping do lỗi sync, Mland phải xử lý booking đó thế nào? → A: Giữ TBD; chỉ bật OTA booking sau khi provider xác nhận bằng văn bản quy tắc late booking, timeout/retry và trách nhiệm capacity.
+- Q: Nếu một OTA gửi booking sau khi Mland đã đóng hoặc suspend mapping do lỗi sync, Mland phải xử lý booking đó thế nào? → A: Mland từ chối/không xác nhận booking đến muộn, không giữ capacity, và tạo reconciliation case có audit. Mapping chỉ được mở lại sau authoritative resync và xác nhận reconciliation; không dùng overbooking hoặc tự chuyển khách sang session khác.
 
 ### Session 2026-10-25
 
 - Q: Khi 003.4 phát hiện thiếu source version hoặc không xác định được thứ tự update từ 003.2 cho một mapping đang mở bán, mapping OTA đó phải xử lý thế nào? → A: Suspend riêng mapping OTA ngay và yêu cầu authoritative resync từ 003.2; chỉ mở lại sau resync thành công. Direct-Mland booking không bị ảnh hưởng.
-- Q: Khi thời gian của một Basic Ring session thay đổi, 003.4 phải nhận lịch mới từ 003.2 bằng cách nào? → A: 003.2 cung cấp schedule snapshot nội bộ, authoritative và versioned, gồm opaque session identity, branch, scheduled start/end, source version/change identity và effective time. 003.4 không đọc entity hoặc repository của 003.2.
+- Q: Khi thời gian của một Basic Ring session thay đổi, 003.4 phải nhận lịch mới từ 003.2 bằng cách nào? → A: 003.2 cung cấp schedule snapshot nội bộ, authoritative và versioned, gồm opaque session identity, canonical location, scheduled start/end, source version/change identity và effective time. 003.4 không đọc entity hoặc repository của 003.2.
 - Q: Khi 003.2 chuyển một Basic Ring session sang `SALES_PAUSED`, 003.4 phải phản ánh lên OTA thế nào? → A: Publish trạng thái closed/zero availability theo sale state session nhưng giữ mapping OTA hợp lệ; khi 003.2 resume sales, publish mở lại theo snapshot mới.
 - Q: Nếu 003.4 phát hiện thiếu version hoặc không xác định thứ tự của schedule snapshot từ 003.2, có phải suspend mapping OTA giống availability gap không? → A: Có. Suspend riêng mapping OTA, authoritative resync schedule từ 003.2, chỉ mở lại sau khi xác nhận thành công; direct-Mland không đổi.
 - Q: 003.2 nên cấp cho 003.4 một source version tăng dần chung cho mọi thay đổi OTA-observable của cùng session, hay version riêng cho schedule và availability? → A: Một source version tăng dần chung theo từng session cho mọi thay đổi schedule, availability và sale state gửi sang 003.4.
@@ -245,7 +253,7 @@ Mland payment. The counter bill remains separate from OTA financial facts.
   force re-sync without creating a booking or capacity commitment.
 - **FR-004a1**: For a mapped Basic Ring session's creation or schedule change,
   003.4 MUST consume an authoritative, versioned internal 003.2 schedule
-  snapshot containing only opaque session identity, branch, scheduled start/end,
+  snapshot containing only opaque session identity, canonical location, scheduled start/end,
   source version/change identity, and effective time. It MUST NOT read 003.2
   entities or repositories or infer schedule values from availability data.
 - **FR-004a2**: When 003.2 reports `SALES_PAUSED` for a mapped Basic Ring
@@ -254,19 +262,23 @@ Mland payment. The counter bill remains separate from OTA financial facts.
   publish the reopened state from the new authoritative snapshot. Neither normal
   transition may be treated as mapping sync failure or require re-onboarding.
 - **FR-004b**: A Manager MAY force re-sync and resolve a business reconciliation
-  item only for an assigned branch. Admin owns OTA credentials and connection
-  configuration and MAY perform these actions across branches. Every action
-  MUST record actor, branch, channel, scope, reason, and outcome; a display
+  item only for an assigned location. Admin owns OTA credentials and connection
+  configuration and MAY perform these actions across locations. Every action
+  MUST record actor, location, channel, scope, reason, and outcome; a display
   role name alone MUST NOT grant either authority.
 - **FR-004c**: The system MUST close sales for an OTA mapping whose automatic
   synchronization retries are exhausted. It MUST keep inbound provider events
   available for reconciliation and MUST reopen sales only after a successful
   confirmed re-sync, with audit of the close and reopen outcomes.
-- **FR-004d**: Before an OTA may accept bookings, the provider MUST confirm in
-  writing its handling of bookings delivered after a sales-close update, booking
-  timeout/retry/idempotency, and capacity responsibility. Until then, Mland MAY
-  synchronize schedule/availability only in sales-closed preparation mode; it
-  MUST NOT apply an invented late-booking confirmation or rejection policy.
+- **FR-004d**: An inbound OTA booking received while its mapping is
+  sales-closed or suspended MUST be rejected/not confirmed, MUST NOT reserve
+  capacity or issue tickets, and MUST create an audited reconciliation case.
+  Mland MUST NOT overbook or automatically move the customer to another
+  session. The mapping reopens only after authoritative resync and confirmed
+  reconciliation. Before an OTA may enable bookings, its documented callback
+  acknowledgement, timeout/retry/idempotency, and capacity-responsibility
+  behaviour must support this fixed Mland rule; until then, the mapping remains
+  sales-closed preparation mode.
 - **FR-004e**: When the OTA consumer detects a missing 003.2 source version or
   cannot establish the order of availability/sale-state updates for an
   open-for-sale mapping, it MUST suspend only that OTA mapping and request an
@@ -371,8 +383,10 @@ Mland payment. The counter bill remains separate from OTA financial facts.
 - 003.3 owns direct-Mland final payment/refund. OTA money never uses its direct
   deposit/refund gateway flow.
 - Provider contracts, credentials, callback verification, quotas, commercial
-  terms, production onboarding, and written late-booking/capacity handling
-  remain per-OTA go-live gates.
+  terms, and production onboarding remain per-OTA go-live gates. The fixed
+  late-booking/capacity rule is rejection without capacity commitment; each
+  provider must evidence that its callback acknowledgement/retry behaviour can
+  honor it before booking enablement.
 - Payment/audit retention follows the approved baseline. The feature stores no
   card data, secret, raw token, or unapproved participant PII.
 - Channel availability/event processing needs durable business/audit state;
@@ -387,6 +401,7 @@ adapters, ticket gates, immutable financial facts, idempotency, and reconciliati
 are required boundaries.
 
 **Not implementation-ready yet**: Provider contracts, commercial terms,
-credential/callback configuration, quotas, authorized capability mapping, and
+credential/callback configuration, quotas, approved OTA action-authorization
+rules, and
 deployment ownership need approved follow-up design. This specification grants
 neither implementation nor publication authority.

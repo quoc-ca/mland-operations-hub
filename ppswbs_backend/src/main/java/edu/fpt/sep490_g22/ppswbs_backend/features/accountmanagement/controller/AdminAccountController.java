@@ -8,6 +8,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.InternalAccountCreateRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.InternalProfileUpdateRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.RoleLocationAssignRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.StatusCommandRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.response.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountLocationAssignment;
@@ -16,13 +17,16 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Inter
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.RevocationStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorContext;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.*;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,11 +35,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/admin/accounts")
 @RequiredArgsConstructor
 public class AdminAccountController {
 
-    private final TokenVerificationService tokenVerificationService;
     private final AdminAccountService adminAccountService;
     private final SuspensionService suspensionService;
     private final AccountRepository accountRepository;
@@ -43,16 +45,15 @@ public class AdminAccountController {
     private final AccountLocationAssignmentRepository locationAssignmentRepository;
     private final InternalAccountProvisioningRepository provisioningRepository;
 
-    @GetMapping
+    @GetMapping({"/api/v1/accounts", "/api/v1/admin/accounts"})
     public ResponseEntity<PagedResponse<AccountSummaryResponse>> listAccounts(
-        @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
         @RequestParam(value = "q", required = false) String q,
         @RequestParam(value = "role", required = false) AccountRole role,
         @RequestParam(value = "status", required = false) AccountStatus status,
         @RequestParam(value = "page", defaultValue = "0") int page,
         @RequestParam(value = "size", defaultValue = "20") int size
     ) {
-        verifyAdmin(authHeader);
+        verifyAdmin();
 
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
         Page<Account> accountPage = accountRepository.searchAccounts(q, role, status, pageRequest);
@@ -74,12 +75,9 @@ public class AdminAccountController {
             .build());
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<AccountDetailResponse> getAccountDetail(
-        @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
-        @PathVariable("id") Long id
-    ) {
-        verifyAdmin(authHeader);
+    @GetMapping({"/api/v1/accounts/{id}", "/api/v1/admin/accounts/{id}"})
+    public ResponseEntity<AccountDetailResponse> getAccountDetail(@PathVariable("id") Long id) {
+        verifyAdmin();
 
         Account account = accountRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + id));
@@ -110,22 +108,22 @@ public class AdminAccountController {
         return ResponseEntity.ok(detail);
     }
 
-    @PostMapping("/internal")
+    @PostMapping({"/api/v1/internal-accounts", "/api/v1/admin/accounts/internal"})
     public ResponseEntity<InternalAccountSummaryResponse> createInternalAccount(
-        @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
         @RequestHeader(value = "Idempotency-Key") String idempotencyKey,
         @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
-        @Valid @RequestBody InternalAccountCreateRequest request
+        @Valid @RequestBody InternalAccountCreateRequest request,
+        HttpServletRequest httpRequest
     ) {
-        Account admin = verifyAdmin(authHeader);
-        String correlationId = resolveCorrelationId(correlationHeader);
+        CurrentAccountActor admin = verifyAdmin();
+        String correlationId = resolveCorrelationId(correlationHeader, httpRequest);
 
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             throw new IllegalArgumentException("Idempotency-Key header is required");
         }
 
         Account account = adminAccountService.createInternalAccount(
-            admin.getId(),
+            admin.accountId(),
             idempotencyKey.trim(),
             request.getRole(),
             request.getFullName(),
@@ -151,16 +149,16 @@ public class AdminAccountController {
         return ResponseEntity.ok(resp);
     }
 
-    @PostMapping("/{id}/invitation/resend")
+    @PostMapping({"/api/v1/accounts/{id}/setup-invitations", "/api/v1/admin/accounts/{id}/invitation/resend", "/api/v1/admin/accounts/{id}/invitations"})
     public ResponseEntity<InternalAccountSummaryResponse> resendInvitation(
-        @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
         @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
-        @PathVariable("id") Long id
+        @PathVariable("id") Long id,
+        HttpServletRequest httpRequest
     ) {
-        Account admin = verifyAdmin(authHeader);
-        String correlationId = resolveCorrelationId(correlationHeader);
+        CurrentAccountActor admin = verifyAdmin();
+        String correlationId = resolveCorrelationId(correlationHeader, httpRequest);
 
-        InternalAccountProvisioning prov = adminAccountService.resendInvitation(admin.getId(), id, correlationId);
+        InternalAccountProvisioning prov = adminAccountService.resendInvitation(admin.accountId(), id, correlationId);
         Account account = accountRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + id));
 
@@ -179,18 +177,18 @@ public class AdminAccountController {
         return ResponseEntity.ok(resp);
     }
 
-    @PutMapping("/{id}/profile")
+    @PutMapping({"/api/v1/accounts/{id}/profile", "/api/v1/admin/accounts/{id}/profile"})
     public ResponseEntity<AccountDetailResponse> updateAccountProfileAdmin(
-        @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
         @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
         @PathVariable("id") Long id,
-        @Valid @RequestBody InternalProfileUpdateRequest request
+        @Valid @RequestBody InternalProfileUpdateRequest request,
+        HttpServletRequest httpRequest
     ) {
-        Account admin = verifyAdmin(authHeader);
-        String correlationId = resolveCorrelationId(correlationHeader);
+        CurrentAccountActor admin = verifyAdmin();
+        String correlationId = resolveCorrelationId(correlationHeader, httpRequest);
 
         adminAccountService.updateInternalProfile(
-            admin.getId(),
+            admin.accountId(),
             id,
             request.getVersion(),
             request.getFullName(),
@@ -198,21 +196,21 @@ public class AdminAccountController {
             correlationId
         );
 
-        return getAccountDetail(authHeader, id);
+        return getAccountDetail(id);
     }
 
-    @PutMapping("/{id}/role-location")
+    @PutMapping({"/api/v1/accounts/{id}/role-assignment", "/api/v1/admin/accounts/{id}/role-location"})
     public ResponseEntity<AccountDetailResponse> assignRoleAndLocation(
-        @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
         @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
         @PathVariable("id") Long id,
-        @Valid @RequestBody RoleLocationAssignRequest request
+        @Valid @RequestBody RoleLocationAssignRequest request,
+        HttpServletRequest httpRequest
     ) {
-        Account admin = verifyAdmin(authHeader);
-        String correlationId = resolveCorrelationId(correlationHeader);
+        CurrentAccountActor admin = verifyAdmin();
+        String correlationId = resolveCorrelationId(correlationHeader, httpRequest);
 
         adminAccountService.assignRoleAndLocation(
-            admin.getId(),
+            admin.accountId(),
             id,
             request.getVersion(),
             request.getRole(),
@@ -220,65 +218,71 @@ public class AdminAccountController {
             correlationId
         );
 
-        return getAccountDetail(authHeader, id);
+        return getAccountDetail(id);
     }
 
-    @PostMapping("/{id}/suspend")
-    public ResponseEntity<AccountSummaryResponse> suspendAccount(
-        @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
+    @PutMapping("/api/v1/accounts/{id}/status")
+    public ResponseEntity<AccountSummaryResponse> updateAccountStatus(
         @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
         @PathVariable("id") Long id,
-        @Valid @RequestBody AccountSuspendRequest request
+        @Valid @RequestBody StatusCommandRequest request,
+        HttpServletRequest httpRequest
     ) {
-        Account admin = verifyAdmin(authHeader);
-        String correlationId = resolveCorrelationId(correlationHeader);
+        CurrentAccountActor admin = verifyAdmin();
+        String correlationId = resolveCorrelationId(correlationHeader, httpRequest);
 
-        Account suspended = suspensionService.suspendAccount(admin.getId(), id, request.getReason(), correlationId);
+        Account account;
+        if ("SUSPEND".equalsIgnoreCase(request.getOperation())) {
+            account = suspensionService.suspendAccount(admin.accountId(), id, request.getReason(), correlationId);
+        } else if ("UNSUSPEND".equalsIgnoreCase(request.getOperation())) {
+            account = suspensionService.restoreAccount(admin.accountId(), id, correlationId);
+        } else {
+            throw new IllegalArgumentException("Unknown status command operation: " + request.getOperation());
+        }
 
+        return ResponseEntity.ok(toSummaryResponse(account));
+    }
+
+    @PostMapping("/api/v1/admin/accounts/{id}/suspend")
+    public ResponseEntity<AccountSummaryResponse> suspendAccount(
+        @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
+        @PathVariable("id") Long id,
+        @Valid @RequestBody AccountSuspendRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        CurrentAccountActor admin = verifyAdmin();
+        String correlationId = resolveCorrelationId(correlationHeader, httpRequest);
+
+        Account suspended = suspensionService.suspendAccount(admin.accountId(), id, request.getReason(), correlationId);
         return ResponseEntity.ok(toSummaryResponse(suspended));
     }
 
-    @PostMapping("/{id}/restore")
+    @PostMapping("/api/v1/admin/accounts/{id}/restore")
     public ResponseEntity<AccountSummaryResponse> restoreAccount(
-        @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
         @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
-        @PathVariable("id") Long id
+        @PathVariable("id") Long id,
+        HttpServletRequest httpRequest
     ) {
-        Account admin = verifyAdmin(authHeader);
-        String correlationId = resolveCorrelationId(correlationHeader);
+        CurrentAccountActor admin = verifyAdmin();
+        String correlationId = resolveCorrelationId(correlationHeader, httpRequest);
 
-        Account restored = suspensionService.restoreAccount(admin.getId(), id, correlationId);
-
+        Account restored = suspensionService.restoreAccount(admin.accountId(), id, correlationId);
         return ResponseEntity.ok(toSummaryResponse(restored));
     }
 
-    private Account verifyAdmin(String authHeader) {
-        String token = extractBearerToken(authHeader);
-        VerifiedIdentity identity = tokenVerificationService.verify(token);
-
-        Account account = accountRepository.findByFirebaseUid(identity.uid())
-            .orElseThrow(() -> new ResourceNotFoundException("Account not found for verified identity"));
-
-        if (account.getStatus() == AccountStatus.SUSPENDED) {
-            throw new AccountSuspendedException("Account is SUSPENDED");
-        }
-
-        if (account.getRole() != AccountRole.ADMIN) {
+    private CurrentAccountActor verifyAdmin() {
+        CurrentAccountActor actor = ActorContext.requireCurrentActor();
+        if (actor.role() != ActorRole.ADMIN) {
             throw new RoleAssignmentForbiddenException("User is not authorized for Admin operations");
         }
-
-        return account;
+        return actor;
     }
 
-    private String extractBearerToken(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new InvalidTokenException("Missing or malformed Authorization header");
-        }
-        return authHeader.substring(7).trim();
-    }
-
-    private String resolveCorrelationId(String header) {
-        return (header != null && !header.isBlank()) ? header.trim() : UUID.randomUUID().toString();
+    private String resolveCorrelationId(String header, HttpServletRequest request) {
+        if (header != null && !header.isBlank()) return header.trim();
+        String reqHeader = request.getHeader("X-Correlation-Id");
+        if (reqHeader != null && !reqHeader.isBlank()) return reqHeader.trim();
+        return UUID.randomUUID().toString();
     }
 
     private AccountSummaryResponse toSummaryResponse(Account account) {
