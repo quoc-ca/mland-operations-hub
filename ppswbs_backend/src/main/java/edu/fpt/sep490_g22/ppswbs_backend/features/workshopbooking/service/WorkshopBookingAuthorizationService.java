@@ -12,10 +12,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingAuditEvidenceRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingAuditEvidence;
+
+import java.time.Instant;
 import java.util.List;
 
 /**
- * T004: Server-side authorization service for Workshop Booking.
+ * T004 & T011: Server-side authorization service for Workshop Booking.
  * <p>
  * Invariants:
  * - Consumes ONLY public Account Management facade (AccountFacade).
@@ -24,6 +28,9 @@ import java.util.List;
  * - Does NOT use display roles, Firebase claims, or retired role codes.
  * - Does not invent role mappings or edit FE-001 Account Management.
  * - Staff and ADMIN alone do not have Magic-Link incident authority (FR-017b5).
+ * - Records minimal Booking business audit evidence on audit-eligible commands and denied attempts.
+ * - Denied commands have no business side effects.
+ * - Strictly excludes contact proof, raw Magic Link, QR, token, callback payload, and secret from audit.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,6 +38,7 @@ import java.util.List;
 public class WorkshopBookingAuthorizationService {
 
     private final AccountFacade accountFacade;
+    private final BookingAuditEvidenceRepository auditEvidenceRepository;
 
     @Value("${workshop.booking.auth.allow-test-tokens:false}")
     private boolean allowTestTokens;
@@ -50,58 +58,212 @@ public class WorkshopBookingAuthorizationService {
         return account;
     }
 
+    /**
+     * Record minimal business audit evidence. Strictly excludes contact proof, raw tokens, or secrets.
+     */
+    public BookingAuditEvidence recordAudit(String bookingCode,
+                                            Long locationId,
+                                            String actorType,
+                                            Long actorId,
+                                            String action,
+                                            String outcome,
+                                            String correlationReference,
+                                            String managerReason) {
+        BookingAuditEvidence evidence = BookingAuditEvidence.builder()
+                .bookingCode(bookingCode)
+                .locationId(locationId != null ? locationId : 0L)
+                .actorType(actorType != null ? actorType : "SYSTEM")
+                .actorId(actorId)
+                .action(action)
+                .outcome(outcome)
+                .correlationReference(correlationReference != null ? correlationReference : "UNKNOWN")
+                .managerReason(managerReason)
+                .occurredAt(Instant.now())
+                .build();
+        return auditEvidenceRepository.save(evidence);
+    }
+
+    /**
+     * Record denied attempt audit evidence without side effect.
+     */
+    public void recordDeniedAttempt(String bookingCode,
+                                    Long locationId,
+                                    String actorType,
+                                    Long actorId,
+                                    String action,
+                                    String correlationReference,
+                                    String reason) {
+        try {
+            recordAudit(bookingCode, locationId, actorType, actorId, action, "DENIED", correlationReference, reason);
+        } catch (Exception e) {
+            log.warn("Failed to persist denied audit evidence for bookingCode={}: {}", bookingCode, e.getMessage());
+        }
+    }
+
     public AccountSummary requireConfirmationResendAuthority(String authHeader, Long bookingLocationId) {
-        AccountSummary account = authenticate(authHeader);
+        return requireConfirmationResendAuthority(authHeader, bookingLocationId, null, null);
+    }
+
+    public AccountSummary requireConfirmationResendAuthority(String authHeader,
+                                                             Long bookingLocationId,
+                                                             String bookingCode,
+                                                             String correlationReference) {
+        AccountSummary account;
+        try {
+            account = authenticate(authHeader);
+        } catch (Exception ex) {
+            if (bookingCode != null) {
+                recordDeniedAttempt(bookingCode, bookingLocationId, "UNKNOWN", null, "CONFIRMATION_RESEND", correlationReference, ex.getMessage());
+            }
+            throw ex;
+        }
 
         if (!isStaff(account) && !isManager(account)) {
             log.warn("Access denied for accountId={}: confirmation resend requires STAFF or MANAGER role, found {}",
                     account.accountId(), account.role());
+            if (bookingCode != null) {
+                recordDeniedAttempt(bookingCode, bookingLocationId, account.role().name(), account.accountId(),
+                        "CONFIRMATION_RESEND", correlationReference, "Role " + account.role() + " not authorized");
+            }
             throw new WorkshopBookingForbiddenException("Confirmation resend requires STAFF or MANAGER role");
         }
 
-        verifyLocationScope(account.accountId(), bookingLocationId);
+        try {
+            verifyLocationScope(account.accountId(), bookingLocationId);
+        } catch (WorkshopBookingLocationScopeException ex) {
+            if (bookingCode != null) {
+                recordDeniedAttempt(bookingCode, bookingLocationId, account.role().name(), account.accountId(),
+                        "CONFIRMATION_RESEND", correlationReference, ex.getMessage());
+            }
+            throw ex;
+        }
         return account;
     }
 
     public AccountSummary requireMagicLinkIncidentAuthority(String authHeader, Long bookingLocationId) {
-        AccountSummary account = authenticate(authHeader);
+        return requireMagicLinkIncidentAuthority(authHeader, bookingLocationId, null, "REVOKE", null, null);
+    }
+
+    public AccountSummary requireMagicLinkIncidentAuthority(String authHeader,
+                                                            Long bookingLocationId,
+                                                            String bookingCode,
+                                                            String action,
+                                                            String reason,
+                                                            String correlationReference) {
+        AccountSummary account;
+        try {
+            account = authenticate(authHeader);
+        } catch (Exception ex) {
+            if (bookingCode != null) {
+                recordDeniedAttempt(bookingCode, bookingLocationId, "UNKNOWN", null,
+                        "MAGIC_LINK_" + action, correlationReference, ex.getMessage());
+            }
+            throw ex;
+        }
 
         if (!isManager(account)) {
             log.warn("Access denied for accountId={}, role={}: Magic Link incident handling strictly requires MANAGER role; Staff and ADMIN alone are denied",
                     account.accountId(), account.role());
+            if (bookingCode != null) {
+                recordDeniedAttempt(bookingCode, bookingLocationId, account.role().name(), account.accountId(),
+                        "MAGIC_LINK_" + action, correlationReference, "Strictly requires MANAGER role, found " + account.role());
+            }
             throw new WorkshopBookingForbiddenException(
                     "Magic Link incident management strictly requires MANAGER role; Staff and ADMIN alone are denied");
         }
 
-        verifyLocationScope(account.accountId(), bookingLocationId);
+        try {
+            verifyLocationScope(account.accountId(), bookingLocationId);
+        } catch (WorkshopBookingLocationScopeException ex) {
+            if (bookingCode != null) {
+                recordDeniedAttempt(bookingCode, bookingLocationId, account.role().name(), account.accountId(),
+                        "MAGIC_LINK_" + action, correlationReference, ex.getMessage());
+            }
+            throw ex;
+        }
         return account;
     }
 
     public AccountSummary requireLatePaymentFollowupAuthority(String authHeader, Long bookingLocationId) {
-        AccountSummary account = authenticate(authHeader);
+        return requireLatePaymentFollowupAuthority(authHeader, bookingLocationId, null, "RECORD", null, null);
+    }
+
+    public AccountSummary requireLatePaymentFollowupAuthority(String authHeader,
+                                                              Long bookingLocationId,
+                                                              String bookingCode,
+                                                              String action,
+                                                              String reason,
+                                                              String correlationReference) {
+        AccountSummary account;
+        try {
+            account = authenticate(authHeader);
+        } catch (Exception ex) {
+            if (bookingCode != null) {
+                recordDeniedAttempt(bookingCode, bookingLocationId, "UNKNOWN", null,
+                        "LATE_PAYMENT_" + action, correlationReference, ex.getMessage());
+            }
+            throw ex;
+        }
 
         if (!isManager(account)) {
             log.warn("Access denied for accountId={}, role={}: late-payment follow-up requires MANAGER role",
                     account.accountId(), account.role());
+            if (bookingCode != null) {
+                recordDeniedAttempt(bookingCode, bookingLocationId, account.role().name(), account.accountId(),
+                        "LATE_PAYMENT_" + action, correlationReference, "Requires MANAGER role, found " + account.role());
+            }
             throw new WorkshopBookingForbiddenException("Late-payment follow-up requires MANAGER role");
         }
 
-        verifyLocationScope(account.accountId(), bookingLocationId);
+        try {
+            verifyLocationScope(account.accountId(), bookingLocationId);
+        } catch (WorkshopBookingLocationScopeException ex) {
+            if (bookingCode != null) {
+                recordDeniedAttempt(bookingCode, bookingLocationId, account.role().name(), account.accountId(),
+                        "LATE_PAYMENT_" + action, correlationReference, ex.getMessage());
+            }
+            throw ex;
+        }
         return account;
     }
 
     public AccountSummary requireMemberOwnership(String authHeader, Long bookingOwnerAccountId) {
-        AccountSummary account = authenticate(authHeader);
+        return requireMemberOwnership(authHeader, bookingOwnerAccountId, null, null, null);
+    }
+
+    public AccountSummary requireMemberOwnership(String authHeader,
+                                                 Long bookingOwnerAccountId,
+                                                 String bookingCode,
+                                                 Long bookingLocationId,
+                                                 String correlationReference) {
+        AccountSummary account;
+        try {
+            account = authenticate(authHeader);
+        } catch (Exception ex) {
+            if (bookingCode != null) {
+                recordDeniedAttempt(bookingCode, bookingLocationId, "UNKNOWN", null,
+                        "MEMBER_LOOKUP", correlationReference, ex.getMessage());
+            }
+            throw ex;
+        }
 
         if (!isMember(account)) {
             log.warn("Access denied for accountId={}, role={}: access requires MEMBER role",
                     account.accountId(), account.role());
+            if (bookingCode != null) {
+                recordDeniedAttempt(bookingCode, bookingLocationId, account.role().name(), account.accountId(),
+                        "MEMBER_LOOKUP", correlationReference, "Requires MEMBER role, found " + account.role());
+            }
             throw new WorkshopBookingForbiddenException("Access requires MEMBER role");
         }
 
         if (bookingOwnerAccountId != null && !account.accountId().equals(bookingOwnerAccountId)) {
             log.warn("Ownership check failed: accountId={} does not match bookingOwnerAccountId={}",
                     account.accountId(), bookingOwnerAccountId);
+            if (bookingCode != null) {
+                recordDeniedAttempt(bookingCode, bookingLocationId, account.role().name(), account.accountId(),
+                        "MEMBER_LOOKUP", correlationReference, "Does not own booking");
+            }
             throw new WorkshopBookingForbiddenException(
                     "Account ID " + account.accountId() + " does not own booking belonging to account ID " + bookingOwnerAccountId);
         }
