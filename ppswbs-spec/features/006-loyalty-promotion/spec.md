@@ -1,7 +1,7 @@
 # Feature Specification: Loyalty & Promotion Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-27
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -181,7 +181,7 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 4. **Given** booking đã chấp nhận với 10.000đ/điểm tích và 100đ/điểm quy đổi, **When** Manager đổi thông số trước ngày hoàn thành, **Then** booking giữ chính sách/cách tính ban đầu, giao dịch được chấp nhận sau đổi dùng chính sách mới; không tính lại khoản giảm/điểm đã giữ/tổng đã đồng ý.
 5. **Given** lưu chưa xác nhận hoặc mất phản hồi, **When** kiểm tra lại, **Then** không báo cập nhật chỉ từ thao tác; giao dịch mới dùng một chính sách hợp lệ đã xác nhận.
 6. **Given** hành trình quản lí chương trình, Kho Voucher, My Loyalty, chọn ưu đãi và cấu hình, **When** dùng giao diện web tách riêng, **Then** xem/gửi dữ liệu/nhận lỗi và hoàn thành hành trình cốt lõi với đủ loading/empty/validation/success/failure/recovery; thao tác trình duyệt không thay bằng chứng quyền/thanh toán.
-7. **Given** Member/Manager vào FE-06, **When** xác thực và thao tác, **Then** dùng cơ chế chung FE-01/001, phiên theo contract FE-01/001, kiểm tra trạng thái/quyền hiện tại trên danh tính đã xác minh; phiên hết hạn/thu hồi bị từ chối, không kéo dài trượt. Yêu cầu xác thực đặc quyền do FE-01 cung cấp, FE-06 không tự chọn phương thức hoặc bỏ qua điều kiện đó.
+7. **Given** Member/Manager vào FE-06, **When** xác thực và thao tác, **Then** dùng cơ chế chung FE-01/001, phiên theo contract FE-01/001, kiểm tra trạng thái/quyền hiện tại trên danh tính đã xác minh; phiên hết hạn/thu hồi bị từ chối, không kéo dài trượt. V1 không yêu cầu MFA hay tầng xác thực bổ sung cho vai trò nội bộ (theo 001, chốt 2026-10-27); FE-06 không tự thêm yêu cầu đó.
 
 ### Edge Cases
 
@@ -262,7 +262,7 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 - **FR-037**: Không đến, hủy không hợp lệ/chưa xác nhận hoặc đã hoàn thành MUST không tự hoàn quyền lợi đã dùng. Phiên bản này không trả hàng/hoàn tiền sản phẩm, hủy workshop đã hoàn thành, thu hồi điểm kiếm từ giao dịch hoàn tất hoặc số dư âm.
 - **FR-038**: Khi thanh toán/hết hạn/hủy gần nhau hoặc kết quả muộn/chưa rõ, hệ thống MUST theo FE-03/FE-08 xác nhận, không vừa chốt vừa giải phóng, không cấp/hoàn từ trình duyệt hoặc tự tạo giao dịch/thời hạn mới do mất phản hồi.
 - **FR-039**: Hành trình FE-06 cốt lõi MUST hoàn thành được từ giao diện web chạy tách riêng; hệ thống MUST NOT phụ thuộc giao diện do máy chủ dựng. Lỗi an toàn, cho sửa/đăng nhập/thử lại, không thông báo thành công trước xác nhận.
-- **FR-040**: FE-06 MUST dùng chung cơ chế xác thực FE-01/001: phiên theo contract FE-01/001, danh tính đã xác minh, kiểm tra thu hồi/trạng thái/quyền hiện tại; không tự cấp quyền nội bộ từ phiên Member hoặc kéo dài phiên trượt. Xác thực đặc quyền do FE-01 sở hữu và phải cung cấp kết quả đủ điều kiện trước thao tác nội bộ được bảo vệ.
+- **FR-040**: FE-06 MUST dùng chung cơ chế xác thực FE-01/001: phiên theo contract FE-01/001, danh tính đã xác minh, kiểm tra thu hồi/trạng thái/quyền hiện tại; không tự cấp quyền nội bộ từ phiên Member hoặc kéo dài phiên trượt. V1 không yêu cầu MFA hay tầng xác thực bổ sung (theo 001, chốt 2026-10-27): thao tác Manager chỉ cần bearer hợp lệ, tài khoản ACTIVE và vai trò MANAGER hiện hành.
 - **FR-041**: Hệ thống MUST giữ lịch sử điểm/lượt voucher, nhật ký thay đổi và kết quả thao tác tối thiểu 5 năm; không dọn dữ liệu khi còn tham chiếu hoặc giao dịch chưa kết thúc. Thời hạn lưu không làm điểm hết hạn, mất bằng chứng chống cộng/trừ/hoàn trùng hoặc cho tái sử dụng mã voucher cũ.
 
 ### Key Entities *(include if feature involves data)*
@@ -297,7 +297,7 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 - A-003: Tiền VND, điểm nguyên; phép tính dùng chính sách ghi nhận cho giao dịch. Công thức với 10.000đ/100đ/10 điểm/10% là bộ khởi đầu, không cấm Manager đổi hợp lệ cho tương lai.
 - A-004: Các kiểm tra dấu/miền giá trị tại FR-007 và FR-026 cụ thể hóa dữ liệu hợp lệ để nghiệm thu; không đặt thêm mức giảm thương mại, ngưỡng đơn hoặc hạn mức cố định cho Manager. Giới hạn độ dài nhập liệu và thiết kế lưu dữ liệu thuộc bước thiết kế tiếp theo.
 - A-005: Khi lập plan ngày 2026-10-24, người dùng chốt lưu lịch sử điểm/lượt voucher, audit/kết quả thao tác tối thiểu 5 năm, không dọn dữ liệu còn tham chiếu hoặc giao dịch chưa kết thúc; điểm vẫn không hết hạn và mã cũ không tái sử dụng.
-- A-006: Cùng phiên lập plan, người dùng chốt dùng chung hướng FE-01/001 và FE-02 cho Member/Manager FE-06: phiên theo contract FE-01/001, quyền/trạng thái mỗi thao tác và dependency xác thực đặc quyền do FE-01 sở hữu.
+- A-006: Cùng phiên lập plan, người dùng chốt dùng chung hướng FE-01/001 và FE-02 cho Member/Manager FE-06: phiên theo contract FE-01/001, quyền/trạng thái mỗi thao tác và V1 không yêu cầu MFA hoặc tầng xác thực bổ sung theo 001 (làm rõ 2026-10-27).
 
 - A-007: Thuật ngữ: "phí sau giảm" / "net fee" / `post_promotion_amount` là cùng một giá trị (phí gói sau voucher và điểm, trước khi tính cọc); "cọc" / "deposit" là cùng một khoản, do 003.1 tính từ giá trị này.
 
