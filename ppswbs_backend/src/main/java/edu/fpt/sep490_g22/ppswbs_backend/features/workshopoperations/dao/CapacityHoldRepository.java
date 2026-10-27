@@ -29,4 +29,11 @@ public interface CapacityHoldRepository extends JpaRepository<CapacityHold, Long
 
     @Query("SELECT COALESCE(SUM(ch.requestedTicketCount), 0) FROM CapacityHold ch WHERE ch.session.id = :sessionId AND ch.state = 'ACTIVE' AND ch.expiresAt > :now")
     int sumActiveHoldsForSession(@Param("sessionId") Long sessionId, @Param("now") Instant now);
+
+    @Query("SELECT COALESCE(SUM(ch.requestedTicketCount), 0) FROM CapacityHold ch WHERE ch.session.id = :sessionId AND ch.state = 'CONFIRMED'")
+    int sumConfirmedHoldsForSession(@Param("sessionId") Long sessionId);
+
+    @Query("SELECT ch FROM CapacityHold ch WHERE ch.state = 'ACTIVE' AND ch.expiresAt <= :now")
+    List<CapacityHold> findExpiredActiveHolds(@Param("now") Instant now);
 }
+
