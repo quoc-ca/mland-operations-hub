@@ -1,13 +1,13 @@
 # Feature Specification: Loyalty & Promotion Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-26
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
 **Feature**: `006-loyalty-promotion` — FE-06  
 **Feature Branch**: Không tạo hoặc chuyển nhánh; dự án không cấu hình hook tạo nhánh.  
-**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; đặc tả nghiệp vụ là baseline cho triển khai FE-06.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24, duyệt lại ngày 2026-10-26 sau các thay đổi: clarification 2026-10-26 (giảm tự động luôn kết hợp điểm; phạm vi sản phẩm ẩn/xóa; phạm vi size là SKU cụ thể và phải thuộc sản phẩm được chọn) và quyết định cọc workshop B (`deposit = ceil(post_promotion_amount / 2)`); đặc tả nghiệp vụ là baseline cho triển khai FE-06.  
 **Input**: Dùng `$speckit-specify` để đặc tả FE-06 trong [research.md](../../research.md#fe-06), theo bộ thông số điểm và các quyết định 1–10 người dùng đã chốt ngày 2026-10-24.
 
 Nguồn chính là FE-06 hiện tại và quyết định trực tiếp trong hội thoại. Feature gồm voucher sản phẩm, voucher workshop, giảm tự động sản phẩm và điểm dùng chung; không có hạng thành viên. Không dùng report/screen cũ để khôi phục phạm vi đã bỏ hoặc thay đổi quyết định đã chốt.
@@ -20,6 +20,12 @@ Nguồn chính là FE-06 hiện tại và quyết định trực tiếp trong h�
 
 - Q: Manager có được mở lại chương trình ưu đãi đã tạm dừng để tiếp tục nhận giao dịch mới không? → A: Có, mở lại cùng chương trình/mã, giữ nguyên lịch sử và lượt đã dùng/đang giữ; giao dịch mới vẫn kiểm tra thời gian, phạm vi và hạn mức hiện hành. Mở lại không tự gia hạn hoặc đặt lại lượt.
 - Q: Khi booking workshop đã dùng voucher bị hủy hợp lệ, báo cáo lượt đã dùng và tổng tiền đã giảm có loại booking đó khỏi số liệu tổng không? → A: Có, loại booking đã hủy hợp lệ khỏi lượt đã dùng và tổng tiền giảm hiện tại sau khi ghi nhận kết quả xử lí hủy; giữ nguyên lịch sử dùng và hoàn để tra cứu. Lượt đang giữ không tính là đã dùng; gửi lặp kết quả hủy không trừ số liệu thêm lần nữa.
+
+### Session 2026-10-26
+
+- Q: Giảm tự động sản phẩm có được kết hợp điểm không? → A: Luôn được kết hợp điểm; Manager không có lựa chọn tắt cho loại này. Lựa chọn cho/không kết hợp điểm chỉ có ở voucher. Quy tắc chọn giảm tự động theo khoản giảm lớn nhất giữ nguyên.
+- Q: Phạm vi chương trình có được chọn sản phẩm chưa công khai/đang ẩn/đã xóa, và xử lí thế nào khi sản phẩm bị ẩn/xóa sau khi tạo? → A: Được chọn sản phẩm/size chưa xóa mềm (kể cả chưa công khai, đang ẩn, ngừng bán); sản phẩm đã xóa mềm bị từ chối. Sau khi tạo, sản phẩm bị ẩn/ngừng bán/xóa thì chương trình không tự dừng, dòng đó không đủ điều kiện; thẻ công khai chỉ liệt kê sản phẩm đang công khai và ẩn chương trình khi không còn sản phẩm công khai nào; Kho Voucher hiện trạng thái "Hiện không có sản phẩm áp dụng"; Manager được cảnh báo.
+- Q: Phạm vi theo "size" là con số size trong bảng size (áp cho mọi nhẫn cùng size) hay một size cụ thể của một sản phẩm? Khi chọn cả sản phẩm và size thì size phải thuộc sản phẩm nào? → A: Size trong phạm vi là **một size cụ thể của một sản phẩm cụ thể (một SKU, ví dụ `SP000001-S09`)**, không phải con số size dùng chung cho mọi nhẫn; bảng size 5–29 cố định không đổi. Phạm vi sản phẩm và phạm vi size kết hợp bằng AND: nếu có chọn sản phẩm thì mỗi size được chọn phải thuộc một trong các sản phẩm đó, nếu không thì từ chối cấu hình; nếu chỉ chọn size (không chọn sản phẩm) thì mọi size hợp lệ. Không có loại phạm vi "mọi nhẫn cùng con số size".
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -35,9 +41,9 @@ Là Manager, tôi muốn tạo voucher riêng cho sản phẩm hoặc workshop v
 
 1. **Given** Manager có quyền và phạm vi sản phẩm/biến thể hợp lệ, **When** tạo voucher với tên, mã, thời gian, kiểu/mức giảm, mức giảm tối đa, giá trị tối thiểu, tổng lượt, lượt mỗi Member và lựa chọn kết hợp điểm, **Then** lưu đủ điều kiện; voucher chỉ dùng cho sản phẩm và không giới hạn chi nhánh.
 2. **Given** gói/lịch workshop hợp lệ, **When** tạo voucher với gói, chi nhánh, ngày/phiên, khoảng thời gian được đặt bằng mã, kiểu/mức giảm, trần giảm, phí gói tối thiểu, hạn mức và kết hợp điểm, **Then** lưu riêng cho workshop; thời gian đặt bằng mã phân biệt với ngày tham gia.
-3. **Given** Manager tạo giảm tự động sản phẩm, **When** lưu phạm vi, thời gian, mức giảm và điều kiện hợp lệ, **Then** không cần mã nhập và không giới hạn chi nhánh; không tạo giảm tự động workshop.
+3. **Given** Manager tạo giảm tự động sản phẩm, **When** lưu phạm vi, thời gian, mức giảm và điều kiện hợp lệ, **Then** không cần mã nhập, không giới hạn chi nhánh và luôn cho kết hợp điểm (Manager không tắt được); không tạo giảm tự động workshop.
 4. **Given** mã `TET10` đã được cấp, kể cả chương trình hết hạn/bị dừng, **When** tạo ` tet10 ` hoặc cấp lại cho phạm vi khác, **Then** từ chối sau khi bỏ khoảng trắng đầu/cuối và so sánh không phân biệt hoa/thường.
-5. **Given** thiếu dữ liệu, bắt đầu không trước kết thúc, mức giảm tiền/trần không nguyên dương, tỷ lệ phần trăm ngoài khoảng lớn hơn 0 đến 100%, ngưỡng tiền âm/không nguyên, lượt không nguyên dương hoặc phạm vi không hợp lệ, **When** lưu, **Then** nêu lỗi tương ứng và không lưu chương trình thiếu điều kiện.
+5. **Given** thiếu dữ liệu, bắt đầu không trước kết thúc, mức giảm tiền/trần không nguyên dương, tỷ lệ phần trăm ngoài khoảng lớn hơn 0 đến 100%, ngưỡng tiền âm/không nguyên, lượt không nguyên dương hoặc phạm vi không hợp lệ (gồm sản phẩm/biến thể không tồn tại, biến thể không thuộc sản phẩm hoặc sản phẩm đã xóa mềm; sản phẩm chưa công khai/đang ẩn/ngừng bán vẫn được chọn), **When** lưu, **Then** nêu lỗi tương ứng và không lưu chương trình thiếu điều kiện.
 6. **Given** Guest, Member, Staff hoặc tài khoản không có quyền Manager hiện hành, **When** tạo/sửa/tạm dừng/mở lại chương trình, **Then** từ chối; biết mã hoặc liên kết không cấp thêm quyền.
 7. **Given** chương trình ngày lễ, **When** tạo, **Then** vẫn thuộc sản phẩm hoặc workshop với thời gian riêng, không thành lớp voucher cộng thêm.
 8. **Given** lưu lỗi hoặc mất phản hồi, **When** kiểm tra lại trước khi gửi lại, **Then** chỉ báo thành công khi có kết quả xác nhận và không tạo trùng từ thao tác đã ghi nhận.
@@ -73,7 +79,7 @@ Là khách, tôi muốn hiểu điều kiện; khi là Member, tôi muốn lưu 
 **Acceptance Scenarios**:
 
 1. **Given** ưu đãi tại trang sản phẩm, gói workshop hoặc trang ưu đãi, **When** đọc thẻ, **Then** thấy phạm vi Mua sản phẩm/Đặt workshop, mức giảm, trần giảm, giá trị tối thiểu, thời hạn và có cho kết hợp điểm không.
-2. **Given** mở điều kiện, **When** đọc, **Then** thấy sản phẩm/biến thể hoặc gói, chi nhánh/ngày/phiên workshop nếu có, tổng hạn mức và lượt mỗi Member theo cấu hình.
+2. **Given** mở điều kiện, **When** đọc, **Then** thấy sản phẩm/biến thể hoặc gói, chi nhánh/ngày/phiên workshop nếu có, tổng hạn mức và lượt mỗi Member theo cấu hình. Thẻ/chi tiết công khai chỉ liệt kê sản phẩm trong phạm vi đang công khai; chương trình sản phẩm không còn sản phẩm nào công khai trong phạm vi không hiện ở danh sách ưu đãi công khai, còn trong Kho Voucher vẫn hiện kèm trạng thái "Hiện không có sản phẩm áp dụng".
 3. **Given** Guest chọn Lưu, **When** chưa đăng nhập, **Then** được hướng dẫn đăng nhập; Member lưu thành công thì mã thuộc kho chính mình, lưu lặp không thêm quyền.
 4. **Given** đã lưu mã, **When** xem kho/chọn ở checkout, **Then** thấy điều kiện hiện tại; lưu chưa giữ lượt/điểm, chưa tiêu hạn mức và không bảo đảm dùng được. Member vẫn nhập trực tiếp mà không lưu trước; nhập ` sp10 ` tra được cùng voucher `SP10` nếu mã đó tồn tại, rồi vẫn kiểm tra điều kiện giao dịch.
 5. **Given** mã hết hạn/bị dừng/chưa đủ điều kiện, **When** xem/chọn, **Then** nêu tình trạng, không coi có trong kho là đủ điều kiện.
@@ -94,7 +100,7 @@ Là Member, tôi muốn chọn một giảm tự động hoặc một voucher v�
 3. **Given** nhiều giảm tự động hợp lệ, **When** tính, **Then** chọn khoản giảm lớn nhất, bằng nhau ưu tiên chương trình tạo trước. Chọn voucher thay thế thì bỏ giảm tự động, không cộng dồn.
 4. **Given** sau voucher còn 750.000đ tiền hàng và Member có 200 điểm khả dụng, **When** dùng điểm, **Then** hiển thị tối đa 200 điểm, giảm 20.000đ; cộng giao hàng 30.000đ thì trả 760.000đ. Thanh toán đầy đủ được xác minh thì cơ sở tích là 730.000đ, được 73 điểm mới.
 5. **Given** đủ điểm và được kết hợp, **When** giá trị sau ưu đãi là 9.900đ, **Then** tối đa 9 điểm nên không dùng được mức tối thiểu 10; giá trị 10.000đ thì dùng tối đa 10 điểm. Khách chọn không dùng hoặc số điểm nguyên từ mức tối thiểu tới tối đa.
-6. **Given** chương trình không cho kết hợp điểm, **When** chọn, **Then** không cho dùng điểm và nêu lý do dù Member còn điểm.
+6. **Given** voucher không cho kết hợp điểm (giảm tự động luôn cho kết hợp), **When** chọn, **Then** không cho dùng điểm và nêu lý do dù Member còn điểm.
 7. **Given** đang thử mã/chọn điểm, **When** chưa xác nhận đơn, **Then** chưa giữ quyền lợi. Khi xác nhận, kiểm tra lại giá/điều kiện/số dư/hạn mức và chỉ chấp nhận đơn cùng phần giữ hợp lệ; thất bại không để giữ dở dang.
 8. **Given** mã workshop hoặc mã sai/hết hạn/dừng/hết lượt/chưa đạt ngưỡng, **When** áp dụng, **Then** nêu lý do và cho chọn lại hoặc không dùng. Giá/điểm/hạn mức đổi trước chấp nhận thì cho xác nhận tổng mới, không tạo đơn khác tổng khách đã đồng ý.
 9. **Given** FE-08 xác nhận thanh toán đầy đủ hoặc chấp nhận đơn 0đ hợp lệ, **When** chốt, **Then** chốt lượt/trừ điểm đúng một lần; đơn 0đ không chờ cổng thanh toán và không tích điểm từ phần đã giảm hết.
@@ -111,7 +117,7 @@ Là Member đặt trực tiếp website, tôi muốn dùng voucher workshop và 
 **Acceptance Scenarios**:
 
 1. **Given** voucher hợp lệ theo gói, chi nhánh, ngày/phiên, thời gian đặt, ngưỡng và hạn mức, **When** chọn, **Then** tối đa một voucher/booking; trần giảm cho cả booking không nhân số người.
-2. **Given** phí gói 1.000.000đ, voucher giảm 100.000đ cho kết hợp, dùng 200 điểm và FE-03 cung cấp cọc 50% trong dữ liệu kiểm thử, **When** tính, **Then** phí còn 880.000đ, cọc 440.000đ và còn thu 440.000đ; 50% chỉ là dữ liệu minh họa, không thành chính sách FE-06.
+2. **Given** phí gói 1.000.000đ, voucher giảm 100.000đ cho kết hợp, dùng 200 điểm, **When** tính, **Then** phí còn 880.000đ, cọc `ceil(880.000/2)` = 440.000đ và còn thu 440.000đ. Nếu phí sau giảm lẻ (ví dụ voucher cố định 15.001đ → 984.999đ) thì cọc = 492.500đ, còn lại 492.499đ; FE-06 không tính và không lưu cọc: chỉ giao `post_promotion_amount` cho 003.1, quy tắc cọc và số còn lại thuộc 003.1. Phí sau giảm 1đ vẫn hợp lệ (phí sau giảm dương); cọc và còn lại khi đó do 003.1 quyết định.
 3. **Given** booking trên, **When** chọn điểm, **Then** trần theo phí sau voucher 900.000đ là 90.000đ/900 điểm, còn bị giới hạn bởi điểm khả dụng; không tính riêng trên cọc. Không được kết hợp hoặc dưới mức tối thiểu thì không cho dùng và nêu lý do.
 4. **Given** xác nhận booking hợp lệ, **When** FE-03 chấp nhận, **Then** giữ lượt/điểm và ghi chính sách lúc đặt; xác minh cọc thành công mới chốt/trừ. Thu phần còn lại không giảm voucher hoặc trừ điểm lần nữa.
 5. **Given** mới đặt/trả cọc/check-in hoặc đã trả đủ nhưng chưa hoàn thành, **When** xét điểm mới, **Then** chưa cộng; khi hoàn thành và trả đủ 880.000đ thì cộng một lần 88 điểm.
@@ -180,6 +186,7 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 ### Edge Cases
 
 - Mã khác hoa/thường/khoảng trắng, mã phạm vi còn lại và mã hết hạn vẫn kiểm tra duy nhất; lưu mã chưa giữ lượt.
+- Sản phẩm trong phạm vi chương trình bị ẩn, ngừng bán hoặc xóa mềm sau khi tạo: chương trình không tự tạm dừng và không đổi phạm vi; dòng đó không đủ điều kiện ở checkout, sản phẩm khác trong phạm vi vẫn dùng được; lịch sử/báo cáo giữ tham chiếu cũ. Chi tiết chương trình của Manager cảnh báo phạm vi đang ẩn/đã xóa để Manager tự quyết định tạm dừng.
 - Giỏ trộn dòng đủ/không đủ điều kiện; ngưỡng vừa đủ/thiếu một đồng; giảm cố định vượt phần đủ điều kiện; phần trăm có phần lẻ không làm tổng âm.
 - Nhiều giảm tự động bằng khoản giảm ưu tiên tạo trước; thứ tự phụ khi trùng cả thời điểm thuộc thiết kế plan, không thay quy tắc khoản giảm lớn nhất.
 - Chọn 0 điểm là không dùng; chọn 1–9 điểm theo cấu hình đầu không hợp lệ. Khả dụng phải trừ mọi phần đang giữ, không chỉ đọc số dư tổng.
@@ -205,22 +212,22 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 
 - **FR-003**: Manager MUST tạo được voucher sản phẩm với tên, mã, thời gian, sản phẩm/biến thể, kiểu/mức giảm, trần giảm, ngưỡng phần đủ điều kiện, tổng lượt, lượt mỗi Member và cho/không kết hợp điểm.
 - **FR-004**: Manager MUST tạo được voucher workshop với tên/mã, gói/chi nhánh/ngày/phiên, thời gian đặt bằng mã, kiểu/mức giảm, trần giảm, phí gói tối thiểu, tổng lượt, lượt mỗi Member và kết hợp điểm; thời gian đặt phân biệt lịch tham gia.
-- **FR-005**: Manager MUST tạo được giảm tự động sản phẩm theo phạm vi, thời gian, kiểu/mức giảm và điều kiện tương ứng, không cần mã hoặc giới hạn chi nhánh.
+- **FR-005**: Manager MUST tạo được giảm tự động sản phẩm theo phạm vi, thời gian, kiểu/mức giảm và điều kiện tương ứng, không cần mã hoặc giới hạn chi nhánh. Giảm tự động luôn cho kết hợp điểm; không có lựa chọn tắt kết hợp điểm cho loại này.
 - **FR-006**: Hệ thống MUST bỏ khoảng trắng đầu/cuối và so sánh mã không phân biệt hoa/thường; mã duy nhất toàn hệ thống, không tái sử dụng. Không đổi mã hoặc phạm vi sản phẩm/workshop sau tạo.
-- **FR-007**: Hệ thống MUST kiểm tra trường bắt buộc, bắt đầu trước kết thúc, mức giảm tiền/trần nguyên VND dương, tỷ lệ giảm lớn hơn 0 không quá 100%, ngưỡng tiền nguyên VND không âm, lượt tổng/mỗi Member nguyên dương và phạm vi hợp lệ; từ chối dữ liệu sai hoặc thiếu quyền. Không báo lưu thành công khi chưa xác nhận hoặc tạo trùng từ thao tác đã ghi nhận.
+- **FR-007**: Hệ thống MUST kiểm tra trường bắt buộc, bắt đầu trước kết thúc, mức giảm tiền/trần nguyên VND dương, tỷ lệ giảm lớn hơn 0 không quá 100%, ngưỡng tiền nguyên VND không âm, lượt tổng/mỗi Member nguyên dương và phạm vi hợp lệ. Phạm vi sản phẩm hợp lệ khi sản phẩm/biến thể tồn tại, biến thể thuộc sản phẩm và chưa bị xóa mềm; sản phẩm chưa công khai, đang ẩn hoặc size ngừng bán vẫn được chọn. Từ chối dữ liệu sai hoặc thiếu quyền. Không báo lưu thành công khi chưa xác nhận hoặc tạo trùng từ thao tác đã ghi nhận.
 - **FR-008**: Manager MUST xem danh sách/chi tiết, lọc sản phẩm/workshop, xem điều kiện/thời gian/tổng hạn mức, lượt đã dùng và tổng tiền giảm hiện tại của chương trình. Không tính lượt đang giữ hoặc booking đã ghi nhận hủy hợp lệ vào số tổng; lịch sử dùng/hoàn được giữ để tra cứu. Xử lí hủy lặp không trừ số liệu thêm lần nữa; hết hạn/tạm dừng chương trình không loại giao dịch đã chốt chưa bị hủy khỏi báo cáo.
 - **FR-009**: Manager MUST sửa điều kiện được phép cho giao dịch mới, tạm dừng và mở lại chương trình đã tạm dừng. Mở lại cùng chương trình/mã, giữ lịch sử và lượt đã dùng/đang giữ; không tự gia hạn hoặc reset lượt, giao dịch mới vẫn kiểm tra điều kiện hiện hành. Không giảm tổng hạn mức/lượt mỗi Member dưới đã dùng cộng đang giữ tương ứng theo số liệu hiện tại.
 - **FR-010**: Giao dịch đã chấp nhận MUST giữ điều kiện/quyền lợi đã ghi nhận: khoản giảm, điểm dùng, quy đổi và chính sách tích. Sửa/dừng/hết hạn chương trình không tự hủy phần giữ hợp lệ hoặc gia hạn thời hạn gốc; giao dịch mới kiểm tra điều kiện hiện hành.
 
 **Kho Voucher**
 
-- **FR-011**: Thẻ MUST hiển thị phạm vi, mức/trần giảm, giá trị tối thiểu, thời hạn và kết hợp điểm; chi tiết có đối tượng áp dụng, chi nhánh/ngày/phiên workshop nếu có, tổng hạn mức và lượt mỗi Member theo cấu hình.
+- **FR-011**: Thẻ MUST hiển thị phạm vi, mức/trần giảm, giá trị tối thiểu, thời hạn và kết hợp điểm; chi tiết có đối tượng áp dụng, chi nhánh/ngày/phiên workshop nếu có, tổng hạn mức và lượt mỗi Member theo cấu hình. Thẻ/chi tiết công khai chỉ liệt kê sản phẩm trong phạm vi đang công khai; chương trình sản phẩm không còn sản phẩm nào công khai trong phạm vi không hiện ở danh sách ưu đãi công khai, còn trong Kho Voucher vẫn hiện kèm trạng thái "Hiện không có sản phẩm áp dụng".
 - **FR-012**: Member MUST lưu/xem kho cá nhân, chọn mã đã lưu hoặc nhập trực tiếp; lưu lặp không thêm quyền, lưu chưa giữ lượt/điểm hoặc bảo đảm mã hợp lệ.
 - **FR-013**: Hệ thống MUST nêu lý do mã không tồn tại, sai phạm vi, hết hạn/dừng/hết lượt/chưa đủ điều kiện; cho chọn lại/không dùng. Mất phiên/lỗi tải/lưu phải cho đăng nhập/thử lại, không trình bày dữ liệu chưa xác nhận như hiện tại.
 
 **Ưu đãi sản phẩm**
 
-- **FR-014**: Cơ sở ngưỡng và tính giảm MUST chỉ gồm tiền dòng sản phẩm/biến thể thuộc phạm vi trước ưu đãi/điểm, không giao hàng. Giảm cố định một lần/đơn; phần trăm làm tròn xuống đến đồng; không vượt trần hoặc phần đủ điều kiện, không làm tiền hàng âm.
+- **FR-014**: Cơ sở ngưỡng và tính giảm MUST chỉ gồm tiền dòng sản phẩm/biến thể thuộc phạm vi trước ưu đãi/điểm, không giao hàng. Giảm cố định một lần/đơn; phần trăm làm tròn xuống đến đồng; không vượt trần hoặc phần đủ điều kiện, không làm tiền hàng âm. Dòng sản phẩm thuộc phạm vi nhưng không mua được theo FE-02/FE-08 (ẩn, ngừng bán, đã xóa) không được tính vào phần đủ điều kiện.
 - **FR-015**: Mỗi đơn MUST dùng tối đa một giảm tự động hoặc một voucher. Nhiều giảm tự động thì chọn khoản giảm lớn nhất, bằng nhau tạo trước; chọn voucher thay thế bỏ giảm tự động.
 - **FR-016**: Checkout MUST hiển thị điểm khả dụng, số điểm tối đa/tiền giảm tương ứng, tiền hàng, giảm chương trình, giảm điểm, giao hàng và tổng; Member chủ động chọn, không tự trừ điểm.
 - **FR-017**: Khi xác nhận, hệ thống MUST kiểm tra lại giá/điều kiện/số dư/hạn mức, ghi chính sách và chỉ chấp nhận đơn cùng phần giữ hợp lệ theo FE-08; không giữ dở dang hoặc tạo tổng khác khách xác nhận. Thử mã/mở checkout chưa giữ; thay đổi trước chấp nhận phải cho xác nhận lại.
@@ -229,7 +236,7 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 **Ưu đãi workshop**
 
 - **FR-019**: Hệ thống MUST kiểm tra gói/chi nhánh/ngày/phiên, thời gian đặt, phí tối thiểu/hạn mức; tối đa một voucher/booking, trần cả booking không nhân số người.
-- **FR-020**: Workshop MUST trừ voucher trên phí gói, tiếp đến điểm nếu được phép, rồi tính cọc theo FE-03 trên phí sau giảm; hiển thị phí đầu, từng khoản giảm, phí phải trả, cọc và còn lại. Thu phần còn lại không giảm/trừ lại.
+- **FR-020**: Workshop MUST trừ voucher trên phí gói, tiếp đến điểm nếu được phép, để ra `post_promotion_amount` (nguyên VND). FE-03/003.1 tính `deposit = ceil(post_promotion_amount / 2)` và `remaining = post_promotion_amount - deposit`; FE-06 MUST NOT tự làm tròn theo quy tắc khác, và MUST chỉ gửi/snapshot `post_promotion_amount` khi booking được chấp nhận; cọc và còn lại do 003.1 tính và giữ (003.3 dùng giá trị frozen của 003, không tính lại voucher/điểm/cọc). Hiển thị phí đầu, từng khoản giảm, phí phải trả, cọc và còn lại. Thu phần còn lại không giảm/trừ lại. Phí sau giảm lẻ vẫn hợp lệ, không bị từ chối vì lẻ.
 - **FR-021**: FE-03 chấp nhận booking thì MUST giữ lượt/điểm và ghi chính sách; xác minh cọc thành công mới chốt/trừ. Điểm/hạn mức/giá thay đổi trước chấp nhận phải tính lại và cho xác nhận phí/cọc.
 - **FR-022**: Phiên bản này MUST từ chối phí workshop sau giảm bằng 0/âm hoặc nghĩa vụ thanh toán không hợp lệ theo FE-03; cho điều chỉnh, không tạo booking miễn phí/giữ dở dang.
 
@@ -238,7 +245,7 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 - **FR-023**: Member MUST có một số dư chung hai dịch vụ, điểm cộng/hoàn không hết hạn. Chỉ dùng khả dụng, không dùng điểm dự kiến của chính giao dịch; không chia ví/xét hạng.
 - **FR-024**: Cấu hình khởi đầu MUST là 10.000đ đủ điều kiện/điểm tích, 100đ/điểm quy đổi, tối thiểu 10 điểm/lần và trần 10% sau chương trình trước điểm, chung hai dịch vụ. Sản phẩm không tính giao hàng; workshop tính phí gói, không riêng cọc.
 - **FR-025**: Điểm dùng MUST nguyên, không vượt khả dụng hoặc phần nguyên làm tròn xuống của trần tiền giảm chia giá trị mỗi điểm; theo cấu hình đầu là `min(khả dụng, floor(10% × giá trị sau ưu đãi / 100đ))`. Dưới mức tối thiểu hoặc không được kết hợp thì chặn và nêu lý do; khách có thể không dùng hoặc chọn số nguyên trong giới hạn.
-- **FR-026**: Manager MUST xem/cập nhật thông số với kiểm tra quyền/dữ liệu: tỷ lệ cộng/quy đổi dương, điểm tối thiểu nguyên dương, trần phần trăm lớn hơn 0 không quá 100%; cấu hình sai/lưu chưa xác nhận không thay chính sách hợp lệ. Kết hợp điểm lấy từ chương trình Manager cấu hình.
+- **FR-026**: Manager MUST xem/cập nhật thông số với kiểm tra quyền/dữ liệu: tỷ lệ cộng/quy đổi dương, điểm tối thiểu nguyên dương, trần phần trăm lớn hơn 0 không quá 100%; cấu hình sai/lưu chưa xác nhận không thay chính sách hợp lệ. Kết hợp điểm lấy từ voucher Manager cấu hình; giảm tự động luôn cho kết hợp điểm.
 - **FR-027**: Đổi cấu hình MUST chỉ áp dụng giao dịch được chấp nhận sau đó. Giao dịch cũ giữ thông số/cách tính lúc chấp nhận, kể cả workshop hoàn thành sau đổi; thiếu chính sách cũ không tự thay bằng mới.
 - **FR-028**: Hệ thống MUST chỉ cấp điểm cho giao dịch thuộc Member: sản phẩm trả đủ được xác minh; workshop đồng thời hoàn thành và trả đủ. Đặt booking, cọc, chỉ check-in hoặc hủy trước hoàn thành chưa/không đủ điều kiện.
 - **FR-029**: Cơ sở tích MUST là tiền hàng/phí gói thực trả sau ưu đãi/điểm, không giao hàng; làm tròn xuống điểm nguyên từng giao dịch, không cộng dồn tiền lẻ; workshop tính một lần phí thực trả, không cộng cọc rồi cộng lại cả phí.
@@ -286,11 +293,13 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 ### Nguồn và quyết định đã chốt
 
 - A-001: [FE-06](../../research.md#fe-06) và hội thoại ngày 2026-10-24 là nguồn nghiệp vụ. Thông số điểm và mục 1–10 được người dùng xác nhận trước yêu cầu viết spec, không phải giả định mới của agent.
-- A-002: Mức giảm/ngưỡng/hạn mức mỗi chương trình do Manager nhập, không cố định toàn hệ thống. Số liệu voucher và cọc 50% trong kịch bản là dữ liệu kiểm thử; bốn thông số điểm đầu là quyết định thật.
+- A-002: Mức giảm/ngưỡng/hạn mức mỗi chương trình do Manager nhập, không cố định toàn hệ thống. Số liệu voucher trong kịch bản là dữ liệu kiểm thử; cọc workshop là `ceil(post_promotion_amount / 2)` do 003.1 quy định (quyết định B, đồng bộ với 003); bốn thông số điểm đầu là quyết định thật.
 - A-003: Tiền VND, điểm nguyên; phép tính dùng chính sách ghi nhận cho giao dịch. Công thức với 10.000đ/100đ/10 điểm/10% là bộ khởi đầu, không cấm Manager đổi hợp lệ cho tương lai.
 - A-004: Các kiểm tra dấu/miền giá trị tại FR-007 và FR-026 cụ thể hóa dữ liệu hợp lệ để nghiệm thu; không đặt thêm mức giảm thương mại, ngưỡng đơn hoặc hạn mức cố định cho Manager. Giới hạn độ dài nhập liệu và thiết kế lưu dữ liệu thuộc bước thiết kế tiếp theo.
 - A-005: Khi lập plan ngày 2026-10-24, người dùng chốt lưu lịch sử điểm/lượt voucher, audit/kết quả thao tác tối thiểu 5 năm, không dọn dữ liệu còn tham chiếu hoặc giao dịch chưa kết thúc; điểm vẫn không hết hạn và mã cũ không tái sử dụng.
 - A-006: Cùng phiên lập plan, người dùng chốt dùng chung hướng FE-01/001 và FE-02 cho Member/Manager FE-06: phiên theo contract FE-01/001, quyền/trạng thái mỗi thao tác và dependency xác thực đặc quyền do FE-01 sở hữu.
+
+- A-007: Thuật ngữ: "phí sau giảm" / "net fee" / `post_promotion_amount` là cùng một giá trị (phí gói sau voucher và điểm, trước khi tính cọc); "cọc" / "deposit" là cùng một khoản, do 003.1 tính từ giá trị này.
 
 ### Phụ thuộc và ranh giới
 

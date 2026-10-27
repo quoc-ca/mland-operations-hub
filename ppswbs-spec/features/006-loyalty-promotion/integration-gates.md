@@ -1,7 +1,7 @@
 # Integration Gates — FE-06
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-26 (G-02: bàn giao provider PRODUCT từ FE-02, T091)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -10,12 +10,12 @@
 | Gate | Evidence hiện có | Owner/việc còn phải có | Điều kiện đạt |
 | --- | --- | --- | --- |
 | G-01 Identity/capability | Backend đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24): chưa có facade identity hay security configuration; 001/002 có shared-auth design | FE-01/identity cung cấp verified bearer và phiên theo contract FE-01/001, revocation/state, current Member/Manager capabilities (Admin không có capability FE-06), privileged assurance và authorization guard | Contract/API/web checks với identity thật, deny thiếu quyền/assurance, expiry/revocation và existing Member journeys không regression. 001 giao contract và facade xác thực cho frontend React. Không chọn MFA method từ loyalty. |
-| G-02 Catalogue targets/source sales | Chưa có code productmanagement/readyringsales (backend đã bị xóa); 002 có design và SPI; 008 đang thiết kế | FE-02 cung cấp product/variant facts và guard qua `LoyaltyProductTargetAdapter` (T091 của feature 002, triển khai PromotionTargetPort sau T004 của FE-06); FE-08 sở hữu price/quantity source snapshot và accepted order | Không raw repository access/fake provider; create/quote/accept scope và source guard races qua provider thật, Module verify pass. |
+| G-02 Catalogue targets/source sales | **Phần target (2026-10-26)**: `LoyaltyProductTargetAdapter` của productmanagement đã triển khai `PromotionTargetPort` cho scope PRODUCT, có test MySQL `LoyaltyProductTargetAdapterIT` và Module verify pass (xem mục "Bàn giao G-02 từ FE-02" bên dưới). **Phần source sales**: readyringsales/FE-08 chưa có code, 008 đang thiết kế | FE-02 cung cấp product/variant facts và guard qua `LoyaltyProductTargetAdapter` (T091 của feature 002, triển khai PromotionTargetPort sau T004 của FE-06); FE-08 sở hữu price/quantity source snapshot và accepted order | Không raw repository access/fake provider; create/quote/accept scope và source guard races qua provider thật, Module verify pass. |
 | G-03 Retail owner | FE-08 chưa có order/payment runtime | FE-08 tích hợp preview/accept reserve atomic, full-paid/zero outcome, original deadline, expiry/arbitration và source delivery receipts nếu cần bridge | Rollback cả hai chiều, zero không gateway, callback duplicate/late, expired/unresolved không release sai, snapshot tiền/points không đổi. |
 | G-04 Booking acceptance/deposit | Code workshopbooking cũ đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24); FE-03 thiết kế lại booking/cọc, chưa có owner lock contract đủ | FE-03 thêm selection/quote acknowledgement, net fee trước cọc, snapshot/boundary, lifecycle source lock | Invoice/cọc/remain đúng after-voucher/points, deposit settle một lần, không grant sớm; atomic creation/capacity/loyalty rollback và payment-vs-expiry test thật. |
-| G-05 Workshop hậu xử lí | Spec002 hoãn completion/cancel/no-show/final-payment; runtime chưa cấp authoritative outcomes đủ FE06 | FE-03 cung cấp xác nhận completed AND fully-paid, valid paid-cancellation trước completion, no-show final và phân xử late/conflicting outcomes | Chứng minh both conditions, policy cũ, valid cancellation restore đúng, no-show không auto restore; Guest import không retro-earn; source và loyalty history đồng bộ. |
+| G-05 Workshop hậu xử lí | Spec 003.1 hoãn completion/cancel/no-show/final-payment; runtime chưa cấp authoritative outcomes đủ FE06 | FE-03 cung cấp xác nhận completed AND fully-paid, valid paid-cancellation trước completion, no-show final và phân xử late/conflicting outcomes | Chứng minh both conditions, policy cũ, valid cancellation restore đúng, no-show không auto restore; Guest import không retro-earn; source và loyalty history đồng bộ. |
 | G-06 Data/module verification | Loyalty chưa có production/test/migration; hiện chưa có migration nào (backend đã bị xóa) | FE-06 implementation sau spec/plan/tasks review và analyze; migration number mới, MySQL8.4 upgrade, locks/receipts/audit | Empty + upgrade không mất data, invariants/concurrency và ApplicationModules.verify(); không H2-only evidence. |
-| G-07 Governance before implementation | Nghiệp vụ/retention/shared-auth đã có xác nhận; plan/contracts này Draft | Review technical design, tạo tasks theo dependency, chạy speckit-analyze; yêu cầu triển khai riêng | Không unknown ảnh hưởng task, thiết kế public contract/locking/data được review, task dependencies đủ bằng chứng. Không dùng checklist spec thay phê duyệt plan. |
+| G-07 Governance before implementation | Nghiệp vụ/retention/shared-auth đã có xác nhận; plan/contracts đã Approved ngày 2026-10-24 | Review technical design, tạo tasks theo dependency, chạy speckit-analyze; yêu cầu triển khai riêng | Không unknown ảnh hưởng task, thiết kế public contract/locking/data được review, task dependencies đủ bằng chứng. Không dùng checklist spec thay phê duyệt plan. |
 
 ## Không hỏi lại các quyết định đã có
 
@@ -32,3 +32,17 @@
 - Các gate có thể được đưa thành dependency-ordered tasks sau khi review; chưa tự chia scope triển khai hoặc bật một nửa feature từ lần lập plan này.
 - Khi muốn triển khai, đánh giá readiness lại bằng [kit](../../agent-design-kit/readiness-checklist.md). Không tự mark ready chỉ vì bộ tài liệu đủ file.
 
+
+## Bàn giao G-02 từ FE-02 (T091, 2026-10-26)
+
+- **Provider**: `edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.LoyaltyProductTargetAdapter` (Spring bean, implement `PromotionTargetPort`). `supports(PRODUCT)` = true, `supports(WORKSHOP)` = false. productmanagement chỉ import `loyaltypromotion::facade` (khai báo trong `allowedDependencies` của productmanagement); loyaltypromotion không phụ thuộc ngược.
+- **Khóa target**: ID sản phẩm (PRODUCT) hoặc ID size (VARIANT) dạng số thập phân dương, không dấu, không số 0 đầu. Khóa sai định dạng hoặc không tìm thấy → `exists=false`.
+- **Fact trả về** (một fact cho mỗi target, đúng thứ tự yêu cầu):
+  - `exists`: có trong catalogue (kể cả đã xóa mềm).
+  - `belongsToParent`: PRODUCT luôn true; VARIANT true khi sản phẩm của nó nằm trong các target PRODUCT của cùng yêu cầu, hoặc khi yêu cầu không có target PRODUCT nào (vì các dimension kết hợp bằng AND).
+  - `softDeleted`: sản phẩm (hoặc sản phẩm của size) đã xóa mềm.
+  - `publicVisible`: đủ điều kiện catalogue công khai (đang công khai, chưa xóa, danh mục hoạt động, có ảnh dùng được, mọi size có giá đã áp dụng).
+  - `purchasable`: `publicVisible` và đang bán (PRODUCT: ít nhất một size bật bán; VARIANT: size đó bật bán). Không dùng số lượng/giữ hàng của FE-08.
+- **Lỗi**: scope khác PRODUCT hoặc dimension khác PRODUCT/VARIANT → `INVALID_INPUT`; không đọc được catalogue → `DEPENDENCY_UNAVAILABLE` (không bao giờ cho phép mặc định). Không khóa dòng, không gọi remote.
+- **Đã chốt 2026-10-26** (Đặng Thị Khương, phương án A): VARIANT là một SKU cụ thể; quy tắc `belongsToParent` ở trên được giữ, không đổi contract `TargetRef`. Ghi tại `spec.md` (Clarifications, Session 2026-10-26) và `contracts/interfaces.md` (Target port). Không có loại phạm vi "mọi nhẫn cùng con số size".
+- **Chưa đóng G-02**: phần source sales (giá/số lượng/đơn đã chấp nhận) thuộc FE-08; test owner serialize xóa sản phẩm với accept của FE-06 cần FE-08.

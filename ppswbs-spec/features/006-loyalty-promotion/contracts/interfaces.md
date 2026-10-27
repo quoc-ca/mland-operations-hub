@@ -1,7 +1,7 @@
 # Interface Contracts: Loyalty & Promotion
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-26
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -76,7 +76,7 @@ Tên interface là thiết kế public của module; không phải entity/HTTP D
 `BenefitSelection`:
 
 - choice NONE/AUTO/VOUCHER, voucherCode chỉ khi VOUCHER, requestedPoints.
-- AUTO retail chọn server candidate tối ưu theo khoản giảm; workshop không AUTO.
+- AUTO retail chọn server candidate tối ưu theo khoản giảm; workshop không AUTO. AUTO luôn cho requestedPoints (allowPoints=true cố định).
 - `NONE` cho phép không chọn chương trình; điểm vẫn được dùng theo policy, trừ khi có chương trình được chọn cấm kết hợp.
 
 `AuthoritativeOutcome`:
@@ -91,7 +91,7 @@ Tên interface là thiết kế public của module; không phải entity/HTTP D
 | Operation | Input | Result / semantics |
 | --- | --- | --- |
 | previewBenefits | TrustedSourceContext, BenefitSelection, verified actor | Breakdown, normalized code/selected revision, policy revision, eligible subtotal, max points, display reasons and terms digest. Read-only; không giữ quota/điểm, không tạo accepted benefit. |
-| reserveAcceptedTransaction | AcceptedSourceContext, selection, accepted terms proof, source command key | Kiểm tra lại current program/policy/availability, so với terms khách đã đồng ý; AcceptedBenefitRef + exact money/points/policy snapshot. MANDATORY transaction, giữ cùng source accept. Nếu khác điều khoản hoặc không đủ quota/điểm thì rollback, không silently choose lại. |
+| reserveAcceptedTransaction | AcceptedSourceContext, selection, accepted terms proof, source command key | Kiểm tra lại current program/policy/availability, so với terms khách đã đồng ý; AcceptedBenefitRef + exact money/points/policy snapshot. Với WORKSHOP, snapshot chỉ gồm `postPromotionAmount` (= phí sau voucher và điểm). 003.1 tính `deposit = ceil(post / 2)` và `remaining = post - deposit` từ giá trị này, và 003.1 → 003.3 chuyển `frozenPostPromotionAmount`/`frozenRemainingAmount`; FE-06 không tính, không làm tròn và không lưu cọc hay còn lại. Phí sau giảm lẻ vẫn hợp lệ. MANDATORY transaction, giữ cùng source accept. Nếu khác điều khoản hoặc không đủ quota/điểm thì rollback, không silently choose lại. |
 | settleAcceptedBenefits | AuthoritativeOutcome paid/deposit/zero | Consume từng component đang HELD đúng lượng gốc; ghi settlement fact/outcome key một lần cả khi các component đều NONE để thống kê giảm tự động. Cùng result replay; expired/released/conflicting outcome không tự consume lại. |
 | grantEarnedPoints | AuthoritativeOutcome RETAIL_FULLY_PAID/RETAIL_ZERO_ACCEPTED hoặc WORKSHOP_COMPLETED_AND_FULLY_PAID | Policy acceptance + earnBase snapshot; một grant/giao dịch. Các component đã dùng phải CONSUMED hoặc NONE trước grant; không cấp điểm khi debit còn HELD. Workshop deposit không được gọi để grant. Zero earn ghi result0, không ledger giả. |
 | releaseHeldBenefits | AuthoritativeOutcome UNPAID_EXPIRY_CONFIRMED hoặc valid cancel | Chỉ HELD→RELEASED; không suy failure từ originalDeadline. |
@@ -103,7 +103,7 @@ Facade mutation MANDATORY, không REQUIRES_NEW. Nontransactional call bị từ 
 
 ### Target port
 
-`PromotionTargetPort.validateAndGuard(scope, targets)` được gọi trước registry lock, trong transaction Manager khi cần kiểm tra target tồn tại/hợp lệ. PRODUCT provider ở productmanagement; WORKSHOP provider ở workshopbooking. Provider trả guard/immutable references, không remote call dưới khóa. Không có provider thì DEPENDENCY_UNAVAILABLE; không bỏ qua phạm vi hoặc dùng list giả.
+`PromotionTargetPort.validateAndGuard(scope, targets)` được gọi trước registry lock, trong transaction Manager khi cần kiểm tra target tồn tại/hợp lệ. PRODUCT provider trả cho mỗi target: tồn tại, đã xóa mềm, đang công khai, đang bán; loyalty chỉ từ chối cấu hình khi target không tồn tại, variant không thuộc product hoặc đã xóa mềm, không từ chối vì chưa công khai/đang ẩn/ngừng bán (spec Clarification 2026-10-26). Danh sách ưu đãi công khai dùng facts này để chỉ liệt kê sản phẩm đang công khai và ẩn chương trình sản phẩm không còn target công khai. PRODUCT provider ở productmanagement; WORKSHOP provider ở workshopbooking. Với scope PRODUCT, `targetKey` là ID dạng số thập phân: PRODUCT là ID sản phẩm, VARIANT là ID một size cụ thể của một sản phẩm (một SKU), không phải con số size dùng chung. `belongsToParent` (chốt 2026-10-26): PRODUCT luôn true; VARIANT true khi sản phẩm của nó nằm trong các target PRODUCT của cùng yêu cầu, hoặc khi yêu cầu không có target PRODUCT nào; false thì loyalty từ chối cấu hình. Khóa sai định dạng hoặc không tìm thấy được báo `exists=false`. `purchasable` dựa trên trạng thái bật bán, không dùng số lượng/giữ hàng FE-08. Provider trả guard/immutable references, không remote call dưới khóa. Không có provider thì DEPENDENCY_UNAVAILABLE; không bỏ qua phạm vi hoặc dùng list giả.
 
 Loyalty không gọi target port trong reserve sau khi giữ registry: source owner đã giữ business guards và cung cấp authoritative line/session facts. Cần test owner serialize product deletion/schedule change với accept để không tạo quyền lợi trên nguồn không còn hợp lệ.
 
@@ -113,7 +113,7 @@ Loyalty không gọi target port trong reserve sau khi giữ registry: source ow
 2. Source resource guards theo contracts của productmanagement/workshop/retail; callbacks khóa source lifecycle record để phân xử payment/expiry/cancel.
 3. Registry READ cho accept, WRITE cho program/policy mutation.
 4. Program rows tăng ID; selected voucher quota serialized bằng program lock.
-5. Wallet Member, sau đó MemberQuota tăng program ID.
+5. Wallet Member, sau đó MemberProgram (quota Member) tăng program ID.
 6. AcceptedBenefit/effects/receipts/ledger/audit; unique business keys và version kiểm tra lại trước commit.
 7. Commit toàn bộ; remote gateway/email không trong transaction dưới khóa.
 

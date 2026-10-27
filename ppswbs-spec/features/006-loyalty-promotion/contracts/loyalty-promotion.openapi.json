@@ -1362,7 +1362,12 @@
             "$ref": "#/components/schemas/NonnegativeAmount"
           },
           "allowPoints": {
-            "type": "boolean"
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "default": true,
+            "description": "Automatic discounts always allow points (decided 2026-10-26); may be omitted, false is rejected with VALIDATION_ERROR."
           },
           "kind": {
             "type": "string",
@@ -1386,7 +1391,6 @@
           "endAt",
           "discount",
           "minimumEligibleAmount",
-          "allowPoints",
           "kind",
           "scope",
           "targets"
@@ -1454,7 +1458,7 @@
           "expectedVersion"
         ],
         "minProperties": 2,
-        "description": "PATCH merges supplied allowed fields into a full new valid revision. Cannot change code/scope/kind. Targets must match original scope; auto rejects quotas."
+        "description": "PATCH merges supplied allowed fields into a full new valid revision. Cannot change code/scope/kind. Targets must match original scope; auto rejects quotas and allowPoints=false (auto always allows points)."
       },
       "PauseProgram": {
         "type": "object",
@@ -1716,8 +1720,10 @@
               "ACTIVE",
               "SCHEDULED",
               "PAUSED",
-              "EXPIRED"
-            ]
+              "EXPIRED",
+              "NO_PUBLIC_TARGET"
+            ],
+            "description": "NO_PUBLIC_TARGET: product program whose targets are currently all hidden, unpublished or deleted (shown as \"Hiện không có sản phẩm áp dụng\")."
           }
         },
         "required": [
