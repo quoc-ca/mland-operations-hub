@@ -146,7 +146,13 @@
     lang: "vi",
     role: "STAFF", // Defaults to STAFF for Style 3 Console view
     selectedBranch: "BRANCH_HN",
-    activeTab: "staffQueue", // staffQueue | catalogue | orders | profile
+    activeTab: "staffQueue", // staffQueue | catalogue | orders | profile | managerDashboard
+    managerDashboard: {
+      periodType: "MONTH",
+      selectedLocationId: "ALL",
+      anchorDate: null,
+      lastUpdatedAt: null
+    },
     selectedSizes: { P01: 11, P02: 12, P03: 14 },
     cart: [],
     profile: {
@@ -258,6 +264,13 @@
               <span>${t.menuProfile}</span>
             </button>
           </li>
+          <li class="sidebar-item-header" style="margin-top: 14px;">MANAGEMENT (FE-10)</li>
+          <li>
+            <button class="sidebar-btn ${appState.activeTab === 'managerDashboard' ? 'active' : ''}" data-tab="managerDashboard">
+              <span>📊</span>
+              <span>Executive Dashboard</span>
+            </button>
+          </li>
         </ul>
 
         <div class="sidebar-footer">
@@ -335,6 +348,10 @@
     document.querySelectorAll(".sidebar-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         appState.activeTab = btn.getAttribute("data-tab");
+        if (appState.activeTab === "managerDashboard") {
+          appState.role = "MANAGER";
+          appState.managerDashboard.lastUpdatedAt = new Date().toISOString();
+        }
         saveState();
         renderApp();
       });
@@ -405,9 +422,152 @@
       case 'profile':
         renderProfileConsole(container);
         break;
+      case 'managerDashboard':
+        renderManagerDashboard(container);
+        break;
       default:
         renderStaffTable(container);
     }
+  }
+
+  // --- MANAGER DASHBOARD (FE-10, LOCAL DEMO ONLY) ---
+  // These values mirror the local reporting substitute. They are never real revenue data.
+  const managerLocations = [
+    { locationId: 10, name: "Hanoi Atelier", retailRevenue: 8000000, workshopRevenue: 12000000, paidOrders: 6, checkedIn: 28, capacity: 50 },
+    { locationId: 20, name: "Saigon Craft Lab", retailRevenue: 5200000, workshopRevenue: 7500000, paidOrders: 4, checkedIn: 16, capacity: 30 }
+  ];
+
+  function selectedManagerLocations() {
+    const selected = appState.managerDashboard.selectedLocationId;
+    return selected === "ALL"
+      ? managerLocations
+      : managerLocations.filter(location => String(location.locationId) === String(selected));
+  }
+
+  function vietnamTodayInput() {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit"
+    }).formatToParts(new Date());
+    const part = type => parts.find(item => item.type === type).value;
+    return `${part("year")}-${part("month")}-${part("day")}`;
+  }
+
+  function formatDashboardDate(date) {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: "UTC", year: "numeric", month: "short", day: "2-digit"
+    }).format(date);
+  }
+
+  function managerPeriodLabel(periodType, anchorDate) {
+    const anchor = new Date(`${anchorDate}T00:00:00Z`);
+    const start = new Date(anchor);
+    const end = new Date(anchor);
+
+    if (periodType === "WEEK") {
+      const day = (anchor.getUTCDay() + 6) % 7;
+      start.setUTCDate(anchor.getUTCDate() - day);
+      end.setUTCDate(start.getUTCDate() + 6);
+    } else if (periodType === "MONTH") {
+      start.setUTCDate(1);
+      end.setUTCMonth(anchor.getUTCMonth() + 1, 0);
+    } else if (periodType === "YEAR") {
+      start.setUTCMonth(0, 1);
+      end.setUTCMonth(11, 31);
+    }
+
+    if (periodType === "DAY") return formatDashboardDate(anchor);
+    return `${formatDashboardDate(start)} – ${formatDashboardDate(end)} (UTC+7)`;
+  }
+
+  function managerKpiCard(label, value, helper) {
+    return `<article class="kpi-card"><p>${label}</p><strong>${value}</strong><small>${helper}</small></article>`;
+  }
+
+  function updateManagerDashboard(changes) {
+    appState.managerDashboard = { ...appState.managerDashboard, ...changes, lastUpdatedAt: new Date().toISOString() };
+    saveState();
+    renderApp();
+    showToast("Local dashboard demo refreshed.");
+  }
+
+  function renderManagerDashboard(container) {
+    const dashboard = appState.managerDashboard;
+    const anchorDate = dashboard.anchorDate || vietnamTodayInput();
+    const locations = selectedManagerLocations();
+    const retailRevenue = locations.reduce((sum, location) => sum + location.retailRevenue, 0);
+    const workshopRevenue = locations.reduce((sum, location) => sum + location.workshopRevenue, 0);
+    const paidOrders = locations.reduce((sum, location) => sum + location.paidOrders, 0);
+    const checkedIn = locations.reduce((sum, location) => sum + location.checkedIn, 0);
+    const capacity = locations.reduce((sum, location) => sum + location.capacity, 0);
+    const totalRevenue = retailRevenue + workshopRevenue;
+    const utilization = capacity === 0 ? 0 : (checkedIn / capacity) * 100;
+    const lastUpdated = dashboard.lastUpdatedAt
+      ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" }).format(new Date(dashboard.lastUpdatedAt))
+      : "Not loaded";
+
+    container.innerHTML = `
+      <div class="console-header-block">
+        <div>
+          <h2 class="console-title"><span>📊</span><span>Executive Manager Dashboard</span></h2>
+          <p class="console-subtitle">FE-10 · Read-only verified KPI view, scoped by immutable locationId.</p>
+        </div>
+        <button id="refreshManagerDashboard" class="btn-primary">↻ Refresh</button>
+      </div>
+
+      <div class="local-demo-notice">
+        <strong>LOCAL DEMO</strong>
+        <span>Deterministic sample values only. This prototype does not expose real revenue or substitute production authorization.</span>
+      </div>
+
+      <section class="dashboard-filter-bar" aria-label="Dashboard filters">
+        <div>
+          <label for="managerPeriodType">Reporting period</label>
+          <select id="managerPeriodType" class="branch-select-box">
+            <option value="DAY" ${dashboard.periodType === "DAY" ? "selected" : ""}>Day</option>
+            <option value="WEEK" ${dashboard.periodType === "WEEK" ? "selected" : ""}>Week</option>
+            <option value="MONTH" ${dashboard.periodType === "MONTH" ? "selected" : ""}>Month</option>
+            <option value="YEAR" ${dashboard.periodType === "YEAR" ? "selected" : ""}>Year</option>
+          </select>
+        </div>
+        <div>
+          <label for="managerAnchorDate">Reference date</label>
+          <input id="managerAnchorDate" class="branch-select-box" type="date" value="${anchorDate}">
+        </div>
+        <div>
+          <label for="managerLocationId">Permitted locations</label>
+          <select id="managerLocationId" class="branch-select-box">
+            <option value="ALL" ${dashboard.selectedLocationId === "ALL" ? "selected" : ""}>All permitted locations</option>
+            ${managerLocations.map(location => `<option value="${location.locationId}" ${String(dashboard.selectedLocationId) === String(location.locationId) ? "selected" : ""}>${location.name} · locationId ${location.locationId}</option>`).join("")}
+          </select>
+        </div>
+        <div class="dashboard-filter-meta"><strong>COMPLETE</strong><span>Viewing: ${managerPeriodLabel(dashboard.periodType, anchorDate)}</span><span>Updated: ${lastUpdated}</span></div>
+      </section>
+
+      <section class="kpi-grid" aria-label="Five read-only KPIs">
+        ${managerKpiCard("Verified retail revenue", formatCurrency(retailRevenue), "Product value after discounts; delivery fees excluded.")}
+        ${managerKpiCard("Verified workshop revenue", formatCurrency(workshopRevenue), "Final invoices only after full payment.")}
+        ${managerKpiCard("Total verified revenue", formatCurrency(totalRevenue), "Retail + workshop, VND.")}
+        ${managerKpiCard("Paid retail orders", String(paidOrders), "Only committed verified payment outcomes.")}
+        ${managerKpiCard("Workshop utilization", `${utilization.toFixed(1)}%`, `${checkedIn}/${capacity} check-ins / capacity for completed sessions.`)}
+      </section>
+
+      <section class="data-table-container">
+        <div class="data-table-toolbar"><strong>Branch KPI breakdown</strong><span class="dashboard-readonly">Read-only · locationId is the scope key</span></div>
+        <table class="console-table">
+          <thead><tr><th>Location</th><th>Retail</th><th>Workshop</th><th>Total</th><th>Paid orders</th><th>Workshop utilization</th></tr></thead>
+          <tbody>${locations.map(location => {
+            const branchTotal = location.retailRevenue + location.workshopRevenue;
+            const branchUtilization = (location.checkedIn / location.capacity) * 100;
+            return `<tr><td><strong>${location.name}</strong><div class="code-mono">locationId: ${location.locationId}</div></td><td>${formatCurrency(location.retailRevenue)}</td><td>${formatCurrency(location.workshopRevenue)}</td><td><strong>${formatCurrency(branchTotal)}</strong></td><td>${location.paidOrders}</td><td>${branchUtilization.toFixed(1)}% <span class="dashboard-muted">(${location.checkedIn}/${location.capacity})</span></td></tr>`;
+          }).join("")}</tbody>
+        </table>
+      </section>
+    `;
+
+    document.getElementById("managerPeriodType")?.addEventListener("change", event => updateManagerDashboard({ periodType: event.target.value, anchorDate }));
+    document.getElementById("managerAnchorDate")?.addEventListener("change", event => updateManagerDashboard({ anchorDate: event.target.value }));
+    document.getElementById("managerLocationId")?.addEventListener("change", event => updateManagerDashboard({ selectedLocationId: event.target.value }));
+    document.getElementById("refreshManagerDashboard")?.addEventListener("click", () => updateManagerDashboard({}));
   }
 
   // --- STAFF PACKING STATION TABLE ---
