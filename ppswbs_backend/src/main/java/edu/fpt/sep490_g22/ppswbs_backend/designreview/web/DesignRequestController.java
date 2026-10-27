@@ -28,15 +28,12 @@ public class DesignRequestController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             Authentication authentication
     ) {
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal() == null) {
-            throw DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Yêu cầu xác thực tài khoản Firebase ID Token.");
-        }
+        String callerUid = SecurityIdentityExtractor.requireUid(authentication);
 
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             throw DesignReviewException.badRequest("AI_INPUT_INVALID", "Header Idempotency-Key là bắt buộc.");
         }
 
-        String callerUid = authentication.getPrincipal().toString();
         DesignAnalysisService.DesignRequestViewDto response = designAnalysisService.submitDesignRequest(
                 callerUid,
                 bookingCode,
@@ -54,11 +51,8 @@ public class DesignRequestController {
             @PathVariable("designRequestId") String designRequestId,
             Authentication authentication
     ) {
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal() == null) {
-            throw DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Yêu cầu xác thực tài khoản.");
-        }
+        String callerUid = SecurityIdentityExtractor.requireUid(authentication);
 
-        String callerUid = authentication.getPrincipal().toString();
         DesignAnalysisService.DesignRequestViewDto view = designAnalysisService.getDesignRequestById(
                 designRequestId,
                 callerUid,

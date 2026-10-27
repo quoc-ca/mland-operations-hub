@@ -11,6 +11,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountProfile;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.VerifiedIdentity;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;

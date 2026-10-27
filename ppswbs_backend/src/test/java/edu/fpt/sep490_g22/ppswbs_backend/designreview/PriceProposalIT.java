@@ -1,6 +1,11 @@
 package edu.fpt.sep490_g22.ppswbs_backend.designreview;
 
-import edu.fpt.sep490_g22.ppswbs_backend.support.TestFirebaseTokenVerifier;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,11 +13,16 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -27,16 +37,37 @@ public class PriceProposalIT {
     @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private TestFirebaseTokenVerifier tokenVerifier;
+    @MockitoBean
+    private TokenVerificationService tokenVerificationService;
+
+    @MockitoBean
+    private AccountFacade accountFacade;
 
     @BeforeEach
     void setUp() {
-        tokenVerifier.clearTokens();
-        tokenVerifier.registerToken("token-manager-pricing", "uid-manager-pricing", "manager@mland.vn", true, "OWNER");
-        tokenVerifier.registerToken("token-admin-pricing", "uid-admin-pricing", "admin@mland.vn", true, "ADMIN_TECHNICAL");
-        tokenVerifier.registerToken("token-staff-pricing", "uid-staff-pricing", "staff@mland.vn", true, "STAFF");
-        tokenVerifier.registerToken("token-member-pricing", "uid-member-pricing", "member@example.com", true, "MEMBER");
+        // Manager
+        when(tokenVerificationService.verify("token-manager-pricing")).thenReturn(
+                new VerifiedIdentity("uid-manager-pricing", "manager@mland.vn", true, Instant.now()));
+        when(accountFacade.resolveActor("uid-manager-pricing", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(10L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of())));
+
+        // Admin
+        when(tokenVerificationService.verify("token-admin-pricing")).thenReturn(
+                new VerifiedIdentity("uid-admin-pricing", "admin@mland.vn", true, Instant.now()));
+        when(accountFacade.resolveActor("uid-admin-pricing", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(11L, ActorRole.ADMIN, ActorStatus.ACTIVE, true, List.of())));
+
+        // Staff
+        when(tokenVerificationService.verify("token-staff-pricing")).thenReturn(
+                new VerifiedIdentity("uid-staff-pricing", "staff@mland.vn", true, Instant.now()));
+        when(accountFacade.resolveActor("uid-staff-pricing", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(12L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of())));
+
+        // Member
+        when(tokenVerificationService.verify("token-member-pricing")).thenReturn(
+                new VerifiedIdentity("uid-member-pricing", "member@example.com", true, Instant.now()));
+        when(accountFacade.resolveActor("uid-member-pricing", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(13L, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of())));
     }
 
     @Test
