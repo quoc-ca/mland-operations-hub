@@ -1,13 +1,13 @@
 # Feature Specification: Product Management
 
 **Date created**: 2026-10-23
-**Date updated**: 2026-10-24 (bổ sung import Excel — US9)
+**Date updated**: 2026-10-26 (Manager quản lí danh mục; phạm vi ưu đãi FE-06; V1 không MFA theo 001)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
 **Feature**: `002-product-management` — FE-02  
 **Feature Branch**: Không tạo nhánh mới; không có hook tạo nhánh được cấu hình.  
-**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; đặc tả nghiệp vụ là baseline cho triển khai FE-02. Phần bổ sung **US9 / FR-039–FR-045 (import Excel)** cùng các mặc định import đã được Đặng Thị Khương duyệt ngày 2026-10-24.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; đặc tả nghiệp vụ là baseline cho triển khai FE-02. Phần bổ sung **US9 / FR-039–FR-045 (import Excel)** cùng các mặc định import đã được Đặng Thị Khương duyệt ngày 2026-10-24. Các cập nhật ngày 2026-10-25 và 2026-10-26 (sửa lỗi chữ, Manager quản lí danh mục, phạm vi ưu đãi FE-06, V1 không MFA theo 001, T102, kết quả speckit-analyze) được Đặng Thị Khương duyệt ngày 2026-10-26.  
 **Input**: Viết spec cho FE-02 Product Management trong [research.md](../../research.md#fe-02), bao gồm các quyết định người dùng đã chốt trong hội thoại.
 
 Nguồn chính là FE-02 hiện tại và các quyết định trực tiếp của người dùng. Report 3 cung cấp baseline Browse Product Catalogue và Manage Products. Các khác biệt đã chốt cho feature này gồm: chỉ phân biệt biến thể theo size 5–29, không có lựa chọn khắc, không thêm/đổi size sau khi lưu, Manager được tự duyệt, sửa thông tin trực tiếp sau lần công khai đầu tiên, xóa mềm không có khôi phục và định dạng SKU đã xác định. Không dùng Report 3 cũ để khôi phục hành vi đã bị loại bỏ.
@@ -35,7 +35,13 @@ Nguồn chính là FE-02 hiện tại và các quyết định trực tiếp c�
 - Q: Ảnh? → A (đã chốt 2026-10-24): file Excel không chứa ảnh; sản phẩm import là bản nháp chưa có ảnh (FR-007 cho phép) và phải thêm ảnh bằng chức năng ảnh hiện có (FR-008) trước khi gửi duyệt.
 - Q: Giới hạn file? → A (đã chốt 2026-10-24): tối đa 5.000.000 bytes và 500 dòng dữ liệu mỗi file, sheet đầu tiên.
 
-[Spec 001](../001-account-management/spec.md) là nguồn thiết kế cơ chế xác thực dùng chung. FE-02 theo contract xác thực của 001, không biến phiên/luồng khởi tạo Member thành quyền Staff/Manager và không sửa luồng 001. Thiết kế/triển khai MFA chung là dependency FE-01 cần hoàn thiện trước bật quản trị.
+### Session 2026-10-26
+
+- Q: Manager có được quản lí danh mục (tạo/sửa/kích hoạt/ngừng kích hoạt) không? → A: Có. Staff và Manager có quyền đều quản lí danh mục theo FR-029; Admin, Member, Guest không có quyền này.
+- Q: Khi FE-06 cấu hình voucher/giảm tự động cho sản phẩm, sản phẩm nào được chọn làm phạm vi? → A: Sản phẩm/size chưa xóa mềm (đang công khai, chưa công khai hoặc đang ẩn); sản phẩm đã xóa mềm bị từ chối. FE-02 cung cấp thông tin tồn tại/đã xóa/công khai/đang bán qua `PromotionTargetPort` (T091), không tự quyết định khả năng áp dụng ưu đãi.
+- Q: Vai trò nội bộ (Staff/Manager) có cần MFA trong V1 không? → A: Không. Theo 001 (Assumptions: V1 does not require MFA). FE-02 kiểm tra bearer, thu hồi, role/status hiện tại qua facade identity của 001; không chờ thiết kế MFA. Nếu 001/spec-general bổ sung yêu cầu xác thực sau này thì FE-02 chỉ tiêu thụ kết quả qua facade.
+
+[Spec 001](../001-account-management/spec.md) là nguồn thiết kế cơ chế xác thực dùng chung. FE-02 theo contract xác thực của 001, không biến phiên/luồng khởi tạo Member thành quyền Staff/Manager và không sửa luồng 001. V1 không yêu cầu MFA cho vai trò nội bộ (chốt 2026-10-26 theo 001); nếu sau này 001/spec-general bổ sung yêu cầu xác thực cho vai trò nội bộ thì FE-02 chỉ tiêu thụ kết quả qua facade identity của 001, không tự thêm bước xác thực.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -58,7 +64,7 @@ Là Staff hoặc Manager có quyền quản lí sản phẩm, tôi muốn tạo 
 7. **Given** hơn 20 sản phẩm khớp tiêu chí, **When** xem danh sách quản trị và chuyển trang, **Then** mặc định 20 bản ghi/trang, giữ tiêu chí và thứ tự xác định; không hiện sản phẩm đã xóa trong danh sách thông thường.
 8. **Given** Guest/Member, tài khoản không hoạt động hoặc thiếu quyền tương ứng, **When** đọc dữ liệu quản trị hay gửi thao tác thay đổi, **Then** không được cấp dữ liệu nội bộ/quyền thay đổi; yêu cầu bị từ chối an toàn.
 9. **Given** khách đăng ký hoặc đăng nhập social lần đầu, **When** hoàn tất luồng Member, **Then** không tự nhận STAFF/MANAGER/ADMIN; tài khoản nội bộ chỉ có quyền do Admin cấp và hệ thống xác nhận bằng các mã đã chốt, không suy MANAGER từ OWNER.
-10. **Given** Staff/Manager có quyền dùng quản trị, **When** xác thực và truy cập FE-02, **Then** xác thực theo contract của FE-01/001 với kiểm tra thu hồi/trạng thái; từng thao tác vẫn kiểm tra quyền hiện tại. Phiên hết hạn/thu hồi bị từ chối, session hợp lệ không buộc xác minh email lại và phiên Member không tự cấp quyền nội bộ. Khi identity chưa xác nhận đạt yêu cầu xác thực đặc quyền, không được vào quản trị.
+10. **Given** Staff/Manager có quyền dùng quản trị, **When** xác thực và truy cập FE-02, **Then** xác thực theo contract của FE-01/001 với kiểm tra thu hồi/trạng thái; từng thao tác vẫn kiểm tra quyền hiện tại. Phiên hết hạn/thu hồi bị từ chối, session hợp lệ không buộc xác minh email lại và phiên Member không tự cấp quyền nội bộ. Khi 001 quy định thêm yêu cầu xác thực cho vai trò nội bộ mà phiên chưa đạt, không được vào quản trị (V1 theo 001: không MFA).
 
 ### User Story 2 - Gửi và phê duyệt sản phẩm mới (Priority: P1)
 
@@ -152,7 +158,7 @@ Là Staff/Manager có quyền, tôi muốn dừng mua mới ở cấp sản ph�
 
 ### User Story 7 - Quản lí danh mục (Priority: P2)
 
-Là Staff có quyền quản lí sản phẩm, tôi muốn tạo/sửa và kích hoạt/ngừng kích hoạt danh mục để tổ chức catalogue.
+Là Staff hoặc Manager có quyền quản lí sản phẩm, tôi muốn tạo/sửa và kích hoạt/ngừng kích hoạt danh mục để tổ chức catalogue.
 
 **Why this priority**: Danh mục hỗ trợ tìm kiếm và quyết định sản phẩm được phép hiển thị công khai.
 
@@ -160,7 +166,7 @@ Là Staff có quyền quản lí sản phẩm, tôi muốn tạo/sửa và kích
 
 **Acceptance Scenarios**:
 
-1. **Given** Staff có quyền, **When** tạo/sửa danh mục hợp lệ, **Then** lưu tên/mô tả và audit; dữ liệu sai, trùng tên hoặc yêu cầu cũ bị từ chối không lưu một phần.
+1. **Given** Staff hoặc Manager có quyền, **When** tạo/sửa danh mục hợp lệ, **Then** lưu tên/mô tả và audit; dữ liệu sai, trùng tên hoặc yêu cầu cũ bị từ chối không lưu một phần.
 2. **Given** danh mục có sản phẩm liên quan, **When** ngừng kích hoạt, **Then** xem ảnh hưởng trước xác nhận; sau xác nhận loại danh mục/sản phẩm liên quan khỏi đọc công khai/mua mới.
 3. **Given** kích hoạt lại danh mục, **When** đọc catalogue, **Then** chỉ sản phẩm còn công khai, chưa xóa, đủ điều kiện khác xuất hiện; không tự công khai sản phẩm ẩn.
 4. **Given** danh mục đã được tham chiếu, **When** cần ngừng sử dụng, **Then** dùng ngừng kích hoạt hoặc chuyển sản phẩm sang danh mục khác, không xóa lịch sử tham chiếu.
@@ -228,8 +234,8 @@ Là Staff hoặc Manager có quyền tạo sản phẩm, tôi muốn tải lên 
 
 #### Phạm vi, quyền và dữ liệu sản phẩm
 
-- **FR-001**: Tra cứu công khai MUST không yêu cầu đăng nhập. Mọi thao tác quản trị MUST kiểm tra danh tính, tài khoản hoạt động, vai trò và quyền hiện tại trước khi trả dữ liệu nội bộ hoặc thay đổi trạng thái; Guest/Member không có quyền quản trị sản phẩm. FE-02 MUST dùng chung cơ chế xác thực theo 001 qua identity owner: danh tính đã được xác minh và kiểm tra thu hồi/trạng thái theo contract xác thực của 001. Phiên Member không tự cấp quyền nội bộ; quản trị MUST chỉ chấp nhận kết quả xác thực đạt yêu cầu đặc quyền do identity/FE-01 cung cấp, không tự triển khai luồng login/MFA riêng.
-- **FR-002**: Staff và Manager có quyền tương ứng MUST được quản lí sản phẩm, ảnh, giá đề xuất, số lượng, trạng thái và xóa. Mã vai trò được chốt là MEMBER, STAFF, MANAGER, ADMIN; MANAGER là vai trò riêng, không tự ánh xạ OWNER. Admin tạo/cấp quyền tài khoản nội bộ qua FE-01; đăng ký khách không tự cấp quyền Staff/Manager/Admin. Chỉ Manager có quyền quyết định duyệt sản phẩm/giá; Manager MUST được tự duyệt sản phẩm/đề xuất của mình. Danh mục theo FR-029 dành cho Staff có quyền. Admin quản lí tài khoản, vai trò, trạng thái khóa tài khoản, RBAC, tham số vận hành và credential tích hợp đã được duyệt (gồm cấu hình dịch vụ lưu ảnh); Admin MUST NOT quản lí sản phẩm, danh mục, giá, số lượng, công khai hoặc quyết định duyệt sản phẩm/giá.
+- **FR-001**: Tra cứu công khai MUST không yêu cầu đăng nhập. Mọi thao tác quản trị MUST kiểm tra danh tính, tài khoản hoạt động, vai trò và quyền hiện tại trước khi trả dữ liệu nội bộ hoặc thay đổi trạng thái; Guest/Member không có quyền quản trị sản phẩm. FE-02 MUST dùng chung cơ chế xác thực theo 001 qua identity owner: danh tính đã được xác minh và kiểm tra thu hồi/trạng thái theo contract xác thực của 001. Phiên Member không tự cấp quyền nội bộ; quản trị MUST chỉ chấp nhận actor mà facade identity của 001 xác nhận đạt mọi yêu cầu xác thực 001 quy định cho STAFF/MANAGER (V1 theo 001: không MFA), không tự triển khai luồng login/MFA riêng.
+- **FR-002**: Staff và Manager có quyền tương ứng MUST được quản lí sản phẩm, ảnh, giá đề xuất, số lượng, trạng thái và xóa. Mã vai trò được chốt là MEMBER, STAFF, MANAGER, ADMIN; MANAGER là vai trò riêng, không tự ánh xạ OWNER. Admin tạo/cấp quyền tài khoản nội bộ qua FE-01; đăng ký khách không tự cấp quyền Staff/Manager/Admin. Chỉ Manager có quyền quyết định duyệt sản phẩm/giá; Manager MUST được tự duyệt sản phẩm/đề xuất của mình. Danh mục theo FR-029 dành cho Staff và Manager có quyền. Admin quản lí tài khoản, vai trò, trạng thái khóa tài khoản, RBAC, tham số vận hành và credential tích hợp đã được duyệt (gồm cấu hình dịch vụ lưu ảnh); Admin MUST NOT quản lí sản phẩm, danh mục, giá, số lượng, công khai hoặc quyết định duyệt sản phẩm/giá.
 - **FR-003**: Người quản lí MUST xem danh sách/chi tiết và tìm theo mã sản phẩm, tên hoặc SKU, lọc theo danh mục/trạng thái công khai. Kết quả SKU MUST chỉ rõ size khớp; giao diện MUST phân biệt hồ sơ, đề xuất giá, giá đã duyệt, giá đang áp dụng và công khai.
 - **FR-004**: Tên MUST dài 1–200 ký tự, mô tả 1–5.000 ký tự sau bỏ khoảng trắng đầu/cuối; sản phẩm MUST có một danh mục hoạt động lúc tạo/chọn danh mục mới. Giá đề xuất/giá cuối cùng MUST là số nguyên VND dương, số lượng MUST là số nguyên không âm.
 - **FR-005**: Khi tạo, người dùng MUST chọn 1–25 size nguyên khác nhau trong 5–29, mỗi size một biến thể; không bắt buộc đủ 25 size. Sau lưu, hệ thống MUST từ chối thêm/đổi size, kể cả nháp/ẩn/chưa có giao dịch. Không có lựa chọn khắc hoặc biến thể khách tự tạo.
@@ -265,7 +271,7 @@ Là Staff hoặc Manager có quyền tạo sản phẩm, tôi muốn tải lên 
 - **FR-026**: Mọi thay đổi quản trị MUST kiểm tra dữ liệu mới nhất và từ chối ghi đè dữ liệu cũ, cho xem lại/xác nhận lại; không ghi một phần sản phẩm, ảnh, quyết định, giá hoặc trạng thái khi lưu/audit thất bại.
 - **FR-027**: Mỗi lần tạo/sửa/gửi duyệt/quyết định/áp dụng/công khai/ẩn/ngừng bán/xóa/quản lí danh mục MUST có dấu vết người, đối tượng/phiên bản, thay đổi, thời điểm và kết quả thực; thao tác bị từ chối ghi theo chính sách audit. Business audit MUST giữ 5 năm từ thời điểm sự kiện, kế thừa Report 3. Không hiển thị/ghi bí mật xác thực hoặc thông tin nhạy cảm không cần thiết.
 - **FR-028**: Mất phản hồi MUST cho kiểm tra trạng thái đã lưu trước thử lại, không coi là chắc chắn thất bại. Thử lại cùng yêu cầu MUST không tạo trùng sản phẩm, SKU, hồ sơ, quyết định, áp dụng hoặc chuyển trạng thái; lỗi tải MUST khác dữ liệu rỗng. Bản ghi kết quả thao tác tối thiểu MUST giữ 5 năm từ khi commit, không chứa toàn bộ request/token; hết thời hạn này không cho replay dữ liệu cũ để hồi sinh sản phẩm hoặc giao dịch.
-- **FR-029**: Staff có quyền MUST tạo/sửa danh mục với tên bắt buộc 1–200 ký tự và mô tả tùy chọn tối đa 5.000 ký tự sau trim, kích hoạt/ngừng kích hoạt; kiểm tra tài khoản, dữ liệu, phiên bản và lưu audit. Tên MUST duy nhất trên toàn hệ thống, kể cả danh mục đã ngừng hoạt động, sau khi bỏ khoảng trắng đầu/cuối và so khớp không phân biệt hoa/thường; từ chối tên trùng khi tạo hoặc đổi tên. Danh mục mới mặc định hoạt động.
+- **FR-029**: Staff và Manager có quyền MUST tạo/sửa danh mục với tên bắt buộc 1–200 ký tự và mô tả tùy chọn tối đa 5.000 ký tự sau trim, kích hoạt/ngừng kích hoạt; kiểm tra tài khoản, dữ liệu, phiên bản và lưu audit. Tên MUST duy nhất trên toàn hệ thống, kể cả danh mục đã ngừng hoạt động, sau khi bỏ khoảng trắng đầu/cuối và so khớp không phân biệt hoa/thường; từ chối tên trùng khi tạo hoặc đổi tên. Danh mục mới mặc định hoạt động.
 - **FR-030**: Trước ngừng kích hoạt danh mục MUST cho xem sản phẩm bị ảnh hưởng. Danh mục không hoạt động và sản phẩm liên quan MUST bị loại khỏi công khai/mua mới; kích hoạt lại chỉ khôi phục hiển thị sản phẩm còn công khai, chưa xóa, đủ điều kiện. Danh mục đã tham chiếu dùng ngừng kích hoạt thay xóa, không viết lại lịch sử/giữ hợp lệ.
 
 #### Catalogue công khai
@@ -282,7 +288,7 @@ Là Staff hoặc Manager có quyền tạo sản phẩm, tôi muốn tải lên 
 #### Import sản phẩm từ file Excel
 
 - **FR-039**: Staff/Manager có quyền tạo sản phẩm MUST tạo được nhiều sản phẩm nháp bằng cách tải lên file Excel `.xlsx` theo mẫu. Import MUST là cách tạo khác của FR-004–FR-007: cùng quy tắc kiểm tra, cùng cách cấp mã sản phẩm/SKU, cùng kết quả (Chưa công khai, hồ sơ Nháp, không tự gửi duyệt/duyệt/áp dụng giá/công khai). MUST kiểm tra danh tính, tài khoản hoạt động và quyền hiện tại theo FR-001/FR-002 ở mọi bước (tải mẫu, tải lên/kiểm tra, xác nhận); Admin, Guest, Member MUST NOT dùng.
-- **FR-040**: File mẫu MUST gồm các cột tương ứng trường form tạo: *Mã nhóm* (khóa nhóm các dòng cùng một sản phẩm, chỉ có nghĩa trong file, bắt buộc), *Tên sản phẩm* (1–200), *Mô tả* (1–5.000), *Danh mục* (tên danh mục đang hoạt động, so khớp bỏ khoảng trắng đầu/cuối, không phân biệt hoa/thường), *Size* (nguyên 5–29), *Giá đề xuất (VND)* (nguyên dương), *Số lượng* (nguyên không âm). Mỗi dòng dữ liệu là một biến thể; các dòng cùng Mã nhóm MUST có cùng tên, mô tả, danh mục và tạo thành một sản phẩm gồm 1–25 size khác nhau. Không có cột ảnh, SKU, trạng thái công khai, giá bán áp dụng hay khắc; cột lạ hoặc thiếu cột bắt buộc MUST bị từ chối.
+- **FR-040**: File mẫu MUST gồm các cột tương ứng trường form tạo: *Mã nhóm* (khóa nhóm các dòng cùng một sản phẩm, chỉ có nghĩa trong file, bắt buộc), *Tên sản phẩm* (1–200), *Mô tả* (1–5.000), *Danh mục* (tên danh mục đang hoạt động, so khớp bỏ khoảng trắng đầu/cuối, không phân biệt hoa/thường), *Size* (nguyên 5–29), *Giá đề xuất (VND)* (nguyên dương), *Số lượng* (nguyên không âm). Mỗi dòng dữ liệu là một biến thể; các dòng cùng Mã nhóm MUST có cùng tên, mô tả, danh mục và tạo thành một sản phẩm gồm 1–25 size khác nhau. Không có cột ảnh, SKU, trạng thái công khai, giá bán áp dụng hay khắc; cột lạ, thiếu cột bắt buộc hoặc thứ tự cột khác mẫu MUST bị từ chối.
 - **FR-041**: Hệ thống MUST kiểm tra toàn bộ file và trả kết quả xem trước (số sản phẩm, số biến thể, danh sách lỗi) trước khi tạo dữ liệu; chỉ tạo sau khi người dùng xác nhận. Mọi lỗi MUST nêu số dòng, tên cột, giá trị và lý do, có thể tải báo cáo lỗi. Xem trước MUST không tiêu thụ mã sản phẩm/SKU và không tạo dữ liệu.
 - **FR-042**: Import MUST là tất cả hoặc không: nếu có bất kỳ dòng không hợp lệ, lỗi lưu hoặc lỗi audit thì MUST không tạo sản phẩm, biến thể, SKU hay audit một phần (FR-007, FR-026). Khi xác nhận, hệ thống MUST kiểm tra lại với dữ liệu mới nhất (đặc biệt danh mục còn hoạt động) và từ chối dùng kết quả xem trước đã cũ.
 - **FR-043**: File tải lên MUST là `.xlsx` hợp lệ, không macro, tối đa 5.000.000 bytes và 500 dòng dữ liệu, chỉ đọc sheet đầu tiên; MUST đọc ô như dữ liệu, không thực thi công thức hay liên kết ngoài, và không lưu lâu dài nội dung file gốc ngoài bản ghi kết quả. Giá trị bắt đầu bằng `=`, `+`, `-`, `@` MUST được vô hiệu hóa khi đưa vào báo cáo lỗi xuất ra file. Số MUST theo đúng miền FR-004; không làm tròn, cắt hay chuyển đổi ngầm (ví dụ `12.5`, `1e3`).
@@ -323,7 +329,7 @@ Là Staff hoặc Manager có quyền tạo sản phẩm, tôi muốn tải lên 
 - Cân nặng/kích thước đóng gói dùng để báo giá giao hàng thuộc FE-08; FE-02 không lưu dữ liệu này.
 - Mua ngay/Thêm giỏ chỉ chuyển sang FE-08; FE-08 sở hữu giỏ, quyền Member, checkout, giữ/chốt/giải phóng lượng và xử lí giao dịch cũ sau xóa. Không đặt thời hạn giữ hoặc quy tắc thanh toán mới trong FE-02.
 - Bảng đường kính/chu vi tham chiếu lấy nguyên từ ảnh người dùng cung cấp tại [FE-02 research](../../research.md#fe-02); chọn bằng mã size nguyên, không tính lại số đo để tạo size.
-- Sửa trực tiếp sau công khai, Manager tự duyệt, không thêm size/khắc và xóa mềm không khôi phục là các quyết định đã chốt trong phiên; tài liệu Draft không làm mất các quyết định đó, cũng không phê duyệt code/plan chưa có.
+- Sửa trực tiếp sau công khai, Manager tự duyệt, không thêm size/khắc và xóa mềm không khôi phục là các quyết định đã chốt trong phiên; việc spec được duyệt không thay đổi các quyết định đó, cũng không phê duyệt code chưa có.
 
 ### Các mặc định đã được người dùng chốt ngày 2026-10-24
 
@@ -335,7 +341,7 @@ Là Staff hoặc Manager có quyền tạo sản phẩm, tôi muốn tải lên 
 ### Phụ thuộc và ranh giới lập kế hoạch
 
 - Tuân thủ [Constitution 3.0.0](../../.specify/memory/constitution.md). Đây là hành vi nghiệp vụ; kiến trúc, hợp đồng giao tiếp, dữ liệu vật lí và cách bảo đảm xử lí đồng thời thuộc bước plan.
-- Cần danh tính, quyền nội bộ và trạng thái tài khoản đã xác minh. Mã MEMBER/STAFF/MANAGER/ADMIN, dùng chung cơ chế xác thực theo 001 đã chốt. Chi tiết model tài khoản, facade phiên/quyền và phương thức MFA/recovery thuộc identity/FE-01; không tự map OWNER, tự chọn TOTP hoặc bỏ yêu cầu xác thực đặc quyền. Dependency thiết kế/triển khai MFA chung cần hoàn thiện trước bật quản trị; không phải câu hỏi mở lại quyết định dùng chung cơ chế của FE-02.
+- Cần danh tính, quyền nội bộ và trạng thái tài khoản đã xác minh. Mã MEMBER/STAFF/MANAGER/ADMIN, dùng chung cơ chế xác thực theo 001 đã chốt. Chi tiết model tài khoản, facade quyền và mọi yêu cầu xác thực bổ sung thuộc identity/FE-01; không tự map OWNER hoặc tự chọn phương thức xác thực. V1 không yêu cầu MFA cho vai trò nội bộ (chốt 2026-10-26 theo 001); bật quản trị khi facade identity của 001 đã triển khai và kiểm chứng.
 - Cloudinary đã được chọn; adapter/cấu hình và thông tin giữ hợp lệ từ FE-08 là dependency triển khai. Retention ảnh/audit/receipt đã chốt ở FR-008/027/028. Không kích hoạt billing hoặc tạo tài nguyên provider từ tác vụ tài liệu. Không phụ thuộc FE-07 để hoàn thành duyệt trong quản trị.
 - FE-04 có thể cho gợi ý giá nhưng không bắt buộc để duyệt thủ công; không sửa spec FE-04 hoặc Account Management (001) trong tác vụ này.
 - Tải, tốc độ, khả dụng và môi trường sản xuất chưa baselined, không suy ra từ preview. Sẵn sàng review/lập plan không đồng nghĩa các phụ thuộc hoặc vận hành đã sẵn sàng triển khai.

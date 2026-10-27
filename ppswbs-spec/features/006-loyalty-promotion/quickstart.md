@@ -1,7 +1,7 @@
 # Quickstart Validation — FE-06
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-26
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -48,7 +48,7 @@ Dữ liệu chương trình sau là fixture, không cấu hình mặc định th
 | Eligible min | Cùng cart, min700.000 | Voucher không đủ ngưỡng vì eligible chỉ600.000, không dùng tổng800.000 để vượt ngưỡng. |
 | Rounding | Eligible33.333, discount7% | Giảm2.333đ; không làm tròn lên hoặc nhân thêm theo quantity. |
 | Min points | NetBeforePoints9.900/10.000, wallet đủ | Max9/10 điểm; case9 không cho dùng; case10 dùng tối đa10. |
-| Workshop | Gross1.000.000, voucher100.000,200points, FE03 fixture deposit50% | Net880.000, deposit440.000, remain440.000; deposit không earn, completed+fullypaid earn88. |
+| Workshop | Gross1.000.000, voucher100.000,200points, 003.1 deposit=ceil(net/2) | FE-06 trả net 880.000 (post_promotion_amount); cọc 440.000 và còn lại 440.000 do 003.1 tính; case lẻ voucher cố định15.001 → net984.999, deposit492.500, remain492.499; deposit không earn, completed+fullypaid earn88. |
 | Earn floor | Net9.999/10.000/19.999 | 0/1/1 điểm, không carry remainder. |
 | No promotion | D=0, P=0 hoặc điểm hợp lệ | Có accepted policy snapshot; earn theo tỷ lệ lúc accept. |
 | Zero | Retail valid0; workshop0 | Retail chốt theo FE08 không gateway, earn0; workshop reject không giữ dở dang. |

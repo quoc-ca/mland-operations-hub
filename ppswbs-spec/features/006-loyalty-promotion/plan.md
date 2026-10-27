@@ -1,13 +1,13 @@
 # Implementation Plan: Loyalty & Promotion Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-26
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
 **Feature context**: `006-loyalty-promotion` | **Spec**: [spec.md](spec.md)  
 **Git branch**: `khuong` giữ nguyên. `006-loyalty-promotion` là feature context của SpecKit, không phải nhánh Git được tạo trong tác vụ.  
-**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; thiết kế là baseline cho triển khai, các task phụ thuộc bên ngoài (FE-01 contract xác thực, FE-02 T088/T089/T091, FE-03 và FE-08 source owner theo integration gates G-01–G-05) chỉ bắt đầu khi dependency tương ứng đạt; không phê duyệt deploy.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24, duyệt lại ngày 2026-10-26 cùng spec (xem đoạn "Cập nhật 2026-10-26" cuối tài liệu); thiết kế là baseline cho triển khai, các task phụ thuộc bên ngoài (FE-01 contract xác thực, FE-02 T088/T089/T091, FE-03 và FE-08 source owner theo integration gates G-01–G-05) chỉ bắt đầu khi dependency tương ứng đạt; không phê duyệt deploy.  
 **Input**: FE-06 và quyết định1–10, bộ thông số điểm đã chốt; xác nhận bổ sung khi plan về retention tối thiểu5 năm và shared auth theo 001. Chỉ soạn thiết kế.
 
 ## Summary
@@ -177,7 +177,7 @@ Trạng thái xác thực và trạng thái nghiệp vụ được tách riêng:
 
 ## Complexity Tracking
 
-Không có constitution exception mới. Registry shared/exclusive gate cần để ổn định eligible candidate set/current policy khi accept; không phải global exclusive mutex cho mọi checkout. Ledger/component receipts và immutable snapshots trực tiếp đáp ứng double-effect/old-policy rules. Không distributed transaction/broker/cache balance/second payment owner.
+Không có constitution exception mới. Registry shared/exclusive gate cần để ổn định eligible candidate set/current policy khi accept; không phải global exclusive mutex cho mọi checkout. Ledger/outcome keys trên accepted benefit và immutable snapshots trực tiếp đáp ứng double-effect/old-policy rules. Không distributed transaction/broker/cache balance/second payment owner.
 
 ## Handoff
 
@@ -190,6 +190,8 @@ Ngày2026-10-24: đã resolve feature qua setup-plan, đọc template/constituti
 Review tích hợp không thấy mâu thuẫn atomicity/lock order/lineage; đã làm rõ delivery settle trước grant và không grant khi component còn HELD. Research tổng giữ nguyên SHA-256 so với lúc bắt đầu; nhánh khuong không đổi. Không có before_plan/after_plan hooks vì không tồn tại extensions.yml; không tạo tasks/code/test/migration/deploy. git diff --check không có lỗi whitespace; cảnh báo LF/CRLF trên research tổng không phải lỗi nội dung.
 
 Runtime/auth/MySQL migration/concurrency/Modulith/source integration tests đều NOT RUN — chưa có implementation/dependency thật. Không ghi static pass thành triển khai hoàn tất hoặc tự đóng G01–G07.
+
+Cập nhật 2026-10-26 (đồng bộ spec): (1) giảm tự động sản phẩm luôn cho kết hợp điểm, `allowPoints` chỉ cấu hình ở voucher; (2) phạm vi sản phẩm chấp nhận sản phẩm chưa công khai/ẩn/ngừng bán, từ chối đã xóa mềm, chương trình không tự dừng khi sản phẩm bị ẩn/xóa sau đó; (3) quyết định cọc workshop B: FE-06 tính `postPromotionAmount`, 003.1 tính `deposit = ceil(post/2)` và `remaining = post - deposit`, FE-06 chỉ snapshot `postPromotionAmount`, không tính/làm tròn/lưu cọc; 003.1→003.3 truyền `frozenPostPromotionAmount`/`frozenRemainingAmount` (chốt 2026-10-26: cọc và còn lại không được lưu trong FE-06, V8 bỏ hai cột tương ứng). (4) thiết kế dữ liệu gọn còn 10 bảng: quota chương trình gộp vào `promotion_program`; quota theo Member và voucher đã lưu gộp thành `promotion_member_program`; effect gộp vào `loyalty_accepted_benefit` (state + outcome key có version) và ledger unique (acceptedBenefitId, entryKind); command receipt gộp vào `loyalty_audit`. Giữ riêng `loyalty_registry`, `promotion_revision` và `promotion_revision_target` để bảo toàn gate khóa, điều khoản bất biến và index tra cứu. Các thay đổi này đã phản ánh ở spec, data-model, interfaces, quickstart, tasks; cần duyệt lại baseline vì phát sinh sau ngày Approved.
 
 Clarification session2026-10-24 chốt2 câu A/A: mở lại cùng program/code không reset quota/history, và report hiện tại loại booking đã hủy hợp lệ nhưng giữ lịch sử. Đã đồng bộ spec FR-008/FR-009, US2.1/US2.8/US2.9, Edge Cases/SC-001, model, research, interfaces, OpenAPI và quickstart; không thay các quyết định đã chốt khác. Số liệu hiện hành sau cập nhật (thay các mốc cũ ở trên):41 FR,66 acceptance scenarios,12 API paths/15 operations/34 schemas,6 mutations có command key; checklist re-evaluate giữ16/16, không sửa nội dung/checkmarks không đổi của checklist. Không còn câu hỏi nghiệp vụ cần clarify; benchmark/SLA production và implementation evidence vẫn theo phạm vi plan/gates.
 

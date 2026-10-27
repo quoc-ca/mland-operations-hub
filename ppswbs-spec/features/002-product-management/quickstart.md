@@ -1,7 +1,7 @@
 # Quickstart and Validation: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24 (bổ sung V-15 import Excel)
+**Date updated**: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; lệnh và lớp test thực tế, liên kết validation-report; cập nhật 2026-10-27 sau REST API)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -10,25 +10,30 @@
 
 ## Prerequisites
 
-1. Hướng A đã chốt: dùng chung cơ chế xác thực theo FE-01/001, phiên theo contract FE-01/001 và kiểm tra quyền từng action; Cloudinary/roles/retention/defaults cũng đã chốt. Trước enable quản trị, identity owner cần hoàn thiện thiết kế MFA/recovery và triển khai/kiểm chứng kết quả xác thực đặc quyền; chưa chọn phương thức cụ thể từ FE-02. Spec/plan/tasks được review và có phân tích trước code. Các adapter chưa có được sắp thứ tự như dependency; nghiệm thu tích hợp cần implementation thật, không yêu cầu code phải có sẵn để viết plan.
+1. Hướng A đã chốt: dùng chung cơ chế xác thực theo FE-01/001 (bearer, kiểm tra thu hồi và trạng thái mỗi request) và kiểm tra quyền từng action; Cloudinary/roles/retention/defaults cũng đã chốt. Trước enable quản trị, identity owner cần hoàn thiện thiết kế MFA/recovery và triển khai/kiểm chứng kết quả xác thực đặc quyền; chưa chọn phương thức cụ thể từ FE-02. Spec/plan/tasks được review và có phân tích trước code. Các adapter chưa có được sắp thứ tự như dependency; nghiệm thu tích hợp cần implementation thật, không yêu cầu code phải có sẵn để viết plan.
 2. JDK 21, Maven wrapper của repository, disposable MySQL 8.4 được phép dùng. H2 hiện là default, không dùng H2-only làm kết luận migration/concurrency/collation pass.
 3. Identity test environment đã được owner cung cấp, actor Guest/Member/Staff/Manager/Manager-self/inactive và capability đúng; không tạo role từ Firebase client claim hoặc suy quyền từ cookie profile 001. Cloudinary test namespace dùng authenticated assets, signed backend upload và stream cùng origin; cấu hình qua môi trường. Adapter FE-08 thật có guard theo contract.
 4. Không dùng database, token, ảnh hoặc credential production. Không đọc/ghi/reset dữ liệu thực. Biến môi trường được cấp qua secret channel, không paste credential vào output/evidence.
 
 ## Commands after implementation
 
-Từ workspace root trong PowerShell, các lệnh có thể thực thi sau khi đã có các lớp test nêu tên. Hiện tại các lớp Catalogue chưa tồn tại: không chạy rồi coi “không tìm thấy test” là pass.
+Từ workspace root trong PowerShell, với JDK 21 (`JAVA_HOME`) và MySQL 8.4 test đã chạy. Kết quả thực tế được ghi tại [validation-report](validation-report.md).
 
 ```powershell
 Set-Location D:/mland-operations-hub/mland-operations-hub/ppswbs_backend
-.\mvnw.cmd -Dtest=CatalogueDomainTests,CatalogueApiIT test
-.\mvnw.cmd -Dtest=CatalogueMySqlIT,CatalogueConcurrencyIT test
-.\mvnw.cmd -Dtest=CatalogueImportTests,CatalogueImportApiIT test
-.\mvnw.cmd -Dtest=CatalogueDependenciesIT,ModulithArchitectureTests test
+# Toàn bộ backend (Surefire của dự án chạy cả lớp *IT):
 .\mvnw.cmd test
+# Riêng productmanagement:
+.\mvnw.cmd '-Dtest=Catalogue*Tests,Catalogue*IT,ModulithArchitectureTests' test
+# Migration trên database trống và nâng cấp (T081):
+.\mvnw.cmd -Dtest=CatalogueMySqlIT test
+# Transaction đồng thời thật:
+.\mvnw.cmd '-Dtest=CatalogueConcurrencyIT,CatalogueCategoryConcurrencyIT' test
 ```
 
-Tên test là mục tiêu thiết kế, không có test code được tạo trong tác vụ này. Bộ MySQL IT phải nhận một datasource MySQL 8.4 đã cấp riêng qua môi trường, tự kiểm tra database product/version và từ chối chạy trên H2. Thiết kế dùng external disposable datasource, không bắt buộc thêm Testcontainers. Kết nối mẫu không chứa secret: SPRING_DATASOURCE_URL=`jdbc:mysql://localhost:3306/mland_catalogue_test`; username/password do môi trường kiểm chứng cấp, không ghi ở đây. Environment của bộ MySQL IT phải cho phép datasource override, cấu hình test mặc định (tạo mới, vì backend đã bị xóa) không được hardcode H2 âm thầm thắng lựa chọn MySQL.
+Các lớp đã có (2026-10-27): xem bảng "Nhóm test của 002" trong [validation-report](validation-report.md) (đơn vị, MySQL tầng service, đồng thời thật, HTTP với security thật `CatalogueApiIT`/`CatalogueImportApiIT`/`CatalogueContractIT`, Cloudinary thật `CatalogueCloudinaryIT`, ranh giới `CatalogueDependenciesIT`). Còn là mục tiêu thiết kế, chưa tồn tại vì cần adapter FE-08 thật (không coi "không tìm thấy test" là pass): `CatalogueQuantityIT`, `CatalogueLifecycleConcurrencyIT`, `CatalogueAcceptedPriceIT`, `CataloguePublicApiIT`. Chạy `CatalogueCloudinaryIT` cần `CLOUDINARY_CLOUD_NAME`/`CLOUDINARY_API_KEY`/`CLOUDINARY_API_SECRET`; thiếu thì lớp này báo NOT RUN.
+
+Bộ MySQL IT dùng profile `productmanagement-mysql-test`: datasource lấy từ `PM_TEST_JDBC_URL`/`PM_TEST_JDBC_USER`/`PM_TEST_JDBC_PASSWORD`, nếu thiếu thì `JDBC_URL`/`JDBC_USER`/`JDBC_PASSWORD`; không có giá trị mặc định, không H2. `CatalogueMySqlEnvironmentIT` từ chối chạy nếu server không phải MySQL 8.4. `CatalogueMySqlIT` tạo database tạm `ppswbs_pm_fresh_<ngẫu nhiên>` trên cùng server (tài khoản test cần quyền `CREATE`/`DROP` database) và tự xóa sau khi chạy; không đụng tới database test hay database thật. Username/password do môi trường kiểm chứng cấp qua biến môi trường, không ghi ở đây.
 
 Để chạy ứng dụng sau implementation, cấp datasource/identity/media/FE-08 settings theo contract cấu hình đã review rồi dùng `.\mvnw.cmd spring-boot:run` cho backend; chạy frontend React + Vite riêng sau khi `ppswbs_frontend/` được khởi tạo. Không suy rằng các settings/adapter này đã tồn tại. G-01 đã chốt hướng/phiên nhưng quản trị vẫn không được enable khi dependency MFA/session/capability chưa đáp ứng; không dùng fallback permitAll để bỏ qua.
 
