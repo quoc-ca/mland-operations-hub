@@ -260,7 +260,7 @@
 - **Timestamp**: `2026-10-27T00:18:45+07:00`
 - **Reporter**: Hồ Hoàng Quốc (tác nhân thực tế: Codex)
 - **Feature / Task**: `features/003-workshop-management/003.2-workshop-operations/tasks.md` — `T020–T025`, blocker trực tiếp tại `T023` Staff assignment và operational-lead handover
-- **Trạng thái**: `BLOCKED`
+- **Trạng thái**: `RESOLVED`
 
 ### 1. Phạm vi dừng và nguồn thiết kế
 
@@ -299,6 +299,27 @@
 - Owner FE-001 cần xuất bản public Account Management facade/capability decision cho một target account ID, tối thiểu trả typed semantic facts: account exists/active, canonical workshop-relevant role or capability, và active branch/location scope.
 - Cần chốt Operations dùng query đó như thế nào cho: (1) assign/revoke Staff, (2) take/handover Manager operational lead, và (3) recheck target authority khi session `IN_PROGRESS`.
 - Sau khi contract được phê duyệt, re-check gate, rebase artifact nếu cần, rồi mới triển khai lại `T020–T025`.
+
+### Diễn biến gỡ chặn thành công (AccountFacade.getTargetAccount Integration Resolution)
+
+- **Thời điểm**: `2026-10-27T12:08:00+07:00`
+- **Reporter**: Hồ Hoàng Quốc
+- **Quyết định phê duyệt áp dụng**: Chủ nhánh FE-001 đã xác nhận và xuất bản provisional public facade contract `AccountFacade.getTargetAccount(Long accountId)` trả về `Optional<TargetAccountSnapshot>` chứa `accountId`, `canonicalRole`, `status`, và `activeLocationIds`. Workshop Operations chỉ consume public facade/snapshot, tuyệt đối không truy cập trực tiếp entity, repository nội bộ, hay Firebase data của Account Management.
+- **Consumer Implementation & Tích hợp hoàn tất**:
+  1. `TargetAccountSnapshot`: DTO public snapshot bất biến định nghĩa tại `features.accountmanagement.facade`.
+  2. `AccountFacadeImpl`: Triển khai truy vấn dữ liệu Account Management thực tế, ánh xạ canonical role, status và danh sách `activeLocationIds` hợp lệ dựa trên bảng `account_location_assignments`.
+  3. `WorkshopResponsibilityService` (T023): Áp dụng `getTargetAccount` để xác minh target account tồn tại, canonical role (`STAFF` cho Staff assignment, `MANAGER`/`ADMIN` cho operational lead), trạng thái `ACTIVE`, và kiểm tra `session.locationId ∈ activeLocationIds`. Quản lý bàn giao operational lead nguyên tử (atomic handover) và bảo toàn bất biến không mất responsible operator cuối cùng khi session đang `IN_PROGRESS`.
+  4. `WorkshopLifecycleService` (T022): Áp dụng máy trạng thái an toàn kiểu cho các trạng thái `DRAFT`, `PUBLISHED`, `SALES_PAUSED`, `IN_PROGRESS`, `ATTENDANCE_FINALIZED`. Kiểm tra quyền hạn actor và location scope tại thời điểm command; cho phép publish mà không cần Staff; chặn start (`IN_PROGRESS`) khi thiếu responsible operator; giữ nguyên active unexpired holds khi `SALES_PAUSED`.
+  5. `WorkshopSessionController` (T024): Mở rộng 4 REST endpoint theo đúng OpenAPI: `POST /workshop-sessions/{sessionId}/state-transitions`, `PUT /workshop-sessions/{sessionId}/staff-assignments`, `DELETE /workshop-sessions/{sessionId}/staff-assignments`, `PUT /workshop-sessions/{sessionId}/operational-lead`.
+  6. `WorkshopLifecycleIT` (T025): Bộ kiểm thử tích hợp toàn diện trên MySQL/Flyway thật (9/9 passed) xác minh đầy đủ: Manager trong và ngoài location scope, actor inactive bị từ chối, target account validation (not found, wrong role, not ACTIVE, outside location scope), publish không cần Staff, start bị từ chối nếu thiếu trách nhiệm, `SALES_PAUSED` giữ active hold, atomic lead handover, và bằng chứng audit bất biến với correlation reference.
+- **Bằng chứng kiểm thử thật (MySQL Evidence)**:
+  - Lệnh kiểm thử regression toàn diện:
+    ```powershell
+    mvn -f .\ppswbs_backend\pom.xml test "-Dtest=WorkshopLifecycleIT,WorkshopLifecycleContractIT,WorkshopOperationsDtoTests,WorkshopLocationServiceTest,WorkshopSessionContractIT,WorkshopSessionManagementIT,ModulithArchitectureTests,WorkshopOperationsFoundationIT,WorkshopOperationsMySQLIT,AccountFacadeTargetAccountIT"
+    ```
+  - Kết quả kiểm thử: `Tests run: 83, Failures: 0, Errors: 0, Skipped: 0` (`BUILD SUCCESS` thời gian 29.797s).
+  - Spring Modulith Architecture boundary: `ModulithArchitectureTests` 2/2 tests pass.
+- **Kết luận**: Toàn bộ consumer integration cho User Story 2 (T022–T025) đã hoàn tất và được xác minh 100% bằng evidence thật trên MySQL. Blocker `BE-DESIGN-0003` được gỡ bỏ và giải quyết hoàn toàn (`RESOLVED`).
 
 ---
 
