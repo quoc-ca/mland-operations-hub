@@ -102,6 +102,26 @@ public class ProductVariant {
         this.remainingUnsold = value;
     }
 
+    /**
+     * Deducts an accepted FE-08 sale. {@code heldAfterSettlement} is the held quantity read under the same
+     * source guard after FE-08 settled the hold of this sale; the remaining quantity can go neither below
+     * zero nor below it. Returns the remaining quantity after the deduction.
+     */
+    public BigInteger recordAcceptedSale(BigInteger quantity, BigInteger heldAfterSettlement) {
+        if (quantity == null || quantity.signum() <= 0) {
+            throw CatalogueException.invalidField("quantity", "Must be a positive whole number.");
+        }
+        if (heldAfterSettlement == null || heldAfterSettlement.signum() < 0) {
+            throw new IllegalArgumentException("heldAfterSettlement must be a known nonnegative quantity");
+        }
+        BigInteger after = remainingUnsold.subtract(quantity);
+        if (after.signum() < 0 || after.compareTo(heldAfterSettlement) < 0) {
+            throw new CatalogueException(CatalogueErrorCode.QUANTITY_BELOW_HELD);
+        }
+        this.remainingUnsold = after;
+        return after;
+    }
+
     /** Returns whether the sale status changed; size, SKU, quantity and price stay as they are. */
     public boolean setSaleEnabled(boolean enabled) {
         if (saleEnabled == enabled) {

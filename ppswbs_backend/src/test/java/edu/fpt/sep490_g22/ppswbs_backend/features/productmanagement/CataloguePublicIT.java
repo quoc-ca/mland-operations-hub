@@ -14,7 +14,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.Prod
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ProductPublicationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.PublicCatalogueQueryService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.UpdateProductService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.VariantHoldReader;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.AvailabilityGuardPort;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.TestOnlyAvailabilityGuard;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.VariantSaleStatusService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueFlowFixture;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueTestSupport;
@@ -29,15 +30,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.math.BigInteger;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueTestSupport.MANAGER;
 import static edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueTestSupport.STAFF;
@@ -47,7 +42,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * T066 on MySQL: public eligibility, search, filters, sorts and "can buy" on the same size
  * (FR-020/031–036). The FE-08 hold source does not exist yet, so this class alone binds a TEST-ONLY
- * {@link VariantHoldReader} stub (default zero holds, settable per size). It is not part of the runtime.
+ * {@link AvailabilityGuardPort} stub ({@link TestOnlyAvailabilityGuard}: default zero holds, settable per size).
+ * It is not part of the runtime.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles(CatalogueTestSupport.MYSQL_PROFILE)
@@ -57,12 +53,11 @@ class CataloguePublicIT {
     /** Test-only stand-in for the FE-08 hold source (T019/T003). */
     @TestConfiguration
     static class StubHolds {
-        static final Map<Long, BigInteger> HELD = new ConcurrentHashMap<>();
+        static final TestOnlyAvailabilityGuard SOURCE = new TestOnlyAvailabilityGuard();
 
         @Bean
-        VariantHoldReader testOnlyVariantHoldReader() {
-            return (Collection<Long> ids) -> ids.stream()
-                    .collect(Collectors.toMap(Function.identity(), id -> HELD.getOrDefault(id, BigInteger.ZERO)));
+        AvailabilityGuardPort testOnlyAvailabilityGuard() {
+            return SOURCE;
         }
     }
 
@@ -84,7 +79,7 @@ class CataloguePublicIT {
     @BeforeEach
     void newTag() {
         tag = "tag" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        StubHolds.HELD.clear();
+        StubHolds.SOURCE.reset();
     }
 
     @Test
@@ -129,7 +124,7 @@ class CataloguePublicIT {
     @Test
     void heldQuantityIsSubtractedFromWhatCanBeBought() {
         long productId = published("Giữ");
-        StubHolds.HELD.put(sizes(productId).get(0).getId(), BigInteger.valueOf(3));
+        StubHolds.SOURCE.setHeld(sizes(productId).get(0).getId(), 3);
 
         assertThat(catalogue.get(Long.toString(productId)).canBuy()).isFalse();
         assertThat(ids(list(null, null, true, null))).isEmpty();
