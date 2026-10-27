@@ -25,11 +25,7 @@ public class DesignReviewController {
     public ResponseEntity<List<DesignAnalysisService.DesignRequestViewDto>> getReviewQueue(
             Authentication authentication
     ) {
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal() == null) {
-            throw DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Yêu cầu xác thực tài khoản.");
-        }
-
-        String callerUid = authentication.getPrincipal().toString();
+        String callerUid = SecurityIdentityExtractor.requireUid(authentication);
         List<DesignAnalysisService.DesignRequestViewDto> queue = humanReviewService.getReviewQueue(
                 callerUid,
                 authentication.getAuthorities()
@@ -44,9 +40,7 @@ public class DesignReviewController {
             @Valid @RequestBody DesignReviewDtos.ReviewDecisionRequest body,
             Authentication authentication
     ) {
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal() == null) {
-            throw DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Yêu cầu xác thực tài khoản.");
-        }
+        String callerUid = SecurityIdentityExtractor.requireUid(authentication);
 
         ReviewDecision decision;
         try {
@@ -55,7 +49,6 @@ public class DesignReviewController {
             throw DesignReviewException.badRequest("AI_INPUT_INVALID", "Quyết định thẩm duyệt không hợp lệ. Phải là ACCEPTED, REJECTED, hoặc CLARIFICATION_REQUIRED.");
         }
 
-        String callerUid = authentication.getPrincipal().toString();
         DesignAnalysisService.DesignRequestViewDto result = humanReviewService.recordDecision(
                 reviewRequestId,
                 decision,

@@ -6,8 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewDecision;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.BookingDesignRequestRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.HumanReviewDecisionRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.members.facade.MemberDto;
-import edu.fpt.sep490_g22.ppswbs_backend.members.facade.MemberFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.GrantedAuthority;
@@ -27,7 +26,7 @@ public class HumanReviewService {
     private final BookingDesignRequestRepository requestRepository;
     private final HumanReviewDecisionRepository decisionRepository;
     private final DesignAnalysisService designAnalysisService;
-    private final MemberFacade memberFacade;
+    private final AccountFacade accountFacade;
 
     public static final long STAFF_MAX_ESTIMATED_VALUE = 3_000_000L; // 3,000,000 VND
 
@@ -36,10 +35,10 @@ public class HumanReviewService {
             String callerUid,
             Collection<? extends GrantedAuthority> authorities
     ) {
-        boolean isOwner = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_OWNER") || a.getAuthority().equals("ROLE_MANAGER"));
-        boolean isStaff = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_STAFF"));
+        boolean isManager = DesignReviewPermissions.isManager(authorities);
+        boolean isStaff = DesignReviewPermissions.isStaff(authorities);
 
-        if (!isStaff && !isOwner) {
+        if (!isStaff && !isManager) {
             throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Bạn không có quyền truy cập hàng đợi duyệt thiết kế.");
         }
 
@@ -48,7 +47,7 @@ public class HumanReviewService {
         return queue.stream()
                 .filter(req -> {
                     long val = req.getEstimatedValue() != null ? req.getEstimatedValue() : 0L;
-                    if (isOwner) {
+                    if (isManager) {
                         return true; // Manager/Owner can review all
                     }
                     // Staff can only review <= 3,000,000 VND
@@ -70,10 +69,10 @@ public class HumanReviewService {
         log.info("Recording review decision: reviewRequestId={}, decision={}, version={}, reviewerUid={}",
                 reviewRequestId, decision, designVersion, reviewerUid);
 
-        boolean isOwner = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_OWNER") || a.getAuthority().equals("ROLE_MANAGER"));
-        boolean isStaff = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_STAFF"));
+        boolean isManager = DesignReviewPermissions.isManager(authorities);
+        boolean isStaff = DesignReviewPermissions.isStaff(authorities);
 
-        if (!isStaff && !isOwner) {
+        if (!isStaff && !isManager) {
             throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Bạn không có quyền thẩm duyệt thiết kế.");
         }
 
@@ -89,10 +88,11 @@ public class HumanReviewService {
                 .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy yêu cầu thẩm duyệt với ID đã cung cấp."));
 
         // Separation of duties: Reviewer cannot review own request
-        MemberDto member = memberFacade.getMemberByUid(reviewerUid).orElse(null);
-        if (member != null && member.getId().equals(request.getMemberId())) {
-            throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Không thể tự phê duyệt yêu cầu thiết kế do chính bạn tạo.");
-        }
+        accountFacade.resolveAccount(reviewerUid).ifPresent(account -> {
+            if (account.accountId().equals(request.getMemberId())) {
+                throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Không thể tự phê duyệt yêu cầu thiết kế do chính bạn tạo.");
+            }
+        });
 
         // Terminal state check
         if (request.getReviewStatus() == ReviewStatus.ACCEPTED || request.getReviewStatus() == ReviewStatus.REJECTED) {
@@ -106,12 +106,12 @@ public class HumanReviewService {
 
         // Authority / Threshold check
         long estimatedValue = request.getEstimatedValue() != null ? request.getEstimatedValue() : 0L;
-        if (estimatedValue > STAFF_MAX_ESTIMATED_VALUE && !isOwner) {
+        if (estimatedValue > STAFF_MAX_ESTIMATED_VALUE && !isManager) {
             throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Giá trị ước tính vượt quá hạn mức thẩm quyền của Nhân viên (tối đa 3.000.000 VND). Cần Quản lý phê duyệt.");
         }
 
         // Record human review decision
-        String reviewerRole = isOwner ? "OWNER" : "STAFF";
+        String reviewerRole = isManager ? "MANAGER" : "STAFF";
         HumanReviewDecision decisionEntity = HumanReviewDecision.builder()
                 .designRequestId(request.getId())
                 .reviewerUserId(reviewerUid)

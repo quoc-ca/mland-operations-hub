@@ -31,4 +31,9 @@ public interface WorkshopBookingFacade {
      * Read immutable notification delivery payload (called by Feature 007).
      */
     BookingNotificationDeliveryPayload getBookingNotificationDeliveryPayload(BookingNotificationDeliveryPayloadQuery query);
+
+    /**
+     * Read booking eligibility snapshot for design analysis (called by Feature 004).
+     */
+    java.util.Optional<BookingEligibilitySnapshot> getBookingEligibilityForDesign(String bookingCode, Long memberAccountId);
 }

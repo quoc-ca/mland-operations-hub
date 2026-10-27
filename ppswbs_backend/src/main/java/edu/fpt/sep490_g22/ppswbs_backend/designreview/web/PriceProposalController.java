@@ -1,6 +1,5 @@
 package edu.fpt.sep490_g22.ppswbs_backend.designreview.web;
 
-import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.DesignReviewException;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.PriceSuggestionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,11 +22,7 @@ public class PriceProposalController {
             @RequestBody(required = false) String bodyContext,
             Authentication authentication
     ) {
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal() == null) {
-            throw DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Yêu cầu xác thực tài khoản.");
-        }
-
-        String managerUid = authentication.getPrincipal().toString();
+        String managerUid = SecurityIdentityExtractor.requireUid(authentication);
         PriceSuggestionService.PriceSuggestionViewDto suggestion = priceSuggestionService.requestSuggestion(
                 proposalId,
                 targetType,
@@ -44,11 +39,7 @@ public class PriceProposalController {
             @PathVariable("proposalId") String proposalId,
             Authentication authentication
     ) {
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal() == null) {
-            throw DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Yêu cầu xác thực tài khoản.");
-        }
-
-        String callerUid = authentication.getPrincipal().toString();
+        String callerUid = SecurityIdentityExtractor.requireUid(authentication);
         PriceSuggestionService.PriceSuggestionViewDto view = priceSuggestionService.getSuggestion(
                 proposalId,
                 callerUid,
@@ -64,11 +55,7 @@ public class PriceProposalController {
             @RequestBody PriceSuggestionService.PriceDecisionRequestDto decisionRequest,
             Authentication authentication
     ) {
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal() == null) {
-            throw DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Yêu cầu xác thực tài khoản.");
-        }
-
-        String managerUid = authentication.getPrincipal().toString();
+        String managerUid = SecurityIdentityExtractor.requireUid(authentication);
         PriceSuggestionService.PriceSuggestionViewDto updated = priceSuggestionService.recordManagerDecision(
                 proposalId,
                 decisionRequest,
