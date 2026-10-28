@@ -1,29 +1,27 @@
-# Quickstart: Feature-04 Verification Walkthrough
+# Quickstart: Independent Feature-04 Verification Walkthrough
 
-This is a documentation and later runtime-test inventory. It does not claim that Feature-04 is implemented.
+This is a verification inventory. It is not evidence that the feature is implemented.
 
 | ID | Scenario | Expected result |
 | --- | --- | --- |
-| QS-01 | Guest opens basic AI support and asks a public FAQ | Validated response; no protected context or business mutation. |
-| QS-02 | Guest attempts booking-design image upload | `FORBIDDEN_ROLE`; no storage/provider call. |
-| QS-03 | Member submits image without current consent | `CONSENT_REQUIRED`; no storage/provider call. |
-| QS-04 | Member submits invalid file | Validation error; no provider call; input is not retained. |
-| QS-05 | Member submits valid image after package/location/session selection | One versioned request, temporary storage, provider call and pending human review. |
-| QS-06 | Gemini returns valid features | Result schema stored, image deleted, Staff/Manager route created. |
-| QS-07 | Gemini times out | Failed analysis, image cleanup retry, no decision, safe retry available. |
-| QS-08 | Estimated value is ≤ 3,000,000 VND | Staff review scope only, subject to branch/delegation authorization. |
-| QS-09 | Estimated value is > 3,000,000 VND | Manager review scope only. |
-| QS-10 | Reviewer records Clarification Required | Member sees reason; new design version is required before another decision. |
-| QS-11 | Reviewer records Accepted | Member sees result; booking/payment remains owned by Workshop Booking. |
-| QS-12 | Reviewer attempts to decide stale version | Conflict; existing decision remains unchanged. |
-| QS-13 | Manager requests valid price suggestion | Advisory result only; applied price remains unchanged until Manager confirms through catalogue workflow. |
-| QS-14 | Gemini price suggestion fails | Manager can retry or enter manual price; no invalid price is published. |
-| QS-15 | AI receives request to accept a custom order | Safe refusal; no custom-order mutation. |
-| QS-16 | Text interaction reaches retention deadline | Prompt/response is removed according to retention job; no raw token/PII retained. |
+| QS-01 | Guest asks a public Basic AI question | Safe response; no business mutation. |
+| QS-02 | Guest submits an independent Design Request before Guest policy is approved | Typed policy response; no request or image is stored. |
+| QS-03 | Approved Member submits a description-only request when text-only is enabled | Independent versioned request; no booking data. |
+| QS-04 | Member submits an image without consent | `CONSENT_REQUIRED`; no storage/provider call. |
+| QS-05 | Member submits an invalid image | Typed image error; no provider call; no permanent retention. |
+| QS-06 | Fourth image attempt within five minutes | `429 IMAGE_RATE_LIMITED`, `Retry-After`; no storage/provider/request creation. |
+| QS-07 | Valid image request is analyzed | Candidate result stored; image cleanup outcome recorded. |
+| QS-08 | Provider output contains approval/price-publication instruction | `AI_OUTPUT_POLICY_VIOLATION`; no business mutation. |
+| QS-09 | Request owner reads own result | Safe projection only; no raw payload or image. |
+| QS-10 | Other owner reads or mutates request | Denied without resource enumeration. |
+| QS-11 | Staff/Manager reviews according to approved policy | Decision and reason recorded atomically. |
+| QS-12 | Material revision is submitted | New request version; previous decision is not reused. |
+| QS-13 | Owner withdraws when policy allows | Request becomes withdrawn; no booking/payment mutation. |
+| QS-14 | Manager requests price suggestion | Advisory result only; catalogue price remains unchanged until separate workflow. |
+| QS-15 | Admin views technical evidence | No commercial price/explanation unless explicitly authorized. |
+| QS-16 | Feature-04 action is traced for booking side effects | No booking, capacity, payment, ticket or custom-order call/state change. |
 
 ## Required commands after implementation
-
-Commands depend on the approved feature plan and build environment. At minimum run:
 
 ```text
 ./.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireSpec -RequireTasks -IncludeTasks
@@ -31,4 +29,6 @@ Commands depend on the approved feature plan and build environment. At minimum r
 ./mvnw verify
 ```
 
-Also run MySQL migration/integration, OpenAPI validation and Spring Modulith verification when the feature implementation exists. Record actual commands and results; do not mark runtime evidence before execution.
+Also run MySQL clean-install/upgrade migration tests, OpenAPI validation, Modulith
+verification, authorization tests, provider-contract tests and frontend E2E tests.
+Record actual command output; do not mark runtime evidence before execution.

@@ -21,9 +21,8 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Workshop integration|Synchronize schedule and confirmed booking with Klook|No|No|No|Full|Restricted|
 |Product catalogue|Create and update products, images, prices, and publication status|No|No|Full|Restricted|Restricted|
 |AI support|Use basic text support|Full|Full|Full|Full|Restricted|
-|Booking-design image|Submit and view own booking-design image analysis|No|Full|No|No|Restricted|
-|Booking-design review|Review a request estimated at or below 3,000,000 VND|No|No|Full|Restricted|No|
-|Booking-design review|Review a request above 3,000,000 VND or override when authorized|No|No|No|Full|Restricted|
+|Independent Design Request|Create and view own request and safe analysis/review result|TBD by ownership-proof policy|Full under policy|No|No|Technical/audit only|
+|Independent Design Review|Review an in-scope request under approved authority policy|No|No|Restricted|Restricted|No business decision|
 |AI-assisted pricing|Review AI suggestions and decide the published price|No|No|No|Full|Restricted|
 |Loyalty|View own points and history|No|Full|No|No|Restricted|
 |Loyalty|Redeem points during eligible checkout|No|Full|No|No|Restricted|
@@ -45,8 +44,8 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 #### Permission Matrix Footnotes
 
 1. `Restricted` means that the actor may perform the action only within an assigned branch, delegated threshold, own account/order, approved workflow state, or configured operational limit.
-2. Guests may book workshops and pay workshop deposits, but they cannot submit booking-design images, complete retail checkout, or create custom-manufacturing orders.
-3. Members may access and modify only their own profile, cart, orders, loyalty records, booking-design requests, and custom-manufacturing orders.
-4. Staff may review booking-design requests estimated at or below 3,000,000 VND, while Managers review requests above that threshold. Managers, not AI, decide published package and product prices.
+2. Guests may book workshops and pay workshop deposits, but Feature-004 Guest Design Request access remains disabled until its ownership-proof policy is approved. Guests cannot complete retail checkout or create custom-manufacturing orders.
+3. Members may access and modify only their own profile, cart, orders, loyalty records, independent Design Requests, and custom-manufacturing orders.
+4. Staff and Managers review independent Design Requests only under the approved Feature-004 authority and scope policy. Managers, not AI, decide published package and product prices.
 5. Admin manages technical configuration, accounts, RBAC, and approved integration credentials. Admin may view purpose-limited parameter-impact information in FE-09 but has no access to FE-10 executive revenue, branch rankings, customer details, or individual order/payment details. Admin does not replace Staff or Manager business approvals unless an explicit authorized override is defined.
 6. GHTK actions are internal records of manual handoff. The matrix does not grant any role access to GHTK tracking or delivery-management APIs because V1 has no such integration.

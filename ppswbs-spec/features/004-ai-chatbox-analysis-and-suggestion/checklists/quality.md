@@ -1,27 +1,15 @@
-# Quality Checklist: Feature-04
+# Quality Checklist: Independent Feature-04
 
-- [ ] `spec.md` has no unresolved business decision that blocks implementation.
-- [ ] Permission Matrix is the single source of truth for Feature-04 actor access.
-- [ ] Validation Matrix order is deterministic and provider calls cannot bypass prior validation.
-- [ ] Matrix entries are consistent with OpenAPI routes, security schemes and error responses.
-- [ ] OpenAPI routes, access rules and error responses match `spec.md`.
-- [ ] JPA/Flyway mapping preserves existing domain ownership and does not use raw SQL in application code.
-- [ ] Provider calls have timeout, safe mapping, correlation and retry behavior.
-- [ ] Invalid, disallowed or prompt-injection input is rejected before any provider call.
-- [ ] AI output policy validation rejects final approvals, price publication commands and data leakage.
-- [ ] Raw tokens, credentials, images, provider payloads and unnecessary PII are excluded from logs/audit.
-- [ ] Guest/Member/Staff/Manager/Admin authorization tests cover allowed and denied paths.
-- [ ] Permission tests cover endpoint access, ownership, branch/delegation scope and price-suggestion visibility.
-- [ ] Validation tests cover field errors, business-context errors and prohibited side effects.
-- [ ] Concurrent duplicate submissions and review decisions are safe.
-- [ ] Concurrent image submissions cannot bypass the three-per-five-minute Member quota.
-- [ ] Fourth image attempt returns `429 IMAGE_RATE_LIMITED` with `Retry-After`.
-- [ ] Duplicate idempotent image retry does not consume another quota slot.
-- [ ] Temporary image cleanup is retry-safe and observable.
-- [ ] Text retention cleanup is tested against the 30-day boundary.
-- [ ] AI provider failure never creates approval, price publication, payment or custom-order mutation.
-- [ ] Price suggestion visibility follows Manager/Admin/Staff boundary.
-- [ ] Server-rendered forms and links work without htmx/JavaScript for required core actions.
-- [ ] Spring Modulith verification passes without undeclared cross-module access.
-- [ ] MySQL migration/integration tests run against the selected development/test target.
-- [ ] Actual verification commands and limitations are recorded before completion.
+- [ ] Ownership/review/retention decisions are approved and not hidden in code.
+- [ ] Independent flow has no booking prerequisite or booking side effect.
+- [ ] Account facade and ownership proof are the only identity boundary.
+- [ ] OpenAPI routes and fields match the independent data model.
+- [ ] Provider commands are normalized, allowlisted and policy-validated.
+- [ ] Guest/Member/Staff/Manager/Admin permissions and denial paths are tested.
+- [ ] Consent, image validation, rate limiting, idempotency and deletion are tested.
+- [ ] Analysis and review states are separate and version-safe.
+- [ ] Price suggestion remains advisory and cannot publish automatically.
+- [ ] Raw tokens, images, provider payloads and unnecessary PII are not exposed.
+- [ ] Flyway clean-install and upgrade paths are tested without duplicate-version workaround.
+- [ ] Spring Modulith verification passes with only approved facade dependencies.
+- [ ] Exact compile/test commands and limitations are recorded in `version.md`.

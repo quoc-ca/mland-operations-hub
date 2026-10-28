@@ -1,5 +1,12 @@
 ### 4.2 Analyze Ring Design from Image
 
+> **Independent-flow update (2026-10-28):** This use case is now an independent
+> Feature-004 Design Request flow. The legacy workshop package/location/session/
+> booking preconditions below are superseded by the Feature-004 handoff and spec.
+> The request must not create or mutate booking, payment, capacity, ticket or
+> custom-manufacturing state. Ownership, review policy, revision/withdrawal and
+> image-retention decisions remain Feature-004 implementation gates.
+
 #### Primary Actors
 
 Member
@@ -10,7 +17,7 @@ AI API, Staff, Manager
 
 #### Description
 
-As a Member, I want to submit a consented ring-design image within a package, location, and session-selected workshop booking so that the system can return candidate features and route the request to Staff or Manager human review. The AI output is advisory and cannot accept, reject, price, or determine manufacturing feasibility.
+As an authorized requester, I want to submit a consented independent Design Request so that the system can return candidate features and route the request to Staff or Manager human review. The AI output is advisory and cannot accept, reject, price, or determine manufacturing feasibility.
 
 #### Preconditions
 
@@ -94,7 +101,7 @@ GBR-05, GBR-13, BR-30-01, BR-30-02, BR-30-03, BR-30-04
 
 | ID | Rule Definition |
 |---|---|
-| BR-30-01 | Booking-design image analysis is permitted only within the workshop-booking journey and after the Member gives the required consent. |
+| BR-30-01 | Independent Design Request image analysis is permitted only after the applicable ownership and purpose-specific consent checks pass; it is not part of the workshop-booking journey. |
 | BR-30-02 | The AI API may return image quality and candidate features or materials only; it cannot make the final feasibility, price, acceptance, or rejection decision. |
-| BR-30-03 | Every valid booking-design request requires a human decision. Staff reviews requests at or below 3,000,000 VND; Manager reviews higher-value or Manager-authority requests. |
-| BR-30-04 | A booking-design request with an estimated value above 3,000,000 VND must be reviewed by a Manager. |
+| BR-30-03 | Every valid request receives the human review required by the approved Feature-004 policy. AI cannot create the business decision. |
+| BR-30-04 | Reviewer role, authority tier and routing threshold are Feature-004 policy gates and must not be inferred from the former booking estimate threshold. |

@@ -914,6 +914,8 @@ Phần này là bản tổng hợp nghiên cứu và đối chiếu context; kh�
 backend đã được triển khai. Nguồn chi tiết hiện hành là `spec.md`, OpenAPI
 contract, `data-model.md`, `plan.md`, `tasks.md` và các checklist của Feature-004.
 
+> **Cập nhật theo `FE-004-DESIGN-INDEPENDENT-HANDOFF.md` (2026-10-28):** Phần nghiên cứu lịch sử bên dưới không còn là baseline triển khai. Feature-04 hiện là Design Workspace độc lập, không phụ thuộc booking, location/session, payment, ticket hoặc capacity. Quy tắc mới nằm trong `features/004-ai-chatbox-analysis-and-suggestion/spec.md`, `design.md`, OpenAPI contract và `version.md`. Các quyết định Guest ownership, nội dung request, human-review policy, revision/withdrawal và image retention vẫn là gate trước khi code.
+
 Feature-04 gồm ba use case tách biệt:
 
 1. **Basic AI Support:** Guest và Member hỏi về catalogue sản phẩm, workshop,
