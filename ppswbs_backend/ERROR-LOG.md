@@ -811,3 +811,359 @@ Repairing, retiring, or reintroducing dependencies for `configuration`, `designr
      `mvn -f .\ppswbs_backend\pom.xml test-compile`
      để xác nhận 0 lỗi biên dịch trên cả `src/main/java` và `src/test/java`.
    - Tiến hành triển khai tuần tự `AttendanceFinalizationService.java` (T043) và `AttendanceCorrectionService.java` (T044), chạy test tích hợp thật trên MySQL, và nghiệm thu `[X]`.
+**Diễn biến BE-DESIGN-0005 và BE-DESIGN-0006 — 2026-10-27 — feature 006 (loyalty-promotion), kiểm tra lại sau khi ghép `origin/develop`.**
+- Reporter: Claude (agent), theo yêu cầu "tiếp tục code backend của 006" của Đặng Thị Khương (owner 006). Chưa đổi trạng thái hai bản ghi gốc; đây là bằng chứng để owner 001 xác nhận gỡ chặn.
+- Fact (đọc trực tiếp mã trên nhánh `khuong` sau merge `73ac306`): `configuration/SecurityConfiguration.java` còn `/api/**` yêu cầu xác thực và `anyRequest().denyAll()`, CORS theo danh sách origin, CSRF chỉ bỏ qua `/api/**` (bearer), có `noopUserDetailsService` nên không còn mật khẩu sinh tự động; `application.properties` dùng `${JDBC_URL}`, `${JDBC_USER}` không còn giá trị mặc định cho URL và user. `AccountFacade` có `resolveActor(firebaseUid, emailVerified)`, `CurrentAccountActor(accountId, role, status, emailVerified, activeLocationIds)` và `ActorContext.requireCurrentActor()`; 002 đã dùng chúng cho `CatalogueAuthorization` và `CatalogueSecurityConfiguration` (chain theo route).
+- Unknown: owner 001 chưa xác nhận bằng văn bản rằng mục 1, 2 của BE-DESIGN-0005 và BE-DESIGN-0006 đã được xử lý; chưa kiểm tra `spring.datasource.password` còn mặc định trong file cấu hình hay không (khóa vẫn có trong file, giá trị không đọc trong lượt này); chưa khởi động ứng dụng để xem log.
+- Quyết định 2026-10-27 (Đặng Thị Khương, owner 006): 006 theo 001 V1 không yêu cầu MFA hay tầng xác thực bổ sung (001 spec.md dòng 193, plan.md dòng 30; 002 chốt tương tự 2026-10-26). Đã bỏ yêu cầu "privileged assurance" và mã `PRIVILEGED_AUTH_REQUIRED` khỏi tài liệu và mã 006.
+- Điều kiện tiếp tục đã có với 006: facade/contexts identity của 001 dùng được. Phần chờ owner 001 xác nhận bằng văn bản chỉ còn các mục BLOCKED gốc; 006 làm T007 bằng chain theo route của riêng mình, không sửa cấu hình chung của 001.
+
+---
+
+## BE-DESIGN-0007 — FE-08 shared-boundary prerequisites
+
+- **Recorded at:** 2026-10-26T00:00:00+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 Retail Order and Fulfillment; tasks T005–T006 and all dependent backend implementation tasks
+- **Status:** BLOCKED
+
+### Stopped scope and design sources
+
+The stopped scope is all FE-08 backend implementation, including its module,
+schema migrations, REST endpoints, and tests. The affected design sources are
+`ppswbs-spec/features/008-retail-order-and-fulfillment/spec.md`,
+`plan.md`, `data-model.md`, and
+`contracts/retail-order-and-fulfillment.openapi.yaml`.
+
+### Precise missing or conflicting decisions
+
+1. FE-08 requires an authenticated, active Member and server-side ownership
+   checks. `SecurityConfiguration` currently permits every `/api/v1/**`
+   request and does not establish an authenticated principal from the existing
+   Firebase token verifier. The implementation contract for applying verified
+   Firebase identity to an API request has not been provided.
+2. FE-08 has approved `branchId` as an immutable UUID across branch orders and
+   cross-feature facts. The available account-management facade exposes only
+   `Long locationId` values through `getLocationScope`, and migration V5 stores
+   `location_id BIGINT`. No approved mapping or replacement boundary relates
+   these identifiers.
+3. FE-08 must use named public boundaries from FE-02 for authoritative
+   catalogue/variant/stock/shipping facts, FE-06 for benefit lifecycle, and
+   the shared payment domain for verified payment evidence. No corresponding
+   backend modules or named facade contracts exist in the imported source.
+
+### Evidence, facts, and unknowns
+
+- Fact: `configuration/SecurityConfiguration.java` configures stateless
+  security but permits all API routes.
+- Fact: `features/accountmanagement/service/TokenVerificationService.java`
+  can verify a Firebase token, while no inspected request filter or principal
+  bridge invokes it.
+- Fact: `features/accountmanagement/facade/AccountFacade.java` returns
+  `List<Long>` for location scope, and migration
+  `V5__account_management.sql` persists `location_id BIGINT`.
+- Fact: no source files for product/catalogue, loyalty/promotion, payment, or
+  retail/order modules were found under `src/main`.
+- Unknown: the approved authentication boundary, the canonical branch/location
+  identity migration or mapping, and the exact facade DTOs/error semantics
+  owned by FE-02, FE-06, and payment.
+
+### Why implementation cannot proceed correctly
+
+Choosing any of these contracts locally would invent authorization, ownership,
+foreign-key identity, and financial/inventory behavior. That could expose a
+Member's cart/order to another identity, associate an order with the wrong
+branch, or duplicate policy/payment state once the owning features are merged.
+
+### Work state and verification
+
+- **Files changed:** this blocker log only; no FE-08 Java source, migration,
+  test, or contract was changed.
+- **Checks run:** targeted source inspection of security, account facade,
+  account migration, module architecture test, and FE-08 artifacts.
+- **Checks not run:** Maven tests were not run because implementation has not
+  begun and the blocker is a missing approved design boundary.
+
+### Required decision or design to resume
+
+The responsible owners must provide or approve all of the following:
+
+1. the shared Firebase-request authentication/principal and authorization
+   boundary that FE-08 must use;
+2. one canonical branch identity for FE-08, plus an approved migration or
+   facade mapping from current account `locationId` values; and
+3. versioned named facades (or approved stubs owned by their teams) for FE-02
+   catalogue/stock facts, FE-06 benefit lifecycle, and verified payment
+   evidence.
+
+After those sources are available, re-check FE-08 gates B01–B10 and append a
+resolution entry to this record before implementation resumes.
+
+### Resolution update — 2026-10-26T00:00:00+07:00
+
+The responsible feature owner, Thinh, approved `locationId: Long` as the
+canonical FE-08 location identifier, matching account management migration V5
+and `AccountFacade#getLocationScope`. The FE-08 OpenAPI contract now exposes
+`locationId` as `integer/int64`; no branch/location mapping is required for
+this release. This resolves item 2 only. Authentication and the FE-02, FE-06,
+and payment boundaries remain blocked until their real contracts are supplied
+or an explicitly bounded development substitute is approved.
+
+### Resolution update — 2026-10-26T00:00:00+07:00
+
+Thinh approved a development-only substitute for the remaining boundaries so
+FE-08 can be implemented and demonstrated before the owning teams merge their
+facades. The substitute must be isolated behind FE-08 ports and enabled only
+by the `local` Spring profile:
+
+- a local actor resolver accepts `X-Debug-Firebase-Uid`, resolves it through
+  the existing public account facade, and enforces active `MEMBER` status;
+- deterministic local adapters provide catalogue/stock, loyalty/benefit, and
+  payment responses; and
+- non-local profiles fail closed at these adapter boundaries until the owning
+  feature's approved facade is merged.
+
+This unblocks development implementation only. It does not approve production
+authentication, live payment, live GHTK, or cross-feature contracts. Replace
+the local adapters rather than changing FE-08 REST/persistence semantics when
+the approved facades become available.
+
+## BE-DESIGN-0008 — FE-08 baseline inventories contradict approved fulfilment flow
+
+- **Recorded at:** 2026-10-26T00:00:00+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 Retail Order and Fulfillment; prerequisite tasks T001 and T002
+- **Status:** BLOCKED
+
+### Stopped scope and design sources
+
+All FE-08 implementation is stopped before the next source, migration, test,
+or configuration change. The affected sources are FE-08 `plan.md` and
+`tasks.md` (Phase 1), the FE-08 OpenAPI contract, Report 3 external API and
+background-job inventories, and `ppswbs-spec/APIs.md`.
+
+### Precise conflict
+
+FE-08 specifies automatic GHTK fee quotation, shipment creation after verified
+payment, webhook-first status synchronization, and status-API fallback. Report
+3's external API inventory currently states that V1 records only a manual GHTK
+handoff and does not call GHTK APIs, quote fees, or track delivery. In addition,
+the API catalog lists obsolete retail checkout and fulfilment-choice routes
+instead of the current FE-08 cart, quote, grouped-checkout, payment, and
+tracking contract.
+
+### Evidence, facts, and unknowns
+
+- Fact: `tasks.md` marks T001 and T002 incomplete and states that Phase 1 gates
+  Phase 2.
+- Fact: Report 3 external API inventory row 8 says "V1 does not call GHTK APIs,
+  quote delivery fees, [or] track delivery".
+- Fact: `ppswbs-spec/APIs.md` lines 158-159 list only
+  `POST /api/v1/ready-ring-orders` and
+  `PUT /api/v1/ready-ring-orders/{orderId}/fulfilment-choice`, which conflict
+  with the feature OpenAPI contract.
+- Fact: this check found no current FE-08 Java files under
+  `features/readyringsales`; no new migration, test, or runtime configuration
+  is pending from this implementation pass.
+- Unknown: whether the Report 3/API catalog owners approve replacing their
+  manual-only baseline with the automatic GHTK V1 scope.
+
+### Why implementation cannot proceed correctly
+
+Implementing automatic provider behavior while an active project baseline says
+manual-only would create incompatible requirements and expose routes whose
+documented authority is unclear. Choosing which shared source prevails would
+be a product and cross-team documentation decision, not an FE-08 implementation
+choice.
+
+### Work state and verification
+
+- **Files changed in this implementation pass:** this appended blocker report
+  only. The prior FE-08 OpenAPI `locationId` alignment remains a separate
+  documented change.
+- **Checks run:** SpecKit prerequisite check, checklist scan (22/22 checked),
+  targeted Report 3/API catalog comparison, and backend worktree inspection.
+- **Checks not run:** Maven, migration, and API tests; code implementation is
+  stopped at the design gate.
+
+### Required decision or design to resume
+
+The Report 3 and API catalog owners must approve and synchronize the automatic
+GHTK V1 flow, including pickup-only production fallback and the FE-08 REST
+route set. After T001 and T002 have evidence of completion, re-check the task
+dependencies and append a resolution update to this record before restarting
+FE-08 implementation.
+
+### Resolution update — 2026-10-26T00:00:00+07:00
+
+Thinh approved the required shared-document updates. T001 now records
+automatic GHTK quotation, prepaid/no-COD shipment creation, webhook/status
+reconciliation, and pickup-only production fallback in the Report 3 API and
+background-job inventories. T002 now aligns `APIs.md` with the FE-08 REST
+contract and its development-only adapter boundary. The contradictory
+manual-only GHTK statement and obsolete fulfilment-choice route were removed.
+This resolves BE-DESIGN-0008; development remains subject to the explicitly
+scoped local substitutes recorded under BE-DESIGN-0007.
+
+## BE-DESIGN-0009 — FE-08 physical persistence mapping is not approved
+
+- **Recorded at:** 2026-10-26T00:00:00+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 Retail Order and Fulfillment; prerequisite task T005 and dependent migrations T012 onward
+- **Status:** BLOCKED
+
+### Stopped scope and design sources
+
+Backend implementation is stopped before creating entities, repositories,
+Flyway migrations, controllers, or tests. The sources are FE-08 `data-model.md`,
+`plan.md`, and `tasks.md` T005/T012.
+
+### Precise missing decision
+
+The data model expressly says it does not authorize a database migration and
+leaves physical table names, indexes, locking clauses, and Flyway ordering to
+be confirmed. The required `implementation-readiness.md` does not exist, while
+T005 remains incomplete and explicitly gates backend Phase 2.
+
+### Evidence, facts, and unknowns
+
+- Fact: `implementation-readiness.md` is absent.
+- Fact: `data-model.md` line 4 says physical tables, indexes, locking, and
+  Flyway ordering require confirmation.
+- Fact: T012 requires a migration covering carts, branch orders/items, holds,
+  quotes, fulfilment, shipments, events, evidence, idempotency/version, and
+  retention indexes.
+- Unknown: the approved table/foreign-key/index mapping, the selected
+  concurrency mechanism for cart and checkout rows, and the exact migration
+  allocation for this baseline.
+
+### Why implementation cannot proceed correctly
+
+Inventing a schema or lock strategy would make an irreversible migration and
+could conflict with the eventual FE-02, FE-06, payment, and fulfilment
+boundaries. The local adapters approve substitute integrations; they do not
+approve physical persistence design.
+
+### Work state and verification
+
+- **Files changed in this pass:** shared documentation and task evidence for
+  T001/T002, plus this blocker report; no FE-08 Java source, migration, or test
+  was created.
+- **Checks run:** existence check for implementation readiness, targeted task/
+  data-model inspection, and `git diff --check`.
+- **Checks not run:** Maven, migration, and API tests because the persistence
+  design gate is unresolved.
+
+### Required decision or design to resume
+
+Approve a physical FE-08 schema and concurrency/migration approach, then record
+it in `implementation-readiness.md` under Thinh's ownership. At minimum it
+must define the cart/order/hold/quote/shipment records, foreign-key ownership,
+indexes, optimistic or pessimistic locking points, and the next migration
+number. Re-check T005 before any implementation resumes.
+
+### Resolution update — 2026-10-26T00:00:00+07:00
+
+Thinh approved a cart-first migration strategy. The new implementation
+readiness record defines V6 as the cart-only schema, its ownership, constraints,
+optimistic concurrency behavior, and the deferred V7-V9 allocations. This
+resolves the persistence gate for US1 only. Checkout, payment, quote,
+shipment, and operations implementation remain blocked by their later-slice
+facade and persistence gates.
+
+### Development-substitute correction — 2026-10-26T00:00:00+07:00
+
+Spring Modulith verification shows that account management does not yet expose
+its facade as a named interface, so FE-08 cannot legally depend on it. For the
+approved local-only cart slice, the actor substitute therefore accepts a
+positive `X-Debug-Account-Id` without calling account management. This is not
+production authorization; non-local profiles continue to fail closed. Replace
+this substitute with the approved account facade after its owner exports one.
+
+### Resolution update â€” 2026-10-27T00:00:00+07:00
+
+Thinh authorized the next FE-08 development slice: persisted checkout with
+temporary deterministic substitutes for FE-06 vouchers/points, GHTK quotation,
+and VNPay payment verification. `implementation-readiness.md` now authorizes
+the V7 checkout aggregate schema, row-lock/idempotency behavior, and the
+local-only mock boundary. The substitutes must not call external providers or
+claim real payment, voucher, points, stock, or shipment effects. Non-local
+profiles remain fail-closed and the approved owner facades will replace the
+adapters without changing checkout REST or persistence semantics.
+
+## BE-DESIGN-0010 — FE-10 production reporting source gates
+
+- **Recorded at:** 2026-10-27T00:00:00+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-10 Manager Dashboard production implementation
+- **Status:** BLOCKED
+
+Production FE-10 remains blocked because the approved Manager capability,
+active `account_location_assignments` reporting facade, final paid workshop
+invoices, completed-session capacity, and accepted attendance aggregates do
+not exist in the imported backend. The user, Thinh, approved a `local`-profile
+development substitute only: reporting may compose deterministic demo facts
+using `locationId: Long`, while every non-local profile fails closed. This
+does not approve production authorization, real revenue reporting, or source
+schema changes owned by other features.
+
+## Record BE-DESIGN-0011 — `origin/develop` không biên dịch sạch, chặn kiểm chứng của 006
+
+- **Thời điểm**: 2026-10-27T21:03:41+07:00
+- **Reporter**: Claude (agent triển khai, làm theo yêu cầu của Đặng Thị Khương, owner 006)
+- **Feature/task**: 006-loyalty-promotion, T007, T017, T018, T021–T023 (kiểm chứng); ảnh hưởng mọi feature cần build sạch
+- **Trạng thái**: BLOCKED
+
+**Phạm vi bị dừng và nguồn.** Kiểm chứng code 006 sau khi ghép `origin/develop` (`4eaacaa`) vào `khuong` (merge `73ac306`). Không phải khuyết thiết kế của 006: lỗi nằm ở code feature khác đã có trong `origin/develop`.
+
+**Khuyết.** Khi Maven biên dịch lại toàn bộ (`.\mvnw.cmd -q test ...` sau khi thêm nhiều file mới), `compile` thất bại ở bốn file, đều thêm trong commit `bd88645` "[ADD] BE code v1.1 cho feature 004" (tác giả WallOfFloof, 2026-10-25):
+1. `configuration/DefaultFirebaseTokenVerifier.java`: không tìm thấy `FirebaseTokenVerifier`, `FirebaseAuthenticationToken`.
+2. `configuration/FirebaseAuthenticationFilter.java`: như trên.
+3. `designreview/application/DesignAnalysisService.java`: package `edu.fpt.sep490_g22.ppswbs_backend.members.facade` không tồn tại.
+4. `workshopbooking/facade/WorkshopBookingFacade.java`: package `workshopbooking.domain` và `workshopbooking.infrastructure` không tồn tại.
+Ở `test-compile`, `src/test/java/.../designreview/DesignRequestIT.java` cũng tham chiếu `members.domain`, `members.infrastructure`, `workshopbooking.domain` không tồn tại.
+
+**Bằng chứng.**
+- Fact: `git cat-file -e origin/develop:<path>` xác nhận cả bốn file nguồn có trong `origin/develop`; `git ls-tree -r origin/develop` không có file nào dưới `members/` hay `workshopbooking/domain/` và không có lớp `FirebaseTokenVerifier`.
+- Fact: Spring context trong test lỗi `NoClassDefFoundError: FirebaseTokenVerifier` khi nạp `FirebaseAuthenticationFilter` (`LoyaltySecurityIT`, 10/10 lỗi).
+- Fact: các lần chạy "đạt" trước đó sau merge (ví dụ `LoyaltyAuthorizationTests` 8/8, `ModulithArchitectureTests`) dựa trên class cũ còn trong `target/`, không phải biên dịch sạch.
+- Unknown: các file này là phần còn sót cần xóa, hay đang thiếu phần code đi kèm chưa được đẩy lên; chưa biên dịch thử bản sạch của `origin/develop` trong thư mục riêng.
+
+**Vì sao không tự xử lý.** Đây là code của feature 004, của khung xác thực Firebase cũ và của workshopbooking cũ, không thuộc phạm vi 006. Xóa hoặc sửa chúng là quyết định của chủ code; tự xóa có thể làm mất phần đang làm dở của người khác.
+
+**Hiện trạng file 006 tại lúc dừng.** Đã viết, chưa biên dịch sạch được: `LoyaltyAuthorization`, `configuration/LoyaltySecurityConfiguration`, 10 repository trong `dao/`, `LoyaltyLockCoordinator`, `LoyaltyCommandService`, `LoyaltyAuditService`, `BenefitEffectSupport`, `LoyaltyReleaseService`, `LoyaltyRestorationService`; test `LoyaltyAuthorizationTests`, `LoyaltySecurityIT`, `service/LoyaltyLifecycleTest`. Chưa viết `LoyaltyCancellationIT`. Không task nào được tick.
+
+**Cần để tiếp tục.** Chủ code của commit `bd88645` (004) và owner 001 (khung Firebase) chốt cách xử lý bốn file trên và `DesignRequestIT`: bổ sung phần thiếu hoặc gỡ phần sót, sao cho `.\mvnw.cmd clean test-compile` trên `origin/develop` chạy được. Sau đó 006 ghép lại develop và chạy lại toàn bộ test 006 trên MySQL 8.4.
+
+**Diễn biến BE-DESIGN-0011 — 2026-10-27 — kiểm tra lại `origin/develop` mới (`37d68cf`).**
+- Lệnh: `git archive origin/develop ppswbs_backend` vào thư mục tạm, rồi `.\mvnw.cmd -q clean test-compile`. Kết quả: thoát mã 1, `COMPILATION ERROR` ở `main`.
+- File lỗi: `configuration/DefaultFirebaseTokenVerifier`, `configuration/FirebaseAuthenticationFilter`, `designreview/application/DesignAnalysisService`, `designreview/application/HumanReviewService`, `designreview/web/AiSupportController`, `workshopbooking/facade/WorkshopBookingFacade` (thêm hai file so với lần ghi trước).
+- `origin/develop` vẫn không có `FirebaseTokenVerifier` (chỉ có `src/test/.../support/TestFirebaseTokenVerifier.java`), không có package `members/` và `workshopbooking/domain/`. Các commit mới (`8dfc3b7`, `3821937`, `5748a08`, `37d68cf`) không xử lý các file này.
+- Trạng thái vẫn `BLOCKED`.
+
+## Record BE-DESIGN-0012 — Preflight CORS của chain dùng chung bị từ chối cả với origin đã cấu hình
+
+- **Thời điểm**: 2026-10-27T21:25+07:00
+- **Reporter**: Claude (agent triển khai, theo yêu cầu của Đặng Thị Khương, owner 006)
+- **Feature/task**: 006 T007 (`LoyaltySecurityIT`); ảnh hưởng mọi route `/api/**` dùng chain dùng chung của 001
+- **Trạng thái**: BLOCKED (chỉ phần kiểm chứng "origin hợp lệ được phép"; không chặn code 006)
+
+**Khuyết.** Trong context test (MockMvc, profile `loyaltypromotion-mysql-test`), mọi preflight `OPTIONS` với `Origin: http://localhost:5173` đều nhận 403 thân `Invalid CORS request`, kể cả route của 002 (`/api/v1/products`) và kể cả khi chỉ gửi `Access-Control-Request-Method: GET` không kèm header.
+
+**Bằng chứng.** Fact: bean `corsConfigurationSource` của `SecurityConfiguration` trả cho `/api/v1/promotion-programs` đúng cấu hình: origins `[http://localhost:5173, http://localhost:3000]`, methods `GET, POST, PUT, DELETE, PATCH, OPTIONS`, headers `Authorization, Content-Type, X-Correlation-Id, Idempotency-Key`, credentials `true`. Fact: 3 preflight thử (POST có header, GET không header, GET trên route 002) đều 403. Unknown: thành phần nào từ chối (có thể là `CorsFilter` toàn cục `workshopOperationsCorsFilter` thứ tự HIGHEST_PRECEDENCE của 003.2, hoặc thứ tự filter trong chain dùng chung); chưa kiểm tra trên server thật bằng trình duyệt. Chạy trên build tạm loại trừ 004 (xem BE-DESIGN-0011).
+
+**Vì sao không tự sửa.** CORS dùng chung thuộc 001 (và filter CORS riêng của 003.2); sửa thứ tự hay cấu hình filter ảnh hưởng mọi feature.
+
+**Hiện trạng 006.** `LoyaltySecurityIT.theConfiguredFrontendOriginIsAllowedWithoutAWildcard` được đánh `@Disabled("BE-DESIGN-0012 ...")`; hai test từ chối origin lạ vẫn chạy nhưng không phân biệt được với lỗi trên. Các test còn lại đạt.
+
+**Cần để tiếp tục.** Owner 001 (cùng owner 003.2 nếu do `workshopOperationsCorsFilter`) xác định nguyên nhân và cho preflight hợp lệ trả 200 kèm `Access-Control-Allow-Origin`; sau đó 006 bỏ `@Disabled` và chạy lại.
+
+**Diễn biến BE-DESIGN-0011 — 2026-10-27 — `origin/develop` (`37d68cf`) có số migration trùng.**
+- Fact: `git ls-tree -r origin/develop ppswbs_backend/src/main/resources/db/migration` cho thấy hai file cùng version ở ba số: `V6__account_schema_alignment.sql` và `V6__retail_cart.sql`; `V7__workshop_operations.sql` và `V7__retail_mock_checkout.sql`; `V9__product_management.sql` và `V9__workshop_booking.sql`. Flyway từ chối khởi động khi có hai migration cùng version, nên mọi test có Spring context và mọi lần chạy ứng dụng trên develop sẽ lỗi, độc lập với lỗi biên dịch ở trên. Chưa chạy thử để lấy thông báo lỗi.
+- 006 không dùng các số này. 006 giữ `V10`, `V11` (đã có trên develop) và thêm `V12__loyalty_program_config_version.sql` trên nhánh `khuong` (chưa commit); số 12 chưa có trên mọi nhánh remote tại thời điểm kiểm tra.
+- Cần owner 008 (retail) và 003.1 (booking) đổi số migration của mình sang số chưa dùng trước khi develop chạy được.
+
+**Diễn biến BE-DESIGN-0011 và BE-DESIGN-0012 — 2026-10-27 — đổi mã bản ghi và kiểm tra lại `origin/develop`.**
+- Đổi mã: hai bản ghi này trước đây mang mã `BE-DESIGN-0007` (develop không biên dịch sạch, migration trùng số) và `BE-DESIGN-0008` (preflight CORS 403) trên nhánh `khuong`. `ERROR-LOG.md` trên `origin/develop` (`37d68cf`) đã dùng `BE-DESIGN-0007`–`BE-DESIGN-0010` cho FE-08 và FE-10, nên Đặng Thị Khương chốt đổi hai bản ghi của 006 thành `BE-DESIGN-0011` và `BE-DESIGN-0012`. Đã cập nhật tham chiếu trong `verification.md` của 006 và `@Disabled` của `LoyaltySecurityIT`. Nội dung các diễn biến cũ giữ nguyên.
+- Fact: `git fetch origin` lúc này chỉ cập nhật `origin/quoc` (`3821937`) và `origin/thinh` (`37d68cf`); `origin/develop` vẫn ở `37d68cf`, đúng commit đã kiểm tra ở hai diễn biến trước. Migration trùng số V6, V7, V9 vẫn còn; `configuration/` vẫn có `DefaultFirebaseTokenVerifier` và `FirebaseAuthenticationFilter`. Không có commit mới nào sửa CORS dùng chung.
+- Trạng thái: `BE-DESIGN-0011` vẫn `BLOCKED`; `BE-DESIGN-0012` vẫn `BLOCKED` (chỉ phần kiểm chứng origin hợp lệ). Chưa ghép develop về `khuong`.

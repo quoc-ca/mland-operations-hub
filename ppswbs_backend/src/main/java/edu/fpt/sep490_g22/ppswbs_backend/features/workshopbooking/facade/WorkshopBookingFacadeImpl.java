@@ -223,4 +223,28 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade {
             return null;
         }
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<BookingEligibilitySnapshot> getBookingEligibilityForDesign(String bookingCode, Long memberAccountId) {
+        if (bookingCode == null || bookingCode.isBlank() || memberAccountId == null) {
+            return Optional.empty();
+        }
+        return bookingRepository.findByBookingCode(bookingCode.trim())
+                .filter(b -> memberAccountId.equals(b.getMemberAccountId()))
+                .map(b -> {
+                    boolean eligible = b.getBookingStatus() != BookingStatus.CANCELLED
+                            && b.getBookingStatus() != BookingStatus.EXPIRED;
+                    return BookingEligibilitySnapshot.builder()
+                            .bookingId(b.getId())
+                            .bookingCode(b.getBookingCode())
+                            .memberAccountId(b.getMemberAccountId())
+                            .packageId(b.getPackageId())
+                            .packageName(b.getPackageNameSnapshot())
+                            .bookingStatus(b.getBookingStatus().name())
+                            .paymentStatus(b.getPaymentStatus().name())
+                            .eligibleForDesign(eligible)
+                            .build();
+                });
+    }
 }

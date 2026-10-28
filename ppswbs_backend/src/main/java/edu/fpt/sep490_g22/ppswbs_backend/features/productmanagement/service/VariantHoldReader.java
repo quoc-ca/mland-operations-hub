@@ -5,10 +5,10 @@ import java.util.Collection;
 import java.util.Map;
 
 /**
- * Internal seam for the quantity currently held by valid FE-08 holds, per variant. It is implemented
- * by the AvailabilityGuardPort binding of T019 with the real FE-08 source; until then no bean exists and
- * every read that needs hold data for an ever-published product fails with
- * {@code AVAILABILITY_DEPENDENCY_UNAVAILABLE}. There is no zero-hold fallback.
+ * Internal seam for the quantity currently held by valid FE-08 holds, per variant. Its runtime
+ * implementation is {@link CatalogueAvailabilityService}, which delegates to the FE-08
+ * {@code AvailabilityGuardPort}; without that port every read that needs hold data for an ever-published
+ * product fails with {@code AVAILABILITY_DEPENDENCY_UNAVAILABLE}. There is no zero-hold fallback.
  */
 public interface VariantHoldReader {
 

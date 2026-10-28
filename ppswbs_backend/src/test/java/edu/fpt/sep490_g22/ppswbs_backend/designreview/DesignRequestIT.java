@@ -1,16 +1,18 @@
 package edu.fpt.sep490_g22.ppswbs_backend.designreview;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.ImageRateLimiter;
-import edu.fpt.sep490_g22.ppswbs_backend.members.domain.Member;
-import edu.fpt.sep490_g22.ppswbs_backend.members.domain.MemberPolicyAcceptance;
-import edu.fpt.sep490_g22.ppswbs_backend.members.domain.MemberStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.members.infrastructure.MemberPolicyAcceptanceRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.members.infrastructure.MemberRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.support.TestFirebaseTokenVerifier;
-import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.domain.BookingPaymentStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.domain.BookingStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.domain.WorkshopBooking;
-import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.infrastructure.WorkshopBookingRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.TemporaryImageReference;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.TemporaryImageReferenceRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingEligibilitySnapshot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,15 +20,22 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -37,71 +46,63 @@ public class DesignRequestIT {
     @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private MemberRepository memberRepository;
+    @MockitoBean
+    private TokenVerificationService tokenVerificationService;
 
-    @Autowired
-    private MemberPolicyAcceptanceRepository acceptanceRepository;
+    @MockitoBean
+    private AccountFacade accountFacade;
 
-    @Autowired
-    private WorkshopBookingRepository bookingRepository;
-
-    @Autowired
-    private TestFirebaseTokenVerifier tokenVerifier;
+    @MockitoBean
+    private WorkshopBookingFacade workshopBookingFacade;
 
     @Autowired
     private ImageRateLimiter imageRateLimiter;
 
-    private Member testMember;
-    private WorkshopBooking testBooking;
+    @Autowired
+    private TemporaryImageReferenceRepository temporaryImageRepository;
+
+    private final Long testMemberId = 1001L;
+    private final String testMemberUid = "uid-member-test";
+    private final String testMemberToken = "token-member-test";
+
+    private final Long otherMemberId = 1002L;
+    private final String otherMemberUid = "uid-member-other";
+    private final String otherMemberToken = "token-member-other";
 
     @BeforeEach
     void setUp() {
-        tokenVerifier.clearTokens();
+        imageRateLimiter.reset(testMemberId);
+        imageRateLimiter.reset(otherMemberId);
 
-        testMember = memberRepository.save(Member.builder()
-                .externalUserId("uid-member-test")
-                .email("member-test@example.com")
-                .emailVerified(true)
-                .status(MemberStatus.ACTIVE)
-                .build());
+        // Member A (Owner)
+        when(tokenVerificationService.verify(testMemberToken)).thenReturn(
+                new VerifiedIdentity(testMemberUid, "member-test@example.com", true, Instant.now()));
+        when(accountFacade.resolveActor(testMemberUid, true)).thenReturn(Optional.of(
+                new CurrentAccountActor(testMemberId, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of())));
+        when(accountFacade.resolveAccount(testMemberUid)).thenReturn(Optional.of(
+                new AccountSummary(testMemberId, ActorRole.MEMBER, ActorStatus.ACTIVE, "member-test@example.com", Instant.now(), Instant.now())));
 
-        imageRateLimiter.reset(testMember.getId());
+        // Member B (Other)
+        when(tokenVerificationService.verify(otherMemberToken)).thenReturn(
+                new VerifiedIdentity(otherMemberUid, "member-other@example.com", true, Instant.now()));
+        when(accountFacade.resolveActor(otherMemberUid, true)).thenReturn(Optional.of(
+                new CurrentAccountActor(otherMemberId, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of())));
+        when(accountFacade.resolveAccount(otherMemberUid)).thenReturn(Optional.of(
+                new AccountSummary(otherMemberId, ActorRole.MEMBER, ActorStatus.ACTIVE, "member-other@example.com", Instant.now(), Instant.now())));
 
-        // Accept policy v1.0.0
-        acceptanceRepository.save(MemberPolicyAcceptance.builder()
-                .memberId(testMember.getId())
-                .policyDocumentId(1L)
-                .locale("vi")
-                .correlationId("test-corr")
-                .acceptedAt(Instant.now())
-                .build());
-        acceptanceRepository.save(MemberPolicyAcceptance.builder()
-                .memberId(testMember.getId())
-                .policyDocumentId(2L)
-                .locale("vi")
-                .correlationId("test-corr")
-                .acceptedAt(Instant.now())
-                .build());
-
-        testBooking = bookingRepository.save(WorkshopBooking.builder()
-                .bookingCode("WB-TEST-DESIGN-01")
-                .memberId(testMember.getId())
-                .packageId(1L)
-                .sessionId(1L)
-                .participantCount(1)
-                .contactEmail("member-test@example.com")
-                .canonicalEmail("member-test@example.com")
-                .contactPhone("0912345678")
-                .canonicalPhone("0912345678")
-                .packageNameSnapshot("Basic Silver Ring Workshop")
-                .priceSnapshot(750000L)
-                .currencySnapshot("VND")
-                .bookingStatus(BookingStatus.CONFIRMED)
-                .paymentStatus(BookingPaymentStatus.DEPOSIT_PAID)
-                .build());
-
-        tokenVerifier.registerToken("token-member-test", "uid-member-test", "member-test@example.com", true);
+        // Booking mock for Member A
+        when(workshopBookingFacade.getBookingEligibilityForDesign("WB-TEST-DESIGN-01", testMemberId)).thenReturn(Optional.of(
+                BookingEligibilitySnapshot.builder()
+                        .bookingId(1L)
+                        .bookingCode("WB-TEST-DESIGN-01")
+                        .memberAccountId(testMemberId)
+                        .packageId(1L)
+                        .packageName("Basic Silver Ring Workshop")
+                        .bookingStatus("CONFIRMED")
+                        .paymentStatus("DEPOSIT_PAID")
+                        .eligibleForDesign(true)
+                        .build()
+        ));
     }
 
     @Test
@@ -117,7 +118,33 @@ public class DesignRequestIT {
     }
 
     @Test
-    void whenValidSubmission_thenReturns202WithCandidateFeatures() throws Exception {
+    void whenValidSubmission_thenReturns202WithCandidateFeaturesAndImageDeleted() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("image", "ring.jpg", "image/jpeg", "valid-jpeg-bytes".getBytes());
+
+        MvcResult result = mockMvc.perform(multipart("/api/v1/design-requests")
+                        .file(file)
+                        .param("bookingCode", "WB-TEST-DESIGN-01")
+                        .param("consentVersion", "v1.0.0")
+                        .param("designVersion", "1")
+                        .header("Authorization", "Bearer " + testMemberToken)
+                        .header("Idempotency-Key", "idemp-test-01"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.id").isNotEmpty())
+                .andExpect(jsonPath("$.analysisStatus").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.reviewStatus").value("NEED_REVIEW"))
+                .andExpect(jsonPath("$.candidateFeatures").isNotEmpty())
+                .andExpect(jsonPath("$.imageQuality").isNotEmpty())
+                .andReturn();
+
+        // Verify temporary image immediate deletion
+        List<TemporaryImageReference> images = temporaryImageRepository.findAll();
+        assertThat(images).isNotEmpty();
+        assertThat(images.get(images.size() - 1).getDeletionOutcome()).isEqualTo("DELETED_AFTER_PROCESSING");
+        assertThat(images.get(images.size() - 1).getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    void whenDuplicateIdempotencyKey_thenReturnsExistingWithoutConsumingRateLimit() throws Exception {
         MockMultipartFile file = new MockMultipartFile("image", "ring.jpg", "image/jpeg", "valid-jpeg-bytes".getBytes());
 
         mockMvc.perform(multipart("/api/v1/design-requests")
@@ -125,29 +152,9 @@ public class DesignRequestIT {
                         .param("bookingCode", "WB-TEST-DESIGN-01")
                         .param("consentVersion", "v1.0.0")
                         .param("designVersion", "1")
-                        .header("Authorization", "Bearer token-member-test")
-                        .header("Idempotency-Key", "idemp-test-01"))
-                .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.id").isNotEmpty())
-                .andExpect(jsonPath("$.analysisStatus").value("SUCCEEDED"))
-                .andExpect(jsonPath("$.reviewStatus").value("NEED_REVIEW"))
-                .andExpect(jsonPath("$.candidateFeatures").isNotEmpty())
-                .andExpect(jsonPath("$.imageQuality").isNotEmpty());
-    }
-
-    @Test
-    void whenDuplicateIdempotencyKey_thenReturnsExistingWithoutConsumingRateLimit() throws Exception {
-        MockMultipartFile file = new MockMultipartFile("image", "ring.jpg", "image/jpeg", "valid-jpeg-bytes".getBytes());
-
-        MvcResult first = mockMvc.perform(multipart("/api/v1/design-requests")
-                        .file(file)
-                        .param("bookingCode", "WB-TEST-DESIGN-01")
-                        .param("consentVersion", "v1.0.0")
-                        .param("designVersion", "1")
-                        .header("Authorization", "Bearer token-member-test")
+                        .header("Authorization", "Bearer " + testMemberToken)
                         .header("Idempotency-Key", "idemp-duplicate-test"))
-                .andExpect(status().isAccepted())
-                .andReturn();
+                .andExpect(status().isAccepted());
 
         // Second call with same idempotency key
         mockMvc.perform(multipart("/api/v1/design-requests")
@@ -155,7 +162,7 @@ public class DesignRequestIT {
                         .param("bookingCode", "WB-TEST-DESIGN-01")
                         .param("consentVersion", "v1.0.0")
                         .param("designVersion", "1")
-                        .header("Authorization", "Bearer token-member-test")
+                        .header("Authorization", "Bearer " + testMemberToken)
                         .header("Idempotency-Key", "idemp-duplicate-test"))
                 .andExpect(status().isAccepted());
     }
@@ -169,7 +176,7 @@ public class DesignRequestIT {
                             .file(file)
                             .param("bookingCode", "WB-TEST-DESIGN-01")
                             .param("consentVersion", "v1.0.0")
-                            .header("Authorization", "Bearer token-member-test")
+                            .header("Authorization", "Bearer " + testMemberToken)
                             .header("Idempotency-Key", "idemp-rate-" + i))
                     .andExpect(status().isAccepted());
         }
@@ -179,7 +186,7 @@ public class DesignRequestIT {
                         .file(file)
                         .param("bookingCode", "WB-TEST-DESIGN-01")
                         .param("consentVersion", "v1.0.0")
-                        .header("Authorization", "Bearer token-member-test")
+                        .header("Authorization", "Bearer " + testMemberToken)
                         .header("Idempotency-Key", "idemp-rate-4"))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(header().exists("Retry-After"))
@@ -194,17 +201,39 @@ public class DesignRequestIT {
                         .file(file)
                         .param("bookingCode", "WB-TEST-DESIGN-01")
                         .param("consentVersion", "v1.0.0")
-                        .header("Authorization", "Bearer token-member-test")
+                        .header("Authorization", "Bearer " + testMemberToken)
                         .header("Idempotency-Key", "idemp-view-test"))
                 .andExpect(status().isAccepted())
                 .andReturn().getResponse().getContentAsString();
 
-        String requestId = new com.fasterxml.jackson.databind.ObjectMapper().readTree(responseBody).get("id").asText();
+        String requestId = new ObjectMapper().readTree(responseBody).get("id").asText();
 
         // Own view
         mockMvc.perform(get("/api/v1/design-requests/" + requestId)
-                        .header("Authorization", "Bearer token-member-test"))
+                        .header("Authorization", "Bearer " + testMemberToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(requestId));
+    }
+
+    @Test
+    void whenMemberViewsOtherMemberRequest_thenReturns404NotFoundToPreventLeakage() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("image", "ring.jpg", "image/jpeg", "valid-jpeg-bytes".getBytes());
+
+        String responseBody = mockMvc.perform(multipart("/api/v1/design-requests")
+                        .file(file)
+                        .param("bookingCode", "WB-TEST-DESIGN-01")
+                        .param("consentVersion", "v1.0.0")
+                        .header("Authorization", "Bearer " + testMemberToken)
+                        .header("Idempotency-Key", "idemp-isolation-test"))
+                .andExpect(status().isAccepted())
+                .andReturn().getResponse().getContentAsString();
+
+        String requestId = new ObjectMapper().readTree(responseBody).get("id").asText();
+
+        // Other member attempts to view -> 404 NOT_FOUND
+        mockMvc.perform(get("/api/v1/design-requests/" + requestId)
+                        .header("Authorization", "Bearer " + otherMemberToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 }

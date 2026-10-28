@@ -65,6 +65,7 @@ public class SecurityConfiguration {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/error").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/ai-support/messages").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().denyAll()
             );

@@ -4,10 +4,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.*;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.*;
-import edu.fpt.sep490_g22.ppswbs_backend.members.facade.MemberDto;
-import edu.fpt.sep490_g22.ppswbs_backend.members.facade.MemberFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.facade.BookingEligibilityDto;
-import edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.facade.WorkshopBookingFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingEligibilitySnapshot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +35,7 @@ public class DesignAnalysisService {
     private final DesignAnalysisResultRepository analysisResultRepository;
     private final ImageConsentRepository consentRepository;
     private final TemporaryImageReferenceRepository temporaryImageRepository;
-    private final MemberFacade memberFacade;
+    private final AccountFacade accountFacade;
     private final WorkshopBookingFacade workshopBookingFacade;
     private final ImageRateLimiter imageRateLimiter;
     private final ReferenceImageStoragePort storagePort;
@@ -72,9 +74,11 @@ public class DesignAnalysisService {
         log.info("Submitting booking-design image request: callerUid={}, bookingCode={}, designVersion={}", callerUid, bookingCode, designVersion);
 
         // 1. Identity & Member Role Validation
-        memberFacade.verifyMemberActiveEntitlement(callerUid);
-        MemberDto member = memberFacade.getMemberByUid(callerUid)
+        AccountSummary member = accountFacade.resolveAccount(callerUid)
                 .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Không tìm thấy thông tin tài khoản thành viên."));
+        if (member.role() != ActorRole.MEMBER || member.status() != ActorStatus.ACTIVE) {
+            throw DesignReviewException.forbidden("MEMBER_INACTIVE_OR_INVALID", "Tài khoản không phải là hội viên hoạt động.");
+        }
 
         int version = (designVersion != null && designVersion > 0) ? designVersion : 1;
 
@@ -82,7 +86,7 @@ public class DesignAnalysisService {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             Optional<BookingDesignRequest> existing = requestRepository
                     .findByMemberIdAndBookingCodeAndDesignVersionAndIdempotencyKey(
-                            member.getId(), bookingCode, version, idempotencyKey
+                            member.accountId(), bookingCode, version, idempotencyKey
                     );
             if (existing.isPresent()) {
                 log.info("Duplicate idempotency key detected: returning existing design request {}", existing.get().getId());
@@ -93,7 +97,7 @@ public class DesignAnalysisService {
         }
 
         // 3. Atomic Rate Limiting (3 attempts per rolling 5 minutes)
-        ImageRateLimiter.RateLimitResult rateCheck = imageRateLimiter.tryAcquire(member.getId());
+        ImageRateLimiter.RateLimitResult rateCheck = imageRateLimiter.tryAcquire(member.accountId());
         if (!rateCheck.allowed()) {
             throw DesignReviewException.rateLimited(
                     "IMAGE_RATE_LIMITED",
@@ -103,14 +107,14 @@ public class DesignAnalysisService {
         }
 
         // 4. Booking Context Validation
-        BookingEligibilityDto bookingEligibility = workshopBookingFacade
-                .getBookingEligibilityForDesign(bookingCode, member.getId())
+        BookingEligibilitySnapshot bookingEligibility = workshopBookingFacade
+                .getBookingEligibilityForDesign(bookingCode, member.accountId())
                 .orElseThrow(() -> DesignReviewException.unprocessable(
                         "BOOKING_CONTEXT_INVALID",
                         "Mã đặt chỗ không tồn tại hoặc không thuộc quyền sở hữu của bạn."
                 ));
 
-        if (!bookingEligibility.isEligibleForDesign()) {
+        if (!bookingEligibility.eligibleForDesign()) {
             throw DesignReviewException.unprocessable(
                     "BOOKING_CONTEXT_INVALID",
                     "Trạng thái booking hiện tại không cho phép gửi yêu cầu phân tích thiết kế."
@@ -122,7 +126,7 @@ public class DesignAnalysisService {
             throw DesignReviewException.unprocessable("CONSENT_REQUIRED", "Bạn cần đồng ý với điều khoản phân tích hình ảnh của dịch vụ.");
         }
         ImageConsent consent = ImageConsent.builder()
-                .memberId(member.getId())
+                .memberId(member.accountId())
                 .bookingCode(bookingCode)
                 .purpose("WORKSHOP_BOOKING_DESIGN_ANALYSIS")
                 .consentVersion(consentVersion.trim())
@@ -166,7 +170,7 @@ public class DesignAnalysisService {
         // Save Request Record first to satisfy foreign key FK_TIR_REQUEST
         BookingDesignRequest designRequest = BookingDesignRequest.builder()
                 .id(requestId)
-                .memberId(member.getId())
+                .memberId(member.accountId())
                 .bookingCode(bookingCode)
                 .designVersion(version)
                 .idempotencyKey(idempotencyKey)
@@ -193,7 +197,7 @@ public class DesignAnalysisService {
         ImageFeatureAnalysisPort.FeatureAnalysisResult analysisResult;
         try {
             analysisResult = featureAnalysisPort.analyzeRingImage(
-                    imageBytes, contentType, bookingEligibility.getPackageName(), requestId
+                    imageBytes, contentType, bookingEligibility.packageName(), requestId
             );
         } finally {
             // Immediate deletion of temporary image on both success and failure
@@ -235,17 +239,10 @@ public class DesignAnalysisService {
         BookingDesignRequest request = requestRepository.findById(id)
                 .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy yêu cầu thiết kế với mã đã cung cấp."));
 
-        boolean isStaffOrManager = authorities.stream().anyMatch(a ->
-                a.getAuthority().equals("ROLE_STAFF") ||
-                a.getAuthority().equals("ROLE_OWNER") ||
-                a.getAuthority().equals("ROLE_MANAGER") ||
-                a.getAuthority().equals("ROLE_ADMIN_TECHNICAL")
-        );
-
-        if (!isStaffOrManager) {
+        if (!DesignReviewPermissions.canViewDesignRequest(authorities)) {
             // Must be owning Member
-            MemberDto member = memberFacade.getMemberByUid(callerUid).orElse(null);
-            if (member == null || !member.getId().equals(request.getMemberId())) {
+            AccountSummary member = accountFacade.resolveAccount(callerUid).orElse(null);
+            if (member == null || !member.accountId().equals(request.getMemberId())) {
                 throw DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy yêu cầu thiết kế.");
             }
         }

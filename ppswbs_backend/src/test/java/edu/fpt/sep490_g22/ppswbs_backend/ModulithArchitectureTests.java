@@ -55,6 +55,12 @@ public class ModulithArchitectureTests {
         assertThat(operationsModule.getNamedInterfaces().getByName("facade"))
                 .as("workshopoperations must expose a public named interface 'facade'")
                 .isPresent();
+        assertThat(modules.getModuleByName("readyringsales"))
+            .as("readyringsales should be detected as a distinct named module under features")
+            .isPresent();
+        assertThat(modules.getModuleByName("fulfilment"))
+            .as("fulfilment should be detected as a distinct named module under features")
+            .isPresent();
     }
 
     @Test

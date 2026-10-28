@@ -142,7 +142,7 @@ class LoyaltyMySqlMigrationIT {
         LoyaltyTestSupport.requireMySql84(dataSource);
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank", String.class);
-        assertThat(versions).containsSubsequence("5", "9", "10", "11");
+        assertThat(versions).containsSubsequence("5", "9", "10", "11", "12");
         List<String> tables = jdbc.queryForList("SELECT table_name FROM information_schema.tables "
                 + "WHERE table_schema = DATABASE() AND (table_name LIKE 'loyalty\\_%' OR table_name LIKE 'promotion\\_%') "
                 + "ORDER BY table_name", String.class);
@@ -396,6 +396,15 @@ class LoyaltyMySqlMigrationIT {
         // An odd amount stays exact: deposit and remaining are FE-03's business and are not stored here.
         rolledBack(sql -> insertBenefit(sql, "WORKSHOP", unique("w4-"), "984999", 1, "PENDING", null));
         rolledBack(sql -> insertBenefit(sql, "WORKSHOP", unique("w5-"), "1", 1, "PENDING", null));
+    }
+
+    @Test
+    void programmesCarryAConfigurationVersionSeparateFromTheCounters() {
+        List<String> columns = jdbc.queryForList("SELECT column_name FROM information_schema.columns "
+                + "WHERE table_schema = DATABASE() AND table_name = 'promotion_program'", String.class);
+        assertThat(columns).contains("config_version", "version", "held_count", "consumed_count");
+        assertRejected(sql -> sql.update("UPDATE promotion_program SET config_version = -1 WHERE id = ?",
+                insertVoucher(sql, unique("CV"), 10, 1, 0, 0)));
     }
 
     @Test

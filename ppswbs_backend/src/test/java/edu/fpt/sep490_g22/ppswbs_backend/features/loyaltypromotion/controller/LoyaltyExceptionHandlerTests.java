@@ -20,8 +20,8 @@ class LoyaltyExceptionHandlerTests {
     @Test
     void everyCodeMapsToTheDocumentedStatusFamily() {
         assertThat(LoyaltyErrorDtos.status(LoyaltyErrorCode.INVALID_INPUT)).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(LoyaltyErrorDtos.status(LoyaltyErrorCode.AUTHENTICATION_REQUIRED)).isEqualTo(HttpStatus.UNAUTHORIZED);
         assertThat(LoyaltyErrorDtos.status(LoyaltyErrorCode.ACCESS_DENIED)).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(LoyaltyErrorDtos.status(LoyaltyErrorCode.PRIVILEGED_AUTH_REQUIRED)).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(LoyaltyErrorDtos.status(LoyaltyErrorCode.PROMOTION_NOT_FOUND)).isEqualTo(HttpStatus.NOT_FOUND);
         for (LoyaltyErrorCode code : new LoyaltyErrorCode[] {LoyaltyErrorCode.CODE_EXISTS,
                 LoyaltyErrorCode.STALE_VERSION, LoyaltyErrorCode.IDEMPOTENCY_CONFLICT,

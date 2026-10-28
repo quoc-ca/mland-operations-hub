@@ -16,7 +16,8 @@ public final class LoyaltyErrorDtos {
     public static HttpStatus status(LoyaltyErrorCode code) {
         return switch (code) {
             case INVALID_INPUT -> HttpStatus.BAD_REQUEST;
-            case ACCESS_DENIED, PRIVILEGED_AUTH_REQUIRED -> HttpStatus.FORBIDDEN;
+            case AUTHENTICATION_REQUIRED -> HttpStatus.UNAUTHORIZED;
+            case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
             case PROMOTION_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case CODE_EXISTS, STALE_VERSION, IDEMPOTENCY_CONFLICT, QUOTA_LIMIT_CONFLICT, BENEFIT_STATE_CONFLICT,
                     QUOTE_CHANGED, POINTS_LIMIT_CHANGED -> HttpStatus.CONFLICT;
@@ -30,8 +31,8 @@ public final class LoyaltyErrorDtos {
     public static String defaultMessage(LoyaltyErrorCode code) {
         return switch (code) {
             case INVALID_INPUT -> "The request contains an invalid value.";
+            case AUTHENTICATION_REQUIRED -> "Authentication is required.";
             case ACCESS_DENIED -> "You do not have access to this resource.";
-            case PRIVILEGED_AUTH_REQUIRED -> "Stronger authentication is required for this action.";
             case PROMOTION_NOT_FOUND -> "The promotion was not found.";
             case CODE_EXISTS -> "This voucher code has already been issued.";
             case STALE_VERSION -> "The data changed. Reload the latest version and try again.";

@@ -75,6 +75,14 @@ public class PromotionProgram {
     @Column(name = "created_by", nullable = false, updatable = false)
     private Long createdBy;
 
+    /**
+     * Configuration changes only (edit, pause, resume). Quota counters do not move it, so a sale between loading and
+     * saving does not make a Manager's edit stale. Exposed by the API as the programme {@code version}.
+     */
+    @Column(name = "config_version", nullable = false)
+    private long configVersion;
+
+    /** Row version for optimistic locking; also moves with the quota counters. Not exposed. */
     @Version
     @Column(name = "version", nullable = false)
     private long version;
@@ -115,16 +123,23 @@ public class PromotionProgram {
         this.currentRevisionId = revisionId;
     }
 
+    /** Records one configuration change (an edit); pause and resume record their own. */
+    public void markConfigurationChanged() {
+        configVersion++;
+    }
+
     /** ENABLED to PAUSED. Existing holds and accepted snapshots are untouched. */
     public void pause() {
         requireState(ProgramStatus.ENABLED);
         status = ProgramStatus.PAUSED;
+        configVersion++;
     }
 
     /** PAUSED to ENABLED on the same programme and code. Quotas, history and window are not changed. */
     public void resume() {
         requireState(ProgramStatus.PAUSED);
         status = ProgramStatus.ENABLED;
+        configVersion++;
     }
 
     /**

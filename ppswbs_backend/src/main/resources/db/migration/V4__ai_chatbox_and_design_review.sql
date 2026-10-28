@@ -15,8 +15,7 @@ CREATE TABLE ai_text_interactions (
     CONSTRAINT chk_ati_actor_scope CHECK (actor_scope IN ('GUEST', 'MEMBER')),
     CONSTRAINT chk_ati_scope CHECK (scope IN ('PRODUCT', 'WORKSHOP', 'STORE', 'FAQ', 'OUT_OF_SCOPE')),
     INDEX idx_ati_expires (expires_at),
-    INDEX idx_ati_member (member_id, created_at),
-    CONSTRAINT fk_ati_member FOREIGN KEY (member_id) REFERENCES members (id)
+    INDEX idx_ati_member (member_id, created_at)
 );
 
 CREATE TABLE booking_design_requests (
@@ -36,8 +35,7 @@ CREATE TABLE booking_design_requests (
     CONSTRAINT chk_bdr_review_status CHECK (review_status IN ('NEED_REVIEW', 'ACCEPTED', 'REJECTED', 'CLARIFICATION_REQUIRED')),
     UNIQUE KEY uk_bdr_member_version_idemp (member_id, booking_code, design_version, idempotency_key),
     INDEX idx_bdr_review_queue (review_status, analysis_status, created_at),
-    INDEX idx_bdr_member (member_id, created_at),
-    CONSTRAINT fk_bdr_member FOREIGN KEY (member_id) REFERENCES members (id)
+    INDEX idx_bdr_member (member_id, created_at)
 );
 
 CREATE TABLE image_consents (
@@ -48,8 +46,7 @@ CREATE TABLE image_consents (
     consent_version VARCHAR(64) NOT NULL,
     affirmative_action VARCHAR(64) NOT NULL DEFAULT 'CHECKBOX_CONFIRMED',
     accepted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_ic_member_booking (member_id, booking_code, consent_version),
-    CONSTRAINT fk_ic_member FOREIGN KEY (member_id) REFERENCES members (id)
+    INDEX idx_ic_member_booking (member_id, booking_code, consent_version)
 );
 
 CREATE TABLE temporary_image_references (

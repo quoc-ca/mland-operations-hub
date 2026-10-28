@@ -3,7 +3,7 @@
   "info": {
     "title": "FE-06 Loyalty & Promotion API",
     "version": "1.0.0",
-    "description": "Approved technical contract (2026-10-24, Đặng Thị Khương); not yet implemented. Shared verified bearer identity plus current local capability/ownership/privileged assurance required. The separate React + Vite frontend uses these REST operations with the same bearer; source-owned checkout integration is in interfaces.md. No public reserve/settle/earn/restore endpoints. All protected responses no-store."
+    "description": "Approved technical contract (2026-10-24, Đặng Thị Khương); not yet implemented. Shared verified bearer identity plus current local capability and ownership required (V1 requires no MFA, per 001). The separate React + Vite frontend uses these REST operations with the same bearer; source-owned checkout integration is in interfaces.md. No public reserve/settle/earn/restore endpoints. All protected responses no-store."
   },
   "tags": [
     {
@@ -1898,9 +1898,23 @@
             "$ref": "#/components/schemas/Timestamp"
           },
           "fieldErrors": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
+            "type": "array",
+            "description": "Common error envelope (common.ErrorResponse): one entry per invalid field; omitted when empty.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "message"
+              ]
             }
           }
         },
@@ -2026,7 +2040,7 @@
         }
       },
       "Forbidden": {
-        "description": "Wrong role ownership or privileged assurance",
+        "description": "Wrong role or ownership",
         "content": {
           "application/json": {
             "schema": {

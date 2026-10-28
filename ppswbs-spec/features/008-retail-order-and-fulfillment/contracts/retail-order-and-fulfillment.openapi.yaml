@@ -157,7 +157,7 @@ paths:
       security:
         - firebaseBearer: []
       parameters:
-        - $ref: '#/components/parameters/BranchIdQuery'
+        - $ref: '#/components/parameters/LocationIdQuery'
       responses:
         '200':
           description: Branch fulfilment capability without provider secrets
@@ -304,13 +304,14 @@ components:
       scheme: bearer
       bearerFormat: Firebase-ID-Token
   parameters:
-    BranchIdQuery:
-      name: branchId
+    LocationIdQuery:
+      name: locationId
       in: query
       required: true
-      description: Active processing branch selected for the catalogue journey.
+      description: Active processing location selected for the catalogue journey.
       schema:
-        type: string
+        type: integer
+        format: int64
     CartLineId:
       name: lineId
       in: path
@@ -351,26 +352,28 @@ components:
             $ref: '#/components/schemas/CartLineView'
     CartLineView:
       type: object
-      required: [id, variantId, branchId, quantity]
+      required: [id, variantId, locationId, quantity]
       properties:
         id:
           type: string
         variantId:
           type: string
-        branchId:
-          type: string
+        locationId:
+          type: integer
+          format: int64
         quantity:
           type: integer
           minimum: 1
           maximum: 99
     AddCartLineRequest:
       type: object
-      required: [variantId, branchId, quantity]
+      required: [variantId, locationId, quantity]
       properties:
         variantId:
           type: string
-        branchId:
-          type: string
+        locationId:
+          type: integer
+          format: int64
         quantity:
           type: integer
           minimum: 1
@@ -403,10 +406,11 @@ components:
           description: Must be true for the server-priced benefit preview being accepted.
     BranchOrderCheckoutInput:
       type: object
-      required: [branchId, fulfilment]
+      required: [locationId, fulfilment]
       properties:
-        branchId:
-          type: string
+        locationId:
+          type: integer
+          format: int64
         fulfilment:
           $ref: '#/components/schemas/FulfilmentChoiceRequest'
     FulfilmentChoiceRequest:
@@ -515,10 +519,11 @@ components:
           format: date-time
     ShippingQuoteRequest:
       type: object
-      required: [branchId, recipient]
+      required: [locationId, recipient]
       properties:
-        branchId:
-          type: string
+        locationId:
+          type: integer
+          format: int64
         recipient:
           $ref: '#/components/schemas/Recipient'
     Recipient:
@@ -547,10 +552,11 @@ components:
           maxLength: 500
     FulfilmentAvailabilityView:
       type: object
-      required: [branchId, availableMethods, contactStaffRequired]
+      required: [locationId, availableMethods, contactStaffRequired]
       properties:
-        branchId:
-          type: string
+        locationId:
+          type: integer
+          format: int64
         availableMethods:
           type: array
           uniqueItems: true
@@ -564,13 +570,14 @@ components:
           nullable: true
     ShippingQuoteView:
       type: object
-      required: [quoteId, branchId, currency, deliveryFee, totalCharge, expiresAt]
+      required: [quoteId, locationId, currency, deliveryFee, totalCharge, expiresAt]
       properties:
         quoteId:
           type: string
           description: Opaque server-issued identifier; shipping amounts submitted by clients are never trusted.
-        branchId:
-          type: string
+        locationId:
+          type: integer
+          format: int64
         currency:
           type: string
         deliveryFee:
@@ -584,12 +591,13 @@ components:
           format: date-time
     RetailOrderView:
       type: object
-      required: [id, branchId, paymentState, fulfilmentState, subtotal, shippingCharge, payableAmount]
+      required: [id, locationId, paymentState, fulfilmentState, subtotal, shippingCharge, payableAmount]
       properties:
         id:
           type: string
-        branchId:
-          type: string
+        locationId:
+          type: integer
+          format: int64
         subtotal:
           $ref: '#/components/schemas/DecimalString'
         shippingCharge:

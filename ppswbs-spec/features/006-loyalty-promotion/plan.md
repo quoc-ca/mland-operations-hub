@@ -27,7 +27,7 @@ Bốn thông số khởi đầu 10.000đ→1 điểm,1 điểm→100đ,min10,tr�
 | Target Platform | Spring Boot REST trong monolith hiện có phục vụ frontend React + Vite tách riêng, dev Windows hỗ trợ Maven wrapper; không chọn host/topology production. |
 | Project Type | Backend Java REST (Spring Modulith) cộng frontend React + Vite client-side rendering tách riêng; không service mới, backend không render UI. |
 | Performance Goals | Ưu tiên correctness theo8 SC; chưa cam kết SLA/throughput production vì chưa có baseline. Pagination20/max100, scope queries indexed/batched, short local transactions, không remote calls dưới lock. Đo contention/latency trên fixture MySQL trước rollout, không tự coi benchmark đã đạt. |
-| Constraints | Current local roles/ownership, privileged assurance từ FE01, shared session theo FE-01/001, UI React chỉ qua REST, no raw SQL application, không reset dữ liệu, không points expiry/tiers/retail returns. |
+| Constraints | Current local roles/ownership, V1 không MFA theo 001, shared session theo FE-01/001, UI React chỉ qua REST, no raw SQL application, không reset dữ liệu, không points expiry/tiers/retail returns. |
 | Scale/Scope | Ba loại chương trình, một wallet/Member, một chương trình/retail hoặc voucher/booking; immutable revisions, component-level receipts. Tổng số Member/transactions production không phải giả định để tự đặt SLA. |
 
 ## Constitution Check
@@ -139,7 +139,7 @@ Trạng thái xác thực và trạng thái nghiệp vụ được tách riêng:
 
 ### Security and web
 
-- API bearer đã verify/revocation; private responses no-store. Frontend React dùng cùng bearer, phiên identity theo FE-01/001, current role/ownership, privileged assurance; không làm login/MFA riêng.
+- API bearer đã verify/revocation; private responses no-store. Frontend React dùng cùng bearer, phiên identity theo FE-01/001, current role/ownership; V1 không MFA theo 001, không làm login/MFA riêng.
 - Identity chưa đủ authority thì fail closed. Technical management chains không dùng permitAll; không thay global security hoặc Member journeys từ feature này.
 - Manager forms quản lí/sửa/dừng/mở lại programs và chính sách điểm; Member kho/My Loyalty; checkout components do màn hình của owner FE-03/FE-08 nhúng. Resume PAUSED→ENABLED dùng cùng quyền, registry WRITE lock, command UUID/expectedVersion và audit; giữ quota/history, không gia hạn hoặc đổi accepted snapshots. React gọi REST với field/conflict errors theo typed error, điều hướng client sau thành công.
 - Không public reserve/paid/completed/earn/refund endpoint. API input strict, safe correlation errors; không log full source proof/token.
@@ -170,7 +170,7 @@ Trạng thái xác thực và trạng thái nghiệp vụ được tách riêng:
 | FR-023–FR-027 | policy/wallet immutable revisions, Manager policy API | Shared balance, exact conversion, version policy change and old snapshot/no-early-use. |
 | FR-028–FR-031 | earn effects/ledger and MyLoyalty | Completed+paid only, net earning/floor, once/retry, own consistent balance/history. |
 | FR-032–FR-038 | lock order/effect states/source proof | Last-slot/same-wallet races, callback vs expiry/cancel, restore partial retry, no guessing unresolved. |
-| FR-039–FR-040 | frontend/error/security and shared identity | React journeys over REST, revoked/current roles, privileged assurance, no Member regression. |
+| FR-039–FR-040 | frontend/error/security and shared identity | React journeys over REST, revoked/current roles, no MFA in V1, no Member regression. |
 | FR-041 | data-model mục7, researchD08 | Retention/ref/unfinished guards, no destructive purge, tombstones and migration preservation. |
 
 [quickstart.md](quickstart.md) có commands, prerequisites, fixture và expected outcomes; runtime suites là kế hoạch, chưa được chạy. Documentation verification sẽ kiểm tra file links, IDs/traceability, OpenAPI syntax/refs/security/key/version coverage và whitespace.

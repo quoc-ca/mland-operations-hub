@@ -3,7 +3,7 @@
 **Date created**: 2026-09-30
 **Date updated**: 2026-10-26
 **Author**: Ngô Tiến Đạt
-**Last updated by**: Phan Sơn
+**Last updated by**: Thinh
 
 **Version**: 0.4
 
@@ -155,10 +155,13 @@ security failure prevents the provider call and any business-state mutation.
 | --- | --- | --- | --- | --- | --- | --- |
 | `catalogue` | Public client REST | `GET /api/v1/ready-rings` | Public | UC-04 | Browse published ready-ring products. | Draft |
 | `catalogue` | Public client REST | `GET /api/v1/ready-rings/{readyRingId}` | Public | UC-04 | Read a selected ready-ring's permitted published detail. | Draft |
-| `readyringsales` | Protected client REST | `POST /api/v1/ready-ring-orders` | Active Member | UC-04 | Create a Member retail order pending verified full payment. | Draft |
-| `readyringsales` | Protected client REST | `PUT /api/v1/ready-ring-orders/{orderId}/fulfilment-choice` | Order-owning Member after eligible payment state | UC-04 | Choose pickup or third-party carrier handoff. | Draft |
+| `readyringsales` | Protected client REST | `GET /api/v1/members/me/ready-ring-cart`; `POST /api/v1/members/me/ready-ring-cart/lines`; `PATCH`/`DELETE /api/v1/members/me/ready-ring-cart/lines/{lineId}` | Active Member | UC-04 | Read and maintain only the Member's cart; each line retains its selected `locationId`. Cart edits create no order, payment, hold, or stock deduction. | Draft; local adapter permitted for development |
+| `readyringsales` | Protected client REST | `POST /api/v1/ready-ring-benefit-previews` | Active Member | UC-04 | Obtain a server-priced FE-06 benefit preview for the current cart; shipping remains outside the discount/earn base. | Draft; local adapter permitted for development |
+| `readyringsales` | Protected client REST | `GET /api/v1/ready-ring-fulfilment-options`; `POST /api/v1/ready-ring-shipping-quotes` | Active Member | UC-04 | Read pickup/GHTK availability and receive a server-issued per-location quote before any order exists. Client shipping amounts are never trusted. | Draft; GHTK mock is development/test only |
+| `readyringsales` | Protected client REST | `POST /api/v1/ready-ring-orders`; `POST /api/v1/ready-ring-checkouts/{checkoutId}/payment`; `POST /api/v1/ready-ring-checkouts/{checkoutId}/cancellations` | Active Member owning the checkout | UC-04 | Atomically accept grouped branch orders and one payment lifecycle. A browser payment return never confirms payment; cancellation is allowed only before payment initiation. | Draft; payment adapter permitted for development |
+| `readyringsales` | Protected client REST | `GET /api/v1/members/me/ready-ring-orders`; `GET /api/v1/members/me/ready-ring-orders/{orderId}` | Order-owning Member | UC-04 | Read only the Member's frozen retail-order facts and latest normalized shipment state. | Draft |
 | `billing` | Protected client REST | `GET /api/v1/invoices/{invoiceId}` | Authorised customer or Staff | UC-01, UC-06 | Read permitted invoice, deposit, adjustment, and settlement facts. | Draft |
-| `payments` | Protected client REST | `POST /api/v1/payment-attempts` | Authorised booking/order customer | UC-01, UC-04 | Start a deposit or retail payment attempt; it does not confirm payment. | Draft |
+| `payments` | Protected client REST | `POST /api/v1/payment-attempts` | Authorised booking/order customer | UC-01 | Start a non-retail payment attempt; it does not confirm payment. FE-08 starts its grouped payment through its checkout endpoint and consumes verified payment evidence through the payment boundary. | Draft |
 | `payments` | Protected client REST | `GET /api/v1/payment-attempts/{paymentAttemptId}` | Authorised customer or Staff | UC-01, UC-04 | Read the customer-safe status of a payment attempt. | Draft |
 
 The browser redirect or client response from a payment provider never confirms a
@@ -176,7 +179,9 @@ unresolved dependencies.
 | `fulfilment` | Protected client REST | `POST /api/v1/continuation-bookings` | Staff | UC-07 | Create a capacity-checked, linked continuation booking; customers cannot create it themselves. | Draft |
 | `fulfilment` | Protected client REST | `POST /api/v1/custody-records` | Staff | UC-07 | Record custody intake for a work-in-progress item. | Draft |
 | `fulfilment` | Protected client REST | `POST /api/v1/custody-records/{custodyRecordId}/releases` | Staff | UC-07 | Record auditable custody release or customer handover. | Draft |
-| `fulfilment` | Protected client REST | `POST /api/v1/ready-ring-orders/{orderId}/carrier-handoffs` | Staff | UC-04 | Record carrier, handoff reference, actor, and time after an eligible order. | Draft |
+| `fulfilment` | Protected client REST | `POST /api/v1/ready-ring-orders/{orderId}/preparation`; `POST /api/v1/ready-ring-orders/{orderId}/carrier-handoffs` | Staff/Manager within assigned location and action scope | UC-04 | Record preparation and physical GHTK handoff only for a paid, location-authorized retail order after shipment creation. | Draft |
+| `readyringsales` | Protected client REST | `POST /api/v1/ready-ring-orders/{orderId}/pickup-confirmations` | Order-owning Member | UC-04 | Record the Member's pickup of an eligible prepared pickup order exactly once. | Draft |
+| `fulfilment` | Inbound integration | `POST /api/v1/integrations/ghtk/webhooks` | GHTK callback authentication, not Firebase | UC-04 | Validate, deduplicate, and persist normalized GHTK shipment status; stale events cannot regress current status. Production exposure remains gated by approved callback authentication. | Draft; development/test mock only |
 
 ### 3.6 Business catalogue, rules, and audit review
 
