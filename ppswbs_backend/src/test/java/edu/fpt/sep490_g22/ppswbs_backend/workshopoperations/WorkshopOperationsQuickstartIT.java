@@ -4,6 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.*;
@@ -176,11 +177,15 @@ public class WorkshopOperationsQuickstartIT {
                 new AccountSummary(MANAGER_ID, ActorRole.MANAGER, ActorStatus.ACTIVE, "qsmgr@mland.vn", Instant.now(), Instant.now())));
         when(accountFacade.getAccountStatus(MANAGER_ID)).thenReturn(Optional.of(ActorStatus.ACTIVE));
         when(accountFacade.getLocationScope(MANAGER_ID)).thenReturn(List.of(location.getId()));
+        when(accountFacade.resolveActor("qs-mgr", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(MANAGER_ID, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of(location.getId()))));
 
         when(accountFacade.resolveAccount("qs-staff")).thenReturn(Optional.of(
                 new AccountSummary(STAFF_ID, ActorRole.STAFF, ActorStatus.ACTIVE, "qsstaff@mland.vn", Instant.now(), Instant.now())));
         when(accountFacade.getAccountStatus(STAFF_ID)).thenReturn(Optional.of(ActorStatus.ACTIVE));
         when(accountFacade.getLocationScope(STAFF_ID)).thenReturn(List.of(location.getId()));
+        when(accountFacade.resolveActor("qs-staff", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(STAFF_ID, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(location.getId()))));
 
         when(tokenVerificationService.verify("test-uid:qs-mgr")).thenReturn(
                 new VerifiedIdentity("qs-mgr", "qsmgr@mland.vn", true, Instant.now()));
@@ -253,9 +258,10 @@ public class WorkshopOperationsQuickstartIT {
         assertThat(staffAssignment.getId()).isNotNull();
 
         // Now session can safely transition to IN_PROGRESS
-        session.setState(SessionState.IN_PROGRESS);
-        sessionRepository.save(session);
-        assertThat(session.getState()).isEqualTo(SessionState.IN_PROGRESS);
+        WorkshopSession managedSession = sessionRepository.findById(session.getId()).orElseThrow();
+        managedSession.setState(SessionState.IN_PROGRESS);
+        sessionRepository.save(managedSession);
+        assertThat(managedSession.getState()).isEqualTo(SessionState.IN_PROGRESS);
     }
 
     // =========================================================================
@@ -398,7 +404,7 @@ public class WorkshopOperationsQuickstartIT {
                 STAFF_TOKEN, "corr-fin-qs", session.getReference(), finReq
         );
 
-        assertThat(finResponse.getState()).isEqualTo("ATTENDANCE_FINALIZED");
+        assertThat(finResponse.getState()).isEqualTo(SessionState.ATTENDANCE_FINALIZED);
 
         // Verify Ticket 1 remains CHECKED_IN
         TicketSessionEntitlement postEnt1 = entitlementRepository.findByTicketIdAndSessionId(t1.getId(), session.getId()).orElseThrow();
@@ -412,7 +418,7 @@ public class WorkshopOperationsQuickstartIT {
         AttendanceCorrectionRequest corReq = AttendanceCorrectionRequest.builder()
                 .ticketCode(t2.getTicketCode())
                 .correctedAttendanceState(AttendanceState.CHECKED_IN)
-                .reasonCode("CUSTOMER_DEVICE_FAILURE")
+                .reasonCode("RECORDING_ERROR")
                 .reasonNote("Customer was verified present onsite by Manager")
                 .evidenceReference("EV-QS-909")
                 .build();
@@ -420,12 +426,12 @@ public class WorkshopOperationsQuickstartIT {
         Ticket corTicket = correctionService.correctFinalizedAttendance(
                 MANAGER_TOKEN, "corr-cor-qs", session.getReference(), corReq
         );
-        assertThat(corTicket.getAttendanceState()).isEqualTo("CHECKED_IN");
+        assertThat(corTicket.getAttendanceState()).isEqualTo(AttendanceState.CHECKED_IN);
 
         // Verify audit event written
         List<OperationsAuditEvent> audits = auditEventRepository.findBySessionIdOrderByOccurredAtDesc(session.getId());
         assertThat(audits).isNotEmpty();
-        assertThat(audits.stream().anyMatch(a -> "SESSION_ATTENDANCE_FINALIZED".equals(a.getAction()))).isTrue();
+        assertThat(audits.stream().anyMatch(a -> "ATTENDANCE_FINALIZED".equals(a.getAction()))).isTrue();
     }
 
     // =========================================================================
@@ -459,7 +465,7 @@ public class WorkshopOperationsQuickstartIT {
                 MANAGER_TOKEN, "corr-cancel-direct", "op-ref-1", emptySession.getReference(), cancelReq
         );
         assertThat(directResult.getStatusCode()).isEqualTo(200);
-        assertThat(directResult.getSession().getState()).isEqualTo("CANCELLED");
+        assertThat(directResult.getSession().getState()).isEqualTo(SessionState.CANCELLED);
 
         // Case B: Cancellation with commitments -> 202 handoff to 003.3
         WorkshopSession bookedSession = sessionRepository.save(WorkshopSession.builder()

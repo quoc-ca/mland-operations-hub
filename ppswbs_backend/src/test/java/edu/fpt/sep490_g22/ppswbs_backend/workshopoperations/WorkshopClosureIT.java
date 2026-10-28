@@ -5,6 +5,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.AttendanceActionRepository;
@@ -127,6 +128,9 @@ public class WorkshopClosureIT {
     private CancellationHandoffService cancellationHandoffService;
 
     @MockBean
+    private CancellationHandoffService.SettlementHandoffPort settlementHandoffPort;
+
+    @MockBean
     private AccountFacade accountFacade;
 
     @MockBean
@@ -139,9 +143,11 @@ public class WorkshopClosureIT {
     private WorkshopLocation locationA;
     private WorkshopLocation locationB;
     private WorkshopSlot slotMorning;
+    private int sessionDateOffset;
 
     @BeforeEach
     void setUp() {
+        sessionDateOffset = 0;
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
         jdbcTemplate.execute("TRUNCATE TABLE attendance_actions");
         jdbcTemplate.execute("TRUNCATE TABLE ticket_session_entitlements");
@@ -185,18 +191,24 @@ public class WorkshopClosureIT {
                 new AccountSummary(201L, ActorRole.MANAGER, ActorStatus.ACTIVE, "mgra@mland.vn", Instant.now(), Instant.now())));
         when(accountFacade.getAccountStatus(201L)).thenReturn(Optional.of(ActorStatus.ACTIVE));
         when(accountFacade.getLocationScope(201L)).thenReturn(List.of(locationA.getId()));
+        when(accountFacade.resolveActor("mgr-a", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(201L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of(locationA.getId()))));
 
         // Setup Manager B (accountId=202) with Location B scope only (Out of Scope for Location A)
         when(accountFacade.resolveAccount("mgr-b")).thenReturn(Optional.of(
                 new AccountSummary(202L, ActorRole.MANAGER, ActorStatus.ACTIVE, "mgrb@mland.vn", Instant.now(), Instant.now())));
         when(accountFacade.getAccountStatus(202L)).thenReturn(Optional.of(ActorStatus.ACTIVE));
         when(accountFacade.getLocationScope(202L)).thenReturn(List.of(locationB.getId()));
+        when(accountFacade.resolveActor("mgr-b", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(202L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of(locationB.getId()))));
 
         // Setup Staff A (accountId=101) with Location A scope
         when(accountFacade.resolveAccount("staff-a")).thenReturn(Optional.of(
                 new AccountSummary(101L, ActorRole.STAFF, ActorStatus.ACTIVE, "staffa@mland.vn", Instant.now(), Instant.now())));
         when(accountFacade.getAccountStatus(101L)).thenReturn(Optional.of(ActorStatus.ACTIVE));
         when(accountFacade.getLocationScope(101L)).thenReturn(List.of(locationA.getId()));
+        when(accountFacade.resolveActor("staff-a", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(101L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(locationA.getId()))));
 
         when(tokenVerificationService.verify("test-uid:mgr-a")).thenReturn(
                 new VerifiedIdentity("mgr-a", "mgra@mland.vn", true, Instant.now()));
@@ -211,7 +223,7 @@ public class WorkshopClosureIT {
                 .reference("SES-" + UUID.randomUUID().toString().substring(0, 8))
                 .location(locationA)
                 .slot(slotMorning)
-                .workshopDate(LocalDate.now())
+                .workshopDate(LocalDate.now().plusDays(sessionDateOffset++))
                 .scheduledStartAt(Instant.now().minus(2, ChronoUnit.HOURS))
                 .scheduledEndAt(Instant.now().minus(30, ChronoUnit.MINUTES))
                 .checkInOpensAt(Instant.now().minus(3, ChronoUnit.HOURS))
@@ -293,7 +305,7 @@ public class WorkshopClosureIT {
 
         // Verify audit event recorded
         List<OperationsAuditEvent> audits = auditEventRepository.findBySessionIdOrderByOccurredAtDesc(session.getId());
-        assertThat(audits).anyMatch(a -> "SESSION_ATTENDANCE_FINALIZED".equals(a.getAction()) && "SUCCESS".equals(a.getOutcome()));
+        assertThat(audits).anyMatch(a -> "ATTENDANCE_FINALIZED".equals(a.getAction()) && "SUCCESS".equals(a.getOutcome()));
     }
 
     // =========================================================================
@@ -709,32 +721,27 @@ public class WorkshopClosureIT {
                 .attendanceState(AttendanceState.NOT_CHECKED_IN)
                 .build());
 
-        // Wire a rejecting settlement port via reflection on the real service
-        CancellationHandoffService.SettlementHandoffPort rejectingPort = (sRef, bookings, reasonRef, opRef, corrRef) ->
-                CancellationHandoffService.SettlementHandoffOutcome.rejected("Settlement batch locked in 003.3");
+        when(settlementHandoffPort.openCancellationHandoff(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(CancellationHandoffService.SettlementHandoffOutcome.rejected(
+                        "Settlement batch locked in 003.3"));
 
-        java.lang.reflect.Field field = CancellationHandoffService.class.getDeclaredField("settlementHandoffPort");
-        field.setAccessible(true);
-        CancellationHandoffService.SettlementHandoffPort originalPort =
-                (CancellationHandoffService.SettlementHandoffPort) field.get(cancellationHandoffService);
-        try {
-            field.set(cancellationHandoffService, rejectingPort);
+        SessionCancellationRequest request = SessionCancellationRequest.builder()
+                .reasonCode("FACILITY_ISSUE")
+                .reasonNote("Power outage")
+                .build();
 
-            SessionCancellationRequest request = SessionCancellationRequest.builder()
-                    .reasonCode("FACILITY_ISSUE")
-                    .reasonNote("Power outage")
-                    .build();
-
-            mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/cancellation-requests", session.getReference())
-                            .header("Authorization", MGR_A_TOKEN)
-                            .header("X-Correlation-Id", "corr-t047-12")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isConflict())
-                    .andExpect(jsonPath("$.code").value("INVALID_STATE"));
-        } finally {
-            field.set(cancellationHandoffService, originalPort);
-        }
+        mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/cancellation-requests", session.getReference())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .header("X-Correlation-Id", "corr-t047-12")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_STATE"));
     }
 
     // =========================================================================
