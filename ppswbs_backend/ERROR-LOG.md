@@ -1167,3 +1167,174 @@ schema changes owned by other features.
 - Đổi mã: hai bản ghi này trước đây mang mã `BE-DESIGN-0007` (develop không biên dịch sạch, migration trùng số) và `BE-DESIGN-0008` (preflight CORS 403) trên nhánh `khuong`. `ERROR-LOG.md` trên `origin/develop` (`37d68cf`) đã dùng `BE-DESIGN-0007`–`BE-DESIGN-0010` cho FE-08 và FE-10, nên Đặng Thị Khương chốt đổi hai bản ghi của 006 thành `BE-DESIGN-0011` và `BE-DESIGN-0012`. Đã cập nhật tham chiếu trong `verification.md` của 006 và `@Disabled` của `LoyaltySecurityIT`. Nội dung các diễn biến cũ giữ nguyên.
 - Fact: `git fetch origin` lúc này chỉ cập nhật `origin/quoc` (`3821937`) và `origin/thinh` (`37d68cf`); `origin/develop` vẫn ở `37d68cf`, đúng commit đã kiểm tra ở hai diễn biến trước. Migration trùng số V6, V7, V9 vẫn còn; `configuration/` vẫn có `DefaultFirebaseTokenVerifier` và `FirebaseAuthenticationFilter`. Không có commit mới nào sửa CORS dùng chung.
 - Trạng thái: `BE-DESIGN-0011` vẫn `BLOCKED`; `BE-DESIGN-0012` vẫn `BLOCKED` (chỉ phần kiểm chứng origin hợp lệ). Chưa ghép develop về `khuong`.
+
+## BE-DESIGN-0013 — T036/T035 recovery-facade phase boundary
+
+- **Recorded at:** 2026-10-28T14:30:00+07:00
+- **Reporter:** Hồ Hoàng Quốc / Codex
+- **Feature / task:** 003.2 Workshop Operations, T036 following T035
+- **Status:** BLOCKED
+
+**Observed conflict.** T036 requires Operations to verify and consume the
+public `WorkshopBookingFacade.requestBookingTicketRedelivery(...)` boundary
+already published by 003.1. The existing `TicketRecoveryContractIT` phase
+boundary for T035 still asserts that `WorkshopBookingFacade` must not be
+present while T036 is pending. The repository already contains the 003.1
+facade command/outcome and Booking-side redelivery behavior.
+
+**Evidence.** `mvn -f .\\ppswbs_backend\\pom.xml test
+"-Dtest=TicketRecoveryContractIT"` completed successfully (9/9), but its
+phase-boundary assertion intentionally preserves the pre-T036 absence rule.
+The shared facade contract defines
+`RequestBookingTicketRedeliveryCommand(bookingReference,
+activeUnusedTicketReferences, operationReference, correlationReference)` and
+`WorkshopBookingFacade.requestBookingTicketRedelivery(...)`.
+
+**Why implementation stops.** Adding an Operations consumer or T036 proof
+without first rebasing the T035 phase-boundary assertion would leave the
+task/test ownership contradictory. Removing or weakening that assertion is a
+design/test-boundary decision, not an implementation detail.
+
+**Required decision.** Owner of 003.2 and 003.1 must confirm that T035's
+absence assertion is replaced by a T036 boundary assertion: Operations may
+call only the named Booking facade with existing active-unused ticket
+references; Booking owns recipient/contact delivery; Operations receives no
+contact PII, Booking code data beyond the opaque reference, or delivery
+payload. After that decision, rebase the contract test and implement/verify
+T036. T037–T040 remain separate, with T038 still dependent on the Account
+Management capability decision boundary.
+
+**Resolution update — 2026-10-28T14:32:00+07:00.** The T035 phase-boundary
+test was rebased to permit the already-published 003.1 `WorkshopBookingFacade`
+while continuing to assert that T037–T040 services/endpoints are absent. A
+T036 contract proof now verifies the named redelivery method and a command
+containing only booking/opaque active-unused ticket references plus operation
+and correlation references. `TicketRecoveryContractIT` passes 10/10. No
+contact PII, delivery payload, resend service, override service, or REST
+handler was added. BE-DESIGN-0013 is resolved for T036 boundary readiness;
+T038 remains separately dependent on FE-001 capability publication.
+
+## BE-DESIGN-0014 - T037 resend throttle ownership and concurrency boundary
+
+- **Recorded at:** 2026-10-28T14:45:00+07:00
+- **Reporter:** Ho Hoang Quoc / Codex
+- **Feature / task:** 003.2 Workshop Operations, T037
+- **Status:** BLOCKED
+
+**Observed gap.** T037 requires an audited limit of at most three ticket
+redelivery requests per booking in any 15-minute window. The public
+`WorkshopBookingFacade.requestBookingTicketRedelivery(...)` currently accepts
+the redelivery command and returns only an accepted/rejected booking outcome;
+its contract does not expose a throttle decision, retry-after value, or a
+booking-scoped concurrency claim. The Operations audit entity is append-only
+event evidence, not a declared throttle ledger.
+
+**Why this blocks safe implementation.** Counting recent audit rows and then
+inserting a new row is not atomic across concurrent requests. A JVM-local lock
+would not protect multiple application instances. Reusing the facade-command
+idempotency ledger for a different booking delivery policy would violate its
+ownership and identity contract. Implementing T037 without an approved
+database/concurrency boundary could exceed the specified three-request limit.
+
+**Required owner decision.** Owners of 003.1/003.2 must choose and publish
+one boundary before T037 implementation:
+
+1. 003.1 owns the booking-scoped delivery throttle and extends the public
+   facade outcome with a typed throttled result (including safe retry metadata),
+   while Operations only authorizes the actor and supplies opaque ticket
+   references; or
+2. 003.2 owns a separate persisted booking-redelivery throttle record with a
+   documented unique/locking invariant and migration/test requirements.
+
+The decision must also define whether rejected/failed delivery attempts count
+and how the 15-minute window is evaluated. Until then T037 remains unchecked;
+T038-T040 are unaffected by this specific blocker.
+
+**Resolution update - 2026-10-28T14:50:00+07:00.** Owner Hồ Hoàng Quốc
+selected option 2 for 003.2: Operations owns a separate persisted,
+booking-scoped resend throttle. The approved invariant is one row per
+`bookingReference`, protected by a database lock on the booking's existing
+ticket set; the row stores the current 15-minute window start and request
+count. Every authorized resend attempt consumes one of the three requests,
+including a provider rejection; requests outside the window start a new
+window. The throttle is distinct from audit events and the facade-command
+idempotency ledger. T037 may continue with an append-only migration and
+MySQL integration evidence; T038-T040 remain separate.
+
+## BE-DESIGN-0015 - MySQL verification blocked by Account Management schema mismatch
+
+- **Recorded at:** 2026-10-28T14:47:00+07:00
+- **Reporter:** Ho Hoang Quoc / Codex
+- **Feature / task:** 003.2 Workshop Operations, T037 verification
+- **Status:** BLOCKED
+
+Fresh MySQL database `ppswbs_t037_test_20261028` successfully validated and
+applied migrations through V16, including `V16__workshop_ticket_resend_throttle.sql`.
+Application context then failed during Hibernate schema validation before the
+T037 integration suite could run: table `account_audit_events.outcome` is a
+MySQL `ENUM`, while the mapped Account Management entity expects `VARCHAR`.
+This is an existing shared Account Management schema/entity mismatch, not a
+failure in the T037 throttle table or service.
+
+Owner 001/tech lead must reconcile the Account Management migration/entity
+contract on a fresh MySQL baseline. No workaround, `ddl-auto=update`, or
+migration ignore was applied. T037 remains unverified on MySQL until the
+shared schema baseline is corrected.
+
+## BE-DESIGN-0016 - T045 thiếu public WorkshopSettlementFacade từ 003.3
+
+- **Recorded at:** 2026-10-28T22:35:00+07:00
+- **Reporter:** Ho Hoang Quoc / Codex
+- **Feature / task:** 003.2 Workshop Operations, T045
+- **Status:** BLOCKED
+
+**Observed gap.** T045 yêu cầu Operations gọi public `WorkshopSettlementFacade`
+của 003.3 để mở cancellation handoff. Shared contract đã định nghĩa
+`OpenCancellationHandoffCommand(sessionReference, affectedBookingReferences,
+cancellationReasonReference, operationReference, correlationReference)` và
+`CancellationHandoffOutcome(ACCEPTED + cancellationCaseReference hoặc
+REJECTED reason)`, nhưng source hiện tại không có implementation hoặc public
+facade bean của 003.3.
+
+**Evidence.** Search trong `ppswbs_backend/src/main/java` không tìm thấy
+`WorkshopSettlementFacade`; tasks của 003.3 vẫn để task tạo facade ở trạng thái
+chưa hoàn thành. `CancellationHandoffService` của 003.2 hiện chỉ có
+`SettlementHandoffPort` optional nội bộ, không phải public producer boundary
+đã công bố.
+
+**Why implementation stops.** Nếu tự thay port bằng repository, entity hoặc
+settlement policy nội bộ, Operations sẽ vi phạm Modulith boundary và có thể
+tự quyết hành vi refund/reschedule/customer remedy mà 003.3 sở hữu. Nếu để port
+optional, request có commitment sẽ không chứng minh được handoff đã được
+accepted bởi Settlement.
+
+**Required decision / owner.** Owner 003.3 phải publish implementation và
+contract test cho `WorkshopSettlementFacade` đúng theo
+`ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`.
+Sau khi facade có mặt, 003.2 sẽ thay `SettlementHandoffPort` bằng named public
+facade, chạy lại `WorkshopClosureIT` trên MySQL và chỉ khi evidence pass mới
+đánh dấu T045 hoàn thành. Không thay đổi migration, settlement entity,
+payment/refund policy hoặc tạo workaround trong 003.2.
+
+**Files checked:** `CancellationHandoffService.java`, shared
+`workshop-interfeature-facades.md`, 003.3 `tasks.md`. Không tạo code mới khi
+ghi blocker này.
+
+**Implementation preflight update — 2026-10-28T22:45:00+07:00.** Khi bắt đầu
+vertical slice theo T001/T002, source vẫn chưa có module `workshopsettlement`.
+Để facade trả kết quả idempotent đúng contract, 003.3 cần sở hữu persisted
+settlement cancellation case và idempotency outcome. Repository hiện có migration
+đến V16; chưa có sequence/version được tech lead chốt cho schema 003.3, trong
+khi task yêu cầu không tự đặt migration version. Vì vậy không tạo facade
+in-memory, không dùng bảng cancellation của 003.2 và không thêm migration giả.
+BE-DESIGN-0016 tiếp tục `BLOCKED` cho tới khi owner/tech lead chốt persistence
+slice và migration sequence của 003.3.
+
+**Resolution update — 2026-10-28T22:50:00+07:00.** Owner 003 approved the
+append-only V17 sequence for the cancellation-handoff slice. The
+`workshopsettlement` module now publishes typed `WorkshopSettlementFacade`,
+persists cancellation cases and handoff idempotency outcomes, and has contract,
+Modulith and MySQL migration evidence. BE-DESIGN-0016 is resolved for the
+producer-boundary precondition. T045 itself remains pending until 003.2 replaces
+its temporary `SettlementHandoffPort` with this public facade and passes its
+closure integration suite.

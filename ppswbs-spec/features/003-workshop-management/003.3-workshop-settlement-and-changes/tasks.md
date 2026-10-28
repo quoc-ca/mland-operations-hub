@@ -1,7 +1,7 @@
 # Tasks: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -21,7 +21,7 @@ locking mechanism, role mapping, provider secret, or notification mechanics.
 **Purpose**: establish the `workshopsettlement` module and consume only approved
 owner boundaries.
 
-- [ ] T001 [P] Establish the `workshopsettlement` Spring Modulith module boundary and add `ApplicationModules.verify()` coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementModuleTest.java`.
+- [X] T001 [P] Establish the `workshopsettlement` Spring Modulith module boundary and add `ApplicationModules.verify()` coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementModuleTest.java`.
 - [ ] T002 [P] Implement 003.3's named `WorkshopSettlementFacade`, including `ApplyVerifiedSettlementPaymentEvidenceCommand`, in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/` exactly as limited by `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`.
 - [ ] T003 Consume `WorkshopBookingFacade` confirmed financial projection and idempotent final-balance conclusion, and `WorkshopOperationsFacade` readiness/replacement/refund/cancellation outcomes, only through facade adapters in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/`.
 - [ ] T004 Consume current canonical Mland account role/status, ownership and location scope through the approved FE-001 boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/WorkshopSettlementAuthorizationService.java`; Settlement applies its approved location/resource action rules and central-policy-editor rule, directly compares the booking/session canonical `workshop_location.id` with `activeLocationIds`, and does not use display roles, Firebase claims or retired codes as authority or edit FE-001.
