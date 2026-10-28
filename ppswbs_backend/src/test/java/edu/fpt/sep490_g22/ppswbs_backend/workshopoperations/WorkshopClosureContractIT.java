@@ -569,16 +569,16 @@ public class WorkshopClosureContractIT {
     void verifyPhaseBoundaryNotPrematurelyImplemented() {
         // AttendanceFinalizationService / SessionClosureService (T043+) must NOT be registered beans
         assertThat(applicationContext.containsBean("attendanceFinalizationService"))
-                .as("AttendanceFinalizationService must not be registered before T043+")
-                .isFalse();
+                .as("AttendanceFinalizationService must be registered for T043")
+                .isTrue();
 
-        assertThat(applicationContext.containsBean("sessionClosureService"))
-                .as("SessionClosureService must not be registered before T043+")
-                .isFalse();
+        assertThat(applicationContext.containsBean("attendanceCorrectionService"))
+                .as("AttendanceCorrectionService must be registered for T044")
+                .isTrue();
 
-        assertThat(applicationContext.containsBean("sessionCancellationService"))
-                .as("SessionCancellationService must not be registered before T043+")
-                .isFalse();
+        assertThat(applicationContext.containsBean("cancellationHandoffService"))
+                .as("Cancellation handoff remains isolated behind Operations boundary")
+                .isTrue();
 
         // 003.3 Settlement Facade must NOT be registered in Operations context
         assertThat(applicationContext.containsBean("workshopSettlementFacade"))
@@ -589,7 +589,7 @@ public class WorkshopClosureContractIT {
         Method[] sessionMethods = WorkshopSessionController.class.getDeclaredMethods();
         List<String> sessionMethodNames = Arrays.stream(sessionMethods).map(Method::getName).toList();
         assertThat(sessionMethodNames)
-                .as("WorkshopSessionController must not implement cancellation-requests or attendance-finalizations before T044")
+                .as("Legacy WorkshopSessionController must remain separate from closure endpoints")
                 .noneMatch(name -> name.toLowerCase().contains("cancellationrequest"))
                 .noneMatch(name -> name.toLowerCase().contains("finalizeattendance"));
 
@@ -597,7 +597,7 @@ public class WorkshopClosureContractIT {
         Method[] checkInMethods = WorkshopCheckInController.class.getDeclaredMethods();
         List<String> checkInMethodNames = Arrays.stream(checkInMethods).map(Method::getName).toList();
         assertThat(checkInMethodNames)
-                .as("WorkshopCheckInController must not implement check-in-reversals or attendance-corrections before T044")
+                .as("Check-in controller must remain separate from closure correction endpoints")
                 .noneMatch(name -> name.toLowerCase().contains("reversal"))
                 .noneMatch(name -> name.toLowerCase().contains("correction"));
     }
