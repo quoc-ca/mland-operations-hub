@@ -97,6 +97,9 @@ public class AttendanceTicketService {
         List<DeliverySafeTicket> projections = new ArrayList<>();
 
         for (AttendanceTicket ticket : tickets) {
+            if (ticket.getValidityState() != TicketValidityState.ACTIVE) {
+                continue;
+            }
             List<TicketSessionEntitlement> entitlements = entitlementRepository.findByTicketId(ticket.getId());
             List<SessionEntitlementProjection> sessionProjections = entitlements.stream()
                     .map(e -> new SessionEntitlementProjection(

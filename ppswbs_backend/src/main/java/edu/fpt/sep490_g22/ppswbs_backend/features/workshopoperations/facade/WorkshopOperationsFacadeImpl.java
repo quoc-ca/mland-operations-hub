@@ -10,6 +10,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.Cap
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager.ClaimResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager.ClaimStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOtaSnapshotService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageReservationPolicy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,8 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final ObjectMapper objectMapper;
     private final CapacityHoldService capacityHoldService;
     private final AttendanceTicketService attendanceTicketService;
+    private final WorkshopOtaSnapshotService otaSnapshotService;
+    private final WorkshopPackageReservationPolicy packageReservationPolicy;
 
     @Override
     @Transactional(readOnly = true)
@@ -64,9 +68,20 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public PublishedPackageSelectionSnapshot getPublishedPackageSelection(PublishedPackageSelectionQuery query) {
+        Long packageId = packageReservationPolicy.parsePackageReference(query.packageReference());
+        if (packageId == null) {
+            return null;
+        }
+        return packageReservationPolicy.readPublishedSnapshot(packageId);
+    }
+
+    @Override
     @Transactional
     public CapacityHoldOutcome reserveBookingCapacity(ReserveBookingCapacityCommand command) {
-        return capacityHoldService.reserveBookingCapacity(command);
+        return capacityHoldService.reserveBookingCapacity(command,
+                () -> packageReservationPolicy.validate(command));
     }
 
     @Override
@@ -101,6 +116,9 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
 
         for (AttendanceTicket ticket : tickets) {
             List<TicketSessionEntitlement> entitlements = entitlementRepository.findByTicketId(ticket.getId());
+            if (entitlements.isEmpty()) {
+                return new SettlementReadiness(false);
+            }
             for (TicketSessionEntitlement e : entitlements) {
                 if (e.getSession().getState() != SessionState.ATTENDANCE_FINALIZED) {
                     return new SettlementReadiness(false);
@@ -115,7 +133,8 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     @Transactional
     public RequiredSessionReplacementOutcome replaceRequiredSessions(ReplaceRequiredSessionsCommand command) {
         String action = "FACADE_REPLACE_SESSIONS";
-        String fingerprint = command.bookingReference() + "|" + command.completeTargetSessionReferences();
+        String fingerprint = command.bookingReference() + "|" + command.completeTargetSessionReferences().stream()
+                .map(UUID::toString).sorted().toList();
 
         ClaimResult claim = idempotencyManager.acquireClaim(
             action, command.operationReference(), command.correlationReference(), fingerprint
@@ -131,55 +150,145 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
             return reconstructReplaceOutcome(claim.getCompletedRecord());
         }
 
-        List<String> targetRefs = command.completeTargetSessionReferences().stream()
-            .map(UUID::toString)
-            .toList();
-
-        List<WorkshopSession> targetSessions = sessionRepository.findByReferenceInWithLock(targetRefs);
-        if (targetSessions.size() != targetRefs.size()) {
+        List<String> targetRefs = command.completeTargetSessionReferences().stream().map(UUID::toString).toList();
+        Set<String> targetRefSet = new HashSet<>(targetRefs);
+        if (targetRefs.isEmpty() || targetRefSet.size() != targetRefs.size()) {
             RequiredSessionReplacementOutcome outcome = RequiredSessionReplacementOutcome.rejected(RejectionReason.INVALID_REPLACEMENT);
             idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
             return outcome;
         }
 
-        List<AttendanceTicket> tickets = ticketRepository.findByBookingReference(command.bookingReference());
-        if (tickets.isEmpty()) {
+        List<AttendanceTicket> observedTickets = ticketRepository.findByBookingReference(command.bookingReference());
+        if (observedTickets.isEmpty()) {
             RequiredSessionReplacementOutcome outcome = RequiredSessionReplacementOutcome.rejected(RejectionReason.INVALID_STATE);
             idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
             return outcome;
         }
 
+        Set<String> observedSourceRefs = new TreeSet<>();
+        for (AttendanceTicket ticket : observedTickets) {
+            List<TicketSessionEntitlement> entitlements = entitlementRepository.findByTicketId(ticket.getId());
+            entitlements.stream().map(e -> e.getSession().getReference()).forEach(observedSourceRefs::add);
+        }
+        if (observedSourceRefs.isEmpty()) {
+            RequiredSessionReplacementOutcome outcome = RequiredSessionReplacementOutcome.rejected(RejectionReason.INVALID_STATE);
+            idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
+            return outcome;
+        }
+
+        Set<String> refsToLock = new TreeSet<>(observedSourceRefs);
+        refsToLock.addAll(targetRefSet);
+        List<WorkshopSession> lockedSessions = sessionRepository.findByReferenceInWithLock(refsToLock);
+        if (lockedSessions.size() != refsToLock.size()) {
+            RequiredSessionReplacementOutcome outcome = RequiredSessionReplacementOutcome.rejected(RejectionReason.INVALID_REPLACEMENT);
+            idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
+            return outcome;
+        }
+        Map<String, WorkshopSession> sessionsByReference = new HashMap<>();
+        lockedSessions.forEach(s -> sessionsByReference.put(s.getReference(), s));
+
+        List<AttendanceTicket> tickets = ticketRepository.findByBookingReferenceWithLock(command.bookingReference());
+        if (tickets.size() != observedTickets.size()
+                || !tickets.stream().map(AttendanceTicket::getId).collect(java.util.stream.Collectors.toSet())
+                .equals(observedTickets.stream().map(AttendanceTicket::getId).collect(java.util.stream.Collectors.toSet()))) {
+            RequiredSessionReplacementOutcome outcome = RequiredSessionReplacementOutcome.rejected(RejectionReason.INVALID_STATE);
+            idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
+            return outcome;
+        }
+
+        Map<Long, List<TicketSessionEntitlement>> entitlementsByTicket = new HashMap<>();
+        Set<String> currentSourceRefs = new TreeSet<>();
+        for (AttendanceTicket ticket : tickets) {
+            if (ticket.getValidityState() != TicketValidityState.ACTIVE) {
+                RequiredSessionReplacementOutcome outcome = RequiredSessionReplacementOutcome.rejected(RejectionReason.INVALID_STATE);
+                idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
+                return outcome;
+            }
+            List<TicketSessionEntitlement> entitlements = entitlementRepository.findByTicketIdWithLock(ticket.getId());
+            entitlementsByTicket.put(ticket.getId(), entitlements);
+            entitlements.stream().map(e -> e.getSession().getReference()).forEach(currentSourceRefs::add);
+        }
+        if (!currentSourceRefs.equals(observedSourceRefs)) {
+            RequiredSessionReplacementOutcome outcome = RequiredSessionReplacementOutcome.rejected(RejectionReason.INVALID_STATE);
+            idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
+            return outcome;
+        }
+
+        Map<String, Integer> currentBookingSeats = new HashMap<>();
+        for (List<TicketSessionEntitlement> entitlements : entitlementsByTicket.values()) {
+            for (TicketSessionEntitlement entitlement : entitlements) {
+                currentBookingSeats.merge(entitlement.getSession().getReference(), 1, Integer::sum);
+            }
+        }
+
         Instant now = Instant.now();
-        int participantCount = tickets.size();
+        int participantCount = (int) tickets.stream()
+                .filter(t -> t.getValidityState() == TicketValidityState.ACTIVE).count();
+
+        Set<String> removedSourceRefs = new HashSet<>(currentSourceRefs);
+        removedSourceRefs.removeAll(targetRefSet);
+        for (String sourceRef : removedSourceRefs) {
+            WorkshopSession source = sessionsByReference.get(sourceRef);
+            if (source.getScheduledStartAt() == null || !source.getScheduledStartAt().isAfter(now)
+                    || source.getState() == SessionState.IN_PROGRESS
+                    || source.getState() == SessionState.ATTENDANCE_FINALIZED
+                    || source.getState() == SessionState.CANCELLATION_REQUESTED
+                    || source.getState() == SessionState.CANCELLED
+                    || entitlementsByTicket.values().stream().flatMap(Collection::stream)
+                    .filter(e -> e.getSession().getReference().equals(sourceRef))
+                    .anyMatch(e -> e.getAttendanceState() != AttendanceState.NOT_CHECKED_IN)) {
+                RequiredSessionReplacementOutcome outcome = RequiredSessionReplacementOutcome.rejected(RejectionReason.INVALID_REPLACEMENT);
+                idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
+                return outcome;
+            }
+        }
+
+        List<WorkshopSession> targetSessions = targetRefs.stream().map(sessionsByReference::get).toList();
 
         for (WorkshopSession target : targetSessions) {
-            if (target.getState() != SessionState.PUBLISHED || target.getScheduledStartAt().isBefore(now)) {
+            if (target.getState() != SessionState.PUBLISHED || target.getScheduledStartAt() == null
+                    || !target.getScheduledStartAt().isAfter(now)) {
                 RequiredSessionReplacementOutcome outcome = RequiredSessionReplacementOutcome.rejected(RejectionReason.INVALID_REPLACEMENT);
                 idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
                 return outcome;
             }
             int activeHolds = capacityHoldRepository.sumActiveHoldsForSession(target.getId(), now);
             int confirmed = entitlementRepository.countActiveConfirmedSeatsForSession(target.getId());
-            if (target.getCapacity() - activeHolds - confirmed < participantCount) {
+            int remainingCapacity = target.getCapacity() - activeHolds - confirmed;
+            int existingBookingSeats = currentBookingSeats.getOrDefault(target.getReference(), 0);
+            if (remainingCapacity <= 0 || remainingCapacity + existingBookingSeats < participantCount) {
                 RequiredSessionReplacementOutcome outcome = RequiredSessionReplacementOutcome.rejected(RejectionReason.INSUFFICIENT_CAPACITY);
                 idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
                 return outcome;
             }
         }
 
+        Set<String> changedSessionRefs = new HashSet<>(removedSourceRefs);
         for (AttendanceTicket ticket : tickets) {
-            List<TicketSessionEntitlement> oldEntitlements = entitlementRepository.findByTicketId(ticket.getId());
-            entitlementRepository.deleteAll(oldEntitlements);
+            List<TicketSessionEntitlement> oldEntitlements = entitlementsByTicket.get(ticket.getId());
+            List<TicketSessionEntitlement> removedEntitlements = oldEntitlements.stream()
+                    .filter(e -> !targetRefSet.contains(e.getSession().getReference())).toList();
+            entitlementRepository.deleteAll(removedEntitlements);
+            Set<String> existingRefs = oldEntitlements.stream()
+                    .map(e -> e.getSession().getReference()).collect(java.util.stream.Collectors.toSet());
 
             for (WorkshopSession newSession : targetSessions) {
+                if (existingRefs.contains(newSession.getReference())) {
+                    continue;
+                }
                 TicketSessionEntitlement newEntitlement = TicketSessionEntitlement.builder()
                     .ticket(ticket)
                     .session(newSession)
                     .attendanceState(AttendanceState.NOT_CHECKED_IN)
                     .build();
                 entitlementRepository.save(newEntitlement);
+                changedSessionRefs.add(newSession.getReference());
             }
         }
+
+        changedSessionRefs.stream().map(sessionsByReference::get).filter(Objects::nonNull)
+                .forEach(session -> otaSnapshotService.publishForObservableChange(
+                        session, command.operationReference(), now));
 
         recordBusinessAudit(action, command.correlationReference(), "SUCCESS", targetSessions.getFirst().getId());
 
@@ -208,17 +317,25 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
             return reconstructRefundOutcome(claim.getCompletedRecord());
         }
 
-        List<AttendanceTicket> tickets = ticketRepository.findByBookingReference(command.bookingReference());
+        List<AttendanceTicket> tickets = ticketRepository.findByBookingReferenceWithLock(command.bookingReference());
         if (tickets.isEmpty()) {
             RefundConsequenceOutcome outcome = RefundConsequenceOutcome.rejected(RejectionReason.INVALID_STATE);
             idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
             return outcome;
         }
 
+        Instant now = Instant.now();
+        Map<String, WorkshopSession> affectedSessions = new HashMap<>();
         for (AttendanceTicket ticket : tickets) {
+            for (TicketSessionEntitlement entitlement : entitlementRepository.findByTicketIdWithLock(ticket.getId())) {
+                affectedSessions.put(entitlement.getSession().getReference(), entitlement.getSession());
+            }
             ticket.setValidityState(TicketValidityState.REFUNDED);
             ticketRepository.save(ticket);
         }
+
+        affectedSessions.values().forEach(session -> otaSnapshotService.publishForObservableChange(
+                session, command.operationReference(), now));
 
         recordBusinessAudit(action, command.correlationReference(), "SUCCESS", null);
 

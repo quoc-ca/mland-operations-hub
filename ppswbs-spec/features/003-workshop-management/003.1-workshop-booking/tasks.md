@@ -1,7 +1,7 @@
 # Tasks: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-28
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -23,7 +23,7 @@ approved cross-feature contracts.
 
 - [X] T001 [P] Establish the `workshopbooking` Spring Modulith module boundary and add `ApplicationModules.verify()` coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopBookingModuleTest.java`.
 - [X] T002 [P] Implement 003.1's named `WorkshopBookingFacade`, including `ApplyVerifiedDepositPaymentEvidenceCommand` and final-balance conclusion consumption, in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/` exactly as limited by `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`.
-- [ ] T003 Rebase `WorkshopOperationsFacade` adapters in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/` to consume `PublishedPackageSelectionQuery`, opaque UUID session references and reserve commands containing `packageReference`; retain facade-only sale eligibility, all-or-nothing reserve/commit/release, ticket projection and current entitlement projection. **BLOCKED** until 003.2 T060--T068 publishes and verifies the Package facade provider.
+- [X] T003 Rebase `WorkshopOperationsFacade` adapters in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/` to consume `PublishedPackageSelectionQuery`, opaque UUID session references and reserve commands containing `packageReference`; retain facade-only sale eligibility, all-or-nothing reserve/commit/release, ticket projection and current entitlement projection. Provider dependency is satisfied by 003.2 T067--T075.
 - [X] T004 Consume canonical account role, status, ownership and location scope through the approved FE-001 boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/WorkshopBookingAuthorizationService.java`; Booking applies its own support-action rules against the booking's canonical `workshop_location.id` and must not use display roles, Firebase claims or retired codes as authority or edit FE-001.
 - [ ] T005 **BLOCKED — external VNPay configuration**: obtain the environment-approved Merchant identity, runtime-only HMAC-SHA512 secret, HTTPS IPN registration, outbound QueryDR/refund authority, and redacted sandbox evidence listed in `ppswbs-spec/features/003-workshop-management/contracts/vnpay-configuration-preflight.md`; keep every credential outside the repository.
 - [ ] T006 Establish the shared technical `paymentintegration` Modulith module and its one `GET /api/v1/integrations/payments/vnpay/events` controller in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/`; verify once, deduplicate, resolve immutable owner-qualified merchant reference, and dispatch redacted evidence to exactly one 003.1/003.3 facade.

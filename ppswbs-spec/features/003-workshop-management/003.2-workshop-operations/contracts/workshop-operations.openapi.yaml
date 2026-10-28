@@ -165,15 +165,6 @@ paths:
       responses:
         '204': { description: Assignment removed }
         '409': { $ref: '#/components/responses/Problem' }
-  /workshop-sessions/{sessionId}/operational-lead:
-    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
-    put:
-      summary: Take or hand over the single Manager operational lead role
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OperationalLeadRequest' } } } }
-      responses:
-        '200': { $ref: '#/components/responses/Session' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/check-ins:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
@@ -351,7 +342,6 @@ components:
             scheduledStartAt: { type: string, format: date-time }
             scheduledEndAt: { type: string, format: date-time }
             checkInOpeningSource: { type: string, enum: [DEFAULT, MANAGER_SET] }
-            operationalLeadAccountId: { type: integer, format: int64, nullable: true }
     BulkSessionRequest:
       type: object
       required: [locationId, slotIds, from, to, weekdays]
@@ -377,10 +367,6 @@ components:
       type: object
       required: [accountId]
       properties: { accountId: { type: integer, format: int64 } }
-    OperationalLeadRequest:
-      type: object
-      required: [managerAccountId, reasonCode]
-      properties: { managerAccountId: { type: integer, format: int64 }, reasonCode: { type: string }, reasonNote: { type: string }, evidenceReference: { type: string } }
     CheckInRequest:
       type: object
       properties: { qrToken: { type: string }, ticketCode: { type: string } }

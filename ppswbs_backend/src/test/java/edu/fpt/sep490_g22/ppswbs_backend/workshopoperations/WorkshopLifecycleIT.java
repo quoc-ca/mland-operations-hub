@@ -14,6 +14,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.Operati
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionOperationalLeadRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopPackageRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSlotRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.OperationalLeadRequest;
@@ -27,6 +28,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.Sess
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionStaffAssignment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopLocation;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackage;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopSession;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopSlot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.CapacityCommitOutcome;
@@ -110,6 +113,9 @@ public class WorkshopLifecycleIT {
     private WorkshopSessionRepository sessionRepository;
 
     @Autowired
+    private WorkshopPackageRepository packageRepository;
+
+    @Autowired
     private SessionStaffAssignmentRepository staffAssignmentRepository;
 
     @Autowired
@@ -136,6 +142,7 @@ public class WorkshopLifecycleIT {
     private WorkshopLocation locationB;
     private WorkshopSlot slotMorning;
     private WorkshopSession sessionA;
+    private String testPackageReference;
 
     @BeforeEach
     void setUp() {
@@ -190,6 +197,19 @@ public class WorkshopLifecycleIT {
                 .capacity(20)
                 .state(SessionState.DRAFT)
                 .build());
+
+        WorkshopPackage testPackage = packageRepository.save(WorkshopPackage.builder()
+                .name("Lifecycle Test Package")
+                .description("Package fixture for lifecycle integration tests")
+                .publicPrice(100_000L)
+                .minParticipants(1)
+                .maxParticipants(20)
+                .requiredSessionCount(1)
+                .sameLocationRequired(true)
+                .minimumSameDaySlotGap(0)
+                .state(WorkshopPackageState.PUBLISHED)
+                .build());
+        testPackageReference = testPackage.getId().toString();
 
         // Setup Manager A (accountId=10) with Location A scope
         when(accountFacade.resolveAccount("mgr-a")).thenReturn(Optional.of(
@@ -439,6 +459,7 @@ public class WorkshopLifecycleIT {
         // 6a. Reserve capacity while PUBLISHED -> Accepted
         ReserveBookingCapacityCommand reserveCmd = new ReserveBookingCapacityCommand(
                 "BKG-PAUSE-01",
+                testPackageReference,
                 List.of(sessionUuid),
                 2,
                 opRefHold,
@@ -470,6 +491,7 @@ public class WorkshopLifecycleIT {
         // 6c. Attempt to reserve new capacity while SALES_PAUSED -> Rejected (SALE_NOT_ELIGIBLE)
         ReserveBookingCapacityCommand newReserveCmd = new ReserveBookingCapacityCommand(
                 "BKG-PAUSE-02",
+                testPackageReference,
                 List.of(sessionUuid),
                 1,
                 "OP-NEW-" + UUID.randomUUID(),
@@ -498,65 +520,13 @@ public class WorkshopLifecycleIT {
     // =========================================================================
 
     @Test
-    @DisplayName("T025-7: Atomic operational lead handover deactivates outgoing lead and activates incoming lead")
+    @DisplayName("T025-7: Retired operational-lead endpoint is not exposed")
     void shouldExecuteAtomicOperationalLeadHandover() throws Exception {
-        sessionA.setState(SessionState.PUBLISHED);
-        sessionRepository.save(sessionA);
-
-        // Setup Manager 12 and Manager 13 snapshots
-        when(accountFacade.getTargetAccount(12L)).thenReturn(Optional.of(
-                new TargetAccountSnapshot(12L, ActorRole.MANAGER, ActorStatus.ACTIVE, List.of(locationA.getId()))));
-        when(accountFacade.getTargetAccount(13L)).thenReturn(Optional.of(
-                new TargetAccountSnapshot(13L, ActorRole.MANAGER, ActorStatus.ACTIVE, List.of(locationA.getId()))));
-
-        // 7a. Assign initial operational lead (Manager 12)
-        OperationalLeadRequest initialReq = OperationalLeadRequest.builder()
-                .managerAccountId(12L)
-                .reasonCode("INITIAL_LEAD_ASSIGNMENT")
-                .reasonNote("Initial lead assigned for session")
-                .build();
-
         mockMvc.perform(put("/api/v1/workshop-sessions/" + sessionA.getReference() + "/operational-lead")
                         .header("Authorization", MGR_A_TOKEN)
-                        .header("X-Correlation-Id", "corr-lead-initial")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(initialReq)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.operationalLeadAccountId").value(12));
-
-        List<SessionOperationalLead> activeLeads = operationalLeadRepository.findAll().stream()
-                .filter(SessionOperationalLead::isActive)
-                .toList();
-        assertThat(activeLeads).hasSize(1);
-        assertThat(activeLeads.getFirst().getManagerAccountId()).isEqualTo(12L);
-
-        // 7b. Handover operational lead to Manager 13
-        OperationalLeadRequest handoverReq = OperationalLeadRequest.builder()
-                .managerAccountId(13L)
-                .reasonCode("LEAD_HANDOVER")
-                .reasonNote("Handing over operational lead to Manager 13")
-                .evidenceReference("EV-HANDOVER-001")
-                .build();
-
-        mockMvc.perform(put("/api/v1/workshop-sessions/" + sessionA.getReference() + "/operational-lead")
-                        .header("Authorization", MGR_A_TOKEN)
-                        .header("X-Correlation-Id", "corr-lead-handover")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(handoverReq)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.operationalLeadAccountId").value(13));
-
-        // Assert atomic handover: exactly 1 active lead remains (Manager 13)
-        List<SessionOperationalLead> allLeads = operationalLeadRepository.findAll();
-        assertThat(allLeads).hasSize(2);
-
-        SessionOperationalLead lead12 = allLeads.stream().filter(l -> l.getManagerAccountId().equals(12L)).findFirst().orElseThrow();
-        assertThat(lead12.isActive()).isFalse();
-        assertThat(lead12.getRevokedAt()).isNotNull();
-
-        SessionOperationalLead lead13 = allLeads.stream().filter(l -> l.getManagerAccountId().equals(13L)).findFirst().orElseThrow();
-        assertThat(lead13.isActive()).isTrue();
-        assertThat(lead13.getReasonCode()).isEqualTo("LEAD_HANDOVER");
+                        .content("{}"))
+                .andExpect(status().isNotFound());
     }
 
     // =========================================================================
@@ -564,15 +534,13 @@ public class WorkshopLifecycleIT {
     // =========================================================================
 
     @Test
-    @DisplayName("T025-8: Removing final responsible Staff during IN_PROGRESS rejected unless active operational lead remains")
+    @DisplayName("T025-8: Staff removal during IN_PROGRESS follows location/role authorization")
     void shouldEnforceStaffRemovalInvariantDuringInProgress() throws Exception {
         sessionA.setState(SessionState.IN_PROGRESS);
         sessionRepository.save(sessionA);
 
         when(accountFacade.getTargetAccount(101L)).thenReturn(Optional.of(
                 new TargetAccountSnapshot(101L, ActorRole.STAFF, ActorStatus.ACTIVE, List.of(locationA.getId()))));
-        when(accountFacade.getTargetAccount(12L)).thenReturn(Optional.of(
-                new TargetAccountSnapshot(12L, ActorRole.MANAGER, ActorStatus.ACTIVE, List.of(locationA.getId()))));
 
         // Staff 101 assigned to session
         SessionStaffAssignment staffAssignment = staffAssignmentRepository.save(SessionStaffAssignment.builder()
@@ -583,35 +551,17 @@ public class WorkshopLifecycleIT {
                 .assignedAt(Instant.now())
                 .build());
 
-        // 8a. No operational lead present: attempting to remove final staff 101 -> 409 INVALID_STATE
+        // The final responsible Staff member still cannot be removed while
+        // the session is IN_PROGRESS; this is a responsibility invariant,
+        // not a per-request assignment authorization check.
         mockMvc.perform(delete("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
                         .header("Authorization", MGR_A_TOKEN)
                         .param("accountId", "101"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("INVALID_STATE"));
 
-        // Staff 101 remains active
         assertThat(staffAssignmentRepository.findById(staffAssignment.getId()).orElseThrow().isActive()).isTrue();
 
-        // 8b. Manager A assigns operational lead (Manager 12)
-        OperationalLeadRequest leadReq = OperationalLeadRequest.builder()
-                .managerAccountId(12L)
-                .reasonCode("LEAD_BEFORE_STAFF_RELEASE")
-                .build();
-        mockMvc.perform(put("/api/v1/workshop-sessions/" + sessionA.getReference() + "/operational-lead")
-                        .header("Authorization", MGR_A_TOKEN)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(leadReq)))
-                .andExpect(status().isOk());
-
-        // 8c. With operational lead active, removing staff 101 succeeds -> 204 No Content
-        mockMvc.perform(delete("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
-                        .header("Authorization", MGR_A_TOKEN)
-                        .header("X-Correlation-Id", "corr-staff-removed")
-                        .param("accountId", "101"))
-                .andExpect(status().isNoContent());
-
-        assertThat(staffAssignmentRepository.findById(staffAssignment.getId()).orElseThrow().isActive()).isFalse();
     }
 
     // =========================================================================

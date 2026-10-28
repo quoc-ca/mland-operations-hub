@@ -12,6 +12,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.Sta
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assumptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -24,6 +25,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.*;
@@ -81,6 +83,9 @@ class WorkshopOperationsMySQLIT {
     private WorkshopSessionRepository sessionRepository;
 
     @Autowired
+    private WorkshopPackageRepository packageRepository;
+
+    @Autowired
     private CapacityHoldRepository holdRepository;
 
     @Autowired
@@ -104,10 +109,19 @@ class WorkshopOperationsMySQLIT {
     private WorkshopLocation testLocation;
     private WorkshopSlot testSlot;
     private WorkshopSession testSession;
+    private String testPackageReference;
 
     @BeforeEach
     void setUp() {
-        assertThat(jdbcTemplate).as("Real MySQL JdbcTemplate must be available").isNotNull();
+        Assumptions.assumeTrue(jdbcTemplate != null, "MySQL JdbcTemplate is not configured");
+        String databaseProduct;
+        try (var connection = jdbcTemplate.getDataSource().getConnection()) {
+            databaseProduct = connection.getMetaData().getDatabaseProductName();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Unable to inspect integration database", exception);
+        }
+        Assumptions.assumeTrue(databaseProduct.toLowerCase(Locale.ROOT).contains("mysql"),
+                "WorkshopOperationsMySQLIT requires a real MySQL database; detected " + databaseProduct);
 
         if (idempotencyManager != null) {
             org.mockito.Mockito.reset(idempotencyManager);
@@ -155,6 +169,19 @@ class WorkshopOperationsMySQLIT {
                 .checkInOpensAt(Instant.now().plus(6, ChronoUnit.DAYS))
                 .checkInOpeningSource(CheckInOpeningSource.DEFAULT)
                 .build());
+
+        WorkshopPackage testPackage = packageRepository.save(WorkshopPackage.builder()
+                .name("MySQL Idempotency Package")
+                .description("Package fixture for idempotency integration tests")
+                .publicPrice(100_000L)
+                .minParticipants(1)
+                .maxParticipants(30)
+                .requiredSessionCount(1)
+                .sameLocationRequired(true)
+                .minimumSameDaySlotGap(0)
+                .state(WorkshopPackageState.PUBLISHED)
+                .build());
+        testPackageReference = testPackage.getId().toString();
     }
 
     @Test
@@ -190,6 +217,7 @@ class WorkshopOperationsMySQLIT {
 
         ReserveBookingCapacityCommand cmd = new ReserveBookingCapacityCommand(
                 "BKG-SEQ-01",
+              testPackageReference,
                 List.of(sessionUuid),
                 2,
                 opRef,
@@ -235,6 +263,7 @@ class WorkshopOperationsMySQLIT {
 
         ReserveBookingCapacityCommand cmd = new ReserveBookingCapacityCommand(
                 "BKG-CONC-01",
+              testPackageReference,
                 List.of(sessionUuid),
                 3,
                 opRef,
@@ -325,6 +354,7 @@ class WorkshopOperationsMySQLIT {
 
         ReserveBookingCapacityCommand cmd = new ReserveBookingCapacityCommand(
                 "BKG-INIT-RACE-01",
+              testPackageReference,
                 List.of(sessionUuid),
                 2,
                 opRef,
@@ -422,6 +452,7 @@ class WorkshopOperationsMySQLIT {
 
         ReserveBookingCapacityCommand initialCmd = new ReserveBookingCapacityCommand(
                 "BKG-ORIGINAL-01",
+              testPackageReference,
                 List.of(sessionUuid),
                 2,
                 opRef,
@@ -433,6 +464,7 @@ class WorkshopOperationsMySQLIT {
         // Mismatched command reusing the same opRef but different participantCount (different fingerprint)
         ReserveBookingCapacityCommand mismatchedCmd = new ReserveBookingCapacityCommand(
                 "BKG-ORIGINAL-01",
+              testPackageReference,
                 List.of(sessionUuid),
                 5, // changed from 2 to 5
                 opRef,
@@ -456,12 +488,14 @@ class WorkshopOperationsMySQLIT {
 
         ReserveBookingCapacityCommand cmd = new ReserveBookingCapacityCommand(
                 "BKG-RECLAIM-01",
+              testPackageReference,
                 List.of(sessionUuid),
                 2,
                 opRef,
                 corrRef
         );
-        String fingerprint = cmd.bookingReference() + "|" + cmd.orderedRequiredSessionReferences() + "|" + cmd.participantCount();
+        String fingerprint = cmd.bookingReference() + "|" + cmd.packageReference() + "|"
+                + cmd.orderedRequiredSessionReferences() + "|" + cmd.participantCount();
 
         // Insert an abandoned IN_PROGRESS record with an expired lease (e.g., crashed claimant 10 minutes ago)
         FacadeCommandIdempotencyRecord abandoned = FacadeCommandIdempotencyRecord.builder()
@@ -603,6 +637,7 @@ class WorkshopOperationsMySQLIT {
 
         ReserveBookingCapacityCommand cmd = new ReserveBookingCapacityCommand(
                 "BKG-ND-01",
+              testPackageReference,
                 List.of(sessionUuid),
                 1,
                 opRef,

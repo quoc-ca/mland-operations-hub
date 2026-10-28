@@ -4,6 +4,8 @@ public interface WorkshopOperationsFacade {
 
     SaleEligibilitySnapshot getSaleEligibility(SaleEligibilityQuery query);
 
+    PublishedPackageSelectionSnapshot getPublishedPackageSelection(PublishedPackageSelectionQuery query);
+
     CapacityHoldOutcome reserveBookingCapacity(ReserveBookingCapacityCommand command);
 
     CapacityCommitOutcome commitBookingHolds(CommitBookingHoldsCommand command);

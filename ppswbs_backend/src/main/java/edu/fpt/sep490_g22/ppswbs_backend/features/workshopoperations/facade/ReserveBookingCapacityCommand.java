@@ -6,6 +6,7 @@ import java.util.UUID;
 
 public record ReserveBookingCapacityCommand(
     String bookingReference,
+    String packageReference,
     List<UUID> orderedRequiredSessionReferences,
     int participantCount,
     String operationReference,
@@ -17,5 +18,16 @@ public record ReserveBookingCapacityCommand(
         Objects.requireNonNull(operationReference, "operationReference must not be null");
         Objects.requireNonNull(correlationReference, "correlationReference must not be null");
         orderedRequiredSessionReferences = List.copyOf(orderedRequiredSessionReferences);
+    }
+
+    /** Compatibility constructor for pre-Package callers; new Booking flows must provide packageReference. */
+    @Deprecated
+    public ReserveBookingCapacityCommand(String bookingReference,
+                                         List<UUID> orderedRequiredSessionReferences,
+                                         int participantCount,
+                                         String operationReference,
+                                         String correlationReference) {
+        this(bookingReference, null, orderedRequiredSessionReferences, participantCount,
+                operationReference, correlationReference);
     }
 }

@@ -138,7 +138,6 @@ public class WorkshopOperationsOpenApiIT {
                 "/workshop-sessions/{sessionId}",
                 "/workshop-sessions/{sessionId}/state-transitions",
                 "/workshop-sessions/{sessionId}/staff-assignments",
-                "/workshop-sessions/{sessionId}/operational-lead",
 
                 // Check-in & Recovery
                 "/workshop-sessions/{sessionId}/check-ins",
@@ -185,8 +184,8 @@ public class WorkshopOperationsOpenApiIT {
         // 4. Responsibility
         Map<String, Object> staffAssignments = (Map<String, Object>) paths.get("/workshop-sessions/{sessionId}/staff-assignments");
         assertThat(staffAssignments).containsKeys("put", "delete");
-        Map<String, Object> operationalLead = (Map<String, Object>) paths.get("/workshop-sessions/{sessionId}/operational-lead");
-        assertThat(operationalLead).containsKey("put");
+        // Staff roster is informational; no operational-lead endpoint is part
+        // of the canonical location-based contract.
 
         // 5. Check-In & Closure
         Map<String, Object> checkIns = (Map<String, Object>) paths.get("/workshop-sessions/{sessionId}/check-ins");

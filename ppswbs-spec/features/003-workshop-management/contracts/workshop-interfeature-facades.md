@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-10-28
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -157,6 +157,35 @@ duplicate event MUST NOT create a second delivery request. A delivery failure or
 uncertain provider outcome is operational only; it MUST NOT reverse a final
 bill, verified payment/refund, deferred-payment case, remedy case, or Booking
 `FULLY_PAID` state.
+
+## OTA snapshot publication and resync - 003.2 to 003.4
+
+003.2 owns the internal `WorkshopSessionOtaSnapshot` boundary. The snapshot
+contains only `sessionReference`, `locationReference`, `scheduledStart`,
+`scheduledEnd`, `sellableAvailability`, `saleState`, `sourceVersion`,
+`changeReference` and `effectiveAt`. 003.2 publishes the complete snapshot as
+the persistent internal Spring Modulith event
+`WorkshopSessionOtaSnapshotChanged` in the same local transaction as the
+observable session change. `IN_PROGRESS`, `ATTENDANCE_FINALIZED`,
+`CANCELLATION_REQUESTED` and `CANCELLED` have closed sale state. In particular,
+scheduled `PUBLISHED` to `IN_PROGRESS` persists and publishes the complete
+closed post-state in the same Operations transaction. Entering
+`ATTENDANCE_FINALIZED` does not advance the version if sale state was already
+closed and no other observable value changed. The event contains no
+booking/payment, ticket, attendance, Staff, PII or OTA mapping data.
+
+003.2 also owns the read-only authoritative resync query for one session. It
+returns the complete current snapshot at the existing `sourceVersion`; resync
+does not allocate a version or change business state. The source version is
+monotonic per session and `(sessionReference, sourceVersion)` is unique.
+
+003.4 is a consumer only. It applies a publication only when its version is
+newer than the last applied version, ignores duplicate/older versions, and
+requests the one-session resync when it detects a gap or cannot establish
+order. 003.4 owns OTA mapping/provider delivery; a consumer/provider failure
+may suspend only that mapping and must not mutate Operations capacity, sale
+state or direct-Mland booking. V1 uses no broker and no external OTA call in
+the Operations transaction.
 
 ## Verification obligations
 
