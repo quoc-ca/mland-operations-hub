@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.*;
+import edu.fpt.sep490_g22.ppswbs_backend.common.booking.BookingTicketRedeliveryPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.CheckInOverrideRequest;
@@ -108,11 +109,11 @@ class TicketRecoveryIT {
 
     @Test
     void resendDelegatesOnlyActiveUnusedOpaqueReferencesAcrossEntitlements() {
-        TicketRedeliveryOutcome result = ticketResendService.requestResend(
+        BookingTicketRedeliveryPort.RedeliveryOutcome result = ticketResendService.requestResend(
                 STAFF_TOKEN, "corr-recovery-1", "op-recovery-1", session.getReference(),
                 TicketResendRequest.builder().bookingCode("BOOK-RECOVERY").build());
 
-        assertThat(result.status()).isEqualTo(BookingOutcomeStatus.ACCEPTED);
+        assertThat(result.status()).isEqualTo(BookingTicketRedeliveryPort.RedeliveryOutcome.Status.ACCEPTED);
         ArgumentCaptor<RequestBookingTicketRedeliveryCommand> captor =
                 ArgumentCaptor.forClass(RequestBookingTicketRedeliveryCommand.class);
         verify(workshopBookingFacade).requestBookingTicketRedelivery(captor.capture());
@@ -203,11 +204,11 @@ class TicketRecoveryIT {
         when(workshopBookingFacade.requestBookingTicketRedelivery(any()))
                 .thenReturn(TicketRedeliveryOutcome.rejected(BookingRejectionReason.INVALID_STATE));
 
-        TicketRedeliveryOutcome result = ticketResendService.requestResend(
+        BookingTicketRedeliveryPort.RedeliveryOutcome result = ticketResendService.requestResend(
                 STAFF_TOKEN, "corr-failed", "op-failed", session.getReference(),
                 TicketResendRequest.builder().bookingCode("BOOK-RECOVERY").build());
 
-        assertThat(result.status()).isEqualTo(BookingOutcomeStatus.REJECTED);
+        assertThat(result.status()).isEqualTo(BookingTicketRedeliveryPort.RedeliveryOutcome.Status.REJECTED);
         assertThat(auditRepository.findBySessionIdOrderByOccurredAtDesc(session.getId()))
                 .anyMatch(event -> "TICKET_REDELIVERY_REQUESTED".equals(event.getAction())
                         && "REJECTED".equals(event.getOutcome()));

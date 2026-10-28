@@ -1,8 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RequestBookingTicketRedeliveryCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketRedeliveryOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.common.booking.BookingTicketRedeliveryPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.AttendanceTicketRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.TicketResendThrottleRepository;
@@ -34,10 +32,10 @@ public class TicketResendService {
     private final AttendanceTicketRepository ticketRepository;
     private final TicketResendThrottleRepository throttleRepository;
     private final OperationsAuditEventRepository auditRepository;
-    private final WorkshopBookingFacade workshopBookingFacade;
+    private final BookingTicketRedeliveryPort bookingTicketRedeliveryPort;
 
     @Transactional
-    public TicketRedeliveryOutcome requestResend(String authHeader, String correlationReference,
+    public BookingTicketRedeliveryPort.RedeliveryOutcome requestResend(String authHeader, String correlationReference,
                                                   String operationReference, String sessionReference,
                                                   TicketResendRequest request) {
         if (request == null || request.getBookingCode() == null || request.getBookingCode().isBlank()) {
@@ -79,8 +77,9 @@ public class TicketResendService {
                 ? UUID.randomUUID().toString() : correlationReference;
         String operation = operationReference == null || operationReference.isBlank()
                 ? UUID.randomUUID().toString() : operationReference;
-        TicketRedeliveryOutcome outcome = workshopBookingFacade.requestBookingTicketRedelivery(
-                new RequestBookingTicketRedeliveryCommand(request.getBookingCode(), eligibleReferences, operation, correlation));
+        BookingTicketRedeliveryPort.RedeliveryOutcome outcome = bookingTicketRedeliveryPort.request(
+                new BookingTicketRedeliveryPort.RedeliveryCommand(
+                        request.getBookingCode(), eligibleReferences, operation, correlation));
         auditRepository.save(OperationsAuditEvent.builder().sessionId(session.getId())
                 .action("TICKET_REDELIVERY_REQUESTED").outcome(outcome.status().name())
                 .correlationId(correlation)

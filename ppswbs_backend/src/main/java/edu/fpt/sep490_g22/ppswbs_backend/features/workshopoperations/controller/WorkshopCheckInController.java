@@ -5,12 +5,11 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.CheckIn
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.CheckInOverrideRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.Ticket;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.TicketResendRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.common.booking.BookingTicketRedeliveryPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.CheckInService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.CheckInOverrideService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketResendService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopValidationException;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingOutcomeStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketRedeliveryOutcome;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -59,9 +58,9 @@ public class WorkshopCheckInController {
             @RequestHeader(value = "Idempotency-Key", required = false) String operationReference,
             @PathVariable("sessionId") String sessionId,
             @Valid @RequestBody TicketResendRequest request) {
-        TicketRedeliveryOutcome outcome = ticketResendService.requestResend(
+        BookingTicketRedeliveryPort.RedeliveryOutcome outcome = ticketResendService.requestResend(
                 authHeader, correlationReference, operationReference, sessionId, request);
-        if (outcome.status() != BookingOutcomeStatus.ACCEPTED) {
+        if (outcome.status() != BookingTicketRedeliveryPort.RedeliveryOutcome.Status.ACCEPTED) {
             throw new WorkshopValidationException("Ticket redelivery was rejected by Booking");
         }
         return ResponseEntity.accepted().build();
