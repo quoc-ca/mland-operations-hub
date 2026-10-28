@@ -35,6 +35,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.Comm
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicketSet;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReleaseBookingHoldsCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReserveBookingCapacityCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionQuery;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilityQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilitySnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SettlementReadiness;
@@ -227,14 +229,23 @@ class WorkshopBookingModuleTest {
         assertThat(eligibility.remainingCapacity()).isEqualTo(10);
         verify(mockOperationsFacade).getSaleEligibility(new SaleEligibilityQuery(sessionId));
 
+        PublishedPackageSelectionSnapshot packageSnapshot = new PublishedPackageSelectionSnapshot(
+                "42", 450_000L, 1, 4, 1, true, 0);
+        when(mockOperationsFacade.getPublishedPackageSelection(any(PublishedPackageSelectionQuery.class)))
+                .thenReturn(packageSnapshot);
+        assertThat(operationsAdapter.getPublishedPackageSelection("42")).isEqualTo(packageSnapshot);
+        verify(mockOperationsFacade).getPublishedPackageSelection(new PublishedPackageSelectionQuery("42"));
+
         // Capacity reserve
         CapacityHoldOutcome mockHoldOutcome = CapacityHoldOutcome.accepted(List.of(holdId), Instant.now().plusSeconds(900));
         when(mockOperationsFacade.reserveBookingCapacity(any(ReserveBookingCapacityCommand.class))).thenReturn(mockHoldOutcome);
 
         CapacityHoldOutcome holdOutcome = operationsAdapter.reserveBookingCapacity(
-                "BK-001", List.of(sessionId), 2, "OP-HOLD-01", "CORR-01");
+                "BK-001", "42", List.of(sessionId), 2, "OP-HOLD-01", "CORR-01");
         assertThat(holdOutcome.status().name()).isEqualTo("ACCEPTED");
         assertThat(holdOutcome.holdReferences()).containsExactly(holdId);
+        verify(mockOperationsFacade).reserveBookingCapacity(new ReserveBookingCapacityCommand(
+                "BK-001", "42", List.of(sessionId), 2, "OP-HOLD-01", "CORR-01"));
 
         // Capacity commit
         CapacityCommitOutcome mockCommitOutcome = CapacityCommitOutcome.accepted();

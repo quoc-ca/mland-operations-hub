@@ -13,6 +13,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.Rele
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReplaceRequiredSessionsCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.RequiredSessionReplacementOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReserveBookingCapacityCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionQuery;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilityQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilitySnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SettlementReadiness;
@@ -39,30 +41,54 @@ public class WorkshopOperationsAdapter {
 
     private final WorkshopOperationsFacade workshopOperationsFacade;
 
+    /** Reads the public, customer-safe snapshot for one published Operations Package. */
+    public PublishedPackageSelectionSnapshot getPublishedPackageSelection(String packageReference) {
+        return workshopOperationsFacade.getPublishedPackageSelection(
+                new PublishedPackageSelectionQuery(packageReference));
+    }
+
     public SaleEligibilitySnapshot getSaleEligibility(UUID sessionReference) {
         log.debug("WorkshopOperationsAdapter.getSaleEligibility: sessionReference={}", sessionReference);
         return workshopOperationsFacade.getSaleEligibility(new SaleEligibilityQuery(sessionReference));
     }
 
-    public SaleEligibilitySnapshot getSaleEligibility(String sessionReference) {
-        try {
-            return getSaleEligibility(UUID.fromString(sessionReference));
-        } catch (IllegalArgumentException e) {
-            return getSaleEligibility(UUID.nameUUIDFromBytes(sessionReference.getBytes()));
-        }
-    }
-
+    /** Transitional source compatibility for the pre-rebase numeric Booking lifecycle. */
+    @Deprecated(forRemoval = false)
     public SaleEligibilitySnapshot getSaleEligibility(Long sessionId) {
         return getSaleEligibility(new UUID(0L, sessionId));
     }
 
+    /**
+     * Reserves the complete Package selection. Operations remains authoritative and rechecks
+     * current Package publication/rules, session sale eligibility and capacity atomically.
+     */
+    public CapacityHoldOutcome reserveBookingCapacity(
+            String bookingReference,
+            String packageReference,
+            List<UUID> orderedRequiredSessionReferences,
+            int participantCount,
+            String operationReference,
+            String correlationReference) {
+        log.info("WorkshopOperationsAdapter.reserveBookingCapacity: bookingRef={}, packageRef={}, sessions={}, participants={}, opRef={}",
+                bookingReference, packageReference, orderedRequiredSessionReferences, participantCount, operationReference);
+        return workshopOperationsFacade.reserveBookingCapacity(
+                new ReserveBookingCapacityCommand(
+                        bookingReference,
+                        packageReference,
+                        orderedRequiredSessionReferences,
+                        participantCount,
+                        operationReference,
+                        correlationReference));
+    }
+
+    @Deprecated(forRemoval = false)
     public CapacityHoldOutcome reserveBookingCapacity(
             String bookingReference,
             List<UUID> orderedRequiredSessionReferences,
             int participantCount,
             String operationReference,
             String correlationReference) {
-        log.info("WorkshopOperationsAdapter.reserveBookingCapacity: bookingRef={}, sessions={}, participants={}, opRef={}",
+        log.info("WorkshopOperationsAdapter.reserveBookingCapacity: legacy package-less bookingRef={}, sessions={}, participants={}, opRef={}",
                 bookingReference, orderedRequiredSessionReferences, participantCount, operationReference);
         return workshopOperationsFacade.reserveBookingCapacity(
                 new ReserveBookingCapacityCommand(
