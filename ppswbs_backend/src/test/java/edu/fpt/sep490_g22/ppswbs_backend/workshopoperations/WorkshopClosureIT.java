@@ -419,7 +419,7 @@ public class WorkshopClosureIT {
     // =========================================================================
 
     @Test
-    @DisplayName("T047-6: Staff actor and out-of-scope Manager denied from check-in reversal and correction (403 Forbidden)")
+    @DisplayName("T047-6: Staff denied while Manager authority is global")
     void testManagerOnlyAuthorization_ReversalAndCorrection() throws Exception {
         WorkshopSession inProgressSession = createSession(SessionState.IN_PROGRESS);
         WorkshopSession finalizedSession = createSession(SessionState.ATTENDANCE_FINALIZED);
@@ -453,21 +453,21 @@ public class WorkshopClosureIT {
                         .content(objectMapper.writeValueAsString(corrRequest)))
                 .andExpect(status().isForbidden());
 
-        // 3. Manager out-of-scope denied reversal (403 Forbidden)
+        // 3. Manager B is globally authorized; missing ticket is evaluated after authorization.
         mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/check-in-reversals", inProgressSession.getReference())
                         .header("Authorization", MGR_OUT_OF_SCOPE_TOKEN)
                         .header("X-Correlation-Id", "corr-t047-6c")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(revRequest)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
 
-        // 4. Manager out-of-scope denied correction (403 Forbidden)
+        // 4. Manager B is globally authorized; missing ticket is evaluated after authorization.
         mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/attendance-corrections", finalizedSession.getReference())
                         .header("Authorization", MGR_OUT_OF_SCOPE_TOKEN)
                         .header("X-Correlation-Id", "corr-t047-6d")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(corrRequest)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     // =========================================================================

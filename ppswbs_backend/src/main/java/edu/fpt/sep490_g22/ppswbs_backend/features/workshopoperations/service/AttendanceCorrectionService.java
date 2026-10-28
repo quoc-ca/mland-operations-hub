@@ -82,7 +82,7 @@ public class AttendanceCorrectionService {
         }
 
         // Authorization: strictly Manager within canonical location scope (Staff denied)
-        AccountSummary actor = authorizationService.requireManagerLocationScope(authHeader, session.getLocation().getId());
+        AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
 
         AttendanceTicket ticket = ticketRepository.findByTicketCode(request.getTicketCode())
                 .orElseThrow(() -> new WorkshopNotFoundException("Ticket not found for ticket code: " + request.getTicketCode()));
@@ -196,7 +196,7 @@ public class AttendanceCorrectionService {
         }
 
         // Authorization: strictly Manager within canonical location scope (Staff denied)
-        AccountSummary actor = authorizationService.requireManagerLocationScope(authHeader, session.getLocation().getId());
+        AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
 
         AttendanceTicket ticket = ticketRepository.findByTicketCode(request.getTicketCode())
                 .orElseThrow(() -> new WorkshopNotFoundException("Ticket not found for ticket code: " + request.getTicketCode()));

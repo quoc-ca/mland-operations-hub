@@ -104,6 +104,19 @@ public class WorkshopOperationsAuthorizationService {
         return account;
     }
 
+    /**
+     * Workshop Operations V1 manager authority is global across locations.
+     * Location-scoped manager checks remain available for location administration.
+     */
+    public AccountSummary requireGlobalManager(String authHeader) {
+        AccountSummary account = authenticate(authHeader);
+        if (!isManager(account)) {
+            log.warn("Access denied for accountId={}: expected MANAGER, found {}", account.accountId(), account.role());
+            throw new WorkshopForbiddenException("Access requires MANAGER role");
+        }
+        return account;
+    }
+
     public AccountSummary requireManagerBranchScope(String authHeader, Long branchId) {
         return requireManagerLocationScope(authHeader, branchId);
     }
