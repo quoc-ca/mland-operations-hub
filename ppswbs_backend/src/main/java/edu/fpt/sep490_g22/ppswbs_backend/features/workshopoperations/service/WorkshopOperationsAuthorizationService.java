@@ -64,6 +64,16 @@ public class WorkshopOperationsAuthorizationService {
         return account != null && account.role() != null && "ADMIN".equalsIgnoreCase(account.role().name());
     }
 
+    /**
+     * Workshop Operations V1 authority: an active Manager is global, while
+     * ADMIN remains an all-location actor for compatibility.
+     */
+    public boolean isGlobalWorkshopActor(AccountSummary account) {
+        return account != null && account.role() != null
+                && ("ADMIN".equalsIgnoreCase(account.role().name())
+                || "MANAGER".equalsIgnoreCase(account.role().name()));
+    }
+
     public boolean isAllBranchActor(AccountSummary account) {
         return isAllLocationActor(account);
     }

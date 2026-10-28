@@ -4,8 +4,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionOperationalLeadRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SessionResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.StateTransitionRequest;
@@ -36,8 +34,6 @@ public class WorkshopLifecycleService {
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final WorkshopSessionRepository sessionRepository;
     private final WorkshopResponsibilityService responsibilityService;
-    private final SessionStaffAssignmentRepository staffAssignmentRepository;
-    private final SessionOperationalLeadRepository operationalLeadRepository;
     private final OperationsAuditEventRepository auditEventRepository;
 
     @Transactional
@@ -68,7 +64,7 @@ public class WorkshopLifecycleService {
         Long sessionLocationId = session.getLocation().getId();
 
         // 3. Enforce direct location scope at command time
-        if (!authorizationService.isAllLocationActor(actor)) {
+        if (!authorizationService.isGlobalWorkshopActor(actor)) {
             List<Long> locationScope = accountFacade.getLocationScope(actor.accountId());
             if (locationScope == null || !locationScope.contains(sessionLocationId)) {
                 log.warn("Location scope denied for accountId={} on session reference={} (locationId={})",
@@ -138,23 +134,9 @@ public class WorkshopLifecycleService {
             throw new WorkshopLifecycleException("Cannot transition to IN_PROGRESS from state " + currentState);
         }
 
-        // Role check: must be active assigned Staff or recorded Manager operational lead (or Admin)
-        if (!authorizationService.isAllLocationActor(actor)) {
-            boolean isAssignedStaff = authorizationService.isStaff(actor) &&
-                    staffAssignmentRepository.existsBySessionIdAndAccountIdAndActiveTrue(session.getId(), actor.accountId());
-            boolean isOperationalLead = authorizationService.isManager(actor) &&
-                    operationalLeadRepository.existsBySessionIdAndManagerAccountIdAndActiveTrue(session.getId(), actor.accountId());
-
-            if (!isAssignedStaff && !isOperationalLead) {
-                log.warn("Start onsite denied for accountId={}, role={}: neither assigned Staff nor recorded operational lead",
-                        actor.accountId(), actor.role());
-                throw new WorkshopForbiddenException("Only an assigned Staff member or recorded Manager operational lead may start session operation");
-            }
-        }
-
-        // Responsibility invariant: Session MUST have at least one active responsible operator
-        if (!responsibilityService.hasActiveResponsibleOperator(session.getId())) {
-            throw new WorkshopLifecycleException("Cannot start session: session has no active responsible operator (assigned Staff or operational lead)");
+        if (!authorizationService.isGlobalWorkshopActor(actor)
+                && !authorizationService.isStaff(actor)) {
+            throw new WorkshopForbiddenException("Only an active Staff member in the session location or an active Manager may start session operation");
         }
     }
 
@@ -164,16 +146,10 @@ public class WorkshopLifecycleService {
             throw new WorkshopLifecycleException("Cannot finalize attendance from state " + currentState + "; session must be IN_PROGRESS");
         }
 
-        // Role check: assigned Staff or Manager in location scope (or Admin)
-        if (!authorizationService.isAllLocationActor(actor)) {
-            if (authorizationService.isStaff(actor)) {
-                boolean isAssignedStaff = staffAssignmentRepository.existsBySessionIdAndAccountIdAndActiveTrue(session.getId(), actor.accountId());
-                if (!isAssignedStaff) {
-                    throw new WorkshopForbiddenException("Staff member is not assigned to session reference " + session.getReference());
-                }
-            } else if (!authorizationService.isManager(actor)) {
-                throw new WorkshopForbiddenException("Access denied: Actor role " + actor.role() + " cannot finalize session attendance");
-            }
+        // Role check: any active Staff in location scope or any active Manager.
+        if (!authorizationService.isGlobalWorkshopActor(actor)
+                && !authorizationService.isStaff(actor)) {
+            throw new WorkshopForbiddenException("Access denied: Actor role " + actor.role() + " cannot finalize session attendance");
         }
     }
 
