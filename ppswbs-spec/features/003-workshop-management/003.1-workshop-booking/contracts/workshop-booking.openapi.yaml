@@ -7,21 +7,6 @@ info:
     implementation. Shared VNPay provider ingress is documented in
     ../../contracts/vnpay-payment-ingress.openapi.yaml.
 paths:
-  /api/v1/workshop-packages:
-    get:
-      summary: Browse published customer-selectable packages
-      responses: {'200': {description: Packages}}
-  /api/v1/workshop-sessions:
-    get:
-      summary: Discover customer-selectable workshop sessions for one package and location
-      parameters:
-        - {$ref: '#/components/parameters/PackageId'}
-        - {$ref: '#/components/parameters/LocationId'}
-        - {$ref: '#/components/parameters/From'}
-        - {$ref: '#/components/parameters/To'}
-      responses:
-        '200': {description: Customer-safe sale-eligibility snapshots, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/SessionAvailability'}}}}}
-        '400': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings:
     post:
       summary: Create one pending booking for one package
@@ -100,18 +85,14 @@ components:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: Firebase-ID-Token}
   parameters:
     BookingCode: {name: bookingCode, in: path, required: true, schema: {type: string}}
-    PackageId: {name: packageId, in: query, required: true, schema: {type: integer, format: int64}}
-    LocationId: {name: locationId, in: query, required: true, schema: {type: integer, format: int64}}
-    From: {name: from, in: query, required: true, schema: {type: string, format: date-time}}
-    To: {name: to, in: query, required: true, schema: {type: string, format: date-time}}
     IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
   schemas:
     CreateBookingRequest:
       type: object
-      required: [packageId, sessionIds, participantCount, contactEmail, contactPhone]
+      required: [packageId, sessionReferences, participantCount, contactEmail, contactPhone]
       properties:
         packageId: {type: integer, format: int64}
-        sessionIds: {type: array, minItems: 1, maxItems: 2, uniqueItems: true, items: {type: integer, format: int64}}
+        sessionReferences: {type: array, minItems: 1, uniqueItems: true, items: {type: string, format: uuid}}
         participantCount: {type: integer, minimum: 1}
         contactEmail: {type: string, format: email, maxLength: 254}
         contactPhone: {type: string, minLength: 7, maxLength: 32}
@@ -128,17 +109,6 @@ components:
       required: [token]
       properties:
         token: {type: string, writeOnly: true, description: Opaque bearer value extracted by the React client from the Magic Link URL fragment; never persist or log it.}
-    SessionAvailability:
-      type: object
-      required: [sessionId, locationId, scheduledStart, scheduledEnd, saleState, customerSelectable, remainingCapacity]
-      properties:
-        sessionId: {type: integer, format: int64}
-        locationId: {type: integer, format: int64}
-        scheduledStart: {type: string, format: date-time}
-        scheduledEnd: {type: string, format: date-time}
-        saleState: {type: string}
-        customerSelectable: {type: boolean}
-        remainingCapacity: {type: integer, minimum: 0}
     ConfirmationDeliveryRequest:
       type: object
       properties:
@@ -178,18 +148,18 @@ components:
         tickets: {type: array, items: {$ref: '#/components/schemas/BookingTicket'}}
     BookedSession:
       type: object
-      required: [sessionId, locationId, ordinal]
+      required: [sessionReference, locationId, ordinal]
       properties:
-        sessionId: {type: integer, format: int64}
+        sessionReference: {type: string, format: uuid}
         locationId: {type: integer, format: int64}
         ordinal: {type: integer, minimum: 1}
     BookingTicket:
       type: object
-      required: [ticketCode, qrToken, sessionIds]
+      required: [ticketCode, qrToken, sessionReferences]
       properties:
         ticketCode: {type: string}
         qrToken: {type: string, description: Signed opaque credential without PII.}
-        sessionIds: {type: array, items: {type: integer, format: int64}}
+        sessionReferences: {type: array, items: {type: string, format: uuid}}
     Problem:
       type: object
       required: [code, correlationId]

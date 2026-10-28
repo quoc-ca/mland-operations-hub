@@ -1,7 +1,7 @@
 # Quickstart Validation: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -28,8 +28,10 @@ per-run evidence to this guide.
 
 ## Core scenarios
 
-1. Call session discovery with one package, one location, and valid `from`/`to`
-   range. Verify it returns only customer-safe eligible-session snapshots, then
+1. Call 003.2-owned session discovery at
+   `GET /api/v1/workshop-packages/{packageId}/sessions` with one required
+   location and optional date filters. Verify it returns only customer-safe
+   eligible-session snapshots with opaque UUID references, then
    run the approved frontend journey from `/workshops` through
    `/workshops/:packageId` to `/workshops/:packageId/book`. Verify it requires
    no more than three primary interactions using user-visible controls; retain
@@ -37,12 +39,15 @@ per-run evidence to this guide.
 2. Create a Basic Ring booking for N participants and one session. Verify one
    pending booking, one invoice at `N × price_per_participant`, exact 50% VND
    deposit, and an N-seat hold in that session.
-3. Create a Silverclay booking for N participants and two valid same-location
-   sessions. Verify chronological ordinals, N held seats in both shared pools,
-   one invoice and no cart/multiple booking records.
-4. Attempt a duplicate session, different location, adjacent same-day pair, full
-   second session, or concurrent last-seat race. Verify no partial booking or
-   hold persists. Verify final-slot-today/first-slot-tomorrow is accepted. Put
+3. Create a Silverclay booking for N participants and the two valid
+   same-location sessions required by its Package rule. Verify chronological
+   ordinals, N held seats in both shared pools, one invoice and no
+   cart/multiple booking records.
+4. Attempt a selected set rejected by the Package rule (duplicate session,
+   different location, or adjacent same-day pair for Silverclay), a full second
+   session, or concurrent last-seat race. Verify Operations returns the safe
+   refusal and no partial booking or hold persists. Verify
+   final-slot-today/first-slot-tomorrow is accepted for the Silverclay gap rule. Put
    one selected session in `SALES_PAUSED` and verify no new hold is created,
    while a pre-existing unexpired hold remains eligible to commit. Verify the
    Booking flow receives each sale-eligibility and hold outcome synchronously

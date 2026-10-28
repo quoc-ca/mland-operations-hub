@@ -1,7 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -55,6 +55,14 @@ or acceptance path for 003.1 V1. A later feature may reference a booking only
 through an approved boundary.
 
 ## Clarifications
+
+### Session 2026-10-28
+
+- Q: Who owns customer Package and customer-session discovery? → A: 003.2 Workshop Operations owns both public resources. 003.1 consumes their public results and the approved internal facade; it no longer exposes competing package or session discovery routes.
+- Q: What session identity does Booking carry? → A: It carries only Operations' opaque UUID/string `sessionReference`; it retires every legacy numeric session ID contract and does not support two formats.
+- Q: How is a customer selection authorized at booking submission? → A: Booking sends `packageReference`, the complete selected session-reference set and participant count to Operations' reserve boundary. Operations atomically rechecks Package publication, participant bounds, session count, location, same-day slot-gap rule, sale eligibility and capacity before reserving all sessions or none.
+- Q: How is the former Silverclay same-day non-adjacent rule represented? → A: It is Operations-owned generic Package configuration `minimumSameDaySlotGap`. Silverclay currently has value `1`; Basic Ring has value `0`. Booking neither hard-codes Silverclay nor interprets the rule independently.
+- Q: Which safe Package refusal reasons can Booking surface? → A: `PACKAGE_NOT_PUBLISHED` means the Package is no longer bookable; `PACKAGE_SELECTION_INVALID` means its participant/session/location/slot-gap rule fails. Capacity exhaustion remains `INSUFFICIENT_CAPACITY`.
 
 ### Session 2026-10-27
 
@@ -589,12 +597,15 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-002**: The system MUST display the selected package's current price,
   description, participant constraints, supported design/material information,
   and booking availability information.
-- **FR-002a**: The public REST contract MUST expose session discovery as
-  `GET /workshop-sessions`, requiring one package reference, one `locationId`
-  reference, and `from`/`to` range criteria. It MUST return only the
-  customer-safe sale-eligibility snapshot from 003.2 for sessions applicable
-  to that package and canonical location; it MUST NOT disclose holds, bookings, customers,
-  payments, tickets, staff, or internal capacity implementation details.
+- **FR-002a**: 003.1 MUST consume 003.2-owned public discovery routes and MUST
+  NOT expose competing Package/session discovery endpoints. Customer session
+  discovery is `GET /api/v1/workshop-packages/{packageId}/sessions`, requiring
+  canonical `locationId` and allowing optional `from`/`to` filters. It returns
+  only the customer-safe 003.2 snapshot for future, `PUBLISHED`,
+  customer-selectable sessions: opaque UUID/string `sessionReference`,
+  location, schedule, sale state, `customerSelectable` and exact current
+  `remainingCapacity`. It MUST NOT disclose holds, bookings, customers,
+  payments, tickets, Staff, or capacity internals.
 - **FR-003**: The system MUST allow a Guest or Member to select one published
   package/course, its offered required-session set, participant count, and
   required booking contact information before submitting a booking. It MUST NOT
@@ -604,19 +615,24 @@ appropriate booking summary without exposing another customer's booking.
   contact phone. Member booking forms MUST auto-fill both fields from the Member
   profile, allow edits for booking on behalf of another person, and persist the
   submitted values as immutable booking contact snapshots.
-- **FR-003b**: For a direct-Mland Silverclay package, the system MUST require
-  exactly two distinct published, customer-selectable workshop sessions at the
-  same canonical location at booking submission. A session is a common workshop slot, not a
-  Silverclay-only slot type, and V1 MUST NOT require a preconfigured
-  session-pair or cohort. The system MUST order the selected sessions
-  chronologically as session 1 and session 2. If both selected sessions are on
-  the same local calendar day, at least one scheduled workshop slot MUST occur
+- **FR-003b**: Booking MUST submit the complete selected Workshop Session UUID
+  reference set required by the Package, but MUST NOT independently derive or
+  authorize Package selection rules. Operations checks the Package's required
+  session count, same-location and same-day slot-gap rule atomically with
+  reserve. A session is a common workshop slot, not a Silverclay-only slot
+  type, and V1 MUST NOT require a preconfigured session-pair or cohort. Booking
+  may retain a chronological display ordinal only after Operations accepts the
+  selection. For a Package whose `minimumSameDaySlotGap` is `1`, two selected
+  sessions on the same local calendar day require at least one scheduled slot
   between them; sessions on different local calendar days have no further
-  minimum-gap requirement. V1 has no maximum gap between the two sessions while
-  each remains published and customer-selectable.
-- **FR-004**: The system MUST revalidate package availability, every required
-  session's availability and configured capacity, participant count, and
-  required information at booking submission time.
+  minimum-gap requirement. V1 has no maximum gap while each selected session
+  remains published and customer-selectable.
+- **FR-004**: Booking MUST send `packageReference`, the complete selected UUID
+  session-reference set and participant count to Operations for atomic
+  revalidation at booking submission time. Operations MUST return
+  `PACKAGE_NOT_PUBLISHED`, `PACKAGE_SELECTION_INVALID` or
+  `INSUFFICIENT_CAPACITY` as applicable; Booking MUST create neither a pending
+  booking nor a partial hold on refusal.
 - **FR-004a**: All packages selecting the same workshop session MUST consume the
   same configured session-capacity pool. Each participant seat reserved by a
   Basic Ring or Silverclay booking consumes one place from that pool.

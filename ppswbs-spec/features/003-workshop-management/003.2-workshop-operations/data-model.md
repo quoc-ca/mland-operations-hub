@@ -1,7 +1,7 @@
 # Data Model: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -11,11 +11,50 @@
 | --- | --- | --- |
 | Canonical Account role/status and active location scope | Account Management | Consumed through a facade; never copied as authorization truth. Operations compares a session's canonical `location_id` directly with those location IDs and applies its own action rules. |
 | Commercial booking, payer, payment, invoice, customer delivery | Workshop Booking | Referenced by immutable external booking IDs/codes only. |
-| Canonical workshop location, slot, session, hold, attendance ticket, attendance and audit | Workshop Operations | The aggregate model defined below. A location is not duplicated as an independent branch resource. |
+| Workshop Package master, canonical workshop location, slot, session, hold, attendance ticket, attendance and audit | Workshop Operations | The aggregate model defined below. A location is not duplicated as an independent branch resource. Package master data is not commercial Booking data. |
 | Facade command idempotency ledger | Workshop Operations | Technical persistence for exactly-one business execution within its retention window; not an audit or business aggregate. |
 | Settlement, refunds, reschedule resolution | Workshop Settlement and Changes (003.3) | Receives cancellation handoffs; is not implemented here. |
 
 ## Core Records
+
+### WorkshopPackage
+
+`packageId` is a system-generated technical identity. A Package has an editable
+public `name`, description, required public per-participant price, inclusive
+`minParticipants` and `maxParticipants`, generic `requiredSessionCount`,
+`sameLocationRequired`, non-negative `minimumSameDaySlotGap`, lifecycle state
+and audit timestamps/references. It
+defines selection rules only: it has no concrete dated-session attachment,
+branch mapping or local copy of a Location.
+
+Constraints and ownership invariants:
+
+- participant bounds are positive, inclusive and `minParticipants <=
+  maxParticipants`;
+- required session count is positive; `sameLocationRequired` is a rule that
+  applies to the customer-selected required-session set, not a storage
+  relationship to one or more sessions;
+- the current Basic Ring and Silverclay configurations are respectively
+  `(requiredSessionCount: 1, sameLocationRequired: true,
+  minimumSameDaySlotGap: 0)` and `(requiredSessionCount: 2,
+  sameLocationRequired: true, minimumSameDaySlotGap: 1)`; a value of `1`
+  requires at least one configured slot between two selected sessions on the
+  same local date. They do not form a closed Package-type enum;
+- state transitions are `DRAFT -> PUBLISHED -> RETIRED`; `RETIRED` rejects new
+  Booking selection and a Package that has been published or frozen into a
+  Booking snapshot is never deleted;
+- edits to a published Package are prospective only. Booking owns the selected
+  Package and financial snapshots for an accepted Booking and must never
+  recompute them from this master record;
+- a Package has no separate business package code in V1.
+
+Package commands are Operations-owned. The authorized Central Manager is an
+active canonical `MANAGER` whose `activeLocationIds` include every active
+canonical Workshop Location. This is an Operations policy, not a new Account
+role/capability or a persisted Package-to-Manager assignment. Local Managers
+retain only their location/session responsibilities. The derived rule requires
+a post-003 integration review before Package administration is widened or
+replaced by explicit central-assignment governance.
 
 ### WorkshopLocation
 
@@ -124,6 +163,35 @@ ticket's entitlement from every replaced session to the complete resulting set;
 the persistent QR remains the same. Failure changes neither capacity nor
 entitlement. Individual attendance detail, ticket detail, Staff/audit and PII
 are never returned for this purpose.
+
+### Package-discovery boundary
+
+Operations also owns a semantic internal read boundary for 003.1 to discover a
+currently `PUBLISHED` Package and evaluate its generic participant and
+required-session rules. Its selection snapshot contains the opaque
+`packageReference`, public per-participant price, participant bounds,
+required-session count, same-location rule and same-day slot-gap rule. It
+returns Package facts only;
+it does not return
+Operations entities/repositories, Account data, Booking data, payment data,
+attendance, ticket data or PII. Booking consumes that result to select and
+freeze a Package snapshot and never mutates Package master data.
+
+The shared interfeature facade contract defines this as
+`PublishedPackageSelectionQuery(packageReference)` and
+`PublishedPackageSelectionSnapshot(packageReference, publicPerParticipantPrice,
+minParticipants, maxParticipants, requiredSessionCount, sameLocationRequired,
+minimumSameDaySlotGap)`.
+It is a conceptual Java boundary contract, not approval of persistence shape.
+
+Customer REST discovery is separate from the facade: for one Package and one
+required canonical `locationId`, optional `from`/`to` filters return only
+future `PUBLISHED`, customer-selectable sessions. Each public result exposes
+the Operations UUID as an opaque `sessionReference`, canonical location,
+scheduled start/end, sale state, `customerSelectable` and exact current
+`remainingCapacity`. It never exposes hold, ticket, Booking, Staff, audit or
+PII data, and its capacity value is a selection snapshot rather than a reserve
+guarantee.
 
 ### OTA-observable session projection
 
@@ -241,6 +309,9 @@ projection; the original action remains immutable.
 
 - A ticket references one commercial booking; each entitlement references one
   session. A ticket may be entitled to more than one session.
+- A Booking references a Package only through Booking-owned frozen snapshot
+  data. Operations Package master changes never rewrite an existing Booking,
+  payment or final-bill amount.
 - The database enforces unique public ticket codes and QR references and the
   session location/date/slot uniqueness; service validation explains failures.
 - Every state-changing Operations facade command uses the dedicated idempotency

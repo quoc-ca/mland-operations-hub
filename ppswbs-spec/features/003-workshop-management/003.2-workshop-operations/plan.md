@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -16,9 +16,10 @@ changing persistence or code.
 
 ## Summary
 
-Build the operational backbone for workshop sessions: canonical workshop locations, reusable slots,
-sessions, capacity commitments, individual attendance tickets, authorised
-check-in, exception audit, and manual attendance finalisation.
+Build the operational backbone for Workshop Packages and sessions: canonical
+workshop locations, reusable slots, sessions, capacity commitments, individual
+attendance tickets, authorised check-in, exception audit, and manual attendance
+finalisation.
 
 The agreed target boundary is deliberately different from legacy code:
 `workshopoperations` owns every operational record needed to decide capacity or
@@ -44,16 +45,53 @@ Public REST routes and DTO fields use `location`, including
 contracts and tests are legacy and must be replaced rather than adapted with a
 duplicate identifier.
 
+### Workshop Package Ownership and Discovery Boundary
+
+`workshopoperations` owns the Workshop Package master: editable public name and
+description, required per-participant public price, inclusive participant
+bounds, generic required-session rules and lifecycle. A Package has only a
+system-generated `packageId`; V1 has no separate business package code and no
+concrete dated-session attachment. It also defines a non-negative
+`minimumSameDaySlotGap`: Basic Ring currently uses `1`/same-location/gap `0`,
+while Silverclay uses `2`/same-location/gap `1` (one configured slot must fall
+between same-local-day selected sessions). These are configuration examples,
+not a closed Package type.
+
+The lifecycle is `DRAFT -> PUBLISHED -> RETIRED`. A retired Package rejects new
+selection but is never deleted after publication or after a Booking has frozen
+it. Published Package edits are prospective: 003.1 owns its selected Package
+and financial snapshots and must not recalculate them from master data.
+
+Operations owns public discovery of published Packages and customer-selectable
+future sessions, as well as Central-Manager Package administration on the same
+Package resource. A public caller can observe only `PUBLISHED` Packages. The
+Central Manager is, in V1, an active canonical `MANAGER` whose
+`activeLocationIds` include every active canonical Workshop Location. That is
+an Operations authorization rule, not a new Account role or capability. It
+requires a post-003 integration review before this governance is widened or
+replaced with explicit central assignment.
+
+Public Package routes include `GET /workshop-packages/{packageId}/sessions` for
+customer discovery. It requires a canonical `locationId` and accepts optional
+`from`/`to` date filters. It returns only future `PUBLISHED`,
+customer-selectable sessions satisfying the Package rules, with exact current
+remaining capacity as a non-guaranteed selection snapshot. The Manager/Staff
+`GET /workshop-sessions` route remains protected and operational-only. 003.1
+must retire its competing legacy discovery route.
+
+The shared 003 interfeature-facade contract supplies the approved semantic
+Package discovery query/snapshot and requires `packageReference` on the
+capacity-reserve command. Operations rechecks Package publication, participant
+and selected-session rules atomically with reserve; Booking cannot authorize a
+selection from a stale discovery snapshot.
+
 ### Account Target-Authorization Dependency
 
-For an assignment or operational-lead handover, Operations needs a read-only
-semantic Account Management boundary for the target `accountId`: existence,
-canonical role, current status and active location IDs. The current public
-facade provides current-actor facts and location scope, but does not yet expose
-that complete target-account query. Operations must not read Account entities or
-repositories, infer a target role, or create a duplicate role store. Therefore
-implementation of target Staff/Manager validation remains blocked by
-`BE-DESIGN-0003` until FE-001 publishes that boundary and its verification.
+For an assignment or operational-lead handover, Operations consumes the
+read-only Account Management target-account boundary for `accountId` existence,
+canonical role, current status and active location IDs. Operations must not
+read Account entities or repositories, infer a target role, or create a
+duplicate role store.
 
 ### Resolved OTA-Observable Snapshot Boundary
 
@@ -232,7 +270,18 @@ boundary.
 
 ## Implementation Sequence
 
-1. **Implement approved integration contracts.** Implement
+1. **Establish Package master and discovery boundaries.** Model the
+   Operations-owned Package lifecycle and prospective-edit invariant before
+   Booking integration. Implement Central-Manager authorization as the approved
+   all-active-location-scope rule, without adding an Account role/capability.
+   Expose public reads only for `PUBLISHED` Packages and protected Package
+   create/update/lifecycle commands. Implement the approved semantic Package
+   discovery facade and require `packageReference` on reserve before 003.1
+   consumes it; Booking may freeze its returned facts but must not mutate the
+   master. Implement public customer session discovery only under
+   `GET /workshop-packages/{packageId}/sessions` with required `locationId`
+   and optional date filters; do not expose the Manager/Staff session search.
+2. **Implement approved integration contracts.** Implement
    `WorkshopOperationsFacade` from the shared 003 contract: its capacity
    operations handle holds, commitment confirmation/release and sale
    eligibility; its ticket-projection operation supplies customer-delivery
@@ -274,7 +323,7 @@ boundary.
    dedicated ledger and claim-version conditional finalisation; its concrete
    JPA/SQL expression remains an implementation detail constrained by the
    ledger invariants below.
-2. **Establish facade-command idempotency before capacity work.** Add the
+3. **Establish facade-command idempotency before capacity work.** Add the
    Operations-owned ledger through an append-only migration selected after
    inspecting the latest deployed version. Claim or reclaim an equivalent
    command durably, reject mismatched fingerprints, return `IN_PROGRESS` for a
@@ -282,15 +331,15 @@ boundary.
    the same local transaction as business effects. Retain the original
    correlation reference separately from audit metadata; do not reuse audit,
    hold or ticket persistence for deduplication.
-3. **Create the operational aggregate.** Model canonical workshop location, reusable location slot,
+4. **Create the operational aggregate.** Model canonical workshop location, reusable location slot,
    session, active Staff assignment, one Manager operational lead, capacity hold
    and individual attendance ticket with session entitlements. Enforce
    location/date/slot uniqueness, positive capacity and the no-overlap slot rule.
-4. **Implement session administration.** Support single and bounded bulk
+5. **Implement session administration.** Support single and bounded bulk
    session generation (at most 90 future days), duplicate reporting, slot
    activation/deactivation, lifecycle transitions, schedule change warnings and
    state-aware assignment/lead handover.
-5. **Make capacity transactional.** Reserve only against `PUBLISHED` sessions;
+6. **Make capacity transactional.** Reserve only against `PUBLISHED` sessions;
    retain pre-pause unexpired holds; confirm or release holds atomically.
    Protect concurrent reservations from oversell using an approved
    implementation mechanism; the particular lock or concurrency technique is
@@ -309,7 +358,7 @@ boundary.
    affected session on a gap or uncertain order. Resync does not advance the
    source version. A 003.4 sync failure affects only that feature's OTA mapping
    and reconciliation; it never changes an Operations session or direct booking.
-6. **Implement tickets and check-in.** Generate individual opaque QR references
+7. **Implement tickets and check-in.** Generate individual opaque QR references
    and unique ticket codes. Validate the scanner's current session/location,
    ticket entitlement, ticket validity, that ticket/session pair's attendance
    state, opening time and actor scope as one result. QR is primary, exact
@@ -317,20 +366,30 @@ boundary.
    in a separate permissioned, reasoned and audited path.
    A repeated normal scan returns its existing check-in result as `200 OK` with
    `ALREADY_CHECKED_IN` and `checkedInAt`; it does not create another action.
-7. **Close attendance correctly.** Let an assigned active Staff member or the
+8. **Close attendance correctly.** Let an assigned active Staff member or the
    recorded active operational lead finalise the whole session after its actual
    end; convert still-unchecked valid tickets to `NO_SHOW`. Only a Manager may
    perform a post-finalisation correction, with mandatory audit evidence.
-8. **Handoff cancellation and delivery.** On cancellation request, stop normal
+9. **Handoff cancellation and delivery.** On cancellation request, stop normal
    operation and create the audited case consumed by feature 003.3. Booking
    obtains only delivery-safe ticket views from Operations; it never owns or
    mutates attendance state.
-9. **Migrate and verify.** Add a new Flyway migration after inspecting the
+10. **Migrate and verify.** Add a new Flyway migration after inspecting the
    deployed migration sequence, backfill only through an approved runbook, and
    exercise the flows in `quickstart.md` against MySQL.
 
 ## Validation Strategy
 
+- Contract-test Package create/read/update/publish/retire, public exclusion of
+  `DRAFT` and `RETIRED` records, Central-Manager all-active-location-scope
+  authorization, participant-bound validation, generic required-session rules
+  and immutable/prospective Booking snapshot behaviour.
+- Cross-module-test that 003.1 consumes only the approved Package-discovery
+  facade and cannot read or mutate Operations Package persistence. Contract-test
+  public Package session discovery with required location scope, optional date
+  filters, UUID session references, public-safe schedule/state and exact
+  non-guaranteed remaining capacity; prove the Manager/Staff search remains
+  protected.
 - Unit-test lifecycle guards, slot overlap, capacity arithmetic, ticket state
   rules and audit-reason requirements.
 - Integration-test JPA constraints and Flyway migration on MySQL.

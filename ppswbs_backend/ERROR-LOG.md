@@ -505,6 +505,312 @@
 - Đổi số migration: `origin/develop` đã dùng `V6__account_schema_alignment.sql` (001), `V7__workshop_operations.sql` và `V8__workshop_operations_idempotency_ledger.sql` (003.2). Các file chưa commit/chưa chia sẻ của nhánh `khuong` đổi số: `V6__product_management.sql` → `V9__product_management.sql` (002), `V7__loyalty_promotion.sql` → `V10__loyalty_promotion.sql`, `V8__loyalty_drop_workshop_payable.sql` → `V11__loyalty_drop_workshop_payable.sql` (006). Nội dung SQL không đổi (chỉ dòng chú thích đầu file). Cần báo nhóm (Phan Sơn, Hồ Hoàng Quốc) số V9–V11 đã được 002/006 dùng. Database test `ppswbs_test` đã áp dụng các số cũ nên phải tạo lại sau khi ghép.
 - Fact trên `origin/develop` (`07fa8cf`, chưa merge vào `khuong`, sẽ kiểm chứng lại sau khi merge): `SecurityConfiguration` không còn `permitAll` (`/api/**` cần xác thực, route khác `denyAll`, CORS theo origin); `application.properties` không còn giá trị mặc định cho user/mật khẩu DB; `AccountFacade` có `resolveActor`, `CurrentAccountActor`, `ActorContext`, gói `facade` là `@NamedInterface`, `ActorRole`/`ActorStatus` là enum của facade; `IdentityGateFilter` xác minh bearer cho mọi `/api/**`. Nếu đúng sau khi merge: mục 1, 2 của BE-DESIGN-0005 và cả BE-DESIGN-0006 được giải quyết; còn lại cho T102 là `ddl-auto=validate` và tắt Thymeleaf. Điểm mới cần xử lý ở T007: `IdentityGateFilter` đòi bearer cho cả route catalogue công khai của 002 (khách không đăng nhập).
 
+## Record BE-DESIGN-0007 — Backend baseline does not compile after removal of Booking-external workarounds
+
+- **Timestamp**: `2026-10-27T15:14:16+07:00`
+- **Reporter**: Hồ Hoàng Quốc (actual agent: Codex)
+- **Feature / Task**: `003.1-workshop-booking`, T007/T014 acceptance review
+- **Status**: `BLOCKED`
+
+### 1. Stopped scope and governing sources
+
+- **Stopped scope**: Acceptance of T007 (post-commit notification handoff) and T014 (Booking lifecycle/facade orchestration). The Booking verification suite cannot execute while Maven cannot compile the backend baseline.
+- **Sources**: `ppswbs_backend/AGENT.md` sections 3, 5 and 7; `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/tasks.md`, T007/T014.
+
+### 2. Trigger and observed conflict
+
+- Booking-external workarounds were removed: Maven no longer excludes `features/workshopbooking/**`; test Flyway no longer ignores missing migrations; Product Management retains `V9__product_management.sql` and no `V12__product_management.sql` remains.
+- Maven then compiles the legacy package `src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/**` (last-touch commit `bd88645`). It imports `workshopbooking.domain` and `workshopbooking.infrastructure`, but neither package exists in the working tree.
+- The same compile also reports missing `FirebaseTokenVerifier`, `FirebaseAuthenticationToken`, and `InvalidTokenException` from `configuration/**`, and a missing `members.facade` package imported by `designreview/**`.
+
+### 3. Evidence and classification
+
+- **FACT**: The following command was run at repository root:
+  ```powershell
+  mvn -f .\ppswbs_backend\pom.xml test "-Dtest=WorkshopBookingModuleTest,WorkshopBookingMigrationIT,BookingIdempotencyIT,WorkshopBookingDtoTests,WorkshopBookingLifecycleIT,ModulithArchitectureTests"
+  ```
+  Maven attempted to compile 440 source files and failed before any selected test started, with the missing package/type errors above.
+- **FACT**: No Maven exclude, Flyway ignore pattern, or Product Management migration rename remains to suppress those errors.
+- **INFERENCE**: The earlier reported passing T007/T014 result is not acceptable evidence after the Booking code is compiled without exclusions.
+- **UNKNOWN**: The responsible owner and approved disposition (repair or retire) for the legacy package and the missing shared dependencies are not identified by this record.
+
+### 4. Why 003.1 cannot resolve this locally
+
+Repairing, retiring, or reintroducing dependencies for `configuration`, `designreview`, or legacy `ppswbs_backend.workshopbooking` changes shared or other-feature code outside T007/T014. Re-adding compiler exclusions or Flyway bypasses would only conceal the error and would not prove Booking compiles.
+
+### 5. Current state, impact, and condition to resume
+
+- **Preserved in working tree**: T007/T014 changes only under `features/workshopbooking/**`, `WorkshopBookingLifecycleIT.java`, and their task markers.
+- **Not changed**: legacy source, `pom.xml`, Flyway test configuration, Product Management migration, or any unrelated task marker.
+- **Condition to resume**: the responsible owner/tech lead must repair or retire the legacy package and resolve the missing shared dependencies. After that baseline is merged, re-run backend compilation and the entire T007/T014 verification suite. Only then may the `[X]` markers for T007/T014 be accepted.
+
+### Follow-up evidence — 2026-10-27T15:14:16+07:00
+
+- **FACT**: The legacy package has only `BookingEligibilityDto` and `WorkshopBookingFacade`, exposing `getEligibleGuestBookingsForImport`, `linkGuestBookingsToMember`, and `getBookingEligibilityForDesign`.
+- **FACT**: The first two methods have no callers outside the legacy facade. `linkGuestBookingsToMember` is incompatible with the shared rule that same-email or different-UID records must not be automatically merged or linked.
+- **FACT**: `designreview/application/DesignAnalysisService` is the only current production caller of `getBookingEligibilityForDesign`; it imports the legacy facade and DTO directly.
+- **FACT**: The canonical 003.1 facade under `features/workshopbooking/facade` has no equivalent legacy guest-import/link method and no current design-review eligibility query.
+- **Required decision**: retire the legacy package rather than restore its missing domain/infrastructure dependencies. The Feature 004 owner must rebase Design Review to a separately approved, minimal, semantic 003.1 eligibility boundary, or retire that Design Review path until the boundary exists. The new boundary must not expose entities, contact email, `memberId`, or an automatic account-linking operation.
+
+### Deferred-verification follow-up — 2026-10-28T00:14:50+07:00
+
+- **Superseding product decision**: Feature 004 Design Review is an independent capability and has no Booking eligibility boundary. Feature 004 will remove its legacy Booking and `members.facade` dependencies rather than request a new Feature 003 facade.
+- **Approved working assumptions for Feature 003 implementation only**: (1) Feature 004 will merge that independent-Design rebase; (2) Feature 001/shared authentication will restore or publish the missing Firebase/common authentication types consumed by `configuration/**`.
+- **Scope allowed while assumptions remain unmerged**: Feature 003 may continue only with tasks whose design does not require changes to Feature 004, Feature 001, or shared authentication. Maven exclusions, Flyway-ignore rules, replacement authentication stubs, and legacy Booking restoration remain prohibited.
+- **Acceptance restriction**: Feature 003 work completed under these assumptions remains unaccepted. Do not mark a task complete or claim Maven verification until the actual dependency changes are present in the baseline.
+- **Mandatory final acceptance gate for Feature 003**:
+  1. Pull the merged Feature 004 independent-Design rebase and Feature 001/shared-authentication repair into the Feature 003 branch.
+  2. Verify that no production import remains under `ppswbs_backend.workshopbooking.**` and no `members.facade` import remains.
+  3. Run a clean Maven compile and the relevant Feature 003 regression suites without compiler exclusions or Flyway-ignore workarounds.
+  4. Record actual results, then re-review and mark only evidenced Feature 003 tasks complete.
+
+## Record BE-DESIGN-0008 — Missing public Catalogue and Workshop Operations discovery facades for T015–T017
+
+- **ID**: `BE-DESIGN-0008`
+- **Timestamp**: `2026-10-28T00:25:00+07:00`
+- **Reporter**: Hồ Hoàng Quốc (tác nhân thực tế: Antigravity AI pair programmer)
+- **Feature / Task**: `features/003-workshop-management/003.1-workshop-booking/tasks.md` — `T015`, `T016`, `T017`
+- **Trạng thái**: `BLOCKED`
+
+### 1. Phạm vi bị dừng và nguồn design
+
+- **Phạm vi bị dừng**: Toàn bộ Phần B (`T015`, `T016`, `T017` - User Story 1: Discover a workshop package and sessions discovery). Không thể triển khai `WorkshopDiscoveryService`, REST controller cho `GET /api/v1/workshop-packages` và `GET /api/v1/workshop-sessions`, hoặc `WorkshopDiscoveryIT`.
+- **Nguồn design**:
+  - `ppswbs_backend/AGENT.md` §3 (B01, B03, B08), §4 ("Chỉ named facade và boundary types công khai liên feature; không dùng DAO, entity, internal service hoặc HTTP DTO của feature khác"), §5 ("Logic/contract mâu thuẫn, flow thiếu nhánh... khiến phải tự chọn hành vi -> Dừng toàn bộ tác vụ và ghi ERROR-LOG").
+  - `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/tasks.md` (T015, T016, T017).
+  - `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/spec.md` (FR-001, FR-002, FR-002a).
+  - `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/contracts/workshop-booking.openapi.yaml` (`GET /api/v1/workshop-packages`, `GET /api/v1/workshop-sessions`).
+  - `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md` (§WorkshopOperationsFacade).
+  - Chỉ đạo reviewer trong user request: *"Nếu public Catalogue/Operations facade chưa đủ cho T015–T017, dừng toàn bộ Phần B, giữ nguyên thay đổi code của Phần B và append fact vào `ppswbs_backend/ERROR-LOG.md` đúng format AGENT.md."*
+
+### 2. Khuyết / mâu thuẫn chính xác và kịch bản phát hiện
+
+1. **Khuyết public Catalogue Facade cho Workshop Packages (`GET /api/v1/workshop-packages`)**:
+   - `GET /api/v1/workshop-packages` yêu cầu hiển thị danh sách các workshop packages đã xuất bản và khách hàng có thể chọn.
+   - Thư mục public boundary của Catalogue (`ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/productmanagement/facade`) hoàn toàn trống, chỉ có `package-info.java` mà không có bất kỳ interface hay record nào.
+   - Không tồn tại `CatalogueSalesFacade` hay bất kỳ public query nào để lấy danh sách workshop package, pricing, description, hoặc media.
+   - Hợp đồng OpenAPI `workshop-booking.openapi.yaml` (dòng 10–13) chỉ khai báo:
+     `paths: /api/v1/workshop-packages: get: responses: {'200': {description: Packages}}`
+     mà không định nghĩa schema, trường dữ liệu, hoặc cấu trúc response DTO cho Packages.
+   - Booking không được phép truy cập trực tiếp `ProductRepository` hay entity nội bộ của `productmanagement` do vi phạm Spring Modulith boundary và `AGENT.md` §4.
+
+2. **Khuyết public Workshop Operations Discovery Facade cho Sessions (`GET /api/v1/workshop-sessions`)**:
+   - `GET /api/v1/workshop-sessions` yêu cầu 4 tham số query: `packageId`, `locationId`, `from`, `to`, và trả về danh sách `SessionAvailability[]`.
+   - `WorkshopOperationsFacade` hiện tại (và hợp đồng đã duyệt trong `workshop-interfeature-facades.md`) chỉ cung cấp duy nhất 1 query đọc session:
+     `SaleEligibilitySnapshot getSaleEligibility(SaleEligibilityQuery query);`
+     với `SaleEligibilityQuery` nhận 1 `sessionReference` (`UUID`).
+   - `WorkshopOperationsFacade` **không có bất kỳ phương thức nào** để tìm kiếm hoặc liệt kê các session theo khoảng thời gian (`from`, `to`), địa điểm (`locationId`), hoặc liên kết với `packageId`.
+   - Operations module không quản lý hay lưu trữ quan hệ giữa `packageId` và `WorkshopSession`.
+   - Booking không được phép truy cập trực tiếp `WorkshopSessionRepository` hoặc `workshop_sessions` của Operations để tự query khoảng thời gian.
+
+### 3. Bằng chứng tài liệu / code / check đã chạy
+
+- **FACT**:
+  1. Kiểm tra thư mục `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/productmanagement/facade`: chỉ chứa duy nhất `package-info.java`, không có bất kỳ Java type nào.
+  2. Kiểm tra `WorkshopOperationsFacade.java`: chỉ có 9 method (1 query `getSaleEligibility(SaleEligibilityQuery)`, 4 hold/ticket commands, 4 settlement/cancellation methods). Không có method tìm kiếm session theo range thời gian hoặc location.
+  3. Kiểm tra `contracts/workshop-interfeature-facades.md` (§WorkshopOperationsFacade): không định nghĩa facade method nào cho session discovery.
+  4. Kiểm tra `contracts/workshop-booking.openapi.yaml`: route `/api/v1/workshop-packages` không có content schema.
+- **SUY LUẬN**:
+  - Không thể hiện thực `WorkshopDiscoveryService` và REST controllers cho User Story 1 (T015, T016) mà không (a) tự ý vi phạm ranh giới Modulith bằng cách inject Repository/Entity của feature khác, hoặc (b) tự ý bịa ra facade method và DTO contract chưa được phê duyệt.
+- **UNKNOWN**:
+  - Module nào sở hữu workshop package catalog (Product Management hay Booking sở hữu snapshot metadata riêng).
+  - Thiết kế facade method và query parameters cụ thể mà `WorkshopOperationsFacade` cần cung cấp để phục vụ discovery theo location và time range.
+  - Cấu trúc DTO response chính thức cho `GET /api/v1/workshop-packages`.
+
+### 4. Vì sao không thể implement đúng nếu không tự quyết và tác động
+
+- Theo `AGENT.md` §1, §3 và §4: Backend developer không được tự suy diễn nghiệp vụ, tự tạo endpoint/DTO field/query contract chưa có trong OpenAPI/design, hoặc dùng direct entity/repository access từ feature khác.
+- Nếu tự ý query bảng `workshop_sessions` hoặc `products` từ Booking, Spring Modulith test (`WorkshopBookingModuleTest`) sẽ fail ngay lập tức vì vi phạm encapsulation boundary.
+- Nếu tự định nghĩa method mới trên `WorkshopOperationsFacade` hoặc `CatalogueSalesFacade`, sẽ sửa trái phép contract của module khác.
+
+### 5. File đã thay đổi, việc đang dở và kết quả tại lúc dừng
+
+- **File đã thay đổi trong phiên**:
+  - `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/tasks.md`: Hoàn tất Phần A (đổi marker T007 và T014 về `[ ]` kèm ghi chú `BE-DESIGN-0007`).
+  - `ppswbs_backend/ERROR-LOG.md`: Ghi nhận bản ghi `BE-DESIGN-0008`.
+- **Việc đang dở**:
+  - Dừng toàn bộ Phần B (T015, T016, T017). Không viết code scaffold, controller, service, hay test giả định.
+- **Kết quả lúc dừng**:
+  - T015, T016, T017 giữ nguyên trạng thái chưa hoàn thành `- [ ]`.
+  - Không có file code nào của Phần B bị tạo sai quy chuẩn.
+  - Không thực hiện git commit hoặc git push.
+
+### 6. Quyết định / thiết kế cần bổ sung và điều kiện tiếp tục
+
+1. **Phê duyệt hợp đồng Catalogue Facade cho Workshop Packages**:
+   - Xác định rõ Module Catalogue (`productmanagement`) cung cấp public method nào trong `facade` để Booking lấy danh sách và chi tiết các workshop package đã xuất bản (ví dụ: `CatalogueSalesFacade.getPublishedWorkshopPackages()`).
+   - Bổ sung schema chi tiết cho `GET /api/v1/workshop-packages` trong `workshop-booking.openapi.yaml`.
+2. **Phê duyệt mở rộng `WorkshopOperationsFacade` cho Session Discovery**:
+   - Cập nhật `workshop-interfeature-facades.md` và `WorkshopOperationsFacade`: bổ sung operation (ví dụ: `discoverAvailableSessions(SessionDiscoveryQuery query)` nhận `locationReference`, `from`, `to`) trả về danh sách `SessionAvailabilitySnapshot`.
+   - Làm rõ cơ chế lọc theo `packageId` (liệu mọi package đều dùng chung session pool, hay package quy định số session yêu cầu).
+3. **Điều kiện tiếp tục**:
+   - Khi các facade contract và OpenAPI schema trên được phê duyệt chính thức và merge vào baseline, tiến hành triển khai T015, T016, T017 theo đúng hợp đồng.
+
+### Correction of ownership classification — 2026-10-28T00:30:27+07:00
+
+- **Correction**: The earlier wording that assigned Workshop Package catalogue ownership to Feature 002/Product Management is unsupported and must not be treated as a request to that owner.
+- **Evidence**: `features/002-product-management/spec.md` limits Feature 002 to ready-made ring catalogue management and explicitly excludes booking; `spec-general.md` distinguishes workshop packages/schedules/capacity/bookings from the retail catalogue; `features/003-workshop-management/README.md` places the workshop lifecycle under Feature 003.
+- **Remaining blocker, corrected**: Feature 003 artifacts do not identify which 003 subfeature owns Workshop Package catalogue definition/publication, nor define its public discovery projection. 003.1 owns Booking snapshots; 003.2 owns session configuration/capacity; neither currently owns an approved Workshop Package catalogue contract.
+- **Required decision owner**: Feature 003 owner must clarify and approve the Workshop Package catalogue owner and its public customer-safe discovery contract inside Feature 003. Only after that decision may the corresponding producer facade/OpenAPI/schema work be assigned. Feature 002 is not a prerequisite unless a later approved decision explicitly makes it one.
+
+## Record BE-DESIGN-0009 — FE-001 lacks public capability-decision boundary for workshop.checkin.override (T038) and baseline compile blocker
+
+- **ID**: `BE-DESIGN-0009`
+- **Timestamp**: `2026-10-28T02:05:00+07:00`
+- **Reporter**: Hồ Hoàng Quốc (tác nhân thực tế: Antigravity AI pair programmer)
+- **Feature / Task**: `features/003-workshop-management/003.2-workshop-operations/tasks.md` — `T036–T040`, trực tiếp tại `T038`
+- **Trạng thái**: `BLOCKED`
+
+### 1. Phạm vi bị dừng và nguồn design
+
+- **Phạm vi bị dừng**: Toàn bộ cụm `T036–T040` (User Story 4 — Staff Recovers from Lost Ticket Access and Authorized Exceptions), dừng trực tiếp tại `T038` (`CheckInOverrideService`), kéo theo không thể hoàn tất `T039` (REST controller endpoints) và `T040` (`TicketRecoveryIT`).
+- **Nguồn design**:
+  - `ppswbs_backend/AGENT.md` §1 ("Không tự suy diễn nghiệp vụ, grant quyền..."), §3 (B01, B02, B06, B08), §4 ("Firebase chứng minh danh tính, backend xác minh credential... MySQL quyết định quyền/trạng thái/ownership. Không tự map role, merge UID theo email hoặc suy quyền từ provider/claim", "Chỉ named facade và boundary types công khai liên feature; không dùng DAO, entity, internal service hoặc HTTP DTO của feature khác"), §5 ("Logic/contract mâu thuẫn, flow thiếu nhánh, state/quyền/transaction chưa chốt khiến phải tự chọn hành vi -> Dừng toàn bộ tác vụ và ghi ERROR-LOG").
+  - `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/spec.md` line 75, 84, 612–614, và FR-004 line 810–820: *"The system MUST require `workshop.checkin.override`, a reason and audit record for exceptional check-in. An overriding Staff member MUST be actively assigned to the session and hold this permission; an overriding Manager MUST be the session's recorded operational lead."*
+  - `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/tasks.md` Task T038: *"Implement the separate authorized check-in override path in CheckInOverrideService.java; require workshop.checkin.override for assigned Staff or lead authority for Manager..."*
+  - Chỉ đạo của reviewer trong user request: *"Chỉ dùng capability `workshop.checkin.override` nếu public FE-001 boundary đã thật sự cung cấp semantic capability decision. Không tự map role, Firebase claim hoặc tạo workaround authorization... Nếu WorkshopBookingFacade chưa có semantic resend boundary, hoặc FE-001 chưa có public capability-decision boundary cho workshop.checkin.override, dừng tại blocker trực tiếp theo AGENT.md, giữ nguyên thay đổi và cập nhật ppswbs_backend/ERROR-LOG.md. Không giả định hay mock contract production."*
+
+### 2. Khuyết / mâu thuẫn chính xác và kịch bản phát hiện
+
+1. **Khuyết public capability-decision boundary từ FE-001 cho `workshop.checkin.override`**:
+   - FR-004 và T038 quy định rõ: Staff thành viên khi thực hiện override check-in bắt buộc phải có quyền `workshop.checkin.override` (bên cạnh việc được phân công vào session tại location đó).
+   - Tuy nhiên, public boundary hiện tại của FE-001 Account Management (`features.accountmanagement.facade.AccountFacade`) chỉ cung cấp:
+     - `resolveAccount(firebaseUid)` -> `AccountSummary`
+     - `getAccountStatus(accountId)` -> `ActorStatus`
+     - `getLocationScope(accountId)` -> `List<Long>`
+     - `resolveActor(firebaseUid, emailVerified)` -> `CurrentAccountActor`
+     - `getTargetAccount(accountId)` -> `TargetAccountSnapshot`
+   - Các boundary types trên (`AccountSummary`, `CurrentAccountActor`, `TargetAccountSnapshot`) chỉ chứa `canonicalRole` (`MEMBER`, `STAFF`, `MANAGER`, `ADMIN`), `status` (`ACTIVE`, `PENDING_SETUP`, `SUSPENDED`), và `activeLocationIds`.
+   - **Hoàn toàn không có method hoặc trường dữ liệu nào** để kiểm tra hoặc trả về semantic capability decision cho `workshop.checkin.override`.
+   - Theo `AGENT.md` §4 và ràng buộc của reviewer: Operations tuyệt đối không được tự ý map quyền (ví dụ: tự coi mọi `STAFF` đều có quyền override), không được parse custom claims từ Firebase token, và không được đọc entity/repository nội bộ của Account Management.
+   - Do đó, Operations không thể xác thực quyền `workshop.checkin.override` của Staff khi thực hiện check-in override.
+
+2. **Maven baseline compilation failure (`BE-DESIGN-0007`)**:
+   - Khi chạy lệnh kiểm thử hợp đồng hoặc integration test:
+     `mvn -f .\ppswbs_backend\pom.xml test "-Dtest=TicketRecoveryContractIT"`
+     Maven thất bại ngay tại pha `compile` với 24 lỗi biên dịch trong các package `configuration/**`, `designreview/**`, và legacy `workshopbooking/**` (chưa được đồng bộ/sửa từ `develop`).
+   - Theo chỉ đạo của reviewer: không thêm compiler exclusions, Flyway ignores, hay test workaround vào `pom.xml`, và chỉ được tick `[X]` khi có bằng chứng test thật. Không thể cung cấp bằng chứng test thật khi baseline chưa compile.
+
+### 3. Bằng chứng tài liệu / code / check đã chạy
+
+- **FACT**:
+  1. Kiểm tra toàn bộ mã nguồn của FE-001 `features/accountmanagement/facade`:
+     - `AccountFacade.java` không có phương thức `hasCapability(...)`, `getCapabilities(...)`, hay bất kỳ capability check nào.
+     - `TargetAccountSnapshot.java`, `CurrentAccountActor.java`, và `AccountSummary.java` không có trường dữ liệu biểu diễn capability/permission.
+     - Tìm kiếm `workshop.checkin.override` trong toàn bộ thư mục `features/accountmanagement` trả về 0 kết quả.
+  2. Lệnh `mvn -f .\ppswbs_backend\pom.xml test "-Dtest=TicketRecoveryContractIT"` thất bại với mã lỗi 1 (`24 errors` tại pha `default-compile`), khẳng định thực trạng `BE-DESIGN-0007`.
+  3. Lệnh `git status` xác nhận không có file code nào của T036–T040 bị scaffold dở dang hay vi phạm thiết kế.
+- **SUY LUẬN**:
+  - Nếu tiếp tục tự code `CheckInOverrideService` bằng cách gán quyền mặc định cho Staff hoặc tự đọc Firebase token claims, hệ thống sẽ tạo lỗ hổng phân quyền nghiêm trọng tại quầy onsite và vi phạm trực tiếp nguyên tắc bảo mật của constitution.
+- **UNKNOWN**:
+  - Cơ chế chính thức mà FE-001 Account Management sẽ xuất bản để các feature khác truy vấn capability (ví dụ: method trên `AccountFacade`, hay danh sách `List<String> capabilities` trên `CurrentAccountActor`).
+  - Lịch trình merge nhánh sửa `configuration` và `designreview` từ tech lead để gỡ `BE-DESIGN-0007`.
+
+### 4. Vì sao không thể implement đúng nếu không tự quyết và tác động
+
+- Nếu tự quyết định cơ chế phân quyền capability cho Staff: vi phạm `AGENT.md` §1 & §4, phá vỡ ranh giới module Modulith và vô hiệu hóa tính độc lập của Account Management.
+- Nếu tự ý cho phép mọi Staff assigned đều có thể override mà không kiểm tra capability: vi phạm trực tiếp FR-004 và tiêu chí nghiệm thu của T038.
+- Nếu viết code giả định mà không chạy được test: vi phạm quy tắc "chỉ tick `[X]` khi có bằng chứng test thật" và `AGENT.md` §7.
+
+### 5. File đã thay đổi, việc đang dở và kết quả tại lúc dừng
+
+- **File đã thay đổi trong phiên**:
+  - `ppswbs_backend/ERROR-LOG.md`: Ghi nhận bản ghi `BE-DESIGN-0009`.
+- **Việc đang dở**:
+  - Dừng toàn bộ triển khai `T036–T040`. Không tạo scaffold, stub service, hay test giả định.
+- **Kết quả lúc dừng**:
+  - Toàn bộ các task `T036`, `T037`, `T038`, `T039`, `T040` giữ nguyên trạng thái chưa hoàn thành `- [ ]` trong `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/tasks.md`.
+  - Không có file code nào của T036–T040 bị tạo trái quy chuẩn.
+  - Không commit hoặc push lên Git.
+
+### 6. Quyết định / thiết kế cần bổ sung và điều kiện tiếp tục
+
+1. **Owner FE-001 Account Management (Phan Sơn)**:
+   - Bổ sung public capability-decision boundary trong `AccountFacade` cho phép Workshop Operations kiểm tra quyền `workshop.checkin.override` của một account ID (ví dụ: `boolean hasCapability(Long accountId, String capability)` hoặc xuất bản `List<String> capabilities` trong `TargetAccountSnapshot`/`CurrentAccountActor`).
+2. **Tech Lead / Shared Baseline**:
+   - Xử lý dứt điểm các lỗi biên dịch của `configuration/**`, `designreview/**`, và legacy `workshopbooking/**` trên `develop` để backend baseline compile thành công (`BE-DESIGN-0007`).
+3. **Điều kiện tiếp tục**:
+   - Khi FE-001 cung cấp contract capability decision chính thức và baseline compile pass, re-check gate B01–B10, tiến hành triển khai tuần tự `T036`, `T037`, `T038`, `T039`, `T040` kèm test tích hợp thật trên MySQL.
+
+---
+
+## Record BE-DESIGN-0010 — Working tree lacks merged shared baseline fixes; testCompile fails with 23 errors (T043–T044 gate blocker)
+
+- **ID**: `BE-DESIGN-0010`
+- **Timestamp**: `2026-10-28T11:15:00+07:00`
+- **Reporter**: Hồ Hoàng Quốc (tác nhân thực tế: Antigravity AI pair programmer)
+- **Feature / Task**: `features/003-workshop-management/003.2-workshop-operations/tasks.md` — `T043`, `T044`
+- **Trạng thái**: `BLOCKED`
+
+### 1. Phạm vi bị dừng và nguồn design
+
+- **Phạm vi bị dừng**: Tác vụ triển khai `T043` (`AttendanceFinalizationService`) và `T044` (`AttendanceCorrectionService`).
+- **Nguồn design & chỉ đạo**:
+  - `ppswbs_backend/AGENT.md` §3 lines 62–64 ("Thiếu điều kiện do design chưa đầy đủ thì dừng và ghi ERROR-LOG theo §5, kể cả khi chưa viết dòng code nào..."), §5, §7 ("Chỉ đánh dấu task hoàn tất khi có bằng chứng; không tick task đang dở lúc bị chặn").
+  - `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/tasks.md` (T043, T044).
+  - Chỉ đạo của reviewer trong user request: *"Assumption đã được phê duyệt cho phiên này: BE-DESIGN-0007 đã được xử lý ở shared baseline; FE-001 đã cung cấp AccountFacade boundary cần thiết; FE-004 đã loại bỏ dependency legacy; không cần sửa các feature đó trong phạm vi 003.2... Chỉ đánh dấu `[X]` T043/T044 khi Maven compile và test thật pass. Nếu assumption shared baseline chưa đúng trong working tree, dừng và ghi blocker vào `ppswbs_backend/ERROR-LOG.md`. Không commit hoặc push."*
+
+### 2. Khuyết / mâu thuẫn chính xác và kịch bản phát hiện
+
+1. **Giả định shared baseline chưa đúng trong working tree**:
+   - Phiên làm việc được giao với giả định: `BE-DESIGN-0007` đã được xử lý ở shared baseline và FE-004 đã loại bỏ dependency legacy để baseline compile pass.
+   - Khi chạy lệnh kiểm chứng thực tế trong working tree hiện tại (`branch quoc`):
+     ```powershell
+     mvn -f .\ppswbs_backend\pom.xml test-compile
+     ```
+     Pha `default-compile` (mã nguồn chính `src/main/java`) đã thành công (0 lỗi).
+     Tuy nhiên, pha `default-testCompile` (`src/test/java`) **thất bại hoàn toàn với 23 lỗi biên dịch**:
+     - `src/test/java/edu/fpt/sep490_g22/ppswbs_backend/designreview/DesignRequestIT.java`: 15 lỗi do import các package/class không tồn tại (`members.domain`, `members.infrastructure`, `workshopbooking.domain`, `MemberRepository`, `MemberPolicyAcceptanceRepository`, `WorkshopBookingRepository`, `Member`, `WorkshopBooking`).
+     - `src/test/java/edu/fpt/sep490_g22/ppswbs_backend/designreview/HumanReviewIT.java`: 4 lỗi do import `members.domain`, `members.infrastructure`, `MemberRepository`).
+     - `src/test/java/edu/fpt/sep490_g22/ppswbs_backend/support/TestFirebaseTokenVerifier.java`: 4 lỗi do import `InvalidTokenException`, `FirebaseAuthenticationToken`, `FirebaseTokenVerifier`).
+2. **Nguyên nhân gốc**:
+   - Các sửa đổi gỡ bỏ dependency legacy của FE-004 và thay thế `TestFirebaseTokenVerifier` bằng `TokenVerificationService`/`AccountFacade` đã được hoàn tất trên nhánh `origin/develop` (commit `c0dda7d [FIX] sửa feat 004 sau merge` và PR #73, #74).
+   - Tuy nhiên, branch `quoc` (working tree hiện tại) đang ở commit `2a0a660`, đi sau `origin/develop` 8 commits (`31632bd..e63d832`) và **chưa hề merge các bản sửa lỗi đó từ `origin/develop`**.
+3. **Ràng buộc thi hành**:
+   - Ràng buộc user request: "Không commit hoặc push", "Không sửa FE-004", "Không dùng Maven exclusion, Flyway ignore hoặc stub shared classes". Do đó, agent không được tự ý thực hiện `git merge origin/develop` (vì sẽ tạo merge commit) và không được tự sửa file test của Feature 004.
+   - Do đó, assumption shared baseline **chưa đúng trong working tree**, kích hoạt điều kiện dừng bắt buộc của reviewer.
+
+### 3. Bằng chứng tài liệu / code / check đã chạy
+
+- **FACT**:
+  1. Lệnh `mvn -f .\ppswbs_backend\pom.xml test-compile` thoát mã 1 (`23 errors` tại `default-testCompile`).
+  2. Lệnh `git fetch origin` và `git log 31632bd..origin/develop --oneline` xác nhận `origin/develop` đã có commit `c0dda7d [FIX] sửa feat 004 sau merge` khắc phục hoàn toàn các lỗi biên dịch test trên.
+  3. Lệnh `git diff HEAD origin/develop -- ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/designreview ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/support/TestFirebaseTokenVerifier.java` xác nhận trên develop đã xóa `TestFirebaseTokenVerifier.java` và rebase `DesignRequestIT.java`, `HumanReviewIT.java` sang `AccountFacade`/`TokenVerificationService`.
+  4. Lệnh `git merge-tree HEAD origin/develop` trả về hash `9032e0675f769b575aceef24e355d7654ce73f37` (thoát mã 0), chứng minh `origin/develop` có thể merge sạch 100% vào `quoc` mà không có xung đột mã nguồn.
+  5. Lệnh `git status` xác nhận working tree chưa merge `origin/develop`.
+- **SUY LUẬN**:
+  - Không thể chạy `mvn test` trên working tree hiện tại mà không merge `origin/develop`.
+  - Mọi nỗ lực đánh dấu `[X]` cho T043/T044 mà không có test run pass qua Maven đều vi phạm trực tiếp tiêu chí nghiệm thu của reviewer và `AGENT.md` §7.
+- **UNKNOWN**:
+  - Thời điểm người phụ trách hoặc Tech Lead chủ động pull/merge `origin/develop` vào branch `quoc`.
+
+### 4. Vì sao không thể implement đúng nếu không tự quyết và tác động
+
+- Nếu tự ý merge `origin/develop` vào `quoc`: vi phạm ràng buộc "Không commit hoặc push".
+- Nếu tự ý sửa các file test của FE-004 (`DesignRequestIT.java`, `HumanReviewIT.java`, `TestFirebaseTokenVerifier.java`): vi phạm ràng buộc "Không sửa FE-004".
+- Nếu tự ý cấu hình exclusion trong `pom.xml`: vi phạm ràng buộc "Không dùng Maven exclusion... để làm compile pass".
+- Nếu tiếp tục viết code và tự tick `[X]`: vi phạm ràng buộc "Chỉ đánh dấu `[X]` T043/T044 khi Maven compile và test thật pass" và `AGENT.md` §3.
+
+### 5. File đã thay đổi, việc đang dở và kết quả tại lúc dừng
+
+- **File đã thay đổi trong phiên**:
+  - `ppswbs_backend/ERROR-LOG.md`: Ghi nhận bản ghi `BE-DESIGN-0010`.
+- **Việc đang dở**:
+  - Dừng toàn bộ triển khai `T043` và `T044`.
+- **Kết quả lúc dừng**:
+  - `T043` và `T044` giữ nguyên trạng thái chưa hoàn thành `- [ ]` trong `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/tasks.md`.
+  - Không có file code nào của T043–T044 bị scaffold dở dang.
+  - Không commit hoặc push lên Git.
+
+### 6. Quyết định / thiết kế cần bổ sung và điều kiện tiếp tục
+
+1. **Hành động cần thiết từ Người chịu trách nhiệm (Hồ Hoàng Quốc) / Tech Lead**:
+   - Thực hiện merge nhánh `origin/develop` vào branch `quoc` (lệnh kiểm tra `git merge-tree` đã xác nhận merge sạch hoàn toàn không có conflict).
+2. **Điều kiện tiếp tục**:
+   - Sau khi merge `origin/develop` vào `quoc`, chạy lệnh:
+     `mvn -f .\ppswbs_backend\pom.xml test-compile`
+     để xác nhận 0 lỗi biên dịch trên cả `src/main/java` và `src/test/java`.
+   - Tiến hành triển khai tuần tự `AttendanceFinalizationService.java` (T043) và `AttendanceCorrectionService.java` (T044), chạy test tích hợp thật trên MySQL, và nghiệm thu `[X]`.
 **Diễn biến BE-DESIGN-0005 và BE-DESIGN-0006 — 2026-10-27 — feature 006 (loyalty-promotion), kiểm tra lại sau khi ghép `origin/develop`.**
 - Reporter: Claude (agent), theo yêu cầu "tiếp tục code backend của 006" của Đặng Thị Khương (owner 006). Chưa đổi trạng thái hai bản ghi gốc; đây là bằng chứng để owner 001 xác nhận gỡ chặn.
 - Fact (đọc trực tiếp mã trên nhánh `khuong` sau merge `73ac306`): `configuration/SecurityConfiguration.java` còn `/api/**` yêu cầu xác thực và `anyRequest().denyAll()`, CORS theo danh sách origin, CSRF chỉ bỏ qua `/api/**` (bearer), có `noopUserDetailsService` nên không còn mật khẩu sinh tự động; `application.properties` dùng `${JDBC_URL}`, `${JDBC_USER}` không còn giá trị mặc định cho URL và user. `AccountFacade` có `resolveActor(firebaseUid, emailVerified)`, `CurrentAccountActor(accountId, role, status, emailVerified, activeLocationIds)` và `ActorContext.requireCurrentActor()`; 002 đã dùng chúng cho `CatalogueAuthorization` và `CatalogueSecurityConfiguration` (chain theo route).

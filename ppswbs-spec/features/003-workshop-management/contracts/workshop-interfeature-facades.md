@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -39,6 +39,10 @@ location, a Booking's package/session location and Account Management
 independent branch identifier, branch-to-location mapping or duplicate location
 resource; `branch` is a retired synonym, not a boundary field.
 
+Every Operations session reference in this contract is the opaque UUID identity
+owned by 003.2. Consumers carry it as a UUID/string `sessionReference`; no
+facade accepts or exposes a legacy numeric session identity.
+
 ## Shared VNPay ingress boundary
 
 `paymentintegration` is a technical Spring Modulith module, not a business
@@ -69,7 +73,11 @@ durable and immutable for the payment-attempt lifetime.
    `REJECTED` with a safe reason. The reusable reasons are
    `INSUFFICIENT_CAPACITY`, `SALE_NOT_ELIGIBLE`, `HOLD_MISSING_OR_EXPIRED`,
    `NOT_READY`, `INVALID_REPLACEMENT`, `INVALID_STATE`, and
-   `CANCELLATION_HANDOFF_UNRESOLVED`. Each facade may document a narrower set.
+   `CANCELLATION_HANDOFF_UNRESOLVED`, `PACKAGE_NOT_PUBLISHED`, and
+   `PACKAGE_SELECTION_INVALID`. `PACKAGE_NOT_PUBLISHED` means the selected
+   Package is not currently bookable; `PACKAGE_SELECTION_INVALID` means the
+   participant bounds, required-session count or same-location rule fails.
+   Each facade may document a narrower set.
 4. Exceptions represent unexpected technical failure only. They do not encode
    normal business refusal.
 5. Commands are synchronous because the caller needs an immediate all-or-none
@@ -81,8 +89,9 @@ durable and immutable for the payment-attempt lifetime.
 
 | Operation | Input boundary type | Result boundary type | Invariant / disclosure limit |
 | --- | --- | --- | --- |
+| Read a published Package for Booking selection | `PublishedPackageSelectionQuery(packageReference)` | `PublishedPackageSelectionSnapshot(packageReference, publicPerParticipantPrice, minParticipants, maxParticipants, requiredSessionCount, sameLocationRequired, minimumSameDaySlotGap)` | Read-only, published Package only; no entity/repository, Account, Booking/payment, ticket, attendance, Staff/audit or PII data. Booking may freeze these facts but never mutate master data. |
 | Read sale eligibility | `SaleEligibilityQuery(sessionReference)` | `SaleEligibilitySnapshot(customerSelectable, saleState, locationReference, scheduledStart, scheduledEnd, remainingCapacity)` | Read-only, per session; no booking/contact/Staff data. |
-| Reserve all required-session capacity | `ReserveBookingCapacityCommand(bookingReference, orderedRequiredSessionReferences, participantCount, operationReference, correlationReference)` | `CapacityHoldOutcome(ACCEPTED + holdReferences + expiresAt, or REJECTED reason)` | Holds `participantCount` seats in every requested session or none. |
+| Reserve all required-session capacity | `ReserveBookingCapacityCommand(bookingReference, packageReference, orderedRequiredSessionReferences, participantCount, operationReference, correlationReference)` | `CapacityHoldOutcome(ACCEPTED + holdReferences + expiresAt, or REJECTED reason)` | Operations atomically rechecks that the Package is published, participant bounds, required-session count, same-location and same-day slot-gap rules, sale eligibility and capacity; it holds `participantCount` seats in every requested session or none. |
 | Commit holds after valid deposit evidence | `CommitBookingHoldsCommand(bookingReference, expectedHoldReferences, operationReference, correlationReference)` | `CapacityCommitOutcome(ACCEPTED, or REJECTED reason)` | Commits all active expected holds or none. |
 | Release pending holds | `ReleaseBookingHoldsCommand(bookingReference, expectedHoldReferences, operationReference, correlationReference)` | `CapacityReleaseOutcome(ACCEPTED or prior equivalent outcome)` | Releases active holds once only; late/repeated release is idempotent. |
 | Read current delivery-safe ticket set | `BookingTicketProjectionQuery(bookingReference)` | `DeliverySafeTicketSet(ticketReferenceOrQrReference, ticketCode, sessionEntitlements(locationReference, scheduledStart, scheduledEnd))` | Read-only; no attendance, Staff/audit, PII, or raw QR payload. |

@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -15,11 +15,12 @@ recorded in this document's Clarifications; implementation-design evidence is in
 
 ## Scope
 
-This feature owns Manager and Staff operation of published workshop sessions:
-session/branch capacity, Staff assignment, individual attendance-ticket
-check-in, audited exception handling and attendance finalization. It consumes
-confirmed direct bookings from feature 003.1; it does not create customer bookings,
-collect money, perform refunds or connect directly to external OTAs.
+This feature owns the Workshop Package catalogue/configuration and publication,
+plus Manager and Staff operation of published workshop sessions: session/location
+capacity, Staff assignment, individual attendance-ticket check-in, audited
+exception handling and attendance finalization. It consumes confirmed direct
+bookings from feature 003.1; it does not create customer bookings, collect money,
+perform refunds or connect directly to external OTAs.
 
 ## Clarifications
 
@@ -212,7 +213,8 @@ collect money, perform refunds or connect directly to external OTAs.
   delivery? → A: It provides only a delivery-safe projection: ticket identity
   or QR reference, ticket code, and entitled sessions with their branch and
   scheduled start/end. It excludes attendance, Staff/audit data and PII;
-  003.1 adds its own booking, package and contact information.
+  003.1 adds its own booking and contact information plus its frozen package
+  snapshot; it does not own the Workshop Package master.
 - Q: How does Settlement know that a booking/package has completed every
   required session? → A: 003.2 is the authoritative owner of that conclusion.
   For the booking/package context requested by 003.3, it provides a minimal
@@ -250,6 +252,36 @@ collect money, perform refunds or connect directly to external OTAs.
 - Q: Are a Workshop Branch and a Workshop Location separate resources or the same resource? → A: They are the same canonical physical Mland workshop location. Every `activeLocationId` supplied by Account Management and every session/slot location reference use the canonical `workshop_location.id`. Operations MUST NOT create, maintain, or authorize against an independent branch identifier or a branch-to-location mapping.
 - Q: Should Workshop Operations use `branch` or `location` in its public contract and data terminology? → A: It uses `location` throughout public API routes, DTO fields and schema terminology. “Branch” is a legacy synonym only in older prose awaiting rebase; it MUST NOT prescribe a separate resource or identifier.
 
+### Session 2026-10-28
+
+- Q: Which 003 subfeature owns the published Workshop Package catalogue and its required-session rules? → A: 003.2 Workshop Operations owns the published Workshop Package master configuration: description, public price, participant constraints, and required-session rules. It exposes a semantic package-discovery/read boundary to 003.1. 003.1 consumes that boundary and freezes the selected package and applicable price into its booking snapshot; it does not own or mutate the package master.
+- Q: Does a Manager manage Workshop Packages through 003.2 REST APIs in V1? → A: Yes. 003.2 provides Manager-only REST management for Workshop Package configuration and publication. 003.1 remains the consumer for public package discovery through the internal semantic boundary and for booking snapshots; it does not expose or own package-management commands.
+- Q: Does a Workshop Package attach concrete sessions or define only required-session rules? → A: It defines only the required-session rule. Customers select concrete future sessions during booking; 003.2 authoritatively validates their sale eligibility and reserves capacity. Managers create and manage sessions independently, without editing a package whenever the schedule changes.
+- Q: Must the two required Silverclay sessions use the same Workshop Location? → A: Yes. V1 requires both selected Silverclay sessions to use the same canonical `locationId`, although they may use different future dates or slots at that location.
+- Q: What lifecycle does a V1 Workshop Package use? → A: `DRAFT → PUBLISHED → RETIRED`. A retired package cannot accept a new booking and cannot be deleted when it has ever been published or frozen into a booking snapshot. Historical bookings retain their frozen snapshot.
+- Q: Which module owns the customer-facing Package and session-discovery REST routes? → A: 003.2 owns them because it owns the Package master and authoritative session sale eligibility. The public URLs remain stable for the frontend. 003.1 owns only Booking commands and reads, and consumes the required data through 003.2's internal facade rather than exposing a competing discovery route.
+- Q: Should Package publication and retirement be ordinary updates or explicit lifecycle commands? → A: They are explicit Manager-only lifecycle commands below the Package resource. Create/read/update use normal resource routes; publication and retirement use separate commands so authorization and immutable audit clearly record the business transition.
+- Q: May a Manager change a published Package's commercial or session-selection rules? → A: Yes. A Manager may change its description, public price, participant constraints or required-session rules. The change applies only to bookings created after the update; each existing booking retains its already frozen Package and financial snapshot.
+- Q: Which actor manages Workshop Packages shared across locations? → A: A Central Manager manages the shared Package catalogue across the system. Local Managers manage only the locations, slots, sessions and capacity within their location scope; they do not manage shared Package master data.
+- Q: How does V1 identify the Central Manager without adding a new Account role or capability? → A: V1 derives it at command time: the actor must be an active `MANAGER` whose `activeLocationIds` contain every active canonical Workshop Location. This is a V1 authorization policy owned by Operations, not an Account role/capability. After all 003 implementation and integration verification complete, Mland MUST review replacing this derived rule with an explicit Central Manager assignment before widening Package administration.
+
+- Q: Do public Package discovery and Central Manager Package management use one REST resource path? → A: Yes. Both use `/api/v1/workshop-packages`. Public callers may only read `PUBLISHED` Packages; Central Manager create, update and lifecycle commands are differentiated by method and server-side authorization rather than a separate management namespace.
+
+- Q: Does a Package use a fixed type enum or generic required-session rules? → A: It uses generic `requiredSessionCount` and `sameLocationRequired` rules. Basic Ring (`1`, `true`) and Silverclay (`2`, `true`) are current Package configurations, not a closed package-type enum; future Packages may use other valid values without a code enum change.
+
+- Q: Does V1 need a separate immutable business package code? → A: No. The system-generated `packageId` is the technical identity and the Central Manager supplies an editable public `name`. Every Package also has a required public per-participant price; V1 has no separate `packageCode`.
+
+- Q: What participant constraints does a V1 Workshop Package define? → A: It defines `minParticipants` and `maxParticipants` for one booking. A booking's participant count must be within that inclusive range and must still fit the authoritative available capacity of every selected required session.
+
+- Q: Which REST command performs Package publish or retirement? → A: Central Manager uses `POST /api/v1/workshop-packages/{packageId}/lifecycle-transitions` with `targetState` `PUBLISHED` or `RETIRED`. Package lifecycle state is never changed through a generic `PATCH` field.
+- Q: Which public route discovers customer-selectable future sessions for one Package? → A: 003.2 exposes `GET /api/v1/workshop-packages/{packageId}/sessions`. It is public and returns only `PUBLISHED`, customer-selectable future sessions that satisfy the Package's selection rules. The existing `GET /api/v1/workshop-sessions` remains Manager/Staff-scoped and is never opened for public discovery.
+- Q: Where is a Package's participant and required-session rule rechecked when a Booking reserves capacity? → A: 003.1 supplies the selected `packageReference` with its reserve command. Operations rechecks that the Package is `PUBLISHED`, participant bounds, required-session count, same-location rule, sale eligibility and capacity as one all-or-nothing reserve decision. Booking, the frontend and a stale discovery snapshot cannot independently authorize a selection.
+- Q: What availability does public Package session discovery disclose? → A: It returns the exact current `remainingCapacity`, together with session identity, canonical location, scheduled start/end, sale state and `customerSelectable`. This is a customer-selection snapshot only; the atomic reserve command remains the authoritative final capacity decision.
+- Q: What is the canonical Workshop Session identity shared with Booking? → A: Operations keeps its UUID session identity. 003.1 consumes it only as an opaque UUID/string `sessionReference`; it must retire its legacy `int64` session identifier contract. V1 does not accept two session identity formats.
+- Q: Which safe reasons distinguish Package reserve refusal? → A: Operations returns `PACKAGE_NOT_PUBLISHED` when the Package is no longer bookable and `PACKAGE_SELECTION_INVALID` when participant bounds, required-session count or same-location rules fail. Capacity exhaustion remains `INSUFFICIENT_CAPACITY`. These reasons are safe semantic outcomes, not internal rule or persistence detail.
+- Q: Which filters are required for public Package session discovery? → A: `locationId` is required. `from` and `to` are optional customer date filters; clients may apply a short default window when absent. The result remains limited to future, `PUBLISHED`, customer-selectable sessions for that Package at the one requested location.
+- Q: How is Silverclay's same-day non-adjacent-session rule retained without making Booking own a Silverclay special case? → A: Package configuration adds generic non-negative `minimumSameDaySlotGap`. It is `1` for Silverclay, meaning two selected sessions on the same local day must have at least one configured slot between them; it is `0` for Packages with no same-day separation requirement, including Basic Ring. Operations validates it atomically with reserve.
+
 ## Business model
 
 **Terminology rule:** Except for the Git feature-branch label and the ordinary
@@ -260,6 +292,23 @@ scope. The target implementation and all public contracts use `location` and
 `locationId` only.
 
 - A **Workshop Location** is the canonical physical Mland workshop site, identified by `workshop_location.id`. Account location scope and session/slot location scope compare that one identity directly. “Workshop Branch” is a legacy synonym in older prose only; it is not an API, DTO, schema or independent resource term.
+- A **Workshop Package** is the Operations-owned master offer that a customer may
+  discover before booking. It has a system-generated `packageId`, editable
+  public `name`, description, required public per-participant price,
+  inclusive `minParticipants`/`maxParticipants` constraints and complete
+  required-session rules, but never
+  attaches concrete dated sessions. A customer selects eligible future sessions
+  during booking; Operations validates and reserves their capacity
+  authoritatively. Its generic required-session rule contains
+  `requiredSessionCount`, `sameLocationRequired` and non-negative
+  `minimumSameDaySlotGap`. Basic Ring (`1`, `true`, `0`) and Silverclay (`2`,
+  `true`, `1`) are current configurations, not a closed
+  package-type enum. A package may be published only when this feature can
+  evaluate its required sessions through the authoritative location/session
+  sale-eligibility boundary. Booking reads this master data but stores its own
+  immutable selected-package and price snapshot when it creates a booking. Its
+  V1 lifecycle is `DRAFT → PUBLISHED → RETIRED`; retirement ends new booking
+  without deleting historical evidence.
 - A booking is the commercial order. A workshop item is the product being made;
   an attendance ticket is one person's persistent QR right to join every
   required session of its package. Attendance remains per ticket/session pair.
@@ -583,6 +632,78 @@ correction, with before/after audit evidence.
 
 ## Functional requirements
 
+- **FR-000**: The system MUST let an authorized Manager configure and publish
+  Workshop Packages through Manager-only REST APIs, including public `name`,
+  description, required public per-participant price, participant constraints
+  and complete required-session rules. The system-generated `packageId` is the
+  technical identity; V1 MUST NOT require a separate business `packageCode`. It
+  MUST restrict those shared Package commands to a Central Manager. In V1, that
+  is an active `MANAGER` whose `activeLocationIds` contain every active canonical
+  Workshop Location; a local Manager has no Package-master authority solely
+  because they manage one or more locations. This derived rule is Operations-
+  owned and is not an Account role/capability. After all 003 implementation and
+  integration verification complete, Mland MUST review replacing it with an
+  explicit Central Manager assignment before widening Package administration.
+  It MUST own public customer discovery of published packages and
+  customer-selectable future sessions, and provide 003.1 the corresponding
+  semantic internal read boundary. A package MUST define session-count and
+  selection rules only; it MUST NOT attach concrete dated sessions.
+  Public Package discovery and Central Manager Package management use the same
+  `/api/v1/workshop-packages` resource path. Public callers may read only
+  `PUBLISHED` Packages; Central Manager methods and lifecycle commands require
+  server-side authorization.
+  Customer session discovery uses
+  `GET /api/v1/workshop-packages/{packageId}/sessions`; it returns only
+  `PUBLISHED`, customer-selectable future sessions satisfying that Package's
+  rules. Each result returns exact current `remainingCapacity`, session
+  identity (the Operations UUID, consumed by Booking as an opaque
+  `sessionReference`), canonical location, scheduled start/end, sale state and
+  `customerSelectable`. It is a customer-selection snapshot, never a capacity
+  guarantee. The Manager/Staff-scoped `GET /api/v1/workshop-sessions` remains
+  a separate non-public operational search route.
+  Public session discovery requires canonical `locationId`; optional `from` and
+  `to` date filters narrow the future result window without changing Package
+  selection rules.
+  Every reserve request from 003.1 MUST carry the selected `packageReference`.
+  Operations MUST atomically recheck that the Package is `PUBLISHED`, the
+  requested participant count is within its bounds, the complete selected
+  session set satisfies its required-session count, location rule and any
+  same-day slot-gap rule, and every session remains sale-eligible with capacity.
+  It reserves every requested
+  session or none. A frontend, Booking snapshot or prior discovery result never
+  independently authorizes that selection.
+  The one canonical session identity is Operations' UUID. 003.1 may carry it
+  only as an opaque UUID/string `sessionReference`; V1 MUST NOT accept a legacy
+  numeric session identity or support a dual-format lookup.
+  A reserve refusal caused by a non-published Package MUST return the safe
+  semantic reason `PACKAGE_NOT_PUBLISHED`; participant-bound, required-session
+  count or same-location failure MUST return `PACKAGE_SELECTION_INVALID`.
+  Capacity exhaustion remains `INSUFFICIENT_CAPACITY`; no response exposes
+  internal Package/persistence detail.
+  Package create/read/update use resource operations; `PUBLISHED` and
+  `RETIRED` transitions use explicit Manager-only lifecycle commands with
+  immutable audit evidence. The command is
+  `POST /api/v1/workshop-packages/{packageId}/lifecycle-transitions` with
+  `targetState` `PUBLISHED` or `RETIRED`; a generic `PATCH` MUST NOT alter the
+  lifecycle state. A change to a published Package's description,
+  public price, participant constraints or required-session rules applies only
+  prospectively; every existing Booking retains its frozen Package and
+  financial snapshot.
+  A Package MUST define inclusive `minParticipants` and `maxParticipants` for
+  one booking, with a valid minimum no greater than its maximum. Booking's
+  participant count MUST be inside that range and still fit every selected
+  required session's authoritative available capacity.
+  A Package MUST expose generic `requiredSessionCount`,
+  `sameLocationRequired` and non-negative `minimumSameDaySlotGap` rules.
+  Basic Ring (`1`, `true`, `0`) and Silverclay (`2`, `true`, `1`) are current
+  configurations, not a closed type enum. A value of `1` requires at least one
+  configured slot between two selected sessions on the same local date. 003.1 MUST NOT
+  access Operations entities or repositories, mutate package
+  master data, or derive the required-session set independently; it freezes the
+  selected package and applicable price only in its own booking snapshot. A
+  Package MUST transition only `DRAFT → PUBLISHED → RETIRED`; `RETIRED` MUST
+  reject new booking and MUST NOT delete a package that has ever been published
+  or frozen into a booking snapshot.
 - **FR-001**: The system MUST keep capacity, Staff assignment and attendance
   isolated by session and location.
 - **FR-001b**: The system MUST use one shared capacity for each location's fixed

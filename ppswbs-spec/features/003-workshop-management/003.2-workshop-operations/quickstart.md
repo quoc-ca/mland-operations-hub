@@ -1,7 +1,7 @@
 # Quickstart: Workshop Operations Verification
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -34,16 +34,43 @@ run is not sufficient proof of index, lock or migration behaviour.
 
 ## Acceptance Walkthrough
 
-1. Create the three default non-overlapping slots at a workshop location. Attempt an
+1. With an active canonical `MANAGER` whose `activeLocationIds` include every
+   active canonical Workshop Location, create a `DRAFT` Workshop Package with
+   its public name, description, per-participant price, inclusive participant
+   bounds, required-session count, same-location rule and same-day slot-gap
+   rule. Verify a local
+   Manager who lacks that all-location scope is denied. Verify `packageId` is
+   system-generated and no package code is required.
+2. Publish the valid Package through its explicit lifecycle command. Verify an
+   unauthenticated public Package read returns it only after publication;
+   `DRAFT` and `RETIRED` records are not disclosed to public callers. Edit an
+   already published Package and verify the change is prospective: a prior
+   Booking retains its frozen Package and financial snapshots. Retire the
+   Package and verify it cannot be newly selected or deleted while its Booking
+   history remains readable. Verify the current Basic Ring and Silverclay
+   configurations work as generic rules rather than as a closed Package enum;
+   for Silverclay, same-day selected sessions with no intervening configured
+   slot are rejected by the reserve boundary.
+3. Verify that the approved Package-discovery facade is the only 003.1
+   cross-module read boundary and that Booking cannot read or mutate Package
+   entities/repositories. Call
+   `GET /api/v1/workshop-packages/{packageId}/sessions` with a required
+   `locationId` and optional date filters. Verify it returns only future,
+   `PUBLISHED`, customer-selectable sessions for that Package and location,
+   using opaque UUID session references plus schedule, sale state and exact
+   non-guaranteed remaining capacity. Verify the Manager/Staff-scoped
+   `GET /api/v1/workshop-sessions` remains protected and is not a public
+   discovery fallback.
+4. Create the three default non-overlapping slots at a workshop location. Attempt an
    overlapping slot and verify it is rejected. Deactivate a slot and verify
    existing sessions remain intact while new generation cannot use it.
-2. Create a future `DRAFT` session, then publish it. Run a bulk generation for
+5. Create a future `DRAFT` session, then publish it. Run a bulk generation for
    at most 90 future days twice: the first creates sessions and the second
    reports duplicates rather than creating more. Verify `DRAFT` creates no
    OTA-observable snapshot. On publication, verify the mapped Basic Ring session
    exposes its schedule and availability/sale-state snapshots using one unified
    source-version sequence.
-3. Configure capacity for two published sessions. Request N seats for both and
+6. Configure capacity for two published sessions. Request N seats for both and
    verify holds exist for both sessions. Repeat with one session full or in
    `SALES_PAUSED` and verify no hold exists for either session. Create
    simultaneous holds whose total exceeds a session capacity and verify only
@@ -57,7 +84,7 @@ run is not sufficient proof of index, lock or migration behaviour.
    schedule snapshot shares the same per-session version sequence. Change only
    Staff assignment and verify it produces neither source-version advance nor
    OTA-observable snapshot.
-4. After valid commercial payment evidence, commit a booking's complete active
+7. After valid commercial payment evidence, commit a booking's complete active
    hold set and verify that an absent or expired hold commits none of the set.
    Send a repeated or late release and verify capacity is returned no more than
    once. Confirm a two-session commercial booking through the Operations facade
@@ -78,25 +105,25 @@ run is not sufficient proof of index, lock or migration behaviour.
    Verify completed ledger records remain retryable for at least 24 hours and
    cleanup affects only eligible completed records; verify the ledger contains no
    raw request payload, Firebase token, PII, QR value or audit JSON.
-5. Assign active Staff or record an operational lead. Verify transition to
+8. Assign active Staff or record an operational lead. Verify transition to
    `IN_PROGRESS` and normal check-in fail with neither responsible operator.
    Verify inactive or unassigned Staff cannot check in.
-6. Before `check_in_opens_at`, a valid QR/ticket-code check-in is rejected.
+9. Before `check_in_opens_at`, a valid QR/ticket-code check-in is rejected.
    Once open, scan a two-session ticket at session one successfully. Scan it
    concurrently or twice at that session and verify exactly one check-in is
    recorded. Verify the same QR can still check in once at session two, while a
    scan in a session/location without entitlement is rejected. Confirm a booking
    code never by itself checks a ticket in.
-7. Perform an authorised override and a post-finalisation Manager correction.
+10. Perform an authorised override and a post-finalisation Manager correction.
    Verify both require a reason and create immutable audit events. Verify an
    override cannot move a ticket to another session or location.
-8. Finalise the session after actual end time. Checked-in tickets remain
+11. Finalise the session after actual end time. Checked-in tickets remain
    checked-in and unchecked active tickets become `NO_SHOW`. Verify a regular
    Staff member cannot correct this result after finalisation.
    For a multi-session booking, verify Settlement receives readiness only after
    every required session is `ATTENDANCE_FINALIZED`, never from scheduled end
    time or attendance detail.
-9. Request a Manager change of one or both future required sessions through the
+12. Request a Manager change of one or both future required sessions through the
    003.3 boundary. Verify every target is future, `PUBLISHED`, customer-
    selectable and has capacity for the full participant count; if one check
    fails, no session entitlement or capacity changes. On success, verify the
@@ -104,10 +131,10 @@ run is not sufficient proof of index, lock or migration behaviour.
    atomically, and a replaced session has no remaining entitlement. Verify a
    `SALES_PAUSED`, started, finalized or cancellation-requested session is not
    accepted by this ordinary change flow.
-10. Request cancellation on a session with commitments. Verify normal check-in
+13. Request cancellation on a session with commitments. Verify normal check-in
    stops, a 003.3 handoff exists, and no automatic refund, reschedule or ticket
    replacement occurs in this feature.
-11. Pause/resume sales and cancel/close a session. Verify each resulting
+14. Pause/resume sales and cancel/close a session. Verify each resulting
     OTA-observable sale-state change is available to 003.4 with no customer,
     booking, payment or ticket-detail data. Verify `SALES_PAUSED` is a normal
     closed/zero-availability snapshot, not a mapping failure. Deliver duplicate

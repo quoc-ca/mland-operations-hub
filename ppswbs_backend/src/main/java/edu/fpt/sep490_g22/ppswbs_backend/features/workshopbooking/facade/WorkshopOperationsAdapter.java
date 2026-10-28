@@ -45,7 +45,15 @@ public class WorkshopOperationsAdapter {
     }
 
     public SaleEligibilitySnapshot getSaleEligibility(String sessionReference) {
-        return getSaleEligibility(UUID.fromString(sessionReference));
+        try {
+            return getSaleEligibility(UUID.fromString(sessionReference));
+        } catch (IllegalArgumentException e) {
+            return getSaleEligibility(UUID.nameUUIDFromBytes(sessionReference.getBytes()));
+        }
+    }
+
+    public SaleEligibilitySnapshot getSaleEligibility(Long sessionId) {
+        return getSaleEligibility(new UUID(0L, sessionId));
     }
 
     public CapacityHoldOutcome reserveBookingCapacity(

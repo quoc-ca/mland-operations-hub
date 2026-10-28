@@ -1,7 +1,8 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto;
 
 /**
- * T034: Standardized reason catalogue for operational exceptions and check-in overrides (FR-004, FR-007a).
+ * T034 / T041: Standardized reason catalogue for operational exceptions, check-in overrides,
+ * post-finalization attendance corrections, and session cancellations (FR-004, FR-007a, FR-008, FR-009).
  * Fixed and system-controlled catalogue preventing ad-hoc reason codes per location.
  */
 public enum StandardizedReasonCode {
@@ -21,6 +22,26 @@ public enum StandardizedReasonCode {
      * Customer presented physical booking voucher or printed confirmation verified by Staff.
      */
     PHYSICAL_VOUCHER_VERIFIED(false, false),
+
+    /**
+     * Session cancelled due to emergency instructor/craftsperson absence or sudden unavailability.
+     */
+    INSTRUCTOR_UNAVAILABLE(true, false),
+
+    /**
+     * Session cancelled due to facility, power, tool, or equipment failure onsite.
+     */
+    FACILITY_ISSUE(true, false),
+
+    /**
+     * Session cancelled due to severe weather emergency, flood, typhoon, or natural disaster.
+     */
+    WEATHER_EMERGENCY(true, false),
+
+    /**
+     * Attendance correction due to staff scanning error, mistaken participant identification, or barcode confusion.
+     */
+    RECORDING_ERROR(true, false),
 
     /**
      * Unlisted exception requiring a clear explanatory note or evidence reference.
