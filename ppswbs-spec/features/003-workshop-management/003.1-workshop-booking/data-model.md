@@ -1,7 +1,7 @@
 # Data Model: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -16,7 +16,7 @@ settlement, refund, reschedule, or OTA facts.
 ```text
 WorkshopBooking (1) ── (1) BookingInvoice
         │             └── (N) PaymentAttempt / (N) PaymentEventReceipt
-        ├── (1..2 for V1) BookingSessionCommitment ── WorkshopSession (003.2)
+         ├── (Package-required set) BookingSessionCommitment ── WorkshopSession (003.2)
         ├── (N) BookingTicket ── (1..2) TicketSessionEntitlement
         └── (0..N) NotificationIntent / (0..N) MagicLinkAccess
 ```
@@ -25,8 +25,8 @@ WorkshopBooking (1) ── (1) BookingInvoice
 
 | Entity | Owned data | Required invariant |
 | --- | --- | --- |
-| WorkshopBooking | booking code; package snapshot; contact email/phone snapshot; optional Member owner reference; participant count; service/financial status; expiry | Exactly one package and one contact. `participant_count` is positive and determines ticket count. |
-| BookingSessionCommitment | booking; session reference; chronological ordinal; canonical location snapshot; held/committed seat count | Basic Ring has one commitment. Silverclay has exactly two, distinct, same-location commitments; ordinal is chronological; each seat count equals booking participant count. |
+| WorkshopBooking | booking code; frozen Package selection snapshot; contact email/phone snapshot; optional Member owner reference; participant count; service/financial status; expiry | Exactly one Package and one contact. The snapshot comes only from 003.2's published-Package boundary; `participant_count` is positive and determines ticket count. |
+| BookingSessionCommitment | booking; opaque UUID `sessionReference`; chronological display ordinal; canonical location snapshot; held/committed seat count | The accepted commitment set is decided atomically by 003.2 from the selected Package rules. Booking does not retain a numeric session ID or independently authorize session count, location or slot gap. |
 | CapacityHold | 003.2 capacity-facade hold reference and safe outcome snapshot for a booking-session commitment | 003.2 is authoritative for the hold. Booking retains only the reference/status needed for its own pending, expiry and release behavior; one requested set is reserved/released atomically and exactly once. |
 | BookingInvoice | booking; frozen package price/participant count; frozen post-promotion amount; deposit; remaining amount | `package_total = participant_count × price_per_participant`; `deposit = ceil(post_promotion_amount / 2)` and `remaining = post_promotion_amount − deposit`. All three monetary snapshots are whole VND and immutable after acceptance. |
 | PaymentAttempt / PaymentEventReceipt | booking/invoice; safe provider references; attempt outcome; unique provider event identity | Only valid, matching, non-duplicate provider evidence settles the invoice. `FAILED` belongs to an attempt, not booking state. |
@@ -57,15 +57,18 @@ reschedule, `CHECKED_IN`, `NO_SHOW`, and attendance finalization are outside it.
 
 ## Validation and concurrency
 
-- Selected sessions must be customer-selectable and capacity-eligible through
-  the 003.2 `WorkshopOperationsFacade` sale-eligibility snapshot; no direct access to
-  003.2 persistence is permitted.
+- Booking obtains the frozen published-Package selection snapshot and sale
+  eligibility only through `WorkshopOperationsFacade`; no direct access to
+  003.2 persistence is permitted. It sends `packageReference`, the complete
+  UUID session-reference set and participant count to the atomic reserve
+  command; Operations returns the safe Package/capacity refusal outcome.
 - 003.2 atomically reserves the requested participant count in every selected
   session or creates no hold. It commits the complete active set or commits
   none, and releases active holds idempotently; `SALES_PAUSED` rejects new holds
   while preserving unexpired existing holds to their deadline.
-- Silverclay sessions must be distinct, at the same canonical location and non-adjacent if on the
-  same local day; different days have no maximum gap.
+- Booking preserves chronological display ordinals only after Operations accepts
+  the selected set. Operations owns enforcement of the Package's distinctness,
+  location and same-day slot-gap rules.
 - All packages consume the one shared capacity pool per session. A multi-session
   booking consumes N seats in every selected session.
 - Create, capacity reservation and expiry/release have one all-or-nothing

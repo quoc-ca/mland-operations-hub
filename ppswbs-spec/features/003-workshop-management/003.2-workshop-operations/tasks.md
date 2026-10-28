@@ -1,7 +1,7 @@
 # Tasks: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -217,6 +217,24 @@ handoff to the implementation persona.
 
 ---
 
+## Phase 10: Workshop Package master and public booking discovery boundary
+
+**Purpose**: make Operations the authoritative owner of generic Workshop Packages and the only public source of customer-selectable session snapshots.
+
+**Independent Test**: a Central Manager can publish a generic Package; a public caller can read only published Package/session snapshots for a location; and a Booking capacity reservation validates the current Package rules atomically.
+
+- [ ] T067 [P] Add Package command/response and customer-safe discovery DTOs in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/dto/`; use `packageId`, `locationId`, opaque UUID `sessionReference`, whole-VND public price, participant bounds, required-session count, same-location rule and nonnegative `minimumSameDaySlotGap` without exposing audit, Staff, booking or ticket data.
+- [ ] T068 [P] Add public/Manager Package and customer session-discovery contract coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/WorkshopPackageContractIT.java` against `contracts/workshop-operations.openapi.yaml`; verify `/workshop-packages`, `/workshop-packages/{packageId}`, lifecycle transition and `/workshop-packages/{packageId}/sessions` route/security/schema boundaries without changing the contract.
+- [ ] T069 Add an append-only Package persistence migration, Package entity and repository in `ppswbs_backend/src/main/resources/db/migration/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/{entity,dao}/`; retain published/frozen history, do not create a local Location copy or branch mapping, and select the Flyway version only from the actual migration history.
+- [ ] T070 Implement the Operations-owned Central Manager authorization policy in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/WorkshopPackageAuthorizationService.java`; require an active canonical `MANAGER` from the public Account facade whose `activeLocationIds` contains every active canonical Workshop Location, with no new Account role/capability or direct Account persistence access.
+- [ ] T071 Implement generic Package draft/publish/retire and prospective-edit behavior in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/WorkshopPackageService.java`; permit no deletion after publication, keep Basic Ring and Silverclay as data configuration rather than package-name business branches, and audit state-changing execution safely.
+- [ ] T072 Implement Manager Package administration and public Package/session-discovery handlers in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/controller/WorkshopPackageController.java`; return only future `PUBLISHED` customer-selectable sessions matching required `locationId` and optional `from`/`to`, exact snapshot `remainingCapacity`, current sale state and opaque UUID reference, while retaining `/workshop-sessions` for protected operational search.
+- [ ] T073 Rebase `WorkshopOperationsFacade` Package selection and reserve boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/{facade,service}/`; provide `PublishedPackageSelectionQuery`, require `packageReference` plus UUID session references for reserve, and atomically recheck Package publication, participant bounds, required count, same-location rule, minimum same-day slot gap, sale eligibility and capacity with typed `PACKAGE_NOT_PUBLISHED`, `PACKAGE_SELECTION_INVALID` and `INSUFFICIENT_CAPACITY` outcomes.
+- [ ] T074 Add MySQL/Flyway integration coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/WorkshopPackageIT.java` for Central Manager all-active-location authorization, draft/publish/retire visibility, immutable published/frozen history, Basic Ring `(1,true,0)`, Silverclay `(2,true,1)`, exact capacity snapshot filtering, and no customer disclosure of operational/PII data.
+- [ ] T075 Add facade/concurrency integration coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/WorkshopPackageFacadeIT.java` for stale discovery followed by atomic reserve rejection, Package-not-published, participant/count/location/gap rejection, all-or-none capacity reservation and facade-only non-disclosure to Booking.
+
+---
+
 ## Dependencies and Execution Order
 
 ### Phase Dependencies
@@ -231,6 +249,9 @@ handoff to the implementation persona.
 - **US4** depends on US3 and the Booking delivery facade from T036.
 - **US5** depends on US2 and US3; its cancellation handoff depends on the 003.3
   consumer contract but not on 003.3 settlement implementation.
+- **Phase 10** depends on canonical Location, capacity-hold and Account-facade
+  foundations; T066 also depends on T062--T064 and reuses, rather than bypasses,
+  the existing capacity boundary.
 - **Phase 8** depends on all desired stories. T051 is a release gate, not a
   prerequisite for local feature development. T053–T055 are the implementation
   prerequisite for 003.4 task T011; they make the approved persistent
@@ -257,6 +278,8 @@ Foundation
   developers avoid editing the same controller aggregation files at once.
 - T053 and T054 follow the session/capacity/lifecycle changes they project; T055
   follows both and may run in parallel with unrelated release-runbook work.
+- T060 and T061 can proceed in parallel; T062 and T063 must complete before
+  T064--T066, while T067 and T068 follow their respective service/facade work.
 
 ## Parallel Example: User Story 3
 

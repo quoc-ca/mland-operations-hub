@@ -1,7 +1,7 @@
 # Implementation Plan: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -13,11 +13,13 @@
 ## Summary
 
 003.1 is the direct-Mland customer booking core. One booking purchases exactly
-one package/course, with no cart of unrelated packages. Basic Ring selects one
-common workshop session. Direct-Mland Silverclay selects exactly two common
-sessions at one canonical workshop location, ordered by time; both reservations are committed or
-neither exists. Each participant consumes one place in every selected session,
-and every package shares that session's single capacity pool.
+one Package, with no cart of unrelated Packages. The current Basic Ring and
+direct-Mland Silverclay configurations select respectively one and two common
+workshop sessions at one canonical Workshop Location; Operations, not Booking,
+authoritatively applies each Package's required-session and same-day-gap rules.
+Both reservations are committed or neither exists. Each participant consumes one
+place in every selected session, and every Package shares that session's single
+capacity pool.
 
 The booking freezes `participant_count × price_per_participant`, the resulting
 post-promotion amount, `ceil(post_promotion_amount / 2)` deposit, and exact
@@ -65,7 +67,8 @@ evidence. These routes are client routes, not Java REST endpoints or SSR pages.
 
 `workshopbooking` owns booking, booking-session commitment, frozen invoice,
 payment attempt/receipt, booking-contact delivery state, Magic-Link record and
-notification intent. It synchronously reads only a 003.2 sale-eligibility snapshot
+notification intent. It synchronously reads the approved 003.2 published-Package
+selection snapshot, then only a 003.2 sale-eligibility snapshot
 (customer-selectability, sale state, canonical location, scheduled start/end and remaining
 capacity), and calls the exposed 003.2-owned `WorkshopOperationsFacade`. It does not
 configure sessions, assign staff, read Operations entities, check in, or
@@ -86,10 +89,10 @@ action time. Assigned Staff or location-responsible Managers may resend the
 confirmation; only the responsible Manager may revoke or rotate a Magic Link.
 The `ADMIN` role alone grants neither action.
 
-Create flow: validate package/contact/participant count and selected sessions;
-enforce Basic Ring = one session or Silverclay = two distinct sessions at the
-same canonical location; order Silverclay sessions; reject adjacent same-day sessions;
-atomically reserve `participant_count` places in every session and persist the
+Create flow: validate Booking-owned contact input; preserve the selected Package
+snapshot and UUID session references; ask Operations to atomically validate
+Package publication, participant/session/location/same-day-gap rules and reserve
+`participant_count` places in every session; then persist the
 pending booking, invoice and expiry in one local MySQL transaction. Any
 validation/capacity failure rolls back the whole operation. Capacity is always
 the one shared pool of a session.
@@ -116,8 +119,7 @@ confirms payment.
 
 ## Contract and state design
 
-The public OpenAPI contract defines package browse; package-and-location-scoped
-session discovery over a requested time range; create; payment start;
+The public OpenAPI contract defines Booking create; payment start;
 contact-proof and Member-owned lookup; Magic-Link exchange/read; pending-hold
 release; confirmation resend; Manager Magic-Link incidents; and Manager
 late-payment follow-up. The shared VNPay ingress is documented separately and
@@ -194,7 +196,8 @@ slot model while adding avoidable allocation complexity. The remaining blockers
 are not product decisions to guess:
 
 1. **Resolved semantically and by interaction mode:** Booking synchronously
-   obtains sale eligibility and reserve/commit/release outcomes from the 003.2
+   obtains the published-Package selection snapshot, sale eligibility and
+   reserve/commit/release outcomes from the 003.2
    `WorkshopOperationsFacade`; `SALES_PAUSED` rejects new holds while preserving unexpired
    ones. After a successful capacity commit it obtains only the safe
    ticket/session-entitlement projection from its ticket-projection operation.

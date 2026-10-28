@@ -3,13 +3,66 @@ info:
   title: Mland Workshop Operations API
   version: 1.0.0-draft
   description: >-
-    Internal Manager and Staff API for canonical workshop locations, slots, sessions,
-    attendance and exception audit. Authorization is evaluated server-side.
+    Public discovery plus Central-Manager, Manager and Staff API for Workshop
+    Packages, canonical workshop locations, slots, sessions, attendance and
+    exception audit. Authorization is evaluated server-side.
 servers:
   - url: /api/v1
 security:
   - bearerAuth: []
 paths:
+  /workshop-packages:
+    get:
+      summary: Browse published Workshop Packages
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/PackageList' }
+    post:
+      summary: Create a draft Workshop Package as Central Manager
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageWrite' } } } }
+      responses:
+        '201': { $ref: '#/components/responses/Package' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}:
+    parameters: [ { $ref: '#/components/parameters/PackageId' } ]
+    get:
+      summary: Get one published Workshop Package
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/Package' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      summary: Prospectively update a Workshop Package as Central Manager without changing lifecycle state
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageWrite' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Package' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}/lifecycle-transitions:
+    parameters: [ { $ref: '#/components/parameters/PackageId' } ]
+    post:
+      summary: Publish or retire a Workshop Package as Central Manager
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageLifecycleTransitionRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Package' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}/sessions:
+    parameters: [ { $ref: '#/components/parameters/PackageId' } ]
+    get:
+      summary: Discover customer-selectable future sessions for one published Workshop Package at one location
+      security: []
+      parameters:
+        - { name: locationId, in: query, required: true, schema: { type: integer, format: int64 } }
+        - { name: from, in: query, required: false, schema: { type: string, format: date } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date } }
+      responses:
+        '200': { $ref: '#/components/responses/CustomerSessionAvailabilityList' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
   /workshop-locations:
     get:
       summary: List workshop locations visible to the actor
@@ -199,10 +252,14 @@ components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: Firebase-ID-token }
   parameters:
+    PackageId: { name: packageId, in: path, required: true, schema: { type: integer, format: int64 } }
     LocationId: { name: locationId, in: path, required: true, schema: { type: integer, format: int64 } }
     SlotId: { name: slotId, in: path, required: true, schema: { type: string, format: uuid } }
     SessionId: { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
   responses:
+    Package: { description: Workshop Package, content: { application/json: { schema: { $ref: '#/components/schemas/Package' } } } }
+    PackageList: { description: Published Workshop Packages, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Package' } } } } }
+    CustomerSessionAvailabilityList: { description: Customer-selectable Package sessions; remaining capacity is a non-guaranteed selection snapshot, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/CustomerSessionAvailability' } } } } }
     Location: { description: Workshop location, content: { application/json: { schema: { $ref: '#/components/schemas/Location' } } } }
     LocationList: { description: Workshop locations, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Location' } } } } }
     Slot: { description: Slot, content: { application/json: { schema: { $ref: '#/components/schemas/Slot' } } } }
@@ -215,6 +272,45 @@ components:
     BulkGenerationResult: { description: Generation outcome, content: { application/json: { schema: { $ref: '#/components/schemas/BulkGenerationResult' } } } }
     Problem: { description: Problem response, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
   schemas:
+    PackageState:
+      type: string
+      enum: [DRAFT, PUBLISHED, RETIRED]
+    PackageWrite:
+      type: object
+      required: [name, description, publicPrice, minParticipants, maxParticipants, requiredSessionCount, sameLocationRequired, minimumSameDaySlotGap]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        publicPrice: { type: integer, format: int64, minimum: 0, description: Public per-participant price in whole VND. }
+        minParticipants: { type: integer, minimum: 1 }
+        maxParticipants: { type: integer, minimum: 1, description: Must be greater than or equal to minParticipants. }
+        requiredSessionCount: { type: integer, minimum: 1 }
+        sameLocationRequired: { type: boolean }
+        minimumSameDaySlotGap: { type: integer, minimum: 0, description: Required number of configured slots between selected sessions on the same local date; 0 disables this rule. }
+    Package:
+      allOf:
+        - { $ref: '#/components/schemas/PackageWrite' }
+        - type: object
+          required: [packageId, state]
+          properties:
+            packageId: { type: integer, format: int64 }
+            state: { $ref: '#/components/schemas/PackageState' }
+    PackageLifecycleTransitionRequest:
+      type: object
+      required: [targetState]
+      properties:
+        targetState: { type: string, enum: [PUBLISHED, RETIRED] }
+    CustomerSessionAvailability:
+      type: object
+      required: [sessionReference, locationId, scheduledStart, scheduledEnd, saleState, customerSelectable, remainingCapacity]
+      properties:
+        sessionReference: { type: string, format: uuid, description: Opaque Operations session reference; not a numeric legacy ID. }
+        locationId: { type: integer, format: int64 }
+        scheduledStart: { type: string, format: date-time }
+        scheduledEnd: { type: string, format: date-time }
+        saleState: { type: string }
+        customerSelectable: { type: boolean }
+        remainingCapacity: { type: integer, minimum: 0, description: Exact current availability snapshot; reserve remains authoritative. }
     LocationWrite:
       type: object
       required: [code, name]

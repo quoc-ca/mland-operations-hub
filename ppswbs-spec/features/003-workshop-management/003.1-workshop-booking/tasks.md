@@ -1,7 +1,7 @@
 # Tasks: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -23,11 +23,11 @@ approved cross-feature contracts.
 
 - [X] T001 [P] Establish the `workshopbooking` Spring Modulith module boundary and add `ApplicationModules.verify()` coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopBookingModuleTest.java`.
 - [X] T002 [P] Implement 003.1's named `WorkshopBookingFacade`, including `ApplyVerifiedDepositPaymentEvidenceCommand` and final-balance conclusion consumption, in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/` exactly as limited by `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`.
-- [X] T003 Consume 003.2 sale-eligibility, all-or-nothing reserve/commit/release, ticket projection, and current entitlement projection only through `WorkshopOperationsFacade` adapters in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/`.
+- [ ] T003 Rebase `WorkshopOperationsFacade` adapters in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/` to consume `PublishedPackageSelectionQuery`, opaque UUID session references and reserve commands containing `packageReference`; retain facade-only sale eligibility, all-or-nothing reserve/commit/release, ticket projection and current entitlement projection. **BLOCKED** until 003.2 T060--T068 publishes and verifies the Package facade provider.
 - [X] T004 Consume canonical account role, status, ownership and location scope through the approved FE-001 boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/WorkshopBookingAuthorizationService.java`; Booking applies its own support-action rules against the booking's canonical `workshop_location.id` and must not use display roles, Firebase claims or retired codes as authority or edit FE-001.
 - [ ] T005 **BLOCKED — external VNPay configuration**: obtain the environment-approved Merchant identity, runtime-only HMAC-SHA512 secret, HTTPS IPN registration, outbound QueryDR/refund authority, and redacted sandbox evidence listed in `ppswbs-spec/features/003-workshop-management/contracts/vnpay-configuration-preflight.md`; keep every credential outside the repository.
 - [ ] T006 Establish the shared technical `paymentintegration` Modulith module and its one `GET /api/v1/integrations/payments/vnpay/events` controller in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/`; verify once, deduplicate, resolve immutable owner-qualified merchant reference, and dispatch redacted evidence to exactly one 003.1/003.3 facade.
-- [ ] T007 Implement the approved post-commit `BookingNotificationReady` handoff and immutable delivery-payload facade in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/`; publish reference-only data after the local transaction, let Feature 007 deduplicate/read the payload, and never let delivery outcome reverse Booking state.
+- [ ] T007 Implement the approved post-commit `BookingNotificationReady` handoff and immutable delivery-payload facade in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/`; publish reference-only data after the local transaction, let Feature 007 deduplicate/read the payload, and never let delivery outcome reverse Booking state. *(Code đã tồn tại nhưng chưa được nghiệm thu vì BE-DESIGN-0007 đang chặn Maven baseline compile)*.
 - [ ] T008 Establish the approved React + Vite route shell in `ppswbs_frontend/src/`: `/workshops`, `/workshops/:packageId`, `/workshops/:packageId/book`, `/workshop-booking/lookup`, `/workshop-booking/access`, and `/workshop-booking/:bookingCode/payment-return`; keep Magic-Link bearer data in the fragment only and make payment-return display-only.
 
 ---
@@ -37,12 +37,12 @@ approved cross-feature contracts.
 **Purpose**: retained aggregate state, migration safety, authorization, and
 idempotency before a customer flow begins.
 
-- [X] T009 Create approved JPA entities/repositories for Booking, session commitment, invoice, payment attempt, safe evidence receipt, delivery state, Magic-Link access, notification intent, business audit, and idempotency outcome in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/{entity,dao}/`.
-- [X] T010 Create an append-only preservation migration and empty-database plus upgrade/recovery coverage in `ppswbs_backend/src/main/resources/db/migration/` and `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopBookingMigrationIT.java`; reset only dev/test with no retained booking/customer data after preflight.
+- [ ] T009 Rebase approved Booking session-commitment entities/repositories in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/{entity,dao}/` to store only opaque UUID session references and the frozen Package selection snapshot; retain invoice, payment attempt, safe evidence receipt, delivery state, Magic-Link access, notification intent, business audit and idempotency outcome without Operations entities.
+- [ ] T010 Create the append-only preservation migration and empty-database plus upgrade/recovery coverage for T009 in `ppswbs_backend/src/main/resources/db/migration/` and `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopBookingMigrationIT.java`; reset only dev/test with no retained booking/customer data after preflight and do not choose a migration version without actual Flyway history.
 - [X] T011 [P] Implement server-side authorization denial and minimal booking audit evidence in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/WorkshopBookingAuthorizationService.java`; denied commands have no side effect and audit excludes contact proof, raw Magic Link, QR, token, callback payload, and secret.
 - [X] T012 [P] Implement client `Idempotency-Key` handling in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/BookingIdempotencyService.java`; same key plus semantically identical content returns the original outcome and changed reuse returns `409 IDEMPOTENCY_CONFLICT`.
-- [X] T013 [P] Implement typed safe `Problem`, Bean Validation, correlation, and controller-only DTO adapters from `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/contracts/workshop-booking.openapi.yaml` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/{controller,dto}/`.
-- [ ] T014 Implement local transaction and facade-orchestration rules in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/BookingLifecycleService.java`; Booking writes plus reserve/commit/release must be all-or-none, gateway I/O is outside that transaction, and ticket projection follows successful confirmation only.
+- [ ] T013 [P] Rebase typed safe `Problem`, Bean Validation, correlation and controller-only DTO adapters in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/{controller,dto}/` to the booking OpenAPI's `packageId`, UUID `sessionReferences` and removed Booking-owned discovery paths; do not expose Operations entities or duplicate 003.2 public discovery.
+- [ ] T014 Implement local transaction and facade-orchestration rules in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/BookingLifecycleService.java`; Booking writes plus reserve/commit/release must be all-or-none, gateway I/O is outside that transaction, and ticket projection follows successful confirmation only. *(Code đã tồn tại nhưng chưa được nghiệm thu vì BE-DESIGN-0007 đang chặn Maven baseline compile)*.
 
 **Checkpoint**: Booking has no direct Operations entity/repository access, no
 business callback controller, and no confirmation path based on a browser redirect.
@@ -57,10 +57,10 @@ packages/sessions and can begin a booking flow.
 **Independent Test**: Published eligible packages are visible; non-selectable
 packages/sessions cannot start booking and do not disclose internal state.
 
-- [ ] T015 [US1] Implement published package/session discovery and sale-eligibility projection consumption in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/WorkshopDiscoveryService.java`; expose no Operations entity or Staff/audit data.
-- [ ] T016 [US1] Implement `GET /api/v1/workshop-packages` and `GET /api/v1/workshop-sessions` using the approved package, `locationId`, and `from`/`to` discovery contract in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/controller/`.
-- [ ] T017 [US1] Add published/selectable filtering, safe missing/unavailable result, and no-Operations-leak tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopDiscoveryIT.java`.
-- [ ] T018 [US1] Implement React package listing/detail, loading, empty, validation, and booking-entry states under the approved T008 routes in `ppswbs_frontend/src/`.
+- [ ] T015 [US1] Implement the React client adapter in `ppswbs_frontend/src/` that consumes the 003.2-owned public `/api/v1/workshop-packages` and `/api/v1/workshop-packages/{packageId}/sessions` routes; use required `locationId` and optional `from`/`to`, treat `remainingCapacity` as a non-guaranteed snapshot, and create no Booking backend discovery service.
+- [ ] T016 [US1] Add client contract coverage in `ppswbs_frontend/src/` for public Package/session discovery, empty/unavailable results and opaque UUID `sessionReference`; prove that Booking publishes no duplicate discovery controller or route.
+- [ ] T017 [US1] Add Booking module-boundary coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopDiscoveryBoundaryIT.java`; reject direct Operations persistence access and verify Package/session discovery remains owned by 003.2.
+- [ ] T018 [US1] Implement React package listing/detail, location/date filtering, loading, empty, validation and booking-entry states under the approved T008 routes in `ppswbs_frontend/src/` using the T015 adapter.
 
 ---
 
@@ -74,13 +74,13 @@ N seats in exactly two valid sessions; an invalid second session leaves neither
 booking nor hold.
 
 - [ ] T019 [US2] Implement one-package booking validation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/BookingCreationService.java`; require positive participant count and reject a generic multi-package cart or `BASE_PLUS_EXTRA` pricing.
-- [ ] T020 [US2] Implement required-session selection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/BookingCreationService.java`; Basic Ring requires one session and Silverclay requires exactly two ordinary sessions that are distinct, at the same canonical location, chronological, and non-adjacent when on the same local day.
+- [ ] T020 [US2] Implement Package/session selection pass-through in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/BookingCreationService.java`; forward package reference, participant count and distinct opaque UUID session references without hard-coding Basic Ring/Silverclay names or local count/location/gap rules, because Operations authorizes the current generic Package selection atomically.
 - [ ] T021 [US2] Implement frozen money snapshots in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/BookingPricingService.java`; `package_total = participant_count × price_per_participant`, `deposit = ceil(post_promotion_amount / 2)`, and `remaining = post_promotion_amount − deposit` are immutable whole-VND values.
-- [ ] T022 [US2] Implement all-or-nothing create-and-reserve through `WorkshopOperationsFacade` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/BookingCreationService.java`; persist one `PENDING_PAYMENT` booking and invoice only if every required session holds N seats.
-- [ ] T023 [US2] Implement `POST /api/v1/workshop-bookings` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/controller/`.
-- [ ] T024 [US2] Add capacity-full, `SALES_PAUSED`, duplicate-session, cross-location, adjacent-same-day, cross-day, concurrent-last-seat, and local-rollback coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/BookingCreationIT.java`.
+- [ ] T022 [US2] Implement all-or-nothing create-and-reserve through `WorkshopOperationsFacade` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/BookingCreationService.java`; send `packageReference`, participant count and UUID session references, map `PACKAGE_NOT_PUBLISHED`, `PACKAGE_SELECTION_INVALID` and `INSUFFICIENT_CAPACITY` safely, and persist one `PENDING_PAYMENT` booking/invoice only after every required session holds N seats.
+- [ ] T023 [US2] Implement `POST /api/v1/workshop-bookings` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/controller/` with `packageId` and UUID `sessionReferences` only; do not add Booking-owned discovery routes or locally authorize generic Package rules.
+- [ ] T024 [US2] Add Package-not-published, Package-selection-invalid (participant/count/location/minimum same-day slot gap), `INSUFFICIENT_CAPACITY`, `SALES_PAUSED`, concurrent-last-seat and local-rollback coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/BookingCreationIT.java`; assert Operations decides selection rules and Booking creates no partial booking/hold.
 - [ ] T025 [US2] Add post-promotion odd-VND, deposit-ceiling, and exact-remaining-amount coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/BookingPricingIT.java`.
-- [ ] T026 [US2] Implement React Guest/Member contact, required-session selection, pending, validation, and capacity-failure states under the approved T008 routes in `ppswbs_frontend/src/`.
+- [ ] T026 [US2] Implement React Guest/Member contact, Package-backed required-session selection, pending, validation and capacity-failure states under the approved T008 routes in `ppswbs_frontend/src/`; surface server selection errors without reimplementing Package rules client-side.
 
 ---
 
@@ -125,8 +125,8 @@ invalid/revoked/expired proof reveals no booking data and recovery stays safe.
 
 ## Phase 7: Cross-cutting verification and handoff
 
-- [ ] T043 [P] Contract-test every Booking public route, typed safe error, proof/ownership alternative, Idempotency-Key replay, and safe projection in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopBookingContractIT.java`.
-- [ ] T044 [P] Verify facade-only dependencies, no direct Operations persistence access, and paymentintegration-to-owner dispatch boundaries in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopBookingModuleBoundaryIT.java`.
+- [ ] T043 [P] Contract-test every Booking public route, UUID `sessionReferences`, typed Package-selection errors, proof/ownership alternative, Idempotency-Key replay and safe projection in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopBookingContractIT.java`; assert public Package discovery is absent because 003.2 owns it.
+- [ ] T044 [P] Verify facade-only dependencies, Published Package-selection consumption, no direct Operations persistence access, no duplicate discovery route and paymentintegration-to-owner dispatch boundaries in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopBookingModuleBoundaryIT.java`.
 - [ ] T045 Run non-production [quickstart scenarios](./quickstart.md), preservation-upgrade/recovery checks, React UI/API flow checks, and retain only redacted evidence in the approved CI artifact rather than `quickstart.md`.
 - [ ] T046 Review approved configuration evidence for T005 before enabling real VNPay provider-dependent work in `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/tasks.md`; Feature 007 provider configuration remains that feature's deployment responsibility.
 
@@ -135,6 +135,7 @@ invalid/revoked/expired proof reveals no booking data and recovery stays safe.
 ```text
 T001–T008 → T009–T014
 T009–T014 → US1 (T015–T018), US2 (T019–T026), US3 (T027–T035), US4 (T036–T042)
+003.2 T067--T075 are required before T003, T009--T010, T013, US1 and US2 Package-dependent work.
 T005 + T006 + T029 are required before a provider result may confirm Booking.
 T007 precedes the post-commit handoff and is independent of Feature 007's provider configuration; T008 precedes React story tasks.
 All intended stories → T043–T046
