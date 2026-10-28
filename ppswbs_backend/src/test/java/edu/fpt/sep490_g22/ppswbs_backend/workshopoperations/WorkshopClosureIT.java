@@ -7,6 +7,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Actor
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.CancellationHandoffOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.AttendanceActionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.AttendanceTicketRepository;
@@ -128,7 +130,7 @@ public class WorkshopClosureIT {
     private CancellationHandoffService cancellationHandoffService;
 
     @MockBean
-    private CancellationHandoffService.SettlementHandoffPort settlementHandoffPort;
+    private WorkshopSettlementFacade settlementFacade;
 
     @MockBean
     private AccountFacade accountFacade;
@@ -216,6 +218,9 @@ public class WorkshopClosureIT {
                 new VerifiedIdentity("mgr-b", "mgrb@mland.vn", true, Instant.now()));
         when(tokenVerificationService.verify("test-uid:staff-a")).thenReturn(
                 new VerifiedIdentity("staff-a", "staffa@mland.vn", true, Instant.now()));
+
+        when(settlementFacade.openCancellationHandoff(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(CancellationHandoffOutcome.accepted("SETTLE-TEST", "corr-test"));
     }
 
     private WorkshopSession createSession(SessionState state) {
@@ -721,14 +726,10 @@ public class WorkshopClosureIT {
                 .attendanceState(AttendanceState.NOT_CHECKED_IN)
                 .build());
 
-        when(settlementHandoffPort.openCancellationHandoff(
-                org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyList(),
-                org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString()))
-                .thenReturn(CancellationHandoffService.SettlementHandoffOutcome.rejected(
-                        "Settlement batch locked in 003.3"));
+        when(settlementFacade.openCancellationHandoff(
+                org.mockito.ArgumentMatchers.any()))
+                .thenReturn(CancellationHandoffOutcome.rejected(
+                        "Settlement batch locked in 003.3", "corr-t047-12"));
 
         SessionCancellationRequest request = SessionCancellationRequest.builder()
                 .reasonCode("FACILITY_ISSUE")

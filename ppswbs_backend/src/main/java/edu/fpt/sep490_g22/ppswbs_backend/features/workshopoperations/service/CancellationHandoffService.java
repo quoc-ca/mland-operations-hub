@@ -6,11 +6,13 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.Session
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SessionResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.StandardizedReasonCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.CancellationHandoffOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.OpenCancellationHandoffCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,41 +51,7 @@ public class CancellationHandoffService {
     private final OperationsAuditEventRepository auditEventRepository;
     private final SessionOperationalLeadRepository operationalLeadRepository;
     private final WorkshopOperationsAuthorizationService authorizationService;
-
-    @Autowired(required = false)
-    private SettlementHandoffPort settlementHandoffPort;
-
-    /**
-     * Functional port contract for WorkshopSettlementFacade handoff boundary.
-     * Matches the approved inter-feature facade specification in workshop-interfeature-facades.md.
-     */
-    @FunctionalInterface
-    public interface SettlementHandoffPort {
-        SettlementHandoffOutcome openCancellationHandoff(
-                String sessionReference,
-                List<String> affectedBookingReferences,
-                String cancellationReasonReference,
-                String operationReference,
-                String correlationReference
-        );
-    }
-
-    /**
-     * Typed result from the settlement handoff boundary.
-     */
-    public record SettlementHandoffOutcome(
-            boolean accepted,
-            String cancellationCaseReference,
-            String rejectionReason
-    ) {
-        public static SettlementHandoffOutcome accepted(String caseRef) {
-            return new SettlementHandoffOutcome(true, caseRef, null);
-        }
-
-        public static SettlementHandoffOutcome rejected(String reason) {
-            return new SettlementHandoffOutcome(false, null, reason);
-        }
-    }
+    private final WorkshopSettlementFacade settlementFacade;
 
     /**
      * Cancellation operation result representing HTTP 200 vs 202 semantics.
@@ -277,22 +245,20 @@ public class CancellationHandoffService {
             String correlationReference,
             String defaultCaseRef
     ) {
-        if (settlementHandoffPort != null) {
-            SettlementHandoffOutcome outcome = settlementHandoffPort.openCancellationHandoff(
-                    sessionReference,
-                    affectedBookings,
-                    cancellationReasonRef,
-                    operationReference,
-                    correlationReference
-            );
-            if (outcome != null && !outcome.accepted()) {
-                log.warn("WorkshopSettlementFacade rejected cancellation handoff for session {}: {}",
-                        sessionReference, outcome.rejectionReason());
-                throw new WorkshopLifecycleException("Workshop settlement handoff rejected: " + outcome.rejectionReason());
-            }
-        } else {
-            log.info("WorkshopSettlementFacade port is not wired in current context; handoff record {} safely persisted in Operations",
-                    defaultCaseRef);
+        CancellationHandoffOutcome outcome = settlementFacade.openCancellationHandoff(
+                new OpenCancellationHandoffCommand(
+                        sessionReference,
+                        affectedBookings,
+                        cancellationReasonRef,
+                        operationReference,
+                        correlationReference
+                )
+        );
+        if (outcome == null || outcome.status() != CancellationHandoffOutcome.Status.ACCEPTED) {
+            String reason = outcome == null ? "NO_OUTCOME" : outcome.rejectionReason();
+            log.warn("WorkshopSettlementFacade rejected cancellation handoff for session {}: {}",
+                    sessionReference, reason);
+            throw new WorkshopLifecycleException("Workshop settlement handoff rejected: " + reason);
         }
     }
 
