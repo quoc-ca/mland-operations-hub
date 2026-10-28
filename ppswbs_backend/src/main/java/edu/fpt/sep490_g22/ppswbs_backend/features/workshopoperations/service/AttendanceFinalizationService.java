@@ -43,6 +43,7 @@ public class AttendanceFinalizationService {
     private final TicketSessionEntitlementRepository entitlementRepository;
     private final AttendanceActionRepository attendanceActionRepository;
     private final OperationsAuditEventRepository auditEventRepository;
+    private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final SessionOperationalLeadRepository operationalLeadRepository;
 
@@ -90,6 +91,7 @@ public class AttendanceFinalizationService {
         // 1. Transition session state to ATTENDANCE_FINALIZED
         session.setState(SessionState.ATTENDANCE_FINALIZED);
         sessionRepository.save(session);
+        otaSnapshotService.publishForObservableChange(session, "ATTENDANCE_FINALIZED", now);
 
         // 2. Atomic conversion: convert all active unchecked tickets for this session to NO_SHOW
         List<TicketSessionEntitlement> entitlements = entitlementRepository.findBySessionId(session.getId());

@@ -119,13 +119,4 @@ public class WorkshopSessionController {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/workshop-sessions/{sessionId}/operational-lead")
-    public ResponseEntity<SessionResponse> assignOperationalLead(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
-            @PathVariable("sessionId") String sessionId,
-            @Valid @RequestBody OperationalLeadRequest request) {
-        SessionResponse response = responsibilityService.assignOperationalLead(authHeader, correlationId, sessionId, request);
-        return ResponseEntity.ok(response);
-    }
 }

@@ -25,6 +25,7 @@ public class WorkshopSessionStartScheduler {
 
     private final WorkshopSessionRepository sessionRepository;
     private final OperationsAuditEventRepository auditEventRepository;
+    private final WorkshopOtaSnapshotService otaSnapshotService;
 
     @Scheduled(fixedDelayString = "${workshop.operations.scheduler.fixed-delay-ms:10000}")
     @Transactional
@@ -45,6 +46,7 @@ public class WorkshopSessionStartScheduler {
 
         session.setState(SessionState.IN_PROGRESS);
         sessionRepository.save(session);
+        otaSnapshotService.publishForObservableChange(session, "SESSION_AUTO_STARTED", now);
         auditEventRepository.save(OperationsAuditEvent.builder()
                 .sessionId(session.getId())
                 .actorId(null)

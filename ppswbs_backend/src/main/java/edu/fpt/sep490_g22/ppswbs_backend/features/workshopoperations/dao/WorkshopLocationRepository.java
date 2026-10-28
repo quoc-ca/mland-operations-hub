@@ -12,6 +12,8 @@ public interface WorkshopLocationRepository extends JpaRepository<WorkshopLocati
 
     Optional<WorkshopLocation> findByCode(String code);
 
+    Optional<WorkshopLocation> findByIdAndActiveTrue(Long id);
+
     List<WorkshopLocation> findByActiveTrue();
 
     List<WorkshopLocation> findByIdInAndActiveTrue(List<Long> ids);

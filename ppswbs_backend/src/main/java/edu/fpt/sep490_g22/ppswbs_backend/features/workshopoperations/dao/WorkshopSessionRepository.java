@@ -32,6 +32,12 @@ public interface WorkshopSessionRepository extends JpaRepository<WorkshopSession
 
     List<WorkshopSession> findByLocationIdAndWorkshopDateBetween(Long locationId, LocalDate from, LocalDate to);
 
+    List<WorkshopSession> findByLocationIdAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
+            Long locationId, SessionState state, LocalDate from);
+
+    List<WorkshopSession> findByLocationIdAndStateAndWorkshopDateBetweenOrderByScheduledStartAtAsc(
+            Long locationId, SessionState state, LocalDate from, LocalDate to);
+
     List<WorkshopSession> findByLocationIdAndState(Long locationId, SessionState state);
 
     List<WorkshopSession> findByStateAndScheduledStartAtLessThanEqual(SessionState state, Instant cutoff);

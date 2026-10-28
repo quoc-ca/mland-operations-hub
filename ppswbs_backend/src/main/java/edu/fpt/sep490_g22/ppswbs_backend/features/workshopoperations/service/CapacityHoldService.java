@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.function.Supplier;
 
 /**
  * Service managing lock-protected Capacity Holds, commit, release, expiry sweeping,
@@ -40,6 +41,7 @@ public class CapacityHoldService {
     private final OperationsAuditEventRepository auditEventRepository;
     private final FacadeCommandIdempotencyManager idempotencyManager;
     private final ObjectMapper objectMapper;
+    private final WorkshopOtaSnapshotService otaSnapshotService;
 
     /**
      * Reserves capacity for one or multiple required sessions (all-or-nothing).
@@ -47,8 +49,10 @@ public class CapacityHoldService {
      * and uses the durable idempotency ledger.
      */
     @Transactional
-    public CapacityHoldOutcome reserveBookingCapacity(ReserveBookingCapacityCommand command) {
-        String fingerprint = command.bookingReference() + "|" + command.orderedRequiredSessionReferences() + "|" + command.participantCount();
+    public CapacityHoldOutcome reserveBookingCapacity(ReserveBookingCapacityCommand command,
+                                                       Supplier<RejectionReason> packageValidation) {
+        String fingerprint = command.bookingReference() + "|" + command.packageReference() + "|"
+                + command.orderedRequiredSessionReferences() + "|" + command.participantCount();
 
         ClaimResult claim = idempotencyManager.acquireClaim(
             ACTION_RESERVE, command.operationReference(), command.correlationReference(), fingerprint
@@ -66,6 +70,13 @@ public class CapacityHoldService {
 
         if (command.participantCount() < 1) {
             CapacityHoldOutcome outcome = CapacityHoldOutcome.rejected(RejectionReason.INVALID_STATE);
+            idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
+            return outcome;
+        }
+
+        RejectionReason packageRejection = packageValidation.get();
+        if (packageRejection != null) {
+            CapacityHoldOutcome outcome = CapacityHoldOutcome.rejected(packageRejection);
             idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
             return outcome;
         }
@@ -137,6 +148,10 @@ public class CapacityHoldService {
                 .build();
             capacityHoldRepository.save(hold);
             holdRefs.add(UUID.fromString(holdRef));
+        }
+
+        for (WorkshopSession session : orderedSessions) {
+            otaSnapshotService.publishForObservableChange(session, UUID.randomUUID().toString(), now);
         }
 
         recordBusinessAudit(ACTION_RESERVE, command.correlationReference(), "SUCCESS", orderedSessions.getFirst().getId());
@@ -242,11 +257,17 @@ public class CapacityHoldService {
             .toList();
 
         List<CapacityHold> holds = capacityHoldRepository.findByReferenceInWithLock(sortedHoldRefs);
+        Instant now = Instant.now();
+        Map<Long, WorkshopSession> changedSessions = new LinkedHashMap<>();
         for (CapacityHold hold : holds) {
             if (hold.getState() == CapacityHoldState.ACTIVE) {
                 hold.setState(CapacityHoldState.RELEASED);
                 capacityHoldRepository.save(hold);
+                changedSessions.put(hold.getSession().getId(), hold.getSession());
             }
+        }
+        for (WorkshopSession changedSession : changedSessions.values()) {
+            otaSnapshotService.publishForObservableChange(changedSession, UUID.randomUUID().toString(), now);
         }
 
         Long sessionId = holds.isEmpty() ? null : holds.getFirst().getSession().getId();
@@ -268,12 +289,17 @@ public class CapacityHoldService {
         Instant now = Instant.now();
         List<CapacityHold> expiredList = capacityHoldRepository.findExpiredActiveHolds(now);
         int count = 0;
+        Map<Long, WorkshopSession> changedSessions = new LinkedHashMap<>();
         for (CapacityHold hold : expiredList) {
             if (hold.getState() == CapacityHoldState.ACTIVE && !hold.getExpiresAt().isAfter(now)) {
                 hold.setState(CapacityHoldState.EXPIRED);
                 capacityHoldRepository.save(hold);
+                changedSessions.put(hold.getSession().getId(), hold.getSession());
                 count++;
             }
+        }
+        for (WorkshopSession changedSession : changedSessions.values()) {
+            otaSnapshotService.publishForObservableChange(changedSession, UUID.randomUUID().toString(), now);
         }
         if (count > 0) {
             log.info("Expired {} pending capacity holds past expiresAt {}", count, now);

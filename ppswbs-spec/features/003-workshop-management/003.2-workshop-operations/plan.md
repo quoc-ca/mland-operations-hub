@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-28
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -9,6 +9,21 @@
 
 **Input**: Feature specification from
 `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/spec.md`
+
+## Authorization and scheduled-start rebase
+
+V1 uses canonical role/status/location data from the public Account facade.
+Staff authority is limited by `session.locationId ∈ activeLocationIds`; a
+session assignment is operational metadata, not an authorization prerequisite.
+An active Manager has global Workshop Operations authority and there is no
+operational-lead model in the target contract. The capability key
+`workshop.checkin.override` and `AccountFacade.can(...)` are not used.
+
+At `checkInOpensAt`, check-in becomes available while an eligible session
+remains `PUBLISHED`. At the session's scheduled start time, a recoverable
+scheduler transitions it to `IN_PROGRESS` and records a system audit event. The transition must
+be idempotent, timezone-aware and safe across restart/retry. A manual state
+transition remains only for explicit early start or recovery.
 
 **Status**: Design draft — internal capacity semantics and facade-command
 idempotency are clarified; implementation must rebase the affected task before
@@ -87,11 +102,11 @@ selection from a stale discovery snapshot.
 
 ### Account Target-Authorization Dependency
 
-For an assignment or operational-lead handover, Operations consumes the
-read-only Account Management target-account boundary for `accountId` existence,
-canonical role, current status and active location IDs. Operations must not
-read Account entities or repositories, infer a target role, or create a
-duplicate role store.
+For actor authorization, Operations consumes the read-only Account Management
+target-account boundary for `accountId` existence, canonical role, current
+status and active location IDs. Operations must not read Account entities or
+repositories or create a duplicate role store. There is no capability decision
+call or operational-lead handover boundary in the target V1 design.
 
 ### Resolved OTA-Observable Snapshot Boundary
 
@@ -117,6 +132,31 @@ delivery failure. Operations does not call an external OTA and that failure
 never pauses direct-Mland sales or changes Operations capacity.
 
 ### Resolved Ticket/Session Boundary
+
+### Approved OTA Publication Contract (T053-T055)
+
+The Operations module owns the internal `WorkshopSessionOtaSnapshot` boundary
+and its durable per-session source version. The snapshot contains only
+`sessionReference`, `locationReference`, `scheduledStart`, `scheduledEnd`,
+`sellableAvailability`, `saleState`, `sourceVersion`, `changeReference` and
+`effectiveAt`. `WorkshopSessionOtaSnapshotChanged` is the persistent internal
+Spring Modulith publication. It carries the complete snapshot and no booking,
+payment, ticket, attendance, Staff, PII or OTA mapping data.
+
+The source version is allocated in the same Operations transaction that changes
+an observable session value. A unique `(sessionReference, sourceVersion)`
+invariant and conditional publication claim make retries at-least-once but
+ordered. An internal-only change does not allocate a version. The resync
+boundary is an Operations-owned read-only facade query returning the complete
+current snapshot for exactly one session at its existing version; resync never
+allocates a version or changes business state.
+
+003.4 consumes the event, ignores duplicate/older versions, requests resync on
+a gap or unknown order, and owns provider mapping/delivery. A 003.4 failure
+may suspend only its own mapping. It cannot mutate Operations capacity, sale
+state or direct-Mland booking. V1 uses no broker and no external OTA call in
+the Operations transaction. Migration version remains a tech-lead-selected
+append-only value at implementation time.
 
 One participant has one persistent QR ticket, including for Silverclay. Its
 validity is evaluated against its entitled session in the scanner's current
@@ -305,12 +345,16 @@ boundary.
    Booking copying or owning a session schedule.
    For 003.4, Operations exposes only the approved semantic schedule and
    availability/sale-state snapshots for mapped Basic Ring sessions. `DRAFT`
-   produces none; `PUBLISHED` and `SALES_PAUSED` expose or refresh the current
-   snapshot, while `CANCELLATION_REQUESTED` and `CANCELLED` expose closed sale
-   state. Hold creation, release and expiry notify when availability changes;
-   pause/resume and session cancellation/closure notify when sale state changes.
-   Hold-to-ticket commitment creates no notification when the post-state is
-   unchanged. Both snapshot kinds use one per-session source-version sequence;
+   produces none; `PUBLISHED` makes the current snapshot available, while
+   `IN_PROGRESS`, `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` and
+   `CANCELLED` have closed sale state. At scheduled start the scheduler changes
+   `PUBLISHED` to `IN_PROGRESS` and persists the complete closed snapshot in
+   the same Operations transaction. `ATTENDANCE_FINALIZED` does not allocate a
+   second version when the snapshot is already closed and otherwise unchanged.
+   Hold creation, release and expiry notify when availability changes;
+   pause/resume, start and session cancellation/closure notify when sale state
+   changes. Hold-to-ticket commitment creates no notification when the
+   post-state is unchanged. Both snapshot kinds use one per-session source-version sequence;
    a resync returns the one affected session's complete current post-state at
    its existing version. The handoff is a persistent internal Spring Modulith
    event publication recorded in the same Operations transaction; 003.4 consumes
@@ -332,13 +376,15 @@ boundary.
    correlation reference separately from audit metadata; do not reuse audit,
    hold or ticket persistence for deduplication.
 4. **Create the operational aggregate.** Model canonical workshop location, reusable location slot,
-   session, active Staff assignment, one Manager operational lead, capacity hold
-   and individual attendance ticket with session entitlements. Enforce
+   session, optional Staff roster, capacity hold and individual attendance
+   ticket with session entitlements. Enforce
    location/date/slot uniqueness, positive capacity and the no-overlap slot rule.
 5. **Implement session administration.** Support single and bounded bulk
    session generation (at most 90 future days), duplicate reporting, slot
    activation/deactivation, lifecycle transitions, schedule change warnings and
-   state-aware assignment/lead handover.
+   role/location authorization, check-in opening at `checkInOpensAt` and
+   scheduled lifecycle start at the session's scheduled start time; retain
+   manual transition only for early start/recovery.
 6. **Make capacity transactional.** Reserve only against `PUBLISHED` sessions;
    retain pre-pause unexpired holds; confirm or release holds atomically.
    Protect concurrent reservations from oversell using an approved
@@ -366,8 +412,8 @@ boundary.
    in a separate permissioned, reasoned and audited path.
    A repeated normal scan returns its existing check-in result as `200 OK` with
    `ALREADY_CHECKED_IN` and `checkedInAt`; it does not create another action.
-8. **Close attendance correctly.** Let an assigned active Staff member or the
-   recorded active operational lead finalise the whole session after its actual
+8. **Close attendance correctly.** Let an active Staff member in the session
+   location or any active Manager finalise the whole session after its actual
    end; convert still-unchecked valid tickets to `NO_SHOW`. Only a Manager may
    perform a post-finalisation correction, with mandatory audit evidence.
 9. **Handoff cancellation and delivery.** On cancellation request, stop normal
@@ -402,8 +448,8 @@ boundary.
 - MySQL-test retention cleanup only for eligible completed ledger records after
   the configured window; prove that no raw request payload, token, QR value or
   PII is stored in the ledger.
-- Security-test active/inactive Staff, Manager location boundaries, operational
-  lead handover, normal check-in, and separately-authorised override.
+- Security-test active/inactive Staff, Staff location boundaries, global Manager
+  authority, scheduled auto-start, normal check-in and reasoned override.
 - Contract-test REST responses and problem codes against
   `contracts/workshop-operations.openapi.yaml`.
 - Modulith-test that Operations does not depend on Booking internals and that

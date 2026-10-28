@@ -1,12 +1,52 @@
 # Quickstart: Workshop Operations Verification
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-28
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
 This guide verifies the planned feature after implementation. It does not
 authorize a production migration or a reset of existing workshop data.
+
+## Re-based authorization and scheduled start
+
+- Use an active Staff fixture with `activeLocationIds` containing the session
+  location; no session assignment is required for authorization.
+- Use an active Manager fixture and verify it can operate sessions in any
+  location without an operational-lead record.
+- Set a future `checkInOpensAt`; at that instant verify check-in becomes
+  available while the session remains `PUBLISHED`. At the session's scheduled
+  start time verify the scheduler moves it to `IN_PROGRESS` and records a
+  system audit event. Verify it also persists one complete `CLOSED` OTA snapshot
+  and event in that same transaction; a repeated scheduler run must not create
+  a second transition, audit row, snapshot version or publication. Finalizing
+  attendance must retain the closed snapshot version unless another observable
+  field changed.
+
+## T053-T055 OTA snapshot boundary
+
+- Change one OTA-observable session value and verify a complete
+  `WorkshopSessionOtaSnapshotChanged` publication is persisted in the same
+  Operations transaction with a strictly newer per-session `sourceVersion`.
+- Verify `PUBLISHED` to `IN_PROGRESS` at `scheduledStartAt` changes OTA sale
+  state to `CLOSED` and publishes the complete snapshot atomically; because
+  `ATTENDANCE_FINALIZED` is already closed, that transition alone does not
+  create another version/publication.
+- Change schedule, availability and sale state together and verify they share
+  one new version; internal-only Staff/assignment changes create no snapshot.
+- Deliver the same publication twice and deliver an older version; 003.4 must
+  ignore both. Deliver a version gap and verify 003.4 requests the
+  one-session Operations resync, which returns the complete current snapshot
+  without increasing the version.
+- Force a 003.4 consumer/provider failure and verify only its OTA mapping is
+  suspended; Operations capacity, sale state and direct booking remain usable.
+- Verify the event and resync payload contain no booking/payment, ticket,
+  attendance, Staff, PII or OTA mapping data and that Operations makes no
+  external OTA call inside its transaction.
+- Repeat scheduler execution/restart and verify no duplicate transition or
+  duplicate audit side effect occurs.
+- Verify Staff outside the session location is denied and Staff cannot perform
+  attendance correction; an active Manager can perform correction globally.
 
 ## Prerequisites
 
@@ -15,8 +55,8 @@ authorize a production migration or a reset of existing workshop data.
   profile; Flyway must run against that database, not a shared or production
   database.
 - Firebase test identity configuration and Account Management fixtures for an
-  active scoped Manager, assigned active Staff, inactive Staff and an unscoped
-  Manager.
+  active global Manager, active Staff in and outside a session location, and
+  inactive actors.
 
 ## Automated Checks
 
@@ -105,9 +145,12 @@ run is not sufficient proof of index, lock or migration behaviour.
    Verify completed ledger records remain retryable for at least 24 hours and
    cleanup affects only eligible completed records; verify the ledger contains no
    raw request payload, Firebase token, PII, QR value or audit JSON.
-8. Assign active Staff or record an operational lead. Verify transition to
-   `IN_PROGRESS` and normal check-in fail with neither responsible operator.
-   Verify inactive or unassigned Staff cannot check in.
+8. Set `checkInOpensAt` on a `PUBLISHED` session and verify check-in opens while
+   the session remains `PUBLISHED`; at scheduled start verify the scheduler
+   transitions it to `IN_PROGRESS` idempotently. Verify an
+   active Staff inside the session location can operate without assignment,
+   Staff outside the location is denied, and an active Manager can operate
+   globally. Verify an inactive actor is denied.
 9. Before `check_in_opens_at`, a valid QR/ticket-code check-in is rejected.
    Once open, scan a two-session ticket at session one successfully. Scan it
    concurrently or twice at that session and verify exactly one check-in is

@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-28
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -13,11 +13,46 @@
 recorded in this document's Clarifications; implementation-design evidence is in
 [research.md](./research.md).
 
+## Authorization and lifecycle rebase (2026-10-28)
+
+This amendment supersedes earlier assignment/capability/operational-lead rules
+where they conflict with the following V1 decisions:
+
+- Authorization is role-based through the public Account facade. Operations
+  consumes canonical role, account status and active location IDs; it does not
+  call a capability decision method and does not use
+  `workshop.checkin.override`.
+- An active `STAFF` may operate any session whose canonical `locationId` is in
+  the actor's `activeLocationIds`. A session-level Staff assignment is not an
+  authorization prerequisite.
+- An active `MANAGER` has global Workshop Operations authority across all
+  locations and sessions. No location-scope, session-assignment or
+  operational-lead check is required for Manager authority.
+- `operational lead` is retired from the target V1 design. Assignment/lead
+  endpoints and lead-only authority are not part of the target contract.
+- At `checkInOpensAt`, check-in becomes available while an eligible `PUBLISHED`
+  session remains in that state. At the session's scheduled start time, a
+  scheduler automatically transitions it to `IN_PROGRESS`. The existing
+  state-transition command remains only for explicit early start or recovery;
+  it is not the normal scheduled path.
+- OTA sale state is closed when the session enters `IN_PROGRESS`; the automatic
+  scheduled-start transition publishes the complete closed post-state snapshot
+  in the same Operations transaction. `ATTENDANCE_FINALIZED` remains closed,
+  but does not create a second snapshot/version when the observable snapshot is
+  otherwise unchanged. Manual early start follows the same publication rule.
+- Attendance correction remains Manager-only. An active Manager may correct
+  attendance globally; Staff may not correct attendance.
+
+Any older paragraph, example or scenario that requires a Staff assignment,
+Manager operational lead, capability key or manual scheduled start is legacy
+wording and must be read through this amendment until the affected section is
+rewritten.
+
 ## Scope
 
 This feature owns the Workshop Package catalogue/configuration and publication,
 plus Manager and Staff operation of published workshop sessions: session/location
-capacity, Staff assignment, individual attendance-ticket check-in, audited
+capacity, optional Staff roster records, individual attendance-ticket check-in, audited
 exception handling and attendance finalization. It consumes confirmed direct
 bookings from feature 003.1; it does not create customer bookings, collect money,
 perform refunds or connect directly to external OTAs.
@@ -28,9 +63,9 @@ perform refunds or connect directly to external OTAs.
 
 - Q: Who may finalize attendance for a session and correct it later? → A: A Staff member assigned to that session or a Manager may finalize attendance. Only a Manager may correct attendance after finalization, and the correction requires audit evidence.
 - Q: What happens when Manager cancels a session that already has valid tickets? → A: Manager marks the session `CANCELLATION_REQUESTED`, stops its operations and creates an audited handoff case. Feature 003.3 owns customer notification, manual reschedule, refund, QR replacement and capacity consequences.
-- Q: Which Staff may perform normal ticket check-in? → A: Only a Staff member assigned to that session or a Manager may perform normal check-in. Check-in override remains separately authorized and audited.
+- Q: Which Staff may perform normal ticket check-in? → A: An active Staff member whose `activeLocationIds` contains the session location, or any active Manager, may perform normal check-in. No session assignment or capability key is required.
 - Q: Which commitments constrain a capacity reduction? → A: Manager may not reduce capacity below the total of confirmed attendance tickets and unexpired payment capacity holds. An expired hold no longer constrains capacity.
-- Q: May check-in override move a ticket to a different session or branch? → A: No. Override is limited to verification exceptions for an unused valid ticket at its assigned session and branch. A change of session or branch is handled by feature 003.3.
+- Q: May check-in override move a ticket to a different session or location? → A: No. Override is limited to verification exceptions for an unused valid ticket at its assigned session and location. A change of session or location is handled by feature 003.3.
 ### Session 2026-10-23
 
 - Q: Which operational states does a session use? → A: The lifecycle is `DRAFT → PUBLISHED → SALES_PAUSED → IN_PROGRESS → ATTENDANCE_FINALIZED`; sales may resume from `SALES_PAUSED`, and `CANCELLATION_REQUESTED` is a pre-finalization cancellation branch.
@@ -43,7 +78,7 @@ perform refunds or connect directly to external OTAs.
 
 - Q: Which state follows `CANCELLATION_REQUESTED` after all affected customer cases are resolved? → A: Feature 003.3 reports completion only after all affected customers are resolved or have an audited Manager decision; the session then becomes terminal `CANCELLED` and cannot operate or check in again.
 - Q: Does V1 support check-in while Mland is offline? → A: No. V1 check-in is online only; it has no offline scan queue. Staff uses a backup connection or waits for recovery to preserve ticket reuse protection and audit consistency.
-- Q: Must a session have an assigned Staff member before publication? → A: No. Manager may publish without Staff assignment, but the system must not start onsite operation or allow check-in until it has an active assigned Staff member or a Manager recorded as operational lead.
+- Q: Must a session have an assigned Staff member before publication or start? → A: No. Check-in opens at `checkInOpensAt` while the session remains `PUBLISHED`; a scheduled-start job moves the eligible session to `IN_PROGRESS` at its scheduled start time. Active Staff in the session location or any active Manager may operate it without a session assignment or operational-lead record.
 
 ### Session 2026-10-24
 
@@ -51,37 +86,36 @@ perform refunds or connect directly to external OTAs.
 - Q: Who may reverse an erroneous check-in? → A: Only Manager may reverse a recorded check-in before or after attendance finalization. Before finalization, the ticket returns to not checked-in and may be scanned again. After finalization, Manager must select the correct final attendance (`CHECKED_IN` or `NO_SHOW`). The reversal requires a standardized reason code and preserves before/after audit evidence rather than deleting the original scan.
 - Q: What is shown when a ticket is scanned again after check-in? → A: The result states that the ticket is already checked in and shows its most recent check-in time only; it does not expose booking-contact data or the identity of the Staff member who scanned it.
 - Q: Does a ticket need a separate `COMPLETED` or `ATTENDED` status? → A: No. A ticket remains `CHECKED_IN` after attendance finalization; an unchecked ticket becomes `NO_SHOW`. Workshop closure is inferred from `CHECKED_IN` plus the corresponding final bill being `PAID`, while the session itself records `ATTENDANCE_FINALIZED`.
-- Q: Is attendance finalized automatically at the scheduled end time? → A: No. An assigned Staff member or Manager manually finalizes the entire session after it actually ends. Scheduled end time is informational only.
+- Q: Is attendance finalized automatically at the scheduled end time? → A: No. An authorized Staff member in the session location or any active Manager manually finalizes the entire session after it actually ends. Scheduled end time is informational only.
 
 ### Session 2026-10-24
 
 - Q: May a session return to `PUBLISHED` or `SALES_PAUSED` after it enters `IN_PROGRESS`? → A: No. `IN_PROGRESS` is one-way: it may transition only to `ATTENDANCE_FINALIZED` or, for an interruption before finalization, `CANCELLATION_REQUESTED`. It must never reopen sales.
-- Q: When may a session with no checked-in ticket be finalized? → A: The same as any session: only while it is `IN_PROGRESS`, after the assigned Staff member or Manager confirms it has actually ended. It may finish earlier or later than scheduled; finalization is not gated by `scheduled_end_at`, requires confirmation and audit, and marks every unchecked ticket `NO_SHOW`.
-- Q: Who may start onsite operation by moving a session to `IN_PROGRESS`? → A: An active Staff member assigned to that session or its recorded Manager operational lead may do so, with actor/time/previous-state audit. Configuration, sale-state management and cancellation remain Manager-only.
-- Q: May Manager change Staff assignment while a session is `IN_PROGRESS`? → A: Yes. Manager may add or remove assigned Staff for a handover, with audit and immediate update of normal check-in authority, but may not remove the final responsible operator unless a Manager operational lead remains active.
+- Q: When may a session with no checked-in ticket be finalized? → A: The same as any session: only while it is `IN_PROGRESS`, after an authorized Staff member in the location or any active Manager confirms it has actually ended. It may finish earlier or later than scheduled; finalization is not gated by `scheduled_end_at`, requires confirmation and audit, and marks every unchecked ticket `NO_SHOW`.
+- Q: Who may start onsite operation by moving a session to `IN_PROGRESS`? → A: A scheduler moves an eligible `PUBLISHED` session to `IN_PROGRESS` at `scheduledStartAt` and records a system audit event. An explicit state-transition command remains available to an active Staff in the session location or any active Manager for early start/recovery.
+- Q: May Manager change Staff roster records while a session is `IN_PROGRESS`? → A: Optional roster changes are informational/audited only and never change authorization; active Staff authority comes from role/status and location scope.
 - Q: Until when may Manager change `check_in_opens_at`? → A: Manager may configure it only while the session is `DRAFT`, `PUBLISHED` or `SALES_PAUSED`. It is locked once the session enters `IN_PROGRESS`.
 
 ### Session 2026-10-24
 
 - Q: What happens to `check_in_opens_at` when Manager changes a session's configured slot? → A: A default value becomes 60 minutes before the new slot start time. A Manager-set override remains unchanged, but the system must show its old check-in time and a warning before saving the slot change so Manager can keep it or adjust it; the acknowledgement is audited.
-- Q: How does a Manager become a session operational lead? → A: A Manager explicitly takes responsibility for the session. Each session has at most one Manager operational lead at a time; a Manager may hand it over to another Manager through an audited action. Only the recorded lead receives that session's onsite Manager authority.
-- Q: In which session states may Manager take or hand over operational lead responsibility? → A: In `DRAFT`, `PUBLISHED`, `SALES_PAUSED` and `IN_PROGRESS`. During `IN_PROGRESS`, a handover is atomic: the incoming Manager receives onsite authority at the same instant the outgoing Manager loses it, with no gap.
+- Q: Is there a session operational-lead role? → A: No. V1 gives every active Manager global Workshop Operations authority; no lead assignment or handover is required.
 - Q: How is a session cancelled when it has no confirmed ticket or unexpired payment hold? → A: Manager transitions it directly to terminal `CANCELLED` with audit. Only a session with either commitment enters `CANCELLATION_REQUESTED` and the feature-003.3 handoff.
 
 ### Session 2026-10-24
 
-- Q: Which tickets appear when Staff looks up a multi-session booking by `booking_code`? → A: Staff sees only tickets assigned to the session and branch they are operating; other tickets are not shown and cannot be checked in. Manager uses a separate audited management lookup to view the full ticket set when support requires it.
-- Q: Who may request ticket resend from the check-in flow? → A: Assigned Staff and the session's Manager operational lead may request resend only to the booking contact's existing delivery channel. Ticket delivery remains owned by feature 003.1; the request is rate-limited and audited.
-- Q: Who may override check-in after ticket resend fails? → A: Manager or Staff with `workshop.checkin.override` may override each unused ticket only for its assigned session and branch, using the standardized reason `TICKET_REDELIVERY_UNAVAILABLE`, a short note and audit linked to the failed resend outcome.
+- Q: Which tickets appear when Staff looks up a multi-session booking by `booking_code`? → A: Staff sees only tickets for the session and location they are operating; other tickets are not shown and cannot be checked in. Manager uses a separate audited management lookup to view the full ticket set when support requires it.
+- Q: Who may request ticket resend from the check-in flow? → A: Active Staff in the session location and any active Manager may request resend only to the booking contact's existing delivery channel. Ticket delivery remains owned by feature 003.1; the request is rate-limited and audited.
+- Q: Who may override check-in after ticket resend fails? → A: An active Staff whose location scope contains the session location or any active Manager may override each unused ticket only for its assigned session and location, using the standardized reason `TICKET_REDELIVERY_UNAVAILABLE`, a short note and audit linked to the failed resend outcome.
 - Q: When is ticket resend unavailable for override purposes? → A: When delivery reports an error, or the customer confirms they did not receive or cannot access the ticket after resend. No fixed waiting period applies; Staff records a short note and the system audits the reason and outcome.
-- Q: Which tickets are included when Staff requests resend from the check-in flow? → A: The system resends the full ticket set in the booking to the booking contact's existing delivery channel, including tickets for other sessions or branches. Staff check-in authority remains limited to the current session and branch.
+- Q: Which tickets are included when Staff requests resend from the check-in flow? → A: The system resends the full ticket set in the booking to the booking contact's existing delivery channel, including tickets for other sessions or locations. Staff check-in authority remains limited to the current session and location.
 
 ### Session 2026-10-24
 
 - Q: What resend limit applies from the check-in flow? → A: At most three resend requests per booking in 15 minutes. After the limit is reached, the system sends no further request; an authorized actor may use the documented override path if resend is unavailable.
 - Q: Which ticket states are included in a booking resend? → A: Only active, unused tickets. The system excludes tickets that are cancelled, revoked, refunded, `NO_SHOW` or already `CHECKED_IN`.
 - Q: In which session states may onsite staff request ticket resend? → A: `PUBLISHED`, `SALES_PAUSED` and `IN_PROGRESS`, regardless of `check_in_opens_at`. Resend is rejected in `CANCELLATION_REQUESTED`, `CANCELLED` and `ATTENDANCE_FINALIZED`.
-- Q: Which actors may override check-in for a session? → A: A Staff member must be actively assigned to that session and hold `workshop.checkin.override`; a Manager must be that session's recorded operational lead. Neither role may override a different session or branch.
+- Q: Which actors may override check-in for a session? → A: An active Staff member must have the session location in `activeLocationIds`; an active Manager has global authority. Neither role may override an invalid ticket or move it to a different session/location.
 - Q: What does Staff see when booking lookup has no eligible ticket for the current session and branch? → A: Only a generic no-eligible-ticket result. It does not reveal another ticket, session or branch; Manager uses the separate audited management lookup when support requires it.
 
 ### Session 2026-10-24
@@ -180,9 +214,13 @@ perform refunds or connect directly to external OTAs.
   sale state changes.
 - Q: In which lifecycle states must 003.2 start or continue making an
   OTA-observable snapshot available for a session? → A: It does not send
-  `DRAFT`. It sends or refreshes the snapshot for `PUBLISHED` and
-  `SALES_PAUSED`, and sends the closed state when the session enters
-  `CANCELLATION_REQUESTED` or `CANCELLED`.
+  `DRAFT`. It makes the snapshot available on `PUBLISHED` and publishes a
+  complete post-state whenever schedule, sellable availability, or sale state
+  changes. `SALES_PAUSED`, `IN_PROGRESS`, `ATTENDANCE_FINALIZED`,
+  `CANCELLATION_REQUESTED` and `CANCELLED` have their defined sale state;
+  `IN_PROGRESS` closes OTA sales. Scheduled start publishes that closure in the
+  same transaction. `ATTENDANCE_FINALIZED` is already closed and does not
+  advance the version unless another OTA-observable value changes.
 - Q: If one completed 003.2 local change changes several OTA-observable values
   of the same session, how does its source version increase? → A: It increases
   exactly once for the transaction's complete post-state. The snapshot at that
@@ -364,8 +402,8 @@ scope. The target implementation and all public contracts use `location` and
   Manager management lookup may return the full ticket set across sessions and
   branches, and is audited. Entering the exact `ticket_code` for its assigned
   session and branch is a normal fallback, not a check-in override.
-- Assigned Staff or the session's Manager operational lead may request that an
-  booking's full set of active, unused tickets be resent only to the booking
+- Active Staff whose location scope contains the session location or any active
+  Manager may request that a booking's full set of active, unused tickets be resent only to the booking
   contact's existing delivery channel. This may include tickets for other
   sessions or branches, but excludes tickets that are cancelled, revoked,
   refunded, `NO_SHOW` or already `CHECKED_IN`. Feature 003.1 owns ticket
@@ -396,7 +434,7 @@ scope. The target implementation and all public contracts use `location` and
   deadlines; it may return to `PUBLISHED`. A session becomes
   `IN_PROGRESS` when onsite operation starts and may not return to a sales state.
   From `IN_PROGRESS`, it may proceed only to `ATTENDANCE_FINALIZED` through a
-  manual whole-session action by assigned Staff or Manager after they confirm
+  manual whole-session action by an authorized Staff or Manager after they confirm
   that the session has actually ended, or to `CANCELLATION_REQUESTED` for an
   interruption before finalization. This action is available only while the
   session is `IN_PROGRESS`, may occur earlier or later than scheduled, and
@@ -406,27 +444,21 @@ scope. The target implementation and all public contracts use `location` and
   the feature-003.3 handoff rule; after that handling is complete, it becomes
   terminal `CANCELLED`. Without either commitment, Manager may cancel directly
   to terminal `CANCELLED` with audit.
-- A session may be `PUBLISHED` without an operational lead. Before it becomes
-  `IN_PROGRESS` or allows check-in, it needs an active Staff assignment or a
-  Manager recorded as its operational lead. A Manager becomes operational lead
-  only by explicitly taking responsibility for the session. There is at most one
-  such Manager at a time; a Manager-to-Manager handover is audited. Only the
-  recorded lead has onsite Manager authority for that session. The assignment
-  and handover are allowed in `DRAFT`, `PUBLISHED`, `SALES_PAUSED` and
-  `IN_PROGRESS`; an in-progress handover is atomic, with no gap in onsite
-  Manager authority.
-- A Manager's workshop-management authority is limited to branches assigned to
-  that Manager. Only a higher-privilege actor may manage every branch. Staff
-  authority remains limited to the individual sessions to which they are
-  explicitly assigned.
-- Account/personnel management owns creation, change and revocation of
-  Manager-to-branch assignments. This feature consumes those assignments only
-  to enforce workshop authority and does not provide an assignment-management
-  workflow.
+- A session may be `PUBLISHED` without any Staff roster or lead record. At
+  `checkInOpensAt`, check-in opens while it remains `PUBLISHED`; at scheduled
+  start, the scheduler moves it to `IN_PROGRESS`. Active Staff in the session
+  location or any active Manager may then operate it.
+ - An active Manager has global Workshop Operations authority across all
+   canonical locations and sessions. An active Staff member may operate only
+   sessions whose canonical location is in that actor's `activeLocationIds`.
+   Session assignment and operational-lead status are not authorization
+   prerequisites.
+ - Account Management owns the canonical role, active status and
+   `activeLocationIds` facts consumed through its public facade. Workshop
+   Operations does not create or mutate those account facts.
 - An inactive Staff member or Manager immediately loses all operational
-  authority, while assignment, lead and audit history are retained. A session
-  needs an active assigned Staff member or active operational lead before
-  starting or continuing normal onsite operation.
+  authority. Staff authorization remains location-scoped; Manager authorization
+  remains global. Optional roster and audit history may be retained.
 - V1 uses a system-controlled, fixed catalogue of audit reason codes. A code
   may require a supplementary short note or evidence reference; Managers do
   not create or alter the catalogue per branch. It includes
@@ -440,46 +472,40 @@ scope. The target implementation and all public contracts use `location` and
 | Story | Priority | Scenario group | Independent test |
 | --- | --- | --- | --- |
 | US1 | P1 | Manager configures branches, fixed slots and future sessions. | A scoped Manager creates non-overlapping slots, creates a future session and re-runs bulk generation without duplicate sessions. |
-| US2 | P1 | Manager assigns responsibility and starts onsite operation. | A published session cannot start without active assigned Staff or an operational lead; it can start once one is recorded. |
+| US2 | P1 | Scheduled start and role/location-scoped operation. | Check-in opens at `checkInOpensAt`; a published session auto-starts at its scheduled start time; Staff is limited by location and active Manager is global. |
 | US3 | P1 | Staff verifies and checks in one individual ticket. | Two concurrent scans of one valid QR create one attendance action; the later scan returns `ALREADY_CHECKED_IN` with the original `checkedInAt`. |
 | US4 | P2 | Staff recovers ticket access and handles authorized exceptions. | A resend returns only active unused tickets to the existing delivery channel and an override cannot cross session/branch. |
 | US5 | P2 | Authorized actor finalizes attendance and Manager handles cancellation/correction. | Finalization marks only unchecked active tickets `NO_SHOW`; cancellation with commitments creates a 003.3 handoff without settlement side effects. |
 
 ### Manager configures an operable session
 
-Manager creates or updates a session's branch, configured slot, capacity, sale state and
-eligible Staff. Capacity cannot be reduced below confirmed attendance tickets
+Manager creates or updates a session's location, configured slot, capacity and
+sale state. Capacity cannot be reduced below confirmed attendance tickets
 plus unexpired payment capacity holds. An expired hold no longer constrains
 capacity. Every operational configuration change is audited. The Manager may
 publish a draft, pause/resume sales and request cancellation before attendance
-finalization. Publication does not require a Staff assignment. An active
-assigned Staff member or the recorded Manager operational lead may start onsite
-operation; this records the actor, time and previous state. The Manager may
-directly change a session's slot or branch only when it has neither confirmed
-tickets nor unexpired payment capacity holds; otherwise the Manager must use
-the `CANCELLATION_REQUESTED` handoff. During `IN_PROGRESS`, Manager may change
-Staff assignment for a handover, but cannot leave the session without an active
-assigned Staff member or Manager operational lead; the assignment change and its
-immediate effect on check-in authority are audited.
+finalization. Publication does not require a Staff assignment. At
+`checkInOpensAt`, check-in becomes available while the session remains
+`PUBLISHED`. At the session's scheduled start time, a recoverable scheduler
+auto-starts the eligible published session and records a system audit event. An active Staff in the session
+location or any active Manager may issue an explicit early-start/recovery
+command. The Manager may directly change a session's slot or location only
+when it has neither confirmed tickets nor unexpired payment capacity holds;
+otherwise the Manager must use the `CANCELLATION_REQUESTED` handoff. During
+`IN_PROGRESS`, optional Staff roster changes are informational/audited only and
+do not grant or revoke authority.
 
-### Manager works within assigned branches
+### Manager works across canonical locations
 
-A Manager may create/configure slots and sessions, view management lookup data,
-and become operational lead only for a branch assigned to that Manager. A
-higher-privilege actor may perform these actions across all branches. Staff
-authority remains derived from explicit session assignment, not broad branch
-access.
-
-Manager-to-branch assignment itself is administered by the account/personnel
-feature. Workshop operations does not create, edit or revoke it.
+A Manager may create/configure slots and sessions and view management lookup
+data across every canonical location. Staff authority is derived from active
+role/status and direct location scope, not a session assignment.
 
 ### Account becomes inactive during operations
 
-When an assigned Staff member or operational-lead Manager becomes inactive,
-their authority is removed immediately and history remains auditable. If this
-leaves an in-progress session with no active responsible actor, normal
-check-in/finalization cannot continue until Manager or a higher-privilege actor
-assigns active Staff or establishes an active operational lead.
+When an actor becomes inactive, their authority is removed immediately and
+history remains auditable. Staff operations are denied outside active location
+scope; an active Manager remains globally authorized within Workshop Operations.
 
 ### Authorized actor records an operational exception
 
@@ -491,7 +517,7 @@ always requires a clear note or evidence reference.
 
 ### Manager creates future sessions
 
-Manager may create one session for a chosen branch, date and configured slot,
+Manager may create one session for a chosen location, date and configured slot,
 or bulk-create sessions for selected slots across a date range and chosen
 weekdays. The bulk action reports each created or skipped duplicate combination.
 It is a one-time generator: every resulting session has its own lifecycle and
@@ -501,9 +527,9 @@ booking before the session start. Manager may choose `DRAFT` or `PUBLISHED` as
 the initial state for the creation; `DRAFT` is the default. A created session
 must start no more than 90 days in the future.
 
-### Manager manages branch slots
+### Manager manages location slots
 
-Manager creates, changes or stops offering reusable fixed slots for a branch.
+Manager creates, changes or stops offering reusable fixed slots for a location.
 Slot configuration changes are audited and apply only when creating future
 sessions; they never alter or cancel an existing session. If a future session
 must be cancelled, Manager uses the audited session-cancellation flow.
@@ -513,26 +539,25 @@ Each slot has a default capacity, which a new session copies as its own capacity
 Slots begin and end on the same local calendar date; the initial daily slot
 configuration is `09:00–12:00`, `13:00–16:00` and `16:00–19:00`. The expected
 workshop activity duration is 2 hours 30 minutes, with 30 minutes contingency
-time in each slot. Slots for the same branch do not overlap. Capacity must be
+time in each slot. Slots for the same location do not overlap. Capacity must be
 at least one; Manager pauses sales rather than setting capacity to zero.
 
 ### Shop organizes groups within a session
 
-A session represents one branch's fixed time slot and has one shared booking
+A session represents one location's fixed time slot and has one shared booking
 capacity. After customers book, shop may divide its attendees into independent
 operating groups. Customers do not select a group when booking, and a group
 does not create a separate session or capacity pool. V1 does not store groups
 or their attendee/Staff assignments; a Staff member may operate multiple groups
 within the same session.
 
-### Manager takes or hands over operational responsibility
+### Optional Staff roster metadata
 
-A Manager may explicitly become the session's operational lead, or hand that
-responsibility to another Manager. A session has at most one Manager operational
-lead at a time. The system records the outgoing and incoming lead, actor, time
-and reason; only the recorded lead has the Manager's onsite authority for that
-session. During `IN_PROGRESS`, this handover is atomic: the incoming lead gains
-authority at the same instant the outgoing lead loses it.
+Managers may record an optional Staff roster for operational visibility and
+audit. The roster is not an authorization boundary: every active Staff member
+in the session location may operate the session, and every active Manager has
+global Workshop Operations authority. No operational-lead handover exists in
+the target V1 design.
 
 ### Manager cancels an operable session with customer commitments
 
@@ -552,8 +577,10 @@ feature-003.3 handoff.
 
 ### Staff checks in one attendee
 
-An assigned Staff member or the recorded Manager operational lead scans a valid QR for the correct
-session/branch at or after `check_in_opens_at`. The system records the ticket,
+An active Staff member whose location scope contains the session location, or
+any active Manager, scans a valid QR for the correct session/location at or
+after `check_in_opens_at`. The scheduler has already moved the session to
+`IN_PROGRESS`. The system records the ticket,
 Staff and time and prevents reuse. A manual ticket-code lookup produces the
 same ticket-specific outcome. The result shows only ticket code,
 session/branch, ticket status and check-in outcome. A first successful scan
@@ -572,8 +599,8 @@ a generic no-eligible-ticket result.
 
 ### Staff requests ticket resend for a customer
 
-If a customer cannot present QR or `ticket_code`, the assigned Staff member or
-Manager operational lead may request resend to the booking contact's existing
+If a customer cannot present QR or `ticket_code`, an active Staff member whose
+location scope contains the session location or any active Manager may request resend to the booking contact's existing
 delivery channel. The system applies the feature-003.1 delivery throttle and
 resends the booking's full set of active, unused tickets, including any ticket
 for another session or branch. It excludes tickets that are cancelled, revoked,
@@ -607,11 +634,10 @@ final attendance: `CHECKED_IN` or `NO_SHOW`.
 If the check-in device cannot reach Mland, it does not record a local scan or
 queue one for later. Staff uses a backup connection or waits for recovery.
 
-### Authorized Staff handles an exception
+### Authorized actor handles an exception
 
-An active Staff member assigned to the session and holding
-`workshop.checkin.override`, or that session's recorded Manager operational
-lead, selects a particular unused ticket for an exceptional case, selects a
+An active Staff member whose location scope contains the session location, or
+any active Manager, selects a particular unused ticket for an exceptional case, selects a
 standardized reason code and leaves the required audit evidence. The reason
 code may require a short note or an evidence reference. The ticket must still
 be valid for that session and branch; override cannot be used as a session or
@@ -622,10 +648,10 @@ fails, the same authorized actor may override each particular unused ticket
 with `TICKET_REDELIVERY_UNAVAILABLE`, a short note and audit linked to that
 resend outcome.
 
-### Staff finalizes attendance
+### Authorized actor finalizes attendance
 
-After the session actually ends, an assigned Staff member or the recorded
-Manager operational lead reviews attendance and finalizes the whole session in
+After the session actually ends, an active Staff member whose location scope
+contains the session location or any active Manager reviews attendance and finalizes the whole session in
 one action. Checked-in tickets remain
 `CHECKED_IN`; unchecked tickets become `NO_SHOW`. Only Manager may make a later
 correction, with before/after audit evidence.
@@ -773,9 +799,10 @@ correction, with before/after audit evidence.
   request MUST return the already-checked-in result with its recorded check-in
   time.
 - **FR-003**: The system MUST validate ticket state, entitlement to the current
-  session, and location before normal check-in and MUST permit it only to a Staff
-  member assigned to that session or the Manager recorded as that session's
-  operational lead.
+  session, and location before normal check-in and MUST permit it to an active
+  Staff member whose `activeLocationIds` contains the session location or any
+  active Manager. A session assignment and operational-lead record are not
+  authorization prerequisites.
 - **FR-003a**: The system MUST limit ticket lookup/check-in results to ticket
   code, session/location, ticket status and check-in outcome; booking lookup may
   show ticket used/unused status but MUST NOT expose the booking contact's full
@@ -795,8 +822,9 @@ correction, with before/after audit evidence.
   entitled sessions' location and scheduled start/end. It MUST NOT expose
   attendance, Staff/audit data, or personally identifiable information in that
   projection.
-- **FR-003c**: The system MUST allow only an assigned Staff member or the
-  session's Manager operational lead to request resend of a booking's full
+- **FR-003c**: The system MUST allow only an active Staff member whose
+  `activeLocationIds` contains the session location or any active Manager to
+  request resend of a booking's full
   set of active, unused tickets to the booking contact's existing delivery
   channel, including tickets for other sessions or locations. It MUST exclude
   tickets that are cancelled, revoked, refunded, `NO_SHOW` or already
@@ -807,10 +835,10 @@ correction, with before/after audit evidence.
   `PUBLISHED`, `SALES_PAUSED` or `IN_PROGRESS`, regardless of
   `check_in_opens_at`, and reject it in `CANCELLATION_REQUESTED`, `CANCELLED`
   or `ATTENDANCE_FINALIZED`.
-- **FR-004**: The system MUST require `workshop.checkin.override`, a reason and
-  audit record for exceptional check-in. An overriding Staff member MUST be
-  actively assigned to the session and hold this permission; an overriding
-  Manager MUST be the session's recorded operational lead. Entering an exact
+- **FR-004**: The system MUST require a reason and audit record for exceptional
+  check-in. An overriding Staff member MUST be active and have the session
+  location in `activeLocationIds`; an overriding Manager MUST be active and has
+  global Workshop Operations authority. Entering an exact
   `ticket_code` is a normal fallback and MUST NOT require this permission when
   ticket, session and location validation succeeds. After ticket resend fails, it
   MUST permit only those actors to override each particular unused ticket using
@@ -832,8 +860,9 @@ correction, with before/after audit evidence.
   warning before saving, allowing Manager to keep or adjust it; it MUST audit
   the Manager acknowledgement and resulting values.
 - **FR-006**: The system MUST allow authorized finalization to assign `NO_SHOW`
-  only to unchecked tickets of that session; finalization is allowed to the
-  assigned Staff member or the recorded Manager operational lead only, applies
+  only to unchecked tickets of that session; finalization is allowed to an
+  active Staff member whose `activeLocationIds` contains the session location
+  or any active Manager, applies
   to the whole session in one action, and MUST NOT occur automatically at the
   scheduled end time. It MUST be allowed only while the session is
   `IN_PROGRESS` after the actor confirms that the session has actually ended;
@@ -867,24 +896,21 @@ correction, with before/after audit evidence.
   cancellation. Once a session enters `IN_PROGRESS`, it MUST NOT return to
   `PUBLISHED` or `SALES_PAUSED`; before finalization it may move only to
   `ATTENDANCE_FINALIZED` or `CANCELLATION_REQUESTED`.
-- **FR-010b**: The system MAY publish a session without Staff assignment, but
-  MUST reject transition to `IN_PROGRESS` and normal check-in until the session
-  has an active assigned Staff member or a Manager recorded as operational lead.
-- **FR-010d**: The system MUST allow only an active Staff member assigned to
-  the session or its recorded Manager operational lead to transition that
-  session to `IN_PROGRESS`, and MUST audit the actor, timestamp and previous
-  state.
-- **FR-010e**: While a session is `IN_PROGRESS`, the system MUST allow only
-  Manager to add or remove its assigned Staff, immediately update normal
-  check-in authority and audit the change. It MUST reject removing the final
-  responsible operator unless an active Manager operational lead remains.
-- **FR-010f**: The system MUST allow a Manager to explicitly become a session's
-  operational lead or hand that responsibility to another Manager. It MUST keep
-  at most one operational lead per session, grant that onsite Manager authority
-  only to the recorded lead, and audit the outgoing/incoming lead, actor,
-  timestamp and reason. It MUST allow this only in `DRAFT`, `PUBLISHED`,
-  `SALES_PAUSED` and `IN_PROGRESS`; a handover in `IN_PROGRESS` MUST be atomic,
-  with no interval in which the session has no operational lead.
+ - **FR-010b**: The system MAY publish a session without Staff assignment.
+   At `checkInOpensAt`, the system MUST make check-in available while the
+   session remains `PUBLISHED`. At the session's scheduled start time, a
+   recoverable scheduler MUST transition an eligible `PUBLISHED` session to
+   `IN_PROGRESS` and record a system audit event. A manual transition remains
+   available only for explicit early start or recovery.
+- **FR-010d**: The scheduled transition MUST be idempotent and safe across
+  restart/retry. An explicit early-start/recovery command MUST be allowed to an
+  active Staff in the session location or any active Manager and MUST audit the
+  actor, timestamp and previous state.
+- **FR-010e**: Staff roster changes are optional operational metadata and MUST
+  not change authorization. Active Staff authority is determined by role,
+  status and location scope; active Manager authority is global.
+- **FR-010f**: The target V1 design MUST NOT create, require or expose a
+  session operational-lead role or handover operation.
 - **FR-010c**: The system MUST reject new bookings and capacity holds while a
   session is `SALES_PAUSED`, but MUST allow an unexpired hold created before
   the pause to complete payment until its existing deadline.
@@ -970,10 +996,15 @@ correction, with before/after audit evidence.
   including Staff assignment or audit evidence, MUST NOT increase that version
   or produce an OTA snapshot.
 - **FR-010s**: The feature MUST NOT make an OTA-observable snapshot available
-  for a `DRAFT` session. It MUST make or refresh the snapshot when a mapped
-  Basic Ring session is `PUBLISHED` or `SALES_PAUSED`, and MUST make the closed
-  sale-state snapshot available when it enters `CANCELLATION_REQUESTED` or
-  `CANCELLED`.
+  for a `DRAFT` session. It MUST make a snapshot available when a mapped Basic
+  Ring session is `PUBLISHED`, and publish the complete post-state whenever an
+  OTA-observable value changes. `IN_PROGRESS`, `ATTENDANCE_FINALIZED`,
+  `CANCELLATION_REQUESTED` and `CANCELLED` have closed OTA sale state. The
+  automatic `PUBLISHED` to `IN_PROGRESS` transition at `scheduledStartAt` MUST
+  persist the session transition, complete closed snapshot/version and
+  persistent Modulith publication in the same Operations transaction. An
+  `ATTENDANCE_FINALIZED` transition MUST NOT create another snapshot/version
+  when the observable post-state is already closed and otherwise unchanged.
 - **FR-010t**: A completed local transaction that changes one or more
   OTA-observable values of one session MUST increase that session's OTA source
   version exactly once. The snapshot at that version MUST represent the complete
@@ -1029,16 +1060,14 @@ correction, with before/after audit evidence.
 - **FR-011**: The system MUST reject a direct session slot or location change
   whenever confirmed tickets or unexpired payment capacity holds exist; Manager
   MUST use the audited `CANCELLATION_REQUESTED` handoff instead.
-- **FR-012**: The system MUST limit each Manager's workshop configuration,
-  session-management lookup and operational-lead authority to locations assigned
-  to that Manager. Only a higher-privilege actor MAY exercise those authorities
-  across all locations. Staff authority MUST remain limited to explicit session
-  assignment and any required permission.
+- **FR-012**: The system MUST grant an active Manager global Workshop Operations
+  authority across all locations and sessions. Staff authority MUST remain
+  limited to sessions whose location is in the Staff actor's active location
+  scope.
 - **FR-012a**: The system MUST revoke workshop operational authority immediately
-  when an assigned Staff member or operational-lead Manager becomes inactive,
-  while preserving historical assignment, lead and audit records. It MUST reject
-  start, normal check-in and finalization until the session has an active
-  assigned Staff member or active operational lead.
+  when the actor becomes inactive. It MUST reject Staff operations outside the
+  actor's location scope and MUST not depend on session assignment or an
+  operational-lead record.
 - **FR-012b**: The system MUST consume, but MUST NOT create, modify or revoke,
   Manager-to-location assignments. Account/personnel management owns that
   assignment lifecycle.

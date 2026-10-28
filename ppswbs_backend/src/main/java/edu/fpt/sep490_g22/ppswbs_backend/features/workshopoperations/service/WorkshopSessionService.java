@@ -36,6 +36,7 @@ public class WorkshopSessionService {
     private final AccountFacade accountFacade;
     private final OperationsAuditEventRepository auditEventRepository;
     private final CapacityHoldService capacityHoldService;
+    private final WorkshopOtaSnapshotService otaSnapshotService;
 
     @Transactional
     public SessionResponse createSession(String authHeader, SessionRequest request) {
@@ -174,6 +175,9 @@ public class WorkshopSessionService {
                                 .build();
 
                         WorkshopSession saved = sessionRepository.save(session);
+                        if (saved.getState() == SessionState.PUBLISHED) {
+                            otaSnapshotService.publishForObservableChange(saved, "SESSION_PUBLISHED", Instant.now());
+                        }
                         createdSessionIds.add(saved.getReference());
                     }
                 }
@@ -257,6 +261,9 @@ public class WorkshopSessionService {
         }
 
         WorkshopSession updated = sessionRepository.save(session);
+        if (updated.getState() != SessionState.DRAFT) {
+            otaSnapshotService.publishForObservableChange(updated, "SESSION_UPDATED", Instant.now());
+        }
         return toSessionResponse(updated);
     }
 

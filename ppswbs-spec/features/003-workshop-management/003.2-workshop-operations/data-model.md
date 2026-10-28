@@ -1,9 +1,20 @@
 # Data Model: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-28
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
+
+## Authorization and lifecycle rebase
+
+The target model does not persist capability grants or operational-lead
+records. Account role/status/active-location data remains owned by Account
+Management and is consumed read-only. Session Staff assignment records, if
+retained for roster/audit visibility, do not determine authorization. Manager
+authority is global while the account is active. `checkInOpensAt` is the
+independent check-in availability threshold; the scheduled start timestamp
+drives the later `PUBLISHED -> IN_PROGRESS` state transition. Neither event
+requires a new session ownership record.
 
 ## Ownership Map
 
@@ -86,14 +97,14 @@ Constraints:
 - no direct location/slot change once confirmed tickets or unexpired holds exist;
 - only `PUBLISHED` accepts new holds; state rules are in the specification.
 
-### SessionStaffAssignment and SessionOperationalLead
+### Optional SessionStaffRoster
 
-Assignments retain `session_id`, target Mland `account_id`, active interval,
-assigning actor and audit reference. A session has zero or more Staff
-assignments and at most one active Manager operational lead. `account_id` is
-the existing Account identity; there is no separate personnel identifier. The
-lead is a session-level role, not a global role grant. Inactive accounts
-immediately lose operational use without erasing their historical assignment.
+If retained, roster records contain `session_id`, target Mland `account_id`,
+active interval, assigning actor and audit reference for operational visibility
+only. They do not grant or revoke authorization. There is no
+`SessionOperationalLead` record in the target V1 model, no lead handover and no
+separate personnel identifier. Inactive accounts lose operational use through
+the Account facade status check without erasing historical roster/audit data.
 
 ### CapacityHold
 
@@ -195,6 +206,30 @@ guarantee.
 
 ### OTA-observable session projection
 
+#### Approved T053-T055 boundary
+
+Operations owns the durable `WorkshopSessionOtaSnapshot` projection and one
+monotonic `sourceVersion` sequence per session. Its allowed fields are
+`sessionReference`, `locationReference`, `scheduledStart`, `scheduledEnd`,
+`sellableAvailability`, `saleState`, `sourceVersion`, `changeReference` and
+`effectiveAt`. The persistent internal event is
+`WorkshopSessionOtaSnapshotChanged`, carrying the complete snapshot after the
+owning transaction commits. It contains no booking/payment, ticket,
+attendance, Staff, PII or OTA mapping data.
+
+The source-version row is updated transactionally with every completed change
+to an OTA-observable value. `(sessionReference, sourceVersion)` is unique and
+versions increase once per transaction even when schedule, availability and
+sale state change together. Internal-only changes do not advance the version.
+The Operations resync query returns one complete current snapshot at the
+existing version; it never creates a business change.
+
+003.4 is a consumer only: it deduplicates older/equal versions, requests the
+single-session resync on a gap or unknown ordering, and owns OTA mapping and
+provider delivery. Consumer or provider failure cannot mutate Operations
+capacity, sale state or direct booking. No broker or external OTA call is part
+of the Operations transaction.
+
 Operations makes conceptual, non-public schedule and availability/sale-state
 snapshots available to 003.4 after a completed local change alters
 OTA-observable data. They are not Operations entities, physical schema
@@ -210,11 +245,17 @@ unexpired direct-Mland holds. Each session has one monotonically increasing
 source-version sequence across both snapshot kinds. A completed transaction that
 changes one or more OTA-observable values advances it once and yields the full
 post-state; internal-only changes do not advance it or expose a snapshot. A
-`DRAFT` session exposes none. `PUBLISHED` and `SALES_PAUSED` sessions expose or
-refresh a snapshot; `CANCELLATION_REQUESTED` and `CANCELLED` expose closed sale
-state. Hold creation, release and expiry can change availability; pause/resume
-and cancellation/closure can change sale state. Hold-to-ticket commitment does
-not create a snapshot when the exposed post-state is unchanged.
+`DRAFT` session exposes none. `PUBLISHED` makes the snapshot available;
+`SALES_PAUSED` retains its distinct sale state. `IN_PROGRESS`,
+`ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` and `CANCELLED` expose closed
+sale state. The scheduled-start transition from `PUBLISHED` to `IN_PROGRESS`
+persists the session state, complete closed snapshot/version and Modulith event
+in the same Operations transaction. `ATTENDANCE_FINALIZED` does not create a
+second version when the snapshot is already closed and no other observable
+value changed. Hold creation, release and expiry can change availability;
+pause/resume, start and cancellation/closure can change sale state. Hold-to-
+ticket commitment does not create a snapshot when the exposed post-state is
+unchanged.
 
 The snapshot is carried to 003.4 by a persistent internal Spring Modulith event
 publication recorded in the same local Operations transaction as its source

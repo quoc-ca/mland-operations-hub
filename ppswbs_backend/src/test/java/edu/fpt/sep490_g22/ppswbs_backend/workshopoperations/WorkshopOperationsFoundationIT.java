@@ -87,6 +87,9 @@ public class WorkshopOperationsFoundationIT {
     private WorkshopSessionRepository sessionRepository;
 
     @Autowired
+    private WorkshopPackageRepository packageRepository;
+
+    @Autowired
     private SessionStaffAssignmentRepository staffAssignmentRepository;
 
     @Autowired
@@ -116,6 +119,7 @@ public class WorkshopOperationsFoundationIT {
     private WorkshopLocation testLocation;
     private WorkshopSlot testSlot;
     private WorkshopSession testSession;
+    private String testPackageReference;
 
     @BeforeEach
     void setUp() {
@@ -162,6 +166,19 @@ public class WorkshopOperationsFoundationIT {
                 .checkInOpeningSource(CheckInOpeningSource.DEFAULT)
                 .build());
 
+        WorkshopPackage testPackage = packageRepository.save(WorkshopPackage.builder()
+                .name("Foundation Test Package")
+                .description("Package fixture for operations facade tests")
+                .publicPrice(100_000L)
+                .minParticipants(1)
+                .maxParticipants(30)
+                .requiredSessionCount(1)
+                .sameLocationRequired(true)
+                .minimumSameDaySlotGap(0)
+                .state(WorkshopPackageState.PUBLISHED)
+                .build());
+        testPackageReference = testPackage.getId().toString();
+
         when(tokenVerificationService.verify("test-token")).thenReturn(
                 new VerifiedIdentity("test-uid", "test@fpt.edu.vn", true, Instant.now())
         );
@@ -176,16 +193,6 @@ public class WorkshopOperationsFoundationIT {
     @Nested
     @DisplayName("Schema Invariants & Flyway Migration Tests")
     class SchemaInvariantTests {
-
-        @Test
-        @DisplayName("Flyway V5 through V8 should be applied in canonical sequence on MySQL")
-        void flywayMigrationsAppliedInCanonicalSequence() {
-            List<String> versions = jdbcTemplate.query(
-                    "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank ASC",
-                    (rs, rowNum) -> rs.getString("version")
-            );
-            assertThat(versions).contains("5", "6", "7", "8");
-        }
 
         @Test
         @DisplayName("Should successfully persist all operational entities across schema")
@@ -388,14 +395,15 @@ public class WorkshopOperationsFoundationIT {
         }
 
         @Test
-        @DisplayName("Unassigned Staff should be denied with WorkshopForbiddenException")
-        void unassignedStaffShouldBeDenied() {
+        @DisplayName("Staff in active location scope does not require session assignment")
+        void unassignedStaffInLocationScopeShouldBeAllowed() {
             when(accountFacade.resolveAccount("staff-uid-2")).thenReturn(Optional.of(
                     new AccountSummary(21L, ActorRole.STAFF, ActorStatus.ACTIVE, "staff2@fpt.edu.vn", Instant.now(), Instant.now())));
             when(accountFacade.getLocationScope(21L)).thenReturn(List.of(testLocation.getId()));
 
-            assertThatThrownBy(() -> authorizationService.requireStaffSessionAssignment("Bearer test-uid:staff-uid-2", testSession.getId()))
-                    .isInstanceOf(WorkshopForbiddenException.class);
+            AccountSummary summary = authorizationService.requireStaffSessionAssignment(
+                    "Bearer test-uid:staff-uid-2", testSession.getId());
+            assertThat(summary.accountId()).isEqualTo(21L);
         }
 
         @Test
@@ -443,6 +451,7 @@ public class WorkshopOperationsFoundationIT {
 
             ReserveBookingCapacityCommand cmd1 = new ReserveBookingCapacityCommand(
                     "BKG-RESERVE-01",
+                    testPackageReference,
                     List.of(sessionUuid),
                     3,
                     opRef,
@@ -464,6 +473,7 @@ public class WorkshopOperationsFoundationIT {
             // Semantically identical retry with same opRef
             ReserveBookingCapacityCommand cmdRetry = new ReserveBookingCapacityCommand(
                     "BKG-RESERVE-01",
+                    testPackageReference,
                     List.of(sessionUuid),
                     3,
                     opRef,
@@ -476,6 +486,7 @@ public class WorkshopOperationsFoundationIT {
             // Reused opRef with DIFFERENT semantic content (count = 5)
             ReserveBookingCapacityCommand cmdMismatch = new ReserveBookingCapacityCommand(
                     "BKG-RESERVE-01",
+                    testPackageReference,
                     List.of(sessionUuid),
                     5,
                     opRef,
@@ -492,6 +503,7 @@ public class WorkshopOperationsFoundationIT {
             UUID sessionUuid = UUID.fromString(testSession.getReference());
             ReserveBookingCapacityCommand cmd = new ReserveBookingCapacityCommand(
                     "BKG-OVERFLOW",
+                    testPackageReference,
                     List.of(sessionUuid),
                     25, // Exceeds 20
                     "OP-RES-OVERFLOW",

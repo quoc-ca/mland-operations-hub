@@ -35,6 +35,7 @@ public class WorkshopLifecycleService {
     private final WorkshopSessionRepository sessionRepository;
     private final WorkshopResponsibilityService responsibilityService;
     private final OperationsAuditEventRepository auditEventRepository;
+    private final WorkshopOtaSnapshotService otaSnapshotService;
 
     @Transactional
     public SessionResponse transitionState(String authHeader, String correlationId, String sessionReference, StateTransitionRequest request) {
@@ -91,6 +92,15 @@ public class WorkshopLifecycleService {
         // 5. Update session state
         session.setState(targetState);
         sessionRepository.save(session);
+
+        if (targetState == SessionState.PUBLISHED
+                || targetState == SessionState.SALES_PAUSED
+                || targetState == SessionState.IN_PROGRESS
+                || targetState == SessionState.ATTENDANCE_FINALIZED
+                || targetState == SessionState.CANCELLATION_REQUESTED
+                || targetState == SessionState.CANCELLED) {
+            otaSnapshotService.publishForObservableChange(session, UUID.randomUUID().toString(), java.time.Instant.now());
+        }
 
         // 6. Record immutable audit event
         String effectiveCorrelationId = (correlationId != null && !correlationId.isBlank()) ? correlationId : UUID.randomUUID().toString();

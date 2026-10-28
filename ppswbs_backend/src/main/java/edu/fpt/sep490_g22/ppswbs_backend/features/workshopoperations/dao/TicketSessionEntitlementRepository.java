@@ -25,6 +25,10 @@ public interface TicketSessionEntitlementRepository extends JpaRepository<Ticket
 
     List<TicketSessionEntitlement> findByTicketId(Long ticketId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.ticket.id = :ticketId")
+    List<TicketSessionEntitlement> findByTicketIdWithLock(@Param("ticketId") Long ticketId);
+
     @Query("SELECT COUNT(tse) FROM TicketSessionEntitlement tse WHERE tse.session.id = :sessionId AND tse.ticket.validityState = 'ACTIVE'")
     int countActiveConfirmedSeatsForSession(@Param("sessionId") Long sessionId);
 

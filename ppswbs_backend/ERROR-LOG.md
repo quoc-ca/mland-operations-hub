@@ -1406,3 +1406,139 @@ tiếp theo và schema boundary tối thiểu cho:
 
 Sau khi sequence và schema được duyệt, có thể triển khai T045 rebase cùng
 Settlement consumer mà không tạo dependency cycle.
+
+## BE-DESIGN-0019 - OTA session projection/resync boundary chưa đủ để triển khai T053-T055
+
+- **Recorded at:** 2026-10-29T00:40:00+07:00
+- **Reporter:** Hồ Hoàng Quốc / Codex
+- **Feature / task:** 003.2 Workshop Operations, T053-T055
+- **Status:** BLOCKED
+
+**Observed gap.** Các artifact 003.2 mô tả OTA-observable schedule và
+availability/sale-state projection ở mức design concept, nhưng chưa công bố
+đủ producer/consumer contract để viết implementation an toàn. Chưa có
+canonical snapshot/event type, tên event và payload field bắt buộc; chưa có
+persistence owner/schema cho per-session monotonic source version; chưa có
+query/facade boundary cho authoritative one-session resync; và chưa chỉ rõ
+transaction hook cho state change, hold create/release/expiry và hold-to-ticket
+commit.
+
+**Evidence.** Đã đọc `spec.md`, `plan.md`, `data-model.md`, `quickstart.md`,
+OpenAPI và shared `workshop-interfeature-facades.md`. Source hiện tại không có
+OTA snapshot/resync implementation hoặc public/internal contract tương ứng.
+Các tài liệu chỉ nêu at-least-once, deduplicate/gap recovery và snapshot
+semantics ở mức nguyên tắc; chưa đủ tên type, schema, version invariant và
+consumer boundary để bind vào Spring Modulith/MySQL.
+
+**Why implementation stops.** Tự chọn event payload, bảng/cột source version,
+hoặc resync endpoint/facade sẽ bịa public/shared contract, có thể tạo migration
+collision và làm sai ownership giữa 003.2 và 003.4. Audit event, in-memory
+event hoặc JSON metadata không thay thế được persistent source-version và
+resync boundary. Vì vậy chưa tạo code, migration hay test scaffold cho
+T053-T055.
+
+**Required owner decision.** Owner 003.4 và tech lead/shared-contract owner
+phải chốt trước khi tiếp tục:
+
+1. Canonical snapshot/event types, event names, required fields và opaque
+   identity/correlation semantics.
+2. Module sở hữu persistence source version, unique/monotonic invariant,
+   migration sequence và transaction boundary.
+3. Cách tích hợp các thay đổi schedule/state/hold/expiry/ticket commit để mỗi
+   transaction phát một full post-state ở đúng version.
+4. Public/internal resync query/facade, duplicate/older/gap handling và
+   003.4 consumer boundary.
+5. Phạm vi eligibility projection (Basic Ring hay mọi package/sale state).
+
+T053-T055 chỉ được triển khai sau khi các quyết định trên được ghi vào shared
+contract/design; không được tick task hoặc báo MySQL evidence trước thời điểm
+đó.
+
+**Resolution update - 2026-10-29T00:55:00+07:00.** Tech lead Feature 003
+chốt boundary nội bộ cho T053-T055 và đã ghi vào 003.2 plan/data-model/
+quickstart cùng shared `workshop-interfeature-facades.md`: 003.2 sở hữu
+`WorkshopSessionOtaSnapshot`, unified per-session `sourceVersion`, persistent
+`WorkshopSessionOtaSnapshotChanged` publication và one-session authoritative
+resync; 003.4 chỉ consume, deduplicate newer versions, request resync on gap
+và sở hữu OTA mapping/provider delivery. Payload không chứa booking/payment,
+ticket, attendance, Staff, PII hoặc OTA mapping; không dùng broker và không
+external OTA call trong Operations transaction. BE-DESIGN-0019 được gỡ ở mức
+design readiness; T053-T055 vẫn chưa nghiệm thu cho tới khi code, migration và
+MySQL/Modulith evidence pass.
+
+**Implementation update - 2026-10-29T00:45:00+07:00.** Sau khi design được
+chốt, đã tạo vertical slice ban đầu cho T053-T054: entity/repository snapshot,
+facade resync, internal event publication, lifecycle hook và append-only
+`V19__workshop_session_ota_snapshots.sql`. `mvn -DskipTests compile` đạt
+BUILD SUCCESS. T055 và nghiệm thu đầy đủ T053-T054 vẫn đang mở; chưa tick task,
+chưa có MySQL OTA integration evidence và chưa commit/push.
+
+## BE-DESIGN-0020 - OTA sale-state eligibility is inconsistent for lifecycle transitions
+
+- **Recorded at:** 2026-10-29T01:42:48+07:00
+- **Reporter:** Codex implementation agent
+- **Feature / task:** 003.2 Workshop Operations, T053-T055
+- **Status:** BLOCKED
+
+**Observed gap.** The approved 003.2 artifacts do not state consistently which
+lifecycle transitions change the OTA sale-state snapshot. `spec.md` clarification
+for lifecycle eligibility says snapshots are sent/refreshed for `PUBLISHED` and
+`SALES_PAUSED`, and a closed state is sent when entering `CANCELLATION_REQUESTED`
+or `CANCELLED` (OTA snapshot clarifications, lines 210-214). Another clarification
+says sale-state notifications are emitted when a completed change alters the
+exposed sale-state snapshot (lines 179-185). The current T053 implementation maps
+`IN_PROGRESS` and `ATTENDANCE_FINALIZED` to `CLOSED`; `WorkshopLifecycleService`
+publishes snapshots for those transitions, while `WorkshopSessionStartScheduler`
+changes `PUBLISHED` to `IN_PROGRESS` without publishing a snapshot.
+
+**Evidence.** Inspected `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/spec.md`;
+`ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/WorkshopOtaSnapshotService.java`;
+`WorkshopLifecycleService.java`; and `WorkshopSessionStartScheduler.java`. A default-profile
+Maven run compiled main/test sources and passed `ModulithArchitectureTests` 5/5,
+but all five MySQL-only OTA tests were skipped on H2. A MySQL-configured rerun did
+not obtain a connection (`Access denied for user 'root'@'localhost' (using
+password: NO)`) and failed before Flyway initialization; no database migration or
+test data change occurred. `git diff --check` reported no whitespace errors.
+
+**Why implementation stops.** Choosing whether `IN_PROGRESS` and
+`ATTENDANCE_FINALIZED` close OTA sales, whether their transitions publish, and
+whether automatic start must publish would change observable cross-feature
+behavior. Continuing would guess at the 003.2-to-003.4 contract and could leave
+the persisted snapshot stale at scheduled start.
+
+**Required owner decision.** Feature 003 owner must specify the exact states that
+are OTA-sellable versus closed, including the behavior on `PUBLISHED` to
+`IN_PROGRESS` (manual and automatic start) and `ATTENDANCE_FINALIZED`, and confirm
+whether each transition emits a full snapshot/version. Then update the 003.2
+spec/design contract before implementation resumes.
+
+**Work state at stop.** No backend source, test, or migration file was edited in
+this continuation. The 003.2 and 003.4 task documents were updated to remove the
+T011/T055 dependency cycle; these edits are preserved. No task marker was changed;
+T053-T055 remain unchecked. No commit or push was performed.
+
+**Resolution update (2026-10-29).** The Feature 003 owner approved that
+`IN_PROGRESS` and `ATTENDANCE_FINALIZED` close OTA sales. A scheduled
+`PUBLISHED` to `IN_PROGRESS` transition must publish the complete closed
+post-state snapshot in the same Operations transaction. `ATTENDANCE_FINALIZED`
+does not create a second snapshot/version when the already-closed observable
+state is otherwise unchanged. The 003.2 spec/design and shared inter-feature
+contract were updated; implementation now deduplicates unchanged observable
+snapshots, groups multi-hold release/expiry publication once per affected
+session, and wires automatic start to snapshot publication. T053-T055 remain
+unchecked pending the required MySQL/Flyway verification and acceptance tests.
+The design ambiguity is resolved; implementation verification remains open.
+
+**Verification update (2026-10-29).** After rebasing the reserve test fixtures
+to provide a published package reference, the targeted Operations/package/OTA
+and settlement-facade regression command completed successfully against the
+existing local MySQL 8.0 database `ppswbs_v18_fresh_20261028`. Flyway validated
+all 18 migrations and reported schema version 21 current. Surefire reports show
+102 tests passed with zero failures/errors across `ModulithArchitectureTests`,
+`WorkshopLifecycleIT`, all `WorkshopOperationsFoundationIT` nested suites,
+`WorkshopOperationsMySQLIT`, `WorkshopOperationsOpenApiIT`, package service,
+contract, facade, persistence and integration tests, `WorkshopOtaSnapshotIT`,
+and `SettlementChangeFacadeIT`. T053/T054 and the local producer-side OTA
+scenarios are verified; T055 remains unchecked because consumer-dependent
+replay/gap/failure-isolation acceptance still belongs after 003.4 implements
+its consumer. No 003.4 consumer behavior is claimed as tested here.

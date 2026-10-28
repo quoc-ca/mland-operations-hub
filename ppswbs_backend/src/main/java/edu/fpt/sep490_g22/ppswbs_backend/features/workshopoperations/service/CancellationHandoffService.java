@@ -53,6 +53,7 @@ public class CancellationHandoffService {
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final CancellationHandoffOutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
+    private final WorkshopOtaSnapshotService otaSnapshotService;
 
     /**
      * Cancellation operation result representing HTTP 200 vs 202 semantics.
@@ -170,6 +171,7 @@ public class CancellationHandoffService {
             // Path 1: Direct cancellation (HTTP 200) - No commitments exist
             session.setState(SessionState.CANCELLED);
             sessionRepository.save(session);
+            otaSnapshotService.publishForObservableChange(session, "CANCELLED", now);
 
             recordAudit(
                     session.getId(),
@@ -194,6 +196,7 @@ public class CancellationHandoffService {
         session.setState(SessionState.CANCELLATION_REQUESTED);
         session.setCancellationHandoffReference(cancellationCaseReference);
         sessionRepository.save(session);
+        otaSnapshotService.publishForObservableChange(session, "CANCELLATION_REQUESTED", now);
 
         // Record persistent CancellationHandoff entity
         CancellationHandoff handoff = CancellationHandoff.builder()
