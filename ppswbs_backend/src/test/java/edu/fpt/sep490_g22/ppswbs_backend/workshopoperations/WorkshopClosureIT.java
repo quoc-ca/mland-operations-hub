@@ -13,6 +13,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.Veri
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.AttendanceActionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.AttendanceTicketRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.CancellationHandoffRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.CancellationHandoffOutboxRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.CapacityHoldRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionOperationalLeadRepository;
@@ -127,6 +128,9 @@ public class WorkshopClosureIT {
     private CancellationHandoffRepository cancellationHandoffRepository;
 
     @Autowired
+    private CancellationHandoffOutboxRepository cancellationHandoffOutboxRepository;
+
+    @Autowired
     private CancellationHandoffService cancellationHandoffService;
 
     @MockBean
@@ -158,6 +162,7 @@ public class WorkshopClosureIT {
         jdbcTemplate.execute("TRUNCATE TABLE session_operational_leads");
         jdbcTemplate.execute("TRUNCATE TABLE session_staff_assignments");
         jdbcTemplate.execute("TRUNCATE TABLE cancellation_handoffs");
+        jdbcTemplate.execute("TRUNCATE TABLE workshop_cancellation_outbox");
         jdbcTemplate.execute("TRUNCATE TABLE operations_audit_events");
         jdbcTemplate.execute("TRUNCATE TABLE workshop_sessions");
         jdbcTemplate.execute("TRUNCATE TABLE workshop_slots");
@@ -703,12 +708,12 @@ public class WorkshopClosureIT {
     }
 
     // =========================================================================
-    // 9. Settlement rejection handling
+    // 9. Durable asynchronous handoff acceptance
     // =========================================================================
 
     @Test
-    @DisplayName("T047-12: Settlement facade rejection triggers 409 Conflict")
-    void testSessionCancellation_WhenSettlementFacadeRejects_Returns409Conflict() throws Exception {
+    @DisplayName("T047-12: Settlement handoff is accepted locally and queued durably")
+    void testSessionCancellation_WhenSettlementIsUnavailable_Returns202AndQueuesOutbox() throws Exception {
         WorkshopSession session = createSession(SessionState.PUBLISHED);
 
         AttendanceTicket ticket = ticketRepository.save(AttendanceTicket.builder()
@@ -726,11 +731,6 @@ public class WorkshopClosureIT {
                 .attendanceState(AttendanceState.NOT_CHECKED_IN)
                 .build());
 
-        when(settlementFacade.openCancellationHandoff(
-                org.mockito.ArgumentMatchers.any()))
-                .thenReturn(CancellationHandoffOutcome.rejected(
-                        "Settlement batch locked in 003.3", "corr-t047-12"));
-
         SessionCancellationRequest request = SessionCancellationRequest.builder()
                 .reasonCode("FACILITY_ISSUE")
                 .reasonNote("Power outage")
@@ -741,8 +741,11 @@ public class WorkshopClosureIT {
                         .header("X-Correlation-Id", "corr-t047-12")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("INVALID_STATE"));
+                .andExpect(status().isAccepted());
+
+        assertThat(cancellationHandoffOutboxRepository.findTop50ByPublishedAtIsNullOrderByIdAsc())
+                .anyMatch(event -> "corr-t047-12".equals(event.getCorrelationReference())
+                        && event.getSessionReference().equals(session.getReference()));
     }
 
     // =========================================================================

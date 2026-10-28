@@ -1,5 +1,14 @@
 # Error Log: ppswbs_backend
 
+## Resolution note: BE-DESIGN-0018 (2026-10-28)
+
+Owner 003 approved the next non-colliding Flyway version
+`V18__workshop_cancellation_outbox.sql`. Operations now persists the
+cancellation handoff payload in the Operations-owned outbox in the same
+transaction as `CANCELLATION_REQUESTED`; a scheduled publisher emits the
+event and Settlement consumes it through its public facade using the original
+operation/correlation references for idempotent processing.
+
 ## Record BE-DESIGN-0001
 
 - **ID**: `BE-DESIGN-0001`
@@ -1338,3 +1347,62 @@ Modulith and MySQL migration evidence. BE-DESIGN-0016 is resolved for the
 producer-boundary precondition. T045 itself remains pending until 003.2 replaces
 its temporary `SettlementHandoffPort` with this public facade and passes its
 closure integration suite.
+
+## BE-DESIGN-0017 - Settlement adapter làm phát sinh vòng phụ thuộc Modulith
+
+- **Recorded at:** 2026-10-28T23:20:00+07:00
+- **Reporter:** Hồ Hoàng Quốc / Codex
+- **Feature / task:** 003.3 Workshop Settlement, T003-T004
+
+**Observed gap.** Khi thêm adapter để Settlement tiêu thụ `WorkshopBookingFacade`
+và `WorkshopOperationsFacade`, Spring Modulith phát hiện cycle:
+
+```text
+workshopbooking -> workshopoperations -> workshopsettlement -> workshopoperations
+```
+
+Trong đó `CancellationHandoffService` của Operations phải gọi public
+`WorkshopSettlementFacade` cho T045, còn T003 yêu cầu Settlement gọi public
+`WorkshopOperationsFacade` cho readiness/replacement/refund outcomes.
+
+**Evidence.** `ModulithArchitectureTests` đạt 5/5 trước khi thêm adapter, nhưng
+thất bại với `Cycle detected` ngay sau khi thêm adapter Settlement. Hai adapter
+đã được gỡ bỏ; không giữ code workaround hoặc tắt kiểm tra kiến trúc.
+
+**Required design decision.** Owner/tech lead phải chốt một boundary không tạo
+dependency vòng, ví dụ event/outbox handoff một chiều hoặc neutral application
+port được phép theo shared contract. Không được tự ý cho phép cycle, import
+entity/repository xuyên module, hoặc đổi shared facade contract chỉ để test pass.
+
+**Current status.** T003-T004 của 003.3 chưa nghiệm thu. T045 cancellation
+handoff vẫn dùng public Settlement facade và các test closure của 003.2 vẫn pass.
+
+## BE-DESIGN-0018 - Event/outbox cancellation handoff chưa có migration sequence
+
+- **Recorded at:** 2026-10-28T23:35:00+07:00
+- **Reporter:** Hồ Hoàng Quốc / Codex
+- **Feature / task:** 003.2 T045, 003.3 T002-T004
+
+**Decision recorded.** Owner 003 chọn Hướng A: cancellation handoff phải được
+chấp nhận local trong Operations, phát durable outbox event sau commit, rồi để
+Settlement consume và mở case bất đồng bộ với idempotent retry.
+
+**Blocking fact.** Hướng này cần bảng outbox/event và consumer-delivery state
+được persistence bằng append-only Flyway migration. Repository hiện đã dùng V17
+cho cancellation-handoff slice; chưa có migration version tiếp theo được
+tech lead chốt cho outbox/event schema.
+
+**Why implementation stops.** Không được dùng Spring in-memory event, audit
+table hoặc JSON metadata thay cho durable outbox. Không được tự đặt version mới,
+vì có thể tạo collision với migrations của feature khác.
+
+**Required owner decision.** Tech lead phải chốt canonical migration sequence
+tiếp theo và schema boundary tối thiểu cho:
+
+- outbox event `CancellationHandoffRequested`;
+- idempotent Settlement consumer claim/completion;
+- retry/recovery và correlation/operation references;
+- publish-after-commit invariant.
+
+Sau khi sequence và schema được duyệt, có thể triển khai T045 rebase cùng
+Settlement consumer mà không tạo dependency cycle.

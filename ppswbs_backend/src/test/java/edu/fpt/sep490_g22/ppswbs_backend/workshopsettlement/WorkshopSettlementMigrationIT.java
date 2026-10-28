@@ -26,7 +26,7 @@ class WorkshopSettlementMigrationIT {
     }
 
     @Test
-    void v17SettlementHandoffTablesAreApplied() {
+    void v17SettlementAndV18OperationsOutboxAreApplied() {
         Integer cases = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'settlement_cancellation_cases'",
                 Integer.class);
@@ -36,8 +36,16 @@ class WorkshopSettlementMigrationIT {
         Integer migration = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '17' AND success = 1",
                 Integer.class);
+        Integer outbox = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'workshop_cancellation_outbox'",
+                Integer.class);
+        Integer outboxMigration = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '18' AND success = 1",
+                Integer.class);
         assertThat(cases).isEqualTo(1);
         assertThat(idempotency).isEqualTo(1);
         assertThat(migration).isEqualTo(1);
+        assertThat(outbox).isEqualTo(1);
+        assertThat(outboxMigration).isEqualTo(1);
     }
 }
