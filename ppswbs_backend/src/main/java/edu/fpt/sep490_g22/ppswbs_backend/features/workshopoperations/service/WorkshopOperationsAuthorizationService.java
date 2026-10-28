@@ -116,13 +116,14 @@ public class WorkshopOperationsAuthorizationService {
 
         Long locationId = session.getLocation().getId();
 
-        if (isStaff(account)) {
-            boolean assigned = staffAssignmentRepository.existsBySessionIdAndAccountIdAndActiveTrue(sessionId, account.accountId());
-            if (!assigned) {
-                log.warn("Staff assignment check failed for accountId={}, sessionId={}", account.accountId(), sessionId);
-                throw new WorkshopForbiddenException("Staff member is not assigned to session ID " + sessionId);
-            }
+        // Workshop Operations V1 does not require a per-session roster assignment.
+        // Active Manager/Admin actors are global; Staff are authorized by active
+        // account status plus direct membership in the session location scope.
+        if (isGlobalWorkshopActor(account)) {
+            return account;
+        }
 
+        if (isStaff(account)) {
             List<Long> locationScope = accountFacade.getLocationScope(account.accountId());
             if (locationScope == null || !locationScope.contains(locationId)) {
                 log.warn("Staff location scope check failed for accountId={}, locationId={}, allowedScope={}",
@@ -133,25 +134,9 @@ public class WorkshopOperationsAuthorizationService {
             return account;
         }
 
-        if (isManager(account)) {
-            boolean isLead = operationalLeadRepository.existsBySessionIdAndManagerAccountIdAndActiveTrue(sessionId, account.accountId());
-            if (!isLead) {
-                log.warn("Manager lead check failed for accountId={}, sessionId={}", account.accountId(), sessionId);
-                throw new WorkshopForbiddenException("Manager is not the recorded operational lead for session ID " + sessionId);
-            }
-
-            List<Long> locationScope = accountFacade.getLocationScope(account.accountId());
-            if (locationScope == null || !locationScope.contains(locationId)) {
-                log.warn("Manager operational lead location scope check failed for accountId={}, locationId={}", account.accountId(), locationId);
-                throw new WorkshopLocationScopeException("Location ID " + locationId + " is outside Manager location scope");
-            }
-
-            return account;
-        }
-
-        log.warn("Access denied for accountId={}, role={}: neither assigned Staff nor Manager operational lead",
+        log.warn("Access denied for accountId={}, role={}: not an active Staff or global Manager/Admin",
             account.accountId(), account.role());
-        throw new WorkshopForbiddenException("Access denied: Actor is not assigned Staff or operational lead");
+        throw new WorkshopForbiddenException("Access denied: Actor is not authorized for this workshop session");
     }
 
     public AccountSummary requireManagerOrAssignedStaff(String authHeader, Long sessionId, Long locationId) {
