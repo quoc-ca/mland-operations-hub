@@ -11,6 +11,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.Wor
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopTicketConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopUnauthorizedException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopValidationException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopRateLimitException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -78,6 +79,13 @@ public class WorkshopOperationsExceptionHandler {
             WorkshopValidationException ex, HttpServletRequest request) {
         String correlationId = resolveCorrelationId(request);
         return buildResponse(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Validation Error", ex.getMessage(), correlationId);
+    }
+
+    @ExceptionHandler(WorkshopRateLimitException.class)
+    public ResponseEntity<ProblemDetailResponse> handleRateLimit(
+            WorkshopRateLimitException ex, HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        return buildResponse(HttpStatus.TOO_MANY_REQUESTS, "REDELIVERY_THROTTLED", "Ticket Redelivery Throttled", ex.getMessage(), correlationId);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

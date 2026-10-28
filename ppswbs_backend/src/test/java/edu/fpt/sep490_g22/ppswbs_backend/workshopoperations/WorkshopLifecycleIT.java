@@ -67,11 +67,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * T025: Real MySQL Integration Tests for Workshop Session Lifecycle and Responsibility.
  * Verifies:
- * 1. Manager location scope enforcement (in-scope allowed, out-of-scope denied);
+ * 1. Active Manager global Workshop Operations authority;
  * 2. Inactive actor rejected;
  * 3. Target account validation (not found, wrong role, not ACTIVE, outside location scope);
  * 4. Publish without Staff succeeds;
- * 5. Start (IN_PROGRESS) denied without active responsible operator and succeeds once assigned;
+ * 5. Check-in opening before scheduled start and scheduled PUBLISHED -> IN_PROGRESS transition;
  * 6. SALES_PAUSED blocks new holds but preserves active unexpired holds;
  * 7. Atomic operational lead handover;
  * 8. In-progress staff removal invariant;
@@ -123,6 +123,9 @@ public class WorkshopLifecycleIT {
 
     @Autowired
     private WorkshopOperationsFacade operationsFacade;
+
+    @Autowired
+    private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopSessionStartScheduler sessionStartScheduler;
 
     private static final String MGR_A_TOKEN = "Bearer test-uid:mgr-a";
     private static final String MGR_B_TOKEN = "Bearer test-uid:mgr-b";
@@ -237,26 +240,16 @@ public class WorkshopLifecycleIT {
     // =========================================================================
 
     @Test
-    @DisplayName("T025-1: Manager in location scope allowed, Manager outside location scope denied")
-    void shouldEnforceManagerLocationScope() throws Exception {
+    @DisplayName("T025-1: Active Manager has global Workshop Operations authority")
+    void shouldAllowActiveManagerGlobally() throws Exception {
         StateTransitionRequest publishReq = StateTransitionRequest.builder()
                 .targetState(SessionState.PUBLISHED)
                 .build();
 
-        // Manager B (locationB) tries to publish sessionA (locationA) -> 403 LOCATION_SCOPE_DENIED
+        // Manager B may operate a session outside its historical location list.
         mockMvc.perform(post("/api/v1/workshop-sessions/" + sessionA.getReference() + "/state-transitions")
                         .header("Authorization", MGR_B_TOKEN)
                         .header("X-Correlation-Id", "corr-scope-denied")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(publishReq)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("LOCATION_SCOPE_DENIED"))
-                .andExpect(jsonPath("$.status").value(403));
-
-        // Manager A (locationA) publishes sessionA -> 200 OK
-        mockMvc.perform(post("/api/v1/workshop-sessions/" + sessionA.getReference() + "/state-transitions")
-                        .header("Authorization", MGR_A_TOKEN)
-                        .header("X-Correlation-Id", "corr-scope-allowed")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(publishReq)))
                 .andExpect(status().isOk())
@@ -374,11 +367,11 @@ public class WorkshopLifecycleIT {
     }
 
     // =========================================================================
-    // 5. Start Rejected Without Responsibility, Succeeds Once Assigned
+    // 5. Start Allowed For Staff In Location Without Assignment
     // =========================================================================
 
     @Test
-    @DisplayName("T025-5: Start (IN_PROGRESS) denied when no responsible operator, succeeds after assignment")
+    @DisplayName("T025-5: Staff in session location may start without assignment")
     void shouldEnforceResponsibilityOnStart() throws Exception {
         // Set session to PUBLISHED
         sessionA.setState(SessionState.PUBLISHED);
@@ -392,22 +385,7 @@ public class WorkshopLifecycleIT {
         when(accountFacade.getTargetAccount(101L)).thenReturn(Optional.of(
                 new TargetAccountSnapshot(101L, ActorRole.STAFF, ActorStatus.ACTIVE, List.of(locationA.getId()))));
 
-        // 5a. Staff A not yet assigned to session -> 403 Forbidden
-        mockMvc.perform(post("/api/v1/workshop-sessions/" + sessionA.getReference() + "/state-transitions")
-                        .header("Authorization", STAFF_A_TOKEN)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(startReq)))
-                .andExpect(status().isForbidden());
-
-        // 5b. Manager A assigns Staff A
-        StaffAssignmentRequest assignReq = StaffAssignmentRequest.builder().accountId(101L).build();
-        mockMvc.perform(put("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
-                        .header("Authorization", MGR_A_TOKEN)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(assignReq)))
-                .andExpect(status().isOk());
-
-        // 5c. Now Staff A starts session -> 200 OK, IN_PROGRESS
+        // Staff A is in the session location and does not need a session assignment.
         mockMvc.perform(post("/api/v1/workshop-sessions/" + sessionA.getReference() + "/state-transitions")
                         .header("Authorization", STAFF_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -422,6 +400,30 @@ public class WorkshopLifecycleIT {
     // =========================================================================
     // 6. SALES_PAUSED Blocks New Holds, Preserves Existing Unexpired Holds
     // =========================================================================
+
+    @Test
+    @DisplayName("T025-6a: Check-in opens before scheduled start, scheduler starts at scheduled time")
+    void shouldSeparateCheckInOpeningFromScheduledStart() {
+        Instant now = Instant.now();
+        sessionA.setState(SessionState.PUBLISHED);
+        sessionA.setCheckInOpensAt(now.minusSeconds(60));
+        sessionA.setScheduledStartAt(now.plusSeconds(60));
+        sessionRepository.saveAndFlush(sessionA);
+
+        sessionStartScheduler.transitionDueSessions();
+        WorkshopSession beforeStart = sessionRepository.findByReference(sessionA.getReference()).orElseThrow();
+        assertThat(beforeStart.getState()).isEqualTo(SessionState.PUBLISHED);
+        assertThat(beforeStart.getCheckInOpensAt()).isBefore(now);
+
+        beforeStart.setScheduledStartAt(now.minusSeconds(1));
+        sessionRepository.saveAndFlush(beforeStart);
+        sessionStartScheduler.transitionDueSessions();
+
+        WorkshopSession afterStart = sessionRepository.findByReference(sessionA.getReference()).orElseThrow();
+        assertThat(afterStart.getState()).isEqualTo(SessionState.IN_PROGRESS);
+        assertThat(auditEventRepository.findBySessionIdOrderByOccurredAtDesc(afterStart.getId()))
+                .anyMatch(event -> "SESSION_AUTO_STARTED".equals(event.getAction()));
+    }
 
     @Test
     @DisplayName("T025-6: SALES_PAUSED blocks new hold creation while preserving and committing existing unexpired holds")

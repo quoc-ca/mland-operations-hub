@@ -483,7 +483,7 @@ public class CheckInIT {
     // =========================================================================
 
     @Test
-    @DisplayName("T033-5: Inactive, unassigned, or out-of-scope actor is rejected with 401/403")
+    @DisplayName("T033-5: Inactive or out-of-scope actor is rejected with 401/403")
     void unauthorizedOrInactiveActor_rejectedWithForbiddenOrUnauthorized() throws Exception {
         WorkshopSession session = createPublishedSession(locationA, slotMorning, null);
         String bookingRef = "BK-AUTH-" + UUID.randomUUID().toString().substring(0, 8);
@@ -501,13 +501,13 @@ public class CheckInIT {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isUnauthorized());
 
-        // 2. Unassigned staff member -> 403 FORBIDDEN
+        // 2. Staff in the session location may check in without a session assignment.
         mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/check-ins", session.getReference())
                         .header("Authorization", STAFF_UNASSIGNED_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.checkInResult").value("CHECKED_IN"));
 
         // 3. Staff outside location scope -> 403 LOCATION_SCOPE_DENIED
         staffAssignmentRepository.save(SessionStaffAssignment.builder()

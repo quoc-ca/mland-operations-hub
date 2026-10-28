@@ -7,10 +7,13 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Actor
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.CancellationHandoffOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.AttendanceActionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.AttendanceTicketRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.CancellationHandoffRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.CancellationHandoffOutboxRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.CapacityHoldRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionOperationalLeadRepository;
@@ -125,10 +128,13 @@ public class WorkshopClosureIT {
     private CancellationHandoffRepository cancellationHandoffRepository;
 
     @Autowired
+    private CancellationHandoffOutboxRepository cancellationHandoffOutboxRepository;
+
+    @Autowired
     private CancellationHandoffService cancellationHandoffService;
 
     @MockBean
-    private CancellationHandoffService.SettlementHandoffPort settlementHandoffPort;
+    private WorkshopSettlementFacade settlementFacade;
 
     @MockBean
     private AccountFacade accountFacade;
@@ -156,6 +162,7 @@ public class WorkshopClosureIT {
         jdbcTemplate.execute("TRUNCATE TABLE session_operational_leads");
         jdbcTemplate.execute("TRUNCATE TABLE session_staff_assignments");
         jdbcTemplate.execute("TRUNCATE TABLE cancellation_handoffs");
+        jdbcTemplate.execute("TRUNCATE TABLE workshop_cancellation_outbox");
         jdbcTemplate.execute("TRUNCATE TABLE operations_audit_events");
         jdbcTemplate.execute("TRUNCATE TABLE workshop_sessions");
         jdbcTemplate.execute("TRUNCATE TABLE workshop_slots");
@@ -216,6 +223,9 @@ public class WorkshopClosureIT {
                 new VerifiedIdentity("mgr-b", "mgrb@mland.vn", true, Instant.now()));
         when(tokenVerificationService.verify("test-uid:staff-a")).thenReturn(
                 new VerifiedIdentity("staff-a", "staffa@mland.vn", true, Instant.now()));
+
+        when(settlementFacade.openCancellationHandoff(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(CancellationHandoffOutcome.accepted("SETTLE-TEST", "corr-test"));
     }
 
     private WorkshopSession createSession(SessionState state) {
@@ -419,7 +429,7 @@ public class WorkshopClosureIT {
     // =========================================================================
 
     @Test
-    @DisplayName("T047-6: Staff actor and out-of-scope Manager denied from check-in reversal and correction (403 Forbidden)")
+    @DisplayName("T047-6: Staff denied while Manager authority is global")
     void testManagerOnlyAuthorization_ReversalAndCorrection() throws Exception {
         WorkshopSession inProgressSession = createSession(SessionState.IN_PROGRESS);
         WorkshopSession finalizedSession = createSession(SessionState.ATTENDANCE_FINALIZED);
@@ -453,21 +463,21 @@ public class WorkshopClosureIT {
                         .content(objectMapper.writeValueAsString(corrRequest)))
                 .andExpect(status().isForbidden());
 
-        // 3. Manager out-of-scope denied reversal (403 Forbidden)
+        // 3. Manager B is globally authorized; missing ticket is evaluated after authorization.
         mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/check-in-reversals", inProgressSession.getReference())
                         .header("Authorization", MGR_OUT_OF_SCOPE_TOKEN)
                         .header("X-Correlation-Id", "corr-t047-6c")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(revRequest)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
 
-        // 4. Manager out-of-scope denied correction (403 Forbidden)
+        // 4. Manager B is globally authorized; missing ticket is evaluated after authorization.
         mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/attendance-corrections", finalizedSession.getReference())
                         .header("Authorization", MGR_OUT_OF_SCOPE_TOKEN)
                         .header("X-Correlation-Id", "corr-t047-6d")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(corrRequest)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     // =========================================================================
@@ -698,12 +708,12 @@ public class WorkshopClosureIT {
     }
 
     // =========================================================================
-    // 9. Settlement rejection handling
+    // 9. Durable asynchronous handoff acceptance
     // =========================================================================
 
     @Test
-    @DisplayName("T047-12: Settlement facade rejection triggers 409 Conflict")
-    void testSessionCancellation_WhenSettlementFacadeRejects_Returns409Conflict() throws Exception {
+    @DisplayName("T047-12: Settlement handoff is accepted locally and queued durably")
+    void testSessionCancellation_WhenSettlementIsUnavailable_Returns202AndQueuesOutbox() throws Exception {
         WorkshopSession session = createSession(SessionState.PUBLISHED);
 
         AttendanceTicket ticket = ticketRepository.save(AttendanceTicket.builder()
@@ -721,15 +731,6 @@ public class WorkshopClosureIT {
                 .attendanceState(AttendanceState.NOT_CHECKED_IN)
                 .build());
 
-        when(settlementHandoffPort.openCancellationHandoff(
-                org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyList(),
-                org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString()))
-                .thenReturn(CancellationHandoffService.SettlementHandoffOutcome.rejected(
-                        "Settlement batch locked in 003.3"));
-
         SessionCancellationRequest request = SessionCancellationRequest.builder()
                 .reasonCode("FACILITY_ISSUE")
                 .reasonNote("Power outage")
@@ -740,8 +741,11 @@ public class WorkshopClosureIT {
                         .header("X-Correlation-Id", "corr-t047-12")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("INVALID_STATE"));
+                .andExpect(status().isAccepted());
+
+        assertThat(cancellationHandoffOutboxRepository.findTop50ByPublishedAtIsNullOrderByIdAsc())
+                .anyMatch(event -> "corr-t047-12".equals(event.getCorrelationReference())
+                        && event.getSessionReference().equals(session.getReference()));
     }
 
     // =========================================================================

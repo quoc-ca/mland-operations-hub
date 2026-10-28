@@ -8,6 +8,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.Problem
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.ReasonedRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.StandardizedReasonCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.TicketResendRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RequestBookingTicketRedeliveryCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketRedeliveryOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -37,6 +40,9 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * T035: Contract verification test for Workshop Operations User Story 4
@@ -65,6 +71,9 @@ public class TicketRecoveryContractIT {
 
     @MockBean
     private AccountFacade accountFacade;
+
+    @MockBean
+    private WorkshopBookingFacade workshopBookingFacade;
 
     private static Map<String, Object> openApiSpec;
     private static Validator validator;
@@ -439,29 +448,54 @@ public class TicketRecoveryContractIT {
     // =========================================================================
 
     @Test
-    @DisplayName("T035-9: Phase boundary proof - T036–T040 services and endpoints are NOT implemented prematurely")
-    void verifyPhaseBoundaryNotPrematurelyImplemented() {
-        // TicketResendService (T037) must NOT be a registered bean
+    @DisplayName("T036-T039: recovery services and REST handlers are registered")
+    void verifyPhaseBoundaryNotPrematurelyImplemented() throws NoSuchMethodException {
+        // T037 is now implemented; later override/REST/integration work remains gated.
         assertThat(applicationContext.containsBean("ticketResendService"))
-                .as("TicketResendService must not be registered before T037")
-                .isFalse();
+                .as("TicketResendService must be registered after T037 implementation")
+                .isTrue();
 
-        // CheckInOverrideService (T038) must NOT be a registered bean
+        // T038 is implemented; the override path is now a separate service.
         assertThat(applicationContext.containsBean("checkInOverrideService"))
-                .as("CheckInOverrideService must not be registered before T038")
-                .isFalse();
+                .as("CheckInOverrideService must be registered after T038 implementation")
+                .isTrue();
 
-        // WorkshopBookingFacade (003.1 cross-feature facade) must NOT be a registered bean
-        assertThat(applicationContext.containsBean("workshopBookingFacade"))
-                .as("WorkshopBookingFacade from 003.1 must not exist in this phase")
-                .isFalse();
+        // T036 consumes the already-published 003.1 facade.
+        Map<String, WorkshopBookingFacade> bookingFacades = applicationContext.getBeansOfType(WorkshopBookingFacade.class);
+        assertThat(bookingFacades)
+                .as("WorkshopBookingFacade must be published for T036")
+                .isNotEmpty();
+        assertThat(WorkshopBookingFacade.class.getMethod(
+                "requestBookingTicketRedelivery", RequestBookingTicketRedeliveryCommand.class))
+                .as("T036 redelivery boundary must be available through WorkshopBookingFacade")
+                .isNotNull();
 
-        // WorkshopCheckInController (T039) must not have resend or override endpoint handler methods
+        // T039 exposes both recovery handlers without exposing recipient data.
         Method[] controllerMethods = WorkshopCheckInController.class.getDeclaredMethods();
         List<String> methodNames = Arrays.stream(controllerMethods).map(Method::getName).toList();
         assertThat(methodNames)
-                .as("WorkshopCheckInController must not implement resend or override methods before T039")
-                .noneMatch(name -> name.toLowerCase().contains("resend"))
-                .noneMatch(name -> name.toLowerCase().contains("override"));
+                .as("WorkshopCheckInController must expose T039 recovery handlers")
+                .contains("requestTicketResend", "overrideCheckIn");
+    }
+
+    @Test
+    @DisplayName("T036: redelivery request uses only opaque active-unused ticket references")
+    void verifyT036BookingRedeliveryBoundary() {
+        RequestBookingTicketRedeliveryCommand command = new RequestBookingTicketRedeliveryCommand(
+                "BKG-OPAQUE-001",
+                List.of("TICKET-REF-001", "TICKET-REF-002"),
+                "OP-RED-001",
+                "CORR-RED-001"
+        );
+        when(workshopBookingFacade.requestBookingTicketRedelivery(command))
+                .thenReturn(TicketRedeliveryOutcome.accepted());
+
+        TicketRedeliveryOutcome outcome = workshopBookingFacade.requestBookingTicketRedelivery(command);
+
+        assertThat(outcome.status().name()).isEqualTo("ACCEPTED");
+        assertThat(command.bookingReference()).isEqualTo("BKG-OPAQUE-001");
+        assertThat(command.activeUnusedTicketReferences())
+                .containsExactly("TICKET-REF-001", "TICKET-REF-002");
+        verify(workshopBookingFacade).requestBookingTicketRedelivery(command);
     }
 }

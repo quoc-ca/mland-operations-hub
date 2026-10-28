@@ -1,5 +1,8 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SessionCancellationRequest;
@@ -10,7 +13,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,8 +33,8 @@ import java.util.*;
  *     Transitions directly to terminal CANCELLED and returns HTTP 200 representation.
  *   - If session has confirmed tickets OR active unexpired holds (commitments exist):
  *     Stops normal operation/check-in, transitions state to CANCELLATION_REQUESTED,
- *     records CancellationHandoff, dispatches to WorkshopSettlementFacade boundary,
- *     and returns semantic 202 (handoff created).
+ *     records CancellationHandoff, persists a durable outbox event for the
+ *     Settlement consumer, and returns semantic 202 (accepted locally).
  * - Enforces idempotency: duplicate requests return previous outcome without duplicate handoffs or audits.
  * - Leaves customer remedies, notification, reschedule, final-bill change, and refund to 003.3.
  * - Preserves immutable OperationsAuditEvent and maintains tracing correlation reference.
@@ -49,41 +51,8 @@ public class CancellationHandoffService {
     private final OperationsAuditEventRepository auditEventRepository;
     private final SessionOperationalLeadRepository operationalLeadRepository;
     private final WorkshopOperationsAuthorizationService authorizationService;
-
-    @Autowired(required = false)
-    private SettlementHandoffPort settlementHandoffPort;
-
-    /**
-     * Functional port contract for WorkshopSettlementFacade handoff boundary.
-     * Matches the approved inter-feature facade specification in workshop-interfeature-facades.md.
-     */
-    @FunctionalInterface
-    public interface SettlementHandoffPort {
-        SettlementHandoffOutcome openCancellationHandoff(
-                String sessionReference,
-                List<String> affectedBookingReferences,
-                String cancellationReasonReference,
-                String operationReference,
-                String correlationReference
-        );
-    }
-
-    /**
-     * Typed result from the settlement handoff boundary.
-     */
-    public record SettlementHandoffOutcome(
-            boolean accepted,
-            String cancellationCaseReference,
-            String rejectionReason
-    ) {
-        public static SettlementHandoffOutcome accepted(String caseRef) {
-            return new SettlementHandoffOutcome(true, caseRef, null);
-        }
-
-        public static SettlementHandoffOutcome rejected(String reason) {
-            return new SettlementHandoffOutcome(false, null, reason);
-        }
-    }
+    private final CancellationHandoffOutboxRepository outboxRepository;
+    private final ObjectMapper objectMapper;
 
     /**
      * Cancellation operation result representing HTTP 200 vs 202 semantics.
@@ -239,11 +208,12 @@ public class CancellationHandoffService {
                 .build();
         cancellationHandoffRepository.save(handoff);
 
-        // Invoke WorkshopSettlementFacade handoff boundary
+        // Persist the handoff durably in the same transaction. Settlement consumes
+        // this event asynchronously; the Operations response is accepted locally.
         String cancellationReasonRef = request.getReasonCode().trim()
                 + (request.getReasonNote() != null && !request.getReasonNote().isBlank() ? ": " + request.getReasonNote() : "");
 
-        dispatchSettlementHandoff(
+        enqueueSettlementHandoff(
                 session.getReference(),
                 affectedBookingReferences,
                 cancellationReasonRef,
@@ -269,30 +239,27 @@ public class CancellationHandoffService {
         return CancellationResult.handoffCreated(session.getReference(), cancellationCaseReference, affectedBookingReferences, toSessionResponse(session));
     }
 
-    private void dispatchSettlementHandoff(
+    private void enqueueSettlementHandoff(
             String sessionReference,
             List<String> affectedBookings,
             String cancellationReasonRef,
             String operationReference,
             String correlationReference,
-            String defaultCaseRef
+            String cancellationCaseReference
     ) {
-        if (settlementHandoffPort != null) {
-            SettlementHandoffOutcome outcome = settlementHandoffPort.openCancellationHandoff(
-                    sessionReference,
-                    affectedBookings,
-                    cancellationReasonRef,
-                    operationReference,
-                    correlationReference
-            );
-            if (outcome != null && !outcome.accepted()) {
-                log.warn("WorkshopSettlementFacade rejected cancellation handoff for session {}: {}",
-                        sessionReference, outcome.rejectionReason());
-                throw new WorkshopLifecycleException("Workshop settlement handoff rejected: " + outcome.rejectionReason());
-            }
-        } else {
-            log.info("WorkshopSettlementFacade port is not wired in current context; handoff record {} safely persisted in Operations",
-                    defaultCaseRef);
+        try {
+            outboxRepository.save(CancellationHandoffOutboxEvent.builder()
+                    .eventReference("CANCEL-HANDOFF-" + UUID.randomUUID())
+                    .sessionReference(sessionReference)
+                    .affectedBookingReferencesJson(objectMapper.writeValueAsString(affectedBookings))
+                    .cancellationReasonReference(cancellationReasonRef)
+                    .operationReference(operationReference)
+                    .correlationReference(correlationReference)
+                    .cancellationCaseReference(cancellationCaseReference)
+                    .createdAt(Instant.now())
+                    .build());
+        } catch (JsonProcessingException ex) {
+            throw new WorkshopLifecycleException("Cancellation handoff payload could not be persisted");
         }
     }
 

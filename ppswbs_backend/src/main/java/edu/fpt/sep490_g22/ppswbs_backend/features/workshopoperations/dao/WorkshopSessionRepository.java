@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -32,4 +33,6 @@ public interface WorkshopSessionRepository extends JpaRepository<WorkshopSession
     List<WorkshopSession> findByLocationIdAndWorkshopDateBetween(Long locationId, LocalDate from, LocalDate to);
 
     List<WorkshopSession> findByLocationIdAndState(Long locationId, SessionState state);
+
+    List<WorkshopSession> findByStateAndScheduledStartAtLessThanEqual(SessionState state, Instant cutoff);
 }
