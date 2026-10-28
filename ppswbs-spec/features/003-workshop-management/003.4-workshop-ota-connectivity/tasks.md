@@ -1,7 +1,7 @@
 # Tasks: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -42,7 +42,7 @@
 - [ ] T008 [P] Verify 003.1/003.2/003.3 facade compatibility and opaque identifier conversion against the upstream-facade section of `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity-contract.md`, then define the OTA public facade and adapter-neutral boundary types in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/{facade,adapter}/`; stop and report an upstream gap rather than access another feature's entity, repository, or service.
 - [ ] T009 Implement server-side canonical account fact, location-scope and OTA action-rule authorization plus safe typed/correlation-linked error mapping in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaAuthorizationService.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/api/OtaExceptionHandler.java`.
 - [ ] T010 [P] Implement redacted integration audit logging and safe correlation generation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/integration/OtaAuditCorrelationService.java`; exclude credentials, access tokens, signing secrets, raw sensitive bodies, payment cards, and avoidable customer data.
-- [ ] T011 **DEPENDS ON 003.2 T053–T055**: Consume the persistent internal Spring Modulith OTA-observable publication from 003.2 in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/integration/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaSyncDeliveryService.java`; accept at-least-once replay idempotently, materialize one durable outbound change before any provider call, retain append-only delivery attempts, move only the affected mapping to sales-closed with reconciliation after retry exhaustion, and use no broker or provider call inside the Operations transaction.
+- [ ] T011 **DEPENDS ON 003.2 T053–T054**: Consume the persistent internal Spring Modulith OTA-observable publication from 003.2 in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/integration/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaSyncDeliveryService.java`; accept at-least-once replay idempotently, materialize one durable outbound change before any provider call, retain append-only delivery attempts, move only the affected mapping to sales-closed with reconciliation after retry exhaustion, and use no broker or provider call inside the Operations transaction. T055 consumer-failure/replay/gap acceptance is verified after this consumer exists and is not a prerequisite for implementing T011.
 - [ ] T012 Implement authenticated inbound-event receipt, provider-scoped deduplication, safe payload fingerprinting, and replay outcome storage in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/integration/OtaInboundEventService.java`.
 - [ ] T013 Add module-boundary verification in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/OtaConnectivityModuleTest.java` and verify that other features can access OTA only through `facade/` boundary types.
 - [ ] T014 [P] Add empty-database and supported-upgrade migration coverage for the append-only OTA migration selected after Flyway history inspection in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/persistence/OtaConnectivityMigrationIT.java`.
@@ -183,7 +183,7 @@
 ### Phase dependencies
 
 - **Phase 1** can start immediately. T004 is a hard gate for a real provider's booking enablement, but it does not block simulator-backed preparation synchronization.
-- **Phase 2** depends on T001 and blocks all story implementation. T008 must verify the upstream facade contract before any booking, cancellation consequence, or direct-bill integration. T011 follows 003.2 T053–T055, which implement the already-approved persistent internal Spring Modulith publication.
+- **Phase 2** depends on T001 and blocks all story implementation. T008 must verify the upstream facade contract before any booking, cancellation consequence, or direct-bill integration. T011 follows 003.2 T053–T054, which provide the already-approved persistent internal Spring Modulith publication and resync boundary; 003.2 T055 consumer-side acceptance runs after T011/T018 implement the consumer and is not a gate for starting T011.
 - **US2 (Phase 3)** depends on Phase 2 and is the dependency for US1 because it establishes mapping/readiness/sales-closed behavior.
 - **US1 (Phase 4)** depends on Phase 2, US2 lifecycle/readiness work, and T004 for the specific provider that will accept bookings.
 - **US3 (Phase 5)** depends on US1 channel-booking/event correlation.
@@ -198,7 +198,7 @@
 ## Parallel opportunities
 
 - T002, T003, and T005 can run in parallel after T001.
-- T007, T008, T009, and T010 can run in parallel after T006's migration design is agreed; T011/T012 then consume that foundation, with T011 following 003.2 T053–T055.
+- T007, T008, T009, and T010 can run in parallel after T006's migration design is agreed; T011/T012 then consume that foundation, with T011 following 003.2 T053–T054. Complete the consumer-dependent portion of 003.2 T055 after T011/T018.
 - Within US2, T016–T018 and T019 can run in parallel; T020–T025 follow the lifecycle boundary.
 - Within US1, T026–T029 can run in parallel; T030–T033 follow readiness/persistence work.
 - US3, US4, and US5 can be staffed in parallel after their stated prerequisites, with ownership coordination for shared controller/dto files.
