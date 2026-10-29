@@ -1200,8 +1200,11 @@
           },
           "sessionIds": {
             "type": "array",
+            "description": "Workshop session references (workshop_sessions.reference, lowercase canonical UUID). Every session of a booking must be covered.",
             "items": {
-              "$ref": "#/components/schemas/PositiveId"
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
             },
             "minItems": 1,
             "uniqueItems": true

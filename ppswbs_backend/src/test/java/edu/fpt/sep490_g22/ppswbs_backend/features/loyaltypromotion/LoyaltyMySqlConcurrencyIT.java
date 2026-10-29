@@ -35,6 +35,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Target
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetScope;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TrustedSourceContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopSessionFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.DiscountTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.PolicyTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyPolicyService;
@@ -148,7 +149,8 @@ class LoyaltyMySqlConcurrencyIT {
 
     private static TrustedSourceContext booking(long memberId) {
         return new TrustedSourceContext(SourceKind.WORKSHOP, memberId, Instant.now(), List.of(),
-                new WorkshopFact(8_100L, 2L, DAY, 3L, 1, n(1_000_000)), BigInteger.ZERO);
+                WorkshopFact.singleSession(8_100L, 1, n(1_000_000),
+                        WorkshopSessionFact.of("00000000-0000-4000-8000-000000000003", 2L, DAY)), BigInteger.ZERO);
     }
 
     private static AcceptedSourceContext accept(TrustedSourceContext context, String sourceRef, String digest) {

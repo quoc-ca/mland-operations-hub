@@ -345,3 +345,27 @@ T063 — hai kịch bản trước đây ghi là còn thiếu:
 T074 — xem `quickstart.md` mục 6: không có đường xóa dữ liệu hay job tự dọn/tự hết hạn trong loyalty (ArchUnit), khóa ngoại RESTRICT, mã không tái sử dụng, khóa chống trùng, dữ liệu audit tối thiểu; phân trang 1.000 dòng lịch sử 509 ms qua `idx_loyalty_ledger_member`.
 
 **Chưa tick T063, T074:** T063 còn phần phân xử phía nguồn FE-03/FE-08; T074 theo tasks.md phụ thuộc T073 (chờ T071/T072). Chưa có dashboard/cảnh báo vận hành và người phụ trách vận hành chưa được chỉ định.
+
+## 22. Workshop nhiều phiên, session UUID và hướng dẫn tích hợp 003.1 (T059/T060, Cách 2), 2026-10-29
+
+Quyết định: owner 003.1 (Hồ Hoàng Quốc) chọn Cách 2, `workshopbooking` gọi thẳng `LoyaltyFacade`; Khương chốt "mọi phiên phải khớp" và "session dùng UUID" (spec Clarifications 2026-10-29).
+
+Thay đổi:
+- `WorkshopFact(packageId, participantCount, grossPackageAmount, sessions)` + `WorkshopSessionFact(sessionRef, branchId, workshopDate)` (mới), `WorkshopFact.singleSession(...)` cho gói một phiên. sessionRef phải là UUID chữ thường dạng chuẩn.
+- `WorkshopBenefitEvaluator`: package phải trong target, mọi phiên phải khớp branch/date/session. `LoyaltyQuoteService`: termsDigest gắn package, từng phiên (`ref@branch@date`) và số người.
+- Target `sessionIds` khi Manager tạo voucher: UUID (OpenAPI `WorkshopTargets.sessionIds` đổi từ `PositiveId` sang string uuid); cột `target_key` VARCHAR(64) đủ, không thêm migration.
+- [Hướng dẫn tích hợp](contracts/workshop-booking-integration.md) cho 003.1 (bảng lời gọi, quoteRef/termsDigest, transaction accept, outcome, lỗi, provider WORKSHOP ở `workshopoperations`).
+
+Build `khuong` `fcbbe49` + thay đổi chưa commit, MySQL 8.4, database trống `ppswbs_loyalty_build29` (đã xóa).
+
+| Test | Kết quả |
+| --- | --- |
+| Toàn bộ `features/loyaltypromotion/**` | đạt, 1 bỏ qua có sẵn (`LoyaltySecurityIT` preflight CORS, BE-DESIGN-0012) |
+| `LoyaltyWorkshopQuoteTest` | 13/13 (thêm: mọi phiên phải khớp; validate session fact) |
+| `LoyaltyWorkshopFacadeIT` | 6/6 (thêm: luồng mẫu 2 phiên, voucher chỉ phủ một phiên bị từ chối, accept với phiên khác quote → `QUOTE_CHANGED` và không giữ gì) |
+| `LoyaltyMySqlConcurrencyIT` | 11/11 |
+| `ModulithArchitectureTests` | 5/5 |
+
+Ngoài phạm vi 006: `WorkshopBookingModuleTest` (003.1) lỗi nạp context do không có datasource trong cấu hình test (`Unable to determine Dialect without JDBC metadata`), không liên quan tới thay đổi này.
+
+**Chưa tick T059, T060, T064:** còn luồng accept/outcome thật của owner 003.1 và provider target WORKSHOP của 003.2.
