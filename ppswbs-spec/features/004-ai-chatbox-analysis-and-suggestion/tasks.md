@@ -1,29 +1,25 @@
-# Tasks: AI Chatbox Analysis and Suggestion
+# Tasks: Independent Feature-04 Design Workspace
 
-Tasks are ordered by dependency. Code tasks must wait for the feature spec, plan, contract and required design decisions to be approved.
+Tasks are ordered by dependency. The implementation agent must not code past the
+ownership gate until the unresolved decisions in `spec.md` are approved.
 
-- [x] T001 Confirm Report 3 role/permission mapping and record the physical role-code gate.
-- [x] T002 Finalize `spec.md`, `data-model.md`, error vocabulary, retention rules and state transitions.
-- [x] T002a Create and review the Feature-04 Permission Matrix for actors, endpoints, scopes and forbidden side effects.
-- [x] T002b Create and review the Feature-04 Validation Matrix for pipeline order, fields, business rules, errors and provider boundaries.
-- [x] T003 Finalize and validate `contracts/ai-chatbox-analysis.openapi.yaml`.
-- [x] T004 Reconcile `custom_design_requests`/review ownership and add an approved Flyway/JPA mapping for analysis, consent, version and suggestion evidence.
-- [x] T005 Define provider-neutral ports and Gemini/storage adapters with safe response/error mapping.
-- [x] T006 Implement basic AI support scope validation, public-context sanitization, rate limiting and retention registration.
-- [x] T007 Implement Member-only consent, image validation, temporary storage, versioned request creation and idempotency.
-- [x] T007a Implement normalized allowlisted provider commands, prompt-injection detection, provider-output policy validation and safe security error mapping.
-- [x] T007b Implement atomic per-Member image rate limiting: three attempts per rolling five minutes, `429 IMAGE_RATE_LIMITED`, `Retry-After` and duplicate-idempotency exemption.
-- [x] T008 Implement Gemini image analysis, response schema validation, provider correlation and post-processing deletion.
-- [x] T009 Implement Staff/Manager review list/detail/decision with threshold, branch/delegation and separation-of-duties checks.
-- [x] T010 Implement Clarification Required and new design-version flow; prevent stale decision reuse.
-- [x] T011 Implement Manager advisory price suggestion, validation, manual fallback and separate catalogue application/publication handoff.
-- [x] T011a Enforce price-suggestion visibility: authorized Manager access, limited Admin technical/audit access and no default Staff/customer access.
-- [ ] T012 Implement React + Vite screens for customer and operational flows, including consent, image upload, analysis/review states, Manager price suggestion, safe error states and responsive/accessibility behavior defined in `design.md`. (Deferred: Frontend out-of-scope per user constraint)
-- [x] T013 Add cleanup/background-job handling for text retention and temporary image deletion.
-- [x] T014 Add unit, controller, integration, provider-contract, migration, authorization, concurrency/idempotency and Modulith tests.
-- [x] T014a Add endpoint authorization tests traced to the Permission Matrix.
-- [x] T014b Add field/business validation tests traced to the Validation Matrix.
-- [x] T014c Validate matrix-to-OpenAPI consistency before implementation approval.
-- [x] T015 Run verification, review diff/requirements coverage and record limitations or verification exceptions.
+- [x] T001 Read `AGENT.md` and `FE-004-DESIGN-INDEPENDENT-HANDOFF.md`.
+- [x] T002 Record the independent boundary and list unresolved ownership/review/retention decisions.
+- [ ] T003 Approve Guest ownership proof, text-only request policy, human-review policy, withdrawal/revision and image retention.
+- [ ] T004 Update `spec.md`, `design.md`, `data-model.md`, `entities.md`, `plan.md` and shared `APIs.md` after T003.
+- [ ] T005 Rebase OpenAPI: remove booking/payment/location/session fields and define independent request/owner inputs and projections.
+- [ ] T006 Remove booking fields and legacy booking dependencies from entities, services, controllers, facades and module declaration.
+- [ ] T007 Implement canonical Account facade identity and independent Member/approved Guest ownership isolation.
+- [ ] T008 Implement optional description/image command, consent-before-storage, image validation, atomic rate limiting and idempotency.
+- [ ] T009 Implement independent AI analysis/result state, temporary deletion and retention policy.
+- [ ] T010 Implement approved Staff/Manager review policy, revision/withdrawal transitions and audit constraints.
+- [ ] T011 Preserve Manager-only price suggestion and Admin technical/audit projection without catalogue auto-publication.
+- [ ] T012 Replace booking-dependent React screens with the standalone Design Workspace flow.
+- [ ] T013 Add Flyway append-only migration for independent ownership/data model; do not edit applied migrations.
+- [ ] T014 Add unit, controller, authorization, provider-contract, concurrency/idempotency and retention tests.
+- [ ] T015 Add negative tests proving no booking/payment/capacity/ticket/custom-order mutation or dependency.
+- [ ] T016 Run compile, Modulith, MySQL migration, OpenAPI and E2E verification; record exact results.
+- [ ] T017 Update `version.md` with implementation commit, test commands, results and remaining blockers.
 
-Dependencies: T001–T003 before T004–T012; T004/T005 before persistence/provider implementation; T006–T011 before T012–T015.
+Dependencies: T003 blocks T004–T015. T004/T005/T006 block implementation. T007–T011
+block frontend integration. T013 and T014–T016 are release gates.

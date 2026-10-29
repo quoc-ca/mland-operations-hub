@@ -374,3 +374,130 @@ Before moving to frontend work, the next agent must:
 **Known Repository-wide Blocker Documented**:
 - When branches `quoc`, `thinh`, and `khuong` were merged into `develop`, duplicate Flyway version numbers were created across features: V6 (`account_schema_alignment` vs `retail_cart`), V7 (`workshop_operations` vs `retail_mock_checkout`), V9 (`product_management` vs `workshop_booking`). Per user directive, these files were temporarily renamed during test runs and restored to their original names. A repository-level migration linearisation (renumbering sequence V4..V14) is recommended for overall CI/CD integration.
 
+---
+
+## 5. Independent Design Rebase Plan (2026-10-28)
+
+**Source of truth**: `FE-004-DESIGN-INDEPENDENT-HANDOFF.md`  
+**Status**: Documentation rebased; backend rework required; implementation blocked by unresolved ownership policy  
+**Last updated by**: Ngô Tiến Đạt
+
+### 5.1. Conflict with the previous Feature-004 baseline
+
+The handoff changes Design/AI Review from a booking-design capability into an
+independent Design Request capability. The previous backend, tests and some
+historical entries in this file still describe `bookingCode`, booking eligibility,
+package/location/session context, booking status, payment and the legacy booking
+facade. Those assumptions are no longer valid for the independent flow.
+
+The affected code MUST be reworked rather than wrapped with a compatibility call:
+
+- `DesignAnalysisService` must no longer call booking eligibility or read booking snapshots.
+- `BookingDesignRequest` and booking-specific repositories/entities must be replaced or renamed as independent `DesignRequest` ownership records.
+- `DesignRequestController` must stop accepting `bookingCode`, booking status, package/location/session and payment-related fields.
+- `ImageConsent` purpose and request idempotency must stop being booking-scoped.
+- `HumanReviewService` must stop routing from booking branch/session/value assumptions unless a separate approved operational scope is supplied.
+- `designreview/package-info.java` must allow only `accountmanagement::facade` and optional `catalogue::facade`.
+- Legacy imports under `edu.fpt.sep490_g22.ppswbs_backend.workshopbooking` and calls to `getBookingEligibilityForDesign(...)` must be removed.
+- Booking-dependent integration tests and booking screen flow must be retired and replaced with standalone Design Workspace scenarios.
+
+### 5.2. Decisions required before implementation
+
+The handoff explicitly leaves these product/security decisions open. The next
+agent MUST NOT select a value merely because the old code has one:
+
+1. **Guest Design Request access**: deny Guest entirely, or approve a secure expirable ownership proof. Basic AI Support remains Guest-accessible.
+2. **Request content**: allow description-only requests, image-only requests, or require at least one of description/image.
+3. **Review policy**: every request, only AI-image requests, or only requests meeting a configured risk/complexity rule.
+4. **Revision/withdrawal**: who can withdraw, when a revision creates a new version, and whether approval expires.
+5. **Independent image retention**: zero-retention after processing or an approved temporary retention period for owner review.
+
+Until these are approved, the API and schema are intentionally marked as a gate and
+the implementation MUST remain blocked at the ownership boundary.
+
+### 5.3. Detailed backend code plan for the next agent
+
+#### Phase A — Contract and boundary
+
+1. Read `ppswbs-spec/AGENT.md`, this section, the handoff and the rewritten
+   `spec.md`, `design.md`, `data-model.md`, `entities.md` and OpenAPI contract.
+2. Resolve the five decisions in §5.2 and update all artifacts before coding.
+3. Confirm the current Account facade identity contract. Use account ID/verified UID
+   only through the approved facade; never import account entities/repositories.
+4. Verify the Modulith module name and allowed dependencies before changing package
+   declarations.
+
+#### Phase B — Independent aggregate and migration
+
+1. Replace booking-specific persistence with independent `design_requests` ownership,
+   version, description, optional opaque catalogue reference and lifecycle state.
+2. Add the approved Guest proof fields only if Guest access is approved; store only
+   a one-way expirable proof, never a raw token.
+3. Rebase consent, temporary image, analysis result and review decision tables on
+   `design_request_id` and request version, with no booking foreign key.
+4. Keep price suggestions as a separate catalogue-proposal aggregate.
+5. Create an append-only Flyway migration. Do not edit applied V4 or hide duplicate
+   V6/V7/V9 migrations with a test-only rename. Resolve repository-wide numbering
+   before claiming migration readiness.
+
+#### Phase C — Application services and authorization
+
+1. Rework `DesignAnalysisService` to validate independent owner/context and optional
+   catalogue reference only; remove all booking eligibility and payment checks.
+2. Rework `DesignRequestController` DTO/multipart contract to accept independent
+   description/image/consent/idempotency input only.
+3. Keep the validation order: transport → identity → role/status → ownership →
+   rate/idempotency → schema → independent context → security → provider → output → persistence.
+4. Preserve 10 MB/4096×4096 image validation, 2,000-character chat prompt,
+   prompt-injection rejection, atomic 3-in-5-minute image rate limit and safe output validation.
+5. Rework `HumanReviewService` to use the approved independent review policy and
+   account/delegation scope; preserve separation of duties and one terminal decision
+   per request version.
+6. Preserve Manager-only business pricing authority and Admin technical/audit-only
+   visibility. AI cannot publish a catalogue price.
+
+#### Phase D — API and frontend
+
+1. Validate the rewritten OpenAPI contract and remove every booking/payment field
+   from request, response, error, audit and log schemas.
+2. Replace package/location/session/booking screens with `F04-DESIGN-WORKSPACE`,
+   consent, optional image upload, analysis status, result, review and revision/
+   withdrawal states.
+3. Keep Basic AI Support anonymous-safe only for the exact public route; invalid
+   Bearer tokens must return `401`, not Guest access.
+4. Do not connect the independent flow to booking checkout or payment screens.
+
+#### Phase E — Verification
+
+1. Compile and start the Spring context.
+2. Run Spring Modulith verification and prove no booking/operations dependency.
+3. Run Flyway clean-install and upgrade-path tests on MySQL after migration numbering
+   is resolved.
+4. Test Member/approved Guest ownership isolation, Staff/Manager review policy,
+   Admin audit projection and all forbidden mutations.
+5. Test consent, invalid image, prompt injection, provider failure, deletion,
+   idempotency, concurrent rate limit, stale version and review conflict.
+6. Validate OpenAPI and run frontend E2E for the standalone Design Workspace.
+7. Record exact command output and update this file; do not reuse the historical
+   `53/53` or `39/39` claims without fresh evidence from the final commit.
+
+### 5.4. Files already updated in this rebase
+
+- `spec.md`: independent scope, ownership gate, no-booking invariants and API baseline.
+- `design.md`: standalone Design Workspace and independent Mermaid flow.
+- `data-model.md` and `entities.md`: independent ownership model with forbidden booking fields.
+- `plan.md`, `tasks.md`, `quickstart.md`: implementation dependency and verification plan.
+- `checklists/requirements.md` and `checklists/quality.md`: independent-boundary gates.
+- `contracts/ai-chatbox-analysis.openapi.yaml`: independent request/response schema and routes.
+- `APIs.md`: Feature-04 endpoint catalog aligned to the independent boundary.
+- `spec-general.md`: shared actors, AI data, consent, audit and acceptance wording aligned to independent Design Requests.
+- Report 3 context/actor/business-rule sections and `documents/PROJECT-STATUS.md`: legacy booking-dependent Feature-004 wording marked or rewritten to the independent boundary.
+
+### 5.5. Explicit implementation decision
+
+Backend code MUST be rewritten in the areas listed in §5.1. Reusing the current
+booking-coupled `BookingDesignRequest` flow would preserve the exact dependency the
+handoff rejects and would make the new documentation false. No code rewrite is
+performed in this documentation step; the next agent owns implementation only after
+§5.2 is resolved.
+
