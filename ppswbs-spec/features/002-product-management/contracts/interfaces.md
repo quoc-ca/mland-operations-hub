@@ -1,7 +1,7 @@
 # Interface Contracts: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26 (Manager quản lí danh mục; facts của PromotionTargetPort; V1 không MFA theo 001; tên facade identity)
+**Date updated**: 2026-10-29 (`readSaleFacts` cho giỏ hàng FE-08 theo xác nhận của owner FE-08)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -117,7 +117,7 @@ Không dùng facade kiểu getEntity/setField và không cho frontend gọi meth
 - Record: `SaleContext(asOf, acceptedTransactionRef, variants)`, `SaleVariantFact(productId, productName, variantId, sku, size, appliedPrice, currency, remainingUnsold, saleEnabled, productDeleted, publiclyEligible, productVersion, productContentVersion, variantVersion, appliedSequence, imageMediaIds)`, `HeldSnapshot(variantId, heldQuantity, sourceRevision)`, `AcceptedSaleResult(operationRef, variantId, quantity, remainingAfter, variantVersion, replayed)`.
 - Lỗi: `CatalogueSalesException` với `reason()` ∈ `INVALID_REQUEST`, `NOT_FOUND`, `NOT_FOR_SALE`, `INSUFFICIENT_QUANTITY`, `OPERATION_CONFLICT`, `MEDIA_NOT_AVAILABLE`, `NO_LOCKED_CONTEXT`, `DEPENDENCY_UNAVAILABLE`, `BUSY` và `variantIds()` (các size liên quan). Mọi `CatalogueSalesException` làm transaction của bên gọi rollback-only; exception do callback của FE-08 ném ra được giữ nguyên.
 - Chi tiết triển khai do 002 chọn (contract trước đó chưa ghi): mọi method `MANDATORY` (gọi ngoài transaction bị từ chối); bên gọi nên dùng READ COMMITTED như lệnh catalogue. `operationRef` là UUID do FE-08 sinh; chống trừ hai lần bằng `catalogue_command_receipts` (actor `readyringsales`, action `sale.accepted`), gửi lại cùng size/số lượng trả kết quả cũ (`replayed=true`), khác size/số lượng → `OPERATION_CONFLICT`. `recordAcceptedSale` chỉ chạy khi size đã được khóa bởi một context đang mở trên cùng thread (`NO_LOCKED_CONTEXT` nếu không). Media của FE-08 ghi registry với `owner_module = readyringsales`, `ownerRecordRef` 1–128 ký tự.
-- Chưa có hàm đọc không khóa cho giỏ hàng (`readSaleFacts`); chỉ thêm khi owner FE-08 xác nhận.
+- `readSaleFacts(Collection<Long> variantIds) → List<CartSaleFact>` (thêm 2026-10-29 theo xác nhận của Bùi Trọng Thịnh, owner FE-08): chỉ đọc, không khóa catalogue, không lấy guard nguồn, chỉ dùng cho thêm vào giỏ/xem giỏ. `CartSaleFact(variantId, productId, productName, sku, size, appliedPrice, currency, saleEligible, availableQuantity)`, mỗi ID khác nhau một phần tử, thứ tự variant ID tăng dần. `saleEligible` = sản phẩm đủ điều kiện công khai (đã công khai, chưa xóa, danh mục hoạt động, có ảnh dùng được, mọi size có giá áp dụng) và size đang bán. `availableQuantity` = còn lại − đang giữ (qua `AvailabilityGuardPort.readSnapshots`), không âm; size không đủ điều kiện trả `saleEligible=false`, `availableQuantity=0` chứ không báo lỗi. Gọi được có hoặc không có transaction (tự mở transaction chỉ đọc). Lỗi: rỗng/null → `INVALID_REQUEST`; size không tồn tại → `NOT_FOUND` kèm `variantIds()`; nguồn FE-08 thiếu/lỗi → `DEPENDENCY_UNAVAILABLE`. Kết quả chỉ để hiển thị: checkout accept vẫn bắt buộc `withLockedSaleContext` (kiểm tra lại dưới khóa, `NOT_FOR_SALE` nếu đã đổi).
 
 ### AvailabilityGuardPort — productmanagement owns SPI, FE-08 implements
 
