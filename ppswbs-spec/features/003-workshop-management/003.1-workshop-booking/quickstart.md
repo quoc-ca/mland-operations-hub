@@ -1,7 +1,7 @@
 # Quickstart Validation: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-28
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -80,11 +80,11 @@ per-run evidence to this guide.
 8. Release a pending hold and let another expire. Verify all relevant session
    capacity is returned once, no QR is issued, and later payment cannot resume.
 9. Exercise Guest/Member self-service resend with valid proof and an assigned
-   Staff or location-responsible Manager resend. Verify rate limits are enforced
+   Staff in the booking location or any active Manager resend. Verify rate limits are enforced
    separately, an accepted request does not change booking/payment/ticket/contact
    or Magic Link state, and each required business audit record is safe and
    complete. Verify delivery retries appear only in operational delivery logs.
-10. With a responsible Manager, revoke and rotate a Magic Link. Verify revoke is
+10. With any active Manager, revoke and rotate a Magic Link. Verify revoke is
    immediate; rotate revokes the old link, queues replacement delivery only to
    the existing booking-contact email, and a delivery failure never restores the
    old link. Verify Guest booking-code plus stored-phone lookup remains usable.
@@ -93,9 +93,9 @@ per-run evidence to this guide.
    in the published event.
 11. Submit a signed success after hold expiry. Verify it cannot confirm the
     booking, restore capacity, issue tickets, or create another payment link.
-    Verify only the location-responsible Manager can record/escalate a safe audited
+    Verify any active Manager can record/escalate a safe audited
     follow-up. Attempt the same internal actions with inactive, unentitled, or
-    wrong-location actors and verify safe denial without business side effects.
+    out-of-scope Staff actors and verify safe denial without business side effects.
 12. Supply the approved idempotent final-balance-resolved conclusion from 003.3
     for a confirmed deposit-paid booking. Verify Booking changes only its
     financial status to `FULLY_PAID` once, retains only safe correlation/reference

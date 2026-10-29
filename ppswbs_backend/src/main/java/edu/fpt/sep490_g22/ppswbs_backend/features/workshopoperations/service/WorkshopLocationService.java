@@ -30,9 +30,9 @@ public class WorkshopLocationService {
         AccountSummary actor = authorizationService.authenticate(authHeader);
 
         List<WorkshopLocation> locations;
-        if (authorizationService.isAllBranchActor(actor)) {
+        if (authorizationService.isAllBranchActor(actor) || authorizationService.isManager(actor)) {
             locations = locationRepository.findByActiveTrue();
-        } else if (authorizationService.isManager(actor) || authorizationService.isStaff(actor)) {
+        } else if (authorizationService.isStaff(actor)) {
             List<Long> locationScope = accountFacade.getLocationScope(actor.accountId());
             if (locationScope == null || locationScope.isEmpty()) {
                 log.debug("Actor accountId={} has empty location scope; returning empty list",
@@ -131,10 +131,10 @@ public class WorkshopLocationService {
     }
 
     private void verifyLocationScope(AccountSummary actor, WorkshopLocation location) {
-        if (authorizationService.isAllBranchActor(actor)) {
+        if (authorizationService.isAllBranchActor(actor) || authorizationService.isManager(actor)) {
             return;
         }
-        if (authorizationService.isManager(actor) || authorizationService.isStaff(actor)) {
+        if (authorizationService.isStaff(actor)) {
             List<Long> locationScope = accountFacade.getLocationScope(actor.accountId());
             if (locationScope == null || !locationScope.contains(location.getId())) {
                 log.warn("Location scope check failed: accountId={}, locationId={}, allowedScope={}",

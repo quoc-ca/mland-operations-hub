@@ -1,9 +1,14 @@
 # Tasks: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-28
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
+
+**Feature 003 authorization decision (2026-10-29)**: Active Manager actions in
+this feature have global location scope independent of `activeLocationIds`.
+Staff-authorized actions retain booking/session location scope; Member ownership
+and explicitly Admin-only actions remain unchanged.
 
 **Input**: [spec.md](./spec.md), [plan.md](./plan.md), [research.md](./research.md),
 [data-model.md](./data-model.md), [quickstart.md](./quickstart.md),
@@ -24,7 +29,7 @@ owner boundaries.
 - [X] T001 [P] Establish the `workshopsettlement` Spring Modulith module boundary and add `ApplicationModules.verify()` coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementModuleTest.java`.
 - [ ] T002 [P] Implement 003.3's named `WorkshopSettlementFacade`, including `ApplyVerifiedSettlementPaymentEvidenceCommand`, in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/` exactly as limited by `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`.
 - [ ] T003 Consume `WorkshopBookingFacade` confirmed financial projection and idempotent final-balance conclusion, and `WorkshopOperationsFacade` readiness/replacement/refund/cancellation outcomes, only through facade adapters in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/`.
-- [ ] T004 Consume current canonical Mland account role/status, ownership and location scope through the approved FE-001 boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/WorkshopSettlementAuthorizationService.java`; Settlement applies its approved location/resource action rules and central-policy-editor rule, directly compares the booking/session canonical `workshop_location.id` with `activeLocationIds`, and does not use display roles, Firebase claims or retired codes as authority or edit FE-001.
+- [ ] T004 Consume current canonical Mland account role/status, ownership and location facts through the approved FE-001 boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/WorkshopSettlementAuthorizationService.java`; grant every active Manager global authority for Manager-authorized actions (including refund-policy administration), keep Staff actions location-scoped and Member ownership enforced, and do not use display roles, Firebase claims or retired codes as authority or edit FE-001.
 - [ ] T005 **BLOCKED — external VNPay configuration**: obtain the environment-approved Merchant identity, runtime-only HMAC-SHA512 secret, HTTPS IPN registration, outbound QueryDR/refund authority, and redacted sandbox evidence listed in `ppswbs-spec/features/003-workshop-management/contracts/vnpay-configuration-preflight.md`; keep every credential outside the repository.
 - [ ] T006 Implement the approved post-commit `SettlementNotificationReady` handoff and immutable notification-delivery payload facade for deferred-payment links/reissues, their permitted reminder, and verified settlement/refund outcomes in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/`; publish references only after the local transaction, let Feature 007 deduplicate/read the payload, and never let delivery outcome reverse settlement truth.
 
@@ -110,7 +115,7 @@ policy snapshot.
 replacement; prospective policy changes do not rewrite historical bookings.
 
 - [ ] T028 [US4] Implement Mland-caused remedy case orchestration in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/MlandCancellationRemedyService.java`; require the matching 003.2 `cancellationHandoffReference` and accept only `UNAVAILABLE` or `DECLINED` replacement outcomes.
-- [ ] T029 [US4] Implement central prospective refund-policy revisions in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/MlandCancellationPolicyService.java`; accept a future `effectiveAt` and integer `wholeBookingRefundPercent` from 0 through 100, and compute `floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND without rewriting existing snapshots.
+- [ ] T029 [US4] Implement prospective refund-policy revisions by any active Manager in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/MlandCancellationPolicyService.java`; accept a future `effectiveAt` and integer `wholeBookingRefundPercent` from 0 through 100, and compute `floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND without rewriting existing snapshots.
 - [ ] T030 [US4] Implement remedy-case and central refund-policy routes from `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/controller/`.
 - [ ] T031 [US4] Add replacement-first, handoff mismatch, unavailable/declined, default-100%, policy effective-time, historical-snapshot, and no-partial-refund coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/MlandCancellationRemedyIT.java`.
 
@@ -122,6 +127,7 @@ replacement; prospective policy changes do not rewrite historical bookings.
 - [ ] T033 [P] After 003.1 T006/T032 establishes the shared ingress, contract-test only the 003.3 settlement consumer's verified-evidence acceptance, owner-qualified dispatch, and no-raw-provider-payload boundary in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/SettlementPaymentEvidenceIT.java`.
 - [ ] T034 Run the non-production scenarios in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/quickstart.md` and retain only redacted verification evidence under `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/`.
 - [ ] T035 Review the approved configuration evidence for T005 before enabling real VNPay provider-dependent work; verify facade-only access, the reference-only Settlement-to-007 handoff boundary, and data-bearing upgrade/recovery evidence in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/tasks.md`. Feature 007 provider configuration remains that feature's deployment responsibility.
+- [ ] T036 Extend `WorkshopSettlementFacade` with an idempotent operation to create or return a direct-Mland add-on bill from an accepted OTA quote and explicit consent; Settlement validates consent and derives amount/currency from its accepted server-side quote, while leaving OTA customer-payment/refund/payout facts unchanged. Cover replay, rejected quote/consent and finance separation in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/OtaAddonBillFacadeIT.java`.
 
 ## Dependencies and execution order
 

@@ -59,13 +59,10 @@ Constraints and ownership invariants:
   recompute them from this master record;
 - a Package has no separate business package code in V1.
 
-Package commands are Operations-owned. The authorized Central Manager is an
-active canonical `MANAGER` whose `activeLocationIds` include every active
-canonical Workshop Location. This is an Operations policy, not a new Account
-role/capability or a persisted Package-to-Manager assignment. Local Managers
-retain only their location/session responsibilities. The derived rule requires
-a post-003 integration review before Package administration is widened or
-replaced by explicit central-assignment governance.
+Package commands are Operations-owned. Any active canonical `MANAGER` may
+administer Packages globally; `activeLocationIds` does not narrow Manager
+authority anywhere in Feature 003. There is no Central Manager tier or persisted
+Package-to-Manager assignment. Staff operational actions remain location-scoped.
 
 ### WorkshopLocation
 

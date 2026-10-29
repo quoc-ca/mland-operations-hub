@@ -78,13 +78,11 @@ it. Published Package edits are prospective: 003.1 owns its selected Package
 and financial snapshots and must not recalculate them from master data.
 
 Operations owns public discovery of published Packages and customer-selectable
-future sessions, as well as Central-Manager Package administration on the same
-Package resource. A public caller can observe only `PUBLISHED` Packages. The
-Central Manager is, in V1, an active canonical `MANAGER` whose
-`activeLocationIds` include every active canonical Workshop Location. That is
-an Operations authorization rule, not a new Account role or capability. It
-requires a post-003 integration review before this governance is widened or
-replaced with explicit central assignment.
+future sessions, as well as active-Manager Package administration on the same
+Package resource. A public caller can observe only `PUBLISHED` Packages. Every
+active canonical `MANAGER` has global authority for Manager-authorized actions
+throughout Feature 003; `activeLocationIds` does not filter Manager access.
+There is no Central Manager tier or extra Account role/capability.
 
 Public Package routes include `GET /workshop-packages/{packageId}/sessions` for
 customer discovery. It requires a canonical `locationId` and accepts optional
@@ -312,8 +310,8 @@ boundary.
 
 1. **Establish Package master and discovery boundaries.** Model the
    Operations-owned Package lifecycle and prospective-edit invariant before
-   Booking integration. Implement Central-Manager authorization as the approved
-   all-active-location-scope rule, without adding an Account role/capability.
+   Booking integration. Implement active-Manager authorization globally,
+   independent of `activeLocationIds`, without adding an Account role/capability.
    Expose public reads only for `PUBLISHED` Packages and protected Package
    create/update/lifecycle commands. Implement the approved semantic Package
    discovery facade and require `packageReference` on reserve before 003.1
@@ -427,7 +425,8 @@ boundary.
 ## Validation Strategy
 
 - Contract-test Package create/read/update/publish/retire, public exclusion of
-  `DRAFT` and `RETIRED` records, Central-Manager all-active-location-scope
+  `DRAFT` and `RETIRED` records, global active-Manager authorization regardless
+  of location assignments,
   authorization, participant-bound validation, generic required-session rules
   and immutable/prospective Booking snapshot behaviour.
 - Cross-module-test that 003.1 consumes only the approved Package-discovery

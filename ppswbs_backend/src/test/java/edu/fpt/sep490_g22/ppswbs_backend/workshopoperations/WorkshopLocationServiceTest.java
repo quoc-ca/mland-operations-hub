@@ -112,35 +112,34 @@ public class WorkshopLocationServiceTest {
         }
 
         @Test
-        @DisplayName("Manager lists only locations within their location scope")
-        void managerListsScopedLocationsOnly() {
+        @DisplayName("Manager lists all active locations regardless of location assignments")
+        void managerListsAllLocationsGlobally() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(managerAccountA);
             when(authorizationService.isAllBranchActor(managerAccountA)).thenReturn(false);
             when(authorizationService.isManager(managerAccountA)).thenReturn(true);
-            when(accountFacade.getLocationScope(MANAGER_A_ID)).thenReturn(List.of(1L));
-            when(locationRepository.findByIdInAndActiveTrue(List.of(1L))).thenReturn(List.of(location1));
+            when(locationRepository.findByActiveTrue()).thenReturn(List.of(location1, location2));
 
             List<LocationResponse> responses = locationService.listLocations(AUTH_HEADER);
 
-            assertThat(responses).hasSize(1);
+            assertThat(responses).hasSize(2);
             assertThat(responses.get(0).getCode()).isEqualTo("LOC-01");
             assertThat(responses.get(0).getId()).isEqualTo(1L);
-            verify(locationRepository).findByIdInAndActiveTrue(List.of(1L));
-            verify(locationRepository, never()).findByActiveTrue();
+            verify(locationRepository).findByActiveTrue();
+            verify(locationRepository, never()).findByIdInAndActiveTrue(any());
         }
 
         @Test
-        @DisplayName("Manager with empty location scope receives empty list without error")
-        void managerWithEmptyScopeReceivesEmptyList() {
+        @DisplayName("Manager with empty location assignments still receives all active locations")
+        void managerWithEmptyScopeReceivesAllLocations() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(managerAccountA);
             when(authorizationService.isAllBranchActor(managerAccountA)).thenReturn(false);
             when(authorizationService.isManager(managerAccountA)).thenReturn(true);
-            when(accountFacade.getLocationScope(MANAGER_A_ID)).thenReturn(List.of());
+            when(locationRepository.findByActiveTrue()).thenReturn(List.of(location1, location2));
 
             List<LocationResponse> responses = locationService.listLocations(AUTH_HEADER);
 
-            assertThat(responses).isEmpty();
-            verify(locationRepository, never()).findByIdInAndActiveTrue(any());
+            assertThat(responses).hasSize(2);
+            verify(locationRepository).findByActiveTrue();
         }
 
         @Test

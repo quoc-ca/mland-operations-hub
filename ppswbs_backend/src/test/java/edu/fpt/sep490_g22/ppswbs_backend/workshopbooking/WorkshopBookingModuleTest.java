@@ -320,8 +320,8 @@ class WorkshopBookingModuleTest {
                 .isInstanceOf(WorkshopBookingLocationScopeException.class)
                 .hasMessageContaining("outside actor's active location scope");
 
-        // 4. Manager in location scope can resend confirmation
-        AccountSummary resendMgr = authorizationService.requireConfirmationResendAuthority("Bearer test-uid:manager-uid", 1L);
+        // 4. Active Manager can resend globally even when target location is outside activeLocationIds
+        AccountSummary resendMgr = authorizationService.requireConfirmationResendAuthority("Bearer test-uid:manager-uid", 2L);
         assertThat(resendMgr.accountId()).isEqualTo(102L);
 
         // 5. Member cannot resend confirmation
@@ -334,9 +334,12 @@ class WorkshopBookingModuleTest {
                 .isInstanceOf(WorkshopBookingForbiddenException.class)
                 .hasMessageContaining("STAFF or MANAGER role");
 
-        // 7. Manager in location scope can handle Magic Link incident
-        AccountSummary mlMgr = authorizationService.requireMagicLinkIncidentAuthority("Bearer test-uid:manager-uid", 1L);
+        // 7. Active Manager can handle Magic Link incidents globally
+        AccountSummary mlMgr = authorizationService.requireMagicLinkIncidentAuthority("Bearer test-uid:manager-uid", 2L);
         assertThat(mlMgr.accountId()).isEqualTo(102L);
+        assertThat(authorizationService.canResendConfirmation(activeManagerLoc1, 2L)).isTrue();
+        assertThat(authorizationService.canHandleMagicLinkIncident(activeManagerLoc1, 2L)).isTrue();
+        assertThat(authorizationService.canFollowUpLatePayment(activeManagerLoc1, 2L)).isTrue();
 
         // 8. Staff CANNOT handle Magic Link incident (FR-017b5: Staff and ADMIN alone MUST NOT have that authority)
         assertThatThrownBy(() -> authorizationService.requireMagicLinkIncidentAuthority("Bearer test-uid:staff-uid", 1L))

@@ -1592,3 +1592,328 @@ The FE-08 changes preserved in this working tree are limited to `RetailAuthoriza
 ### Required resolution
 
 The owners of configuration, designreview, and legacy workshopbooking must reconcile or remove their unresolved imports and restore a compiling backend baseline. After that, rerun the targeted FE-08 authorization and Modulith tests before treating this integration as validated.
+## BE-DESIGN-0021 - 003.4 OTA persistence schema is not approved for T006
+
+- **Recorded at:** 2026-10-29T11:53:53+07:00
+- **Reporter:** Codex implementation agent
+- **Feature / task:** 003.4 Workshop OTA Connectivity, T006
+- **Status:** RESOLVED
+
+**Observed gap.** T006 requires one append-only Flyway migration covering the
+OTA connection, mapping, price snapshot, outbound change, delivery attempt,
+inbound event, channel booking, booking-ticket link, customer-payment evidence,
+payout position/ledger, add-on bill link, and reconciliation work item. The
+003.4 `data-model.md` §Status and ownership says it is a proposed model, not an
+approved database schema, and explicitly leaves physical column types,
+indexes, retention, and provider-specific fields as implementation decisions.
+The 003.4 `plan.md` Delivery and Verification section separately requires the
+proposed schema boundary to be approved before implementation.
+
+**Evidence.**
+
+- Read `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/data-model.md`
+  and `plan.md`, plus T006 in `tasks.md`.
+- The data model identifies owned record types and logical invariants, but does
+  not specify a complete approved column/key/index/retention contract for the
+  migration's twelve record groups.
+- Repository Flyway files currently reach `V21__workshop_packages.sql`. The
+  2026-10-29 verification record above reports the approved local MySQL test
+  database at schema version 21; this continuation did not independently query
+  the database.
+- No migration, entity, repository, or database state was changed for T006.
+
+**Why implementation stops.** Selecting column representations, nullability,
+foreign-key/unique constraints beyond the stated logical invariants, retention,
+or provider-field storage would turn unresolved schema choices into executable
+and potentially irreversible database behavior. A successful compile or a
+repository-only migration count cannot approve those choices.
+
+**Required owner decision.** Feature 003 owner / persistence-design owner must
+publish or explicitly approve the OTA schema boundary for T006: per-record
+columns and types, key/FK/unique constraints, retention and cleanup behavior,
+and the permitted provider-specific data fields. Confirm the intended MySQL
+baseline/history for the migration target. Once those decisions are recorded
+in the feature design, re-run T006 preflight and continue with the append-only
+migration and its empty-database plus supported-upgrade verification.
+
+**Work state at stop.** T001 is complete by Feature 003 owner direction. T002,
+T003, and T005 were implemented and their task markers updated in the 003.4
+`tasks.md`; the OTA skeleton, simulator fixtures, module metadata, and provider
+readiness template are preserved. T004 remains a provider-onboarding release
+gate. T006 has not started: no schema, migration, entities, tests, or database
+were changed for it. `mvn -DskipTests compile` passed for the existing OTA
+skeleton; the earlier `OtaConnectivityModuleTest` invocation stopped during
+shared test-source compilation and did not run that test. Static checks for
+the four simulator JSON fixtures and the readiness template passed, and
+`git diff --check` passed. No commit or push was performed.
+
+**Decision update (2026-10-29).** Feature 003 owner Hồ Hoàng Quốc explicitly
+approved the schema boundary in-session: intra-OTA foreign keys and opaque
+cross-feature references; `BIGINT` IDs, `DATETIME(6)`, InnoDB and
+`utf8mb4_unicode_ci`; one provider connection per environment; V1 no-auto-delete
+evidence retention; deny-by-default provider contact persistence; one
+offer/session per mapping; one OTA foundation migration; integer minor-unit
+money with currency; provider/source-scoped uniqueness and replay metadata;
+canonical outbound snapshots with append-only delivery attempts; per-participant
+ticket links; and Manager reconciliation actions under location scope. The
+approved logical column/key contract is now recorded in the 003.4 `data-model.md`
+with its metadata updated by the responsible member. This resolves the schema
+approval portion of BE-DESIGN-0021.
+
+**Resolution update (2026-10-29).** After the owner supplied connection access,
+a read-only query against `ppswbs_v18_fresh_20261028` returned MySQL 8.0.43 and
+Flyway version 21 with `success = 1`; the preceding seven migrations were also
+successful. The append-only migration `V22__ota_connectivity.sql` now creates
+the approved OTA schema. `git diff --check` passed. The migration was not
+applied to the database and no test suite was run. T006 is complete; migration
+execution/empty-upgrade verification remains in the later migration-test task.
+
+## BE-DESIGN-0022 - 003.4 required upstream facade semantics are not published
+
+- **Recorded at:** 2026-10-29T13:40:48+07:00
+- **Reporter:** Codex implementation agent
+- **Feature / task:** 003.4 Workshop OTA Connectivity, T008
+- **Status:** BLOCKED
+
+**Observed gap.** T008 requires verification of the 003.1/003.2/003.3 public
+facades and explicitly says to stop if an upstream operation is absent. The
+003.4 `contracts/ota-connectivity-contract.md` upstream facade table requires:
+003.1 create-or-return booking from an external correlation key; 003.2 one
+atomic outcome reserving N places and issuing N active tickets; and 003.3
+creating a direct-Mland add-on bill from an accepted quote.
+
+**Evidence.**
+
+- Read the 003.4 upstream-facade contract and
+  `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`.
+- The public 003.1 `WorkshopBookingFacade` exposes financial projection,
+  payment/final-balance evidence, ticket redelivery, notification payload, and
+  design eligibility methods; it has no OTA booking create-or-return method or
+  provider-scoped idempotency command.
+- The public 003.2 `WorkshopOperationsFacade` exposes `reserveBookingCapacity`
+  returning `CapacityHoldOutcome`, `commitBookingHolds` returning
+  `CapacityCommitOutcome`, and `getBookingTicketProjection` as separate calls.
+  The hold outcome contains hold references/expiry, the commit outcome contains
+  only status/reason, and the ticket projection is a separate read. There is no
+  public atomic OTA command returning the accepted booking's N tickets.
+- The public 003.3 `WorkshopSettlementFacade` exposes
+  `openCancellationHandoff`; it has no accepted-quote-to-direct-bill method.
+- `WorkshopOtaResyncFacade` and the published OTA snapshot event address the
+  snapshot/resync path, but do not supply the missing booking/ticket/bill
+  operations.
+- `mvn -DskipTests compile` and `mvn -DskipTests test-compile` succeeded after
+  the V22 and persistence changes. These compile results do not establish the
+  missing facade semantics.
+
+**Why implementation stops.** Implementing the OTA flows by calling another
+feature's service/repository or by combining existing operations with weaker
+atomicity would violate the facade-only boundary and the explicit OTA contract.
+Creating an OTA facade now would expose operations that cannot be implemented
+against the published upstream boundaries.
+
+**Required owner decisions.** Owners of 003.1, 003.2, and 003.3 must either
+publish compatible facade operations with the required idempotency/atomicity,
+or the Feature 003 owner must approve a revised 003.4 contract that states the
+supported behavior and failure outcomes. Resume T008 only after the public
+facades and contract agree. Do not access another feature's internal services,
+repositories, or entities as a workaround.
+
+**Owner direction and artifact update (2026-10-29).** Feature 003 owner Hồ
+Hoàng Quốc approved retaining OTA acceptance and adding the prerequisite
+operations to the existing owner-specific facades. The shared contract now
+specifies Operations atomic capacity plus per-person ticket issuance, Booking
+provider/external-reference create-or-return without changing direct-Mland
+payment state, and Settlement direct-bill creation from an accepted quote and
+consent. Tasks 003.2 T076, 003.1 T047, and 003.3 T036 track those producer
+changes and coverage; 003.4 T008 now depends on all three. No producer
+implementation has been claimed. The design decision is resolved, while T008
+remains blocked on those implementation dependencies.
+
+**Work state at stop.** T006 is complete: MySQL 8.0.43 read-only inspection
+confirmed Flyway version 21, and append-only V22 was created but not applied.
+T007 persistence main-source entities/enums/repositories were added and main
+compile plus test-source compilation passed, but T007 remains unchecked because
+its migration test support/acceptance work is not complete. T008 facade types
+were not created. No test was executed and no database was modified. Earlier
+user-owned untracked files and pre-existing OTA scaffolding were preserved.
+
+## BE-DESIGN-0023 - 003.4 OTA action authorization matrix is incomplete
+
+- **Recorded at:** 2026-10-29T13:48:58+07:00
+- **Reporter:** Codex implementation agent
+- **Feature / task:** 003.4 Workshop OTA Connectivity, T009
+- **Status:** BLOCKED
+
+**Observed gap.** T009 requires a server-side authorization service covering
+canonical Account role/status, location scope, and each OTA action rule. The
+approved artifacts define location-scoped Manager authority for force re-sync
+and business reconciliation, and Admin authority for OTA connection/credential
+configuration and cross-location recovery. They do not define authorization
+for all other protected API operations, including mapping create/update, price
+term submission, booking enablement, sales closure, financial-evidence access,
+payout reconciliation, add-on quote/acceptance, and work-item listing.
+
+**Evidence.**
+
+- `003.4/spec.md` FR-004b defines Manager/Admin scope for force re-sync and
+  business reconciliation; its Assumptions and Dependencies section says OTA
+  action-authorization rules remain a follow-up design item.
+- `003.4/research.md` Open gates repeats that OTA Connectivity owns these
+  action rules; it does not provide an action-to-role matrix.
+- `003.4/plan.md` Constitution Check says role/resource rules decide access,
+  but does not specify the missing per-action assignments.
+- `ota-connectivity.openapi.yaml` marks endpoints as protected and includes
+  401/403 responses, but does not define which canonical actor may call each
+  operation.
+- Account Management exposes canonical role/status/location facts through its
+  public facade. That supplies identity facts, not OTA action authorization.
+
+**Why implementation stops.** Assigning the available Manager/Admin rules to
+the remaining endpoints would grant or deny business capabilities by
+implementation inference. T010's audit actor/scope fields and T009's error
+mapping also depend on the authorized action and actor context, so they cannot
+be safely completed as a parallel workaround. No OTA authorization or audit
+implementation was changed in this continuation.
+
+**Required owner decision.** Publish and approve an OTA action-to-role/scope
+matrix for every protected API operation, including which operations are
+Manager-at-assigned-location, Admin-global, or otherwise restricted, and
+identify the canonical Account actor/authentication boundary each operation
+must consume. Once recorded in the 003.4 design artifacts, re-check T009/T010
+against the backend gates before implementation.
+
+**Work state at stop.** Branch `quoc` was inspected; no code or database change
+was made in response to this blocker. The OTA persistence and V22 changes from
+prior authorized work remain preserved. T009 and T010 are unchecked; no tests
+were run in this continuation. Existing untracked files and OTA scaffolding
+were preserved. No commit or push was performed.
+
+**Review correction (2026-10-29).** On owner follow-up, the action boundary was
+re-read against the complete Mland REST actor table in
+`003.4/contracts/ota-connectivity-contract.md` (Mland REST surface). That table
+already specifies Manager/Admin and Staff boundaries for most routes, so the
+original statement that the protected routes broadly lacked a role matrix was
+overstated. The owner clarified that Managers are uniform by canonical role:
+there is no individually assigned “OTA Manager”; each active Manager follows
+the same rule, constrained to the Manager's own `activeLocationIds`, while
+Admin retains the explicitly global connection/recovery and enablement powers
+in the contract. This correction does not authorize scope beyond the written
+route rules. A narrower gap remains: financial-evidence read and payout
+reconciliation use “authorized finance/reconciliation scope” without defining
+which canonical role(s) that scope admits. The spec's statement that approved
+OTA action-authorization rules remain follow-up design also conflicts with the
+route table and requires reconciliation in the design artifacts before T009
+can be accepted as fully unblocked.
+**Owner decision update (2026-10-29T15:47:03+07:00).** Feature 003 owner
+Hồ Hoàng Quốc explicitly decided that every active Manager has global
+location scope for authorized OTA business actions; 003.4 authorization must
+not filter Manager actions by `activeLocationIds`. This applies the already
+approved 003.2 global-Manager pattern to OTA while preserving Admin-only and
+Staff-only actions, and preserving canonical location on records for audit.
+The 003.4 spec, plan, research, data model, route contract, and task acceptance
+wording now record this decision. The earlier review note that Managers are
+location-constrained is superseded. T009 remains blocked only on the role
+assignment for finance-evidence and payout-reconciliation actions and the
+remaining generic route actor labels; the current fixed role vocabulary has no
+`FINANCE` role, so that authority must not be invented. The spec's open design
+note is narrowed to those residual role assignments; the Manager location
+policy is no longer unresolved.
+
+**Owner decision update (2026-10-29T15:59:53+07:00).** The Feature 003 owner
+decided that Manager location authority is global across 003.1, 003.2, 003.3
+and 003.4. This resolves location-scope gates for actions already assigned to
+Manager and removes the proposed Central/Local Manager distinction. It does not
+assign financial-evidence read or payout-reconciliation actions to Manager:
+those route descriptions still say "authorized finance/reconciliation scope"
+without naming a canonical role. Keep T009/T010 blocked for those operations
+until the owner assigns the role(s); do not interpret global location scope as
+granting a new action capability. The scoped 003.1/003.2 authorization edits
+and tests are in the working tree but were not verified after this blocker was
+reconfirmed. No task marker was changed, and no commit or push was made.
+
+**Owner decision and resolution update (2026-10-29T16:07:05+07:00).** The owner
+confirmed that active Manager may both read OTA financial evidence and perform
+payout reconciliation globally. The 003.4 contract and OpenAPI now assign
+Manager globally to those actions, clarify the remaining mapping/price/sales
+actions, and retain Admin-only connection/credential/booking-enablement actions
+plus location-scoped Staff add-on actions. T009 is implemented and checked off
+after evidence: `OtaAuthorizationServiceTest` (4 tests),
+`OtaExceptionHandlerTest` (2), and a targeted suite covering the existing
+booking/Operations authorization unit tests plus Modulith verification (22
+tests) all passed on the final run. An initial run exposed the missing named
+003.3 `facade` interface; adding its package declaration fixed the boundary and
+the rerun passed. This resolves the role/scope design blocker recorded above.
+T010 and remaining OTA implementation tasks are ordinary unfinished work, not
+design blockers. No database was created, dropped, reset, or migrated by these
+tests. No commit or push was made.
+
+## BE-DESIGN-0024 - 003.1–006 Loyalty accept contract lacks source quote/session rules
+
+**Status**: BLOCKED
+**Reported**: 2026-10-29T16:17:40+07:00
+**Reporter**: Hồ Hoàng Quốc
+**Feature/task**: 003.1 Workshop Booking T021/T022 and Loyalty integration
+
+**Scope stopped**: Direct 003.1 integration with `LoyaltyFacade`, including
+booking-side preview/accept/outcome calls, and dependent Workshop target-provider
+work.
+
+**Sources checked**:
+- `ppswbs_backend/AGENT.md`, §§3 and 5: implementation must stop when a source
+  contract is incomplete and must not choose transaction/business semantics.
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/tasks.md`,
+  T021/T022: T021 consumes `post_promotion_amount`; T022 creates a booking after
+  required-session capacity holds. The tasks do not define a Loyalty quote or
+  accepted-benefit context.
+- `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/loyaltypromotion/facade/AcceptedSourceContext.java`:
+  accept requires source-owned `quoteRef` and `termsDigest`.
+- `.../loyaltypromotion/facade/BenefitPreview.java`: preview returns
+  `termsDigest`, but no `quoteRef` or preview identifier.
+- `.../loyaltypromotion/facade/WorkshopFact.java`: workshop facts contain one
+  `sessionId` along with package, branch, date and participant count.
+- `.../workshopbooking/service/BookingLifecycleService.java`:
+  current legacy implementation accepts `postPromotionAmount` as a caller
+  argument and has no quote persistence or Loyalty invocation; booking selection
+  supports one or two required sessions.
+- `ppswbs-spec/features/006-loyalty-promotion/contracts/interfaces.md` and
+  `integration-gates.md`: 003.1 owns source acceptance and must supply workshop
+  facts; WORKSHOP provider implementation belongs in the source/Operations
+  feature and is still an integration gate.
+
+**Observed facts**: The owner selected the direct `LoyaltyFacade` approach
+(Cách 2), and the one-way dependency `workshopbooking -> loyaltypromotion ::
+facade` is consistent with the published module direction. The accept context
+cannot currently be constructed from the published preview result without
+inventing how `quoteRef` is issued/persisted. The source contract also does not
+say whether a multi-session package is represented by one authoritative
+session, or how eligibility targets are evaluated across all required sessions.
+
+**Why implementation stops**: These missing facts affect what the Member
+acknowledges, which offer/target is accepted, and whether booking, capacity
+holds, and held benefits share one atomic accept. Picking a quote reference
+format or selecting one session would create unapproved business behavior and
+could reserve benefits against a different package selection than the booking.
+
+**Required design decision**: Publish the source-owned quote lifecycle and
+identity (including how it binds package, branch, date, all required sessions,
+participant count, gross amount, selected voucher/points and terms digest), and
+define the authoritative workshop target facts for a package with multiple
+required sessions. Then specify the accept transaction boundary and failure/
+expiry behavior for capacity holds versus Loyalty reservation. The owner’s
+choice of direct facade call is recorded and does not need to be revisited.
+
+**Files changed**: Only this operational report. No task marker or design
+artifact was changed. No test or mutating hook was run. Existing working-tree
+changes were preserved; no commit or push was made.
+
+**Resolution update (2026-10-29).** The Feature 003 owner supplied Khương's
+approved integration decisions in-session, and `origin/develop` was fetched and
+fast-forwarded into `quoc` to commit `6e7b5c7` (including upstream commit
+`fb8ef30`). The source contract now specifies booking-owned quote persistence
+(`quoteRef`, `termsDigest`, selected sessions), multi-session facts with UUID
+references and every-session voucher matching, same-transaction capacity holds
+and Loyalty reservation, and outcome call ordering. The integration guide is
+`ppswbs-spec/features/006-loyalty-promotion/contracts/workshop-booking-integration.md`.
+This resolves the design gap recorded above. Implementation can resume after
+the matching 006 facade/API source is present in the checkout and the individual
+003 task dependencies are checked. No 003 task marker was changed here.

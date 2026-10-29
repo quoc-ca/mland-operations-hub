@@ -172,6 +172,7 @@ public class WorkshopPackageReservationPolicy {
                 workshopPackage.getMaxParticipants(),
                 workshopPackage.getRequiredSessionCount(),
                 workshopPackage.isSameLocationRequired(),
-                workshopPackage.getMinimumSameDaySlotGap());
+                workshopPackage.getMinimumSameDaySlotGap(),
+                workshopPackage.getName());
     }
 }

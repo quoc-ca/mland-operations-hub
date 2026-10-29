@@ -83,7 +83,7 @@ public class AttendanceFinalizationService {
             throw new WorkshopLifecycleException("Session is in state " + session.getState() + "; finalization requires IN_PROGRESS");
         }
 
-        // Authorization: assigned Staff or recorded Manager operational lead within location scope
+        // Authorization: assigned Staff in location scope or any active Manager globally.
         AccountSummary actor = authorizationService.requireStaffSessionAssignment(authHeader, session.getId());
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);

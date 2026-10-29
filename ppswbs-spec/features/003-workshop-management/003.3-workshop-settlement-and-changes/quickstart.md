@@ -1,7 +1,7 @@
 # Quickstart Validation: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -17,8 +17,9 @@ credentials, provider calls, schema changes or deployment.
   with frozen post-promotion amount, accepted deposit and remaining amount.
 - Provide approved 003.2 facade outcomes for settlement readiness, complete
   replacement, verified-refund consequence and cancellation handoff.
-- Use active test Member, Guest contact proof, in-scope Staff, location-scoped Manager and
-  designated central Manager actors. Do not guess an FE-001 role code.
+- Use active test Member, Guest contact proof, Staff in and outside the booking
+  location, and active Managers with different location assignments. Manager
+  actions are global; do not guess an FE-001 role code.
 - Use the routes and safe schemas in
   [`contracts/workshop-settlement.openapi.yaml`](./contracts/workshop-settlement.openapi.yaml).
 
@@ -58,7 +59,7 @@ credentials, provider calls, schema changes or deployment.
    changes or none and QR persists. For Mland cancellation, require the same
    `cancellationHandoffReference` for replacement and `UNAVAILABLE`/`DECLINED`
    remedy before refund.
-8. **Policy and authorization**: verify only the central Manager reads/revises
+8. **Policy and authorization**: verify any active Manager reads/revises
    refund-policy history. A future 0..100 integral revision affects only later
    confirmed bookings and uses the stated floor-VND rule; customer views reveal
    only their own retained snapshot/outcome. Verify inactive/out-of-scope actor

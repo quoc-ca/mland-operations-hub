@@ -7,9 +7,25 @@ info:
     implementation. Shared VNPay provider ingress is documented in
     ../../contracts/vnpay-payment-ingress.openapi.yaml.
 paths:
+  /api/v1/workshop-booking-quotes:
+    post:
+      summary: Preview and persist a Member's workshop quote
+      description: Requires an active Member bearer. Quote amounts and terms are computed server-side by Loyalty; the server returns a source-owned quoteRef that the Member confirms when creating the booking.
+      security: [{bearerAuth: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkshopBookingQuoteRequest'}}}}
+      responses:
+        '201': {description: Persisted quote preview, content: {application/json: {schema: {$ref: '#/components/schemas/WorkshopBookingQuote'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings:
     post:
-      summary: Create one pending booking for one package
+      summary: Confirm a Member quote or create one Guest booking for one package
+      description: A Member confirms with quoteRef only; package, session and price facts are loaded from the stored quote and authoritative 003.2 data. A Guest may use the no-benefit package/session request. A Member may create a no-benefit quote by selecting NONE.
+      security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateBookingRequest'}}}}
       responses:
@@ -45,7 +61,7 @@ paths:
   /api/v1/workshop-bookings/{bookingCode}/confirmation-deliveries:
     post:
       summary: Resend booking confirmation only to the stored booking contact
-      description: Guest supplies exactly one stored contact proof; Member uses ownership; authorized Staff or Manager in the booking location may act without customer proof.
+      description: Guest supplies exactly one stored contact proof; Member uses ownership; Staff may act only within active location scope, while any active Manager may act globally without customer proof.
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/ConfirmationDeliveryRequest'}}}}
@@ -59,7 +75,7 @@ paths:
   /api/v1/workshop-bookings/{bookingCode}/magic-link-incidents:
     post:
       summary: Revoke or rotate a Magic Link
-      description: Manager responsible for the booking location only.
+      description: Any active Manager globally.
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MagicLinkIncidentRequest'}}}}
@@ -71,7 +87,7 @@ paths:
   /api/v1/workshop-bookings/{bookingCode}/late-payment-follow-ups:
     post:
       summary: Record or escalate a late-payment follow-up
-      description: Manager responsible for the booking location only; this command never changes booking, capacity, ticket, or payment-link state.
+      description: Any active Manager globally; this command never changes booking, capacity, ticket, or payment-link state.
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/LatePaymentFollowUpRequest'}}}}
@@ -88,6 +104,17 @@ components:
     IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
   schemas:
     CreateBookingRequest:
+      oneOf:
+        - {$ref: '#/components/schemas/MemberQuoteBookingRequest'}
+        - {$ref: '#/components/schemas/GuestBookingRequest'}
+    MemberQuoteBookingRequest:
+      type: object
+      required: [quoteRef, contactEmail, contactPhone]
+      properties:
+        quoteRef: {type: string, format: uuid}
+        contactEmail: {type: string, format: email, maxLength: 254}
+        contactPhone: {type: string, minLength: 7, maxLength: 32}
+    GuestBookingRequest:
       type: object
       required: [packageId, sessionReferences, participantCount, contactEmail, contactPhone]
       properties:
@@ -96,6 +123,36 @@ components:
         participantCount: {type: integer, minimum: 1}
         contactEmail: {type: string, format: email, maxLength: 254}
         contactPhone: {type: string, minLength: 7, maxLength: 32}
+    WorkshopBookingQuoteRequest:
+      type: object
+      required: [packageId, sessionReferences, participantCount, benefitSelection]
+      properties:
+        packageId: {type: integer, format: int64, minimum: 1}
+        sessionReferences: {type: array, minItems: 1, maxItems: 2, uniqueItems: true, items: {type: string, format: uuid}}
+        participantCount: {type: integer, minimum: 1}
+        benefitSelection: {$ref: '#/components/schemas/BenefitSelection'}
+    BenefitSelection:
+      type: object
+      required: [choice, requestedPoints]
+      properties:
+        choice: {type: string, enum: [NONE, VOUCHER]}
+        voucherCode: {type: string, maxLength: 128}
+        requestedPoints: {type: string, pattern: '^(0|[1-9][0-9]*)$', maxLength: 19}
+    WorkshopBookingQuote:
+      type: object
+      required: [quoteRef, grossAmount, programDiscount, pointsUsed, pointDiscount, postPromotionAmount, depositAmount, remainingAmount, earnBase, termsDigest, reasons]
+      properties:
+        quoteRef: {type: string, format: uuid}
+        grossAmount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
+        programDiscount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
+        pointsUsed: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
+        pointDiscount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
+        postPromotionAmount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
+        depositAmount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
+        remainingAmount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
+        earnBase: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
+        termsDigest: {type: string, minLength: 1, maxLength: 128}
+        reasons: {type: array, items: {type: string}}
     GuestLookupRequest:
       type: object
       required: [bookingCode]

@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -66,7 +66,7 @@ idempotent; a failed mapping closes OTA sales until confirmed re-sync.
 | Gate | Pre-design | Post-design | Evidence / condition |
 | --- | --- | --- | --- |
 | Module integrity | PASS | PASS | A dedicated OTA facade owns channel state and calls Booking, Operations, Settlement, and Account/Personnel only through their facades. |
-| Identity and data | PASS | PASS | Firebase establishes Mland user identity; Account Management supplies canonical role/status/location facts and OTA Connectivity applies its location/resource action rules. `workshop_location.id` is directly comparable to `activeLocationIds`; provider callback identity is a separate verified integration credential, never a user identity. |
+| Identity and data | PASS | PASS | Firebase establishes Mland user identity; Account Management supplies canonical role/status/location facts. OTA Connectivity applies action rules from canonical role/status; active Managers have global OTA business-action scope without `activeLocationIds` filtering, while location-scoped Staff rules (where specified) use canonical location facts. Provider callback identity is separate from a user identity. |
 | REST and frontend separation | PASS | PASS | Proposed REST paths are versioned/plural; a separate React/Vite client consumes API contracts only. |
 | Persistence and migration safety | PASS | PASS | JPA-owned records and append-only Flyway migrations; uniqueness and state invariants are tested. No raw SQL persistence design is required. |
 | Verification | PASS | PASS | Module, migration, contract, authorization, replay, failure-recovery, and reconciliation scenarios are specified below. |

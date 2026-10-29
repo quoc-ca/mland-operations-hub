@@ -1,13 +1,84 @@
 # Data Model: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
 ## Status and ownership
 
-This is a proposed implementation model for review, not an approved database schema. Names, physical column types, indexes, retention, and provider-specific fields remain implementation decisions. The OTA module owns the records below; Booking, Operations, Settlement, and Account/Personnel remain the systems of record for their existing responsibilities.
+The Feature 003 owner approved the physical schema boundary recorded in this section on 2026-10-29. This approval covers the V1 storage decisions below; provider-specific contact fields remain deny-by-default and require provider readiness evidence before persistent storage or booking enablement. The OTA module owns the records below; Booking, Operations, Settlement, and Account/Personnel remain the systems of record for their existing responsibilities.
+
+### Approved V1 storage conventions
+
+- OTA-owned primary keys use `BIGINT AUTO_INCREMENT`; OTA tables use InnoDB,
+  `utf8mb4_unicode_ci`, and `DATETIME(6)` timestamps.
+- References to Booking, Operations, Settlement, and Account are opaque
+  boundary references with no cross-module foreign keys. Foreign keys between
+  OTA-owned records are required where listed below.
+- One channel connection is allowed per provider and environment (`TEST` or
+  `PRODUCTION`). A connection stores only an opaque credential reference; the
+  secret itself remains in external configuration/credential storage.
+- Money is stored as signed `BIGINT` minor units with an ISO currency code.
+  Currency exponent is interpreted by the adapter/approved commercial terms;
+  no floating-point amount is persisted.
+- Booking, payment/refund, payout, delivery-attempt, inbound-event deduplication,
+  and reconciliation evidence is not automatically deleted in V1. Raw callback
+  and provider request/response payloads, credentials, payment-card data, and
+  unnecessary contact data are not retained.
+- OTA contact is accepted only where the provider flow requires it. Persistent
+  contact fields are deny-by-default and require a documented operational
+  purpose, provider permission, access rule, and retention evidence before
+  enablement. This does not change 003.1 direct-booking contact requirements.
+- Mapping is one provider offer/option to one Mland offer/session. Each session
+  has its own mapping and synchronization lifecycle.
+- Each outbound change records a minimized canonical snapshot of one session's
+  accepted source version/change. Retries use that same snapshot; each provider
+  call is a separate append-only delivery attempt. No contact, ticket, or
+  payment detail is included.
+- A booking ticket link is per participant ordinal, not per purchaser. Each
+  channel booking has one link per ordinal, and an Operations ticket reference
+  can be linked only once within OTA data.
+- Reconciliation work items are actionable by an authorized active Manager
+  across locations, without checking `activeLocationIds`; canonical location is
+  retained on each item for operational context and audit. A work-item
+  assignment is for routing/accountability, not an authorization prerequisite.
+  Assignment, decision, and resolution are audited. Work items contain
+  references, not copied raw payload/contact data.
+
+### Approved V1 record columns and keys
+
+The following is the approved logical physical-column contract for the single
+OTA foundation migration. `created_at`/`updated_at` use `DATETIME(6)` where
+applicable; immutable evidence records use `recorded_at`/event timestamps.
+Opaque cross-module references are `VARCHAR(128)` unless the owning facade
+contract specifies a narrower stable representation. Provider references are
+`VARCHAR(255)`; currency is `CHAR(3)`.
+
+| Table | Required columns and constraints |
+| --- | --- |
+| `ota_channel_connections` | `id`; `provider_code VARCHAR(32)`; `environment VARCHAR(16)`; `status VARCHAR(24)`; `credential_reference VARCHAR(255)`; timestamps. Unique `(provider_code, environment)`. No credential value. |
+| `ota_channel_mappings` | `id`; `connection_id` FK; `offer_reference VARCHAR(128)`; `session_reference VARCHAR(128)`; `location_reference VARCHAR(128)`; `external_product_id VARCHAR(255)`; `external_option_id VARCHAR(255)`; `status VARCHAR(32)`; timestamps. Unique `(connection_id, external_product_id, external_option_id)` and `(connection_id, session_reference)`. |
+| `ota_channel_price_snapshots` | `id`; `mapping_id` FK; `retail_amount_minor BIGINT`; `target_net_amount_minor BIGINT`; `commission_amount_minor BIGINT NULL`; `currency_code CHAR(3)`; `terms_reference VARCHAR(255)`; `effective_from DATETIME(6)`; `effective_to DATETIME(6) NULL`; `created_at`. Immutable after use by a booking or payout position. |
+| `ota_outbound_changes` | `id`; `mapping_id` FK; `source_version BIGINT`; `source_change_reference VARCHAR(128)`; `change_kind VARCHAR(32)`; `canonical_snapshot` containing only allowlisted session schedule/availability/sale-state values; `status VARCHAR(24)`; timestamps. Unique `(mapping_id, source_version, change_kind)`. |
+| `ota_delivery_attempts` | `id`; `outbound_change_id` FK; `attempt_number INT`; `started_at DATETIME(6)`; `completed_at DATETIME(6) NULL`; `outcome VARCHAR(24)`; `provider_correlation_reference VARCHAR(255) NULL`; `failure_category VARCHAR(64) NULL`. Unique `(outbound_change_id, attempt_number)`. Append-only. |
+| `ota_inbound_events` | `id`; `connection_id` FK; `external_event_reference VARCHAR(255) NULL`; `payload_fingerprint CHAR(64)`; `dedupe_key CHAR(64)`; `event_kind VARCHAR(32)`; `authentication_result VARCHAR(24)`; `processing_status VARCHAR(24)`; `outcome_reference VARCHAR(128) NULL`; `received_at DATETIME(6)`; `processed_at DATETIME(6) NULL`. Unique `(connection_id, dedupe_key)`. The service hashes the external event reference when present, otherwise uses the canonical allowlisted payload fingerprint, so MySQL can enforce both cases with one non-null unique key. No raw payload. |
+| `ota_channel_bookings` | `id`; `mapping_id` FK; `external_booking_reference VARCHAR(255)`; `provider_status VARCHAR(32)`; `participant_count INT`; `mland_booking_reference VARCHAR(128) NULL`; policy/version and booking-cutoff/timezone snapshot; retail/target-net/commission/fee/accepted amount snapshots as `BIGINT` minor units with currency; timestamps. Unique `(mapping_id, external_booking_reference)`. |
+| `ota_booking_ticket_links` | `id`; `channel_booking_id` FK; `participant_ordinal INT`; `operations_ticket_reference VARCHAR(128)`; `linked_at DATETIME(6)`. Unique `(channel_booking_id, participant_ordinal)` and unique `operations_ticket_reference`. |
+| `ota_customer_payment_evidence` | `id`; `channel_booking_id` FK; `external_evidence_reference VARCHAR(255)`; `evidence_kind VARCHAR(24)`; `evidence_status VARCHAR(24)`; `amount_minor BIGINT`; `currency_code CHAR(3)`; `occurred_at DATETIME(6)`; `recorded_at DATETIME(6)`; `correlation_reference VARCHAR(128) NULL`. Append-only; unique provider-scoped external evidence reference. |
+| `ota_payout_positions` | `id`; `channel_booking_id` FK; `price_snapshot_id` FK nullable; `expected_amount_minor BIGINT`; `currency_code CHAR(3)`; `status VARCHAR(24)`; timestamps. Position is separate from guest payment evidence. |
+| `ota_payout_ledger_entries` | `id`; `payout_position_id` FK; `entry_kind VARCHAR(24)`; signed `amount_minor BIGINT`; `currency_code CHAR(3)`; `external_evidence_reference VARCHAR(255)`; `occurred_at DATETIME(6)`; `recorded_at DATETIME(6)`; `correlation_reference VARCHAR(128) NULL`. Append-only; unique `(payout_position_id, entry_kind, external_evidence_reference)`. |
+| `ota_addon_bill_links` | `id`; `channel_booking_id` FK; `settlement_quote_reference VARCHAR(128)`; `settlement_bill_reference VARCHAR(128) NULL`; `amount_minor BIGINT`; `currency_code CHAR(3)`; `status VARCHAR(24)`; timestamps. Settlement remains authoritative for bill/payment/refund truth. |
+| `ota_reconciliation_work_items` | `id`; nullable FK references to affected OTA mapping/event/booking/payout position; `location_reference VARCHAR(128)`; `category VARCHAR(32)`; `status VARCHAR(24)`; `assigned_manager_reference VARCHAR(128) NULL`; `decision VARCHAR(64) NULL`; `resolution_reference VARCHAR(255) NULL`; `audit_reference VARCHAR(128) NULL`; timestamps. Active Managers may act across locations; retain location context and audit evidence. |
+
+Check constraints enforce the approved `TEST`/`PRODUCTION` environment values,
+positive participant counts/ordinals and attempt numbers, non-negative
+commercial price components where applicable, and effective windows where an
+end is present. Other status vocabularies remain service-validated until their
+provider-specific lifecycle values are approved.
+No automatic cleanup job is authorized by this V1 design. The exact canonical
+snapshot encoding is JSON with a strict typed allowlist; provider-specific
+wire-format request/response bodies are never stored.
 
 ## Core records
 
@@ -84,7 +155,7 @@ work; it cannot mutate Operations or direct-Mland booking behaviour.
 | Schedule, capacity, session, attendance, ticket scan | Workshop Operations | Consume only authoritative schedule and availability/sale-state snapshots for publication, using their one per-session source-version sequence; use approved Operations facades for booking/cancellation effects. OTA never calculates or writes schedule/capacity/tickets directly. |
 | Customer booking and booking lifecycle | Workshop Booking | Request idempotent booking creation/lookup; retain only correlation. |
 | Direct-Mland bill and payment/refund | Workshop Settlement | Request a quote/bill link for accepted paid add-ons; do not own money processing. |
-| Canonical Mland actor role/status/location scope | Account Management | Consume facts through facade; OTA Connectivity applies its own action rule with target location/resource. The location is directly comparable to `activeLocationIds`; provider identity is not mapped to a Mland user. |
+| Canonical Mland actor role/status/location scope | Account Management | Consume facts through facade; OTA Connectivity applies its own action rule. Active Manager OTA business actions are global and do not filter by `activeLocationIds`; Staff remains location-scoped where explicitly authorized. Retain canonical location for resource identity/audit; provider identity is not mapped to a Mland user. |
 
 ## Integrity and privacy rules
 

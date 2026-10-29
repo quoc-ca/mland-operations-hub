@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -12,6 +12,15 @@
 **Input**: Confirmed workshop-settlement, change, and direct-booking cancellation
 decisions. This spec retains the feature baseline locally so a later retirement
 of the shared `research.md` does not remove its behavioural decisions.
+
+## Feature 003 authorization decision (2026-10-29)
+
+Every active canonical `MANAGER` has global location scope for Manager-authorized
+settlement and change actions, consistent with 003.1, 003.2 and 003.4. Manager
+authorization does not depend on `activeLocationIds`; Staff actions remain
+location-scoped, Member ownership and booking-specific safeguards remain in
+force, and explicitly Admin-only technical actions remain Admin-only. There is
+no Central Manager tier.
 
 ## Scope
 
@@ -84,10 +93,9 @@ rescheduling, or process OTA payments/refunds.
   booking-level change containing the complete replacement session set. 003.2,
   as capacity and ticket-entitlement owner, validates the complete result and
   applies all changes or none; it preserves the persistent ticket QR.
-- Q: Who may revise the Mland-caused-cancellation refund policy? → A: One
-  designated central Manager may manage the policy for all Mland locations. Other
-  Managers handle individual cases only under the booking's existing policy
-  snapshot; they cannot revise that policy.
+- Q: Who may revise the Mland-caused-cancellation refund policy? → A: Any
+  active Manager may manage the policy globally. All Manager-authorized actions
+  in Feature 003 use global location scope; booking snapshots remain immutable.
 
 ### Session 2026-10-26
 
@@ -152,7 +160,7 @@ rescheduling, or process OTA payments/refunds.
   `UNAVAILABLE` or `DECLINED`. The server derives the retained policy snapshot
   and refund amount; it accepts no amount, ticket/session selection, or QR input.
 - Q: What minimum input creates a prospective refund-policy revision? → A: The
-  designated central Manager supplies only `effectiveAt` and
+  active Manager supplies only `effectiveAt` and
   `wholeBookingRefundPercent`. The server requires a future effective time and a
   valid percentage; the policy applies only prospectively and never rewrites an
   existing booking snapshot.
@@ -208,7 +216,7 @@ rescheduling, or process OTA payments/refunds.
   to 003.1 for `DEPOSIT` or 003.3 for `FINAL_PAYMENT`/`REFUND`. It never
   broadcasts, guesses an owner, or changes booking/settlement state itself.
 - Q: Which refund percentage and VND rounding rule does a prospective policy
-  revision use? → A: The central Manager supplies a whole-number percentage from
+  revision use? → A: An active Manager supplies a whole-number percentage from
   `0` through `100`. The system computes the refund as
   `floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND.
 - Q: Who may select a fixed-price catalogue add-on, and until when? → A: An
@@ -216,8 +224,8 @@ rescheduling, or process OTA payments/refunds.
   code plus one stored contact phone or email on each request. Both may select
   only an eligible catalogue add-on before the final bill is finalized; Magic
   Link remains read-only.
-- Q: Who may read the central refund-policy revision resource? → A: Only the
-  designated central Manager may read all policy revisions. Guest/Member may
+- Q: Who may read the central refund-policy revision resource? → A: Any active
+  Manager may read all policy revisions. Guest/Member may
   read only the retained policy snapshot and refund outcome permitted for their
   own booking; they cannot read central revision history.
 
@@ -258,9 +266,9 @@ rescheduling, or process OTA payments/refunds.
   refund governed by the booking's Mland-caused-cancellation policy snapshot.
   The V1 default is 100% of every successfully collected booking/package
   payment; V1 does not allocate a partial refund or credit to one session.
-- A designated central Manager owns prospective Mland-caused-cancellation refund
-  policy changes for all locations. Other Managers may resolve individual cases
-  only under the policy snapshot already retained by the booking.
+- Any active Manager may administer prospective Mland-caused-cancellation refund
+  policy changes globally and resolve individual cases. Booking policy snapshots
+  remain immutable.
 - OTA customer payments, refunds, commission, payout, and reconciliation are
   outside this feature.
 
@@ -276,16 +284,16 @@ rescheduling, or process OTA payments/refunds.
   audited authorized action.
 - The system MUST NOT infer `Manager = OWNER`. Account Management supplies the
   canonical fixed role, current status and active location-scope facts; 003.3
-  applies its own server-side Settlement action rules with booking location and
-  resource scope. Active in-scope Staff may perform routine charge/final-bill
-  actions; active in-scope Manager may perform deferred payment/link issue or
+  applies its own server-side Settlement action rules. Active Staff may perform
+  routine charge/final-bill actions only within active location scope; any active
+  Manager globally may perform deferred payment/link issue or
   reissue, required-session changes, and refund exceptions/Mland-caused remedy.
   An inactive actor loses these authorities immediately. Display role labels,
   Firebase claims and retired role codes never grant authority.
-- The Mland-caused-cancellation refund-policy editor is one designated central
-  Manager. This business authority does not introduce a role code or alter the
-  Account Management role mapping; the feature requires its active authorization
-  and records the policy's effective time for future bookings.
+- Any active Manager may use the global Mland-caused-cancellation refund-policy
+  editor. This does not introduce a role code or alter the Account Management
+  role mapping; the feature checks active authorization and records the policy's
+  effective time for future bookings.
 
 ## User Scenarios and Testing
 
@@ -510,19 +518,18 @@ outcome.
   `cancellationHandoffReference` used for the offered replacement. The server
   MUST derive the retained policy snapshot and refund amount; it MUST NOT accept
   caller-selected amount, ticket/session, or QR input.
-- **FR-021a**: Only the designated central Manager may create or revise the
+- **FR-021a**: Any active Manager may create or revise the
   Mland-caused-cancellation refund policy for future bookings across all
   locations. The change MUST record an effective time and MUST NOT alter a policy
-  snapshot retained by an already confirmed booking; other Managers MUST NOT
-  revise the policy.
+  snapshot retained by an already confirmed booking.
 - **FR-021d**: `POST /workshop-refund-policies` MUST accept only `effectiveAt`
-  and `wholeBookingRefundPercent` from the designated central Manager. The
+  and `wholeBookingRefundPercent` from an active Manager. The
   effective time MUST be future and the percentage MUST be a whole number from
   `0` through `100`; the revision MUST apply only to later-confirmed bookings
   and MUST NOT rewrite retained snapshots. The policy snapshot refund amount MUST
   be `floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND.
-- **FR-021e**: `GET /workshop-refund-policies` MUST be available only to the
-  designated central Manager and MUST return the central policy revision history.
+- **FR-021e**: `GET /workshop-refund-policies` MUST be available to any active
+  Manager and MUST return the global policy revision history.
   A Guest or Member MUST instead receive only the retained policy snapshot and
   refund outcome permitted for their own booking through its final-bill/case
   projection.

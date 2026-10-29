@@ -1,7 +1,7 @@
 # Implementation Plan: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-28
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -85,8 +85,9 @@ receives raw final-payment evidence or calculates the final balance. 003.4 owns
 OTA completely. For internal booking support,
 Mland rechecks canonical active account facts and Booking's support-action rule
 against booking-location scope at
-action time. Assigned Staff or location-responsible Managers may resend the
-confirmation; only the responsible Manager may revoke or rotate a Magic Link.
+action time. Staff may resend the confirmation only within their active
+location scope; any active Manager may resend globally or revoke/rotate a Magic
+Link globally.
 The `ADMIN` role alone grants neither action.
 
 Create flow: validate Booking-owned contact input; preserve the selected Package

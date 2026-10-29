@@ -204,7 +204,7 @@ public class WorkshopSessionService {
             WorkshopLocation location = locationService.requireLocationEntityInScope(authHeader, locationId);
             allowedLocationIds = List.of(location.getId());
         } else {
-            if (authorizationService.isAllBranchActor(actor)) {
+            if (authorizationService.isAllBranchActor(actor) || authorizationService.isManager(actor)) {
                 allowedLocationIds = null;
             } else {
                 allowedLocationIds = accountFacade.getLocationScope(actor.accountId());

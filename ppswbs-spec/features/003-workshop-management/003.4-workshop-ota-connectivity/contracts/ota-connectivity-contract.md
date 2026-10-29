@@ -1,7 +1,7 @@
 # Contract Design: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -18,7 +18,7 @@ Other modules interact with OTA through an application facade, not its entities 
 | Receive authoritative OTA-observable session snapshot | Persistent internal Spring Modulith publication from Operations, recorded with a completed schedule, availability, or sale-state change | Accept only the next/current value in the session's unified source-version sequence, or suspend only the affected mapping and request authoritative resync for a gap or uncertain order. The publication is at-least-once; V1 uses no broker. |
 | Request inventory publication | Authorized OTA workflow after an accepted Operations snapshot or approved-price change | Durable change reference; delivery occurs asynchronously. |
 | Receive provider event | Authenticated provider adapter/callback endpoint | Safe acknowledgement plus prior/current idempotent outcome; no duplicate Mland effect. |
-| Start/continue reconciliation | Authorized location Manager or Admin as appropriate | Work-item reference with correlation/evidence links; no concealed correction. |
+| Start/continue reconciliation | Authorized active Manager globally or Admin as appropriate | Work-item reference with correlation/evidence links; no concealed correction. |
 | Force a full re-sync | Authorized actor after incident review | Obtain the authoritative current snapshot for the affected session at its existing source version, then create auditable OTA-side reconciliation/delivery work. It is not a new Operations business change and cannot reopen booking until successful confirmation. |
 | Record verified commercial evidence | Authorized Admin finance/connection workflow | Immutable reference to approved terms; never records raw credentials. |
 
@@ -82,17 +82,17 @@ These paths are specified in the proposed OpenAPI contract. Responses expose saf
 
 | Method and path | Intent | Actor boundary |
 | --- | --- | --- |
-| `GET /api/v1/ota-channels` | List visible connection/mapping readiness and safe status. | OTA read action rule plus location scope. |
-| `POST /api/v1/ota-channels/{channelId}/mappings` | Create a draft mapping; no implicit publish. | OTA mapping action rule for canonical Admin/Manager roles; connection changes remain Admin-only. |
-| `PUT /api/v1/ota-channel-mappings/{mappingId}` | Update a draft/sales-closed mapping with optimistic versioning. | Authorized actor; stale version is a conflict. |
-| `POST /api/v1/ota-channel-mappings/{mappingId}/price-terms` | Submit price terms for commercial review; it does not publish or enable sale. | Authorized actor; unconfirmed Klook terms remain pending. |
-| `POST /api/v1/ota-channel-mappings/{mappingId}/sync` | Queue preparation/full re-sync. | Location Manager for business sync; Admin for cross-location recovery. |
-| `POST /api/v1/ota-channel-mappings/{mappingId}/sales-close` | Queue sales closure and record reason. | Authorized location actor. |
+| `GET /api/v1/ota-channels` | List visible connection/mapping readiness and safe status. | Manager's authorized OTA view is global; Admin connection view is global. |
+| `POST /api/v1/ota-channels/{channelId}/mappings` | Create a draft mapping; no implicit publish. | Canonical Admin/Manager mapping action; Manager has global location scope. Connection changes remain Admin-only. |
+| `PUT /api/v1/ota-channel-mappings/{mappingId}` | Update a draft/sales-closed mapping with optimistic versioning. | Active Manager globally. Stale version is a conflict. |
+| `POST /api/v1/ota-channel-mappings/{mappingId}/price-terms` | Submit price terms for commercial review; it does not publish or enable sale. | Active Manager globally. Unconfirmed Klook terms remain pending. |
+| `POST /api/v1/ota-channel-mappings/{mappingId}/sync` | Queue preparation/full re-sync. | Active Manager globally for business sync; Admin globally for authorized technical/cross-location recovery. |
+| `POST /api/v1/ota-channel-mappings/{mappingId}/sales-close` | Queue sales closure and record reason. | Active Manager globally. |
 | `POST /api/v1/ota-channel-mappings/{mappingId}/booking-enable` | Request controlled booking enablement after evidence validation. | Admin-controlled approval; rejects without provider readiness record. |
-| `GET /api/v1/ota-reconciliation-work-items` | List reconciliation work in authorized scope. | Location Manager or Admin by scope. |
-| `POST /api/v1/ota-reconciliation-work-items/{id}/resolve` | Record a reviewed resolution; may queue re-sync. | Authorized actor; immutable decision audit. |
-| `GET /api/v1/ota-channel-bookings/{channelBookingId}/financial-evidence` | Read separated channel-payment and payout evidence. | Authorized finance/reconciliation scope. |
-| `POST /api/v1/ota-channel-bookings/{channelBookingId}/payout-reconciliation` | Append payout, variance, dispute, adjustment, or reversal evidence. | Authorized finance/reconciliation scope. |
+| `GET /api/v1/ota-reconciliation-work-items` | List reconciliation work in authorized scope. | Active Manager globally or Admin globally. |
+| `POST /api/v1/ota-reconciliation-work-items/{id}/resolve` | Record a reviewed resolution; may queue re-sync. | Active Manager globally or Admin globally, subject to the action rule; immutable decision audit. |
+| `GET /api/v1/ota-channel-bookings/{channelBookingId}/financial-evidence` | Read separated channel-payment and payout evidence. | Active Manager globally. |
+| `POST /api/v1/ota-channel-bookings/{channelBookingId}/payout-reconciliation` | Append payout, variance, dispute, adjustment, or reversal evidence. | Active Manager globally. |
 | `POST /api/v1/ota-channel-bookings/{channelBookingId}/add-on-quotes` | Create a free engraving record or paid direct-Mland add-on quote. | Authorized Staff scope. |
 | `POST /api/v1/ota-addon-quotes/{quoteId}/acceptance` | Record acceptance for a paid quote. | Authorized Staff scope; no bill before acceptance. |
 | `POST /api/v1/ota-addon-quotes/{quoteId}/direct-bill` | Create the separate Settlement-owned direct-Mland bill. | Authorized Staff scope; quote must be accepted. |
@@ -102,7 +102,7 @@ OpenAPI contract because its route, authentication, signature, body, response,
 and retry behavior are provider-specific onboarding facts. It is not a Mland
 user-session endpoint; each adapter publishes its approved contract separately.
 
-Account Management supplies canonical role/status/location facts; OTA Connectivity owns the exact action rules over its mappings and reconciliation resources. The implementation must return standard safe errors without exposing mapping/booking existence outside scope, and must not authorize from a display role, Firebase claim or retired code.
+Account Management supplies canonical role/status/location facts; OTA Connectivity owns the exact action rules over its mappings and reconciliation resources. Every active Manager has global location scope for Manager-authorized OTA actions, including financial-evidence read and payout reconciliation; Manager authorization does not depend on `activeLocationIds`. Provider connection/credential operations and booking enablement remain Admin-only. Add-on quote operations remain Staff-only and location-scoped. The implementation must return standard safe errors without exposing mapping/booking existence to unauthorized actors, and must not authorize from a display role, Firebase claim or retired code.
 
 ## Callback, error, and replay rules
 

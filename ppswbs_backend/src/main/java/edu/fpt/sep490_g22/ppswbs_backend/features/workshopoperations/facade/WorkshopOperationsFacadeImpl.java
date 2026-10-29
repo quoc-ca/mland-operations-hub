@@ -45,7 +45,7 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
         String sessionRef = query.sessionReference().toString();
         Optional<WorkshopSession> sessionOpt = sessionRepository.findByReference(sessionRef);
         if (sessionOpt.isEmpty()) {
-            return new SaleEligibilitySnapshot(false, "NOT_FOUND", null, null, null, 0);
+            return new SaleEligibilitySnapshot(false, "NOT_FOUND", null, null, null, 0, null, null);
         }
 
         WorkshopSession session = sessionOpt.get();
@@ -63,7 +63,9 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
             locationRef,
             session.getScheduledStartAt(),
             session.getScheduledEndAt(),
-            remainingCapacity
+            remainingCapacity,
+            session.getId(),
+            session.getWorkshopDate()
         );
     }
 
