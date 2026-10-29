@@ -827,6 +827,12 @@ Repairing, retiring, or reintroducing dependencies for `configuration`, `designr
 - Quyết định 2026-10-27 (Đặng Thị Khương, owner 006): 006 theo 001 V1 không yêu cầu MFA hay tầng xác thực bổ sung (001 spec.md dòng 193, plan.md dòng 30; 002 chốt tương tự 2026-10-26). Đã bỏ yêu cầu "privileged assurance" và mã `PRIVILEGED_AUTH_REQUIRED` khỏi tài liệu và mã 006.
 - Điều kiện tiếp tục đã có với 006: facade/contexts identity của 001 dùng được. Phần chờ owner 001 xác nhận bằng văn bản chỉ còn các mục BLOCKED gốc; 006 làm T007 bằng chain theo route của riêng mình, không sửa cấu hình chung của 001.
 
+**Diễn biến BE-DESIGN-0005 — 2026-10-29 — owner 002 chấp nhận khung của 001, T102 hoàn tất.**
+- Reporter: Claude (agent), ghi theo quyết định của Đặng Thị Khương (owner 002).
+- Fact (đọc trên `khuong` = `origin/develop` `2774c1e`): `src/main/resources/application.properties` chỉ có `spring.datasource.url=${JDBC_URL}`, `username=${JDBC_USER}`, `password=${JDBC_PASSWORD}`, không giá trị mặc định (phần "Unknown" của diễn biến 2026-10-27 về mật khẩu nay đã kiểm tra); `SecurityConfiguration` có `anyRequest().denyAll()`, CORS theo `app.cors.allowed-origins`, CSRF chỉ bỏ cho `/api/**`.
+- Quyết định (Đặng Thị Khương, 2026-10-29): dùng khung của 001 làm khung T102 của 002, chấp nhận `spring.jpa.hibernate.ddl-auto=none` (thay `validate`) và không tắt Thymeleaf. Kiểm chứng: `CatalogueMySqlEnvironmentIT`, `ModulithArchitectureTests` đạt trên build thật.
+- Trạng thái: mục 1 (security đi qua mọi request) và mục 2 (mật khẩu mặc định trong file cấu hình chính) **đã gỡ với 002**; mục 3 (quy ước số migration) đã có quyết định từ trước. Owner 001 chưa có xác nhận bằng văn bản riêng; bản ghi này không thay quyết định của 001.
+
 ---
 
 ## BE-DESIGN-0007 — FE-08 shared-boundary prerequisites
@@ -1176,6 +1182,13 @@ schema changes owned by other features.
 - Đổi mã: hai bản ghi này trước đây mang mã `BE-DESIGN-0007` (develop không biên dịch sạch, migration trùng số) và `BE-DESIGN-0008` (preflight CORS 403) trên nhánh `khuong`. `ERROR-LOG.md` trên `origin/develop` (`37d68cf`) đã dùng `BE-DESIGN-0007`–`BE-DESIGN-0010` cho FE-08 và FE-10, nên Đặng Thị Khương chốt đổi hai bản ghi của 006 thành `BE-DESIGN-0011` và `BE-DESIGN-0012`. Đã cập nhật tham chiếu trong `verification.md` của 006 và `@Disabled` của `LoyaltySecurityIT`. Nội dung các diễn biến cũ giữ nguyên.
 - Fact: `git fetch origin` lúc này chỉ cập nhật `origin/quoc` (`3821937`) và `origin/thinh` (`37d68cf`); `origin/develop` vẫn ở `37d68cf`, đúng commit đã kiểm tra ở hai diễn biến trước. Migration trùng số V6, V7, V9 vẫn còn; `configuration/` vẫn có `DefaultFirebaseTokenVerifier` và `FirebaseAuthenticationFilter`. Không có commit mới nào sửa CORS dùng chung.
 - Trạng thái: `BE-DESIGN-0011` vẫn `BLOCKED`; `BE-DESIGN-0012` vẫn `BLOCKED` (chỉ phần kiểm chứng origin hợp lệ). Chưa ghép develop về `khuong`.
+
+**Diễn biến BE-DESIGN-0011 — 2026-10-29 — đã gỡ trên `origin/develop` (`2774c1e`).**
+- Reporter: Claude (agent), theo yêu cầu của Đặng Thị Khương (owner 002, 006).
+- Fact: `c0dda7d` (004) sửa các file không biên dịch; `e143b52` (Hồ Hoàng Quốc) đổi số migration trùng: `V6__retail_cart` → `V13`, `V7__retail_mock_checkout` → `V14`, `V9__product_management` (002) → `V15`. Trên `khuong` đã ghép tới `2774c1e`: `.\mvnw.cmd -o clean test-compile` thành công không cần loại file nào; Flyway áp 18 migration V4–V21 lên database trống.
+- Kiểm chứng trên build thật (không còn build tạm), database trống `ppswbs_pm_sales_2910` / `ppswbs_loyalty_build22` (đã xóa sau khi chạy): toàn bộ test của 002 (308), 006 (226) và `ModulithArchitectureTests` (5): 539 chạy, 538 đạt, 1 bỏ qua (`LoyaltySecurityIT` preflight CORS, `BE-DESIGN-0012`), 0 lỗi.
+- Hệ quả đã xử lý trong 002/006: test kiểm tra số migration (`CatalogueMySqlIT`, `CatalogueMySqlSchemaIT`, `LoyaltyMySqlMigrationIT`) sửa từ "9" sang "15"; trước khi sửa chúng vẫn đạt nhưng chỉ do `V9__workshop_booking` cũng mang số 9. Database `ppswbs_test` nào đã áp `V9__product_management` sẽ lệch checksum với `V9__workshop_booking` và cần tạo lại.
+- Trạng thái: `BE-DESIGN-0011` **đã gỡ**. `BE-DESIGN-0012` vẫn `BLOCKED`.
 
 ## BE-DESIGN-0013 — T036/T035 recovery-facade phase boundary
 

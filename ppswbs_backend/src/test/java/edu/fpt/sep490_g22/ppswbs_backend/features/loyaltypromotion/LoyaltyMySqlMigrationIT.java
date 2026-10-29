@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * T015 evidence on the external MySQL 8.4 test database: Flyway applies 006's V10 and V11 after 001's V5 and 002's V9
+ * T015 evidence on the external MySQL 8.4 test database: Flyway applies 006's V10, V11 and V12 after 001's V5 (002's catalogue tables come from its V15, which runs later and is not needed by them)
  * (upgrade path, nothing of them is touched), the ten loyalty tables exist with their seed, every entity
  * maps to its table, and the database itself enforces the unique keys, checks and restrict foreign keys of
  * data-model section 2. Every data-changing test runs inside a transaction that is rolled back, so reruns
@@ -142,7 +142,7 @@ class LoyaltyMySqlMigrationIT {
         LoyaltyTestSupport.requireMySql84(dataSource);
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank", String.class);
-        assertThat(versions).containsSubsequence("5", "9", "10", "11", "12");
+        assertThat(versions).containsSubsequence("5", "10", "11", "12");
         List<String> tables = jdbc.queryForList("SELECT table_name FROM information_schema.tables "
                 + "WHERE table_schema = DATABASE() AND (table_name LIKE 'loyalty\\_%' OR table_name LIKE 'promotion\\_%') "
                 + "ORDER BY table_name", String.class);

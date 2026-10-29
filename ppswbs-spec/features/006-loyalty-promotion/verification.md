@@ -1,7 +1,7 @@
 # Verification — FE-06 Loyalty & Promotion
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-10-28 (mục 19: chạy lại sau khi ghép develop, test contract API T071, sửa `Error.fieldErrors` trong OpenAPI)
+**Date updated**: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -304,3 +304,44 @@ Cùng build tạm như mục 9 (BE-DESIGN-0011). Test mới `LoyaltyMySqlConcurr
 Lần chạy đầu của test mới cũng lộ ra hai điểm của chính test (đã sửa test, không sửa code sản phẩm): bộ kiểm tra schema bỏ qua `required` trong nhánh `anyOf`; danh sách dùng chung database còn có chương trình do suite khác seed thẳng vào repository (ví dụ chương trình workshop không có target), nên test chỉ kiểm tra phần tử do chính nó tạo qua API. Lần chạy đầy đủ đầu tiên (`build19`) có 2 lỗi do test mới đổi chính sách điểm toàn cục; phần dọn giờ trỏ registry về policy ban đầu như `LoyaltyMySqlConcurrencyIT`.
 
 **Chưa tick T071, T073:** T071 còn phụ thuộc các màn hình frontend và nguồn thật (T070, T065, T047, T034, T040); T073 cần build thật của develop (BE-DESIGN-0011 và migration trùng số) và các suite nguồn thật.
+
+## 20. Build thật sau khi develop sửa lỗi biên dịch và số migration (một phần T073), 2026-10-29
+
+`khuong` ghép tới `origin/develop` `2774c1e` (fast-forward). Develop biên dịch sạch (`c0dda7d` của 004) và không còn migration trùng số (`e143b52`: FE-08 `V6`/`V7` → `V13`/`V14`, 002 `V9` → `V15`), nên **không còn build tạm**: dùng đúng `pom.xml`, `src` và migration của repo. `BE-DESIGN-0011` đã gỡ (diễn biến 2026-10-29 trong ERROR-LOG).
+
+Sửa `LoyaltyMySqlMigrationIT.migrationsAreAppliedInOrderWithTenTables`: thứ tự yêu cầu là `5, 10, 11, 12` (006 chỉ cần 001 trước nó; bảng catalogue của 002 nay đến từ `V15` chạy sau và không được 006 tham chiếu). Bản cũ `5, 9, 10, 11, 12` vẫn đạt chỉ vì `V9__workshop_booking` cũng mang số 9.
+
+Lệnh (database trống `ppswbs_loyalty_build22`, `ppswbs_pm_sales_2910`, rồi lần hai `*_23`, `*_2911`; đều xóa sau khi chạy):
+
+```powershell
+.\mvnw.cmd -o test "-Dtest=edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.**.*,edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.**.*,ModulithArchitectureTests"
+.\mvnw.cmd -o test '-Dtest=**/features/productmanagement/*/**/*,**/features/loyaltypromotion/*/**/*'
+```
+
+Lệnh thứ hai chạy các lớp trong package con (`controller.LoyaltyExceptionHandlerTests`, `service.LoyaltyLifecycleTest` và các lớp tương ứng của 002) mà mẫu của lệnh đầu bỏ sót.
+
+| Phạm vi | Kết quả |
+| --- | --- |
+| Flyway | 18 migration V4–V21 trên database trống |
+| 006 | 226 chạy, 225 đạt, 1 bỏ qua (`LoyaltySecurityIT` preflight CORS, BE-DESIGN-0012), 0 lỗi |
+| 002 | 308 đạt |
+| `ModulithArchitectureTests` | 5 đạt |
+
+**Chưa tick T073:** task còn phụ thuộc T071, T072 (chờ frontend) và các suite nguồn thật của FE-03/FE-08; BE-DESIGN-0012 (CORS của 001) chưa gỡ.
+
+## 21. Ép lock timeout/deadlock (T063) và lưu giữ/khôi phục (T074), 2026-10-29
+
+Build thật develop `f435cac` (= `khuong`), MySQL 8.4.13, database trống `ppswbs_loyalty_build24`, `ppswbs_loyalty_build25` (đã xóa).
+
+| Test | Kết quả |
+| --- | --- |
+| `LoyaltyMySqlConcurrencyIT` (thêm 2 kịch bản) | 11/11; riêng 2 kịch bản mới chạy thêm 3 lần đều đạt, mỗi lần MySQL đều báo `Lock wait timeout` và `Deadlock found` |
+| `LoyaltyRetentionIT` (mới) | 3/3 |
+
+T063 — hai kịch bản trước đây ghi là còn thiếu:
+- **Lock timeout:** transaction khác giữ khóa ví; lần giữ điểm (chờ khóa 1 giây, cài riêng cho phiên test rồi trả về mặc định) nhận `RETRYABLE_CONTENTION`, không có benefit, không giữ điểm; nhả khóa rồi gửi lại thì thành công và chỉ có một dòng HOLD.
+- **Deadlock:** transaction khác khóa ví rồi khóa chương trình (ngược thứ tự của loyalty) trong khi loyalty giữ voucher + điểm. MySQL hủy đúng một bên; nếu bên bị hủy là loyalty thì lỗi là `RETRYABLE_CONTENTION`, không giữ voucher hay điểm dở dang, gửi lại thì thành công; kết quả cuối luôn là một lượt voucher và 100 điểm được giữ.
+
+T074 — xem `quickstart.md` mục 6: không có đường xóa dữ liệu hay job tự dọn/tự hết hạn trong loyalty (ArchUnit), khóa ngoại RESTRICT, mã không tái sử dụng, khóa chống trùng, dữ liệu audit tối thiểu; phân trang 1.000 dòng lịch sử 509 ms qua `idx_loyalty_ledger_member`.
+
+**Chưa tick T063, T074:** T063 còn phần phân xử phía nguồn FE-03/FE-08; T074 theo tasks.md phụ thuộc T073 (chờ T071/T072). Chưa có dashboard/cảnh báo vận hành và người phụ trách vận hành chưa được chỉ định.
