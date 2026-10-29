@@ -1,13 +1,18 @@
 # Implementation Plan: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
 **Branch**: `003.3-workshop-settlement-and-changes` | **Spec**: [spec.md](./spec.md)
 
 ## Summary
+
+Every active canonical Manager has global authority for Manager-authorized
+003.3 actions, including policy reads/revisions and cross-location booking
+changes. Staff-authorized actions remain location-scoped; Member ownership and
+explicitly Admin-only actions remain unchanged. There is no central Manager tier.
 
 003.3 owns direct-Mland post-workshop settlement: exactly one final bill for one
 booking/package, accepted additional charges, verified final payment, deferred
@@ -22,7 +27,7 @@ OTA payment system, capacity owner, or normal check-in system.
 | Platform | Java 21/Spring Boot REST backend and a separate React + Vite client; no SSR. |
 | Module | Spring Modulith; only explicit owner facades cross business modules. |
 | Persistence | MySQL/JPA and append-only Flyway migrations when implementation is authorized. |
-| Identity | Firebase bearer token proves identity; Account Management supplies canonical role/status, ownership and location scope, while Settlement applies its own location/resource action rules. The canonical physical identity is `workshop_location.id`; `session.locationId ∈ actor.activeLocationIds` is a direct comparison. |
+| Identity | Firebase bearer token proves identity; Account Management supplies canonical role/status, ownership and location facts. Active Manager authority is global for Manager actions; Staff actions use canonical `workshop_location.id` and `activeLocationIds`. |
 | Payment | VNPay only. Shared `paymentintegration` verifies IPN/QueryDR evidence once and routes redacted final-payment/refund evidence to 003.3; browser Return URL is display-only. |
 | Contract | Versioned `/api/v1` REST contract in `contracts/workshop-settlement.openapi.yaml`. |
 | Validation | Module-boundary, authorization, lifecycle, idempotency, facade, contract, migration-upgrade and recovery evidence. |
@@ -58,8 +63,9 @@ VNPay ─ signed IPN / QueryDR evidence ─► paymentintegration
 
 Workshop Branch is not a second resource in this feature: every booking,
 session, catalogue and audit scope is the canonical `workshop_location.id`.
-Settlement compares it directly with the actor's `activeLocationIds`; it stores
-neither a separate branch identifier nor a branch-to-location mapping.
+For Staff actions Settlement compares it directly with `activeLocationIds`;
+Manager-authorized actions are global. It stores neither a separate branch
+identifier nor a branch-to-location mapping.
 
 The concrete owner operations and boundary types are fixed by the shared
 [003 internal facade contract](../contracts/workshop-interfeature-facades.md).
@@ -89,7 +95,7 @@ snapshot. An owning Member uses authenticated ownership; a Guest supplies the
 booking code plus exactly one stored phone or email per request. The command is
 rejected once the bill is finalized. Magic Link is read-only.
 
-Only in-scope Staff/Manager may create/confirm variable material or service
+Staff in the booking location or any active Manager may create/confirm variable material or service
 charges. The command has description, VND amount and reason and produces audit
 evidence. A customer cannot submit a variable price/name. Final-bill reads return
 a customer-safe projection only after Member ownership or Guest contact proof.
@@ -110,7 +116,7 @@ authoritative `cancellationHandoffReference`; an `UNAVAILABLE` or `DECLINED`
 remedy references the same handoff. A remedy refund uses the booking's retained
 policy snapshot, not a caller amount.
 
-The central Manager alone reads or revises central refund-policy history. A
+Any active Manager may read or revise global refund-policy history. A
 revision has a future effective time, integral percentage `0..100`, applies only
 to later-confirmed bookings, and computes its snapshot refund as
 `floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND. A customer
@@ -141,9 +147,9 @@ The contract is the normative transport detail in
 | Resource group | Public route family | Authority / proof |
 | --- | --- | --- |
 | Final bill | `/api/v1/workshop-bookings/{bookingCode}/final-bill` | Member ownership, Guest contact proof for read/customer fixed add-on; in-scope Staff for create/finalization. |
-| Charges | `/final-bill/charges` | Customer fixed catalogue selection, or in-scope Staff/Manager variable charge. |
+| Charges | `/final-bill/charges` | Customer fixed catalogue selection, Staff in booking-location scope, or any active Manager globally for variable charges. |
 | Settlement cases | `/.../{case-collection}` and `/{caseReference}` | Customer cancellation/read by ownership/proof; Manager for change, deferred and remedy. |
-| Refund policy | `/api/v1/workshop-refund-policies` | Central Manager only. |
+| Refund policy | `/api/v1/workshop-refund-policies` | Any active Manager, global scope. |
 | VNPay ingress | Shared integration contract | `paymentintegration` owns the signed GET; this feature never owns the provider route. |
 
 All client write routes declare `Idempotency-Key`, and all responses use a safe

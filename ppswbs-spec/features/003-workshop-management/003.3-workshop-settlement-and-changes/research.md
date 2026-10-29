@@ -1,7 +1,7 @@
 # Research: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -62,10 +62,10 @@ is unavailable/declined, refund the whole package under its confirmation-time
 policy snapshot. The current default is 100% of every collected payment,
 including deposit/final payment, even if an earlier session was attended.
 
-One designated central Manager may change this policy prospectively. Existing
-snapshots stay immutable; location-scoped Managers resolve individual cases under the
-existing snapshot. This is business authority, not a new role mapping. Booking
-level handling matches course-booking patterns such as [Bookwhen cancellation guidance](https://support.bookwhen.com/en/articles/3790128-cancelling-an-event).
+Any active Manager may change this policy prospectively or resolve an individual
+case globally. Existing booking snapshots stay immutable. This is business
+authority, not a new role mapping. Booking-level handling matches course-booking
+patterns such as [Bookwhen cancellation guidance](https://support.bookwhen.com/en/articles/3790128-cancelling-an-event).
 
 ## Ownership and audit
 

@@ -1,7 +1,7 @@
 # Data Model: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | Confirmed booking, frozen financial projection, booking contact | 003.1 | Projection/authorization proof only; 003.3 never mutates Booking directly. |
 | Sessions, capacity, ticket entitlements, attendance and cancellation state | 003.2 | Semantic facade outcomes only. |
-| Canonical account role/status, ownership and location scope | FE-001 | Current account facts only. Settlement applies its own action rule with booking location/resource scope. The location is the canonical `workshop_location.id`, directly comparable to `activeLocationIds`. |
+| Canonical account role/status, ownership and location scope | FE-001 | Current account facts only. Settlement grants active Managers global authority for Manager actions; Staff actions compare the booking/session canonical `workshop_location.id` directly with `activeLocationIds`. |
 | Final bill, charge, settlement evidence, case, policy snapshot and audit | 003.3 | Authoritative owner. |
 
 ## Conceptual Records
