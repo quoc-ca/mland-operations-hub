@@ -1,7 +1,7 @@
 # Verification — FE-06 Loyalty & Promotion
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-10-29 (mục 20: build thật sau khi develop sửa lỗi biên dịch và số migration; mục 19: test contract API T071)
+**Date updated**: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -328,3 +328,20 @@ Lệnh thứ hai chạy các lớp trong package con (`controller.LoyaltyExcepti
 | `ModulithArchitectureTests` | 5 đạt |
 
 **Chưa tick T073:** task còn phụ thuộc T071, T072 (chờ frontend) và các suite nguồn thật của FE-03/FE-08; BE-DESIGN-0012 (CORS của 001) chưa gỡ.
+
+## 21. Ép lock timeout/deadlock (T063) và lưu giữ/khôi phục (T074), 2026-10-29
+
+Build thật develop `f435cac` (= `khuong`), MySQL 8.4.13, database trống `ppswbs_loyalty_build24`, `ppswbs_loyalty_build25` (đã xóa).
+
+| Test | Kết quả |
+| --- | --- |
+| `LoyaltyMySqlConcurrencyIT` (thêm 2 kịch bản) | 11/11; riêng 2 kịch bản mới chạy thêm 3 lần đều đạt, mỗi lần MySQL đều báo `Lock wait timeout` và `Deadlock found` |
+| `LoyaltyRetentionIT` (mới) | 3/3 |
+
+T063 — hai kịch bản trước đây ghi là còn thiếu:
+- **Lock timeout:** transaction khác giữ khóa ví; lần giữ điểm (chờ khóa 1 giây, cài riêng cho phiên test rồi trả về mặc định) nhận `RETRYABLE_CONTENTION`, không có benefit, không giữ điểm; nhả khóa rồi gửi lại thì thành công và chỉ có một dòng HOLD.
+- **Deadlock:** transaction khác khóa ví rồi khóa chương trình (ngược thứ tự của loyalty) trong khi loyalty giữ voucher + điểm. MySQL hủy đúng một bên; nếu bên bị hủy là loyalty thì lỗi là `RETRYABLE_CONTENTION`, không giữ voucher hay điểm dở dang, gửi lại thì thành công; kết quả cuối luôn là một lượt voucher và 100 điểm được giữ.
+
+T074 — xem `quickstart.md` mục 6: không có đường xóa dữ liệu hay job tự dọn/tự hết hạn trong loyalty (ArchUnit), khóa ngoại RESTRICT, mã không tái sử dụng, khóa chống trùng, dữ liệu audit tối thiểu; phân trang 1.000 dòng lịch sử 509 ms qua `idx_loyalty_ledger_member`.
+
+**Chưa tick T063, T074:** T063 còn phần phân xử phía nguồn FE-03/FE-08; T074 theo tasks.md phụ thuộc T073 (chờ T071/T072). Chưa có dashboard/cảnh báo vận hành và người phụ trách vận hành chưa được chỉ định.

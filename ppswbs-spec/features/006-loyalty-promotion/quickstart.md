@@ -1,7 +1,7 @@
 # Quickstart Validation — FE-06
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-29 (mục 6: lưu giữ dữ liệu và khôi phục vận hành, T074)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -74,3 +74,23 @@ Nếu dependency chưa có hoặc test selector chưa tồn tại: ghi NOT RUN c
 
 Static checks ở bước lập plan chỉ kiểm tra cấu trúc tài liệu, OpenAPI refs và traceability. Chúng không chứng minh payment, migration, security, locks hoặc tích hợp đã hoạt động.
 
+
+## 6. Lưu giữ dữ liệu và khôi phục vận hành (T074)
+
+Đối chiếu với code ngày 2026-10-29 (develop `f435cac`). Không chốt SLA production; số đo dưới đây chỉ trên database test.
+
+**Lưu giữ tối thiểu 5 năm, không dọn (FR-041, US6.9).**
+- Loyalty không có đường xóa dữ liệu: không gọi `delete*` của repository, không `EntityManager.remove`, không job `@Scheduled` (`LoyaltyRetentionIT`, ArchUnit). `loyalty_audit` là bảng chỉ thêm, mọi cột `updatable = false` (`LoyaltyAuditService`, `LoyaltyAudit`).
+- Mọi khóa ngoại của V10–V12 là `ON DELETE RESTRICT`, không `CASCADE`: không xóa được chương trình, revision, chính sách hay benefit còn được ledger/audit tham chiếu.
+- Số dư không bị xóa hay hết hạn: ví chỉ đổi qua ledger (CHECK `held_after <= balance_after`, không âm).
+- Mã voucher không tái sử dụng: `uk_promotion_program_code_key` trên mọi chương trình kể cả hết hạn/tạm dừng (`LoyaltyMySqlMigrationIT`, `PromotionCreateContractIT`).
+- Bằng chứng chống trùng không mất: một benefit mỗi nguồn (`uk_loyalty_benefit_source`), một ledger mỗi benefit và loại (`uk_loyalty_ledger_benefit_kind`), một receipt mỗi actor/action/command trong `loyalty_audit`.
+- Dữ liệu tối thiểu: audit chỉ có actor ref (ID tài khoản), action, object ref, chi tiết an toàn tối đa 2.000 ký tự và correlation ID tối đa 64 ký tự; không lưu request đầy đủ, token, thông tin cá nhân hay bằng chứng thanh toán thô. `sourceRef` là mã giao dịch của bên nguồn.
+
+**Khôi phục vận hành.**
+- Tắt route hoặc tạm dừng chương trình không giải phóng, không hoàn phần đã giữ: giữ chỉ đổi khi bên nguồn (FE-08/FE-03) gửi outcome qua `LoyaltyFacade`; loyalty không có job tự hết hạn.
+- Không có down-migration: Flyway chỉ thêm, sửa lỗi bằng migration mới.
+- Lock timeout hoặc deadlock rollback cả transaction của bên nguồn và trả `RETRYABLE_CONTENTION`; gửi lại cùng yêu cầu thì thành công, không giữ dở dang (`LoyaltyMySqlConcurrencyIT`, ép thật trên MySQL).
+- Cần theo dõi khi vận hành: số lỗi `RETRYABLE_CONTENTION` và `DEPENDENCY_UNAVAILABLE`; benefit còn `HELD` quá hạn gốc của bên nguồn (bên nguồn chưa gửi outcome); bất biến `held_count + consumed_count <= total_limit` và `held_points <= balance_points` (đã có CHECK trong DB). Chưa có dashboard hay cảnh báo; người chịu trách nhiệm vận hành chưa được chỉ định.
+
+**Số đo trên database test (MySQL 8.4.13, máy dev).** 1.000 dòng lịch sử điểm của một Member, phân trang 100 dòng/lần bằng cursor: 10 trang, không trùng không sót, tổng 509 ms; `EXPLAIN` dùng `idx_loyalty_ledger_member` (`LoyaltyRetentionIT`). `LoyaltyMySqlConcurrencyIT` 11 kịch bản đồng thời chạy trong khoảng 31 giây (gồm 1 giây chờ khóa có chủ đích).
