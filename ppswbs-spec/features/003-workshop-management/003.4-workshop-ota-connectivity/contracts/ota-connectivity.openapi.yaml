@@ -13,6 +13,7 @@ paths:
     get:
       operationId: listOtaChannels
       summary: List channel connections and mappings visible to the authorized actor.
+      description: Requires an active canonical MANAGER with global location scope. Connection and credential details remain Admin-only and are redacted from this Manager view.
       responses:
         '200': { $ref: '#/components/responses/ChannelList' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -23,6 +24,7 @@ paths:
     post:
       operationId: upsertOtaChannelMapping
       summary: Create a draft channel mapping; no publish is implied.
+      description: Requires an active canonical MANAGER with global location scope or an authorized Admin. Provider connection and credential changes remain Admin-only.
       requestBody:
         required: true
         content:
@@ -41,6 +43,7 @@ paths:
     put:
       operationId: updateOtaChannelMapping
       summary: Update a draft or sales-closed mapping using optimistic versioning.
+      description: Requires an active canonical MANAGER with global location scope.
       requestBody:
         required: true
         content:
@@ -60,6 +63,7 @@ paths:
     post:
       operationId: submitOtaPriceTerms
       summary: Submit versioned price terms for commercial review; it does not enable sale.
+      description: Requires an active canonical MANAGER with global location scope.
       requestBody:
         required: true
         content:
@@ -79,6 +83,7 @@ paths:
     post:
       operationId: queueOtaMappingSync
       summary: Queue a preparation or full re-sync; delivery is asynchronous.
+      description: Business sync requires an active canonical MANAGER with global location scope. Admin may run explicitly authorized technical or recovery actions globally.
       requestBody:
         required: true
         content:
@@ -97,6 +102,7 @@ paths:
     post:
       operationId: closeOtaMappingSales
       summary: Queue an auditable sales closure for a mapping.
+      description: Requires an active canonical MANAGER with global location scope.
       requestBody:
         required: true
         content:
@@ -114,6 +120,7 @@ paths:
     post:
       operationId: requestOtaBookingEnablement
       summary: Request booking enablement after provider readiness review.
+      description: Admin-only. Requires an active canonical Admin and complete provider-readiness evidence.
       requestBody:
         required: true
         content:
@@ -131,6 +138,7 @@ paths:
     get:
       operationId: listOtaReconciliationWorkItems
       summary: List authorized reconciliation work items.
+      description: Requires an active canonical MANAGER or Admin with global access.
       parameters:
         - name: status
           in: query
@@ -145,6 +153,7 @@ paths:
     post:
       operationId: resolveOtaReconciliationWorkItem
       summary: Record an authorized, auditable reconciliation decision.
+      description: Requires an active canonical MANAGER or Admin with global access.
       requestBody:
         required: true
         content:
@@ -163,6 +172,7 @@ paths:
     get:
       operationId: getOtaFinancialEvidence
       summary: Read authorized, separated channel-payment and payout evidence.
+      description: Requires an active canonical MANAGER with global location scope.
       responses:
         '200': { $ref: '#/components/responses/FinancialEvidence' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -174,6 +184,7 @@ paths:
     post:
       operationId: reconcileOtaPayout
       summary: Record a payout, variance, or dispute as append-only evidence.
+      description: Requires an active canonical MANAGER with global location scope.
       requestBody:
         required: true
         content:
