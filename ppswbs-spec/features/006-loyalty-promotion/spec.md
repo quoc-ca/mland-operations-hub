@@ -1,7 +1,7 @@
 # Feature Specification: Loyalty & Promotion Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-29
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -26,6 +26,11 @@ Nguồn chính là FE-06 hiện tại và quyết định trực tiếp trong h�
 - Q: Giảm tự động sản phẩm có được kết hợp điểm không? → A: Luôn được kết hợp điểm; Manager không có lựa chọn tắt cho loại này. Lựa chọn cho/không kết hợp điểm chỉ có ở voucher. Quy tắc chọn giảm tự động theo khoản giảm lớn nhất giữ nguyên.
 - Q: Phạm vi chương trình có được chọn sản phẩm chưa công khai/đang ẩn/đã xóa, và xử lí thế nào khi sản phẩm bị ẩn/xóa sau khi tạo? → A: Được chọn sản phẩm/size chưa xóa mềm (kể cả chưa công khai, đang ẩn, ngừng bán); sản phẩm đã xóa mềm bị từ chối. Sau khi tạo, sản phẩm bị ẩn/ngừng bán/xóa thì chương trình không tự dừng, dòng đó không đủ điều kiện; thẻ công khai chỉ liệt kê sản phẩm đang công khai và ẩn chương trình khi không còn sản phẩm công khai nào; Kho Voucher hiện trạng thái "Hiện không có sản phẩm áp dụng"; Manager được cảnh báo.
 - Q: Phạm vi theo "size" là con số size trong bảng size (áp cho mọi nhẫn cùng size) hay một size cụ thể của một sản phẩm? Khi chọn cả sản phẩm và size thì size phải thuộc sản phẩm nào? → A: Size trong phạm vi là **một size cụ thể của một sản phẩm cụ thể (một SKU, ví dụ `SP000001-S09`)**, không phải con số size dùng chung cho mọi nhẫn; bảng size 5–29 cố định không đổi. Phạm vi sản phẩm và phạm vi size kết hợp bằng AND: nếu có chọn sản phẩm thì mỗi size được chọn phải thuộc một trong các sản phẩm đó, nếu không thì từ chối cấu hình; nếu chỉ chọn size (không chọn sản phẩm) thì mọi size hợp lệ. Không có loại phạm vi "mọi nhẫn cùng con số size".
+
+### Session 2026-10-29
+
+- Q: Gói workshop có nhiều phiên (ví dụ Silverclay 2 phiên, một phí cho cả gói) thì voucher giới hạn chi nhánh/ngày/phiên kiểm tra phiên nào? → A: **Mọi phiên khách đã chọn phải khớp** các giới hạn chi nhánh, ngày tham gia và phiên của voucher (nếu có); chỉ cần một phiên nằm ngoài phạm vi thì voucher bị từ chối kèm lý do. Gói phải nằm trong phạm vi gói của voucher (nếu có). Trần giảm vẫn áp một lần cho cả booking.
+- Q: Phạm vi "phiên" của voucher dùng mã nào? → A: Dùng mã tham chiếu của phiên do Workshop Operations cấp (`workshop_sessions.reference`, UUID chữ thường), không dùng số thứ tự nội bộ. Gói và chi nhánh vẫn là ID số, ngày tham gia là `YYYY-MM-DD`.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -235,7 +240,7 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 
 **Ưu đãi workshop**
 
-- **FR-019**: Hệ thống MUST kiểm tra gói/chi nhánh/ngày/phiên, thời gian đặt, phí tối thiểu/hạn mức; tối đa một voucher/booking, trần cả booking không nhân số người.
+- **FR-019**: Hệ thống MUST kiểm tra gói/chi nhánh/ngày/phiên, thời gian đặt, phí tối thiểu/hạn mức; tối đa một voucher/booking, trần cả booking không nhân số người. Với gói nhiều phiên, MUST kiểm tra mọi phiên đã chọn: một phiên ngoài phạm vi chi nhánh/ngày/phiên của voucher thì từ chối (làm rõ 2026-10-29).
 - **FR-020**: Workshop MUST trừ voucher trên phí gói, tiếp đến điểm nếu được phép, để ra `post_promotion_amount` (nguyên VND). FE-03/003.1 tính `deposit = ceil(post_promotion_amount / 2)` và `remaining = post_promotion_amount - deposit`; FE-06 MUST NOT tự làm tròn theo quy tắc khác, và MUST chỉ gửi/snapshot `post_promotion_amount` khi booking được chấp nhận; cọc và còn lại do 003.1 tính và giữ (003.3 dùng giá trị frozen của 003, không tính lại voucher/điểm/cọc). Hiển thị phí đầu, từng khoản giảm, phí phải trả, cọc và còn lại. Thu phần còn lại không giảm/trừ lại. Phí sau giảm lẻ vẫn hợp lệ, không bị từ chối vì lẻ.
 - **FR-021**: FE-03 chấp nhận booking thì MUST giữ lượt/điểm và ghi chính sách; xác minh cọc thành công mới chốt/trừ. Điểm/hạn mức/giá thay đổi trước chấp nhận phải tính lại và cho xác nhận phí/cọc.
 - **FR-022**: Phiên bản này MUST từ chối phí workshop sau giảm bằng 0/âm hoặc nghĩa vụ thanh toán không hợp lệ theo FE-03; cho điều chỉnh, không tạo booking miễn phí/giữ dở dang.

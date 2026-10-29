@@ -79,7 +79,8 @@ ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/
     facade/          LoyaltyFacade, PromotionTargetPort, immutable inputs/results
   members/facade/     dependency: verified actor/current capability/authorization guard
   features/productmanagement/  dependency adapter for product target validation
-  features/workshopbooking/  source adapter for workshop target and accepted lifecycle (FE-03, chờ owner chốt layout)
+  features/workshopbooking/  owner 003.1 gọi trực tiếp LoyaltyFacade (preview/reserve/settle/earn/release/restore), không adapter trong loyalty (Cách 2, chốt 2026-10-29)
+  features/workshopoperations/  WORKSHOP provider của PromotionTargetPort (package/branch/session; package thuộc workshopoperations theo BE-DESIGN-0008, V21)
   features/readyringsales/   source adapter for retail checkout/paid/zero/expiry (FE-08 theo 008 plan)
   configuration/    route-scoped API security/CORS wiring
 ppswbs_backend/src/main/resources/
@@ -195,3 +196,5 @@ Cập nhật 2026-10-26 (đồng bộ spec): (1) giảm tự động sản phẩ
 
 Clarification session2026-10-24 chốt2 câu A/A: mở lại cùng program/code không reset quota/history, và report hiện tại loại booking đã hủy hợp lệ nhưng giữ lịch sử. Đã đồng bộ spec FR-008/FR-009, US2.1/US2.8/US2.9, Edge Cases/SC-001, model, research, interfaces, OpenAPI và quickstart; không thay các quyết định đã chốt khác. Số liệu hiện hành sau cập nhật (thay các mốc cũ ở trên):41 FR,66 acceptance scenarios,12 API paths/15 operations/34 schemas,6 mutations có command key; checklist re-evaluate giữ16/16, không sửa nội dung/checkmarks không đổi của checklist. Không còn câu hỏi nghiệp vụ cần clarify; benchmark/SLA production và implementation evidence vẫn theo phạm vi plan/gates.
 
+
+Cập nhật 2026-10-29 (tích hợp workshop, quyết định của owner 003.1 Hồ Hoàng Quốc): (1) **Cách 2** — `workshopbooking` gọi thẳng `LoyaltyFacade` với phụ thuộc một chiều `workshopbooking → loyaltypromotion::facade`; 006 không viết adapter trong module nguồn, chỉ cung cấp [hướng dẫn tích hợp](contracts/workshop-booking-integration.md), `LoyaltyWorkshopFacadeIT` làm luồng mẫu và review. (2) Một transaction accept của booking bao cả giữ chỗ 003.2 (create-and-reserve) và `reserveAcceptedTransaction` (MANDATORY); lỗi bất kỳ rollback cả hai. (3) `WorkshopFact` đổi thành package + participantCount + phí cả gói + danh sách `WorkshopSessionFact(sessionRef UUID, branchId, workshopDate)`; mọi phiên phải khớp voucher; termsDigest gắn package, từng phiên và số người. (4) `quoteRef` do booking tạo và lưu, loyalty không lưu. (5) WORKSHOP provider của `PromotionTargetPort` thuộc `workshopoperations` (package đã chuyển về 003.2 theo BE-DESIGN-0008, `V21__workshop_packages`); trước khi có provider, tạo voucher workshop trả `DEPENDENCY_UNAVAILABLE`.

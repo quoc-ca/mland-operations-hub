@@ -1,7 +1,7 @@
 # Interface Contracts: Loyalty & Promotion
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-29
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -69,9 +69,11 @@ Tên interface là thiết kế public của module; không phải entity/HTTP D
 - sourceKind RETAIL/WORKSHOP, sourceRef, sourceRevision, memberId từ identity owner.
 - `originEligibility` MEMBER_WEBSITE_AT_ACCEPTANCE; không retrofit từ guest-import memberId.
 - acceptedAt, originalDeadline, currency VND.
-- server-priced line facts productId/variantId/quantity/unitAmount hoặc workshop packageId/branchId/workshopDate/sessionId/participantCount và grossPackageAmount do owner tạo.
+- server-priced line facts productId/variantId/quantity/unitAmount, hoặc workshop `WorkshopFact(packageId, participantCount, grossPackageAmount, sessions)` do owner tạo. `sessions` là danh sách `WorkshopSessionFact(sessionRef, branchId, workshopDate)`, mỗi phiên khách đã chọn một phần tử (gói Silverclay 2 phiên → 2 phần tử), `sessionRef` = `workshop_sessions.reference` dạng UUID chữ thường. `grossPackageAmount` là phí của cả gói, không theo từng phiên. Gói một phiên dùng `WorkshopFact.singleSession(...)` (chốt 2026-10-29).
+- Voucher workshop: package phải nằm trong target (nếu có), và **mọi** phiên phải khớp branch/workshopDate/session target (nếu có); một phiên ngoài phạm vi → `PROMOTION_INELIGIBLE` (chốt 2026-10-29).
 - shippingAmount riêng retail; không tham gia discount/earn points.
 - source-owned accepted quote reference + terms digest + expected quote acknowledgement; không dùng browser amount làm proof.
+- `quoteRef` do owner tạo và lưu (ví dụ ID bản ghi quote của booking); loyalty chỉ kiểm tra non-blank và không lưu. Owner lưu cùng quote: member, package, các sessionRef, participantCount, fee, BenefitSelection, `termsDigest` từ preview, post-promotion amount/cọc/còn lại đã hiển thị và hạn quote. Khi accept, owner dựng lại `TrustedSourceContext` từ dữ liệu authoritative và truyền `termsDigest` của quote; loyalty tính lại ở strict mode, digest khác → `QUOTE_CHANGED` (khách xác nhận lại). Với WORKSHOP digest gắn package, từng phiên (ref@branch@date) và số người, nên accept với phiên khác phiên đã quote cũng là `QUOTE_CHANGED`.
 
 `BenefitSelection`:
 
@@ -103,7 +105,7 @@ Facade mutation MANDATORY, không REQUIRES_NEW. Nontransactional call bị từ 
 
 ### Target port
 
-`PromotionTargetPort.validateAndGuard(scope, targets)` được gọi trước registry lock, trong transaction Manager khi cần kiểm tra target tồn tại/hợp lệ. PRODUCT provider trả cho mỗi target: tồn tại, đã xóa mềm, đang công khai, đang bán; loyalty chỉ từ chối cấu hình khi target không tồn tại, variant không thuộc product hoặc đã xóa mềm, không từ chối vì chưa công khai/đang ẩn/ngừng bán (spec Clarification 2026-10-26). Danh sách ưu đãi công khai dùng facts này để chỉ liệt kê sản phẩm đang công khai và ẩn chương trình sản phẩm không còn target công khai. PRODUCT provider ở productmanagement; WORKSHOP provider ở workshopbooking. Với scope PRODUCT, `targetKey` là ID dạng số thập phân: PRODUCT là ID sản phẩm, VARIANT là ID một size cụ thể của một sản phẩm (một SKU), không phải con số size dùng chung. `belongsToParent` (chốt 2026-10-26): PRODUCT luôn true; VARIANT true khi sản phẩm của nó nằm trong các target PRODUCT của cùng yêu cầu, hoặc khi yêu cầu không có target PRODUCT nào; false thì loyalty từ chối cấu hình. Khóa sai định dạng hoặc không tìm thấy được báo `exists=false`. `purchasable` dựa trên trạng thái bật bán, không dùng số lượng/giữ hàng FE-08. Provider trả guard/immutable references, không remote call dưới khóa. Không có provider thì DEPENDENCY_UNAVAILABLE; không bỏ qua phạm vi hoặc dùng list giả.
+`PromotionTargetPort.validateAndGuard(scope, targets)` được gọi trước registry lock, trong transaction Manager khi cần kiểm tra target tồn tại/hợp lệ. PRODUCT provider trả cho mỗi target: tồn tại, đã xóa mềm, đang công khai, đang bán; loyalty chỉ từ chối cấu hình khi target không tồn tại, variant không thuộc product hoặc đã xóa mềm, không từ chối vì chưa công khai/đang ẩn/ngừng bán (spec Clarification 2026-10-26). Danh sách ưu đãi công khai dùng facts này để chỉ liệt kê sản phẩm đang công khai và ẩn chương trình sản phẩm không còn target công khai. PRODUCT provider ở productmanagement; WORKSHOP provider ở `workshopoperations` (chủ dữ liệu package/session/branch, theo BE-DESIGN-0008), phụ thuộc một chiều `workshopoperations → loyaltypromotion::facade`. Với SESSION, `targetKey` là `workshop_sessions.reference` (UUID chữ thường); PACKAGE/BRANCH là ID số, WORKSHOP_DATE là `YYYY-MM-DD`. Với scope PRODUCT, `targetKey` là ID dạng số thập phân: PRODUCT là ID sản phẩm, VARIANT là ID một size cụ thể của một sản phẩm (một SKU), không phải con số size dùng chung. `belongsToParent` (chốt 2026-10-26): PRODUCT luôn true; VARIANT true khi sản phẩm của nó nằm trong các target PRODUCT của cùng yêu cầu, hoặc khi yêu cầu không có target PRODUCT nào; false thì loyalty từ chối cấu hình. Khóa sai định dạng hoặc không tìm thấy được báo `exists=false`. `purchasable` dựa trên trạng thái bật bán, không dùng số lượng/giữ hàng FE-08. Provider trả guard/immutable references, không remote call dưới khóa. Không có provider thì DEPENDENCY_UNAVAILABLE; không bỏ qua phạm vi hoặc dùng list giả.
 
 Loyalty không gọi target port trong reserve sau khi giữ registry: source owner đã giữ business guards và cung cấp authoritative line/session facts. Cần test owner serialize product deletion/schedule change với accept để không tạo quyền lợi trên nguồn không còn hợp lệ.
 

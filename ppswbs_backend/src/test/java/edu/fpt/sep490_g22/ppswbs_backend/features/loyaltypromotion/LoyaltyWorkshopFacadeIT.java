@@ -16,6 +16,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Accept
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.AuthoritativeOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitPreview;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.ComponentState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.EarnState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
@@ -27,6 +28,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Target
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetScope;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TrustedSourceContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopSessionFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.DiscountTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.support.LoyaltyTestSupport;
 import org.junit.jupiter.api.Test;
@@ -71,6 +73,11 @@ class LoyaltyWorkshopFacadeIT {
     }
 
     private String workshopVoucher(long packageId) {
+        return workshopVoucher(packageId, List.of(DAY));
+    }
+
+    /** Fixed 100.000 on the package, limited to the given workshop dates. */
+    private String workshopVoucher(long packageId, List<LocalDate> days) {
         String code = "WK" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         transaction.executeWithoutResult(status -> {
@@ -81,8 +88,10 @@ class LoyaltyWorkshopFacadeIT {
                     DiscountTerms.fixed(n(100_000), n(100_000), BigInteger.ZERO), true, now, 1L));
             targets.save(PromotionTarget.create(revision.getId(), TargetScope.WORKSHOP, TargetDimension.PACKAGE,
                     Long.toString(packageId)));
-            targets.save(PromotionTarget.create(revision.getId(), TargetScope.WORKSHOP, TargetDimension.WORKSHOP_DATE,
-                    DAY.toString()));
+            for (LocalDate day : days) {
+                targets.save(PromotionTarget.create(revision.getId(), TargetScope.WORKSHOP, TargetDimension.WORKSHOP_DATE,
+                        day.toString()));
+            }
             program.pointToRevision(revision.getId());
         });
         return code;
@@ -98,9 +107,22 @@ class LoyaltyWorkshopFacadeIT {
         return memberId;
     }
 
+    private static final String SESSION_1 = "6f1c2a3b-0000-4000-8000-000000000001";
+    private static final String SESSION_2 = "6f1c2a3b-0000-4000-8000-000000000002";
+    private static final String SESSION_3 = "6f1c2a3b-0000-4000-8000-000000000003";
+
     private static TrustedSourceContext booking(long memberId, long packageId, LocalDate day) {
         return new TrustedSourceContext(SourceKind.WORKSHOP, memberId, Instant.now(), List.of(),
-                new WorkshopFact(packageId, 2L, day, 3L, 2, n(1_000_000)), BigInteger.ZERO);
+                WorkshopFact.singleSession(packageId, 2, n(1_000_000), WorkshopSessionFact.of(SESSION_1, 2L, day)),
+                BigInteger.ZERO);
+    }
+
+    /** A two-session package (Silverclay): one fee for both sessions, each session with its own branch and date. */
+    private static TrustedSourceContext twoSessionBooking(long memberId, long packageId, String first, LocalDate firstDay,
+                                                          String second, LocalDate secondDay) {
+        return new TrustedSourceContext(SourceKind.WORKSHOP, memberId, Instant.now(), List.of(),
+                new WorkshopFact(packageId, 2, n(1_000_000), List.of(WorkshopSessionFact.of(first, 2L, firstDay),
+                        WorkshopSessionFact.of(second, 2L, secondDay))), BigInteger.ZERO);
     }
 
     private static AcceptedSourceContext accept(TrustedSourceContext booking, String ref, String digest) {
@@ -158,6 +180,82 @@ class LoyaltyWorkshopFacadeIT {
                         otherDay.termsDigest()), selection, "cmd")))
                 .isInstanceOfSatisfying(LoyaltyException.class,
                         e -> assertThat(e.code()).isEqualTo(LoyaltyErrorCode.PROMOTION_INELIGIBLE));
+    }
+
+    /**
+     * Reference flow for 003.1 (integration guide, "workshop-booking-integration.md"): this test plays the booking
+     * owner step by step.
+     */
+    @Test
+    void referenceBookingFlowForATwoSessionPackage() {
+        long packageId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
+        String code = workshopVoucher(packageId, List.of(DAY, DAY.plusDays(7)));
+        long memberId = member(1_000);
+        BenefitSelection selection = new BenefitSelection(SelectionChoice.VOUCHER, code, n(200));
+
+        // 1. Booking builds the context from its OWN authoritative data (package fee, the sessions it will hold,
+        //    branch, dates, participants), never from amounts sent by the browser, and asks for a preview.
+        TrustedSourceContext shown = twoSessionBooking(memberId, packageId, SESSION_1, DAY, SESSION_2, DAY.plusDays(7));
+        BenefitPreview preview = loyalty.previewBenefits(shown, selection);
+        assertThat(preview.reasons()).isEmpty();
+        assertThat(preview.postPromotionAmount()).isEqualTo(n(880_000));
+
+        // 2. Booking stores its own quote (quoteRef = its ID) with what the Member saw: package, sessions, people,
+        //    selection and preview.termsDigest(), and shows the totals; the Member confirms that quote.
+        String quoteRef = "quote-" + UUID.randomUUID();
+
+        // 3. Accept: ONE booking transaction holds the seats (003.2), reserves the benefits and stores the booking.
+        //    The context is rebuilt from the stored quote's package/sessions/people, with the quote's digest.
+        String bookingRef = "booking-" + UUID.randomUUID();
+        AcceptedBenefitRef accepted = transaction.execute(status -> {
+            // ... WorkshopOperationsFacade create-and-reserve for every session, in this same transaction ...
+            AcceptedBenefitRef ref = loyalty.reserveAcceptedTransaction(new AcceptedSourceContext(
+                    twoSessionBooking(memberId, packageId, SESSION_1, DAY, SESSION_2, DAY.plusDays(7)), bookingRef, 1L,
+                    true, Instant.now(), Instant.now().plusSeconds(900), quoteRef, preview.termsDigest()),
+                    selection, "create-" + bookingRef);
+            // ... 003.1 stores the booking with deposit = ceil(post / 2) and remaining = post - deposit ...
+            return ref;
+        });
+        assertThat(accepted.postPromotionAmount()).isEqualTo(n(880_000));
+        assertThat(accepted.voucherState()).isEqualTo(ComponentState.HELD);
+
+        // 4. Verified deposit settles; completion of every session with full payment earns once.
+        transaction.executeWithoutResult(status -> loyalty.settleAcceptedBenefits(
+                outcome(bookingRef, OutcomeKind.WORKSHOP_DEPOSIT_ACCEPTED, "dep-" + bookingRef, 2)));
+        transaction.executeWithoutResult(status -> loyalty.grantEarnedPoints(
+                outcome(bookingRef, OutcomeKind.WORKSHOP_COMPLETED_AND_FULLY_PAID, "done-" + bookingRef, 3)));
+        assertThat(wallets.findById(memberId).orElseThrow().getBalancePoints()).isEqualTo(n(1_000 - 200 + 88));
+    }
+
+    @Test
+    void aVoucherCoveringOnlyOneOfTheTwoSessionsIsRefused() {
+        long packageId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
+        String code = workshopVoucher(packageId);
+        long memberId = member(1);
+        BenefitSelection selection = new BenefitSelection(SelectionChoice.VOUCHER, code, BigInteger.ZERO);
+        // The voucher targets DAY only; the second session is a week later.
+        BenefitPreview preview = loyalty.previewBenefits(
+                twoSessionBooking(memberId, packageId, SESSION_1, DAY, SESSION_2, DAY.plusDays(7)), selection);
+        assertThat(preview.programId()).isNull();
+        assertThat(preview.reasons()).isNotEmpty();
+    }
+
+    @Test
+    void acceptingOtherSessionsThanTheQuotedOnesIsQuoteChanged() {
+        long packageId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
+        long memberId = member(1_000);
+        BenefitSelection points = new BenefitSelection(SelectionChoice.NONE, null, n(100));
+        BenefitPreview quoted = loyalty.previewBenefits(
+                twoSessionBooking(memberId, packageId, SESSION_1, DAY, SESSION_2, DAY.plusDays(7)), points);
+        String bookingRef = "booking-" + UUID.randomUUID();
+
+        assertThatThrownBy(() -> transaction.execute(status -> loyalty.reserveAcceptedTransaction(
+                accept(twoSessionBooking(memberId, packageId, SESSION_1, DAY, SESSION_3, DAY.plusDays(8)), bookingRef,
+                        quoted.termsDigest()), points, "cmd")))
+                .isInstanceOfSatisfying(LoyaltyException.class,
+                        e -> assertThat(e.code()).isEqualTo(LoyaltyErrorCode.QUOTE_CHANGED));
+        assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.WORKSHOP, bookingRef)).isEmpty();
+        assertThat(wallets.findById(memberId).orElseThrow().getHeldPoints()).isZero();
     }
 
     @Test

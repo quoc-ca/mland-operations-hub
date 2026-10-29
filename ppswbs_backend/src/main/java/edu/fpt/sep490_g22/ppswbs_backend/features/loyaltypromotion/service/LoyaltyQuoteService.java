@@ -118,16 +118,20 @@ public class LoyaltyQuoteService {
                 RetailQuote.Candidate base = candidate(program, context, TargetScope.WORKSHOP);
                 List<PromotionTarget> rows = targets.findByRevisionIdOrderByDimensionAscTargetKeyAsc(base.revisionId());
                 return new WorkshopBenefitEvaluator.WorkshopCandidate(base, ids(rows, TargetDimension.PACKAGE),
-                        ids(rows, TargetDimension.BRANCH), dates(rows), ids(rows, TargetDimension.SESSION));
+                        ids(rows, TargetDimension.BRANCH), dates(rows), keys(rows, TargetDimension.SESSION));
             }).orElse(null);
         }
         RetailQuote.Result result = WorkshopBenefitEvaluator.compute(context.workshop(), selection, voucher,
                 policy.terms(), available, strict);
         WorkshopFact booking = context.workshop();
         String digest = RetailQuote.digest(result, policy.getId(), BigInteger.ZERO);
-        String bound = digest + "|package=" + booking.packageId() + "|branch=" + booking.branchId() + "|date="
-                + booking.workshopDate() + "|session=" + booking.sessionId() + "|people=" + booking.participantCount();
-        return new Evaluation(result, policy, LoyaltyCommandService.digest(bound));
+        // The digest binds the package, every session (in the fact's stable order) and the participant count, so an
+        // accept for other sessions than the ones the Member saw is QUOTE_CHANGED.
+        StringBuilder bound = new StringBuilder(digest).append("|package=").append(booking.packageId());
+        booking.sessions().forEach(session -> bound.append("|session=").append(session.sessionRef())
+                .append('@').append(session.branchId()).append('@').append(session.workshopDate()));
+        bound.append("|people=").append(booking.participantCount());
+        return new Evaluation(result, policy, LoyaltyCommandService.digest(bound.toString()));
     }
 
     private static Set<LocalDate> dates(List<PromotionTarget> rows) {
@@ -171,6 +175,11 @@ public class LoyaltyQuoteService {
             }
         }
         return null;
+    }
+
+    private static Set<String> keys(List<PromotionTarget> rows, TargetDimension dimension) {
+        return rows.stream().filter(row -> row.getDimension() == dimension)
+                .map(PromotionTarget::getTargetKey).collect(Collectors.toUnmodifiableSet());
     }
 
     private static Set<Long> ids(List<PromotionTarget> rows, TargetDimension dimension) {

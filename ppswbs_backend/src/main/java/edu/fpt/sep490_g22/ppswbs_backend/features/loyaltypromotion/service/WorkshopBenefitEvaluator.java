@@ -17,7 +17,7 @@ import java.util.Set;
 
 /**
  * Pure workshop benefit computation (T058, FR-019-FR-022, US5.1-US5.3, US5.6-US5.8). The workshop booking owner
- * supplies the package, branch, date, session, participant count and package fee.
+ * supplies the package, every selected session (reference, branch, date), the participant count and the package fee.
  *
  * <ul>
  *   <li>At most one voucher per booking; there is no automatic discount for workshops. A product voucher or a
@@ -40,7 +40,7 @@ public final class WorkshopBenefitEvaluator {
 
     /** A workshop voucher with its target sets; an empty set means the dimension is not restricted. */
     public record WorkshopCandidate(RetailQuote.Candidate base, Set<Long> packages, Set<Long> branches,
-                                    Set<LocalDate> workshopDates, Set<Long> sessions) {
+                                    Set<LocalDate> workshopDates, Set<String> sessions) {
     }
 
     public static RetailQuote.Result compute(WorkshopFact booking, BenefitSelection selection, WorkshopCandidate voucher,
@@ -102,11 +102,17 @@ public final class WorkshopBenefitEvaluator {
                 post, chosen, List.copyOf(reasons));
     }
 
+    /**
+     * The package must be targeted, and EVERY selected session must satisfy the branch, date and session restrictions
+     * (decision 2026-10-29): the discount covers the whole package, so a voucher limited to a day or a session cannot
+     * discount a booking whose other session falls outside it.
+     */
     private static boolean matches(WorkshopCandidate voucher, WorkshopFact booking) {
         return (voucher.packages().isEmpty() || voucher.packages().contains(booking.packageId()))
-                && (voucher.branches().isEmpty() || voucher.branches().contains(booking.branchId()))
-                && (voucher.workshopDates().isEmpty() || voucher.workshopDates().contains(booking.workshopDate()))
-                && (voucher.sessions().isEmpty() || voucher.sessions().contains(booking.sessionId()));
+                && booking.sessions().stream().allMatch(session ->
+                        (voucher.branches().isEmpty() || voucher.branches().contains(session.branchId()))
+                        && (voucher.workshopDates().isEmpty() || voucher.workshopDates().contains(session.workshopDate()))
+                        && (voucher.sessions().isEmpty() || voucher.sessions().contains(session.sessionRef())));
     }
 
     private static void refuse(boolean strict, List<String> reasons, LoyaltyErrorCode code, String reason) {
