@@ -497,7 +497,59 @@ the implementation MUST remain blocked at the ownership boundary.
 
 Backend code MUST be rewritten in the areas listed in §5.1. Reusing the current
 booking-coupled `BookingDesignRequest` flow would preserve the exact dependency the
-handoff rejects and would make the new documentation false. No code rewrite is
-performed in this documentation step; the next agent owns implementation only after
-§5.2 is resolved.
+handoff rejects and would make the new documentation false.
+
+---
+
+### 5.6. Backend Implementation Completed (2026-10-29)
+
+**Status**: Backend implementation complete; fully decoupled from Workshop Booking; Spring Modulith verified; 44/44 integration tests passing.  
+**Implemented by**: Antigravity Assistant
+
+#### 1. Decoupling and Module Boundaries
+- `package-info.java`: Removed `workshopbooking :: facade` from `allowedDependencies`. Only `accountmanagement :: facade` is allowed.
+- Removed all imports of `edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.**` and calls to `WorkshopBookingFacade` / `getBookingEligibilityForDesign(...)`.
+
+#### 2. Domain & Persistence Refactoring
+- Retired legacy `BookingDesignRequest` and `BookingDesignRequestRepository`.
+- Implemented `DesignRequest` entity (`design_requests` table) and `DesignRequestRepository` with pure design fields:
+  - `id`, `requestReference` (e.g. `DR-XXXXXXXX`), `ownerAccountId`, `guestProofHash`, `ownershipType`, `description`, `catalogueReference`, `requestVersion`, `idempotencyKey`, `requestStatus`, `analysisStatus`, `reviewStatus`, `estimatedValue`, `nextAction`, `safeFailureCode`, `createdAt`, `updatedAt`.
+  - Zero booking fields (`bookingCode`, `bookingId`, `bookingStatus`, `sessionId`, `locationId`, `paymentStatus`, `ticketCode` are completely removed).
+- Refactored `ImageConsent` and `ImageConsentRepository`:
+  - Removed `booking_code`.
+  - Stored `actorAccountId`, `designRequestId`, `purpose = INDEPENDENT_DESIGN_IMAGE_ANALYSIS`, `consentVersion`, `affirmativeAction = CHECKBOX_CONFIRMED`.
+- Added append-only Flyway migration [V12__independent_design_request.sql](file:///c:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_backend/src/main/resources/db/migration/V12__independent_design_request.sql).
+
+#### 3. Services and Controllers
+- `DesignAnalysisService`:
+  - Removed booking eligibility checks and booking facade dependencies.
+  - Supports both **text-only requests** (does not consume image rate limit, does not require image consent) and **image-based requests** (validates consent, 10 MB / 4096×4096 resolution, 3-in-5-minute atomic rate limit, immediate image deletion after processing `DELETED_AFTER_PROCESSING`).
+  - Added prompt injection detection for design descriptions.
+  - Idempotency key handling scoped to `(ownerAccountId, requestVersion, idempotencyKey)`.
+- `DesignRequestController`:
+  - Removed `bookingCode` parameter from `POST /api/v1/design-requests`.
+  - Accepts multipart parameters: `description`, `catalogueReference`, `consentVersion`, `consentPurpose`, `designVersion`, `image`, and `Idempotency-Key` header.
+- `HumanReviewService`:
+  - Replaced legacy `PROCEED_TO_BOOKING` with independent action `DESIGN_ACCEPTED`.
+  - Maintained separation of duties, role thresholds (Staff <= 3M, Manager all), and version concurrency controls.
+- `DesignAnalysisFacade`:
+  - Replaced booking-based lookup with independent `getDesignRequestSummary(designRequestId)`.
+
+#### 4. Verification Evidence
+- **Spring Modulith Verification**:
+  ```powershell
+  $env:JAVA_HOME="C:\Program Files\JetBrains\IntelliJ IDEA 2025.1.3\jbr"; .\mvnw.cmd test -Dtest=ModulithArchitectureTests
+  # Result: Tests run: 2, Failures: 0, Errors: 0, Skipped: 0 -- BUILD SUCCESS
+  ```
+- **Feature 004 Integration Test Suite**:
+  ```powershell
+  $env:JAVA_HOME="C:\Program Files\JetBrains\IntelliJ IDEA 2025.1.3\jbr"; .\mvnw.cmd test "-Dtest=AiSupportIT,DataRetentionIT,DesignRequestIT,HumanReviewIT,PriceProposalIT"
+  # Result: Tests run: 44, Failures: 0, Errors: 0, Skipped: 0 -- BUILD SUCCESS (44/44 passed)
+  ```
+  - `AiSupportIT`: 9/9 passed.
+  - `DataRetentionIT`: 2/2 passed.
+  - `DesignRequestIT`: 10/10 passed (unauthenticated 401, valid submission with image 202 + image immediate deletion + no booking fields, text-only submission 202 without image quota consumption, empty submission 400, prompt injection 422, missing consent 422, idempotency replay, rate limiting 429, cross-member isolation 404, non-member role 403).
+  - `HumanReviewIT`: 8/8 passed (Staff queue <= 3M, Manager queue all, Staff approval with `DESIGN_ACCEPTED`, Staff high-value 403, Manager approval, clarification 409 stale version).
+  - `PriceProposalIT`: 15/15 passed (Manager advisory request, Admin request 403, Staff/Member 403, Guest 401, target validation, Manager view with prices, Admin view technical audit only, Manager decisions ACCEPT/ADJUST/REJECT, Admin/Staff decision 403).
+
 
