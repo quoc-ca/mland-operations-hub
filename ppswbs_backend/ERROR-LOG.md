@@ -1555,3 +1555,40 @@ and `SettlementChangeFacadeIT`. T053/T054 and the local producer-side OTA
 scenarios are verified; T055 remains unchecked because consumer-dependent
 replay/gap/failure-isolation acceptance still belongs after 003.4 implements
 its consumer. No 003.4 consumer behavior is claimed as tested here.
+
+---
+
+## Record BE-DESIGN-0021 â€” Repository compilation is blocked by unresolved merged source references
+
+- **Recorded at:** 2026-10-27T20:56:19+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 retail authorization integration validation
+- **Status:** BLOCKED
+
+### Stopped scope and evidence
+
+After adding the approved `readyringsales -> accountmanagement::facade` dependency and the non-local active-Member authorization boundary, the targeted Maven test command could not reach test execution because the repository does not compile as a whole.
+
+The command run was:
+
+```text
+mvn -Dmaven.compiler.fork=true -Dtest=RetailAuthorizationTest,LocalRetailActorResolverTest,CartControllerTest,ModulithArchitectureTests test
+```
+
+The compiler reports unresolved symbols outside FE-08:
+
+- `configuration/DefaultFirebaseTokenVerifier.java` and `FirebaseAuthenticationFilter.java` import missing `common.InvalidTokenException`, `FirebaseTokenVerifier`, and `FirebaseAuthenticationToken` types.
+- `designreview` application/web classes import the missing legacy `members.facade.MemberFacade` package.
+- legacy root `workshopbooking/facade/WorkshopBookingFacade.java` imports missing `workshopbooking.domain` and `workshopbooking.infrastructure` types.
+
+### Why the task cannot proceed
+
+These are ownership and merge-reconciliation problems in configuration, design-review, and legacy workshop-booking code. Changing their package mapping, compatibility shims, or module ownership from FE-08 would be an out-of-scope repair and could conceal a conflicting merge decision.
+
+### Work state
+
+The FE-08 changes preserved in this working tree are limited to `RetailAuthorization`, its unit test, the legal Modulith dependency on `accountmanagement::facade`, and the approved implementation-readiness update. No FE-08 task marker was marked complete. Maven downloaded newly required dependencies, then failed at whole-repository compilation before `RetailAuthorizationTest` or Modulith verification could run.
+
+### Required resolution
+
+The owners of configuration, designreview, and legacy workshopbooking must reconcile or remove their unresolved imports and restore a compiling backend baseline. After that, rerun the targeted FE-08 authorization and Modulith tests before treating this integration as validated.

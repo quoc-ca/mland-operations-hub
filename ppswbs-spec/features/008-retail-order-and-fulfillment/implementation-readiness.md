@@ -26,7 +26,7 @@ semantics of this slice.
 | Concern | Approved decision for this slice |
 | --- | --- |
 | FE-08 module | `features.readyringsales`, detected as an independent Spring Modulith module. |
-| Member identity | The local adapter accepts only a positive `X-Debug-Account-Id`. It is a development identity substitute and does not grant production access; account role/status enforcement is deferred until account management exposes an approved named facade. This header is local-profile only. |
+| Member identity | The local adapter accepts only a positive `X-Debug-Account-Id` for the approved local demo slice. Outside `local`, FE-08 consumes the authenticated `CurrentAccountActor` issued through `accountmanagement::facade` and allows only an `ACTIVE` `MEMBER`; client-supplied account identifiers are not trusted. The local header is not a production access path. |
 | Catalogue eligibility | `readyringsales` calls its local `RetailCataloguePort` substitute. The production adapter must replace it with the approved FE-02 named facade without changing cart REST/persistence semantics. |
 | Loyalty, payment, GHTK | Local checkout uses dedicated deterministic substitutes only in the `local` profile. Benefit preview/acceptance is a non-authoritative mock; payment is a server-side locally verified mock outcome; GHTK quote data is a non-live deterministic quote. Non-local profiles return an integration-unavailable error until the owning facade/adapter is merged. |
 | Location identity | Every cart line stores `locationId BIGINT`, matching the account-management `location_id` type. No location foreign key is created because catalogue/location ownership is outside FE-08. |
