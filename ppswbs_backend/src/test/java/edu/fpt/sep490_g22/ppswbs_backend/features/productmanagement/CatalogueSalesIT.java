@@ -7,6 +7,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Catal
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.AcceptedSaleResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.AvailabilityGuardPort;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CartSaleFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesException.Reason;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesFacade;
@@ -88,6 +89,72 @@ class CatalogueSalesIT {
         StubSource.SOURCE.reset();
         readCommitted = new TransactionTemplate(transactionManager);
         readCommitted.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+    }
+
+    // ---- cart facts (readSaleFacts, FE-08 add-to-cart / cart preview) ----
+
+    @Test
+    void cartFactsGiveThePriceAndTheQuantityLeftAfterHolds() {
+        long productId = fixture.publishedProduct(STAFF, MANAGER);
+        List<ProductVariant> sizes = sizes(productId);
+        StubSource.SOURCE.setHeld(sizes.get(0).getId(), 1);
+
+        // No caller transaction needed; IDs are de-duplicated and returned in ascending order.
+        List<CartSaleFact> facts = sales.readSaleFacts(
+                List.of(sizes.get(1).getId(), sizes.get(0).getId(), sizes.get(1).getId()));
+
+        assertThat(facts).extracting(CartSaleFact::variantId).containsExactly(sizes.get(0).getId(), sizes.get(1).getId());
+        CartSaleFact size5 = facts.get(0);
+        assertThat(size5.productId()).isEqualTo(productId);
+        assertThat(size5.sku()).isEqualTo(sizes.get(0).getSku());
+        assertThat(size5.size()).isEqualTo(5);
+        assertThat(size5.appliedPrice()).isEqualTo(new BigInteger("150000"));
+        assertThat(size5.currency()).isEqualTo("VND");
+        assertThat(size5.saleEligible()).isTrue();
+        assertThat(size5.availableQuantity()).isEqualTo(BigInteger.TWO);
+        assertThat(facts.get(1).saleEligible()).isTrue();
+        assertThat(facts.get(1).availableQuantity()).isZero();
+        assertThat(StubSource.SOURCE.guardCalls()).isEmpty();
+
+        // Held above remaining (not expected, but never negative).
+        StubSource.SOURCE.setHeld(sizes.get(0).getId(), 5);
+        assertThat(sales.readSaleFacts(List.of(sizes.get(0).getId())).get(0).availableQuantity()).isZero();
+    }
+
+    @Test
+    void cartFactsMarkSizesNotForSaleInsteadOfRejecting() {
+        long hidden = fixture.publishedProduct(STAFF, MANAGER);
+        publication.setPublication(STAFF, UUID.randomUUID(), Long.toString(hidden), fixture.productVersion(hidden), false);
+        long disabled = fixture.publishedProduct(STAFF, MANAGER);
+        ProductVariant disabledSize = sizes(disabled).get(0);
+        saleStatus.setSaleEnabled(STAFF, UUID.randomUUID(), disabledSize.getId().toString(), disabledSize.getVersion(), false);
+        long deleted = fixture.publishedProduct(STAFF, MANAGER);
+        deletion.delete(STAFF, UUID.randomUUID(), Long.toString(deleted), fixture.productVersion(deleted));
+        long draft = fixture.draftProduct(STAFF);
+
+        List<Long> refused = List.of(sizes(hidden).get(0).getId(), disabledSize.getId(), sizes(deleted).get(0).getId(),
+                sizes(draft).get(0).getId());
+        List<CartSaleFact> facts = sales.readSaleFacts(refused);
+
+        assertThat(facts).hasSize(4).allSatisfy(fact -> {
+            assertThat(fact.saleEligible()).isFalse();
+            assertThat(fact.availableQuantity()).isZero();
+        });
+        assertThat(sales.readSaleFacts(List.of(sizes(disabled).get(1).getId())).get(0).saleEligible()).isTrue();
+    }
+
+    @Test
+    void cartFactsRejectBadRequestsAndAMissingSource() {
+        long sizeId = sizes(fixture.publishedProduct(STAFF, MANAGER)).get(0).getId();
+
+        assertSales(() -> sales.readSaleFacts(List.of()), Reason.INVALID_REQUEST);
+        assertSales(() -> sales.readSaleFacts(null), Reason.INVALID_REQUEST);
+        assertSales(() -> sales.readSaleFacts(List.of(sizeId, Long.MAX_VALUE)), Reason.NOT_FOUND, Long.MAX_VALUE);
+        StubSource.SOURCE.setUnavailable(true);
+        assertSales(() -> sales.readSaleFacts(List.of(sizeId)), Reason.DEPENDENCY_UNAVAILABLE);
+        // Inside a caller transaction it joins it.
+        StubSource.SOURCE.setUnavailable(false);
+        assertThat(inTx(() -> sales.readSaleFacts(List.of(sizeId)))).hasSize(1);
     }
 
     // ---- sale context ----

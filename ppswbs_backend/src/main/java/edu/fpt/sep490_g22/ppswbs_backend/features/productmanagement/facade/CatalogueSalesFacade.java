@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade;
 
 import java.math.BigInteger;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -10,7 +11,7 @@ import java.util.function.Function;
  * "CatalogueSalesFacade", T048/T062). It is internal Java only, not a REST API; the FE-08 consumer verifies
  * the Member, the hold and the accepted transaction before calling it.
  *
- * <p>Every method joins the caller's transaction (MANDATORY) and fails outside one. Catalogue row locks are
+ * <p>Every method except {@link #readSaleFacts} joins the caller's transaction (MANDATORY) and fails outside one. Catalogue row locks are
  * taken in the agreed order category → product → size (ascending IDs) and stay held until the caller's
  * transaction ends; the FE-08 source guard ({@link AvailabilityGuardPort#withGuard}) is taken inside the
  * callback, after them. The caller's transaction should use READ COMMITTED (like catalogue commands) so
@@ -18,6 +19,16 @@ import java.util.function.Function;
  * caller's transaction rollback-only.
  */
 public interface CatalogueSalesFacade {
+
+    /**
+     * Read-only facts for the FE-08 cart: one {@link CartSaleFact} per distinct requested size, in ascending
+     * variant ID order. Takes no catalogue lock and no source guard; held quantities come from
+     * {@link AvailabilityGuardPort#readSnapshots}. Unlike the other methods it may be called with or without a
+     * transaction (it opens a read-only one if needed). A size that is not for sale is returned with
+     * {@code saleEligible = false}, not rejected. Empty or null IDs are {@code INVALID_REQUEST}; an unknown size
+     * is {@code NOT_FOUND} (listing the IDs); a missing source is {@code DEPENDENCY_UNAVAILABLE}.
+     */
+    List<CartSaleFact> readSaleFacts(Collection<Long> variantIds);
 
     /**
      * Locks the given sizes for a new sale and runs {@code work} with their facts. Every size must belong to
