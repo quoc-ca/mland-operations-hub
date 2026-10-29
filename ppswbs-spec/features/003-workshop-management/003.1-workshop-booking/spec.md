@@ -1,7 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-10-28
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -13,6 +13,32 @@ model is defined in [REBASE-NOTES.md](REBASE-NOTES.md).
 **Governing baseline**: [spec-general.md](../../../spec-general.md) and the
 project constitution. The React + Vite frontend consumes versioned REST APIs;
 the Java backend does not render application UI.
+
+## Feature 003 authorization decision (2026-10-29)
+
+Every active canonical `MANAGER` has global location scope for Manager-authorized
+actions throughout Feature 003, including booking support, operations,
+settlement/changes and OTA connectivity. Manager authorization does not depend
+on `activeLocationIds`. Staff actions that are assigned to Staff remain scoped
+to their active locations; Member ownership checks and explicitly Admin-only
+technical actions remain unchanged. There is no Central Manager tier.
+
+## Loyalty workshop booking decision (2026-10-29)
+
+Members may preview workshop voucher/point benefits before booking. Booking
+persists a Member-owned quote containing the exact Package/session selection,
+Loyalty terms digest and price breakdown. A Member confirms by `quoteRef`; the
+server rechecks current Operations facts and Loyalty terms, then reserves all
+session capacity and Loyalty benefits in one transaction. The deposit is
+`ceil(postPromotionAmount / 2)`. Guests retain the existing no-benefit booking
+flow. Capacity, benefit holds, or points are not reserved during preview.
+
+Booking settles held benefits on verified deposit, grants earned points only
+after all sessions are complete and the invoice is fully paid, releases held
+benefits on unpaid expiry, restores eligible cancelled benefits, and marks
+earn ineligible on final no-show. Full integration tasks T048–T051 are tracked
+in `tasks.md`; they remain unchecked until implementation and suitable
+verification evidence exist.
 
 ## Scope and source alignment
 

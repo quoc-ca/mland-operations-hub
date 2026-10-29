@@ -1,7 +1,7 @@
 # Data Model: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-28
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -15,6 +15,7 @@ settlement, refund, reschedule, or OTA facts.
 
 ```text
 WorkshopBooking (1) ── (1) BookingInvoice
+        ├── (0..N) MemberBookingQuote (single-use acceptance proof)
         │             └── (N) PaymentAttempt / (N) PaymentEventReceipt
          ├── (Package-required set) BookingSessionCommitment ── WorkshopSession (003.2)
         ├── (N) BookingTicket ── (1..2) TicketSessionEntitlement
@@ -26,6 +27,7 @@ WorkshopBooking (1) ── (1) BookingInvoice
 | Entity | Owned data | Required invariant |
 | --- | --- | --- |
 | WorkshopBooking | booking code; frozen Package selection snapshot; contact email/phone snapshot; optional Member owner reference; participant count; service/financial status; expiry | Exactly one Package and one contact. The snapshot comes only from 003.2's published-Package boundary; `participant_count` is positive and determines ticket count. |
+| MemberBookingQuote | quote reference; owning Member; package ID/name/price snapshot; ordered session UUID references with location/date facts; participant count; requested benefit selection; Loyalty terms digest and amount breakdown; acceptance state and accepted booking reference | A quote is bound to its authenticated Member and exact selection. It reserves no capacity, voucher quota, or points. Acceptance reloads authoritative Operations facts and Loyalty revalidates terms in the same transaction that reserves all session capacity and held benefits. A quote is single-use; changed terms require a fresh preview and explicit customer confirmation. |
 | BookingSessionCommitment | booking; opaque UUID `sessionReference`; chronological display ordinal; canonical location snapshot; held/committed seat count | The accepted commitment set is decided atomically by 003.2 from the selected Package rules. Booking does not retain a numeric session ID or independently authorize session count, location or slot gap. |
 | CapacityHold | 003.2 capacity-facade hold reference and safe outcome snapshot for a booking-session commitment | 003.2 is authoritative for the hold. Booking retains only the reference/status needed for its own pending, expiry and release behavior; one requested set is reserved/released atomically and exactly once. |
 | BookingInvoice | booking; frozen package price/participant count; frozen post-promotion amount; deposit; remaining amount | `package_total = participant_count × price_per_participant`; `deposit = ceil(post_promotion_amount / 2)` and `remaining = post_promotion_amount − deposit`. All three monetary snapshots are whole VND and immutable after acceptance. |
@@ -62,6 +64,24 @@ reschedule, `CHECKED_IN`, `NO_SHOW`, and attendance finalization are outside it.
   003.2 persistence is permitted. It sends `packageReference`, the complete
   UUID session-reference set and participant count to the atomic reserve
   command; Operations returns the safe Package/capacity refusal outcome.
+- Member preview calls Loyalty `previewBenefits` using Package price and all
+  authoritative selected-session facts, then persists the immutable quote
+  selection and returned `termsDigest`. Guest booking remains available without
+  Loyalty benefits. Member accept sends only `quoteRef` plus contact details;
+  the server binds the quote to the authenticated Member and does not accept
+  client-supplied prices, discounts, point amounts or session facts.
+- In Member accept, Booking revalidates the stored quote against current
+  Operations facts, reserves capacity for the complete session set, then calls
+  `reserveAcceptedTransaction` in the same MySQL transaction. The returned
+  `postPromotionAmount` is frozen into the invoice; Booking computes
+  `deposit = ceil(post / 2)` and `remaining = post - deposit`. A failure in
+  either boundary rolls back both capacity and Loyalty holds.
+- A verified deposit settles held benefits. Earned points are granted only
+  after every required session is completed and the invoice is fully paid.
+  Expiry releases held benefits; an eligible cancellation restores benefits;
+  a final no-show finishes earn eligibility without reversing consumed
+  benefits. These calls use the source outcome version and proof references
+  from Booking/Operations/Settlement, never raw gateway payloads.
 - 003.2 atomically reserves the requested participant count in every selected
   session or creates no hold. It commits the complete active set or commits
   none, and releases active holds idempotently; `SALES_PAUSED` rejects new holds
