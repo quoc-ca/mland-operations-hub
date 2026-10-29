@@ -46,7 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * T017 evidence on the external MySQL 8.4 test database: Flyway applies 002's V9 after 001's V5 (upgrade
+ * T017 evidence on the external MySQL 8.4 test database: Flyway applies 002's V15 (renumbered from V9 on develop, e143b52) after 001's V5 (upgrade
  * path), every catalogue entity round-trips, constraints are enforced by the database, and the create
  * (T025) and management query (T026) flows run against real tables. Rows use unique names so reruns on
  * the disposable test database never collide.
@@ -75,11 +75,11 @@ class CatalogueMySqlSchemaIT {
     @Autowired private ManagementProductQueryService query;
 
     @Test
-    void migrationV9IsAppliedAfterV5WithAllTwelveTables() {
+    void migrationV15IsAppliedAfterV5WithAllTwelveTables() {
         CatalogueTestSupport.requireMySql84(dataSource);
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank", String.class);
-        assertThat(versions).containsSubsequence("5", "9");
+        assertThat(versions).containsSubsequence("5", "15");
         List<String> tables = jdbc.queryForList("SELECT table_name FROM information_schema.tables "
                 + "WHERE table_schema = DATABASE() AND table_name LIKE 'catalogue\\_%' ORDER BY table_name", String.class);
         assertThat(tables).containsExactlyInAnyOrder("catalogue_audit_events", "catalogue_categories",

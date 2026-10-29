@@ -12,10 +12,10 @@
 
 | Mục | Giá trị |
 | --- | --- |
-| Revision | nhánh `khuong` sau merge `origin/develop` (`cb4aacd`) + thay đổi chưa commit của 002 |
+| Revision | nhánh `khuong` ở `2774c1e` (= `origin/develop` ngày 2026-10-29) + sửa test theo số migration mới |
 | JDK | 21.0.12.1+1-LTS |
-| Database | MySQL 8.4.13, database test `ppswbs_test` (tạo lại 2026-10-27 sau khi đổi số migration); T081 dùng database tạm `ppswbs_pm_fresh_*` rồi tự xóa |
-| Migration | V5, V6 (001), V7, V8 (003.2), **V9 (002)**, V10, V11 (006) |
+| Database | MySQL 8.4.13, database trống `ppswbs_pm_sales_*` cho mỗi lần chạy rồi xóa; T081 dùng database tạm `ppswbs_pm_fresh_*` rồi tự xóa. `ppswbs_test` cũ (đã áp `V9__product_management`) cần tạo lại |
+| Migration | V4 (004), V5, V6 (001), V7, V8 (003.2), V9 (003.1), V10–V12 (006), V13, V14 (008), **V15 (002, đổi từ V9 ở `e143b52`)**, V16–V21 (003) |
 | Identity | facade 001 thật (`IdentityGateFilter`, `ActorContext`); trong test chỉ stub bước xác minh Firebase token và tra actor |
 | Cloudinary | tài khoản test thật qua `CLOUDINARY_*` (biến môi trường), thư mục `ppswbs-it/<lần chạy>` tự xóa |
 | Chưa có | adapter nguồn giữ hàng FE-08 (T003/T019), frontend React + Vite (T088) |
@@ -27,7 +27,16 @@ Set-Location D:/mland-operations-hub/mland-operations-hub/ppswbs_backend
 .\mvnw.cmd clean test
 ```
 
-Kết quả ngày 2026-10-27: **481 test**, trong đó **295 test của productmanagement đều pass**. Ngoài 002 có 3 lỗi, không do 002:
+Kết quả ngày 2026-10-29 trên build thật (develop `2774c1e` biên dịch sạch, không loại file nào):
+
+```powershell
+.\mvnw.cmd -o test "-Dtest=edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.**.*,edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.**.*,ModulithArchitectureTests"
+.\mvnw.cmd -o test '-Dtest=**/features/productmanagement/*/**/*,**/features/loyaltypromotion/*/**/*'
+```
+
+Lệnh thứ hai chạy các lớp trong package con (`controller`, `service`, `service/importing`, `service/media`) mà mẫu của lệnh đầu bỏ sót. **002: 308 test đều pass**; 006: 226 (1 bỏ qua, BE-DESIGN-0012); `ModulithArchitectureTests`: 5. Flyway áp 18 migration V4–V21 lên database trống.
+
+Kết quả cũ ngày 2026-10-27: **481 test**, trong đó **295 test của productmanagement đều pass**. Ngoài 002 có 3 lỗi, không do 002:
 - `AccountManagementSecurityIT.whenCorsPreflight_thenReturnsCorsHeaders` (001): đã xác nhận cũng hỏng trên bản `origin/develop` sạch.
 - `WorkshopOperationsMySQLIT.shouldReturnInProgressOnConcurrentDuplicate` và `shouldHandleConcurrentInitialClaimRace` (003.2): hết thời gian chờ 5 giây khi chạy cả bộ; chạy riêng 2 lần đều 9/9 pass. Test phụ thuộc thời gian, thuộc owner 003.2.
 
