@@ -39,7 +39,7 @@ public class CheckInService {
      * - Check-in window open (now >= checkInOpensAt);
      * - Ticket validityState == ACTIVE;
      * - Valid entitlement for the target session and location;
-     * - Actor is actively assigned Staff or Manager operational lead within location scope.
+     * - Actor is active Staff in the session location or an active Manager globally.
      * Repeated scan returns 200 OK with ALREADY_CHECKED_IN and the original checkedInAt time.
      */
     @Transactional

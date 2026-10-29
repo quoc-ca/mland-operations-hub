@@ -161,19 +161,18 @@ public class WorkshopSessionManagementIT {
     }
 
     // =========================================================================
-    // 1. Location Scope Denial
+    // 1. Manager Global Location Authority
     // =========================================================================
 
     @Test
-    @DisplayName("Manager A attempting to configure slots or sessions on Location B is denied with 403 LOCATION_SCOPE_DENIED")
-    void managerDeniedOnOutOfScopeLocation() throws Exception {
-        // Manager A attempts to list slots on Location B
+    @DisplayName("Manager A can access slots and configure sessions at Location B regardless of assigned locations")
+    void managerCanOperateOnAnyLocation() throws Exception {
+        // Manager A can list slots on Location B
         mockMvc.perform(get("/api/v1/workshop-locations/" + locationB.getId() + "/slots")
                         .header("Authorization", MGR_A_TOKEN))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("LOCATION_SCOPE_DENIED"));
+                .andExpect(status().isOk());
 
-        // Manager A attempts to create a slot on Location B
+        // Manager A can create a slot on Location B
         SlotRequest newSlot = SlotRequest.builder()
                 .label("Unauthorized Slot")
                 .startsAtLocal(LocalTime.of(13, 0))
@@ -186,8 +185,7 @@ public class WorkshopSessionManagementIT {
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(newSlot)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("LOCATION_SCOPE_DENIED"));
+                .andExpect(status().isCreated());
     }
 
     // =========================================================================

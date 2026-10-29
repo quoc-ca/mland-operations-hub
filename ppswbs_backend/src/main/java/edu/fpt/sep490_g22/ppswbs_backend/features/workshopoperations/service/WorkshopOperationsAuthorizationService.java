@@ -86,27 +86,8 @@ public class WorkshopOperationsAuthorizationService {
         return account != null && account.role() != null && "STAFF".equalsIgnoreCase(account.role().name());
     }
 
-    public AccountSummary requireManagerLocationScope(String authHeader, Long locationId) {
-        AccountSummary account = authenticate(authHeader);
-
-        if (!isManager(account)) {
-            log.warn("Access denied for accountId={}: expected MANAGER, found {}", account.accountId(), account.role());
-            throw new WorkshopForbiddenException("Access requires MANAGER role");
-        }
-
-        List<Long> locationScope = accountFacade.getLocationScope(account.accountId());
-        if (locationScope == null || !locationScope.contains(locationId)) {
-            log.warn("Location scope check failed for accountId={}, locationId={}, allowedScope={}",
-                account.accountId(), locationId, locationScope);
-            throw new WorkshopLocationScopeException("Location ID " + locationId + " is outside actor's active location scope");
-        }
-
-        return account;
-    }
-
     /**
-     * Workshop Operations V1 manager authority is global across locations.
-     * Location-scoped manager checks remain available for location administration.
+     * Manager authority is global across locations throughout Feature 003.
      */
     public AccountSummary requireGlobalManager(String authHeader) {
         AccountSummary account = authenticate(authHeader);
@@ -115,10 +96,6 @@ public class WorkshopOperationsAuthorizationService {
             throw new WorkshopForbiddenException("Access requires MANAGER role");
         }
         return account;
-    }
-
-    public AccountSummary requireManagerBranchScope(String authHeader, Long branchId) {
-        return requireManagerLocationScope(authHeader, branchId);
     }
 
     public AccountSummary requireStaffSessionAssignment(String authHeader, Long sessionId) {
@@ -155,16 +132,15 @@ public class WorkshopOperationsAuthorizationService {
     public AccountSummary requireManagerOrAssignedStaff(String authHeader, Long sessionId, Long locationId) {
         AccountSummary account = authenticate(authHeader);
 
-        List<Long> locationScope = accountFacade.getLocationScope(account.accountId());
-        if (locationScope == null || !locationScope.contains(locationId)) {
-            throw new WorkshopLocationScopeException("Location ID " + locationId + " is outside actor location scope");
-        }
-
         if (isManager(account)) {
             return account;
         }
 
         if (isStaff(account)) {
+            List<Long> locationScope = accountFacade.getLocationScope(account.accountId());
+            if (locationScope == null || !locationScope.contains(locationId)) {
+                throw new WorkshopLocationScopeException("Location ID " + locationId + " is outside Staff active location scope");
+            }
             boolean assigned = staffAssignmentRepository.existsBySessionIdAndAccountIdAndActiveTrue(sessionId, account.accountId());
             if (!assigned) {
                 throw new WorkshopForbiddenException("Staff member is not assigned to session ID " + sessionId);

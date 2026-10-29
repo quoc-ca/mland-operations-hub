@@ -3,7 +3,7 @@ info:
   title: Mland Workshop Operations API
   version: 1.0.0-draft
   description: >-
-    Public discovery plus Central-Manager, Manager and Staff API for Workshop
+    Public discovery plus globally authorized Manager and location-scoped Staff API for Workshop
     Packages, canonical workshop locations, slots, sessions, attendance and
     exception audit. Authorization is evaluated server-side.
 servers:
@@ -18,7 +18,7 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/PackageList' }
     post:
-      summary: Create a draft Workshop Package as Central Manager
+      summary: Create a draft Workshop Package as an active Manager (global scope)
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageWrite' } } } }
       responses:
         '201': { $ref: '#/components/responses/Package' }
@@ -33,7 +33,7 @@ paths:
         '200': { $ref: '#/components/responses/Package' }
         '404': { $ref: '#/components/responses/Problem' }
     patch:
-      summary: Prospectively update a Workshop Package as Central Manager without changing lifecycle state
+      summary: Prospectively update a Workshop Package as an active Manager without changing lifecycle state
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageWrite' } } } }
       responses:
         '200': { $ref: '#/components/responses/Package' }
@@ -43,7 +43,7 @@ paths:
   /workshop-packages/{packageId}/lifecycle-transitions:
     parameters: [ { $ref: '#/components/parameters/PackageId' } ]
     post:
-      summary: Publish or retire a Workshop Package as Central Manager
+      summary: Publish or retire a Workshop Package as an active Manager
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageLifecycleTransitionRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/Package' }

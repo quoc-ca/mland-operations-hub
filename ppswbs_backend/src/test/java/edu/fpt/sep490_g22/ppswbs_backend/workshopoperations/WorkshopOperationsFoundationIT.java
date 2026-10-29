@@ -337,25 +337,24 @@ public class WorkshopOperationsFoundationIT {
     class AuthorizationTests {
 
         @Test
-        @DisplayName("Manager with in-scope location should be authorized")
-        void managerInScopeShouldBeAuthorized() {
+        @DisplayName("Active Manager authorization succeeds")
+        void activeManagerShouldBeAuthorized() {
             when(accountFacade.resolveAccount("mgr-uid")).thenReturn(Optional.of(
                     new AccountSummary(10L, ActorRole.MANAGER, ActorStatus.ACTIVE, "mgr@fpt.edu.vn", Instant.now(), Instant.now())));
-            when(accountFacade.getLocationScope(10L)).thenReturn(List.of(testLocation.getId()));
 
-            AccountSummary summary = authorizationService.requireManagerLocationScope("Bearer test-uid:mgr-uid", testLocation.getId());
+            AccountSummary summary = authorizationService.requireGlobalManager("Bearer test-uid:mgr-uid");
             assertThat(summary.accountId()).isEqualTo(10L);
         }
 
         @Test
-        @DisplayName("Manager out of scope should be denied with WorkshopLocationScopeException")
-        void managerOutOfScopeShouldBeDenied() {
+        @DisplayName("Manager authority is global regardless of active location assignments")
+        void managerAuthorityIsGlobal() {
             when(accountFacade.resolveAccount("mgr-uid")).thenReturn(Optional.of(
                     new AccountSummary(10L, ActorRole.MANAGER, ActorStatus.ACTIVE, "mgr@fpt.edu.vn", Instant.now(), Instant.now())));
             when(accountFacade.getLocationScope(10L)).thenReturn(List.of(999L));
 
-            assertThatThrownBy(() -> authorizationService.requireManagerLocationScope("Bearer test-uid:mgr-uid", testLocation.getId()))
-                    .isInstanceOf(WorkshopLocationScopeException.class);
+            AccountSummary summary = authorizationService.requireGlobalManager("Bearer test-uid:mgr-uid");
+            assertThat(summary.accountId()).isEqualTo(10L);
         }
 
         @Test
@@ -412,7 +411,7 @@ public class WorkshopOperationsFoundationIT {
             when(accountFacade.resolveAccount("member-uid")).thenReturn(Optional.of(
                     new AccountSummary(30L, ActorRole.MEMBER, ActorStatus.ACTIVE, "member@fpt.edu.vn", Instant.now(), Instant.now())));
 
-            assertThatThrownBy(() -> authorizationService.requireManagerLocationScope("Bearer test-uid:member-uid", testLocation.getId()))
+            assertThatThrownBy(() -> authorizationService.requireGlobalManager("Bearer test-uid:member-uid"))
                     .isInstanceOf(WorkshopForbiddenException.class);
         }
 
@@ -422,16 +421,16 @@ public class WorkshopOperationsFoundationIT {
             when(accountFacade.resolveAccount("suspended-uid")).thenReturn(Optional.of(
                     new AccountSummary(40L, ActorRole.MANAGER, ActorStatus.SUSPENDED, "suspended@fpt.edu.vn", Instant.now(), Instant.now())));
 
-            assertThatThrownBy(() -> authorizationService.requireManagerLocationScope("Bearer test-uid:suspended-uid", testLocation.getId()))
+            assertThatThrownBy(() -> authorizationService.requireGlobalManager("Bearer test-uid:suspended-uid"))
                     .isInstanceOf(WorkshopForbiddenException.class);
         }
 
         @Test
         @DisplayName("Missing or blank bearer token should throw WorkshopUnauthorizedException")
         void missingTokenShouldThrowUnauthorized() {
-            assertThatThrownBy(() -> authorizationService.requireManagerLocationScope(null, testLocation.getId()))
+            assertThatThrownBy(() -> authorizationService.requireGlobalManager(null))
                     .isInstanceOf(WorkshopUnauthorizedException.class);
-            assertThatThrownBy(() -> authorizationService.requireManagerLocationScope("   ", testLocation.getId()))
+            assertThatThrownBy(() -> authorizationService.requireGlobalManager("   "))
                     .isInstanceOf(WorkshopUnauthorizedException.class);
         }
     }

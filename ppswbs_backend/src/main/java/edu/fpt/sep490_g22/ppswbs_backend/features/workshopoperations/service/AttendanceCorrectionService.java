@@ -26,7 +26,7 @@ import java.util.UUID;
  *   Reverts ticket attendance state back to NOT_CHECKED_IN and clears checkedInAt so it can be scanned again.
  * - Attendance correction is permitted ONLY AFTER attendance finalization (session in ATTENDANCE_FINALIZED).
  *   Post-finalization outcome is strictly limited to CHECKED_IN or NO_SHOW (NOT_CHECKED_IN is rejected).
- * - Restricted strictly to Manager with active canonical location scope covering the session location.
+ * - Restricted strictly to active Manager with global location authority.
  *   Staff is denied (WorkshopForbiddenException).
  * - Enforces standardized reason code validation and mandatory note/evidence requirements.
  * - Does NOT use or require 'workshop.checkin.override' authority.
@@ -81,7 +81,7 @@ public class AttendanceCorrectionService {
                     + "; check-in reversal is only permitted before attendance finalization. Use attendance-corrections for finalized sessions.");
         }
 
-        // Authorization: strictly Manager within canonical location scope (Staff denied)
+        // Authorization: strictly active Manager globally (Staff denied)
         AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
 
         AttendanceTicket ticket = ticketRepository.findByTicketCode(request.getTicketCode())
@@ -195,7 +195,7 @@ public class AttendanceCorrectionService {
                     + "; attendance correction requires ATTENDANCE_FINALIZED. Use check-in-reversals before finalization.");
         }
 
-        // Authorization: strictly Manager within canonical location scope (Staff denied)
+        // Authorization: strictly active Manager globally (Staff denied)
         AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
 
         AttendanceTicket ticket = ticketRepository.findByTicketCode(request.getTicketCode())
