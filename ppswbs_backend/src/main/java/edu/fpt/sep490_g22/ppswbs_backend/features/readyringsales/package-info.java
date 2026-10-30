@@ -1,6 +1,6 @@
 @org.springframework.modulith.ApplicationModule(
     id = "readyringsales",
     displayName = "Ready Ring Sales",
-    allowedDependencies = {"accountmanagement :: facade"}
+    allowedDependencies = {"accountmanagement :: facade", "productmanagement :: facade"}
 )
 package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales;

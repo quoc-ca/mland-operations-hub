@@ -59,7 +59,7 @@ class CartControllerTest {
     void returnsOnlyTheResolvedMembersCart() throws Exception {
         CartDtos.RetailCartView cart = new CartDtos.RetailCartView(
             4L,
-            List.of(new CartDtos.CartLineView("line-01", "RING-01", 10L, 2))
+            List.of(new CartDtos.CartLineView("line-01", 101L, 10L, 2))
         );
         when(actorResolver.requireActiveMember(any(HttpServletRequest.class))).thenReturn(new RetailMemberActor(99L));
         when(cartService.getCart(99L)).thenReturn(cart);
@@ -77,7 +77,7 @@ class CartControllerTest {
     void rejectsAnInvalidAddLineRequestBeforeCallingTheCartService() throws Exception {
         mockMvc.perform(post(CART_PATH + "/lines")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"variantId\":\"RING-01\",\"locationId\":10,\"quantity\":0}"))
+                .content("{\"variantId\":101,\"locationId\":10,\"quantity\":0}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
@@ -86,7 +86,7 @@ class CartControllerTest {
 
     @Test
     void mapsCartConflictsToAStableConflictResponse() throws Exception {
-        CartDtos.AddCartLineRequest request = new CartDtos.AddCartLineRequest("RING-01", 10L, 1);
+        CartDtos.AddCartLineRequest request = new CartDtos.AddCartLineRequest(101L, 10L, 1);
         when(actorResolver.requireActiveMember(any(HttpServletRequest.class))).thenReturn(new RetailMemberActor(99L));
         when(cartService.addLine(eq(99L), any(CartDtos.AddCartLineRequest.class)))
             .thenThrow(new RetailConflictException("Cart cannot contain more than 50 lines"));
@@ -102,7 +102,7 @@ class CartControllerTest {
 
     @Test
     void mapsAnOptimisticLockFailureToAConflictResponse() throws Exception {
-        CartDtos.AddCartLineRequest request = new CartDtos.AddCartLineRequest("RING-01", 10L, 1);
+        CartDtos.AddCartLineRequest request = new CartDtos.AddCartLineRequest(101L, 10L, 1);
         when(actorResolver.requireActiveMember(any(HttpServletRequest.class))).thenReturn(new RetailMemberActor(99L));
         when(cartService.addLine(eq(99L), any(CartDtos.AddCartLineRequest.class)))
             .thenThrow(new ObjectOptimisticLockingFailureException(RetailCart.class, "cart-01"));

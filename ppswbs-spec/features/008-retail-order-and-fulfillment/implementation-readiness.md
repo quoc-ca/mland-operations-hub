@@ -1,7 +1,7 @@
 # FE-08 Implementation Readiness
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-29
 **Author**: Thinh
 **Last updated by**: Thinh
 
@@ -27,19 +27,19 @@ semantics of this slice.
 | --- | --- |
 | FE-08 module | `features.readyringsales`, detected as an independent Spring Modulith module. |
 | Member identity | The local adapter accepts only a positive `X-Debug-Account-Id` for the approved local demo slice. Outside `local`, FE-08 consumes the authenticated `CurrentAccountActor` issued through `accountmanagement::facade` and allows only an `ACTIVE` `MEMBER`; client-supplied account identifiers are not trusted. The local header is not a production access path. |
-| Catalogue eligibility | `readyringsales` calls its local `RetailCataloguePort` substitute. The production adapter must replace it with the approved FE-02 named facade without changing cart REST/persistence semantics. |
+| Catalogue eligibility | `readyringsales` calls its local `RetailCataloguePort` substitute. The production cart/preview adapter will use FE-02 `readSaleFacts` without a catalogue lock; checkout acceptance remains required to revalidate through `withLockedSaleContext` without changing cart REST/persistence semantics. |
 | Loyalty, payment, GHTK | Local checkout uses dedicated deterministic substitutes only in the `local` profile. Benefit preview/acceptance is a non-authoritative mock; payment is a server-side locally verified mock outcome; GHTK quote data is a non-live deterministic quote. Non-local profiles return an integration-unavailable error until the owning facade/adapter is merged. |
 | Location identity | Every cart line stores `locationId BIGINT`, matching the account-management `location_id` type. No location foreign key is created because catalogue/location ownership is outside FE-08. |
 
-## V6 physical schema and concurrency design
+## V13 physical schema and concurrency design
 
-`V6__retail_cart.sql` is the next append-only migration and creates only these
+`V13__retail_cart.sql` is the append-only migration that creates only these
 FE-08-owned records:
 
 | Table | Ownership and constraints |
 | --- | --- |
 | `retail_carts` | UUID-string primary key; `member_account_id` foreign key to `accounts`; one cart per Member through a unique key; JPA optimistic `version`; creation/update timestamps. |
-| `retail_cart_lines` | UUID-string primary key; owning `cart_id` foreign key; `variant_id`; `location_id BIGINT`; quantity constrained to 1-99; unique `(cart_id, variant_id, location_id)`; creation/update timestamps. |
+| `retail_cart_lines` | UUID-string primary key; owning `cart_id` foreign key; canonical FE-02 numeric `variant_id BIGINT`; `location_id BIGINT`; quantity constrained to 1-99; unique `(cart_id, variant_id, location_id)`; creation/update timestamps. |
 
 Cart commands update the cart aggregate version. A conflicting concurrent
 write is returned as a typed conflict rather than silently overwriting a cart.
@@ -48,9 +48,9 @@ The service validates the maximum of 50 lines and the maximum total quantity of
 Cart edits never reserve inventory, redeem benefits, create payment attempts,
 or create retail orders.
 
-## V7 local checkout schema and concurrency design
+## V14 local checkout schema and concurrency design
 
-`V7__retail_mock_checkout.sql` is an append-only migration for the approved
+`V14__retail_mock_checkout.sql` is an append-only migration for the approved
 local checkout slice. It owns checkout facts only; it does not create a real
 provider shipment or a cross-feature voucher/points ledger.
 
@@ -58,7 +58,7 @@ provider shipment or a cross-feature voucher/points ledger.
 | --- | --- |
 | `retail_grouped_checkouts` | UUID-string primary key; owning Member; unique member/idempotency key; cart version snapshot; aggregate merchandise, shipping, discount and payable snapshots; payment state and initiation timestamp; optimistic version. |
 | `retail_orders` | UUID-string primary key; owning grouped checkout; one immutable branch order per `location_id`; payment and fulfilment state; per-branch money snapshots; unique `(grouped_checkout_id, location_id)`. |
-| `retail_order_items` | UUID-string primary key; owning retail order; immutable `variant_id`, quantity and server-priced unit/line total snapshots. |
+| `retail_order_items` | UUID-string primary key; owning retail order; immutable canonical FE-02 numeric `variant_id BIGINT`, quantity and server-priced unit/line total snapshots. |
 | `retail_checkout_holds` | UUID-string primary key; one hold bundle per grouped checkout; local status/deadline/expiry facts only. It represents no real inventory or benefit reservation. |
 
 Checkout acceptance locks the owned cart row through a repository lock query,
@@ -77,7 +77,9 @@ it is replaced by verified VNPay evidence before production.
 
 | Migration | Deferred scope | Gate |
 | --- | --- | --- |
-| V8 | Durable shipping quotes and accepted GHTK recipient/selection snapshots | Approved FE-02 shipping-profile boundary and real quote contract verification |
-| V9 | Shipments, carrier status events, custody evidence and recipient retention | Approved GHTK callback/security and Staff/Manager delegation design |
+| V22 | Convert empty local/test FE-08 `variant_id` columns from legacy text to canonical FE-02 `BIGINT`; the migration fails rather than deleting or coercing data | Run `scripts/local-reset-retail-demo.sql` only against an approved local/test database before migration |
+| V23 | FE-08 stable per-variant guard rows and per-checkout variant holds | FE-08 lazy-creates each missing guard inside the FE-02-locked `withGuard` path using an approved atomic MySQL provision-and-lock primitive |
+| V24 | Durable shipping quotes and accepted GHTK recipient/selection snapshots | Approved FE-02 shipping-profile boundary and real quote contract verification |
+| V25 | Shipments, carrier status events, custody evidence and recipient retention | Approved GHTK callback/security and Staff/Manager delegation design |
 
 No deferred migration is authorized by this document.

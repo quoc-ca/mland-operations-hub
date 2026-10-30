@@ -59,7 +59,7 @@ public class RetailCart {
         }
     }
 
-    public void addLine(String variantId, Long locationId, int quantity) {
+    public void addLine(Long variantId, Long locationId, int quantity) {
         lines.add(new CartLine(this, variantId, locationId, quantity));
         touch();
     }

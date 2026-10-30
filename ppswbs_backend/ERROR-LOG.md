@@ -1917,3 +1917,214 @@ and Loyalty reservation, and outcome call ordering. The integration guide is
 This resolves the design gap recorded above. Implementation can resume after
 the matching 006 facade/API source is present in the checkout and the individual
 003 task dependencies are checked. No 003 task marker was changed here.
+
+### Resolution update — 2026-10-29T15:10:00+07:00
+
+The merged baseline now compiles. The targeted `RetailAuthorizationTest`,
+`LocalRetailActorResolverTest`, `CartControllerTest`, and
+`ModulithArchitectureTests` passed; the Modulith suite reports five passing
+tests. The repository-wide compilation blocker is resolved. This does not
+validate unimplemented FE-08 provider, catalogue-hold, or loyalty lifecycles.
+
+## BE-DESIGN-0022 — FE-08 variant identifier migration needs an approved legacy-data policy
+
+- **Recorded at:** 2026-10-29T15:10:00+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 FE-02 catalogue-sales integration
+- **Status:** BLOCKED
+
+### Stopped scope and evidence
+
+FE-02 now exports the approved `productmanagement::facade.CatalogueSalesFacade`.
+Its canonical product variant key is `long`. FE-08 still exposes and persists
+`String variantId` in `CartDtos`, `CartLine`, `OrderItem`, `RetailCheckoutPorts`,
+`V13__retail_cart.sql`, and `V14__retail_mock_checkout.sql`.
+
+The existing local demo accepts values such as `P01`. Those values cannot be
+converted to the FE-02 numeric product-variant key by a safe SQL cast. The
+repository has already applied/allocated retail migrations as V13 and V14,
+while FE-08 implementation readiness still describes the superseded V6/V7
+allocation. A new append-only migration would therefore need the next project
+migration number and an explicit handling rule for pre-existing cart/order data.
+
+### Why the task cannot proceed
+
+Automatically deleting existing carts/orders, mapping symbolic values such as
+`P01` to an invented numeric ID, or casting them to zero would lose history or
+misattribute a sale. Rewriting V13/V14 is prohibited because migrations are
+append-only. Choosing the legacy-data rule and updating the stale migration
+allocation is a schema/contract decision, not an implementation detail.
+
+### Required decision
+
+Approve one explicit policy for existing FE-08 local-demo rows before changing
+the API/entities/schema to `Long variantId`: either preserve old rows as an
+opaque historical snapshot and clear only active carts, or reset all pre-FE-02
+retail demo rows in the development database. Then approve the next migration
+number/allocation and synchronize implementation readiness before code resumes.
+
+### Resolution update — 2026-10-29T15:20:00+07:00
+
+Thinh approved resetting pre-FE-02 FE-08 local/test demo carts and checkout
+rows. The reset is isolated in `scripts/local-reset-retail-demo.sql` and is not
+run automatically. `V22__retail_variant_id_bigint.sql` refuses to alter either
+column while any FE-08 row remains, preventing loss or coercion of non-demo
+data. The FE-08 contract and local implementation now use `Long variantId`.
+
+## BE-DESIGN-0023 — FE-08 variant-hold migration conflicts with current deferred allocation
+
+- **Recorded at:** 2026-10-29T16:05:00+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 T060 / `AvailabilityGuardPort` integration
+- **Status:** BLOCKED
+
+### Stopped scope and evidence
+
+Thinh approved a per-variant FE-08 inventory-hold design: a hold records the
+grouped checkout, canonical numeric variant, quantity, status, and expiry, while
+each variant has a stable source-guard row even with no active hold. That design
+needs a new append-only migration. `implementation-readiness.md` currently
+allocates V23 to durable shipping quotes and V24 to shipments/status evidence;
+V22 is already allocated to the numeric variant-ID conversion.
+
+### Why the task cannot proceed
+
+Using V23 for holds without moving the documented shipping allocation would
+create contradictory migration planning. Selecting a different number or
+rewriting the allocation is a schema sequencing decision, not a local code
+choice.
+
+### Required decision
+
+Approve one explicit allocation: either assign V23 to FE-08 variant guards and
+holds and shift the shipping/shipment allocations forward, or reserve a later
+specific migration number for the guard/hold schema. After that decision, update
+implementation readiness and implement T059-T061.
+
+### Resolution update — 2026-10-29T16:20:00+07:00
+
+Thinh approved V23 for FE-08 per-variant guards and holds. The deferred
+shipping and shipment allocations move to V24 and V25 respectively in
+`implementation-readiness.md`.
+
+## BE-DESIGN-0024 — Stable guard-row provisioning is unspecified
+
+- **Recorded at:** 2026-10-29T16:25:00+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 T059–T061 / `AvailabilityGuardPort`
+- **Status:** BLOCKED
+
+### Stopped scope and evidence
+
+`AvailabilityGuardPort.withGuard` requires a stable source guard for every
+requested variant, including a variant with no existing hold. The agreed FE-08
+schema therefore needs a unique guard row per canonical variant before it can
+be pessimistically locked. A newly published FE-02 variant can be requested by
+two concurrent checkout transactions before any FE-08 guard row exists.
+
+### Why the task cannot proceed
+
+The contract does not state who provisions the initial guard row or authorize a
+race-safe creation mechanism. A naive JPA save can yield a unique-key race and
+does not guarantee that both callers subsequently lock the same row. Using a
+native MySQL upsert or retry policy would be a new concurrency/implementation
+decision, while requiring productmanagement to provision FE-08 rows needs a
+new cross-feature contract. Neither may be invented by FE-08.
+
+### Required decision
+
+Approve one of: (1) add an explicit FE-02-to-FE-08 provisioning contract that
+creates the guard before a variant is sale-eligible, or (2) authorize a named
+FE-08 atomic guard-provisioning primitive and its retry/lock behavior. The
+decision must state how a variant becomes sellable only after its guard exists.
+
+### Resolution update — 2026-10-29T16:35:00+07:00
+
+Thinh selected option 1: FE-02 provisions the FE-08 stable guard before a
+variant becomes sale-eligible. The `AvailabilityGuardPort` contract is owned by
+productmanagement, so FE-08 will not alter that feature's public interface.
+T061 now waits for the approved FE-02 provisioning call to be implemented and
+merged; only then can FE-08 safely implement its side of the port and hold
+lifecycle.
+
+### Resolution update — 2026-10-29T17:00:00+07:00
+
+FE-02 rejected publish-time provisioning and supplied the approved replacement:
+all guard entry paths already hold the FE-02 variant row first; FE-08 lazy
+creates a missing guard inside `withGuard`. `readSnapshots` returns a verified
+zero when no guard/hold exists. FE-02 will add `readSaleFacts(variantIds)` for
+unlocked cart/preview reads; checkout acceptance remains locked through
+`withLockedSaleContext`.
+
+## BE-DESIGN-0026 — Approved lazy guard design needs an AGENT-compliant atomic primitive
+
+- **Recorded at:** 2026-10-29T17:00:00+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 T062 / lazy guard initialization
+- **Status:** BLOCKED
+
+### Stopped scope and evidence
+
+FE-02 approved the concurrency design: inside `AvailabilityGuardPort.withGuard`,
+FE-08 lazily creates a missing guard with MySQL `INSERT ... ON DUPLICATE KEY
+UPDATE` (or `INSERT IGNORE`), then locks it with `SELECT ... FOR UPDATE`. This
+is safe because FE-02 has already locked the variant row before invoking the
+source guard. The backend `AGENT.md` explicitly prohibits raw SQL in
+application code.
+
+### Why the task cannot proceed
+
+Implementing the named MySQL upsert/lock directly as a native repository query,
+JDBC call, or other application SQL would violate the active backend rule.
+Replacing it with a naive JPA save creates an unresolved unique-key race and
+does not implement the approved atomic behavior.
+
+### Required decision
+
+Approve an AGENT-compliant implementation mechanism for the named atomic
+provision-and-lock primitive (for example an explicit exception for this
+repository operation, or an approved database-owned primitive), including its
+retry/transaction behavior. FE-08 can then implement V23/T059-T062 without
+inventing a concurrency workaround.
+
+### Resolution update — 2026-10-29T17:15:00+07:00
+
+Thinh approved one narrow exception: the FE-08 guard repository may use a
+native MySQL upsert solely to provision a missing stable guard before taking
+its pessimistic lock. No other FE-08 query or lifecycle rule is exempt from
+the backend's JPA-first rule. FE-02 also confirmed lazy provisioning inside
+`withGuard`; its future `readSaleFacts` is only for unlocked cart/preview use.
+
+## BE-DESIGN-0025 — Provider-neutral GHTK port lacks authoritative shipping inputs
+
+- **Recorded at:** 2026-10-29T16:45:00+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 T013 / `ShippingProviderPort`
+- **Status:** BLOCKED
+
+### Stopped scope and evidence
+
+The FE-08 GHTK contract requires a fee request to carry authoritative package
+weight/dimensions, pickup origin data, destination data, declared value, and
+an approved service. `research.md` assigns variant shipping weight/dimensions
+to FE-02. The current FE-02 public facade exposes catalogue-sale facts only;
+no shipping-profile facade or shipping fields were found. FE-08 stores only a
+numeric `locationId`, and no approved location/pickup-address facade or schema
+was found for resolving that ID to a GHTK origin.
+
+### Why the task cannot proceed
+
+Defining a provider request or deterministic mock without those inputs would
+invent package/origin semantics and could later cause a quoted fee to differ
+from the accepted shipment. A placeholder port that accepts arbitrary strings
+would publish an incorrect cross-feature contract rather than provide a safe
+boundary.
+
+### Required decision
+
+FE-02 must publish an approved shipping-profile facade for a set of variants,
+including the aggregate package data required by quote/shipment creation; the
+location owner must publish an approved `locationId`-to-pickup-origin facade.
+The teams must also name the approved carrier service/prepaid mapping. Once
+these facts and their failure semantics are available, FE-08 can define and
+test the provider-neutral port and local mock without guessing.

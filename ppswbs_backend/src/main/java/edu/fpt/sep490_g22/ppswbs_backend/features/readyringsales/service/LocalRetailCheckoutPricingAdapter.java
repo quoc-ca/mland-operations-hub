@@ -17,7 +17,7 @@ public class LocalRetailCheckoutPricingAdapter implements RetailCheckoutPricingP
     public List<RetailCheckoutPorts.PricedLine> price(List<CartLine> lines) {
         return lines.stream().map(line -> new RetailCheckoutPorts.PricedLine(
             line.getVariantId(), line.getLocationId(), line.getQuantity(),
-            BigDecimal.valueOf(500_000L + Math.floorMod(line.getVariantId().hashCode(), 500_000))
+            BigDecimal.valueOf(500_000L + Math.floorMod(line.getVariantId(), 500_000L))
         )).toList();
     }
 }

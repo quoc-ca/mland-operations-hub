@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 public class UnavailableRetailCatalogueAdapter implements RetailCataloguePort {
 
     @Override
-    public boolean isEligibleForCart(String variantId, Long locationId) {
+    public boolean isEligibleForCart(Long variantId, Long locationId) {
         throw new RetailIntegrationUnavailableException("Catalogue integration is not configured");
     }
 }

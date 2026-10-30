@@ -89,14 +89,14 @@ public class CartService {
             .orElseThrow(() -> new RetailNotFoundException("Cart line does not exist"));
     }
 
-    private int totalForVariant(RetailCart cart, String variantId) {
+    private int totalForVariant(RetailCart cart, Long variantId) {
         return cart.getLines().stream()
             .filter(line -> line.getVariantId().equals(variantId))
             .mapToInt(CartLine::getQuantity)
             .sum();
     }
 
-    private void ensureEligible(String variantId, Long locationId) {
+    private void ensureEligible(Long variantId, Long locationId) {
         if (!cataloguePort.isEligibleForCart(variantId, locationId)) {
             throw new RetailConflictException("Variant is not eligible for the selected location");
         }

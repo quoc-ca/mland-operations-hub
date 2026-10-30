@@ -357,7 +357,9 @@ components:
         id:
           type: string
         variantId:
-          type: string
+          type: integer
+          format: int64
+          minimum: 1
         locationId:
           type: integer
           format: int64
@@ -370,7 +372,9 @@ components:
       required: [variantId, locationId, quantity]
       properties:
         variantId:
-          type: string
+          type: integer
+          format: int64
+          minimum: 1
         locationId:
           type: integer
           format: int64

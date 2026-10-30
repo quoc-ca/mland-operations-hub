@@ -38,14 +38,14 @@ class CartServiceTest {
 
     @Test
     void addsEligibleVariantToNewMemberCartWithoutCheckoutEffects() {
-        when(cataloguePort.isEligibleForCart("RING-01", 10L)).thenReturn(true);
+        when(cataloguePort.isEligibleForCart(101L, 10L)).thenReturn(true);
         when(cartRepository.findByMemberAccountId(99L)).thenReturn(Optional.empty());
         when(cartRepository.save(any(RetailCart.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        CartDtos.RetailCartView result = cartService.addLine(99L, new CartDtos.AddCartLineRequest("RING-01", 10L, 2));
+        CartDtos.RetailCartView result = cartService.addLine(99L, new CartDtos.AddCartLineRequest(101L, 10L, 2));
 
         assertThat(result.lines()).hasSize(1);
-        assertThat(result.lines().getFirst().variantId()).isEqualTo("RING-01");
+        assertThat(result.lines().getFirst().variantId()).isEqualTo(101L);
         assertThat(result.lines().getFirst().locationId()).isEqualTo(10L);
         assertThat(result.lines().getFirst().quantity()).isEqualTo(2);
 
@@ -56,9 +56,9 @@ class CartServiceTest {
 
     @Test
     void rejectsAnIneligibleVariantBeforePersistingTheCart() {
-        when(cataloguePort.isEligibleForCart("unavailable-ring", 10L)).thenReturn(false);
+        when(cataloguePort.isEligibleForCart(999999L, 10L)).thenReturn(false);
 
-        assertThatThrownBy(() -> cartService.addLine(99L, new CartDtos.AddCartLineRequest("unavailable-ring", 10L, 1)))
+        assertThatThrownBy(() -> cartService.addLine(99L, new CartDtos.AddCartLineRequest(999999L, 10L, 1)))
             .isInstanceOf(RetailConflictException.class);
 
         verify(cartRepository, never()).save(any(RetailCart.class));
@@ -67,23 +67,23 @@ class CartServiceTest {
     @Test
     void rejectsQuantityAboveNinetyNineAcrossLocationsForTheSameVariant() {
         RetailCart existingCart = new RetailCart(99L);
-        existingCart.addLine("RING-01", 10L, 70);
-        when(cataloguePort.isEligibleForCart("RING-01", 20L)).thenReturn(true);
+        existingCart.addLine(101L, 10L, 70);
+        when(cataloguePort.isEligibleForCart(101L, 20L)).thenReturn(true);
         when(cartRepository.findByMemberAccountId(99L)).thenReturn(Optional.of(existingCart));
 
-        assertThatThrownBy(() -> cartService.addLine(99L, new CartDtos.AddCartLineRequest("RING-01", 20L, 30)))
+        assertThatThrownBy(() -> cartService.addLine(99L, new CartDtos.AddCartLineRequest(101L, 20L, 30)))
             .isInstanceOf(RetailConflictException.class);
     }
 
     @Test
     void keepsTheOriginalLocationWhenTheSameVariantIsAddedForAnotherLocation() {
         RetailCart existingCart = new RetailCart(99L);
-        existingCart.addLine("RING-01", 10L, 1);
-        when(cataloguePort.isEligibleForCart("RING-01", 20L)).thenReturn(true);
+        existingCart.addLine(101L, 10L, 1);
+        when(cataloguePort.isEligibleForCart(101L, 20L)).thenReturn(true);
         when(cartRepository.findByMemberAccountId(99L)).thenReturn(Optional.of(existingCart));
         when(cartRepository.save(existingCart)).thenReturn(existingCart);
 
-        CartDtos.RetailCartView result = cartService.addLine(99L, new CartDtos.AddCartLineRequest("RING-01", 20L, 2));
+        CartDtos.RetailCartView result = cartService.addLine(99L, new CartDtos.AddCartLineRequest(101L, 20L, 2));
 
         assertThat(result.lines())
             .extracting(CartDtos.CartLineView::locationId, CartDtos.CartLineView::quantity)
@@ -97,12 +97,12 @@ class CartServiceTest {
     void rejectsTheFiftyFirstDistinctCartLine() {
         RetailCart existingCart = new RetailCart(99L);
         for (int index = 1; index <= 50; index++) {
-            existingCart.addLine("RING-" + index, 10L, 1);
+            existingCart.addLine((long) index, 10L, 1);
         }
-        when(cataloguePort.isEligibleForCart("RING-51", 10L)).thenReturn(true);
+        when(cataloguePort.isEligibleForCart(51L, 10L)).thenReturn(true);
         when(cartRepository.findByMemberAccountId(99L)).thenReturn(Optional.of(existingCart));
 
-        assertThatThrownBy(() -> cartService.addLine(99L, new CartDtos.AddCartLineRequest("RING-51", 10L, 1)))
+        assertThatThrownBy(() -> cartService.addLine(99L, new CartDtos.AddCartLineRequest(51L, 10L, 1)))
             .isInstanceOf(RetailConflictException.class);
 
         verify(cartRepository, never()).save(any(RetailCart.class));
@@ -111,7 +111,7 @@ class CartServiceTest {
     @Test
     void updatesOnlyTheRequestedLineInTheMembersOwnCart() {
         RetailCart existingCart = new RetailCart(99L);
-        existingCart.addLine("RING-01", 10L, 1);
+        existingCart.addLine(101L, 10L, 1);
         ReflectionTestUtils.setField(existingCart.getLines().getFirst(), "id", "line-01");
         when(cartRepository.findByMemberAccountId(99L)).thenReturn(Optional.of(existingCart));
         when(cartRepository.save(existingCart)).thenReturn(existingCart);
@@ -128,7 +128,7 @@ class CartServiceTest {
     @Test
     void doesNotAllowAnotherMemberToUpdateAnExistingCartLine() {
         RetailCart ownerCart = new RetailCart(99L);
-        ownerCart.addLine("RING-01", 10L, 1);
+        ownerCart.addLine(101L, 10L, 1);
         ReflectionTestUtils.setField(ownerCart.getLines().getFirst(), "id", "line-01");
         when(cartRepository.findByMemberAccountId(100L)).thenReturn(Optional.empty());
 
@@ -142,8 +142,8 @@ class CartServiceTest {
     @Test
     void removesOnlyTheRequestedLineFromTheMembersOwnCart() {
         RetailCart existingCart = new RetailCart(99L);
-        existingCart.addLine("RING-01", 10L, 1);
-        existingCart.addLine("RING-02", 10L, 1);
+        existingCart.addLine(101L, 10L, 1);
+        existingCart.addLine(102L, 10L, 1);
         ReflectionTestUtils.setField(existingCart.getLines().getFirst(), "id", "line-01");
         ReflectionTestUtils.setField(existingCart.getLines().get(1), "id", "line-02");
         when(cartRepository.findByMemberAccountId(99L)).thenReturn(Optional.of(existingCart));
@@ -152,7 +152,7 @@ class CartServiceTest {
 
         assertThat(existingCart.getLines()).singleElement().satisfies(line -> {
             assertThat(line.getId()).isEqualTo("line-02");
-            assertThat(line.getVariantId()).isEqualTo("RING-02");
+            assertThat(line.getVariantId()).isEqualTo(102L);
         });
         verify(cartRepository).save(existingCart);
     }

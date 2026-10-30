@@ -4,17 +4,17 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailCa
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
-/** Development-only FE-02 substitute. Prefix a test variant with "unavailable-" to reject it. */
+/** Development-only FE-02 substitute. Variant ID 999999 is reserved for an unavailable test case. */
 @Service
 @Profile("local")
 public class LocalRetailCatalogueAdapter implements RetailCataloguePort {
 
     @Override
-    public boolean isEligibleForCart(String variantId, Long locationId) {
+    public boolean isEligibleForCart(Long variantId, Long locationId) {
         return variantId != null
-            && !variantId.isBlank()
+            && variantId > 0
             && locationId != null
             && locationId > 0
-            && !variantId.startsWith("unavailable-");
+            && variantId != 999999L;
     }
 }

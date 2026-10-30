@@ -53,7 +53,7 @@ class GroupedCheckoutIntegrationTest {
     @BeforeEach
     void setUp() {
         checkoutRepository.deleteAll(); cartRepository.deleteAll(); accountRepository.deleteAll();
-        when(cataloguePort.isEligibleForCart(anyString(), anyLong())).thenReturn(true);
+        when(cataloguePort.isEligibleForCart(anyLong(), anyLong())).thenReturn(true);
         when(pricingPort.price(any())).thenAnswer(invocation -> ((List<edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.CartLine>) invocation.getArgument(0)).stream()
             .map(line -> new RetailCheckoutPorts.PricedLine(line.getVariantId(), line.getLocationId(), line.getQuantity(), BigDecimal.valueOf(500_000))).toList());
         when(benefitPort.preview(anyLong(), any(), any())).thenReturn(new RetailCheckoutPorts.BenefitPreview("preview-1", BigDecimal.valueOf(100_000), BigDecimal.ZERO, Instant.now().plus(15, ChronoUnit.MINUTES)));
@@ -63,10 +63,10 @@ class GroupedCheckoutIntegrationTest {
     }
 
     @Test
-    void appliesV7AndCreatesAnIdempotentMixedBranchCheckoutThenCompletesLocalMockPayment() {
+    void createsAnIdempotentMixedLocationCheckoutThenCompletesLocalMockPayment() {
         Long memberId = createMember().getId();
-        cartService.addLine(memberId, new CartDtos.AddCartLineRequest("RING-01", 10L, 1));
-        cartService.addLine(memberId, new CartDtos.AddCartLineRequest("RING-02", 20L, 2));
+        cartService.addLine(memberId, new CartDtos.AddCartLineRequest(101L, 10L, 1));
+        cartService.addLine(memberId, new CartDtos.AddCartLineRequest(102L, 20L, 2));
         CheckoutDtos.CreateGroupedCheckoutRequest request = new CheckoutDtos.CreateGroupedCheckoutRequest(List.of(
             new CheckoutDtos.BranchOrderCheckoutInput(10L, "PICKUP", null),
             new CheckoutDtos.BranchOrderCheckoutInput(20L, "GHTK", "quote-1")
