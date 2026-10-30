@@ -63,8 +63,16 @@ paths:
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:
       summary: Finalize an eligible final bill
+      description: >-
+        Normal finalization requires zero outstanding balance. An active Manager
+        may explicitly request the audited exception and must provide a reason.
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/FinalizationCommand'}
       responses:
         '200': {$ref: '#/components/responses/FinalBill'}
         '401': {$ref: '#/components/responses/Problem'}
@@ -243,6 +251,17 @@ components:
       type: object
       required: [reason]
       properties: {reason: {type: string}}
+    FinalizationCommand:
+      oneOf:
+        - type: object
+          required: [managerException]
+          properties:
+            managerException: {type: boolean, enum: [false]}
+        - type: object
+          required: [managerException, reason]
+          properties:
+            managerException: {type: boolean, enum: [true]}
+            reason: {type: string, minLength: 1, maxLength: 500}
     MlandRemedyCommand:
       type: object
       required: [reason, replacementOutcome, cancellationHandoffReference]
@@ -265,7 +284,7 @@ components:
       type: object
       required: [description, amount]
       properties:
-        description: {type: string}
+        description: {type: string, nullable: true, description: Null only for a legacy charge created before descriptions were retained.}
         amount: {type: integer, format: int64, minimum: 0}
     SettlementCaseProjection:
       type: object

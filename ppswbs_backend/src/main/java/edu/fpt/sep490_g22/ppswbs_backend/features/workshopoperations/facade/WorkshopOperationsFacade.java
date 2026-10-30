@@ -7,6 +7,9 @@ public interface WorkshopOperationsFacade {
 
     PublishedPackageSelectionSnapshot getPublishedPackageSelection(PublishedPackageSelectionQuery query);
 
+    /** Returns null unless this UUID add-on is active for the published package and active location. */
+    WorkshopAddOnPriceSnapshot getWorkshopAddOnPrice(WorkshopAddOnPriceQuery query);
+
     CapacityHoldOutcome reserveBookingCapacity(ReserveBookingCapacityCommand command);
 
     CapacityCommitOutcome commitBookingHolds(CommitBookingHoldsCommand command);

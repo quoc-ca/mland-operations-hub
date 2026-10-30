@@ -41,7 +41,7 @@ public class BookingPaymentAttempt {
     @Column(name = "status", nullable = false, length = 32)
     private PaymentAttemptStatus status;
 
-    @Column(name = "payment_url_snapshot", length = 512)
+    @Column(name = "payment_url_snapshot", length = 2048)
     private String paymentUrlSnapshot;
 
     @Column(name = "expires_at", nullable = false)

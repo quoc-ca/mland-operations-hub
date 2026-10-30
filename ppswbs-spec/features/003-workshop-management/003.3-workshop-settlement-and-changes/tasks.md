@@ -1,7 +1,7 @@
 # Tasks: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-30
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -18,8 +18,9 @@ and explicitly Admin-only actions remain unchanged.
 
 **Scope rule**: This is a pre-code implementation checklist. A **BLOCKED** task
 may not be implemented until its stated configuration/provider dependency is
-available. No task authorizes inventing a database schema, Flyway version,
-locking mechanism, role mapping, provider secret, or notification mechanics.
+available. The shared QueryDR/refund adapter may be built and tested with fake
+transport before T005; live provider calls remain gated by T005. No task
+authorizes inventing a role mapping, provider secret, or notification mechanics.
 
 ## Phase 1: Setup and shared boundaries
 
@@ -44,8 +45,8 @@ provider-boundary behavior before any user-story command.
 - [X] T008 Create an append-only preservation migration and empty-database plus upgrade/recovery coverage in `ppswbs_backend/src/main/resources/db/migration/` and `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementMigrationIT.java`; reset only dev/test with no retained booking/customer data after preflight.
 - [X] T009 [P] Implement server-side authority denial and minimal business-audit evidence in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/WorkshopSettlementAuthorizationService.java`; denied commands have no side effect and audit excludes raw token, QR, callback payload, secret, or unnecessary PII.
 - [X] T010 [P] Implement client `Idempotency-Key` handling in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/SettlementIdempotencyService.java`; same key plus semantically identical content returns the original outcome and changed reuse returns `409 IDEMPOTENCY_CONFLICT`.
-- [ ] T011 Implement the shared `paymentintegration` dispatch consumer in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/`; it accepts only redacted verified `FINAL_PAYMENT`/`REFUND` evidence, checks frozen reference/amount/currency, and never exposes a VNPay HTTP controller in this module.
-- [ ] T012 [P] Implement typed safe `Problem` mapping, Bean Validation, customer proof/ownership extraction, and controller-only transport adapters from `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/{controller,dto}/`.
+- [X] T011 Implement the shared `paymentintegration` dispatch consumer in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/`; it accepts only redacted verified `FINAL_PAYMENT`/`REFUND` evidence, checks frozen reference/amount/currency, and never exposes a VNPay HTTP controller in this module.
+- [ ] T012 [P] Implement typed safe `Problem` mapping, Bean Validation, Booking-facade customer ownership/contact-proof decisions, and controller-only transport adapters from `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/{controller,dto}/`; never return or log Guest contact PII.
 
 **Checkpoint**: No story command may bypass authorization, immutable evidence,
 one-final-bill integrity, owner facade, or shared VNPay ingress.
@@ -63,12 +64,12 @@ valid final evidence resolves it once, while invalid, duplicate, mismatched,
 late, or browser-return-only evidence cannot release output.
 
 - [X] T013 [US1] Implement one-final-bill creation from the 003.1 frozen projection and 003.2 `ready` conclusion in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalBookingBillService.java`; never calculate voucher, points, deposit, or participant/session/ticket bills again.
-- [ ] T014 [P] [US1] Implement customer fixed catalogue add-on selection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/CatalogueAddOnService.java`; Member ownership or Guest booking code plus exactly one stored phone/email may supply only `catalogueAddOnReference`, and the server derives its permitted package/location snapshot price before bill finalization.
+- [X] T014 [P] [US1] Implement customer fixed catalogue add-on selection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/CatalogueAddOnService.java`; verify Member ownership or Guest booking code plus exactly one stored phone/email through the Booking facade and derive the eligible package/location price snapshot through the Operations facade before recording an immutable charge.
 - [X] T015 [P] [US1] Implement Staff/Manager variable-charge confirmation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/VariableChargeService.java`; accept description, whole-VND amount, and reason only, then retain an immutable audited correction path rather than editing evidence.
 - [X] T016 [US1] Implement finalization and package-output release gating in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalBookingBillService.java`; require final required-session completion, active booking-location Staff authority, and zero balance unless an audited Manager exception exists.
 - [ ] T017 [US1] Implement idempotent final-payment/refund evidence application in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalPaymentService.java`; consume T011 only, record immutable safe evidence once, and send 003.1 only `RecordFinalBalanceResolvedCommand` after a valid final-balance resolution.
 - [ ] T018 [US1] Implement Manager deferred-payment case in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/DeferredPaymentService.java`; server derives outstanding amount and fixed 24-hour expiry, retains output, permits at most one reminder, creates the approved notification handoff for issue/reissue/reminder, and requires audited reissue after expiry.
-- [ ] T019 [US1] Implement `GET/POST /workshop-bookings/{bookingCode}/final-bill`, `POST /final-bill/charges`, and `POST /final-bill/finalizations` exactly from `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/controller/`.
+- [ ] T019 [US1] Implement `GET/POST /workshop-bookings/{bookingCode}/final-bill`, `POST /final-bill/charges`, and `POST /final-bill/finalizations` exactly from `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/controller/`; finalization accepts an explicit Manager-exception flag and requires a reason when true.
 - [ ] T020 [US1] Add final-bill, charge, finalization, valid/duplicate/mismatched/late evidence, unpaid-release, deferred-expiry, ownership/proof, browser-return-denial, and reference-only notification-handoff/delivery-failure-isolation coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/FinalBookingSettlementIT.java`.
 
 ---
@@ -128,11 +129,13 @@ replacement; prospective policy changes do not rewrite historical bookings.
 - [ ] T034 Run the non-production scenarios in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/quickstart.md` and retain only redacted verification evidence under `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/`.
 - [ ] T035 Review the approved configuration evidence for T005 before enabling real VNPay provider-dependent work; verify facade-only access, the reference-only Settlement-to-007 handoff boundary, and data-bearing upgrade/recovery evidence in `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/tasks.md`. Feature 007 provider configuration remains that feature's deployment responsibility.
 - [ ] T036 Extend `WorkshopSettlementFacade` with an idempotent operation to create or return a direct-Mland add-on bill from an accepted OTA quote and explicit consent; Settlement validates consent and derives amount/currency from its accepted server-side quote, while leaving OTA customer-payment/refund/payout facts unchanged. Cover replay, rejected quote/consent and finance separation in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/OtaAddonBillFacadeIT.java`.
+- [ ] T037 [P] Implement the shared VNPay Merchant API QueryDR/refund adapter owned by `paymentintegration`, exposed through typed `common.payment` technical ports to avoid a Modulith cycle. Persist the caller operation reference, request fingerprint, one generated provider RequestId and safe state before network I/O; identical replay returns the recorded state and changed reuse conflicts. Use official per-command request HMAC and verify response HMAC plus terminal/transaction references. No automatic retries: transport uncertainty or response `99` is `UNKNOWN`; refund response `00` is request acceptance only. QueryDR uses the original payment `vnp_CreateDate` and returns verified reconciliation status without treating browser Return as payment truth. Add an append-only Flyway migration and fake-HTTP/unit acceptance for signing, response tampering, idempotency replay/conflict, timeout/`99` UNKNOWN, and accepted-versus-settled distinction. Live provider calls require T005. Code: `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/common/payment/` and `features/paymentintegration/`; tests: `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/paymentintegration/`.
 
 ## Dependencies and execution order
 
 ```text
 T001–T006 → T007–T012
+T037 can be implemented with fake transport independently of T005; any live QueryDR/refund operation requires T005.
 T007–T012 → US1 (T013–T020), US2 (T021–T024), US3 (T025–T027), US4 (T028–T031)
 T005 + T011 are required before provider evidence can settle/refund state.
 T006 establishes Settlement's post-commit notification handoff and is independent of Feature 007 provider configuration.
@@ -153,4 +156,4 @@ This delivers Staff bill/finalization with the provider boundary designed and
 testable using controlled evidence. Then add whole-booking customer cancellation
 (US2), session changes (US3), and Mland-caused remedies (US4).
 
-All 35 tasks are intentionally unchecked and follow the required checklist format.
+All 36 tasks are intentionally unchecked and follow the required checklist format.

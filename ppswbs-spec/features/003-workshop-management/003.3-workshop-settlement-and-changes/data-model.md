@@ -1,7 +1,7 @@
 # Data Model: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -33,9 +33,13 @@ item and never recalculates voucher/point/deposit effects.
 An immutable accepted charge records its final-bill context, source category,
 VND amount/currency, acceptance/confirmation state and audit linkage. A customer
 charge is only an allowed package/location catalogue add-on at its server-derived
-catalogue snapshot price; a variable material/service charge has internal
-description, amount, reason and Staff/Manager confirmation. A correction is an
-audited void/adjustment record, never an overwrite.
+catalogue snapshot price returned by 003.2 Operations for the exact published
+package and active canonical location; Settlement retains the selected
+description, whole-VND amount and currency as immutable charge evidence. A
+variable material/service charge has internal description, amount, reason and
+Staff/Manager confirmation. A correction is an audited void/adjustment record,
+never an overwrite. Legacy charges created before description retention may
+have no customer-visible description.
 
 ### Settlement Case
 
@@ -89,6 +93,9 @@ snapshots are never rewritten.
 
 Protected command evidence records the actor reference when applicable, booking,
 canonical location when applicable, action, reason, outcome, correlation reference and time.
+Manager exception finalization records its required reason with the final-bill
+audit; active Manager authority is global across Feature 003, while Staff checks
+the booking's canonical location scope.
 It excludes contact proof, raw Magic Link, QR, Firebase token, provider secret,
 raw callback, card data, OTP and unnecessary PII.
 

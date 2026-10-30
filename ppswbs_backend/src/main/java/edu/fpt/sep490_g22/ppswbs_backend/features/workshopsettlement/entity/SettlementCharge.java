@@ -6,6 +6,7 @@ public class SettlementCharge {
  @Column(name="charge_reference",nullable=false,unique=true,length=128) private String chargeReference;
  @Column(name="bill_reference",nullable=false,length=128) private String billReference;
  @Column(name="source_category",nullable=false,length=32) private String sourceCategory;
+ @Column(name="description",length=200) private String description;
  @Column(name="amount_vnd",nullable=false) private Long amountVnd;
  @Column(name="currency_code",nullable=false,length=3) private String currencyCode;
  @Column(name="lifecycle_status",nullable=false,length=24) private String lifecycleStatus;

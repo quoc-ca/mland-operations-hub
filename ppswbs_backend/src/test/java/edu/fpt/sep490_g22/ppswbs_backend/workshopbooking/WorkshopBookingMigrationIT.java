@@ -129,6 +129,20 @@ class WorkshopBookingMigrationIT {
     }
 
     @Test
+    @DisplayName("Verify V34 payment integration operation journal exists")
+    void verifyV34MerchantOperationJournalApplied() {
+        assertThat(jdbcTemplate).isNotNull();
+        Integer v34Count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '34' AND success = 1",
+                Integer.class);
+        assertThat(v34Count).as("V34 must be applied by Flyway").isNotNull().isGreaterThanOrEqualTo(1);
+        Integer tableCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?",
+                Integer.class, "vnpay_merchant_operations");
+        assertThat(tableCount).isEqualTo(1);
+    }
+
+    @Test
     @Transactional
     @DisplayName("T009-1: Verify Booking, commitment, hold and invoice persistence and invariants")
     void verifyBookingPersistenceLifecycle() {

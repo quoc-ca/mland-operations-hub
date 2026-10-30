@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -28,7 +28,7 @@ OTA payment system, capacity owner, or normal check-in system.
 | Module | Spring Modulith; only explicit owner facades cross business modules. |
 | Persistence | MySQL/JPA and append-only Flyway migrations when implementation is authorized. |
 | Identity | Firebase bearer token proves identity; Account Management supplies canonical role/status, ownership and location facts. Active Manager authority is global for Manager actions; Staff actions use canonical `workshop_location.id` and `activeLocationIds`. |
-| Payment | VNPay only. Shared `paymentintegration` verifies IPN/QueryDR evidence once and routes redacted final-payment/refund evidence to 003.3; browser Return URL is display-only. |
+| Payment | VNPay only. Shared `paymentintegration` owns provider credentials, outbound QueryDR/refund protocol and operation journal. 003.3 calls its implementation through typed technical ports in `common.payment`; `paymentintegration` verifies inbound IPN/QueryDR evidence and dispatches redacted evidence to 003.3. Browser Return URL is display-only. |
 | Contract | Versioned `/api/v1` REST contract in `contracts/workshop-settlement.openapi.yaml`. |
 | Validation | Module-boundary, authorization, lifecycle, idempotency, facade, contract, migration-upgrade and recovery evidence. |
 
@@ -139,6 +139,20 @@ currency before its local idempotent outcome. QueryDR is outbound Mland-to-VNPay
 reconciliation only. Browser Return URL has no settlement route and never
 confirms a bill.
 
+Outbound Merchant API requests are owned by `paymentintegration` and exposed to
+business code only through typed technical ports in `common.payment`, avoiding
+a Modulith cycle between the inbound dispatcher and 003.3. Each operation uses
+an opaque caller operation reference as its idempotency key; the operation row
+and a generated VNPay RequestId are committed before network I/O. Reusing the
+same operation reference with the same request returns its retained outcome;
+changed content conflicts. No automatic network retry is performed. A timeout,
+transport failure, or provider response `99` is retained as `UNKNOWN`; the
+caller must start a distinct QueryDR operation to reconcile. A refund response
+`00` means the refund request was accepted, not that funds were returned. Only
+a signature-verified QueryDR result can be presented as reconciliation evidence
+to 003.3. Its original `vnp_CreateDate` is supplied as the transaction date;
+unknown outcomes never cause an automatic second refund.
+
 ## Public REST Design
 
 The contract is the normative transport detail in
@@ -187,7 +201,7 @@ by re-reading the safe resource/case projection.
 | 003.1 confirmed booking projection and `FULLY_PAID` conclusion | Concrete facade contract | 003.3 consumes only the typed owner boundary. |
 | 003.2 readiness, replacement, refund consequence and cancellation handoff | Concrete facade contract | 003.3 consumes only typed owner outcomes. |
 | FE-001 account facts/scope | Approved dependency assumption | Implementation consumes canonical role/status, ownership and location scope; Settlement owns its action rules and does not edit FE-001 or use display roles/claims as authority. |
-| VNPay merchant credential, configured callback URL, QueryDR/refund access | Configuration blocker | The shared [VNPay configuration preflight](../contracts/vnpay-configuration-preflight.md) is the sole non-secret checklist for 003.1 and 003.3. Provider adapter/configuration tasks remain blocked; semantics/contract are ready. |
+| VNPay merchant credential, configured callback URL, QueryDR/refund access | External configuration/evidence blocker | Protocol and fake-backed adapter can be implemented locally. Live requests remain disabled until the shared [VNPay configuration preflight](../contracts/vnpay-configuration-preflight.md) is satisfied. |
 | Settlement-to-007 notification handoff | Defined cross-feature boundary | Immutable handoff, reference-only event and payload facade are fixed in the shared facade contract. Feature 007 provider configuration remains external; Settlement commits independently. |
 | Shared VNPay ingress/dispatch | Defined cross-feature boundary | Canonical route and dispatch rules live in `../contracts/vnpay-payment-ingress.openapi.yaml` and the facade contract; merchant credentials/configuration remain blocked. |
 

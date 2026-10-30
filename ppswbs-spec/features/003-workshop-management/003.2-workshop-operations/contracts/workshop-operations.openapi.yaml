@@ -4,8 +4,8 @@ info:
   version: 1.0.0-draft
   description: >-
     Public discovery plus globally authorized Manager and location-scoped Staff API for Workshop
-    Packages, canonical workshop locations, slots, sessions, attendance and
-    exception audit. Authorization is evaluated server-side.
+    Packages, fixed workshop add-ons, canonical workshop locations, slots,
+    sessions, attendance and exception audit. Authorization is evaluated server-side.
 servers:
   - url: /api/v1
 security:
@@ -62,6 +62,50 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/CustomerSessionAvailabilityList' }
         '400': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}/locations/{locationId}/add-ons:
+    parameters:
+      - { $ref: '#/components/parameters/PackageId' }
+      - { $ref: '#/components/parameters/LocationId' }
+    get:
+      summary: List active fixed-price add-ons for a published Package at an active location
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/AddOnList' }
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      summary: Create a draft fixed-price add-on as a globally authorized active Manager
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AddOnWrite' } } } }
+      responses:
+        '201': { $ref: '#/components/responses/AddOn' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}/locations/{locationId}/add-ons/{addOnReference}:
+    parameters:
+      - { $ref: '#/components/parameters/PackageId' }
+      - { $ref: '#/components/parameters/LocationId' }
+      - { $ref: '#/components/parameters/AddOnReference' }
+    patch:
+      summary: Prospectively update a draft or active add-on as a globally authorized active Manager
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AddOnWrite' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/AddOn' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}/locations/{locationId}/add-ons/{addOnReference}/lifecycle-transitions:
+    parameters:
+      - { $ref: '#/components/parameters/PackageId' }
+      - { $ref: '#/components/parameters/LocationId' }
+      - { $ref: '#/components/parameters/AddOnReference' }
+    post:
+      summary: Activate a draft add-on or retire an active add-on as a globally authorized active Manager
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AddOnLifecycleTransitionRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/AddOn' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
   /workshop-locations:
     get:
@@ -247,9 +291,12 @@ components:
     LocationId: { name: locationId, in: path, required: true, schema: { type: integer, format: int64 } }
     SlotId: { name: slotId, in: path, required: true, schema: { type: string, format: uuid } }
     SessionId: { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+    AddOnReference: { name: addOnReference, in: path, required: true, schema: { type: string, format: uuid } }
   responses:
     Package: { description: Workshop Package, content: { application/json: { schema: { $ref: '#/components/schemas/Package' } } } }
     PackageList: { description: Published Workshop Packages, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Package' } } } } }
+    AddOn: { description: Fixed workshop add-on, content: { application/json: { schema: { $ref: '#/components/schemas/AddOn' } } } }
+    AddOnList: { description: Active fixed workshop add-ons, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AddOn' } } } } }
     CustomerSessionAvailabilityList: { description: Customer-selectable Package sessions; remaining capacity is a non-guaranteed selection snapshot, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/CustomerSessionAvailability' } } } } }
     Location: { description: Workshop location, content: { application/json: { schema: { $ref: '#/components/schemas/Location' } } } }
     LocationList: { description: Workshop locations, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Location' } } } } }
@@ -291,6 +338,31 @@ components:
       required: [targetState]
       properties:
         targetState: { type: string, enum: [PUBLISHED, RETIRED] }
+    AddOnState:
+      type: string
+      enum: [DRAFT, ACTIVE, RETIRED]
+    AddOnWrite:
+      type: object
+      required: [description, priceVnd]
+      properties:
+        description: { type: string, minLength: 1, maxLength: 200 }
+        priceVnd: { type: integer, format: int64, minimum: 1 }
+    AddOn:
+      allOf:
+        - { $ref: '#/components/schemas/AddOnWrite' }
+        - type: object
+          required: [addOnReference, packageId, locationId, state, currencyCode]
+          properties:
+            addOnReference: { type: string, format: uuid }
+            packageId: { type: integer, format: int64 }
+            locationId: { type: integer, format: int64 }
+            state: { $ref: '#/components/schemas/AddOnState' }
+            currencyCode: { type: string, enum: [VND] }
+    AddOnLifecycleTransitionRequest:
+      type: object
+      required: [targetState]
+      properties:
+        targetState: { type: string, enum: [ACTIVE, RETIRED] }
     CustomerSessionAvailability:
       type: object
       required: [sessionReference, locationId, scheduledStart, scheduledEnd, saleState, customerSelectable, remainingCapacity]

@@ -39,4 +39,16 @@ class WorkshopSettlementAuthorizationServiceTest {
         verify(audits).save(argThat(audit -> audit.getActorReference().equals("UNKNOWN")));
         verify(audits, never()).save(argThat(audit -> "raw-token-like-value".equals(audit.getActorReference())));
     }
+
+    @Test void canonicalManagerIsGlobalWhileStaffRemainsLocationScoped() {
+        WorkshopSettlementAuthorizationService service = new WorkshopSettlementAuthorizationService(accounts, audits);
+        CurrentAccountActor manager = new CurrentAccountActor(42L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, java.util.List.of());
+        CurrentAccountActor staff = new CurrentAccountActor(43L, ActorRole.STAFF, ActorStatus.ACTIVE, true, java.util.List.of(9L));
+
+        org.assertj.core.api.Assertions.assertThat(service.requireManagerOrStaff(manager, 700L)).isEqualTo(manager);
+        org.assertj.core.api.Assertions.assertThat(service.requireManagerOrStaff(staff, 9L)).isEqualTo(staff);
+        assertThatThrownBy(() -> service.requireManagerOrStaff(staff, 700L))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                .hasMessage("LOCATION_SCOPE_DENIED");
+    }
 }

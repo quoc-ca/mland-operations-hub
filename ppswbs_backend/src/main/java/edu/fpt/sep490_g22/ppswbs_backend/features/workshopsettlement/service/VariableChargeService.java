@@ -35,10 +35,11 @@ public class VariableChargeService {
                 .chargeReference("SETTLE-CHARGE-" + UUID.randomUUID())
                 .billReference(bill.getBillReference())
                 .sourceCategory("VARIABLE_INTERNAL")
+                .description(description.trim())
                 .amountVnd(amountVnd)
                 .currencyCode("VND")
                 .lifecycleStatus("CONFIRMED")
-                .reasonReference(reason + " | " + description)
+                .reasonReference(reason.trim())
                 .createdAt(now)
                 .build());
     }

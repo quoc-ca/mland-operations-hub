@@ -1,5 +1,55 @@
 # Error Log: ppswbs_backend
 
+## BE-DESIGN-0043 — 003.3 final-bill transport lacks approved ownership and exception inputs
+
+- **Recorded at:** `2026-10-31T01:16:31+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.3-workshop-settlement-and-changes`, T012 and T019 (also blocks customer-charge transport in T014)
+- **Status:** `DESIGN RESOLVED; IMPLEMENTATION PARTIAL`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/contracts/workshop-settlement.openapi.yaml`: final-bill GET supports an owning Member or Guest with exactly one stored email/phone; finalization has no request body; charge POST supports customer catalogue add-on and Staff/Manager variable charge.
+- `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/plan.md`, “Charges and bill access”, “Payment and retry boundaries”, and “Public REST Design”: customer-safe bill read requires ownership/proof; write requests require idempotency; finalization is governed by Staff/Manager authority and Manager exception must be audited.
+- `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`, Booking projection row: the confirmed financial projection exposes booking location and frozen financial/session facts, but no member owner identity or contact data. The contract says Booking facades never expose contact PII.
+- Backend `WorkshopBookingFacade` currently has no operation to verify a Member booking ownership or Guest contact proof. `WorkshopSettlementAuthorizationService` can verify a Member role/identity only when given the booking owner account ID, which the approved Settlement-facing projection does not supply. `FinalBookingBillService.finalizeBill` accepts a `managerException` flag and exception reason, while the OpenAPI finalization operation declares neither request body nor an explicit exception input.
+- Existing `FinalBookingBillService` and `VariableChargeService` implement service behavior, but there is no final-bill controller/DTO. Existing DTOs only cover generic reason, proof, and variable-charge fields; they do not close the above cross-feature authorization or finalization input gaps.
+
+### Observed facts and unknowns
+
+- Fact: the route contract promises customer access checks that cannot be performed from the approved 003.1 facade data without either exposing customer PII or adding a purpose-built Booking-owned verification operation.
+- Fact: the finalization route has no request body, while the implemented domain service requires a Manager-exception decision/reason to distinguish an audited exception from ordinary zero-balance finalization.
+- Unknown: whether final bill reads should use an opaque Booking authorization decision (`Member owns booking` / `Guest proof matched`) on the Booking facade, or whether the public route should be restricted to authenticated staff. No authorized choice was found in the checked artifacts.
+- Unknown: whether Manager exception is an allowed HTTP finalization mode, and if so how its reason is supplied and retained; current OpenAPI does not express it.
+- No source code, SpecKit task marker, database, provider request, or test was changed/run for this investigation. Only this operational blocker entry is being added. The existing working-tree changes were present before this turn and are preserved.
+
+### Why implementation must stop
+
+Implementing the declared Member/Guest access now would require direct Booking persistence access across a module boundary, exposing contact data, or inventing an unapproved facade contract. Implementing the Manager exception would require inventing a public request field and its audit semantics. Any choice can weaken booking privacy, change authorization, or permit an unaudited bill release. Per `ppswbs_backend/AGENT.md` §5, stop T012/T019 and related implementation until the design is resolved; no tests were run because no code change was made.
+
+### Decision required to resume
+
+The Feature 003 owner should decide:
+
+1. Keep Member/Guest final-bill GET and customer catalogue-charge access, adding an approved Booking facade operation that returns only an authorization decision for `(bookingCode, memberAccountId)` or `(bookingCode, exactly-one contact proof)`; or restrict these routes to Staff/Manager and update the API contract.
+2. Whether Manager exception finalization remains supported. If yes, define its HTTP input (including required reason) and response/audit behavior; if no, define a zero-balance-only finalization contract and remove the Manager exception path.
+
+After those decisions are recorded in the owning contracts/OpenAPI and the dependency is implemented, re-check the gates and resume T012/T019. Keep all affected task markers unchecked until route-level acceptance evidence passes.
+
+### Resolution and newly discovered dependency — 2026-10-31T01:21:15+07:00
+
+The Feature 003 owner approved both: (1) preserve Member/Guest self-service using a Booking-owned authorization decision that returns no contact PII to Settlement; and (2) preserve Manager exception finalization, with explicit request input and a required audited reason. These decisions resolve the two questions above and should be recorded in the owning facade and OpenAPI artifacts before code is resumed.
+
+While checking the charge route needed by T019, a separate unresolved T014 dependency was found. The 003.3 spec/OpenAPI require the server to price a customer-selected fixed add-on from a package/location catalogue snapshot, but the 003.2 package facade and current `workshop_packages` schema contain package configuration only; no workshop add-on entity, price source, eligibility operation, or Manager maintenance policy was found in the inspected Operations/Booking artifacts. Feature 002's generic product catalogue is not specified as this workshop package/location price source. The customer charge route cannot be implemented faithfully until the owner chooses/approves the catalogue owner, price and eligibility source, and how those entries are maintained. No source or SpecKit task marker was changed/run for this investigation; no test or database command was run. The prior working-tree state is preserved.
+
+**Decision required to resume related transport implementation:** recommended design is for 003.2 Operations to own fixed workshop add-on entries scoped to package and canonical location, with active Manager global maintenance; Operations exposes only a typed eligibility/price snapshot through its facade, and 003.3 stores the selected server-priced amount as an immutable charge. Existing bill/finalization and customer authorization decisions remain as approved above. The owner should approve this source/maintenance rule or name a different existing authoritative catalogue. Until then, stop T012/T014/T019 implementation and keep their markers unchecked.
+
+### Implementation update — 2026-10-31
+
+The owner approved both the Booking-owned Member/Guest access decision and Manager exception finalization with an audited reason, then approved Operations ownership of a fixed add-on catalogue scoped to package and canonical location, globally maintained by active Managers. The facade contracts and OpenAPI/design artifacts now encode these decisions. Added the Booking access decision facade; Operations add-on entity, service, facade snapshot, Manager routes and preservation migrations; Settlement customer add-on service, final-bill transport routes, command validation, canonical actor authorization, and Manager-exception audit. T014 is checked after focused unit coverage of ownership-before-price and immutable snapshot recording.
+
+T011 now consumes redacted evidence dispatched by `paymentintegration`, locks the booking bill while applying it, validates bill reference/currency and payment/refund amount bounds, retains idempotent conclusions, and rejects an unaccepted downstream result so the ingress receipt can roll back. Final-bill projection now derives paid, refunded and outstanding values from retained verified conclusions. T012/T019 remain unchecked pending route-level integration/acceptance evidence. No migration was applied to any database. Focused Maven unit/module tests passed; MySQL migration acceptance and provider evidence were not run.
+
 ## Resolution note: BE-DESIGN-0018 (2026-10-28)
 
 Owner 003 approved the next non-colliding Flyway version
@@ -3042,3 +3092,148 @@ Added `MlandCancellationPolicyService`, immutable `SettlementRefundPolicyRevisio
 ### 003.3 T030 policy transport slice (2026-10-30T15:52:00+07:00)
 
 Added the central `/api/v1/workshop-refund-policies` GET/POST controller and response DTO. POST requires `Idempotency-Key` and reuses settlement idempotency outcomes; both routes delegate global active-Manager authorization to the service. T030 remains unchecked because its booking-scoped cancellation, deferred-payment, required-session, and remedy routes are not yet implemented.
+
+### VNPay configuration safety follow-up (2026-10-30)
+
+The repository had VNPay property placeholders, but also contained source-level default values for the merchant code and HMAC secret. Those defaults were removed; `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, and `VNPAY_RETURN_URL` are now empty unless supplied at runtime. The sandbox payment URL remains a non-secret development default. This is a safety/configuration correction only and does not complete T005: approved merchant identity, HTTPS IPN registration, QueryDR/refund authority, and redacted provider evidence are still required before enabling real VNPay flows.
+
+Added typed runtime `VnpayProperties` with `VNPAY_ENABLED` defaulting to false. When enabled, startup validation requires merchant code, HMAC secret, payment URL, HTTPS return/IPN/QueryDR/refund URLs; disabled development/test contexts remain runnable without credentials. `VnpayPropertiesTest` passed 3/3. This is configuration enforcement, not provider onboarding or paymentintegration dispatch implementation.
+
+Local startup follow-up: `spring-boot:run` was blocked by an unrelated missing `${WORKSHOP_OPERATIONS_IDEMPOTENCY_LEASE_DURATION}` placeholder in the shared Operations configuration. Added the existing safe lease default `PT30S`; no database or business logic changed. The reported startup failure was configuration resolution, not VNPay validation.
+
+### Shared payment evidence contract preparation (2026-10-30)
+
+Expanded `ApplyVerifiedSettlementPaymentEvidenceCommand` with the redacted dispatch fields required by the shared paymentintegration boundary: immutable `merchantReference`, `paymentKind` (`FINAL_PAYMENT` or `REFUND`), positive whole-VND `amountVnd`, and `currencyCode` (`VND`). Added constructor validation and focused 2/2 unit coverage; updated the inter-feature contract. This prepares T006/T011 but does not mark either task complete: the paymentintegration module, checksum ingress, durable owner registry, deduplication and real VNPay callback evidence remain outstanding.
+
+### paymentintegration T006 implementation slice (2026-10-30)
+
+Added the initial `paymentintegration` Modulith module: runtime VNPay properties now live in the owning technical module, a durable owner registration/receipt schema V32, immutable registration facade, HMAC-SHA512 verifier, redacted owner dispatch service, and the single `GET /api/v1/integrations/payments/vnpay/events` acknowledgement controller. The Modulith boundary plus Booking facade, settlement evidence-command and VNPay property tests passed 12/12. This is not yet T006-complete: payment-attempt registration is not wired into every Booking/Settlement payment creation path, and Sandbox callback acceptance/evidence remains external.
+
+Added `BookingDepositPaymentAttemptService` to create a pending direct-booking deposit attempt and register its immutable `DEP-*` merchant reference, amount and VND owner mapping before redirect. Focused `BookingDepositPaymentAttemptServiceTest` passed 1/1. The service is ready for the Booking payment-initiation route; no OTA account or provider credential is involved.
+
+### Booking deposit initiation route (2026-10-30)
+
+Implemented the contract-defined `POST /api/v1/workshop-bookings/{bookingCode}/payment-attempts` route. It validates `Idempotency-Key`, reuses an active pending attempt, caps the gateway link at 10 minutes and the booking hold expiry, creates a signed VNPay redirect through a common payment port, and registers the exact merchant reference as the immutable deposit owner. Moved the booking-to-payment boundary behind `common.payment` ports so the Modulith dependency graph remains acyclic. Focused `WorkshopBookingModuleTest` passed 7/7 and `BookingDepositPaymentAttemptServiceTest` passed 1/1. T027/T028 remain unchecked until route-level payment/expiry/retry acceptance tests and real provider evidence exist; T005 remains externally blocked by VNPay SIT registration and sandbox evidence.
+
+Added focused initiation acceptance coverage: pending-attempt reuse and hold-expiry cap. `DepositPaymentServiceTest` passed 2/2; combined with `WorkshopBookingModuleTest` 7/7 and `BookingDepositPaymentAttemptServiceTest` 1/1, the focused run passed 10/10. These are unit/module checks, not real VNPay Sandbox callback evidence.
+
+Added standalone HTTP contract coverage for the payment-attempt route: successful JSON projection and mandatory `Idempotency-Key` rejection. `DepositPaymentControllerTest` passed 2/2 and `DepositPaymentServiceTest` passed 2/2. This validates transport shape only; authentication policy, persistent MySQL execution and real provider callback remain separate acceptance work.
+
+Added `PaymentIngressServiceTest` for invalid signature, unknown merchant reference, amount mismatch, duplicate delivery, valid deposit dispatch and failed-provider acknowledgement. All 6 tests passed; no booking or settlement facade is called for rejected/duplicate/failed events. This is boundary-unit evidence only and does not replace real VNPay Sandbox callback evidence.
+
+Added `VnpayPaymentIngressControllerTest` for the shared GET ingress route and safe `{RspCode, Message}` acknowledgement shape. It passed 1/1 alongside the 6 ingress service tests. The controller test is transport-only; HTTPS, signature verification and provider delivery remain runtime/integration concerns.
+
+Ran `WorkshopBookingMigrationIT` against the isolated MySQL schema `ppswbs_workshop_test_20261029` with Flyway enabled and Hibernate DDL disabled. All 5 tests passed; Flyway validated 29 migrations and applied V32 (`paymentintegration registry`) successfully, advancing the schema from v31 to v32. A read-only MySQL check confirmed both `payment_owner_registrations` and `payment_ingress_receipts` on MySQL 8.0.43. The original development database was not touched.
+
+VNPay SIT IPN registration was completed by the owner for terminal `F61WYCBQ` at the ngrok URL used by the development backend. A local reachability probe could not complete because no `ngrok` process is currently running (and localhost:8080 is not listening in this shell), so no real Sandbox transaction or callback evidence was claimed. The tunnel must be restarted and its current URL re-registered if it changes before T005 can be accepted.
+
+After ngrok was restarted, a local probe reached the backend but received `401 MISSING_BEARER_TOKEN` from the shared security chain. Fixed `SecurityConfiguration` to permit only the VNPay IPN GET route; checksum, immutable owner, amount/currency and deduplication checks remain mandatory in `PaymentIngressService`. Backend compile passed. The running backend must be restarted to load this rule before repeating the probe; no Sandbox transaction evidence is claimed yet.
+
+The first security fix exposed a second gate: `IdentityGateFilter` rejected every `/api/**` request before Spring authorization rules. Added the same narrowly scoped VNPay IPN bypass to `shouldNotFilter`; no other API path is bypassed. Compile passed. Restart the backend again before testing the endpoint.
+
+After restart, the local probe returned the expected safe acknowledgement `{"RspCode":"00","Message":"INVALID_SIGNATURE"}` instead of `401 MISSING_BEARER_TOKEN`. This proves the IPN route is reachable without a Mland bearer token while invalid signatures remain rejected. It is not yet real VNPay Sandbox callback evidence.
+
+The first payment-attempt call also exposed the same identity-gate issue: Guest/Member payment initiation received `401 MISSING_BEARER_TOKEN`. Added a narrowly scoped anonymous bypass for `POST /api/v1/workshop-bookings/{bookingCode}/payment-attempts` in both security layers; booking state, hold expiry and immutable owner registration remain enforced by the service. Compile passed. Restart is required before retrying the fixture payment attempt.
+
+The next fixture attempt reached persistence and exposed a schema sizing defect: VNPay's signed redirect exceeded the legacy `payment_url_snapshot VARCHAR(512)`. Added entity length 2048 and Flyway V33 to widen the column. `WorkshopBookingMigrationIT` passed 5/5 on the isolated MySQL schema; Flyway advanced it from v32 to v33. Retry requires backend restart so the new entity/migration configuration is loaded.
+
+### VNPay Sandbox callback acceptance (2026-10-30)
+
+Using the isolated MySQL schema `ppswbs_workshop_test_20261029`, a real VNPay Sandbox NCB transaction reached the registered HTTPS ngrok IPN. After correcting the payment URL timestamp/optional fields and shortening provider operation/correlation references to fit existing 64-character ledgers, the callback was accepted. Evidence: receipt persisted for the redacted merchant owner, booking `BK-VNP-1030172444` transitioned to `CONFIRMED` with `DEPOSIT_PAID`, and the capacity hold transitioned to `COMMITTED`. Replaying the same IPN kept the receipt count at one, proving deduplication. A direct invalid-checksum probe returned the safe `RspCode=00` acknowledgement with `INVALID_SIGNATURE` and did not create another receipt. Amount/currency mismatch behavior remains covered by `PaymentIngressServiceTest` (6/6); full T005 acceptance still requires retaining redacted evidence for all requested negative cases and review of the current uncommitted changes.
+
+Follow-up hardening: ingress now compares callback `vnp_CurrCode` with the immutable owner currency and has explicit final-payment dispatch coverage with no Booking broadcast. The focused ingress/controller run passed 9/9, including amount/currency mismatch rejection and one-owner settlement dispatch.
+
+### VNPay Sandbox QueryDR/refund evidence attempt (2026-10-30)
+
+The isolated MySQL database `ppswbs_workshop_test_20261029` contains two
+successful 50,000 VND Sandbox transactions for the same booking, while the
+booking projection is `CONFIRMED / DEPOSIT_PAID` and only one ingress receipt
+exists. The second transaction (`15720588`, merchant reference redacted) is an
+extra payment and was selected for QueryDR/refund verification. Its immutable
+checkout snapshot records the original payment `vnp_CreateDate` as
+`20261030181359`.
+
+Sent a QueryDR request to the official Sandbox endpoint using the original
+create date, merchant reference, terminal, order description, and current caller
+IP; its HMAC was constructed using the documented field order. This confirms
+only that the local script followed the published formula, not that VNPay
+validated the signature. VNPay returned `vnp_ResponseCode=99` / `Unexpected
+error`, with no transaction result. Sent one full-refund request for the same
+extra Sandbox transaction with a unique request ID and the provider transaction
+number; its HMAC was also constructed using the documented field order. VNPay
+again returned `99` / `Unexpected error`, with no refund result.
+The official provider error table maps invalid checksums to `97` and reserves
+`99` for other errors, so these responses do not identify the cause. No
+successful refund is claimed and no further refund request should be sent until
+Merchant Admin or VNPay support confirms whether the first request was applied.
+
+The read-only database check still showed one accepted ingress receipt and the
+booking `CONFIRMED / DEPOSIT_PAID`; it did not verify the provider refund state.
+The browser access host was unavailable for a Merchant Admin status check.
+T005 remains unchecked: provider QueryDR/refund capability and redacted
+successful evidence remain externally blocked. See the official
+[VNPay QueryDR/refund guide](https://sandbox.vnpayment.vn/apis/docs/truy-van-hoan-tien/querydr%26refund.html).
+
+## BE-DESIGN-0042 — 003.3 T005 outbound QueryDR/refund implementation boundary is undefined
+
+- **Recorded at:** `2026-10-30T23:49:05+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.3-workshop-settlement-and-changes`, T005 and dependent T011/T022/T024
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/tasks.md`, T005 and T011: T005 is blocked on approved external VNPay configuration/evidence; T011 is an inbound verified-evidence consumer. No task defines an outbound QueryDR/refund adapter or its HTTP request lifecycle.
+- `ppswbs-spec/features/003-workshop-management/contracts/vnpay-configuration-preflight.md`: outbound QueryDR/refund requires approved endpoint/network egress and operation authority; result handling must follow the shared verification, routing and idempotency boundary.
+- `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/spec.md` and `plan.md`: QueryDR/refund are provider evidence; 003.3 consumes verified refund outcomes through paymentintegration. They do not define how to initiate/reconcile a refund attempt.
+- Current backend `VnpayChecksumService` signs/validates the URL-encoded payment/IPN checksum format. There is no Merchant API QueryDR/refund client. The failing requests were composed manually in PowerShell and returned `vnp_ResponseCode=99`; no code-generated request was sent.
+
+### Observed facts and unknowns
+
+- The published VNPay QueryDR/refund guide specifies request fields and a pipe-delimited HMAC input. This is sufficient to describe wire signing, but does not establish application behavior for operation authorization, request/result persistence, transport timeouts, safe retries, uncertain outcomes, replay protection or how a provider response becomes verified refund evidence.
+- T005 explicitly remains externally blocked, and no approved task currently authorizes adding the outbound adapter. Adding even a partial client would create an application contract that the feature artifacts have not specified. No code or task marker was changed for this investigation; no test or provider request was run in this turn.
+- The existing provider response `99 / Unexpected error` does not identify whether the cause is request construction, merchant/test-account configuration, transaction eligibility, or provider-side failure. It is not evidence that a refund succeeded or failed.
+
+### Required decision and resumption condition
+
+The Feature 003 owner must approve an implementation task/design for the outbound QueryDR/refund adapter, including its owner/boundary, authorized caller, request identifiers, persistence/idempotency, timeout/retry and uncertain-result behavior, and the rule that converts provider responses into verified refund evidence. Separately, T005 still requires the approved Sandbox operation authority and redacted provider evidence. Until those are defined, do not implement a client or issue another refund request. After the contract is approved, add deterministic request-signing/response tests and first use QueryDR to establish the current provider transaction/refund state before any refund retry.
+
+### BE-DESIGN-0042 resolution follow-up — 2026-10-31T00:06:00+07:00
+
+The Feature 003 owner approved the safe outbound-operation contract on 2026-10-30: `paymentintegration` owns QueryDR/refund; callers use typed `common.payment` ports; persist operation reference, request fingerprint, and provider RequestId before network I/O; never automatically retry; transport uncertainty and provider response `99` remain `UNKNOWN`; refund response `00` means accepted only; only signature-verified provider evidence can establish a result. The design gap recorded above is therefore resolved for implementation.
+
+Implemented the adapter, additive Flyway V34 journal migration, typed port and focused fake-transport tests under T037. The focused run `mvnw.cmd '-Dtest=VnpayMerchantApiSignerTest,VnpayMerchantOperationsAdapterTest,VnpayPropertiesTest,PaymentIntegrationModuleTest,WorkshopSettlementModuleTest' test` passed 18/18 after aligning Workshop Operations' Modulith declaration with its existing named Account facade imports. `git diff --check` and the MySQL migration acceptance have not yet been run in this follow-up; no migration was applied to a database and no VNPay Merchant API request was sent.
+
+T037 remains unchecked until the new V34 migration is verified on an isolated MySQL schema and all acceptance evidence is reviewed. T005 remains externally blocked: the earlier real Sandbox QueryDR and refund calls both returned `99 / Unexpected error`, and the provider-side state of the attempted refund is still unconfirmed. Do not resend that refund; first establish its current state through Merchant Admin or provider-confirmed QueryDR. No successful refund or complete T005 evidence is claimed.
+
+### BE-DESIGN-0042 status check — 2026-10-31T00:12:30+07:00
+
+The current Edge session redirected the read-only VNPay Merchant Admin refund-search URL to its login page. I did not enter credentials or submit a refund. The current shell also has no `JDBC_URL`/test-JDBC environment configured and no MySQL listener on port 3306, so V34 MySQL migration acceptance could not be executed here. No database or provider state was changed. Resume after the owner manually signs in to Merchant Admin and the isolated MySQL test schema is available; inspect original transaction `15720588` and its refund status before any further refund operation. T005 and T037 remain unchecked.
+
+### BE-DESIGN-0042 request-input fix — 2026-10-31T00:23:26+07:00
+
+Official VNPay Merchant API specification identifies `vnp_IpAddr` as the IP address of the server making the API request. The previously used PowerShell value `127.0.0.1` is loopback and cannot identify that server to VNPay; it is an invalid request input and a concrete likely cause of the generic `99` responses. Added adapter validation to reject loopback, private, link-local, any-local and multicast addresses before journaling or network I/O. Added coverage proving these requests have no operation or provider side effect. The focused Maven run passed 19/19, and `git diff --check` passed.
+
+This fixes the known invalid IP input but does not prove it was the only cause of `99`; no new provider request was sent. The next QueryDR attempt must use the actual public egress IP of the host running the backend. Merchant API authorization/provider behavior and the uncertain prior refund remain unverified; T005 and T037 stay unchecked until Sandbox and isolated-MySQL evidence is available.
+
+### BE-DESIGN-0042 Merchant Admin and local payment reconciliation — 2026-10-31
+
+The owner supplied a screenshot of Merchant Admin's refund search with original transaction `15720588`; the date range covers 2026-10-07 through 2026-10-31 and the UI reports zero matching refund transactions. This is evidence that the Admin search currently shows no refund record, but it does not determine the final status of the earlier refund API request that returned `99`.
+
+Read-only queries in the owner's existing MySQL Workbench session against `ppswbs_workshop_test_20261029` mapped the two local attempts: `15720588` corresponds to the merchant reference ending `1664c44c-...`, amount 50,000 VND, locally `EXPIRED`, created 2026-10-30 11:13:59 UTC; `15720603` corresponds to the reference ending `0ae16c8f-...`, amount 50,000 VND, locally `SUCCESS`, created 2026-10-30 11:38:19 UTC. Both payment-owner registrations remain `OPEN`. Exactly one IPN receipt exists for the `0ae16c8f-...` attempt (created 11:44:58 UTC); no receipt exists for the `1664c44c-...` attempt. This matches the booking projection `CONFIRMED / DEPOSIT_PAID` being settled by the latter attempt, while the earlier provider-paid transaction has no local verified callback evidence.
+
+No database rows were changed and no provider request was sent in this check. The first payment is therefore a duplicate/extra provider transaction from the business perspective, but its refund remains unconfirmed. Do not send another refund. First use QueryDR with the exact reference/create date and a valid public egress IP, then reconcile the verified provider result; if the Merchant API continues returning `99`, keep the refund state `UNKNOWN` and use the Sandbox provider's supported test procedure. T005 remains unchecked because the successful QueryDR/refund evidence and verified refund outcome are still absent. V34 is also not present in this test schema, so its MySQL migration acceptance remains pending.
+
+### BE-DESIGN-0042 QueryDR input reconciliation — 2026-10-31
+
+The owner reran read-only QueryDR for the extra payment and reported `99 / Unexpected error`. The reported request used the server's public egress IP (not loopback), a 32-character UUID-N request ID, the GMT+7 local time zone, the exact transaction reference, the original checkout `vnp_CreateDate` (`20261030181359`, not the later payment date), and the same order information shown in the merchant payment record. Those values and the QueryDR field/signature order agree with the published VNPay integration guide. The local payment snapshot and provider return therefore show no concrete input mismatch to correct in code; response `99` is generic and does not identify whether the remaining cause is merchant API authorization/configuration or a Sandbox-side condition.
+
+Merchant Admin still shows zero refund records for the original transaction. The earlier refund result remains `UNKNOWN`; no additional refund or provider request was sent and no database data was changed. Do not retry the refund until QueryDR or VNPay confirms the transaction/refund state. T005 remains unchecked pending a verified QueryDR/refund outcome and the required evidence; T037's isolated-MySQL migration acceptance is also still pending.
+
+### BE-DESIGN-0042 T005 recheck — 2026-10-31T01:10:00+07:00 — reporter: Codex
+
+Re-ran the local paymentintegration verification after the owner reported that the first-login Merchant View flow says the VNPAY ID account does not exist. `VnpayMerchantApiSignerTest` and `VnpayMerchantOperationsAdapterTest` passed 12/12, including canonical request signing, original transaction-date propagation, public-IP validation, and the safe `UNKNOWN` treatment for provider `99`. No code defect reproducing the reported Sandbox `99` was found. The owner's earlier QueryDR request already used a public egress IP and exact transaction snapshot values, but still returned `99`; that response alone does not establish whether Merchant API access/configuration or a provider Sandbox condition is responsible.
+
+The owner reports there is no other Merchant View administrator account available to add the phone as a user. The official Merchant View first-login guide describes phone, OTP, and password setup; its separate add-user guide requires an already authenticated Merchant View user. Thus the existing email/password Merchant Admin login does not provide a demonstrated self-service path to provision this VNPAY ID. This blocks Merchant View reconciliation and leaves the earlier refund outcome `UNKNOWN`. No provider request, refund, database change, or task-marker change was made. T005 stays unchecked until the account/authority issue is resolved and redacted live QueryDR/refund evidence is available; T037 remains pending isolated-MySQL V34 migration acceptance.
+
+Evidence sources: [VNPAY Merchant View first-login guide](https://doitac-download.vnpay.vn/merchant-view-file/hdsd-mv/pages/vi/1-dang-nhap/1-dang-nhap-lan-dau-va-thiet-lap-mat-khau.html), [Merchant View add-user guide](https://doitac-download.vnpay.vn/merchant-view-file/hdsd-mv/pages/vi/5-quan-ly-nguoi-dung/2-them-moi-nguoi-dung.html), and the official [QueryDR/refund API guide](https://sandbox.vnpayment.vn/apis/docs/truy-van-hoan-tien/querydr%26refund.html).

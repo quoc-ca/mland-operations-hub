@@ -12,6 +12,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.Fac
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager.ClaimStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOtaSnapshotService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageReservationPolicy;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopAddOnService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,14 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final AttendanceTicketService attendanceTicketService;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
+    private final WorkshopAddOnService addOnService;
+
+    @Override
+    @Transactional(readOnly = true)
+    public WorkshopAddOnPriceSnapshot getWorkshopAddOnPrice(WorkshopAddOnPriceQuery query) {
+        if (query == null) return null;
+        return addOnService.getEligibleSnapshot(query.packageReference(), query.locationReference(), query.addOnReference());
+    }
 
     @Override
     @Transactional(readOnly = true)

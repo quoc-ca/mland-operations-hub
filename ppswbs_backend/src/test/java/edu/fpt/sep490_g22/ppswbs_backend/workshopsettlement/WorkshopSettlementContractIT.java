@@ -3,6 +3,9 @@ package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCancellationCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementHandoffIdempotencyRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementChargeRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.HandoffIdempotencyStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementHandoffIdempotency;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.CancellationHandoffOutcome;
@@ -25,12 +28,15 @@ import static org.mockito.Mockito.*;
 class WorkshopSettlementContractIT {
     @Mock SettlementCancellationCaseRepository caseRepository;
     @Mock SettlementHandoffIdempotencyRepository idempotencyRepository;
+    @Mock SettlementEvidenceConclusionRepository evidenceRepository;
+    @Mock SettlementFinalBillRepository billRepository;
+    @Mock SettlementChargeRepository chargeRepository;
 
     @Test
     void acceptedHandoffUsesTypedBoundaryAndPersistsNoEntityOutsideModule() {
         when(idempotencyRepository.findByOperationReference("OP-1")).thenReturn(Optional.empty());
         WorkshopSettlementFacadeImpl facade = new WorkshopSettlementFacadeImpl(
-                caseRepository, idempotencyRepository, new ObjectMapper());
+                caseRepository, idempotencyRepository, new ObjectMapper(), evidenceRepository, billRepository, chargeRepository);
 
         CancellationHandoffOutcome outcome = facade.openCancellationHandoff(
                 new OpenCancellationHandoffCommand("SES-1", List.of("BK-1"),
@@ -53,7 +59,7 @@ class WorkshopSettlementContractIT {
                 .build();
         when(idempotencyRepository.findByOperationReference("OP-1")).thenReturn(Optional.of(existing));
         WorkshopSettlementFacadeImpl facade = new WorkshopSettlementFacadeImpl(
-                caseRepository, idempotencyRepository, new ObjectMapper());
+                caseRepository, idempotencyRepository, new ObjectMapper(), evidenceRepository, billRepository, chargeRepository);
 
         CancellationHandoffOutcome outcome = facade.openCancellationHandoff(
                 new OpenCancellationHandoffCommand("SES-1", List.of("BK-1"),
