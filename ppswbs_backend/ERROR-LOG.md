@@ -2554,3 +2554,7 @@ Added `SettlementIdempotencyService` and focused unit coverage for first claim, 
 ### 003.3 T009 completion (2026-10-30T14:53:00+07:00)
 
 Authorization denial now records only safe settlement audit metadata and never persists the unresolved identity input. Focused `WorkshopSettlementAuthorizationServiceTest` passed 2/2 with zero failures/errors/skips. T009 is marked `[X]`.
+
+### 003.3 boundary verification (2026-10-30T14:53:00+07:00)
+
+The combined boundary suite `WorkshopSettlementModuleTest`, `WorkshopSettlementContractIT`, and `WorkshopSettlementAuthorizationServiceTest` passed 6/6 with zero failures/errors/skips. This verifies the named facade, booking/operations adapter boundary wiring, canonical account authorization, and Modulith boundary. T002, T003, and T004 are marked `[X]`; payment ingress T011 and notification T006 remain dependency-bound.
