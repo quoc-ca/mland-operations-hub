@@ -12,6 +12,9 @@ public interface WorkshopBookingFacade {
      */
     ConfirmedBookingFinancialProjection getConfirmedBookingFinancialProjection(ConfirmedBookingFinancialProjectionQuery query);
 
+    /** Returns only an authorization decision; contact proof is neither returned nor logged. */
+    CustomerBookingAccessDecision verifyCustomerBookingAccess(CustomerBookingAccessQuery query);
+
     /**
      * Record final-balance resolution from 003.3.
      */

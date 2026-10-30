@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingAuditEvidenceRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingInvoiceRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingNotificationIntentRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingPaymentAttemptRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingSessionCommitmentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.WorkshopBookingRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
@@ -32,6 +33,7 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade {
     private final BookingInvoiceRepository invoiceRepository;
     private final BookingSessionCommitmentRepository commitmentRepository;
     private final BookingNotificationIntentRepository notificationIntentRepository;
+    private final BookingPaymentAttemptRepository paymentAttemptRepository;
     private final BookingAuditEvidenceRepository auditEvidenceRepository;
     private final BookingLifecycleService bookingLifecycleService;
     private final ObjectMapper objectMapper;
@@ -73,6 +75,28 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade {
                 sessionRefs,
                 locationId
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerBookingAccessDecision verifyCustomerBookingAccess(CustomerBookingAccessQuery query) {
+        if (query == null || query.bookingReference() == null || query.bookingReference().isBlank()) {
+            return new CustomerBookingAccessDecision(false);
+        }
+        boolean memberMode = query.memberAccountId() != null;
+        boolean emailMode = query.contactEmail() != null && !query.contactEmail().isBlank();
+        boolean phoneMode = query.contactPhone() != null && !query.contactPhone().isBlank();
+        if ((memberMode ? 1 : 0) + (emailMode ? 1 : 0) + (phoneMode ? 1 : 0) != 1) {
+            return new CustomerBookingAccessDecision(false);
+        }
+        WorkshopBooking booking = bookingRepository.findByBookingCode(query.bookingReference().trim()).orElse(null);
+        if (booking == null) return new CustomerBookingAccessDecision(false);
+        boolean authorized = memberMode
+                ? query.memberAccountId().equals(booking.getMemberAccountId())
+                : emailMode
+                    ? query.contactEmail().trim().equalsIgnoreCase(booking.getContactEmail())
+                    : query.contactPhone().trim().equals(booking.getContactPhone());
+        return new CustomerBookingAccessDecision(authorized);
     }
 
     @Override
@@ -125,6 +149,7 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade {
 
         WorkshopBooking booking = optBooking.get();
         if (booking.getBookingStatus() == BookingStatus.CONFIRMED) {
+            markPaymentAttemptSuccessful(command.merchantReference());
             return DepositPaymentEvidenceOutcome.accepted();
         }
 
@@ -151,11 +176,32 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade {
                     command.operationReference(),
                     command.correlationReference()
             );
+            markPaymentAttemptSuccessful(command.merchantReference());
             return DepositPaymentEvidenceOutcome.accepted();
         } catch (Exception e) {
             log.warn("Failed to apply deposit payment evidence for booking {}: {}", command.bookingReference(), e.getMessage());
             return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.INVALID_STATE);
         }
+    }
+
+    /**
+     * Provider evidence is authoritative for the payment attempt identified by
+     * the immutable merchant reference.  This update is deliberately limited
+     * to successful evidence that was accepted (or already reflected by a
+     * confirmed booking); a late success therefore remains EXPIRED and is
+     * available only as reconciliation evidence.
+     */
+    private void markPaymentAttemptSuccessful(String merchantReference) {
+        if (merchantReference == null || merchantReference.isBlank()) {
+            return;
+        }
+        paymentAttemptRepository.findByMerchantReference(merchantReference).ifPresent(attempt -> {
+            if (attempt.getStatus() != PaymentAttemptStatus.SUCCESS
+                    && attempt.getStatus() != PaymentAttemptStatus.EXPIRED) {
+                attempt.setStatus(PaymentAttemptStatus.SUCCESS);
+                paymentAttemptRepository.save(attempt);
+            }
+        });
     }
 
     @Override
