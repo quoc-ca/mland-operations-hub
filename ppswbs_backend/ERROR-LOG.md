@@ -1917,3 +1917,632 @@ and Loyalty reservation, and outcome call ordering. The integration guide is
 This resolves the design gap recorded above. Implementation can resume after
 the matching 006 facade/API source is present in the checkout and the individual
 003 task dependencies are checked. No 003 task marker was changed here.
+
+## BE-DESIGN-0025 - Booking session persistence identity conflicts with the approved UUID boundary
+
+**Status**: BLOCKED
+**Reported**: 2026-10-29T18:54:36+07:00
+**Reporter**: Codex
+**Feature/task**: 003.1 T019-T023 and T049; 003.3 Booking financial projection consumer
+
+**Scope stopped**: Implementing the UUID-based Booking creation/quote-accept flow and changing the Booking-to-Settlement session projection.
+
+**Sources checked**:
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/data-model.md`, `BookingSessionCommitment`: says Booking does not retain a numeric session ID and owns only the opaque UUID `sessionReference`.
+- `ppswbs_backend/src/main/resources/db/migration/V9__workshop_booking.sql`, `booking_session_commitments`: defines `session_id BIGINT UNSIGNED NOT NULL` and a uniqueness constraint on `(booking_id, session_id)`.
+- `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/entity/BookingSessionCommitment.java`: maps that required column to `Long sessionId`.
+- `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`, `SaleEligibilitySnapshot` and T078 in `003.2-workshop-operations/tasks.md`: require a numeric `sessionId` snapshot for Booking to persist a commitment, while the same shared contract says no facade accepts or exposes a legacy numeric session identity.
+- `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/WorkshopBookingFacadeImpl.java`: currently exposes `commitment.getSessionId()` as a string in the confirmed financial projection consumed by Settlement.
+- `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/BookingLifecycleService.java`: the legacy path fabricates UUIDs from numeric IDs; T049 requires the new path to carry the true UUID reference.
+
+**Observed facts**: The quote preview persists UUID-based session facts. New Booking creation needs to persist the accepted session set and expose a session identity to Settlement. The current entity/schema require a numeric identity, the 003.1 data model forbids retaining it, and the shared contract/T078 both require and prohibit its use across the Booking boundary.
+
+**Why implementation stops**: Choosing to retain the numeric value, remove it, or expose it to Settlement changes persistence and a cross-feature contract. Removing or changing the non-null `session_id` column also needs an append-only preservation/backfill decision for existing booking commitments. Keeping it without clarifying the model would violate the approved data model; using the numeric ID as a string or fabricating a UUID would violate the UUID boundary.
+
+**Required design decision**: Choose and document one persistence/consumer rule:
+1. Permit the numeric Operations ID only as an internal legacy association alongside the canonical UUID, and update the data model and Settlement projection contract to ensure no consumer treats it as the public session reference; or
+2. Make the opaque UUID the only persisted Booking session identity, and approve the preservation migration/backfill plus changes to every Settlement/Operations consumer that currently depends on the numeric ID.
+
+The decision must also define how already-persisted numeric commitments are read during upgrade. No migration or database operation was performed.
+
+**Files changed**: Only this operational report. No implementation or task marker was changed. No test was run. The latest verified compile before this investigation was successful for the quote-preview implementation. No commit or push was made.
+
+**Resolution update (2026-10-29).** The Feature 003 owner explicitly chose option 2: UUID `sessionReference` is Booking's canonical persisted and cross-feature session identity. Numeric `workshop_sessions.id` remains Operations-internal. Existing Booking numeric commitment values must be preserved and mapped to the owning Operations UUID during an append-only migration; new Booking writes use the UUID and do not write the numeric legacy column. Settlement/other consumers must use the UUID projection. This resolves the identity choice; no schema or task artifact has yet been changed.
+
+## BE-DESIGN-0026 - Member workshop quote expiry policy is not defined
+
+**Status**: BLOCKED
+**Reported**: 2026-10-29T19:07:23+07:00
+**Reporter**: Codex
+**Feature/task**: 003.1 T048-T049; Member quote preview and acceptance
+
+**Scope stopped**: Implementing/adjusting the Member quote lifecycle and quote acceptance.
+
+**Sources checked**:
+- `ppswbs-spec/features/006-loyalty-promotion/contracts/interfaces.md`, section `AcceptedSourceContext`: the booking owner stores an expiry on the quote and checks ownership/expiry before accept.
+- `ppswbs-spec/features/006-loyalty-promotion/contracts/workshop-booking-integration.md`, section 4: quote storage includes `expiresAt`; accept checks quote ownership and expiry.
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/data-model.md`, `MemberBookingQuote`: describes quote ownership and single-use state but does not define expiry or what happens when it elapses.
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/contracts/workshop-booking.openapi.yaml`, quote response: does not expose `expiresAt`.
+- `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/entity/MemberWorkshopBookingQuote.java`: stores no expiry field; accept is not implemented.
+
+**Observed facts**: The 006 owner contract requires quote expiry and acceptance-time expiry validation. 003.1 has not specified the quote lifetime, whether the preview response exposes the deadline, or the terminal/replay behavior of an expired quote. The currently committed preview implementation has no `expiresAt` field.
+
+**Why implementation stops**: The expiry duration and expired-quote behavior are customer-visible and determine whether a Member may accept a previously displayed price/terms snapshot. A booking hold deadline is created only after acceptance and cannot be substituted for quote expiry without changing the lifecycle. Deriving a duration or treating a quote as indefinitely valid would invent policy.
+
+**Required design decision**: Specify the Member quote validity window (duration from preview or a named policy/configuration) and the safe accept response for an expired quote. Also confirm whether `expiresAt` is returned to the client. Until then, do not implement accept-time expiry or amend the API/schema to imply a duration.
+
+**Files changed**: Only this operational report. No implementation or task marker was changed. No tests, migration, or database operation was performed. The latest verified compile before this investigation was successful for the quote-preview implementation. No commit or push was made.
+
+**Resolution update (2026-10-29).** The Feature 003 owner selected a 30-minute Member quote validity window. The quote response exposes `expiresAt`; accept at or after expiry returns `409 QUOTE_EXPIRED` without creating a booking or reserving capacity, voucher quota, or points. The 15-minute capacity hold still begins only after successful acceptance and remains a separate deadline. This resolves the policy questions in this record. No spec/API artifact or implementation has yet been changed.
+
+**Artifact update (2026-10-29).** The approved rule is now reflected in the 003.1 quote data model, OpenAPI response and T048-T049 acceptance criteria. Implementation and verification remain outstanding; the task markers remain unchecked.
+
+## BE-DESIGN-0027 - T078 contradicts the approved Booking UUID session identity
+
+**Status**: BLOCKED
+**Reported**: 2026-10-29T20:06:01+07:00
+**Reporter**: Codex
+**Feature/task**: 003.2 T078; dependency of 003.1 T048-T049
+
+**Scope stopped**: 003.1 quote preview/accept integration and 003.2 T078 snapshot extension.
+
+**Sources checked**:
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/data-model.md`, `BookingSessionCommitment`: Booking stores opaque UUID `sessionReference` and does not retain numeric Operations session identity.
+- The Feature 003 owner’s explicit BE-DESIGN-0025 resolution recorded above: numeric `workshop_sessions.id` remains Operations-internal; new Booking writes and Settlement/other consumer projections use the UUID identity.
+- `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/tasks.md`, T078: asks Operations snapshots to include a numeric session ID “needed by Booking to persist” package/session snapshots.
+- `003.1-workshop-booking/tasks.md`, T048-T049: quote integration depends on 003.2 T078.
+
+**Observed facts**: T078's stated Booking use of a numeric session ID conflicts with the approved UUID-only Booking persistence boundary. T048/T049 depend on T078, so following the task literally would reintroduce the rejected identity across the feature boundary.
+
+**Why implementation stops**: The implementation workflow cannot change task scope as a workaround. It cannot both implement T078 as written and preserve the owner-approved UUID-only Booking identity. A UUID-based T078 contract must be published before dependent work can be accepted.
+
+**Required resolution**: Update the 003.2 T078 and relevant shared facade contract to provide authoritative package/session facts keyed by canonical UUID `sessionReference`, while keeping numeric session IDs internal to Operations. Preserve the UUID-only Booking persistence and Settlement projection decision. Re-run dependency and design gates after the artifact update.
+
+**Files changed**: Only this operational report. No spec, task marker, implementation, test, migration, or database was changed/run. Existing working-tree changes were preserved. No commit or push was made.
+
+**Resolution update (2026-10-29).** The shared facade contract and T078 now use canonical UUID `sessionReference`, canonical location reference and workshop date; numeric Operations session IDs are excluded. The design conflict is resolved. T078 implementation and verification remain outstanding; its task marker remains unchecked.
+
+## BE-ENV-0028 - Workshop Operations integration profile attempted schema DDL on the supplied MySQL database
+
+**Status**: BLOCKED
+**Reported**: 2026-10-29T20:15:09+07:00
+**Reporter**: Codex
+**Feature/task**: 003.2 T078 verification (`WorkshopPackageFacadeIT`)
+
+**Scope stopped**: Further test execution or database-backed verification on the supplied MySQL database from the default `test` profile.
+
+**Sources checked**:
+- `ppswbs_backend/src/test/resources/application-test.properties`: `spring.jpa.hibernate.ddl-auto` defaults to `create-drop`, and `spring.flyway.enabled` defaults to `false`.
+- Command attempted: `mvnw -o -Dtest=WorkshopPackageFacadeIT test` with `JDBC_URL`, `JDBC_USER`, `JDBC_PASSWORD`, and `TEST_JDBC_DRIVER=com.mysql.cj.jdbc.Driver` pointed at `ppswbs_v18_fresh_20261028`.
+- Test output showed Hibernate issuing `ALTER TABLE ... DROP FOREIGN KEY`, then schema creation; it encountered existing `booking_invoices`. A read-only `information_schema.tables` inventory after interruption did not list `workshop_packages` or `workshop_sessions`; a follow-up count query failed because `workshop_packages` was absent. No pre-run inventory/count baseline was captured.
+- The post-attempt information-schema table statistics showed nonzero estimated rows for booking/invoice/session-commitment tables; these are estimates, not exact counts or proof of before/after preservation.
+
+**Observed facts**: The first test attempt failed before connecting because the test profile retained the H2 driver for a MySQL URL. The corrected attempt connected to MySQL, then the default `create-drop` profile attempted schema DDL. The process was interrupted. The test suite did not reach any test method; Surefire reports 11 context errors. No intentional reset/clean command was run. Because there was no pre-run schema/data snapshot and the profile began schema DDL, the exact database impact cannot be established from current evidence.
+
+**Why verification stops**: Continuing the same profile risks further schema changes or data loss. The backend test profile is not safe against this retained database while `ddl-auto=create-drop` and Flyway is disabled. No rollback or repair is authorized or attempted.
+
+**Required resolution**: The database owner must inspect/restore `ppswbs_v18_fresh_20261028` from its approved backup if needed and confirm its state. For future verification, use an isolated disposable MySQL test database or an approved non-destructive test profile with schema management disabled and explicit migration setup. Do not rerun the current profile against this database.
+
+**Files changed**: Test-profile files and database contents were not edited manually. No cleanup, reset, or restore was run. T078 remains unchecked. No commit or push was made.
+
+**Containment update (2026-10-29).** `WorkshopPackageFacadeIT` now activates a dedicated `workshopoperations-mysql-test` profile that requires `WORKSHOP_OPERATIONS_TEST_JDBC_URL/USER/PASSWORD`, sets Hibernate DDL to `none`, and disables Flyway. This prevents fallback to `JDBC_URL` and prevents the test profile from creating or dropping schema objects. No test was rerun. Database impact remains unknown pending owner inspection; this configuration change does not repair or restore the supplied database.
+
+**Verification update (2026-10-29).** T078 snapshot behavior was verified by `mvnw -o -Dtest=WorkshopOperationsSnapshotTest test`: 3 tests passed, including canonical UUID projection, absence of numeric `sessionId`, package-name mapping and unknown-reference no-facts behavior. This unit test used mocks only and did not access a database. The T078 task marker is now complete. The prior MySQL DDL attempt and unknown database impact remain unresolved; no further test has used that database.
+
+**Containment/verification update (2026-10-29).** The general `application-test.properties` no longer falls back to developer `JDBC_URL/JDBC_USER/JDBC_PASSWORD`; it uses `TEST_JDBC_*` or its in-memory H2 default. Focused database-free tests passed: `WorkshopOperationsSnapshotTest` (3), `LoyaltyWorkshopTargetAdapterTest` (5), and `WorkshopBookingQuoteExpiryTest` (1), total 9 tests. The last verifies two-session quote facts, persisted/returned `expiresAt = createdAt + 30 minutes`, and preview-only Loyalty use. The V24 migration and booking acceptance expiry behavior remain unverified/not implemented respectively; T048 stays unchecked. The supplied MySQL database has not been queried again and its impact remains unknown.
+
+**Isolated-database update (2026-10-29T20:58:54+07:00).** Created a separate empty MySQL schema `ppswbs_workshop_test_20261029`; applied repository Flyway migrations V4–V24 (21 migrations; Flyway reports schema at v24). On that schema, `WorkshopPackageFacadeIT` passed 11/11 tests with `ddl-auto=none` and Flyway disabled in the test profile. `WorkshopBookingQuotePersistenceIT` passed 1/1 test, verifying persisted/read-back quote expiry, session facts, benefit selection and digest. The strengthened database-free `WorkshopBookingQuoteExpiryTest` passed 1/1 and T048 is now checked. This database contains test fixtures created by the integration runs and should remain test-only. The prior `ppswbs_v18_fresh_20261028` was not used; its impact remains unknown pending database-owner inspection.
+
+**Read-only preservation preflight (2026-10-29T21:04:00+07:00).** Queried only `information_schema`, Flyway version metadata and aggregate row counts in `ppswbs_v18_fresh_20261028`; no test, migration or write was run there. Observed latest successful Flyway version 21, 18 rows in `workshop_bookings`, 20 in `booking_session_commitments`, and 0 in `booking_ticket_session_entitlements`. The required `workshop_sessions` table is absent, so the numeric commitment IDs cannot currently be mapped to Operations UUID references. This is an observed schema/data-preservation blocker; cause and recoverability remain unknown. Do not run V22+ or V25/any Booking preservation migration on this schema. The database owner must inspect approved backup/recovery options and restore/confirm the Operations session mapping before T009/T010 migration work can proceed against retained data. The isolated `ppswbs_workshop_test_20261029` remains the only database used for tests.
+
+**Binary-log source located (2026-10-29T21:10:37+07:00).** MySQL reports binary logging enabled; files `QUOOCSCA-bin.000181`–`000196` are currently present, and `binlog_expire_logs_seconds=2592000` (30 days). Read-only event metadata shows `000192` contains `workshop_sessions` row events (686 writes, 187 updates, 136 deletes), 20 writes for `booking_session_commitments`, and 10 writes for `booking_ticket_session_entitlements`. Log `000196` contains the `DROP TABLE workshop_sessions` event at position 16038. These logs are a candidate recovery source and may contain the missing UUID mapping and entitlements; completeness and the exact last consistent point have not been validated. No binlog was replayed and no database was modified. Recovery should first be staged/validated in an isolated schema, then reviewed before applying to the retained database; keep this blocker open until booking-to-session mappings are verified.
+
+**Binary-log recovery validation update (2026-10-29T21:29:47+07:00).** Downloaded retained raw logs `000181`–`000196` using the MySQL remote-binlog protocol and decoded them locally for read-only inspection. Files `000181`–`000191` contain only 157–180 bytes each (no row payload); `000192` contains the retained row history and `000196` the later DROP cascade. Before the first DROP in `000196`, the decoded `ppswbs_v18_fresh_20261028.workshop_sessions` row history yields 294 extant session IDs (25–326); only IDs 101 and 102 among the 10 distinct `session_id` values referenced by the 20 current commitments are present. The other referenced IDs are 401, 501, 601, 701, 801, 901, 1001 and 1101. The local `ppswbs_ops_test_20261028`, `ppswbs_t037_test_20261028`, and `ppswbs_workshop_test_20261029` schemas contain no matching session IDs; no SQL dump/backup artifact was found in the repository. Because the available binlog data cannot substantiate the full commitment-to-session mapping, no recovery staging schema was created and no binlog replay was performed. The original `ppswbs_v18_fresh_20261028` remains read-only and unchanged. **Blocker:** obtain an approved backup/dump or owner-verified mapping for the eight missing session IDs before attempting restoration or a preservation migration. Keep T009/T010 blocked until all retained commitments are mapped and checked.
+**Recovery evidence qualification (2026-10-29T21:29:47+07:00).** The 294-ID result above is a local text-based reduction of the row events present in retained binlogs, not a validated full database snapshot. Files `000181`–`000191` have no row payload, so session rows created before the retained history cannot be ruled out from the decoder output. Consequently the absence of eight IDs from available row events does not prove they were absent immediately before the DROP; it does prove the retained binlogs alone are insufficient to certify all 10 commitment mappings. No staging replay or restore has been performed.
+
+## BE-DESIGN-0028 - 003.1 OTA create-or-return persistence and cross-module atomicity are undefined
+
+- **Recorded at:** 2026-10-29T21:47:05+07:00
+- **Reporter:** Codex implementation agent
+- **Feature / task:** 003.1 Workshop Booking, T047
+- **Status:** BLOCKED
+
+**Observed gap.** The approved shared facade contract defines OTA booking identity as `(providerCode, externalBookingReference)` and requires Booking to return accepted only when its booking and Operations' atomic capacity/ticket result are both accepted. It does not define where/how Booking durably stores the provider-scoped identity, nor how the two modules recover if one local transaction commits and the other fails.
+
+**Evidence.**
+
+- Read `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`, Booking `data-model.md`, OTA `data-model.md`, T047, `WorkshopBookingFacade`, `WorkshopBookingFacadeImpl`, `WorkshopBooking`, `WorkshopBookingRepository`, and the Booking V9 migration.
+- Booking `WorkshopBooking`/V9 has no provider code, external booking reference, or OTA-origin record; its only business uniqueness is `booking_code`.
+- OTA `ota_channel_bookings`/V22 already owns `UNIQUE(mapping_id, external_booking_reference)` and its Mland booking link, but belongs to 003.4. The facade-only rule does not permit 003.1 to write that table/entity.
+- Operations T076 can atomically commit capacity and issue tickets in its own transaction. The published boundary has no compensation operation to revoke those tickets/release committed capacity if Booking persistence fails after Operations accepts.
+- No code or test was changed for T047; no T047 verification was run. Existing unrelated working-tree changes were preserved.
+
+**Why implementation stops.** Implementing provider-scoped replay safely requires a durable unique identity and a transaction/recovery policy. Using `booking_code` as a surrogate loses the required provider-scoped identity and cannot safely distinguish changed reuse. Writing 003.4 storage from 003.1 violates module ownership. Calling Operations before Booking persistence can leave tickets/capacity without a Booking on a local failure; writing Booking first can leave a dangling Booking if Operations rejects. Choosing fields, migration, transaction ordering, compensation, or reconciliation behavior would invent approved schema and failure semantics.
+
+**Required owner decisions.** Approve (1) the owner and schema for durable `(providerCode, externalBookingReference)` uniqueness and its link to the Mland booking; and (2) the cross-module failure/recovery protocol that guarantees no accepted partial result when either local transaction fails (for example, an explicitly designed reservation/confirm protocol or a durable reconciliation/compensation contract). Then update the shared contract/data model and T047 acceptance evidence before implementation resumes.
+
+**Work state at stop.** No T047 files were modified and no tests were run. T076 Operations support is implemented and its isolated MySQL integration tests passed in the preceding continuation, but that does not resolve Booking persistence or cross-module atomicity. The worktree remains otherwise unchanged by this blocker report.
+
+**Owner direction / scope update (2026-10-29).** Feature 003 owner confirmed this is still software development, has not been released, and contains no real customer data; the local development dataset may be rebuilt. Therefore recovering the eight unverified legacy session mappings is not required for local/dev/test data. Discard/reseed is permitted only for the explicitly designated local/dev/test database after confirming its database name and that it contains no retained customer data. Keep `ppswbs_v18_fresh_20261028` unchanged until its exact reset scope is separately confirmed; no database has been reset or modified as part of this decision. This does not authorize dropping/replacing production data or changing application schema/migration policy without checking the feature artifacts. T010's preservation approach for any retained environment remains subject to its own preflight.
+
+**BE-DESIGN-0025 resolution for the local development dataset (2026-10-29).** Owner confirmed there are no released workflows or real customer records and authorized rebuilding development data. Therefore a numeric-to-UUID backfill is not required for disposable local/dev/test rows: initialize a clean schema from the current append-only migration chain and reseed test fixtures with UUID `sessionReference` values. Do not try to infer or replay the missing eight mappings. This resolves the legacy-mapping dependency for a clean dev/test database only. The earlier `ppswbs_v18_fresh_20261028` schema's state remains uncertain because its test profile attempted DDL without a pre-run snapshot; it must not be described as unchanged or reused for migration verification. No reset/recreate was run in this update. Run T009/T010 verification only against a newly initialized disposable schema after the migration is implemented.
+
+## BE-VERIFY-0001 - Feature 003.2 quickstart command did not pass with local default test profile
+
+- **Recorded at:** 2026-10-29T22:00:00+07:00
+- **Reporter:** Codex implementation agent
+- **Feature / task:** 003.2 Workshop Operations, T052
+- **Status:** BLOCKED
+
+**Check run.** From `ppswbs_backend`, ran the quickstart command as `mvnw -o test`. All test datasource environment variables were unset, so the default `test` profile used an in-memory H2 database (`ddl-auto=create-drop`, Flyway disabled); it did not connect to MySQL and did not access either local MySQL schema. Compilation of 639 main sources and 128 test sources succeeded. Maven ran 901 tests: 34 failures, 280 errors and 41 skipped; build failed.
+
+**Feature 003 evidence.** The six `WorkshopOperationsQuickstartIT` checks passed under H2, but are not the required MySQL/Flyway evidence. `WorkshopOtaSnapshotIT` skipped all 11 MySQL-dependent tests. MySQL-profile `WorkshopPackageFacadeIT` (11 errors) and `OtaBookingFacadeIT` (3 errors) could not load because their dedicated test connection configuration was absent. `CapacityHoldIT` (6 failures), `CheckInIT` (8), `AttendanceTicketContractIT` (1), and `WorkshopLifecycleContractIT` (3) also failed under this non-MySQL run; the latter three contract failures assert retired operational-lead/route fields, while the capacity/check-in suites returned rejected outcomes against the H2 profile. The broad backend run also reports failures/errors in other feature test classes; this is not evidence of a full backend pass or a confirmed 001 baseline fix.
+
+**Outcome.** T052 remains unchecked. No task marker was changed. No persistent database was modified. `git diff --check` passed (only Git's existing LF-to-CRLF working-copy warnings). To complete T052, run the documented verification with the approved isolated MySQL test configuration and resolve/triage the failing 003.2 tests; do not rerun against `ppswbs_v18_fresh_20261028`.
+
+## BE-DESIGN-0029 - 003.4 T011 outbound lifecycle and retry exhaustion values are not approved
+
+- **Recorded at:** 2026-10-29T22:10:31+07:00
+- **Reporter:** Codex implementation agent
+- **Feature / task:** 003.4 Workshop OTA Connectivity, T011
+- **Status:** BLOCKED
+
+**Scope stopped.** Implementing the OTA durable outbound consumer/worker behavior that assigns and transitions `ota_outbound_changes.status`, decides when a provider delivery is retried or exhausted, and then closes a mapping and creates reconciliation work.
+
+**Sources checked.**
+
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/tasks.md`, T011, T017, T018, T021, and dependency notes.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/data-model.md`, Core records, Channel mapping lifecycle, and Operations OTA-observable snapshot consumer semantics.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/plan.md`, Resolved Operations Snapshot Consumer Boundary, Design Decisions, and provider-specific retry constraint.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity-contract.md`, provider-neutral Delivery result and retry/readiness rules.
+- Existing migration V22 and OTA persistence entities/repositories.
+
+**Observed facts.** The accepted snapshot identity/version, at-least-once delivery, one durable outbound record before provider calls, append-only attempts, mapping-only suspension, and reconciliation outcomes are specified. V22 makes `ota_outbound_changes.status` non-null and the repository queries records by status, but the data model explicitly leaves other status vocabularies service-validated until provider-specific lifecycle values are approved. The plan says provider-specific timeout/retries are adapter configuration backed by written evidence and says no universal provider SLA exists. T011 does not name outbound status values, retry count/backoff/terminal classification contract, or the transaction boundary for recording an attempt and applying the terminal mapping/reconciliation result. T021 owns the provider adapter and approved timeout/quota/auth values; no provider onboarding evidence currently supplies retry policy.
+
+**Unknowns and inference.** It is not established whether the provider-neutral adapter will report a terminal/exhausted result, or whether OTA owns a retry policy, nor what outbound status values the worker must use. Inferring a generic status set or retry threshold would create behavior not present in the approved artifacts.
+
+**Why implementation stops.** A durable outbox cannot be implemented correctly without choosing a required status value and worker transition semantics. Treating an adapter permanent-failure outcome as retry exhaustion would conflate distinct outcomes; inventing a retry limit would violate the explicit provider-specific policy constraint. This would affect replay safety and whether a mapping remains sellable after provider failure.
+
+**Required design update.** Approve provider-neutral outbound status transitions and the typed delivery-result contract, including how a provider-specific approved retry policy reports exhaustion; define the transaction that appends the attempt and atomically records terminal mapping suspension plus reconciliation. Keep actual provider retry counts/timing in the provider readiness/configuration evidence. Then re-run T011's design gate. T011 remains unchecked.
+
+**Files and verification.** No T011 implementation, test, migration, database operation, commit, or push was performed. In the same work session, independent T013 Modulith boundary coverage was added to `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/otaconnectivity/OtaConnectivityModuleTest.java`; `mvnw -o -Dtest=OtaConnectivityModuleTest test` passed 2 tests. T013 was marked complete in the 003.4 `tasks.md`. No test is claimed for T011. The original unrelated working-tree changes and both untracked documents were preserved.
+
+**Owner-approved resolution (2026-10-29).** After the above report, the Feature 003 owner replied “tiếp đi” to the proposed T011 contract: adapters report only `DELIVERED`, `RETRYABLE`, or `EXHAUSTED`; concrete retry limits/timing remain provider-specific approved configuration; on `EXHAUSTED`, OTA appends the attempt and in one OTA transaction marks only the affected mapping `SYNC_SUSPENDED` and creates an `OPEN` reconciliation item. T011 implementation may resume under those constraints; do not derive exhaustion from an invented retry count.
+
+**Implementation and verification update (2026-10-29T22:17:42+07:00).** Implemented the asynchronous Operations snapshot listener and OTA-owned `OtaSyncDeliveryService`. It materializes allowlisted schedule, availability, and sale-state outbound records for eligible mappings, ignores duplicate/older per-mapping versions, records typed `DELIVERED`/`RETRYABLE`/`EXHAUSTED` attempts, and applies `EXHAUSTED` status, mapping suspension, and an `OPEN` reconciliation item in the same OTA transaction. No provider call is made from Operations. Verification: `mvnw -o -DskipTests test-compile` succeeded; `mvnw -o -Dtest=OtaSyncDeliveryPersistenceIT,OtaSyncDeliveryServiceTest,OtaConnectivityModuleTest test` succeeded with 6 tests, 0 failures/errors/skipped. The persistence IT applied all 21 migrations to a newly created `ppswbs_ota_migration_<random>` schema, verified replay idempotency and terminal delivery records on MySQL, and its harness dropped only that owned schema. The original/shared database schemas were not targeted. T011 is complete. Persistent publication failure/restart, source gaps and authoritative resync remain T018/T022 acceptance, not claimed here.
+
+**Verification update (2026-10-29T22:30+07:00) — BE-DESIGN-0007 T007/T014 compile blocker cleared in current working tree.** The backend compiled all 649 main source files without compiler exclusions, and `mvnw -o -Dtest=WorkshopBookingLifecycleIT test` passed all 11 tests (0 failures/errors/skipped). This verifies the booking lifecycle and post-commit notification handoff against the test profile's H2 database. T007 and T014 are now marked complete in the 003.1 task file. This is focused evidence only; it does not establish a full-backend regression pass or validate MySQL persistence for this test class. No shared/persistent database was used or modified.
+## BE-DESIGN-0030 — 003.4 T019 allowlist persistence is not defined by the approved schema
+
+- **Recorded at:** `2026-10-29T22:36:38+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.4-workshop-ota-connectivity`, T019
+- **Status:** `BLOCKED`
+
+### Stopped scope and sources
+
+T019 is the next dependency-ordered implementation task. It asks for channel connection, mapping, commercial-status, immutable price-snapshot, provider-data-allowlist, and opaque credential-reference records. Backend `AGENT.md` B04/B09 and §5 prohibit choosing an unapproved schema and require stopping the whole task when schema is underspecified; no partial implementation or migration was started.
+
+Sources checked: 003.4 `tasks.md` T019; `data-model.md` Approved V1 storage conventions, table list, Core records, and Provider-data allowlist; `contracts/ota-connectivity-contract.md` provider readiness evidence; `provider-readiness/README.md`; migration V22; existing OTA persistence entities and migration IT.
+
+### Observed facts
+
+- V22 and the approved table list define `ota_channel_connections` (including only an opaque `credential_reference`), `ota_channel_mappings`, and `ota_channel_price_snapshots`.
+- Neither V22 nor the table list defines a provider-data allowlist table/entity or its key, version, effective period, review/audit reference, or mutation model.
+- `data-model.md` separately requires the provider readiness record to name permitted fields, their operational purpose, and adapter mapping; default is deny, and the allowlist is a booking-enablement precondition. It does not say whether that readiness record is an external evidence artifact or persisted in MySQL.
+- The readiness README has a Data allowlist evidence row, while T019 explicitly places provider-data-allowlist records in backend persistence. These sources do not establish one storage owner or synchronization rule.
+- No database was queried, created, reset, or modified. No source, migration, task marker, or test was changed for T019.
+
+### Decision needed and resumption condition
+
+Choose one authoritative source:
+
+1. **Recommendation — readiness evidence is authoritative.** Keep the reviewed allowlist in the provider readiness evidence record and make the adapter's code/config allowlist default-deny from that approved version. Do not create a duplicate mutable DB table; revise T019 wording so persistence covers connection/mapping/commercial/price records and require allowlist enforcement/evidence linkage in T020/T021/T030.
+2. **Persist it in MySQL.** Approve an append-only schema and lifecycle for allowlist entries, including identity/scope (provider/environment/mapping), field path, operational purpose, adapter target, evidence reference/version, approval identity/time, and supersession/revocation semantics. Then add a new Flyway migration and its empty/upgrade tests before implementing T019.
+
+Until the owner chooses and the matching artifact/task contract is updated, do not implement T019, add a migration, or mark it complete. The remaining T019 persistence fields can be implemented only after this whole-task design gate is resolved, per backend AGENT.md §5.
+**Owner-approved resolution (2026-10-29).** The Feature 003 owner approved the recommendation that provider readiness evidence is the authoritative allowlist approval record and provider adapters enforce a matching explicit code allowlist with default-deny behavior. No duplicate MySQL allowlist will be created. Updated 003.4 `data-model.md`, `tasks.md` (T019/T021), and `provider-readiness/README.md` to encode that decision. BE-DESIGN-0030's allowlist-storage gap is resolved; while rechecking the remaining T019 acceptance, a separate commercial-price-status schema/transition gap was found and is recorded as BE-DESIGN-0031 below. No backend implementation or migration was started.
+
+## BE-DESIGN-0031 — 003.4 T019 has no persistence or approval transition for pending commercial price terms
+
+- **Recorded at:** `2026-10-29T22:40:00+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.4-workshop-ota-connectivity`, T019 (and API contract used by T024)
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/tasks.md`, T019/T020/T024.
+- `data-model.md`, approved table list and Channel price snapshot record.
+- `contracts/ota-connectivity.openapi.yaml`, `POST /ota-channel-mappings/{mappingId}/price-terms`, `PriceTermsRequest`, `PriceTerms` and responses.
+- `contracts/ota-connectivity-contract.md`, commercial evidence and actor boundary.
+- `ppswbs_backend/src/main/resources/db/migration/V22__ota_connectivity.sql` and OTA persistence entities.
+
+### Observed facts
+
+- The OpenAPI price-terms operation is described as submitting terms for commercial review; the response status enum includes `PENDING_COMMERCIAL_CONFIRMATION`, `APPROVED`, and `REJECTED`.
+- The contract says an active Manager may submit terms, unconfirmed Klook terms remain pending, and an authorized Admin finance/connection workflow records verified commercial evidence.
+- V22/data-model define `ota_channel_price_snapshots` for immutable terms after provider confirmation. They define no persisted pending/rejected submission record or commercial review record. `OtaMappingStatus` likewise has no commercial-review state.
+- The public contract has no operation for an Admin/finance actor to approve or reject a pending price-term submission, attach the required provider evidence reference, or create the approved immutable price snapshot.
+- Therefore neither `APPROVED` nor `REJECTED` has a defined authorized transition/persistence path. Treating the Manager POST itself as approval would contradict its stated review purpose and the Klook pending rule.
+- No MySQL database was accessed or modified. No backend source or migration was changed.
+
+### Decision needed and resumption condition
+
+Approve the commercial terms lifecycle and its schema/API boundary before T019 implementation. Recommended shape: Manager POST appends a price-term submission in `PENDING_COMMERCIAL_CONFIRMATION`; an explicit Admin-only review action records approval/rejection and evidence reference; approval creates a separate immutable row in `ota_channel_price_snapshots`, while rejection preserves the submission and reason. The owner must confirm the review actor/action and whether rejected/pending submissions are retained, then update the data model/OpenAPI/tasks. Only then may the append-only Flyway migration, persistence entities, and verification tests be implemented. Do not infer approval from Manager submission, and do not mark T019 complete.
+**Owner-approved resolution (2026-10-29T23:08:00+07:00) — BE-DESIGN-0031 commercial lifecycle.** The Feature 003 owner approved a single final Manager action after the provider confirms commercial terms outside Mland. Manager records the confirmed price and evidence reference in one command; the action immediately creates an immutable approved price snapshot. There is no separate Mland review stage, no persisted unconfirmed proposal, and no price snapshot when the parties do not agree. Before any confirmed snapshot, the mapping remains pending-commercial-confirmation and sales-closed. Updated the OTA OpenAPI, shared contract, data model, readiness template, and T019 to reflect this. The existing `terms_reference` column is the safe external confirmation evidence reference; no schema column or pending/rejected price-submission table is required. BE-DESIGN-0031 is resolved by this owner decision. T019 implementation may proceed within the updated artifacts.
+**Implementation verification update (2026-10-29T23:09:53+07:00) — partial T019.** Added the immutable `OtaChannelPriceSnapshot` persistence entity and repository over the approved V22 table, using its existing `terms_reference` for the safe external confirmation reference. Added commercial status derivation: no approved snapshot means `PENDING_COMMERCIAL_CONFIRMATION`; an approved snapshot means `APPROVED`. Validation rejects negative minor-unit amounts, invalid currency/window, and missing/oversized evidence references. The factory only creates provider-confirmed approved snapshots; no pending/rejected price submission is stored. Focused command `mvnw -o '-Dtest=OtaChannelPriceSnapshotTest,OtaSyncDeliveryPersistenceIT,OtaConnectivityMigrationIT,OtaConnectivityModuleTest' test` passed: 9 tests, 0 failures/errors/skipped. MySQL migration/persistence tests created and dropped only their random `ppswbs_ota_migration_<32hex>` schemas. No shared database was targeted. **T019 remains unchecked** because the initial PER_PERSON/mapping eligibility gate is not yet implemented and verified; no task marker was advanced on partial evidence.
+
+## BE-DESIGN-0032 — 003.4 T020 has no verifiable provider-readiness evidence boundary
+
+- **Recorded at:** `2026-10-29T23:13:09+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.4-workshop-ota-connectivity`, T020
+- **Status:** `BLOCKED`
+
+### Stopped scope and sources
+
+T020 is the next task after the partial T019 implementation. Backend `AGENT.md` B02–B05 and §5 require a defined evidence source, authorization, state transition and persistence boundary; they prohibit implementing or testing a guessed design and require stopping the whole task when a decision is missing. No T020 source, test, migration or task marker was changed. No database was accessed.
+
+Sources checked: 003.4 `tasks.md` T004/T019/T020/T024; `provider-readiness/README.md`; `data-model.md` mapping lifecycle and OTA table definitions; `contracts/ota-connectivity-contract.md` booking-enable route and actor rules; `contracts/ota-connectivity.openapi.yaml` `BookingEnableRequest`; V22 migration; current OTA persistence and authorization source.
+
+### Observed facts
+
+- The readiness directory contains only `README.md`, a template. There is no provider-and-mapping readiness record with reviewed evidence. T004 separately requires actual approved provider evidence before requesting enablement.
+- The template requires evidence references, outcomes, reviewer/date, and an authorized enablement decision; it says a completed record documents evidence/review but is not itself launch authorization.
+- The API request currently accepts caller-supplied `readinessEvidenceReference` and `reason`. There is no contract defining how the backend resolves that string to a trusted written record, establishes that it is approved and complete, or binds it to the requested provider, environment and mapping.
+- The approved V22 mapping schema has no readiness evidence/review/decision reference or enablement audit record. Existing `OtaChannelMapping` stores mapping identity and lifecycle status only. No evidence registry or readiness-validation service exists.
+- The route contract reserves booking enablement to Admin. The authorization rule is explicit; this blocker is about proving the readiness prerequisite and recording its evidence, not changing the actor decision.
+- `OtaChannelMappingService` is absent. Implementing it now would require choosing an unapproved evidence repository/verification protocol and a persistence/audit transition. Accepting any nonblank request string as proof would allow an unverified mapping to become `BOOKING_ENABLED`, contrary to T004, T020 and the readiness template.
+
+### Decision needed and resumption condition
+
+Approve a verifiable source and protocol for readiness records, including how the backend proves a record is written, reviewed, complete, provider/environment/mapping-specific and current; define who records the final Admin enablement decision and what durable reference/audit data is stored with the transition. Then align the data model, OpenAPI, task and tests. Until those boundaries are explicit, do not create `OtaChannelMappingService`, add a schema/migration, write tests for an assumed mechanism, or mark T020 complete. No other implementation task was started after this gate failed, per `AGENT.md` §5.
+
+**Owner-approved resolution (recorded 2026-10-29T23:35:49+07:00).** The Feature 003 owner approved an in-system readiness assessment per provider, environment and mapping. Admin reviews the controlled external evidence record, submits the fixed checklist outcomes and safe evidence references, and makes the final enable/reject decision. The backend stores immutable assessment and checklist evidence with the canonical Admin account, time, decision and mapping fingerprint; it does not copy/fetch the external documents. Only a `SALES_CLOSED` mapping with every readiness check verified, a provider-confirmed commercial price snapshot, and the eligible initial per-person package/session may become `BOOKING_ENABLED`; assessment plus status change are one transaction. Rejected assessments remain auditable and do not open sales. A changed mapping/environment requires a new review; suspended mappings require confirmed full resync before a later readiness review. Updated the data model, OpenAPI, shared contract, readiness template and T020 accordingly. BE-DESIGN-0032 is resolved.
+
+**Implementation verification update (2026-10-29T23:35:36+07:00).** Added V25 tables `ota_readiness_assessments` and `ota_readiness_check_evidence`; immutable JPA records and repositories; `OtaChannelMappingService` with locked lifecycle transitions, readiness decision persistence, mapping-fingerprint staleness, and Admin assessment plus enablement in one transaction. It rejects non-`SALES_CLOSED` mappings, missing confirmed price snapshots, non-eligible initial per-person package/session snapshots from the 003.2 facade, incomplete/failed checklist, duplicate/missing checks and invalid evidence references. The readiness evidence remains external; the request records the Admin attestation and references. Added migration upgrade/fresh-schema assertions and MySQL integration scenarios for approval, rejection retention, stale fingerprint, lifecycle, missing commercial terms, and multi-session exclusion. Final focused command `mvnw -o '-Dtest=OtaChannelPriceSnapshotTest,OtaSyncDeliveryPersistenceIT,OtaConnectivityMigrationIT,OtaConnectivityModuleTest' test` passed: 14 tests, 0 failures/errors/skipped. Migration tests created and dropped only their randomly named `ppswbs_ota_migration_<32hex>` schemas. No shared schema was targeted. T019 and T020 are marked complete. REST controller/authorization wiring and OpenAPI HTTP contract tests remain T024; provider adapter allowlist enforcement remains T021. Full-backend regression was not run and is not claimed.
+
+## BE-DESIGN-0033 — 003.4 T023 reconciliation actions lack durable audit and resolution semantics
+
+- **Recorded at:** `2026-10-29T23:58:09+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.4-workshop-ota-connectivity`, T023
+- **Status:** `BLOCKED`
+
+### Stopped scope and sources
+
+T023 is the next dependency-ordered service task. Backend `AGENT.md` B02–B05 and §5 require explicit actor/action/state, durable audit, and recovery semantics before implementing operations that can change sales availability or clear reconciliation. No T023 service, schema, or tests were added.
+
+Sources checked: 003.4 `tasks.md` T023/T024; `contracts/ota-connectivity.openapi.yaml` sync and reconciliation routes plus `SyncRequest`, `ReconciliationResolutionRequest`, and `OperationAccepted`; `contracts/ota-connectivity-contract.md` actor boundaries and full-resync rules; `data-model.md` reconciliation item and mapping lifecycle; V22 `ota_reconciliation_work_items`; V25 readiness tables; `OtaAuthorizationService`; `OtaChannelMapping`; `OtaReconciliationWorkItem`; `WorkshopOtaResyncFacade`; current `OtaAuditCorrelationService`.
+
+### Observed facts
+
+- The route contract exposes `PREPARATION`/`FULL_RESYNC` and resolution values `RESYNC_REQUESTED`, `ACCEPTED`, `REJECTED`, and `ESCALATED`, but does not define each resolution's allowed starting state, resulting work-item state, mapping transition, or idempotent replay behavior.
+- The approved owner decision says a Manager/Admin requests the authoritative Operations snapshot; a mapping returns to `SALES_CLOSED` only after the snapshot has been delivered and confirmed. It does not define how provider delivery confirmation is associated with the work item or which actor may record that confirmation.
+- `WorkshopOtaResyncFacade.resync` returns the current Operations snapshot at its existing source version. It does not deliver to a provider or itself establish OTA confirmation. Provider delivery remains T021 and is not implemented.
+- V22 stores the current work item with `decision`, `resolution_reference`, and `audit_reference`, but no immutable decision history or fields for actor identity/role, provider/channel, action scope, reason, and outcome required by T023. `OtaAuditCorrelationService` emits a minimized log with provider, mapping ID, correlation, and outcome; it does not durably record those T023 audit facts.
+- `OtaAuthorizationService.requireManagerOrAdmin` already authorizes active Manager/Admin globally. This resolves actor role/location scope but does not fill the missing durable operation/audit contract.
+
+### Why implementation stops
+
+Implementing with the existing work-item row would overwrite the prior decision and could not retain the required actor, reason, action scope, and outcome. Treating a successful Operations snapshot read as a successful OTA resync would incorrectly clear `SYNC_SUSPENDED` without provider delivery confirmation. Guessing resolution transitions could either reopen an unsafe mapping or leave an unrecoverable work item.
+
+### Decision needed and resumption condition
+
+Approve the durable audit model for each sync/resolution action (recommended: append-only decision records linked to the work item or mapping, containing canonical actor reference/role, provider, mapping and location references, action scope, reason, outcome, correlation reference, and timestamp). Define the state transition for each resolution value and require a full-resync work item to remain open and its mapping `SYNC_SUSPENDED` until provider delivery of the authoritative existing-version snapshot is confirmed; then return only to `SALES_CLOSED`, requiring a fresh Admin readiness decision to re-enable booking. Specify what `REJECTED` and `ESCALATED` do and how duplicate action replay behaves. Align the data model, migration, OpenAPI and tests before resuming T023. No database or test command was run for this blocked task.
+
+**Owner-approved resolution (2026-10-30).** The Feature 003 owner approved append-only durable action records, idempotent exact replay with conflicting key reuse rejected, and explicit `RESYNC_REQUESTED` / `ACCEPTED` / `REJECTED` / `ESCALATED` transitions. A mapping stays suspended during resync; only three delivered outbound snapshot kinds plus Operations confirmation of the exact current version may resolve the work item and return the mapping to `SALES_CLOSED`. Re-enablement still requires a fresh Admin readiness decision. Updated the data model and OpenAPI; added V26 decision audit persistence and `OtaReconciliationService`, with focused unit tests. Verification command `./mvnw -o '-Dtest=OtaReconciliationServiceTest,OtaSyncDeliveryServiceTest,OtaInboundEventServiceTest,OtaChannelPriceSnapshotTest,OtaConnectivityModuleTest' test` passed: 18 tests, 0 failures/errors/skipped. The migration integration test was not run because the standing instruction prohibits creating/dropping/resetting databases. T023 remains unchecked pending persistence-backed migration verification and the remaining API integration work in T024; no full backend regression is claimed.
+
+## BE-DESIGN-0034 — 003.4 T022 same-version authoritative replay cannot preserve immutable outbound evidence
+
+- **Recorded at:** `2026-10-30T00:09:38+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.4-workshop-ota-connectivity`, T022 (resync/recovery), dependency for T023 `RESYNC_REQUESTED`
+- **Status:** `BLOCKED`
+
+### Observed facts
+
+- Outbound changes are immutable and uniquely keyed by mapping, source version, and change kind.
+- An inbound same-version conflict is intentionally suspended and queued for authoritative Operations resync. The authoritative Operations facade can return the current source version, but it does not mint a new source version or recovery generation.
+- If the authoritative snapshot has a different change reference or payload for a kind already recorded at that same version, `queueAuthoritativeSnapshot` cannot insert a replacement under the existing uniqueness rule. Updating the prior outbound row would rewrite audit evidence; inserting a duplicate violates the approved key.
+- This edge is distinct from ordinary missing-version-gap recovery, where a new authoritative source version can be queued. It remains possible for the `RESYNC_REQUESTED` action to stay suspended and fail to enqueue a correcting snapshot.
+
+### Decision needed and resumption condition
+
+Choose how to represent correction while preserving prior outbound evidence: either (1) keep the source-version uniqueness and leave same-version conflicts suspended/escalated until Operations produces a new version, or (2) add a recovery-generation identity to outbound snapshot rows and their provider delivery correlation so a corrected same-version replay can coexist immutably. Align the data model, migration, contract, and tests before claiming same-version conflict recovery complete. Do not overwrite an existing outbound snapshot or mark T022 complete for this case until the owner decision and verification are recorded.
+
+**Disposition (2026-10-30).** Resolved using the existing approved invariants, not by adding a recovery-generation design: Operations persists one immutable snapshot per `(sessionReference, sourceVersion)`, and an authoritative resync returns that same existing version without creating a business change. A mismatch between that snapshot and already-recorded OTA evidence is therefore an integrity incident. T022 fails the resync command closed, preserves the prior outbound row, leaves the mapping suspended and reconciliation unresolved, and requires explicit escalation/investigation. No source version is synthesized and no schema is changed. Updated the 003.4 data model, contract, and T022 acceptance wording; added a focused unit test proving a conflicting same-version authoritative snapshot is rejected without rewriting outbound evidence. Verification command `./mvnw -o '-Dtest=OtaReconciliationServiceTest,OtaSyncDeliveryServiceTest,OtaInboundEventServiceTest,OtaChannelPriceSnapshotTest,OtaConnectivityModuleTest' test` passed: 19 tests, 0 failures/errors/skipped. BE-DESIGN-0034 is resolved by the existing 003.2 source-version contract. T022 is complete at the service/unit-test level; T018 still owns persistent consumer/restart integration acceptance.
+
+## BE-DESIGN-0035 — 003.4 T024 mapping update contract lacks persistent optimistic-version and in-flight change semantics
+
+- **Recorded at:** `2026-10-30T00:15:59+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.4-workshop-ota-connectivity`, T024 (`PUT /ota-channel-mappings/{mappingId}`)
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity.openapi.yaml`, `MappingUpdateRequest` and `updateOtaChannelMapping`.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/data-model.md`, mapping lifecycle and fingerprint rules.
+- `ppswbs_backend/src/main/resources/db/migration/V22__ota_connectivity.sql`, `ota_channel_mappings`.
+- `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/persistence/OtaChannelMapping.java` and current repositories/services.
+
+### Observed facts
+
+- OpenAPI requires a client `version` and advertises optimistic versioning for updates to `DRAFT` or `SALES_CLOSED` mappings.
+- The V22 mapping table and JPA entity have no version column or `@Version`; the entity only has timestamps. The contract therefore has no persistent value against which the supplied version can be compared atomically.
+- The data model says changing mapping identity/details requires fresh readiness evidence, but does not define how update handles already-queued or in-flight outbound changes that still refer to the old session/offer/provider product-option identity.
+- Reusing `updated_at` as the version or allowing old outbound changes to deliver after identity changes would be an unapproved concurrency/integration policy.
+- No T024 source, migration, API contract, or task marker was changed. No database was accessed.
+
+### Decision needed and resumption condition
+
+Approve the mapping update persistence and in-flight policy before T024 implementation. Recommended: add a monotonically increasing `version BIGINT` with JPA optimistic locking in a new append-only migration; require the exact expected version and return the contracted `409` on a stale write. Permit edits only in `DRAFT` or `SALES_CLOSED`; reject identity changes while any outbound change for that mapping is nonterminal (`QUEUED`/`RETRYING`), requiring delivery completion or a separately authorized sales-close/reconciliation path first. An accepted identity change increments version, invalidates readiness by fingerprint, and preserves all prior outbound evidence. Update data model/OpenAPI/tasks and add stale-write plus in-flight-change scenarios before coding. Do not infer this behavior from `updated_at` or overwrite prior sync evidence.
+
+**Owner-approved resolution (2026-10-30).** The Feature 003 owner approved the recommended mapping update policy: persist a monotonically increasing version with optimistic locking and return 409 on stale writes; permit changes only in DRAFT/SALES_CLOSED; reject identity changes while outbound changes are queued/retryable; preserve prior outbound evidence and invalidate readiness through the changed mapping fingerprint. T024 implementation had not started when a separate price amount conversion contract gap was found below; no migration or mapping update source was changed.
+
+## BE-DESIGN-0036 — 003.4 T024 price amount conversion from decimal API values to integer minor units is undefined
+
+- **Recorded at:** `2026-10-30T00:20:08+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.4-workshop-ota-connectivity`, T024 (`POST /ota-channel-mappings/{mappingId}/price-terms`)
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity.openapi.yaml`, `Money` and `PriceTermsRequest`.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/data-model.md`, money storage rule and `ota_channel_price_snapshots`.
+- `ppswbs_backend/src/main/resources/db/migration/V22__ota_connectivity.sql`, integer `*_amount_minor` columns.
+- `OtaChannelPriceSnapshot` persistence factory, which accepts integer minor units and an ISO currency code.
+- Searched `ppswbs-spec/spec-general.md`, Feature 003 artifacts and backend source for a shared currency exponent/rounding rule; none was found.
+
+### Observed facts
+
+- OpenAPI accepts decimal amount strings with up to four fractional digits and a three-letter currency code.
+- Feature 003 persists amounts as `BIGINT` minor units and stores the currency code separately.
+- No approved rule maps a given currency to its minor-unit exponent or defines whether excess fractional digits are rejected or rounded. A fixed conversion can misstate currencies whose ISO minor-unit exponents differ; rounding can change externally confirmed commercial terms.
+- No T024 source, migration, API contract or task marker was changed for this issue. No database was accessed.
+
+### Decision needed and resumption condition
+
+Choose the accepted currency/conversion contract before implementing price-terms HTTP handling. Recommended: interpret decimal amounts using the ISO 4217 minor-unit exponent for the supplied currency, accept only exact values representable at that exponent, reject extra non-zero fractional digits (never round), and explicitly define the supported currency set/source of exponent data. Alternatively, constrain this OTA price endpoint to a specifically approved currency set and exact decimal scales. Update OpenAPI validation examples, data-model guidance and tests for zero-, two-, and three-decimal currencies before converting to `BIGINT` minor units. Do not guess a fixed factor of 100 or silently round.
+
+**Owner-approved resolution (2026-10-30).** The Feature 003 owner approved ISO 4217 minor-unit precision, exact conversion with no rounding, and rejection of excess non-zero fractional digits for supported currencies. Implementation will use the JDK `java.util.Currency` ISO currency registry as the supported-code/exponent source; codes not recognized by that runtime or with no minor-unit exponent are rejected. T024 implementation had not started when a separate API-ID/persistence mismatch was found below; no price conversion source or artifact was changed.
+
+## BE-DESIGN-0037 — 003.4 T024 public UUID identifiers do not exist in the persistence model
+
+- **Recorded at:** `2026-10-30T00:21:47+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.4-workshop-ota-connectivity`, T024 channel/mapping/price-terms routes
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity.openapi.yaml`, path parameters `ChannelId`/`MappingId`, and response schemas `ChannelMapping`/`PriceTerms`.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/data-model.md`, OTA table primary keys.
+- `ppswbs_backend/src/main/resources/db/migration/V22__ota_connectivity.sql`, channel, mapping and price-snapshot tables.
+- `OtaChannelConnection`, `OtaChannelMapping`, and `OtaChannelPriceSnapshot` JPA identifiers.
+
+### Observed facts
+
+- The OpenAPI path parameters and response IDs `channelId`, `mappingId`, and `priceTermsId` are typed as UUID.
+- The approved V22 schema uses auto-increment `BIGINT` primary keys for those records; each current JPA entity exposes `Long id` and no separate public UUID reference exists.
+- Mapping work-item API response schemas also declare UUID mapping references, while work-item persistence references the mapping's numeric primary key.
+- T024 requires exact OpenAPI behavior, so directly serializing the current IDs would violate the contract; adding UUID references or changing the API types changes schema/API design and needs explicit alignment.
+- No T024 code, migration, API contract, or task marker was changed for this issue. No database was accessed.
+
+### Decision needed and resumption condition
+
+Choose the identifier boundary for public OTA APIs. Recommended: preserve internal `BIGINT` primary/foreign keys and add immutable unique UUID public references for connections, mappings, and price snapshots, using those references in every OpenAPI path/response; keep numeric IDs internal. Alternative: change the OpenAPI ID formats to integer `int64` and expose the existing numeric IDs to authenticated operators. Align the data model, OpenAPI and repository/API response contract, including reconciliation `mappingId`, before implementing T024 controllers.
+
+**Owner-approved resolution (2026-10-30).** The Feature 003 owner approved keeping internal `BIGINT` primary/foreign keys and using separate public UUID references in the API. Apply the same rule to channel, mapping, price-term and reconciliation-work-item references so no internal numeric key is serialized. T024 implementation had not started when the remaining sales-close operation gap was identified below; no schema or controller change was made.
+
+## BE-DESIGN-0038 — 003.4 T024 sales-close route has no defined OTA-owned outbound command
+
+- **Recorded at:** `2026-10-30T00:23:58+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.4-workshop-ota-connectivity`, T024 (`POST /ota-channel-mappings/{mappingId}/sales-close`)
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity.openapi.yaml`, `closeOtaMappingSales`, which promises a queued auditable closure and returns `202 OperationAccepted`.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity-contract.md`, Manager business-action boundary and Operations ownership.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/data-model.md`, Operations-owned source version and OTA outbound-change key.
+- `OtaReconciliationService`, `OtaSyncDeliveryService`, `OtaOutboundChange`, and V22 `ota_outbound_changes` schema.
+- 003.4 T021 provider adapter task and current provider onboarding blocker.
+
+### Observed facts
+
+- The sales-close route promises an asynchronous provider-facing operation and requires an idempotency key.
+- Current outbound records require an Operations `sourceVersion` and `sourceChangeReference`; `OtaSyncDeliveryService` queues them from Operations snapshots. A Manager's manual OTA sales-close decision is not an Operations business change and must not be fabricated as one.
+- The existing `OtaChannelMappingService.closeSales` changes only the local mapping state and does not create provider delivery work. `OtaReconciliationService` has no sales-close action. Provider adapters are not implemented pending T021 evidence.
+- Therefore, calling the local lifecycle method and returning `202` would falsely claim the OTA provider was queued/closed, while synthesizing an Operations version would violate the source-of-truth contract.
+- No T024 source, migration, API contract, or task marker was changed. No database was accessed.
+
+### Decision needed and resumption condition
+
+Define the durable OTA-owned sales-control command and its delivery semantics before implementing this route. Recommended: persist an immutable Manager sales-close decision with idempotency/correlation and create a distinct OTA control-outbox item (separate from Operations-versioned inventory changes) that the provider adapter can deliver and acknowledge; only report the accepted/closed state specified by that contract. Align schema, action/result states, retry/reconciliation behavior and OpenAPI. Alternatively defer/remove this route until T021 provider delivery exists and specify another safe way to stop new OTA sales. Do not return `202` for a local-only state change or reuse an Operations version.
+
+**Owner-approved resolution (2026-10-30).** The Feature 003 owner approved the recommended distinct OTA control-outbox direction: append an auditable/idempotent Manager sales-close decision and create a separate control command for provider delivery and acknowledgement, never reusing an Operations source version. T024 implementation may proceed with the generic durable queue; provider-specific delivery/retry remains T021 and its approved onboarding evidence.
+
+## BE-DESIGN-0039 — 003.4 T024 does not define replacement and selection semantics for immutable price snapshots
+
+- **Recorded at:** `2026-10-30T00:29:41+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.4-workshop-ota-connectivity`, T024 (`POST /ota-channel-mappings/{mappingId}/price-terms`), consumer dependency T029
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity.openapi.yaml`, `PriceTermsRequest.effectiveFrom/effectiveTo` and response.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/data-model.md`, immutable `ota_channel_price_snapshots` and currency/minor-unit rules.
+- `OtaChannelPriceSnapshot`, which has no mutation methods, and `OtaChannelPriceSnapshotRepository`, which currently only exposes lookup ordered by `effectiveFrom`.
+- V22 `ota_channel_price_snapshots` schema, which allows a nullable `effective_to` and has no uniqueness or overlap policy.
+
+### Observed facts
+
+- A Manager may submit confirmed terms with a start and optional end time, and the table is designed to retain immutable snapshots.
+- The contract does not define how a later snapshot supersedes an earlier snapshot, how overlaps are resolved, whether a new price can follow an existing open-ended (`effective_to IS NULL`) price, or what the price lookup must return when a selected window has ended.
+- Simply inserting multiple overlapping snapshots while selecting the latest `effectiveFrom` would invent pricing behavior; updating the earlier `effectiveTo` would mutate its immutable evidence.
+- T024 work is partial in the working tree from the previously approved version/identifier/control-outbox decisions. This pricing gap was found before any price-term endpoint, conversion service, or controller was implemented. No database was accessed and no tests were run for these partial T024 changes.
+
+### Decision needed and resumption condition
+
+Define append-only price replacement and lookup semantics before implementing price-term persistence/API. Recommended: the latest snapshot whose `effectiveFrom` is not later than the booking time supersedes earlier snapshots; its optional `effectiveTo` is an exclusive end, and after that end the mapping has no active price (never fall back to an older snapshot). This permits future price changes without mutating old terms. Alternatively, allow only one immutable price snapshot per mapping or require explicit non-overlapping windows with an append-only supersession record. Align OpenAPI/data model and T029 lookup behavior, and add overlap, boundary-time, expired-window, and replacement tests before coding. Do not mutate old price snapshots or select by latest timestamp without an approved rule.
+
+**Owner-approved resolution (2026-10-30).** The Feature 003 owner approved the recommended append-only rule: for booking instant `t`, choose the snapshot with greatest `effective_from <= t`; a later snapshot supersedes earlier ones from its start. `effective_to` is exclusive, and after that selected snapshot expires there is no active price and no fallback. Updated the data model/OpenAPI selection contract. Price endpoint implementation may proceed with this lookup rule; price window and replacement scenarios must be tested.
+
+## BE-DESIGN-0040 — 003.4 T024 reconciliation list schema cannot represent mapping-independent work items
+
+- **Recorded at:** `2026-10-30T00:34:13+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.4-workshop-ota-connectivity`, T024 (`GET /ota-reconciliation-work-items`)
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity.openapi.yaml`, `ReconciliationWorkItem` and `listOtaReconciliationWorkItems`.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/data-model.md`, nullable reconciliation mapping/event/booking/payout references.
+- `OtaReconciliationWorkItem` and `OtaReconciliationService.listWorkItems`.
+
+### Observed facts
+
+- The reconciliation work-item table allows a nullable mapping reference and may instead refer to an inbound event, channel booking, or payout position.
+- `OtaReconciliationService.listWorkItems` returns all rows globally, with only an optional status filter.
+- OpenAPI requires `mappingId` UUID in every reconciliation response and provides no public UUID references for inbound events, channel bookings, or payout positions in this response.
+- Therefore an item with no mapping cannot be represented by the declared response. Filtering such rows out or returning an invalid/missing mapping ID would silently hide work or violate the contract. Public references for the other OTA records are also not part of the current T024 work.
+- T024 remains partial in the working tree from the previously approved design decisions: V27/V28 migrations, public-reference/version/outbox entity and repository changes, sales-control service, mapping catalog service, price conversion/selection services, and migration-test expectation updates have been made. No HTTP controller/DTO was added, no tests were run for these partial changes, and no database was accessed.
+
+### Decision needed and resumption condition
+
+Define the scope and shape of the reconciliation list response before implementing its controller. Recommended for this 003.4 mapping-management endpoint: return mapping-linked synchronization/recovery work items only and state this scope in OpenAPI; expose payment/payout and inbound-event work through their owning APIs when those contracts exist. Alternative: expand the response to support nullable mapping plus public references and safe summaries for event, booking, and payout subjects, adding the missing public identifiers and associated persistence/API scope. Align OpenAPI and service filtering/projection before continuing T024. Do not silently discard mapping-independent work items from a route documented as listing all reconciliation items.
+
+### Owner decision and resumption
+
+- **Decision:** On 2026-10-30, the Feature 003 owner selected the recommended mapping-only scope (option A).
+- **Resolution:** `GET /api/v1/ota-reconciliation-work-items` is defined as the list of mapping-linked synchronization/recovery work items. Inbound-event and payout/financial items are excluded from this endpoint and belong to their owning APIs when those contracts are available. The OpenAPI and contract summary were updated to state this scope. The response continues to require `mappingId` because every item in this list is attached to a mapping.
+- **Status:** The design blocker is resolved for the list scope. Service filtering/projection, HTTP controller, and acceptance verification remain implementation work; no test was run as part of recording this decision.
+
+## BE-DESIGN-0041 — 003.4 T024 requires correlationId but mapping-linked work item evidence may omit it
+
+- **Recorded at:** `2026-10-30T00:45:20+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.4-workshop-ota-connectivity`, T024 (`GET/POST /ota-reconciliation-work-items`)
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity.openapi.yaml`, `ReconciliationWorkItem` requires `correlationId` UUID.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/data-model.md`, reconciliation `audit_reference` is nullable.
+- `OtaReconciliationWorkItem` and current sync/reconciliation creation paths.
+
+### Observed facts
+
+- New mapping-linked work items created by current source-gap and exhausted-delivery paths are assigned correlation references.
+- The persisted `audit_reference` column/entity field is nullable, and historical mapping-linked rows are not guaranteed to have a correlation reference. The local database was not queried or modified.
+- The newly added list projection requires `audit_reference` to parse as a UUID; therefore a mapping-linked legacy row with null or malformed `audit_reference` would fail the entire list request. The work-item `public_reference` is available but is an identity, not explicitly approved as a correlation reference.
+- The `GET` list now filters to mapping-linked items and the `POST resolve` API resolves mapping-linked public UUIDs. Focused T024 filtering/DTO/controller changes are present in the working tree. Offline main-source compilation passes; no tests or database operations were run.
+
+### Decision needed and resumption condition
+
+Choose how T024 represents a mapping-linked work item without a valid recorded correlation reference: (A) use its stable `workItemId` as the response `correlationId` fallback and document that fallback; (B) make `correlationId` nullable/optional in the API contract; or (C) add a schema/data migration that assigns and persists a correlation UUID to legacy rows. Until selected, do not claim T024 list acceptance is complete or mark T024 `[X]`.
+
+### Authorized development-data remediation (2026-10-30)
+
+The owner instructed the agent to resolve this blocker and confirmed that the system is in development with no real customers or production data. Within that authorization, use the migration approach: preserve valid recorded UUIDs, assign a persisted UUID to mapping-linked development rows with missing/malformed audit references, and enforce a valid correlation reference for future mapping-linked work items. The generated value starts tracking the development record; it does not reconstruct historical event/log evidence. Keep the required UUID API field and preserve work-item identities, statuses and decision history. Mapping-independent items retain their existing nullable audit-reference contract. Implement this as a new migration plus JPA lifecycle validation, and verify migration upgrade/replay and HTTP list/resolve behavior on isolated test fixtures. This resolves the design decision; implementation and test evidence follow below.
+
+### Implementation and verification completed (2026-10-30T00:59:00+07:00)
+
+**Current disposition: RESOLVED.** Added `V29__ota_mapping_work_item_correlation.sql`: repair missing/malformed correlations only for mapping-linked work items, retain valid values and timestamps, and enforce a canonical UUID through a conditional MySQL CHECK constraint. `OtaReconciliationWorkItem` initializes a missing correlation before insert and rejects invalid mapped correlations before insert/update. The required API field is preserved, and list reads do not write or synthesize values. Updated the data-model/OpenAPI explanation. The UUID public-reference fixtures in `OtaReconciliationServiceTest` now represent persisted entities (Mockito does not execute JPA callbacks).
+
+Added `OtaReconciliationCorrelationTest`, `OtaReconciliationCorrelationMigrationIT` and `OtaReconciliationApiTest`, plus a focused JPA scenario in `OtaSyncDeliveryPersistenceIT`. HTTP checks exercise the actual controller, authorization and reconciliation service with mocked persistence; MySQL checks separately verify real persistence callbacks, query filtering, migration backfill, preservation, constraint rejection and Flyway replay. API tests also caught and fixed XML content negotiation: reconciliation success and error responses now use JSON. Public-reference resolution checks actor authorization before locking the item.
+
+Commands executed from `ppswbs_backend`:
+
+```powershell
+.\mvnw.cmd -o '-Dtest=OtaReconciliationCorrelationTest,OtaReconciliationApiTest,OtaReconciliationServiceTest,OtaReconciliationCorrelationMigrationIT,OtaConnectivityMigrationIT,OtaSyncDeliveryPersistenceIT#mappedWorkItemPersistsCorrelationAndQueriesExcludeMappingIndependentItems' test
+.\mvnw.cmd -o '-Dtest=OtaSyncDeliveryServiceTest,OtaInboundEventServiceTest,OtaConnectivityModuleTest' test
+```
+
+- Final focused run: **26 tests passed, 0 failures/errors/skips**. The initial new entity tests reproduced missing/default/invalid-correlation failures; the initial HTTP run revealed XML responses. Both defects were fixed before the final passing run.
+- Related OTA regression run: **13 tests passed, 0 failures/errors/skips**. The existing module test checks module recognition and named-facade dependencies; it is not a claim of full `ApplicationModules.verify()` or full-backend regression.
+- MySQL tests created/migrated/dropped only their own randomly named `ppswbs_ota_migration_<32hex>` schemas via the existing test helper. Neither `ppswbs_v18_fresh_20261028` nor the named shared workshop test schema was migrated, reset or dropped. V29 is delivered in source and verified on isolated MySQL; it has not been applied to those shared schemas.
+- Logs: `target/ota-correlation-verification.log` and `target/ota-correlation-regression.log` (generated, not for commit). `git diff --check` passed.
+- T016/T023/T024 remain unchecked: the overall controller/API scope and durable acceptance are not complete. No commit/push was performed. Shared 001/004 baseline assumptions do not establish full-backend success; run full regression after the shared baseline is confirmed fixed.
+
+### T016/T023/T024 completion evidence (2026-10-30T09:12:00+07:00)
+
+Reporter: Codex implementation agent. Completed the remaining channel-management HTTP scope: list/create/update mapping, immutable price terms, preparation/full sync, sales-close and Admin booking-enable, alongside the mapping-linked reconciliation APIs. Added `OtaChannelController`, strict request DTOs/scalar deserializers, safe response views and `OtaChannelManagementService`. Manager business authority remains global; Admin recovery/enablement and other role refusals are enforced. Public identifiers are canonical UUIDs, stale mapping versions return 409, unknown JSON properties/coerced scalar types are rejected, and responses omit credentials and persistence entities. Corrected the YAML decimal-pattern escaping to match the declared decimal-string contract.
+
+`OtaChannelControllerIT` uses real transactional OTA services and migrated isolated MySQL with standalone MockMvc; Account/Operations facades are mocked. It verifies HTTP status/error/empty/success responses, role restrictions, version conflicts, in-flight identity-update refusal, immutable exact-currency pricing, effective-date selection without fallback, readiness rejection/approval, sync and durable sales-close enqueue/replay. A final committed-fixture scenario exercises independent transactions: Manager resync/replay, rejected premature acceptance with no new durable decision, simulated successful deliveries, Admin acceptance/replay and audit retention. Recovery ends at SALES_CLOSED, never automatic booking enablement. The initial test fixture omitted outbound `accepted_at`; it was fixed before the passing runs.
+
+Commands executed from `ppswbs_backend` with the existing local test JDBC environment:
+
+```powershell
+.\mvnw.cmd -o '-Dtest=OtaChannelControllerIT,OtaReconciliationApiTest,OtaCurrencyMoneyTest' test
+.\mvnw.cmd -o '-Dtest=OtaChannelControllerIT,OtaReconciliationApiTest,OtaCurrencyMoneyTest,OtaReconciliationServiceTest,OtaSyncDeliveryServiceTest,OtaInboundEventServiceTest,OtaConnectivityModuleTest,OtaSyncDeliveryPersistenceIT' test
+git diff --check
+```
+
+- First focused passing run: 36 tests, zero failures/errors/skips. After adding committed-transaction recovery coverage, final expanded run: **63 tests, zero failures/errors/skips**, BUILD SUCCESS. Final log: `target/ota-t024-final.log` (generated, not for commit).
+- Marked T016, T023 and T024 complete from this evidence. No claim of all Feature 003 or all OTA tasks being complete.
+- All MySQL writes remained in test-helper-owned random `ppswbs_ota_migration_<32hex>` schemas, cleaned by the helper. Neither the original development database nor shared named test database was reset or migrated.
+- Verification limits: standalone HTTP tests do not exercise the global SecurityFilterChain or live Firebase; delivery acknowledgements are simulated, not Klook/GYG compatibility evidence. The module test verifies recognition/named dependencies, not full-backend `ApplicationModules.verify()`. T021 still requires provider onboarding/approved configuration evidence, and persistent Modulith failure/restart acceptance remains T018. Run full regression once the assumed shared 001/004 baseline fixes are confirmed.
+- No post-implementation extension hooks are configured. No commit or push performed; review and stage the OTA changes separately from the existing Booking/Operations changes before any future commit.
+
+### T018 persistent publication acceptance (2026-10-30T09:21:00+07:00)
+
+Reporter: Codex implementation agent. Added `features/otaconnectivity/application/OtaInventorySyncIT.java` and marked 003.4 T018 complete. No production code or migration change was needed. The test starts two separate Spring contexts against one helper-owned random MySQL schema, using the real Operations snapshot producer/repositories, Spring Modulith JPA publication registry, OTA listener, delivery and reconciliation services. A test-only delivery subclass throws after the real outbound writes to exercise transaction rollback; provider acknowledgements remain simulated.
+
+Verified scenarios:
+
+- Operations snapshot and publication survive consumer rollback while outbound writes roll back; closing/restarting the Spring context replays the stored event and completes its publication.
+- Duplicate and older events create no extra outbound rows. Schedule, availability, pause and resume use one increasing session version sequence and three durable change kinds; normal pause does not suspend the mapping.
+- Rolling back the source transaction persists neither its new snapshot nor publication.
+- A failed version followed by a later version suspends the affected mapping and creates reconciliation work; an unrelated session mapping remains unchanged.
+- Resync reads the real authoritative Operations snapshot at the existing source version. Acceptance is refused until all three resync changes have delivered; confirmation returns the mapping only to SALES_CLOSED.
+- Conflicting change identity at the same version suspends the mapping without replacing immutable outbound evidence. Operations capacity/sale state and the authoritative snapshot remain unchanged by recovery; preparation creates no capacity holds or ticket entitlements.
+
+The restart context explicitly enables `spring.modulith.events.republish-outstanding-events-on-restart=true` in the test. This proves the replay mechanism when enabled, not that production configuration already enables it. This is an application-context restart, not an operating-system process kill. The test does not replace the broader direct-Mland booking acceptance in 003.2 T055, which remains unchecked.
+
+Initial test-harness failures were fixed: include the Modulith JPA publication entity in the narrowed test scan; wait for asynchronous replay completion instead of asserting immediately; use Long literals for repository version parameters. No production invariant or test requirement was relaxed.
+
+Final command from `ppswbs_backend`, with the existing test JDBC environment:
+
+```powershell
+.\mvnw.cmd -o '-Dtest=OtaInventorySyncIT,OtaSyncDeliveryServiceTest,OtaReconciliationServiceTest,OtaSyncDeliveryPersistenceIT,OtaConnectivityModuleTest' test
+git diff --check
+```
+
+Result: **23 tests passed, zero failures/errors/skips; BUILD SUCCESS**. Log: `target/ota-inventory-sync.log` (Git-ignored). All writes/migrations were confined to random helper-owned test schemas and cleaned up; the original database and shared named test schema were not modified. No commit/push. No extension hooks configured. T021 still requires provider evidence; full-backend regression and full Modulith verification remain outside this focused passing result, pending confirmation of shared baseline fixes.
+
+T055 follow-up: the existing `WorkshopOtaSnapshotIT` producer suite was attempted against a helper-created MySQL schema after adapting its harness locally. The suite ran 11 tests with 8 failures in publication-count assertions; those failures expose an asynchronous Modulith/MySQL test-isolation assumption in that existing suite. The temporary harness adaptation was reverted. T055 remains unchecked until producer assertions are made transaction/async-safe and the full producer-plus-consumer suite passes. The consumer half remains evidenced by T018.
+
+### T055 completion (2026-10-30T09:30:00+07:00)
+
+The apparent duplicate publication was diagnosed: each Operations snapshot legitimately has two durable Modulith listener publications, one for the Operations publication listener and one for the 003.4 consumer. `WorkshopOtaSnapshotIT` counted both rows while asserting only the producer publication. The test now scopes its count to `WorkshopOtaSnapshotPublicationListener`; no production code was changed. Its MySQL harness uses the existing helper-owned random schema, Flyway migrations, and the supplied isolated test JDBC configuration.
+
+Final command from `ppswbs_backend`:
+
+```powershell
+.\mvnw.cmd -o '-Dtest=WorkshopOtaSnapshotIT,OtaInventorySyncIT,OtaSyncDeliveryServiceTest,OtaReconciliationServiceTest,OtaSyncDeliveryPersistenceIT' test
+git diff --check
+```
+
+Result: **32 tests passed, zero failures/errors/skips; BUILD SUCCESS**. This covers producer projection/publication, draft/internal-only suppression, source-version behavior, scheduled closure, hold lifecycle, ticket commit, consumer failure/restart replay, duplicate/older/gap handling, authoritative resync, mapping isolation, and no Operations capacity/sale-state mutation by OTA recovery. The log includes asynchronous cleanup warnings after the helper closes its disposable schema while a background scheduler from the Spring test context is still stopping; they did not affect test outcomes or shared data. The disposable schema was cleaned, and no original/shared development database was changed. T055 is now marked `[X]`. T051/T052 remain independent; T021 provider evidence remains external.
+
+### T052 quickstart verification exception (2026-10-30T09:37:00+07:00)
+
+Ran the quickstart command from `003.2-workshop-operations/quickstart.md` with the supplied local MySQL test connection and `git diff --check`. The full Maven run executed 981 tests and ended with **30 failures, 365 errors, and 30 skipped**. The first failures are in shared Account Management and Loyalty integration contexts, followed by repeated ApplicationContext failures in Workshop tests. This run forced the entire suite onto the named workshop test schema with `SPRING_FLYWAY_ENABLED=false`; it is not a valid full-backend readiness pass because the suite mixes H2/default contexts, feature-owned MySQL helpers, and contexts that require their own Flyway setup. The focused 003.4/003.2 MySQL runs remain passing as recorded above.
+
+T052 remains unchecked. The verification exception is environment/configuration scope, not evidence that the backend passes. The next valid run requires full-suite database/profile orchestration to run each MySQL integration suite against its own migrated disposable schema while preserving the baseline Account/Loyalty configuration. No shared or original database was reset or migrated.
+
+### Feature 003 focused verification (2026-10-30T14:20:00+07:00)
+
+Added `ppswbs_backend/scripts/verify-feature003.ps1`. It scopes only `WORKSHOP_OTA_TEST_*` variables to the child Maven process and runs the 003 producer/consumer, API, reconciliation, currency, persistence and module checks; it does not set global `TEST_JDBC_*` or disable Flyway for unrelated suites. With the supplied isolated MySQL test connection, the script completed **75 tests, zero failures/errors/skips; BUILD SUCCESS**, followed by `git diff --check`. This is valid Feature 003 evidence, but it does not satisfy the full-repository `mvn test` requirement of T052, so T052 remains unchecked.
+
+### 003.3 T007/T008 completion (2026-10-30T14:43:00+07:00)
+
+Added settlement foundation entities/repositories and append-only Flyway V30 for final bills, immutable charges, settlement cases, redacted evidence conclusions, refund-policy snapshots, business audits, and idempotency outcomes. `WorkshopSettlementMigrationIT` verifies fresh-schema application, upgrade from V29 with a retained legacy cancellation row, and idempotent replay. Against helper-owned disposable MySQL schemas, both tests passed (2/2, zero failures/errors/skips); no shared or original database was modified. T007 and T008 are marked `[X]`; later settlement stories remain unchecked.
