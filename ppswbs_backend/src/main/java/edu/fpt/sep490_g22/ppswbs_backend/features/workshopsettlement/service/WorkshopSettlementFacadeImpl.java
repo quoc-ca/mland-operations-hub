@@ -10,6 +10,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.Sett
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.CancellationHandoffOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.OpenCancellationHandoffCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.ApplyVerifiedSettlementPaymentEvidenceCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementPaymentEvidenceOutcome;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,19 @@ public class WorkshopSettlementFacadeImpl implements WorkshopSettlementFacade {
     private final SettlementCancellationCaseRepository caseRepository;
     private final SettlementHandoffIdempotencyRepository idempotencyRepository;
     private final ObjectMapper objectMapper;
+
+    /**
+     * Payment evidence is accepted only after the bill/evidence consumer exists.
+     * Keeping this boundary fail-closed prevents a paymentintegration caller from
+     * accidentally changing settlement truth while the bill foundation is being built.
+     */
+    @Override
+    @Transactional
+    public SettlementPaymentEvidenceOutcome applyVerifiedSettlementPaymentEvidence(
+            ApplyVerifiedSettlementPaymentEvidenceCommand command) {
+        if (command == null) throw new WorkshopSettlementValidationException("command is required");
+        return SettlementPaymentEvidenceOutcome.rejected("SETTLEMENT_BILL_NOT_READY");
+    }
 
     @Override
     @Transactional

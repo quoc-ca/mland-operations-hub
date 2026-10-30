@@ -1,7 +1,7 @@
 # Tasks: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-30
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -40,8 +40,8 @@ owner boundaries.
 **Purpose**: create shared retained state, authorization, audit, idempotency, and
 provider-boundary behavior before any user-story command.
 
-- [ ] T007 Create approved JPA entities/repositories for one booking-scoped final bill, immutable charge/correction, settlement case, redacted provider-evidence conclusion, policy snapshot, business audit, and idempotency outcome in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/{entity,dao}/`.
-- [ ] T008 Create an append-only preservation migration and empty-database plus upgrade/recovery coverage in `ppswbs_backend/src/main/resources/db/migration/` and `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementMigrationIT.java`; reset only dev/test with no retained booking/customer data after preflight.
+- [X] T007 Create approved JPA entities/repositories for one booking-scoped final bill, immutable charge/correction, settlement case, redacted provider-evidence conclusion, policy snapshot, business audit, and idempotency outcome in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/{entity,dao}/`.
+- [X] T008 Create an append-only preservation migration and empty-database plus upgrade/recovery coverage in `ppswbs_backend/src/main/resources/db/migration/` and `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopsettlement/WorkshopSettlementMigrationIT.java`; reset only dev/test with no retained booking/customer data after preflight.
 - [ ] T009 [P] Implement server-side authority denial and minimal business-audit evidence in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/WorkshopSettlementAuthorizationService.java`; denied commands have no side effect and audit excludes raw token, QR, callback payload, secret, or unnecessary PII.
 - [ ] T010 [P] Implement client `Idempotency-Key` handling in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/SettlementIdempotencyService.java`; same key plus semantically identical content returns the original outcome and changed reuse returns `409 IDEMPOTENCY_CONFLICT`.
 - [ ] T011 Implement the shared `paymentintegration` dispatch consumer in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/`; it accepts only redacted verified `FINAL_PAYMENT`/`REFUND` evidence, checks frozen reference/amount/currency, and never exposes a VNPay HTTP controller in this module.
