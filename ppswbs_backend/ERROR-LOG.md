@@ -2598,3 +2598,5 @@ Expanded `ApplyVerifiedSettlementPaymentEvidenceCommand` with the redacted dispa
 ### paymentintegration T006 implementation slice (2026-10-30)
 
 Added the initial `paymentintegration` Modulith module: runtime VNPay properties now live in the owning technical module, a durable owner registration/receipt schema V32, immutable registration facade, HMAC-SHA512 verifier, redacted owner dispatch service, and the single `GET /api/v1/integrations/payments/vnpay/events` acknowledgement controller. The Modulith boundary plus Booking facade, settlement evidence-command and VNPay property tests passed 12/12. This is not yet T006-complete: payment-attempt registration is not wired into every Booking/Settlement payment creation path, and Sandbox callback acceptance/evidence remains external.
+
+Added `BookingDepositPaymentAttemptService` to create a pending direct-booking deposit attempt and register its immutable `DEP-*` merchant reference, amount and VND owner mapping before redirect. Focused `BookingDepositPaymentAttemptServiceTest` passed 1/1. The service is ready for the Booking payment-initiation route; no OTA account or provider credential is involved.
