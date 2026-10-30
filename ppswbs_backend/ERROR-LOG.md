@@ -2128,3 +2128,241 @@ location owner must publish an approved `locationId`-to-pickup-origin facade.
 The teams must also name the approved carrier service/prepaid mapping. Once
 these facts and their failure semantics are available, FE-08 can define and
 test the provider-neutral port and local mock without guessing.
+
+## BE-DESIGN-0027 — FE-08 migration versions collide after develop integration
+
+- **Recorded at:** 2026-10-30T15:10:33+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 T059–T062 and cart integration verification
+- **Status:** BLOCKED
+
+The current checkout contains both `V22__ota_connectivity.sql` and
+`V22__retail_variant_id_bigint.sql`, and both
+`V23__member_workshop_booking_quotes.sql` and `V23__retail_variant_holds.sql`.
+Flyway requires distinct versioned migrations. FE-08 implementation readiness
+allocates V22/V23 to retail and V24/V25 to future shipping work; those
+allocations conflict with the merged Workshop files. The previous FE-08 unit
+tests did not verify these migrations on MySQL. The history and data state of
+all shared databases is not known from this checkout.
+
+Thinh requested reconciliation and FE-02 cart integration. Before renaming
+the retail migrations or changing the allocation, the team needs to confirm
+which V22/V23 migrations have been applied in any database that must be
+preserved, and agree on canonical subsequent versions and an upgrade path.
+Renaming an applied migration may invalidate Flyway history; resetting data or
+repairing history is not authorized by the request. Once the history and
+allocation are confirmed, update only the appropriate FE-08 files and verify
+fresh and supported upgrade paths on MySQL before claiming the issue fixed.
+
+At this stop, no application source, migration, or test was changed in this
+turn, and no database was accessed or modified. Repository file inspection is
+the evidence; no Flyway execution or integration test was run in this turn.
+
+### Numbering update — 2026-10-30
+
+Thinh directed moving the FE-08 identifier migration to V24 and the FE-08
+guard/hold migration to V25. The Workshop V22 and V23 files remain unchanged;
+future FE-08 shipping migrations require new allocation. This resolves the
+duplicate versions in the current repository only. Applied migration history
+in shared databases has not been checked, so supported upgrades and MySQL
+verification remain open. No database was modified.
+
+### History confirmation — 2026-10-30
+
+Thinh confirmed that the old FE-08 V22/V23 migrations have not been applied to
+any database whose data must be preserved. This clears that history decision
+for the V24/V25 renumbering. MySQL fresh and upgrade verification remain open;
+no database was accessed or changed by this confirmation.
+
+## BE-DESIGN-0028 — Cart price projection is absent from the FE-08 API contract
+
+- **Recorded at:** 2026-10-30T15:31:40+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 T018/T019/T062, cart projection integration
+- **Status:** BLOCKED
+
+FE-08 `spec.md` US1 acceptance scenario 1 requires an added item to appear
+with its current indicative price. The FE-02 `CatalogueSalesFacade.readSaleFacts`
+provides `appliedPrice`, currency, eligibility and available quantity.
+However, FE-08 `retail-order-and-fulfillment.openapi.yaml` defines
+`CartLineView` with only id, variantId, locationId and quantity, and
+`implementation-readiness.md` requires retaining cart REST semantics. The
+current `CartDtos.CartLineView` matches that API and cannot return the price.
+The sources also do not establish whether a quantity larger than the current
+unlocked availability should be rejected while editing the cart or only at
+checkout, or what projection should be returned when an existing variant is
+missing or no longer eligible.
+
+Selecting new response fields, money representation, unavailable-item
+behavior or a stock-rejection policy would change the public API or decide
+business behavior without an agreed contract. FE-08 owner should approve the
+cart response fields and error/unavailable semantics, and reconcile the FE-08
+OpenAPI and readiness with the specification. Existing FE-02 read results
+remain indicative; checkout must revalidate under the locked context.
+
+In this continuation the above source files and git status were inspected; no
+application code, migration, test, or database was changed. The earlier
+FE-08 migration renumbering, cart eligibility adapter and associated tests
+remain in the working tree. No tests were run during this continuation.
+
+### Cart projection decision — 2026-10-30
+
+Thinh approved adding product name, SKU, size, indicative price, available
+quantity and sale eligibility to each cart line. An unavailable product
+remains in the cart so the Member can remove it. Values are indicative and
+checkout revalidation remains necessary. The separate question of whether
+an excessive cart quantity is rejected at edit time remains open.
+
+### Cart quantity decision — 2026-10-30
+
+Thinh decided that a Member may select only the quantity currently available
+when adding or changing a cart line. Availability is indicative and the
+complete purchase must still be revalidated under the checkout lock.
+
+## BE-DESIGN-0029 — Retail accepted quote persistence is not specified for FE-06 integration
+
+- **Recorded at:** 2026-10-30T16:52:01+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 T025–T027, real grouped checkout and FE-06 reservation
+- **Status:** BLOCKED
+
+FE-08 `plan.md` and `data-model.md` require an acknowledged, server-priced
+benefit quote and same-transaction creation of branch orders, inventory holds
+and FE-06 benefit reservation. FE-06 `AcceptedSourceContext` requires a
+source-owned `quoteRef` and `termsDigest`; `BenefitPreview` supplies the
+digest but no persistent source quote. FE-08 OpenAPI exposes
+`benefitPreviewId` and acknowledgement. The existing `LocalRetailBenefitAdapter`
+keeps its local mock preview in a process-local map, records only member,
+selection, subtotal and expiry, and has no real FE-06 digest. Its port exposes
+no reservation operation. V14 is explicitly a local mock checkout schema;
+`implementation-readiness.md` gives no approved physical quote/snapshot schema
+or new version allocation for a durable real checkout quote.
+
+The checked FE-08 sources do not specify the approved persistent quote fields,
+keys, version/expiry and invalidation rules at the physical schema level, nor
+the migration allocation/upgrade from V14 for the real source quote and
+accepted snapshot. Implementing a real FE-06 acceptance with the in-memory
+mock would lose acknowledgement across restarts and could reserve a benefit
+against changed cart, fulfilment, shipping or terms. Selecting a new schema or
+replacing the atomic reservation with a mock would invent behavior or violate
+the approved transaction contract.
+
+The FE-08 owner and team must approve the persistent quote/snapshot schema and
+migration allocation/upgrade, including binding to member, cart version,
+server-priced product lines, branch/fulfilment and shipping quote, selection,
+FE-06 digest, displayed amounts and expiry, plus acceptance/replay and
+invalidation behavior. FE-02's locked catalogue context and FE-06's facade are
+already available; no FE-02 or FE-06 source change is assumed necessary here.
+After approval, recheck the shared migration history and implement T025–T027
+with MySQL concurrency/rollback tests and the local mock kept separate.
+
+This continuation inspected the contracts and existing code only. It changed
+this operational report and did not change application source, tests,
+migrations, task markers or database contents. Existing uncommitted FE-08
+work remains intact; no tests were run during this review.
+
+### Quote design proposal — 2026-10-30
+
+Thinh approved the source-owned checkout quote approach. The proposed physical
+records, acceptance flow and API changes are documented in
+`ppswbs-spec/features/008-retail-order-and-fulfillment/checkout-quote-design.md`.
+V26 is locally unused and proposed, not yet coordinated as a shared migration
+allocation. The GHTK shipping quote and recipient binding remain gated by the
+existing shipping-owner contracts. No migration or application code was
+created by this proposal; existing local mock checkout remains unchanged.
+
+### Quote schema and migration update — 2026-10-30
+
+Thinh selected V26 for FE-08 quote storage. V26 and the three quote entity
+mappings and owner-scoped locking repository were added. The MySQL test
+container successfully upgraded its V25 schema to V26; a MySQL integration
+test verifies persistence of item and branch snapshots and ownership-scoped
+quote locking. Coordinate V26 against other branches before shared deployment.
+Real FE-06 preview/reservation and checkout orchestration are not implemented;
+the GHTK binding gate remains separate.
+
+## BE-DESIGN-0030 — FE-08 durable checkout quote lifetime is not specified
+
+- **Recorded at:** 2026-10-30T17:11:27+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 T026–T027, durable checkout quote preview
+- **Status:** BLOCKED
+
+The approved quote design requires `created_at` and `expires_at` and forbids
+accepting an expired quote. The FE-08 spec fixes a maximum 15-minute inventory
+hold after acceptance and a payment-link duration, but the reviewed spec, plan,
+OpenAPI and quote design do not specify the lifetime of a pre-acceptance quote.
+The local mock's 15 minutes is a demo behavior, not an approved lifetime for
+the durable quote. GHTK quote expiry can impose a separate earlier limit.
+
+Thinh was asked to choose the durable quote lifetime. The service cannot issue
+the user-visible expiry without choosing that business rule. The quote entity
+was hardened to reject acceptance at or after a supplied expiry; its two unit
+tests pass. No real preview, FE-06 reservation, migration or database changes
+were made in this continuation. Resume after the owner chooses the lifetime,
+and ensure any bound shipping quote's earlier expiry is respected.
+
+### Quote lifetime decision — 2026-10-30
+
+Thinh chose 15 minutes for the pre-acceptance checkout quote. This is distinct
+from the inventory hold deadline; a bound shipping quote with an earlier expiry
+must cap the checkout quote lifetime. The GHTK boundary remains gated, so only
+the verified pickup path can be connected initially.
+
+### Pickup preview implementation — 2026-10-30
+
+The non-local pickup preview now reads FE-02 sale facts, invokes FE-06's
+read-only preview and stores the quote, terms digest and server-priced branch
+and item snapshots for 15 minutes. It creates no holds or accepted benefits.
+GHTK remains fail-closed. Real acceptance and FE-06 reservation remain open.
+MySQL FE-02/FE-06 integration and quote unit tests were run on the isolated
+test container; see the test reports for exact counts.
+
+## BE-DESIGN-0031 — FE-06 outcome contract lacks retail pre-payment cancellation
+
+- **Recorded at:** 2026-10-30T20:13:04+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 T029–T031; FE-06 G03 / T064
+- **Status:** BLOCKED
+
+FE-08 `spec.md` FR-08-039 and `plan.md` require a Member to cancel an
+`ACCEPTED_UNPAID` checkout before payment initiation, release inventory and
+loyalty holds, mark pending earn ineligible and restore the cart. The FE-06
+contract `contracts/interfaces.md` describes releasing held benefits for a
+valid cancellation but its published outcome vocabulary contains only
+`UNPAID_EXPIRY_CONFIRMED` and `VALID_WORKSHOP_CANCELLATION` for such terminal
+release. `OutcomeKind` has no retail-cancellation value;
+`LoyaltyReleaseService.ALLOWED` and `LoyaltyEarnService.CLOSING` allow the
+same expiry/workshop outcomes. `AuthoritativeOutcome` restricts workshop
+cancellation to `WORKSHOP` source kind.
+
+No inspected contract says that a Member's voluntary cancellation is an
+expiry. Reusing `UNPAID_EXPIRY_CONFIRMED` would record the wrong outcome and
+is not an approved cross-feature contract; using the workshop outcome is
+rejected for a retail source. FE-08 cannot safely open real checkout acceptance
+without an implemented, correct cancellation and release lifecycle.
+
+FE-06 owner should publish an explicit retail pre-initiation cancellation
+outcome or another approved mapping with proof/version/replay semantics and
+support it in both release and finish-ineligible operations. FE-08 owner then
+integrates it under the source lifecycle lock, including cart restoration,
+and verifies cancellation/payment/expiry races on MySQL. FE-08 does not alter
+the other owner's code or invent an outcome on their behalf.
+
+Current FE-08 work includes internal pickup acceptance via locked FE-02 facts,
+guarded inventory holds and FE-06 reservation in one transaction; it is not
+wired to the public endpoint. MySQL test class
+`RetailCatalogueMySqlIntegrationTest` passed 8 tests, including checkout
+competition and FE-06 changed-digest rollback. No real provider is connected.
+The existing uncommitted files are preserved; no database outside the isolated
+test container was modified in this continuation.
+
+### Local demo-only cancellation — 2026-10-30
+
+Thinh requested a temporary expired-order result in the backend demo. Under
+the `local` profile only, a pre-payment cancellation restores local mock order
+lines to the Member's cart and marks the local order and local hold expired.
+It does not invoke FE-06, release real inventory or claim a verified payment
+outcome. This does not resolve the FE-06 retail cancellation contract above;
+real acceptance and cancellation remain unavailable through the public API.
+Local unit and in-memory integration tests cover the demo behavior.

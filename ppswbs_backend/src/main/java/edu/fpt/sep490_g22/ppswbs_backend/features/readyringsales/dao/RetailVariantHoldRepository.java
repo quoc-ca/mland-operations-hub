@@ -21,7 +21,7 @@ public interface RetailVariantHoldRepository extends JpaRepository<RetailVariant
 
     @Query("select hold.variantId as variantId, sum(hold.quantity) as heldQuantity "
         + "from RetailVariantHold hold where hold.variantId in :variantIds and hold.status = :status "
-        + "and hold.expiresAt > :asOf group by hold.variantId")
+        + "and hold.createdAt <= :asOf group by hold.variantId")
     List<HeldQuantity> sumValidHeldByVariantIds(@Param("variantIds") List<Long> variantIds,
                                                  @Param("status") RetailVariantHoldStatus status,
                                                  @Param("asOf") Instant asOf);

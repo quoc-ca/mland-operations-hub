@@ -46,4 +46,5 @@ public class RetailOrder {
     @PrePersist void assignId() { if (id == null) id = UUID.randomUUID().toString(); }
     public void addItem(OrderItem item) { items.add(item); }
     public void markPaid() { paymentState = PaymentState.PAID; }
+    public void expireLocalDemo() { paymentState = PaymentState.EXPIRED; }
 }

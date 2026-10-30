@@ -15,10 +15,20 @@ public final class CheckoutDtos {
 
     public record BenefitSelection(@NotBlank String choice, @Size(max = 128) String voucherCode,
                                    @NotBlank String requestedPoints) { }
-    public record BenefitPreviewRequest(@NotNull @Valid BenefitSelection selection) { }
+    public record BenefitPreviewRequest(@NotNull @Valid BenefitSelection selection,
+                                        List<@Valid BranchOrderCheckoutInput> branchOrders) {
+        public BenefitPreviewRequest(BenefitSelection selection) { this(selection, null); }
+    }
     public record BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
                                      boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
-                                     String payableAmount, String expiresAt) { }
+                                     String payableAmount, String expiresAt, String shippingTotal) {
+        public BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
+                                  boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
+                                  String payableAmount, String expiresAt) {
+            this(previewId, currency, merchandiseSubtotal, shippingExcluded, discountAmount, pointsDiscountAmount,
+                payableAmount, expiresAt, "0");
+        }
+    }
     public record ShippingQuoteRequest(@NotNull @Positive Long locationId) { }
     public record ShippingQuoteView(String quoteId, Long locationId, String currency, String deliveryFee,
                                     String totalCharge, String expiresAt) { }

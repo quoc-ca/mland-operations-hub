@@ -54,6 +54,8 @@ class GroupedCheckoutIntegrationTest {
     void setUp() {
         checkoutRepository.deleteAll(); cartRepository.deleteAll(); accountRepository.deleteAll();
         when(cataloguePort.isEligibleForCart(anyLong(), anyLong())).thenReturn(true);
+        org.mockito.Mockito.lenient().when(cataloguePort.readCartProduct(anyLong())).thenReturn(
+            new edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailCataloguePort.CartProductFact("Ring", "SKU", 10, "100", "VND", "5", true));
         when(pricingPort.price(any())).thenAnswer(invocation -> ((List<edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.CartLine>) invocation.getArgument(0)).stream()
             .map(line -> new RetailCheckoutPorts.PricedLine(line.getVariantId(), line.getLocationId(), line.getQuantity(), BigDecimal.valueOf(500_000))).toList());
         when(benefitPort.preview(anyLong(), any(), any())).thenReturn(new RetailCheckoutPorts.BenefitPreview("preview-1", BigDecimal.valueOf(100_000), BigDecimal.ZERO, Instant.now().plus(15, ChronoUnit.MINUTES)));
@@ -76,7 +78,7 @@ class GroupedCheckoutIntegrationTest {
         CheckoutDtos.GroupedCheckoutView replay = checkoutService.createCheckout(memberId, "idempotency-1", request);
         CheckoutDtos.PaymentRedirectView payment = paymentService.initiate(memberId, created.id());
 
-        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'retail_grouped_checkouts'", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE UPPER(table_name) = 'RETAIL_GROUPED_CHECKOUTS'", Integer.class)).isEqualTo(1);
         assertThat(created.branchOrders()).hasSize(2);
         assertThat(created.combinedSubtotal()).isEqualTo("1500000");
         assertThat(created.combinedShippingCharge()).isEqualTo("35000");

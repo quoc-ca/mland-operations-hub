@@ -10,6 +10,13 @@ import org.springframework.stereotype.Service;
 public class LocalRetailCatalogueAdapter implements RetailCataloguePort {
 
     @Override
+    public CartProductFact readCartProduct(Long variantId) {
+        boolean eligible = variantId != null && variantId > 0 && variantId != 999999L;
+        String price = eligible ? Long.toString(500_000L + Math.floorMod(variantId, 500_000L)) : null;
+        return new CartProductFact("Demo ring", "DEMO-" + variantId, null, price, "VND", eligible ? "99" : "0", eligible);
+    }
+
+    @Override
     public boolean isEligibleForCart(Long variantId, Long locationId) {
         return variantId != null
             && variantId > 0

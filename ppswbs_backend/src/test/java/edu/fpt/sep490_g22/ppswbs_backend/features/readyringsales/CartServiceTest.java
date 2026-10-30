@@ -8,6 +8,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.CartSer
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailNotFoundException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.mockito.ArgumentCaptor;
@@ -23,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class CartServiceTest {
@@ -36,6 +38,12 @@ class CartServiceTest {
     @InjectMocks
     private CartService cartService;
 
+    @BeforeEach
+    void catalogueFacts() {
+        lenient().when(cataloguePort.readCartProduct(any()))
+            .thenReturn(new RetailCataloguePort.CartProductFact("Ring", "SKU", 10, "100", "VND", "99", true));
+    }
+
     @Test
     void addsEligibleVariantToNewMemberCartWithoutCheckoutEffects() {
         when(cataloguePort.isEligibleForCart(101L, 10L)).thenReturn(true);
@@ -48,6 +56,8 @@ class CartServiceTest {
         assertThat(result.lines().getFirst().variantId()).isEqualTo(101L);
         assertThat(result.lines().getFirst().locationId()).isEqualTo(10L);
         assertThat(result.lines().getFirst().quantity()).isEqualTo(2);
+        assertThat(result.lines().getFirst().indicativePrice()).isEqualTo("100");
+        assertThat(result.lines().getFirst().availableQuantity()).isEqualTo("99");
 
         ArgumentCaptor<RetailCart> cartCaptor = ArgumentCaptor.forClass(RetailCart.class);
         verify(cartRepository).save(cartCaptor.capture());
@@ -61,6 +71,20 @@ class CartServiceTest {
         assertThatThrownBy(() -> cartService.addLine(99L, new CartDtos.AddCartLineRequest(999999L, 10L, 1)))
             .isInstanceOf(RetailConflictException.class);
 
+        verify(cartRepository, never()).save(any(RetailCart.class));
+    }
+
+    @Test
+    void rejectsQuantityAboveAvailableAcrossLocations() {
+        RetailCart cart = new RetailCart(99L);
+        cart.addLine(101L, 10L, 2);
+        when(cataloguePort.isEligibleForCart(101L, 20L)).thenReturn(true);
+        when(cartRepository.findByMemberAccountId(99L)).thenReturn(Optional.of(cart));
+        when(cataloguePort.readCartProduct(101L)).thenReturn(
+            new RetailCataloguePort.CartProductFact("Ring", "SKU", 10, "100", "VND", "3", true));
+
+        assertThatThrownBy(() -> cartService.addLine(99L, new CartDtos.AddCartLineRequest(101L, 20L, 2)))
+            .isInstanceOf(RetailConflictException.class);
         verify(cartRepository, never()).save(any(RetailCart.class));
     }
 

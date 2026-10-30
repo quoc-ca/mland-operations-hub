@@ -15,7 +15,12 @@ public final class CartDtos {
     public record RetailCartView(long version, List<CartLineView> lines) {
     }
 
-    public record CartLineView(String id, Long variantId, Long locationId, int quantity) {
+    public record CartLineView(String id, Long variantId, Long locationId, int quantity,
+                               String productName, String sku, Integer size, String indicativePrice,
+                               String currency, String availableQuantity, boolean saleEligible) {
+        public CartLineView(String id, Long variantId, Long locationId, int quantity) {
+            this(id, variantId, locationId, quantity, null, null, null, null, null, null, false);
+        }
     }
 
     public record AddCartLineRequest(

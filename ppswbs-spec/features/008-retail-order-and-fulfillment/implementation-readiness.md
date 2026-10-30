@@ -1,7 +1,7 @@
 # FE-08 Implementation Readiness
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-30
 **Author**: Thinh
 **Last updated by**: Thinh
 
@@ -27,8 +27,8 @@ semantics of this slice.
 | --- | --- |
 | FE-08 module | `features.readyringsales`, detected as an independent Spring Modulith module. |
 | Member identity | The local adapter accepts only a positive `X-Debug-Account-Id` for the approved local demo slice. Outside `local`, FE-08 consumes the authenticated `CurrentAccountActor` issued through `accountmanagement::facade` and allows only an `ACTIVE` `MEMBER`; client-supplied account identifiers are not trusted. The local header is not a production access path. |
-| Catalogue eligibility | `readyringsales` calls its local `RetailCataloguePort` substitute. The production cart/preview adapter will use FE-02 `readSaleFacts` without a catalogue lock; checkout acceptance remains required to revalidate through `withLockedSaleContext` without changing cart REST/persistence semantics. |
-| Loyalty, payment, GHTK | Local checkout uses dedicated deterministic substitutes only in the `local` profile. Benefit preview/acceptance is a non-authoritative mock; payment is a server-side locally verified mock outcome; GHTK quote data is a non-live deterministic quote. Non-local profiles return an integration-unavailable error until the owning facade/adapter is merged. |
+| Catalogue eligibility | `readyringsales` calls its local `RetailCataloguePort` substitute. The non-local cart adapter uses FE-02 `readSaleFacts` without a catalogue lock; the cart response includes indicative product facts, while persisted cart ownership and lines remain unchanged. Checkout acceptance must revalidate through `withLockedSaleContext`. |
+| Loyalty, payment, GHTK | Local checkout uses deterministic substitutes only in the `local` profile. Outside `local`, a pickup preview uses FE-02 and FE-06 and stores an FE-08 quote for 15 minutes; real benefit reservation and acceptance are not implemented. Payment and GHTK adapters remain unavailable outside `local`. |
 | Location identity | Every cart line stores `locationId BIGINT`, matching the account-management `location_id` type. No location foreign key is created because catalogue/location ownership is outside FE-08. |
 
 ## V13 physical schema and concurrency design
@@ -77,9 +77,10 @@ it is replaced by verified VNPay evidence before production.
 
 | Migration | Deferred scope | Gate |
 | --- | --- | --- |
-| V22 | Convert empty local/test FE-08 `variant_id` columns from legacy text to canonical FE-02 `BIGINT`; the migration fails rather than deleting or coercing data | Run `scripts/local-reset-retail-demo.sql` only against an approved local/test database before migration |
-| V23 | FE-08 stable per-variant guard rows and per-checkout variant holds | FE-08 lazy-creates each missing guard inside the FE-02-locked `withGuard` path using an approved atomic MySQL provision-and-lock primitive |
-| V24 | Durable shipping quotes and accepted GHTK recipient/selection snapshots | Approved FE-02 shipping-profile boundary and real quote contract verification |
-| V25 | Shipments, carrier status events, custody evidence and recipient retention | Approved GHTK callback/security and Staff/Manager delegation design |
+| V24 | Convert empty local/test FE-08 `variant_id` columns from legacy text to canonical FE-02 `BIGINT`; the migration fails rather than deleting or coercing data | Run `scripts/local-reset-retail-demo.sql` only against an approved local/test database before migration |
+| V25 | FE-08 stable per-variant guard rows and per-checkout variant holds | FE-08 lazy-creates each missing guard inside the FE-02-locked `withGuard` path using an approved atomic MySQL provision-and-lock primitive |
+| V26 | Durable FE-08 checkout quotes and per-location/item snapshots | Thinh selected V26; coordinate with other branches and verify shared database history before deployment |
+| Unallocated | Durable shipping quotes and accepted GHTK recipient/selection snapshots | Approve a migration number, FE-02 shipping-profile boundary and real quote contract verification |
+| Unallocated | Shipments, carrier status events, custody evidence and recipient retention | Approve a migration number, GHTK callback/security and Staff/Manager delegation design |
 
-No deferred migration is authorized by this document.
+Shipping and shipment migrations remain unallocated and unauthorized by this document.

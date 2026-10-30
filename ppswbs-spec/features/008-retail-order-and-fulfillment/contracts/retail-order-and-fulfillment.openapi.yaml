@@ -367,6 +367,29 @@ components:
           type: integer
           minimum: 1
           maximum: 99
+        productName:
+          type: string
+          nullable: true
+        sku:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          nullable: true
+        indicativePrice:
+          type: string
+          nullable: true
+          description: Indicative price in whole currency units; revalidated at checkout.
+        currency:
+          type: string
+          nullable: true
+        availableQuantity:
+          type: string
+          nullable: true
+          description: Indicative available quantity; null when unavailable.
+        saleEligible:
+          type: boolean
+          description: False when the product is no longer eligible or does not exist.
     AddCartLineRequest:
       type: object
       required: [variantId, locationId, quantity]
@@ -447,10 +470,28 @@ components:
           $ref: '#/components/schemas/Recipient'
     BenefitPreviewRequest:
       type: object
-      required: [selection]
+      required: [selection, branchOrders]
       properties:
         selection:
           $ref: '#/components/schemas/BenefitSelection'
+        branchOrders:
+          type: array
+          minItems: 1
+          description: One selected fulfilment method for each cart location. GHTK requires a verified shipping quote and is not yet enabled.
+          items:
+            $ref: '#/components/schemas/BenefitPreviewBranch'
+    BenefitPreviewBranch:
+      type: object
+      required: [locationId, method]
+      properties:
+        locationId:
+          type: integer
+          format: int64
+        method:
+          type: string
+          enum: [PICKUP, GHTK]
+        shippingQuoteId:
+          type: string
     BenefitSelection:
       oneOf:
         - $ref: '#/components/schemas/NoBenefitSelection'
@@ -515,6 +556,8 @@ components:
         pointsDiscountAmount:
           $ref: '#/components/schemas/DecimalString'
         payableAmount:
+          $ref: '#/components/schemas/DecimalString'
+        shippingTotal:
           $ref: '#/components/schemas/DecimalString'
         projectedEarnedPoints:
           $ref: '#/components/schemas/DecimalString'

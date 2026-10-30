@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.math.BigInteger;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +45,7 @@ public class CartService {
         if (requestedTotal > MAX_VARIANT_QUANTITY) {
             throw new RetailConflictException("Variant quantity cannot exceed 99 across cart locations");
         }
+        ensureAvailable(request.variantId(), requestedTotal);
 
         if (existingLine == null) {
             if (cart.getLines().size() >= MAX_CART_LINES) {
@@ -65,6 +67,7 @@ public class CartService {
         if (totalAfterUpdate > MAX_VARIANT_QUANTITY) {
             throw new RetailConflictException("Variant quantity cannot exceed 99 across cart locations");
         }
+        ensureAvailable(line.getVariantId(), totalAfterUpdate);
         line.changeQuantity(request.quantity());
         cart.touch();
         return toView(cartRepository.save(cart));
@@ -102,9 +105,42 @@ public class CartService {
         }
     }
 
+    private void ensureAvailable(Long variantId, int totalQuantity) {
+        var fact = cataloguePort.readCartProduct(variantId);
+        if (fact == null) {
+            throw new RetailIntegrationUnavailableException("Catalogue returned no variant facts");
+        }
+        if (!fact.saleEligible()) {
+            throw new RetailConflictException("Variant is no longer available for sale");
+        }
+        try {
+            if (fact.availableQuantity() == null) {
+                throw new RetailIntegrationUnavailableException("Catalogue quantity is unavailable");
+            }
+            BigInteger available = new BigInteger(fact.availableQuantity());
+            if (available.signum() < 0) {
+                throw new RetailIntegrationUnavailableException("Catalogue quantity is invalid");
+            }
+            if (BigInteger.valueOf(totalQuantity).compareTo(available) > 0) {
+                throw new RetailConflictException("Requested quantity exceeds current availability");
+            }
+        } catch (NumberFormatException exception) {
+            throw new RetailIntegrationUnavailableException("Catalogue quantity is invalid");
+        }
+    }
+
     private CartDtos.RetailCartView toView(RetailCart cart) {
+        var facts = new java.util.HashMap<Long, RetailCataloguePort.CartProductFact>();
         List<CartDtos.CartLineView> lines = cart.getLines().stream()
-            .map(line -> new CartDtos.CartLineView(line.getId(), line.getVariantId(), line.getLocationId(), line.getQuantity()))
+            .map(line -> {
+                var fact = facts.computeIfAbsent(line.getVariantId(), cataloguePort::readCartProduct);
+                if (fact == null) {
+                    throw new RetailIntegrationUnavailableException("Catalogue returned no variant facts");
+                }
+                return new CartDtos.CartLineView(line.getId(), line.getVariantId(), line.getLocationId(), line.getQuantity(),
+                    fact.productName(), fact.sku(), fact.size(), fact.indicativePrice(), fact.currency(),
+                    fact.availableQuantity(), fact.saleEligible());
+            })
             .toList();
         return new CartDtos.RetailCartView(cart.getVersion() == null ? 0L : cart.getVersion(), lines);
     }

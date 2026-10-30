@@ -24,5 +24,6 @@ public class CheckoutHold {
     @Column(nullable = false, length = 32) private String status;
     @Column(name = "expires_at", nullable = false) private Instant expiresAt;
     public CheckoutHold(GroupedCheckout groupedCheckout, Instant expiresAt) { this.groupedCheckout = groupedCheckout; this.status = "LOCAL_HELD"; this.expiresAt = expiresAt; }
+    public void expireLocalDemo() { this.status = "LOCAL_EXPIRED"; }
     @PrePersist void assignId() { if (id == null) id = UUID.randomUUID().toString(); }
 }
