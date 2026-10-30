@@ -13,7 +13,7 @@ paths:
     get:
       operationId: listOtaChannels
       summary: List channel connections and mappings visible to the authorized actor.
-      description: Requires an active canonical MANAGER with global location scope. Connection and credential details remain Admin-only and are redacted from this Manager view.
+      description: Requires an active canonical MANAGER or Admin with global access. This safe mapping view redacts connection and credential details.
       responses:
         '200': { $ref: '#/components/responses/ChannelList' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -24,7 +24,7 @@ paths:
     post:
       operationId: upsertOtaChannelMapping
       summary: Create a draft channel mapping; no publish is implied.
-      description: Requires an active canonical MANAGER with global location scope or an authorized Admin. Provider connection and credential changes remain Admin-only.
+      description: Requires an active canonical MANAGER with global location scope or an authorized Admin. Provider connection and credential changes remain Admin-only. The connection/product/option tuple is the natural key; an exact duplicate returns the existing draft, while reuse with different workshop facts returns 409.
       requestBody:
         required: true
         content:
@@ -35,6 +35,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /ota-channel-mappings/{mappingId}:
@@ -43,7 +44,7 @@ paths:
     put:
       operationId: updateOtaChannelMapping
       summary: Update a draft or sales-closed mapping using optimistic versioning.
-      description: Requires an active canonical MANAGER with global location scope.
+      description: Requires an active canonical MANAGER with global location scope. The expected mapping version is compared atomically; stale updates return 409. Identity updates are rejected while any outbound inventory change is QUEUED or RETRYABLE.
       requestBody:
         required: true
         content:
@@ -61,9 +62,9 @@ paths:
     parameters:
       - $ref: '#/components/parameters/MappingId'
     post:
-      operationId: submitOtaPriceTerms
-      summary: Submit versioned price terms for commercial review; it does not enable sale.
-      description: Requires an active canonical MANAGER with global location scope.
+      operationId: recordProviderConfirmedOtaPriceTerms
+      summary: Record externally confirmed price terms as an approved immutable snapshot.
+      description: Requires an active canonical MANAGER with global location scope. The provider must have confirmed the terms outside Mland; this operation records the final Mland decision and a safe evidence reference. Decimal amounts use the ISO 4217 minor-unit exponent from the runtime currency registry, reject non-zero excess fractional digits, and are never rounded. The newest effectiveFrom not after a booking instant supersedes older snapshots; effectiveTo is exclusive, and expiry leaves no active price rather than falling back. It does not publish or enable sale. Unconfirmed proposals are not submitted or persisted.
       requestBody:
         required: true
         content:
@@ -80,6 +81,7 @@ paths:
   /ota-channel-mappings/{mappingId}/sync:
     parameters:
       - $ref: '#/components/parameters/MappingId'
+      - $ref: '#/components/parameters/IdempotencyKey'
     post:
       operationId: queueOtaMappingSync
       summary: Queue a preparation or full re-sync; delivery is asynchronous.
@@ -99,10 +101,14 @@ paths:
   /ota-channel-mappings/{mappingId}/sales-close:
     parameters:
       - $ref: '#/components/parameters/MappingId'
+      - $ref: '#/components/parameters/IdempotencyKey'
     post:
       operationId: closeOtaMappingSales
       summary: Queue an auditable sales closure for a mapping.
-      description: Requires an active canonical MANAGER with global location scope.
+      description: >-
+        Requires an active canonical MANAGER with global location scope. Immediately closes the mapping in Mland,
+        appends the Manager decision, and queues a separate OTA control command with the supplied idempotency key.
+        Provider delivery acknowledgement is tracked separately from Operations inventory source versions.
       requestBody:
         required: true
         content:
@@ -114,20 +120,26 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /ota-channel-mappings/{mappingId}/booking-enable:
     parameters:
       - $ref: '#/components/parameters/MappingId'
     post:
       operationId: requestOtaBookingEnablement
-      summary: Request booking enablement after provider readiness review.
-      description: Admin-only. Requires an active canonical Admin and complete provider-readiness evidence.
+      summary: Record an Admin readiness decision and enable booking only when all checks pass.
+      description: >-
+        Admin-only and synchronous. The Admin attests that the referenced controlled readiness record
+        was reviewed for this provider, environment and mapping. Mland stores the immutable checklist
+        evidence references, reviewer, decision and mapping fingerprint. It does not fetch or copy the
+        external evidence documents. Every required check must be VERIFIED to enable a SALES_CLOSED
+        mapping; otherwise the rejected assessment is retained and the mapping stays sales-closed.
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: '#/components/schemas/BookingEnableRequest' }
       responses:
-        '202': { $ref: '#/components/responses/OperationAccepted' }
+        '200': { $ref: '#/components/responses/BookingEnableDecision' }
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -137,23 +149,36 @@ paths:
   /ota-reconciliation-work-items:
     get:
       operationId: listOtaReconciliationWorkItems
-      summary: List authorized reconciliation work items.
-      description: Requires an active canonical MANAGER or Admin with global access.
+      summary: List authorized mapping sync and recovery work items.
+      description: >-
+        Requires an active canonical MANAGER or Admin with global access. This endpoint
+        lists only synchronization and recovery work items linked to a channel mapping.
+        Inbound-event and payout/financial work items are outside this list and are
+        surfaced through their owning API when those API contracts are available.
       parameters:
         - name: status
           in: query
-          schema: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED] }
+          schema: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, ESCALATED] }
       responses:
         '200': { $ref: '#/components/responses/ReconciliationWorkItemList' }
+        '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /ota-reconciliation-work-items/{workItemId}/resolve:
     parameters:
       - $ref: '#/components/parameters/WorkItemId'
+      - $ref: '#/components/parameters/IdempotencyKey'
     post:
       operationId: resolveOtaReconciliationWorkItem
       summary: Record an authorized, auditable reconciliation decision.
-      description: Requires an active canonical MANAGER or Admin with global access.
+      description: >-
+        Requires an active canonical MANAGER or Admin with global access. Every decision is
+        appended to immutable audit history. RESYNC_REQUESTED keeps a mapping suspended and
+        the item IN_PROGRESS while the authoritative current Operations snapshot is queued.
+        ACCEPTED resolves a full-resync item only after every required outbound snapshot kind
+        is delivered and Operations still reports the recorded source version; the mapping
+        then returns to SALES_CLOSED. REJECTED leaves the item OPEN and mapping suspended.
+        ESCALATED sets the item status to ESCALATED and leaves the mapping suspended.
       requestBody:
         required: true
         content:
@@ -263,6 +288,12 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Unique key for replay-safe sync and reconciliation actions. Reusing a key with a different request returns a conflict.
+      schema: { type: string, minLength: 8, maxLength: 128 }
     ChannelBookingId:
       name: channelBookingId
       in: path
@@ -298,7 +329,7 @@ components:
       additionalProperties: false
       required: [amount, currency]
       properties:
-        amount: { type: string, pattern: '^-?[0-9]+(\\.[0-9]{1,4})?$' }
+        amount: { type: string, pattern: '^-?[0-9]+(\.[0-9]{1,4})?$' }
         currency: { type: string, pattern: '^[A-Z]{3}$' }
     ZeroMoney:
       type: object
@@ -310,11 +341,11 @@ components:
     PriceTermsRequest:
       type: object
       additionalProperties: false
-      required: [retailAmount, targetNetAmount, commissionOrFeeReference, effectiveFrom, reason]
+      required: [retailAmount, targetNetAmount, providerConfirmationEvidenceReference, effectiveFrom, reason]
       properties:
         retailAmount: { $ref: '#/components/schemas/Money' }
         targetNetAmount: { $ref: '#/components/schemas/Money' }
-        commissionOrFeeReference: { type: string, minLength: 1, maxLength: 200 }
+        providerConfirmationEvidenceReference: { type: string, minLength: 1, maxLength: 255, description: Safe reference to provider-confirmed commercial evidence; never a credential or raw contract document. }
         effectiveFrom: { type: string, format: date-time }
         effectiveTo: { type: string, format: date-time }
         reason: { type: string, minLength: 1, maxLength: 500 }
@@ -334,10 +365,40 @@ components:
     BookingEnableRequest:
       type: object
       additionalProperties: false
-      required: [readinessEvidenceReference, reason]
+      required: [readinessRecordReference, checks, reason]
       properties:
-        readinessEvidenceReference: { type: string, minLength: 1, maxLength: 500 }
+        readinessRecordReference: { type: string, minLength: 1, maxLength: 255, description: Safe reference to the controlled provider readiness record; Admin attests it was reviewed for this mapping and environment. }
+        checks:
+          type: array
+          minItems: 12
+          maxItems: 12
+          items: { $ref: '#/components/schemas/ReadinessCheckEvidence' }
         reason: { type: string, minLength: 1, maxLength: 500 }
+    ReadinessCheckEvidence:
+      type: object
+      additionalProperties: false
+      required: [check, outcome]
+      properties:
+        check:
+          type: string
+          enum: [CONTRACT_ONBOARDING, COMMERCIAL_TERMS, CONNECTION_OWNERSHIP, CALLBACK_AUTHENTICATION, QUOTA_DELIVERY, PRODUCT_SESSION_MAPPING, DATA_ALLOWLIST, PREPARATION_SYNC, TICKET_DELIVERY_SCAN, CANCELLATION_REFUND, LATE_BOOKING_CAPACITY, FAILURE_RECONCILIATION]
+        outcome: { type: string, enum: [VERIFIED, FAILED, MISSING] }
+        evidenceReference: { type: string, minLength: 1, maxLength: 255 }
+      allOf:
+        - if:
+            properties: { outcome: { const: VERIFIED } }
+            required: [outcome]
+          then: { required: [evidenceReference] }
+    BookingEnableDecision:
+      type: object
+      additionalProperties: false
+      required: [assessmentId, decision, mappingState, safeReadinessStatus, recordedAt]
+      properties:
+        assessmentId: { type: string, format: uuid }
+        decision: { type: string, enum: [APPROVED, REJECTED] }
+        mappingState: { type: string, enum: [SALES_CLOSED, BOOKING_ENABLED] }
+        safeReadinessStatus: { type: string, enum: [INCOMPLETE, APPROVED, REJECTED] }
+        recordedAt: { type: string, format: date-time }
     ReconciliationResolutionRequest:
       type: object
       additionalProperties: false
@@ -356,28 +417,30 @@ components:
     ChannelMapping:
       type: object
       additionalProperties: false
-      required: [mappingId, channelId, provider, state, bookingEnabled, version]
+      required: [mappingId, channelId, provider, state, commercialStatus, bookingEnabled, version]
       properties:
         mappingId: { type: string, format: uuid }
         channelId: { type: string, format: uuid }
         provider: { type: string, enum: [KLOOK, GETYOURGUIDE] }
         state: { type: string, enum: [DRAFT, PREPARATION_SYNC, SALES_CLOSED, BOOKING_ENABLED, SYNC_SUSPENDED, DISABLED] }
+        commercialStatus: { type: string, enum: [PENDING_COMMERCIAL_CONFIRMATION, APPROVED] }
         bookingEnabled: { type: boolean }
-        safeReadinessStatus: { type: string, enum: [INCOMPLETE, READY_FOR_REVIEW, APPROVED, REJECTED] }
+        safeReadinessStatus: { type: string, enum: [INCOMPLETE, APPROVED, REJECTED] }
         version: { type: integer, minimum: 1 }
+        salesControlStatus: { type: string, enum: [NONE, QUEUED, DELIVERED, EXHAUSTED] }
     PriceTerms:
       type: object
       additionalProperties: false
-      required: [priceTermsId, mappingId, retailAmount, targetNetAmount, commissionOrFeeReference, effectiveFrom, status]
+      required: [priceTermsId, mappingId, retailAmount, targetNetAmount, providerConfirmationEvidenceReference, effectiveFrom, status]
       properties:
         priceTermsId: { type: string, format: uuid }
         mappingId: { type: string, format: uuid }
         retailAmount: { $ref: '#/components/schemas/Money' }
         targetNetAmount: { $ref: '#/components/schemas/Money' }
-        commissionOrFeeReference: { type: string, maxLength: 200 }
-        effectiveFrom: { type: string, format: date-time }
-        effectiveTo: { type: string, format: date-time }
-        status: { type: string, enum: [PENDING_COMMERCIAL_CONFIRMATION, APPROVED, REJECTED] }
+        providerConfirmationEvidenceReference: { type: string, maxLength: 255 }
+        effectiveFrom: { type: string, format: date-time, description: Inclusive instant when these terms begin; a later snapshot supersedes earlier terms from this instant. }
+        effectiveTo: { type: string, format: date-time, description: Exclusive end instant. After expiry no earlier snapshot is selected as fallback. }
+        status: { type: string, enum: [APPROVED] }
     ChannelList:
       type: object
       additionalProperties: false
@@ -393,8 +456,11 @@ components:
       properties:
         workItemId: { type: string, format: uuid }
         mappingId: { type: string, format: uuid }
-        status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED] }
-        correlationId: { type: string, format: uuid }
+        status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, ESCALATED] }
+        correlationId:
+          type: string
+          format: uuid
+          description: Persisted audit correlation for this item; reads do not regenerate it. An audited resolution returns its decision correlation. Development records repaired by V29 receive a tracking UUID without reconstructing historical log evidence.
         safeSummary: { type: string, maxLength: 500 }
     ReconciliationWorkItemList:
       type: object
@@ -505,6 +571,9 @@ components:
     OperationAccepted:
       description: Durable asynchronous operation accepted.
       content: { application/json: { schema: { $ref: '#/components/schemas/OperationAccepted' } } }
+    BookingEnableDecision:
+      description: Readiness decision recorded synchronously; only an approved complete assessment enables booking.
+      content: { application/json: { schema: { $ref: '#/components/schemas/BookingEnableDecision' } } }
     ReconciliationWorkItem:
       description: Reconciliation work item.
       content: { application/json: { schema: { $ref: '#/components/schemas/ReconciliationWorkItem' } } }

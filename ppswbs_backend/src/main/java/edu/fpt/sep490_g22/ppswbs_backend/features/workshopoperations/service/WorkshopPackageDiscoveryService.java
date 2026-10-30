@@ -16,8 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.AbstractMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -53,9 +53,9 @@ public class WorkshopPackageDiscoveryService {
         Instant now = Instant.now();
         return candidates.stream()
                 .filter(session -> session.getScheduledStartAt() != null && session.getScheduledStartAt().isAfter(now))
-                .map(session -> Map.entry(session, operationsFacade.getSaleEligibility(
+                .map(session -> new AbstractMap.SimpleImmutableEntry<>(session, operationsFacade.getSaleEligibility(
                         new SaleEligibilityQuery(UUID.fromString(session.getReference())))))
-                .filter(entry -> entry.getValue().customerSelectable())
+                .filter(entry -> entry.getValue() != null && entry.getValue().customerSelectable())
                 .map(entry -> toAvailability(entry.getKey(), entry.getValue()))
                 .toList();
     }

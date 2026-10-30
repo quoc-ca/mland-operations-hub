@@ -9,5 +9,11 @@ public interface OtaOutboundChangeRepository extends JpaRepository<OtaOutboundCh
     Optional<OtaOutboundChange> findByMappingIdAndSourceVersionAndChangeKind(
         Long mappingId, Long sourceVersion, OtaChangeKind changeKind);
 
+    Optional<OtaOutboundChange> findTopByMappingIdOrderBySourceVersionDescIdDesc(Long mappingId);
+
+    List<OtaOutboundChange> findAllByMapping_IdAndSourceVersion(Long mappingId, Long sourceVersion);
+
     List<OtaOutboundChange> findByStatusOrderByCreatedAtAsc(String status);
+
+    boolean existsByMapping_IdAndStatusIn(Long mappingId, List<String> statuses);
 }

@@ -62,9 +62,11 @@ public class WorkshopBookingQuoteService {
                 new TrustedSourceContext(SourceKind.WORKSHOP, member.accountId(), Instant.now(), List.of(), facts, BigInteger.ZERO),
                 selection);
         String quoteRef = UUID.randomUUID().toString();
+        Instant createdAt = Instant.now();
         MemberWorkshopBookingQuote quote = MemberWorkshopBookingQuote.builder()
                 .quoteRef(quoteRef).memberAccountId(member.accountId()).packageId(request.packageId())
                 .packageNameSnapshot(pkg.packageName()).pricePerParticipant(pkg.publicPerParticipantPrice())
+                .createdAt(createdAt).expiresAt(createdAt.plus(MemberWorkshopBookingQuote.QUOTE_TTL))
                 .participantCount(request.participantCount()).sessionFactsJson(write(sessionFacts))
                 .benefitSelectionJson(write(selection)).grossAmount(exact(preview.grossAmount()))
                 .programDiscount(exact(preview.programDiscount())).pointsUsed(exact(preview.pointsUsed()))
@@ -73,7 +75,7 @@ public class WorkshopBookingQuoteService {
         quotes.save(quote);
         long post = quote.getPostPromotionAmount();
         long deposit = Math.floorDiv(post, 2) + (post % 2);
-        return new WorkshopBookingQuoteResponse(quoteRef, str(quote.getGrossAmount()), str(quote.getProgramDiscount()),
+        return new WorkshopBookingQuoteResponse(quoteRef, quote.getExpiresAt(), str(quote.getGrossAmount()), str(quote.getProgramDiscount()),
                 str(quote.getPointsUsed()), str(quote.getPointDiscount()), str(post), str(deposit), str(post - deposit),
                 str(quote.getEarnBase()), quote.getTermsDigest(), preview.reasons());
     }

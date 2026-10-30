@@ -31,7 +31,7 @@ paths:
       responses:
         '201': {description: Pending booking and holds, content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}
         '400': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
+        '409': {description: Quote expired (`QUOTE_EXPIRED`) or selection/terms conflict, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-bookings/{bookingCode}/payment-attempts:
     post:
       summary: Start or retry the 50 percent deposit while the hold is active
@@ -140,9 +140,10 @@ components:
         requestedPoints: {type: string, pattern: '^(0|[1-9][0-9]*)$', maxLength: 19}
     WorkshopBookingQuote:
       type: object
-      required: [quoteRef, grossAmount, programDiscount, pointsUsed, pointDiscount, postPromotionAmount, depositAmount, remainingAmount, earnBase, termsDigest, reasons]
+      required: [quoteRef, expiresAt, grossAmount, programDiscount, pointsUsed, pointDiscount, postPromotionAmount, depositAmount, remainingAmount, earnBase, termsDigest, reasons]
       properties:
         quoteRef: {type: string, format: uuid}
+        expiresAt: {type: string, format: date-time, description: Exactly 30 minutes after quote preview creation.}
         grossAmount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
         programDiscount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
         pointsUsed: {type: string, pattern: '^(0|[1-9][0-9]*)$'}

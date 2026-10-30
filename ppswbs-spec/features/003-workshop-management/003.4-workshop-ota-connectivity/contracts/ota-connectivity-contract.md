@@ -1,7 +1,7 @@
 # Contract Design: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-30
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -20,7 +20,8 @@ Other modules interact with OTA through an application facade, not its entities 
 | Receive provider event | Authenticated provider adapter/callback endpoint | Safe acknowledgement plus prior/current idempotent outcome; no duplicate Mland effect. |
 | Start/continue reconciliation | Authorized active Manager globally or Admin as appropriate | Work-item reference with correlation/evidence links; no concealed correction. |
 | Force a full re-sync | Authorized actor after incident review | Obtain the authoritative current snapshot for the affected session at its existing source version, then create auditable OTA-side reconciliation/delivery work. It is not a new Operations business change and cannot reopen booking until successful confirmation. |
-| Record verified commercial evidence | Authorized Admin finance/connection workflow | Immutable reference to approved terms; never records raw credentials. |
+| Same-version resync conflicts with immutable OTA evidence | Operations/OTA integrity incident | Do not overwrite or requeue the conflicting outbound snapshot. Keep the mapping suspended and reconciliation unresolved; require explicit escalation/investigation. Do not synthesize a source version or recovery generation. |
+| Record verified commercial evidence | Active Manager globally | Manager records externally provider-confirmed terms with a safe evidence reference; this is the final Mland commercial decision. No draft review stage or unconfirmed price submission is stored. |
 
 The facade calls Booking, Operations, and Settlement using their public facades. It must not write booking, capacity, ticket, settlement, or personnel tables directly.
 
@@ -85,11 +86,11 @@ These paths are specified in the proposed OpenAPI contract. Responses expose saf
 | `GET /api/v1/ota-channels` | List visible connection/mapping readiness and safe status. | Manager's authorized OTA view is global; Admin connection view is global. |
 | `POST /api/v1/ota-channels/{channelId}/mappings` | Create a draft mapping; no implicit publish. | Canonical Admin/Manager mapping action; Manager has global location scope. Connection changes remain Admin-only. |
 | `PUT /api/v1/ota-channel-mappings/{mappingId}` | Update a draft/sales-closed mapping with optimistic versioning. | Active Manager globally. Stale version is a conflict. |
-| `POST /api/v1/ota-channel-mappings/{mappingId}/price-terms` | Submit price terms for commercial review; it does not publish or enable sale. | Active Manager globally. Unconfirmed Klook terms remain pending. |
+| `POST /api/v1/ota-channel-mappings/{mappingId}/price-terms` | Record externally provider-confirmed terms as an immutable approved price snapshot; it does not publish or enable sale. | Active Manager globally. Unconfirmed Klook terms are not submitted or stored; the mapping remains pending and sales-closed. |
 | `POST /api/v1/ota-channel-mappings/{mappingId}/sync` | Queue preparation/full re-sync. | Active Manager globally for business sync; Admin globally for authorized technical/cross-location recovery. |
 | `POST /api/v1/ota-channel-mappings/{mappingId}/sales-close` | Queue sales closure and record reason. | Active Manager globally. |
-| `POST /api/v1/ota-channel-mappings/{mappingId}/booking-enable` | Request controlled booking enablement after evidence validation. | Admin-controlled approval; rejects without provider readiness record. |
-| `GET /api/v1/ota-reconciliation-work-items` | List reconciliation work in authorized scope. | Active Manager globally or Admin globally. |
+| `POST /api/v1/ota-channel-mappings/{mappingId}/booking-enable` | Record a synchronous, immutable readiness decision. | Admin-only; enables only a `SALES_CLOSED` mapping when every required check is verified. Rejected/incomplete assessments are retained and leave sales closed. |
+| `GET /api/v1/ota-reconciliation-work-items` | List mapping-linked synchronization and recovery work items in authorized scope. Inbound-event and payout/financial work items are outside this list and belong to their respective APIs when those contracts are available. | Active Manager globally or Admin globally. |
 | `POST /api/v1/ota-reconciliation-work-items/{id}/resolve` | Record a reviewed resolution; may queue re-sync. | Active Manager globally or Admin globally, subject to the action rule; immutable decision audit. |
 | `GET /api/v1/ota-channel-bookings/{channelBookingId}/financial-evidence` | Read separated channel-payment and payout evidence. | Active Manager globally. |
 | `POST /api/v1/ota-channel-bookings/{channelBookingId}/payout-reconciliation` | Append payout, variance, dispute, adjustment, or reversal evidence. | Active Manager globally. |
@@ -114,4 +115,6 @@ Account Management supplies canonical role/status/location facts; OTA Connectivi
 
 ## Provider readiness record required before booking enablement
 
-For each provider and mapping, retain review evidence for: signed/onboarded commercial terms; production/sandbox connection authority; authentication and callback verification; product/option/session mapping; availability and sales-close test; successful test booking; exactly-one-Mland-ticket-per-person and scan proof; cancellation/refund flow; payment/payout semantics; retry, idempotency, quota, and late-booking/capacity responsibility; and a permitted-data allowlist with operational purpose. Missing evidence is a failed enablement precondition, not a warning.
+For each provider, environment and mapping, retain review evidence for: signed/onboarded commercial terms; production/sandbox connection authority; authentication and callback verification; product/option/session mapping; availability and sales-close test; successful test booking; exactly-one-Mland-ticket-per-person and scan proof; cancellation/refund flow; payment/payout semantics; retry, idempotency, quota, and late-booking/capacity responsibility; and a permitted-data allowlist with operational purpose. Missing evidence is a failed enablement precondition, not a warning.
+
+The Admin enablement command is the final review attestation. It must include the controlled readiness-record reference and exactly one outcome/evidence reference for each of the fixed checks in the OpenAPI contract. The backend stores that immutable assessment with provider, environment, mapping fingerprint, canonical Admin account reference, decision, reason, and timestamp; it does not fetch or copy the external evidence documents. A missing or failed check is retained as a rejected assessment. The decision and mapping state transition occur in one database transaction. An approval applies only to the exact recorded mapping fingerprint; mapping changes require a fresh assessment. Only `SALES_CLOSED` can be enabled; a suspended mapping must first complete its confirmed full resync and return to `SALES_CLOSED`.
