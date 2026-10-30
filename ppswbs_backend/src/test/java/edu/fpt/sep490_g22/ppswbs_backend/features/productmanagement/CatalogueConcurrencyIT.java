@@ -16,13 +16,25 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.Prod
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueFlowFixture;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueTestSupport;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.Concurrently;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.RealRetailHolds;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.CatalogueMediaObject;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueMediaCleanupService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CreateProductService.ImageInput;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.MediaStoragePort;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ProductImageService;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,11 +45,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Part of T084 on MySQL with real concurrent transactions: delete vs publish, the same command key sent twice
  * at once, and two applications of one approval (FR-025/026/028). Races with new holds, quantity and accepted
- * orders need the real FE-08 adapter (T003/T019) and are not covered here.
+ * orders run against the REAL FE-08 source ({@link RealRetailHolds}, develop b0e7796); FE-08's payment flow is not
+ * on develop yet, so the settlement plays that caller through FE-08's own hold services.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles(CatalogueTestSupport.MYSQL_PROFILE)
-@Import(CatalogueFlowFixture.class)
+@Import({CatalogueFlowFixture.class, RealRetailHolds.class})
 class CatalogueConcurrencyIT {
 
     @Autowired private CatalogueFlowFixture fixture;
@@ -50,6 +63,13 @@ class CatalogueConcurrencyIT {
     @Autowired private PriceApplicationRepository applications;
     @Autowired private CatalogueCommandReceiptRepository receipts;
     @Autowired private TransactionTemplate transaction;
+    @Autowired private RealRetailHolds retail;
+    @Autowired private CatalogueSalesFacade sales;
+    @Autowired private CatalogueMediaCleanupService cleanup;
+    @Autowired private ProductImageService imageService;
+    /** Stand-in for the image provider only (the real Cloudinary call is T051); holds stay real. */
+    @MockitoBean private MediaStoragePort storage;
+    @Autowired private ProductVariantRepository variants;
 
     @Test
     void deleteAndPublishAtTheSameTimeNeverLeaveADeletedProductPublished() {
@@ -134,6 +154,138 @@ class CatalogueConcurrencyIT {
                         error -> assertThat(error.code()).isEqualTo(CatalogueErrorCode.REVIEW_NOT_CURRENT)));
         assertThat(fixture.proposalsOf(fixture.currentReview(productId).getId()))
                 .filteredOn(PriceProposal::isCurrentPending).hasSize(2);
+    }
+
+    @Test
+    void deleteRacingANewHoldNeverHoldsADeletedProductAndOldHoldsCanStillBeSettled() {
+        for (int round = 0; round < 3; round++) {
+            long productId = fixture.publishedProduct(STAFF, MANAGER);
+            long sizeId = transaction.execute(status -> variants.findByProductIdOrderByRingSizeAsc(productId)).get(0).getId();
+            String old = retail.newCheckout();
+            retail.hold(old, sizeId, 1);
+            long version = fixture.productVersion(productId);
+            String racing = retail.newCheckout();
+
+            List<Concurrently.Outcome<Object>> outcomes = Concurrently.run(
+                    () -> deletion.delete(MANAGER, UUID.randomUUID(), Long.toString(productId), version),
+                    () -> retail.hold(racing, sizeId, 1));
+
+            assertThat(outcomes.get(0).succeeded()).isTrue();
+            assertThat(product(productId).isDeleted()).isTrue();
+            if (!outcomes.get(1).succeeded()) {
+                assertThat(outcomes.get(1).failure()).isInstanceOfSatisfying(CatalogueSalesException.class,
+                        error -> assertThat(error.reason()).isEqualTo(CatalogueSalesException.Reason.NOT_FOR_SALE));
+            }
+            // The hold accepted before deletion is settled and sold once through the historical path.
+            UUID sale = UUID.randomUUID();
+            retail.settleAndRecord(old, sizeId, 1, sale);
+            retail.settleAndRecord(old, sizeId, 1, sale);
+            assertThat(retail.holdStatus(old, sizeId)).isEqualTo("SETTLED");
+            java.math.BigInteger remaining = transaction.execute(status -> variants.findById(sizeId).orElseThrow().getRemainingUnsold());
+            assertThat(remaining)
+                    .isEqualTo(java.math.BigInteger.TWO);
+        }
+    }
+
+    @Test
+    void deleteRacingApprovalOrPriceApplicationLeavesAConsistentProduct() {
+        for (int round = 0; round < 3; round++) {
+            // Delete vs approve of the pending review.
+            long reviewed = fixture.draftProduct(STAFF);
+            fixture.addReadyImage(reviewed, STAFF);
+            fixture.submit(reviewed, STAFF);
+            long reviewedVersion = fixture.productVersion(reviewed);
+            List<Concurrently.Outcome<Object>> approve = Concurrently.run(
+                    () -> deletion.delete(MANAGER, UUID.randomUUID(), Long.toString(reviewed), reviewedVersion),
+                    () -> {
+                        fixture.approveAll(reviewed, MANAGER);
+                        return null;
+                    });
+            assertExpectedFailures(approve);
+            assertThat(approve).anyMatch(Concurrently.Outcome::succeeded);
+            assertThat(product(reviewed).isPublished()).isFalse();
+
+            // Delete vs application of an approved price.
+            long approved = fixture.draftProduct(STAFF);
+            fixture.addReadyImage(approved, STAFF);
+            fixture.submit(approved, STAFF);
+            fixture.approveAll(approved, MANAGER);
+            PriceProposal proposal = fixture.proposalsOf(fixture.currentReview(approved).getId()).get(0);
+            long approvedVersion = fixture.productVersion(approved);
+            List<Concurrently.Outcome<Object>> apply = Concurrently.run(
+                    () -> deletion.delete(MANAGER, UUID.randomUUID(), Long.toString(approved), approvedVersion),
+                    () -> applyService.apply(STAFF, UUID.randomUUID(), proposal.getId().toString(), proposal.getVersion()));
+            assertExpectedFailures(apply);
+            assertThat(apply).anyMatch(Concurrently.Outcome::succeeded);
+            Product after = product(approved);
+            assertThat(after.isDeleted() && after.isPublished()).isFalse();
+            if (!apply.get(1).succeeded()) {
+                List<?> recorded = transaction.execute(status ->
+                        applications.findByVariantIdOrderByAppliedSequenceAsc(proposal.getVariantId()));
+                assertThat(recorded).isEmpty();
+            }
+        }
+    }
+
+    private static void assertExpectedFailures(List<Concurrently.Outcome<Object>> outcomes) {
+        outcomes.stream().filter(outcome -> !outcome.succeeded()).forEach(outcome ->
+                assertThat(outcome.failure()).isInstanceOfSatisfying(CatalogueException.class, error ->
+                        assertThat(error.code()).isIn(CatalogueErrorCode.STALE_VERSION, CatalogueErrorCode.PRODUCT_DELETED,
+                                CatalogueErrorCode.REVIEW_NOT_CURRENT)));
+    }
+
+    @Test
+    void retainRacingCleanupNeverKeepsAReferenceToADeletedImage() {
+        for (int round = 0; round < 5; round++) {
+            Instant now = Instant.now();
+            // Never attached for 25 hours: eligible for cleanup until something references it.
+            UUID image = fixture.readyMedia(STAFF, now.minus(Duration.ofHours(25)));
+            String owner = "order-item:" + UUID.randomUUID();
+
+            List<Concurrently.Outcome<Object>> outcomes = Concurrently.run(
+                    () -> cleanup.clean(image, now),
+                    () -> transaction.execute(status -> {
+                        sales.retainMediaReferences(owner, List.of(image));
+                        return "retained";
+                    }));
+
+            CatalogueMediaObject after = fixture.media(image);
+            if (outcomes.get(1).succeeded()) {
+                assertThat(outcomes.get(0).value()).isEqualTo(CatalogueMediaCleanupService.Result.SKIPPED);
+                assertThat(after.getState()).isEqualTo(CatalogueMediaObject.State.READY);
+            } else {
+                assertThat(outcomes.get(1).failure()).isInstanceOfSatisfying(CatalogueSalesException.class,
+                        error -> assertThat(error.reason()).isEqualTo(CatalogueSalesException.Reason.MEDIA_NOT_AVAILABLE));
+                assertThat(after.getState()).isEqualTo(CatalogueMediaObject.State.DELETED);
+            }
+        }
+    }
+
+    @Test
+    void attachRacingCleanupNeverShowsADeletedImageOnAProduct() {
+        for (int round = 0; round < 5; round++) {
+            Instant now = Instant.now();
+            long productId = fixture.draftProduct(STAFF);
+            UUID image = fixture.readyMedia(STAFF, now.minus(Duration.ofHours(25)));
+            long version = fixture.productVersion(productId);
+
+            List<Concurrently.Outcome<Object>> outcomes = Concurrently.run(
+                    () -> cleanup.clean(image, now),
+                    () -> imageService.replace(STAFF, UUID.randomUUID(), Long.toString(productId), version,
+                            List.of(new ImageInput(image, "Ảnh", 0))));
+
+            CatalogueMediaObject after = fixture.media(image);
+            boolean onProduct = fixture.images(productId).stream().anyMatch(row -> row.getMediaObjectId().equals(image));
+            if (outcomes.get(1).succeeded()) {
+                assertThat(onProduct).isTrue();
+                assertThat(after.getState()).isEqualTo(CatalogueMediaObject.State.READY);
+            } else {
+                assertThat(outcomes.get(1).failure()).isInstanceOfSatisfying(CatalogueException.class,
+                        error -> assertThat(error.code()).isEqualTo(CatalogueErrorCode.MEDIA_NOT_FOUND));
+                assertThat(onProduct).isFalse();
+                assertThat(after.getState()).isEqualTo(CatalogueMediaObject.State.DELETED);
+            }
+        }
     }
 
     private Product product(long productId) {
