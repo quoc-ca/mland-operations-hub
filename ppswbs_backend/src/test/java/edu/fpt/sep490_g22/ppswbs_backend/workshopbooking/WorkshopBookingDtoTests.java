@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -53,7 +54,7 @@ class WorkshopBookingDtoTests {
         // Valid request
         CreateBookingRequest valid = CreateBookingRequest.builder()
                 .packageId(1L)
-                .sessionIds(List.of(10L, 11L))
+                .sessionReferences(List.of(UUID.randomUUID(), UUID.randomUUID()))
                 .participantCount(2)
                 .contactEmail("test@mland.vn")
                 .contactPhone("0901234567")
@@ -62,7 +63,7 @@ class WorkshopBookingDtoTests {
 
         // Missing packageId
         CreateBookingRequest missingPkg = CreateBookingRequest.builder()
-                .sessionIds(List.of(10L))
+                .sessionReferences(List.of(UUID.randomUUID()))
                 .participantCount(1)
                 .contactEmail("test@mland.vn")
                 .contactPhone("0901234567")
@@ -73,7 +74,7 @@ class WorkshopBookingDtoTests {
         // Invalid participant count < 1
         CreateBookingRequest zeroParticipants = CreateBookingRequest.builder()
                 .packageId(1L)
-                .sessionIds(List.of(10L))
+                .sessionReferences(List.of(UUID.randomUUID()))
                 .participantCount(0)
                 .contactEmail("test@mland.vn")
                 .contactPhone("0901234567")
@@ -84,7 +85,7 @@ class WorkshopBookingDtoTests {
         // Invalid email format
         CreateBookingRequest badEmail = CreateBookingRequest.builder()
                 .packageId(1L)
-                .sessionIds(List.of(10L))
+                .sessionReferences(List.of(UUID.randomUUID()))
                 .participantCount(1)
                 .contactEmail("not-an-email")
                 .contactPhone("0901234567")
@@ -95,17 +96,41 @@ class WorkshopBookingDtoTests {
         // Too many sessions (> 2)
         CreateBookingRequest threeSessions = CreateBookingRequest.builder()
                 .packageId(1L)
-                .sessionIds(List.of(10L, 11L, 12L))
+                .sessionReferences(List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
                 .participantCount(1)
                 .contactEmail("test@mland.vn")
                 .contactPhone("0901234567")
                 .build();
         Set<ConstraintViolation<CreateBookingRequest>> v4 = validator.validate(threeSessions);
         assertThat(v4).anyMatch(v -> v.getMessage().contains("1 or 2 sessions"));
+
+        UUID duplicateReference = UUID.randomUUID();
+        CreateBookingRequest duplicateSessions = CreateBookingRequest.builder()
+                .packageId(1L)
+                .sessionReferences(List.of(duplicateReference, duplicateReference))
+                .participantCount(1)
+                .contactEmail("test@mland.vn")
+                .contactPhone("0901234567")
+                .build();
+        Set<ConstraintViolation<CreateBookingRequest>> v5 = validator.validate(duplicateSessions);
+        assertThat(v5).anyMatch(v -> v.getMessage().contains("must be unique"));
     }
 
     @Test
-    @DisplayName("T013-2: GuestLookupRequest validates that exactly one of contactEmail or contactPhone is provided")
+    @DisplayName("T013-2: Booking response DTOs expose opaque UUID session references")
+    void bookingResponsesUseUuidReferences() {
+        assertThat(BookedSessionDto.class.getDeclaredFields())
+                .extracting(java.lang.reflect.Field::getName)
+                .contains("sessionReference")
+                .doesNotContain("sessionId");
+        assertThat(BookingTicketDto.class.getDeclaredFields())
+                .extracting(java.lang.reflect.Field::getName)
+                .contains("sessionReferences")
+                .doesNotContain("sessionIds");
+    }
+
+    @Test
+    @DisplayName("T013-3: GuestLookupRequest validates that exactly one of contactEmail or contactPhone is provided")
     void verifyGuestLookupRequestValidation() {
         // Valid: with email only
         GuestLookupRequest emailOnly = GuestLookupRequest.builder()

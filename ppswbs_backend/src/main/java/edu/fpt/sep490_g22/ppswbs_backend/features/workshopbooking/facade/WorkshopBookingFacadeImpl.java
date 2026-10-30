@@ -205,6 +205,12 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade {
 
         try {
             JsonNode node = objectMapper.readTree(intent.getDeliverySnapshot());
+            // Hibernate/H2 may expose a JSON-typed String column as a JSON string
+            // containing the serialized object. Accept that representation while
+            // continuing to read object-valued JSON columns directly.
+            if (node.isTextual()) {
+                node = objectMapper.readTree(node.asText());
+            }
             String kind = node.path("notificationKind").asText(intent.getNotificationKind());
             String recipient = node.path("storedRecipient").asText("");
             String content = node.path("renderedBookingContent").asText("");
