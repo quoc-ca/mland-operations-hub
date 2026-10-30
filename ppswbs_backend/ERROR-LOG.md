@@ -2562,3 +2562,7 @@ The combined boundary suite `WorkshopSettlementModuleTest`, `WorkshopSettlementC
 ### 003.3 T012 transport foundation (2026-10-30T15:00:00+07:00)
 
 Added validated transport DTOs for guest proof, variable charges, reasons, and refund-policy revisions, plus scoped typed `SettlementProblem` mapping for validation, authorization, conflict, and business-validation failures. `SettlementDtoValidationTest` passed 2/2 with zero failures/errors/skips. T012 remains unchecked until the OpenAPI controllers and ownership/proof transport adapters are implemented.
+
+### 003.3 T013 completion (2026-10-30T15:06:00+07:00)
+
+Added `FinalBookingBillService` to create at most one booking-scoped bill from the frozen Booking projection only after Operations reports settlement readiness. Existing bills replay without recalculation; missing/invalid frozen amounts and not-ready bookings fail closed. `FinalBookingBillServiceTest` passed 3/3 with zero failures/errors/skips. T013 is marked `[X]`.
