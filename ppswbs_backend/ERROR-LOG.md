@@ -2590,3 +2590,7 @@ The repository had VNPay property placeholders, but also contained source-level 
 Added typed runtime `VnpayProperties` with `VNPAY_ENABLED` defaulting to false. When enabled, startup validation requires merchant code, HMAC secret, payment URL, HTTPS return/IPN/QueryDR/refund URLs; disabled development/test contexts remain runnable without credentials. `VnpayPropertiesTest` passed 3/3. This is configuration enforcement, not provider onboarding or paymentintegration dispatch implementation.
 
 Local startup follow-up: `spring-boot:run` was blocked by an unrelated missing `${WORKSHOP_OPERATIONS_IDEMPOTENCY_LEASE_DURATION}` placeholder in the shared Operations configuration. Added the existing safe lease default `PT30S`; no database or business logic changed. The reported startup failure was configuration resolution, not VNPay validation.
+
+### Shared payment evidence contract preparation (2026-10-30)
+
+Expanded `ApplyVerifiedSettlementPaymentEvidenceCommand` with the redacted dispatch fields required by the shared paymentintegration boundary: immutable `merchantReference`, `paymentKind` (`FINAL_PAYMENT` or `REFUND`), positive whole-VND `amountVnd`, and `currencyCode` (`VND`). Added constructor validation and focused 2/2 unit coverage; updated the inter-feature contract. This prepares T006/T011 but does not mark either task complete: the paymentintegration module, checksum ingress, durable owner registry, deduplication and real VNPay callback evidence remain outstanding.
