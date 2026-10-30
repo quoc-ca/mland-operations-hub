@@ -2594,3 +2594,7 @@ Local startup follow-up: `spring-boot:run` was blocked by an unrelated missing `
 ### Shared payment evidence contract preparation (2026-10-30)
 
 Expanded `ApplyVerifiedSettlementPaymentEvidenceCommand` with the redacted dispatch fields required by the shared paymentintegration boundary: immutable `merchantReference`, `paymentKind` (`FINAL_PAYMENT` or `REFUND`), positive whole-VND `amountVnd`, and `currencyCode` (`VND`). Added constructor validation and focused 2/2 unit coverage; updated the inter-feature contract. This prepares T006/T011 but does not mark either task complete: the paymentintegration module, checksum ingress, durable owner registry, deduplication and real VNPay callback evidence remain outstanding.
+
+### paymentintegration T006 implementation slice (2026-10-30)
+
+Added the initial `paymentintegration` Modulith module: runtime VNPay properties now live in the owning technical module, a durable owner registration/receipt schema V32, immutable registration facade, HMAC-SHA512 verifier, redacted owner dispatch service, and the single `GET /api/v1/integrations/payments/vnpay/events` acknowledgement controller. The Modulith boundary plus Booking facade, settlement evidence-command and VNPay property tests passed 12/12. This is not yet T006-complete: payment-attempt registration is not wired into every Booking/Settlement payment creation path, and Sandbox callback acceptance/evidence remains external.

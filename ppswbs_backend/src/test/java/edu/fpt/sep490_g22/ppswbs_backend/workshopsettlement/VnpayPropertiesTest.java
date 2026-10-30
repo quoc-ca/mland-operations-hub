@@ -1,6 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.config.VnpayProperties;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.config.VnpayProperties;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
