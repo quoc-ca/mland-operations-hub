@@ -2777,3 +2777,68 @@ Re-ran the local paymentintegration verification after the owner reported that t
 The owner reports there is no other Merchant View administrator account available to add the phone as a user. The official Merchant View first-login guide describes phone, OTP, and password setup; its separate add-user guide requires an already authenticated Merchant View user. Thus the existing email/password Merchant Admin login does not provide a demonstrated self-service path to provision this VNPAY ID. This blocks Merchant View reconciliation and leaves the earlier refund outcome `UNKNOWN`. No provider request, refund, database change, or task-marker change was made. T005 stays unchecked until the account/authority issue is resolved and redacted live QueryDR/refund evidence is available; T037 remains pending isolated-MySQL V34 migration acceptance.
 
 Evidence sources: [VNPAY Merchant View first-login guide](https://doitac-download.vnpay.vn/merchant-view-file/hdsd-mv/pages/vi/1-dang-nhap/1-dang-nhap-lan-dau-va-thiet-lap-mat-khau.html), [Merchant View add-user guide](https://doitac-download.vnpay.vn/merchant-view-file/hdsd-mv/pages/vi/5-quan-ly-nguoi-dung/2-them-moi-nguoi-dung.html), and the official [QueryDR/refund API guide](https://sandbox.vnpayment.vn/apis/docs/truy-van-hoan-tien/querydr%26refund.html).
+
+## BE-DESIGN-0044 — 003.1 T036 customer lookup projection cannot represent the current Operations schedule
+
+- **Recorded at:** `2026-10-31T03:13:34+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.1 Workshop Booking`, T036; dependent customer-read routes T037/T040 and lookup acceptance T041
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/tasks.md`, T036 and T041.
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/spec.md`, FR-016, FR-017b4 and FR-017b10: authorized Guest/Member/Magic-Link reads expose a safe booking/ticket projection, and the current ticket/session-entitlement projection must come from 003.2 so a later replacement or verified refund does not display a stale schedule.
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/contracts/workshop-booking.openapi.yaml`, `BookingSummary` / `BookedSession`: sessions expose only `sessionReference`, `locationId`, and `ordinal`; no current start/end schedule fields are defined.
+- Backend `WorkshopOperationsFacade` delivery projection: `DeliverySafeTicket` contains `ticketReference`, `ticketCode`, and `sessionEntitlements`; `SessionEntitlementProjection` contains only `locationReference`, `scheduledStart`, and `scheduledEnd`, with no `sessionReference` to map an entitlement to a committed session safely.
+- `WorkshopBookingFacadeImpl` already implements a boolean `verifyCustomerBookingAccess` decision for Member ownership or exactly-one contact proof without returning contact PII, but no lookup service currently assembles the customer projection.
+
+### Observed facts and unknowns
+
+- Fact: the specification requires current schedule and ticket entitlement information from Operations for each authorized lookup.
+- Fact: neither the OpenAPI response nor the Operations entitlement record provides the identifiers and schedule fields needed to return that information as an unambiguous `BookedSession` projection.
+- Fact: pending booking lookup must omit tickets; unauthorized lookup must return no booking data. These privacy rules are clear and do not resolve the missing projection mapping.
+- Unknown: whether the owning 003.2 facade will add session UUID to each entitlement, and whether 003.1's `BookedSession` schema should include `scheduledStart`/`scheduledEnd` or use a separate per-ticket entitlement shape.
+- No service, test, API contract, task marker, or database was changed; no test was run in this investigation.
+
+### Why implementation stops and resumption condition
+
+Implementing confirmed lookup with the current contract would either return stale booking-side schedule data, omit schedule/entitlement details required by FR-017b10, or infer session identity from location/time. Those options can misrepresent changed/refunded entitlements. Do not implement T036 or its dependent customer-read API/tests until the 003.1 response and 003.2 facade projection explicitly identify current session references and schedule values. The Feature 003 owner should approve the shared projection shape with both feature owners; then update the OpenAPI/facade contract and resume T036. No claim is made that Guest/Member lookup is implemented.
+
+### BE-DESIGN-0044 owner decision and contract update — 2026-10-31
+
+The Feature 003 owner approved adding the opaque Operations session UUID and current scheduled start/end to each delivery-safe session entitlement and adding current start/end to the 003.1 `BookedSession` response. Updated `003.1-workshop-booking/spec.md`, its OpenAPI contract, the shared `workshop-interfeature-facades.md`, and the affected task descriptions. Reopened 003.2 T059 because its prior verification did not cover the newly required session UUID field. No implementation or test was run before a second projection issue was identified below; T036 remains incomplete.
+
+## BE-DESIGN-0045 — 003.1 T036 cannot return a usable QR value from the current Operations facade
+
+- **Recorded at:** `2026-10-31T03:19:16+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.1 Workshop Booking`, T036; dependent lookup projection and T041 acceptance
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/contracts/workshop-booking.openapi.yaml`: `BookingTicket.qrToken` is required and described as a signed opaque credential.
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/spec.md`, FR-017b4: authorized customer view includes QR tickets/ticket codes.
+- `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`: current `DeliverySafeTicketSet` exposes `ticketReferenceOrQrReference`, ticket code, and current session entitlements while excluding raw QR payload.
+- Backend `AttendanceTicketService.getBookingTicketProjection` currently puts `ticket.getReference()` into `DeliverySafeTicket.ticketReference`; `TicketIssueResponse` separately exposes `qrReference` as the opaque QR lookup reference. `CheckInService` resolves its `qrToken` input by looking up `qrReference`.
+- Backend `BookingTicket` stores the Operations ticket reference as `qrReference`; the existing booking projection does not distinguish a display-safe ticket identity from the scan value.
+
+### Observed facts and unknowns
+
+- Fact: the customer contract requires a scan-capable QR value, while the current Operations delivery projection does not clearly expose the value accepted by `CheckInService`.
+- Fact: treating `ticketReference` as a QR token is unsupported by the current check-in lookup implementation; T031 explicitly avoids fabricating QR values.
+- Unknown: whether 003.2 should expose its opaque `qrReference` as a bearer scan value through the delivery-safe facade, or whether 003.1 customer lookup should return ticket code only and remove `qrToken` from its response contract.
+- The approved session-reference/schedule change has been recorded in the contracts, and 003.2 T059 has been reopened for the new field. No service/controller code or tests were changed/run for T036 in this turn.
+
+### Why implementation stops and resumption condition
+
+Returning a fabricated or non-scannable value would break check-in; exposing a bearer QR value without an explicit boundary decision could change the contract's security/disclosure semantics. The Feature 003 owner must choose whether the facade returns the existing opaque `qrReference` as the customer QR value (with its bearer semantics documented), or whether the public Booking response is ticket-code-only and a separate approved scan credential flow is deferred. After that decision is encoded in the contracts, resume T059/T036 and test the value end-to-end against Operations check-in lookup without disclosing attendance or PII.
+
+### BE-DESIGN-0044/0045 owner decisions implemented and verified — 2026-10-31T03:30:00+07:00
+
+The Feature 003 owner approved both missing projection decisions: session entitlements expose the opaque Operations session UUID and current schedule/location; the customer QR value is the existing opaque Operations `qrReference` bearer value. Updated the 003.1 spec/OpenAPI, shared facade contract, and task descriptions. Implemented the Operations projection and 003.1 lookup projection using only those approved fields. Guest lookup requires booking code and exactly one contact proof; Member lookup requires authenticated ownership. Pending responses contain no ticket, denied lookup returns no booking projection, and the customer response contains no contact proof or other PII.
+
+Verification: `BookingLookupServiceTest` passed 4/4; `BookingConfirmationIT` 3/3; `WorkshopBookingLifecycleIT` 12/12; `WorkshopBookingDepositEvidenceIT` 1/1 using an isolated H2 in-memory database. `SettlementChangeFacadeIT` passed 9/9 against `ppswbs_workshop_test_20261029` using MySQL 8.0.43, with Flyway disabled and Hibernate DDL set to `none`; it covers current session UUID/location/schedule and preserved QR after replacement, plus no active ticket projection after verified refund. No schema migration, cleanup, reset, or refund request was run. The MySQL integration test inserted uniquely keyed fixture rows into the designated test schema; those rows remain there. T036 (003.1) and T059 (003.2) were marked complete with this evidence. BE-DESIGN-0044 and BE-DESIGN-0045 are resolved for these implementation tasks; downstream HTTP/UI acceptance remains tracked by T040/T041/T042 and is not claimed complete.
+
+Additional verification for the same resolution: `WorkshopBookingModuleTest` passed 7/7 on isolated H2, including Spring Modulith boundary verification. This does not cover the separately tracked HTTP/UI routes.
