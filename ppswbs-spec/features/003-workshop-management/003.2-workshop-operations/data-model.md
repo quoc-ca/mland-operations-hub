@@ -1,7 +1,7 @@
 # Data Model: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -171,6 +171,18 @@ ticket's entitlement from every replaced session to the complete resulting set;
 the persistent QR remains the same. Failure changes neither capacity nor
 entitlement. Individual attendance detail, ticket detail, Staff/audit and PII
 are never returned for this purpose.
+
+### Fixed workshop add-on catalogue
+
+Operations owns an add-on entry identified externally by an opaque UUID and
+scoped to one Package and one canonical `workshop_location.id`. It retains a
+customer-safe description, positive whole-VND price and lifecycle (`DRAFT`,
+`ACTIVE`, `RETIRED`). Active Manager changes are audited. Editing is prospective;
+each accepted Settlement charge stores the selected description and price
+snapshot and remains unchanged when the catalogue entry changes or retires. The
+Operations facade returns an eligible snapshot only for an active entry,
+published Package and active location; it never returns an internal numeric
+add-on row ID.
 
 ### Package-discovery boundary
 

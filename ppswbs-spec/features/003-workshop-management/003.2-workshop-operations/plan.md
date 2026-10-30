@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -97,6 +97,18 @@ Package discovery query/snapshot and requires `packageReference` on the
 capacity-reserve command. Operations rechecks Package publication, participant
 and selected-session rules atomically with reserve; Booking cannot authorize a
 selection from a stale discovery snapshot.
+
+### Fixed workshop add-on catalogue
+
+Operations owns fixed customer-selectable add-ons, each scoped to one Package
+and one canonical workshop location. An active Manager has global authority to
+create a draft, prospectively edit, activate, or retire an entry; every
+state-changing command is audited. Public discovery returns active entries only
+for a published Package and active location. Price is a positive whole-VND
+amount. Settlement obtains the eligible price through the Operations facade
+and stores the selected amount and description in its immutable charge, so
+later catalogue changes do not rewrite an existing bill. Customer requests
+cannot supply a price.
 
 ### Account Target-Authorization Dependency
 

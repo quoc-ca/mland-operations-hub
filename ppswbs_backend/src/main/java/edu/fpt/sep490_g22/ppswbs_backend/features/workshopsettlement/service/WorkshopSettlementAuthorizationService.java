@@ -43,6 +43,29 @@ public class WorkshopSettlementAuthorizationService {
         return actor;
     }
 
+    /** Uses the canonical actor already resolved by IdentityGate for HTTP requests. */
+    public CurrentAccountActor requireManager(CurrentAccountActor actor) {
+        requireActive(actor);
+        if (actor.role() != ActorRole.MANAGER) throw deny(actor.accountId().toString(), "MANAGER_REQUIRED");
+        return actor;
+    }
+
+    /** Manager is global for Feature 003; Staff remains scoped to active locations. */
+    public CurrentAccountActor requireManagerOrStaff(CurrentAccountActor actor, Long bookingLocationId) {
+        requireActive(actor);
+        if (actor.role() == ActorRole.MANAGER) return actor;
+        if (actor.role() != ActorRole.STAFF || bookingLocationId == null
+                || actor.activeLocationIds() == null || !actor.activeLocationIds().contains(bookingLocationId)) {
+            throw deny(actor.accountId().toString(), "LOCATION_SCOPE_DENIED");
+        }
+        return actor;
+    }
+
+    private void requireActive(CurrentAccountActor actor) {
+        if (actor == null || actor.accountId() == null) throw deny("UNKNOWN", "ACCOUNT_NOT_FOUND");
+        if (actor.status() != ActorStatus.ACTIVE) throw deny(actor.accountId().toString(), "ACCOUNT_NOT_ACTIVE");
+    }
+
     public void requireMemberOwnership(String firebaseUid, Long ownerAccountId) {
         AccountSummary actor = requireActive(firebaseUid);
         if (actor.role() != ActorRole.MEMBER || !actor.accountId().equals(ownerAccountId)) {
