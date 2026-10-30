@@ -6,6 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingAud
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingInvoiceRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingNotificationIntentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingPaymentAttemptRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingPaymentReceiptRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingSessionCommitmentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.WorkshopBookingRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
@@ -34,6 +35,7 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade {
     private final BookingSessionCommitmentRepository commitmentRepository;
     private final BookingNotificationIntentRepository notificationIntentRepository;
     private final BookingPaymentAttemptRepository paymentAttemptRepository;
+    private final BookingPaymentReceiptRepository paymentReceiptRepository;
     private final BookingAuditEvidenceRepository auditEvidenceRepository;
     private final BookingLifecycleService bookingLifecycleService;
     private final ObjectMapper objectMapper;
@@ -60,7 +62,7 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade {
 
         List<BookingSessionCommitment> commitments = commitmentRepository.findByBookingIdOrderByOrdinalAsc(booking.getId());
         List<String> sessionRefs = commitments.stream()
-                .map(c -> String.valueOf(c.getSessionId()))
+                .map(BookingSessionCommitment::getSessionReference)
                 .toList();
 
         Long locationId = commitments.isEmpty() ? 1L : commitments.get(0).getLocationId();
@@ -142,13 +144,42 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade {
         log.info("WorkshopBookingFacade.applyVerifiedDepositPaymentEvidence: bookingReference={}, evidenceRef={}, opRef={}",
                 command.bookingReference(), command.verifiedEvidenceReference(), command.operationReference());
 
-        Optional<WorkshopBooking> optBooking = bookingRepository.findByBookingCode(command.bookingReference());
+        Optional<WorkshopBooking> optBooking = bookingRepository.findLockedByBookingCode(command.bookingReference());
         if (optBooking.isEmpty()) {
             return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.NOT_READY);
         }
 
         WorkshopBooking booking = optBooking.get();
+        Optional<BookingInvoice> optInvoice = invoiceRepository.findByBookingId(booking.getId());
+        if (optInvoice.isEmpty()) {
+            return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.NOT_READY);
+        }
+        BookingInvoice invoice = optInvoice.get();
+        BookingPaymentAttempt attempt = paymentAttemptRepository
+                .findByMerchantReference(command.merchantReference()).orElse(null);
+        if (attempt == null
+                || attempt.getBooking() == null
+                || !booking.getId().equals(attempt.getBooking().getId())
+                || attempt.getInvoice() == null
+                || !invoice.getId().equals(attempt.getInvoice().getId())
+                || !invoice.getDepositAmount().equals(attempt.getAttemptAmount())
+                || !invoice.getDepositAmount().equals(command.amountVnd())
+                || !"VND".equals(invoice.getCurrency())
+                || !"VND".equals(command.currencyCode())) {
+            return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.PAYMENT_MISMATCH);
+        }
+
         if (booking.getBookingStatus() == BookingStatus.CONFIRMED) {
+            BookingPaymentReceipt receipt = paymentReceiptRepository
+                    .findByProviderEventId(command.verifiedEvidenceReference()).orElse(null);
+            if (receipt == null
+                    || receipt.getBooking() == null
+                    || !booking.getId().equals(receipt.getBooking().getId())
+                    || !command.amountVnd().equals(receipt.getAmountReceived())
+                    || receipt.getPaymentAttempt() == null
+                    || !attempt.getId().equals(receipt.getPaymentAttempt().getId())) {
+                return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.PAYMENT_MISMATCH);
+            }
             markPaymentAttemptSuccessful(command.merchantReference());
             return DepositPaymentEvidenceOutcome.accepted();
         }
@@ -160,10 +191,9 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade {
         if (booking.getHoldExpiresAt() != null && booking.getHoldExpiresAt().isBefore(Instant.now())) {
             return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.HOLD_MISSING_OR_EXPIRED);
         }
-
-        Optional<BookingInvoice> optInvoice = invoiceRepository.findByBookingId(booking.getId());
-        if (optInvoice.isEmpty()) {
-            return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.NOT_READY);
+        if (attempt.getStatus() == PaymentAttemptStatus.EXPIRED
+                || attempt.getStatus() == PaymentAttemptStatus.FAILED) {
+            return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.PAYMENT_MISMATCH);
         }
 
         try {
@@ -171,11 +201,18 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade {
                     booking.getBookingCode(),
                     command.verifiedEvidenceReference(),
                     "VERIFIED_EVIDENCE",
-                    optInvoice.get().getDepositAmount(),
+                    command.amountVnd(),
                     "PAYLOAD_HASH_" + command.verifiedEvidenceReference(),
                     command.operationReference(),
                     command.correlationReference()
             );
+            BookingPaymentReceipt receipt = paymentReceiptRepository
+                    .findByProviderEventId(command.verifiedEvidenceReference()).orElse(null);
+            if (receipt == null || !booking.getId().equals(receipt.getBooking().getId())) {
+                throw new IllegalStateException("Verified payment receipt was not persisted for this booking");
+            }
+            receipt.setPaymentAttempt(attempt);
+            paymentReceiptRepository.save(receipt);
             markPaymentAttemptSuccessful(command.merchantReference());
             return DepositPaymentEvidenceOutcome.accepted();
         } catch (Exception e) {
