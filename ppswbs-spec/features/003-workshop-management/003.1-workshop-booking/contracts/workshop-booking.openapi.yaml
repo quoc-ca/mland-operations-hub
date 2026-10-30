@@ -195,28 +195,32 @@ components:
         correlationId: {type: string}
     BookingSummary:
       type: object
-      required: [bookingCode, bookingStatus, paymentStatus, participantCount, sessions]
+      required: [bookingCode, bookingStatus, paymentStatus, packageId, packageName, participantCount, sessions]
       properties:
         bookingCode: {type: string}
         bookingStatus: {type: string, enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED]}
         paymentStatus: {type: string, enum: [UNPAID, DEPOSIT_PAID, FULLY_PAID]}
+        packageId: {type: integer, format: int64}
+        packageName: {type: string}
         participantCount: {type: integer}
         holdExpiresAt: {type: string, format: date-time, nullable: true}
         sessions: {type: array, items: {$ref: '#/components/schemas/BookedSession'}}
         tickets: {type: array, items: {$ref: '#/components/schemas/BookingTicket'}}
     BookedSession:
       type: object
-      required: [sessionReference, locationId, ordinal]
+      required: [sessionReference, locationId, ordinal, scheduledStart, scheduledEnd]
       properties:
         sessionReference: {type: string, format: uuid}
         locationId: {type: integer, format: int64}
         ordinal: {type: integer, minimum: 1}
+        scheduledStart: {type: string, format: date-time}
+        scheduledEnd: {type: string, format: date-time}
     BookingTicket:
       type: object
-      required: [ticketCode, qrToken, sessionReferences]
+      required: [ticketCode, qrReference, sessionReferences]
       properties:
         ticketCode: {type: string}
-        qrToken: {type: string, description: Signed opaque credential without PII.}
+        qrReference: {type: string, writeOnly: false, description: Opaque bearer scan reference issued by Workshop Operations; it is used as the QR value and is accepted by Operations check-in. Return only in an authorized booking projection.}
         sessionReferences: {type: array, items: {type: string, format: uuid}}
     Problem:
       type: object

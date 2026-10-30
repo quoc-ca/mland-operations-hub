@@ -1,7 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -830,15 +830,22 @@ appropriate booking summary without exposing another customer's booking.
   automatically change the contact email or send a Magic Link to a new email.
 - **FR-017b4**: A valid Magic Link projection MUST contain only booking code,
   booking/deposit status, package, branch, required-session schedule,
-  participant count, and QR tickets/ticket codes. It MUST NOT contain contact
-  email or phone, VNPay reference, detailed monetary amounts, Staff,
+  participant count, and ticket codes with the opaque Operations-issued
+  `qrReference` needed to render each ticket QR. That reference is a bearer
+  scan value, not a signed credential, and is returned only in an authorized
+  read-only projection. The projection MUST NOT contain contact email or phone,
+  VNPay reference, detailed monetary amounts, Staff,
   attendance, or audit evidence.
 - **FR-017b10**: For every authorized Guest lookup, Member lookup, or Magic
   Link read, the system MUST obtain the current delivery-safe ticket/session-
   entitlement projection from 003.2. The displayed branch and required-session
   schedule MUST therefore reflect a successful later replacement or verified
-  refund consequence. A booking-side delivery copy is not authoritative for
-  entitlement or schedule and MUST NOT be used to display a stale session.
+  refund consequence. Every projected session entitlement MUST include its
+  opaque UUID `sessionReference`, canonical location reference, and current
+  scheduled start/end instants so 003.1 can map each current entitlement to a
+  session without inferring identity from time or location. A booking-side
+  delivery copy is not authoritative for entitlement or schedule and MUST NOT
+  be used to display a stale session.
 - **FR-017b5**: V1 MUST provide authorized internal Magic Link incident
   handling. Only a Manager responsible for the booking branch may revoke or
   rotate a Magic Link; Staff and the `ADMIN` role alone MUST NOT have
