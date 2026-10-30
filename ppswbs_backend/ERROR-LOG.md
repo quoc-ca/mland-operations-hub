@@ -2546,3 +2546,7 @@ Added `ppswbs_backend/scripts/verify-feature003.ps1`. It scopes only `WORKSHOP_O
 ### 003.3 T007/T008 completion (2026-10-30T14:43:00+07:00)
 
 Added settlement foundation entities/repositories and append-only Flyway V30 for final bills, immutable charges, settlement cases, redacted evidence conclusions, refund-policy snapshots, business audits, and idempotency outcomes. `WorkshopSettlementMigrationIT` verifies fresh-schema application, upgrade from V29 with a retained legacy cancellation row, and idempotent replay. Against helper-owned disposable MySQL schemas, both tests passed (2/2, zero failures/errors/skips); no shared or original database was modified. T007 and T008 are marked `[X]`; later settlement stories remain unchecked.
+
+### 003.3 T010 completion (2026-10-30T14:51:00+07:00)
+
+Added `SettlementIdempotencyService` and focused unit coverage for first claim, same-key replay, and changed-payload conflict. `mvnw -o -Dtest=SettlementIdempotencyServiceTest test` passed 3/3 with zero failures/errors/skips. T010 is marked `[X]`; persistence/concurrency integration remains covered by later command tasks.
