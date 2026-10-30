@@ -17,7 +17,7 @@ public class RetailPaymentService {
 
     @Transactional
     public CheckoutDtos.PaymentRedirectView initiate(Long memberAccountId, String checkoutId) {
-        GroupedCheckout checkout = checkoutService.requireOwnedCheckout(memberAccountId, checkoutId);
+        GroupedCheckout checkout = checkoutService.lockOwnedCheckout(memberAccountId, checkoutId);
         if (checkout.getPaymentState() == PaymentState.PAID) {
             return new CheckoutDtos.PaymentRedirectView(checkoutId, null, null, PaymentState.PAID.name());
         }

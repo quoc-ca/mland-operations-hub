@@ -38,6 +38,8 @@ public class GroupedCheckout {
     @Column(name = "payable_amount", nullable = false, precision = 19, scale = 2) private BigDecimal payableAmount;
     @Enumerated(EnumType.STRING) @Column(name = "payment_state", nullable = false, length = 32) private PaymentState paymentState;
     @Column(name = "payment_initiated_at") private Instant paymentInitiatedAt;
+    @Column(name = "cancellation_unrestored_quantity") private Integer cancellationUnrestoredQuantity;
+    @Column(name = "payment_proof_ref", length = 128) private String paymentProofRef;
     @Version @Column(nullable = false) private Long version;
     @CreationTimestamp @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @UpdateTimestamp @Column(name = "updated_at", nullable = false) private Instant updatedAt;
@@ -59,6 +61,12 @@ public class GroupedCheckout {
     public void addOrder(RetailOrder order) { orders.add(order); }
     public void beginPayment() { this.paymentState = PaymentState.PAYMENT_INITIATED; this.paymentInitiatedAt = Instant.now(); }
     public void markPaid() { this.paymentState = PaymentState.PAID; orders.forEach(RetailOrder::markPaid); }
+    public void markPaidWithProof(String proofRef) { this.paymentProofRef = proofRef; markPaid(); }
     public void cancel() { this.paymentState = PaymentState.CANCELLED; }
+    public void cancelWithRestoration(int unrestoredQuantity) {
+        this.cancellationUnrestoredQuantity = unrestoredQuantity;
+        this.paymentState = PaymentState.CANCELLED;
+        orders.forEach(RetailOrder::cancel);
+    }
     public void expireLocalDemo() { this.paymentState = PaymentState.EXPIRED; orders.forEach(RetailOrder::expireLocalDemo); }
 }

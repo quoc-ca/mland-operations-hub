@@ -128,11 +128,11 @@ paths:
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
         '200':
-          description: Checkout cancelled; holds released and cart restored
+          description: Checkout cancelled; holds released and cart restored where limits permit
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GroupedCheckoutView'
+                $ref: '#/components/schemas/RetailCancellationView'
         '409':
           $ref: '#/components/responses/Conflict'
   /ready-ring-checkouts/{checkoutId}/payment:
@@ -206,7 +206,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/RetailOrderView'
+                  $ref: '#/components/schemas/RetailOrderHistoryView'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /members/me/ready-ring-orders/{orderId}:
@@ -218,11 +218,11 @@ paths:
         - $ref: '#/components/parameters/OrderId'
       responses:
         '200':
-          description: Own order detail with latest normalized shipment status
+          description: Own order details; delivery tracking is not yet connected
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RetailOrderView'
+                $ref: '#/components/schemas/RetailOrderHistoryView'
         '404':
           $ref: '#/components/responses/NotFound'
   /ready-ring-orders/{orderId}/preparation:
@@ -234,18 +234,18 @@ paths:
         - $ref: '#/components/parameters/OrderId'
       responses:
         '200':
-          description: Updated operational order projection
+          description: Pickup preparation recorded by Staff at the assigned location
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RetailOrderView'
+                $ref: '#/components/schemas/PickupOperationResult'
         '403':
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
   /ready-ring-orders/{orderId}/pickup-confirmations:
     post:
-      summary: Record authenticated Member pickup
+      summary: Assigned Staff confirms handover after checking the order shown by the customer
       security:
         - firebaseBearer: []
       parameters:
@@ -256,7 +256,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RetailOrderView'
+                $ref: '#/components/schemas/PickupOperationResult'
         '409':
           $ref: '#/components/responses/Conflict'
   /ready-ring-orders/{orderId}/carrier-handoffs:
@@ -636,6 +636,73 @@ components:
         expiresAt:
           type: string
           format: date-time
+    PickupOperationResult:
+      type: object
+      required: [orderId, fulfilmentState, milestone, recordedAt]
+      properties:
+        orderId:
+          type: string
+        fulfilmentState:
+          type: string
+        milestone:
+          type: string
+          enum: [PREPARED, HANDED_OVER]
+        recordedAt:
+          type: string
+          format: date-time
+    RetailOrderHistoryView:
+      type: object
+      required: [id, locationId, fulfilmentMethod, paymentState, fulfilmentState, subtotal, shippingCharge, payableAmount, orderedAt, items]
+      properties:
+        id:
+          type: string
+        locationId:
+          type: integer
+          format: int64
+        fulfilmentMethod:
+          type: string
+        paymentState:
+          $ref: '#/components/schemas/PaymentLifecycleState'
+        fulfilmentState:
+          type: string
+          nullable: true
+          description: Null when readiness cannot be verified from a Staff operation.
+        subtotal:
+          $ref: '#/components/schemas/DecimalString'
+        shippingCharge:
+          $ref: '#/components/schemas/DecimalString'
+        payableAmount:
+          $ref: '#/components/schemas/DecimalString'
+        orderedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetailOrderHistoryItem'
+    RetailOrderHistoryItem:
+      type: object
+      required: [variantId, quantity, unitPrice, lineTotal]
+      properties:
+        variantId:
+          type: integer
+          format: int64
+        productName:
+          type: string
+          nullable: true
+          description: Current catalogue name; null when catalogue data is unavailable.
+        sku:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          nullable: true
+        quantity:
+          type: integer
+        unitPrice:
+          $ref: '#/components/schemas/DecimalString'
+        lineTotal:
+          $ref: '#/components/schemas/DecimalString'
     RetailOrderView:
       type: object
       required: [id, locationId, paymentState, fulfilmentState, subtotal, shippingCharge, payableAmount]
@@ -667,6 +734,17 @@ components:
           type: string
           format: date
           nullable: true
+    RetailCancellationView:
+      type: object
+      required: [checkout, unrestoredQuantity, message]
+      properties:
+        checkout:
+          $ref: '#/components/schemas/GroupedCheckoutView'
+        unrestoredQuantity:
+          type: integer
+          minimum: 0
+        message:
+          type: string
     GroupedCheckoutView:
       type: object
       required: [id, branchOrders, combinedSubtotal, combinedShippingCharge, combinedPayableAmount, paymentState]

@@ -31,6 +31,7 @@ public class RetailOrder {
     @Column(name = "fulfilment_method", nullable = false, length = 16) private String fulfilmentMethod;
     @Enumerated(EnumType.STRING) @Column(name = "payment_state", nullable = false, length = 32) private PaymentState paymentState = PaymentState.ACCEPTED_UNPAID;
     @Column(name = "fulfilment_state", nullable = false, length = 32) private String fulfilmentState;
+    @Column(name = "pickup_ready_confirmed", nullable = false) private boolean pickupReadyConfirmed;
     @Column(nullable = false, precision = 19, scale = 2) private BigDecimal subtotal;
     @Column(name = "shipping_charge", nullable = false, precision = 19, scale = 2) private BigDecimal shippingCharge;
     @Column(name = "payable_amount", nullable = false, precision = 19, scale = 2) private BigDecimal payableAmount;
@@ -46,5 +47,8 @@ public class RetailOrder {
     @PrePersist void assignId() { if (id == null) id = UUID.randomUUID().toString(); }
     public void addItem(OrderItem item) { items.add(item); }
     public void markPaid() { paymentState = PaymentState.PAID; }
+    public void markPickupReady() { fulfilmentState = "READY_FOR_PICKUP"; pickupReadyConfirmed = true; }
+    public void markPickedUp() { fulfilmentState = "PICKED_UP"; }
+    public void cancel() { paymentState = PaymentState.CANCELLED; }
     public void expireLocalDemo() { paymentState = PaymentState.EXPIRED; }
 }

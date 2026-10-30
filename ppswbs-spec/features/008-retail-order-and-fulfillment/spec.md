@@ -150,6 +150,10 @@ configuration, accounting, or executive reporting in FE-10.
   releases inventory and held benefits and restores the cart; once payment has
   been initiated, the checkout cannot be self-cancelled because provider payment
   evidence may still arrive and must be reconciled safely.
+- Q: What if the cart is full or its variant quantity limit prevents restoring
+  every cancelled item? → A: Complete the cancellation and release the holds,
+  restore only what fits without removing existing cart items, and report the
+  unrestored quantity to the Member. Repeated cancellation returns the saved result.
 - Q: How is an approved zero-total grouped checkout completed? → A: FE-08 does
   not initiate VNPay. It records one idempotent internal zero-total acceptance,
   settles the reserved benefits, grants any eligible earned points, and proceeds
@@ -336,6 +340,12 @@ status and estimated delivery information for the own order.
 
 ### User Story 4 - Process and complete a retail order (Priority: P1)
 
+**Owner decision (2026-10-30):** A Staff member assigned to the order's
+location may mark a pickup order prepared at that location. Cross-location
+Staff access is not permitted. For pickup, the customer shows their order
+information to Staff, who checks it in person and records handover; no
+additional QR scanner or second-account verification is required by FE-08.
+
 As an authorized Staff member or delegated Manager, I want to process a paid
 retail order and record the actual handover so that responsibility and order
 milestones are auditable.
@@ -345,7 +355,7 @@ carrier handoff while the system creates and tracks the paid GHTK shipment
 without unauthorized branch access or invalid state transitions.
 
 **Independent Test**: An authorized shop actor can open an eligible paid order
-within scope, prepare it, and record either an authenticated customer pickup or
+within scope, prepare it, and record either a Staff-confirmed customer pickup or
 the physical GHTK handoff after a successful provider shipment creation.
 
 **Acceptance Scenarios**:
@@ -356,9 +366,9 @@ the physical GHTK handoff after a successful provider shipment creation.
 2. **Given** a paid order has a valid fulfilment choice, **When** the actor
    records preparation, **Then** the system advances the order to the valid
    preparation milestone and prevents later Member fulfilment edits.
-3. **Given** a prepared pickup order and the signed-in owning Member are both
-   present, **When** the actor confirms the actual handover, **Then** the system
-   records pickup once with actor, time, and safe verification evidence.
+3. **Given** a prepared pickup order and the customer shows the order to Staff,
+   **When** an authorized Staff member confirms the actual handover, **Then**
+   the system records pickup once with the Staff actor and time.
 4. **Given** a paid order has GHTK fulfilment selected, **When** the system
    creates the shipment, **Then** it stores the provider tracking identifiers
    exactly once and makes the order eligible for preparation.
@@ -373,6 +383,12 @@ the physical GHTK handoff after a successful provider shipment creation.
 ---
 
 ### User Story 5 - View retail order history and details (Priority: P2)
+
+**Owner decision (2026-10-30):** Display the latest catalogue product name,
+SKU and size where available. The purchased variant, quantity and financial
+amounts remain the immutable facts of the order. When current catalogue data
+cannot be read, keep showing the saved order facts and leave those display
+fields empty.
 
 As a Member, I want to review my order history and order details so that I can
 understand what I purchased and the current fulfilment milestone.

@@ -43,4 +43,5 @@ public final class CheckoutDtos {
                                       String combinedShippingCharge, String combinedPayableAmount, String paymentState,
                                       String paymentInitiatedAt) { }
     public record PaymentRedirectView(String checkoutId, String paymentUrl, String expiresAt, String paymentState) { }
+    public record CancellationView(GroupedCheckoutView checkout, int unrestoredQuantity, String message) { }
 }

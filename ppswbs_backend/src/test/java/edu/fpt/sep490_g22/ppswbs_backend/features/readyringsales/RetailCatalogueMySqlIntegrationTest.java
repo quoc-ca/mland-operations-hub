@@ -2,6 +2,27 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.fulfilment.service.PickupOperationsService;
+import org.springframework.web.server.ResponseStatusException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.AcceptedBenefitRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.LoyaltyWalletRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PromotionProgramRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PromotionRevisionRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PromotionTargetRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.LoyaltyWallet;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionProgram;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionRevision;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionTarget;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.ProgramKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.ComponentState;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.EarnState;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetDimension;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetScope;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.DiscountTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.AvailabilityGuardPort;
@@ -14,6 +35,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailC
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailVariantHoldLifecycleService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutQuotePreviewService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutAcceptanceService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutCancellationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailOrderQueryService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailNotFoundException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.SimulatedRetailPaymentOutcomeService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.GroupedCheckoutRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailCheckoutQuoteRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailCartRepository;
@@ -36,6 +61,7 @@ import java.util.List;
 import java.math.BigInteger;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -43,7 +69,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@ActiveProfiles(CatalogueTestSupport.MYSQL_PROFILE)
+@ActiveProfiles({CatalogueTestSupport.MYSQL_PROFILE, "retail-payment-sim"})
 @Import(CatalogueFlowFixture.class)
 class RetailCatalogueMySqlIntegrationTest {
     @Autowired DataSource dataSource;
@@ -61,7 +87,305 @@ class RetailCatalogueMySqlIntegrationTest {
     @Autowired RetailCartRepository carts;
     @Autowired RetailCheckoutQuotePreviewService quotePreview;
     @Autowired RetailCheckoutAcceptanceService acceptance;
+    @Autowired RetailCheckoutCancellationService cancellation;
+    @Autowired RetailOrderQueryService orderQueries;
+    @Autowired SimulatedRetailPaymentOutcomeService simulatedPayments;
     @Autowired JdbcTemplate jdbc;
+    @Autowired PromotionProgramRepository programs;
+    @Autowired PromotionRevisionRepository revisions;
+    @Autowired PromotionTargetRepository targets;
+    @Autowired LoyaltyWalletRepository wallets;
+    @Autowired AcceptedBenefitRepository benefits;
+    @Autowired PickupOperationsService pickupOperations;
+
+    @Test
+    void pickupRequiresPaidOrderAndAssignedStaffAndRecordsEachMilestoneOnce() throws Exception {
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-pickup-member-" + random)
+            .loginEmail("fe08-pickup-member-" + random + "@example.test").build()).getId();
+        long staffId = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-pickup-staff-" + random)
+            .loginEmail("fe08-pickup-staff-" + random + "@example.test").build()).getId();
+        var staff = new CurrentAccountActor(staffId, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(1L));
+        var otherBranch = new CurrentAccountActor(staffId, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(2L));
+        var suspended = new CurrentAccountActor(staffId, ActorRole.STAFF, ActorStatus.SUSPENDED, true, List.of(1L));
+        var customer = new CurrentAccountActor(member, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of(1L));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
+        var accepted = acceptance.accept(member, "pickup-" + random,
+            new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
+        String orderId = accepted.branchOrders().getFirst().id();
+        assertThatThrownBy(() -> pickupOperations.prepare(staff, orderId)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> pickupOperations.prepare(otherBranch, orderId)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> pickupOperations.prepare(suspended, orderId)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> pickupOperations.prepare(customer, orderId)).isInstanceOf(ResponseStatusException.class);
+        transaction.executeWithoutResult(status -> checkouts.lockOwned(accepted.id(), member).orElseThrow().markPaid());
+        assertThatThrownBy(() -> pickupOperations.handOver(staff, orderId)).isInstanceOf(ResponseStatusException.class);
+        var start = new CountDownLatch(1);
+        PickupOperationsService.Result prepared;
+        PickupOperationsService.Result repeated;
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> { start.await(); return pickupOperations.prepare(staff, orderId); });
+            var second = executor.submit(() -> { start.await(); return pickupOperations.prepare(staff, orderId); });
+            start.countDown();
+            prepared = first.get(30, TimeUnit.SECONDS);
+            repeated = second.get(30, TimeUnit.SECONDS);
+        }
+        assertThat(prepared.fulfilmentState()).isEqualTo("READY_FOR_PICKUP");
+        assertThat(repeated.recordedAt()).isEqualTo(prepared.recordedAt());
+        assertThat(orderQueries.find(member, orderId).fulfilmentState()).isEqualTo("READY_FOR_PICKUP");
+        var handedOver = pickupOperations.handOver(staff, orderId);
+        assertThat(handedOver.fulfilmentState()).isEqualTo("PICKED_UP");
+        assertThat(pickupOperations.handOver(staff, orderId).recordedAt()).isEqualTo(handedOver.recordedAt());
+        assertThat(orderQueries.find(member, orderId).fulfilmentState()).isEqualTo("PICKED_UP");
+        assertThat(jdbc.queryForObject("select count(*) from retail_pickup_evidence where retail_order_id = ?", Integer.class, orderId)).isEqualTo(2);
+    }
+
+    @Test
+    void orderHistoryReturnsOnlyOwnersSavedItemsAndAmounts() {
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-history-" + random)
+            .loginEmail("fe08-history-" + random + "@example.test").build()).getId();
+        long other = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-history-other-" + random)
+            .loginEmail("fe08-history-other-" + random + "@example.test").build()).getId();
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 2));
+        var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
+        var accepted = acceptance.accept(member, "history-" + random,
+            new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
+        String orderId = accepted.branchOrders().getFirst().id();
+        jdbc.update("update catalogue_products set name = ? where id = ?", "New catalogue name", product);
+        assertThat(orderQueries.list(member)).singleElement().satisfies(order -> {
+            assertThat(order.id()).isEqualTo(orderId);
+            assertThat(order.fulfilmentState()).isNull();
+            assertThat(order.items()).singleElement().satisfies(item -> {
+                assertThat(item.variantId()).isEqualTo(variant);
+                assertThat(item.productName()).isEqualTo("New catalogue name");
+                assertThat(item.size()).isEqualTo(5);
+                assertThat(item.quantity()).isEqualTo(2);
+                assertThat(item.unitPrice()).isEqualTo("150000");
+                assertThat(item.lineTotal()).isEqualTo("300000");
+            });
+        });
+        assertThat(orderQueries.find(member, orderId).payableAmount()).isEqualTo("300000");
+        assertThat(orderQueries.list(other)).isEmpty();
+        assertThatThrownBy(() -> orderQueries.find(other, orderId)).isInstanceOf(RetailNotFoundException.class);
+        assertThatThrownBy(() -> orderQueries.find(member, UUID.randomUUID().toString())).isInstanceOf(RetailNotFoundException.class);
+    }
+
+    @Test
+    void simulatedVerifiedPaymentSettlesOnceAndRejectsConflictingEvidence() throws Exception {
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-paid-" + random)
+            .loginEmail("fe08-paid-" + random + "@example.test").build()).getId();
+        String code = "PA" + random.replace("-", "").substring(0, 10).toUpperCase();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        transaction.executeWithoutResult(status -> {
+            var program = programs.saveAndFlush(PromotionProgram.voucher(TargetScope.PRODUCT, code, code, 10, 2, now, 1L));
+            var revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1, ProgramKind.VOUCHER,
+                "FE08 payment", now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS),
+                DiscountTerms.percent(BigDecimal.TEN, BigInteger.valueOf(50_000), BigInteger.ZERO), true, now, 1L));
+            targets.save(PromotionTarget.create(revision.getId(), TargetScope.PRODUCT, TargetDimension.PRODUCT, Long.toString(product)));
+            program.pointToRevision(revision.getId());
+            var wallet = LoyaltyWallet.open(member);
+            wallet.earn(BigInteger.valueOf(500));
+            wallets.saveAndFlush(wallet);
+        });
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
+        BigDecimal payable = new BigDecimal(preview.payableAmount());
+        var accepted = acceptance.accept(member, "paid-" + random,
+            new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
+        transaction.executeWithoutResult(status -> checkouts.lockOwned(accepted.id(), member).orElseThrow().beginPayment());
+        assertThatThrownBy(() -> simulatedPayments.simulateVerifiedPayment(member, accepted.id(), BigDecimal.ONE, "VND", "proof-" + random))
+            .isInstanceOf(RetailConflictException.class);
+        assertThatThrownBy(() -> simulatedPayments.simulateVerifiedPayment(member, accepted.id(), payable, "USD", "proof-" + random))
+            .isInstanceOf(RetailConflictException.class);
+        var start = new CountDownLatch(1);
+        CheckoutDtos.GroupedCheckoutView paid;
+        CheckoutDtos.GroupedCheckoutView replay;
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var one = executor.submit(() -> { start.await(); return simulatedPayments.simulateVerifiedPayment(member, accepted.id(), payable, "VND", "proof-" + random); });
+            var two = executor.submit(() -> { start.await(); return simulatedPayments.simulateVerifiedPayment(member, accepted.id(), payable, "VND", "proof-" + random); });
+            start.countDown();
+            paid = one.get(30, TimeUnit.SECONDS);
+            replay = two.get(30, TimeUnit.SECONDS);
+        }
+        assertThat(paid.paymentState()).isEqualTo("PAID");
+        assertThat(replay).isEqualTo(paid);
+        assertThatThrownBy(() -> simulatedPayments.simulateVerifiedPayment(member, accepted.id(), payable, "VND", "other-proof"))
+            .isInstanceOf(RetailConflictException.class);
+        assertThatThrownBy(() -> cancellation.cancel(member, accepted.id())).isInstanceOf(RetailConflictException.class);
+        assertThat(variants.findById(variant).orElseThrow().getRemainingUnsold()).isEqualTo(BigInteger.valueOf(2));
+        BigInteger held = transaction.execute(status -> guard.readSnapshots(List.of(variant), Instant.now()).get(variant).heldQuantity());
+        assertThat(held).isZero();
+        var benefit = benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, accepted.id()).orElseThrow();
+        assertThat(benefit.getEarnState()).isEqualTo(EarnState.GRANTED);
+        assertThat(benefit.getVoucherState()).isEqualTo(ComponentState.CONSUMED);
+        assertThat(benefit.getPointsState()).isEqualTo(ComponentState.CONSUMED);
+        assertThat(wallets.findById(member).orElseThrow().getHeldPoints()).isZero();
+    }
+
+    @Test
+    void simulatedLatePaymentDoesNotSettleOrReleaseTheHold() {
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-late-" + random)
+            .loginEmail("fe08-late-" + random + "@example.test").build()).getId();
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
+        var accepted = acceptance.accept(member, "late-" + random,
+            new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
+        transaction.executeWithoutResult(status -> checkouts.lockOwned(accepted.id(), member).orElseThrow().beginPayment());
+        jdbc.update("update retail_variant_holds set expires_at = ? where grouped_checkout_id = ?",
+            java.sql.Timestamp.valueOf("2020-01-01 00:00:00"), accepted.id());
+        assertThatThrownBy(() -> simulatedPayments.simulateVerifiedPayment(member, accepted.id(), BigDecimal.valueOf(150_000), "VND", "late-" + random))
+            .isInstanceOf(RetailConflictException.class);
+        assertThat(checkouts.findById(accepted.id()).orElseThrow().getPaymentState().name()).isEqualTo("PAYMENT_INITIATED");
+        assertThat(variants.findById(variant).orElseThrow().getRemainingUnsold()).isEqualTo(BigInteger.valueOf(3));
+        BigInteger held = transaction.execute(status -> guard.readSnapshots(List.of(variant), Instant.now()).get(variant).heldQuantity());
+        assertThat(held).isEqualTo(BigInteger.ONE);
+    }
+
+    @Test
+    void zeroTotalCheckoutSettlesBenefitAndStockExactlyOnce() {
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        String code = "ZT" + random.replace("-", "").substring(0, 10).toUpperCase();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-zero-" + random)
+            .loginEmail("fe08-zero-" + random + "@example.test").build()).getId();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        transaction.executeWithoutResult(status -> {
+            var program = programs.saveAndFlush(PromotionProgram.voucher(TargetScope.PRODUCT, code, code, 10, 2, now, 1L));
+            var revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1, ProgramKind.VOUCHER,
+                "FE08 zero", now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS),
+                DiscountTerms.percent(BigDecimal.valueOf(100), BigInteger.valueOf(150_000), BigInteger.ZERO), false, now, 1L));
+            targets.save(PromotionTarget.create(revision.getId(), TargetScope.PRODUCT, TargetDimension.PRODUCT, Long.toString(product)));
+            program.pointToRevision(revision.getId());
+        });
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "0");
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
+        assertThat(preview.payableAmount()).isEqualTo("0");
+        var command = new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true);
+        var first = acceptance.accept(member, "zero-" + random, command);
+        assertThat(acceptance.accept(member, "zero-" + random, command).id()).isEqualTo(first.id());
+        assertThat(first.paymentState()).isEqualTo("PAID");
+        var benefit = benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, first.id()).orElseThrow();
+        assertThat(benefit.getVoucherState()).isEqualTo(ComponentState.CONSUMED);
+        assertThat(variants.findById(variant).orElseThrow().getRemainingUnsold()).isEqualTo(BigInteger.valueOf(2));
+        BigInteger held = transaction.execute(status -> guard.readSnapshots(List.of(variant), Instant.now()).get(variant).heldQuantity());
+        assertThat(held).isZero();
+    }
+
+    @Test
+    void realVoucherAndPointsAreHeldAndReleasedOnceWhenCheckoutIsCancelled() {
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        String code = "RT" + random.replace("-", "").substring(0, 10).toUpperCase();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-benefits-" + random)
+            .loginEmail("fe08-benefits-" + random + "@example.test").build()).getId();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        transaction.executeWithoutResult(status -> {
+            var program = programs.saveAndFlush(PromotionProgram.voucher(TargetScope.PRODUCT, code, code, 10, 2, now, 1L));
+            var revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1, ProgramKind.VOUCHER,
+                "FE08 integration", now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS),
+                DiscountTerms.percent(BigDecimal.TEN, BigInteger.valueOf(50_000), BigInteger.ZERO), true, now, 1L));
+            targets.save(PromotionTarget.create(revision.getId(), TargetScope.PRODUCT, TargetDimension.PRODUCT, Long.toString(product)));
+            program.pointToRevision(revision.getId());
+            var wallet = LoyaltyWallet.open(member);
+            wallet.earn(BigInteger.valueOf(500));
+            wallets.saveAndFlush(wallet);
+        });
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
+        var accepted = acceptance.accept(member, "benefits-" + random,
+            new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
+        var reserved = benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, accepted.id()).orElseThrow();
+        assertThat(reserved.getVoucherState()).isEqualTo(ComponentState.HELD);
+        assertThat(reserved.getPointsState()).isEqualTo(ComponentState.HELD);
+        assertThat(wallets.findById(member).orElseThrow().getHeldPoints()).isEqualTo(BigInteger.valueOf(100));
+
+        var first = cancellation.cancel(member, accepted.id());
+        assertThat(cancellation.cancel(member, accepted.id())).isEqualTo(first);
+        var released = benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, accepted.id()).orElseThrow();
+        assertThat(released.getVoucherState()).isEqualTo(ComponentState.RELEASED);
+        assertThat(released.getPointsState()).isEqualTo(ComponentState.RELEASED);
+        assertThat(released.getEarnState()).isEqualTo(EarnState.INELIGIBLE);
+        assertThat(wallets.findById(member).orElseThrow().getHeldPoints()).isZero();
+        assertThat(wallets.findById(member).orElseThrow().getBalancePoints()).isEqualTo(BigInteger.valueOf(500));
+    }
+
+    @Test
+    void cancellationReleasesRealHoldAndBenefitsAndReplaysWithoutRestoringTwice() throws Exception {
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-cancel-" + random)
+            .loginEmail("fe08-cancel-" + random + "@example.test").build()).getId();
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
+        var accepted = acceptance.accept(member, "cancel-accept-" + random,
+            new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
+
+        var start = new CountDownLatch(1);
+        CheckoutDtos.CancellationView first;
+        CheckoutDtos.CancellationView replay;
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var one = executor.submit(() -> { start.await(); return cancellation.cancel(member, accepted.id()); });
+            var two = executor.submit(() -> { start.await(); return cancellation.cancel(member, accepted.id()); });
+            start.countDown();
+            first = one.get(30, TimeUnit.SECONDS);
+            replay = two.get(30, TimeUnit.SECONDS);
+        }
+        assertThat(first.checkout().paymentState()).isEqualTo("CANCELLED");
+        assertThat(first.unrestoredQuantity()).isZero();
+        assertThat(replay).isEqualTo(first);
+        assertThat(cart.getCart(member).lines()).singleElement().satisfies(line -> assertThat(line.quantity()).isEqualTo(1));
+        BigInteger remainingHold = transaction.execute(status -> guard.readSnapshots(List.of(variant), Instant.now())
+            .get(variant).heldQuantity());
+        assertThat(remainingHold).isEqualTo(BigInteger.ZERO);
+    }
+
+    @Test
+    void cancellationAfterPaymentInitiationKeepsInventoryHeld() {
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-started-" + random)
+            .loginEmail("fe08-started-" + random + "@example.test").build()).getId();
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
+        var accepted = acceptance.accept(member, "started-" + random,
+            new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
+        transaction.executeWithoutResult(status -> checkouts.lockOwned(accepted.id(), member).orElseThrow().beginPayment());
+        assertThatThrownBy(() -> cancellation.cancel(member, accepted.id())).isInstanceOf(RetailConflictException.class);
+        BigInteger held = transaction.execute(status -> guard.readSnapshots(List.of(variant), Instant.now()).get(variant).heldQuantity());
+        assertThat(held).isEqualTo(BigInteger.ONE);
+        assertThat(cart.getCart(member).lines()).isEmpty();
+    }
 
     @Test
     void twoMembersCannotBothAcceptTheLastStock() throws Exception {

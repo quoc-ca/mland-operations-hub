@@ -2367,6 +2367,102 @@ outcome. This does not resolve the FE-06 retail cancellation contract above;
 real acceptance and cancellation remain unavailable through the public API.
 Local unit and in-memory integration tests cover the demo behavior.
 
+### FE-06 owner response review — 2026-10-30
+
+The FE-06 owner confirmed retail settlement and confirmed-unpaid expiry
+outcome fields and sequencing, and stated that the retail facade contract is
+stable. That response does not specify or add an outcome for a Member's
+voluntary cancellation before payment initiation. The currently inspected
+`OutcomeKind` still has no retail cancellation value. The previously recorded
+T029–T031 cancellation blocker therefore remains open; confirmed expiry cannot
+be treated as voluntary cancellation. No implementation, test, migration, or
+task marker was changed in this continuation. The existing local-only demo
+behavior remains separate from the real checkout lifecycle. FE-06 and FE-08
+owners need to agree on the cancellation outcome and its proof, version and
+replay semantics before the real checkout endpoint can be opened safely.
+
+### FE-06 cancellation outcome supplied — 2026-10-30T21:43:26+07:00
+
+Develop commit `94bb3bd` includes the FE-06 owner's retail pre-payment
+cancellation outcome in `OutcomeKind`, release and ineligible-earn handling,
+and the published facade contract. The owner also supplied the source lock,
+proof, version and sequencing guidance in the current session. This resolves
+the missing FE-06 outcome recorded above. A separate FE-08 cart-restoration
+edge case remains blocked under BE-DESIGN-0042 below.
+
+## BE-DESIGN-0042 — Retail cancellation cannot restore into a full or conflicting cart
+
+- **Recorded at:** 2026-10-30T21:43:26+07:00
+- **Reporter:** Codex
+- **Feature / task:** FE-08 T029–T031, real cancellation and checkout lifecycle
+- **Status:** BLOCKED
+- **Scope:** real checkout acceptance and cancellation implementation.
+
+FE-08 `spec.md` FR-08-002 limits a cart to 50 lines and 99 units per variant;
+FR-08-039 and `data-model.md` invariant 13 require an accepted unpaid checkout
+to be cancelled with immediate release and restoration of the source cart.
+After accepting checkout the Member can modify the cart. For example, a
+Member can fill 50 new lines before cancelling an order containing different
+variants; restoring every line would exceed the cart limit. A similar conflict
+occurs if restored plus existing quantities exceed 99. The real-flow contract
+does not define whether to reject cancellation, restore partially, or preserve
+overflow elsewhere; each changes an approved invariant or requires new storage
+and API behavior. The local-demo-only implementation rejects excess restoration,
+but is not evidence that this choice is approved for real checkout.
+
+The FE-06 outcome dependency was resolved by develop commit `94bb3bd`; the
+owner's response does not specify FE-08 cart overflow behavior. Code and
+requirements were inspected; no implementation, migration or test changes were
+made during this continuation. Existing uncommitted `ERROR-LOG.md` and
+`CartControllerTest.java` edits are preserved. No checks were run. Thinh must
+choose the overflow behavior and any required contract/storage details before
+the real cancellation lifecycle and public checkout acceptance can proceed.
+
+### Owner decision — 2026-10-30
+
+Thinh chose to complete cancellation and release inventory and benefits even
+when the cart is full, restore what fits, and notify the Member that some
+products could not be returned to the cart. The response does not settle the
+exact repeatable cancellation response, notification contents or durable
+recovery of unrestored quantities; those details must be reconciled with the
+existing public API and idempotency requirements during implementation.
+
+### Implementation update — 2026-10-30
+
+The cancellation response stores the unrestored quantity with the checkout so
+replay returns the same result and notifies the Member if capacity prevented
+restoration. Real FE-08 cancellation locks cart and checkout, releases variant
+holds through the historical catalogue and guard boundaries, then releases
+FE-06 benefits and finishes ineligible earn in the same transaction. Payment
+initiation now locks the checkout before changing state. MySQL tests cover
+concurrent duplicate cancellation and rejection after payment initiation on a
+disposable database with a NONE benefit selection. Voucher/points, late
+provider callbacks, and the complete payment/expiry lifecycle remain unverified.
+Real acceptance is not wired to the public endpoint while payment and expiry
+remain incomplete.
+
+### FE-08 loyalty integration verification — 2026-10-30
+
+The real FE-08 source now has a MySQL integration test that reserves a real
+product voucher and points through FE-06 and verifies cancellation releases
+them once. Internal zero-total pickup acceptance now settles benefits and earn,
+settles guarded holds, and records catalogue sales in the enclosing transaction;
+its MySQL test verifies paid state, consumed voucher, inventory and replay.
+Neither test constitutes verified gateway payment or expiry evidence. The real
+acceptance service remains unavailable from the public checkout endpoint until
+the remaining payment and expiry lifecycle is implemented.
+
+### Simulated FE-08 payment outcome — 2026-10-30
+
+Added a `retail-payment-sim`-profile-only internal outcome service with no HTTP
+or gateway ingress. It validates the simulated amount, currency, source state,
+deadline and proof reference; serializes on the checkout; settles guarded stock
+and FE-06 benefits/earn; and records catalogue sales in one transaction. The
+proof reference is retained on the source checkout for duplicate detection.
+This is simulation evidence only, not VNPay verification or a real callback.
+Real callback verification, payment/expiry reconciliation, and the public
+checkout acceptance path remain unfinished.
+
 ### FE-08 migration reallocation for develop merge — 2026-10-30
 
 The fetched `origin/develop` at `b5e40e5` contains migrations V24–V31 owned by

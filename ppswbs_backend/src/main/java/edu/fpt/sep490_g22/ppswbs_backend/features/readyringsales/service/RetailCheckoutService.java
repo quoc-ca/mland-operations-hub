@@ -107,6 +107,11 @@ public class RetailCheckoutService {
             .orElseThrow(() -> new RetailNotFoundException("Grouped checkout does not exist"));
     }
 
+    public GroupedCheckout lockOwnedCheckout(Long memberAccountId, String checkoutId) {
+        return checkoutRepository.lockOwned(checkoutId, memberAccountId)
+            .orElseThrow(() -> new RetailNotFoundException("Grouped checkout does not exist"));
+    }
+
     private RetailCart requireCart(Long memberAccountId) {
         return cartRepository.findByMemberAccountId(memberAccountId).orElseThrow(() -> new RetailConflictException("Retail cart is empty"));
     }

@@ -5,8 +5,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CartDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailCart;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.CartService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailActorResolver;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailAccessDeniedException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailMemberActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailUnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,6 +73,30 @@ class CartControllerTest {
             .andExpect(jsonPath("$.lines[0].locationId").value(10));
 
         verify(cartService).getCart(99L);
+    }
+
+    @Test
+    void rejectsUnauthenticatedCartAccessWithoutReadingCart() throws Exception {
+        when(actorResolver.requireActiveMember(any(HttpServletRequest.class)))
+            .thenThrow(new RetailUnauthorizedException("not authenticated"));
+
+        mockMvc.perform(get(CART_PATH))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+        verifyNoInteractions(cartService);
+    }
+
+    @Test
+    void rejectsUnauthorizedCartChangesWithoutWritingCart() throws Exception {
+        when(actorResolver.requireActiveMember(any(HttpServletRequest.class)))
+            .thenThrow(new RetailAccessDeniedException("not an active member"));
+
+        mockMvc.perform(post(CART_PATH + "/lines")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"variantId\":101,\"locationId\":10,\"quantity\":1}"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+        verifyNoInteractions(cartService);
     }
 
     @Test

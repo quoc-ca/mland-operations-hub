@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -52,9 +53,6 @@ public class RetailCheckoutAcceptanceService {
             return views.toView(existing.get());
         }
         if (!"OPEN".equals(quote.getStatus())) throw new RetailConflictException("Checkout quote is already accepted");
-        if (quote.getPayableTotal().signum() == 0) {
-            throw new RetailIntegrationUnavailableException("Zero-total checkout outcome is not configured");
-        }
         if (quote.getBranches().stream().anyMatch(branch -> !"PICKUP".equals(branch.getFulfilmentMethod()))) {
             throw new RetailIntegrationUnavailableException("Shipping checkout is not configured");
         }
@@ -106,13 +104,15 @@ public class RetailCheckoutAcceptanceService {
             catalogue.retainMediaReferences(item.getId(), facts.get(item.getVariantId()).imageMediaIds());
         }
         Instant deadline = now.plus(15, ChronoUnit.MINUTES);
-        return guard.withGuard(variantIds, context.asOf(), snapshots -> {
+        boolean zeroTotal = quote.getPayableTotal().signum() == 0;
+        CheckoutDtos.GroupedCheckoutView view = guard.withGuard(variantIds, context.asOf(), snapshots -> {
+            List<RetailVariantHold> createdHolds = new ArrayList<>();
             for (Long id : variantIds) {
                 var available = facts.get(id).remainingUnsold().subtract(snapshots.get(id).heldQuantity());
                 if (available.compareTo(BigInteger.valueOf(quantities.get(id))) < 0) {
                     throw new RetailConflictException("Product quantity is no longer available");
                 }
-                holds.createHeld(checkout, id, quantities.get(id), deadline);
+                createdHolds.add(holds.createHeld(checkout, id, quantities.get(id), deadline));
             }
             List<SourceLine> lines = quote.getBranches().stream().flatMap(branch -> branch.getItems().stream())
                 .map(item -> new SourceLine(item.getProductId(), item.getVariantId(), item.getQuantity(), item.getUnitPrice())).toList();
@@ -127,11 +127,29 @@ public class RetailCheckoutAcceptanceService {
                     .add(quote.getShippingTotal()).equals(quote.getPayableTotal())) {
                 throw new RetailConflictException("Benefit terms changed; review a new quote");
             }
+            if (zeroTotal) {
+                createdHolds.forEach(holds::settle);
+                checkout.markPaid();
+                checkouts.saveAndFlush(checkout);
+                var outcome = new AuthoritativeOutcome(SourceKind.RETAIL, checkout.getId(), "readyringsales",
+                    "zero-" + checkout.getId(), checkout.getVersion(), OutcomeKind.RETAIL_ZERO_ACCEPTED,
+                    now, deadline, quote.getId(), true, "zero-total:" + checkout.getId());
+                loyalty.settleAcceptedBenefits(outcome);
+                loyalty.grantEarnedPoints(outcome);
+            }
             quote.accept(checkout.getId(), now);
             cart.getLines().clear();
             cart.touch();
             return views.toView(checkout);
         });
+        if (zeroTotal) {
+            for (Long variantId : variantIds) {
+                UUID operationRef = UUID.nameUUIDFromBytes(("retail-zero:" + checkout.getId() + ":" + variantId)
+                    .getBytes(StandardCharsets.UTF_8));
+                catalogue.recordAcceptedSale(operationRef, variantId, BigInteger.valueOf(quantities.get(variantId)));
+            }
+        }
+        return view;
     }
 
     private boolean sameSelectionAndBranches(RetailCheckoutQuote quote, CheckoutDtos.CreateGroupedCheckoutRequest request) {
