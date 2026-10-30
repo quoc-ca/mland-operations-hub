@@ -612,8 +612,10 @@ public class WorkshopOperationsFoundationIT {
                     new SaleEligibilityQuery(UUID.fromString(testSession.getReference())));
 
             assertThat(snapshot.customerSelectable()).isTrue();
+            assertThat(snapshot.sessionReference()).isEqualTo(UUID.fromString(testSession.getReference()));
             assertThat(snapshot.remainingCapacity()).isEqualTo(20);
             assertThat(snapshot.locationReference()).isEqualTo(testLocation.getId());
+            assertThat(snapshot.workshopDate()).isEqualTo(testSession.getWorkshopDate());
         }
     }
 

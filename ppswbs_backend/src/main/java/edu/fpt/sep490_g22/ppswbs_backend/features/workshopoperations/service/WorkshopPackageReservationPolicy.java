@@ -126,6 +126,42 @@ public class WorkshopPackageReservationPolicy {
         return null;
     }
 
+    /**
+     * Validates the current Basic Ring package configuration for OTA acceptance.
+     * The editable package name is not used as a type discriminator; the supported
+     * configuration is one required session, same-location and no same-day gap.
+     */
+    @Transactional
+    public RejectionReason validateOtaBooking(String packageReference, UUID sessionReference, int participantCount) {
+        Long packageId = parsePackageReference(packageReference);
+        if (packageId == null) {
+            return RejectionReason.PACKAGE_SELECTION_INVALID;
+        }
+        WorkshopPackage workshopPackage = packageRepository.findByIdWithLock(packageId).orElse(null);
+        if (workshopPackage == null || workshopPackage.getState() != WorkshopPackageState.PUBLISHED) {
+            return RejectionReason.PACKAGE_NOT_PUBLISHED;
+        }
+        if (workshopPackage.getRequiredSessionCount() != 1
+                || !workshopPackage.isSameLocationRequired()
+                || workshopPackage.getMinimumSameDaySlotGap() != 0
+                || participantCount < workshopPackage.getMinParticipants()
+                || participantCount > workshopPackage.getMaxParticipants()) {
+            return RejectionReason.PACKAGE_SELECTION_INVALID;
+        }
+
+        List<WorkshopSession> lockedSessions = sessionRepository.findByReferenceInWithLock(
+                List.of(sessionReference.toString()));
+        if (lockedSessions.size() != 1) {
+            return RejectionReason.PACKAGE_SELECTION_INVALID;
+        }
+        WorkshopSession session = lockedSessions.getFirst();
+        if (session.getState() != SessionState.PUBLISHED || session.getScheduledStartAt() == null
+                || !session.getScheduledStartAt().isAfter(Instant.now())) {
+            return RejectionReason.SALE_NOT_ELIGIBLE;
+        }
+        return null;
+    }
+
     private RejectionReason validateSameDaySlotGap(List<WorkshopSession> sessions, int minimumGap) {
         if (minimumGap <= 0) {
             return null;
