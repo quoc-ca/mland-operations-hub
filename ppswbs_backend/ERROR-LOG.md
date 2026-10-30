@@ -2578,3 +2578,7 @@ Completed final-bill finalization gating in `FinalBookingBillService`. Finalizat
 ### 003.3 T029 completion (2026-10-30T15:34:00+07:00)
 
 Added `MlandCancellationPolicyService`, immutable `SettlementRefundPolicyRevision` persistence, repository ordering, and Flyway V31. Any active Manager may read global revision history or create a future-effective 0..100 whole-booking percentage; duplicate effective times are rejected and existing booking snapshots remain untouched. Focused `MlandCancellationPolicyServiceTest` passed 3/3 with zero failures/errors/skips. T029 is marked `[X]`; REST transport remains T030 and refund computation/application remains T028/T031.
+
+### 003.3 T030 policy transport slice (2026-10-30T15:52:00+07:00)
+
+Added the central `/api/v1/workshop-refund-policies` GET/POST controller and response DTO. POST requires `Idempotency-Key` and reuses settlement idempotency outcomes; both routes delegate global active-Manager authorization to the service. T030 remains unchecked because its booking-scoped cancellation, deferred-payment, required-session, and remedy routes are not yet implemented.

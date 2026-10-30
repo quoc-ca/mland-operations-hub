@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,6 +18,7 @@ import java.util.UUID;
 public class MlandCancellationPolicyService {
     private final SettlementRefundPolicyRevisionRepository revisions;
     private final WorkshopSettlementAuthorizationService authorization;
+    private final SettlementIdempotencyService idempotency;
 
     @Transactional(readOnly = true)
     public List<SettlementRefundPolicyRevision> list(String firebaseUid) {
@@ -43,5 +46,27 @@ public class MlandCancellationPolicyService {
                 .wholeBookingRefundPercent(wholeBookingRefundPercent)
                 .createdByAccountId(manager.accountId())
                 .build());
+    }
+
+    @Transactional
+    public SettlementRefundPolicyRevision create(String firebaseUid, Instant effectiveAt,
+                                                 Integer wholeBookingRefundPercent, String idempotencyKey) {
+        String fingerprint = fingerprint(effectiveAt, wholeBookingRefundPercent);
+        var result = idempotency.execute(idempotencyKey, fingerprint,
+                () -> create(firebaseUid, effectiveAt, wholeBookingRefundPercent).getPolicyReference());
+        return revisions.findByPolicyReference(result.outcomeReference())
+                .orElseThrow(() -> new WorkshopSettlementConflictException("IDEMPOTENCY_OUTCOME_INCOMPLETE"));
+    }
+
+    private static String fingerprint(Instant effectiveAt, Integer percent) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest((String.valueOf(effectiveAt) + "|" + percent).getBytes(StandardCharsets.UTF_8));
+            StringBuilder value = new StringBuilder();
+            for (byte item : digest) value.append(String.format("%02x", item));
+            return value.toString();
+        } catch (Exception error) {
+            throw new IllegalStateException("SHA-256 unavailable", error);
+        }
     }
 }

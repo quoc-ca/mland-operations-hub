@@ -21,6 +21,7 @@ import static org.mockito.Mockito.*;
 class MlandCancellationPolicyServiceTest {
     @Mock SettlementRefundPolicyRevisionRepository revisions;
     @Mock WorkshopSettlementAuthorizationService authorization;
+    @Mock SettlementIdempotencyService idempotency;
 
     @Test void managerCreatesFutureGlobalRevision() {
         var manager = new AccountSummary(7L, ActorRole.MANAGER, ActorStatus.ACTIVE,
@@ -28,7 +29,7 @@ class MlandCancellationPolicyServiceTest {
         when(authorization.requireManager("uid")).thenReturn(manager);
         when(revisions.existsByEffectiveAt(any())).thenReturn(false);
         when(revisions.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        var result = new MlandCancellationPolicyService(revisions, authorization)
+        var result = new MlandCancellationPolicyService(revisions, authorization, idempotency)
                 .create("uid", Instant.now().plusSeconds(3600), 80);
         assertThat(result.getWholeBookingRefundPercent()).isEqualTo(80);
         assertThat(result.getCreatedByAccountId()).isEqualTo(7L);
@@ -37,7 +38,7 @@ class MlandCancellationPolicyServiceTest {
     @Test void nonFutureAndInvalidPercentFailClosed() {
         when(authorization.requireManager("uid")).thenReturn(new AccountSummary(7L, ActorRole.MANAGER,
                 ActorStatus.ACTIVE, "manager@example.test", Instant.now(), Instant.now()));
-        var service = new MlandCancellationPolicyService(revisions, authorization);
+        var service = new MlandCancellationPolicyService(revisions, authorization, idempotency);
         assertThatThrownBy(() -> service.create("uid", Instant.now().minusSeconds(1), 80))
                 .isInstanceOf(WorkshopSettlementValidationException.class);
         assertThatThrownBy(() -> service.create("uid", Instant.now().plusSeconds(3600), 101))
@@ -48,7 +49,7 @@ class MlandCancellationPolicyServiceTest {
 
     @Test void listRequiresManagerAndReturnsGlobalHistory() {
         when(revisions.findAllByOrderByEffectiveAtAsc()).thenReturn(List.of());
-        var service = new MlandCancellationPolicyService(revisions, authorization);
+        var service = new MlandCancellationPolicyService(revisions, authorization, idempotency);
         assertThat(service.list("uid")).isEmpty();
         verify(authorization).requireManager("uid");
     }
