@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "ota_reconciliation_work_items")
@@ -30,6 +31,9 @@ public class OtaReconciliationWorkItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "public_reference", nullable = false, length = 36, updatable = false)
+    private String publicReference;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "mapping_id")
@@ -76,12 +80,26 @@ public class OtaReconciliationWorkItem {
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();
+        if (publicReference == null) publicReference = UUID.randomUUID().toString();
+        if (mapping != null && (auditReference == null || auditReference.isBlank())) {
+            auditReference = UUID.randomUUID().toString();
+        }
+        validateMappedCorrelation();
         if (createdAt == null) createdAt = now;
         if (updatedAt == null) updatedAt = now;
     }
 
     @PreUpdate
     void onUpdate() {
+        validateMappedCorrelation();
         updatedAt = Instant.now();
+    }
+
+    private void validateMappedCorrelation() {
+        if (mapping == null) return;
+        if (auditReference == null || !auditReference.matches(
+                "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")) {
+            throw new IllegalArgumentException("A mapping-linked work item requires a valid audit correlation UUID");
+        }
     }
 }
