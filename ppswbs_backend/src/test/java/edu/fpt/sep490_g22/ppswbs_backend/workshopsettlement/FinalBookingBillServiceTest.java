@@ -22,6 +22,7 @@ class FinalBookingBillServiceTest {
     @Mock SettlementFinalBillRepository bills;
     @Mock WorkshopBookingSettlementAdapter booking;
     @Mock WorkshopOperationsSettlementAdapter operations;
+    @Mock WorkshopSettlementAuthorizationService authorization;
 
     @Test void createsOneFrozenBillFromUpstreamProjection() {
         when(bills.findByBookingReference("BK-1")).thenReturn(Optional.empty());
@@ -29,7 +30,7 @@ class FinalBookingBillServiceTest {
         when(booking.confirmedProjection("BK-1")).thenReturn(new ConfirmedBookingFinancialProjection(
                 "PKG-1", 100_000L, 80_000L, 40_000L, 40_000L, 2, java.util.List.of("S-1"), 7L));
         when(bills.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        FinalBookingBillService service = new FinalBookingBillService(bills, booking, operations);
+        FinalBookingBillService service = new FinalBookingBillService(bills, booking, operations, authorization);
         SettlementFinalBill result = service.create("BK-1", "OP-1", "CORR-1");
         assertThat(result.getBookingReference()).isEqualTo("BK-1");
         assertThat(result.getPostPromotionAmountVnd()).isEqualTo(80_000L);
@@ -43,7 +44,7 @@ class FinalBookingBillServiceTest {
                 .billReference("BILL-1").postPromotionAmountVnd(80_000L).acceptedDepositAmountVnd(40_000L)
                 .remainingAmountVnd(40_000L).currencyCode("VND").lifecycleStatus("OPEN").build();
         when(bills.findByBookingReference("BK-1")).thenReturn(Optional.of(existing));
-        SettlementFinalBill result = new FinalBookingBillService(bills, booking, operations).create("BK-1", "OP-1", "CORR-1");
+        SettlementFinalBill result = new FinalBookingBillService(bills, booking, operations, authorization).create("BK-1", "OP-1", "CORR-1");
         assertThat(result).isSameAs(existing);
         verifyNoInteractions(booking, operations);
     }
@@ -51,9 +52,36 @@ class FinalBookingBillServiceTest {
     @Test void readinessGateRejectsBeforeReadingFinancialProjection() {
         when(bills.findByBookingReference("BK-1")).thenReturn(Optional.empty());
         when(operations.readiness("BK-1")).thenReturn(new SettlementReadiness(false));
-        FinalBookingBillService service = new FinalBookingBillService(bills, booking, operations);
+        FinalBookingBillService service = new FinalBookingBillService(bills, booking, operations, authorization);
         assertThatThrownBy(() -> service.create("BK-1", "OP-1", "CORR-1"))
                 .isInstanceOf(WorkshopSettlementConflictException.class).hasMessage("SETTLEMENT_NOT_READY");
         verifyNoInteractions(booking);
+    }
+
+    @Test void finalizesZeroBalanceForAuthorizedStaff() {
+        SettlementFinalBill bill = openBill(); bill.setRemainingAmountVnd(0L);
+        when(bills.findByBookingReference("BK-1")).thenReturn(Optional.of(bill));
+        when(operations.readiness("BK-1")).thenReturn(new SettlementReadiness(true));
+        when(bills.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var service = new FinalBookingBillService(bills, booking, operations, authorization);
+        var result = service.finalizeBill("BK-1", "staff-uid", 7L, false, null);
+        assertThat(result.getLifecycleStatus()).isEqualTo("FINALIZED");
+        verify(authorization).requireManagerOrStaff("staff-uid", 7L);
+    }
+
+    @Test void managerExceptionCanFinalizeOutstandingBalanceWithReason() {
+        when(bills.findByBookingReference("BK-1")).thenReturn(Optional.of(openBill()));
+        when(operations.readiness("BK-1")).thenReturn(new SettlementReadiness(true));
+        when(bills.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var service = new FinalBookingBillService(bills, booking, operations, authorization);
+        var result = service.finalizeBill("BK-1", "manager-uid", null, true, "approved deferred exception");
+        assertThat(result.getLifecycleStatus()).isEqualTo("FINALIZED");
+        verify(authorization).requireManager("manager-uid");
+    }
+
+    private static SettlementFinalBill openBill() {
+        return SettlementFinalBill.builder().billReference("BILL-1").bookingReference("BK-1")
+                .postPromotionAmountVnd(80_000L).acceptedDepositAmountVnd(40_000L)
+                .remainingAmountVnd(40_000L).currencyCode("VND").lifecycleStatus("OPEN").build();
     }
 }

@@ -16,6 +16,7 @@ public class FinalBookingBillService {
     private final SettlementFinalBillRepository bills;
     private final WorkshopBookingSettlementAdapter booking;
     private final WorkshopOperationsSettlementAdapter operations;
+    private final WorkshopSettlementAuthorizationService authorization;
 
     @Transactional
     public SettlementFinalBill create(String bookingReference, String operationReference, String correlationReference) {
@@ -50,6 +51,34 @@ public class FinalBookingBillService {
                 .frozenAt(now)
                 .createdAt(now)
                 .build());
+    }
+
+    @Transactional
+    public SettlementFinalBill finalizeBill(String bookingReference, String firebaseUid, Long bookingLocationId,
+                                            boolean managerException, String exceptionReason) {
+        require(bookingReference, "bookingReference");
+        var bill = bills.findByBookingReference(bookingReference)
+                .orElseThrow(() -> new WorkshopSettlementValidationException("FINAL_BILL_NOT_FOUND"));
+        if (!"OPEN".equals(bill.getLifecycleStatus())) return bill;
+        if (managerException) {
+            requireManager(firebaseUid);
+            require(exceptionReason, "exceptionReason");
+        } else {
+            authorization.requireManagerOrStaff(firebaseUid, bookingLocationId);
+        }
+        var readiness = operations.readiness(bookingReference);
+        if (readiness == null || !readiness.ready()) {
+            throw new WorkshopSettlementConflictException("SETTLEMENT_NOT_READY");
+        }
+        if (!managerException && bill.getRemainingAmountVnd() != 0L) {
+            throw new WorkshopSettlementConflictException("OUTSTANDING_BALANCE");
+        }
+        bill.setLifecycleStatus("FINALIZED");
+        return bills.saveAndFlush(bill);
+    }
+
+    private edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary requireManager(String firebaseUid) {
+        return authorization.requireManager(firebaseUid);
     }
 
     private static void require(String value, String name) {

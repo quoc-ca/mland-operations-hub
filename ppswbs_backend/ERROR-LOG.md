@@ -2570,3 +2570,7 @@ Added `FinalBookingBillService` to create at most one booking-scoped bill from t
 ### 003.3 T015 completion (2026-10-30T15:12:00+07:00)
 
 Added `VariableChargeService` for positive whole-VND Staff/Manager charges against an open final bill. Charges are immutable records with explicit source category and reason; closed or missing bills fail closed. `VariableChargeServiceTest` passed 3/3 with zero failures/errors/skips. T015 is marked `[X]`.
+
+### 003.3 T016 completion (2026-10-30T15:16:00+07:00)
+
+Completed final-bill finalization gating in `FinalBookingBillService`. Finalization now requires an existing open bill, Operations settlement readiness, and canonical authorization: Staff must be authorized for the booking location while Manager is global. A zero remaining balance is required for the normal path; a Manager-only exception requires a nonblank reason and permits an outstanding balance. Repeated finalization is idempotent for an already-finalized bill. Focused `FinalBookingBillServiceTest` passed 5/5 with zero failures/errors/skips. T016 is marked `[X]`; package-output delivery and broader settlement workflows remain in later tasks.
