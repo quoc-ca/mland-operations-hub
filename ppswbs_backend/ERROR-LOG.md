@@ -2566,3 +2566,7 @@ Added validated transport DTOs for guest proof, variable charges, reasons, and r
 ### 003.3 T013 completion (2026-10-30T15:06:00+07:00)
 
 Added `FinalBookingBillService` to create at most one booking-scoped bill from the frozen Booking projection only after Operations reports settlement readiness. Existing bills replay without recalculation; missing/invalid frozen amounts and not-ready bookings fail closed. `FinalBookingBillServiceTest` passed 3/3 with zero failures/errors/skips. T013 is marked `[X]`.
+
+### 003.3 T015 completion (2026-10-30T15:12:00+07:00)
+
+Added `VariableChargeService` for positive whole-VND Staff/Manager charges against an open final bill. Charges are immutable records with explicit source category and reason; closed or missing bills fail closed. `VariableChargeServiceTest` passed 3/3 with zero failures/errors/skips. T015 is marked `[X]`.
