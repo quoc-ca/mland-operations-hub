@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * T043/T045/T046 on MySQL: content edit, image replacement and quantity before and after the first
- * publication (FR-005/008/011/012/019). Hold-source cases need FE-08 (T042); role checks need T007.
+ * publication (FR-005/008/011/012/019). Runs with the real FE-08 hold source; held cases are in CatalogueQuantityIT.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles(CatalogueTestSupport.MYSQL_PROFILE)
@@ -200,23 +200,23 @@ class CatalogueContentEditIT {
     }
 
     @Test
-    void quantityOfAPublishedProductNeedsTheHoldSourceAndChangesNothingWithoutIt() {
+    void quantityOfAPublishedProductGoesThroughTheRealHoldSource() {
+        // Since develop b0e7796 the real FE-08 source is present; held cases are in CatalogueQuantityIT, the
+        // "source unavailable" case with a controllable source in CatalogueSalesIT.
         long productId = fixture.publishedProduct(STAFF, MANAGER);
         ProductVariant size5 = sizes(productId).get(0);
 
-        assertCode(() -> quantities.setQuantity(STAFF, UUID.randomUUID(), size5.getId().toString(), size5.getVersion(),
-                "1"), CatalogueErrorCode.AVAILABILITY_DEPENDENCY_UNAVAILABLE);
-        assertThat(sizes(productId).get(0).getRemainingUnsold()).isEqualTo(BigInteger.valueOf(3));
+        quantities.setQuantity(STAFF, UUID.randomUUID(), size5.getId().toString(), size5.getVersion(), "1");
+        assertThat(sizes(productId).get(0).getRemainingUnsold()).isEqualTo(BigInteger.ONE);
     }
 
-    // ---- T067 without the FE-08 source (this context has no VariantHoldReader) ----
+    // ---- T067 with the real FE-08 source and no hold ----
 
     @Test
-    void publicReadsFailAsUnavailableInsteadOfAssumingZeroHolds() {
+    void publicReadsUseTheRealHoldSource() {
         long productId = fixture.publishedProduct(STAFF, MANAGER);
 
-        assertCode(() -> publicCatalogue.get(Long.toString(productId)),
-                CatalogueErrorCode.AVAILABILITY_DEPENDENCY_UNAVAILABLE);
+        assertThat(publicCatalogue.get(Long.toString(productId))).isNotNull();
     }
 
     private long approvedDraft() {

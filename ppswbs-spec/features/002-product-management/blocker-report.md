@@ -1,7 +1,7 @@
 # Product Management — Implementation Prerequisites
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; baseline T001)
+**Date updated**: 2026-10-30 (nguồn giữ hàng thật của FE-08; V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; baseline T001)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -161,3 +161,17 @@ Bước kế tiếp là review tasks và speckit-analyze khi được giao. Task
   - Thêm `CatalogueSalesFacade.readSaleFacts(Collection<Long>) → List<CartSaleFact>` và record `CartSaleFact`; chữ ký, ý nghĩa và lỗi ghi tại [interfaces](contracts/interfaces.md).
   - `CatalogueSalesIT` thêm 3 test (giá/SKU/size/số còn bán sau khi trừ số giữ, không âm, không cần transaction, không gọi guard; size nháp/ẩn/ngừng bán/xóa trả `saleEligible=false`; rỗng/null, size không tồn tại, nguồn lỗi). Trên MySQL 8.4, database trống `ppswbs_pm_sales30` (đã xóa): 002 319 test và `ModulithArchitectureTests` 5 đều pass, `CatalogueSalesIT` 16/16.
   - Còn lại cho FE-08: thay `LocalRetailCatalogueAdapter` bằng adapter gọi facade thật; chưa tick T019/T046/T048/T062 vì vẫn chờ adapter FE-08 thật (T003).
+- **Nguồn giữ hàng thật của FE-08 (2026-10-30)**: develop `94bb3bd` có `RetailAvailabilityGuardService` (`AvailabilityGuardPort` thật, `b0e7796`) và luồng accept checkout gọi facade 002 (`3818be9`), `readyringsales` khai báo phụ thuộc `productmanagement :: facade`. Bùi Trọng Thịnh (FE-08) xác nhận bằng văn bản (2026-10-29/30): giữ `withLockedSaleContext` bắt buộc khi accept, FE-08 chỉ tạo/nhả/chốt/hết hạn hold trong callback, guard tạo khi cần (không cần 002 tạo lúc mở bán), dùng `readSaleFacts` cho giỏ.
+  - **Sửa test 002 bị hỏng do develop mới** (không sửa code chạy thật): `CatalogueSalesIT`, `CataloguePublicIT` đăng ký nguồn giả có `@Primary` (trước đây Spring thấy hai bean `AvailabilityGuardPort` và không khởi động, 27 test lỗi); `CatalogueContentEditIT` (2 test) và `CatalogueApiIT` (1 test) từng kiểm tra "chưa có nguồn FE-08 → 503", nay kiểm tra đi qua nguồn thật.
+  - **Test mới với nguồn thật, không dùng bản giả** (`support/RealRetailHolds` tạo/nhả/hết hạn/chốt hold bằng chính service của FE-08 theo thứ tự FE-08 dùng: khóa catalogue → guard → hold): `CatalogueQuantityIT` 10 test (10 − 2 giữ = 8; hold quá hạn vẫn tính tới khi FE-08 chuyển `EXPIRED`; không cho còn lại < đang giữ và không đổi dữ liệu; version cũ bị từ chối; guard row ổn định khi chưa từng có hold; nhả hold trả lại số lượng và đổi `sourceRevision`; chốt hold + `recordAcceptedSale` trừ đúng một lần; ghi bán khi hold còn giữ bị từ chối; giảm số lượng tranh với giữ mới và tranh với chốt hold luôn giữ còn lại ≥ đang giữ). `CatalogueCategoryConcurrencyIT` thêm ngừng danh mục tranh với giữ mới (sau khi ngừng không giữ mới được, hold cũ giữ nguyên và nhả được). `CatalogueConcurrencyIT` thêm xóa sản phẩm tranh với giữ mới (hold cũ vẫn chốt và ghi bán một lần qua đường lịch sử).
+  - Trường hợp "nguồn không phản hồi → 503, không coi là 0" cần nguồn có thể lỗi theo ý muốn nên vẫn dùng bản giả trong `CatalogueSalesIT`.
+  - Kết quả (MySQL 8.4, database trống `ppswbs_pm_sales31`–`33`, đã xóa): 002 331 test và `ModulithArchitectureTests` 5 đều pass; chạy lại riêng ba lớp tranh chấp (20 test) vẫn pass.
+  - Tick: T003, T019, T042, T046, T048, T080. Chưa tick: T062 và T065, T058 (chờ luồng thanh toán FE-08 gọi `recordAcceptedSale`/đường lịch sử thật), T084 (còn audit rollback/media/lưu giữ chưa rà), T082 ("sau mọi story"), T074 và các task frontend (chưa có `ppswbs_frontend`, T088/T089).
+- **T084 (tick 2026-10-30)**: rà đủ các phần của T084, mỗi phần có test hai transaction thật trên MySQL hoặc kiểm tra tĩnh:
+  - Xóa sản phẩm tranh với công khai (có sẵn), với **duyệt** và **áp giá** (mới: `deleteRacingApprovalOrPriceApplicationLeavesAConsistentProduct`, chỉ lỗi `STALE_VERSION`/`PRODUCT_DELETED`/`REVIEW_NOT_CURRENT`, không bao giờ vừa xóa vừa công khai, áp giá thua thì không ghi bản áp dụng), với **giữ mới** của FE-08 thật (mục trên).
+  - Số lượng tranh với chốt/giữ mới của FE-08 thật (`CatalogueQuantityIT`, mục trên).
+  - Receipt: cùng command key gửi đồng thời chỉ một receipt, lệnh thua trả replay (có sẵn); mất response thì gửi lại cùng key (`CataloguePublicationIT`, có sẵn).
+  - Audit lỗi thì rollback thay đổi (`CatalogueAuditFailureIT`, có sẵn).
+  - **Media** (mới, provider ảnh là bản giả, T051 là Cloudinary thật): giữ ảnh (`retainMediaReferences`) tranh với dọn ảnh và gắn ảnh vào sản phẩm tranh với dọn ảnh, mỗi ca 5 vòng: hoặc giữ/gắn thắng và ảnh còn `READY`, hoặc dọn thắng và giữ/gắn nhận `MEDIA_NOT_AVAILABLE`/`MEDIA_NOT_FOUND`, ảnh `DELETED`; không bao giờ có tham chiếu hoặc ảnh sản phẩm trỏ tới ảnh đã xóa.
+  - **Lưu giữ** (mới, `CatalogueRetentionIT`): ArchUnit — không code nào của 002 gọi hàm `delete*` của repository receipt/audit hay `EntityManager.remove`; chạy job dọn ảnh và job dọn payload import ở thời điểm 6 năm sau, sản phẩm đã xóa mềm vẫn giữ nguyên số receipt, số audit và ảnh (`READY`).
+  - Kết quả (MySQL 8.4, database trống `ppswbs_pm_sales34`–`37`, đã xóa): 002 và `ModulithArchitectureTests` 336 test đều pass; `CatalogueConcurrencyIT` 8/8, `CatalogueRetentionIT` 2/2.

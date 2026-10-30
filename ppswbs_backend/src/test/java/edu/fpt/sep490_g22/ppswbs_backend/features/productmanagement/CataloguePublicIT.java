@@ -27,6 +27,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -55,7 +56,10 @@ class CataloguePublicIT {
     static class StubHolds {
         static final TestOnlyAvailabilityGuard SOURCE = new TestOnlyAvailabilityGuard();
 
+        // @Primary: the real FE-08 source (RetailAvailabilityGuardService) is also a bean since develop b0e7796;
+        // these tests need controllable held quantities, the real source is covered by CatalogueQuantityIT.
         @Bean
+        @Primary
         AvailabilityGuardPort testOnlyAvailabilityGuard() {
             return SOURCE;
         }
