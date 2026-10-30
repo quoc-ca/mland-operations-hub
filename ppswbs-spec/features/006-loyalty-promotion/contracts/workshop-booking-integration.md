@@ -114,7 +114,7 @@ new AuthoritativeOutcome(SourceKind.WORKSHOP, bookingRef, "workshopbooking",
 | `QUOTA_LIMIT_CONFLICT` | Hết lượt voucher do tranh chấp | Rollback; preview lại. |
 | `IDEMPOTENCY_CONFLICT`, `BENEFIT_STATE_CONFLICT` | Cùng key khác nội dung / outcome mâu thuẫn | Đối soát; không tự đổi key. |
 | `RETRYABLE_CONTENTION` | Lock timeout/deadlock (đã rollback sạch) | Thử lại cả transaction với **cùng** key và nội dung. |
-| `DEPENDENCY_UNAVAILABLE` | Thiếu dependency (ví dụ chưa có provider target WORKSHOP khi Manager tạo voucher) | 503. |
+| `DEPENDENCY_UNAVAILABLE` | Thiếu dependency hoặc nguồn tạm lỗi | 503. |
 
 ## 8. Việc phía 003.2 (provider target WORKSHOP)
 

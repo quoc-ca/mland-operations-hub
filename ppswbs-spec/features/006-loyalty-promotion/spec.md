@@ -1,7 +1,7 @@
 # Feature Specification: Loyalty & Promotion Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-30
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -31,6 +31,10 @@ Nguồn chính là FE-06 hiện tại và quyết định trực tiếp trong h�
 
 - Q: Gói workshop có nhiều phiên (ví dụ Silverclay 2 phiên, một phí cho cả gói) thì voucher giới hạn chi nhánh/ngày/phiên kiểm tra phiên nào? → A: **Mọi phiên khách đã chọn phải khớp** các giới hạn chi nhánh, ngày tham gia và phiên của voucher (nếu có); chỉ cần một phiên nằm ngoài phạm vi thì voucher bị từ chối kèm lý do. Gói phải nằm trong phạm vi gói của voucher (nếu có). Trần giảm vẫn áp một lần cho cả booking.
 - Q: Phạm vi "phiên" của voucher dùng mã nào? → A: Dùng mã tham chiếu của phiên do Workshop Operations cấp (`workshop_sessions.reference`, UUID chữ thường), không dùng số thứ tự nội bộ. Gói và chi nhánh vẫn là ID số, ngày tham gia là `YYYY-MM-DD`.
+
+### Session 2026-10-30
+
+- Q: Member hủy đơn nhẫn **trước khi thanh toán** (đơn đã chấp nhận, voucher/điểm đang giữ) thì xử lý thế nào? → A: Giống hết hạn chưa thanh toán: giải phóng voucher/điểm đang giữ đúng một lần (trả điểm khả dụng và lượt giữ của Member và tổng chương trình), không cộng điểm, không ghi đã dùng. FE-08 chỉ báo khi đã xác nhận dưới khóa đơn rằng không có thanh toán đang xử lý hoặc đã ghi nhận. Dùng loại kết quả riêng `RETAIL_CANCELLED_BEFORE_PAYMENT` để lịch sử phân biệt với hết hạn. Đơn đã thanh toán không hủy theo đường này (trả hàng/hoàn tiền nằm ngoài phạm vi).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -260,7 +264,7 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 **Giữ, chốt, giải phóng và hoàn**
 
 - **FR-032**: Điểm/lượt đang giữ MUST không dùng lại ở giao dịch khác; không giữ/dùng vượt số dư/hạn mức khi đồng thời hoặc tranh lượt. Chốt MUST đúng một lần theo kết quả nghiệp vụ xác minh.
-- **FR-033**: Hết hạn và chưa có thanh toán thành công được chấp nhận thì MUST giải phóng giữ đúng một lần, trả điểm khả dụng/lượt giữ, không ghi đã dùng/cộng thêm hoàn. Đặt lại kiểm tra điều kiện hiện hành, không gia hạn mã.
+- **FR-033**: Hết hạn, hoặc Member hủy đơn sản phẩm trước khi thanh toán (FE-08 xác nhận, làm rõ 2026-10-30), và chưa có thanh toán thành công được chấp nhận thì MUST giải phóng giữ đúng một lần, trả điểm khả dụng/lượt giữ, không ghi đã dùng/cộng thêm hoàn. Đặt lại kiểm tra điều kiện hiện hành, không gia hạn mã.
 - **FR-034**: Hủy workshop MUST dựa trên FE-03 xác nhận hợp lệ trước hoàn thành, không chỉ nút Hủy. Mới giữ thì chỉ giải phóng; điểm đã trừ thì trả đúng lượng cũ, liên kết lần trừ gốc, không quy đổi lại/đổi tiền/cộng điểm kiếm mới.
 - **FR-035**: Hủy hợp lệ voucher đã chốt MUST trả lượt Member và tổng chương trình dù không dùng điểm; không gia hạn/kích hoạt lại mã dừng/hết hạn. Không dùng quyền lợi nào thì không tạo hoàn quyền lợi đó.
 - **FR-036**: Kết quả giải phóng/hoàn MUST phân biệt từng quyền lợi để thử lại an toàn; không trả trùng hoặc vừa giải phóng vừa hoàn. Kết quả trước thiếu phần nào chỉ hoàn tất phần đó, bảo toàn lịch sử.

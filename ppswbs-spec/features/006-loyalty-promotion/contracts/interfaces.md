@@ -1,7 +1,7 @@
 # Interface Contracts: Loyalty & Promotion
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-30
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -84,7 +84,7 @@ Tên interface là thiết kế public của module; không phải entity/HTTP D
 `AuthoritativeOutcome`:
 
 - sourceKind/sourceRef, ownerModule, sourceOutcomeKey, monotonic sourceOutcomeVersion.
-- outcome RETAIL_FULLY_PAID / RETAIL_ZERO_ACCEPTED / WORKSHOP_DEPOSIT_ACCEPTED / WORKSHOP_COMPLETED_AND_FULLY_PAID / UNPAID_EXPIRY_CONFIRMED / VALID_WORKSHOP_CANCELLATION / WORKSHOP_NO_SHOW_FINAL.
+- outcome RETAIL_FULLY_PAID / RETAIL_ZERO_ACCEPTED / RETAIL_CANCELLED_BEFORE_PAYMENT / WORKSHOP_DEPOSIT_ACCEPTED / WORKSHOP_COMPLETED_AND_FULLY_PAID / UNPAID_EXPIRY_CONFIRMED / VALID_WORKSHOP_CANCELLATION / WORKSHOP_NO_SHOW_FINAL.
 - decisionAt, originalDeadline, snapshotRef, member-origin flag, minimal proof reference (không gateway raw payload).
 - Source đã serialize trạng thái nguồn và chứng minh outcome; loyalty đối chiếu nguồn/ref/member/snapshot và effect history, không tự diễn giải callback provider.
 
@@ -96,9 +96,9 @@ Tên interface là thiết kế public của module; không phải entity/HTTP D
 | reserveAcceptedTransaction | AcceptedSourceContext, selection, accepted terms proof, source command key | Kiểm tra lại current program/policy/availability, so với terms khách đã đồng ý; AcceptedBenefitRef + exact money/points/policy snapshot. Với WORKSHOP, snapshot chỉ gồm `postPromotionAmount` (= phí sau voucher và điểm). 003.1 tính `deposit = ceil(post / 2)` và `remaining = post - deposit` từ giá trị này, và 003.1 → 003.3 chuyển `frozenPostPromotionAmount`/`frozenRemainingAmount`; FE-06 không tính, không làm tròn và không lưu cọc hay còn lại. Phí sau giảm lẻ vẫn hợp lệ. MANDATORY transaction, giữ cùng source accept. Nếu khác điều khoản hoặc không đủ quota/điểm thì rollback, không silently choose lại. |
 | settleAcceptedBenefits | AuthoritativeOutcome paid/deposit/zero | Consume từng component đang HELD đúng lượng gốc; ghi settlement fact/outcome key một lần cả khi các component đều NONE để thống kê giảm tự động. Cùng result replay; expired/released/conflicting outcome không tự consume lại. |
 | grantEarnedPoints | AuthoritativeOutcome RETAIL_FULLY_PAID/RETAIL_ZERO_ACCEPTED hoặc WORKSHOP_COMPLETED_AND_FULLY_PAID | Policy acceptance + earnBase snapshot; một grant/giao dịch. Các component đã dùng phải CONSUMED hoặc NONE trước grant; không cấp điểm khi debit còn HELD. Workshop deposit không được gọi để grant. Zero earn ghi result0, không ledger giả. |
-| releaseHeldBenefits | AuthoritativeOutcome UNPAID_EXPIRY_CONFIRMED hoặc valid cancel | Chỉ HELD→RELEASED; không suy failure từ originalDeadline. |
+| releaseHeldBenefits | AuthoritativeOutcome UNPAID_EXPIRY_CONFIRMED, RETAIL_CANCELLED_BEFORE_PAYMENT (Member hủy đơn sản phẩm trước thanh toán, FE-08 xác nhận, thêm 2026-10-30) hoặc valid cancel | Chỉ HELD→RELEASED; không suy failure từ originalDeadline. Thành phần đã CONSUMED (đơn đã thanh toán) → BENEFIT_STATE_CONFLICT. |
 | restoreCancelledWorkshopBenefits | AuthoritativeOutcome VALID_WORKSHOP_CANCELLATION | HELD thì release, CONSUMED thì restore từng component; trả points gốc và cả hai quota. Không đổi tiền hoặc grant; receipt theo component để retry phần thiếu. |
-| finishIneligibleEarn | AuthoritativeOutcome unpaid expiry/valid cancel/no-show final | PENDING→INELIGIBLE, không tự hoàn CONSUMED nếu no-show. |
+| finishIneligibleEarn | AuthoritativeOutcome unpaid expiry/retail cancel trước thanh toán/valid cancel/no-show final | PENDING→INELIGIBLE, không tự hoàn CONSUMED nếu no-show. |
 | findBenefitResult | Source reference + trusted owner context | Current component/earn result để source reconciliation; không trả dữ liệu giao dịch khác. |
 
 Facade mutation MANDATORY, không REQUIRES_NEW. Nontransactional call bị từ chối trước ghi. Method validation không thay source ownership checks. Mọi interface failure typed, không expose entity.
