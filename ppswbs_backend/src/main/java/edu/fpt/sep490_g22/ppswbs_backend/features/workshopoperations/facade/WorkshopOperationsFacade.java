@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade;
 
 public interface WorkshopOperationsFacade {
 
+    /** Returns null when the UUID session reference is unknown; numeric Operations IDs never cross this boundary. */
     SaleEligibilitySnapshot getSaleEligibility(SaleEligibilityQuery query);
 
     PublishedPackageSelectionSnapshot getPublishedPackageSelection(PublishedPackageSelectionQuery query);
@@ -9,6 +10,8 @@ public interface WorkshopOperationsFacade {
     CapacityHoldOutcome reserveBookingCapacity(ReserveBookingCapacityCommand command);
 
     CapacityCommitOutcome commitBookingHolds(CommitBookingHoldsCommand command);
+
+    OtaBookingCapacityOutcome acceptOtaBooking(AcceptOtaBookingCommand command);
 
     CapacityReleaseOutcome releaseBookingHolds(ReleaseBookingHoldsCommand command);
 

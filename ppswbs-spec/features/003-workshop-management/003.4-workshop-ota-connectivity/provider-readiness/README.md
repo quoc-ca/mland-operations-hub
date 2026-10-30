@@ -67,3 +67,28 @@ appropriate access controls.
 Any missing, failed, or conditional evidence keeps the mapping sales-closed.
 Preparation synchronization may continue only within the approved sales-closed
 behavior. Record the resolution and its evidence before requesting a new review.
+
+The Admin booking-enable action is the final readiness attestation. It records
+one outcome and safe evidence reference for each checklist area above, bound to
+the provider, environment and exact mapping. Mland persists the assessment,
+checklist references, Admin account, decision and timestamp; it does not copy
+the underlying documents. Rejected or incomplete reviews remain in the audit
+history and do not enable sales. A changed mapping or environment needs a new
+assessment. Booking enablement is synchronous and atomic with the approved
+assessment; only a `SALES_CLOSED` mapping can be enabled.
+
+The reviewed readiness record is the authoritative approval for the permitted
+provider data fields. The matching provider adapter enforces those fields with
+an explicit code allowlist and default-deny behavior. Updating the approved
+allowlist requires a corresponding code change and release; do not maintain a
+second mutable copy in the application database. Tests must verify that
+non-allowlisted fields are discarded before persistence, audit, error, and API
+projection. Missing allowlist evidence blocks booking enablement.
+
+Commercial terms are negotiated and confirmed with the provider outside Mland.
+An active Manager records only the final provider-confirmed terms and a safe
+evidence reference in Mland. This action creates an approved immutable price
+snapshot immediately; it is not a draft submission for another Mland actor to
+review. Unconfirmed proposals are not persisted, and the mapping remains
+pending and sales-closed until confirmed terms and all other readiness gates
+are present.

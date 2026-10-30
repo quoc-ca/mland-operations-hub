@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "ota_channel_connections", uniqueConstraints =
@@ -31,6 +32,9 @@ public class OtaChannelConnection {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "public_reference", nullable = false, length = 36, updatable = false)
+    private String publicReference;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "provider_code", nullable = false, length = 32)
@@ -55,6 +59,7 @@ public class OtaChannelConnection {
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();
+        if (publicReference == null) publicReference = UUID.randomUUID().toString();
         if (createdAt == null) createdAt = now;
         if (updatedAt == null) updatedAt = now;
     }

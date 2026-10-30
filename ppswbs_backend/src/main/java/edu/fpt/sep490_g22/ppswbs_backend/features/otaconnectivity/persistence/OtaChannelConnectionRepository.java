@@ -6,4 +6,5 @@ import java.util.Optional;
 
 public interface OtaChannelConnectionRepository extends JpaRepository<OtaChannelConnection, Long> {
     Optional<OtaChannelConnection> findByProviderCodeAndEnvironment(OtaProvider providerCode, OtaEnvironment environment);
+    Optional<OtaChannelConnection> findByPublicReference(String publicReference);
 }

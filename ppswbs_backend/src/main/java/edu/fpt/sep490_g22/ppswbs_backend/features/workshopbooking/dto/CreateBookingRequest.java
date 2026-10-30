@@ -5,8 +5,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.validator.constraints.UniqueElements;
 
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -17,9 +19,10 @@ public class CreateBookingRequest {
     @NotNull(message = "packageId is required")
     private Long packageId;
 
-    @NotEmpty(message = "sessionIds cannot be empty")
-    @Size(min = 1, max = 2, message = "sessionIds must contain 1 or 2 sessions")
-    private List<Long> sessionIds;
+    @NotEmpty(message = "sessionReferences cannot be empty")
+    @Size(min = 1, max = 2, message = "sessionReferences must contain 1 or 2 sessions")
+    @UniqueElements(message = "sessionReferences must be unique")
+    private List<@NotNull UUID> sessionReferences;
 
     @NotNull(message = "participantCount is required")
     @Min(value = 1, message = "participantCount must be at least 1")

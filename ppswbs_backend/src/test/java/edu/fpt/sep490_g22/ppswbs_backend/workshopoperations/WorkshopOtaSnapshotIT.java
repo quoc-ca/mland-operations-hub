@@ -23,12 +23,15 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.Work
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopSessionOtaSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOtaSnapshotService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopSessionStartScheduler;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaMigrationTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -44,6 +47,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 @SpringBootTest
 @ActiveProfiles("test")
 class WorkshopOtaSnapshotIT {
+    private static final OtaMigrationTestSupport OTA_DB = OtaMigrationTestSupport.fromEnvironment().orElse(null);
+    private static final String OTA_SCHEMA = initializeOtaSchema();
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private WorkshopOtaSnapshotService snapshotService;
     @Autowired private WorkshopOtaResyncFacade resyncFacade;
@@ -60,12 +65,37 @@ class WorkshopOtaSnapshotIT {
     private WorkshopSession session;
     private String packageReference;
 
+    private static String initializeOtaSchema() {
+        if (OTA_DB == null) return null;
+        try {
+            String schema = OTA_DB.createDatabase();
+            OTA_DB.flyway(schema, null).migrate();
+            return schema;
+        } catch (Exception exception) {
+            try { OTA_DB.close(); } catch (Exception cleanup) { exception.addSuppressed(cleanup); }
+            throw new IllegalStateException(exception);
+        }
+    }
+
+    @DynamicPropertySource
+    static void isolatedMysql(DynamicPropertyRegistry registry) {
+        org.junit.jupiter.api.Assumptions.assumeTrue(OTA_DB != null,
+                "Set WORKSHOP_OTA_TEST_JDBC_URL/USER/PASSWORD for isolated MySQL evidence");
+        registry.add("spring.datasource.url", () -> OTA_DB.jdbcUrl(OTA_SCHEMA));
+        registry.add("spring.datasource.driver-class-name", () -> "com.mysql.cj.jdbc.Driver");
+        registry.add("spring.datasource.username", () -> System.getenv("WORKSHOP_OTA_TEST_JDBC_USER"));
+        registry.add("spring.datasource.password", () -> System.getenv("WORKSHOP_OTA_TEST_JDBC_PASSWORD"));
+        registry.add("spring.jpa.hibernate.ddl-auto", () -> "none");
+        registry.add("spring.flyway.enabled", () -> "false");
+    }
+
+    @org.junit.jupiter.api.AfterAll
+    static void cleanupIsolatedMysql() throws Exception {
+        if (OTA_DB != null) OTA_DB.close();
+    }
     @BeforeEach
     void setUp() throws Exception {
-        try (var connection = jdbcTemplate.getDataSource().getConnection()) {
-            assumeTrue(connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT).contains("mysql"),
-                    "WorkshopOtaSnapshotIT requires real MySQL evidence");
-        }
+        assumeTrue(OTA_DB != null, "Requires isolated MySQL test configuration");
         // This integration database contains FK-linked operational data from
         // other suites. Do not delete shared parents here; each run creates
         // isolated references and only queries its own session snapshot.
@@ -330,7 +360,8 @@ class WorkshopOtaSnapshotIT {
 
     private int publicationCount(String sessionReference) {
         return jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM event_publication WHERE event_type = ? AND serialized_event LIKE ?",
+                "SELECT COUNT(*) FROM event_publication WHERE event_type = ? AND serialized_event LIKE ? "
+                        + "AND listener_id LIKE '%WorkshopOtaSnapshotPublicationListener%'",
                 Integer.class,
                 "edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopSessionOtaSnapshotChanged",
                 "%" + sessionReference + "%");

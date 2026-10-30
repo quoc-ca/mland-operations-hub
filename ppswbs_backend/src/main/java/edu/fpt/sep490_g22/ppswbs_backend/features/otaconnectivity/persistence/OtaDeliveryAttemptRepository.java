@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface OtaDeliveryAttemptRepository extends JpaRepository<OtaDeliveryAttempt, Long> {
     List<OtaDeliveryAttempt> findByOutboundChangeIdOrderByAttemptNumberAsc(Long outboundChangeId);
+
+    java.util.Optional<OtaDeliveryAttempt> findByOutboundChangeIdAndAttemptNumber(Long outboundChangeId, Integer attemptNumber);
 }

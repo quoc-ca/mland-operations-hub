@@ -3,6 +3,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.Duration;
 import java.time.Instant;
 
 @Entity
@@ -15,6 +16,8 @@ import java.time.Instant;
 @AllArgsConstructor
 @Builder
 public class MemberWorkshopBookingQuote {
+    public static final Duration QUOTE_TTL = Duration.ofMinutes(30);
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -74,9 +77,13 @@ public class MemberWorkshopBookingQuote {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(name = "expires_at", nullable = false, updatable = false)
+    private Instant expiresAt;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = Instant.now();
+        if (expiresAt == null) expiresAt = createdAt.plus(QUOTE_TTL);
         if (quoteState == null) quoteState = "OPEN";
     }
 }
