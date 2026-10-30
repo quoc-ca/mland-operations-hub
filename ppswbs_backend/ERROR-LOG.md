@@ -2586,3 +2586,5 @@ Added the central `/api/v1/workshop-refund-policies` GET/POST controller and res
 ### VNPay configuration safety follow-up (2026-10-30)
 
 The repository had VNPay property placeholders, but also contained source-level default values for the merchant code and HMAC secret. Those defaults were removed; `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, and `VNPAY_RETURN_URL` are now empty unless supplied at runtime. The sandbox payment URL remains a non-secret development default. This is a safety/configuration correction only and does not complete T005: approved merchant identity, HTTPS IPN registration, QueryDR/refund authority, and redacted provider evidence are still required before enabling real VNPay flows.
+
+Added typed runtime `VnpayProperties` with `VNPAY_ENABLED` defaulting to false. When enabled, startup validation requires merchant code, HMAC secret, payment URL, HTTPS return/IPN/QueryDR/refund URLs; disabled development/test contexts remain runnable without credentials. `VnpayPropertiesTest` passed 3/3. This is configuration enforcement, not provider onboarding or paymentintegration dispatch implementation.
