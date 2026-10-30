@@ -2366,3 +2366,15 @@ It does not invoke FE-06, release real inventory or claim a verified payment
 outcome. This does not resolve the FE-06 retail cancellation contract above;
 real acceptance and cancellation remain unavailable through the public API.
 Local unit and in-memory integration tests cover the demo behavior.
+
+### FE-08 migration reallocation for develop merge — 2026-10-30
+
+The fetched `origin/develop` at `b5e40e5` contains migrations V24–V31 owned by
+other features. To merge FE-08 without duplicate Flyway versions, the FE-08
+variant-ID, guard/hold and checkout-quote migrations were moved from V24–V26
+to V32–V34 respectively; other owners' migrations were not changed. The prior
+FE-08 V24–V26 numbers were tested in an isolated container and may exist in
+other feature-branch databases; no history was repaired and no data was reset.
+Such databases need a separately approved upgrade or fresh-test path. V32
+still fails closed if pre-FE-02 retail rows remain, and must not be bypassed or
+automatically reset on a database containing data to preserve.
