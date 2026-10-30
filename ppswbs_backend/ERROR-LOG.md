@@ -2582,3 +2582,7 @@ Added `MlandCancellationPolicyService`, immutable `SettlementRefundPolicyRevisio
 ### 003.3 T030 policy transport slice (2026-10-30T15:52:00+07:00)
 
 Added the central `/api/v1/workshop-refund-policies` GET/POST controller and response DTO. POST requires `Idempotency-Key` and reuses settlement idempotency outcomes; both routes delegate global active-Manager authorization to the service. T030 remains unchecked because its booking-scoped cancellation, deferred-payment, required-session, and remedy routes are not yet implemented.
+
+### VNPay configuration safety follow-up (2026-10-30)
+
+The repository had VNPay property placeholders, but also contained source-level default values for the merchant code and HMAC secret. Those defaults were removed; `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, and `VNPAY_RETURN_URL` are now empty unless supplied at runtime. The sandbox payment URL remains a non-secret development default. This is a safety/configuration correction only and does not complete T005: approved merchant identity, HTTPS IPN registration, QueryDR/refund authority, and redacted provider evidence are still required before enabling real VNPay flows.
