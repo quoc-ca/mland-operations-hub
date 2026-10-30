@@ -2562,3 +2562,23 @@ The combined boundary suite `WorkshopSettlementModuleTest`, `WorkshopSettlementC
 ### 003.3 T012 transport foundation (2026-10-30T15:00:00+07:00)
 
 Added validated transport DTOs for guest proof, variable charges, reasons, and refund-policy revisions, plus scoped typed `SettlementProblem` mapping for validation, authorization, conflict, and business-validation failures. `SettlementDtoValidationTest` passed 2/2 with zero failures/errors/skips. T012 remains unchecked until the OpenAPI controllers and ownership/proof transport adapters are implemented.
+
+### 003.3 T013 completion (2026-10-30T15:06:00+07:00)
+
+Added `FinalBookingBillService` to create at most one booking-scoped bill from the frozen Booking projection only after Operations reports settlement readiness. Existing bills replay without recalculation; missing/invalid frozen amounts and not-ready bookings fail closed. `FinalBookingBillServiceTest` passed 3/3 with zero failures/errors/skips. T013 is marked `[X]`.
+
+### 003.3 T015 completion (2026-10-30T15:12:00+07:00)
+
+Added `VariableChargeService` for positive whole-VND Staff/Manager charges against an open final bill. Charges are immutable records with explicit source category and reason; closed or missing bills fail closed. `VariableChargeServiceTest` passed 3/3 with zero failures/errors/skips. T015 is marked `[X]`.
+
+### 003.3 T016 completion (2026-10-30T15:16:00+07:00)
+
+Completed final-bill finalization gating in `FinalBookingBillService`. Finalization now requires an existing open bill, Operations settlement readiness, and canonical authorization: Staff must be authorized for the booking location while Manager is global. A zero remaining balance is required for the normal path; a Manager-only exception requires a nonblank reason and permits an outstanding balance. Repeated finalization is idempotent for an already-finalized bill. Focused `FinalBookingBillServiceTest` passed 5/5 with zero failures/errors/skips. T016 is marked `[X]`; package-output delivery and broader settlement workflows remain in later tasks.
+
+### 003.3 T029 completion (2026-10-30T15:34:00+07:00)
+
+Added `MlandCancellationPolicyService`, immutable `SettlementRefundPolicyRevision` persistence, repository ordering, and Flyway V31. Any active Manager may read global revision history or create a future-effective 0..100 whole-booking percentage; duplicate effective times are rejected and existing booking snapshots remain untouched. Focused `MlandCancellationPolicyServiceTest` passed 3/3 with zero failures/errors/skips. T029 is marked `[X]`; REST transport remains T030 and refund computation/application remains T028/T031.
+
+### 003.3 T030 policy transport slice (2026-10-30T15:52:00+07:00)
+
+Added the central `/api/v1/workshop-refund-policies` GET/POST controller and response DTO. POST requires `Idempotency-Key` and reuses settlement idempotency outcomes; both routes delegate global active-Manager authorization to the service. T030 remains unchecked because its booking-scoped cancellation, deferred-payment, required-session, and remedy routes are not yet implemented.
