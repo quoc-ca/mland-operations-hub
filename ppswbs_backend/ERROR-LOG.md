@@ -2550,3 +2550,7 @@ Added settlement foundation entities/repositories and append-only Flyway V30 for
 ### 003.3 T010 completion (2026-10-30T14:51:00+07:00)
 
 Added `SettlementIdempotencyService` and focused unit coverage for first claim, same-key replay, and changed-payload conflict. `mvnw -o -Dtest=SettlementIdempotencyServiceTest test` passed 3/3 with zero failures/errors/skips. T010 is marked `[X]`; persistence/concurrency integration remains covered by later command tasks.
+
+### 003.3 T009 completion (2026-10-30T14:53:00+07:00)
+
+Authorization denial now records only safe settlement audit metadata and never persists the unresolved identity input. Focused `WorkshopSettlementAuthorizationServiceTest` passed 2/2 with zero failures/errors/skips. T009 is marked `[X]`.
