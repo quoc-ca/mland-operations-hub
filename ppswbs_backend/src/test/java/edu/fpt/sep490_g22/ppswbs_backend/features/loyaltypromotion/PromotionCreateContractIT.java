@@ -41,8 +41,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 /**
  * T024: createPromotionProgram, listPromotionPrograms and getPromotionProgram through the real security chain,
  * the real identity gate of 001 (only the Firebase token check is replaced) and the real product target provider
- * of 002 on the MySQL 8.4 test database (FR-001-FR-007, US1.1-US1.8). Workshop targets have no provider yet, so a
- * workshop voucher must be refused as DEPENDENCY_UNAVAILABLE, never accepted unchecked.
+ * of 002 on the MySQL 8.4 test database (FR-001-FR-007, US1.1-US1.8). Workshop targets are checked by the real
+ * provider of 003.2 ({@code workshopoperations}); unknown targets are refused, never accepted unchecked.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -194,14 +194,19 @@ class PromotionCreateContractIT {
     }
 
     @Test
-    void aWorkshopVoucherIsRefusedWhileNoWorkshopProviderExists() throws Exception {
+    void workshopTargetsAreCheckedByTheWorkshopProvider() throws Exception {
+        String unknownSession = UUID.randomUUID().toString();
         String body = """
                 {"kind":"VOUCHER","scope":"WORKSHOP","name":"Workshop","code":"%s",
                  "startAt":"2026-11-01T00:00:00Z","endAt":"2026-12-01T00:00:00Z",
                  "discount":{"kind":"FIXED","amount":"100000","maxDiscountAmount":"100000"},
                  "minimumEligibleAmount":"0","allowPoints":true,
-                 "targets":{"packageIds":["1"]},"totalLimit":"10","perMemberLimit":"1"}""".formatted(code());
-        assertError(create(manager, UUID.randomUUID(), body), 503, "DEPENDENCY_UNAVAILABLE");
+                 "targets":{"packageIds":["999999999999"],"sessionIds":["%s"]},
+                 "totalLimit":"10","perMemberLimit":"1"}""".formatted(code(), unknownSession);
+        MvcResult result = create(manager, UUID.randomUUID(), body);
+        assertError(result, 400, "INVALID_INPUT");
+        assertThat(result.getResponse().getContentAsString())
+                .contains("targets.packageIds[999999999999]", "targets.sessionIds[" + unknownSession + "]");
     }
 
     // ----- validation -----

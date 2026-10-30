@@ -369,3 +369,19 @@ Build `khuong` `fcbbe49` + thay đổi chưa commit, MySQL 8.4, database trống
 Ngoài phạm vi 006: `WorkshopBookingModuleTest` (003.1) lỗi nạp context do không có datasource trong cấu hình test (`Unable to determine Dialect without JDBC metadata`), không liên quan tới thay đổi này.
 
 **Chưa tick T059, T060, T064:** còn luồng accept/outcome thật của owner 003.1 và provider target WORKSHOP của 003.2.
+
+## 23. Member hủy đơn sản phẩm trước thanh toán (`RETAIL_CANCELLED_BEFORE_PAYMENT`, T064 phía retail), 2026-10-30
+
+Yêu cầu của FE-08 (Bùi Trọng Thịnh): khi Member hủy đơn nhẫn trước khi thanh toán, FE-08 trả hàng về kho và cần 006 trả voucher/điểm đang giữ; dùng `UNPAID_EXPIRY_CONFIRMED` sẽ ghi sai ý nghĩa lịch sử. Owner 006 chốt (spec Clarifications 2026-10-30, FR-033).
+
+Thay đổi: thêm `OutcomeKind.RETAIL_CANCELLED_BEFORE_PAYMENT` (chỉ cho `SourceKind.RETAIL`), được `releaseHeldBenefits` và `finishIneligibleEarn` chấp nhận. Không đổi bảng, không migration (loại kết quả không lưu cột riêng, audit ghi tên loại). Thành phần đã CONSUMED không bị nhả (`BENEFIT_STATE_CONFLICT`).
+
+Do develop đã có provider WORKSHOP thật của 003.2, `PromotionCreateContractIT` đổi test "chưa có provider → 503" thành "target gói/phiên không tồn tại → 400 INVALID_INPUT theo từng trường".
+
+Build develop `b49adca` + thay đổi chưa commit, MySQL 8.4, database trống `ppswbs_loyalty_build31` (đã xóa).
+
+| Test | Kết quả |
+| --- | --- |
+| `LoyaltyRetailSourceIntegrationIT` | 10/10 (thêm: hủy trước thanh toán trả voucher và điểm, gửi lặp không đổi gì, thanh toán đến sau → `BENEFIT_STATE_CONFLICT`, đơn đã thanh toán không hủy được theo đường này, loại kết quả chỉ cho retail) |
+| `PromotionCreateContractIT` | 11/11 |
+| Toàn bộ `features/loyaltypromotion/**` và `ModulithArchitectureTests` | đạt, 1 bỏ qua có sẵn (CORS, BE-DESIGN-0012) |

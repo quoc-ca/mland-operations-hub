@@ -21,6 +21,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Benefi
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.ComponentState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.EarnState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.OutcomeKind;
@@ -200,6 +201,59 @@ class LoyaltyRetailSourceIntegrationIT {
                 .extracting(PointLedger::getEntryKind)
                 .containsExactly(LedgerEntryKind.HOLD, LedgerEntryKind.CONSUME, LedgerEntryKind.EARN);
         assertThat(loyalty.findBenefitResult(SourceKind.RETAIL, sourceRef).earnState()).isEqualTo(EarnState.GRANTED);
+    }
+
+    /** FE-08: the Member cancels the order before paying; voucher use and points go back, no earn (2026-10-30). */
+    @Test
+    void aCancellationBeforePaymentGivesBackTheVoucherAndPoints() {
+        String code = voucher(10, true);
+        long member = newMember();
+        wallet(member, 500);
+        String sourceRef = "order-" + UUID.randomUUID();
+        BenefitSelection selection = new BenefitSelection(SelectionChoice.VOUCHER, code, n(200));
+        BenefitPreview preview = loyalty.previewBenefits(cart(member), selection);
+        AcceptedBenefitRef ref = reserve(accept(cart(member), sourceRef, preview.termsDigest(), true), selection);
+
+        AuthoritativeOutcome cancelled = outcome(sourceRef, OutcomeKind.RETAIL_CANCELLED_BEFORE_PAYMENT,
+                "cancel-" + sourceRef, 2);
+        for (int attempt = 0; attempt < 2; attempt++) {
+            transaction.executeWithoutResult(status -> {
+                loyalty.releaseHeldBenefits(cancelled);
+                loyalty.finishIneligibleEarn(cancelled);
+            });
+        }
+
+        LoyaltyWallet wallet = wallets.findById(member).orElseThrow();
+        assertThat(wallet.getBalancePoints()).isEqualTo(n(500));
+        assertThat(wallet.getHeldPoints()).isZero();
+        assertThat(program(code).getHeldCount()).isZero();
+        assertThat(program(code).getConsumedCount()).isZero();
+        assertThat(ledger.findByAcceptedBenefitIdOrderByIdAsc(ref.acceptedBenefitId()))
+                .extracting(PointLedger::getEntryKind)
+                .containsExactly(LedgerEntryKind.HOLD, LedgerEntryKind.RELEASE);
+        BenefitResult result = loyalty.findBenefitResult(SourceKind.RETAIL, sourceRef);
+        assertThat(result.pointsState()).isEqualTo(ComponentState.RELEASED);
+        assertThat(result.voucherState()).isEqualTo(ComponentState.RELEASED);
+        assertThat(result.earnState()).isEqualTo(EarnState.INELIGIBLE);
+
+        // A late payment after the cancellation is a conflict for FE-08 to reconcile, never a silent consume.
+        AuthoritativeOutcome latePaid = outcome(sourceRef, OutcomeKind.RETAIL_FULLY_PAID, "paid-" + sourceRef, 3);
+        assertCode(() -> transaction.executeWithoutResult(status -> loyalty.settleAcceptedBenefits(latePaid)),
+                LoyaltyErrorCode.BENEFIT_STATE_CONFLICT);
+        // A paid order cannot be cancelled-before-payment: consumed components are never released.
+        String paidRef = "order-" + UUID.randomUUID();
+        reserve(accept(cart(member), paidRef, loyalty.previewBenefits(cart(member),
+                new BenefitSelection(SelectionChoice.NONE, null, n(100))).termsDigest(), true),
+                new BenefitSelection(SelectionChoice.NONE, null, n(100)));
+        AuthoritativeOutcome paid = outcome(paidRef, OutcomeKind.RETAIL_FULLY_PAID, "paid-" + paidRef, 2);
+        transaction.executeWithoutResult(status -> loyalty.settleAcceptedBenefits(paid));
+        assertCode(() -> transaction.executeWithoutResult(status -> loyalty.releaseHeldBenefits(
+                outcome(paidRef, OutcomeKind.RETAIL_CANCELLED_BEFORE_PAYMENT, "cancel-" + paidRef, 3))),
+                LoyaltyErrorCode.BENEFIT_STATE_CONFLICT);
+        // The outcome belongs to retail only.
+        assertThatThrownBy(() -> new AuthoritativeOutcome(SourceKind.WORKSHOP, "b", "workshopbooking", "k", 1,
+                OutcomeKind.RETAIL_CANCELLED_BEFORE_PAYMENT, Instant.now(), Instant.now().plusSeconds(60), "s", true, "p"))
+                .isInstanceOf(LoyaltyException.class);
     }
 
     @Test
