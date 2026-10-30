@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record DeliverySafeTicket(
     UUID ticketReference,
+    String qrReference,
     String ticketCode,
     List<SessionEntitlementProjection> sessionEntitlements
 ) {

@@ -66,6 +66,7 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/ai-support/messages").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings").permitAll()
                 // VNPay calls the signed IPN server-to-server without a Mland bearer token.
                 // PaymentIngressService performs checksum, owner, amount and deduplication checks.
                 .requestMatchers(HttpMethod.GET, "/api/v1/integrations/payments/vnpay/events").permitAll()

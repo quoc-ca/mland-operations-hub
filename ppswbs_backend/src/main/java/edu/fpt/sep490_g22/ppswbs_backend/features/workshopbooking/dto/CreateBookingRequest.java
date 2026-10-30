@@ -17,10 +17,11 @@ import java.util.UUID;
 public class CreateBookingRequest {
 
     @NotNull(message = "packageId is required")
+    @Positive(message = "packageId must be positive")
     private Long packageId;
 
     @NotEmpty(message = "sessionReferences cannot be empty")
-    @Size(min = 1, max = 2, message = "sessionReferences must contain 1 or 2 sessions")
+    @Size(min = 1, message = "sessionReferences must contain at least one session")
     @UniqueElements(message = "sessionReferences must be unique")
     private List<@NotNull UUID> sessionReferences;
 

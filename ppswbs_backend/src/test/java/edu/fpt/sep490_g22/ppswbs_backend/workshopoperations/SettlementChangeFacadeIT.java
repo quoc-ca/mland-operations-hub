@@ -107,10 +107,14 @@ class SettlementChangeFacadeIT {
 
         var projection = operationsFacade.getBookingTicketProjection(new BookingTicketProjectionQuery(booking));
         assertThat(projection.tickets()).hasSize(2);
+        assertThat(projection.tickets()).extracting(ticket -> ticket.qrReference())
+                .containsExactlyInAnyOrder(firstQr, secondQr);
         assertThat(projection.tickets()).allSatisfy(ticket -> assertThat(ticket.sessionEntitlements())
                 .singleElement().satisfies(entitlement -> {
+                    assertThat(entitlement.sessionReference()).isEqualTo(UUID.fromString(target.getReference()));
                     assertThat(entitlement.locationReference()).isEqualTo(location.getId());
                     assertThat(entitlement.scheduledStart()).isEqualTo(target.getScheduledStartAt());
+                    assertThat(entitlement.scheduledEnd()).isEqualTo(target.getScheduledEndAt());
                 }));
     }
 
