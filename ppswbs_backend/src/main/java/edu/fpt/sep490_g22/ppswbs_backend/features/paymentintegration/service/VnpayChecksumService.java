@@ -20,9 +20,27 @@ public class VnpayChecksumService {
             params.forEach((key, value) -> { if (!key.equals("vnp_SecureHash") && !key.equals("vnp_SecureHashType") && value != null) sorted.put(key, value); });
             StringBuilder data = new StringBuilder();
             sorted.forEach((key, value) -> { if (data.length() > 0) data.append('&'); data.append(key).append('=').append(java.net.URLEncoder.encode(value, StandardCharsets.UTF_8)); });
-            Mac mac = Mac.getInstance("HmacSHA512"); mac.init(new SecretKeySpec(properties.getHashSecret().getBytes(StandardCharsets.UTF_8), "HmacSHA512"));
+            Mac mac = Mac.getInstance("HmacSHA512"); mac.init(new SecretKeySpec(properties.getHashSecret().trim().getBytes(StandardCharsets.UTF_8), "HmacSHA512"));
             String calculated = HexFormat.of().formatHex(mac.doFinal(data.toString().getBytes(StandardCharsets.UTF_8)));
             return calculated.equalsIgnoreCase(suppliedHash);
         } catch (Exception error) { return false; }
+    }
+
+    public String sign(Map<String, String> params) {
+        try {
+            TreeMap<String, String> sorted = new TreeMap<>(params);
+            StringBuilder data = new StringBuilder();
+            sorted.forEach((key, value) -> {
+                if (value != null) {
+                    if (data.length() > 0) data.append('&');
+                    data.append(key).append('=').append(java.net.URLEncoder.encode(value, StandardCharsets.UTF_8));
+                }
+            });
+            Mac mac = Mac.getInstance("HmacSHA512");
+            mac.init(new SecretKeySpec(properties.getHashSecret().trim().getBytes(StandardCharsets.UTF_8), "HmacSHA512"));
+            return HexFormat.of().formatHex(mac.doFinal(data.toString().getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception error) {
+            throw new IllegalStateException("Unable to sign VNPay request", error);
+        }
     }
 }

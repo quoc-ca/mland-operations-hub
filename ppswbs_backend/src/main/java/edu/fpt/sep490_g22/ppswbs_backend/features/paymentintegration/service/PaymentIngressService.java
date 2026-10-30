@@ -28,23 +28,53 @@ public class PaymentIngressService {
         var owner = registry.resolve(merchant).orElse(null);
         if (owner == null) return Outcome.reject("UNKNOWN_REFERENCE");
         long amount = parseAmount(params.get("vnp_Amount"));
-        if (amount != owner.getAmountVnd() || !"VND".equals(owner.getCurrencyCode())) return Outcome.reject("AMOUNT_CURRENCY_MISMATCH");
+        // VNPay PAY/IPN callbacks do not include vnp_CurrCode; VND is the
+        // provider contract for this merchant. An explicitly supplied
+        // non-VND value remains a hard mismatch.
+        String providerCurrency = params.getOrDefault("vnp_CurrCode", "VND");
+        if (amount != owner.getAmountVnd() || !owner.getCurrencyCode().equals(providerCurrency)) return Outcome.reject("AMOUNT_CURRENCY_MISMATCH");
         if (!"00".equals(params.get("vnp_ResponseCode"))) return Outcome.accept();
         String delivery = merchant + "|" + params.getOrDefault("vnp_TransactionNo", "");
-        if (receipts.existsByDeliveryReference(delivery)) return Outcome.duplicate();
+        if (receipts.existsByDeliveryReference(delivery)) {
+            // A prior delivery may have committed the shared receipt before a
+            // downstream consumer completed its own idempotent projection. Re-
+            // dispatching the redacted evidence is safe: Booking/Settlement
+            // facades own the business idempotency boundary and this path does
+            // not create another payment receipt or provider settlement.
+            dispatch(owner, merchant, amount, params);
+            return Outcome.duplicate();
+        }
         try {
             receipts.saveAndFlush(PaymentIngressReceipt.builder().deliveryReference(delivery).merchantReference(merchant).createdAt(Instant.now()).build());
         } catch (org.springframework.dao.DataIntegrityViolationException duplicate) {
             return Outcome.duplicate();
         }
-        String evidence = "VNPAY-" + params.getOrDefault("vnp_TransactionNo", merchant);
-        String operation = "VNPAY-" + delivery;
-        if (owner.getPaymentKind() == PaymentOwnerKind.DEPOSIT) {
-            booking.applyVerifiedDepositPaymentEvidence(new ApplyVerifiedDepositPaymentEvidenceCommand(owner.getBookingReference(), evidence, merchant, amount, "VND", operation, operation));
-        } else {
-            settlement.applyVerifiedSettlementPaymentEvidence(new ApplyVerifiedSettlementPaymentEvidenceCommand(owner.getBookingReference(), evidence, merchant, owner.getPaymentKind().name(), amount, "VND", operation, operation));
-        }
+        String providerTransaction = params.getOrDefault("vnp_TransactionNo", merchant);
+        String evidence = "VNPAY-" + providerTransaction;
+        String operation = "VNPAY-" + providerTransaction;
+        String correlation = evidence;
+        dispatch(owner, merchant, amount, params, evidence, operation, correlation);
         return Outcome.accept();
+    }
+
+    private void dispatch(PaymentOwnerRegistration owner, String merchant, long amount, Map<String, String> params) {
+        String providerTransaction = params.getOrDefault("vnp_TransactionNo", merchant);
+        String evidence = "VNPAY-" + providerTransaction;
+        dispatch(owner, merchant, amount, params, evidence, evidence, evidence);
+    }
+
+    private void dispatch(PaymentOwnerRegistration owner, String merchant, long amount, Map<String, String> params,
+                          String evidence, String operation, String correlation) {
+        if (owner.getPaymentKind() == PaymentOwnerKind.DEPOSIT) {
+            booking.applyVerifiedDepositPaymentEvidence(new ApplyVerifiedDepositPaymentEvidenceCommand(owner.getBookingReference(), evidence, merchant, amount, "VND", operation, correlation));
+        } else {
+            SettlementPaymentEvidenceOutcome outcome = settlement.applyVerifiedSettlementPaymentEvidence(
+                    new ApplyVerifiedSettlementPaymentEvidenceCommand(owner.getBookingReference(), evidence, merchant,
+                            owner.getPaymentKind().name(), amount, "VND", operation, correlation));
+            if (outcome == null || outcome.status() != SettlementPaymentEvidenceOutcome.Status.ACCEPTED) {
+                throw new IllegalStateException("Verified Settlement evidence was rejected; ingress receipt must not commit");
+            }
+        }
     }
     private long parseAmount(String raw) { try { long value=Long.parseLong(raw); if(value<=0 || value%100!=0) return -1; return value/100; } catch(Exception e){return -1;} }
     public record Outcome(String rspCode, String message) {

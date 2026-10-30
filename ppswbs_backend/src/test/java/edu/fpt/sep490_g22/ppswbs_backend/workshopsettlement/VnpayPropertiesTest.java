@@ -28,6 +28,14 @@ class VnpayPropertiesTest {
                 .hasMessageContaining("vnpay.ipn-url");
     }
 
+    @Test void enabledConfigurationRejectsNonPositiveMerchantApiTimeouts() {
+        var properties = configured();
+        properties.setMerchantApiReadTimeout(java.time.Duration.ZERO);
+        assertThatThrownBy(properties::validateForEnabledRuntime)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("merchant-api-read-timeout");
+    }
+
     private static VnpayProperties configured() {
         var properties = new VnpayProperties();
         properties.setEnabled(true);
