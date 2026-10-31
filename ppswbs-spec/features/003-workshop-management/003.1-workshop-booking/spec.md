@@ -1,7 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-01
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -43,9 +43,12 @@ verification evidence exist.
 ### Loyalty outcome ownership decision (2026-10-31)
 
 - Booking emits `WORKSHOP_DEPOSIT_ACCEPTED` only after verified deposit evidence
-  is accepted. Booking emits `UNPAID_EXPIRY_CONFIRMED` only after QueryDR has
-  conclusively confirmed the deposit remains unpaid; reaching the hold deadline
-  or receiving an unknown/pending QueryDR result is not sufficient.
+  is accepted. For a booking with no registered payment attempt and no verified
+  payment evidence, expiry of the hold establishes unpaid expiry under the
+  booking lock. For a booking with payment attempts, Booking emits
+  `UNPAID_EXPIRY_CONFIRMED` only after every attempt has matching, verified
+  terminal status `02`; reaching the hold deadline or receiving an unknown or
+  pending result is not sufficient.
 - Settlement emits workshop completion, cancellation, and final no-show
   outcomes only after it has authoritative evidence for the whole booking.
   Completion requires a fully paid final invoice and terminal attendance for
@@ -740,8 +743,20 @@ appropriate booking summary without exposing another customer's booking.
   validation as IPN before it can confirm a booking.
 - **FR-010d**: For a payment attempt with no terminal IPN outcome, automatic
   QueryDR recovery MUST run at minutes 8 and 9 after hold creation while the
-  hold is active. A pending or unknown result MUST NOT extend the hold. QueryDR
-  MUST NOT run after hold expiry or treat a browser return as payment evidence.
+  hold is active. At minute 10, Booking closes the capacity hold. After hold
+  expiry, QueryDR is reconciliation-only: it MUST NOT confirm or reopen the
+  booking. QueryDR runs at five-minute intervals through minute 70 using a
+  distinct idempotent operation reference for each check. If no payment attempt
+  was registered and no verified payment evidence exists, the locked expiry
+  transaction confirms nonpayment without a provider query. Otherwise, every
+  attempt needs a signed, exact merchant-reference/amount/VND outcome with
+  transaction status `02` before held Loyalty benefits can be released. Status `01`,
+  reversal `04`, and QueryDR errors `91`/`99` do not confirm nonpayment.
+  Pending/unknown results MUST NOT extend the hold or release benefits. A
+  verified late success enters late-payment follow-up, never ticket issuance.
+  After minute 70, unresolved attempts remain exceptional; after 24 hours they
+  appear in one daily Manager reconciliation list, without per-attempt task
+  creation or inferred nonpayment. Browser return is never payment evidence.
 - **FR-010f**: A verified IPN outcome is terminal when its two-digit
   `vnp_TransactionStatus` is present and is not `01` (incomplete). Only a
   verified callback with both `vnp_ResponseCode=00` and

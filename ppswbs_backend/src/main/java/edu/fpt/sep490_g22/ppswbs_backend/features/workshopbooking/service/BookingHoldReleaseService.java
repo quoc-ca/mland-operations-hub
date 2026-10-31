@@ -35,8 +35,19 @@ public class BookingHoldReleaseService {
     }
 
     @Transactional
+    public void expirePendingHold(String bookingCode, String operationReference) {
+        release(bookingCode, operationReference, operationReference, "SYSTEM", null, null, BookingStatus.EXPIRED);
+    }
+
+    @Transactional
     public void releasePendingHold(String bookingCode, String operationReference, String correlationReference,
                                   String actorType, Long actorId, String actionReason) {
+        release(bookingCode, operationReference, correlationReference, actorType, actorId, actionReason,
+                BookingStatus.CANCELLED);
+    }
+
+    private void release(String bookingCode, String operationReference, String correlationReference,
+                         String actorType, Long actorId, String actionReason, BookingStatus terminalStatus) {
         log.info("releasePendingHold: bookingCode={}, opRef={}", bookingCode, operationReference);
         WorkshopBooking booking = bookingRepository.findLockedByBookingCode(bookingCode)
                 .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
@@ -76,13 +87,14 @@ public class BookingHoldReleaseService {
         if (commitments.isEmpty()) {
             throw new BookingConflictException("Booking has no session commitments to release");
         }
-        booking.setBookingStatus(BookingStatus.CANCELLED);
+        booking.setBookingStatus(terminalStatus);
         booking.setCancelledAt(Instant.now());
         bookingRepository.save(booking);
 
         auditEvidenceRepository.save(BookingAuditEvidence.builder()
                 .bookingCode(bookingCode).locationId(commitments.get(0).getLocationId())
-                .actorType(actorType).actorId(actorId).action("RELEASE_HOLD").outcome("ACCEPTED")
+                .actorType(actorType).actorId(actorId).action(terminalStatus == BookingStatus.EXPIRED
+                        ? "EXPIRE_HOLD" : "RELEASE_HOLD").outcome("ACCEPTED")
                 .actionReason(actionReason)
                 .correlationReference(correlationReference).occurredAt(Instant.now()).build());
     }

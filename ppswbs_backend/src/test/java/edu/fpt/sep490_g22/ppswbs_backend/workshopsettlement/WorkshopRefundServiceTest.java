@@ -13,6 +13,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.Sett
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundAllocation;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopRefundService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopCancellationLoyaltyService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.TransactionDefinition;
@@ -40,6 +41,7 @@ class WorkshopRefundServiceTest {
     private final SettlementCaseRepository cases = mock(SettlementCaseRepository.class);
     private final SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
     private final WorkshopOperationsSettlementAdapter operations = mock(WorkshopOperationsSettlementAdapter.class);
+    private final WorkshopCancellationLoyaltyService cancellationLoyalty = mock(WorkshopCancellationLoyaltyService.class);
     private final RecordingTransactionManager transactions = new RecordingTransactionManager();
     private final Map<String, SettlementRefundAllocation> allocationRows = new ConcurrentHashMap<>();
     private SettlementCase cancellationCase;
@@ -51,7 +53,7 @@ class WorkshopRefundServiceTest {
         cancellationCase = SettlementCase.builder().caseReference(CASE_REF).bookingReference(BOOKING_REF)
                 .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("PENDING_PROVIDER")
                 .correlationReference("CORR-1").createdAt(Instant.now()).updatedAt(Instant.now()).build();
-        service = new WorkshopRefundService(provider, allocations, cases, audits, operations, transactions,
+        service = new WorkshopRefundService(provider, allocations, cases, audits, operations, cancellationLoyalty, transactions,
                 "8.8.8.8", "sandbox-merchant");
         when(cases.findByCaseReference(CASE_REF)).thenReturn(Optional.of(cancellationCase));
         when(cases.save(any())).thenAnswer(invocation -> invocation.getArgument(0));

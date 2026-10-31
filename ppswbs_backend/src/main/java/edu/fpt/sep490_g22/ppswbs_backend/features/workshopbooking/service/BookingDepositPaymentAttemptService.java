@@ -15,6 +15,7 @@ public class BookingDepositPaymentAttemptService {
     private final WorkshopBookingRepository bookings;
     private final BookingInvoiceRepository invoices;
     private final BookingPaymentAttemptRepository attempts;
+    private final BookingDepositReconciliationRepository reconciliations;
     private final PaymentOwnerRegistrationPort owners;
 
     @Transactional
@@ -39,6 +40,9 @@ public class BookingDepositPaymentAttemptService {
                 .attemptAmount(invoice.getDepositAmount()).status(PaymentAttemptStatus.PENDING)
                 .paymentUrlSnapshot(paymentUrl).expiresAt(expiresAt).build());
         owners.registerOwner(merchantReference, bookingCode, "DEPOSIT", invoice.getDepositAmount(), "VND", providerCreateDate);
+        reconciliations.saveAndFlush(BookingDepositReconciliation.builder()
+                .attempt(attempt).lifecycleStatus("PENDING").nextQueryAt(expiresAt)
+                .createdAt(Instant.now()).updatedAt(Instant.now()).build());
         return attempt;
     }
     public WorkshopBooking requireBooking(String bookingCode) { return bookings.findByBookingCode(bookingCode).orElseThrow(() -> new BookingNotFoundException("Booking " + bookingCode + " not found")); }
