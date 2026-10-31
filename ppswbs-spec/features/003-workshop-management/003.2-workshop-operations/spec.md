@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -49,6 +49,13 @@ where they conflict with the following V1 decisions:
   otherwise unchanged. Manual early start follows the same publication rule.
 - Attendance correction remains Manager-only. An active Manager may correct
   attendance globally; Staff may not correct attendance.
+- A finalized session records its finalization timestamp. Manager attendance
+  corrections remain available until 24 hours after the latest required
+  session for the booking is finalized. At that exclusive deadline, Operations
+  rejects further corrections automatically; no Manager sealing action is
+  required. Settlement may treat the booking-wide attendance projection as
+  terminal only after every required session is finalized and this correction
+  window has closed.
 
 Any older paragraph, example or scenario that requires a Staff assignment,
 Manager operational lead, capability key or manual scheduled start is legacy
@@ -267,7 +274,10 @@ perform refunds or connect directly to external OTAs.
   `ATTENDANCE_FINALIZED`. It is false while any required session is not
   finalized, including when it is cancelled. The result includes no individual
   attendance, ticket, Staff, audit or PII detail; 003.3 must not infer it from
-  scheduled end time or calculate it from per-session states.
+  scheduled end time or calculate it from per-session states. It also reports
+  whether the 24-hour attendance-correction window has closed and whether any
+  required ticket is `NO_SHOW`; Settlement emits a terminal Loyalty outcome
+  only after the correction window closes.
 - Q: May a Manager replace a booking's required session with a target session
   that is `SALES_PAUSED`? → A: No. Every replacement target must be future,
   `PUBLISHED`, customer-selectable and have capacity for the booking's complete

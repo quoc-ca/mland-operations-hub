@@ -64,6 +64,17 @@ administer Packages globally; `activeLocationIds` does not narrow Manager
 authority anywhere in Feature 003. There is no Central Manager tier or persisted
 Package-to-Manager assignment. Staff operational actions remain location-scoped.
 
+### WorkshopBookingPackagePolicySnapshot
+
+Operations stores one immutable snapshot per accepted booking, uniquely keyed
+by `bookingReference`, containing the package reference, required session count,
+participant bounds, same-location requirement and minimum same-day slot gap
+validated in the capacity-reservation transaction. Later Package edits are
+prospective and do not change this snapshot. Complete required-session
+replacement validates against these frozen constraints. Existing bookings with
+no snapshot are not backfilled from the mutable Package master and cannot be
+replaced automatically; they require an evidenced/manual resolution.
+
 ### WorkshopLocation
 
 Canonical `workshop_location.id` (`Long`), immutable `code`, display name,
@@ -354,6 +365,14 @@ ACTIVE / NOT_CHECKED_IN -> ACTIVE / NO_SHOW   (whole-session finalisation)
 This lifecycle applies independently to each ticket/session entitlement. After
 that session's finalisation, only the Manager correction path may change the
 projection; the original action remains immutable.
+
+Each `WorkshopSession` stores nullable `attendanceFinalizedAt`, set in the same
+transaction that changes the session to `ATTENDANCE_FINALIZED`. For a booking,
+the correction deadline is 24 hours after the latest `attendanceFinalizedAt`
+among all required sessions. Operations serializes correction and settlement
+readiness against the required session and entitlement rows; at or after the
+deadline, corrections are rejected without a separate Manager seal. Missing
+finalization timestamps fail closed and do not establish terminal attendance.
 
 ## Referential and Concurrency Rules
 

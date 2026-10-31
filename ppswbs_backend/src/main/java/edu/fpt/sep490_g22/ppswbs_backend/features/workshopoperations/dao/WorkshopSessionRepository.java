@@ -25,6 +25,10 @@ public interface WorkshopSessionRepository extends JpaRepository<WorkshopSession
     Optional<WorkshopSession> findByReferenceWithLock(@Param("reference") String reference);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM WorkshopSession s WHERE s.id = :id")
+    Optional<WorkshopSession> findByIdWithLock(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM WorkshopSession s WHERE s.reference IN :references")
     List<WorkshopSession> findByReferenceInWithLock(@Param("references") Collection<String> references);
 
@@ -41,4 +45,8 @@ public interface WorkshopSessionRepository extends JpaRepository<WorkshopSession
     List<WorkshopSession> findByLocationIdAndState(Long locationId, SessionState state);
 
     List<WorkshopSession> findByStateAndScheduledStartAtLessThanEqual(SessionState state, Instant cutoff);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM WorkshopSession s WHERE s.id IN :ids ORDER BY s.id")
+    List<WorkshopSession> findByIdsWithLock(@Param("ids") Collection<Long> ids);
 }
