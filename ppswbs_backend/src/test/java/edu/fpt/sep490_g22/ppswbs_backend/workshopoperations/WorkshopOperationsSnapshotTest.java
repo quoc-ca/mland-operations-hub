@@ -40,7 +40,8 @@ class WorkshopOperationsSnapshotTest {
             mock(CapacityHoldService.class),
             mock(AttendanceTicketService.class),
             mock(WorkshopOtaSnapshotService.class),
-            packagePolicy);
+            packagePolicy,
+            mock(WorkshopAddOnService.class));
 
     @Test
     void saleSnapshotReturnsUuidAndWorkshopFactsWithoutNumericSessionId() {

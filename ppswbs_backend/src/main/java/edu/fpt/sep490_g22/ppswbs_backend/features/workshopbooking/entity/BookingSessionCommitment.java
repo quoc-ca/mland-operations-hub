@@ -8,7 +8,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "booking_session_commitments", uniqueConstraints = {
     @UniqueConstraint(name = "uq_bsc_booking_ordinal", columnNames = {"booking_id", "ordinal"}),
-    @UniqueConstraint(name = "uq_bsc_booking_session", columnNames = {"booking_id", "session_id"})
+    @UniqueConstraint(name = "uq_bsc_booking_session", columnNames = {"booking_id", "session_reference"})
 })
 @Getter
 @Setter
@@ -25,8 +25,8 @@ public class BookingSessionCommitment {
     @JoinColumn(name = "booking_id", nullable = false)
     private WorkshopBooking booking;
 
-    @Column(name = "session_id", nullable = false)
-    private Long sessionId;
+    @Column(name = "session_reference", nullable = false, length = 36)
+    private String sessionReference;
 
     @Column(name = "location_id", nullable = false)
     private Long locationId;

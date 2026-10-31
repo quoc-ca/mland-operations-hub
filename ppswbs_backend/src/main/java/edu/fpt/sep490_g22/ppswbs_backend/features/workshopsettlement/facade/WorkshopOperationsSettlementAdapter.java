@@ -14,6 +14,10 @@ public class WorkshopOperationsSettlementAdapter {
         return operations.getSettlementReadiness(new BookingSettlementReadinessQuery(bookingReference));
     }
 
+    public WorkshopAddOnPriceSnapshot addOnPrice(String packageReference, Long locationReference, String addOnReference) {
+        return operations.getWorkshopAddOnPrice(new WorkshopAddOnPriceQuery(packageReference, locationReference, addOnReference));
+    }
+
     public RequiredSessionReplacementOutcome replace(String bookingReference,
             java.util.List<String> targetSessionReferences, String operationReference, String correlationReference) {
         return operations.replaceRequiredSessions(new ReplaceRequiredSessionsCommand(

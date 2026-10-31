@@ -165,7 +165,7 @@ class WorkshopBookingModuleTest {
 
         // Apply verified deposit evidence
         ApplyVerifiedDepositPaymentEvidenceCommand depositCmd = new ApplyVerifiedDepositPaymentEvidenceCommand(
-                "BK-001", "EV-001", "OP-002", "CORR-002");
+                "BK-001", "EV-001", "M-001", 50_000L, "VND", "OP-002", "CORR-002");
         DepositPaymentEvidenceOutcome depositOutcome = bookingFacade.applyVerifiedDepositPaymentEvidence(depositCmd);
         assertThat(depositOutcome.status()).isEqualTo(BookingOutcomeStatus.REJECTED);
         assertThat(depositOutcome.reason()).isEqualTo(BookingRejectionReason.NOT_READY);

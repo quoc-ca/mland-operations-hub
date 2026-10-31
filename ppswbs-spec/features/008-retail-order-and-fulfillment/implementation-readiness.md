@@ -77,9 +77,10 @@ it is replaced by verified VNPay evidence before production.
 
 | Migration | Deferred scope | Gate |
 | --- | --- | --- |
-| V32 | Convert empty local/test FE-08 `variant_id` columns from legacy text to canonical FE-02 `BIGINT`; the migration fails rather than deleting or coercing data | Run `scripts/local-reset-retail-demo.sql` only against an approved local/test database before migration |
-| V33 | FE-08 stable per-variant guard rows and per-checkout variant holds | FE-08 lazy-creates each missing guard inside the FE-02-locked `withGuard` path using an approved atomic MySQL provision-and-lock primitive |
-| V34 | Durable FE-08 checkout quotes and per-location/item snapshots | Reallocated after develop occupied V24–V31; verify database history before deployment |
+| V38 | Convert empty local/test FE-08 `variant_id` columns from legacy text to canonical FE-02 `BIGINT`; the migration fails rather than deleting or coercing data | Check existing data and migration history; do not reset an existing database automatically |
+| V39 | FE-08 stable per-variant guard rows and per-checkout variant holds | FE-08 lazy-creates each missing guard inside the FE-02-locked `withGuard` path using an approved atomic MySQL provision-and-lock primitive |
+| V40 | Durable FE-08 checkout quotes and per-location/item snapshots | Verify previous FE-08 migration history before deployment |
+| V41–V43 | Cancellation restoration result, simulated payment proof, and pickup evidence | Verify previous FE-08 migration history before deployment |
 | Unallocated | Durable shipping quotes and accepted GHTK recipient/selection snapshots | Approve a migration number, FE-02 shipping-profile boundary and real quote contract verification |
 | Unallocated | Shipments, carrier status events, custody evidence and recipient retention | Approve a migration number, GHTK callback/security and Staff/Manager delegation design |
 

@@ -27,6 +27,11 @@ public class WorkshopSettlementProblemHandler {
         return respond(HttpStatus.FORBIDDEN, error.getMessage(), List.of(), request);
     }
 
+    @ExceptionHandler(WorkshopSettlementNotFoundException.class)
+    ResponseEntity<SettlementProblem> notFound(WorkshopSettlementNotFoundException error, HttpServletRequest request) {
+        return respond(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", List.of(), request);
+    }
+
     @ExceptionHandler(WorkshopSettlementConflictException.class)
     ResponseEntity<SettlementProblem> conflict(WorkshopSettlementConflictException error, HttpServletRequest request) {
         return respond(HttpStatus.CONFLICT, error.getMessage(), List.of(), request);

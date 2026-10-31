@@ -53,6 +53,24 @@ public class IdentityGateFilter extends OncePerRequestFilter {
             return true;
         }
         String path = request.getRequestURI();
+        if ("GET".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/integrations/payments/vnpay/events".equals(path)) {
+            return true;
+        }
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-bookings/[^/]+/payment-attempts")) {
+            return true;
+        }
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/workshop-bookings".equals(path)
+                && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
+            return true;
+        }
+        boolean customerBillRoute = ("GET".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill/charges"));
+        if (customerBillRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) return true;
         return !path.startsWith("/api/");
     }
 

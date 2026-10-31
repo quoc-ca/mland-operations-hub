@@ -10,6 +10,7 @@ public class SettlementBusinessAudit {
  @Column(name="actor_reference",length=128) private String actorReference;
  @Column(name="correlation_reference",nullable=false,length=128) private String correlationReference;
  @Column(name="evidence_reference",length=128) private String evidenceReference;
+ @Column(name="reason_reference",length=500) private String reasonReference;
  @Column(name="created_at",nullable=false,updatable=false) private Instant createdAt;
  @PrePersist void onCreate(){if(createdAt==null)createdAt=Instant.now();}
 }

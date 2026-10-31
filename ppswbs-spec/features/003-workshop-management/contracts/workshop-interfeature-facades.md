@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -12,6 +12,10 @@ OpenAPI document.
 The Feature 003 owner approved OTA booking and add-on facade prerequisites on
 2026-10-29. These operations extend the existing boundaries without transferring
 ownership of capacity/tickets, direct-Mland payment, or OTA channel payment.
+On 2026-10-30 the owner approved the VNPay outbound-operation safety contract:
+`paymentintegration` owns the Merchant API adapter and journal, while business
+callers use typed technical ports in `common.payment`. This keeps inbound
+payment dispatch and outbound gateway calls from creating a Modulith cycle.
 
 ## Purpose and boundary
 
@@ -66,6 +70,34 @@ side effect. The routing registry/reference format, Java package names and
 persistence mechanism remain implementation decisions, but its target must be
 durable and immutable for the payment-attempt lifetime.
 
+## VNPay outbound Merchant API technical port
+
+`paymentintegration` owns outbound QueryDR/refund HTTP, Merchant credentials,
+HMAC construction/verification, and durable operation state. It exposes a
+typed implementation through `common.payment`; 003.3 owns caller authorization
+and invokes the port only after its business transaction has committed. The
+port is technical and transfers no Settlement persistence ownership.
+
+Each command supplies an opaque `operationReference`, original merchant
+transaction reference, original payment creation timestamp, and the minimum
+command fields required by VNPay. The operation reference is the idempotency
+identity. Before network I/O, the adapter stores the request fingerprint,
+provider-generated `vnp_RequestId`, operation kind and `IN_FLIGHT` state.
+Identical replay returns the stored state without another provider call;
+changed content under that reference is rejected. It does not persist the
+HMAC secret or raw signed response.
+
+The adapter makes at most one provider call for a given operation reference.
+Transport failure/timeout and response code `99` yield `UNKNOWN`; no refund is
+retried automatically. Refund API response code `00` is only `ACCEPTED`, never
+proof of returned funds. A distinct QueryDR operation can reconcile the
+original merchant transaction using the exact original `vnp_CreateDate`.
+QueryDR output is returned to the caller as verified evidence only after the
+response checksum, terminal, transaction reference, amount and currency are
+validated. 003.3 still owns applying a refund conclusion and related business
+effects. The production endpoint/credential remain disabled until the
+configuration preflight is approved.
+
 ## Shared command/outcome rules
 
 1. Every command that changes business state includes an opaque caller-generated
@@ -99,8 +131,10 @@ durable and immutable for the payment-attempt lifetime.
 | Accept OTA booking capacity and issue per-person tickets | `AcceptOtaBookingCommand(bookingReference, packageReference, sessionReference, participantCount, operationReference, correlationReference)` | `OtaBookingCapacityOutcome(ACCEPTED + exactly N opaque ticket references, prior equivalent outcome, or REJECTED reason)` | Basic Ring/`PER_PERSON` only. One Operations-owned local transaction validates the published Package/session and capacity, commits the required seats, and issues one independently scannable ticket per participant; rejection has no capacity or ticket effect. Same operation reference and semantic input returns the original ticket set; changed reuse conflicts. It exposes no entity, contact, payment, attendance, or raw QR data. |
 | Commit holds after valid deposit evidence | `CommitBookingHoldsCommand(bookingReference, expectedHoldReferences, operationReference, correlationReference)` | `CapacityCommitOutcome(ACCEPTED, or REJECTED reason)` | Commits all active expected holds or none. |
 | Release pending holds | `ReleaseBookingHoldsCommand(bookingReference, expectedHoldReferences, operationReference, correlationReference)` | `CapacityReleaseOutcome(ACCEPTED or prior equivalent outcome)` | Releases active holds once only; late/repeated release is idempotent. |
-| Read current delivery-safe ticket set | `BookingTicketProjectionQuery(bookingReference)` | `DeliverySafeTicketSet(ticketReferenceOrQrReference, ticketCode, sessionEntitlements(locationReference, scheduledStart, scheduledEnd))` | Read-only; no attendance, Staff/audit, PII, or raw QR payload. |
+| Read current delivery-safe ticket set | `BookingTicketProjectionQuery(bookingReference)` | `DeliverySafeTicketSet(ticketReference, qrReference, ticketCode, sessionEntitlements(sessionReference, locationReference, scheduledStart, scheduledEnd))` | Each entitlement carries the opaque UUID session reference and current schedule for unambiguous customer projection after replacement/refund. `qrReference` is the Operations-issued opaque bearer scan value, returned only through this authorized projection; no attendance, Staff/audit or PII. |
 | Read settlement readiness | `BookingSettlementReadinessQuery(bookingReference)` | `SettlementReadiness(ready)` | `ready` is true only if every required session is `ATTENDANCE_FINALIZED`; no underlying attendance detail. |
+| Verify customer access to a booking | `CustomerBookingAccessQuery(bookingReference, memberAccountId, contactEmail, contactPhone)` | `CustomerBookingAccessDecision(authorized)` | Exactly one proof mode is supplied: a Member account ID or one Guest contact value. Booking compares it to its own stored owner/contact and returns only a boolean decision; it does not return contact PII or log the submitted proof. |
+| Read a customer-selectable fixed workshop add-on | `WorkshopAddOnPriceQuery(packageReference, locationReference, addOnReference)` | `WorkshopAddOnPriceSnapshot(addOnReference, description, amountVnd, currencyCode)` or `null` | Operations returns a snapshot only when the package is published, location active, and add-on active for the exact package/location. Amount is whole VND; no numeric internal add-on row ID is exposed. |
 | Replace the complete future required-session set | `ReplaceRequiredSessionsCommand(bookingReference, completeTargetSessionReferences, operationReference, correlationReference)` | `RequiredSessionReplacementOutcome(ACCEPTED, or REJECTED reason)` | Operations validates all current/target rules, transfers all capacity and entitlement or none, and preserves ticket QR. |
 | Apply verified whole-booking refund consequence | `ApplyVerifiedRefundConsequenceCommand(bookingReference, verifiedRefundReference, operationReference, correlationReference)` | `RefundConsequenceOutcome(ACCEPTED, or REJECTED reason)` | Only after verified refund; revoke unused future ticket entitlement and release future capacity; never rewrite attendance history. |
 | Complete a resolved cancellation handoff | `CompleteCancellationHandoffCommand(sessionReference, cancellationCaseReference, operationReference, correlationReference)` | `CancellationCompletionOutcome(ACCEPTED, or REJECTED reason)` | `CANCELLED` only when Settlement reports the handoff resolved/audited; no refund/reschedule logic lives in Operations. |
@@ -142,7 +176,7 @@ Magic-Link revocation/rotation.
 | Open a customer-commitment cancellation handoff | `OpenCancellationHandoffCommand(sessionReference, affectedBookingReferences, cancellationReasonReference, operationReference, correlationReference)` | `CancellationHandoffOutcome(ACCEPTED + cancellationCaseReference, or REJECTED reason)` | Consumed asynchronously from the Operations-owned durable outbox after Operations has entered `CANCELLATION_REQUESTED`; delivery is idempotent by `operationReference`, and opening a case does not alter capacity, tickets, or payment. |
 | Create direct-Mland add-on bill from accepted OTA quote | `CreateAcceptedOtaAddonBillCommand(bookingReference, acceptedQuoteReference, consentReference, operationReference, correlationReference)` | `AcceptedOtaAddonBillOutcome(ACCEPTED + billReference + amount/currency, prior equivalent outcome, or REJECTED reason)` | Settlement validates the quote and consent, derives price from its approved server-side quote, and creates or returns one direct-Mland bill idempotently. It does not alter OTA customer-payment/refund evidence, commission, or payout; it returns no card/payment secret or raw provider data. |
 | Read cancellation-handoff resolution | `CancellationHandoffResolutionQuery(cancellationCaseReference)` | `CancellationHandoffResolution(resolved)` | `resolved` is true only after every affected booking case has a recorded remedy or audited Manager decision. It exposes no refund amount/payment/PII detail. |
-| Apply verified settlement evidence | `ApplyVerifiedSettlementPaymentEvidenceCommand(bookingReference, verifiedEvidenceReference, operationReference, correlationReference)` | `SettlementPaymentEvidenceOutcome(ACCEPTED or prior equivalent outcome, or REJECTED reason)` | Called only by `paymentintegration` after one successful verified dispatch. Settlement checks its frozen bill/refund reference, amount and currency, and may send only the existing safe final-balance conclusion to Booking. It receives no raw VNPay payload or checksum. |
+| Apply verified settlement evidence | `ApplyVerifiedSettlementPaymentEvidenceCommand(bookingReference, verifiedEvidenceReference, merchantReference, paymentKind, amountVnd, currencyCode, operationReference, correlationReference)` | `SettlementPaymentEvidenceOutcome(ACCEPTED or prior equivalent outcome, or REJECTED reason)` | Called only by `paymentintegration` after one successful verified dispatch. `paymentKind` is `FINAL_PAYMENT` or `REFUND`; `amountVnd` is a positive whole-VND amount and `currencyCode` is `VND`. Settlement checks its frozen bill/refund reference, amount and currency, and may send only the existing safe final-balance conclusion to Booking. It receives no raw VNPay payload or checksum. |
 | Read immutable notification delivery payload | `SettlementNotificationDeliveryPayloadQuery(notificationReference)` | `SettlementNotificationDeliveryPayload(notificationKind, storedRecipient, renderedSettlementContent, paymentActionLinkWhenApplicable, correlationReference)` | Callable only by the Feature 007 notification boundary after a matching handoff. It returns one immutable render-ready snapshot for that delivery reference; recipient/contact data and a payment action link MUST NOT be included in the event or provider/audit logs. |
 
 ## Post-commit Settlement notification handoff — 003.3 to Feature 007

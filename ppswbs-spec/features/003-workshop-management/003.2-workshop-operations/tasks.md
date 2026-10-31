@@ -1,7 +1,7 @@
 # Tasks: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -226,7 +226,7 @@ handoff to the implementation persona.
 - [X] T056 Implement the approved `WorkshopOperationsFacade` settlement-readiness operation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/`; it returns only whether every required session is `ATTENDANCE_FINALIZED`, never attendance/ticket/Staff/audit/PII detail or a conclusion inferred from schedule time.
 - [X] T057 Implement the approved complete required-session replacement and post-refund-consequence operations in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/` and `service/`; enforce future eligible sources, future `PUBLISHED` customer-selectable targets, full participant capacity, all-or-none entitlement/capacity transfer, persistent QR, no `SALES_PAUSED` exception, and no attendance-history rewrite.
 - [X] T058 Add facade integration coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/SettlementChangeFacadeIT.java` after T056/T057 for readiness only after every finalization, cancelled/unfinalized false, one/two-session atomic replacement, target/source rejection, unchanged QR, no partial capacity/entitlement result, and verified-refund-only consequence.
-- [X] T059 Implement and test the authorized read-only current delivery-safe ticket/session-entitlement projection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/`; after replacement or verified refund it exposes current location/schedule/entitlement only, never attendance, Staff, audit or PII.
+- [X] T059 Implement and test the authorized read-only current delivery-safe ticket/session-entitlement projection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/`; expose Operations ticket identity plus opaque bearer `qrReference`, and every entitlement must carry the opaque session UUID, canonical location, and current scheduled start/end after replacement or verified refund, never attendance, Staff, audit or PII. Verified by `SettlementChangeFacadeIT` on isolated MySQL (9/9, including post-replacement current schedule/UUID/location, unchanged scan QR, and verified-refund revocation); Flyway and Hibernate DDL disabled.
 
 ---
 
@@ -248,6 +248,9 @@ handoff to the implementation persona.
 - [X] T076 Add an Operations-owned atomic OTA acceptance operation to `WorkshopOperationsFacade` that validates one published Basic Ring session and participant bounds, commits capacity and issues exactly one independently scannable ticket per participant in one transaction, returns the same ticket set on equivalent replay, and rejects changed idempotency reuse without side effects; cover accepted, full-capacity, invalid-input and replay cases in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/OtaBookingFacadeIT.java`.
 - [X] T077 Implement the Workshop Operations-owned `PromotionTargetPort` provider in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/LoyaltyWorkshopTargetAdapter.java`; support WORKSHOP PACKAGE and BRANCH decimal IDs, WORKSHOP_DATE ISO dates and SESSION canonical UUID `workshop_sessions.reference`, return one immutable fact per requested target, and map source-data failures to `DEPENDENCY_UNAVAILABLE` without an allow-all fallback. Add focused provider coverage without relying on the Booking Modulith test's external datasource configuration.
 - [X] T078 Extend the public Workshop Operations selection/sale snapshots in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/` with the authoritative published package name and, for each queried UUID `sessionReference`, canonical location reference and local workshop date needed by Booking to persist package/session snapshots and build Loyalty facts; return no facts for unknown references and keep numeric Operations session IDs, customer/bookings/PII fields out of the boundary.
+- [ ] T079 Add an append-only Flyway migration plus Operations-owned add-on entity/repository for opaque add-on reference, package/location scope, customer-safe description, whole-VND price and DRAFT/ACTIVE/RETIRED lifecycle; preserve package/location foreign-key integrity and never rewrite Settlement charge snapshots.
+- [ ] T080 Implement global active-Manager add-on administration and public active add-on discovery under the package/location routes in `features/workshopoperations/{controller,dto,service}/`; audit create/edit/lifecycle changes, keep edits prospective, and expose no internal numeric add-on identifier to public callers.
+- [ ] T081 Extend `WorkshopOperationsFacade` with a read-only eligibility/price snapshot operation for exactly one add-on/package/location tuple; return only active entries for a published package and active location and add boundary/no-disclosure tests.
 
 ---
 

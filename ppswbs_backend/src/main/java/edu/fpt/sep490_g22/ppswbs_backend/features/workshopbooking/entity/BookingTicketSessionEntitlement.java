@@ -28,8 +28,8 @@ public class BookingTicketSessionEntitlement {
     @JoinColumn(name = "session_commitment_id", nullable = false)
     private BookingSessionCommitment sessionCommitment;
 
-    @Column(name = "session_id", nullable = false)
-    private Long sessionId;
+    @Column(name = "session_reference", nullable = false, length = 36)
+    private String sessionReference;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

@@ -16,6 +16,8 @@ public class BookingSummaryResponse {
     private String bookingCode;
     private String bookingStatus;
     private String paymentStatus;
+    private Long packageId;
+    private String packageName;
     private Integer participantCount;
     private Instant holdExpiresAt;
     private List<BookedSessionDto> sessions;

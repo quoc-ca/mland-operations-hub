@@ -14,6 +14,6 @@ import java.util.UUID;
 @AllArgsConstructor
 public class BookingTicketDto {
     private String ticketCode;
-    private String qrToken;
+    private String qrReference;
     private List<UUID> sessionReferences;
 }

@@ -20,7 +20,8 @@ public class WorkshopPackageSecurityConfiguration {
     static final RequestMatcher PUBLIC_PACKAGE_READS = new OrRequestMatcher(
             new AntPathRequestMatcher("/api/v1/workshop-packages", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/api/v1/workshop-packages/*", HttpMethod.GET.name()),
-            new AntPathRequestMatcher("/api/v1/workshop-packages/*/sessions", HttpMethod.GET.name()));
+            new AntPathRequestMatcher("/api/v1/workshop-packages/*/sessions", HttpMethod.GET.name()),
+            new AntPathRequestMatcher("/api/v1/workshop-packages/*/locations/*/add-ons", HttpMethod.GET.name()));
 
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE + 11)

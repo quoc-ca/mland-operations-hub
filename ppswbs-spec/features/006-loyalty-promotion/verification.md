@@ -385,3 +385,21 @@ Build develop `b49adca` + thay đổi chưa commit, MySQL 8.4, database trống 
 | `LoyaltyRetailSourceIntegrationIT` | 10/10 (thêm: hủy trước thanh toán trả voucher và điểm, gửi lặp không đổi gì, thanh toán đến sau → `BENEFIT_STATE_CONFLICT`, đơn đã thanh toán không hủy được theo đường này, loại kết quả chỉ cho retail) |
 | `PromotionCreateContractIT` | 11/11 |
 | Toàn bộ `features/loyaltypromotion/**` và `ModulithArchitectureTests` | đạt, 1 bỏ qua có sẵn (CORS, BE-DESIGN-0012) |
+
+## 24. Accept checkout thật của FE-08 với loyalty (T054 phần accept), 2026-10-30
+
+Develop `94bb3bd` có `RetailCheckoutQuotePreviewService` (gọi `previewBenefits`, lưu quote có `termsDigest`) và `RetailCheckoutAcceptanceService` (khóa catalogue 002 → giữ ảnh → guard FE-08 + tạo hold → `reserveAcceptedTransaction` trong cùng transaction, đối chiếu số tiền với quote) của Bùi Trọng Thịnh. `LoyaltyRetailCheckoutIT` (mới) gọi đúng các service này như Member: giỏ hàng → xem trước → accept; test chỉ dựng dữ liệu catalogue/loyalty, không thay phần nào của FE-08.
+
+| Test | Kết quả |
+| --- | --- |
+| Voucher 10% + 100 điểm trên 2 × 150.000: xem trước 300.000 − 30.000 − 10.000 = 260.000, không giữ gì; accept giữ voucher, 100 điểm và 2 nhẫn cùng lúc; gửi lại cùng key trả cùng checkout, không giữ thêm | đạt |
+| Voucher bị dừng sau khi xem trước: accept bị từ chối, rollback cả checkout, hold của FE-08, điểm và lượt voucher | đạt |
+| Chỉ dùng điểm, nhận tại cửa hàng: phí ship 0, điểm được giữ | đạt |
+| Toàn bộ `features/loyaltypromotion/**` + `ModulithArchitectureTests` (MySQL 8.4, database trống `ppswbs_loyalty_build32`, `33`, đã xóa) | 245, 1 bỏ qua có sẵn (CORS, BE-DESIGN-0012) |
+
+Review gửi FE-08 (không sửa code của FE-08):
+1. **Xem trước bỏ qua `reasons`:** khi voucher không dùng được, quote vẫn được lưu và response không có lý do; khách xác nhận rồi accept mới báo lỗi chung "Benefit terms changed". Nên trả `reasons` và chặn xác nhận quote có lý do.
+2. **Phí ship trong digest:** xem trước truyền `shippingAmount = 0`, accept truyền `quote.getShippingTotal()`. Hiện chỉ có nhận tại cửa hàng nên cả hai là 0; khi bật giao hàng (GHTK), hai giá trị khác nhau sẽ luôn ra `QUOTE_CHANGED`. Xem trước phải truyền đúng phí ship sẽ dùng khi accept.
+3. **Đơn 0đ và giao hàng đang bị chặn** ("not configured"), nên đường `RETAIL_ZERO_ACCEPTED` chưa chạy được.
+
+Chưa tick T054: FE-08 chưa nối kết quả đơn (`settleAcceptedBenefits` + `grantEarnedPoints`, `releaseHeldBenefits` + `finishIneligibleEarn`, kể cả `RETAIL_CANCELLED_BEFORE_PAYMENT`).

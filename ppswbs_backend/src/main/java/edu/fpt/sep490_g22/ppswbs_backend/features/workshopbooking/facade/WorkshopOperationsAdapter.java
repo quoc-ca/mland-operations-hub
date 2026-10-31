@@ -52,12 +52,6 @@ public class WorkshopOperationsAdapter {
         return workshopOperationsFacade.getSaleEligibility(new SaleEligibilityQuery(sessionReference));
     }
 
-    /** Transitional source compatibility for the pre-rebase numeric Booking lifecycle. */
-    @Deprecated(forRemoval = false)
-    public SaleEligibilitySnapshot getSaleEligibility(Long sessionId) {
-        return getSaleEligibility(new UUID(0L, sessionId));
-    }
-
     /**
      * Reserves the complete Package selection. Operations remains authoritative and rechecks
      * current Package publication/rules, session sale eligibility and capacity atomically.
@@ -79,26 +73,6 @@ public class WorkshopOperationsAdapter {
                         participantCount,
                         operationReference,
                         correlationReference));
-    }
-
-    @Deprecated(forRemoval = false)
-    public CapacityHoldOutcome reserveBookingCapacity(
-            String bookingReference,
-            List<UUID> orderedRequiredSessionReferences,
-            int participantCount,
-            String operationReference,
-            String correlationReference) {
-        log.info("WorkshopOperationsAdapter.reserveBookingCapacity: legacy package-less bookingRef={}, sessions={}, participants={}, opRef={}",
-                bookingReference, orderedRequiredSessionReferences, participantCount, operationReference);
-        return workshopOperationsFacade.reserveBookingCapacity(
-                new ReserveBookingCapacityCommand(
-                        bookingReference,
-                        orderedRequiredSessionReferences,
-                        participantCount,
-                        operationReference,
-                        correlationReference
-                )
-        );
     }
 
     public CapacityCommitOutcome commitBookingHolds(
