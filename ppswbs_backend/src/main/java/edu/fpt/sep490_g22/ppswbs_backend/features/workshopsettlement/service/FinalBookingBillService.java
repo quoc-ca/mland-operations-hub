@@ -53,58 +53,22 @@ public class FinalBookingBillService {
                 .build());
     }
 
+    /** Called only after WorkshopFinalBillApiService has checked the canonical HTTP actor and current balance. */
     @Transactional
-    public SettlementFinalBill finalizeBill(String bookingReference, String firebaseUid, Long bookingLocationId,
-                                            boolean managerException, String exceptionReason) {
+    public SettlementFinalBill finalizeAuthorized(String bookingReference, long outstandingBalance) {
         require(bookingReference, "bookingReference");
         var bill = bills.findByBookingReference(bookingReference)
                 .orElseThrow(() -> new WorkshopSettlementValidationException("FINAL_BILL_NOT_FOUND"));
         if (!"OPEN".equals(bill.getLifecycleStatus())) return bill;
-        if (managerException) {
-            requireManager(firebaseUid);
-            require(exceptionReason, "exceptionReason");
-        } else {
-            authorization.requireManagerOrStaff(firebaseUid, bookingLocationId);
-        }
-        return finalizeAuthorized(bill, bookingReference, managerException);
-    }
-
-    /** Called only after WorkshopFinalBillApiService has checked the canonical HTTP actor. */
-    @Transactional
-    public SettlementFinalBill finalizeAuthorized(String bookingReference, boolean managerException) {
-        var bill = bills.findByBookingReference(bookingReference)
-                .orElseThrow(() -> new WorkshopSettlementValidationException("FINAL_BILL_NOT_FOUND"));
-        return finalizeAuthorized(bookingReference, managerException, bill.getRemainingAmountVnd());
-    }
-
-    @Transactional
-    public SettlementFinalBill finalizeAuthorized(String bookingReference, boolean managerException, long outstandingBalance) {
-        require(bookingReference, "bookingReference");
-        var bill = bills.findByBookingReference(bookingReference)
-                .orElseThrow(() -> new WorkshopSettlementValidationException("FINAL_BILL_NOT_FOUND"));
-        if (!"OPEN".equals(bill.getLifecycleStatus())) return bill;
-        return finalizeAuthorized(bill, bookingReference, managerException, outstandingBalance);
-    }
-
-    private SettlementFinalBill finalizeAuthorized(SettlementFinalBill bill, String bookingReference, boolean managerException) {
-        return finalizeAuthorized(bill, bookingReference, managerException, bill.getRemainingAmountVnd());
-    }
-
-    private SettlementFinalBill finalizeAuthorized(SettlementFinalBill bill, String bookingReference,
-                                                     boolean managerException, long outstandingBalance) {
         var readiness = operations.readiness(bookingReference);
         if (readiness == null || !readiness.ready()) {
             throw new WorkshopSettlementConflictException("SETTLEMENT_NOT_READY");
         }
-        if (!managerException && outstandingBalance != 0L) {
+        if (outstandingBalance != 0L) {
             throw new WorkshopSettlementConflictException("OUTSTANDING_BALANCE");
         }
         bill.setLifecycleStatus("FINALIZED");
         return bills.saveAndFlush(bill);
-    }
-
-    private edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary requireManager(String firebaseUid) {
-        return authorization.requireManager(firebaseUid);
     }
 
     private static void require(String value, String name) {

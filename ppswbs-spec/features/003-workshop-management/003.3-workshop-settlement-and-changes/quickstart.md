@@ -1,7 +1,7 @@
 # Quickstart Validation: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -34,8 +34,10 @@ credentials, provider calls, schema changes or deployment.
    Each may add only an eligible fixed catalogue add-on before finalization; reject
    arbitrary price, invalid proof, Magic Link write access and post-finalization
    add-on selection. Verify Staff/Manager variable-charge reason/audit behavior.
-3. **Finalization and client retries**: verify in-scope Staff finalizes only an
-   eligible bill. Replay every client mutation with the same `Idempotency-Key`
+3. **Finalization and client retries**: verify in-scope Staff finalizes only a
+   zero-balance bill. Verify Manager cannot override an outstanding amount and
+   package output remains withheld until signed matching payment evidence
+   settles it. Replay every client mutation with the same `Idempotency-Key`
    and confirm its original safe result; reuse the key with changed input and
    confirm `409 IDEMPOTENCY_CONFLICT` without a second effect.
 4. **VNPay evidence**: send a valid signed `GET`
@@ -45,12 +47,11 @@ credentials, provider calls, schema changes or deployment.
    exactly-once settlement, and no effect from invalid signature, mismatch, late
    event, browser Return URL or manual counter record. Exercise outbound QueryDR
    reconciliation only with approved test configuration.
-5. **Deferred payment**: have a Manager create a case with reason only. Verify the
-   server derives balance and 24-hour expiry, permits at most one reminder,
-   retains balance/output on expiry, and requires a new audited action to reissue.
-   Verify issue/reissue and the permitted reminder each create one immutable,
-   reference-only notification handoff; Feature 007 can deduplicate and obtain
-   its render-ready payload only through the Settlement facade.
+5. **No credit and output handover**: attempt finalization as Staff and Manager
+   while an outstanding balance remains; both must receive a conflict and no
+   state change. Confirm signed matching VNPay evidence settles the full balance
+   before finalization/output handover becomes available. There is no deferred
+   payment case, reminder, or payment-link reissue route.
 6. **Customer cancellation**: submit Member and Guest whole-booking cancellation
    cases. Validate the 72-hour, 24-to-72-hour, and below-24-hour/checked-in
    paths; tickets/capacity change only after verified refund outcome.

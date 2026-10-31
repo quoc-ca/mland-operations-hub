@@ -64,19 +64,17 @@ class FinalBookingBillServiceTest {
         when(operations.readiness("BK-1")).thenReturn(new SettlementReadiness(true));
         when(bills.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var service = new FinalBookingBillService(bills, booking, operations, authorization);
-        var result = service.finalizeBill("BK-1", "staff-uid", 7L, false, null);
+        var result = service.finalizeAuthorized("BK-1", 0L);
         assertThat(result.getLifecycleStatus()).isEqualTo("FINALIZED");
-        verify(authorization).requireManagerOrStaff("staff-uid", 7L);
     }
 
-    @Test void managerExceptionCanFinalizeOutstandingBalanceWithReason() {
+    @Test void rejectsFinalizationWhileAnyBalanceRemainsEvenForManager() {
         when(bills.findByBookingReference("BK-1")).thenReturn(Optional.of(openBill()));
         when(operations.readiness("BK-1")).thenReturn(new SettlementReadiness(true));
-        when(bills.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var service = new FinalBookingBillService(bills, booking, operations, authorization);
-        var result = service.finalizeBill("BK-1", "manager-uid", null, true, "approved deferred exception");
-        assertThat(result.getLifecycleStatus()).isEqualTo("FINALIZED");
-        verify(authorization).requireManager("manager-uid");
+        assertThatThrownBy(() -> service.finalizeAuthorized("BK-1", 40_000L))
+                .isInstanceOf(WorkshopSettlementConflictException.class).hasMessage("OUTSTANDING_BALANCE");
+        verify(bills, never()).saveAndFlush(any());
     }
 
     private static SettlementFinalBill openBill() {

@@ -4,19 +4,18 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCancellationCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementHandoffIdempotencyRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementChargeRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.HandoffIdempotencyStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCancellationCase;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementHandoffIdempotency;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementEvidenceConclusion;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementNotificationHandoff;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementNotificationHandoffRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.CancellationHandoffOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.OpenCancellationHandoffCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.ApplyVerifiedSettlementPaymentEvidenceCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementPaymentEvidenceOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementNotificationDeliveryPayload;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementNotificationDeliveryPayloadQuery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -25,11 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
+import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor
@@ -37,82 +36,32 @@ public class WorkshopSettlementFacadeImpl implements WorkshopSettlementFacade {
     private final SettlementCancellationCaseRepository caseRepository;
     private final SettlementHandoffIdempotencyRepository idempotencyRepository;
     private final ObjectMapper objectMapper;
-    private final SettlementEvidenceConclusionRepository evidenceRepository;
-    private final SettlementFinalBillRepository billRepository;
-    private final SettlementChargeRepository chargeRepository;
+    private final FinalPaymentService finalPaymentService;
+    private final SettlementNotificationHandoffRepository notificationHandoffs;
 
-    /**
-     * Payment evidence is accepted only after the bill/evidence consumer exists.
-     * Keeping this boundary fail-closed prevents a paymentintegration caller from
-     * accidentally changing settlement truth while the bill foundation is being built.
-     */
+    /** Delegates verified evidence to the transactional Settlement payment consumer. */
     @Override
     @Transactional
     public SettlementPaymentEvidenceOutcome applyVerifiedSettlementPaymentEvidence(
             ApplyVerifiedSettlementPaymentEvidenceCommand command) {
         if (command == null) throw new WorkshopSettlementValidationException("command is required");
-        var byOperation = evidenceRepository.findByOperationReference(command.operationReference().trim());
-        if (byOperation.isPresent()) return replay(byOperation.get(), command);
-        var byEvidence = evidenceRepository.findByEvidenceReference(command.verifiedEvidenceReference().trim());
-        if (byEvidence.isPresent()) return replay(byEvidence.get(), command);
-
-        SettlementFinalBill bill = billRepository.findByBookingReferenceForUpdate(command.bookingReference().trim()).orElse(null);
-        if (bill == null) return SettlementPaymentEvidenceOutcome.rejected("FINAL_BILL_NOT_FOUND");
-        if (!"VND".equals(command.currencyCode()) || !bill.getCurrencyCode().equals(command.currencyCode())) {
-            return SettlementPaymentEvidenceOutcome.rejected("CURRENCY_MISMATCH");
-        }
-        if (command.amountVnd() == null || command.amountVnd() <= 0) {
-            return SettlementPaymentEvidenceOutcome.rejected("INVALID_AMOUNT");
-        }
-
-        String conclusion;
-        if ("FINAL_PAYMENT".equals(command.paymentKind())) {
-            if (!"OPEN".equals(bill.getLifecycleStatus())) return SettlementPaymentEvidenceOutcome.rejected("BILL_NOT_OPEN");
-            long confirmedCharges = chargeRepository.findByBillReferenceAndLifecycleStatusOrderByIdAsc(
-                    bill.getBillReference(), "CONFIRMED").stream().mapToLong(c -> c.getAmountVnd() == null ? 0L : c.getAmountVnd()).sum();
-            long priorFinalPayments = total(command.bookingReference(), "FINAL_PAYMENT_VERIFIED");
-            long outstanding;
-            try { outstanding = Math.subtractExact(Math.addExact(bill.getRemainingAmountVnd(), confirmedCharges), priorFinalPayments); }
-            catch (ArithmeticException invalidAmount) { return SettlementPaymentEvidenceOutcome.rejected("AMOUNT_MISMATCH"); }
-            if (outstanding <= 0 || command.amountVnd() > outstanding) return SettlementPaymentEvidenceOutcome.rejected("AMOUNT_MISMATCH");
-            conclusion = "FINAL_PAYMENT_VERIFIED";
-        } else {
-            long collected;
-            try {
-                collected = Math.subtractExact(Math.addExact(bill.getAcceptedDepositAmountVnd(),
-                        total(command.bookingReference(), "FINAL_PAYMENT_VERIFIED")), total(command.bookingReference(), "REFUND_VERIFIED"));
-            } catch (ArithmeticException invalidAmount) { return SettlementPaymentEvidenceOutcome.rejected("AMOUNT_MISMATCH"); }
-            if (command.amountVnd() > collected) return SettlementPaymentEvidenceOutcome.rejected("AMOUNT_MISMATCH");
-            conclusion = "REFUND_VERIFIED";
-        }
-
-        evidenceRepository.saveAndFlush(SettlementEvidenceConclusion.builder()
-                .evidenceReference(command.verifiedEvidenceReference().trim())
-                .bookingReference(command.bookingReference().trim())
-                .providerTransactionReference(command.merchantReference().trim())
-                .conclusion(conclusion)
-                .amountVnd(command.amountVnd())
-                .currencyCode(command.currencyCode())
-                .operationReference(command.operationReference().trim())
-                .createdAt(Instant.now()).build());
-        return SettlementPaymentEvidenceOutcome.accepted();
+        return finalPaymentService.apply(command);
     }
 
-    private long total(String bookingReference, String conclusion) {
-        return evidenceRepository.findByBookingReferenceAndConclusion(bookingReference, conclusion).stream()
-                .mapToLong(e -> e.getAmountVnd() == null ? 0L : e.getAmountVnd()).sum();
-    }
+    @Override
+    @Transactional(readOnly = true)
+    public SettlementNotificationDeliveryPayload getSettlementNotificationDeliveryPayload(
+            SettlementNotificationDeliveryPayloadQuery query) {
+        if (query == null || query.notificationReference() == null || query.notificationReference().isBlank()) {
+            return null;
+        }
+        SettlementNotificationHandoff handoff = notificationHandoffs
+                .findByNotificationReference(query.notificationReference().trim()).orElse(null);
+        if (handoff == null || !handoff.getPayloadExpiresAt().isAfter(Instant.now())) return null;
 
-    private SettlementPaymentEvidenceOutcome replay(SettlementEvidenceConclusion existing,
-            ApplyVerifiedSettlementPaymentEvidenceCommand command) {
-        boolean same = existing.getBookingReference().equals(command.bookingReference())
-                && existing.getEvidenceReference().equals(command.verifiedEvidenceReference())
-                && existing.getProviderTransactionReference().equals(command.merchantReference())
-                && existing.getAmountVnd().equals(command.amountVnd())
-                && existing.getCurrencyCode().equals(command.currencyCode())
-                && existing.getConclusion().equals(command.paymentKind() + "_VERIFIED");
-        return same ? SettlementPaymentEvidenceOutcome.accepted()
-                : SettlementPaymentEvidenceOutcome.rejected("IDEMPOTENCY_CONFLICT");
+        return new SettlementNotificationDeliveryPayload(handoff.getNotificationKind(),
+                handoff.getStoredRecipient(), handoff.getRenderedSettlementContent(),
+                handoff.getCorrelationReference());
     }
 
     @Override

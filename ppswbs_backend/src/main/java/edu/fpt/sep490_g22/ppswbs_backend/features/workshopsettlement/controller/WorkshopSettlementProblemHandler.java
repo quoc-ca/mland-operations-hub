@@ -1,16 +1,24 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.*;
+import edu.fpt.sep490_g22.ppswbs_backend.common.CorrelationIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestControllerAdvice(basePackageClasses = WorkshopSettlementProblemHandler.class)
 public class WorkshopSettlementProblemHandler {
@@ -20,6 +28,46 @@ public class WorkshopSettlementProblemHandler {
                 .map(field -> new SettlementProblem.FieldError(field.getField(), safe(field.getDefaultMessage())))
                 .toList();
         return respond(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", fields, request);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    ResponseEntity<SettlementProblem> constraintViolation(ConstraintViolationException error,
+                                                            HttpServletRequest request) {
+        List<SettlementProblem.FieldError> fields = error.getConstraintViolations().stream()
+                .map(violation -> new SettlementProblem.FieldError(
+                        violation.getPropertyPath().toString(), safe(violation.getMessage())))
+                .toList();
+        return respond(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", fields, request);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    ResponseEntity<SettlementProblem> methodValidation(HandlerMethodValidationException error,
+                                                        HttpServletRequest request) {
+        return respond(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", List.of(), request);
+    }
+
+    @ExceptionHandler({HttpMessageNotReadableException.class, MissingRequestHeaderException.class,
+            MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class})
+    ResponseEntity<SettlementProblem> malformedRequest(Exception error, HttpServletRequest request) {
+        return respond(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", List.of(), request);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    ResponseEntity<SettlementProblem> methodNotAllowed(HttpRequestMethodNotSupportedException error,
+                                                        HttpServletRequest request) {
+        return respond(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", List.of(), request);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    ResponseEntity<SettlementProblem> unsupportedMediaType(HttpMediaTypeNotSupportedException error,
+                                                             HttpServletRequest request) {
+        return respond(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_MEDIA_TYPE", List.of(), request);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    ResponseEntity<SettlementProblem> notAcceptable(HttpMediaTypeNotAcceptableException error,
+                                                     HttpServletRequest request) {
+        return respond(HttpStatus.NOT_ACCEPTABLE, "NOT_ACCEPTABLE", List.of(), request);
     }
 
     @ExceptionHandler(WorkshopSettlementAuthorizationException.class)
@@ -45,8 +93,7 @@ public class WorkshopSettlementProblemHandler {
     private static ResponseEntity<SettlementProblem> respond(HttpStatus status, String code,
                                                                List<SettlementProblem.FieldError> fields,
                                                                HttpServletRequest request) {
-        String correlation = request.getHeader("X-Correlation-Id");
-        if (correlation == null || correlation.isBlank()) correlation = UUID.randomUUID().toString();
+        String correlation = CorrelationIdFilter.current(request);
         return ResponseEntity.status(status).body(new SettlementProblem(code, correlation, fields));
     }
 

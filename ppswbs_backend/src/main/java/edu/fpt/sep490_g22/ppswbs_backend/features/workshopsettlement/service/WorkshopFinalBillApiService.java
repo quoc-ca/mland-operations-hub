@@ -14,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
@@ -24,7 +23,6 @@ import java.util.UUID;
 public class WorkshopFinalBillApiService {
     private final SettlementFinalBillRepository bills;
     private final SettlementChargeRepository charges;
-    private final SettlementBusinessAuditRepository audits;
     private final SettlementEvidenceConclusionRepository evidence;
     private final WorkshopBookingSettlementAdapter booking;
     private final WorkshopOperationsSettlementAdapter operations;
@@ -37,7 +35,18 @@ public class WorkshopFinalBillApiService {
     @Transactional(readOnly = true)
     public FinalBillProjectionDto read(String bookingCode, String contactEmail, String contactPhone,
                                        Authentication authentication) {
-        Long memberId = memberId(authentication);
+        CurrentAccountActor currentActor = actor(authentication);
+        // This customer-facing route has only two proof modes: owning Member or Guest.
+        // Do not let an authenticated staff/admin account fall back to Guest proof.
+        if (currentActor != null && currentActor.role() != ActorRole.MEMBER) {
+            throw new WorkshopSettlementNotFoundException();
+        }
+        Long memberId = currentActor == null ? null : currentActor.accountId();
+        // Member identity is authoritative; never forward optional Guest contact data for it.
+        if (memberId != null) {
+            contactEmail = null;
+            contactPhone = null;
+        }
         if (memberId == null && ((blank(contactEmail) ? 0 : 1) + (blank(contactPhone) ? 0 : 1) != 1)) {
             throw new WorkshopSettlementNotFoundException();
         }
@@ -100,28 +109,16 @@ public class WorkshopFinalBillApiService {
         if (currentActor == null) throw new WorkshopSettlementAuthorizationException("ACTIVE_ACCOUNT_REQUIRED");
         var confirmed = booking.confirmedProjection(bookingCode);
         if (confirmed == null) throw new WorkshopSettlementValidationException("BOOKING_NOT_FOUND");
-        var actor = command.managerException()
-                ? authorization.requireManager(currentActor)
-                : authorization.requireManagerOrStaff(currentActor, confirmed.bookingLocationReference());
-        if (!command.managerException()) {
-            SettlementFinalBill openBill = requireBill(bookingCode);
-            if (outstanding(openBill) != 0L) {
-                throw new WorkshopSettlementConflictException("OUTSTANDING_BALANCE");
-            }
+        authorization.requireManagerOrStaff(currentActor, confirmed.bookingLocationReference());
+        SettlementFinalBill openBill = requireBill(bookingCode);
+        if (outstanding(openBill) != 0L) {
+            throw new WorkshopSettlementConflictException("OUTSTANDING_BALANCE");
         }
         String operation = operationReference("FINALIZE", bookingCode, key);
-        String fingerprint = fingerprint("FINALIZE", bookingCode, command.managerException().toString(), command.reason() == null ? "" : command.reason().trim());
+        String fingerprint = fingerprint("FINALIZE", bookingCode);
         idempotency.execute(operation, fingerprint, () -> {
-            boolean wasOpen = "OPEN".equals(requireBill(bookingCode).getLifecycleStatus());
-            long currentOutstanding = command.managerException() ? 0L : outstanding(requireBill(bookingCode));
-            var bill = billService.finalizeAuthorized(bookingCode, command.managerException(), currentOutstanding);
-            if (command.managerException() && wasOpen && "FINALIZED".equals(bill.getLifecycleStatus())) {
-                audits.saveAndFlush(SettlementBusinessAudit.builder().auditReference("SETTLE-AUDIT-" + UUID.randomUUID())
-                        .aggregateType("FINAL_BILL").aggregateReference(bill.getBillReference())
-                        .actionCode("MANAGER_EXCEPTION_FINALIZED").actorReference(actor.accountId().toString())
-                        .correlationReference(correlationOrGenerated(correlation)).reasonReference(command.reason().trim())
-                        .createdAt(Instant.now()).build());
-            }
+            long currentOutstanding = outstanding(requireBill(bookingCode));
+            var bill = billService.finalizeAuthorized(bookingCode, currentOutstanding);
             return bill.getBillReference();
         });
         return projection(requireBill(bookingCode));
@@ -158,10 +155,6 @@ public class WorkshopFinalBillApiService {
     }
     private static CurrentAccountActor actor(Authentication authentication) {
         return authentication != null && authentication.getPrincipal() instanceof CurrentAccountActor a ? a : null;
-    }
-    private static Long memberId(Authentication authentication) {
-        CurrentAccountActor actor = actor(authentication);
-        return actor != null && actor.role() == ActorRole.MEMBER ? actor.accountId() : null;
     }
     private static String operationReference(String kind, String booking, String key) {
         if (blank(key) || key.length() > 128) throw new WorkshopSettlementValidationException("IDEMPOTENCY_KEY_REQUIRED");
