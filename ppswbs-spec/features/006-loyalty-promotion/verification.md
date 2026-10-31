@@ -403,3 +403,16 @@ Review gửi FE-08 (không sửa code của FE-08):
 3. **Đơn 0đ và giao hàng đang bị chặn** ("not configured"), nên đường `RETAIL_ZERO_ACCEPTED` chưa chạy được.
 
 Chưa tick T054: FE-08 chưa nối kết quả đơn (`settleAcceptedBenefits` + `grantEarnedPoints`, `releaseHeldBenefits` + `finishIneligibleEarn`, kể cả `RETAIL_CANCELLED_BEFORE_PAYMENT`).
+
+## 25. Kết quả đơn thật của FE-08 với loyalty (T054), 2026-10-31
+
+Develop `b367505` (`82d7a7d`, Bùi Trọng Thịnh): đơn 0đ gọi `settleAcceptedBenefits` + `grantEarnedPoints` (`RETAIL_ZERO_ACCEPTED`) ngay khi accept; `RetailCheckoutCancellationService` gọi `releaseHeldBenefits` + `finishIneligibleEarn` (`RETAIL_CANCELLED_BEFORE_PAYMENT`); `SimulatedRetailPaymentOutcomeService` (profile `retail-payment-sim`, chỉ bằng chứng cổng thanh toán là mô phỏng) gọi settle + grant (`RETAIL_FULLY_PAID`). `LoyaltyRetailCheckoutIT` thêm 3 test gọi đúng các service này:
+
+| Test | Kết quả |
+| --- | --- |
+| Thanh toán đã xác minh: voucher và điểm `CONSUMED`, cộng điểm (`GRANTED`) đúng một lần, thanh toán lặp cùng bằng chứng không cộng thêm, đơn đã trả không hủy được | đạt |
+| Hủy trước thanh toán (gọi hai lần): voucher và điểm `RELEASED`, earn `INELIGIBLE`, ví trở về 500 điểm, lượt voucher trả lại, nhẫn trả về kho | đạt |
+| Đơn 0đ (voucher cố định 150.000 cho nhẫn 150.000): accept ra `PAID`, voucher `CONSUMED`, earn `GRANTED` với 0 điểm, nhẫn được trừ kho ngay | đạt |
+| Toàn bộ `features/loyaltypromotion/**` + `ModulithArchitectureTests` (MySQL 8.4, database trống `ppswbs_loyalty_build34`, `35`, đã xóa) | 248, 1 bỏ qua có sẵn (CORS, BE-DESIGN-0012) |
+
+Chưa tick T054: FE-08 chưa có luồng hết hạn đã xác nhận chưa thanh toán (`UNPAID_EXPIRY_CONFIRMED` → `releaseHeldBenefits` + `finishIneligibleEarn`); xem trước vẫn bỏ qua `reasons` và truyền phí ship 0 (mục 24).

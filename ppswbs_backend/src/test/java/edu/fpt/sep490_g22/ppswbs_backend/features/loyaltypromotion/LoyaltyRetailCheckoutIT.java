@@ -15,6 +15,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.Promot
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionTarget;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.ComponentState;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.EarnState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetDimension;
@@ -31,6 +32,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CartDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CheckoutDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.CartService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutAcceptanceService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutCancellationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.SimulatedRetailPaymentOutcomeService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutQuotePreviewService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailConflictException;
 import org.junit.jupiter.api.Test;
@@ -56,12 +59,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * T054 (accept part) on MySQL 8.4 with FE-08's REAL services (develop 3818be9): cart → {@link
  * RetailCheckoutQuotePreviewService} (previewBenefits, stored quote with termsDigest) → {@link
  * RetailCheckoutAcceptanceService} (catalogue lock → FE-08 guard + hold → reserveAcceptedTransaction, one
- * transaction). This test only plays the Member calling FE-08's services and sets up catalogue/loyalty data; nothing
- * of FE-08 is replaced. FE-08's payment/expiry outcomes (settle/grant/release) are not on develop yet, so T054 stays
- * open for that part.
+ * transaction), then FE-08's outcomes (develop 82d7a7d): zero-total accept (settle + grant), cancellation before
+ * payment (release + finishIneligibleEarn) and payment through {@link SimulatedRetailPaymentOutcomeService}
+ * (profile {@code retail-payment-sim}: only the gateway evidence is simulated; settle + grant is FE-08's code). This
+ * test only plays the Member calling FE-08's services and sets up catalogue/loyalty data; nothing of FE-08 is
+ * replaced. FE-08's confirmed unpaid expiry (UNPAID_EXPIRY_CONFIRMED) is not on develop yet, so T054 stays open.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@ActiveProfiles(LoyaltyTestSupport.MYSQL_PROFILE)
+@ActiveProfiles({LoyaltyTestSupport.MYSQL_PROFILE, "retail-payment-sim"})
 @Import(CatalogueFlowFixture.class)
 class LoyaltyRetailCheckoutIT {
 
@@ -75,6 +80,8 @@ class LoyaltyRetailCheckoutIT {
     @Autowired private RetailCheckoutQuotePreviewService previews;
     @Autowired private RetailCheckoutAcceptanceService acceptance;
     @Autowired private GroupedCheckoutRepository checkouts;
+    @Autowired private RetailCheckoutCancellationService cancellation;
+    @Autowired private SimulatedRetailPaymentOutcomeService payments;
     @Autowired private AccountRepository accounts;
     @Autowired private LoyaltyFacade loyalty;
     @Autowired private LoyaltyWalletRepository wallets;
@@ -157,6 +164,86 @@ class LoyaltyRetailCheckoutIT {
         assertThat(wallet(member).getHeldPoints()).isEqualTo(BigInteger.valueOf(150));
     }
 
+    @Test
+    void aVerifiedPaymentConsumesTheBenefitsAndEarnsOnce() {
+        Sale sale = sale(5);
+        String code = voucher(sale.productId());
+        long member = member(500);
+        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), LOCATION, 2));
+        CheckoutDtos.BenefitSelection selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
+        CheckoutDtos.BenefitPreviewView preview = previews.preview(member, previewRequest(selection));
+        CheckoutDtos.GroupedCheckoutView accepted = acceptance.accept(member, UUID.randomUUID().toString(),
+                acceptRequest(preview, selection));
+        transaction.executeWithoutResult(status -> checkouts.lockOwned(accepted.id(), member).orElseThrow().beginPayment());
+        BigDecimal payable = new BigDecimal(preview.payableAmount());
+        String proof = "proof-" + UUID.randomUUID();
+
+        payments.simulateVerifiedPayment(member, accepted.id(), payable, "VND", proof);
+        BigInteger balanceAfterPayment = wallet(member).getBalancePoints();
+        payments.simulateVerifiedPayment(member, accepted.id(), payable, "VND", proof);
+
+        BenefitResult result = loyalty.findBenefitResult(SourceKind.RETAIL, accepted.id());
+        assertThat(result.voucherState()).isEqualTo(ComponentState.CONSUMED);
+        assertThat(result.pointsState()).isEqualTo(ComponentState.CONSUMED);
+        assertThat(result.earnState()).isEqualTo(EarnState.GRANTED);
+        assertThat(wallet(member).getHeldPoints()).isZero();
+        assertThat(balanceAfterPayment).as("500 - 100 used + points earned on 260.000").isGreaterThan(BigInteger.valueOf(400));
+        assertThat(wallet(member).getBalancePoints()).as("a repeated payment earns nothing more").isEqualTo(balanceAfterPayment);
+        assertThat(program(code).getConsumedCount()).isEqualTo(1);
+        assertThat(program(code).getHeldCount()).isZero();
+        // A paid checkout cannot be cancelled before payment.
+        assertThatThrownBy(() -> cancellation.cancel(member, accepted.id())).isInstanceOf(RetailConflictException.class);
+    }
+
+    @Test
+    void aCancellationBeforePaymentGivesBackTheVoucherAndPointsOnce() {
+        Sale sale = sale(5);
+        String code = voucher(sale.productId());
+        long member = member(500);
+        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), LOCATION, 2));
+        CheckoutDtos.BenefitSelection selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
+        CheckoutDtos.BenefitPreviewView preview = previews.preview(member, previewRequest(selection));
+        CheckoutDtos.GroupedCheckoutView accepted = acceptance.accept(member, UUID.randomUUID().toString(),
+                acceptRequest(preview, selection));
+
+        cancellation.cancel(member, accepted.id());
+        cancellation.cancel(member, accepted.id());
+
+        BenefitResult result = loyalty.findBenefitResult(SourceKind.RETAIL, accepted.id());
+        assertThat(result.voucherState()).isEqualTo(ComponentState.RELEASED);
+        assertThat(result.pointsState()).isEqualTo(ComponentState.RELEASED);
+        assertThat(result.earnState()).isEqualTo(EarnState.INELIGIBLE);
+        assertThat(wallet(member).getHeldPoints()).isZero();
+        assertThat(wallet(member).getBalancePoints()).isEqualTo(BigInteger.valueOf(500));
+        assertThat(program(code).getHeldCount()).isZero();
+        assertThat(program(code).getConsumedCount()).isZero();
+        assertThat(available(sale.sizeId())).isEqualTo(BigInteger.valueOf(5));
+    }
+
+    /** A fixed 150.000 voucher on one 150.000 ring: nothing to pay, settled and earned (zero) at accept. */
+    @Test
+    void aZeroTotalCheckoutSettlesAtAcceptAndEarnsNothing() {
+        Sale sale = sale(5);
+        String code = voucher(sale.productId(), DiscountTerms.fixed(BigInteger.valueOf(150_000), BigInteger.valueOf(150_000),
+                BigInteger.ZERO));
+        long member = member(500);
+        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), LOCATION, 1));
+        CheckoutDtos.BenefitSelection selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "0");
+        CheckoutDtos.BenefitPreviewView preview = previews.preview(member, previewRequest(selection));
+        assertThat(preview.payableAmount()).isEqualTo("0");
+
+        CheckoutDtos.GroupedCheckoutView accepted = acceptance.accept(member, UUID.randomUUID().toString(),
+                acceptRequest(preview, selection));
+
+        assertThat(accepted.paymentState()).isEqualTo("PAID");
+        BenefitResult result = loyalty.findBenefitResult(SourceKind.RETAIL, accepted.id());
+        assertThat(result.voucherState()).isEqualTo(ComponentState.CONSUMED);
+        assertThat(result.earnState()).isEqualTo(EarnState.GRANTED);
+        assertThat(wallet(member).getBalancePoints()).as("zero earn writes no points").isEqualTo(BigInteger.valueOf(500));
+        assertThat(program(code).getConsumedCount()).isEqualTo(1);
+        assertThat(remaining(sale.sizeId())).as("the ring is sold at accept").isEqualTo(BigInteger.valueOf(4));
+    }
+
     // ---- helpers ----
 
     private record Sale(long productId, long sizeId) {
@@ -172,6 +259,10 @@ class LoyaltyRetailCheckoutIT {
 
     /** An active product voucher on the product: 10%, cap 50.000, no minimum, combinable with points. */
     private String voucher(long productId) {
+        return voucher(productId, DiscountTerms.percent(new BigDecimal("10"), BigInteger.valueOf(50_000), BigInteger.ZERO));
+    }
+
+    private String voucher(long productId, DiscountTerms terms) {
         String code = "CK" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         transaction.executeWithoutResult(status -> {
@@ -179,7 +270,7 @@ class LoyaltyRetailCheckoutIT {
                     PromotionProgram.voucher(TargetScope.PRODUCT, code, code, 10, 2, now, 1L));
             PromotionRevision revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1,
                     ProgramKind.VOUCHER, "Checkout IT", now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS),
-                    DiscountTerms.percent(new BigDecimal("10"), BigInteger.valueOf(50_000), BigInteger.ZERO), true, now, 1L));
+                    terms, true, now, 1L));
             targets.save(PromotionTarget.create(revision.getId(), TargetScope.PRODUCT, TargetDimension.PRODUCT,
                     Long.toString(productId)));
             program.pointToRevision(revision.getId());
@@ -214,6 +305,10 @@ class LoyaltyRetailCheckoutIT {
 
     private BigInteger available(long sizeId) {
         return sales.readSaleFacts(List.of(sizeId)).get(0).availableQuantity();
+    }
+
+    private BigInteger remaining(long sizeId) {
+        return transaction.execute(status -> variants.findById(sizeId).orElseThrow().getRemainingUnsold());
     }
 
     private LoyaltyWallet wallet(long member) {
