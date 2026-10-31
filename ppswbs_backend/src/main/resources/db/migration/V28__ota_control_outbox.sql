@@ -1,0 +1,25 @@
+CREATE TABLE ota_control_outbox (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    operation_reference CHAR(36) NOT NULL,
+    mapping_id BIGINT NOT NULL,
+    command_kind VARCHAR(32) NOT NULL,
+    actor_account_reference VARCHAR(128) NOT NULL,
+    reason VARCHAR(1000) NOT NULL,
+    idempotency_key_hash CHAR(64) NOT NULL,
+    request_fingerprint CHAR(64) NOT NULL,
+    correlation_reference CHAR(36) NOT NULL,
+    status VARCHAR(24) NOT NULL,
+    provider_correlation_reference VARCHAR(255) NULL,
+    failure_category VARCHAR(64) NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    delivered_at DATETIME(6) NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_ota_control_operation_reference (operation_reference),
+    UNIQUE KEY uq_ota_control_actor_idempotency (actor_account_reference, idempotency_key_hash),
+    KEY idx_ota_control_status_created (status, created_at),
+    CONSTRAINT chk_ota_control_kind CHECK (command_kind IN ('SALES_CLOSE')),
+    CONSTRAINT chk_ota_control_status CHECK (status IN ('QUEUED', 'DELIVERED', 'EXHAUSTED')),
+    CONSTRAINT fk_ota_control_mapping FOREIGN KEY (mapping_id)
+        REFERENCES ota_channel_mappings (id) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -1,0 +1,63 @@
+@startuml
+!pragma charset UTF-8
+title Workshop Booking — Guest and Member Swimlane
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+|Guest or Member|
+start
+:Choose location, date, session and package;
+
+|System|
+:Check that location/session capacity is configured\nand that the selected session has capacity;
+if (Booking can proceed?) then (yes)
+  :Create Booking and package Invoice;
+  :Set deposit due = 50% of package price;
+else (no)
+  :Show unavailable / configuration-required outcome;
+  stop
+endif
+
+|Guest or Member|
+:Provide required contact details;
+if (Ring design requested?) then (yes)
+  :Complete a permitted design path;
+  |System|
+  :Store design request outcome for the booking;
+else (no)
+endif
+:Start payment at Payment Gateway;
+
+|Payment Gateway|
+:Process deposit payment;
+:Return redirect and/or send payment status;
+
+|System|
+if (Valid gateway confirmation received?) then (yes)
+  :Record one verified deposit transaction;
+  :Confirm Booking;
+  :Generate booking code and QR;
+  |Email Sender|
+  :Deliver booking notification;
+  |System|
+  if (Customer is Member?) then (yes)
+    :Store Booking, Invoice and Transaction in Member history;
+  else (no)
+    :Present optional Member registration;
+  endif
+  :Show confirmed booking and code / QR;
+else (no: pending / failed)
+  :Keep booking unconfirmed;
+  :Show pending or unconfirmed-payment status;
+  note right
+  Redirect alone cannot confirm a booking.
+  Provider and webhook/IPN contract are Open.
+  end note
+endif
+stop
+@enduml
+
