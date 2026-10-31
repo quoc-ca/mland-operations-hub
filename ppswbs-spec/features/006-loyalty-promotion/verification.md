@@ -416,3 +416,16 @@ Develop `b367505` (`82d7a7d`, Bùi Trọng Thịnh): đơn 0đ gọi `settleAcce
 | Toàn bộ `features/loyaltypromotion/**` + `ModulithArchitectureTests` (MySQL 8.4, database trống `ppswbs_loyalty_build34`, `35`, đã xóa) | 248, 1 bỏ qua có sẵn (CORS, BE-DESIGN-0012) |
 
 Chưa tick T054: FE-08 chưa có luồng hết hạn đã xác nhận chưa thanh toán (`UNPAID_EXPIRY_CONFIRMED` → `releaseHeldBenefits` + `finishIneligibleEarn`); xem trước vẫn bỏ qua `reasons` và truyền phí ship 0 (mục 24).
+
+## 26. Hết hạn đã xác nhận của FE-08 và tick T054, 2026-10-31
+
+Develop `bb5f56e` (`e061e90`, Bùi Trọng Thịnh): `RetailUnstartedExpiryService` (cùng job nền `RetailUnstartedExpiryJob`) hết hạn checkout đã accept mà chưa bắt đầu thanh toán khi đã quá hạn giữ: dưới khóa đơn, đường lịch sử của 002 → guard → expire hold → khôi phục giỏ → `releaseHeldBenefits` + `finishIneligibleEarn` với `UNPAID_EXPIRY_CONFIRMED`; trước hạn hoặc đã bắt đầu thanh toán thì không làm gì. Xem trước giờ trả `reasons` và không cấp quote khi ưu đãi không dùng được (sửa điểm review 1 ở mục 24).
+
+`LoyaltyRetailCheckoutIT` thêm test hết hạn (job nền tắt trong test, hạn giữ được dời về quá khứ trên bảng hold của FE-08 như test của FE-08): trước hạn `expire` không làm gì; sau hạn trả voucher và điểm (`RELEASED`), earn `INELIGIBLE`, ví về 500 điểm, lượt voucher và nhẫn trả lại; chạy lần hai không đổi gì; đơn đã hết hạn không hủy được nữa.
+
+| Test | Kết quả |
+| --- | --- |
+| `LoyaltyRetailCheckoutIT` (accept, voucher bị dừng thì rollback, chỉ điểm, thanh toán, hủy, đơn 0đ, hết hạn) | 7/7 |
+| Toàn bộ `features/loyaltypromotion/**` + `ModulithArchitectureTests` (MySQL 8.4, database trống `ppswbs_loyalty_build38`, `39`, đã xóa) | 249, 1 bỏ qua có sẵn (CORS, BE-DESIGN-0012) |
+
+**Tick T054**: đủ các mục của task — quoteRef/ack của nguồn, kiểm tra giá/số lượng trước loyalty, accept và reserve cùng transaction, thanh toán đủ/đơn 0đ settle rồi grant cùng transaction, hết hạn đã xác nhận → release + finishIneligibleEarn, hạn gốc và phân xử theo trạng thái nguồn (quá hạn khi đang thanh toán thì FE-08 đối soát, không tự nhả). Còn lại cho G-03: cổng thanh toán thật (hiện `SimulatedRetailPaymentOutcomeService`) và phí ship trong digest khi bật GHTK.

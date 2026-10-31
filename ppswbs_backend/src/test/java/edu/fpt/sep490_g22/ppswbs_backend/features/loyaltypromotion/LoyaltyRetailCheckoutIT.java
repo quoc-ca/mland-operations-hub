@@ -33,6 +33,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CheckoutDto
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.CartService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutAcceptanceService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutCancellationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailUnstartedExpiryService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.SimulatedRetailPaymentOutcomeService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutQuotePreviewService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailConflictException;
@@ -40,11 +41,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -63,9 +66,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * payment (release + finishIneligibleEarn) and payment through {@link SimulatedRetailPaymentOutcomeService}
  * (profile {@code retail-payment-sim}: only the gateway evidence is simulated; settle + grant is FE-08's code). This
  * test only plays the Member calling FE-08's services and sets up catalogue/loyalty data; nothing of FE-08 is
- * replaced. FE-08's confirmed unpaid expiry (UNPAID_EXPIRY_CONFIRMED) is not on develop yet, so T054 stays open.
+ * replaced. Confirmed unpaid expiry (develop e061e90): FE-08's {@link RetailUnstartedExpiryService} expires an
+ * accepted checkout whose payment never started once its hold deadline passed (release + finishIneligibleEarn with
+ * UNPAID_EXPIRY_CONFIRMED). The deadline is moved into the past directly on FE-08's hold rows, as FE-08's own test
+ * does; FE-08's background job is switched off here so only this test runs the expiry.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = "retail.unstarted-expiry.enabled=false")
 @ActiveProfiles({LoyaltyTestSupport.MYSQL_PROFILE, "retail-payment-sim"})
 @Import(CatalogueFlowFixture.class)
 class LoyaltyRetailCheckoutIT {
@@ -82,6 +88,8 @@ class LoyaltyRetailCheckoutIT {
     @Autowired private GroupedCheckoutRepository checkouts;
     @Autowired private RetailCheckoutCancellationService cancellation;
     @Autowired private SimulatedRetailPaymentOutcomeService payments;
+    @Autowired private RetailUnstartedExpiryService expiry;
+    @Autowired private JdbcTemplate jdbc;
     @Autowired private AccountRepository accounts;
     @Autowired private LoyaltyFacade loyalty;
     @Autowired private LoyaltyWalletRepository wallets;
@@ -242,6 +250,39 @@ class LoyaltyRetailCheckoutIT {
         assertThat(wallet(member).getBalancePoints()).as("zero earn writes no points").isEqualTo(BigInteger.valueOf(500));
         assertThat(program(code).getConsumedCount()).isEqualTo(1);
         assertThat(remaining(sale.sizeId())).as("the ring is sold at accept").isEqualTo(BigInteger.valueOf(4));
+    }
+
+    @Test
+    void aConfirmedUnpaidExpiryGivesBackTheVoucherAndPointsOnce() {
+        Sale sale = sale(5);
+        String code = voucher(sale.productId());
+        long member = member(500);
+        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), LOCATION, 2));
+        CheckoutDtos.BenefitSelection selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
+        CheckoutDtos.BenefitPreviewView preview = previews.preview(member, previewRequest(selection));
+        CheckoutDtos.GroupedCheckoutView accepted = acceptance.accept(member, UUID.randomUUID().toString(),
+                acceptRequest(preview, selection));
+
+        // Before the deadline nothing is released.
+        assertThat(expiry.expire(member, accepted.id())).isFalse();
+        assertThat(loyalty.findBenefitResult(SourceKind.RETAIL, accepted.id()).voucherState()).isEqualTo(ComponentState.HELD);
+
+        jdbc.update("update retail_variant_holds set expires_at = ? where grouped_checkout_id = ?",
+                Timestamp.valueOf("2020-01-01 00:00:00"), accepted.id()); // far past in any time zone
+        assertThat(expiry.expire(member, accepted.id())).isTrue();
+        assertThat(expiry.expire(member, accepted.id())).as("a second run changes nothing").isFalse();
+
+        BenefitResult result = loyalty.findBenefitResult(SourceKind.RETAIL, accepted.id());
+        assertThat(result.voucherState()).isEqualTo(ComponentState.RELEASED);
+        assertThat(result.pointsState()).isEqualTo(ComponentState.RELEASED);
+        assertThat(result.earnState()).isEqualTo(EarnState.INELIGIBLE);
+        assertThat(wallet(member).getHeldPoints()).isZero();
+        assertThat(wallet(member).getBalancePoints()).isEqualTo(BigInteger.valueOf(500));
+        assertThat(program(code).getHeldCount()).isZero();
+        assertThat(program(code).getConsumedCount()).isZero();
+        assertThat(available(sale.sizeId())).isEqualTo(BigInteger.valueOf(5));
+        // An expired checkout cannot be cancelled afterwards.
+        assertThatThrownBy(() -> cancellation.cancel(member, accepted.id())).isInstanceOf(RetailConflictException.class);
     }
 
     // ---- helpers ----
