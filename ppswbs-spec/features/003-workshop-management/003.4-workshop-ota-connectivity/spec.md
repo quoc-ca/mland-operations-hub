@@ -1,7 +1,7 @@
 # Feature Specification: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-11-01
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -92,6 +92,15 @@ are evidenced.
 - Customer channel payment, OTA payout owed to Mland, actual payout, and a
   direct Mland add-on bill are separate financial facts. Corrections append
   evidence rather than editing history.
+- For an OTA-origin workshop package, the customer pays the full amount due
+  through the OTA checkout. Mland does not collect a deposit or final payment
+  for that base package. The OTA's later supplier payout to Mland is a separate
+  receivable and reconciliation flow; a payout is not customer-payment proof.
+- Mland may confirm an OTA booking and issue its tickets only after an
+  authenticated provider outcome establishes that the full accepted customer
+  amount and currency were paid on the channel. If the provider's callback or
+  reconciliation contract cannot establish that fact, the mapping stays
+  sales-closed until the provider evidence is approved.
 - Laser engraving is included free. Any other paid option needs a prior quote
   and customer acceptance, then a direct Mland bill with no OTA price, payout,
   commission, or refund effect.
@@ -113,8 +122,10 @@ the repeat returns the original result without another capacity deduction.
 **Acceptance Scenarios**:
 
 1. **Given** enough Mland capacity, **When** an approved OTA submits a valid
-   booking for N participants, **Then** Mland creates one channel booking,
-   exactly N active tickets, and commits N places as one result.
+   booking for N participants with authenticated evidence of full payment of
+   the accepted channel amount, **Then** Mland creates one channel booking,
+   exactly N active tickets, and commits N places as one result. A booking
+   lacking full-payment evidence is not confirmed and receives no tickets.
 2. **Given** the same accepted request is delivered again, **When** Mland
    processes it, **Then** it returns the original result without duplicate
    booking, ticket, capacity, or financial effects.
@@ -200,6 +211,17 @@ a payout reference is matched.
    `PAID_OUT` without rewriting gross, fee, refund, or expected-net evidence.
 3. **Given** a variance/dispute, **When** it is recorded, **Then** it creates a
    linked adjustment/dispute and does not imply an OTA payout.
+
+Manager-led reconciliation records separate eligibility, invoice, remittance,
+and bank-receipt evidence for each booking. `PAID_OUT` requires booking-specific
+allocation evidence whose received total and currency match the expected net
+plus signed, evidenced adjustments and reversals. A customer refund or fee does
+not silently change the supplier receivable: Manager records its contractual
+impact as a linked adjustment. Missing or mismatched evidence opens a dispute
+and does not advance the payout state. Grouped OTA payouts require a distinct
+allocation reference for each booking; the system does not guess the split.
+Replay of the same evidence returns the original fact, while a conflicting
+replay is rejected.
 
 ---
 
@@ -324,7 +346,13 @@ Mland payment. The counter bill remains separate from OTA financial facts.
   confirmation.
 - **FR-012**: The system MUST record customer channel-payment states as
   `PAID_ON_CHANNEL`, `REFUND_REQUESTED`, `PARTIALLY_REFUNDED`, or `REFUNDED`.
-  They MUST NOT be read as a direct-Mland payment, booking, or payout state.
+  `PAID_ON_CHANNEL` MUST represent authenticated evidence that the full
+  accepted customer amount and currency were collected by the OTA for the
+  booking. An incomplete, mismatched, or absent payment outcome MUST NOT
+  confirm the channel booking or issue tickets. These states MUST NOT be read
+  as a direct-Mland payment, booking, or supplier-payout state. Mland MUST NOT
+  create a `DEPOSIT` or `FINAL_PAYMENT` attempt for the OTA-collected base
+  package.
 - **FR-013**: The system MUST snapshot sales channel, displayed policy/version,
   cutoff/timezone, price terms, commission/fee facts, and accepted currency
   amounts for each OTA booking; later configuration cannot rewrite the snapshot.
