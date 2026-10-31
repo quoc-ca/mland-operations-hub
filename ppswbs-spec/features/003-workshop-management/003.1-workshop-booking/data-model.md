@@ -1,7 +1,7 @@
 # Data Model: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-01
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -38,6 +38,7 @@ WorkshopBooking (1) ── (1) BookingInvoice
 | NotificationIntent | booking; immutable notification reference, kind, correlation reference, and render-ready delivery snapshot | Created transactionally with confirmed booking delivery, accepted resend, or accepted Magic-Link rotation. Its post-commit event carries references only; Feature 007 may retrieve one payload only through the internal facade after the matching handoff. The raw bearer URL is scrubbed from every snapshot no later than the next one-minute cleanup sweep after expiry/revocation; the remaining snapshot is immutable. The URL is excluded from events, business audit, and application/provider logs. Feature 007 owns delivery attempts/retries as operational logs. Delivery failure cannot reverse the accepted Booking outcome. |
 | BookingAuditEvidence | safe actor type or identity reference when available; booking code; applicable canonical location; action; outcome; correlation reference; timestamp; action reason where required; separate Manager reason where required | Covers customer pending-hold release, accepted self-service resend, every internal resend, Magic-Link revoke/rotate, and Manager late-payment `RECORD`/`ESCALATE` follow-up. Customer release stores the required reason in `action_reason`; Manager-only reasons remain in `manager_reason`. It excludes contact proof, raw Magic Link, QR, token material and unnecessary PII. |
 | BookingLatePaymentEvidence | booking reference/code, immutable merchant reference, verified evidence reference, optional provider transaction reference, exact VND amount, verification timestamp | One deduplicated row for signed/verified deposit success received after capacity release. It is reconciliation evidence only; it does not confirm the booking, reserve capacity, issue tickets, or retain raw provider payload/checksum. |
+| BookingDepositReconciliation | one row per deposit attempt; lifecycle status, next/last QueryDR time, short verified evidence reference | Durable post-expiry QueryDR candidate. The scheduler runs outside the original booking hold, never reopens it, and exposes unresolved rows older than 24 hours in a daily Manager list. No gateway payload, signature, secret, or contact data is stored. |
 
 ## Lifecycle
 
