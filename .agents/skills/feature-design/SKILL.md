@@ -20,7 +20,9 @@ Do not use this skill to write production code, migrations, deployment configura
 1. Identify one feature directory and read its `spec.md`, `plan.md`, `tasks.md` when present, plus applicable `research.md`, `data-model.md`, `contracts/`, the spec-folder `AGENT.md`, constitution, and approved UX sources.
 2. Read `.specify/metadata-policy.md` before creating or updating a feature Markdown artifact. Obtain the responsible member required by that policy; do not invent an author from Git, the OS account, or the agent.
 3. Treat `data-model.md` as the schema/ownership source and `contracts/` as the transport/interface source. Link to the authoritative section rather than duplicating DTOs, routes, schemas, or field definitions.
-4. Class or interface design is conditional. Add it inside `architecture.md` only when a public facade, orchestration boundary, concurrency mechanism, or non-trivial algorithm cannot otherwise be implemented unambiguously. Do not create a default `class-design.md`.
+4. Write the pack in clear Vietnamese unless the feature's approved source uses another language. It must be understandable by the next implementation agent without reading code first.
+5. Every planned production unit belongs in `architecture.md`: frontend component/hook/API client and backend controller/service/facade/repository/entity/DTO as applicable. List its path, responsibility, proposed class/export name, and public or use-case method names. Omit only small private helpers. Do not write code, pseudo-code, or method bodies.
+6. Mark every folder, library, class, method, and data-flow node as `existing`, `approved`, or `proposed`, with a source. `proposed` is not a baseline or approval and blocks dependent implementation until the Tech Lead approves it.
 
 Read [design-pack templates and review protocol](references/design-pack.md) before drafting or assessing the pack.
 
@@ -28,9 +30,9 @@ Read [design-pack templates and review protocol](references/design-pack.md) befo
 
 1. Inventory the existing artifacts and map each applicable D01–D20 gate in `ppswbs-spec/AGENT.md` to a precise section or identify the gap.
 2. Create or update these documents under `<feature>/design/` when the feature is full-stack:
-   - `architecture.md` — ownership, frontend/backend/module boundaries, allowed dependencies, public facades/interfaces, integrations, and conditional class/interface detail.
-   - `workflows.md` — primary and failure flows, state and transaction boundaries, side effects, recovery, idempotency, and concurrency when applicable.
-   - `ui-flow.md` — actors and authorization, navigation, client/server interaction, loading/empty/validation/success/error/partial states, session recovery, and approved accessibility/browser baseline.
+   - `architecture.md` — implementation tree/package layout, production units and draft method names, allowed dependencies, FE/BE libraries with rationale, and arrow data flows through those units.
+   - `workflows.md` — every independently triggered feature workflow in numbered order, with actor, preconditions, owning class/method boundaries, data/state effects, success, failure/recovery, and retry/concurrency where applicable.
+   - `ui-flow.md` — actors and authorization, navigation, loading/empty/validation/success/error/partial states, session recovery, accessibility baseline, and links to the architecture components/hooks and workflow IDs that implement each screen flow.
 3. Preserve uncertainty. A decision missing an authoritative source may be documented as a clearly labeled proposal with alternatives and impact, but it is not an implementation decision.
 4. Maintain a requirement → design → task → verification mapping. A requirement with no approved design or verification is a gap, not a reason to invent work.
 5. Reconcile the pack with its linked data model and contracts. Flag disagreement; never resolve it by silently editing one source to match another.
