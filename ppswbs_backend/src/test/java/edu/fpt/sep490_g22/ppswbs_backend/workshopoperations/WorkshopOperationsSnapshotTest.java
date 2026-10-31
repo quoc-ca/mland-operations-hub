@@ -7,12 +7,20 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.Work
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackage;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopSession;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketSessionEntitlement;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.AttendanceTicket;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.AttendanceState;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketValidityState;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopSlot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopBookingPackagePolicySnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.*;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
@@ -86,6 +94,82 @@ class WorkshopOperationsSnapshotTest {
     }
 
     @Test
+    void cancellationEligibilityRequiresExactSessionSetAndReturnsOnlySafeFacts() {
+        UUID sessionRef = UUID.randomUUID();
+        Instant start = Instant.parse("2026-11-10T02:00:00Z");
+        WorkshopSession session = WorkshopSession.builder().id(201L).reference(sessionRef.toString())
+                .scheduledStartAt(start).build();
+        AttendanceTicket ticket = AttendanceTicket.builder().bookingReference("BK-CANCEL")
+                .validityState(TicketValidityState.ACTIVE).build();
+        TicketSessionEntitlement entitlement = TicketSessionEntitlement.builder().ticket(ticket).session(session)
+                .attendanceState(AttendanceState.NOT_CHECKED_IN).build();
+        when(entitlements.findActiveByBookingReference("BK-CANCEL")).thenReturn(List.of(entitlement));
+        when(sessions.findByReference(sessionRef.toString())).thenReturn(Optional.of(session));
+
+        var result = facade.getBookingCancellationEligibility(
+                new BookingCancellationEligibilityQuery("BK-CANCEL"));
+
+        assertThat(result.eligible()).isTrue();
+        assertThat(result.earliestRequiredSessionStart()).isEqualTo(start);
+        assertThat(result.hasCheckedInTicket()).isFalse();
+        assertThat(result.hasNoShow()).isFalse();
+        assertThat(Arrays.stream(BookingCancellationEligibilitySnapshot.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName))
+                .containsExactly("eligible", "reason", "earliestRequiredSessionStart", "hasCheckedInTicket", "hasNoShow");
+    }
+
+    @Test
+    void cancellationEligibilityUsesOperationsCurrentSessionSetWithoutCallerSuppliedReferences() {
+        UUID actual = UUID.randomUUID();
+        WorkshopSession session = WorkshopSession.builder().id(202L).reference(actual.toString()).build();
+        AttendanceTicket ticket = AttendanceTicket.builder().bookingReference("BK-CANCEL-MISMATCH")
+                .validityState(TicketValidityState.ACTIVE).build();
+        TicketSessionEntitlement entitlement = TicketSessionEntitlement.builder().ticket(ticket).session(session)
+                .attendanceState(AttendanceState.CHECKED_IN).build();
+        when(entitlements.findActiveByBookingReference("BK-CANCEL-MISMATCH")).thenReturn(List.of(entitlement));
+
+        when(sessions.findByReference(actual.toString())).thenReturn(Optional.of(session));
+
+        var result = facade.getBookingCancellationEligibility(new BookingCancellationEligibilityQuery(
+                "BK-CANCEL-MISMATCH"));
+
+        assertThat(result.eligible()).isFalse();
+        assertThat(result.reason()).isEqualTo("TICKET_CHECKED_IN");
+        assertThat(result.hasCheckedInTicket()).isTrue();
+        verify(sessions).findByReference(actual.toString());
+    }
+
+    @Test
+    void cancellationEligibilityRejectsCheckInAndNoShowFacts() {
+        UUID firstRef = UUID.randomUUID();
+        UUID secondRef = UUID.randomUUID();
+        WorkshopSession first = WorkshopSession.builder().id(211L).reference(firstRef.toString())
+                .scheduledStartAt(Instant.parse("2026-11-10T02:00:00Z")).build();
+        WorkshopSession second = WorkshopSession.builder().id(212L).reference(secondRef.toString())
+                .scheduledStartAt(Instant.parse("2026-11-11T02:00:00Z")).build();
+        AttendanceTicket checkedInTicket = AttendanceTicket.builder().bookingReference("BK-CANCEL-USED")
+                .validityState(TicketValidityState.ACTIVE).build();
+        AttendanceTicket noShowTicket = AttendanceTicket.builder().bookingReference("BK-CANCEL-USED")
+                .validityState(TicketValidityState.ACTIVE).build();
+        TicketSessionEntitlement checkedIn = TicketSessionEntitlement.builder().ticket(checkedInTicket).session(first)
+                .attendanceState(AttendanceState.CHECKED_IN).checkedInAt(Instant.parse("2026-11-10T02:05:00Z")).build();
+        TicketSessionEntitlement noShow = TicketSessionEntitlement.builder().ticket(noShowTicket).session(second)
+                .attendanceState(AttendanceState.NO_SHOW).build();
+        when(entitlements.findActiveByBookingReference("BK-CANCEL-USED")).thenReturn(List.of(checkedIn, noShow));
+        when(sessions.findByReference(firstRef.toString())).thenReturn(Optional.of(first));
+        when(sessions.findByReference(secondRef.toString())).thenReturn(Optional.of(second));
+
+        var result = facade.getBookingCancellationEligibility(
+                new BookingCancellationEligibilityQuery("BK-CANCEL-USED"));
+
+        assertThat(result.eligible()).isFalse();
+        assertThat(result.reason()).isEqualTo("TICKET_CHECKED_IN");
+        assertThat(result.hasCheckedInTicket()).isTrue();
+        assertThat(result.hasNoShow()).isTrue();
+        assertThat(result.earliestRequiredSessionStart()).isEqualTo(first.getScheduledStartAt());
+    }
+
+    @Test
     void publishedPackageSnapshotIncludesItsAuthoritativeName() {
         WorkshopPackage workshopPackage = WorkshopPackage.builder()
                 .id(42L)
@@ -100,7 +184,8 @@ class WorkshopOperationsSnapshotTest {
                 .build();
         when(packages.findById(42L)).thenReturn(Optional.of(workshopPackage));
         WorkshopPackageReservationPolicy policy = new WorkshopPackageReservationPolicy(
-                packages, sessions, mock(WorkshopSlotRepository.class));
+                packages, sessions, mock(WorkshopSlotRepository.class),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopBookingPackagePolicySnapshotRepository.class));
 
         assertThat(policy.readPublishedSnapshot(42L))
                 .extracting(PublishedPackageSelectionSnapshot::packageName)
@@ -110,5 +195,65 @@ class WorkshopOperationsSnapshotTest {
                 .containsExactly("packageReference", "publicPerParticipantPrice", "minParticipants",
                         "maxParticipants", "requiredSessionCount", "sameLocationRequired",
                         "minimumSameDaySlotGap", "packageName");
+    }
+
+    @Test
+    void bookingPolicySnapshotEnforcesChronologyLocationAndSameDaySlotGap() {
+        var snapshots = mock(WorkshopBookingPackagePolicySnapshotRepository.class);
+        var slots = mock(WorkshopSlotRepository.class);
+        WorkshopPackageReservationPolicy policy = new WorkshopPackageReservationPolicy(packages, sessions, slots, snapshots);
+        WorkshopBookingPackagePolicySnapshot silverclay = WorkshopBookingPackagePolicySnapshot.builder()
+                .bookingReference("BK-SILVERCLAY")
+                .packageReference("42")
+                .requiredSessionCount(2)
+                .minParticipants(1)
+                .maxParticipants(4)
+                .sameLocationRequired(true)
+                .minimumSameDaySlotGap(1)
+                .build();
+        when(snapshots.findByBookingReference("BK-SILVERCLAY")).thenReturn(Optional.of(silverclay));
+        when(packages.findById(42L)).thenReturn(Optional.of(WorkshopPackage.builder().id(42L)
+                .requiredSessionCount(2).sameLocationRequired(false).minimumSameDaySlotGap(0)
+                .state(WorkshopPackageState.PUBLISHED).build()));
+        WorkshopLocation location = WorkshopLocation.builder().id(25L).build();
+        when(slots.findByLocationId(25L)).thenReturn(List.of(
+                slot(1L, LocalTime.of(9, 0)), slot(2L, LocalTime.of(10, 0)), slot(3L, LocalTime.of(11, 0))));
+
+        WorkshopSession first = policySession(1L, location, slot(1L, LocalTime.of(9, 0)),
+                LocalDate.of(2026, 11, 10), Instant.parse("2026-11-10T02:00:00Z"));
+        WorkshopSession validSecond = policySession(2L, location, slot(3L, LocalTime.of(11, 0)),
+                LocalDate.of(2026, 11, 10), Instant.parse("2026-11-10T04:00:00Z"));
+        WorkshopSession adjacentSecond = policySession(3L, location, slot(2L, LocalTime.of(10, 0)),
+                LocalDate.of(2026, 11, 10), Instant.parse("2026-11-10T03:00:00Z"));
+        WorkshopSession otherLocation = policySession(4L, WorkshopLocation.builder().id(26L).build(),
+                slot(4L, LocalTime.of(12, 0)), LocalDate.of(2026, 11, 10), Instant.parse("2026-11-10T05:00:00Z"));
+
+        assertThat(policy.isValidReplacement("BK-SILVERCLAY", List.of(first, validSecond), 2)).isTrue();
+        assertThat(policy.isValidReplacement("BK-SILVERCLAY", List.of(first, adjacentSecond), 2)).isFalse();
+        assertThat(policy.isValidReplacement("BK-SILVERCLAY", List.of(validSecond, first), 2)).isFalse();
+        assertThat(policy.isValidReplacement("BK-SILVERCLAY", List.of(first, otherLocation), 2)).isFalse();
+        assertThat(policy.isValidReplacement("BK-SILVERCLAY", List.of(first), 2)).isFalse();
+        verify(slots, atLeastOnce()).findByLocationId(25L);
+        verifyNoInteractions(packages);
+    }
+
+    @Test
+    void replacementWithoutBookingTimeSnapshotFailsClosed() {
+        var snapshots = mock(WorkshopBookingPackagePolicySnapshotRepository.class);
+        WorkshopPackageReservationPolicy policy = new WorkshopPackageReservationPolicy(
+                packages, sessions, mock(WorkshopSlotRepository.class), snapshots);
+        when(snapshots.findByBookingReference("BK-LEGACY")).thenReturn(Optional.empty());
+
+        assertThat(policy.isValidReplacement("BK-LEGACY", List.of(), 1)).isFalse();
+    }
+
+    private static WorkshopSlot slot(Long id, LocalTime start) {
+        return WorkshopSlot.builder().id(id).startTime(start).build();
+    }
+
+    private static WorkshopSession policySession(Long id, WorkshopLocation location, WorkshopSlot slot,
+                                                  LocalDate date, Instant start) {
+        return WorkshopSession.builder().id(id).location(location).slot(slot).workshopDate(date)
+                .scheduledStartAt(start).scheduledEndAt(start.plusSeconds(3600)).build();
     }
 }

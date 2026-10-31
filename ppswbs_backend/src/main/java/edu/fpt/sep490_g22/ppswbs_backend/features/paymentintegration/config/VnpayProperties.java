@@ -12,6 +12,7 @@ import java.time.Duration;
 public class VnpayProperties {
     private boolean enabled; private String tmnCode=""; private String hashSecret=""; private String payUrl="";
     private String returnUrl=""; private String ipnUrl=""; private String queryDrUrl=""; private String refundUrl="";
+    private String merchantApiIpAddress="";
     private Duration merchantApiConnectTimeout = Duration.ofSeconds(5);
     private Duration merchantApiReadTimeout = Duration.ofSeconds(10);
     @PostConstruct void validateConfiguredRuntime(){ validateForEnabledRuntime(); }

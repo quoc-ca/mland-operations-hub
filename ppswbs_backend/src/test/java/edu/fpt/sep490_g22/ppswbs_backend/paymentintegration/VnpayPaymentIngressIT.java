@@ -53,7 +53,7 @@ class VnpayPaymentIngressIT {
         String depositMerchant = "IT-DEPOSIT-" + UUID.randomUUID();
         String finalMerchant = "IT-FINAL-" + UUID.randomUUID();
         owners.register(depositMerchant, "BK-DEPOSIT", PaymentOwnerKind.DEPOSIT, 50_000L, "VND");
-        owners.register(finalMerchant, "BK-FINAL", PaymentOwnerKind.FINAL_PAYMENT, 75_000L, "VND");
+        owners.register(finalMerchant, "BK-FINAL", PaymentOwnerKind.FINAL_PAYMENT, 75_000L, "VND", "20261030181359");
         when(checksum.valid(anyMap(), any())).thenReturn(true);
         when(settlement.applyVerifiedSettlementPaymentEvidence(any()))
                 .thenReturn(SettlementPaymentEvidenceOutcome.accepted());
@@ -68,8 +68,8 @@ class VnpayPaymentIngressIT {
         assertThat(firstDeposit.message()).isEqualTo("OK");
         assertThat(duplicateDeposit.message()).isEqualTo("Already received");
         assertThat(finalPayment.message()).isEqualTo("OK");
-        assertThat(receipts.existsByDeliveryReference(depositMerchant + "|TX-D-1")).isTrue();
-        assertThat(receipts.existsByDeliveryReference(finalMerchant + "|TX-F-1")).isTrue();
+        assertThat(receipts.existsByDeliveryReference(depositMerchant + "|TX-D-1|00|00")).isTrue();
+        assertThat(receipts.existsByDeliveryReference(finalMerchant + "|TX-F-1|00|00")).isTrue();
         verify(booking, times(2)).applyVerifiedDepositPaymentEvidence(any());
         verify(settlement).applyVerifiedSettlementPaymentEvidence(any());
         verifyNoMoreInteractions(booking, settlement);
@@ -93,6 +93,7 @@ class VnpayPaymentIngressIT {
         params.put("vnp_Amount", amount);
         params.put("vnp_CurrCode", "VND");
         params.put("vnp_ResponseCode", response);
+        params.put("vnp_TransactionStatus", "00");
         params.put("vnp_TransactionNo", transaction);
         params.put("vnp_SecureHash", "test-signature");
         return params;

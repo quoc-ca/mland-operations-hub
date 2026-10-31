@@ -76,6 +76,9 @@ public class WorkshopSession {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "attendance_finalized_at")
+    private Instant attendanceFinalizedAt;
+
     @PrePersist
     protected void onCreate() {
         if (reference == null) {

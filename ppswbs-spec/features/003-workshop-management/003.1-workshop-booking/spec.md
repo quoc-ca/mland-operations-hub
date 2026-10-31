@@ -40,6 +40,27 @@ earn ineligible on final no-show. Full integration tasks T048–T051 are tracked
 in `tasks.md`; they remain unchecked until implementation and suitable
 verification evidence exist.
 
+### Loyalty outcome ownership decision (2026-10-31)
+
+- Booking emits `WORKSHOP_DEPOSIT_ACCEPTED` only after verified deposit evidence
+  is accepted. Booking emits `UNPAID_EXPIRY_CONFIRMED` only after QueryDR has
+  conclusively confirmed the deposit remains unpaid; reaching the hold deadline
+  or receiving an unknown/pending QueryDR result is not sufficient.
+- Settlement emits workshop completion, cancellation, and final no-show
+  outcomes only after it has authoritative evidence for the whole booking.
+  Completion requires a fully paid final invoice and terminal attendance for
+  every required ticket/session. If any ticket is a final no-show, no earned
+  points are granted; no-show is final only after every required
+  ticket/session has terminal attendance. Eligible cancellation follows the
+  003.3 cancellation/refund policy and its verified resolution.
+- All such calls apply only to Member quote bookings. Guest bookings do not
+  reserve or settle Loyalty benefits. `quoteRef` is the `snapshotRef`; the
+  verified source evidence reference is a short `proofRef`, never a gateway
+  payload. Each source transition is serialized and carries a stable outcome
+  key and monotonic source version.
+- The outcome-specific code and verification remain tracked by T050–T051; this
+  decision does not mark those tasks complete.
+
 ## Scope and source alignment
 
 This feature defines the first customer-facing Workshop Booking slice for Guests
@@ -153,7 +174,7 @@ a later feature. The implemented state enum is therefore
 - Q: Does cancellation/refund belong to this feature? → A: Post-confirmation cancellation and refund are deferred to a later feature. This feature supports only explicit Guest/Member release of an active `PENDING_PAYMENT` hold, which changes the booking to `CANCELLED` without refund processing.
 - Q: Which lookup methods belong to this feature? → A: Guest self-service lookup by booking code plus contact phone and a post-payment email Magic Link are included. In-store Staff/POS QR check-in and manual customer verification are deferred to a later check-in feature. Members use authenticated ownership lookup.
 - Q: What proof may a Guest use for self-service lookup? → A: The Guest must provide the booking code and either the normalized contact phone or the normalized contact email captured for that booking.
-- Q: When does a post-payment Magic Link expire? → A: The Magic Link remains valid until the associated workshop ends, then expires automatically.
+- Q: When does a post-payment Magic Link expire and how is its delivery value retained? → A: The Magic Link remains valid until the latest required session ends, then expires automatically. Its raw bearer URL may be retained only in the protected notification snapshot for Feature 007 to deliver after the matching handoff through the dedicated `workshopbooking :: notification` named interface; it is removed from that snapshot by the next one-minute cleanup sweep after expiry or revocation. The token hash remains in MagicLinkAccess for lifecycle enforcement. The value is excluded from handoff events, business audit, and application/provider logs.
 - Q: How should the existing email-confirmation code be handled? → A: Remove it from the current Workshop Booking flow. Post-payment confirmation notification and Magic Link replace pre-payment email confirmation.
 - Q: Must legacy booking data be preserved during state migration? → A: No for the current development/test database; it may be reset and recreated with the new state model. This decision does not authorize resetting production or real customer data.
 - Q: Where is a failed payment state recorded? → A: `FAILED` belongs to `PaymentAttempt`; the booking remains `PENDING_PAYMENT` with financial status `UNPAID` while its hold is active and can be retried.
@@ -161,6 +182,7 @@ a later feature. The implemented state enum is therefore
 - Q: May a Guest look up a pending booking? → A: Yes. A pending lookup is a resume-payment journey with a remaining-hold countdown and no QR ticket; a confirmed lookup is a read-only booking/ticket journey with QR details and no countdown.
 - Q: What status applies when a Guest releases an active pending hold? → A: Add `CANCELLED` for an explicit customer release before payment; release the hold immediately and do not issue a QR ticket. This is not post-confirmation cancellation/refund.
 - Q: What should the Guest see after releasing a pending hold? → A: The cancelled booking remains viewable without payment or QR actions and offers a new-workshop booking action.
+- Q: How is a customer authorized to release a pending hold? → A: A Guest submits the booking code and exactly one stored contact proof (email or phone); a logged-in Member submits no contact proof and Booking verifies authenticated Member ownership. Both provide a required audit reason; contact proof is never copied into audit.
 - Q: May a Member retry payment for a pending booking? → A: Yes. An authenticated Member may resume or retry payment for a booking owned by that Member; the state-specific projection is the same as for a Guest.
 - Q: Which contact fields are required when creating a booking? → A: Guests must provide both email and phone. Members receive both fields auto-filled from their profile and may edit them when booking for another person; the booking stores the submitted contact snapshot.
 - Q: Who receives the post-payment Magic Link? → A: Both Guest and Member bookings send the Magic Link to the submitted contact email snapshot, including when a Member books for another person.
@@ -176,12 +198,12 @@ a later feature. The implemented state enum is therefore
 - Q: What happens to the QR when a confirmation email is resent? → A: Reuse the same active ticket set; resending email does not create, revoke or rotate any ticket.
 - Q: Who may request a confirmation email resend? → A: Guest and Member use
   their respective lookup or ownership proof. Staff assigned to the booking
-  branch and Managers responsible for that branch may resend; operational sends
+  branch and any active Manager globally may resend; operational sends
   are audited.
 - Q: What happens if confirmation email delivery fails after payment? → A: The booking remains `CONFIRMED`; the system stores a notification retry intent and retries automatically. Email delivery is not a condition for booking confirmation.
 - Q: How should automatic confirmation-email retry stop? → A: Retry at most
   three times with backoff, then mark the notification for follow-up by Staff
-  assigned to the booking branch or Managers responsible for that branch.
+  assigned to the booking branch or any active Manager globally.
 
 ### Session 2026-10-25
 
@@ -318,19 +340,32 @@ seat and receives one independent ticket after valid payment confirmation.
   Any other cross-feature access is prohibited until separately approved.
 
 - Q: When should bounded automatic QueryDR recovery run during the payment
-  hold? → A: For a payment attempt without a terminal IPN outcome, run it at
-  payment-link expiry (minute 10) and once one minute before the 15-minute hold
-  expiry (minute 14). It never runs after hold expiry and never treats browser
+  hold? → A: For a payment attempt without a terminal IPN outcome, query at
+  minutes 8 and 9 from hold creation, while the hold remains active. If the
+  first result is pending or unknown, the second query is the final check
+  before expiry. It never runs after hold expiry and never treats browser
   return as payment evidence.
+
+### Session 2026-10-31
+
+- Q: Do the pending-payment hold and its payment link have separate deadlines?
+  → A: No. They share the same absolute deadline, at most 10 minutes after
+  hold creation. The payment attempt and VNPay `vnp_ExpireDate` use the stored
+  `holdExpiresAt`; creating or retrying a payment attempt never extends it.
+- Q: When should QueryDR run under the shared 10-minute deadline? → A: For an
+  attempt without a terminal IPN outcome, run at minutes 8 and 9 from hold
+  creation. Pending/unknown results do not extend the hold. Late verified
+  payment evidence after expiry does not confirm a booking whose capacity has
+  been released and requires operational follow-up.
 
 - Q: How does Booking become `FULLY_PAID` after final settlement? → A: 003.3
   sends 003.1 only an idempotent semantic conclusion that the booking's final
   balance is resolved, with a safe correlation/reference. 003.1, as the Booking
   owner, changes its financial status to `FULLY_PAID` exactly once. It receives
   no raw VNPay payload or final-payment detail and does not verify final payment
-  or calculate final balance. The conclusion may follow verified final payment
-  or an authorized audited deferred-payment resolution; merely creating or
-  sending a deferred-payment link is not such a conclusion.
+  or calculate final balance. 003.3 emits this conclusion only after signed,
+  matching evidence verifies that the complete final balance was paid. There is
+  no deferred-payment resolution path.
 
 - Q: Should the post-payment Magic Link be reusable or single-use? → A:
   Reusable until the associated workshop/package ends or the link is revoked.
@@ -361,7 +396,7 @@ seat and receives one independent ticket after valid payment confirmation.
 
 - Q: Who may resend a post-payment booking confirmation email in V1? → A:
   Guest and Member use their existing self-service proof. Staff assigned to the
-  booking branch and Managers responsible for that branch may resend it with
+  booking branch and any active Manager globally may resend it with
   audit evidence. Resend does not change the booking, payment, ticket set,
   contact email, or active Magic Link.
 
@@ -371,8 +406,8 @@ seat and receives one independent ticket after valid payment confirmation.
   booking-contact email; it does not change the booking, payment, ticket set,
   contact email, or capacity.
 
-- Q: Who may revoke or rotate a Magic Link in V1? → A: Only a Manager
-  responsible for the booking branch. Staff may resend a confirmation email but
+- Q: Who may revoke or rotate a Magic Link in V1? → A: Any active Manager
+  globally, regardless of booking branch. Staff may resend a confirmation email but
   may not revoke or rotate its Magic Link; the `ADMIN` role alone does
   not grant booking-incident authority.
 
@@ -382,7 +417,7 @@ seat and receives one independent ticket after valid payment confirmation.
   retain a raw Magic Link, token, or QR payload.
 
 - Q: Who handles a signed VNPay success received after hold expiry in V1? → A:
-  Only a Manager responsible for the booking branch may view the safe evidence
+  Any active Manager globally may view the safe evidence
   and record or escalate follow-up. The Manager may not confirm or reactivate
   the booking, restore hold/capacity, issue tickets, or create a payment link.
   Refund, reschedule, and final settlement remain in 003.3.
@@ -394,9 +429,11 @@ seat and receives one independent ticket after valid payment confirmation.
   booking actions.
 
 - Q: How are resend booking-confirmation rate limits defined in V1? → A:
-  Server-enforced limits are configurable and separate for self-service and
-  internal resend. A rejected request sends no email and creates no ticket or
-  Magic Link; it returns a safe error. Operational approval selects the limits.
+  Server-enforced rolling limits are configurable and separate: Guest/Member
+  self-service allows at most 3 accepted resends per booking in one hour; Staff/
+  Manager internal resend allows at most 5 accepted resends per booking in 15
+  minutes. A rejected request sends no email and creates no ticket or Magic Link;
+  it returns a safe error.
 
 - Q: After a Manager rotates a Magic Link because of suspected exposure, does
   the system immediately send the replacement to the booking-contact email? →
@@ -595,8 +632,9 @@ appropriate booking summary without exposing another customer's booking.
   capacity hold is created.
 - Booking creation fails after validation; no incomplete customer-facing booking
   is left behind.
-- The payment link expires after 10 minutes or the capacity hold expires after at
-  most 15 minutes; late confirmation must not confirm the booking.
+- The payment link and capacity hold share the same deadline at most 10 minutes
+  after hold creation; late confirmation must not confirm a booking after its
+  capacity has been released.
 - Cancellation and refund are deferred to a later feature and are not performed
   by this booking lifecycle.
 - No-show processing is deferred to a later feature; this feature does not mark
@@ -608,7 +646,13 @@ appropriate booking summary without exposing another customer's booking.
 - A lookup request is malformed or attempts to access another booking; the system
   returns a safe error without exposing sensitive data.
 - An invalid, expired, or revoked Magic Link must not reveal booking
-  details; the token is stored only as a protected hash and is never logged.
+  details. Its token hash is stored in MagicLinkAccess. The raw bearer URL is
+  the sole persistence exception: it may appear only in the protected
+  render-ready notification snapshot readable through the dedicated
+  `workshopbooking :: notification` interface by Feature 007 after the matching
+  handoff. It is excluded from events,
+  business audit, and application/provider logs, and is scrubbed from snapshots
+  on link expiry or revocation.
 - A pending booking lookup after hold expiry must not offer resume payment or
   display a QR ticket.
 - Staff/POS in-store QR scanning, phone/name fallback lookup, identity-document
@@ -680,7 +724,7 @@ appropriate booking summary without exposing another customer's booking.
   MUST NOT reject an otherwise valid booking merely because the post-promotion
   amount is odd VND.
 - **FR-008**: The system MUST hold the requested capacity temporarily in every
-  required session for a pending booking, for no longer than 15 minutes.
+  required session for a pending booking, for no longer than 10 minutes.
 - **FR-009**: The system MUST release the temporary capacity hold when valid
   deposit confirmation is not received before the hold expires.
 - **FR-010**: The system MUST support the configured workshop deposit payment
@@ -695,9 +739,15 @@ appropriate booking summary without exposing another customer's booking.
   reference, amount, currency, status, idempotency and capacity-commit
   validation as IPN before it can confirm a booking.
 - **FR-010d**: For a payment attempt with no terminal IPN outcome, automatic
-  QueryDR recovery MUST run at payment-link expiry (minute 10) and once one
-  minute before the 15-minute hold expires (minute 14). It MUST NOT run after
-  hold expiry or treat a browser return as payment evidence.
+  QueryDR recovery MUST run at minutes 8 and 9 after hold creation while the
+  hold is active. A pending or unknown result MUST NOT extend the hold. QueryDR
+  MUST NOT run after hold expiry or treat a browser return as payment evidence.
+- **FR-010f**: A verified IPN outcome is terminal when its two-digit
+  `vnp_TransactionStatus` is present and is not `01` (incomplete). Only a
+  verified callback with both `vnp_ResponseCode=00` and
+  `vnp_TransactionStatus=00`, matching immutable merchant reference, amount,
+  and VND currency may confirm a booking. Other verified terminal outcomes
+  stop QueryDR but never confirm the booking.
 - **FR-010c**: V1 MUST accept only the approved VNPAY HMAC-SHA512 checksum
   configuration. `paymentintegration` MUST verify checksum validity once before
   routing a callback or QueryDR result as payment evidence; a missing or invalid
@@ -712,7 +762,7 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-012**: The system MUST NOT treat a browser return redirect alone as valid
   payment confirmation.
 - **FR-012a**: A failed or cancelled payment attempt MUST leave the booking in
-  `PENDING_PAYMENT` with financial status `UNPAID` while its 15-minute hold is
+  `PENDING_PAYMENT` with financial status `UNPAID` while its 10-minute hold is
   active, and the visitor MUST be allowed to retry payment within that window.
 - **FR-013**: The system MUST record payment outcomes idempotently so repeated
   payment events do not create duplicate transactions or duplicate settlement.
@@ -723,7 +773,7 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-013b**: A signed success result received after the related hold has
   expired MUST NOT confirm or reactivate the booking, restore capacity, issue a
   ticket, or start a new payment link. The system MUST retain only safe
-  reconciliation evidence. Only a Manager responsible for the booking branch
+  reconciliation evidence. Any active Manager globally
   may view that evidence and record or escalate follow-up; the Manager MUST NOT
   change booking confirmation, capacity, ticket issuance, or payment-link
   state. Any Manager follow-up action MUST create safe business audit evidence;
@@ -737,7 +787,8 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-013d**: The public REST contract MUST expose Manager-only late-payment
   follow-up as `POST /workshop-bookings/{bookingCode}/late-payment-follow-ups`.
   It accepts exactly one action, `RECORD` or `ESCALATE`, and a required
-  audit-safe reason, then returns a safe follow-up outcome. It MUST NOT confirm
+  audit-safe reason after verified late-deposit evidence is recorded, then
+  returns a safe follow-up outcome. It MUST NOT confirm
   or reactivate a booking, restore capacity, issue tickets, or create or
   reissue a payment link.
 - **FR-014**: The system MUST generate a booking code and exactly
@@ -764,11 +815,13 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-014d**: Resending a confirmation email MUST reuse the same active ticket
   set and MUST NOT create, revoke or rotate any ticket.
 - **FR-014e**: Guest and Member resend requests MUST require the corresponding
-  lookup or ownership proof. Staff assigned to the booking branch and Managers
-  responsible for that branch MUST be authorized and audited before resending.
+  lookup or ownership proof. Staff assigned to the booking branch and any active
+  Manager globally MUST be authorized and audited before resending.
   Resend MUST NOT change the booking, payment, ticket set, contact email, or
-  active Magic Link. Server-enforced resend limits MUST be configurable and
-  separate for self-service and internal resend. A rejected request MUST send
+  active Magic Link. Server-enforced rolling resend limits MUST be configurable
+  and separate: Guest/Member self-service allows at most 3 accepted resends per
+  booking in one hour; Staff/Manager internal resend allows at most 5 accepted
+  resends per booking in 15 minutes. A rejected request MUST send
   no email and create no ticket or Magic Link, and MUST return a safe error.
 - **FR-014h**: The public REST contract MUST expose confirmation resend as
   `POST /workshop-bookings/{bookingCode}/confirmation-deliveries`. It MUST use
@@ -795,8 +848,8 @@ appropriate booking summary without exposing another customer's booking.
   retry intent and retry delivery automatically.
 - **FR-015b**: Automatic confirmation-notification delivery MUST retry at most
   three times with backoff, then produce a safe operational follow-up outcome
-  for Staff assigned to the booking branch or Managers responsible for that
-  branch, without changing booking/payment state.
+  for Staff assigned to the booking branch or any active Manager globally,
+  without changing booking/payment state.
 - **FR-015**: The system MUST send or queue a confirmation notification after
   successful booking confirmation and retain a safe operational outcome when
   delivery fails.
@@ -810,8 +863,12 @@ appropriate booking summary without exposing another customer's booking.
   that booking; at least one contact proof must match.
 - **FR-017b**: After successful payment confirmation, the system MUST send a
   protected Magic Link that grants read-only access to the corresponding booking
-  details and complete ticket set until the associated workshop ends; the token MUST be
-  stored only as a hash, MUST be reusable until it expires or is revoked, MUST
+  details and complete ticket set until the associated workshop ends; the token hash MUST be
+  stored for lookup and lifecycle enforcement, and the raw bearer URL MAY be
+  persisted only in the protected immutable notification delivery snapshot for
+  Feature 007 after a matching handoff. The raw value MUST be scrubbed when the
+  link expires or is revoked, no later than the next one-minute cleanup sweep.
+  It MUST be reusable until it expires or is revoked, MUST
   expire automatically when the workshop ends, and MUST be revocable. It MUST
   act as a bearer credential only for that projection and MUST NOT authenticate
   a Member or grant Member account access. A valid link alone MUST be sufficient
@@ -847,7 +904,7 @@ appropriate booking summary without exposing another customer's booking.
   delivery copy is not authoritative for entitlement or schedule and MUST NOT
   be used to display a stale session.
 - **FR-017b5**: V1 MUST provide authorized internal Magic Link incident
-  handling. Only a Manager responsible for the booking branch may revoke or
+  handling. Any active Manager globally may revoke or
   rotate a Magic Link; Staff and the `ADMIN` role alone MUST NOT have
   that authority. Revoke MUST make the existing Magic Link unusable
   immediately. Rotate MUST revoke the existing link and create a replacement
@@ -860,6 +917,8 @@ appropriate booking summary without exposing another customer's booking.
   reason and MUST record audit evidence containing actor reference, booking
   code, branch, action, reason, outcome, and correlation reference. The audit
   evidence MUST NOT retain a raw Magic Link, token, or QR payload.
+  A reason containing a URL, link fragment, or token-shaped credential MUST be
+  rejected before authorization or persistence.
 - **FR-017b6a**: The public REST contract MUST expose Manager-only Magic-Link
   incident handling as `POST /workshop-bookings/{bookingCode}/magic-link-incidents`.
   The command MUST contain exactly one action, `REVOKE` or `ROTATE`, and the
@@ -888,8 +947,9 @@ appropriate booking summary without exposing another customer's booking.
   parameters as payment evidence or confirmation authority.
 - **FR-017b7**: Before any internal resend, Magic Link incident action, or
   late-payment follow-up action, the server MUST recheck
-  canonical account facts, the applicable Booking action rule, and
-  booking-branch scope. If any check
+  canonical account facts and the applicable Booking action rule. For Staff,
+  the server MUST also recheck booking-branch scope; Manager authorization is
+  global throughout Feature 003. If any check
   fails, it MUST deny the action without side effects, return a safe error, and
   record a minimal denied-attempt audit for the sensitive internal action.
 - **FR-017e**: The current booking flow MUST NOT require or invoke the legacy
@@ -908,8 +968,10 @@ appropriate booking summary without exposing another customer's booking.
   booking/branch details, MUST NOT show a payment countdown, and MUST NOT expose
   a resume-payment action.
 - **FR-017h**: A Guest or authorized Member MUST be able to release an active
-  pending hold from the lookup journey; the release MUST not create a confirmed
-  booking or QR ticket. The system MUST append a redacted audit event containing
+  pending hold from the lookup journey. A Guest MUST provide exactly one stored
+  contact proof; an authenticated Member MUST prove booking ownership and MUST
+  NOT need to repeat contact data. Both MUST provide a reason. The release MUST
+  not create a confirmed booking or QR ticket. The system MUST append a redacted audit event containing
   the actor type/verified identity reference when available, a required reason,
   booking code, outcome, and correlation ID; it MUST NOT record contact proofs,
   raw tokens, or unnecessary PII.
@@ -944,9 +1006,9 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-022a**: On an idempotent semantic final-balance-resolved conclusion from
   003.3, the Booking owner MUST change its financial status to `FULLY_PAID`
   exactly once and retain only a safe correlation/reference. It MUST NOT receive
-  raw VNPay payload or final-payment detail, verify final payment, calculate the
-  final balance, or treat creation/delivery of a deferred-payment link as final
-  settlement.
+  raw VNPay payload or final-payment detail, verify final payment, or calculate
+  the final balance. This feature defines no credit/deferred-payment exception;
+  creation or delivery of any payment link is never final settlement.
 - **FR-024**: The system MUST preserve the financial-status vocabulary needed by
   later cancellation/refund features without implementing refund processing in
   this feature.

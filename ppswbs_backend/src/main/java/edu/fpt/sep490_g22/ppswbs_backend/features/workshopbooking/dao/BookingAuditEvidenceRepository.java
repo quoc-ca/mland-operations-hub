@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Collection;
+import java.time.Instant;
 
 @Repository
 public interface BookingAuditEvidenceRepository extends JpaRepository<BookingAuditEvidence, Long> {
@@ -14,4 +16,7 @@ public interface BookingAuditEvidenceRepository extends JpaRepository<BookingAud
     List<BookingAuditEvidence> findByLocationId(Long locationId);
 
     List<BookingAuditEvidence> findByCorrelationReference(String correlationReference);
+
+    long countByBookingCodeAndActionAndOutcomeAndActorTypeInAndOccurredAtAfter(
+            String bookingCode, String action, String outcome, Collection<String> actorTypes, Instant occurredAt);
 }

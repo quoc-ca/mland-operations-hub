@@ -5,12 +5,14 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.TicketS
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSlotRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopBookingPackagePolicySnapshotRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.AttendanceState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.AttendanceTicket;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketSessionEntitlement;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketValidityState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopLocation;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopBookingPackagePolicySnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopSession;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopSlot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ApplyVerifiedRefundConsequenceCommand;
@@ -36,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles("workshopoperations-mysql-test")
 class SettlementChangeFacadeIT {
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private WorkshopOperationsFacade operationsFacade;
@@ -45,8 +47,10 @@ class SettlementChangeFacadeIT {
     @Autowired private WorkshopSessionRepository sessionRepository;
     @Autowired private AttendanceTicketRepository ticketRepository;
     @Autowired private TicketSessionEntitlementRepository entitlementRepository;
+    @Autowired private WorkshopBookingPackagePolicySnapshotRepository policySnapshotRepository;
 
     private WorkshopLocation location;
+    private int sessionSequence;
 
     @BeforeEach
     void requireMySqlAndCreateLocation() throws Exception {
@@ -59,6 +63,7 @@ class SettlementChangeFacadeIT {
                 .displayName("Settlement Test Location")
                 .addressSnapshot("test")
                 .build());
+        sessionSequence = 0;
     }
 
     @Test
@@ -175,6 +180,72 @@ class SettlementChangeFacadeIT {
     }
 
     @Test
+    void legacyBookingWithoutPolicySnapshotFailsClosed() {
+        String booking = bookingReference();
+        WorkshopSession source = createSession(SessionState.PUBLISHED, 10);
+        WorkshopSession target = createSession(SessionState.PUBLISHED, 10);
+        AttendanceTicket ticket = createTicket(booking, 1, List.of(source), false, 1, 0);
+
+        var outcome = operationsFacade.replaceRequiredSessions(replaceCommand(booking, List.of(target)));
+
+        assertThat(outcome.status().name()).isEqualTo("REJECTED");
+        assertThat(outcome.reason().name()).isEqualTo("INVALID_REPLACEMENT");
+        assertThat(entitlementRepository.findByTicketId(ticket.getId())).extracting(e -> e.getSession().getId())
+                .containsExactly(source.getId());
+        assertThat(entitlementRepository.findBySessionId(target.getId())).isEmpty();
+    }
+
+    @Test
+    void silverclayReplacementRejectsSessionsWithoutRequiredSlotGap() {
+        String booking = bookingReference();
+        LocalDate date = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(5);
+        WorkshopSession source = createSession(SessionState.PUBLISHED, 10);
+        WorkshopSession first = createSessionAt(SessionState.PUBLISHED, 10, date, LocalTime.of(9, 0), location);
+        WorkshopSession second = createSessionAt(SessionState.PUBLISHED, 10, date, LocalTime.of(9, 30), location);
+        AttendanceTicket ticket = createTicket(booking, 1, List.of(source), true, 2, 1);
+
+        var outcome = operationsFacade.replaceRequiredSessions(replaceCommand(booking, List.of(first, second)));
+
+        assertThat(outcome.status().name()).isEqualTo("REJECTED");
+        assertThat(entitlementRepository.findByTicketId(ticket.getId())).extracting(e -> e.getSession().getId())
+                .containsExactly(source.getId());
+    }
+
+    @Test
+    void silverclayReplacementRequiresChronologicalTargetOrder() {
+        String booking = bookingReference();
+        LocalDate date = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(5);
+        WorkshopSession source = createSession(SessionState.PUBLISHED, 10);
+        WorkshopSession first = createSessionAt(SessionState.PUBLISHED, 10, date, LocalTime.of(9, 0), location);
+        WorkshopSession second = createSessionAt(SessionState.PUBLISHED, 10, date, LocalTime.of(11, 0), location);
+        createSlot(LocalTime.of(10, 0));
+        AttendanceTicket ticket = createTicket(booking, 1, List.of(source), true, 2, 1);
+
+        var outcome = operationsFacade.replaceRequiredSessions(replaceCommand(booking, List.of(second, first)));
+
+        assertThat(outcome.status().name()).isEqualTo("REJECTED");
+        assertThat(entitlementRepository.findByTicketId(ticket.getId())).extracting(e -> e.getSession().getId())
+                .containsExactly(source.getId());
+    }
+
+    @Test
+    void silverclayReplacementAcceptsChronologicalSessionsWithRequiredGap() {
+        String booking = bookingReference();
+        LocalDate date = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(5);
+        WorkshopSession source = createSession(SessionState.PUBLISHED, 10);
+        WorkshopSession first = createSessionAt(SessionState.PUBLISHED, 10, date, LocalTime.of(9, 0), location);
+        WorkshopSession second = createSessionAt(SessionState.PUBLISHED, 10, date, LocalTime.of(11, 0), location);
+        createSlot(LocalTime.of(10, 0));
+        AttendanceTicket ticket = createTicket(booking, 1, List.of(source), true, 2, 1);
+
+        var outcome = operationsFacade.replaceRequiredSessions(replaceCommand(booking, List.of(first, second)));
+
+        assertThat(outcome.status().name()).isEqualTo("ACCEPTED");
+        assertThat(entitlementRepository.findByTicketId(ticket.getId())).extracting(e -> e.getSession().getId())
+                .containsExactlyInAnyOrder(first.getId(), second.getId());
+    }
+
+    @Test
     void insufficientCapacityInAnyTargetLeavesTheWholeTwoSessionSetUnchanged() {
         String booking = bookingReference();
         WorkshopSession sourceOne = createSession(SessionState.PUBLISHED, 10);
@@ -261,19 +332,25 @@ class SettlementChangeFacadeIT {
     }
 
     private WorkshopSession createSession(SessionState state, int capacity) {
-        Instant start = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(3)
-                .atTime(9, 0).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
+        LocalTime startTime = LocalTime.of(9, 0).plusMinutes(sessionSequence++ * 30L);
+        LocalDate date = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(3);
+        return createSessionAt(state, capacity, date, startTime, location);
+    }
+
+    private WorkshopSession createSessionAt(SessionState state, int capacity, LocalDate date,
+                                            LocalTime startTime, WorkshopLocation sessionLocation) {
+        Instant start = date.atTime(startTime).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
         WorkshopSlot slot = slotRepository.saveAndFlush(WorkshopSlot.builder()
-                .location(location)
+                .location(sessionLocation)
                 .label("Settlement Slot " + UUID.randomUUID())
-                .startTime(LocalTime.of(9, 0))
-                .endTime(LocalTime.of(10, 0))
+                .startTime(startTime)
+                .endTime(startTime.plusHours(1))
                 .defaultCapacity(capacity)
                 .build());
         return sessionRepository.saveAndFlush(WorkshopSession.builder()
-                .location(location)
+                .location(sessionLocation)
                 .slot(slot)
-                .workshopDate(start.atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate())
+                .workshopDate(date)
                 .scheduledStartAt(start)
                 .scheduledEndAt(start.plusSeconds(3600))
                 .checkInOpensAt(start.minusSeconds(1800))
@@ -282,7 +359,22 @@ class SettlementChangeFacadeIT {
                 .build());
     }
 
+    private WorkshopSlot createSlot(LocalTime startTime) {
+        return slotRepository.saveAndFlush(WorkshopSlot.builder()
+                .location(location)
+                .label("Settlement Gap Slot " + UUID.randomUUID())
+                .startTime(startTime)
+                .endTime(startTime.plusHours(1))
+                .defaultCapacity(10)
+                .build());
+    }
+
     private AttendanceTicket createTicket(String booking, int sequence, List<WorkshopSession> sessions) {
+        return createTicket(booking, sequence, sessions, true, sessions.size(), 0);
+    }
+
+    private AttendanceTicket createTicket(String booking, int sequence, List<WorkshopSession> sessions,
+                                          boolean persistPolicy, int requiredSessions, int minimumGap) {
         String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase();
         AttendanceTicket ticket = ticketRepository.saveAndFlush(AttendanceTicket.builder()
                 .bookingReference(booking)
@@ -297,6 +389,17 @@ class SettlementChangeFacadeIT {
                 .attendanceState(AttendanceState.NOT_CHECKED_IN)
                 .build()));
         entitlementRepository.flush();
+        if (persistPolicy && policySnapshotRepository.findByBookingReference(booking).isEmpty()) {
+            policySnapshotRepository.saveAndFlush(WorkshopBookingPackagePolicySnapshot.builder()
+                    .bookingReference(booking)
+                    .packageReference("1")
+                    .requiredSessionCount(requiredSessions)
+                    .minParticipants(1)
+                    .maxParticipants(20)
+                    .sameLocationRequired(true)
+                    .minimumSameDaySlotGap(minimumGap)
+                    .build());
+        }
         return ticket;
     }
 

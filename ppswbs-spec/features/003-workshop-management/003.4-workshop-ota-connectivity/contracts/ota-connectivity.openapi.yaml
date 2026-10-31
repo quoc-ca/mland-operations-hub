@@ -208,7 +208,7 @@ paths:
       - $ref: '#/components/parameters/ChannelBookingId'
     post:
       operationId: reconcileOtaPayout
-      summary: Record a payout, variance, or dispute as append-only evidence.
+      summary: Record Manager-verified payout stage, variance, or correction evidence.
       description: Requires an active canonical MANAGER with global location scope.
       requestBody:
         required: true
@@ -473,12 +473,20 @@ components:
     PayoutReconciliationRequest:
       type: object
       additionalProperties: false
-      required: [kind, amount, reference, reason]
+      required: [kind, evidenceType, amount, reference, reason, occurredAt]
       properties:
         kind: { type: string, enum: [PAYOUT, VARIANCE, DISPUTE, ADJUSTMENT, REVERSAL] }
+        evidenceType:
+          type: string
+          enum: [ELIGIBILITY, INVOICE, REMITTANCE, BANK_RECEIPT, ADJUSTMENT, REVERSAL, VARIANCE, DISPUTE]
+          description: Stage or correction evidence checked by an active Manager; BANK_RECEIPT requires a booking-specific allocation and payout reference matching the remittance before PAID_OUT.
         amount: { $ref: '#/components/schemas/Money' }
         reference: { type: string, minLength: 1, maxLength: 200 }
         reason: { type: string, minLength: 1, maxLength: 1000 }
+        occurredAt: { type: string, format: date-time }
+        relatedEntryId: { type: string, format: uuid, description: Required for ADJUSTMENT and REVERSAL; references an existing ledger fact on this booking. }
+        allocationReference: { type: string, minLength: 1, maxLength: 128, description: Required for BANK_RECEIPT; identifies the amount allocated to this booking from any grouped OTA payout. }
+        payoutReference: { type: string, minLength: 1, maxLength: 200, description: Required for REMITTANCE and BANK_RECEIPT; the same OTA payout reference must appear on both stages. }
     FinancialEvidence:
       type: object
       additionalProperties: false
@@ -492,11 +500,17 @@ components:
           items:
             type: object
             additionalProperties: false
-            required: [kind, amount, reference, recordedAt]
+            required: [entryId, kind, amount, reference, recordedAt]
             properties:
+              entryId: { type: string, format: uuid }
               kind: { type: string }
+              evidenceType: { type: string, description: Null for historical facts recorded before evidence-stage classification. }
               amount: { $ref: '#/components/schemas/Money' }
               reference: { type: string, maxLength: 200 }
+              reason: { type: string, description: Null for historical facts recorded before V49. }
+              relatedEntryId: { type: string, format: uuid }
+              allocationReference: { type: string, maxLength: 128 }
+              payoutReference: { type: string, maxLength: 200 }
               recordedAt: { type: string, format: date-time }
     AddonQuoteRequest:
       oneOf:

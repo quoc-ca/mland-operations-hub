@@ -11,4 +11,5 @@ public interface SettlementRefundPolicyRevisionRepository extends JpaRepository<
     List<SettlementRefundPolicyRevision> findAllByOrderByEffectiveAtAsc();
     boolean existsByEffectiveAt(Instant effectiveAt);
     Optional<SettlementRefundPolicyRevision> findByPolicyReference(String policyReference);
+    Optional<SettlementRefundPolicyRevision> findTopByEffectiveAtLessThanEqualOrderByEffectiveAtDesc(Instant effectiveAt);
 }

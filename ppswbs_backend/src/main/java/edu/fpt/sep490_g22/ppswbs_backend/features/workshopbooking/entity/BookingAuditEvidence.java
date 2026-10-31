@@ -42,6 +42,9 @@ public class BookingAuditEvidence {
     @Column(name = "manager_reason", length = 1000)
     private String managerReason;
 
+    @Column(name = "action_reason", length = 1000)
+    private String actionReason;
+
     @Column(name = "occurred_at", nullable = false, updatable = false)
     private Instant occurredAt;
 
