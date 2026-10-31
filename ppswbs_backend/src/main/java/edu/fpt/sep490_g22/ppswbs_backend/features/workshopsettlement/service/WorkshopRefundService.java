@@ -45,6 +45,7 @@ public class WorkshopRefundService {
     private final SettlementCaseRepository cases;
     private final SettlementBusinessAuditRepository audits;
     private final WorkshopOperationsSettlementAdapter operations;
+    private final WorkshopCancellationLoyaltyService cancellationLoyalty;
     private final TransactionTemplate transaction;
     private final String merchantApiIpAddress;
     private final String merchantApiCreatedBy;
@@ -54,6 +55,7 @@ public class WorkshopRefundService {
             SettlementCaseRepository cases,
             SettlementBusinessAuditRepository audits,
             WorkshopOperationsSettlementAdapter operations,
+            WorkshopCancellationLoyaltyService cancellationLoyalty,
             PlatformTransactionManager transactionManager,
             @Value("${vnpay.merchant-api-ip-address:}") String merchantApiIpAddress,
             @Value("${vnpay.merchant-api-created-by:}") String merchantApiCreatedBy) {
@@ -62,6 +64,7 @@ public class WorkshopRefundService {
         this.cases = cases;
         this.audits = audits;
         this.operations = operations;
+        this.cancellationLoyalty = cancellationLoyalty;
         this.transaction = new TransactionTemplate(transactionManager);
         this.merchantApiIpAddress = trimToNull(merchantApiIpAddress);
         this.merchantApiCreatedBy = trimToNull(merchantApiCreatedBy);
@@ -308,6 +311,7 @@ public class WorkshopRefundService {
                 transaction.executeWithoutResult(status -> {
                     SettlementCase latest = cases.findByCaseReference(caseReference).orElse(null);
                     if (!isPendingRefundCase(latest)) return;
+                    cancellationLoyalty.restoreVerifiedCancellation(latest, evidenceReference);
                     latest.setLifecycleStatus(CASE_RESOLVED);
                     latest.setReasonReference(null);
                     latest.setUpdatedAt(Instant.now());

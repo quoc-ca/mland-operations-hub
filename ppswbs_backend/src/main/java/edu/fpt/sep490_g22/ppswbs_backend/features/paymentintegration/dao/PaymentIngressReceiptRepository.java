@@ -4,4 +4,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface PaymentIngressReceiptRepository extends JpaRepository<PaymentIngressReceipt, Long> {
     boolean existsByDeliveryReference(String deliveryReference);
     boolean existsByMerchantReferenceAndTerminalOutcomeTrue(String merchantReference);
+    java.util.Optional<PaymentIngressReceipt> findFirstByMerchantReferenceAndTerminalOutcomeTrueOrderByIdDesc(String merchantReference);
 }
