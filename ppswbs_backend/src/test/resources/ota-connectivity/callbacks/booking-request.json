@@ -1,0 +1,15 @@
+{
+  "fixturePurpose": "SIMULATOR_ONLY_NOT_PROVIDER_CONTRACT",
+  "provider": "SIMULATOR",
+  "eventReference": "SIM-EVENT-BOOKING-001",
+  "eventKind": "BOOKING_REQUESTED",
+  "externalBookingReference": "SIM-BOOKING-001",
+  "mappingReference": "00000000-0000-4000-8000-000000000301",
+  "participantCount": 2,
+  "paymentEvidence": {
+    "state": "PAID_ON_CHANNEL",
+    "evidenceReference": "SIM-PAYMENT-001",
+    "amount": 240000,
+    "currency": "VND"
+  }
+}
