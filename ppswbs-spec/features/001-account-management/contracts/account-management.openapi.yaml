@@ -1,0 +1,96 @@
+openapi: 3.0.3
+info:
+  title: Mland Account Management API
+  version: 1.0.0-draft
+  description: Bearer-only Account Management contract. Firebase proves identity; Mland decides Account authority.
+paths:
+  /api/v1/accounts/me:
+    put:
+      summary: Bootstrap or load the caller Account
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { $ref: '#/components/responses/Account' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '503': { $ref: '#/components/responses/Error' } }
+  /api/v1/accounts/me/profile:
+    get:
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { $ref: '#/components/responses/Profile' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' } }
+    put:
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ProfileInput' } } } }
+      responses: { '200': { $ref: '#/components/responses/Profile' }, '400': { $ref: '#/components/responses/Error' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' } }
+  /api/v1/accounts/me/email:
+    put:
+      summary: Synchronize current verified identity email
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { $ref: '#/components/responses/Account' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
+  /api/v1/accounts:
+    get:
+      summary: Admin account list
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: role, in: query, schema: { $ref: '#/components/schemas/Role' } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/Status' } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses: { '200': { $ref: '#/components/responses/AccountPage' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' } }
+  /api/v1/accounts/{accountId}:
+    get:
+      summary: Admin account detail
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/AccountId' }]
+      responses: { '200': { $ref: '#/components/responses/Account' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' } }
+  /api/v1/internal-accounts:
+    post:
+      summary: Create pending Staff or Manager account
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InternalCreate' } } } }
+      responses: { '201': { $ref: '#/components/responses/Account' }, '400': { $ref: '#/components/responses/Error' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' }, '503': { $ref: '#/components/responses/Error' } }
+  /api/v1/accounts/{accountId}/setup-invitations:
+    post:
+      summary: Queue fresh pending-account invitation
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/AccountId' }]
+      responses: { '202': { $ref: '#/components/responses/Account' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' } }
+  /api/v1/accounts/{accountId}/profile:
+    put:
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/AccountId' }]
+      requestBody: { required: true, content: { application/json: { schema: { allOf: [{ $ref: '#/components/schemas/ProfileInput' }, { $ref: '#/components/schemas/Versioned' }] } } } }
+      responses: { '200': { $ref: '#/components/responses/Account' }, '400': { $ref: '#/components/responses/Error' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
+  /api/v1/accounts/{accountId}/role-assignment:
+    put:
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/AccountId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RoleAssignment' } } } }
+      responses: { '200': { $ref: '#/components/responses/Account' }, '400': { $ref: '#/components/responses/Error' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
+  /api/v1/accounts/{accountId}/status:
+    put:
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/AccountId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StatusCommand' } } } }
+      responses: { '200': { $ref: '#/components/responses/Account' }, '202': { $ref: '#/components/responses/Account' }, '400': { $ref: '#/components/responses/Error' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
+  /api/v1/roles:
+    get:
+      summary: Read fixed role catalogue
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Fixed roles and scope descriptions }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' } }
+components:
+  securitySchemes: { bearerAuth: { type: http, scheme: bearer, bearerFormat: FirebaseIDToken } }
+  parameters: { AccountId: { name: accountId, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } } }
+  schemas:
+    Role: { type: string, enum: [MEMBER, STAFF, MANAGER, ADMIN] }
+    Status: { type: string, enum: [ACTIVE, PENDING_SETUP, SUSPENDED] }
+    Versioned: { type: object, required: [version], properties: { version: { type: integer, minimum: 0 } } }
+    ProfileInput: { type: object, required: [fullName], additionalProperties: false, properties: { fullName: { type: string, minLength: 1, maxLength: 100 }, phone: { type: string, nullable: true, minLength: 7, maxLength: 30 } } }
+    InternalCreate: { type: object, required: [fullName, email, role, locationIds], additionalProperties: false, properties: { fullName: { type: string }, email: { type: string, format: email }, role: { type: string, enum: [STAFF, MANAGER] }, locationIds: { type: array, minItems: 1, items: { type: string, pattern: '^[1-9][0-9]*$' } } } }
+    RoleAssignment: { allOf: [{ $ref: '#/components/schemas/Versioned' }, { type: object, required: [role, locationIds], additionalProperties: false, properties: { role: { type: string, enum: [STAFF, MANAGER] }, locationIds: { type: array, minItems: 1, items: { type: string } } } }] }
+    StatusCommand: { allOf: [{ $ref: '#/components/schemas/Versioned' }, { type: object, required: [operation], additionalProperties: false, properties: { operation: { type: string, enum: [SUSPEND, UNSUSPEND] }, reason: { type: string, minLength: 1, maxLength: 500 } } }] }
+    Account: { type: object, required: [id, email, emailVerified, role, status, locations, version], properties: { id: { type: string }, email: { type: string, format: email }, emailVerified: { type: boolean }, role: { $ref: '#/components/schemas/Role' }, status: { $ref: '#/components/schemas/Status' }, locations: { type: array, items: { type: object, properties: { id: { type: string }, name: { type: string } } } }, version: { type: integer }, createdAt: { type: string, format: date-time }, updatedAt: { type: string, format: date-time } } }
+    Profile: { allOf: [{ $ref: '#/components/schemas/Account' }, { type: object, properties: { fullName: { type: string, nullable: true }, phone: { type: string, nullable: true } } }] }
+    Error: { type: object, required: [code, message, correlationId, timestamp], properties: { code: { type: string }, message: { type: string }, correlationId: { type: string }, timestamp: { type: string, format: date-time }, fieldErrors: { type: array, items: { type: object, properties: { field: { type: string }, message: { type: string } } } } } }
+  responses:
+    Account: { description: Account result, content: { application/json: { schema: { $ref: '#/components/schemas/Account' } } } }
+    Profile: { description: Profile result, content: { application/json: { schema: { $ref: '#/components/schemas/Profile' } } } }
+    AccountPage: { description: Paged Accounts }
+    Error: { description: Safe typed error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
