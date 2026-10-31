@@ -2,9 +2,10 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBookingConfirmedEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingNotificationReady;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.BookingNotificationReady;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopOperationsAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.*;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +51,7 @@ public class BookingLifecycleService {
     private final BookingNotificationIntentRepository notificationIntentRepository;
     private final BookingAuditEvidenceRepository auditEvidenceRepository;
     private final WorkshopOperationsAdapter operationsAdapter;
+    private final BookingHoldReleaseService holdReleaseService;
     private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
 
@@ -207,57 +209,7 @@ public class BookingLifecycleService {
      */
     @Transactional
     public void releasePendingHold(String bookingCode, String operationReference, String correlationReference) {
-        log.info("releasePendingHold: bookingCode={}, opRef={}", bookingCode, operationReference);
-
-        Optional<WorkshopBooking> opt = bookingRepository.findByBookingCode(bookingCode);
-        if (opt.isEmpty()) {
-            log.warn("Booking {} not found for release", bookingCode);
-            return;
-        }
-
-        WorkshopBooking booking = opt.get();
-        if (booking.getBookingStatus() != BookingStatus.PENDING_PAYMENT) {
-            log.info("Booking {} is already in status {}, skipping release", bookingCode, booking.getBookingStatus());
-            return;
-        }
-
-        // Release holds in Operations
-        List<BookingCapacityHold> holds = holdRepository.findByBookingId(booking.getId());
-        List<UUID> holdUuids = new ArrayList<>();
-        for (BookingCapacityHold hold : holds) {
-            if ("RESERVED".equalsIgnoreCase(hold.getHoldStatus())) {
-                try {
-                    holdUuids.add(parseHoldReference(hold.getHoldReference()));
-                } catch (IllegalArgumentException e) {
-                    throw new BookingConflictException("A stored capacity hold reference is invalid");
-                }
-                hold.setHoldStatus("RELEASED");
-                holdRepository.save(hold);
-            }
-        }
-
-        if (!holdUuids.isEmpty()) {
-            operationsAdapter.releaseBookingHolds(bookingCode, holdUuids, operationReference, correlationReference);
-        }
-
-        booking.setBookingStatus(BookingStatus.CANCELLED);
-        booking.setCancelledAt(Instant.now());
-        bookingRepository.save(booking);
-
-        List<BookingSessionCommitment> comms = commitmentRepository.findByBookingIdOrderByOrdinalAsc(booking.getId());
-        if (comms.isEmpty()) throw new BookingConflictException("Booking has no session commitments to release");
-        Long locId = comms.get(0).getLocationId();
-
-        BookingAuditEvidence audit = BookingAuditEvidence.builder()
-                .bookingCode(bookingCode)
-                .locationId(locId)
-                .actorType("SYSTEM")
-                .action("RELEASE_HOLD")
-                .outcome("ACCEPTED")
-                .correlationReference(correlationReference)
-                .occurredAt(Instant.now())
-                .build();
-        auditEvidenceRepository.save(audit);
+        holdReleaseService.releasePendingHold(bookingCode, operationReference, correlationReference);
     }
 
     /**
@@ -332,7 +284,7 @@ public class BookingLifecycleService {
         // Update booking state
         booking.setBookingStatus(BookingStatus.CONFIRMED);
         booking.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
-        booking.setConfirmedAt(Instant.now());
+        booking.setConfirmedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
         booking = bookingRepository.save(booking);
 
         // Record payment receipt
@@ -348,8 +300,9 @@ public class BookingLifecycleService {
 
         List<BookingSessionCommitment> commitments = commitmentRepository.findByBookingIdOrderByOrdinalAsc(booking.getId());
         // Operations is the only authority for issued ticket identities. Never invent a ticket fallback.
-        List<String> renderedTicketCodes = bookingConfirmationService
+        BookingConfirmationService.ConfirmedTicketProjection confirmedTickets = bookingConfirmationService
                 .projectConfirmedTickets(booking, commitments);
+        List<String> renderedTicketCodes = confirmedTickets.ticketCodes();
 
         // Generate Magic Link Access with protected token hash
         String rawMagicToken = UUID.randomUUID().toString();
@@ -358,7 +311,7 @@ public class BookingLifecycleService {
                 .booking(booking)
                 .tokenHash(tokenHash)
                 .lifecycleStatus(MagicLinkLifecycleStatus.ACTIVE)
-                .expiresAt(Instant.now().plus(7, ChronoUnit.DAYS))
+                .expiresAt(confirmedTickets.workshopEndsAt())
                 .build();
         magicLinkRepository.save(magicLink);
 
@@ -389,6 +342,11 @@ public class BookingLifecycleService {
                 .occurredAt(Instant.now())
                 .build();
         auditEvidenceRepository.save(audit);
+
+        // This publication is recorded in the same local transaction as CONFIRMED.
+        // Settlement snapshots the applicable Mland refund policy after commit.
+        eventPublisher.publishEvent(new MlandBookingConfirmedEvent(
+                booking.getBookingCode(), booking.getConfirmedAt()));
 
         // Publish post-commit handoff event to Feature 007
         BookingNotificationReady readyEvent = new BookingNotificationReady(

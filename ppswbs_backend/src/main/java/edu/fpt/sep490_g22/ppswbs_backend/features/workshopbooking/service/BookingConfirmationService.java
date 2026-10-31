@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.time.Instant;
 
 /** Persists only ticket identities and entitlements returned by Workshop Operations. */
 @Service
@@ -27,8 +28,8 @@ public class BookingConfirmationService {
     private final BookingTicketRepository ticketRepository;
     private final BookingTicketSessionEntitlementRepository entitlementRepository;
 
-    public List<String> projectConfirmedTickets(WorkshopBooking booking,
-                                                List<BookingSessionCommitment> commitments) {
+    public ConfirmedTicketProjection projectConfirmedTickets(WorkshopBooking booking,
+                                                              List<BookingSessionCommitment> commitments) {
         DeliverySafeTicketSet projection = operationsAdapter.getBookingTicketProjection(booking.getBookingCode());
         if (projection == null || projection.tickets() == null
                 || projection.tickets().size() != booking.getParticipantCount()
@@ -38,6 +39,7 @@ public class BookingConfirmationService {
 
         Set<String> ticketCodes = new HashSet<>();
         Set<String> qrReferences = new HashSet<>();
+        Instant workshopEndsAt = null;
         Set<String> expectedSessions = commitments.stream()
                 .map(BookingSessionCommitment::getSessionReference).collect(java.util.stream.Collectors.toSet());
         for (DeliverySafeTicket safeTicket : projection.tickets()) {
@@ -57,6 +59,11 @@ public class BookingConfirmationService {
                     || !ticketCodes.add(safeTicket.ticketCode())
                     || !qrReferences.add(safeTicket.qrReference())) {
                 throw new BookingConflictException("Delivery-safe ticket projection contains invalid identities or entitlements");
+            }
+            for (var entitlement : safeTicket.sessionEntitlements()) {
+                if (workshopEndsAt == null || entitlement.scheduledEnd().isAfter(workshopEndsAt)) {
+                    workshopEndsAt = entitlement.scheduledEnd();
+                }
             }
         }
 
@@ -82,6 +89,8 @@ public class BookingConfirmationService {
                         .build());
             }
         }
-        return List.copyOf(renderedTicketCodes);
+        return new ConfirmedTicketProjection(List.copyOf(renderedTicketCodes), workshopEndsAt);
     }
+
+    public record ConfirmedTicketProjection(List<String> ticketCodes, Instant workshopEndsAt) { }
 }

@@ -52,13 +52,20 @@ class DepositPaymentServiceTest {
         when(attempts.findByBookingIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
         when(attemptService.requireBooking("BK-1")).thenReturn(booking);
         when(attemptService.requireInvoice(1L)).thenReturn(invoice);
-        when(gateway.createDepositUrl(anyString(), eq("BK-1"), eq(50_000L), any(), eq("127.0.0.1")))
+        when(gateway.createDepositUrl(anyString(), eq("BK-1"), eq(50_000L), any(), any(), eq("127.0.0.1")))
                 .thenReturn("https://sandbox/payment");
-        when(attemptService.create(eq("BK-1"), eq("https://sandbox/payment"), any(), anyString())).thenReturn(created);
+        when(attemptService.create(eq("BK-1"), eq("https://sandbox/payment"), any(), anyString(), anyString())).thenReturn(created);
         var result = new DepositPaymentService(attemptService, attempts, gateway, idempotency, mapper)
                 .initiate("BK-1", "idempotency-key-0002", "127.0.0.1");
         assertThat(result.expiresAt()).isEqualTo(holdExpiry);
-        verify(attemptService).create(eq("BK-1"), eq("https://sandbox/payment"), argThat(value -> !value.isAfter(holdExpiry)), anyString());
+        ArgumentCaptor<Instant> gatewayExpiry = ArgumentCaptor.forClass(Instant.class);
+        ArgumentCaptor<Instant> attemptExpiry = ArgumentCaptor.forClass(Instant.class);
+        verify(gateway).createDepositUrl(anyString(), eq("BK-1"), eq(50_000L), any(),
+                gatewayExpiry.capture(), eq("127.0.0.1"));
+        verify(attemptService).create(eq("BK-1"), eq("https://sandbox/payment"), attemptExpiry.capture(),
+                anyString(), anyString());
+        assertThat(gatewayExpiry.getValue()).isEqualTo(holdExpiry);
+        assertThat(attemptExpiry.getValue()).isEqualTo(holdExpiry);
         verify(idempotency).completeClaimWithinTransaction(10L, 1L, 200, mapper.writeValueAsString(result));
     }
 
@@ -99,16 +106,16 @@ class DepositPaymentServiceTest {
         when(attemptService.requireBooking("BK-1")).thenReturn(booking);
         when(attempts.findByBookingIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
         when(attemptService.requireInvoice(1L)).thenReturn(invoice);
-        when(gateway.createDepositUrl(anyString(), eq("BK-1"), eq(50_001L), any(), eq("127.0.0.1")))
+        when(gateway.createDepositUrl(anyString(), eq("BK-1"), eq(50_001L), any(), any(), eq("127.0.0.1")))
                 .thenReturn("https://sandbox/payment");
-        when(attemptService.create(eq("BK-1"), eq("https://sandbox/payment"), any(), anyString())).thenReturn(created);
+        when(attemptService.create(eq("BK-1"), eq("https://sandbox/payment"), any(), anyString(), anyString())).thenReturn(created);
         Instant callStarted = Instant.now();
 
         new DepositPaymentService(attemptService, attempts, gateway, idempotency, mapper)
                 .initiate("BK-1", "idempotency-key-ten-minutes-01", "127.0.0.1");
 
         ArgumentCaptor<Instant> expiry = ArgumentCaptor.forClass(Instant.class);
-        verify(attemptService).create(eq("BK-1"), eq("https://sandbox/payment"), expiry.capture(), anyString());
+        verify(attemptService).create(eq("BK-1"), eq("https://sandbox/payment"), expiry.capture(), anyString(), anyString());
         assertThat(expiry.getValue()).isBetween(callStarted.plusSeconds(600), Instant.now().plusSeconds(601));
     }
 

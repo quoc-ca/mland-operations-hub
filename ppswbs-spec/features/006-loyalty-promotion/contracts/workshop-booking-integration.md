@@ -1,9 +1,9 @@
 # Hướng dẫn tích hợp: Workshop Booking (003.1) gọi LoyaltyFacade
 
 **Date created**: 2026-10-29
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Đặng Thị Khương
-**Last updated by**: Đặng Thị Khương
+**Last updated by**: Hồ Hoàng Quốc
 
 **Status**: Draft cho owner 003.1 (Hồ Hoàng Quốc) review. Theo quyết định **Cách 2** (2026-10-29): `workshopbooking` gọi thẳng `LoyaltyFacade`, phụ thuộc một chiều `workshopbooking → loyaltypromotion::facade`. 006 không viết code trong `workshopbooking`.
 **Sources**: [interfaces](interfaces.md) mục 4, [spec](../spec.md) FR-019–FR-022, FR-028–FR-038, Clarifications 2026-10-29, [integration gates](../integration-gates.md) G-04/G-05. Luồng mẫu chạy được: `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/loyaltypromotion/LoyaltyWorkshopFacadeIT.java` (test `referenceBookingFlowForATwoSessionPackage`).
@@ -101,6 +101,24 @@ new AuthoritativeOutcome(SourceKind.WORKSHOP, bookingRef, "workshopbooking",
 - 003.1 khóa bản ghi booking trước khi gọi, serialize theo `sourceOutcomeVersion`. Gửi lặp cùng key → trả receipt, không áp dụng lại.
 - Paid flow: settle trước, grant sau (grant từ chối khi còn component HELD). Không gọi `grantEarnedPoints` với outcome cọc.
 - Kết quả mâu thuẫn trạng thái cuối → `BENEFIT_STATE_CONFLICT`: đối soát, không ép trạng thái.
+
+### Quyết định owner 003 ngày 2026-10-31
+
+- Với booking Member được accept từ quote, `snapshotRef` trong mọi
+  `AuthoritativeOutcome` là `quoteRef` đã được chấp nhận; `proofRef` là tham
+  chiếu ngắn tới bằng chứng nguồn đã xác minh, không chứa payload gateway.
+- `workshopbooking` phát outcome cọc sau khi nhận bằng chứng cọc đã xác minh;
+  outcome hết hạn chỉ được phát sau QueryDR xác nhận chưa thanh toán.
+- `workshopsettlement` phát outcome hoàn tất, hủy hợp lệ hoặc no-show sau khi
+  có kết luận authoritative cho toàn booking. Với nhiều phiên, phải chờ mọi vé/
+  phiên có attendance cuối; nếu có bất kỳ vé no-show nào thì không grant điểm.
+  Attendance chỉ là terminal sau 24 giờ kể từ khi phiên bắt buộc cuối cùng được
+  finalize; Operations tự đóng correction tại mốc này, không cần Manager seal.
+  Settlement polling xử lý lại bill `OPEN`/`FINALIZED`, phát no-show sau khi
+  correction window đóng kể cả bill còn mở, và chỉ grant completion khi bill
+  `FINALIZED` với số dư bằng 0.
+- Guest không gọi các thao tác Loyalty outcome. Các luồng trên phải giữ cùng
+  transaction với trạng thái nguồn và dùng source key/version ổn định, tăng đơn điệu.
 
 ## 7. Lỗi và cách xử lý ở 003.1
 

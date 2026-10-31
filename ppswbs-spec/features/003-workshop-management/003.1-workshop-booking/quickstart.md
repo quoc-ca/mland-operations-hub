@@ -1,7 +1,7 @@
 # Quickstart Validation: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -100,8 +100,9 @@ per-run evidence to this guide.
     for a confirmed deposit-paid booking. Verify Booking changes only its
     financial status to `FULLY_PAID` once, retains only safe correlation/reference
     evidence, and does not receive raw final-payment data or calculate final
-    balance. Replay the conclusion and verify no second transition. Verify a
-    deferred-payment-link send alone cannot set `FULLY_PAID`.
+    balance. Replay the conclusion and verify no second transition. Booking
+    becomes `FULLY_PAID` only after verified final-payment evidence; this flow
+    has no deferred-payment exception.
 
 ## Required evidence
 

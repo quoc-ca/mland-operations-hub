@@ -10,8 +10,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ApplyVerifiedDepositPaymentEvidenceCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingNotificationDeliveryPayload;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingNotificationDeliveryPayloadQuery;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.BookingNotificationDeliveryPayload;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.BookingNotificationDeliveryPayloadQuery;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.WorkshopBookingNotificationFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingOutcomeStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRejectionReason;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConfirmedBookingFinancialProjection;
@@ -75,6 +76,9 @@ class WorkshopBookingModuleTest {
 
     @Autowired
     private WorkshopBookingFacade bookingFacade;
+
+    @Autowired
+    private WorkshopBookingNotificationFacade bookingNotificationFacade;
 
     @Autowired
     private WorkshopOperationsAdapter operationsAdapter;
@@ -179,7 +183,7 @@ class WorkshopBookingModuleTest {
 
         // Notification delivery payload query
         BookingNotificationDeliveryPayloadQuery notifQuery = new BookingNotificationDeliveryPayloadQuery("NOTIF-001");
-        assertThat(bookingFacade.getBookingNotificationDeliveryPayload(notifQuery)).isNull();
+        assertThat(bookingNotificationFacade.getBookingNotificationDeliveryPayload(notifQuery)).isNull();
     }
 
     @Test

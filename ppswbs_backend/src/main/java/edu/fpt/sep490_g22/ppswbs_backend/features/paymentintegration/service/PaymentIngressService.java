@@ -33,28 +33,55 @@ public class PaymentIngressService {
         // non-VND value remains a hard mismatch.
         String providerCurrency = params.getOrDefault("vnp_CurrCode", "VND");
         if (amount != owner.getAmountVnd() || !owner.getCurrencyCode().equals(providerCurrency)) return Outcome.reject("AMOUNT_CURRENCY_MISMATCH");
-        if (!"00".equals(params.get("vnp_ResponseCode"))) return Outcome.accept();
-        String delivery = merchant + "|" + params.getOrDefault("vnp_TransactionNo", "");
+        String responseCode = params.get("vnp_ResponseCode");
+        String transactionStatus = params.get("vnp_TransactionStatus");
+        if (!isProviderCode(responseCode) || !isProviderCode(transactionStatus)) {
+            return Outcome.reject("UNVERIFIED_OUTCOME");
+        }
+        boolean terminal = !"01".equals(transactionStatus);
+        boolean verifiedSuccess = "00".equals(responseCode) && "00".equals(transactionStatus);
+        String providerTransaction = params.getOrDefault("vnp_TransactionNo", "");
+        String delivery = merchant + "|" + providerTransaction + "|" + responseCode + "|" + transactionStatus;
         if (receipts.existsByDeliveryReference(delivery)) {
             // A prior delivery may have committed the shared receipt before a
             // downstream consumer completed its own idempotent projection. Re-
             // dispatching the redacted evidence is safe: Booking/Settlement
             // facades own the business idempotency boundary and this path does
             // not create another payment receipt or provider settlement.
-            dispatch(owner, merchant, amount, params);
+            if (verifiedSuccess) dispatchVerifiedSuccess(owner, merchant, amount, params);
             return Outcome.duplicate();
         }
         try {
-            receipts.saveAndFlush(PaymentIngressReceipt.builder().deliveryReference(delivery).merchantReference(merchant).createdAt(Instant.now()).build());
+            receipts.saveAndFlush(PaymentIngressReceipt.builder().deliveryReference(delivery)
+                    .merchantReference(merchant).responseCode(responseCode).transactionStatus(transactionStatus)
+                    .terminalOutcome(terminal).amountVnd(amount).currencyCode(providerCurrency)
+                    .providerTransactionNumber(providerTransaction.isBlank() ? null : providerTransaction)
+                    .createdAt(Instant.now()).build());
         } catch (org.springframework.dao.DataIntegrityViolationException duplicate) {
             return Outcome.duplicate();
         }
+        if (verifiedSuccess) dispatchVerifiedSuccess(owner, merchant, amount, params);
+        return Outcome.accept();
+    }
+
+    private void dispatchVerifiedSuccess(PaymentOwnerRegistration owner, String merchant, long amount,
+                                         Map<String, String> params) {
         String providerTransaction = params.getOrDefault("vnp_TransactionNo", merchant);
         String evidence = "VNPAY-" + providerTransaction;
-        String operation = "VNPAY-" + providerTransaction;
+        String operation = evidence;
         String correlation = evidence;
-        dispatch(owner, merchant, amount, params, evidence, operation, correlation);
-        return Outcome.accept();
+        if (owner.getPaymentKind() == PaymentOwnerKind.DEPOSIT) {
+            var outcome = booking.applyVerifiedDepositPaymentEvidence(new ApplyVerifiedDepositPaymentEvidenceCommand(
+                    owner.getBookingReference(), evidence, merchant, amount, "VND", operation, correlation));
+            if (outcome != null && outcome.status() == BookingOutcomeStatus.REJECTED
+                    && (outcome.reason() == BookingRejectionReason.HOLD_MISSING_OR_EXPIRED
+                    || outcome.reason() == BookingRejectionReason.INVALID_STATE)) {
+                booking.recordLateDepositEvidence(new RecordLateDepositEvidenceCommand(owner.getBookingReference(),
+                        merchant, evidence, providerTransaction, amount, "VND"));
+            }
+        } else {
+            dispatch(owner, merchant, amount, params, evidence, operation, correlation);
+        }
     }
 
     private void dispatch(PaymentOwnerRegistration owner, String merchant, long amount, Map<String, String> params) {
@@ -65,18 +92,25 @@ public class PaymentIngressService {
 
     private void dispatch(PaymentOwnerRegistration owner, String merchant, long amount, Map<String, String> params,
                           String evidence, String operation, String correlation) {
+        String providerTransaction = params.getOrDefault("vnp_TransactionNo", merchant);
         if (owner.getPaymentKind() == PaymentOwnerKind.DEPOSIT) {
             booking.applyVerifiedDepositPaymentEvidence(new ApplyVerifiedDepositPaymentEvidenceCommand(owner.getBookingReference(), evidence, merchant, amount, "VND", operation, correlation));
         } else {
+            if (owner.getPaymentKind() == PaymentOwnerKind.FINAL_PAYMENT
+                    && (owner.getProviderCreateDate() == null || !owner.getProviderCreateDate().matches("[0-9]{14}"))) {
+                throw new IllegalStateException("FINAL_PAYMENT_ORIGINAL_CREATE_DATE_MISSING");
+            }
             SettlementPaymentEvidenceOutcome outcome = settlement.applyVerifiedSettlementPaymentEvidence(
                     new ApplyVerifiedSettlementPaymentEvidenceCommand(owner.getBookingReference(), evidence, merchant,
-                            owner.getPaymentKind().name(), amount, "VND", operation, correlation));
+                            owner.getPaymentKind().name(), amount, "VND", providerTransaction,
+                            owner.getProviderCreateDate(), operation, correlation));
             if (outcome == null || outcome.status() != SettlementPaymentEvidenceOutcome.Status.ACCEPTED) {
                 throw new IllegalStateException("Verified Settlement evidence was rejected; ingress receipt must not commit");
             }
         }
     }
     private long parseAmount(String raw) { try { long value=Long.parseLong(raw); if(value<=0 || value%100!=0) return -1; return value/100; } catch(Exception e){return -1;} }
+    private boolean isProviderCode(String value) { return value != null && value.matches("[0-9]{2}"); }
     public record Outcome(String rspCode, String message) {
         static Outcome accept(){return new Outcome("00","OK");} static Outcome duplicate(){return new Outcome("00","Already received");} static Outcome reject(String reason){return new Outcome("00", reason);}
     }

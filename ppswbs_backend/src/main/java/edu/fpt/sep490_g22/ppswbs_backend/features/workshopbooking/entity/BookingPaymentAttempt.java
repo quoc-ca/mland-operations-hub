@@ -34,6 +34,9 @@ public class BookingPaymentAttempt {
     @Column(name = "merchant_reference", nullable = false, length = 128)
     private String merchantReference;
 
+    @Column(name = "provider_create_date", length = 14)
+    private String providerCreateDate;
+
     @Column(name = "attempt_amount", nullable = false)
     private Long attemptAmount;
 

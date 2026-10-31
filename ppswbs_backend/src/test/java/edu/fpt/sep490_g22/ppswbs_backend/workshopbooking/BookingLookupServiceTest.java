@@ -145,6 +145,27 @@ class BookingLookupServiceTest {
         });
     }
 
+    @Test
+    void cancelledLookupShowsCurrentSessionFactsWithoutIssuingTickets() {
+        WorkshopBooking booking = booking(BookingStatus.CANCELLED, null);
+        UUID sessionRef = UUID.randomUUID();
+        Instant start = Instant.parse("2026-11-22T09:00:00Z");
+        when(bookings.findByBookingCode(booking.getBookingCode())).thenReturn(Optional.of(booking));
+        when(bookingFacade.verifyCustomerBookingAccess(any())).thenReturn(new CustomerBookingAccessDecision(true));
+        when(commitments.findByBookingIdOrderByOrdinalAsc(booking.getId()))
+                .thenReturn(List.of(commitment(booking, sessionRef, 1)));
+        when(operations.getSaleEligibility(sessionRef)).thenReturn(new SaleEligibilitySnapshot(sessionRef,
+                false, "CLOSED", 31L, start, start.plusSeconds(3600), 0, null));
+
+        BookingSummaryResponse response = service.lookupGuest(GuestLookupRequest.builder()
+                .bookingCode(booking.getBookingCode()).contactPhone("0900000000").build());
+
+        assertThat(response.getBookingStatus()).isEqualTo("CANCELLED");
+        assertThat(response.getSessions()).hasSize(1);
+        assertThat(response.getTickets()).isEmpty();
+        verify(operations, never()).getCurrentEntitlementProjection(anyString());
+    }
+
     private static WorkshopBooking booking(BookingStatus status, Long memberId) {
         return WorkshopBooking.builder().id(15L).bookingCode("BK-LOOKUP-001").packageId(77L)
                 .packageNameSnapshot("Workshop package").contactEmail("guest@example.test")

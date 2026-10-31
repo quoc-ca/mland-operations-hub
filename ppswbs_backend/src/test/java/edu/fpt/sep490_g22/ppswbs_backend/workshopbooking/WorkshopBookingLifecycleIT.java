@@ -4,8 +4,11 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingLifecycleService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingMagicLinkSnapshotCleanupService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingPendingHoldReleaseService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingValidationException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,6 +51,9 @@ class WorkshopBookingLifecycleIT {
     private WorkshopBookingFacade bookingFacade;
 
     @Autowired
+    private WorkshopBookingNotificationFacade bookingNotificationFacade;
+
+    @Autowired
     private WorkshopBookingRepository bookingRepository;
 
     @Autowired
@@ -70,6 +76,12 @@ class WorkshopBookingLifecycleIT {
 
     @Autowired
     private MagicLinkAccessRepository magicLinkRepository;
+
+    @Autowired
+    private BookingMagicLinkSnapshotCleanupService magicLinkSnapshotCleanupService;
+
+    @Autowired
+    private BookingPendingHoldReleaseService pendingHoldReleaseService;
 
     @Autowired
     private BookingNotificationIntentRepository notificationIntentRepository;
@@ -284,6 +296,76 @@ class WorkshopBookingLifecycleIT {
         verify(mockOperationsFacade, times(1)).releaseBookingHolds(any());
     }
 
+    @Test
+    @DisplayName("T038: Rejected Operations release keeps the pending unpaid booking and reserved hold unchanged")
+    void rejectedHoldReleaseDoesNotMutateBookingOrHoldState() {
+        String bookingCode = "BK-REL-REJ-" + UUID.randomUUID().toString().substring(0, 8);
+        UUID holdUuid = UUID.randomUUID();
+        SaleEligibilitySnapshot eligibleSnap = new SaleEligibilitySnapshot(
+                true, "PUBLISHED", testLocationId, Instant.now().plus(1, ChronoUnit.DAYS),
+                Instant.now().plus(1, ChronoUnit.DAYS).plusSeconds(7200), 10);
+        when(mockOperationsFacade.getSaleEligibility(any())).thenReturn(eligibleSnap);
+        when(mockOperationsFacade.reserveBookingCapacity(any())).thenReturn(
+                CapacityHoldOutcome.accepted(List.of(holdUuid), Instant.now().plus(15, ChronoUnit.MINUTES)));
+        when(mockOperationsFacade.releaseBookingHolds(any())).thenReturn(
+                CapacityReleaseOutcome.rejected(RejectionReason.INVALID_STATE));
+
+        WorkshopBooking pending = bookingLifecycleService.createPendingBookingReservation(
+                bookingCode, 1L, "Pkg", "c@m.vn", "090", 1L, 1, List.of(UUID.randomUUID()),
+                300000L, 300000L, "OP-REL-REJECT", "CORR-REL-REJECT");
+
+        assertThatThrownBy(() -> bookingLifecycleService.releasePendingHold(
+                bookingCode, "OP-REL-REJECT", "CORR-REL-REJECT"))
+                .isInstanceOf(BookingConflictException.class)
+                .hasMessageContaining("Capacity release was not accepted");
+
+        WorkshopBooking unchanged = bookingRepository.findByBookingCode(bookingCode).orElseThrow();
+        assertThat(unchanged.getBookingStatus()).isEqualTo(BookingStatus.PENDING_PAYMENT);
+        assertThat(unchanged.getPaymentStatus()).isEqualTo(PaymentStatus.UNPAID);
+        assertThat(unchanged.getCancelledAt()).isNull();
+        assertThat(holdRepository.findByBookingId(pending.getId())).extracting(BookingCapacityHold::getHoldStatus)
+                .containsExactly("RESERVED");
+    }
+
+    @Test
+    @DisplayName("T040: Guest release proves stored contact, records reason, and replays idempotently")
+    void guestPendingHoldReleaseRequiresProofAndPersistsRedactedAudit() {
+        String bookingCode = "BK-REL-GUEST-" + UUID.randomUUID().toString().substring(0, 8);
+        UUID holdUuid = UUID.randomUUID();
+        when(mockOperationsFacade.getSaleEligibility(any())).thenReturn(new SaleEligibilitySnapshot(
+                true, "PUBLISHED", testLocationId, Instant.now().plus(1, ChronoUnit.DAYS),
+                Instant.now().plus(1, ChronoUnit.DAYS).plusSeconds(7200), 10));
+        when(mockOperationsFacade.reserveBookingCapacity(any())).thenReturn(CapacityHoldOutcome.accepted(
+                List.of(holdUuid), Instant.now().plus(15, ChronoUnit.MINUTES)));
+        when(mockOperationsFacade.releaseBookingHolds(any())).thenReturn(CapacityReleaseOutcome.accepted());
+        WorkshopBooking pending = bookingLifecycleService.createPendingBookingReservation(
+                bookingCode, 1L, "Pkg", "guest@example.test", "0900000000", null, 1,
+                List.of(UUID.randomUUID()), 300000L, 300000L, "OP-CREATE-REL-GUEST", "CORR-CREATE-REL-GUEST");
+
+        var request = edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.PendingHoldReleaseRequest.builder()
+                .contactPhone("0900000000").reason("Plans changed").build();
+        var first = pendingHoldReleaseService.release(null, bookingCode, "pending-release-guest-001",
+                "CORR-REL-GUEST", request);
+        var replay = pendingHoldReleaseService.release(null, bookingCode, "pending-release-guest-001",
+                "CORR-REL-GUEST", request);
+
+        assertThat(first.statusCode()).isEqualTo(204);
+        assertThat(replay.statusCode()).isEqualTo(204);
+        assertThat(first.responsePayload()).isEmpty();
+        assertThat(replay.responsePayload()).isEmpty();
+        assertThat(bookingRepository.findByBookingCode(bookingCode).orElseThrow().getBookingStatus())
+                .isEqualTo(BookingStatus.CANCELLED);
+        assertThat(holdRepository.findByBookingId(pending.getId())).extracting(BookingCapacityHold::getHoldStatus)
+                .containsExactly("RELEASED");
+        var audit = auditEvidenceRepository.findByBookingCodeOrderByOccurredAtDesc(bookingCode).stream()
+                .filter(row -> "RELEASE_HOLD".equals(row.getAction())).findFirst().orElseThrow();
+        assertThat(audit.getActorType()).isEqualTo("GUEST");
+        assertThat(audit.getActionReason()).isEqualTo("Plans changed");
+        assertThat(audit.getManagerReason()).isNull();
+        assertThat(audit.getActionReason()).doesNotContain("0900000000", "guest@example.test");
+        verify(mockOperationsFacade, times(1)).releaseBookingHolds(any());
+    }
+
     // =========================================================================
     // T007 & T014: Confirm Booking, Post-Commit Handoff, and Fault Tolerance
     // =========================================================================
@@ -311,8 +393,10 @@ class WorkshopBookingLifecycleIT {
         when(mockOperationsFacade.commitBookingHolds(any(CommitBookingHoldsCommand.class))).thenReturn(CapacityCommitOutcome.accepted());
 
         List<SessionEntitlementProjection> entitlements = List.of(
-                new SessionEntitlementProjection(selectedSessions.get(0), testLocationId, Instant.now().plus(1, ChronoUnit.DAYS), Instant.now().plus(1, ChronoUnit.DAYS).plusSeconds(7200)),
-                new SessionEntitlementProjection(selectedSessions.get(1), testLocationId, Instant.now().plus(2, ChronoUnit.DAYS), Instant.now().plus(2, ChronoUnit.DAYS).plusSeconds(7200)));
+                new SessionEntitlementProjection(selectedSessions.get(0), testLocationId,
+                        Instant.parse("2026-11-02T09:00:00.123456Z"), Instant.parse("2026-11-02T11:00:00.123456Z")),
+                new SessionEntitlementProjection(selectedSessions.get(1), testLocationId,
+                        Instant.parse("2026-11-03T09:00:00.654321Z"), Instant.parse("2026-11-03T11:00:00.654321Z")));
         UUID firstTicketRef = UUID.randomUUID();
         UUID secondTicketRef = UUID.randomUUID();
         DeliverySafeTicketSet ticketSet = new DeliverySafeTicketSet(List.of(
@@ -360,6 +444,9 @@ class WorkshopBookingLifecycleIT {
         assertThat(magicLinks).hasSize(1);
         assertThat(magicLinks.get(0).getTokenHash()).isNotBlank();
         assertThat(magicLinks.get(0).getLifecycleStatus()).isEqualTo(MagicLinkLifecycleStatus.ACTIVE);
+        assertThat(magicLinks.get(0).getExpiresAt()).isEqualTo(
+                entitlements.stream().map(SessionEntitlementProjection::scheduledEnd).max(Instant::compareTo)
+                        .orElseThrow().truncatedTo(ChronoUnit.MICROS));
 
         // Notification intent and booking audit created in the same local transaction
         List<BookingNotificationIntent> intents = notificationIntentRepository.findByBookingId(confirmed.getId());
@@ -386,7 +473,7 @@ class WorkshopBookingLifecycleIT {
         assertThat(handoff.correlationReference()).isEqualTo("CORR-CONF-1");
 
         // Delivery payload query via WorkshopBookingFacade
-        BookingNotificationDeliveryPayload payload = bookingFacade.getBookingNotificationDeliveryPayload(
+        BookingNotificationDeliveryPayload payload = bookingNotificationFacade.getBookingNotificationDeliveryPayload(
                 new BookingNotificationDeliveryPayloadQuery(handoff.notificationReference()));
         assertThat(payload).isNotNull();
         assertThat(payload.notificationKind()).isEqualTo("CONFIRMED_DELIVERY");
@@ -394,6 +481,20 @@ class WorkshopBookingLifecycleIT {
         assertThat(payload.renderedTicketArtifacts()).contains("TK-" + bookingCode + "-1");
         assertThat(payload.bookingAccessLink()).isNotBlank();
         assertThat(payload.correlationReference()).isEqualTo("CORR-CONF-1");
+
+        MagicLinkAccess activeLink = magicLinks.getFirst();
+        activeLink.setExpiresAt(Instant.now().minusSeconds(1));
+        magicLinkRepository.saveAndFlush(activeLink);
+        BookingNotificationDeliveryPayload expiredPayload = bookingNotificationFacade.getBookingNotificationDeliveryPayload(
+                new BookingNotificationDeliveryPayloadQuery(handoff.notificationReference()));
+        assertThat(expiredPayload.bookingAccessLink()).isEmpty();
+
+        magicLinkSnapshotCleanupService.scrubExpiredOrRevokedLinks();
+        BookingNotificationIntent scrubbedIntent = notificationIntentRepository
+                .findByNotificationReference(handoff.notificationReference()).orElseThrow();
+        assertThat(scrubbedIntent.getDeliverySnapshot()).doesNotContain("bookingAccessLink");
+        assertThat(magicLinkRepository.findByBookingId(confirmed.getId()).getFirst().getDeliveryValueScrubbedAt())
+                .isNotNull();
     }
 
     @Test
@@ -659,7 +760,7 @@ class WorkshopBookingLifecycleIT {
         assertThat(ready.notificationKind()).isEqualTo("CONFIRMATION_RESEND");
 
         // Payload query
-        BookingNotificationDeliveryPayload payload = bookingFacade.getBookingNotificationDeliveryPayload(
+        BookingNotificationDeliveryPayload payload = bookingNotificationFacade.getBookingNotificationDeliveryPayload(
                 new BookingNotificationDeliveryPayloadQuery(ready.notificationReference()));
         assertThat(payload).isNotNull();
         assertThat(payload.notificationKind()).isEqualTo("CONFIRMATION_RESEND");

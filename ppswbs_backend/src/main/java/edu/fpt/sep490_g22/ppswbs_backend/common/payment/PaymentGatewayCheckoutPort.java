@@ -4,5 +4,8 @@ import java.time.Instant;
 
 public interface PaymentGatewayCheckoutPort {
     String createDepositUrl(String merchantReference, String bookingCode, long amountVnd,
-                             Instant createdAt, String clientIp);
+                             Instant createdAt, Instant expiresAt, String clientIp);
+
+    String createFinalPaymentUrl(String merchantReference, String bookingCode, long amountVnd,
+                                 Instant createdAt, Instant expiresAt, String clientIp);
 }

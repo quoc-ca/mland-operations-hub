@@ -2,12 +2,15 @@ package edu.fpt.sep490_g22.ppswbs_backend.workshopbooking;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBookingConfirmedEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingLifecycleService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBookingMlandRefundPolicySnapshotRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +21,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import java.time.Duration;
+import static org.awaitility.Awaitility.await;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -41,10 +46,11 @@ class BookingConfirmationIT {
     @Autowired private BookingTicketRepository tickets;
     @Autowired private BookingTicketSessionEntitlementRepository entitlements;
     @Autowired private BookingNotificationIntentRepository notificationIntents;
-    @Autowired private WorkshopBookingFacade bookingFacade;
+    @Autowired private WorkshopBookingNotificationFacade bookingNotificationFacade;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private NotificationListener notificationListener;
+    @Autowired private SettlementBookingMlandRefundPolicySnapshotRepository mlandPolicySnapshots;
 
     @MockBean private WorkshopOperationsFacade operations;
     @MockBean private AccountFacade accountFacade;
@@ -76,12 +82,29 @@ class BookingConfirmationIT {
         when(operations.commitBookingHolds(any())).thenReturn(CapacityCommitOutcome.accepted());
         when(operations.getBookingTicketProjection(any())).thenReturn(new DeliverySafeTicketSet(safeTickets));
         createPending(code, "Silverclay", sessions, 2);
+        int publicationsBeforeConfirmation = countMlandConfirmationPublications();
 
         lifecycle.confirmBookingPaymentAndCommitHolds(code, "EVT-" + code, "VNPAY", 200_000L,
                 "HASH-" + code, "OP-" + code, "CORR-" + code);
 
         WorkshopBooking confirmed = bookings.findByBookingCode(code).orElseThrow();
         assertThat(confirmed.getBookingStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(
+                () -> assertThat(mlandPolicySnapshots.findByBookingReference(code)).isPresent());
+        var policySnapshot = mlandPolicySnapshots.findByBookingReference(code).orElseThrow();
+        assertThat(policySnapshot.getConfirmedAt()).isEqualTo(confirmed.getConfirmedAt());
+        assertThat(policySnapshot.getPolicyReference()).isEqualTo("MLAND-CANCELLATION-DEFAULT-100");
+        assertThat(policySnapshot.getRefundPercent()).isEqualTo((short) 100);
+        assertThat(notificationListener.mlandConfirmations()).containsExactly(
+                new MlandBookingConfirmedEvent(code, confirmed.getConfirmedAt()));
+        assertThat(countMlandConfirmationPublications()).isEqualTo(publicationsBeforeConfirmation + 1);
+        lifecycle.confirmBookingPaymentAndCommitHolds(code, "EVT-REPLAY-" + code, "VNPAY", 200_000L,
+                "HASH-REPLAY-" + code, "OP-REPLAY-" + code, "CORR-REPLAY-" + code);
+        assertThat(mlandPolicySnapshots.findByBookingReference(code).orElseThrow().getSnapshotReference())
+                .isEqualTo(policySnapshot.getSnapshotReference());
+        assertThat(notificationListener.mlandConfirmations()).containsExactly(
+                new MlandBookingConfirmedEvent(code, confirmed.getConfirmedAt()));
+        assertThat(countMlandConfirmationPublications()).isEqualTo(publicationsBeforeConfirmation + 1);
         assertThat(holds.findByBookingId(confirmed.getId())).hasSize(2)
                 .allSatisfy(hold -> assertThat(hold.getHoldStatus()).isEqualTo("COMMITTED"));
         List<BookingTicket> issued = tickets.findByBookingId(confirmed.getId());
@@ -95,7 +118,7 @@ class BookingConfirmationIT {
         }
 
         BookingNotificationIntent intent = notificationIntents.findByBookingId(confirmed.getId()).getFirst();
-        BookingNotificationDeliveryPayload payload = bookingFacade.getBookingNotificationDeliveryPayload(
+        BookingNotificationDeliveryPayload payload = bookingNotificationFacade.getBookingNotificationDeliveryPayload(
                 new BookingNotificationDeliveryPayloadQuery(intent.getNotificationReference()));
         String safePayload = objectMapper.writeValueAsString(payload);
         assertThat(payload.renderedTicketArtifacts()).containsExactlyInAnyOrder("TK-" + code + "-1", "TK-" + code + "-2");
@@ -169,6 +192,11 @@ class BookingConfirmationIT {
         return new SessionEntitlementProjection(sessionReference, locationId, start, start.plusSeconds(3600));
     }
 
+    private int countMlandConfirmationPublications() {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM event_publication WHERE event_type = ?",
+                Integer.class, MlandBookingConfirmedEvent.class.getName());
+    }
+
     @TestConfiguration
     static class TestConfig {
         @Bean NotificationListener notificationListener() { return new NotificationListener(); }
@@ -177,6 +205,7 @@ class BookingConfirmationIT {
     static class NotificationListener {
         private final AtomicBoolean failNext = new AtomicBoolean();
         private final CopyOnWriteArrayList<BookingNotificationReady> received = new CopyOnWriteArrayList<>();
+        private final CopyOnWriteArrayList<MlandBookingConfirmedEvent> mlandConfirmations = new CopyOnWriteArrayList<>();
         private final AtomicBoolean failed = new AtomicBoolean();
 
         @EventListener
@@ -188,8 +217,14 @@ class BookingConfirmationIT {
             }
         }
 
+        @EventListener
+        public void onMlandBookingConfirmed(MlandBookingConfirmedEvent event) {
+            mlandConfirmations.add(event);
+        }
+
         void failNextDelivery() { failed.set(false); failNext.set(true); }
         int deliveryFailures() { return failed.get() ? 1 : 0; }
-        void clear() { failNext.set(false); failed.set(false); received.clear(); }
+        List<MlandBookingConfirmedEvent> mlandConfirmations() { return List.copyOf(mlandConfirmations); }
+        void clear() { failNext.set(false); failed.set(false); received.clear(); mlandConfirmations.clear(); }
     }
 }

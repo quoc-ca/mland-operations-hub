@@ -6,6 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.CreateBook
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingCreationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingIdempotencyClaim;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingIdempotencyService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.MemberQuoteBookingAcceptanceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,11 +23,13 @@ public class WorkshopBookingCreationController {
     private final BookingCreationService creationService;
     private final BookingIdempotencyService idempotency;
     private final ObjectMapper mapper;
+    private final MemberQuoteBookingAcceptanceService memberQuoteAcceptance;
 
     @PostMapping
     public ResponseEntity<BookingSummaryResponse> createGuest(
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
             @Valid @RequestBody CreateBookingRequest request) {
         if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 128) {
             throw new edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingValidationException(
@@ -34,17 +37,33 @@ public class WorkshopBookingCreationController {
         }
         String correlation = correlationId == null || correlationId.isBlank()
                 ? UUID.randomUUID().toString() : correlationId;
+        if (request.getQuoteRef() != null) {
+            Long memberAccountId = memberQuoteAcceptance.requireMemberAccountId(authorization, request.getQuoteRef());
+            String semanticContent = request.getQuoteRef() + "|" + request.getContactEmail().trim().toLowerCase(java.util.Locale.ROOT)
+                    + "|" + request.getContactPhone().trim();
+            BookingIdempotencyClaim claim = idempotency.acquireClaim(idempotencyKey, "CREATE_MEMBER_QUOTE_BOOKING",
+                    semanticContent, correlation);
+            if (claim.cachedOutcome()) {
+                return cached(claim);
+            }
+            return ResponseEntity.status(HttpStatus.CREATED).body(
+                    memberQuoteAcceptance.accept(request, memberAccountId, correlation, claim));
+        }
         String semanticContent = semanticContent(request);
         BookingIdempotencyClaim claim = idempotency.acquireClaim(idempotencyKey, "CREATE_GUEST_BOOKING", semanticContent, correlation);
         if (claim.cachedOutcome()) {
-            try {
-                return ResponseEntity.status(claim.statusCode()).body(mapper.readValue(claim.responsePayload(), BookingSummaryResponse.class));
-            } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
-                throw new IllegalStateException("Stored booking response could not be read", ex);
-            }
+            return cached(claim);
         }
         BookingSummaryResponse response = creationService.createGuest(request, correlation, claim);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    private ResponseEntity<BookingSummaryResponse> cached(BookingIdempotencyClaim claim) {
+        try {
+            return ResponseEntity.status(claim.statusCode()).body(mapper.readValue(claim.responsePayload(), BookingSummaryResponse.class));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            throw new IllegalStateException("Stored booking response could not be read", ex);
+        }
     }
 
     private String semanticContent(CreateBookingRequest request) {
