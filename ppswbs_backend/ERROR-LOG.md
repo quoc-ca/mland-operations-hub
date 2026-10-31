@@ -2167,7 +2167,7 @@ The decision must also define how already-persisted numeric commitments are read
 - **Recorded at:** `2026-10-29T22:36:38+07:00`
 - **Reporter:** Codex implementation agent
 - **Feature / task:** `003.4-workshop-ota-connectivity`, T019
-- **Status:** `BLOCKED`
+- **Status:** `DESIGN RESOLVED; ACCEPTANCE VERIFICATION PENDING`
 
 ### Stopped scope and sources
 
@@ -2842,3 +2842,787 @@ The Feature 003 owner approved both missing projection decisions: session entitl
 Verification: `BookingLookupServiceTest` passed 4/4; `BookingConfirmationIT` 3/3; `WorkshopBookingLifecycleIT` 12/12; `WorkshopBookingDepositEvidenceIT` 1/1 using an isolated H2 in-memory database. `SettlementChangeFacadeIT` passed 9/9 against `ppswbs_workshop_test_20261029` using MySQL 8.0.43, with Flyway disabled and Hibernate DDL set to `none`; it covers current session UUID/location/schedule and preserved QR after replacement, plus no active ticket projection after verified refund. No schema migration, cleanup, reset, or refund request was run. The MySQL integration test inserted uniquely keyed fixture rows into the designated test schema; those rows remain there. T036 (003.1) and T059 (003.2) were marked complete with this evidence. BE-DESIGN-0044 and BE-DESIGN-0045 are resolved for these implementation tasks; downstream HTTP/UI acceptance remains tracked by T040/T041/T042 and is not claimed complete.
 
 Additional verification for the same resolution: `WorkshopBookingModuleTest` passed 7/7 on isolated H2, including Spring Modulith boundary verification. This does not cover the separately tracked HTTP/UI routes.
+
+## BE-DESIGN-0046 — 003.1 T037 Magic Link persistence conflicts with notification delivery contract
+
+- **Recorded at:** `2026-10-31T04:08:06+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.1 Workshop Booking`, T037; confirmation delivery, Magic Link exchange and Feature 007 notification handoff
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/tasks.md`, T037: Magic Link handling must use a token hash and must never persist or log the raw token.
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/spec.md`, FR-017b/FR-017b9: a reusable bearer link must be delivered after confirmation and later exchanged by HTTPS for a read-only projection.
+- `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`, the Booking notification handoff and `BookingNotificationDeliveryPayload`: Feature 007 retrieves an immutable render-ready snapshot containing `bookingAccessLink`; the event and provider/audit logs exclude that link.
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/data-model.md`, NotificationIntent: the immutable render-ready delivery snapshot is persisted with the booking notification intent.
+- `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/BookingLifecycleService.java`, confirmation flow around Magic Link creation and `deliverySnapshot` serialization.
+
+### Observed facts and unknowns
+
+- Fact: confirmation generates a random bearer token, stores its SHA-256 hash in `booking_magic_links`, and also embeds the raw token in `bookingAccessLink` inside the persisted notification delivery snapshot so Feature 007 can deliver it after commit.
+- Fact: the notification event itself contains only references, and the contract excludes the access link from provider/audit logs; those controls do not make the separately persisted snapshot satisfy T037's absolute no-persistence rule.
+- Fact: the current confirmation flow gives the link a fixed seven-day expiry, while the spec requires expiry at the associated workshop end. The Operations delivery projection carries session end instants, but Magic Link issuance does not currently use them.
+- Unknown: whether the approved notification snapshot is an intentional, narrowly scoped exception for the bearer URL, or whether the feature requires another durable secret-delivery mechanism and its key/access/retention rules.
+- During this turn, pending-hold release was moved into `BookingHoldReleaseService`, rejection handling was made non-mutating, T038 was marked complete with evidence, and the preceding T049 quote-acceptance work remains unmarked. `WorkshopBookingLifecycleIT` passed 13/13 and `WorkshopBookingModuleTest` passed 7/7 on isolated H2. No MySQL database was used. The working-tree changes are preserved; no commit or push was made.
+
+### Why implementation stops and resumption condition
+
+The implementation cannot both persist a usable, retryable post-commit access link for Feature 007 and obey T037's absolute ban on persisting the raw token. Dropping the link from the snapshot would prevent the approved asynchronous notification from delivering it after a restart; retaining it without a policy would violate the task's stated credential boundary. Do not implement Magic Link issuance/exchange/rotation or dependent notification changes until the Feature 003 owner resolves this contract.
+
+The owner must choose and document either (1) a narrowly scoped durable-delivery exception for the bearer link in the protected immutable notification snapshot, with access and retention constraints, or (2) a replacement durable secret-delivery design with its approved encryption/key custody, retrieval, deletion and failure behavior. The expiry mismatch has since been corrected in code: confirmation now derives the stored expiration instant from the latest required-session end returned by Operations. T037 remains blocked only on the raw-token persistence/durable-delivery policy, plus the unimplemented Magic Link exchange/revoke/rotate behavior.
+
+### Owner decision — persistence exception and retention policy — 2026-10-31T04:23:39+07:00
+
+The Feature 003 owner approved option 1: the raw bearer URL may be stored only in the protected Booking notification snapshot for Feature 007 after its matching handoff. Access is separated into the `workshopbooking :: notification` named interface so other consumers of the general Booking facade do not receive the delivery credential. The handoff event, business audit, and application/provider logs exclude the URL. The URL is removed from all associated snapshots no later than the next one-minute cleanup sweep after its Magic Link expires or is revoked; the hash remains for lifecycle enforcement. A delivery lookup also suppresses a URL whose matching link is not active and unexpired.
+
+This resolves the design decision in BE-DESIGN-0046. The dedicated notification boundary, delivery-time active-link check, one-minute expiry/revocation scrubber, additive V38 migration, and expiry/scrub integration assertions have been implemented. The HTTPS exchange service/controller is now also implemented: it hashes the submitted bearer value, rejects unknown/revoked/expired links uniformly, and returns the current safe Booking projection without logging the raw value. Verification: latest `MagicLinkServiceTest` 4/4; the combined run passed `WorkshopBookingLifecycleIT` 13/13 and `WorkshopBookingModuleTest` 7/7 on isolated H2; `git diff --check` passed with only line-ending warnings. An initial run exposed a one-microsecond fixture rounding instability; fixed by using fixed microsecond-aligned test timestamps, then reran the suite successfully. The MySQL migration has not been applied. T037 remains incomplete for Manager revoke/rotate lifecycle and the memory-only client projection acceptance. No production credentials, booking data, MySQL schema, or database reset were used.
+
+## BE-DESIGN-0047 — 003.1 T040 pending-hold release HTTP contract cannot authorize a customer action
+
+- **Recorded at:** `2026-10-31T05:34:00+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.1 Workshop Booking`, T040 pending-hold-release route; dependent release API acceptance in T041/T042
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/contracts/workshop-booking.openapi.yaml`, `/api/v1/workshop-bookings/{bookingCode}/pending-hold-release`: defines only the path, booking code, idempotency key and 204/409 responses; it has no security alternatives, request body, or contact-proof parameter.
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/spec.md`, FR-017h and decision at lines 161-163: a Guest or authorized Member can release an active pending hold from lookup; the action requires a reason, writes redacted audit, and the cancelled booking remains viewable.
+- `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/BookingHoldReleaseService.java`: current service performs the system-driven release and changes the booking to CANCELLED, but accepts no customer identity/contact proof or reason and has no customer-authorization decision.
+- `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/configuration/SecurityConfiguration.java`: `/api/**` defaults to authenticated; there is no explicit public booking-release matcher.
+
+### Observed facts and unknowns
+
+- Fact: the API contract is missing the customer proof/authentication and required reason that the feature specification requires for an explicit customer release.
+- Fact: exposing the existing system release service directly would let an unauthenticated caller with a booking code cancel a booking, or would require an authenticated Member without verifying ownership; either behavior is unsafe and does not meet the Guest/Member contract.
+- Unknown: whether Guest release reuses contact proof in the request, requires a verified lookup capability, or uses another approved proof mechanism; the current API is stateless and no lookup session/capability is defined.
+- This turn added Guest/Member lookup HTTP routes and a public security matcher, repaired malformed indentation in the Magic-Link incident response map, and added controller tests before identifying this separate release-route contract gap. The lookup routes passed their controller tests and the Modulith context test; no pending-hold-release HTTP route was added. No database migration or MySQL test was run.
+
+### Why implementation stops and resumption condition
+
+Do not add the pending-hold-release controller, widen public access, or change the release service into a customer command until the public API contract specifies exactly how Guest proof and Member ownership are established and how the required reason is supplied and audited. Guessing could expose a cancellation operation by booking-code knowledge alone or fail to prove ownership. Resume T040/T041 for this route after the Feature 003 owner approves the proof/authorization and request shape and the OpenAPI/spec agree. Other already implemented lookup behavior is not evidence that the release route is complete.
+
+### BE-DESIGN-0047 owner resolution — pending-hold release proof and reason — 2026-10-31
+
+The Feature 003 owner confirmed: Guest release is authorized by exactly one stored contact proof; Member release uses the authenticated Member account and server-side booking ownership check, with no contact proof; both callers must supply a reason. The OpenAPI and spec now encode these modes on the existing pending-hold-release route. The booking audit data model separates the generic customer `action_reason` from existing Manager `manager_reason`; implementation may resume after verifying the additive migration and transaction/idempotency gates. No raw proof is to be persisted or audited.
+
+### Resolution and implementation evidence — 2026-10-31
+
+The owner decision is implemented for the pending-hold-release route. The endpoint supports Guest proof and authenticated Member ownership modes, requires an audit-safe reason, rechecks authorization while holding the booking lock, and commits capacity release, booking cancellation, audit evidence, and idempotent 204 outcome in the transaction. Guest contact proof is not copied to the audit. Member requests must not include contact proof. Added the nullable `action_reason` column in additive migration V39; the existing Manager `manager_reason` remains separate. Cached 204 responses are normalized to an empty body.
+
+Verification on isolated H2: `BookingPendingHoldReleaseControllerTest` 2/2, `BookingPendingHoldReleaseServiceTest` 3/3, `BookingPendingHoldReleaseTransactionServiceTest` 3/3, `WorkshopBookingLifecycleIT` 14/14, and `WorkshopBookingModuleTest` 7/7 (29 tests total). `git diff --check` passed with line-ending warnings only. MySQL migration was not applied. T040 remains open because it also includes other recovery and late-payment HTTP routes; T041 and T042 remain open. No commit or push was made.
+
+## BE-DESIGN-0048 — 003.1 payment-link/hold expiry alignment changes QueryDR schedule
+
+- **Recorded at:** `2026-10-31T11:32:18+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.1 Workshop Booking`, T027/T030 and dependent 003.3 payment-hold language
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/spec.md`, payment-hold decisions and FR-010d: currently defines a 10-minute payment link, a maximum 15-minute hold, and QueryDR at minutes 10 and 14 while the hold remains active.
+- `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/tasks.md`, T027: records the 10-minute link/15-minute hold as implemented and verified.
+- `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/spec.md`: repeats the 10-minute link/15-minute hold assumption.
+- `CapacityHoldService` currently expires capacity holds after 15 minutes; `DepositPaymentService` expires its payment attempt after at most 10 minutes; `VnpayPaymentGatewayCheckoutAdapter` independently puts `vnp_ExpireDate` at 15 minutes after payment-attempt creation.
+- The Feature 003 owner decided to make both the pending-payment capacity hold and payment expiry 10 minutes.
+
+### Observed design conflict
+
+With a 10-minute hold, QueryDR at minute 14 would run after capacity has expired, violating FR-010b/FR-010d. Moving both QueryDR checks earlier (for example, minutes 8 and 9) is plausible but changes the approved recovery timing and may query while the customer is still completing gateway authorization. The design must state how pending/non-terminal QueryDR results are treated and what happens when payment succeeds at the deadline but trusted evidence arrives afterward. No code or spec changes were made for the new 10-minute decision in this turn; no tests were run.
+
+### Required owner resolution
+
+Specify the two QueryDR checkpoints and the safe handling of pending/unknown results and late verified payment evidence under a shared 10-minute absolute deadline. Resume T027/T030 and dependent artifact/code updates after this recovery rule is approved. Preserve the current implementation until then.
+
+### Owner resolution and implementation update — 2026-10-31T11:39:46+07:00
+
+The Feature 003 owner approved a shared maximum 10-minute absolute deadline for the workshop capacity hold, payment attempt and VNPay payment link, plus QueryDR checkpoints at minutes 8 and 9 from hold creation. Pending/unknown QueryDR results do not extend the hold. Late verified payment evidence after capacity release does not confirm the booking and requires operational follow-up. The owner subsequently approved the terminal-IPN rule: verified two-digit `vnp_TransactionStatus=01` is nonterminal; any other verified two-digit status is terminal. Only matching `vnp_ResponseCode=00` plus `vnp_TransactionStatus=00` is booking-confirming evidence.
+
+Implementation/artifact update: new Operations capacity holds now expire after 10 minutes; Booking computes the payment attempt expiry as the earlier of ten minutes from attempt creation and stored `holdExpiresAt`; the checkout port now passes that expiry to the VNPay adapter, which signs the same value as `vnp_ExpireDate`. Updated 003.1 spec/plan/research/tasks/OpenAPI, 003.3 payment timing, the general payment timing rule, and the 003.1 quality checklist. T027 was returned to `[ ]` pending re-verification because its acceptance changed. No test was run and no MySQL database or migration was used. `git diff --check` passed with line-ending warnings only.
+
+Follow-up implementation on 2026-10-31: added redacted terminal outcome columns to ingress receipts, a read-only common payment port for Booking, exact provider create-date persistence for new deposit attempts, and a scheduler that uses distinct idempotent QueryDR operation references at minute 8 and minute 9 while the hold and link remain active. Only signed/verified QueryDR status `00` with exact reference/amount/VND may be applied. Verified late success is stored through the Booking facade in a deduplicated late-evidence table; the Manager `RECORD`/`ESCALATE` route now requires that evidence and writes audit only. Added append-only V40; it has not been applied to any database. `mvn -DskipTests compile` passed after fixing two missing imports. No tests were run, so T030 and T039 remain unchecked pending acceptance verification; no DB was accessed, and no commit/push was made.
+
+## BE-DESIGN-0049 — 003.3 T006 notification payload retention and migration baseline are incomplete
+
+- **Recorded at:** `2026-10-31T14:24:45+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `003.3 Workshop Settlement and Changes`, T006 Settlement-to-Feature-007 notification handoff
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/tasks.md`, T006.
+- `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/data-model.md`, “Settlement Notification Handoff”.
+- `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md`, Settlement notification payload and post-commit event contract.
+- `ppswbs_backend/AGENT.md`, migration rule requiring actual Flyway history before choosing a version.
+- Current repository migration files, which include Booking migration V40; this source listing does not establish the version currently applied to any database.
+
+### Observed facts and owner decision
+
+- Fact: Settlement requires a durable unique notification handoff and immutable render-ready snapshot, but its data model does not specify the physical table/columns/indexes needed to split payload retention by field.
+- Fact: the current process has no configured JDBC/MySQL environment variables, and no live Flyway schema history was inspected or changed.
+- Owner decision received on 2026-10-31: retain the payment-action link for at most 24 hours; retain recipient and rendered content for 30 days. The link must remain unavailable after its expiry while the remaining payload is retained for the approved resend/support window.
+- Unknown: the actual deployed/test-database Flyway head and whether a proposed next migration identifier is free in the database history.
+
+### Why implementation stops and resumption condition
+
+T006 needs durable persistence and cleanup semantics. The approved retention decision now requires the payment link to be scrubbed independently while the rest of the same render-ready snapshot remains available; the current “immutable snapshot” wording does not define this field-level expiry exception or its exact delivery behavior after expiry. Choosing a migration version from repository filenames alone would violate `ppswbs_backend/AGENT.md`, and the required database history is unavailable in this process. Do not add a migration/entity/facade implementation or change T006's marker until the owning contract/data model encodes the 24-hour link scrub and 30-day recipient/content retention and the actual isolated test database Flyway head is inspected. Then add an append-only migration and verify the handoff/read-after-commit, duplicate dispatch, expiry/redaction, post-expiry delivery suppression, and delivery-failure isolation without resetting or dropping data.
+
+### Owner-decision implementation update — 2026-10-31
+
+The owner supplied the retention decision recorded above. Updated the 003.3
+specification, plan, data model, task wording, and shared interfeature contract:
+recipient/rendered content remain available for at most 30 days; a
+payment-action link is suppressed and scrubbed at its server-derived 24-hour
+expiry; this scrub is the only mutation permitted to the otherwise immutable
+snapshot. This resolves the retention/immutability wording gap. T006 remains
+blocked because its physical persistence design is still unspecified and the
+actual isolated database Flyway head is not available in this process. No
+migration, entity, facade, or T006 completion marker was added; no database was
+accessed.
+
+### Implementation progress after owner schema approval - 2026-10-31
+
+The owner approved the proposed T006 physical schema. Read-only inspection of
+`ppswbs_workshop_test_20261029` found Flyway V33 as its latest successful row;
+repository migrations V34-V40 are pending there. V37 has a legacy-column drop,
+so no migration was applied and the database was not modified. The new
+append-only repository migration is V41.
+
+Implemented the Settlement-owned handoff table/entity/repository, reference-only
+ready event, post-commit retryable event dispatch, payload facade with immediate
+expiry suppression, and 60-second cleanup for 24-hour links and 30-day payloads.
+Focused tests passed 15/15 for payload expiry, reference-only event contents,
+dispatch state, service transaction-hook registration, existing evidence
+application, and Modulith boundaries. T006 remains unchecked: no Settlement
+producer has been connected, Feature 007 is not present in this backend, and the
+current Booking boundary intentionally does not disclose the stored recipient
+to Settlement. The owner must decide an allowed recipient-provenance boundary
+before end-to-end notification producers can be wired. No MySQL migration was
+run; no database was changed; no commit or push was made.
+## Feature 003 continuation — 2026-10-31
+
+- Implemented T026 required-session-change POST/GET HTTP routes and customer-safe GET authorization. Manager is global; Staff is checked against the confirmed booking location; Member and Guest access is delegated to the Booking facade, with Guest requiring exactly one contact proof.
+- Focused verification: `mvn -o "-Dtest=RequiredSessionChangeServiceTest,RequiredSessionChangeControllerTest,WorkshopSettlementModuleTest" test` — BUILD SUCCESS, 10 tests passed, 0 failures/errors/skips. T026 is marked complete in the 003.3 task ledger.
+- T027 review found existing Operations integration coverage for atomic one/two-session replacement, no-capacity rejection without entitlement mutation, persistent ticket QR and refreshed ticket/session projection in `SettlementChangeFacadeIT`. It does not cover the Silverclay constraints. Operations replacement currently receives only booking reference and target sessions; its persisted ticket/entitlement records do not retain the Package selection constraints (`requiredSessionCount`, `sameLocationRequired`, `minimumSameDaySlotGap`). This prevents Settlement from safely asserting the specified package-specific policy via the current facade contract. T027 remains unchecked until that trusted policy snapshot is available and tested.
+- T006 remains unchecked: notification handoff/outbox, reference-only event and retention/payload facade are implemented, but no safe recipient provenance/producer call exists in Settlement's current Booking boundary and Feature 007 consumer is absent. Do not claim delivery integration complete.
+- No Flyway migration was applied to any database; no DB test was run in this continuation.
+
+### T027 / T082 policy decision and implementation progress — 2026-10-31
+
+The owner chose to freeze Silverclay/package change rules when the booking is
+accepted. Legacy bookings without that snapshot must fail closed and go through
+manual, evidenced resolution; do not infer or backfill policy from the current
+Package master.
+
+Implemented the Operations-owned immutable `WorkshopBookingPackagePolicySnapshot`
+and append-only migration `V42__workshop_booking_package_policy_snapshot.sql`.
+New capacity reservations capture the validated Package rules in the same local
+transaction as the hold. Session replacement validates the full target set
+against that snapshot (session count, participant limits, location, chronology,
+and same-day slot gap); missing legacy snapshots are rejected. Added unit and
+MySQL integration coverage and linked Operations T082 as a dependency of
+Settlement T027. T082 and T027 remain unchecked until the designated isolated
+MySQL suite is run against a verified safe schema/migration state. Existing DB
+history has pending migrations including a legacy-column drop, so V42 was not
+applied and no database was modified.
+
+Verification: offline Maven test compilation succeeded; focused policy/hold
+unit tests passed 7/7; Modulith architecture tests passed 5/5. The MySQL
+integration class was not run. No commit or push was made.
+
+## BE-DESIGN-0050 — 003.1 T050 Loyalty outcomes have no complete authoritative lifecycle boundary
+
+- **Detected:** 2026-10-31T15:31:57+07:00
+- **Reporter:** Codex
+- **Feature / task:** Feature 003.1 T050 (with T051 acceptance), dependent 003.3 cancellation/final-payment outcomes and 003.2 attendance finalization
+- **Status:** BLOCKED
+- **Scope stopped:** Wiring `settleAcceptedBenefits`, `grantEarnedPoints`, `releaseHeldBenefits`, `restoreCancelledWorkshopBenefits`, and `finishIneligibleEarn` from source lifecycle transitions.
+- **Design sources:** `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/tasks.md` T050-T051 and `spec.md` Session 2026-10-07; `ppswbs-spec/features/006-loyalty-promotion/contracts/workshop-booking-integration.md` sections 2 and 6; `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/spec.md` attendance-finalization rules; `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/tasks.md` T021-T024.
+
+### Evidence observed
+
+- T049 already calls `reserveAcceptedTransaction` for Member quote acceptance in `MemberQuoteBookingAcceptanceService`. It obtains real session UUID references, retains `quoteRef` and `termsDigest` on the accepted quote, and freezes the discounted amount. Booking itself has an optimistic `@Version` field. The accepted benefit reference returned by Loyalty is currently used for the amount but is not persisted on the Booking row.
+- The Loyalty contract defines the outcome kinds and requires stable outcome keys, monotonically increasing source versions, snapshot/proof references, source serialization, and same-transaction calls. It does not define precisely whether `snapshotRef` is the accepted `quoteRef`, the Loyalty accepted-benefit ID, or another source snapshot identifier.
+- 003.1's approved lifecycle notes reserve `COMPLETED` and `NO_SHOW` for later attendance/final-payment behavior. Operations finalizes attendance per session and makes unchecked tickets `NO_SHOW`; the Operations facade currently exposes no booking-level “all required sessions have terminal attendance” outcome for a multi-session package.
+- 003.1 T030 (bounded QueryDR and confirmed unpaid expiry) remains unchecked. The current QueryDR scheduler only attempts the two in-window checks; there is no completed source transition that establishes `UNPAID_EXPIRY_CONFIRMED` and invokes Loyalty after payment uncertainty has been resolved.
+- 003.3 customer-cancellation/refund tasks T021-T024 remain unchecked. Therefore the accepted definition and proof of a valid post-deposit cancellation are not yet available to T050. Settlement also has no completed, verified “all sessions complete and invoice fully paid” handoff into a Loyalty outcome.
+- Current dependencies allow Booking and Operations to call the Loyalty facade, while Settlement depends on Booking and Operations. Choosing the caller and transaction owner for each cross-feature terminal outcome affects Modulith direction and atomicity; it cannot be inferred solely from the enum names.
+
+### Why implementation stops
+
+Without an approved lifecycle owner/trigger for booking-level completion/no-show, confirmed unpaid expiry, and valid post-deposit cancellation, T050 cannot guarantee that a call reflects an authoritative terminal outcome or is serialized with its source state. Guessing could release held benefits while payment is still uncertain, restore consumed benefits for an ineligible cancellation, or grant points before every required session and the final invoice are complete. It could also create a dependency cycle or split the outcome from the transaction that makes it authoritative. No code, test, migration, artifact, or task marker was changed for T050 in this turn; no tests were run.
+
+### Decision required to resume
+
+Approve an owner-and-trigger matrix for each terminal outcome (Booking, Operations, or Settlement; the event/command that proves it; and the transaction that calls Loyalty), including the booking-level rule for a multi-session package with one or more no-show tickets and the exact meaning of `snapshotRef`. The existing Loyalty integration contract can then be used to implement only after those decisions are recorded. No credentials or PII are present in this report.
+
+### Owner decision and partial progress — 2026-10-31T15:39:00+07:00
+
+Hồ Hoàng Quốc approved the following outcome policy in this conversation:
+Booking emits verified-deposit and QueryDR-confirmed unpaid-expiry outcomes;
+Settlement emits completion, eligible-cancellation, and final no-show outcomes
+only after authoritative whole-booking evidence; every required ticket/session
+must have terminal attendance before completion/no-show, and any no-show
+prevents earn; `quoteRef` is `snapshotRef`; Guest bookings do not call Loyalty.
+
+The corresponding owner decision is now recorded in 003.1 `spec.md` and the
+006 workshop-booking integration contract. Implemented the verified Member
+deposit path in `WorkshopBookingLoyaltyOutcomeService`; it uses the accepted
+quote reference, booking version and redacted verified evidence reference, and
+joins the existing Booking transaction. Guest bookings are skipped. Focused
+unit suites passed 7/7 on 2026-10-31.
+
+T050 remains incomplete. The following outcome triggers are not yet safely
+implementable from existing authoritative/versioned source state: conclusive
+unpaid QueryDR resolution and its Booking transition; terminal attendance
+status for every ticket (Operations currently returns only a boolean readiness
+projection); and Settlement's versioned whole-booking terminal outcome,
+including resolved cancellation/refund status. No migration or database action
+was performed. Do not mark T050/T051 complete until those paths and their
+integration acceptance are implemented and verified.
+
+### Additional terminal-attendance ambiguity found — 2026-10-31T15:42:00+07:00
+
+Read-only inspection found that `AttendanceCorrectionService.correctFinalizedAttendance`
+permits a Manager to change a ticket's attendance after its session is already
+`ATTENDANCE_FINALIZED` (`features/workshopoperations/service/AttendanceCorrectionService.java`,
+guards around lines 191-220). The settlement facade's current
+`getSettlementReadiness` only verifies every ticket entitlement's session is
+`ATTENDANCE_FINALIZED`; it does not indicate that attendance can no longer be
+corrected or return the attendance outcome.
+
+Therefore the owner-approved “all tickets/sessions final” condition does not
+currently define an immutable trigger: Settlement could grant points or finish
+an earn, then a permitted correction could change a NO_SHOW to CHECKED_IN or
+vice versa. That could leave Loyalty inconsistent with the corrected source.
+No source code, test, migration, or task marker was changed for this finding;
+no database action was performed.
+
+Decision needed before implementing the completion/no-show branch: define when
+post-finalization corrections close and how that closure is represented and
+serialized with Loyalty outcome emission. Recommended design: Manager explicitly
+seals attendance for the whole booking only after every required session is
+finalized; after sealing, Operations rejects attendance corrections, and
+Settlement emits the outcome from that sealed snapshot. Until this is approved,
+do not wire completion/no-show outcomes. No credentials or PII are present in
+this report.
+
+### Owner decision and follow-up implementation gate — 2026-10-31T15:47:42+07:00
+
+Hồ Hoàng Quốc rejected a manual Manager seal because it would add operational
+work. The approved correction policy is automatic: Manager corrections remain
+allowed for 24 hours after the last required session is finalized, then the
+system closes corrections without a separate Manager action.
+
+Code inspection confirms that Operations currently stores no explicit
+`attendance_finalized_at` timestamp; `WorkshopSession.updatedAt` is a generic
+mutable timestamp and is not a sound substitute. Settlement currently emits no
+Loyalty completion/no-show outcome. If its final bill is finalized before the
+24-hour correction deadline, the deadline passing alone does not invoke
+Settlement, so simply checking the deadline during finalization can omit the
+outcome indefinitely. A reliable automatic scheduler/retry path or a rule that
+prevents final bill finalization until the window closes must be selected before
+the source outcome is safely wired. The latter adds a 24-hour wait to manager
+settlement; the former requires its polling interval, durable candidate/state
+handling and retry/idempotency behavior to be part of the approved contract.
+
+No source code, test, migration, task marker, or database was changed in this
+follow-up. The existing `BE-DESIGN-0050` remains blocked for terminal
+completion/no-show. No DB credentials are configured in this execution context,
+so the installed Flyway head was not inspected and no migration version was
+selected. Resume after the automatic outcome trigger/retry behavior is agreed;
+then inspect the isolated test database Flyway history before choosing and
+verifying an additive migration for an explicit finalization timestamp.
+
+### Approved automatic closure and partial implementation — 2026-10-31T16:00:22+07:00
+
+The Feature 003 owner approved automatic closure: Manager attendance corrections
+remain available for 24 hours after the latest required session is finalized;
+after that deadline Operations rejects corrections. No manual Manager seal or
+other attendance action is added. Settlement uses a scheduled retry path.
+
+Implemented the following partial T050 path:
+
+- Persist `attendance_finalized_at` on each session, set when finalization is
+  recorded, and add a nullable-column migration with a conservative `updated_at`
+  backfill for pre-existing finalized sessions.
+- Lock required session and active entitlement rows while producing the minimal
+  Settlement readiness projection. The projection includes correction-window
+  closure and whether any active required ticket is `NO_SHOW`.
+- Run a 60-second configurable scheduled scan of `OPEN` and `FINALIZED`
+  settlement bills. A Member booking with a pending Loyalty earn is finished as
+  no-show only after the correction window closes; earned points are granted
+  only after the window closes, the bill is finalized and outstanding balance
+  is zero. Loyalty's persisted earn state prevents reapplying a terminal result.
+- Update Operations, Settlement and Loyalty integration artifacts to state the
+  approved correction-window rule. The scheduler logs only safe booking
+  reference and exception type, not exception message.
+
+Focused verification passed on 2026-10-31: `WorkshopLoyaltyOutcomeProcessorTest`,
+`WorkshopLoyaltyOutcomeSchedulerTest`,
+`AttendanceCorrectionWindowPolicyTest`, `WorkshopOperationsSnapshotTest`,
+`WorkshopBookingLoyaltyOutcomeServiceTest` and `ModulithArchitectureTests` —
+20 tests, 0 failures/errors/skips. `git diff --check` passed after source,
+artifact and log edits; Git printed only its existing LF-to-CRLF conversion
+warnings for working-tree files.
+
+Migration `V43__workshop_attendance_correction_window.sql` has not been applied.
+The isolated MySQL upgrade/migration verification was not run in this turn.
+T050 remains incomplete: this implementation does not yet connect confirmed
+unpaid expiry after QueryDR resolution or eligible cancellation/refund. The
+scheduled candidate scan also depends on a Settlement bill existing; whether
+every final no-show booking is guaranteed to create an `OPEN` bill must be
+verified against the 003.3 lifecycle before claiming the no-show path complete.
+Do not mark T050/T051 complete until all required outcomes and MySQL/provider
+acceptance evidence pass.
+
+## BE-DESIGN-0051 — 003.3 refund initiation is not wired and refund amount contract conflicts
+
+- **Timestamp:** 2026-10-31T17:32:07+07:00
+- **Reporter:** Codex
+- **Feature / task:** Feature 003.3 T021–T024; shared paymentintegration refund adapter T037
+- **Status:** BLOCKED
+- **Scope stopped:** Wiring customer or Manager cancellation cases to initiate a VNPay refund and applying verified refund consequences. No refund/provider request, database operation, code change outside this record, migration, test, or task-marker change was made.
+- **Design sources:** `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/tasks.md` T021–T024 and T037; `spec.md` FR-013–FR-017 and FR-021; `plan.md` payment/retry boundaries; `contracts/workshop-settlement.openapi.yaml` cancellation/remedy routes; `data-model.md` Settlement Case and payment evidence.
+
+### Observed facts and unknowns
+
+- Fact: T021–T024 remain unchecked. T022 is scoped to applying whole-booking refund consequences only after a successful verified refund; no production caller of `VnpayMerchantOperationsPort.requestFullRefund` exists. A source search found only the port declaration, adapter implementation, and adapter tests.
+- Fact: the production adapter is specifically `requestFullRefund`; it rejects any amount not exactly equal to the registered original payment amount. It sends one operation only when first prepared; replay of the same operation reference returns retained state and deliberately does not resend. Provider response `99` is recorded as `UNKNOWN` with no automatic retry.
+- Fact: FR-015 specifies 100% or 50% of the paid deposit for eligible customer cancellations, while FR-017 requires `REFUND_PENDING` until a gateway outcome is confirmed. Therefore the existing full-refund-only port cannot represent every permitted cancellation amount.
+- Fact: FR-021 requires 100% of every successfully collected payment for an eligible Mland-caused remedy. The contract does not specify whether a multi-payment booking creates one refund operation per payment or another provider operation strategy.
+- Fact: the user-provided direct PowerShell refund call returned a VNPay JSON response `vnp_ResponseCode=99`, `vnp_Message=Unexpected error`. This establishes that that direct request reached an endpoint that returned a provider response; it does not establish whether VNPay durably recorded or executed it. It does not prove that the application initiated the request.
+- Unknown: whether cancellation case creation should initiate the refund immediately, queue it for a separately authorized Manager action, or use another explicit command; what transitions a case to/from `REFUND_PENDING`; and what exact QueryDR or signed provider evidence resolves an outbound refund.
+- Unknown: how 50% refunds map to VNPay transaction type and command parameters under the approved payment contract, and how aggregate Mland-caused refunds are split across original deposit/final-payment transactions.
+
+### Impact and resume condition
+
+Currently opening a cancellation case cannot send an application-initiated refund because the 003.3 use case and caller are absent. Adding a caller now would require choosing a trigger and implementing partial-refund behavior that the existing port cannot express. Treating response `00` as completed or retrying `99` would violate the approved provider boundary and could duplicate a refund. Do not wire or resend a refund until Feature 003 approves the initiation trigger/authorization, the 50% refund representation, per-payment operation strategy, and the verified terminal evidence/state transitions; then update the 003.3 contract/tasks and implement T021–T024 against that contract. Keep the previously attempted Sandbox refund `UNKNOWN` unless Merchant Admin or provider-confirmed reconciliation establishes its state.
+
+### Owner decision and remaining integration blocker — 2026-10-31T18:01:13+07:00
+
+The Feature 003 owner approved these refund rules: initiate automatically once a cancellation/remedy is eligible; support the policy-calculated partial amount; create one refund operation per original payment; and do not mark the case/booking complete until VNPay evidence has been verified. Official VNPay documentation defines transaction type `02` as full refund and `03` as partial refund, with refund amount no greater than the original payment.
+
+The required source data is not available to Settlement through its current contracts. `ConfirmedBookingFinancialProjection` exposes aggregate deposit/remaining amounts but no per-payment merchant reference, provider transaction number, provider create date, or collected amount. `PaymentOwnerRegistry` can resolve only one merchant reference and its owner registration stores no provider transaction number/create date or verified payment outcome. `SettlementEvidenceConclusion` records final-payment merchant reference and amount, but not provider transaction number/date; deposit evidence is owned by Booking and is not projected into this feature. These facts prevent constructing and reconciling one correct refund operation for each original payment using the current feature boundaries.
+
+**Unknown / required approval:** whether 003.1 should extend its named `WorkshopBookingFacade` with an internal, PII-free projection of verified refundable payment records (payment kind, merchant reference, provider transaction number, original provider create date, amount, currency, and verified status), for use by 003.3. The projection must exclude browser URLs and raw gateway payload/signatures. After this boundary is approved, 003.3 can derive each operation's amount from policy and `paymentintegration` can own the outgoing request and QueryDR reconciliation. No source code, tests, migration, or task marker were changed after this blocker was found. Resume refund wiring only after the facade owner contract is approved and aligned in 003.1/003.3 artifacts.
+
+### Follow-up — owner approved payment projection; allocation rule still undefined — 2026-10-31T18:12:00+07:00
+
+The Feature 003 owner approved extending the internal `WorkshopBookingFacade` with a PII-free projection of verified refundable payment records. This resolves the facade-boundary approval requested above; this entry preserves the prior record as history.
+
+Inspection confirms that Booking currently stores deposit attempts and verified deposit receipts, while Settlement records verified final-payment evidence separately. No production final-payment attempt/owner-registration caller exists. The current VNPay refund adapter only supports a full refund and must be extended for policy-calculated partial refunds. No source implementation or test was started after the approval because the amount allocation rule remains ambiguous for a booking with multiple original payments: for example, a 50% refund over two odd-valued payments can differ by one VND if rounding each payment independently versus rounding the total once. The owner also requires one provider operation per original payment, so the aggregate policy amount must be deterministically allocated to those operations.
+
+**Decision needed to resume T021–T024 refund orchestration:** for customer cancellation, calculate `floor(total eligible paid deposit × policy percentage / 100)` once, then allocate the amount across original deposit payments in chronological order, capped at each original payment; skip zero allocations. Recommendation: use this same aggregate-then-oldest-first rule for Mland-caused remedies, with the frozen Mland percentage applied to total verified collected payments. Alternatively, explicitly approve per-payment floor rounding. Until selected, different implementations can refund different totals, and the per-payment operation ledger cannot guarantee the policy amount. No refund request was sent and no database was accessed or modified.
+
+### Follow-up — owner selected allocation; cancellation/read ownership boundary still missing — 2026-10-31T18:10:56+07:00
+
+The Feature 003 owner selected aggregate-first calculation and oldest-payment-first allocation, capped by each original payment. This resolves the rounding/allocation question above.
+
+Further inspection of T021's prerequisites found that the existing `WorkshopOperationsFacade` exposes settlement readiness and a `hasNoShow` flag, but does not expose authoritative customer-cancellation eligibility, earliest required-session start, or whether a ticket has been checked in. The customer refund policy depends on those Operations-owned facts. Implementing the eligibility calculation in Settlement from the current readiness projection would either guess or rely on stale/partial data. In addition, 003.1 owns deposit attempts/receipts, while 003.3 owns final-payment evidence; the previously approved 003.1 payment projection cannot truthfully expose Settlement-owned final payments. A full Mland remedy therefore needs Settlement to combine a Booking deposit projection with its own final-payment records, and verified final-payment records must retain provider transaction number and original provider create date for refund/QueryDR.
+
+No source code, tests, migrations, or task markers were changed. No provider request or database access occurred. A prior subsection timestamp (`18:12:00+07:00`) was written before the clock check and is later than this follow-up; the actual decision receipt time is not available from that subsection and should be treated as a reporting typo, not chronology evidence.
+
+**Design approval needed:** authorize a typed `WorkshopOperationsFacade` customer-cancellation eligibility projection (eligible/reason, earliest required-session start, and checked-in/no-show facts), and split payment ownership as described above: 003.1 projects verified deposits; 003.3 reads its own verified final payments, with `paymentintegration` dispatching transaction number and original payment create date into Settlement evidence. Without these two boundaries, T021/T022 cannot derive eligibility or create/reconcile one refund operation per original payment safely.
+
+### Resolution — owner approved cancellation eligibility and payment evidence boundaries — 2026-10-31
+
+The Feature 003 owner approved the proposed boundaries. Operations will expose a typed, PII-free customer-cancellation eligibility result with the earliest required session start and checked-in/no-show facts. Booking will expose only verified deposit payment facts. Settlement will retain and read its own verified final-payment facts; `paymentintegration` will dispatch the provider transaction number and immutable original payment URL create date with verified evidence. Settlement applies the already-approved aggregate-first, oldest-payment-first allocation and does not complete a case until each required provider refund outcome is verified. This resolves the design blocker; implementation and acceptance evidence remain outstanding.
+
+### BE-DESIGN-0009 — zero-refund cancellation consequence is undefined — 2026-10-31T18:46:03+07:00
+
+- **Reporter / scope / status:** Codex implementation agent; Feature 003.3 T021–T024; `BLOCKED`.
+- **Design sources:** `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/spec.md` FR-014 through FR-017; `tasks.md` T021–T024; shared `workshop-interfeature-facades.md` refund consequence contract; `WorkshopOperationsFacade.applyVerifiedRefundConsequence`.
+- **Observed facts:** FR-015 allows a whole-booking cancellation refund of zero when the earliest session is less than 24 hours away. FR-017 says unused tickets/capacity are revoked/released only on confirmed refund. Operations currently exposes only `ApplyVerifiedRefundConsequenceCommand`, whose contract requires a verified refund reference; it has no approved zero-refund cancellation command. The approved customer flow automatically initiates refunds when eligible and requires evidence before the cancellation consequence.
+- **Inference:** If Settlement accepts a policy-eligible zero-refund cancellation, there is no refund provider operation or verified refund evidence to satisfy FR-017 or the Operations command. Marking the case resolved or revoking tickets/capacity directly would invent an unapproved transition; keeping it pending forever is also inconsistent with a zero refund.
+- **Verification:** Reviewed the FR/task/facade contract and current Operations method. The focused tests passed before this blocker was identified: `mvn -q "-Dtest=VnpayMerchantOperationsAdapterTest,WorkshopBookingFacadePaymentAttemptTest,WorkshopOperationsSnapshotTest,SettlementPaymentEvidenceIT,WorkshopSettlementMigrationIT" test` (exit 0; migration IT may conditionally skip without its isolated MySQL variables). No refund was sent and no database was accessed or modified.
+- **Changes / outstanding:** Existing in-progress Feature 003 edits remain untouched. No refund orchestration code or migration was added for this question. The approved Operations/Booking payment boundaries and oldest-first allocation remain in place; T021–T024 remain unchecked.
+- **Decision required to resume:** For a customer cancellation that satisfies the unused-ticket/no-session-start rules but has a policy refund of `0₫`, should Settlement (a) reject the cancellation as ineligible and preserve the booking, or (b) accept a no-refund cancellation and invoke a separately typed Operations cancellation consequence that does not require provider evidence? If (b), approve that Operations operation and its idempotency/audit semantics. No provider refund request may be used as a substitute for this missing transition.
+
+### Resolution — owner selected rejection when computed refund is zero — 2026-10-31
+
+The Feature 003 owner selected option A: when customer-cancellation policy computes a zero refund, reject the request as ineligible and preserve the booking, tickets, and capacity. This resolves BE-DESIGN-0009. The decision is recorded in 003.3 `spec.md`, `data-model.md`, and T021. T021–T024 may resume subject to the remaining implementation and verification gates; no provider request or database operation was performed for this decision.
+
+### BE-DESIGN-0010 — verified terminal refund evidence is undefined — 2026-10-31T18:53:10+07:00
+
+- **Reporter / scope / status:** Codex implementation agent; Feature 003.3 T022 and its prerequisite T038; `BLOCKED`.
+- **Design sources:** `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/tasks.md` T022, T037–T038 and dependency lines 137–146; the approved Feature 003 refund decisions requiring pending state until verified provider evidence; the official VNPay QueryDR/refund contract at `https://sandbox.vnpayment.vn/apis/docs/truy-van-hoan-tien/querydr%26refund.html`.
+- **Observed facts:** T037 explicitly treats refund API `vnp_ResponseCode=00` as request acceptance only. VNPay documents refund `vnp_TransactionStatus=05` as processing, `06` as sent to the bank, and `09` as refund declined. The current `VnpayMerchantOperationsPort` has `queryTransaction` for the original payment and refund request methods, but no refund-specific reconciliation command. Its implementation validates QueryDR against the original payment owner amount; that does not establish the outcome/amount of one partial refund allocation. The 003.3 contract requires only signed, matching provider evidence and does not specify which later evidence/status makes that refund allocation terminally successful.
+- **Unknown / why implementation cannot proceed safely:** It is not established whether a refund is VERIFIED only after a signed QueryDR response reports transaction status `00`, whether an additional provider transaction reference must be queried, or whether another provider-confirmed reconciliation is required. It is also not specified how QueryDR distinguishes one refund allocation from the original payment or multiple partial refunds sharing its merchant reference. Treating request acceptance or status `06` as completed could cause Settlement to report a refund and revoke tickets/capacity before completion; retrying an UNKNOWN request could duplicate the refund.
+- **Verification:** Read the T022/T037/T038 dependency and port/adapter implementation; checked the official VNPay contract. No source, test, migration, task marker, database, or provider request was changed for this blocker.
+- **Changes / outstanding:** No source files were changed in this turn. The prior Feature 003 working-tree changes remain untouched; T022 and T038 remain unchecked. No database was accessed and no Sandbox request was sent.
+- **Decision needed to resume:** Approve a precise VERIFIED condition and reconciliation identity for each refund operation: which signed provider response/query fields prove the allocated amount has completed, how a specific partial refund is located and matched to its original payment, and which provider statuses remain pending or rejected. The answer must be grounded in VNPay’s supported API contract or explicit provider confirmation before T022 can complete or invoke the Operations refund consequence.
+
+### Resolution follow-up — owner accepted fail-closed VNPay refund reconciliation — 2026-10-31T18:54:00+07:00
+
+The Feature 003 owner approved the conservative rule: refund API response code `00` is acceptance only; statuses `05`/`06` remain pending; status `09` is rejected; cancellation consequences require verified provider evidence matching the refund operation and exact amount. VNPay's official QueryDR request contract includes the optional provider `vnp_TransactionNo`; its QueryDR response includes transaction number, type, amount, and transaction status, with `00` denoting a successful transaction. The implementation contract now uses that returned refund transaction number to query a specific refund and requires a signed response matching the original merchant reference, provider transaction number, `02`/`03` type, exact allocated amount, and transaction status `00`. Any absent/mismatched/nonterminal result remains unknown or pending. No live VNPay call has been made to validate Sandbox behavior; fake-transport acceptance does not claim live compatibility.
+
+### BE-DESIGN-0011 — customer cancellation/refund persistence design is not approved — 2026-10-31T19:03:03+07:00
+
+- **Reporter / scope / status:** Codex implementation agent; Feature 003.3 T021–T024; `BLOCKED`.
+- **Design sources:** `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/plan.md` sections on persistence and verification; `data-model.md` opening disclaimer and Settlement Case / refund-allocation concepts; `tasks.md` T021–T024; `ppswbs_backend/AGENT.md` sections 3–6.
+- **Observed facts:** T021 must retain a customer-cancellation policy/eligibility snapshot and calculated refund. T022 must durably record one refund operation per original payment before dispatch and retain each provider lifecycle/result. The data model describes those concepts but explicitly says it is not an approved schema, migration, field/index, or locking design. The plan likewise says no schema or locking technique is approved. Existing `settlement_cases` and `settlement_refund_policy_snapshots` do not represent an immutable per-cancellation snapshot with earliest-session facts and an auditable eligibility result; no Settlement-owned child refund-allocation table/entity currently exists. The approved aggregate-first/oldest-payment-first rule and refund-evidence terminal rule resolve business semantics but do not approve persistence/locking mechanics.
+- **Why implementation cannot proceed safely:** Implementing T021/T022 requires choosing whether to extend existing generic tables or add new append-only tables, how the cancellation snapshot links immutably to its case and payment facts, how one allocation per original payment is uniquely constrained, and how concurrent requests claim/replay the case and allocation before external dispatch. These are physical schema, transaction and idempotency contracts explicitly left open by the plan. Guessing can permit duplicate provider refunds, lose the policy basis, or make the case appear resolved without durable allocation evidence.
+- **Verification:** Read the current plan/data model/tasks, V30 settlement migration, Settlement entities/repositories, and the `AGENT.md` implementation gates. No additional source, test, migration, task marker, database, or provider request was changed in this blocker pass. The previously run targeted fake-transport/unit suite passed, while `WorkshopSettlementMigrationIT` skipped without its isolated MySQL variables; that does not approve or verify a new refund-allocation schema.
+- **Changes / outstanding:** Only this operational blocker record is appended. Existing in-progress Feature 003 working-tree edits, including the partial T038 adapter implementation and tests, remain untouched. T021–T024 remain unchecked; T038 remains unchecked pending its complete acceptance evidence.
+- **Decision required to resume:** Approve a physical persistence and concurrency design for T021/T022: (1) customer cancellation case snapshot fields and immutable link to the generic case; (2) refund-allocation record identity/unique key and retained original-payment/provider references, amount and lifecycle; (3) transaction/claim/idempotency and recovery behavior before/after external dispatch; and (4) migration/upgrade evidence requirements. Recommendation: append a new migration with a dedicated customer-cancellation snapshot and child refund-allocation table, keyed by opaque case/allocation references, unique by case plus original merchant payment reference, and use the existing paymentintegration operation journal as the provider-call idempotency boundary. Do not start T021/T022 until this design is approved and recorded in the artifacts.
+
+### BE-DESIGN-0012 — customer cancellation cannot verify package-output release state — 2026-10-31T19:09:00+07:00
+
+- **Reporter / scope / status:** Codex implementation agent; Feature 003.3 T021–T024; `BLOCKED`.
+- **Design sources:** `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/spec.md` FR-014 through FR-017 and the “Settlement and change rules” package-output release rule; `tasks.md` T021; `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md` cancellation eligibility boundary; current `WorkshopOperationsFacade` and Settlement bill/evidence services.
+- **Observed facts:** FR-014 requires customer cancellation to have no required session started and no package output released. The approved Operations eligibility projection returns eligibility, earliest required-session start, checked-in and no-show facts; Settlement can derive whether the earliest session is still in the future. Neither Operations nor Settlement exposes or persists an authoritative `packageOutputReleased` fact. `FinalBookingBillService` can mark a bill `FINALIZED`, but its model does not record whether package output was actually released; eligibility cannot be inferred from final-bill status without conflating “releasable” with “released.” No package-output release event/operation or owning facade was found in the current implementation.
+- **Why implementation cannot proceed safely:** T021 must fail closed when an output has already been released. Treating a finalized/paid bill as proof of release can reject a valid cancellation; treating it as unreleased can approve a cancellation after the output was delivered. Inventing a Settlement-local flag would not establish truth if another feature owns actual delivery. The new persistence design approval covers cancellation and allocation records, not this business eligibility source.
+- **Verification:** Read the cited spec clauses and searched Feature 003 artifacts/source for package-output release state and handoff. No source, test, migration, task marker, database or provider request was changed after finding this gap; only this blocker record was appended. No test was run in this blocker pass.
+- **Changes / outstanding:** T021–T024 remain unchecked. Existing partial T038 implementation remains untouched. The physical schema design approval is recorded, but implementation is paused until the output-release fact has an authoritative source.
+- **Decision required to resume:** Confirm one V1 rule: (A) no package-output release operation exists in this version, so customer cancellation may treat output as unreleased until a named release operation is introduced; or (B) identify the feature/facade that owns release state and approve a typed query for T021. Recommendation: A only if the product owner confirms there is no output release action before cancellation is implemented. Do not infer this from bill status.
+
+### Resolution — workshop product is handed over after its session — 2026-10-31
+
+The Feature 003 owner clarified that the customer receives the workshop product after their workshop session. Customer cancellation is permitted only while every required session remains unstarted. Therefore, an eligible cancellation cannot already have handed over the product; a separate package-output release state/query would be redundant. This rule is recorded in 003.3 `spec.md`, `data-model.md`, and T021. BE-DESIGN-0012 is resolved; the previously approved persistence design remains in force. Implementation may resume subject to the other `AGENT.md` gates.
+
+### BE-DESIGN-0013 — cross-key duplicate customer cancellation is not defined — 2026-10-31T19:26:26+07:00
+
+- **Reporter / scope / status:** Codex implementation agent; Feature 003.3 T021–T024; `BLOCKED`.
+- **Design sources:** 003.3 `spec.md` FR-013a and FR-016–FR-017; `tasks.md` T021–T022; approved settlement persistence design; `WorkshopSettlementAuthorizationService` and `SettlementIdempotencyService`.
+- **Observed facts:** Client idempotency replays only a request using the same key and semantic fingerprint. The approved child allocation uniqueness is scoped to `(case, original merchant payment reference)`. Neither rule prevents two concurrent cancellation requests for the same booking using different idempotency keys from opening separate cases and allocating refunds against the same verified deposit.
+- **Why implementation cannot proceed safely:** Both requests could pass eligibility and create different provider operation references before either refund is verified. That can issue two partial/full refunds against one original payment. Preventing it requires a booking-level cancellation claim/uniqueness rule, including whether a rejected case may be opened again; neither behavior is currently stated in the contract.
+- **Verification:** Read the current cancellation requirements, idempotency implementation, allocation design and Operations refund consequence facade. No source, migration, task marker, database, or provider request was changed for this blocker. Existing Feature 003 working-tree edits were left untouched.
+- **Changes / outstanding:** Only this blocker record is appended. T021–T024 remain unchecked. No test was run in this blocker pass.
+- **Decision required to resume:** Choose whether a booking may ever have a second customer-cancellation case after the first is rejected. Recommendation: one cancellation case per booking; same-key/same-content replays the stored outcome, while any new key for a booking with an existing case returns that case or a conflict and creates no refund operation. If reopening is allowed, define the eligible prior statuses and the database claim/release rule first.
+
+### Resolution — one customer-cancellation case per booking — 2026-10-31T19:27:54+07:00
+
+The Feature 003 owner selected one cancellation case per booking, including when the first case is rejected. The same idempotency key replays its retained outcome; a new key cannot create a second case or refund operation. This resolves BE-DESIGN-0013 and permits a unique booking-reference claim in the cancellation snapshot.
+
+### BE-DESIGN-0014 — refund-pending case status conflicts across artifacts — 2026-10-31T19:27:54+07:00
+
+- **Reporter / scope / status:** Codex implementation agent; Feature 003.3 T021–T024; `BLOCKED`.
+- **Design sources:** 003.3 `spec.md` FR-017; `data-model.md` Settlement Case lifecycle; `contracts/workshop-settlement.openapi.yaml` `SettlementCase.status` enum.
+- **Observed facts:** FR-017 requires `REFUND_PENDING` until gateway outcome is confirmed. The data model permits `PENDING_PROVIDER` for gateway-waiting refund/deferred cases, and the OpenAPI public case status enum contains `PENDING_PROVIDER` but not `REFUND_PENDING`. Existing `SettlementCaseStatus` likewise has no `REFUND_PENDING`.
+- **Why implementation cannot proceed safely:** T021/T022 must persist and return a public case lifecycle status while a refund is awaiting verification. Choosing either spelling without resolving the artifact contradiction would produce behavior incompatible with either the normative feature requirement or the public OpenAPI contract.
+- **Verification:** Searched the cited artifacts and current status enum. No source, migration, task marker, database, or provider request was changed after finding the conflict. No test was run in this blocker pass.
+- **Changes / outstanding:** The owner’s one-case-per-booking decision resolves BE-DESIGN-0013. T021–T024 remain unchecked. This record is appended to preserve the newly found blocker.
+- **Decision required to resume:** Choose one canonical public lifecycle value. Recommendation: use `PENDING_PROVIDER` consistently for both refund and deferred cases, and update FR-017 to match the already-defined data model and OpenAPI enum. Alternatively, approve adding `REFUND_PENDING` as a distinct public status and update both data model and OpenAPI.
+
+### Resolution — use PENDING_PROVIDER for unverified refund cases — 2026-10-31
+
+The Feature 003 owner selected `PENDING_PROVIDER`. FR-017, the data model and OpenAPI now use the same public case lifecycle value while a refund is awaiting signed provider confirmation. T021–T022 may resume subject to the remaining implementation and verification gates.
+
+### BE-DESIGN-0015 — refund reconciliation has no follow-up trigger or unknown-response path — 2026-10-31T19:36:33+07:00
+
+- **Reporter / scope / status:** Codex implementation agent; Feature 003.3 T022 and T024; `BLOCKED`.
+- **Design sources:** 003.3 `spec.md` FR-017; `tasks.md` T022; the approved refund-evidence rule; `VnpayMerchantOperationsPort.queryRefund` and `VnpayRefundReconciliationCommand`.
+- **Observed facts:** Querying a refund requires the refund's provider transaction number. T022 says to reconcile using that number but defines neither a scheduler/operator trigger and cadence for later QueryDR attempts nor recovery when the refund request becomes `UNKNOWN` without returning a provider refund transaction number. OpenAPI exposes cancellation case opening/read only; it has no reconciliation command. The operation journal does not resend an unknown refund, by design.
+- **Why implementation cannot proceed safely:** An accepted-but-pending refund can remain `PENDING_PROVIDER` indefinitely without a follow-up query. A transport failure or provider code `99` may leave no transaction number to query. Adding polling changes provider-call frequency/retention behavior; adding an operator command changes the public/admin contract; retrying the refund could create a duplicate. None is specified, so choosing one would violate the approved no-duplicate rule or leave cases permanently unresolved without the owner's acceptance.
+- **Verification:** Read T022/FR-017, the public cancellation routes and the typed refund QueryDR port/command. No Java source, migration, test, database or provider request was changed after finding this gap. No test was run in this blocker pass.
+- **Changes / outstanding:** Approved decisions were recorded in `spec.md` (one case per booking; `PENDING_PROVIDER`), `data-model.md` and `plan.md` (dedicated snapshot/allocation persistence and unique booking claim); BE-DESIGN-0013 and BE-DESIGN-0014 are resolved. T021–T024 remain unchecked; no implementation code was added.
+- **Decision required to resume T022:** Approve a reconciliation trigger for known refund transaction numbers (recommended: query immediately after acceptance, then scheduled QueryDR every 5 minutes until terminal or 24 hours, with `05`/`06` pending and no refund resend) and define the path for `UNKNOWN` without a refund transaction number (recommended: keep pending, require manual VNPay Merchant Admin investigation; never auto-retry or mark verified from a screenshot). If the owner wants an in-app manual resolution action instead, its role, evidence fields and audit rules must be specified before API implementation.
+
+### Resolution — poll known refund transactions; keep unqueryable UNKNOWN pending — 2026-10-31
+
+The Feature 003 owner approved an immediate QueryDR after refund acceptance, then five-minute polling for up to 24 hours when a refund transaction number is available. `05`/`06` remain pending, and no refund is resent. An `UNKNOWN` operation without a provider refund transaction number remains `PENDING_PROVIDER` for manual Merchant Admin investigation; the application cannot mark it complete without signed matching QueryDR evidence. This resolves BE-DESIGN-0015. The rule is recorded in 003.3 `spec.md`, `data-model.md`, `plan.md`, and T022.
+
+### BE-DESIGN-0016 — multi-payment cancellation can leave an irreversible partial refund — 2026-10-31T19:46:49+07:00
+
+- **Reporter / scope / status:** Codex implementation agent; Feature 003.3 T021–T024; `BLOCKED`.
+- **Design sources:** `ppswbs-spec/features/003-workshop-management/003.3-workshop-settlement-and-changes/spec.md` FR-015–FR-017; `data-model.md` refund-allocation and verified-consequence rules; `tasks.md` T021–T024 and T038; owner-approved aggregate-first/oldest-payment-first allocation, one refund operation per original payment, and no cancellation consequence until every allocation has verified evidence.
+- **Observed facts:** One cancellation refund total may be allocated across more than one verified original payment. Each allocation is an independent provider refund operation. The accepted design permits one operation to become `VERIFIED` while a later allocation becomes terminal `REJECTED` (`vnp_TransactionStatus=09`). The parent case can be resolved only when every allocation is verified, and Operations cancellation consequences must not run early. No approved rule says what to do after some money is irreversibly refunded but another required allocation is rejected. The provider operation journal deliberately does not resend an operation after an uncertain/terminal outcome.
+- **Concrete scenario:** Two original deposits of 50,000 VND yield a policy refund of 100,000 VND. Settlement refunds the oldest payment; its signed QueryDR confirms 50,000 VND. The refund request for the second payment is then rejected with status `09`. The customer has received 50,000 VND, the booking remains active because the full policy amount is not verified, and the existing one-case-per-booking rule prevents opening another cancellation case. No contract defines whether to retry the rejected payment, issue a replacement refund, keep the case pending for manual action, or close/reject the case while the booking remains active.
+- **Why implementation cannot proceed safely:** Any choice changes payment and booking semantics. Marking the case resolved or applying the Operations consequence would cancel a booking without the full approved refund; marking it rejected/failed leaves the customer with an unexplained partial refund; retrying may violate the one-operation-per-original-payment/idempotency rule or duplicate a refund; keeping it pending indefinitely has no defined recovery once QueryDR has terminally rejected the operation. A safe implementation cannot infer the desired compensation or case status.
+- **Verification:** Read the cited requirements, refund lifecycle model, allocation rule, `VnpayMerchantOperationsPort`/adapter behavior, and Operations refund-consequence boundary. A focused `./mvnw -o -Dtest=VnpayMerchantOperationsAdapterTest test` was attempted and stopped at compilation because the in-progress T022 `WorkshopRefundService` class is not yet present; no test ran. No database or provider endpoint was accessed. Existing working-tree changes were preserved.
+- **Changes / outstanding:** Only this blocker record is appended in this blocker pass. Existing Feature 003 changes, including the in-progress V45 migration and `CustomerBookingCancellationService`, are untouched. T021/T022/T024 remain unchecked; T038 remains unchecked until its focused tests and evidence pass.
+- **Decision required to resume:** Define the outcome when one allocation is verified and a later allocation is terminally rejected. At minimum specify (a) whether cancellation remains active or can proceed, (b) how the already-refunded amount is handled, (c) whether/how the rejected allocation may receive a new provider operation, and (d) the customer-visible case status and operator recovery path. Recommendation: preserve the case as pending manual financial remediation, keep booking/tickets/capacity unchanged, forbid automatic resend, and require a separately authorized/manual compensation procedure before any cancellation consequence. If that is chosen, define the exact approved evidence and state transition; do not count manual screenshots as verified provider evidence.
+
+### Resolution follow-up — partial refund requires manual financial remediation — 2026-10-31
+
+The Feature 003 owner approved the fail-closed recommendation. If any refund allocation is terminally rejected after another allocation has been verified, the rejected allocation remains recorded as `REJECTED`; the customer-cancellation case remains `PENDING_PROVIDER` with a safe manual-remediation reason; no further refund is sent automatically; and Booking tickets/capacity/cancellation state remain unchanged. An operator must investigate/resolve the financial discrepancy outside the automatic flow. The application may apply cancellation consequences only after it has signed, matching provider evidence for the complete policy refund; screenshots or manual assertions are not sufficient. This resolves BE-DESIGN-0016 for automatic T021/T022 behavior. Any future in-app operator compensation workflow requires its own approved contract and task.
+
+### Implementation progress — 2026-10-31
+
+- T038 is implemented and marked complete in the 003.3 task list. Fake-transport/H2 acceptance passed for VNPay full/partial refund type and amount, signed QueryDR matching/status handling, payment ingress, and Settlement evidence. No live VNPay request was sent.
+- T021/T022 implementation is present: cancellation authorization and snapshot/allocation flow, one idempotent refund operation per original payment, immediate QueryDR after acceptance, five-minute polling for up to 24 hours, no resend, verified-only Operations consequence, and the approved partial-refund manual-remediation path. Added unit tests cover Member ownership, Guest proof, aggregate-first rounding, oldest-first allocation, zero-refund rejection, verified-only consequence, pending/unknown outcomes, and later-allocation rejection.
+- T023 cancellation POST/GET routes and controller tests are complete; T023 is marked complete.
+- Latest focused cancellation/controller/refund service suite: 14 tests passed, 0 failures/errors. Broader acceptance command previously passed 34 tests across cancellation, refund, VNPay adapter/ingress, Settlement evidence, and Modulith boundary.
+- MySQL migration test for V45 was updated to assert both cancellation/refund tables and V45 replay. It was not executed against MySQL because the explicitly isolated `WORKSHOP_OTA_TEST_JDBC_URL` is unset; the test was skipped (2 skips). Do not use the owner's existing shared/test database for the migration helper, which creates and removes isolated schemas. T021/T022 remain unchecked pending an owner-approved isolated MySQL migration/upgrade run and remaining T024 acceptance coverage.
+- `git diff --check` reported no whitespace errors. Git emitted existing LF-to-CRLF working-copy warnings. No shared/local MySQL database or VNPay endpoint was accessed; no commit or push was made.
+
+### Implementation update — 2026-10-31T20:07+07:00
+
+- Added Member non-ownership and denied partial/checked-in cancellation persistence cases to `CustomerCancellationIT`; both assert no refund allocation or Operations refund consequence.
+- Added scheduler cutoff coverage proving refund QueryDR selection includes `ACCEPTED`/`UNKNOWN` allocations only when a provider refund transaction number exists, no query is due before five minutes, and allocations older than the 24-hour window are excluded.
+- Re-ran the focused cancellation/refund/VNPay/Modulith command: 42 tests passed, 0 failures/errors/skips. H2 and fake provider transport only.
+- T024 is marked complete based on the acceptance tests. T021/T022 code and H2/fake-provider tests pass, but their task markers remain unchecked until V45's isolated MySQL migration/upgrade verification succeeds. T023 and T038 were already complete.
+- V45's isolated MySQL migration/upgrade verification remains unexecuted because `WORKSHOP_OTA_TEST_JDBC_URL` is unset. No owner DB was used, no live VNPay request was sent, and no commit/push was made.
+
+### BE-DESIGN-0017 — Mland remedy cannot select the booking-time refund policy — IMPLEMENTED; H2 VERIFIED, MYSQL PENDING — 2026-10-31
+
+- **Scope:** 003.3 T028 and 003.1 T061. The initial contract gap is resolved by a Booking-confirmed event and Settlement-owned immutable snapshot; T028 remedy orchestration is implemented.
+- **Observed contract:** `spec.md` FR-021 and `data-model.md` require an Mland-caused remedy to use the immutable refund-policy revision applicable when the booking was confirmed. Policy revisions are prospective. The remedy request supplies the approved `UNAVAILABLE`/`DECLINED` outcome and a cancellation-handoff reference.
+- **Initial repository evidence:** At initial review, `ConfirmedBookingFinancialProjection` and the Booking inter-feature facade contract exposed no booking-confirmation timestamp or Mland refund-policy reference. No Booking-side confirmation snapshot or Settlement-side confirmation-time snapshot writer existed. `SettlementRefundPolicySnapshot` recorded refund amounts but had no capture path for Mland remedy policy at booking confirmation. `MlandCancellationPolicyService` only created/listed future-effective revisions. The durable cancellation handoff recorded affected booking references and its authoritative reference, but did not resolve the missing policy revision.
+- **Original safety concern (resolved by the decision below):** Looking up the latest policy when the Manager opens the remedy would apply a future revision to an already confirmed booking, violating the approved prospective-only rule. Defaulting to 100% for every booking would ignore applicable revisions. A Booking-to-Settlement event and immutable booking-time snapshot were needed; the owner approved that boundary below.
+- **Verification:** The focused suite passed 19/19: `BookingConfirmationIT` 3/3 confirms one durable Spring Modulith `event_publication`, no publication on replay, and the booking-time default snapshot; `MlandBookingRefundPolicySnapshotServiceTest` 3/3 covers policy effective-time and immutable replay; `MlandCancellationRemedyIT` 5/5 covers pending replacement rejection, handoff mismatch, both terminal outcomes, missing-snapshot fail-closed, future revision isolation, persisted partial allocations, and after-commit dispatch; `MlandCancellationRemedyServiceTest` 2/2 covers mismatch and aggregate/FIFO arithmetic; `WorkshopRefundServiceTest` 6/6 covers the refund/QueryDR path. These are H2 tests. V46 has not been applied to MySQL; no owner database or provider endpoint was accessed. The broader `WorkshopBookingModuleTest` still reports pre-existing cross-module cycles through PaymentIngress/facade and `VnpayProperties`; none of its reported violations references the new event/snapshot types.
+- **Decision:** Owner approved a durable Booking-confirmed event with only `bookingReference` and `confirmedAt`, published in the Booking confirmation transaction. Settlement consumes after commit and owns the unique immutable policy snapshot; initial default is `MLAND-CANCELLATION-DEFAULT-100`. Existing bookings are not backfilled from mutable Package/policy state. T028 fails closed until that event has materialized the snapshot.
+- **Resolution work:** Event/snapshot production, remedy calculation/dispatch, and T031 acceptance coverage are in the working tree and their focused H2 tests pass. V46 is additive and aligned with JPA entities but awaits isolated MySQL migration verification.
+
+### 003.3 T030 route completion — 2026-10-31
+
+Added the Manager-only Mland remedy POST and customer-safe remedy GET. GET allows anonymous transport only to evaluate Guest contact proof; service checks exactly one contact proof, Member ownership, Staff location scope, or global Manager authority and returns the safe Settlement case projection. Updated the central refund-policy controller to use the server-resolved `CurrentAccountActor`; it no longer treats the full `Authorization` header as a Firebase UID. Focused T030 tests passed 16/16 across remedy/policy controller tests, policy service tests, remedy service tests, and `MlandCancellationRemedyIT`; Spring context startup found the routes. Tests use H2/mocks; no MySQL/provider call was made. T030 is marked complete. V46 MySQL verification and broader pre-existing Modulith cycle findings remain separate follow-ups.
+
+## BE-DESIGN-0040 — 003.3 T018 deferred-payment route is missing checkout, notification-recipient, and action semantics
+
+- **Recorded at:** 2026-10-31
+- **Feature / task:** 003.3 Workshop Settlement, T006/T018/T020/T032
+- **Status:** `BLOCKED — contract clarification`
+
+### Evidence
+
+- The OpenAPI `POST /api/v1/workshop-bookings/{bookingCode}/deferred-payment-cases` accepts only `ReasonCommand`; the response is a generic safe `SettlementCase`. It defines no reminder or reissue command/route, while T018 requires one permitted reminder and audited reissue after expiry.
+- `PaymentGatewayCheckoutPort` can create only a deposit URL, and its VNPay implementation hard-codes the deposit order purpose. There is no final-bill checkout operation that registers a `FINAL_PAYMENT` owner, creates a 24-hour payment URL and sends matching signed ingress evidence to Settlement. `PaymentOwnerRegistrationPort` can register payment kinds, but that alone does not produce a payable URL.
+- `WorkshopBookingFacade` exposes financial projections and an authorization decision, not the stored guest/member notification recipient. The protected booking notification payload is a separate named boundary intended only for Feature 007. Settlement's notification handoff requires `storedRecipient` before it can emit `SettlementNotificationReady`, so the deferred flow cannot safely prepare a delivery snapshot with the current contracts.
+- Therefore the existing `SettlementNotificationHandoffService` is usable infrastructure but does not by itself satisfy T006/T018. Do not synthesize a deposit link, copy PII from Booking persistence, accept a Manager-supplied arbitrary recipient, or infer reminder/reissue semantics.
+
+### Recommended resolution
+
+1. Add an explicit final-payment checkout port owned by `paymentintegration`, registered as owner kind `FINAL_PAYMENT`, with a server-derived 24-hour expiry and only redacted verified evidence routed to Settlement.
+2. Add a narrow Booking-to-Settlement notification-recipient query that returns only the already stored recipient for an accepted booking and is callable only for an authorized settlement notification handoff. Keep it out of events, audits and logs.
+3. Add explicit Manager commands for one pre-expiry reminder and an audited post-expiry reissue; make a reissue create a new 24-hour final-payment attempt and never extend the old attempt. Keep the existing `ReasonCommand` for initial issue.
+
+Update the 003.1/003.3 inter-feature contract, 003.3 OpenAPI/data model/tasks and payment port contract before implementing the flow. T018, its dependent T020 and the all-routes portion of T032 remain unchecked until those contracts are approved and implemented. No database or provider request was made while recording this blocker.
+
+### Resolution follow-up — no deferred-payment business process — 2026-10-31
+
+The Feature 003 owner confirmed that Mland has no credit/deferred-payment
+process. Therefore the Manager deferral exception, deferred-payment case,
+24-hour debt period, reminder and payment-link reissue are removed from the
+003.3 business/API scope. Every role must have a zero outstanding balance
+backed by verified payment evidence before finalization and workshop product
+output handover. This resolves the business-policy portion of BE-DESIGN-0040;
+the original evidence and recommendation above are retained as history.
+
+The remaining checkout integration is tracked separately as BE-DESIGN-0041.
+`paymentintegration` must define how the final balance is paid during
+settlement, including `FINAL_PAYMENT` owner registration, amount/currency and
+reference binding, idempotency, verified evidence dispatch, and provider
+attempt-expiry semantics. No debt period, reminder, or reissue is implied by
+that checkout contract. T018 remains blocked on that technical owner contract.
+
+The notification recipient gap from BE-DESIGN-0040 also remains for verified
+settlement/refund notifications: the approved Booking notification payload is
+currently callable only by Feature 007 after a Booking handoff, while Settlement
+needs a stored recipient to create its own immutable notification handoff. This
+is tracked as BE-DESIGN-0042 / T006; agree a narrow safe recipient source or
+revise the handoff contract before wiring delivery. Do not expose Booking
+entities or contact PII in events, audits, or logs.
+
+### Resolution follow-up — T018 final-payment checkout contract — 2026-10-31
+
+The Feature 003 owner approved a separate `FINAL_PAYMENT` checkout for the
+server-derived exact outstanding VND balance. Staff in the booking location or
+any active Manager initiates it; the authorized caller receives the short-lived
+VNPay URL/QR for the customer to pay during settlement. The URL expires after
+10 minutes. Attempts are immutable and idempotently bound to booking, unique
+merchant reference, amount, currency, provider create date, and expiry. A
+pending/unknown attempt blocks another attempt; after expiry, QueryDR must
+confirm non-payment before a new attempt is created. Expiry alone is not proof
+of non-payment; late signed success remains processable against its original
+reference. Only verified signed evidence reduces the balance. No credit,
+reminder, or reissue flow is added. These decisions are recorded in the 003.3
+spec, OpenAPI contract, data model, plan, and shared inter-feature contract.
+
+BE-DESIGN-0041's contract-decision blocker is resolved. T018's production path
+is now present in the working tree: staff/Manager endpoint, exact outstanding
+amount calculation, idempotent attempt and owner registration, 10-minute URL,
+verified IPN/QueryDR evidence handling, and QueryDR gating before a retry. The
+backend production sources compile with
+`./mvnw -o -DskipTests compile` (`BUILD SUCCESS`, 2026-10-31). The focused
+controller/API tests passed with
+`./mvnw -o "-Dtest=WorkshopFinalBillControllerTest,WorkshopSettlementProblemHandlerTest" test`
+(7 tests, 0 failures/errors/skips). The route test uses standalone MockMvc and
+mocks, so it proves HTTP binding/response shape only, not the full database and
+provider flow. `WorkshopSettlementMigrationIT` now asserts V47's table,
+columns, and Flyway history entry, but MySQL migration verification remains
+pending because no `WORKSHOP_OTA_TEST_JDBC_*` or
+`WORKSHOP_OPERATIONS_TEST_JDBC_*` variables are set in the current environment.
+No database was touched. T018 remains unchecked until service-level lifecycle
+acceptance and V47 MySQL migration verification pass. T020/T032 remain
+dependent on that evidence.
+BE-DESIGN-0042/T006 is still open and is explained separately to the owner.
+No payment provider was contacted for this implementation check; no commit or
+push was made.
+
+T016/T019 were reopened for implementation verification and are now verified
+by the focused tests recorded in `tasks.md`; T020/T032 remain unchecked until
+their acceptance coverage passes. No database, provider, or live merchant
+endpoint was accessed for this resolution; no commit or push was made.
+
+### T018 service lifecycle verification follow-up — 2026-10-31
+
+Added `FinalPaymentCheckoutServiceTest` for the final-payment amount/owner/expiry
+contract and the expired-attempt QueryDR gate. The first test run exposed an
+incorrect test expectation for the checkout port's `expiresAt` argument; fixed
+the assertion to match the response expiry. Rerun passed:
+`./mvnw -o "-Dtest=FinalPaymentCheckoutServiceTest" test` — 2 tests, 0
+failures/errors/skips (`BUILD SUCCESS`, 2026-10-31). This is mocked service
+coverage, not MySQL migration evidence. `JDBC_URL`, `TEST_JDBC_URL`, and
+`WORKSHOP_OTA_TEST_JDBC_*` are absent from the current environment, so V47
+MySQL migration/upgrade verification remains pending. No database or provider
+was contacted, and T018 remains unchecked until that evidence is available.
+
+### T032 settlement contract coverage follow-up — 2026-10-31
+
+Added a contract route-matrix assertion to `WorkshopSettlementContractIT` for
+all 13 public GET/POST operations in the settlement OpenAPI, including the
+required `Idempotency-Key` request header on every POST. The focused controller
+and problem-handler suite passed (20 tests before the route-matrix assertion
+was added); the updated contract IT passed 3/3. Authorization alternatives,
+idempotency replay/conflict, customer-safe access, cancellation, session
+change, and remedy service tests passed in a separate 24-test focused run.
+`git diff --check` exited 0. No database or provider call was made. T032's
+acceptance coverage is recorded in `tasks.md`; this does not change the open
+T006 notification-recipient blocker, T018 MySQL migration verification, or
+T020's dependency on the notification handoff.
+
+### BE-DESIGN-0043 resolution follow-up - approved OTA-owned verification - 2026-10-31
+
+The owner approved that OTA Connectivity validates its own accepted quote and
+explicit consent, then provides the immutable server-derived amount/currency
+and consent result to Settlement for idempotent bill creation. Preserve the
+existing one-way Modulith dependency `otaconnectivity -> workshopsettlement`;
+Settlement must not call back into OTA, which would create a dependency cycle.
+The 003.4 contract already records quote `ACCEPTED` state, `acceptedAt`, and an
+`acceptanceReference`; this is the source for OTA-side validation. This resolves
+the quote/consent owner question only. A separate bill-model/payment-semantics
+gap is recorded below; T036 remains unchecked.
+
+## BE-DESIGN-0044 - T036 does not define an OTA add-on bill or collection lifecycle
+
+- **Recorded at:** 2026-10-31T23:03:42+07:00
+- **Reporter:** Codex
+- **Feature / task:** 003.3 Workshop Settlement T036 and 003.4 paid OTA add-ons
+- **Status:** `BLOCKED - contract clarification`
+
+### Evidence
+
+- The 003.3 data model defines `SettlementFinalBill` as the one bill for a *direct* booking/package, priced from 003.1's frozen package projection, deposit and remaining balance. It cannot represent an OTA add-on-only bill without importing the OTA guest/package price into Mland settlement or creating a false outstanding balance.
+- 003.4 models accepted add-on quotes (`quoteId`, booking, amount/currency, `ACCEPTED`) and an OTA-side `ota_addon_bill_links` row. Its `direct-bill` API returns a Settlement bill reference/correlation only; it defines no payment attempt, payment status, collection deadline, or handover rule for that bill.
+- T036 asks Settlement to create a direct-Mland add-on bill but has no Settlement-owned add-on bill entity/table or payment-owner kind. Reusing `FINAL_PAYMENT` would bind an OTA add-on to the direct-booking final bill and would violate the separate OTA/Settlement accounting boundary.
+- The 003.4-to-003.3 facade direction is approved and can avoid a Modulith cycle: OTA verifies its accepted quote/consent and calls Settlement with a server-derived snapshot. The remaining bill identity and collection lifecycle are still unspecified.
+
+### Required resolution
+
+Choose whether T036 creates a standalone Settlement-owned OTA add-on bill and whether it must be paid immediately before OTA handover. If immediate collection is required, define the payment owner kind/reference, supported currency (VNPay currently supports VND), attempt expiry, verified-evidence dispatch, and what happens to OTA add-on status until payment is verified. If T036 is bill creation only, define the owner and operational rule that prevents an unpaid add-on from being treated as delivered. Do not reuse the direct-booking final bill or trust browser return as payment evidence.
+
+No T036 code, migration, database, or provider operation was performed. The owner needs to settle the standalone bill and collection semantics before implementation. No commit or push was made.
+
+## BE-DESIGN-0043 - 003.3 T036 OTA add-on bill lacks quote and consent verification boundary
+
+- **Recorded at:** 2026-10-31T23:03:42+07:00
+- **Reporter:** Codex
+- **Feature / task:** 003.3 Workshop Settlement, T036; upstream contract 003.4 OTA Connectivity
+- **Status:** `BLOCKED - contract clarification`
+
+### Evidence
+
+- The shared 003 inter-feature facade contract names `CreateAcceptedOtaAddonBillCommand(bookingReference, acceptedQuoteReference, consentReference, operationReference, correlationReference)` and requires Settlement to validate quote and consent, derive amount/currency from an approved server-side quote, and create one idempotent direct-Mland bill.
+- The 003.4 upstream contract says missing consent or invalid quote must reject without a bill, but does not define a Settlement-callable quote-validation facade or the consent proof/source.
+- Read-only search of current 003 specs and backend sources found no `acceptedQuoteReference`/`consentReference` validation contract or implementation; the OTA facade package has no such published operation.
+- T036 therefore cannot be implemented without inventing which component owns the accepted quote, how consent is proven, and what immutable amount/currency Settlement may trust. Accepting a client amount, trusting the opaque references, or reading OTA persistence directly would violate the existing boundary.
+
+### Required resolution
+
+Define a named 003.4 facade for Settlement to validate an accepted quote and explicit consent. Its result must bind quote to the OTA booking and return only the immutable direct-Mland add-on amount/currency plus a verified consent outcome/reference. Specify whether quote/consent are reusable, expiry and idempotent replay behavior, and the no-bill rejection cases. Then update the shared facade contract and 003.4 contract/data model before implementing T036 and its replay/rejection/finance-separation tests.
+
+No code, migration, database, or provider operation was performed for T036. T036 remains unchecked until this upstream boundary is approved and implemented. Independent T018 verification still needs isolated MySQL V47 evidence; T006 still needs an approved safe notification-recipient provenance boundary. No commit or push was made.
+
+## BE-DESIGN-0052 — 003.4 channel-booking persistence has no public UUID mapping
+
+- **Recorded at:** `2026-10-31T23:23:55+07:00`
+- **Reporter:** Codex
+- **Feature / task:** 003.4 Workshop OTA Connectivity, T029; dependent T031 and US4 financial-evidence tasks T041–T043
+- **Status:** `BLOCKED`
+
+### Sources checked
+
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity.openapi.yaml`, financial-evidence and payout routes and response schemas: `channelBookingId` is a UUID.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity-contract.md`, identifier boundary: identifiers created and owned by OTA, including channel bookings, use UUID format at the OTA REST/facade boundary.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/data-model.md`, `ota_channel_bookings` logical schema: it lists internal `id` and booking snapshot fields but no public UUID reference.
+- `ppswbs_backend/src/main/resources/db/migration/V22__ota_connectivity.sql`, `ota_channel_bookings`: the deployed table has `id BIGINT AUTO_INCREMENT`, mapping/provider booking uniqueness, and snapshot columns, but no UUID/public-reference column.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/tasks.md`, T029 creates channel-booking persistence; T041–T043 require booking-linked payment evidence and payout workflows.
+
+### Observed facts and unknowns
+
+- Fact: the public contract requires a UUID channel-booking identifier, while the existing table only provides an internal numeric primary key. No current OTA channel-booking entity or UUID lookup boundary exists in the implementation.
+- Fact: before this mismatch was detected, this turn added draft persistence classes for T041/T042 and updated the 003.4 full-channel-payment requirements/tasks from the Feature 003 owner's explicit business decision. `mvn -DskipTests compile` passed; no tests were run and no task marker was changed. These changes are preserved and are not claimed complete.
+- Unknown: whether to add a unique immutable `public_reference CHAR(36)` to `ota_channel_bookings` in a new append-only migration, or to revise all public contracts to expose another opaque reference strategy. The former also needs an approved backfill/default strategy if V22 exists in any database; no database was inspected or modified in this turn.
+- Unknown: provider-specific booking callback evidence needed to prove the full accepted amount/currency before booking confirmation. The new readiness and handler task criteria require it, but provider onboarding evidence is not available in these artifacts.
+
+### Why implementation must stop
+
+T029 cannot safely expose a UUID without either adding a stable public reference and migration/backfill rule or changing the API/facade contract. Casting, hashing, or synthesizing a UUID from the BIGINT would invent identity semantics and risk unstable/exposed identifiers. T031 and the channel-payment acceptance path depend on this booking boundary. Do not continue implementation, adjust the schema, or mark T029/T031/T041/T042 complete until the owner resolves the public-reference design and provider evidence requirement.
+
+### Decision required to resume
+
+Approve the channel-booking public reference and migration/backfill strategy, then align the 003.4 logical data model, OpenAPI/facade contract, V22 upgrade path, and implementation tasks. For full-payment readiness, provide or approve the provider-neutral evidence fields/acceptance rule supported by each provider onboarding contract. After those decisions, re-check the task dependencies and verify the schema on an isolated MySQL test database before marking any dependent task complete.
+
+No database, provider, task marker, commit, or push operation was performed in this investigation. The only change after discovering the blocker is this ERROR-LOG entry.
+
+**Owner decision and follow-up (2026-10-31T23:34:24+07:00).** The Feature 003 owner approved retaining numeric internal primary/foreign keys and adding an immutable public UUID reference for OTA channel bookings, following the existing OTA public-reference pattern. V48 adds the column, backfills existing rows with `UUID()`, then enforces non-null uniqueness; the logical data model and JPA booking lookup were aligned. Booking and ticket-link persistence classes were added. `mvn -DskipTests compile`, `mvn -DskipTests test`, and `mvn -Dtest=OtaConnectivityModuleTest test` passed (the latter ran 2 tests). The isolated MySQL migration test was written but not run because this process has no `WORKSHOP_OTA_TEST_JDBC_*` configuration. T029 and dependent markers remain unchecked; provider-specific full-payment and callback evidence remain a separate readiness dependency.
+
+**MySQL verification follow-up (2026-10-31T23:36:22+07:00).** Using the previously approved local test credentials scoped to this one Maven process, `mvn -Dtest=OtaChannelBookingPublicReferenceMigrationIT test` passed: 1 test, 0 failures/errors/skips. The helper created a uniquely named temporary OTA schema, migrated through V47, inserted two pre-existing channel bookings, applied V48, verified distinct UUID references and unchanged numeric IDs, confirmed a repeat migration did nothing, then dropped only its own temporary schema. The configured `ppswbs_workshop_test_20261029` schema was not reset. This verifies the UUID upgrade path but does not complete T029's booking orchestration or provider-evidence acceptance.
+
+**Constraint verification follow-up (2026-10-31T23:38:51+07:00).** The migration IT was expanded and rerun on another isolated temporary MySQL schema. It passed with 1 test, 0 failures/errors/skips. It additionally verified non-null/unique public references, unique participant ordinal and Operations ticket reference, and the inbound-event outcome correlation to the channel-booking UUID. T029 remains unchecked pending a direct JPA snapshot write/read test; T030–T031 still require provider readiness and full-payment callback evidence.
+
+**T029 verification follow-up (2026-10-31T23:40:49+07:00).** `mvn -Dtest=OtaChannelBookingPersistenceIT test` passed on a generated isolated MySQL schema: 1 test, 0 failures/errors/skips. It persisted and reloaded the public booking UUID, immutable commercial/policy snapshot, and two participant ticket links through JPA repositories. Together with the migration, uniqueness, event-correlation, and Modulith tests above, this supports marking T029 `[X]`. Provider authentication/full-payment acceptance and booking orchestration remain T030–T032 work; no real OTA booking was enabled.
+
+## BE-DESIGN-0053 — 003.4 payout ledger reason and related-record persistence are underspecified
+
+- **Recorded at:** `2026-10-31T23:42:13+07:00`
+- **Reporter:** Codex
+- **Feature / task:** 003.4 Workshop OTA Connectivity, T042; later T043 payout reconciliation
+- **Status:** `BLOCKED`
+
+### Scope and sources
+
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/tasks.md`, T042: immutable ledger facts must retain amount, currency, time, reference, **reason**, and related record for gross sale, commission/fee, customer refund, expected/received payout, FX variance, compensation, and adjustment.
+- `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/data-model.md`, payout position/ledger rows and logical entity descriptions: the physical ledger row lists `entry_kind`, amount/currency, external evidence reference, time, and `correlation_reference`, but does not define `reason` or say whether `correlation_reference` is the required related-record reference.
+- `ppswbs_backend/src/main/resources/db/migration/V22__ota_connectivity.sql`, `ota_payout_ledger_entries`: no `reason` or explicit related-record column.
+- `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/persistence/OtaPayoutLedgerEntry.java`: the draft factory/entity likewise has no reason field; `correlationReference` is optional.
+
+### Observation, impact, and work at stop
+
+- Fact: T042's required reason cannot be persisted by the current table/entity. The optional generic correlation does not explicitly establish a related financial record.
+- Unknown: whether every entry kind requires a non-empty reason; whether `correlation_reference` is the approved related-record key or a separate typed reference is required; how any pre-existing ledger rows should be backfilled or represented in an append-only migration.
+- Continuing T042 would require selecting new schema/nullability/backfill semantics without an approved design. T043 cannot reliably explain later adjustments/reversals if those facts have no retained reason or source record.
+- This turn completed T029 public UUID migration, entity/repository and ticket-link persistence, updated its data model and task marker, and ran the isolated MySQL migration and JPA tests (both 1 test, 0 failures/errors/skips), plus the 2-test Modulith check. No T041/T042 files were changed after detecting this blocker, and no T041/T042 marker was changed. The wider working tree was preserved. No commit or push was performed.
+
+### Decision needed to resume
+
+Feature 003 owner should specify whether T042 ledger `reason` is required for every entry or only adjustments/disputes, whether `correlation_reference` is sufficient as the related-record reference or a new field is needed, and the append-only V49 upgrade/backfill rule for any existing ledger rows. Then align the data model/contract and implement the migration, entity, and MySQL tests before marking T042 complete. T041 may be resumed independently once this design blocker is resolved or explicitly scoped out of the current implementation turn.
+
+**Resolution (2026-10-31):** Feature 003 owner approved separate `reason` and `related_record_reference` columns, required for each new ledger entry, with nullable upgrade columns and no invented values for old rows. `correlation_reference` remains a separate trace. V49 implements that schema; the domain factory enforces new-entry values and a closed set of ledger kinds. `OtaPayoutLedgerMigrationIT` verified a V48 row upgrades with its existing facts unchanged and new values null. `OtaChannelBookingPersistenceIT` verified ledger and customer-payment evidence writes/reads in an isolated MySQL schema. `mvn '-Dtest=OtaPayoutLedgerMigrationIT,OtaChannelBookingPersistenceIT' test` passed 4 tests, 0 failures/errors/skips. T041/T042 are marked complete for persistence only; T031 and T043 still own provider full-payment acceptance and reconciliation workflow. No production OTA evidence was claimed.
+
+## BE-DESIGN-0054 — 003.4 payout transition evidence and matching rule need a decision
+
+- **Recorded at:** `2026-10-31T23:54:00+07:00`
+- **Feature / task:** 003.4 Workshop OTA Connectivity, T039/T043
+- **Status:** `BLOCKED` for payout transition workflow; T041/T042 persistence is complete
+
+The spec requires corresponding evidence for each payout stage and a matched payout reference before `PAID_OUT`, while the OpenAPI request contains only kind, amount, reference, and reason. It does not identify the authority for invoice/remittance evidence, how to match partial or multi-booking payouts, or whether an amount/currency variance may advance the position. Implementing automatic state transitions from that request would choose financial semantics not established by provider evidence. Keep T039/T043 unchecked until the Feature 003 owner approves a conservative manual reconciliation rule or provider-specific statement semantics are documented. No payout state transition was implemented in this turn.
+
+**Owner decision follow-up (2026-10-31):** The owner approved Manager-led manual reconciliation: retain invoice/remittance references, move to `PAID_OUT` only on a matching payout reference, adjusted total, and currency; keep variance or missing evidence pending with a dispute; do not allocate a payout grouped across bookings without a per-booking mapping. This resolves the high-level matching policy. Implementation remains gated by the two contract details recorded below.
+
+## BE-DESIGN-0055 — 003.4 payout evidence request cannot express approved correction links
+
+- **Recorded at:** `2026-10-31`
+- **Feature / task:** 003.4 Workshop OTA Connectivity, T039/T043/T044
+- **Status:** `BLOCKED` for workflow implementation; no T043 code or marker changed
+
+The approved manual rule requires separate statement/invoice, remittance, and actual bank-receipt evidence and a link to the original fact for adjustment/reversal. `PayoutReconciliationRequest` currently has only `kind`, `amount`, `reference`, and `reason`; its `kind` list is `PAYOUT`, `VARIANCE`, `DISPUTE`, `ADJUSTMENT`, `REVERSAL`. It has no evidence-stage field, related-record reference, or per-booking allocation reference. The new ledger factory deliberately requires a related-record reference on every fact. The existing position stages require evidence for `ACCRUED`, `INVOICED`, and `PAYOUT_PENDING`, but no contract maps the request to those evidence types. The payout-position amount is immutable while the approved rule requires an adjusted expected total; the sign/allocation of refund, fee, compensation, and adjustment facts is not specified per provider.
+
+Before implementation, approve a contract revision that distinguishes evidence type/stage, identifies the original ledger fact for correction, and defines how Manager records an adjusted expected amount with supporting provider terms. Deduplicate by booking + evidence kind + evidence reference, reject conflicting replay, and never advance to `PAID_OUT` on a mismatch or an unallocated grouped payout. The existing partial T041/T042 persistence and unrelated working-tree changes are preserved.
+
+**Resolution (2026-11-01):** The Feature 003 owner approved public ledger UUIDs, evidence-stage types, signed Manager adjustments, linked reversals, booking-specific bank allocations, replay conflict rules, and verified bank receipt before `PAID_OUT`. V50 backfills public UUIDs and adds evidence type/allocation; V51 stores the payout reference shared by remittance and bank receipt. The reconciliation service locks the OTA booking/position, advances the five payout stages only with ordered evidence, keeps mismatches pending with a dispute item, and supports append-only reversal of an adjustment or erroneous bank receipt. The original expected position and earlier ledger facts remain unchanged. `OtaPayoutReconciliationIT` covers normal payout, partial and wrong-currency receipts, wrong payout reference, adjustment/reversal, idempotent replay and role denial. Isolated MySQL run `mvn '-Dtest=OtaPayoutReconciliationIT,OtaPayoutLedgerMigrationIT,OtaChannelBookingPersistenceIT' test -q` passed 9 tests, 0 failures/errors/skips, after V51 migration. T039/T043 are complete for the Manager application workflow; T040 still depends on T031 full OTA payment evidence, and T044 still owns HTTP/DTO/UI integration. No provider payout statement or production OTA connection was claimed.
