@@ -20,6 +20,22 @@ VNPay amount is the sum of the branch-order item totals and the accepted GHTK
 charges shown separately in checkout; one GHTK shipment is never shared across
 branches.
 
+## Chargeable-weight rule
+
+For FE-08 V1, every ordered ready ring contributes a fixed **50 grams** of
+estimated chargeable weight, including packaging. A GHTK fee quote and later
+shipment request calculate the branch parcel weight as:
+
+```text
+branchChargeableWeightGrams = sum(ring quantity in the branch) x 50
+```
+
+The calculation is server-side and branch-specific: two rings shipped from one
+branch quote at 100 grams, while one ring from each of two branches produces two
+separate 50-gram quotes. This fixed estimate replaces per-product or
+per-variant weight/dimension inputs for V1; neither the Member nor Staff may
+override it.
+
 ## Authentication and transport
 
 - Mland calls GHTK server-to-server over HTTPS.
@@ -36,7 +52,7 @@ branches.
 
 | Operation | Provider shape | Mland behavior |
 | --- | --- | --- |
-| Fee quote | `GET /services/shipment/fee` | Call before order creation using the authenticated Member's current cart/branch context, destination, weight in grams, declared value and approved service. Return a server-issued quote identifier bound to the Member, branch, cart version, recipient input, fee components and expiry. The quote request creates no order, hold or payment attempt, and checkout never trusts a client-supplied fee. |
+| Fee quote | `GET /services/shipment/fee` | Call before order creation using the authenticated Member's current cart/branch context, destination, server-calculated branch chargeable weight in grams, declared value and approved service. Return a server-issued quote identifier bound to the Member, branch, cart version, recipient input, fee components, calculated weight and expiry. The quote request creates no order, hold or payment attempt, and checkout never trusts a client-supplied fee. |
 | Create shipment | `POST /services/shipment/order` | Call after verified grouped payment for each paid GHTK branch order. Use that order's immutable Mland partner order ID. Store provider label/tracking identifiers exactly once. No COD collection. |
 | Read status | `GET /services/shipment/v2/{TRACKING_ORDER}` | Use the stored label ID or partner ID to reconcile a missing/stale webhook. Normalize current status and estimate. |
 | Status webhook | Provider `POST` to Mland callback | Validate required fields, deduplicate, reject stale regressions, persist normalized evidence, then acknowledge valid updates with HTTP 200. |

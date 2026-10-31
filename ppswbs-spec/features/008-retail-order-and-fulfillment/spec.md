@@ -62,8 +62,9 @@ configuration, accounting, or executive reporting in FE-10.
 ### FE-02 to FE-08 ownership boundary
 
 - FE-02 owns the published product catalogue, product and variant identity,
-  configuration eligibility, displayed price inputs, availability inputs, and
-  shipping attributes such as package weight and dimensions.
+  configuration eligibility, displayed price inputs, and availability inputs.
+  For FE-08 V1 GHTK quotation, FE-08 owns the fixed chargeable-weight rule
+  defined below; FE-02 does not need to supply per-variant weight or dimensions.
 - FE-08 owns the Member purchase command and all purchase-side state: adding a
   configured variant to the Member's cart, editing the cart, checkout, payment,
   order history, order details, and retail fulfilment.
@@ -82,7 +83,7 @@ configuration, accounting, or executive reporting in FE-10.
 ### Session 2026-10-22
 
 - Q: Should an unpaid retail checkout hold expire after 15 minutes from checkout acceptance, releasing held quantities and benefits when no valid full payment is confirmed? → A: Yes. The system automatically expires the hold after a maximum of 15 minutes, releases the held quantities and benefits, and sends late payment evidence to manual operational review instead of reopening the expired hold automatically.
-- Q: Should package weight and dimensions used for GHTK quotation come from each product or variant? → A: Yes. FE-02 owns the authoritative shipping weight and package dimensions for each eligible product or variant; FE-08 uses that data for the quote and shipment request and does not silently replace it with a Staff-entered value.
+- Q: How is chargeable weight calculated for a ready-ring GHTK quote? → A: FE-08 uses a fixed estimate of 50 grams for every ordered ring, including its packaging. For each branch parcel, chargeable weight equals the sum of ordered ring quantities in that branch multiplied by 50 grams. This V1 rule does not require per-product weight or dimensions from FE-02 and does not accept a Staff override.
 - Q: When GHTK returns multiple fee components, which components should be included in the Member's payable checkout total? → A: Include the delivery fee and only mandatory surcharges explicitly approved by Mland; do not automatically include GHTK insurance fees.
 - Q: If VNPay confirms payment but GHTK shipment creation fails, how should the system handle the paid order? → A: Preserve the paid Mland order in a shipment-pending state, notify or surface the exception to Staff, and retry safely with the same partner order identifier; do not create a duplicate shipment or automatically refund the Member.
 - Q: When a Member views a GHTK order, how much tracking information should be displayed? → A: Display only the latest normalized carrier status, the latest update time, and the provider-supplied estimated delivery date when available; do not expose the raw provider event history.
@@ -608,6 +609,12 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   the VNPay initiation attempt and its `paymentInitiatedAt` time. Once in
   `PAYMENT_INITIATED`, the system MUST reject self-cancellation and retain the
   checkout for payment-result reconciliation.
+- **FR-08-040**: For every GHTK branch quote, the system MUST calculate the
+  estimated chargeable weight as 50 grams multiplied by the total ordered-ring
+  quantity in that branch. The 50 grams include packaging, the calculation MUST
+  be performed server-side, and the resulting branch weight MUST be included in
+  the quote and accepted shipment snapshot. V1 MUST NOT request or accept a
+  per-product, per-variant, or Staff-entered weight override.
 
 ### Logical Data Ownership
 
@@ -778,10 +785,11 @@ not be inferred from a browser redirect.
   collection. Provider settlement and shop-side carrier invoicing remain
   outside this feature.
 - The approved GHTK fee quote is based on an authoritative pickup location,
-  recipient destination, package weight, declared value, and selected service.
-  FE-02 must provide authoritative package weight and any required dimensions
-  for each eligible product or variant before quoting; Staff does not override
-  those values silently during fulfilment.
+  recipient destination, estimated chargeable weight, declared value, and
+  selected service. For FE-08 V1, each ordered ring contributes a fixed 50
+  grams including packaging; the branch parcel weight is the sum of its ring
+  quantities multiplied by 50 grams. Staff does not override this value during
+  fulfilment, and FE-02 need not provide product-specific weights or dimensions.
 - If the provider fee changes between quote and shipment creation, the system
   does not silently reprice the already paid order; it records an operational
   exception for Staff follow-up.

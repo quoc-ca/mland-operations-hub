@@ -66,18 +66,20 @@ provider contract is ready for go-live.
 
 ## Decision 5: Fee and package inputs
 
-- **Decision**: FE-02 owns authoritative shipping weight and package
-  dimensions for each eligible product/variant. FE-08 sends the calculated
-  package weight and declared order value for a fee quote. Checkout charges the
-  delivery fee plus only Mland-approved mandatory surcharges; optional
-  insurance is not silently charged.
+- **Decision**: FE-08 uses a fixed estimated chargeable weight of 50 grams per
+  ordered ready ring, including packaging. It calculates each branch parcel as
+  the total ordered-ring quantity in that branch multiplied by 50 grams, then
+  sends that server-calculated weight and declared order value for a fee quote.
+  FE-02 need not provide per-product weight or dimensions for V1. Checkout
+  charges the delivery fee plus only Mland-approved mandatory surcharges;
+  optional insurance is not silently charged.
 - **Rationale**: The Member needs a stable fee before payment, and the same
   accepted snapshot must be used for shipment creation. Staff may report an
   operational mismatch, but cannot silently reprice a paid order.
-- **Alternatives considered**: Staff-entered weight was rejected as the normal
-  source because it would make pre-payment quotation unreliable. A fixed
-  category profile was rejected because product variants may have different
-  packaging.
+- **Alternatives considered**: Staff-entered weight was rejected because it
+  would make pre-payment quotation unreliable. Per-product or per-variant
+  weights were deferred because ready rings are small and the project accepts
+  the fixed 50-gram estimate for V1.
 
 ## Decision 6: Idempotency, webhook, and reconciliation behavior
 
