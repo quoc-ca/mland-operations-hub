@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -9,9 +9,15 @@
 
 ## Summary
 
+Every active canonical Manager has global authority for Manager-authorized
+003.3 actions, including policy reads/revisions and cross-location booking
+changes. Staff-authorized actions remain location-scoped; Member ownership and
+explicitly Admin-only actions remain unchanged. There is no central Manager tier.
+
 003.3 owns direct-Mland post-workshop settlement: exactly one final bill for one
-booking/package, accepted additional charges, verified final payment, deferred
-payment, whole-booking refund, Manager-mediated required-session change, and
+booking/package, accepted additional charges, a short-lived final-payment
+checkout attempt, verified final payment before package-output handover,
+whole-booking refund, Manager-mediated required-session change, and
 Mland-caused cancellation remedy. It is not an item/session finance system, cart,
 OTA payment system, capacity owner, or normal check-in system.
 
@@ -22,8 +28,8 @@ OTA payment system, capacity owner, or normal check-in system.
 | Platform | Java 21/Spring Boot REST backend and a separate React + Vite client; no SSR. |
 | Module | Spring Modulith; only explicit owner facades cross business modules. |
 | Persistence | MySQL/JPA and append-only Flyway migrations when implementation is authorized. |
-| Identity | Firebase bearer token proves identity; Account Management supplies canonical role/status, ownership and location scope, while Settlement applies its own branch/resource action rules. |
-| Payment | VNPay only. Shared `paymentintegration` verifies IPN/QueryDR evidence once and routes redacted final-payment/refund evidence to 003.3; browser Return URL is display-only. |
+| Identity | Firebase bearer token proves identity; Account Management supplies canonical role/status, ownership and location facts. Active Manager authority is global for Manager actions; Staff actions use canonical `workshop_location.id` and `activeLocationIds`. |
+| Payment | VNPay only. Shared `paymentintegration` owns provider credentials, immutable `FINAL_PAYMENT`/refund owner registry, checkout URL generation, provider attempt expiry, outbound QueryDR/refund protocol and operation journal. 003.3 requests the server-derived outstanding VND amount using a typed technical port and stable idempotency reference; each final-payment URL expires after 10 minutes. Pending/unknown attempts block another attempt until QueryDR confirms non-payment. `paymentintegration` verifies inbound IPN/QueryDR evidence and dispatches redacted evidence to 003.3. Browser Return URL is display-only. |
 | Contract | Versioned `/api/v1` REST contract in `contracts/workshop-settlement.openapi.yaml`. |
 | Validation | Module-boundary, authorization, lifecycle, idempotency, facade, contract, migration-upgrade and recovery evidence. |
 
@@ -32,7 +38,7 @@ OTA payment system, capacity owner, or normal check-in system.
 | Gate | Result | Evidence / condition |
 | --- | --- | --- |
 | Module integrity | PASS | 003.3 consumes only the named 003.1/003.2 facades and owns only settlement records/cases. |
-| Identity and sensitive data | PASS with FE-001 dependency | Firebase is identity-only; server rechecks canonical account facts plus Settlement's branch/resource action rules. No contact proof, raw token, QR payload, provider secret or raw callback is retained in audit. |
+| Identity and sensitive data | PASS with FE-001 dependency | Firebase is identity-only; server rechecks canonical account facts plus Settlement's location/resource action rules. No contact proof, raw token, QR payload, provider secret or raw callback is retained in audit. |
 | REST and frontend | PASS | The OpenAPI contract defines resource routes, authorization alternatives, idempotency, safe projections and typed errors. React consumes REST only. |
 | State, failure and idempotency | PASS | Client commands retain idempotent outcomes; verified provider transaction/reference deduplicates IPN/QueryDR. Cases have explicit lifecycle and correlation. |
 | Data evolution | PASS with rollout condition | Only dev/test without retained booking/customer data may reset after preflight. Data-bearing environments require append-only preservation migration, upgrade test, recovery/rollback evidence. |
@@ -43,7 +49,7 @@ OTA payment system, capacity owner, or normal check-in system.
 paymentintegration ─ verified final-payment/refund evidence ─► 003.3
 003.1 Booking ─ confirmed financial projection / FULLY_PAID conclusion ─► 003.3
 003.2 Operations ─ readiness / atomic replacement / verified-refund effect ─► 003.3
-FE-001 Account ─ current authorization, ownership and branch scope ─► 003.3
+FE-001 Account ─ current authorization, ownership and location scope ─► 003.3
 VNPay ─ signed IPN / QueryDR evidence ─► paymentintegration
 003.3 ─ reference-only post-commit settlement notification handoff ─► Feature 007
 ```
@@ -54,7 +60,13 @@ VNPay ─ signed IPN / QueryDR evidence ─► paymentintegration
 | Sessions, capacity, entitlements, attendance, cancellation state | 003.2 | Read/change only through `WorkshopOperationsFacade`. |
 | Final bill, charge, payment/refund/change case and settlement audit | 003.3 | Authoritative owner. |
 | Canonical account role/status, ownership and location scope | FE-001 | Recheck facts at every protected command; Settlement applies its own action rules and never infers authority from display roles or claims. |
-| Delivery | Feature 007 | Immutable settlement handoff is persisted with accepted Settlement state; a post-commit reference event only lets Feature 007 read the facade payload, deduplicate and retry. Delivery cannot settle a bill or refund. |
+| Delivery | Feature 007 | Verified settlement/refund notification handoff is persisted with accepted state; its post-commit reference event lets Feature 007 read the facade payload, deduplicate and retry. Recipient/content expire after 30 days. Payload contains no payment-action link and delivery cannot settle a bill or refund. |
+
+Workshop Branch is not a second resource in this feature: every booking,
+session, catalogue and audit scope is the canonical `workshop_location.id`.
+For Staff actions Settlement compares it directly with `activeLocationIds`;
+Manager-authorized actions are global. It stores neither a separate branch
+identifier nor a branch-to-location mapping.
 
 The concrete owner operations and boundary types are fixed by the shared
 [003 internal facade contract](../contracts/workshop-interfeature-facades.md).
@@ -79,23 +91,22 @@ The final bill is available only after 003.2 reports every required session as
 ### Charges and bill access
 
 Customer selection is limited to an eligible fixed-price catalogue add-on for
-the booking package/branch. The server derives its price from the catalogue
+the booking package/location. The server derives its price from the catalogue
 snapshot. An owning Member uses authenticated ownership; a Guest supplies the
 booking code plus exactly one stored phone or email per request. The command is
 rejected once the bill is finalized. Magic Link is read-only.
 
-Only in-scope Staff/Manager may create/confirm variable material or service
+Staff in the booking location or any active Manager may create/confirm variable material or service
 charges. The command has description, VND amount and reason and produces audit
 evidence. A customer cannot submit a variable price/name. Final-bill reads return
 a customer-safe projection only after Member ownership or Guest contact proof.
 
 ### Cases and lifecycle
 
-Customer cancellation, required-session change, deferred payment and
-Mland-caused remedy are booking-scoped, auditable cases. A case moves from
-`OPEN` to `RESOLVED`, `REJECTED`, or `FAILED`; only a gateway-waiting refund or
-deferred flow may be `PENDING_PROVIDER`, and only deferred payment may be
-`EXPIRED`. Each case is read through its booking and `caseReference`, never by
+Customer cancellation, required-session change and Mland-caused remedy are
+booking-scoped, auditable cases. A case moves from
+`OPEN` to `RESOLVED`, `REJECTED`, or `FAILED`; only a gateway-waiting refund may
+be `PENDING_PROVIDER`. Each case is read through its booking and `caseReference`, never by
 ticket/session.
 
 For a required-session replacement, Manager supplies the whole target session
@@ -105,7 +116,7 @@ authoritative `cancellationHandoffReference`; an `UNAVAILABLE` or `DECLINED`
 remedy references the same handoff. A remedy refund uses the booking's retained
 policy snapshot, not a caller amount.
 
-The central Manager alone reads or revises central refund-policy history. A
+Any active Manager may read or revise global refund-policy history. A
 revision has a future effective time, integral percentage `0..100`, applies only
 to later-confirmed bookings, and computes its snapshot refund as
 `floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND. A customer
@@ -128,6 +139,20 @@ currency before its local idempotent outcome. QueryDR is outbound Mland-to-VNPay
 reconciliation only. Browser Return URL has no settlement route and never
 confirms a bill.
 
+Outbound Merchant API requests are owned by `paymentintegration` and exposed to
+business code only through typed technical ports in `common.payment`, avoiding
+a Modulith cycle between the inbound dispatcher and 003.3. Each operation uses
+an opaque caller operation reference as its idempotency key; the operation row
+and a generated VNPay RequestId are committed before network I/O. Reusing the
+same operation reference with the same request returns its retained outcome;
+changed content conflicts. No automatic network retry is performed. A timeout,
+transport failure, or provider response `99` is retained as `UNKNOWN`; the
+caller must start a distinct QueryDR operation to reconcile. A refund response
+`00` means the refund request was accepted, not that funds were returned. Only
+a signature-verified QueryDR result can be presented as reconciliation evidence
+to 003.3. Its original `vnp_CreateDate` is supplied as the transaction date;
+unknown outcomes never cause an automatic second refund.
+
 ## Public REST Design
 
 The contract is the normative transport detail in
@@ -136,9 +161,9 @@ The contract is the normative transport detail in
 | Resource group | Public route family | Authority / proof |
 | --- | --- | --- |
 | Final bill | `/api/v1/workshop-bookings/{bookingCode}/final-bill` | Member ownership, Guest contact proof for read/customer fixed add-on; in-scope Staff for create/finalization. |
-| Charges | `/final-bill/charges` | Customer fixed catalogue selection, or in-scope Staff/Manager variable charge. |
-| Settlement cases | `/.../{case-collection}` and `/{caseReference}` | Customer cancellation/read by ownership/proof; Manager for change, deferred and remedy. |
-| Refund policy | `/api/v1/workshop-refund-policies` | Central Manager only. |
+| Charges | `/final-bill/charges` | Customer fixed catalogue selection, Staff in booking-location scope, or any active Manager globally for variable charges. |
+| Settlement cases | `/.../{case-collection}` and `/{caseReference}` | Customer cancellation/read by ownership/proof; Manager for required-session change and Mland remedy. |
+| Refund policy | `/api/v1/workshop-refund-policies` | Any active Manager, global scope. |
 | VNPay ingress | Shared integration contract | `paymentintegration` owns the signed GET; this feature never owns the provider route. |
 
 All client write routes declare `Idempotency-Key`, and all responses use a safe
@@ -149,12 +174,23 @@ input to `400`, missing/invalid authentication to `401`, authority denial to
 
 ## State and Data Design
 
-`data-model.md` describes conceptual records only. Implementation selects actual
-table/column/index/lock/migration details later. In particular, no schema or
-locking technique is approved by this plan. State retention is required for bills,
-charges, cases, redacted payment evidence, policy snapshots, audit evidence and
-idempotency outcomes; a React client holds only response state and must recover
-by re-reading the safe resource/case projection.
+`data-model.md` describes conceptual records except for the approved
+customer-cancellation/refund persistence contract: append a Flyway migration
+with dedicated cancellation-snapshot and refund-allocation tables; allow one
+customer-cancellation case per booking using a unique booking reference; link
+each snapshot to its settlement case; enforce one allocation per case plus
+original merchant payment reference and a unique provider operation reference.
+Persist all allocations before dispatch, call paymentintegration only after the
+Settlement transaction commits, and use its operation journal as the provider
+idempotency boundary. QueryDR runs immediately after a refund is accepted and
+every five minutes for up to 24 hours when the refund transaction number is
+known. Unknown outcomes without a refund transaction number remain pending for
+manual Merchant Admin investigation; the application never marks them complete
+without signed matching QueryDR evidence and never resends a refund. No test/live
+database reset is permitted. Other
+records retain only the schema decisions explicitly represented by existing
+migrations. A React client holds only response state and must recover by
+re-reading the safe resource/case projection.
 
 ## Validation and Rollout
 
@@ -164,10 +200,12 @@ by re-reading the safe resource/case projection.
   evidence; a browser Return URL must never settle state.
 - Test facade-only module boundaries with `ApplicationModules.verify()` and
   contract tests for all-or-none replacement/refund consequence.
-- Test Guest/Member proof, branch authority, inactive/out-of-scope denial and
+- Test Guest/Member proof, location authority, inactive/out-of-scope denial and
   no-side-effect failure paths.
 - Test preservation migration on an upgrade copy plus recovery/rollback evidence
   before data-bearing deployment. Do not reset staging/production data.
+- Test concurrent cancellation requests with different idempotency keys for the
+  same booking; the unique booking claim must prevent a second case/allocation.
 
 ## Readiness and Dependencies
 
@@ -176,8 +214,8 @@ by re-reading the safe resource/case projection.
 | 003.1 confirmed booking projection and `FULLY_PAID` conclusion | Concrete facade contract | 003.3 consumes only the typed owner boundary. |
 | 003.2 readiness, replacement, refund consequence and cancellation handoff | Concrete facade contract | 003.3 consumes only typed owner outcomes. |
 | FE-001 account facts/scope | Approved dependency assumption | Implementation consumes canonical role/status, ownership and location scope; Settlement owns its action rules and does not edit FE-001 or use display roles/claims as authority. |
-| VNPay merchant credential, configured callback URL, QueryDR/refund access | Configuration blocker | The shared [VNPay configuration preflight](../contracts/vnpay-configuration-preflight.md) is the sole non-secret checklist for 003.1 and 003.3. Provider adapter/configuration tasks remain blocked; semantics/contract are ready. |
-| Settlement-to-007 notification handoff | Defined cross-feature boundary | Immutable handoff, reference-only event and payload facade are fixed in the shared facade contract. Feature 007 provider configuration remains external; Settlement commits independently. |
+| VNPay merchant credential, configured callback URL, QueryDR/refund access | External configuration/evidence blocker | Protocol and fake-backed adapter can be implemented locally. Live requests remain disabled until the shared [VNPay configuration preflight](../contracts/vnpay-configuration-preflight.md) is satisfied. |
+| Settlement-to-007 notification handoff | Defined cross-feature boundary | Durable handoff, reference-only event and payload facade are fixed in the shared facade contract. Recipient/content are retained up to 30 days; payment-action links are not part of settlement notifications. Feature 007 provider configuration remains external; Settlement commits independently. |
 | Shared VNPay ingress/dispatch | Defined cross-feature boundary | Canonical route and dispatch rules live in `../contracts/vnpay-payment-ingress.openapi.yaml` and the facade contract; merchant credentials/configuration remain blocked. |
 
 ## Design Challenge Review

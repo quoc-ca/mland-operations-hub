@@ -65,6 +65,30 @@ public class AccountFacadeImpl implements AccountFacade {
             });
     }
 
+    /**
+     * Provisional cross-feature contract for Workshop Operations 003.2,
+     * created per FE-001 owner confirmation; FE-001 owner to review upon branch merge.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<TargetAccountSnapshot> getTargetAccount(Long accountId) {
+        if (accountId == null) {
+            return Optional.empty();
+        }
+        return accountRepository.findById(accountId)
+            .map(account -> {
+                List<Long> activeLocations = locationAssignmentRepository.findByAccountIdAndActiveTrue(account.getId()).stream()
+                    .map(AccountLocationAssignment::getLocationId)
+                    .toList();
+                return new TargetAccountSnapshot(
+                    account.getId(),
+                    mapRole(account.getRole()),
+                    mapStatus(account.getStatus()),
+                    activeLocations
+                );
+            });
+    }
+
     private ActorRole mapRole(edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole role) {
         if (role == null) return ActorRole.MEMBER;
         return ActorRole.valueOf(role.name());

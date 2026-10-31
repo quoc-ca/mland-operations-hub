@@ -1,61 +1,78 @@
-# Implementation Plan: AI Chatbox Analysis and Suggestion
+# Implementation Plan: Independent Feature-04 Design Workspace
 
-**Date created**: 2026-10-21
-**Date updated**: 2026-10-24
-**Author**: Ngô Tiến Đạt
-**Last updated by**: Ngô Tiến Đạt
+**Date created**: 2026-10-21  
+**Date updated**: 2026-10-28  
+**Author**: Ngô Tiến Đạt  
+**Last updated by**: Ngô Tiến Đạt  
 
 ## Summary
 
-Implement Feature-04 as a bounded capability around text support, Member booking-design analysis, and Manager advisory price suggestions. Keep booking, catalogue, review, payment and custom-manufacturing business state in their owning modules.
+Rebase Feature-04 from booking-dependent design analysis to an independent Design
+Request capability. Basic AI Support and Manager price suggestion remain separate
+use cases. Feature-04 may use Account Management and, only when explicitly needed,
+an approved Catalogue facade. It has no Workshop Booking dependency.
 
-## Technical context
+## Blocking decisions before code
 
-- Java 21, Spring Boot, Spring Modulith, Spring Data JPA, MySQL and Flyway.
-- React + Vite frontend consuming the REST contract; the backend does not render
-  Feature-04 pages and no Thymeleaf/htmx baseline is introduced.
-- Firebase Admin SDK verifies protected identity; Mland authorization resolves role/status.
-- Gemini is accessed through ports/adapters; provider calls are outside business locks.
-- No raw SQL in application code and no direct cross-module repository/entity access.
+1. Guest Design Request access and secure ownership proof.
+2. Whether a text-only Design Request is valid.
+3. Whether all requests or only AI-image requests require Staff/Manager review.
+4. Withdraw/revision behavior and approval expiry.
+5. Independent image-retention duration after processing.
 
-## Module and boundary design
+These are product, authorization and data decisions, not implementation defaults.
 
-Create or extend the approved `designreview`/AI feature boundary with:
+## Required code rework
 
-- `facade/`: `AiChatboxFacade`, `DesignAnalysisFacade`, `PriceSuggestionFacade`.
-- `application/`: use-case orchestration, authorization, version/idempotency and transaction boundaries.
-- `domain/`: request/version/status/value objects and invariants.
-- `infrastructure/`: JPA repositories, Gemini adapter, storage adapter and provider mappers.
-- `web/`: REST DTO/controller; the React + Vite client owns Feature-04 screens and
-  maps API states to accessible loading, validation, denial and recovery states.
+The current backend must be reworked, not patched around, because it currently:
 
-The final module name and whether basic AI support is a subpackage of `designreview` must be confirmed against the existing Modulith package inventory before code. No other module may access its repositories or entities. The logical role mapping is `Manager → OWNER` and `Admin → ADMIN_TECHNICAL`; this does not change the Feature-04 permission matrix.
+- accepts `bookingCode` and `designVersion` in a booking context and calls booking eligibility;
+- stores booking-specific fields and consent purpose;
+- imports the legacy booking facade/package;
+- routes review by booking/branch/value assumptions;
+- uses booking-dependent request idempotency and test fixtures;
+- exposes booking-based screen/API semantics.
+
+The agent must remove these dependencies after the decisions above are approved.
+
+## Module boundary
+
+```text
+designreview → accountmanagement::facade
+designreview → catalogue::facade (optional opaque context only)
+```
+
+No import, facade call, entity or repository from Workshop Booking, Workshop
+Operations, Settlement, Payment or Ticketing is allowed.
 
 ## Delivery slices
 
-1. Ratify contract, role boundary, consent, retention and state model.
-2. Add logical persistence mapping and versioned migration only after the mapping is approved.
-3. Implement basic AI support with scope/rate/response validation and retention cleanup.
-4. Implement Member booking-design submission, temporary storage, Gemini analysis, deletion and idempotent retry.
-5. Implement Staff/Manager review list/detail/decision with threshold and branch/delegation authorization.
-6. Implement Manager price suggestion and manual fallback; keep catalogue application/publication separate.
-7. Add OpenAPI, React + Vite screen implementation, jobs/cleanup registration and complete verification.
+1. Approve ownership/review/retention decisions and update spec/design/contract.
+2. Replace booking-dependent DesignRequest schema with independent owner/version model.
+3. Rework identity and ownership extraction for Member and approved Guest proof.
+4. Rework image consent, temporary storage, validation, rate limit and idempotency.
+5. Rework AI analysis and result state without booking eligibility or booking snapshots.
+6. Rework human review scope, decision lifecycle, revision, withdrawal and audit.
+7. Keep price suggestion isolated and enforce Manager/Admin visibility.
+8. Update migration append-only, tests, OpenAPI and frontend screens.
+9. Run Modulith, MySQL migration, contract, security, concurrency and E2E verification.
 
-## External adapter contract
+## Provider boundaries
 
-- `AiTextSupportPort`: sanitized public context in, validated text response or typed provider failure out.
-- `ImageFeatureAnalysisPort`: consented temporary image reference/context in, versioned candidate feature result out.
-- `AiPriceSuggestionPort`: complete package/product pricing input snapshot in, advisory suggestion out.
-- `ReferenceImageStoragePort`: temporary put/get/delete with retry-safe deletion result.
+- `AiTextSupportPort`: normalized public prompt in, safe text result out.
+- `ImageFeatureAnalysisPort`: validated temporary image plus allowlisted independent context in, candidate result out.
+- `AiPriceSuggestionPort`: validated catalogue proposal snapshot in, advisory result out.
+- `ReferenceImageStoragePort`: temporary put/get/delete with observable retry-safe cleanup.
 
-Adapters must use correlation IDs, a 30-second provider timeout, safe error mapping,
-no raw payload logging and provider-neutral domain results. Basic AI prompts are
-limited to 2,000 characters. Booking-design images are limited to 10 MB and
-4096×4096 pixels and are deleted after processing.
+All provider calls use correlation IDs, a 30-second timeout, safe error mapping and
+no raw payload logging. Prompt max is 2,000 characters; image max is 10 MB and
+4096×4096. AI never changes business state.
 
-## Acceptance and rollout gates
+## Verification gates
 
-- Spec, data model, OpenAPI, tasks and checklists are reviewed before code.
-- Provider credentials/model, migration mapping, MFA enforcement/recovery,
-  deployment and production quality targets remain explicit external gates.
-- No production image processing or provider credentials are enabled by this feature artifact alone.
+- No booking field/import/facade remains in Feature-04.
+- No Design Request action mutates booking, payment, capacity, ticket or custom-order state.
+- Ownership isolation and approved Guest proof are tested.
+- Image consent precedes storage/provider call; rate limiting is atomic.
+- OpenAPI, data model, design, tasks and code agree on independent flow.
+- Flyway clean-install and upgrade tests pass without version-collision workaround.

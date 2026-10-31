@@ -41,21 +41,21 @@ An Admin may receive a separate, purpose-limited `Parameter Impact Summary` for 
 - Q: Which reporting period loads by default when a Manager first opens the dashboard? → A: The current calendar month, from the first day through the current time in Vietnam time (UTC+7).
 - Q: Which branch scope loads by default when a Manager first opens the dashboard? → A: All branches within the Manager's authorized scope.
 - Q: What is the authoritative source of a Manager's permitted branch scope? →
-  A: MySQL `staff_branch_assignment` records. An active Manager may view only
+  A: MySQL `account_location_assignments` records. An active Manager may view only
   branch IDs in active assignments; no active assignment means no FE-10 access.
   Firebase claims and frontend state do not grant or widen that scope.
 - Q: Which authorization capability permits executive dashboard access? → A:
   `REPORTING_EXECUTIVE_VIEW`. Only an active account with that capability and
-  at least one active `staff_branch_assignment` may access FE-10; Admin does
+  at least one active `account_location_assignments` record may access FE-10; Admin does
   not receive it automatically from parameter-configuration authority.
 - Q: Which key joins a Manager assignment with retail and workshop reporting
-  facts? → A: One immutable `branchId`. `staff_branch_assignment`, retail
+  facts? → A: One immutable `locationId: Long`. `account_location_assignments`, retail
   branch orders, workshop sessions/final invoices, and check-ins reference the
   same ID. A branch name is display-only and may change without changing scope
   or aggregation.
-- Q: What format does the immutable common `branchId` use? → A: UUID. The UUID
-  is generated once for the branch and reused by assignment, retail, workshop,
-  and attendance records; it is never derived from the branch display name.
+- Q: What format does the immutable common `locationId` use? → A: `Long`. The
+  location ID is reused by assignment, retail, workshop, and attendance records;
+  it is never derived from the location display name.
 - Q: Which reporting-period filters must FE-10 V1 support? → A: Calendar day, week, month, and year in Vietnam time (UTC+7), without a custom date range.
 - Q: When must FE-10 refresh its dashboard data? → A: Reload on initial page load, filter application, or explicit Manager refresh; do not refresh automatically on a timer.
 
@@ -126,7 +126,7 @@ and complete source states and verifies that each state is represented distinctl
 
 - **FR-001**: The system MUST allow an authenticated active account with
   `REPORTING_EXECUTIVE_VIEW` and at least one active
-  `staff_branch_assignment` to open the Manager Dashboard.
+  `account_location_assignments` to open the Manager Dashboard.
 - **FR-002**: The system MUST display exactly five read-only KPI summary cards
   for the selected permitted scope: verified retail revenue, verified workshop
   revenue, total verified revenue, paid retail order count, and workshop
@@ -137,8 +137,8 @@ and complete source states and verifies that each state is represented distinctl
 - **FR-004**: When the Executive Revenue Dashboard opens, the system MUST load a default reporting period beginning at 00:00:00 on the first day of the current calendar month and ending at the current time, interpreted in Vietnam time (UTC+7), across all branches within the Manager's authorized scope.
 - **FR-005**: The system MUST allow the Manager to select a calendar day, Monday-through-Sunday calendar week, calendar month, or calendar year in Vietnam time (UTC+7); V1 MUST NOT provide a custom date-range filter.
 - **FR-006**: The system MUST allow the Manager to select only stable branch
-  identifiers within the Manager's active `staff_branch_assignment` scope. The
-  identifier MUST be the immutable common `branchId`, never a branch name or
+  identifiers within the Manager's active `account_location_assignments` scope. The
+  identifier MUST be the immutable common `locationId: Long`, never a branch name or
   free-text workshop location.
 - **FR-007**: The system MUST calculate dashboard metrics from verified recorded business data for the selected period and scope.
 - **FR-008**: The system MUST display verified retail revenue and the count of fully paid retail branch orders supplied by the retail order domain.
@@ -205,7 +205,7 @@ and complete source states and verifies that each state is represented distinctl
 - FE-08 remains the owner of retail order and verified retail payment outcomes; FE-10 reads those outcomes and does not re-decide payment validity.
 - The workshop feature remains the owner of workshop schedules, attendance, capacity, and utilization facts.
 - Mland's MySQL authorization data determines whether a user is an authorized
-  Manager. Active `staff_branch_assignment` records determine the branches in
+  Manager. Active `account_location_assignments` records determine the locations in
   scope; Firebase claims and frontend state do not grant or widen that scope.
 - Dashboard values are based on verified recorded business data; pending, failed, or missing transactions are not treated as revenue. A workshop deposit is not counted separately once its fully paid final invoice is recognized, and the fully-paid date assigns that revenue to a reporting period.
 - For a grouped retail payment, each discount is allocated to the applicable branch order before revenue aggregation; delivery fees remain separate from branch and total store revenue.

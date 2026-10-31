@@ -62,8 +62,9 @@ configuration, accounting, or executive reporting in FE-10.
 ### FE-02 to FE-08 ownership boundary
 
 - FE-02 owns the published product catalogue, product and variant identity,
-  configuration eligibility, displayed price inputs, availability inputs, and
-  shipping attributes such as package weight and dimensions.
+  configuration eligibility, displayed price inputs, and availability inputs.
+  For FE-08 V1 GHTK quotation, FE-08 owns the fixed chargeable-weight rule
+  defined below; FE-02 does not need to supply per-variant weight or dimensions.
 - FE-08 owns the Member purchase command and all purchase-side state: adding a
   configured variant to the Member's cart, editing the cart, checkout, payment,
   order history, order details, and retail fulfilment.
@@ -82,7 +83,7 @@ configuration, accounting, or executive reporting in FE-10.
 ### Session 2026-10-22
 
 - Q: Should an unpaid retail checkout hold expire after 15 minutes from checkout acceptance, releasing held quantities and benefits when no valid full payment is confirmed? → A: Yes. The system automatically expires the hold after a maximum of 15 minutes, releases the held quantities and benefits, and sends late payment evidence to manual operational review instead of reopening the expired hold automatically.
-- Q: Should package weight and dimensions used for GHTK quotation come from each product or variant? → A: Yes. FE-02 owns the authoritative shipping weight and package dimensions for each eligible product or variant; FE-08 uses that data for the quote and shipment request and does not silently replace it with a Staff-entered value.
+- Q: How is chargeable weight calculated for a ready-ring GHTK quote? → A: FE-08 uses a fixed estimate of 50 grams for every ordered ring, including its packaging. For each branch parcel, chargeable weight equals the sum of ordered ring quantities in that branch multiplied by 50 grams. This V1 rule does not require per-product weight or dimensions from FE-02 and does not accept a Staff override.
 - Q: When GHTK returns multiple fee components, which components should be included in the Member's payable checkout total? → A: Include the delivery fee and only mandatory surcharges explicitly approved by Mland; do not automatically include GHTK insurance fees.
 - Q: If VNPay confirms payment but GHTK shipment creation fails, how should the system handle the paid order? → A: Preserve the paid Mland order in a shipment-pending state, notify or surface the exception to Staff, and retry safely with the same partner order identifier; do not create a duplicate shipment or automatically refund the Member.
 - Q: When a Member views a GHTK order, how much tracking information should be displayed? → A: Display only the latest normalized carrier status, the latest update time, and the provider-supplied estimated delivery date when available; do not expose the raw provider event history.
@@ -150,6 +151,10 @@ configuration, accounting, or executive reporting in FE-10.
   releases inventory and held benefits and restores the cart; once payment has
   been initiated, the checkout cannot be self-cancelled because provider payment
   evidence may still arrive and must be reconciled safely.
+- Q: What if the cart is full or its variant quantity limit prevents restoring
+  every cancelled item? → A: Complete the cancellation and release the holds,
+  restore only what fits without removing existing cart items, and report the
+  unrestored quantity to the Member. Repeated cancellation returns the saved result.
 - Q: How is an approved zero-total grouped checkout completed? → A: FE-08 does
   not initiate VNPay. It records one idempotent internal zero-total acceptance,
   settles the reserved benefits, grants any eligible earned points, and proceeds
@@ -336,6 +341,12 @@ status and estimated delivery information for the own order.
 
 ### User Story 4 - Process and complete a retail order (Priority: P1)
 
+**Owner decision (2026-10-30):** A Staff member assigned to the order's
+location may mark a pickup order prepared at that location. Cross-location
+Staff access is not permitted. For pickup, the customer shows their order
+information to Staff, who checks it in person and records handover; no
+additional QR scanner or second-account verification is required by FE-08.
+
 As an authorized Staff member or delegated Manager, I want to process a paid
 retail order and record the actual handover so that responsibility and order
 milestones are auditable.
@@ -345,7 +356,7 @@ carrier handoff while the system creates and tracks the paid GHTK shipment
 without unauthorized branch access or invalid state transitions.
 
 **Independent Test**: An authorized shop actor can open an eligible paid order
-within scope, prepare it, and record either an authenticated customer pickup or
+within scope, prepare it, and record either a Staff-confirmed customer pickup or
 the physical GHTK handoff after a successful provider shipment creation.
 
 **Acceptance Scenarios**:
@@ -356,9 +367,9 @@ the physical GHTK handoff after a successful provider shipment creation.
 2. **Given** a paid order has a valid fulfilment choice, **When** the actor
    records preparation, **Then** the system advances the order to the valid
    preparation milestone and prevents later Member fulfilment edits.
-3. **Given** a prepared pickup order and the signed-in owning Member are both
-   present, **When** the actor confirms the actual handover, **Then** the system
-   records pickup once with actor, time, and safe verification evidence.
+3. **Given** a prepared pickup order and the customer shows the order to Staff,
+   **When** an authorized Staff member confirms the actual handover, **Then**
+   the system records pickup once with the Staff actor and time.
 4. **Given** a paid order has GHTK fulfilment selected, **When** the system
    creates the shipment, **Then** it stores the provider tracking identifiers
    exactly once and makes the order eligible for preparation.
@@ -373,6 +384,12 @@ the physical GHTK handoff after a successful provider shipment creation.
 ---
 
 ### User Story 5 - View retail order history and details (Priority: P2)
+
+**Owner decision (2026-10-30):** Display the latest catalogue product name,
+SKU and size where available. The purchased variant, quantity and financial
+amounts remain the immutable facts of the order. When current catalogue data
+cannot be read, keep showing the saved order facts and leave those display
+fields empty.
 
 As a Member, I want to review my order history and order details so that I can
 understand what I purchased and the current fulfilment milestone.
@@ -592,6 +609,12 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   the VNPay initiation attempt and its `paymentInitiatedAt` time. Once in
   `PAYMENT_INITIATED`, the system MUST reject self-cancellation and retain the
   checkout for payment-result reconciliation.
+- **FR-08-040**: For every GHTK branch quote, the system MUST calculate the
+  estimated chargeable weight as 50 grams multiplied by the total ordered-ring
+  quantity in that branch. The 50 grams include packaging, the calculation MUST
+  be performed server-side, and the resulting branch weight MUST be included in
+  the quote and accepted shipment snapshot. V1 MUST NOT request or accept a
+  per-product, per-variant, or Staff-entered weight override.
 
 ### Logical Data Ownership
 
@@ -762,10 +785,11 @@ not be inferred from a browser redirect.
   collection. Provider settlement and shop-side carrier invoicing remain
   outside this feature.
 - The approved GHTK fee quote is based on an authoritative pickup location,
-  recipient destination, package weight, declared value, and selected service.
-  FE-02 must provide authoritative package weight and any required dimensions
-  for each eligible product or variant before quoting; Staff does not override
-  those values silently during fulfilment.
+  recipient destination, estimated chargeable weight, declared value, and
+  selected service. For FE-08 V1, each ordered ring contributes a fixed 50
+  grams including packaging; the branch parcel weight is the sum of its ring
+  quantities multiplied by 50 grams. Staff does not override this value during
+  fulfilment, and FE-02 need not provide product-specific weights or dimensions.
 - If the provider fee changes between quote and shipment creation, the system
   does not silently reprice the already paid order; it records an operational
   exception for Staff follow-up.

@@ -27,13 +27,13 @@ that production revenue reporting may be enabled before the listed gates pass.
 - **Decision**: Verify identity, require the Mland
   `REPORTING_EXECUTIVE_VIEW` capability, and load
   stable authorized branch identifiers from active MySQL
-  `staff_branch_assignment` records before calling any metric facade. An
+  `account_location_assignments` records before calling any metric facade. An
   explicitly requested branch must belong to the complete authorized set; no
   active assignment denies FE-10 access. Admin parameter-configuration
   authority does not imply this capability; missing capability evidence is
   denied by default.
 
-The same immutable `branchId` must be carried by assignment, retail, workshop,
+The same immutable `locationId: Long` must be carried by assignment, retail, workshop,
 and attendance facts. Reporting never authorizes or aggregates by display name
 or free-text workshop location.
 - **Rationale**: Firebase proves identity only; MySQL remains authoritative for

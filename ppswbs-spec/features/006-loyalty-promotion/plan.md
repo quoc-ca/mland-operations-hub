@@ -1,13 +1,13 @@
 # Implementation Plan: Loyalty & Promotion Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-26
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
 **Feature context**: `006-loyalty-promotion` | **Spec**: [spec.md](spec.md)  
 **Git branch**: `khuong` giữ nguyên. `006-loyalty-promotion` là feature context của SpecKit, không phải nhánh Git được tạo trong tác vụ.  
-**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; thiết kế là baseline cho triển khai, các task phụ thuộc bên ngoài (FE-01 contract xác thực, FE-02 T088/T089/T091, FE-03 và FE-08 source owner theo integration gates G-01–G-05) chỉ bắt đầu khi dependency tương ứng đạt; không phê duyệt deploy.  
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24, duyệt lại ngày 2026-10-26 cùng spec (xem đoạn "Cập nhật 2026-10-26" cuối tài liệu); thiết kế là baseline cho triển khai, các task phụ thuộc bên ngoài (FE-01 contract xác thực, FE-02 T088/T089/T091, FE-03 và FE-08 source owner theo integration gates G-01–G-05) chỉ bắt đầu khi dependency tương ứng đạt; không phê duyệt deploy.  
 **Input**: FE-06 và quyết định1–10, bộ thông số điểm đã chốt; xác nhận bổ sung khi plan về retention tối thiểu5 năm và shared auth theo 001. Chỉ soạn thiết kế.
 
 ## Summary
@@ -27,7 +27,7 @@ Bốn thông số khởi đầu 10.000đ→1 điểm,1 điểm→100đ,min10,tr�
 | Target Platform | Spring Boot REST trong monolith hiện có phục vụ frontend React + Vite tách riêng, dev Windows hỗ trợ Maven wrapper; không chọn host/topology production. |
 | Project Type | Backend Java REST (Spring Modulith) cộng frontend React + Vite client-side rendering tách riêng; không service mới, backend không render UI. |
 | Performance Goals | Ưu tiên correctness theo8 SC; chưa cam kết SLA/throughput production vì chưa có baseline. Pagination20/max100, scope queries indexed/batched, short local transactions, không remote calls dưới lock. Đo contention/latency trên fixture MySQL trước rollout, không tự coi benchmark đã đạt. |
-| Constraints | Current local roles/ownership, privileged assurance từ FE01, shared session theo FE-01/001, UI React chỉ qua REST, no raw SQL application, không reset dữ liệu, không points expiry/tiers/retail returns. |
+| Constraints | Current local roles/ownership, V1 không MFA theo 001, shared session theo FE-01/001, UI React chỉ qua REST, no raw SQL application, không reset dữ liệu, không points expiry/tiers/retail returns. |
 | Scale/Scope | Ba loại chương trình, một wallet/Member, một chương trình/retail hoặc voucher/booking; immutable revisions, component-level receipts. Tổng số Member/transactions production không phải giả định để tự đặt SLA. |
 
 ## Constitution Check
@@ -79,7 +79,8 @@ ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/
     facade/          LoyaltyFacade, PromotionTargetPort, immutable inputs/results
   members/facade/     dependency: verified actor/current capability/authorization guard
   features/productmanagement/  dependency adapter for product target validation
-  features/workshopbooking/  source adapter for workshop target and accepted lifecycle (FE-03, chờ owner chốt layout)
+  features/workshopbooking/  owner 003.1 gọi trực tiếp LoyaltyFacade (preview/reserve/settle/earn/release/restore), không adapter trong loyalty (Cách 2, chốt 2026-10-29)
+  features/workshopoperations/  WORKSHOP provider của PromotionTargetPort (package/branch/session; package thuộc workshopoperations theo BE-DESIGN-0008, V21)
   features/readyringsales/   source adapter for retail checkout/paid/zero/expiry (FE-08 theo 008 plan)
   configuration/    route-scoped API security/CORS wiring
 ppswbs_backend/src/main/resources/
@@ -139,7 +140,7 @@ Trạng thái xác thực và trạng thái nghiệp vụ được tách riêng:
 
 ### Security and web
 
-- API bearer đã verify/revocation; private responses no-store. Frontend React dùng cùng bearer, phiên identity theo FE-01/001, current role/ownership, privileged assurance; không làm login/MFA riêng.
+- API bearer đã verify/revocation; private responses no-store. Frontend React dùng cùng bearer, phiên identity theo FE-01/001, current role/ownership; V1 không MFA theo 001, không làm login/MFA riêng.
 - Identity chưa đủ authority thì fail closed. Technical management chains không dùng permitAll; không thay global security hoặc Member journeys từ feature này.
 - Manager forms quản lí/sửa/dừng/mở lại programs và chính sách điểm; Member kho/My Loyalty; checkout components do màn hình của owner FE-03/FE-08 nhúng. Resume PAUSED→ENABLED dùng cùng quyền, registry WRITE lock, command UUID/expectedVersion và audit; giữ quota/history, không gia hạn hoặc đổi accepted snapshots. React gọi REST với field/conflict errors theo typed error, điều hướng client sau thành công.
 - Không public reserve/paid/completed/earn/refund endpoint. API input strict, safe correlation errors; không log full source proof/token.
@@ -170,14 +171,14 @@ Trạng thái xác thực và trạng thái nghiệp vụ được tách riêng:
 | FR-023–FR-027 | policy/wallet immutable revisions, Manager policy API | Shared balance, exact conversion, version policy change and old snapshot/no-early-use. |
 | FR-028–FR-031 | earn effects/ledger and MyLoyalty | Completed+paid only, net earning/floor, once/retry, own consistent balance/history. |
 | FR-032–FR-038 | lock order/effect states/source proof | Last-slot/same-wallet races, callback vs expiry/cancel, restore partial retry, no guessing unresolved. |
-| FR-039–FR-040 | frontend/error/security and shared identity | React journeys over REST, revoked/current roles, privileged assurance, no Member regression. |
+| FR-039–FR-040 | frontend/error/security and shared identity | React journeys over REST, revoked/current roles, no MFA in V1, no Member regression. |
 | FR-041 | data-model mục7, researchD08 | Retention/ref/unfinished guards, no destructive purge, tombstones and migration preservation. |
 
 [quickstart.md](quickstart.md) có commands, prerequisites, fixture và expected outcomes; runtime suites là kế hoạch, chưa được chạy. Documentation verification sẽ kiểm tra file links, IDs/traceability, OpenAPI syntax/refs/security/key/version coverage và whitespace.
 
 ## Complexity Tracking
 
-Không có constitution exception mới. Registry shared/exclusive gate cần để ổn định eligible candidate set/current policy khi accept; không phải global exclusive mutex cho mọi checkout. Ledger/component receipts và immutable snapshots trực tiếp đáp ứng double-effect/old-policy rules. Không distributed transaction/broker/cache balance/second payment owner.
+Không có constitution exception mới. Registry shared/exclusive gate cần để ổn định eligible candidate set/current policy khi accept; không phải global exclusive mutex cho mọi checkout. Ledger/outcome keys trên accepted benefit và immutable snapshots trực tiếp đáp ứng double-effect/old-policy rules. Không distributed transaction/broker/cache balance/second payment owner.
 
 ## Handoff
 
@@ -191,5 +192,9 @@ Review tích hợp không thấy mâu thuẫn atomicity/lock order/lineage; đã
 
 Runtime/auth/MySQL migration/concurrency/Modulith/source integration tests đều NOT RUN — chưa có implementation/dependency thật. Không ghi static pass thành triển khai hoàn tất hoặc tự đóng G01–G07.
 
+Cập nhật 2026-10-26 (đồng bộ spec): (1) giảm tự động sản phẩm luôn cho kết hợp điểm, `allowPoints` chỉ cấu hình ở voucher; (2) phạm vi sản phẩm chấp nhận sản phẩm chưa công khai/ẩn/ngừng bán, từ chối đã xóa mềm, chương trình không tự dừng khi sản phẩm bị ẩn/xóa sau đó; (3) quyết định cọc workshop B: FE-06 tính `postPromotionAmount`, 003.1 tính `deposit = ceil(post/2)` và `remaining = post - deposit`, FE-06 chỉ snapshot `postPromotionAmount`, không tính/làm tròn/lưu cọc; 003.1→003.3 truyền `frozenPostPromotionAmount`/`frozenRemainingAmount` (chốt 2026-10-26: cọc và còn lại không được lưu trong FE-06, V8 bỏ hai cột tương ứng). (4) thiết kế dữ liệu gọn còn 10 bảng: quota chương trình gộp vào `promotion_program`; quota theo Member và voucher đã lưu gộp thành `promotion_member_program`; effect gộp vào `loyalty_accepted_benefit` (state + outcome key có version) và ledger unique (acceptedBenefitId, entryKind); command receipt gộp vào `loyalty_audit`. Giữ riêng `loyalty_registry`, `promotion_revision` và `promotion_revision_target` để bảo toàn gate khóa, điều khoản bất biến và index tra cứu. Các thay đổi này đã phản ánh ở spec, data-model, interfaces, quickstart, tasks; cần duyệt lại baseline vì phát sinh sau ngày Approved.
+
 Clarification session2026-10-24 chốt2 câu A/A: mở lại cùng program/code không reset quota/history, và report hiện tại loại booking đã hủy hợp lệ nhưng giữ lịch sử. Đã đồng bộ spec FR-008/FR-009, US2.1/US2.8/US2.9, Edge Cases/SC-001, model, research, interfaces, OpenAPI và quickstart; không thay các quyết định đã chốt khác. Số liệu hiện hành sau cập nhật (thay các mốc cũ ở trên):41 FR,66 acceptance scenarios,12 API paths/15 operations/34 schemas,6 mutations có command key; checklist re-evaluate giữ16/16, không sửa nội dung/checkmarks không đổi của checklist. Không còn câu hỏi nghiệp vụ cần clarify; benchmark/SLA production và implementation evidence vẫn theo phạm vi plan/gates.
 
+
+Cập nhật 2026-10-29 (tích hợp workshop, quyết định của owner 003.1 Hồ Hoàng Quốc): (1) **Cách 2** — `workshopbooking` gọi thẳng `LoyaltyFacade` với phụ thuộc một chiều `workshopbooking → loyaltypromotion::facade`; 006 không viết adapter trong module nguồn, chỉ cung cấp [hướng dẫn tích hợp](contracts/workshop-booking-integration.md), `LoyaltyWorkshopFacadeIT` làm luồng mẫu và review. (2) Một transaction accept của booking bao cả giữ chỗ 003.2 (create-and-reserve) và `reserveAcceptedTransaction` (MANDATORY); lỗi bất kỳ rollback cả hai. (3) `WorkshopFact` đổi thành package + participantCount + phí cả gói + danh sách `WorkshopSessionFact(sessionRef UUID, branchId, workshopDate)`; mọi phiên phải khớp voucher; termsDigest gắn package, từng phiên và số người. (4) `quoteRef` do booking tạo và lưu, loyalty không lưu. (5) WORKSHOP provider của `PromotionTargetPort` thuộc `workshopoperations` (package đã chuyển về 003.2 theo BE-DESIGN-0008, `V21__workshop_packages`); trước khi có provider, tạo voucher workshop trả `DEPENDENCY_UNAVAILABLE`.

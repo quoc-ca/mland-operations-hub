@@ -1,7 +1,7 @@
 # Quickstart Validation — FE-06
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24
+**Date updated**: 2026-10-29 (mục 6: lưu giữ dữ liệu và khôi phục vận hành, T074)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -48,7 +48,7 @@ Dữ liệu chương trình sau là fixture, không cấu hình mặc định th
 | Eligible min | Cùng cart, min700.000 | Voucher không đủ ngưỡng vì eligible chỉ600.000, không dùng tổng800.000 để vượt ngưỡng. |
 | Rounding | Eligible33.333, discount7% | Giảm2.333đ; không làm tròn lên hoặc nhân thêm theo quantity. |
 | Min points | NetBeforePoints9.900/10.000, wallet đủ | Max9/10 điểm; case9 không cho dùng; case10 dùng tối đa10. |
-| Workshop | Gross1.000.000, voucher100.000,200points, FE03 fixture deposit50% | Net880.000, deposit440.000, remain440.000; deposit không earn, completed+fullypaid earn88. |
+| Workshop | Gross1.000.000, voucher100.000,200points, 003.1 deposit=ceil(net/2) | FE-06 trả net 880.000 (post_promotion_amount); cọc 440.000 và còn lại 440.000 do 003.1 tính; case lẻ voucher cố định15.001 → net984.999, deposit492.500, remain492.499; deposit không earn, completed+fullypaid earn88. |
 | Earn floor | Net9.999/10.000/19.999 | 0/1/1 điểm, không carry remainder. |
 | No promotion | D=0, P=0 hoặc điểm hợp lệ | Có accepted policy snapshot; earn theo tỷ lệ lúc accept. |
 | Zero | Retail valid0; workshop0 | Retail chốt theo FE08 không gateway, earn0; workshop reject không giữ dở dang. |
@@ -57,7 +57,7 @@ Dữ liệu chương trình sau là fixture, không cấu hình mặc định th
 
 1. **Programs/quotas — US1–US2**: tạo đủ ba kind/scope; mã `TET10`/` tet10 ` trùng; không reuse mã cũ, không đổi immutable fields. Giảm limit6used+2held xuống7 reject; xuống8 accept. Pause rồi resume cùng mã giữ counters/history/deadline; hết hạn/hết lượt vẫn không dùng mới, same command không chuyển trạng thái thêm, stale version/thiếu quyền bị từ chối. Counter và audit rollback cùng update.
 2. **Kho/UI — US3/US8.6**: public labels/terms/allowPoints/limits, Member own kho, nhập trực tiếp normalize, save lặp không quota. Empty khác error. Chạy frontend React + Vite với backend REST và hoàn thành các hành trình cốt lõi qua REST; token thiếu/hết hạn bị từ chối.
-3. **Auth — US1.6/US3.6/US6.4/US8.3/US8.7**: bearer đúng chain, session theo 001/revoked, current DB role/state, privileged assurance; không Member cookie→Manager; Admin bị từ chối chính sách điểm và chương trình ưu đãi. Private response no-store; không leak token/member data qua lỗi.
+3. **Auth — US1.6/US3.6/US6.4/US8.3/US8.7**: bearer đúng chain, session theo 001/revoked, current DB role/state (V1 không MFA theo 001); không Member cookie→Manager; Admin bị từ chối chính sách điểm và chương trình ưu đãi. Private response no-store; không leak token/member data qua lỗi.
 4. **Snapshots — US2.4/US8.4**: accept booking theo policyA, đổi policyB và dừng/hết hạn mã trước ngày hoàn thành; accepted giữ policyA và original deadline, booking mới dùngB/current terms.
 5. **Same wallet/last slot — US7.2**: hai transaction DB độc lập đồng thời retail/workshop tranh point/quota cuối; không âm, không vượt limit, một bên nhận conflict/changed limits phù hợp.
 6. **Atomic creation — US4.7/US5.4**: fault trước/sau reserve/source invoice/capacity/quantity hold; rollback toàn bộ, không accepted source thiếu benefit hoặc orphan held points.
@@ -74,3 +74,23 @@ Nếu dependency chưa có hoặc test selector chưa tồn tại: ghi NOT RUN c
 
 Static checks ở bước lập plan chỉ kiểm tra cấu trúc tài liệu, OpenAPI refs và traceability. Chúng không chứng minh payment, migration, security, locks hoặc tích hợp đã hoạt động.
 
+
+## 6. Lưu giữ dữ liệu và khôi phục vận hành (T074)
+
+Đối chiếu với code ngày 2026-10-29 (develop `f435cac`). Không chốt SLA production; số đo dưới đây chỉ trên database test.
+
+**Lưu giữ tối thiểu 5 năm, không dọn (FR-041, US6.9).**
+- Loyalty không có đường xóa dữ liệu: không gọi `delete*` của repository, không `EntityManager.remove`, không job `@Scheduled` (`LoyaltyRetentionIT`, ArchUnit). `loyalty_audit` là bảng chỉ thêm, mọi cột `updatable = false` (`LoyaltyAuditService`, `LoyaltyAudit`).
+- Mọi khóa ngoại của V10–V12 là `ON DELETE RESTRICT`, không `CASCADE`: không xóa được chương trình, revision, chính sách hay benefit còn được ledger/audit tham chiếu.
+- Số dư không bị xóa hay hết hạn: ví chỉ đổi qua ledger (CHECK `held_after <= balance_after`, không âm).
+- Mã voucher không tái sử dụng: `uk_promotion_program_code_key` trên mọi chương trình kể cả hết hạn/tạm dừng (`LoyaltyMySqlMigrationIT`, `PromotionCreateContractIT`).
+- Bằng chứng chống trùng không mất: một benefit mỗi nguồn (`uk_loyalty_benefit_source`), một ledger mỗi benefit và loại (`uk_loyalty_ledger_benefit_kind`), một receipt mỗi actor/action/command trong `loyalty_audit`.
+- Dữ liệu tối thiểu: audit chỉ có actor ref (ID tài khoản), action, object ref, chi tiết an toàn tối đa 2.000 ký tự và correlation ID tối đa 64 ký tự; không lưu request đầy đủ, token, thông tin cá nhân hay bằng chứng thanh toán thô. `sourceRef` là mã giao dịch của bên nguồn.
+
+**Khôi phục vận hành.**
+- Tắt route hoặc tạm dừng chương trình không giải phóng, không hoàn phần đã giữ: giữ chỉ đổi khi bên nguồn (FE-08/FE-03) gửi outcome qua `LoyaltyFacade`; loyalty không có job tự hết hạn.
+- Không có down-migration: Flyway chỉ thêm, sửa lỗi bằng migration mới.
+- Lock timeout hoặc deadlock rollback cả transaction của bên nguồn và trả `RETRYABLE_CONTENTION`; gửi lại cùng yêu cầu thì thành công, không giữ dở dang (`LoyaltyMySqlConcurrencyIT`, ép thật trên MySQL).
+- Cần theo dõi khi vận hành: số lỗi `RETRYABLE_CONTENTION` và `DEPENDENCY_UNAVAILABLE`; benefit còn `HELD` quá hạn gốc của bên nguồn (bên nguồn chưa gửi outcome); bất biến `held_count + consumed_count <= total_limit` và `held_points <= balance_points` (đã có CHECK trong DB). Chưa có dashboard hay cảnh báo; người chịu trách nhiệm vận hành chưa được chỉ định.
+
+**Số đo trên database test (MySQL 8.4.13, máy dev).** 1.000 dòng lịch sử điểm của một Member, phân trang 100 dòng/lần bằng cursor: 10 trang, không trùng không sót, tổng 509 ms; `EXPLAIN` dùng `idx_loyalty_ledger_member` (`LoyaltyRetentionIT`). `LoyaltyMySqlConcurrencyIT` 11 kịch bản đồng thời chạy trong khoảng 31 giây (gồm 1 giây chờ khóa có chủ đích).

@@ -1,13 +1,13 @@
 # Implementation Plan: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-24 (bổ sung thiết kế import Excel — US9, FR-039–FR-045)
+**Date updated**: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; T004 SDK Cloudinary, T092 Apache POI)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
 **Feature context**: `002-product-management` | **Spec**: [spec.md](spec.md)  
 **Git branch**: `khuong` được giữ nguyên; không tạo/switch nhánh. `002-product-management` là feature context của SpecKit, không phải git branch hiện tại.  
-**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; thiết kế là baseline cho triển khai, các task phụ thuộc bên ngoài (FE-01 contract xác thực, FE-08 nguồn giữ hàng, FE-06 T004, Cloudinary, kế hoạch frontend) chỉ bắt đầu khi dependency tương ứng đạt.   Phần bổ sung import Excel (US9) được duyệt bởi Đặng Thị Khương ngày 2026-10-24.
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; thiết kế là baseline cho triển khai, các task phụ thuộc bên ngoài (FE-01 contract xác thực, FE-08 nguồn giữ hàng, FE-06 T004, Cloudinary, kế hoạch frontend) chỉ bắt đầu khi dependency tương ứng đạt.   Phần bổ sung import Excel (US9) được duyệt bởi Đặng Thị Khương ngày 2026-10-24. Các cập nhật ngày 2026-10-25 và 2026-10-26 (sửa lỗi chữ, Manager quản lí danh mục, phạm vi ưu đãi FE-06, V1 không MFA theo 001, T102, kết quả speckit-analyze) được Đặng Thị Khương duyệt ngày 2026-10-26.
 **Input**: FE-02 có hai quyết định clarify ngày 2026-10-23 và các câu trả lời bổ sung ngày 2026-10-24 về roles, Cloudinary, retention, defaults và hướng A: dùng chung cơ chế xác thực theo FE-01/001, kiểm tra thêm quyền Staff/Manager; MFA/recovery do identity/FE-01 sở hữu. Chỉ hoàn thiện tài liệu, không code/test/migration/deploy.
 
 ## Summary
@@ -24,14 +24,14 @@ Giữ module đóng; JPA/Flyway và MySQL 8.4, REST API versioned phục vụ fr
 | --- | --- |
 | Language/Version | Java 21 theo pom hiện hành. |
 | Primary dependencies | Spring Boot 3.4.1, Modulith 1.3.1, Firebase Admin 9.11.0, JPA/Flyway, Security, Validation theo pom (Thymeleaf còn trong pom nhưng không dùng cho UI); frontend React + Vite tách riêng, chưa khởi tạo; không nâng version. |
-| Storage | MySQL 8.4/InnoDB để kiểm chứng; bảng catalogue mới, DECIMAL(19,0), UTC timestamps, append-only migration. Cloudinary đã được chọn; adapter đề xuất signed server-side upload, authenticated assets và stream cùng origin. SDK version cần pin sau kiểm tra tương thích; không nâng dependency hiện có. |
+| Storage | MySQL 8.4/InnoDB để kiểm chứng; bảng catalogue mới, DECIMAL(19,0), UTC timestamps, append-only migration. Cloudinary đã được chọn; adapter đề xuất signed server-side upload, authenticated assets và stream cùng origin. SDK `com.cloudinary:cloudinary-http5:2.4.0` (T004, duyệt 2026-10-26; xem research D-06); không nâng dependency hiện có. |
 | Testing | JUnit/Spring Boot Test/MockMvc hiện có; MySQL thật cho migration/locking/collation, H2 bổ trợ. Fixture dependency không phải integration evidence. |
 | Target platform | Frontend React + Vite (client-side rendering) tách riêng gọi Spring Boot REST; không chọn production host hoặc deployment topology. |
 | Project type | Spring Modulith modular monolith hiện có, thêm nội dung vào module productmanagement đang là shell. |
 | Performance goals | Chưa baselined; không tự đặt throughput/latency/SLA. Thiết kế batch availability, phân trang và query theo product IDs; kiểm chứng tính đúng trước benchmark. |
 | Constraints | Không khắc; size không thêm/đổi sau lưu; Manager tự duyệt được; giá duyệt/áp dụng/công khai riêng; UI React chỉ qua REST; giữ giá/lịch sử giao dịch; không sửa role mapping ngầm. |
 | Scale/scope | 1–25 variants/product, tối đa 10 ảnh 5.000.000 bytes; 20 product/page và q tối đa 200 đã chốt. Import Excel: ≤ 5.000.000 bytes, ≤ 500 dòng/file (đã chốt). Tổng catalogue/concurrency production chưa xác định. |
-| Excel (US9) | Thư viện đọc/ghi OOXML (đề xuất Apache POI `poi-ooxml`; version pin sau kiểm tra tương thích với Java 21/Boot 3.4.1 và tiền lệ T004, chưa thêm vào pom từ tác vụ tài liệu). Đọc bằng event/streaming API với giới hạn zip-bomb (tỉ lệ nén, kích thước giải nén, số entry) và tắt XXE/external entity; không thực thi công thức/liên kết ngoài. Đặt sau ranh giới `ProductImportParser`/`ImportTemplateWriter` trong `service/importing/` (thay được bằng test double). |
+| Excel (US9) | Thư viện đọc/ghi OOXML (Apache POI `poi-ooxml:5.5.1`, T092, duyệt 2026-10-26; xem research D-10; thêm vào pom khi triển khai T092). Đọc bằng event/streaming API với giới hạn zip-bomb (tỉ lệ nén, kích thước giải nén, số entry) và tắt XXE/external entity; không thực thi công thức/liên kết ngoài. Đặt sau ranh giới `ProductImportParser`/`ImportTemplateWriter` trong `service/importing/` (thay được bằng test double). |
 
 ## Constitution Check
 
@@ -42,13 +42,13 @@ Giữ module đóng; JPA/Flyway và MySQL 8.4, REST API versioned phục vụ fr
 | I. Module ownership | PASS | PASS DESIGN | productmanagement sở hữu entity/repo/use case; chỉ facade/SPI ra ngoài; không nghiệp vụ trong common. |
 | I. Acyclic dependencies | RISK | PASS DESIGN / INTEGRATION OPEN | FE-08 implements productmanagement SPI; productmanagement implements `PromotionTargetPort` của FE-06 (chỉ dùng `loyaltypromotion::facade`, không có chiều ngược lại); lock contract tại [interfaces](contracts/interfaces.md); adapter chưa có. |
 | I. JPA/migrations | PASS | PASS DESIGN | Khóa JPA, append-only migration, không raw SQL application, không sửa migration đã áp dụng (hiện chưa có migration nào). |
-| II. Identity/authority | OPEN | FE-02 DECISION CLOSED / IDENTITY DEPENDENCY OPEN | Roles, dùng chung xác thực theo 001 đã chốt. Phương thức MFA/recovery chung còn cần thiết kế tại identity/FE-01; facade/session/quyền cần triển khai. Không suy quyền từ Member cookie/ROLE_MEMBER/OWNER. |
+| II. Identity/authority | OPEN | FE-02 DECISION CLOSED / IDENTITY DEPENDENCY OPEN | Roles, dùng chung xác thực theo 001 đã chốt. V1 không yêu cầu MFA cho vai trò nội bộ (chốt 2026-10-26 theo 001); facade identity/quyền của 001 cần triển khai. Không suy quyền từ Member cookie/ROLE_MEMBER/OWNER. |
 | II. Sensitive data | PASS | POLICY CONFIRMED / IMPLEMENTATION PENDING | Retention ảnh 24h/30 ngày có reference guard, business audit/command result 5 năm đã chốt; cleanup/audit cần triển khai và kiểm chứng. |
 | III. Contract/web | PASS | PASS DESIGN | OpenAPI 3.0.3, typed errors/DTO, bearer cho mọi REST, frontend React tách riêng; backend không render UI. |
 | IV. Evidence | PASS FOR DOCS | PASS FOR DOCS | Static checks cho tài liệu; runtime/migration/security/MySQL evidence chỉ có sau implementation riêng. |
-| V. Explicit decisions | OPEN | FE-02 QUESTIONS ANSWERED / MFA DEPENDENCY OPEN | Hướng A G-01, Cloudinary G-03, retention G-04, roles và A-001/A-002 đã chốt. Phương thức MFA chung chưa được chọn ở FE-01; không tự chọn hoặc coi dependency đó đã hoàn tất. |
+| V. Explicit decisions | OPEN | FE-02 QUESTIONS ANSWERED / IDENTITY FACADE OPEN | Hướng A G-01, Cloudinary G-03, retention G-04, roles và A-001/A-002 đã chốt. V1 không yêu cầu MFA cho vai trò nội bộ (chốt 2026-10-26 theo 001). Facade identity của 001 chưa triển khai; không coi dependency đó đã hoàn tất. |
 
-**Gate outcome**: Người dùng đã chốt dùng chung cơ chế xác thực theo 001; MFA/recovery thuộc identity/FE-01, chưa chọn phương thức cụ thể. G-01 đóng về hướng tích hợp/phiên FE-02; dependency thiết kế MFA chung còn mở trước bật quản trị. Code identity/FE-08/media có thể sắp thứ tự task; nghiệm thu tích hợp cần implementation thật và bằng chứng. Bản plan vẫn Draft, không cấp quyền code/deploy hoặc tự ratify thiết kế MFA chưa có.
+**Gate outcome**: Người dùng đã chốt dùng chung cơ chế xác thực theo 001; V1 không yêu cầu MFA cho vai trò nội bộ (chốt 2026-10-26 theo 001). G-01 đóng về hướng tích hợp FE-02; còn dependency triển khai facade identity của 001 trước bật quản trị. Code identity/FE-08/media có thể sắp thứ tự task; nghiệm thu tích hợp cần implementation thật và bằng chứng. Plan đã Approved nhưng không cấp quyền deploy.
 
 ## Project Structure
 
@@ -62,6 +62,7 @@ ppswbs-spec/features/002-product-management/
   data-model.md
   quickstart.md
   blocker-report.md
+  validation-report.md   (tạo khi triển khai: evidence của T051, T074, T086, T087, T090)
   checklists/requirements.md
   contracts/interfaces.md
   contracts/product-management.openapi.json
@@ -86,7 +87,7 @@ ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/
                       ImportErrorReportWriter, ProductImportPayloadCleaner (US9)
     facade/           CatalogueSalesFacade, AvailabilityGuardPort, immutable records
   configuration/      route-scoped catalogue API security/CORS wiring only
-  members/facade/     dependency: identity-owned capability/session contract
+  <module 001>/facade/  dependency: facade identity của 001 (tên module do 001 chốt, đề xuất accountmanagement)
   readyringsales/      dependency: adapter for catalogue availability SPI
   features/loyaltypromotion/facade/  dependency: PromotionTargetPort (FE-06) do productmanagement triển khai
 ppswbs_backend/src/main/resources/
@@ -107,7 +108,7 @@ ppswbs_frontend/        (chưa khởi tạo; vị trí dự kiến)
 
 ### Commands and transactions
 
-**Shared authentication — confirmed**: Kế thừa thiết kế xác minh Firebase token, revocation và điều hướng thành công `/` từ [001 spec](../001-account-management/spec.md). phiên theo contract FE-01/001; mọi REST API (kể cả gọi từ React) dùng bearer theo 001 FR-001. Contract xác thực cho frontend React do 001 chốt (D-02a). Giữ nguyên luồng Member; productmanagement kiểm tra quyền nội bộ từng action qua facade. Không coi `/member-auth/profile-session` hoặc cookie `__Host-mland_profile` tự cấp quyền quản trị. MFA/recovery do identity/FE-01 thiết kế và cung cấp kết quả đạt yêu cầu đặc quyền; chưa chọn phương thức cụ thể, không viết luồng login/MFA mới trong productmanagement.
+**Shared authentication — confirmed**: Kế thừa từ [001 spec](../001-account-management/spec.md): Firebase ID token gửi dạng bearer cho mọi REST API (kể cả React), backend xác minh token và kiểm tra thu hồi; role/status/location hiện tại lấy từ MySQL ở mỗi request (001 FR-009/FR-021/FR-026); đăng nhập thành công về Home (001 FR-003). Không có session/cookie riêng của ứng dụng. productmanagement kiểm tra quyền nội bộ từng action qua facade identity của 001. Route/cookie của thiết kế Member Profile cũ đã bị 001 thay thế, không dùng làm bằng chứng xác thực. V1 không yêu cầu MFA cho vai trò nội bộ (chốt 2026-10-26 theo 001); không viết luồng login/MFA riêng trong productmanagement.
 
 1. Resolve verified identity/capability hiện tại bằng facade identity; không trả dữ liệu nội bộ trước authorization. Mọi command có actor, command UUID, expected version và digest của payload chuẩn hóa.
 2. Same actor/action/key + same digest trả receipt đã commit sau authorization; khác digest trả 409. Nếu chưa có receipt, lấy khóa theo contract, validate latest state, thay đổi aggregate + audit + receipt trong cùng transaction.
@@ -159,7 +160,7 @@ Xem [data-model](data-model.md), [OpenAPI](contracts/product-management.openapi.
 
 - Kiểm tra lại migration directory trước cấp số; không dựa số feature để chọn version. Không sửa migration đã áp dụng của feature khác và không backfill role/provider từ phỏng đoán.
 - Apply schema mới trên MySQL trống và bản nâng cấp có member/workshop/price/hold fixture; verify FK, unique name/SKU, pending proposal và rollback audit.
-- Enable route sau khi dependency identity đã hoàn thiện thiết kế MFA chung và triển khai/kiểm chứng auth/session/capability, các dependency cần cho route đã sẵn sàng và spec/plan/tasks review + speckit-analyze. Dùng chung xác thực/Cloudinary/retention đã chốt không hỏi lại. Không mở quyền qua global fallback; default deny khi boundary bắt buộc không có.
+- Enable route sau khi facade identity của 001 đã triển khai/kiểm chứng xác thực bearer, thu hồi và quyền hiện tại (V1 không MFA theo 001), các dependency cần cho route đã sẵn sàng và spec/plan/tasks review + speckit-analyze. Dùng chung xác thực/Cloudinary/retention đã chốt không hỏi lại. Không mở quyền qua global fallback; default deny khi boundary bắt buộc không có.
 - Có thể disable riêng routes productmanagement để recovery; giữ additive tables/history. Không down-migrate/drop hoặc hard-delete sản phẩm, không vô hiệu transaction đã chấp nhận. Tác vụ không triển khai production rollout.
 
 ## Verification strategy and traceability
@@ -188,4 +189,4 @@ Giới hạn kiểm chứng: đây là structural validator tự kiểm tra tài
 
 ## Handoff and open gates
 
-Xem [blocker-report.md](blocker-report.md): các câu hỏi FE-02 đã trả lời; G-01 còn dependency thiết kế MFA chung và triển khai identity, G-02 còn tích hợp FE-08, adapter Cloudinary/cleanup cần triển khai. Không hỏi lại hướng A/provider hoặc giả định các adapter đã có. Sau review thiết kế mới tới speckit-tasks/speckit-analyze và yêu cầu implementation riêng; quản trị chỉ enable khi dependency đặc quyền đầy đủ.
+Xem [blocker-report.md](blocker-report.md): các câu hỏi FE-02 đã trả lời; G-01 còn dependency triển khai facade identity của 001 (V1 không MFA), G-02 còn tích hợp FE-08, adapter Cloudinary/cleanup cần triển khai. Không hỏi lại hướng A/provider hoặc giả định các adapter đã có. Sau review thiết kế mới tới speckit-tasks/speckit-analyze và yêu cầu implementation riêng; quản trị chỉ enable khi facade identity của 001 đã sẵn sàng.

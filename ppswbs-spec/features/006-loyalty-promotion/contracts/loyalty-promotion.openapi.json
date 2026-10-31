@@ -3,7 +3,7 @@
   "info": {
     "title": "FE-06 Loyalty & Promotion API",
     "version": "1.0.0",
-    "description": "Approved technical contract (2026-10-24, Đặng Thị Khương); not yet implemented. Shared verified bearer identity plus current local capability/ownership/privileged assurance required. The separate React + Vite frontend uses these REST operations with the same bearer; source-owned checkout integration is in interfaces.md. No public reserve/settle/earn/restore endpoints. All protected responses no-store."
+    "description": "Approved technical contract (2026-10-24, Đặng Thị Khương); not yet implemented. Shared verified bearer identity plus current local capability and ownership required (V1 requires no MFA, per 001). The separate React + Vite frontend uses these REST operations with the same bearer; source-owned checkout integration is in interfaces.md. No public reserve/settle/earn/restore endpoints. All protected responses no-store."
   },
   "tags": [
     {
@@ -1200,8 +1200,11 @@
           },
           "sessionIds": {
             "type": "array",
+            "description": "Workshop session references (workshop_sessions.reference, lowercase canonical UUID). Every session of a booking must be covered.",
             "items": {
-              "$ref": "#/components/schemas/PositiveId"
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
             },
             "minItems": 1,
             "uniqueItems": true
@@ -1362,7 +1365,12 @@
             "$ref": "#/components/schemas/NonnegativeAmount"
           },
           "allowPoints": {
-            "type": "boolean"
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "default": true,
+            "description": "Automatic discounts always allow points (decided 2026-10-26); may be omitted, false is rejected with VALIDATION_ERROR."
           },
           "kind": {
             "type": "string",
@@ -1386,7 +1394,6 @@
           "endAt",
           "discount",
           "minimumEligibleAmount",
-          "allowPoints",
           "kind",
           "scope",
           "targets"
@@ -1454,7 +1461,7 @@
           "expectedVersion"
         ],
         "minProperties": 2,
-        "description": "PATCH merges supplied allowed fields into a full new valid revision. Cannot change code/scope/kind. Targets must match original scope; auto rejects quotas."
+        "description": "PATCH merges supplied allowed fields into a full new valid revision. Cannot change code/scope/kind. Targets must match original scope; auto rejects quotas and allowPoints=false (auto always allows points)."
       },
       "PauseProgram": {
         "type": "object",
@@ -1716,8 +1723,10 @@
               "ACTIVE",
               "SCHEDULED",
               "PAUSED",
-              "EXPIRED"
-            ]
+              "EXPIRED",
+              "NO_PUBLIC_TARGET"
+            ],
+            "description": "NO_PUBLIC_TARGET: product program whose targets are currently all hidden, unpublished or deleted (shown as \"Hiện không có sản phẩm áp dụng\")."
           }
         },
         "required": [
@@ -1892,9 +1901,23 @@
             "$ref": "#/components/schemas/Timestamp"
           },
           "fieldErrors": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
+            "type": "array",
+            "description": "Common error envelope (common.ErrorResponse): one entry per invalid field; omitted when empty.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "message"
+              ]
             }
           }
         },
@@ -2020,7 +2043,7 @@
         }
       },
       "Forbidden": {
-        "description": "Wrong role ownership or privileged assurance",
+        "description": "Wrong role or ownership",
         "content": {
           "application/json": {
             "schema": {

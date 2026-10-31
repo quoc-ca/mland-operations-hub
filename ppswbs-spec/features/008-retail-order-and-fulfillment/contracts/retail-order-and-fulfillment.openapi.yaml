@@ -128,11 +128,11 @@ paths:
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
         '200':
-          description: Checkout cancelled; holds released and cart restored
+          description: Checkout cancelled; holds released and cart restored where limits permit
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GroupedCheckoutView'
+                $ref: '#/components/schemas/RetailCancellationView'
         '409':
           $ref: '#/components/responses/Conflict'
   /ready-ring-checkouts/{checkoutId}/payment:
@@ -157,7 +157,7 @@ paths:
       security:
         - firebaseBearer: []
       parameters:
-        - $ref: '#/components/parameters/BranchIdQuery'
+        - $ref: '#/components/parameters/LocationIdQuery'
       responses:
         '200':
           description: Branch fulfilment capability without provider secrets
@@ -206,7 +206,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/RetailOrderView'
+                  $ref: '#/components/schemas/RetailOrderHistoryView'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /members/me/ready-ring-orders/{orderId}:
@@ -218,11 +218,11 @@ paths:
         - $ref: '#/components/parameters/OrderId'
       responses:
         '200':
-          description: Own order detail with latest normalized shipment status
+          description: Own order details; delivery tracking is not yet connected
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RetailOrderView'
+                $ref: '#/components/schemas/RetailOrderHistoryView'
         '404':
           $ref: '#/components/responses/NotFound'
   /ready-ring-orders/{orderId}/preparation:
@@ -234,18 +234,18 @@ paths:
         - $ref: '#/components/parameters/OrderId'
       responses:
         '200':
-          description: Updated operational order projection
+          description: Pickup preparation recorded by Staff at the assigned location
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RetailOrderView'
+                $ref: '#/components/schemas/PickupOperationResult'
         '403':
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
   /ready-ring-orders/{orderId}/pickup-confirmations:
     post:
-      summary: Record authenticated Member pickup
+      summary: Assigned Staff confirms handover after checking the order shown by the customer
       security:
         - firebaseBearer: []
       parameters:
@@ -256,7 +256,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RetailOrderView'
+                $ref: '#/components/schemas/PickupOperationResult'
         '409':
           $ref: '#/components/responses/Conflict'
   /ready-ring-orders/{orderId}/carrier-handoffs:
@@ -304,13 +304,14 @@ components:
       scheme: bearer
       bearerFormat: Firebase-ID-Token
   parameters:
-    BranchIdQuery:
-      name: branchId
+    LocationIdQuery:
+      name: locationId
       in: query
       required: true
-      description: Active processing branch selected for the catalogue journey.
+      description: Active processing location selected for the catalogue journey.
       schema:
-        type: string
+        type: integer
+        format: int64
     CartLineId:
       name: lineId
       in: path
@@ -351,26 +352,55 @@ components:
             $ref: '#/components/schemas/CartLineView'
     CartLineView:
       type: object
-      required: [id, variantId, branchId, quantity]
+      required: [id, variantId, locationId, quantity]
       properties:
         id:
           type: string
         variantId:
-          type: string
-        branchId:
-          type: string
+          type: integer
+          format: int64
+          minimum: 1
+        locationId:
+          type: integer
+          format: int64
         quantity:
           type: integer
           minimum: 1
           maximum: 99
+        productName:
+          type: string
+          nullable: true
+        sku:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          nullable: true
+        indicativePrice:
+          type: string
+          nullable: true
+          description: Indicative price in whole currency units; revalidated at checkout.
+        currency:
+          type: string
+          nullable: true
+        availableQuantity:
+          type: string
+          nullable: true
+          description: Indicative available quantity; null when unavailable.
+        saleEligible:
+          type: boolean
+          description: False when the product is no longer eligible or does not exist.
     AddCartLineRequest:
       type: object
-      required: [variantId, branchId, quantity]
+      required: [variantId, locationId, quantity]
       properties:
         variantId:
-          type: string
-        branchId:
-          type: string
+          type: integer
+          format: int64
+          minimum: 1
+        locationId:
+          type: integer
+          format: int64
         quantity:
           type: integer
           minimum: 1
@@ -403,10 +433,11 @@ components:
           description: Must be true for the server-priced benefit preview being accepted.
     BranchOrderCheckoutInput:
       type: object
-      required: [branchId, fulfilment]
+      required: [locationId, fulfilment]
       properties:
-        branchId:
-          type: string
+        locationId:
+          type: integer
+          format: int64
         fulfilment:
           $ref: '#/components/schemas/FulfilmentChoiceRequest'
     FulfilmentChoiceRequest:
@@ -439,10 +470,28 @@ components:
           $ref: '#/components/schemas/Recipient'
     BenefitPreviewRequest:
       type: object
-      required: [selection]
+      required: [selection, branchOrders]
       properties:
         selection:
           $ref: '#/components/schemas/BenefitSelection'
+        branchOrders:
+          type: array
+          minItems: 1
+          description: One selected fulfilment method for each cart location. GHTK requires a verified shipping quote and is not yet enabled.
+          items:
+            $ref: '#/components/schemas/BenefitPreviewBranch'
+    BenefitPreviewBranch:
+      type: object
+      required: [locationId, method]
+      properties:
+        locationId:
+          type: integer
+          format: int64
+        method:
+          type: string
+          enum: [PICKUP, GHTK]
+        shippingQuoteId:
+          type: string
     BenefitSelection:
       oneOf:
         - $ref: '#/components/schemas/NoBenefitSelection'
@@ -491,10 +540,20 @@ components:
       description: Non-negative base-10 integer string. Used for VND amounts and loyalty points to avoid JavaScript precision loss.
     BenefitPreviewView:
       type: object
-      required: [previewId, currency, merchandiseSubtotal, shippingExcluded, discountAmount, pointsDiscountAmount, payableAmount, expiresAt]
+      required: [previewId, currency, merchandiseSubtotal, shippingExcluded, discountAmount, pointsDiscountAmount, payableAmount, expiresAt, eligible, reasons]
       properties:
         previewId:
           type: string
+          nullable: true
+          description: Server-issued quote ID; null when the requested voucher or points are ineligible and checkout cannot be accepted.
+        eligible:
+          type: boolean
+          description: Whether the requested voucher and points were applied; informational reasons may still be present when true.
+        reasons:
+          type: array
+          description: Explanations returned by the loyalty preview for the Member.
+          items:
+            type: string
         currency:
           type: string
         merchandiseSubtotal:
@@ -508,17 +567,21 @@ components:
           $ref: '#/components/schemas/DecimalString'
         payableAmount:
           $ref: '#/components/schemas/DecimalString'
+        shippingTotal:
+          $ref: '#/components/schemas/DecimalString'
         projectedEarnedPoints:
           $ref: '#/components/schemas/DecimalString'
         expiresAt:
           type: string
           format: date-time
+          nullable: true
     ShippingQuoteRequest:
       type: object
-      required: [branchId, recipient]
+      required: [locationId, recipient]
       properties:
-        branchId:
-          type: string
+        locationId:
+          type: integer
+          format: int64
         recipient:
           $ref: '#/components/schemas/Recipient'
     Recipient:
@@ -547,10 +610,11 @@ components:
           maxLength: 500
     FulfilmentAvailabilityView:
       type: object
-      required: [branchId, availableMethods, contactStaffRequired]
+      required: [locationId, availableMethods, contactStaffRequired]
       properties:
-        branchId:
-          type: string
+        locationId:
+          type: integer
+          format: int64
         availableMethods:
           type: array
           uniqueItems: true
@@ -564,13 +628,14 @@ components:
           nullable: true
     ShippingQuoteView:
       type: object
-      required: [quoteId, branchId, currency, deliveryFee, totalCharge, expiresAt]
+      required: [quoteId, locationId, currency, deliveryFee, totalCharge, expiresAt]
       properties:
         quoteId:
           type: string
           description: Opaque server-issued identifier; shipping amounts submitted by clients are never trusted.
-        branchId:
-          type: string
+        locationId:
+          type: integer
+          format: int64
         currency:
           type: string
         deliveryFee:
@@ -582,14 +647,82 @@ components:
         expiresAt:
           type: string
           format: date-time
-    RetailOrderView:
+    PickupOperationResult:
       type: object
-      required: [id, branchId, paymentState, fulfilmentState, subtotal, shippingCharge, payableAmount]
+      required: [orderId, fulfilmentState, milestone, recordedAt]
+      properties:
+        orderId:
+          type: string
+        fulfilmentState:
+          type: string
+        milestone:
+          type: string
+          enum: [PREPARED, HANDED_OVER]
+        recordedAt:
+          type: string
+          format: date-time
+    RetailOrderHistoryView:
+      type: object
+      required: [id, locationId, fulfilmentMethod, paymentState, fulfilmentState, subtotal, shippingCharge, payableAmount, orderedAt, items]
       properties:
         id:
           type: string
-        branchId:
+        locationId:
+          type: integer
+          format: int64
+        fulfilmentMethod:
           type: string
+        paymentState:
+          $ref: '#/components/schemas/PaymentLifecycleState'
+        fulfilmentState:
+          type: string
+          nullable: true
+          description: Null when readiness cannot be verified from a Staff operation.
+        subtotal:
+          $ref: '#/components/schemas/DecimalString'
+        shippingCharge:
+          $ref: '#/components/schemas/DecimalString'
+        payableAmount:
+          $ref: '#/components/schemas/DecimalString'
+        orderedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetailOrderHistoryItem'
+    RetailOrderHistoryItem:
+      type: object
+      required: [variantId, quantity, unitPrice, lineTotal]
+      properties:
+        variantId:
+          type: integer
+          format: int64
+        productName:
+          type: string
+          nullable: true
+          description: Current catalogue name; null when catalogue data is unavailable.
+        sku:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          nullable: true
+        quantity:
+          type: integer
+        unitPrice:
+          $ref: '#/components/schemas/DecimalString'
+        lineTotal:
+          $ref: '#/components/schemas/DecimalString'
+    RetailOrderView:
+      type: object
+      required: [id, locationId, paymentState, fulfilmentState, subtotal, shippingCharge, payableAmount]
+      properties:
+        id:
+          type: string
+        locationId:
+          type: integer
+          format: int64
         subtotal:
           $ref: '#/components/schemas/DecimalString'
         shippingCharge:
@@ -612,6 +745,17 @@ components:
           type: string
           format: date
           nullable: true
+    RetailCancellationView:
+      type: object
+      required: [checkout, unrestoredQuantity, message]
+      properties:
+        checkout:
+          $ref: '#/components/schemas/GroupedCheckoutView'
+        unrestoredQuantity:
+          type: integer
+          minimum: 0
+        message:
+          type: string
     GroupedCheckoutView:
       type: object
       required: [id, branchOrders, combinedSubtotal, combinedShippingCharge, combinedPayableAmount, paymentState]

@@ -53,6 +53,24 @@ public class IdentityGateFilter extends OncePerRequestFilter {
             return true;
         }
         String path = request.getRequestURI();
+        if ("GET".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/integrations/payments/vnpay/events".equals(path)) {
+            return true;
+        }
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-bookings/[^/]+/payment-attempts")) {
+            return true;
+        }
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/workshop-bookings".equals(path)
+                && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
+            return true;
+        }
+        boolean customerBillRoute = ("GET".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill/charges"));
+        if (customerBillRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) return true;
         return !path.startsWith("/api/");
     }
 
@@ -66,7 +84,15 @@ public class IdentityGateFilter extends OncePerRequestFilter {
         response.setHeader("X-Correlation-Id", correlationId);
 
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        boolean isAiSupportMessage = "POST".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/ai-support/messages".equals(request.getRequestURI());
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            if (isAiSupportMessage && authHeader == null) {
+                // Anonymous Guest access allowed for Basic AI Support
+                filterChain.doFilter(request, response);
+                return;
+            }
             writeError(response, HttpStatus.UNAUTHORIZED, "MISSING_BEARER_TOKEN", "Bearer authentication token is required", correlationId);
             return;
         }
@@ -108,6 +134,7 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 token,
                 List.of(new SimpleGrantedAuthority("ROLE_" + actor.role().name()))
             );
+            authentication.setDetails(identity);
             SecurityContextHolder.getContext().setAuthentication(authentication);
             request.setAttribute("currentAccountActor", actor);
             request.setAttribute("verifiedIdentity", identity);
@@ -128,6 +155,7 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                     token,
                     List.of(new SimpleGrantedAuthority("ROLE_MEMBER"))
                 );
+                authentication.setDetails(identity);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 request.setAttribute("currentAccountActor", bootstrapActor);
                 request.setAttribute("verifiedIdentity", identity);

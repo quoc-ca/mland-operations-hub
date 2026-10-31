@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-10-29
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -17,9 +17,9 @@ The planned design uses an adapter boundary, durable change delivery, idempotent
 
 003.4 consumes, but never constructs or recalculates, the authoritative
 schedule snapshot and availability/sale-state snapshot from 003.2. The schedule
-input is limited to opaque session identity, branch, scheduled start/end, source
+input is limited to opaque session identity, canonical location, scheduled start/end, source
 change identity/version, and effective time. The availability/sale-state input
-is limited to opaque session identity, branch scope, sellable availability, sale
+is limited to opaque session identity, canonical location scope, sellable availability, sale
 state, source change identity/version, and effective time. The input excludes
 PII, Booking/payment/ticket detail, and OTA mapping. Sellable availability
 already subtracts confirmed ticket seats and active, unexpired direct-Mland holds.
@@ -56,7 +56,7 @@ provider delivery failure suspends the mapping.
 issuance; 003.4 consumes the 003.2 schedule and availability/sale-state
 snapshots without recalculating or writing them; no provider secret, customer
 card data, or raw callback payload may appear in logs; server-side capability
-and branch scope decide authorization; all OTA booking effects must be
+and location scope decide authorization; all OTA booking effects must be
 idempotent; a failed mapping closes OTA sales until confirmed re-sync.
 
 **Scale/Scope**: Initial `PER_PERSON` workshop offers only. Preparation synchronization may cover schedule, availability, and sales-closed state. Booking, ticket delivery, cancellation/refund handling, and payout reconciliation are enabled per provider only after the go-live gates in [spec.md](./spec.md) are approved.
@@ -66,7 +66,7 @@ idempotent; a failed mapping closes OTA sales until confirmed re-sync.
 | Gate | Pre-design | Post-design | Evidence / condition |
 | --- | --- | --- | --- |
 | Module integrity | PASS | PASS | A dedicated OTA facade owns channel state and calls Booking, Operations, Settlement, and Account/Personnel only through their facades. |
-| Identity and data | PASS | PASS | Firebase establishes Mland user identity; Account Management supplies canonical role/status/location facts and OTA Connectivity applies its branch/resource action rules. Provider callback identity is a separate verified integration credential, never a user identity. |
+| Identity and data | PASS | PASS | Firebase establishes Mland user identity; Account Management supplies canonical role/status/location facts. OTA Connectivity applies action rules from canonical role/status; active Managers have global OTA business-action scope without `activeLocationIds` filtering, while location-scoped Staff rules (where specified) use canonical location facts. Provider callback identity is separate from a user identity. |
 | REST and frontend separation | PASS | PASS | Proposed REST paths are versioned/plural; a separate React/Vite client consumes API contracts only. |
 | Persistence and migration safety | PASS | PASS | JPA-owned records and append-only Flyway migrations; uniqueness and state invariants are tested. No raw SQL persistence design is required. |
 | Verification | PASS | PASS | Module, migration, contract, authorization, replay, failure-recovery, and reconciliation scenarios are specified below. |

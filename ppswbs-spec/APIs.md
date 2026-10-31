@@ -3,7 +3,7 @@
 **Date created**: 2026-09-30
 **Date updated**: 2026-10-26
 **Author**: Ngô Tiến Đạt
-**Last updated by**: Phan Sơn
+**Last updated by**: Thinh
 
 **Version**: 0.4
 
@@ -110,24 +110,23 @@ post-commit and does not block account mutations.
 Capacity values, expiry behaviour, booking schema, and payment-provider handoff
 remain feature-contract decisions.
 
-### 3.3 Ring design and feasibility review (`designreview`)
+### 3.3 Independent AI design workspace and feasibility review (`designreview`)
 
 | Boundary | Method and route | Access | UC | Purpose | Maturity |
 | --- | --- | --- | --- | --- | --- |
 | Public client REST | `GET /api/v1/ring-models` | Public | UC-03 | List published ring-model design paths approved through the catalogue authority. | Draft |
 | Public client REST | `GET /api/v1/ring-components` | Public | UC-03 | List published components usable by the configurator. | Draft |
-| Protected client REST | `POST /api/v1/design-requests` | Eligible Member with recorded consent | UC-03 | Submit a booking-design image request after package, location, session, ownership, capability and consent checks. Configured design choices use the owning booking/design contract and are not silently treated as image requests. | Draft |
-| Protected client REST | `GET /api/v1/design-requests/{designRequestId}` | Owning Member; authorized Staff/Manager review scope | UC-03 | Read the permitted analysis state, review result, and next action without exposing raw provider payloads or another Member's data. | Draft |
-| Protected client REST | `GET /api/v1/design-review-requests` | Staff or Manager within review scope | UC-03, UC-08 | List booking-design requests assigned to the reviewer's authority and branch/delegation scope. | Draft |
-| Protected client REST | `POST /api/v1/design-review-requests/{reviewRequestId}/decisions` | Staff or Manager, according to value/authority tier | UC-03, UC-08 | Record Accepted, Rejected, or Clarification Required with actor, reason, current design version and decision context. AI cannot create this decision. | Draft |
+| Client REST | `POST /api/v1/design-requests` | Approved Member; Guest only after ownership-proof decision | UC-03 | Create an independent Design Request with optional description and/or image. No booking, session, location, payment or ticket context is accepted. | Draft |
+| Protected client REST | `GET /api/v1/design-requests/{designRequestId}` | Approved owner; authorized Staff/Manager review scope | UC-03 | Read an owner-safe analysis/review projection without exposing raw provider payloads or another owner's data. | Draft |
+| Protected client REST | `GET /api/v1/design-review-requests` | Staff or Manager within approved scope | UC-03, UC-08 | List independent Design Requests requiring human review. | Draft |
+| Protected client REST | `POST /api/v1/design-review-requests/{reviewRequestId}/decisions` | Staff or Manager, according to the approved review policy and authority scope | UC-03, UC-08 | Record Accepted, Rejected, or Clarification Required with actor, reason, current design version and decision context. AI cannot create this decision. | Draft |
 | Public or protected client REST | `POST /api/v1/ai-support/messages` | Guest or Member; public context only | UC-26 | Submit an in-scope public-information/FAQ prompt and receive a validated basic-support response. No transaction or business decision is created. | Draft |
 | Protected client REST | `POST /api/v1/price-proposals/{proposalId}/ai-suggestions` | Manager | UC-28 | Request an advisory package/product price suggestion from complete configured inputs; the suggestion never publishes or changes the final price. | Draft |
 
-AI output is candidate feature data or advisory pricing information only. Every
-valid booking-design request requires human review; no AI auto-accept or
-auto-reject is permitted. Consent, temporary image retention/deletion, upload
-transport, rate limits, provider schema, and final pricing remain feature
-contract concerns and must not be inferred from a browser response.
+AI output is candidate feature data or advisory pricing information only. The
+independent Design Request flow has no booking prerequisite or booking side effect.
+Guest ownership, text-only requests, human-review policy and image retention remain
+explicit implementation gates from the independent handoff.
 
 #### Feature-04 endpoint detail
 
@@ -138,16 +137,17 @@ headers and error payloads.
 | Method and route | Input | Successful output | Allowed actors and conditions | Important errors / side effects |
 | --- | --- | --- | --- | --- |
 | `POST /api/v1/ai-support/messages` | JSON `{ message }`; normalized text up to 2,000 characters. | Validated text response with safe scope metadata and correlation data where permitted. | Guest or Member; only approved public catalogue, workshop, store and FAQ context. Provider timeout is 30 seconds. | `400/422` for invalid or unsupported input, prompt injection or unsafe output; `429` for AI rate limit; `503` for provider failure. No booking, payment, review or price mutation. |
-| `POST /api/v1/design-requests` | Multipart image plus `bookingCode`, `consentVersion`, `designVersion`, and `Idempotency-Key`. Image is limited to 10 MB and 4096×4096 pixels. | `202` versioned design-request projection with analysis state and next action. | Authenticated active Member owning the eligible booking context. Consent must exist before storage/provider call; maximum three image attempts per rolling five minutes. | `401/403/409/422/429` for identity, scope, stale version, consent, image, security or rate-limit failures. Invalid requests do not call Gemini; accepted image input is temporary and deleted after processing. |
-| `GET /api/v1/design-requests/{designRequestId}` | Path identifier; no request body. | Member-safe or reviewer-scoped analysis/review projection. | Owning Member, in-scope Staff/Manager, or approved Admin technical/audit access. | `401/403/404`; never returns raw image, raw provider payload, credentials or another Member's data. |
+| `POST /api/v1/design-requests` | Multipart optional `description`, optional opaque `catalogueReference`, optional image/consent and `Idempotency-Key`; no booking/payment fields. | `202` independent versioned Design Request projection. | Approved owner policy; Member own data; Guest only after approved proof. Consent is required before image storage/provider call; maximum three image attempts per rolling five minutes. | `401/403/409/422/429`; invalid requests do not call Gemini or store image. |
+| `GET /api/v1/design-requests/{designRequestId}` | Path identifier; no request body. | Owner-safe or reviewer-scoped analysis/review projection. | Approved owner, in-scope Staff/Manager, or approved Admin audit access. | `401/403/404`; never returns raw image, raw provider payload, credentials or another owner's data. |
 | `GET /api/v1/design-review-requests` | Optional scope/filter and pagination query parameters defined by the feature contract. | Reviewer-scoped queue of requests requiring human action. | Staff or Manager with active status, branch/delegation scope and applicable authority. | `401/403`; read-only and must not broaden reviewer scope through client parameters. |
-| `POST /api/v1/design-review-requests/{reviewRequestId}/decisions` | JSON `{ decision, designVersion, reason }`; decision is `ACCEPTED`, `REJECTED` or `CLARIFICATION_REQUIRED`. | Updated review projection with reviewer, decision time, reason and next action. | In-scope Staff/Manager; Staff only at or below 3,000,000 VND, Manager above threshold or where Manager authority is required. | `401/403/409/422`; stale/concurrent decisions return conflict. Reviewer cannot review own/conflicted request. AI cannot create the decision. |
+| `POST /api/v1/design-review-requests/{reviewRequestId}/decisions` | JSON `{ decision, designVersion, reason }`; decision is `ACCEPTED`, `REJECTED` or `CLARIFICATION_REQUIRED`. | Updated review projection with reviewer, decision time, reason and next action. | In-scope Staff/Manager under the approved review policy; exact tier/threshold remains an implementation gate until resolved. | `401/403/409/422`; stale/concurrent decisions return conflict. Reviewer cannot review own/conflicted request. AI cannot create the decision. |
 | `POST /api/v1/price-proposals/{proposalId}/ai-suggestions` | Proposal identifier and validated package/product pricing context; no custom-manufacturing order, Member quotation, invoice or payment amount. | Advisory price-suggestion projection with warning/advisory flag and provider correlation. | Authorized Manager only. | `401/403/422/503` for authorization, incomplete/invalid input or provider failure. Manager may use manual fallback; AI cannot apply or publish a price. |
 
 For all protected routes, Firebase identity is verified first and Mland role,
 status, ownership and authority are checked server-side. Client-supplied role,
 reviewer, estimate, price, status or decision is not trusted. Validation or
-security failure prevents the provider call and any business-state mutation.
+security failure prevents provider calls and business-state mutation. Feature-04
+has no dependency on Workshop Booking or its facade.
 
 ### 3.4 Ready-ring retail, invoices, and payments
 
@@ -155,10 +155,13 @@ security failure prevents the provider call and any business-state mutation.
 | --- | --- | --- | --- | --- | --- | --- |
 | `catalogue` | Public client REST | `GET /api/v1/ready-rings` | Public | UC-04 | Browse published ready-ring products. | Draft |
 | `catalogue` | Public client REST | `GET /api/v1/ready-rings/{readyRingId}` | Public | UC-04 | Read a selected ready-ring's permitted published detail. | Draft |
-| `readyringsales` | Protected client REST | `POST /api/v1/ready-ring-orders` | Active Member | UC-04 | Create a Member retail order pending verified full payment. | Draft |
-| `readyringsales` | Protected client REST | `PUT /api/v1/ready-ring-orders/{orderId}/fulfilment-choice` | Order-owning Member after eligible payment state | UC-04 | Choose pickup or third-party carrier handoff. | Draft |
+| `readyringsales` | Protected client REST | `GET /api/v1/members/me/ready-ring-cart`; `POST /api/v1/members/me/ready-ring-cart/lines`; `PATCH`/`DELETE /api/v1/members/me/ready-ring-cart/lines/{lineId}` | Active Member | UC-04 | Read and maintain only the Member's cart; each line retains its selected `locationId`. Cart edits create no order, payment, hold, or stock deduction. | Draft; local adapter permitted for development |
+| `readyringsales` | Protected client REST | `POST /api/v1/ready-ring-benefit-previews` | Active Member | UC-04 | Obtain a server-priced FE-06 benefit preview for the current cart; shipping remains outside the discount/earn base. | Draft; local adapter permitted for development |
+| `readyringsales` | Protected client REST | `GET /api/v1/ready-ring-fulfilment-options`; `POST /api/v1/ready-ring-shipping-quotes` | Active Member | UC-04 | Read pickup/GHTK availability and receive a server-issued per-location quote before any order exists. Client shipping amounts are never trusted. | Draft; GHTK mock is development/test only |
+| `readyringsales` | Protected client REST | `POST /api/v1/ready-ring-orders`; `POST /api/v1/ready-ring-checkouts/{checkoutId}/payment`; `POST /api/v1/ready-ring-checkouts/{checkoutId}/cancellations` | Active Member owning the checkout | UC-04 | Atomically accept grouped branch orders and one payment lifecycle. A browser payment return never confirms payment; cancellation is allowed only before payment initiation. | Draft; payment adapter permitted for development |
+| `readyringsales` | Protected client REST | `GET /api/v1/members/me/ready-ring-orders`; `GET /api/v1/members/me/ready-ring-orders/{orderId}` | Order-owning Member | UC-04 | Read only the Member's frozen retail-order facts and latest normalized shipment state. | Draft |
 | `billing` | Protected client REST | `GET /api/v1/invoices/{invoiceId}` | Authorised customer or Staff | UC-01, UC-06 | Read permitted invoice, deposit, adjustment, and settlement facts. | Draft |
-| `payments` | Protected client REST | `POST /api/v1/payment-attempts` | Authorised booking/order customer | UC-01, UC-04 | Start a deposit or retail payment attempt; it does not confirm payment. | Draft |
+| `payments` | Protected client REST | `POST /api/v1/payment-attempts` | Authorised booking/order customer | UC-01 | Start a non-retail payment attempt; it does not confirm payment. FE-08 starts its grouped payment through its checkout endpoint and consumes verified payment evidence through the payment boundary. | Draft |
 | `payments` | Protected client REST | `GET /api/v1/payment-attempts/{paymentAttemptId}` | Authorised customer or Staff | UC-01, UC-04 | Read the customer-safe status of a payment attempt. | Draft |
 
 The browser redirect or client response from a payment provider never confirms a
@@ -176,7 +179,9 @@ unresolved dependencies.
 | `fulfilment` | Protected client REST | `POST /api/v1/continuation-bookings` | Staff | UC-07 | Create a capacity-checked, linked continuation booking; customers cannot create it themselves. | Draft |
 | `fulfilment` | Protected client REST | `POST /api/v1/custody-records` | Staff | UC-07 | Record custody intake for a work-in-progress item. | Draft |
 | `fulfilment` | Protected client REST | `POST /api/v1/custody-records/{custodyRecordId}/releases` | Staff | UC-07 | Record auditable custody release or customer handover. | Draft |
-| `fulfilment` | Protected client REST | `POST /api/v1/ready-ring-orders/{orderId}/carrier-handoffs` | Staff | UC-04 | Record carrier, handoff reference, actor, and time after an eligible order. | Draft |
+| `fulfilment` | Protected client REST | `POST /api/v1/ready-ring-orders/{orderId}/preparation`; `POST /api/v1/ready-ring-orders/{orderId}/carrier-handoffs` | Staff/Manager within assigned location and action scope | UC-04 | Record preparation and physical GHTK handoff only for a paid, location-authorized retail order after shipment creation. | Draft |
+| `readyringsales` | Protected client REST | `POST /api/v1/ready-ring-orders/{orderId}/pickup-confirmations` | Order-owning Member | UC-04 | Record the Member's pickup of an eligible prepared pickup order exactly once. | Draft |
+| `fulfilment` | Inbound integration | `POST /api/v1/integrations/ghtk/webhooks` | GHTK callback authentication, not Firebase | UC-04 | Validate, deduplicate, and persist normalized GHTK shipment status; stale events cannot regress current status. Production exposure remains gated by approved callback authentication. | Draft; development/test mock only |
 
 ### 3.6 Business catalogue, rules, and audit review
 

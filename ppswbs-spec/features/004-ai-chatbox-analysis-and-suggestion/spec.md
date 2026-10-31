@@ -1,563 +1,175 @@
 # Feature Specification: AI Chatbox Analysis and Suggestion
 
-**Date created**: 2026-10-21
-**Date updated**: 2026-10-24
-**Author**: Ngô Tiến Đạt
-**Last updated by**: Ngô Tiến Đạt
+**Date created**: 2026-10-21  
+**Date updated**: 2026-10-28  
+**Author**: Ngô Tiến Đạt  
+**Last updated by**: Ngô Tiến Đạt  
 
-**Feature**: `004-ai-chatbox-analysis-and-suggestion`
-**Status**: Draft implementation specification
-**Source alignment**: Report 1 FE-04/FE-05, Report 3 AI Chatbox Analysis and Suggestion, `ppswbs-spec/spec-general.md`
+**Feature**: `004-ai-chatbox-analysis-and-suggestion`  
+**Status**: Independent-design rebase; implementation blocked by the ownership decisions listed below  
+**Source alignment**: `FE-004-DESIGN-INDEPENDENT-HANDOFF.md`, Report 1 FE-04/FE-05, Report 3
 
-## Scope and source alignment
+## 1. Scope and independent boundary
 
-This feature owns three separate capabilities:
+Feature-04 owns three bounded capabilities:
 
-1. Basic AI support for Guest and Member questions about approved public information.
-2. Member-only workshop booking-design image analysis followed by Staff or Manager human review.
+1. Basic AI Support for approved public information.
+2. Independent Design Request creation, optional image analysis and human review.
 3. Manager-only advisory price suggestions for new workshop packages or retail products.
 
-The feature does not own workshop booking creation, payment confirmation, custom-manufacturing acceptance, custom-manufacturing pricing, final catalogue publication, or delivery fulfilment. Those workflows consume only the recorded result or suggestion through their owning facades.
+An Independent Design Request is not a workshop booking-design request. It MUST NOT
+create, read, update or depend on workshop booking, booking code/status, package
+selection, location, session, payment, deposit, VNPay, capacity hold, ticket,
+check-in or booking eligibility. It may retain an opaque catalogue/product reference
+only when the catalogue facade is explicitly needed for analysis context.
 
-The Report 3 display roles are authoritative for this feature: `Guest`, `Member`, `Staff`, `Manager`, and `Admin`. For implementation, `Manager` maps to the physical `OWNER` role code and `Admin` maps to `ADMIN_TECHNICAL`; this mapping does not expand either role's business or technical authority. The mapping must remain explicit in authorization and audit code, never inferred from client input.
+The owning booking, payment, catalogue, fulfilment and custom-manufacturing modules
+remain responsible for their own state. FE-003 MUST NOT call FE-004 as a booking
+precondition and MUST NOT store a design approval reference.
 
-## Actors and permissions
+## 2. Actors and unresolved ownership gate
 
-| Actor | Permission |
+| Actor | Allowed capability |
 | --- | --- |
-| Guest | Use basic AI support with public catalogue, workshop, store-information and FAQ context. Cannot upload or submit a booking-design image. |
-| Member | Use basic AI support; submit an image only inside an eligible workshop booking after affirmative consent; view only own analysis/review result. |
-| Staff | Review booking-design requests within the delegated branch and value threshold; record Accepted, Rejected or Clarification Required with a reason. Staff does not use the Feature-04 Basic AI endpoint. |
-| Manager | Review higher-value or Manager-authority booking-design requests; request package/product price suggestions; accept, adjust or reject final catalogue prices. Manager does not use the Feature-04 Basic AI endpoint. |
-| Admin | Manage approved technical parameters, integration credentials and support configuration; cannot create business review decisions or publish prices through this feature. Admin does not use the Feature-04 Basic AI endpoint. |
-| AI API | Return text support, candidate image features/image quality, or advisory package/product price suggestions. It cannot mutate Mland business state. |
-| Cloud Storage | Temporarily store booking-design image input and retain only according to the feature retention rule. |
+| Guest | Basic AI Support. Independent Design Request access is **TBD** because the handoff has not approved a secure guest ownership proof. |
+| Member | Basic AI Support and independent Design Request access for the Member's own data, subject to the final ownership decision. |
+| Staff | Review independent Design Requests within the approved delegated scope. |
+| Manager | Review requests requiring Manager authority and request/decide advisory price suggestions. |
+| Admin | Technical configuration and approved technical/audit evidence only; no business review or price decision. |
+| AI provider | Returns validated candidate features, image quality or advisory price suggestion; never mutates Mland state. |
+| Cloud storage | Temporary image storage and deletion only. |
 
-## Permission Matrix
+The following decisions are not silently inferred from the previous booking flow and
+MUST be resolved before production implementation:
 
-The following matrix is authoritative for Feature-04. `Allow` always requires the
-actor to satisfy Firebase identity, Mland account status, role, resource ownership
-and scope checks. A client-supplied role, reviewer, price, estimate or decision is
-never trusted. The physical mapping is explicit: `Manager` uses `OWNER` and
-`Admin` uses `ADMIN_TECHNICAL`, while this logical permission matrix remains
-authoritative.
+- whether Guest may create an Independent Design Request;
+- the ownership proof and retrieval mechanism if Guest is allowed;
+- whether image-less text-only Design Requests are allowed;
+- whether every request requires human review or only requests with image analysis;
+- whether a Member may withdraw, revise or create a new request after rejection;
+- whether an approval expires.
+
+The current backend's Member-only booking assumption is therefore not an approved
+final contract after this rebase.
+
+## 3. Permission rules
 
 | Action | Guest | Member | Staff | Manager | Admin |
 | --- | --- | --- | --- | --- | --- |
-| Basic AI support | Allow, public context only | Allow, public context only | Deny | Deny | Deny |
-| Upload booking-design image | Deny | Allow, own eligible booking only | Deny | Deny | Deny |
-| View own design result | Deny | Own data only | Deny | Deny | Deny |
-| View scoped design request | Deny | Own data only | Branch/value scope | Branch/authority scope | Technical/audit evidence only if authorized |
-| Review booking-design request | Deny | Deny | Up to 3,000,000 VND within scope | Above 3,000,000 VND or Manager-authority request | Deny |
-| Record review decision | Deny | Deny | Allow within scope and separation-of-duties rules | Allow within scope and separation-of-duties rules | Deny |
-| Request price suggestion | Deny | Deny | Deny | Allow for authorized new package/product proposal | Deny |
-| View internal price suggestion | Deny | Deny | Deny by default | Authorized proposal scope | Technical/audit evidence only if authorized |
-| Confirm final catalogue price | Deny | Deny | Deny | Allow through catalogue workflow | Deny |
-| Publish catalogue price | Deny | Deny | Deny | Through Catalogue facade only | Deny through Feature-04 |
-| Configure provider credentials | Deny | Deny | Deny | Deny | Allow technical configuration |
-| Mutate booking/payment/custom order | Deny through Feature-04 | Deny through Feature-04 | Deny through Feature-04 | Deny through Feature-04 | Deny through Feature-04 |
+| Basic AI Support | Allow public scope | Allow public scope | Deny by default | Deny by default | Deny by default |
+| Create independent Design Request | TBD ownership proof | Allow own data | Deny | Deny | Deny |
+| Upload reference image | Same as Design Request decision | Allow with consent | Deny | Deny | Deny |
+| View own request/result | TBD ownership proof | Own data only | Deny | Deny | Deny |
+| View scoped request queue | Deny | Deny | Allow approved scope | Allow approved authority | Technical/audit only if approved |
+| Record human decision | Deny | Deny | Allow approved scope | Allow approved authority | Deny |
+| Request/view price suggestion | Deny | Deny | Deny | Allow proposal scope | Technical/audit projection only |
+| Final price decision/publication | Deny | Deny | Deny | Through catalogue workflow | Deny through FE-004 |
+| Booking/payment/custom-order mutation | Deny through FE-004 | Deny through FE-004 | Deny through FE-004 | Deny through FE-004 | Deny through FE-004 |
 
-### Permission conditions
+All authorization is server-side. Client-provided role, owner, reviewer, price,
+status, estimate or decision is untrusted. A reviewer cannot review a request they
+created or a request with a prohibited conflict of interest.
 
-- Staff may review only requests in the delegated branch/scope whose estimated value
-  is at or below 3,000,000 VND.
-- Manager may review requests above 3,000,000 VND or requests explicitly requiring
-  Manager authority.
-- A reviewer must not review a request created by the reviewer or a request where
-  the reviewer is the protected beneficiary.
-- Admin may inspect technical/audit evidence only when the configured permission
-  allows it. Admin cannot replace Manager business approval.
-- AI Provider and Cloud Storage are infrastructure actors, not Mland business
-  actors. Neither receives permission to mutate Mland business state.
-- Price suggestions are internal evidence. Guest, Member and Staff do not receive
-  the suggestion projection; a customer sees a price only after Manager confirmation
-  and successful catalogue publication.
-
-### Endpoint permission mapping
-
-| Endpoint | Allowed actor | Denied or restricted actor | Scope/business condition | Denied side effect |
-| --- | --- | --- | --- | --- |
-| `POST /api/v1/ai-support/messages` | Guest or Member | None for public-support scope; unsupported business requests are rejected | Public catalogue, workshop, store-information or approved FAQ context | No booking, payment, review, order or price mutation |
-| `POST /api/v1/design-requests` | Authenticated eligible Member | Guest, Staff, Manager, Admin | Own package/location/session/booking context, current consent and valid design version | No storage/provider call when authorization or validation fails |
-| `GET /api/v1/design-requests/{id}` | Owning Member, scoped Staff/Manager, authorized Admin audit view | Other Members and out-of-scope staff | Ownership, branch/delegation and authority scope | No raw image, raw provider payload or another Member's data |
-| `GET /api/v1/design-review-requests` | Staff and Manager | Guest, Member, Admin unless approved audit view | Reviewer branch/delegation/value/authority scope | No mutation |
-| `POST /api/v1/design-review-requests/{id}/decisions` | Scoped Staff or Manager | Guest, Member, Admin and out-of-scope reviewer | Current version, non-terminal state, separation of duties | No automatic booking/payment/custom-order mutation |
-| `POST /api/v1/price-proposals/{id}/ai-suggestions` | Authorized Manager | Guest, Member, Staff, Admin | New workshop package or retail product proposal | No price application or publication from AI response alone |
-
-## Validation Matrix
-
-All protected operations MUST validate in this order:
+## 4. Independent Design Request flow
 
 ```text
-Transport
-→ Firebase identity
-→ Mland role/status
-→ Resource ownership/scope
-→ Rate limit/idempotency
-→ Input schema
-→ Business context
-→ Security screening
-→ Provider call
-→ Provider output validation
-→ Persistence/state transition
+Guest/Member identity and ownership proof
+→ Design workspace
+→ Optional design description and/or reference image
+→ Image consent when an image is supplied
+→ Validate owner, input, image, rate limit and idempotency
+→ Temporary storage only for an accepted image
+→ Create independent design request/version
+→ AI candidate analysis when requested
+→ Delete temporary image after processing
+→ Persist safe result/failure evidence
+→ Staff/Manager review when the approved review policy requires it
+→ Owner views safe result and may revise, withdraw or finish according to the resolved policy
 ```
 
-A failed validation stops the pipeline immediately. A provider call MUST NOT occur
-when a preceding validation fails.
+The flow has no booking step before or after it. A successful result does not confirm
+a booking, payment, final design, custom-manufacturing order or catalogue price.
 
-### Basic AI support validation
+## 5. Validation and security invariants
 
-The configured limits are a 2,000-character maximum prompt and a provider timeout
-of 30 seconds. The endpoint is available only to Guest and Member actors.
-
-| Validation | Error | Provider call | Persistence | Response |
-| --- | --- | --- | --- | --- |
-| Empty prompt | `AI_INPUT_INVALID` | No | None | 400/422 |
-| Prompt exceeds configured maximum length | `AI_INPUT_INVALID` | No | None | 400/422 |
-| Unsupported topic | `AI_SCOPE_UNSUPPORTED` | No | Safe interaction evidence only | 422 |
-| Private data or business-decision request | `AI_CONTEXT_NOT_ALLOWED` | No | Minimal safe audit evidence | 422 |
-| Prompt injection | `AI_PROMPT_INJECTION_DETECTED` | No | Minimal safe audit evidence | 422 |
-| Basic AI rate limit | `AI_RATE_LIMITED` | No | Safe rate-limit evidence | 429 |
-| Provider timeout/unavailable | `AI_UNAVAILABLE` | Attempted | Failure evidence only | 503 |
-| Empty, unsafe or policy-violating output | `AI_OUTPUT_POLICY_VIOLATION` | Yes | No raw output | 422 |
-| Valid public question and validated response | None | Yes | Minimized interaction with retention deadline | 200 |
-
-### Booking-design image validation
-
-| Order | Validation | Error on failure | Provider call | Side effect on failure |
-| ---: | --- | --- | --- | --- |
-| 1 | Firebase identity | `AUTHENTICATION_REQUIRED` | No | No storage/request creation |
-| 2 | Member role and active status | `FORBIDDEN_ROLE` | No | No storage/request creation |
-| 3 | Idempotency key format and duplicate lookup | `AI_INPUT_INVALID` or existing result | No for duplicate | Duplicate returns existing result |
-| 4 | Member image rate limit | `IMAGE_RATE_LIMITED` | No | No storage/request creation; return `Retry-After` |
-| 5 | `bookingCode` format and existence | `BOOKING_CONTEXT_INVALID` | No | No storage/request creation |
-| 6 | Package exists and is eligible | `BOOKING_CONTEXT_INVALID` | No | No storage/request creation |
-| 7 | Location/session exists and belongs to selected package | `BOOKING_CONTEXT_INVALID` | No | No storage/request creation |
-| 8 | Booking ownership and active context | `BOOKING_CONTEXT_INVALID` | No | No storage/request creation |
-| 9 | Design path supports booking image | `AI_FEATURE_NOT_APPLICABLE` | No | No storage/request creation |
-| 10 | Consent version, purpose, actor and time | `CONSENT_REQUIRED` | No | No storage/request creation |
-| 11 | `designVersion` is current and positive | `DESIGN_VERSION_STALE` | No | No storage/request creation |
-| 12 | Image is present and has valid MIME/file signature | `IMAGE_INVALID` | No | No storage/request creation |
-| 13 | File size and dimensions are within configuration (10 MB; maximum 4096×4096) | `IMAGE_TOO_LARGE` or `IMAGE_INVALID` | No | No storage/request creation |
-| 14 | Malware/security scan and ownership check | `IMAGE_INVALID` | No | No storage/request creation |
-| 15 | Image metadata is minimized and provider context is allowlisted | `AI_INPUT_INVALID` or `AI_CONTEXT_NOT_ALLOWED` | No | No storage/request creation |
-| 16 | Prompt-injection/security screening | `AI_PROMPT_INJECTION_DETECTED` | No | No storage/request creation |
-| 17 | Temporary storage succeeds | `AI_UNAVAILABLE` | No | No provider request |
-| 18 | Gemini response matches result schema and policy | `AI_RESPONSE_INVALID` or `AI_OUTPUT_POLICY_VIOLATION` | Yes | Delete image; record safe failure |
-| 19 | Estimate snapshot and review routing are valid | `AI_INPUT_INVALID` or routing error | Yes | No review decision |
-| 20 | Persistence and state transition succeed | `AI_UNAVAILABLE` or transaction error | Yes | Retry-safe cleanup and no duplicate decision |
-
-The image rate-limit rule is fixed: scope is authenticated Member ID, the window is
-rolling five minutes, and the limit is three image-submission attempts. The fourth
-attempt returns HTTP 429 with `IMAGE_RATE_LIMITED` and `Retry-After`; it performs no
-storage call, Gemini call or request creation. Missing consent, invalid context and
-invalid file requests after identity verification still consume an attempt.
-Duplicate idempotent retries return the existing command result and do not consume a
-new quota slot. The quota check/reservation is atomic.
-
-### Human review validation
-
-| Validation | Error | Required behavior |
-| --- | --- | --- |
-| Review request exists and is visible | `REVIEW_NOT_AUTHORIZED` or `NOT_FOUND` | Do not reveal another request's data |
-| Reviewer has Staff/Manager role and active status | `REVIEW_NOT_AUTHORIZED` | No decision mutation |
-| Request is in reviewer branch/delegation/value scope | `REVIEW_NOT_AUTHORIZED` | No decision mutation |
-| Staff threshold is at or below 3,000,000 VND | `REVIEW_NOT_AUTHORIZED` | Route higher value to Manager |
-| Manager authority applies when required | `REVIEW_NOT_AUTHORIZED` | Staff cannot decide Manager-authority request |
-| Reviewer is not creator or protected beneficiary | `REVIEW_NOT_AUTHORIZED` | No self-review or conflict review |
-| Request has no terminal decision | `REVIEW_STATE_CONFLICT` | Reject competing decision |
-| `designVersion` is the current version | `DESIGN_VERSION_STALE` | Require current version |
-| Decision is `ACCEPTED`, `REJECTED` or `CLARIFICATION_REQUIRED` | `AI_INPUT_INVALID` | Reject unknown enum |
-| Reason is present and within configured length | `AI_INPUT_INVALID` | Do not persist incomplete decision |
-| Decision and audit evidence commit atomically | `REVIEW_STATE_CONFLICT` on race | At most one terminal decision |
-
-### AI price suggestion validation
-
-| Validation | Error | Provider call | Side effect on failure |
-| --- | --- | --- | --- |
-| Actor is authenticated Manager | `FORBIDDEN_ROLE` | No | No suggestion |
-| Manager owns or is authorized for proposal | `REVIEW_NOT_AUTHORIZED` | No | No suggestion |
-| Proposal is a new workshop package or retail product | `AI_FEATURE_NOT_APPLICABLE` | No | No suggestion |
-| Target is not custom-manufacturing, Member quotation, invoice or payment | `AI_FEATURE_NOT_APPLICABLE` | No | No suggestion |
-| Materials/components/pricing context are complete | `PRICE_INPUT_INCOMPLETE` | No | Manager can complete inputs |
-| Input excludes private data and uses allowlisted context | `AI_CONTEXT_NOT_ALLOWED` | No | No provider call |
-| Provider output is numeric, non-negative and within configured range | `PRICE_SUGGESTION_INVALID` | Yes | Store failure evidence only |
-| Response has advisory flag and valid schema | `AI_RESPONSE_INVALID` | Yes | Do not expose invalid response |
-| Manager decision is recorded | `REVIEW_STATE_CONFLICT` on race | No additional call | Do not apply/publish price |
-| Catalogue facade confirms application/publication | Owning catalogue error | No | Feature-04 cannot publish directly |
-
-## Journey rules
-
-The workshop booking order is:
+All requests use this order:
 
 ```text
-Workshop package
-→ Location and session
-→ Booking information
-→ Design path
-→ Booking summary
-→ Payment
+Transport → Firebase identity → Mland role/status → ownership/scope
+→ rate limit/idempotency → input schema → independent business context
+→ prompt/image security screening → provider call
+→ provider output validation → persistence/state transition
 ```
 
-The image branch is available only to a Member with an eligible booking context. Consent is recorded before temporary storage or provider processing. A material design change creates a new design/review version and invalidates the previous decision for continuation.
+- Basic AI prompt limit is 2,000 characters; provider timeout is 30 seconds.
+- Image limit is 10 MB and 4096×4096 pixels; MIME, signature, dimensions and malware policy are checked before provider processing.
+- A Member may submit at most three image attempts in a rolling five-minute window. The fourth attempt returns `429 IMAGE_RATE_LIMITED` and `Retry-After`; duplicate idempotent retries do not consume another slot.
+- Consent is purpose-specific, versioned and recorded before image storage or provider processing.
+- Provider input is normalized from an allowlisted command model; raw request bodies, tokens, credentials, payment data, private customer data and operational data are never forwarded.
+- Prompt injection and instruction-like text embedded in images are untrusted data. Detected injection returns `AI_PROMPT_INJECTION_DETECTED` without a provider call or business mutation.
+- Provider output is schema- and policy-validated. Final approval, price publication, booking mutation, payment mutation and custom-order decisions are rejected.
+- Booking-design retention rules do not apply. Independent Design Request image retention is **TBD** and must be explicitly decided; temporary processing storage remains the default until then.
+- Text interaction retention remains no more than 30 days.
 
-## Invariant Rules and Security Policies
+## 6. Data and state model
 
-The following rules are mandatory implementation invariants. They apply to browser
-requests, fallback forms, API clients, retries and internal adapters. Client-provided
-role, price, status, reviewer, estimate and decision values are never trusted.
+The persisted Design Request owns independent design data only:
 
-### Authorization and business invariants
+- request identifier and version;
+- owner account reference or approved guest ownership proof;
+- optional opaque catalogue/product reference;
+- description and optional image reference;
+- consent evidence when an image is supplied;
+- analysis status/result schema version;
+- review status/decision and reviewer audit evidence;
+- revision, withdrawal, reason and timestamps.
 
-1. Guest MAY use Basic AI Support only. Guest MUST NOT upload or submit a
-   booking-design image.
-2. Only an authenticated Member MAY submit a booking-design image.
-3. A Member image request MUST reference an eligible package, location, session,
-   booking context and current design version owned by that Member.
-4. Affirmative, purpose-specific consent MUST be recorded before temporary image
-   storage or provider processing.
-5. Every valid booking-design request MUST reach Staff or Manager human review.
-   AI MUST NOT create `ACCEPTED`, `REJECTED` or `CLARIFICATION_REQUIRED`.
-6. A reviewer MUST NOT decide a request created by that reviewer or a request with
-   a prohibited conflict of interest.
-7. One design version MAY have at most one terminal review decision.
-8. A material design change MUST create a new design version. An earlier decision
-   MUST NOT be reused for the changed configuration.
-9. AI output MUST NOT mutate booking, payment, review, custom-manufacturing or
-   catalogue-price state.
-10. Only Manager may make the final catalogue pricing decision. Technical Admin may
-    manage approved technical configuration but may not create business review
-    decisions or publish prices through this feature.
+It MUST NOT contain `bookingId`, `bookingCode`, `bookingStatus`, `sessionId`,
+`locationId`, `holdId`, `ticketId`, `paymentId` or `depositId`.
 
-### AI input validation invariants
-
-1. Every provider request MUST pass schema, type, length, size, ownership and
-   business-context validation before serialization.
-2. The system MUST construct provider requests from an allowlisted command model; it
-   MUST NOT forward an untrusted request body directly to Gemini.
-3. Provider context MUST be limited to the allowlist for the active use case.
-4. Firebase tokens, provider credentials, passwords, payment data, private customer
-   data and raw operational data MUST NOT be included in provider input.
-5. Price input MUST reference a valid new workshop-package or retail-product
-   proposal with complete materials, components and pricing context.
-6. Candidate features, image quality and price suggestions MUST be validated against
-   their versioned schema, enum values, data types, ranges and maximum lengths.
-7. Images MUST pass MIME type, file-signature, size, dimensions, malware-policy and
-   ownership checks before temporary storage or provider processing.
-8. Unnecessary image metadata MUST be removed before provider processing. OCR text
-   or text embedded in an image MUST be treated as untrusted data, never as a system
-   instruction.
-
-### Prompt-injection and provider-output invariants
-
-1. User input MUST be treated as untrusted data and MUST NOT override system
-   instructions, business policy, output schema, role, pricing rules or review rules.
-2. Fixed system instructions and business policy MUST remain separate from user
-   content. Provider input MUST use structured, allowlisted context.
-3. Requests containing instructions such as `ignore previous instructions`,
-   `publish this price`, `approve this order`, or equivalent attempts to alter system
-   behavior MUST be rejected before the provider call.
-4. A detected prompt injection MUST produce `AI_PROMPT_INJECTION_DETECTED`, record
-   minimal safe audit evidence and create no booking, review, price or payment
-   mutation. Raw malicious content MUST NOT be retained unless explicitly required
-   for a controlled security investigation.
-5. Provider output MUST be checked for schema violations, data leakage, hidden
-   instructions, final business decisions and unsupported claims before display or
-   persistence.
-6. A provider response containing an approval, rejection, final price, publication
-   command or instruction to mutate Mland state MUST be rejected with
-   `AI_OUTPUT_POLICY_VIOLATION`.
-
-### Image rate-limiting invariants
-
-1. Each authenticated Member MAY submit at most three image-submission attempts in
-   a rolling five-minute window, keyed by authenticated Member ID.
-2. An image-submission attempt is counted after Firebase identity verification when
-   a multipart image request reaches the feature, including requests later rejected
-   for missing consent, invalid context or invalid file content.
-3. Requests rejected before identity verification do not consume the Member quota,
-   but remain subject to infrastructure or IP-level abuse controls.
-4. When the quota is exceeded, the system MUST return HTTP `429 TOO_MANY_REQUESTS`
-   with `IMAGE_RATE_LIMITED` and `Retry-After`. It MUST not store the image, call
-   Gemini, or create a design/review request.
-5. The quota check and reservation MUST be atomic so concurrent requests cannot
-   bypass the limit.
-6. A duplicate retry identified by the same idempotency key MUST return the existing
-   command result and MUST NOT consume another quota slot.
-
-### Data retention and visibility invariants
-
-1. Booking-design images MUST be temporary and MUST be deleted after provider
-   processing on both success and failure paths.
-2. Raw provider payloads MUST NOT be persisted unless a separately approved audit
-   requirement requires a minimized safe projection.
-3. The retained analysis projection is limited to candidate features, image quality,
-   schema version, provider correlation ID, processed time and safe failure evidence.
-4. Text prompts and responses MUST expire within 30 days.
-5. Internal price suggestions MUST never be visible to Guest or Member.
-6. A price suggestion MAY be viewed by the authorized Manager responsible for the
-   proposal. Admin may view only approved technical or audit evidence. Staff has no
-   default access to the internal suggestion.
-7. A customer MAY see a price only after Manager confirmation and successful
-   catalogue publication through the owning catalogue workflow.
-
-### Required security error codes
+Technical analysis state and business review state remain separate:
 
 ```text
-AI_INPUT_INVALID
-AI_PROMPT_INJECTION_DETECTED
-AI_CONTEXT_NOT_ALLOWED
-AI_OUTPUT_POLICY_VIOLATION
-IMAGE_RATE_LIMITED
+analysis: PENDING → PROCESSING → SUCCEEDED / FAILED
+review:   NEED_REVIEW → ACCEPTED / REJECTED / CLARIFICATION_REQUIRED
+request:  ACTIVE → WITHDRAWN / COMPLETED (exact transitions require ownership decision)
 ```
 
-## User scenarios and testing
+## 7. API contract baseline
 
-### User Story 1 — Ask basic AI support (P1)
-
-As a Guest or Member, I want to ask a supported natural-language question so that I can receive basic guidance before continuing with a platform workflow.
-
-#### Acceptance scenarios
-
-1. Given a supported product, workshop, store-information or FAQ question, when the actor submits it, then the system sends only permitted public context to the AI API and displays a validated response.
-2. Given an empty, overlong, unsupported or rate-limited request, when the actor submits it, then the system does not call the AI API and displays safe retry guidance.
-3. Given the AI API is unavailable, times out, or returns an empty/unsafe response, when the request is processed, then the system shows a temporary or fallback message and creates no booking, payment, price, order or review decision.
-4. Given the actor asks AI to confirm a transaction, price, feasibility or custom order, when the request is processed, then the system refuses the business decision and directs the actor to the relevant workflow or Staff.
-
-### User Story 2 — Submit and review a booking-design image (P1)
-
-As a Member, I want to submit a consented reference image after selecting my package, location, session and booking information so that the system can extract candidate features and send the request to the authorised human reviewer.
-
-#### Acceptance scenarios
-
-1. Given a Guest selects an image-based design path, when the Guest attempts to continue, then the server denies the operation and does not store or send an image.
-2. Given a Member has no eligible booking context, when the Member attempts to submit an image, then the server denies the operation and returns a typed context error.
-3. Given a Member has not affirmatively accepted the current consent version, when the Member submits an image, then the server rejects the request before storage or provider processing.
-4. Given a Member submits a valid image with consent, when the request is created, then the system stores the image temporarily, records one analysis request and sends only the permitted image/context to the AI API.
-5. Given Gemini returns valid candidate features and image quality, when processing completes, then the system validates and stores the result, deletes the image input, calculates estimate context from Mland data, and creates a human review request.
-6. Given the estimated value is at or below 3,000,000 VND, when routing completes, then the request is available to authorized Staff within scope.
-7. Given the estimated value is above 3,000,000 VND or a Manager rule applies, when routing completes, then the request is available to an authorized Manager.
-8. Given a reviewer records Accepted, Rejected or Clarification Required, when the decision commits, then the system records actor, current design version, reason, timestamp and audit evidence and exposes the permitted result to the owning Member.
-9. Given the Member changes a material option after a decision, when the new design is submitted, then the system creates a new version and requires analysis/routing/review again.
-10. Given the provider fails or returns an invalid result, when processing stops, then the system records failure, deletes temporary image input, creates no approval and permits a safe retry.
-11. Given a Member has submitted three image attempts within the rolling five-minute window, when the Member submits a fourth image, then the system returns `429 IMAGE_RATE_LIMITED`, does not store the image, and does not call Gemini.
-12. Given an image request is rejected for missing consent, invalid context or invalid file content after identity verification, when the request is processed, then the attempt still consumes the Member rate-limit slot.
-13. Given concurrent image requests would exceed the Member quota, when they are processed, then the atomic quota check allows no more than three attempts in the window.
-14. Given a Member retries the same accepted idempotency key, when the request is processed, then the system returns the existing result and does not consume another image quota slot.
-15. Given a prompt contains an instruction to ignore system policy or change a business decision, when it is submitted, then the system returns `AI_PROMPT_INJECTION_DETECTED`, does not call Gemini, and does not mutate business state.
-16. Given an AI response contains an approval, final price or publication command, when the response is validated, then the system rejects it with `AI_OUTPUT_POLICY_VIOLATION` and keeps business state unchanged.
-
-### User Story 3 — Request an advisory catalogue price suggestion (P1)
-
-As a Manager, I want an AI price suggestion for a new workshop package or retail product so that I can make a faster informed pricing decision.
-
-#### Acceptance scenarios
-
-1. Given the Manager has complete configured material, component and pricing inputs, when a suggestion is requested, then the system sends the approved pricing context to the AI API.
-2. Given the AI API returns a valid suggestion, when the result is displayed, then it is clearly marked advisory and does not change or publish the catalogue price.
-3. Given the Manager accepts, adjusts or rejects the suggestion, when the final price is confirmed, then the system validates the final price, records the Manager decision and applies/publishes it only through the separate catalogue workflow.
-4. Given inputs are incomplete or inconsistent, when a suggestion is requested, then the system does not call the AI API and identifies the missing inputs.
-5. Given the AI API is unavailable or returns an invalid/out-of-range suggestion, when processing fails, then the Manager may retry or enter a manual price; no invalid or AI-only price is saved.
-6. Given the target is a custom-manufacturing order, Member quotation, final workshop invoice or payment amount, when a suggestion is requested, then the operation is denied.
-
-## Functional requirements
-
-### Basic AI support
-
-- **FR-04-001**: The system MUST allow Guest and Member basic AI support only for approved public product, workshop, store-information and FAQ topics.
-- **FR-04-002**: The system MUST validate non-empty input, a maximum length of 2,000 characters, scope and rate limit before calling the AI API. The provider timeout is 30 seconds.
-- **FR-04-003**: The system MUST provide the AI API only with permitted public context and MUST exclude private customer, payment, booking, authentication and operational data.
-- **FR-04-004**: The system MUST validate the response before display and MUST not present AI output as a confirmed business answer.
-- **FR-04-005**: Text prompts and responses MUST be retained for no more than 30 days and MUST not contain raw credentials, tokens or unnecessary PII.
-
-### Booking-design image analysis
-
-- **FR-04-006**: Only an authorized Member with an eligible package, location, session and booking context MAY submit a booking-design image.
-- **FR-04-007**: The system MUST record affirmative consent version, purpose, Member identity, timestamp and design-request version before storage or AI processing.
-- **FR-04-008**: The system MUST validate booking ownership, branch/session capability, file type, size, image quality, design version and rate limit before provider processing. Booking-design images MUST be no larger than 10 MB and no larger than 4096×4096 pixels.
-- **FR-04-009**: The system MUST use temporary storage for booking-design image input and MUST delete the image after processing, including provider failure paths where deletion is permitted.
-- **FR-04-010**: The AI API MAY return image quality and candidate ring features/materials only. It MUST NOT return a final business decision.
-- **FR-04-011**: The system MUST validate the provider response against a versioned result schema and record provider correlation and safe failure evidence without retaining raw provider payloads.
-- **FR-04-012**: The system MUST keep technical analysis status separate from business review status.
-- **FR-04-013**: Every valid request MUST route to human review. AI MUST NOT auto-accept or auto-reject a booking-design request.
-- **FR-04-014**: Staff MAY review requests at or below 3,000,000 VND within scope. Manager MUST review requests above that threshold or requests requiring Manager authority.
-- **FR-04-015**: A reviewer MUST record Accepted, Rejected or Clarification Required with reason, actor, current design version and timestamp.
-- **FR-04-016**: A material design change MUST create a new analysis/review version and MUST prevent reuse of an earlier decision for the changed configuration.
-- **FR-04-017**: A Member MAY read only the Member's own permitted analysis/review projection. Staff and Manager access MUST be scope- and authority-limited.
-
-### Advisory price suggestion
-
-- **FR-04-018**: Only a Manager MAY request an AI price suggestion for a new workshop package or retail product.
-- **FR-04-019**: The system MUST validate completeness and consistency of configured inputs before calling the AI API.
-- **FR-04-020**: The system MUST label the AI result advisory and MUST not modify or publish a price from the AI response alone.
-- **FR-04-021**: The final Manager price MUST be validated, recorded with decision context, and applied/published through the owning catalogue workflow.
-- **FR-04-022**: The feature MUST reject AI price suggestions for custom-manufacturing orders, individual Member quotations, final invoices and payment amounts.
-- **FR-04-023**: Every provider request MUST be built from a validated, normalized and allowlisted command model; raw untrusted request bodies MUST NOT be forwarded.
-- **FR-04-024**: The system MUST reject prompt-injection attempts before provider invocation and MUST return `AI_PROMPT_INJECTION_DETECTED` without business mutation.
-- **FR-04-025**: The system MUST validate provider output for schema, policy, data leakage and unsupported business-decision content before display or persistence.
-- **FR-04-026**: An authenticated Member MUST be limited to three image-submission attempts in a rolling five-minute window. The limit MUST be keyed by Member ID and enforced atomically.
-- **FR-04-027**: A rate-limited image request MUST return HTTP 429 with `IMAGE_RATE_LIMITED` and `Retry-After`, without storage, provider invocation or request creation.
-- **FR-04-028**: A duplicate idempotent image command MUST return the existing result and MUST NOT consume another image rate-limit slot.
-- **FR-04-029**: Price suggestion visibility MUST be restricted to the authorized Manager, with Admin limited to approved technical/audit evidence and no default Staff access.
-
-## State model
-
-Technical analysis state:
+The independent API surface is:
 
 ```text
-PENDING → PROCESSING → SUCCEEDED
-                    └→ FAILED
+POST /api/v1/ai-support/messages
+POST /api/v1/design-requests
+GET  /api/v1/design-requests/{id}
+GET  /api/v1/design-review-requests
+POST /api/v1/design-review-requests/{id}/decisions
+POST /api/v1/price-proposals/{id}/ai-suggestions
+GET  /api/v1/price-proposals/{id}/ai-suggestions
+POST /api/v1/price-proposals/{id}/ai-suggestions/decisions
 ```
 
-Business review state:
+`POST /design-requests` accepts an independent description and/or image plus
+consent/idempotency data when applicable. It does not accept booking or payment
+fields. Exact Guest ownership, image-only/text-only and review-policy fields remain
+blocked until the ownership gate is resolved.
 
-```text
-NEED_REVIEW → ACCEPTED
-            ├→ REJECTED
-            └→ CLARIFICATION_REQUIRED → new design version → NEED_REVIEW
-```
+## 8. Non-goals
 
-An analysis failure has no business decision. A rejected version cannot continue to booking confirmation. A successful human decision does not itself confirm payment or create a custom-manufacturing order.
+- Workshop booking creation, lookup, eligibility, capacity, location/session and ticketing.
+- Payment, deposit, VNPay, invoice and settlement.
+- Configured ring-design choices owned by another contract.
+- Custom-manufacturing acceptance or final custom-order pricing.
+- Catalogue price publication from an AI response.
+- Permanent storage of reference images without an approved retention decision.
 
-## API behavior
+## 9. Acceptance criteria for the independent rebase
 
-| Method | Route | Access | Result |
-| --- | --- | --- | --- |
-| `POST` | `/api/v1/ai-support/messages` | Guest/Member, public context only | Validated basic-support response or typed scope/rate/provider error. |
-| `POST` | `/api/v1/design-requests` | Eligible Member | Creates one versioned booking-design request after consent/context validation. |
-| `GET` | `/api/v1/design-requests/{id}` | Owning Member, authorized Staff/Manager, or approved Admin audit view | Returns permitted analysis/review projection; never raw provider payload or another Member's data. |
-| `GET` | `/api/v1/design-review-requests` | Staff/Manager | Returns only requests in the reviewer's branch/delegation/value scope. |
-| `POST` | `/api/v1/design-review-requests/{id}/decisions` | Authorized Staff/Manager | Records one allowed human decision for the current version. |
-| `POST` | `/api/v1/price-proposals/{id}/ai-suggestions` | Manager | Returns advisory suggestion for a package/product proposal only. |
-
-Protected requests require a verified Firebase ID token and Mland role/status authorization. Client-supplied role, price, status, reviewer, estimate or decision is never trusted.
-
-Validation and security screening occur before any provider call. A rejected input,
-prompt-injection detection or disallowed context returns a stable error code and does
-not invoke Gemini. The image endpoint enforces the Member rolling rate limit and
-returns `Retry-After` when the limit is exceeded.
-
-## Design handoff requirements
-
-The feature is ready to enter the design step only when the following observable
-flows and states are represented in the feature design. `ppswbs-spec/DESIGN.md`
-is the visual and interaction baseline; this section defines Feature-04 behavior
-that the design must expose without changing the business rules above.
-
-1. **Basic AI support**: entry point, prompt input, loading, supported response,
-   unsupported-topic response, rate-limit response, provider-unavailable response,
-   and safe-response failure state for Guest and Member.
-2. **Booking-design submission**: package → location/session → booking information
-   → design path → consent → image upload. The design must show the consent purpose,
-   image constraints, upload progress, invalid-image state, prompt-injection/security
-   rejection state, and the three-attempts-per-five-minutes rate-limit state.
-3. **Analysis and human review**: processing, analysis failure, `NEED_REVIEW`,
-   `ACCEPTED`, `REJECTED`, and `CLARIFICATION_REQUIRED`. Candidate features and
-   image quality must be labelled as AI suggestions, while reviewer identity,
-   reason and next action remain human-controlled.
-4. **Manager price suggestion**: proposal inputs, loading, advisory suggestion,
-   invalid/out-of-range suggestion, provider failure, manual fallback, and the
-   Manager accept/adjust/reject decision. The suggestion is never shown to Guest,
-   Member or Staff by default and never publishes a price directly.
-5. **Shared UI states**: loading, empty, validation error, permission denied,
-   not found, stale design version, concurrency conflict, retry and recovery.
-   No screen may expose raw provider payloads, raw images, credentials or unnecessary
-   personal data.
-
-The feature design must also preserve bilingual labels/messages, backend-enforced
-authorization, keyboard accessibility, visible focus, and a clear distinction
-between booking-design images (temporary) and custom-manufacturing reference images
-(a separate workflow).
-
-### Idempotency and retry
-
-- Image submission MUST accept a client command/idempotency key scoped to the authenticated Member and booking/design version.
-- Repeating the same accepted command returns the existing request projection and MUST NOT create a second analysis/review request.
-- A changed image or material design option requires a new version/key.
-- Provider timeout may be retried only for the same request version; provider calls must carry a correlation ID and the application must prevent duplicate business decisions.
-- Review decision submission MUST use the current version and a guarded state transition; a competing terminal decision receives a conflict response.
-- Price suggestion retries create supporting suggestion evidence but never publish a price or overwrite a Manager decision.
-
-### Error codes
-
-The contract MUST expose stable, safe codes including:
-
-`AUTHENTICATION_REQUIRED`, `FORBIDDEN_ROLE`, `NOT_FOUND`, `BOOKING_CONTEXT_INVALID`, `DESIGN_VERSION_STALE`, `CONSENT_REQUIRED`, `IMAGE_INVALID`, `IMAGE_TOO_LARGE`, `IMAGE_QUALITY_INSUFFICIENT`, `IMAGE_RATE_LIMITED`, `AI_RATE_LIMITED`, `AI_INPUT_INVALID`, `AI_PROMPT_INJECTION_DETECTED`, `AI_CONTEXT_NOT_ALLOWED`, `AI_UNAVAILABLE`, `AI_RESPONSE_INVALID`, `AI_OUTPUT_POLICY_VIOLATION`, `AI_SCOPE_UNSUPPORTED`, `REVIEW_NOT_AUTHORIZED`, `REVIEW_STATE_CONFLICT`, `PRICE_INPUT_INCOMPLETE`, `PRICE_SUGGESTION_INVALID`, and `AI_FEATURE_NOT_APPLICABLE`.
-
-## Logical data ownership
-
-The feature plan must map these logical records to approved physical tables/migrations without introducing raw SQL:
-
-| Logical record | Required evidence |
-| --- | --- |
-| AI text interaction | Actor scope, safe prompt/response projection, provider correlation, timestamps, retention deadline. |
-| Booking-design request | Member, booking context, design version, analysis/review states, estimate snapshot and next action. |
-| Image consent | Member, consent version, purpose, timestamp, request/design version and affirmative action. |
-| Temporary image reference | Storage object reference, processing state, deletion outcome; no permanent booking-design image retention. |
-| Analysis result | Versioned candidate feature/image-quality schema, provider correlation, safe failure reason and processed time. |
-| Human review | Reviewer, role/scope, decision, reason, design version, timestamp and audit evidence. |
-| Price suggestion | Target package/product, input snapshot/version, advisory output, provider correlation, Manager decision and publication/application linkage. |
-
-The feature MUST not link booking-design review to custom-manufacturing acceptance or create payment records. The owning booking, catalogue, payment and custom-manufacturing modules remain responsible for their records.
-
-## External provider boundary
-
-- `AiTextSupportPort` sends approved public context and returns a text response.
-- `ImageFeatureAnalysisPort` sends a temporarily stored, consented image and returns candidate features/image quality.
-- `AiPriceSuggestionPort` sends complete package/product pricing inputs and returns an advisory suggestion.
-- `ReferenceImageStoragePort` stores and deletes temporary image input.
-- Provider adapters own credentials, request serialization, response validation, timeout and safe error mapping.
-- No provider response directly mutates a business entity or publishes a price.
-
-## Non-functional and security requirements
-
-- Never log raw Firebase tokens, provider credentials, raw image content, raw signed provider payloads or unnecessary PII.
-- Use server-side authorization for every protected operation.
-- Store only minimized audit evidence and safe provider correlation data.
-- The React + Vite client must expose loading, empty, validation, success, denial,
-  conflict and recovery states for this feature; business authorization remains
-  server-side. This feature does not introduce a separate Thymeleaf/htmx UI baseline.
-- Cross-module access uses named facades; no controller, entity or repository is imported across modules.
-- AI/image/provider calls must execute outside business database locks and must use retry-safe application boundaries.
-
-## Non-goals
-
-- Autonomous ring design generation.
-- Exact image reconstruction or CAD/3D editing.
-- AI final feasibility, price, acceptance or rejection decisions.
-- Guest booking-design image upload.
-- Configured ring-design choices submitted through the booking/ring-design contract.
-- Custom-manufacturing quotation or order acceptance by AI.
-- Payment creation or confirmation.
-- Catalogue price publication without Manager confirmation.
-- Delivery tracking, accounting or notification-centre implementation.
-
-## Success criteria
-
-- **SC-04-001**: All Guest image-upload attempts are denied without storage/provider calls.
-- **SC-04-002**: 100% of valid booking-design requests have recorded consent, analysis result/failure, human reviewer outcome or explicit pending/failure state, and design version evidence.
-- **SC-04-003**: No AI response alone changes booking status, review status, custom-order state, catalogue price or payment state.
-- **SC-04-004**: Duplicate image commands and provider retries do not create duplicate requests or decisions.
-- **SC-04-005**: Booking-design image input is deleted after processing and text interactions expire within 30 days.
-- **SC-04-006**: Staff/Manager routing and authorization tests cover threshold, branch/delegation and Manager-authority cases.
-- **SC-04-007**: Price suggestions remain advisory and manual Manager fallback works when Gemini is unavailable.
-
-## Resolved decisions and remaining implementation gates
-
-- `Manager` maps to `OWNER` and `Admin` maps to `ADMIN_TECHNICAL`; the mapping is
-  technical only and does not change the logical permission matrix.
-- Feature-04 owns booking-design image analysis only. Configured design choices
-  belong to the owning booking/ring-design contract and are not accepted by
-  `POST /api/v1/design-requests`.
-- The prompt limit is 2,000 characters, the image limit is 10 MB with maximum
-  dimensions of 4096×4096, and the provider timeout is 30 seconds.
-- AI evidence shown to Members is structured and policy-filtered: image quality,
-  candidate features, confidence/uncertainty and safe explanation only. Raw provider
-  payloads are never returned.
-- Price suggestions are fully visible only to the authorized Manager. Admin may
-  view approved technical/audit evidence; Staff, Guest and Member cannot view the
-  internal suggestion.
-- The exact physical schema/migration mapping for analysis result JSON, consent and
-  suggestion evidence must still be reviewed against `DB.md` before implementation.
-- Gemini production credentials, billing, model version and provider contract remain
-  integration configuration gates.
+- No Feature-004 production class imports `edu.fpt.sep490_g22.ppswbs_backend.workshopbooking` or a workshop booking facade.
+- No Feature-004 request, response, database table or audit record contains booking/payment/location/session fields.
+- Creating, analyzing, reviewing, revising or withdrawing a Design Request does not create or mutate booking, capacity, payment, ticket or custom-order state.
+- Cross-owner reads and mutations are denied without revealing whether another owner's request exists.
+- Prompt/image validation, consent, rate limiting, provider-boundary and retention policies are tested.
+- The OpenAPI contract, data model, design flow, tasks and backend implementation use the same independent boundary.
+- All unresolved ownership/review decisions are resolved before the implementation gate is marked complete.
