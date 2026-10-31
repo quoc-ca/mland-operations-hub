@@ -9,7 +9,7 @@ current database baseline.
 
 | Logical record | Owner | Main consumers |
 | --- | --- | --- |
-| Product shipping profile | `catalogue` | `readyringsales` through catalogue facade |
+| Fixed ready-ring shipping rule | `readyringsales` | GHTK quotation and fulfilment |
 | Member cart and cart line | `readyringsales` | Member checkout; each line records its selected processing branch |
 | Grouped checkout | `readyringsales` | Member payment and branch-order grouping |
 | Retail order and order item snapshot | `readyringsales` | payment, fulfilment, Member order view |
@@ -23,16 +23,16 @@ current database baseline.
 
 ## Logical records
 
-### ProductShippingProfile
+### ReadyRingShippingRule
 
-- Product/variant reference
-- Shipping weight in grams
-- Required package dimensions and unit
-- Effective version and active flag
-- Last approved update evidence
+- Fixed chargeable weight: 50 grams per ordered ring, including packaging
+- Branch parcel weight: total ordered-ring quantity in that branch multiplied
+  by 50 grams
+- No Member, Staff, product, or variant override in V1
 
-The profile is owned by FE-02. Checkout must fail safely when an eligible
-variant has no authoritative shipping weight required for GHTK quotation.
+The rule is owned by FE-08 and is applied server-side when requesting a GHTK
+quote or creating its accepted shipment snapshot. It replaces an FE-02
+product-shipping-profile dependency for V1.
 
 ### RetailCart and CartLine
 
@@ -88,7 +88,8 @@ remains paid if GHTK creation is pending or failing.
 - Product/variant identity snapshot
 - Configuration/option snapshot where applicable
 - Quantity, unit price, line amount
-- Shipping weight/dimension snapshot used for the accepted quote
+- Server-calculated branch chargeable-weight snapshot used for the accepted
+  quote (50 grams per ordered ring, including packaging)
 
 Later catalogue changes must not alter the order snapshot.
 

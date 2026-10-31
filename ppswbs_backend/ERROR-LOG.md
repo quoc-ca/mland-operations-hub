@@ -1,5 +1,65 @@
 # Error Log: ppswbs_backend
 
+## BE-DESIGN-0047 — FE-10 has only a local demo and no approved cross-feature reporting contracts
+
+- **Recorded at:** `2026-10-31T11:36:00+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `010-manager-dashboard`, real Manager executive dashboard implementation
+- **Status:** `BLOCKED`
+
+### Scope and evidence
+
+- `reporting` currently exposes `/api/v1/executive-reports` only under the `local` profile. `LocalExecutiveReportService` hard-codes Manager locations `10L` and `20L`, branch names, KPI values, and COMPLETE quality facts; its response marks `developmentDemo = true`.
+- `reporting/package-info.java` has no allowed feature dependencies. It therefore has no legal path to read retail, workshop settlement, workshop operations, or account-management data.
+- FE-10 requires active `REPORTING_EXECUTIVE_VIEW` authorization plus active `account_location_assignments`; five KPI values require verified retail revenue/count, fully-paid final workshop invoice revenue, and completed-session check-in/capacity facts. See `ppswbs-spec/features/010-manager-dashboard/spec.md` FR-001 through FR-010 and FR-019 through FR-026.
+- The inspected backend has no public reporting facade/query projection in `readyringsales`, `workshopsettlement`, `workshopoperations`, or `accountmanagement` that provides those facts to `reporting`. Direct repository/entity access would violate the Modulith boundary.
+
+### Why implementation must stop
+
+Implementing a real dashboard now would require inventing cross-feature source contracts, deciding how each source represents COMPLETE/EMPTY/PARTIAL/UNAVAILABLE, and choosing the authorization capability evaluation path. Reusing the local demo's hard-coded scope or allowing Reporting to query another feature's persistence would expose executive revenue incorrectly and violate the specified Manager-only authorization boundary.
+
+### Decision required to resume
+
+The FE-10/data-owning feature owners must approve named read-only facades (or one equivalent reporting projection) that define:
+
+1. Manager authorization and active permitted `locationId: Long` scope from account assignments.
+2. Retail facts: only committed verified-paid branch orders, attributed product value after allocated discount, excluding shipping, with VND/currency and verified-at timestamp.
+3. Workshop facts: fully-paid final invoice total once by fully-paid timestamp, plus completed-session checked-in and capacity totals; deposits must not appear as revenue.
+4. Source-safe result/status semantics for COMPLETE, EMPTY, PARTIAL, and UNAVAILABLE, including safe reason codes and no conversion of non-VND amounts.
+5. The allowed Modulith dependencies from `reporting` to those facade packages and the boundary test expected after the contracts are merged.
+
+No production reporting source code, migration, data, task marker, or test was changed. The existing local demo remains usable only as a prototype; it is not FE-10 business evidence. Resume implementation after the contracts are approved and available through named facades.
+
+## BE-DESIGN-0046 — shared VNPay ingress is workshop-only and cannot safely dispatch a retail payment
+
+- **Recorded at:** `2026-10-31T11:31:09+07:00`
+- **Reporter:** Codex implementation agent
+- **Feature / task:** `008-retail-order-and-fulfillment`, retail VNPay initiation and verified-payment outcome integration
+- **Status:** `BLOCKED`
+
+### Scope and evidence
+
+- FE-08 specification requires one grouped retail VNPay payment and server-verified evidence before the checkout is paid; then FE-08 settles held benefits, grants points, and records accepted sales. See `ppswbs-spec/features/008-retail-order-and-fulfillment/spec.md` FR-08-008 through FR-08-011 and FR-08-037 through FR-08-039.
+- `paymentintegration` has a verified VNPay ingress endpoint at `GET /api/v1/integrations/payments/vnpay/events`, signature validation, receipt deduplication, and a `PaymentOwnerRegistry` facade.
+- Its current public registration model is workshop-shaped: `PaymentOwnerRegistration` stores `bookingReference`, and `PaymentOwnerKind` permits only `DEPOSIT`, `FINAL_PAYMENT`, and `REFUND`.
+- `PaymentIngressService` directly imports `workshopbooking::facade` and `workshopsettlement::facade`; every successful verified callback dispatches only to Workshop Booking for `DEPOSIT` or Workshop Settlement for every other kind. There is no owner-neutral payment evidence facade/event and no retail branch.
+- FE-08 has no approved `paymentintegration::facade` module dependency, no retail merchant-reference registration, no approved payment-attempt persistence contract, and no registered verified-evidence consumer.
+
+### Why implementation must stop
+
+Connecting retail by adding an ad-hoc `RETAIL` enum value or a direct `readyringsales` import into `PaymentIngressService` would change a shared provider contract, persistence terminology, ownership dispatch, callback transaction boundary, and module dependencies. It would also require choosing how duplicate/late evidence, callback rollback, and payment-attempt lifecycle are shared with workshop. Those decisions are not encoded in the FE-08 artifacts or the paymentintegration public facade, so choosing them in FE-08 would violate the backend implementation gate.
+
+### Decision required to resume
+
+The paymentintegration owner and FE-08 owner need to approve an owner-neutral contract, for example:
+
+1. Replace/extend `bookingReference` with a generic source reference and define retail payment kind(s), or introduce a separate generic registration type without breaking workshop rows.
+2. Define a public, idempotent verified-payment-evidence dispatch mechanism that lets `readyringsales` consume only the facts it needs (merchant reference, verified amount/currency, provider transaction reference, verified time), without paymentintegration importing FE-08 internals.
+3. Define the ownership of payment-attempt creation, its 10-minute deadline, and late/duplicate/failed callback handling for retail; specifically, whether paymentintegration creates the VNPay redirect or only verifies provider evidence.
+4. Approve the resulting Modulith dependencies and migration/upgrade path for existing workshop payment registrations.
+
+No source code, migration, task marker, database, or payment-provider request was changed for this blocked integration. Once the contract is approved and merged, re-check the gates, implement the FE-08 adapter/consumer, and run callback/duplicate/late-payment integration tests.
+
 ## BE-DESIGN-0043 — 003.3 final-bill transport lacks approved ownership and exception inputs
 
 - **Recorded at:** `2026-10-31T01:16:31+07:00`
