@@ -134,10 +134,10 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 token,
                 List.of(new SimpleGrantedAuthority("ROLE_" + actor.role().name()))
             );
-            authentication.setDetails(identity);
+            authentication.setDetails(identity.toFacade());
             SecurityContextHolder.getContext().setAuthentication(authentication);
             request.setAttribute("currentAccountActor", actor);
-            request.setAttribute("verifiedIdentity", identity);
+            request.setAttribute("verifiedIdentity", identity.toFacade());
         } else {
             String path = request.getRequestURI();
             String method = request.getMethod();
@@ -155,10 +155,10 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                     token,
                     List.of(new SimpleGrantedAuthority("ROLE_MEMBER"))
                 );
-                authentication.setDetails(identity);
+                authentication.setDetails(identity.toFacade());
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 request.setAttribute("currentAccountActor", bootstrapActor);
-                request.setAttribute("verifiedIdentity", identity);
+                request.setAttribute("verifiedIdentity", identity.toFacade());
             } else {
                 writeError(response, HttpStatus.UNAUTHORIZED, "ACCOUNT_NOT_FOUND", "Account not found for verified identity. Please bootstrap account first.", correlationId);
                 return;

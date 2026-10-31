@@ -1,5 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -37,4 +39,8 @@ public interface AccountFacade {
     default Optional<TargetAccountSnapshot> resolveTargetAccount(Long accountId) {
         return getTargetAccount(accountId);
     }
+
+    TargetFactsOutcome findTargetFacts(AccountId accountId);
+
+    RosterOutcome findEligibleRoster(Long workshopLocationId, AccountRole role);
 }

@@ -25,10 +25,10 @@
 
 **Purpose**: Configuration, dependencies, and startup verification that must exist before any feature code.
 
-- [ ] T001 Verify `spring.jpa.hibernate.ddl-auto=validate` is set and no `update`/Flyway bypass exists in `ppswbs_backend/src/main/resources/application*.properties`
-- [ ] T002 Reserve the next repository-wide Flyway integer (check highest applied version) and create an append-only migration `V{N}__audit_outcome_varchar.sql` in `ppswbs_backend/src/main/resources/db/migration/` that changes `account_audit_events.outcome` from `ENUM('SUCCESS','FAILURE')` to `VARCHAR(16) NOT NULL` preserving existing rows
+- [x] T001 Verify `spring.jpa.hibernate.ddl-auto=validate` is set and no `update`/Flyway bypass exists in `ppswbs_backend/src/main/resources/application*.properties`
+- [x] T002 Reserve the next repository-wide Flyway integer (check highest applied version) and create an append-only migration `V{N}__audit_outcome_varchar.sql` in `ppswbs_backend/src/main/resources/db/migration/` that changes `account_audit_events.outcome` from `ENUM('SUCCESS','FAILURE')` to `VARCHAR(16) NOT NULL` preserving existing rows
 - [ ] T003 Verify fresh-database Flyway startup (V1 → current) and upgrade-path startup (V5 baseline → current) both succeed and Hibernate validate passes; retain evidence in `ppswbs-spec/features/001-account-management/verification.md`
-- [ ] T004 [P] Create `AuditOutcome` Java enum with exactly `SUCCESS` and `FAILURE` in `ppswbs_backend/src/main/java/.../features/accountmanagement/entity/AuditOutcome.java`
+- [x] T004 [P] Create `AuditOutcome` Java enum with exactly `SUCCESS` and `FAILURE` in `ppswbs_backend/src/main/java/.../features/accountmanagement/entity/AuditOutcome.java`
 - [ ] T005 [P] Confirm `ppswbs_frontend/` is a separate React + Vite project at `http://localhost:5173`; confirm `VITE_API_BASE_URL` and Firebase config are supplied via `.env.local` (not committed)
 
 **Checkpoint**: Backend starts successfully with Hibernate validate on fresh and upgrade MySQL; `AuditOutcome` enum exists; frontend dev server runs.
@@ -41,27 +41,27 @@
 
 **⚠️ CRITICAL**: No user story implementation can start until this phase is complete.
 
-- [ ] T006 Update `ppswbs_backend/.../entity/AccountAuditEvent.java` to map `outcome` column as `@Enumerated(EnumType.STRING)` using the `AuditOutcome` enum (replace free `String` field); verify Hibernate validate still passes after T003 migration
-- [ ] T007 [P] Update `ppswbs_backend/.../service/AuditService.java` signature: `recordEvent(...)` must accept `AuditOutcome`, not an arbitrary `String`; callers outside this phase are updated in their respective user-story tasks
-- [ ] T008 Implement/verify `ppswbs_backend/src/main/java/.../configuration/SecurityConfiguration.java`:
+- [x] T006 Update `ppswbs_backend/.../entity/AccountAuditEvent.java` to map `outcome` column as `@Enumerated(EnumType.STRING)` using the `AuditOutcome` enum (replace free `String` field); verify Hibernate validate still passes after T003 migration
+- [x] T007 [P] Update `ppswbs_backend/.../service/AuditService.java` signature: `recordEvent(...)` must accept `AuditOutcome`, not an arbitrary `String`; callers outside this phase are updated in their respective user-story tasks
+- [x] T008 Implement/verify `ppswbs_backend/src/main/java/.../configuration/SecurityConfiguration.java`:
   - Exact CORS origin `http://localhost:5173`; `Access-Control-Allow-Credentials: false`
   - Allowed headers: `Authorization`, `Content-Type`, `Idempotency-Key`, `X-Correlation-ID`
   - No wildcard origin; no global CSRF disable; bearer transport CSRF scoping
   - Default-deny filter chain: only explicitly declared public routes skip auth
-- [ ] T009 Implement/verify `ppswbs_backend/.../service/IdentityGateFilter.java` (WF-01):
+- [x] T009 Implement/verify `ppswbs_backend/.../service/IdentityGateFilter.java` (WF-01):
   - Calls `TokenVerificationService.verify` to check Firebase bearer and revocation
   - On success: calls `AccountFacade.resolveActor`; attaches `CurrentAccountActor` to request context
   - On failure: returns `401` with approved error envelope; no token/UID in response
   - Never resolves Workshop Location scope; scope-independent paths unaffected by Location outage
-- [ ] T010 [P] Define facade boundary types in `ppswbs_backend/.../facade/`:
+- [x] T010 [P] Define facade boundary types in `ppswbs_backend/.../facade/`:
   - `AccountId.java` — opaque wrapper for canonical positive-integer account ID
   - `CurrentAccountActor.java` — record: `accountId`, `role` (AccountRole), `status` (AccountStatus), `emailVerified` (boolean); no Workshop scope, no Firebase UID/token/email
   - `TargetAccountFacts.java` — FOUND value: `accountId`, `role`, `status`, `activeWorkshopLocationIds` (Set<Long>)
   - `TargetFactsOutcome.java` — sealed: `FOUND(TargetAccountFacts)` | `NOT_FOUND` | `UNAVAILABLE`
   - `InternalRosterEntry.java` — `accountId`, `displayName` (current Profile.full_name), `role`
   - `RosterOutcome.java` — sealed: `AVAILABLE(List<InternalRosterEntry>)` | `UNAVAILABLE`
-- [ ] T011 [P] Confirm Spring Modulith module detection for `accountmanagement` in `ppswbs_backend/src/test/`; verify the module boundary detects `features/accountmanagement` (not just the grouping package); record evidence in `verification.md`
-- [ ] T012 [P] Define shared error envelope in `ppswbs_backend/.../common/` (or equivalent shared kernel): `{ code, message, correlationId, timestamp, fieldErrors? }`; confirm no JPA entity, stack trace, secret, or PII may be included
+- [x] T011 [P] Confirm Spring Modulith module detection for `accountmanagement` in `ppswbs_backend/src/test/`; verify the module boundary detects `features/accountmanagement` (not just the grouping package); record evidence in `verification.md`
+- [x] T012 [P] Define shared error envelope in `ppswbs_backend/.../common/` (or equivalent shared kernel): `{ code, message, correlationId, timestamp, fieldErrors? }`; confirm no JPA entity, stack trace, secret, or PII may be included
 
 **Checkpoint**: Backend starts, identity gate filters all protected routes, facade boundary types compile, Spring Modulith module boundary verified, AuditOutcome persisted as VARCHAR(16).
 
@@ -75,18 +75,18 @@
 
 ### Implementation for User Story 1
 
-- [ ] T013 [P] [US1] Implement `AccountBootstrapService.bootstrap` in `ppswbs_backend/.../service/AccountBootstrapService.java`:
+- [x] T013 [P] [US1] Implement `AccountBootstrapService.bootstrap` in `ppswbs_backend/.../service/AccountBootstrapService.java`:
   - Given verified UID (from `CurrentAccountActor`): find Account by `firebase_uid`
   - If found: return existing Account (no mutation of role/status/history)
   - If not found + valid identity email (verified or unverified): create one `MEMBER`/`ACTIVE` Account AND one AccountProfile atomically; `full_name` = email local part (before `@`)
   - If not found + UID owns a pending internal record: do NOT create Member Account; evaluate activation (Phase 5/T037)
   - If not found + no valid email claim: no Account/Profile created; return safe alternative-method/recovery response
   - Same-looking email for a different UID: no merge; safe guidance
-- [ ] T014 [P] [US1] Implement `AccountFacade.resolveActor` in `ppswbs_backend/.../facade/AccountFacadeImpl.java`:
+- [x] T014 [P] [US1] Implement `AccountFacade.resolveActor` in `ppswbs_backend/.../facade/AccountFacadeImpl.java`:
   - Verifies Firebase bearer via `TokenVerificationService`; resolves `Account` by UID
   - Returns `CurrentAccountActor` (accountId, role, status, emailVerified); never includes Workshop scope
   - Returns typed failure outcome (not null) for missing/invalid/revoked bearer or missing/ineligible Account
-- [ ] T015 [P] [US1] Implement `AccountController.bootstrapOrGetCurrentAccount` in `ppswbs_backend/.../controller/AccountController.java`:
+- [x] T015 [P] [US1] Implement `AccountController.bootstrapOrGetCurrentAccount` in `ppswbs_backend/.../controller/AccountController.java`:
   - Route: `POST /accounts/me` (bootstrap) and `GET /accounts/me` (get current)
   - Public route for `POST /accounts/me`? No — bearer is required; identity gate resolves actor first
   - Response DTO: `accountId` (opaque string), `role`, `status`, `emailVerified`; no Firebase UID, email, or token
@@ -103,7 +103,7 @@
   - Email/password registration and sign-in forms; show configured provider buttons only when available
   - Duplicate-submit pending state; do not expose Account existence in error messages
   - Provider failure is distinct from invalid credentials; always explicit retry/alternative-method guidance
-- [ ] T019 [US1] Update all callers of `AuditService.recordEvent` in bootstrap path to pass `AuditOutcome.SUCCESS` or `AuditOutcome.FAILURE` (not String)
+- [x] T019 [US1] Update all callers of `AuditService.recordEvent` in bootstrap path to pass `AuditOutcome.SUCCESS` or `AuditOutcome.FAILURE` (not String)
 
 **Checkpoint**: New customer can register and reach Home. Returning customer bootstraps without data mutation. Email collision does not merge accounts. Audit records use `AuditOutcome` enum.
 
@@ -117,16 +117,16 @@
 
 ### Implementation for User Story 2
 
-- [ ] T020 [P] [US2] Implement `ProfileService.getProfile` and `ProfileService.saveProfile` in `ppswbs_backend/.../service/ProfileService.java`:
+- [x] T020 [P] [US2] Implement `ProfileService.getProfile` and `ProfileService.saveProfile` in `ppswbs_backend/.../service/ProfileService.java`:
   - `getProfile(accountId)`: returns full_name and phone for the requesting owner
   - `saveProfile(accountId, fullName, phone)`: replaces full_name (required; 1–100 Unicode chars, no ISO control chars; outer-whitespace trimmed) and optional phone (trimmed; 7–30 chars when present; not normalized/OTP-verified/required-unique)
   - Owner check: actor must own the Account; profile save must NOT change role, status, login_email, identity, or location scope
   - Last-successful-commit wins (no version conflict on own profile save)
-- [ ] T021 [P] [US2] Implement `EmailSyncService.synchronizeEmail` in `ppswbs_backend/.../service/EmailSyncService.java`:
+- [x] T021 [P] [US2] Implement `EmailSyncService.synchronizeEmail` in `ppswbs_backend/.../service/EmailSyncService.java`:
   - Accepts current verified identity email from the active Firebase token (never a browser-supplied value)
   - Updates `Account.login_email` when the email differs from the stored value; same account, same UID
   - Audit: `SUCCESS` on update; `FAILURE` on domain error
-- [ ] T022 [P] [US2] Add routes to `AccountController.java`:
+- [x] T022 [P] [US2] Add routes to `AccountController.java`:
   - `PUT /accounts/me/profile` — save own profile (owner only, verified-email check per FR-007 requirements)
   - `GET /accounts/me/profile` — get own profile
   - `POST /accounts/me/email-sync` — synchronize email from current identity
@@ -155,31 +155,31 @@
 
 ### Implementation for User Story 3
 
-- [ ] T025 [P] [US3] Implement `AdminAccountService.createInternalAccount` in `ppswbs_backend/.../service/AdminAccountService.java`:
+- [x] T025 [P] [US3] Implement `AdminAccountService.createInternalAccount` in `ppswbs_backend/.../service/AdminAccountService.java`:
   - Validates `role` ∈ {STAFF, MANAGER}; Staff: exactly one active `workshopLocationId`; Manager: one or more
   - Validates `workshopLocationId`(s) against authoritative Workshop Location facade (active IDs only)
   - Idempotency: stores key + normalized request digest; same key+digest → return preserved result; same key+changed digest → `409`
   - Creates `InternalAccountProvisioning` record; Firebase identity/action-link outside DB transaction (reconcilable)
   - Commits: one `PENDING_SETUP` Account, AccountLocationAssignment(s), `AccountAuditEvent (SUCCESS)`, `NotificationIntent`
   - Raw Firebase action link MUST NOT be in audit, log, or NotificationIntent
-- [ ] T026 [P] [US3] Implement `AdminAccountService.resendInvitation`:
+- [x] T026 [P] [US3] Implement `AdminAccountService.resendInvitation`:
   - Pending-only; five-minute resend cooldown enforced; fresh Firebase setup link; no raw link retained
   - Audit `SUCCESS`/`FAILURE`; NotificationIntent created post-commit
-- [ ] T027 [P] [US3] Implement PENDING_SETUP → ACTIVE activation in `AccountBootstrapService.bootstrap` (T013 extension):
+- [x] T027 [P] [US3] Implement PENDING_SETUP → ACTIVE activation in `AccountBootstrapService.bootstrap` (T013 extension):
   - Condition: intended UID signs in + email verified + effective Workshop scope valid for the assigned role rule
   - Activate the pending Account; never create/replace a Member Account; audit `ACTIVATION SUCCESS`
-- [ ] T028 [P] [US3] Implement `AdminAccountService.updateInternalProfile`, `assignRoleLocation`, and admin profile/role/location/status edit endpoints:
+- [x] T028 [P] [US3] Implement `AdminAccountService.updateInternalProfile`, `assignRoleLocation`, and admin profile/role/location/status edit endpoints:
   - Each action is a separate command with expected `version` (conflict-safe)
   - `updateInternalProfile(accountId, fullName, phone, version)`: Staff/Manager only; does not change role/status/email/identity/scope
   - `assignRoleLocation(accountId, role, locationIds, version)`: validates new location scope against Workshop Location facade
   - Version mismatch → `409`; attempt audit `FAILURE`; UI must reload before retry
-- [ ] T029 [P] [US3] Add routes to `AdminAccountController.java`:
+- [x] T029 [P] [US3] Add routes to `AdminAccountController.java`:
   - `POST /admin/accounts` — create internal account (ADMIN only, Idempotency-Key header required)
   - `GET /admin/accounts/{accountId}` — account detail (ADMIN only)
   - `POST /admin/accounts/{accountId}/resend-invitation` — resend (ADMIN only; pending only; cooldown enforced)
   - `PUT /admin/accounts/{accountId}/profile` — admin edit profile (ADMIN only; Staff/Manager targets only)
   - `PUT /admin/accounts/{accountId}/role-location` — admin assign role/location (ADMIN only; version required)
-- [ ] T030 [P] [US3] Implement `AccountFacade.findTargetFacts` and `findEligibleRoster` in `AccountFacadeImpl.java` (T010 types already defined):
+- [x] T030 [P] [US3] Implement `AccountFacade.findTargetFacts` and `findEligibleRoster` in `AccountFacadeImpl.java` (T010 types already defined):
   - `findTargetFacts(AccountId)`: read-only; resolves Account + effective `activeWorkshopLocationIds`; typed outcome; no audit event
   - `findEligibleRoster(workshopLocationId, role)`: read-only; returns ACTIVE Accounts with effective scope; display name = Profile.full_name; no email/phone/UID/lifecycle; no audit event
   - Both: if Account or Workshop Location scope cannot be verified → `UNAVAILABLE`
@@ -203,7 +203,7 @@
 
 ### Implementation for User Story 4
 
-- [ ] T033 [P] [US4] Implement `SuspensionService.suspend` in `ppswbs_backend/.../service/SuspensionService.java`:
+- [x] T033 [P] [US4] Implement `SuspensionService.suspend` in `ppswbs_backend/.../service/SuspensionService.java`:
   - Targets: MEMBER, STAFF, or MANAGER only; Admin accounts cannot be suspended via this feature
   - `suspend(adminActorId, targetAccountId, reason, version)`:
     - Validates current target account status (`ACTIVE` or `PENDING_SETUP`) and version
@@ -211,16 +211,16 @@
     - Commits in one transaction: Account update + `AccountAuditEvent(SUSPEND, SUCCESS, reason in safe metadata, no full_name/phone/token)` + `NotificationIntent`
     - Protected access is denied immediately via WF-01 identity gate (status check); does not depend on Firebase revocation completing
     - Firebase revocation is requested/reconciled outside the DB transaction as durable external progress
-- [ ] T034 [P] [US4] Implement `SuspensionService.restore` in `SuspensionService.java`:
+- [x] T034 [P] [US4] Implement `SuspensionService.restore` in `SuspensionService.java`:
   - `restore(adminActorId, targetAccountId, version)`:
     - Only allowed when `revocation_pending = false` (revocation complete)
     - Sets `status = resume_status`; clears `resume_status`; requires fresh sign-in
     - Commits: Account update + `AccountAuditEvent(RESTORE, SUCCESS)` + `NotificationIntent`
     - Attempt before revocation complete → `409` (not a bypass)
-- [ ] T035 [P] [US4] Implement `SuspensionService.reconcileRevocation` (durable reconciliation):
+- [x] T035 [P] [US4] Implement `SuspensionService.reconcileRevocation` (durable reconciliation):
   - Retryable/idempotent update of Firebase revocation progress; sets `revocation_pending = false` on confirmed completion
   - Failure is durable reconciliation; a pending revocation does not silently make a suspended account usable
-- [ ] T036 [P] [US4] Add routes to `AdminAccountController.java`:
+- [x] T036 [P] [US4] Add routes to `AdminAccountController.java`:
   - `PUT /admin/accounts/{accountId}/status` — suspend or restore (ADMIN only; version required; reason required for suspend)
 - [ ] T037 [US4] Implement `AdminAccountDetailPage.tsx` suspension/restoration UI in `ppswbs_frontend/src/features/accountmanagement/components/AdminAccountDetailPage.tsx`:
   - Explain impact; show current committed status/effective scope
@@ -240,15 +240,15 @@
 
 ### Implementation for User Story 5
 
-- [ ] T038 [P] [US5] Implement `AdminAccountService.listAccounts` and `AdminAccountService.getAccountDetail` in `AdminAccountService.java`:
+- [x] T038 [P] [US5] Implement `AdminAccountService.listAccounts` and `AdminAccountService.getAccountDetail` in `AdminAccountService.java`:
   - `listAccounts(email?, role?, status?, page, size)`: paginated; ordered by recent change/creation first
   - Excludes credentials, Firebase UIDs, and unrelated business data from list/detail responses
   - Account ID in response as opaque positive-integer string
   - `getAccountDetail(accountId)`: returns safe profile summary, role, status, assignment summary; no credential/UID
-- [ ] T039 [P] [US5] Implement `RoleCatalogueService.listRoles` and the fixed role definitions:
+- [x] T039 [P] [US5] Implement `RoleCatalogueService.listRoles` and the fixed role definitions:
   - Returns exactly MEMBER, STAFF, MANAGER, ADMIN with read-only descriptions of scope and constraints
   - No permission/role editing endpoints; no dynamic RBAC; no multiple-role assignment
-- [ ] T040 [P] [US5] Add routes to `AdminAccountController.java` and `RoleCatalogueController.java`:
+- [x] T040 [P] [US5] Add routes to `AdminAccountController.java` and `RoleCatalogueController.java`:
   - `GET /admin/accounts` — list with filters and pagination (ADMIN only)
   - `GET /roles` — fixed role catalogue (ADMIN only)
 - [ ] T041 [P] [US5] Implement `AdminAccountListPage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/AdminAccountListPage.tsx`:
@@ -270,11 +270,11 @@
 
 **Purpose**: Items that span multiple user stories or require all previous phases to be complete.
 
-- [ ] T044 [P] Implement `AccountExceptionHandler.java` in `ppswbs_backend/.../controller/AccountExceptionHandler.java`:
+- [x] T044 [P] Implement `AccountExceptionHandler.java` in `ppswbs_backend/.../controller/AccountExceptionHandler.java`:
   - Maps FE-001 validation/business exceptions to approved error envelope (`code`, `message`, `correlationId`, `timestamp`, optional `fieldErrors`)
   - No JPA entity, stack trace, Firebase UID, raw token, or unauthorized target detail in any response
   - FE-003 business outcomes are NOT converted to 500 by this handler
-- [ ] T045 [P] Validate all `AccountId` representations at controller and facade boundaries:
+- [x] T045 [P] Validate all `AccountId` representations at controller and facade boundaries:
   - REST/UI input: reject non-positive, padded, signed, blank, provider-UID, or alternate-ID representations → `400`
   - Java facade: all boundary crossings use `AccountId` type; no raw `Long` or `String` at facade boundary
 - [ ] T046 [P] Wire `AccountManagementApiClient.ts` in `ppswbs_frontend/src/features/accountmanagement/api/AccountManagementApiClient.ts`:
@@ -284,7 +284,7 @@
 - [ ] T047 [P] Accessibility baseline: run WCAG 2.2 AA scan against all FE-001 screens (AuthPage, ProfilePage, AdminAccountListPage, AdminAccountDetailPage, InternalAccountCreatePage, RoleCataloguePage) on Chrome, Edge, Firefox (2 latest desktop); record evidence in `verification.md`
 - [ ] T048 Revise `verification.md` to document acceptance evidence for all quickstart scenarios V-01 through V-09; mark each scenario's evidence status
 - [ ] T049 Execute all quickstart scenarios from `quickstart.md` locally; annotate evidence (screenshots or test output) and append to `verification.md`
-- [ ] T050 [P] Final review: confirm no committed credential defaults, no raw SQL in feature code, no cross-module entity/DAO import outside facade boundary, no `ddl-auto=update` anywhere, no wildcard CORS origin
+- [x] T050 [P] Final review: confirm no committed credential defaults, no raw SQL in feature code, no cross-module entity/DAO import outside facade boundary, no `ddl-auto=update` anywhere, no wildcard CORS origin
 
 ---
 

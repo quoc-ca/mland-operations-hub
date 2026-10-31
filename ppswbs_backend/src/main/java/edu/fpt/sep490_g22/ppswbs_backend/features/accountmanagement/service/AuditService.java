@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountAuditEventRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountAuditEvent;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AuditOutcome;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,7 +40,7 @@ public class AuditService {
         Long actorAccountId,
         Long targetAccountId,
         String action,
-        String outcome,
+        AuditOutcome outcome,
         String correlationId,
         Map<String, Object> rawMetadata
     ) {

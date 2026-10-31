@@ -5,6 +5,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.InternalAccountProvisioningRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AuditOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.InternalAccountProvisioning;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
@@ -68,7 +69,7 @@ public class SuspensionService {
             adminId,
             targetAccountId,
             "STATUS_SUSPENDED",
-            "SUCCESS",
+            AuditOutcome.SUCCESS,
             correlationId,
             Map.of(
                 "previous_status", prevStatus.name(),
@@ -108,7 +109,7 @@ public class SuspensionService {
             adminId,
             targetAccountId,
             "STATUS_RESTORED",
-            "SUCCESS",
+            AuditOutcome.SUCCESS,
             correlationId,
             Map.of("previous_status", AccountStatus.SUSPENDED.name(), "new_status", newStatus.name())
         );
