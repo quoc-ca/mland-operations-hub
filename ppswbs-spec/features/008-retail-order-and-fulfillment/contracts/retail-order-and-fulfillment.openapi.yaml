@@ -540,10 +540,20 @@ components:
       description: Non-negative base-10 integer string. Used for VND amounts and loyalty points to avoid JavaScript precision loss.
     BenefitPreviewView:
       type: object
-      required: [previewId, currency, merchandiseSubtotal, shippingExcluded, discountAmount, pointsDiscountAmount, payableAmount, expiresAt]
+      required: [previewId, currency, merchandiseSubtotal, shippingExcluded, discountAmount, pointsDiscountAmount, payableAmount, expiresAt, eligible, reasons]
       properties:
         previewId:
           type: string
+          nullable: true
+          description: Server-issued quote ID; null when the requested voucher or points are ineligible and checkout cannot be accepted.
+        eligible:
+          type: boolean
+          description: Whether the requested voucher and points were applied; informational reasons may still be present when true.
+        reasons:
+          type: array
+          description: Explanations returned by the loyalty preview for the Member.
+          items:
+            type: string
         currency:
           type: string
         merchandiseSubtotal:
@@ -564,6 +574,7 @@ components:
         expiresAt:
           type: string
           format: date-time
+          nullable: true
     ShippingQuoteRequest:
       type: object
       required: [locationId, recipient]

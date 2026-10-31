@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 
 @Repository
 public interface RetailVariantHoldRepository extends JpaRepository<RetailVariantHold, String> {
@@ -27,4 +28,18 @@ public interface RetailVariantHoldRepository extends JpaRepository<RetailVariant
                                                  @Param("asOf") Instant asOf);
 
     Optional<RetailVariantHold> findByGroupedCheckoutIdAndVariantId(String groupedCheckoutId, Long variantId);
+    List<RetailVariantHold> findByGroupedCheckoutId(String groupedCheckoutId);
+
+    interface ExpiryCandidate {
+        String getCheckoutId();
+        Long getMemberId();
+    }
+
+    @Query("select distinct hold.groupedCheckout.id as checkoutId, hold.groupedCheckout.memberAccountId as memberId "
+        + "from RetailVariantHold hold where hold.status = :holdStatus and hold.expiresAt <= :now "
+        + "and hold.groupedCheckout.paymentState = :paymentState and hold.groupedCheckout.paymentInitiatedAt is null "
+        + "order by hold.groupedCheckout.id")
+    List<ExpiryCandidate> findUnstartedExpiryCandidates(@Param("holdStatus") RetailVariantHoldStatus holdStatus,
+        @Param("paymentState") edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.PaymentState paymentState,
+        @Param("now") Instant now, Pageable page);
 }

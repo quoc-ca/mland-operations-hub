@@ -8,12 +8,14 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailPa
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.ObjectProvider;
 
 @Service
 @RequiredArgsConstructor
 public class RetailPaymentService {
     private final RetailCheckoutService checkoutService;
     private final RetailPaymentPort paymentPort;
+    private final ObjectProvider<RetailUnstartedExpiryService> expiryService;
 
     @Transactional
     public CheckoutDtos.PaymentRedirectView initiate(Long memberAccountId, String checkoutId) {
@@ -24,6 +26,8 @@ public class RetailPaymentService {
         if (checkout.getPaymentState() != PaymentState.ACCEPTED_UNPAID) {
             throw new RetailConflictException("Payment cannot be initiated in the current checkout state");
         }
+        var expiry = expiryService.getIfAvailable();
+        if (expiry != null) expiry.requirePaymentBeforeDeadline(checkoutId);
         checkout.beginPayment();
         RetailCheckoutPorts.PaymentInitiation initiation = paymentPort.initiate(checkout.getId(), checkout.getPayableAmount());
         if (initiation.locallyVerified()) checkout.markPaid();

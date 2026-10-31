@@ -51,4 +51,5 @@ public class RetailOrder {
     public void markPickedUp() { fulfilmentState = "PICKED_UP"; }
     public void cancel() { paymentState = PaymentState.CANCELLED; }
     public void expireLocalDemo() { paymentState = PaymentState.EXPIRED; }
+    public void expireUnpaid() { paymentState = PaymentState.EXPIRED; }
 }

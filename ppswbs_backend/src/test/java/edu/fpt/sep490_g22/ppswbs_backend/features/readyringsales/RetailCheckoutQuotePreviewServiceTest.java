@@ -55,6 +55,59 @@ class RetailCheckoutQuotePreviewServiceTest {
         verifyNoInteractions(quotes, catalogue, loyalty);
     }
 
+    @Test
+    void invalidVoucherReturnsReasonsWithoutIssuingAnAcceptableQuote() {
+        mockCatalogue();
+        when(loyalty.previewBenefits(any(), any())).thenReturn(preview(null, BigInteger.ZERO,
+            List.of("The voucher code was not found.")));
+        var result = service.preview(1L, requestWithSelection("VOUCHER", "MISSING", "0"));
+        assertThat(result.eligible()).isFalse();
+        assertThat(result.reasons()).containsExactly("The voucher code was not found.");
+        assertThat(result.previewId()).isNull();
+        verifyNoInteractions(quotes);
+    }
+
+    @Test
+    void rejectedPointsDoNotProduceAnAcceptableQuote() {
+        mockCatalogue();
+        when(loyalty.previewBenefits(any(), any())).thenReturn(preview(null, BigInteger.ZERO,
+            List.of("Points must be between 10 and 20.")));
+        var result = service.preview(1L, requestWithSelection("NONE", null, "30"));
+        assertThat(result.eligible()).isFalse();
+        assertThat(result.reasons()).containsExactly("Points must be between 10 and 20.");
+        assertThat(result.previewId()).isNull();
+        verifyNoInteractions(quotes);
+    }
+
+    @Test
+    void noAutomaticDiscountIsInformationalAndStillProducesAQuote() {
+        mockCatalogue();
+        when(loyalty.previewBenefits(any(), any())).thenReturn(preview(null, BigInteger.ZERO,
+            List.of("No automatic discount applies to this cart.")));
+        var result = service.preview(1L, requestWithSelection("AUTO", null, "0"));
+        assertThat(result.eligible()).isTrue();
+        assertThat(result.reasons()).containsExactly("No automatic discount applies to this cart.");
+        verify(quotes).saveAndFlush(any());
+    }
+
+    private void mockCatalogue() {
+        when(carts.findByMemberAccountId(1L)).thenReturn(Optional.of(cart()));
+        when(catalogue.readSaleFacts(List.of(101L))).thenReturn(List.of(
+            new CartSaleFact(101L, 5L, "Ring", "SKU", 10, BigInteger.valueOf(100), "VND", true, BigInteger.TEN)));
+    }
+
+    private BenefitPreview preview(Long programId, BigInteger usedPoints, List<String> reasons) {
+        return new BenefitPreview(BigInteger.valueOf(200), BigInteger.ZERO, BigInteger.ZERO,
+            BigInteger.valueOf(200), BigInteger.valueOf(20), BigInteger.TEN, BigInteger.ONE, usedPoints,
+            BigInteger.ZERO, BigInteger.valueOf(200), BigInteger.valueOf(200), programId, null, null,
+            1L, true, reasons, "digest");
+    }
+
+    private CheckoutDtos.BenefitPreviewRequest requestWithSelection(String choice, String voucher, String points) {
+        return new CheckoutDtos.BenefitPreviewRequest(new CheckoutDtos.BenefitSelection(choice, voucher, points),
+            List.of(new CheckoutDtos.BranchOrderCheckoutInput(10L, "PICKUP", null)));
+    }
+
     private RetailCart cart() {
         RetailCart cart = new RetailCart(1L);
         ReflectionTestUtils.setField(cart, "id", "cart-1");

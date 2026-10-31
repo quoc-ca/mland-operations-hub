@@ -22,6 +22,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.EarnSt
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetDimension;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetScope;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.DiscountTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesFacade;
@@ -42,6 +43,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.Simulat
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.GroupedCheckoutRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailCheckoutQuoteRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailCartRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailVariantHoldRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailVariantHoldStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.PaymentState;
+import org.springframework.data.domain.PageRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.GroupedCheckout;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailCheckoutQuote;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailCheckoutQuoteBranch;
@@ -55,6 +60,18 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.jdbc.core.JdbcTemplate;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.controller.CheckoutController;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.controller.RetailExceptionHandler;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailActorResolver;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailMemberActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailPaymentService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailUnstartedExpiryService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailUnstartedExpiryJob;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import javax.sql.DataSource;
 import java.util.UUID;
 import java.util.List;
@@ -67,8 +84,16 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = "retail.unstarted-expiry.enabled=false")
 @ActiveProfiles({CatalogueTestSupport.MYSQL_PROFILE, "retail-payment-sim"})
 @Import(CatalogueFlowFixture.class)
 class RetailCatalogueMySqlIntegrationTest {
@@ -97,6 +122,230 @@ class RetailCatalogueMySqlIntegrationTest {
     @Autowired LoyaltyWalletRepository wallets;
     @Autowired AcceptedBenefitRepository benefits;
     @Autowired PickupOperationsService pickupOperations;
+    @Autowired RetailUnstartedExpiryService expiry;
+    @Autowired RetailPaymentService paymentService;
+    @Autowired RetailVariantHoldRepository holdRepository;
+    @Autowired LoyaltyFacade loyalty;
+
+    @Test
+    void expiryAndMemberCancellationRaceReleaseBenefitsOnlyOnce() throws Exception {
+        var order = expiredVoucherOrder();
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var expired = executor.submit(() -> { start.await(); return expiry.expire(order.member(), order.checkout()); });
+            var cancelled = executor.submit(() -> {
+                start.await();
+                try { cancellation.cancel(order.member(), order.checkout()); return true; }
+                catch (RetailConflictException expected) { return false; }
+            });
+            start.countDown();
+            boolean expiryWon = expired.get(30, TimeUnit.SECONDS);
+            boolean cancellationWon = cancelled.get(30, TimeUnit.SECONDS);
+            assertThat(expiryWon).isNotEqualTo(cancellationWon);
+        }
+        assertReleasedOnce(order);
+    }
+
+    @Test
+    void loyaltyFailureRollsBackExpiryAndRetryJobDoesNotReleaseTwice() {
+        var order = expiredVoucherOrder();
+        LoyaltyFacade failingLoyalty = mock(LoyaltyFacade.class, delegatesTo(loyalty));
+        doThrow(new IllegalStateException("simulated loyalty failure"))
+            .when(failingLoyalty).finishIneligibleEarn(any());
+        var failingExpiry = new RetailUnstartedExpiryService(carts, checkouts, holdRepository, holds,
+            sales, guard, failingLoyalty);
+        assertThatThrownBy(() -> transaction.execute(status -> failingExpiry.expire(order.member(), order.checkout())))
+            .isInstanceOf(IllegalStateException.class);
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.ACCEPTED_UNPAID);
+        var heldBenefit = benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, order.checkout()).orElseThrow();
+        assertThat(heldBenefit.getVoucherState()).isEqualTo(ComponentState.HELD);
+        assertThat(heldBenefit.getPointsState()).isEqualTo(ComponentState.HELD);
+        assertThat(wallets.findById(order.member()).orElseThrow().getHeldPoints()).isEqualTo(BigInteger.valueOf(100));
+        assertThat(cart.getCart(order.member()).lines()).isEmpty();
+        BigInteger stillHeld = transaction.execute(status -> guard.readSnapshots(List.of(order.variant()), Instant.now())
+            .get(order.variant()).heldQuantity());
+        assertThat(stillHeld).isEqualTo(BigInteger.ONE);
+
+        var source = mock(RetailVariantHoldRepository.class);
+        var candidate = mock(RetailVariantHoldRepository.ExpiryCandidate.class);
+        when(candidate.getMemberId()).thenReturn(order.member());
+        when(candidate.getCheckoutId()).thenReturn(order.checkout());
+        when(source.findUnstartedExpiryCandidates(any(), any(), any(), any())).thenReturn(List.of(candidate));
+        var job = new RetailUnstartedExpiryJob(source, expiry);
+        job.process();
+        job.process();
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.EXPIRED);
+        assertReleasedOnce(order);
+    }
+
+    private ExpiredOrder expiredVoucherOrder() {
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        String code = "EX" + random.replace("-", "").substring(0, 10).toUpperCase();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-expiry-test-" + random)
+            .loginEmail("fe08-expiry-test-" + random + "@example.test").build()).getId();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        transaction.executeWithoutResult(status -> {
+            var program = programs.saveAndFlush(PromotionProgram.voucher(TargetScope.PRODUCT, code, code, 10, 2, now, 1L));
+            var revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1, ProgramKind.VOUCHER,
+                "Expiry verification", now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS),
+                DiscountTerms.percent(BigDecimal.TEN, BigInteger.valueOf(50_000), BigInteger.ZERO), true, now, 1L));
+            targets.save(PromotionTarget.create(revision.getId(), TargetScope.PRODUCT, TargetDimension.PRODUCT, Long.toString(product)));
+            program.pointToRevision(revision.getId());
+            var wallet = LoyaltyWallet.open(member);
+            wallet.earn(BigInteger.valueOf(500));
+            wallets.saveAndFlush(wallet);
+        });
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
+        var accepted = acceptance.accept(member, "verify-" + random,
+            new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
+        jdbc.update("update retail_variant_holds set expires_at = ? where grouped_checkout_id = ?",
+            java.sql.Timestamp.valueOf("2020-01-01 00:00:00"), accepted.id());
+        return new ExpiredOrder(member, variant, accepted.id());
+    }
+
+    private void assertReleasedOnce(ExpiredOrder order) {
+        var benefit = benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, order.checkout()).orElseThrow();
+        assertThat(benefit.getVoucherState()).isEqualTo(ComponentState.RELEASED);
+        assertThat(benefit.getPointsState()).isEqualTo(ComponentState.RELEASED);
+        assertThat(benefit.getEarnState()).isEqualTo(EarnState.INELIGIBLE);
+        assertThat(wallets.findById(order.member()).orElseThrow().getHeldPoints()).isZero();
+        assertThat(wallets.findById(order.member()).orElseThrow().getBalancePoints()).isEqualTo(BigInteger.valueOf(500));
+        assertThat(cart.getCart(order.member()).lines()).singleElement().satisfies(line -> assertThat(line.quantity()).isEqualTo(1));
+        BigInteger held = transaction.execute(status -> guard.readSnapshots(List.of(order.variant()), Instant.now())
+            .get(order.variant()).heldQuantity());
+        assertThat(held).isEqualTo(BigInteger.ZERO);
+    }
+
+    private record ExpiredOrder(long member, long variant, String checkout) { }
+
+    @Test
+    void expiredUnstartedCheckoutReleasesRealBenefitsAndCannotStartPayment() throws Exception {
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        String code = "EX" + random.replace("-", "").substring(0, 10).toUpperCase();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-expiry-" + random)
+            .loginEmail("fe08-expiry-" + random + "@example.test").build()).getId();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        transaction.executeWithoutResult(status -> {
+            var program = programs.saveAndFlush(PromotionProgram.voucher(TargetScope.PRODUCT, code, code, 10, 2, now, 1L));
+            var revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1, ProgramKind.VOUCHER,
+                "Expiry", now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS),
+                DiscountTerms.percent(BigDecimal.TEN, BigInteger.valueOf(50_000), BigInteger.ZERO), true, now, 1L));
+            targets.save(PromotionTarget.create(revision.getId(), TargetScope.PRODUCT, TargetDimension.PRODUCT, Long.toString(product)));
+            program.pointToRevision(revision.getId());
+            var wallet = LoyaltyWallet.open(member);
+            wallet.earn(BigInteger.valueOf(500));
+            wallets.saveAndFlush(wallet);
+        });
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
+        var accepted = acceptance.accept(member, "expiry-" + random,
+            new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
+        assertThat(expiry.expire(member, accepted.id())).isFalse();
+        jdbc.update("update retail_variant_holds set expires_at = ? where grouped_checkout_id = ?",
+            java.sql.Timestamp.valueOf("2020-01-01 00:00:00"), accepted.id());
+        assertThat(holdRepository.findUnstartedExpiryCandidates(RetailVariantHoldStatus.HELD, PaymentState.ACCEPTED_UNPAID,
+            Instant.now(), PageRequest.of(0, 1000))).extracting(RetailVariantHoldRepository.ExpiryCandidate::getCheckoutId)
+            .contains(accepted.id());
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(3)) {
+            var first = executor.submit(() -> { start.await(); return expiry.expire(member, accepted.id()); });
+            var second = executor.submit(() -> { start.await(); return expiry.expire(member, accepted.id()); });
+            var payment = executor.submit(() -> {
+                start.await();
+                try { paymentService.initiate(member, accepted.id()); return false; }
+                catch (RetailConflictException expected) { return true; }
+            });
+            start.countDown();
+            assertThat(List.of(first.get(30, TimeUnit.SECONDS), second.get(30, TimeUnit.SECONDS)))
+                .containsExactlyInAnyOrder(true, false);
+            assertThat(payment.get(30, TimeUnit.SECONDS)).isTrue();
+        }
+        assertThat(expiry.expire(member, accepted.id())).isFalse();
+        assertThat(checkouts.findById(accepted.id()).orElseThrow().getPaymentState().name()).isEqualTo("EXPIRED");
+        var released = benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, accepted.id()).orElseThrow();
+        assertThat(released.getVoucherState()).isEqualTo(ComponentState.RELEASED);
+        assertThat(released.getPointsState()).isEqualTo(ComponentState.RELEASED);
+        assertThat(released.getEarnState()).isEqualTo(EarnState.INELIGIBLE);
+        assertThat(wallets.findById(member).orElseThrow().getHeldPoints()).isZero();
+        assertThat(cart.getCart(member).lines()).singleElement().satisfies(line -> assertThat(line.quantity()).isEqualTo(1));
+        BigInteger heldAfterExpiry = transaction.execute(status -> guard.readSnapshots(List.of(variant), Instant.now()).get(variant).heldQuantity());
+        assertThat(heldAfterExpiry).isEqualTo(BigInteger.ZERO);
+    }
+
+    @Test
+    void expiredCheckoutWithInitiatedPaymentIsNotReleased() {
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-expiry-pending-" + random)
+            .loginEmail("fe08-expiry-pending-" + random + "@example.test").build()).getId();
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
+        var accepted = acceptance.accept(member, "pending-" + random,
+            new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
+        transaction.executeWithoutResult(status -> checkouts.lockOwned(accepted.id(), member).orElseThrow().beginPayment());
+        jdbc.update("update retail_variant_holds set expires_at = ? where grouped_checkout_id = ?",
+            java.sql.Timestamp.valueOf("2020-01-01 00:00:00"), accepted.id());
+        assertThat(holdRepository.findUnstartedExpiryCandidates(RetailVariantHoldStatus.HELD, PaymentState.ACCEPTED_UNPAID,
+            Instant.now(), PageRequest.of(0, 1000))).extracting(RetailVariantHoldRepository.ExpiryCandidate::getCheckoutId)
+            .doesNotContain(accepted.id());
+        assertThat(expiry.expire(member, accepted.id())).isFalse();
+        assertThat(checkouts.findById(accepted.id()).orElseThrow().getPaymentState().name()).isEqualTo("PAYMENT_INITIATED");
+        BigInteger heldWhilePending = transaction.execute(status -> guard.readSnapshots(List.of(variant), Instant.now()).get(variant).heldQuantity());
+        assertThat(heldWhilePending).isEqualTo(BigInteger.ONE);
+        assertThat(cart.getCart(member).lines()).isEmpty();
+    }
+
+    @Test
+    void previewApiReturnsRealLoyaltyReasonsAndOnlyIssuesValidQuotes() throws Exception {
+        CatalogueTestSupport.requireMySql84(dataSource);
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-reasons-" + random)
+            .loginEmail("fe08-reasons-" + random + "@example.test").build()).getId();
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var actor = mock(RetailActorResolver.class);
+        when(actor.requireActiveMember(any(HttpServletRequest.class))).thenReturn(new RetailMemberActor(member));
+        @SuppressWarnings("unchecked") ObjectProvider<RetailCheckoutQuotePreviewService> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(quotePreview);
+        var mvc = MockMvcBuilders.standaloneSetup(new CheckoutController(actor, mock(RetailCheckoutService.class),
+            mock(RetailPaymentService.class), provider)).setControllerAdvice(new RetailExceptionHandler()).build();
+        String route = "/api/v1/ready-ring-benefit-previews";
+        String branch = ",\"branchOrders\":[{\"locationId\":1,\"method\":\"PICKUP\"}]}";
+        String missingCode = "MISSING" + random.replace("-", "");
+        int before = jdbc.queryForObject("select count(*) from retail_checkout_quotes where member_account_id = ?", Integer.class, member);
+
+        mvc.perform(post(route).contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON)
+                .content("{\"selection\":{\"choice\":\"VOUCHER\",\"voucherCode\":\"" + missingCode
+                    + "\",\"requestedPoints\":\"0\"}" + branch))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.eligible").value(false))
+            .andExpect(jsonPath("$.previewId").doesNotExist())
+            .andExpect(jsonPath("$.reasons[0]").value("The voucher code was not found."));
+        mvc.perform(post(route).contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON)
+                .content("{\"selection\":{\"choice\":\"NONE\",\"requestedPoints\":\"999999\"}" + branch))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.eligible").value(false))
+            .andExpect(jsonPath("$.previewId").doesNotExist())
+            .andExpect(jsonPath("$.reasons[0]").isNotEmpty());
+        assertThat(jdbc.queryForObject("select count(*) from retail_checkout_quotes where member_account_id = ?", Integer.class, member)).isEqualTo(before);
+
+        mvc.perform(post(route).contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON)
+                .content("{\"selection\":{\"choice\":\"AUTO\",\"requestedPoints\":\"0\"}" + branch))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.eligible").value(true))
+            .andExpect(jsonPath("$.previewId").isNotEmpty());
+        assertThat(jdbc.queryForObject("select count(*) from retail_checkout_quotes where member_account_id = ?", Integer.class, member)).isEqualTo(before + 1);
+    }
 
     @Test
     void pickupRequiresPaidOrderAndAssignedStaffAndRecordsEachMilestoneOnce() throws Exception {

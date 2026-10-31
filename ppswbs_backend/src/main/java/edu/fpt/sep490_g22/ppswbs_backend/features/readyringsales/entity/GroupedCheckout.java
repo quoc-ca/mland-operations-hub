@@ -69,4 +69,5 @@ public class GroupedCheckout {
         orders.forEach(RetailOrder::cancel);
     }
     public void expireLocalDemo() { this.paymentState = PaymentState.EXPIRED; orders.forEach(RetailOrder::expireLocalDemo); }
+    public void expireUnpaid() { this.paymentState = PaymentState.EXPIRED; orders.forEach(RetailOrder::expireUnpaid); }
 }
