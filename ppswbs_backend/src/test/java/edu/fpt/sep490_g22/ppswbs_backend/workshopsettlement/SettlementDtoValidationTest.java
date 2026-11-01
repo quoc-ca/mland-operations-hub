@@ -28,9 +28,6 @@ class SettlementDtoValidationTest {
         assertThat(validator.validate(new ChargeCommandDto("addon-ref", "guest@example.test", "0123", null, null, null))).isNotEmpty();
         assertThat(validator.validate(new ChargeCommandDto(null, null, null, "Extra", 100L, "Reason"))).isEmpty();
         assertThat(validator.validate(new ChargeCommandDto(null, null, null, "", 100L, "Reason"))).isNotEmpty();
-        assertThat(validator.validate(new FinalizationCommandDto(false, null))).isEmpty();
-        assertThat(validator.validate(new FinalizationCommandDto(true, "approved exception"))).isEmpty();
-        assertThat(validator.validate(new FinalizationCommandDto(true, " "))).isNotEmpty();
-        assertThat(validator.validate(new FinalizationCommandDto(false, "unexpected reason"))).isNotEmpty();
+        assertThat(validator.validate(new FinalizationCommandDto())).isEmpty();
     }
 }

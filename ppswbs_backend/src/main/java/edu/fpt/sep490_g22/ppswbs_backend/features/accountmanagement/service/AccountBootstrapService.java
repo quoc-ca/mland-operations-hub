@@ -4,6 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountL
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.InternalAccountProvisioningRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AuditOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.InternalAccountProvisioning;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
@@ -70,7 +71,7 @@ public class AccountBootstrapService {
                             account.getId(),
                             account.getId(),
                             "ACCOUNT_ACTIVATED",
-                            "SUCCESS",
+                            AuditOutcome.SUCCESS,
                             correlationId,
                             Map.of("previous_status", prevStatus.name(), "new_status", AccountStatus.ACTIVE.name())
                         );
@@ -98,7 +99,7 @@ public class AccountBootstrapService {
                 newAccount.getId(),
                 newAccount.getId(),
                 "ACCOUNT_CREATED",
-                "SUCCESS",
+                AuditOutcome.SUCCESS,
                 correlationId,
                 Map.of("new_role", AccountRole.MEMBER.name(), "new_status", AccountStatus.ACTIVE.name())
             );

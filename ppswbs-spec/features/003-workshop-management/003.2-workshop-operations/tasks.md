@@ -1,7 +1,7 @@
 # Tasks: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-01
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -212,7 +212,7 @@ handoff to the implementation persona.
 - [X] T049 [P] Add end-to-end quickstart scenarios from `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/quickstart.md` to `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/WorkshopOperationsQuickstartIT.java`, including MySQL/Flyway rather than H2-only proof.
 - [X] T050 Update `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/ModulithArchitectureTests.java` so Booking calls only the Operations facade and Operations never imports Booking entity, DAO, service or controller packages.
 - [ ] T051 Execute the approved legacy mapping/reissue release runbook in `ppswbs_backend/docs/workshop-operations-legacy-rebase.md` before retiring `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/domain/WorkshopSession.java` and `BookingTicket.java`; do not delete or alter live legacy tickets without the separately approved operator decision and audit evidence.
-- [ ] T052 Run the commands in `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/quickstart.md`, record actual results and any verification exception in `ppswbs_backend/ERROR-LOG.md` only if the backend AGENT requires it after a failed readiness/implementation check.
+- [X] T052 Run the commands in `ppswbs-spec/features/003-workshop-management/003.2-workshop-operations/quickstart.md`, record actual results and any verification exception in `ppswbs_backend/ERROR-LOG.md` only if the backend AGENT requires it after a failed readiness/implementation check.
 - [X] T053 Implement OTA-observable schedule and availability/sale-state projection in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/`; advance one per-session source version exactly once only when an OTA-observable value changes; ensure scheduled `PUBLISHED` to `IN_PROGRESS` publishes the complete `CLOSED` post-state in the same transaction, while `ATTENDANCE_FINALIZED` does not duplicate an unchanged closed snapshot; do not expose PII, booking/payment/ticket detail, OTA mapping, or a public HTTP contract.
 - [X] T054 Implement the persistent internal Spring Modulith publication and authoritative one-session resync boundary in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/` and `service/`; record the publication in the same local Operations transaction, use no broker or external OTA call, return resync at the existing source version, and do not make resync a business change.
 - [X] T055 Add MySQL/Modulith integration coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/WorkshopOtaSnapshotIT.java` for `DRAFT`/internal-only no-publication, schedule/availability/sale-state version behavior, scheduled-start atomic closure publication, no duplicate version at attendance finalization, hold create/release/expiry, and unchanged hold-to-ticket commit. Complete its cross-feature acceptance scenarios—consumer failure/restart at-least-once replay, duplicate/older handling, gap resync, and proof that a 003.4 mapping failure cannot change Operations capacity, sale state, or direct-Mland booking—after 003.4 T011/T018 provide the consumer; those scenarios do not block implementing T011.
@@ -222,6 +222,14 @@ handoff to the implementation persona.
 ## Phase 9: Settlement and required-session-change facade handoff
 
 **Purpose**: Supply 003.3 with authoritative outcomes without exposing Operations data or inventing a public REST contract.
+
+- [X] T083 Add `WorkshopOperationsFacade.getBookingCancellationEligibility` for
+  a booking reference; Operations derives the current required-session set from
+  active entitlements, including replacements, and returns earliest scheduled
+  start plus check-in/no-show flags with stable fail-closed reasons. Verified by
+  `WorkshopOperationsSnapshotTest` (9 tests): current session source, check-in,
+  no-show, earliest start, and a projection containing no ticket/contact/PII
+  fields. Required by 003.3 T021.
 
 - [X] T056 Implement the approved `WorkshopOperationsFacade` settlement-readiness operation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/`; it returns only whether every required session is `ATTENDANCE_FINALIZED`, never attendance/ticket/Staff/audit/PII detail or a conclusion inferred from schedule time.
 - [X] T057 Implement the approved complete required-session replacement and post-refund-consequence operations in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/` and `service/`; enforce future eligible sources, future `PUBLISHED` customer-selectable targets, full participant capacity, all-or-none entitlement/capacity transfer, persistent QR, no `SALES_PAUSED` exception, and no attendance-history rewrite.
@@ -248,9 +256,10 @@ handoff to the implementation persona.
 - [X] T076 Add an Operations-owned atomic OTA acceptance operation to `WorkshopOperationsFacade` that validates one published Basic Ring session and participant bounds, commits capacity and issues exactly one independently scannable ticket per participant in one transaction, returns the same ticket set on equivalent replay, and rejects changed idempotency reuse without side effects; cover accepted, full-capacity, invalid-input and replay cases in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/OtaBookingFacadeIT.java`.
 - [X] T077 Implement the Workshop Operations-owned `PromotionTargetPort` provider in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/LoyaltyWorkshopTargetAdapter.java`; support WORKSHOP PACKAGE and BRANCH decimal IDs, WORKSHOP_DATE ISO dates and SESSION canonical UUID `workshop_sessions.reference`, return one immutable fact per requested target, and map source-data failures to `DEPENDENCY_UNAVAILABLE` without an allow-all fallback. Add focused provider coverage without relying on the Booking Modulith test's external datasource configuration.
 - [X] T078 Extend the public Workshop Operations selection/sale snapshots in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/facade/` with the authoritative published package name and, for each queried UUID `sessionReference`, canonical location reference and local workshop date needed by Booking to persist package/session snapshots and build Loyalty facts; return no facts for unknown references and keep numeric Operations session IDs, customer/bookings/PII fields out of the boundary.
-- [ ] T079 Add an append-only Flyway migration plus Operations-owned add-on entity/repository for opaque add-on reference, package/location scope, customer-safe description, whole-VND price and DRAFT/ACTIVE/RETIRED lifecycle; preserve package/location foreign-key integrity and never rewrite Settlement charge snapshots.
-- [ ] T080 Implement global active-Manager add-on administration and public active add-on discovery under the package/location routes in `features/workshopoperations/{controller,dto,service}/`; audit create/edit/lifecycle changes, keep edits prospective, and expose no internal numeric add-on identifier to public callers.
-- [ ] T081 Extend `WorkshopOperationsFacade` with a read-only eligibility/price snapshot operation for exactly one add-on/package/location tuple; return only active entries for a published package and active location and add boundary/no-disclosure tests.
+- [X] T079 Add an append-only Flyway migration plus Operations-owned add-on entity/repository for opaque add-on reference, package/location scope, customer-safe description, whole-VND price and DRAFT/ACTIVE/RETIRED lifecycle; preserve package/location foreign-key integrity and never rewrite Settlement charge snapshots. Evidence: `V35__workshop_fixed_addon_catalogue.sql` contains package/location FKs, positive whole-VND constraint, unique opaque reference and lifecycle constraint; `WorkshopAddOnServiceTest` (5) and `WorkshopAddOnControllerTest` (2) pass.
+- [X] T080 Implement global active-Manager add-on administration and public active add-on discovery under the package/location routes in `features/workshopoperations/{controller,dto,service}/`; audit create/edit/lifecycle changes, keep edits prospective, and expose no internal numeric add-on identifier to public callers.
+- [X] T081 Extend `WorkshopOperationsFacade` with a read-only eligibility/price snapshot operation for exactly one add-on/package/location tuple; return only active entries for a published package and active location and add boundary/no-disclosure tests.
+- [X] T082 Persist an immutable Operations-owned `WorkshopBookingPackagePolicySnapshot` in the accepted capacity-reservation transaction and validate complete session replacements against that booking-time policy; reject legacy bookings without a snapshot without backfill. Add append-only migration `V42__workshop_booking_package_policy_snapshot.sql` and MySQL coverage for snapshot immutability, successful reservation capture, changed Package master rules, missing legacy snapshot, same-location, required count, chronological order, and same-day slot gap in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/SettlementChangeFacadeIT.java`. Evidence: test database history shows V42 and V43 successful; `SettlementChangeFacadeIT` on MySQL 8.0.43: 13 tests passed, 0 failures/errors/skips, with `ddl-auto=none` and Flyway disabled.
 
 ---
 
@@ -268,6 +277,8 @@ handoff to the implementation persona.
 - **US4** depends on US3 and the Booking delivery facade from T036.
 - **US5** depends on US2 and US3; its cancellation handoff depends on the 003.3
   consumer contract but not on 003.3 settlement implementation.
+- 003.3 T027 depends on Operations T082, which freezes Package selection rules at
+  accepted reservation and enforces them during complete session replacement.
 - **Phase 10** depends on canonical Location, capacity-hold and Account-facade
   foundations; T066 also depends on T062--T064 and reuses, rather than bypasses,
   the existing capacity boundary.
@@ -333,6 +344,10 @@ Task: "T029 Implement AttendanceTicketService.java"
 5. US5 closes attendance and hands commercial cases to 003.3.
 
 ## Design Handoff Notes
+
+- T083 exposes authoritative, PII-free booking cancellation facts to 003.3;
+  Settlement computes the refund time-window policy and must not duplicate
+  Operations attendance/session ownership.
 
 - No task authorizes a new role mapping, payment/refund behavior, OTA behavior,
   offline queue or group-assignment model.

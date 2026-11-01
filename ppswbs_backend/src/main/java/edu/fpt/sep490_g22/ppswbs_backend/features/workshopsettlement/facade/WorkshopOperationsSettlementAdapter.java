@@ -14,6 +14,10 @@ public class WorkshopOperationsSettlementAdapter {
         return operations.getSettlementReadiness(new BookingSettlementReadinessQuery(bookingReference));
     }
 
+    public BookingCancellationEligibilitySnapshot cancellationEligibility(String bookingReference) {
+        return operations.getBookingCancellationEligibility(new BookingCancellationEligibilityQuery(bookingReference));
+    }
+
     public WorkshopAddOnPriceSnapshot addOnPrice(String packageReference, Long locationReference, String addOnReference) {
         return operations.getWorkshopAddOnPrice(new WorkshopAddOnPriceQuery(packageReference, locationReference, addOnReference));
     }

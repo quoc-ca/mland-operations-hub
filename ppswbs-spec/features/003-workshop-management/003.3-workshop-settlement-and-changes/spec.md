@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -26,7 +26,8 @@ no Central Manager tier.
 
 This feature owns direct-Mland actions after a workshop booking is confirmed:
 post-package charges and final bills, final payment and release control,
-Manager-approved deferred payment, Manager-mediated change of one or more
+immediate final-balance collection before package-output handover,
+Manager-mediated change of one or more
 future required sessions,
 customer-requested whole-booking cancellation/refund, and Mland-caused
 package cancellation remedies.
@@ -37,6 +38,26 @@ does not create sessions, perform normal check-in, provide customer self-service
 rescheduling, or process OTA payments/refunds.
 
 ## Clarifications
+
+### Session 2026-10-31 — owner-approved refund execution
+
+- Once a customer cancellation or Mland-caused remedy is eligible, Settlement
+  automatically initiates the policy-calculated refund; no second manual send
+  step is required. Every original collected payment has at most one distinct
+  refund operation. Calculate the aggregate refund once using the policy's
+  whole-VND rounding, then allocate it oldest original payment first, capped at
+  each original payment amount. VNPay full/partial request type follows whether
+  that allocation equals the original payment amount.
+- A provider acceptance response is not verified refund completion. A case and
+  booking remain pending until signed, matching provider evidence confirms each
+  nonzero refund operation. Unknown/time-out outcomes are reconciled and are
+  never blindly resent.
+- Operations owns authoritative cancellation facts and exposes a typed,
+  PII-free eligibility projection containing earliest required-session start,
+  check-in and no-show facts. Booking exposes only verified deposit payment
+  facts. Settlement owns verified final-payment facts; paymentintegration
+  supplies the verified provider transaction number and immutable original
+  payment URL creation date.
 
 ### Session 2026-10-27
 
@@ -106,9 +127,9 @@ rescheduling, or process OTA payments/refunds.
   cancellation authority.
 - Q: Which internal actor performs routine settlement? → A: Active Staff with
   applicable booking-location scope may create/confirm eligible charges and
-  finalize a final bill. Manager-only authority remains required for deferred
-  payment, required-session change, Mland-caused remedy/refund exception, and
-  prospective refund-policy revision.
+  finalize a fully paid final bill. Manager-only authority remains required for
+  required-session change, Mland-caused remedy/refund exception, and prospective
+  refund-policy revision. No role can approve unpaid release or deferred payment.
 - Q: At what REST scope are final bill, charge, and finalization exposed? → A:
   The one final bill is a booking-scoped resource. Its charges and finalization
   commands are exposed in the context of that final bill, not as a shared or
@@ -127,8 +148,7 @@ rescheduling, or process OTA payments/refunds.
   actions create or update an auditable business resource. Final bill and charge
   are resources; customer cancellation, required-session change, and
   Mland-caused remedy create a case with its own reference and lifecycle.
-- Q: How does Settlement hand an approved final-payment link, its one reminder,
-  or a settlement/refund outcome to Feature 007 without coupling money truth to
+- Q: How does Settlement hand a verified settlement/refund outcome to Feature 007 without coupling money truth to
   email delivery? → A: In the same local transaction that accepts the Settlement
   business outcome, 003.3 creates an immutable notification handoff reference.
   After commit it publishes an at-least-once reference-only event. Feature 007
@@ -136,11 +156,17 @@ rescheduling, or process OTA payments/refunds.
   the named Settlement facade, and owns provider send/retry logs. A handoff or
   provider failure never reverses final-bill, payment, refund, case, or Booking
   `FULLY_PAID` state.
+- Q: Does an outstanding final balance create a credit period or permit a Manager
+  exception? â†’ A: No. The balance must be collected and verified during the
+  settlement flow before package-output handover. There is no deferred-payment
+  case, reminder, or reissue. Payment checkout transport and attempt expiry are
+  owned by the approved `paymentintegration` contract and remain a separate
+  dependency.
 - Q: Which public REST routes and methods expose settlement resources? → A:
   Final bill uses `GET/POST /workshop-bookings/{bookingCode}/final-bill`; charge
   and finalization use `POST` under its final-bill context; customer cancellation,
-  required-session change, deferred payment, and Mland remedy each use a booking-
-  scoped `POST` case collection. Prospective policy uses
+  required-session change, and Mland remedy each use a booking-scoped `POST` case
+  collection. Prospective policy uses
   `GET/POST /workshop-refund-policies`.
 - Q: What minimum input opens a customer cancellation case? → A: Booking code is
   in the route. An authenticated Member sends no additional ownership proof; a
@@ -151,10 +177,15 @@ rescheduling, or process OTA payments/refunds.
   session reference set and a reason. It supplies no capacity seat count,
   ticket/QR, price, or partial replacement mapping; 003.2 validates/applies the
   complete result atomically.
-- Q: What minimum input opens a deferred-payment case? → A: An authorized Manager
-  provides only a reason. The server derives the current final-bill outstanding
-  balance and the fixed 24-hour expiry; it accepts no caller-selected amount,
-  expiry, or payment-link URL.
+- Q: What happens when a final bill has an outstanding balance? → A: The balance
+  must be paid and verified before the workshop package output is handed over.
+  No role may approve credit, defer collection, or bypass the zero-balance gate.
+  Staff/Manager starts a separate `FINAL_PAYMENT` checkout for the exact
+  outstanding VND amount; the customer pays through the resulting VNPay URL/QR.
+  The payment attempt expires 10 minutes after creation. An expired attempt
+  permits a new attempt only after QueryDR confirms that the previous attempt
+  did not succeed. An unknown attempt blocks another attempt until reconciled.
+  There is no credit period, reminder, or link-reissue workflow.
 - Q: What minimum input opens a Mland-caused remedy case that proceeds to refund?
   → A: An authorized Manager supplies a reason and `replacementOutcome` of
   `UNAVAILABLE` or `DECLINED`. The server derives the retained policy snapshot
@@ -165,9 +196,10 @@ rescheduling, or process OTA payments/refunds.
   valid percentage; the policy applies only prospectively and never rewrites an
   existing booking snapshot.
 - Q: What lifecycle and safe projection do settlement cases use? → A: Every case
-  uses `OPEN` then `RESOLVED`, `REJECTED`, or `FAILED`; refund/deferred cases may
-  additionally use `PENDING_PROVIDER`, and only deferred payment may use
-  `EXPIRED`. The safe projection includes case reference, type, status, booking
+  uses `OPEN` then `RESOLVED`, `REJECTED`, or `FAILED`; cases awaiting verified
+  refund evidence may additionally use `PENDING_PROVIDER`. No payment-deferral
+  case or `EXPIRED` settlement-case state exists. The safe projection includes
+  case reference, type, status, booking
   code and correlation reference; policy/amount outcome is included only for an
   authorized caller.
 - Q: How do fixed add-on and variable charge flow? → A: A customer supplies only
@@ -247,9 +279,9 @@ rescheduling, or process OTA payments/refunds.
   correction is an authorized void or adjustment with audit, not an edit to
   historical evidence.
 - The completed booking/package output is releasable only when its one final
-  balance is fully paid through valid signed VNPay IPN or QueryDR evidence,
-  except for an authorized deferred-payment exception. A booking is `FULLY_PAID`
-  only when that final balance is settled or resolved by an audited exception;
+  balance is fully paid through valid signed VNPay IPN or QueryDR evidence. No
+  Manager or Staff exception may waive or defer collection. A booking is
+  `FULLY_PAID` only when that final balance is settled;
   browser return and a manually recorded counter payment do not settle it.
 - A successful required-session change transfers the affected session
   entitlements and capacity commitments through 003.2 as one booking-level
@@ -276,18 +308,23 @@ rescheduling, or process OTA payments/refunds.
 
 ### Session 2026-10-24
 
-- A final-payment link is a 24-hour exception only for a Manager-approved
-  Workshop Final Bill. Deposit/payment-hold links remain valid for 10 minutes
-  and their associated holds last at most 15 minutes. The final-payment link
-  may send at most one reminder before expiry; expiry never automatically renews
-  the link, releases the package output, or erases the balance. A new link requires an
-  audited authorized action.
+- Final balance collection occurs during settlement and must be verified before
+  package-output handover. This feature defines no credit/deferred-payment
+  exception, payment reminder, or payment reissue. Deposit/payment-hold links
+  and their associated holds continue to share one absolute deadline of at most
+  10 minutes from hold creation. Final-payment checkout uses a separate
+  `FINAL_PAYMENT` attempt for the server-derived outstanding VND balance and
+  expires 10 minutes after attempt creation. A new attempt is allowed only after
+  the prior attempt is confirmed unsuccessful by QueryDR; an unknown outcome
+  blocks another attempt. A successful verified payment is the only evidence
+  that reduces the outstanding balance. This does not create a credit period,
+  reminder, or link-reissue workflow.
 - The system MUST NOT infer `Manager = OWNER`. Account Management supplies the
   canonical fixed role, current status and active location-scope facts; 003.3
   applies its own server-side Settlement action rules. Active Staff may perform
   routine charge/final-bill actions only within active location scope; any active
-  Manager globally may perform deferred payment/link issue or
-  reissue, required-session changes, and refund exceptions/Mland-caused remedy.
+  Manager globally may perform required-session changes and refund exceptions/
+  Mland-caused remedy. No role may waive or defer a final-balance requirement.
   An inactive actor loses these authorities immediately. Display role labels,
   Firebase claims and retired role codes never grant authority.
 - Any active Manager may use the global Mland-caused-cancellation refund-policy
@@ -311,8 +348,9 @@ failed/duplicate evidence changes nothing.
 1. **Given** an eligible completed booking/package, **When** valid final payment is
    confirmed, **Then** immutable bill/payment evidence is recorded and release is
    permitted.
-2. **Given** an outstanding balance, **When** Staff attempts release without a
-   Manager exception, **Then** release is rejected.
+2. **Given** an outstanding balance, **When** any actor attempts finalization
+   or package-output release, **Then** the action is rejected until matching
+   verified payment evidence reduces the balance to zero.
 3. **Given** a finalized bill, **When** Staff finds an error, **Then** only an
    audited void/adjustment corrects it; original evidence remains.
 4. **Given** a permitted fixed-price catalogue add-on, **When** the customer
@@ -371,11 +409,12 @@ outcome.
   resource action rule;
   client/provider claims and display labels MUST NOT grant authority.
 - **FR-002a**: Active Staff with booking-location scope MAY create or confirm an
-  eligible charge and finalize a final bill. Deferred payment, required-session
-  change, Mland-caused remedy/refund exception, and prospective refund-policy
-  revision remain Manager-only actions under their applicable authority.
+  eligible charge and finalize a fully paid final bill. Required-session change,
+  Mland-caused remedy/refund exception, and prospective refund-policy revision
+  remain Manager-only actions under their applicable authority. No role may
+  authorize unpaid release or deferred collection.
 - **FR-003**: The system MUST retain immutable, redacted audit evidence for
-  settlement, release exception, deferred payment, reschedule, refund, void,
+  settlement, reschedule, refund, void,
   adjustment, and Mland-caused remedy.
 - **FR-004**: The system MUST preserve immutable charge, payment, void, and
   adjustment records for each final bill.
@@ -409,10 +448,11 @@ outcome.
   stored contact phone or email for that request. The projection MAY include the
   customer-visible charge lines, due/paid/refunded amounts, and bill status, but
   MUST exclude raw gateway evidence and internal-only data.
-- **FR-007**: The system MUST prevent package-output release before final payment except
-  through an authorized audited deferred-payment exception.
+- **FR-007**: The system MUST prevent final-bill finalization and package-output
+  release until the complete final balance has matching verified payment
+  evidence. No Manager exception, credit, or deferred collection is permitted.
 - **FR-008**: The system MUST set booking `FULLY_PAID` only when its one final
-  balance is settled or resolved by an audited exception.
+  balance is settled through matching verified payment evidence.
 - **FR-009**: The system MUST accept final-payment evidence only from valid
   signed VNPay IPN or QueryDR, matched to the final bill's reference, amount and
   currency. It MUST process that evidence idempotently and reject invalid,
@@ -435,23 +475,24 @@ outcome.
   evidence only through `WorkshopSettlementFacade`; it MUST NOT expose or own a
   VNPay IPN HTTP route, raw callback payload, checksum verification, or routing
   of deposit evidence.
-- **FR-010**: Deferred final payment MUST require Manager approval with reason,
-  amount, expiry, and audit; it MUST retain the package output and create no
-  default credit.
-- **FR-011**: The system MUST send at most one pre-expiry reminder and MUST NOT
-  automatically renew an expired request, release the package output, or erase
-  its balance.
-- **FR-012**: A Manager-approved final-payment link MUST be valid for 24 hours,
-  send at most one reminder before expiry, and apply only to a Workshop Final
-  Bill. Deposit/payment-hold links remain subject to the 10-minute/15-minute
-  shared rule. A new final-payment link after expiry requires an authorized,
-  audited action.
-- **FR-012a**: `POST /workshop-bookings/{bookingCode}/deferred-payment-cases`
-  MUST accept only an authorized Manager reason. The server MUST derive the
-  outstanding final-bill amount and fixed 24-hour expiry; it MUST NOT accept a
-  caller-selected amount, expiry, or payment-link URL.
-- **FR-012b**: When an authorized deferred-payment link/reissue, its permitted
-  reminder, or a customer-facing verified settlement/refund outcome is accepted,
+- **FR-010**: Settlement MUST require the final balance to be collected and
+  verified before handing the workshop package output to the customer. It MUST
+  NOT create credit, deferred-payment cases, reminders, or payment reissues.
+- **FR-011**: Staff/Manager MUST be able to start a separate `FINAL_PAYMENT`
+  checkout for the server-derived outstanding VND balance through
+  `paymentintegration`. The resulting attempt MUST be idempotently bound to its
+  booking, merchant reference, amount, and VND currency, and MUST expire 10
+  minutes after creation. A new attempt MUST NOT be created while an earlier
+  attempt is pending or unknown; after expiry it is allowed only when QueryDR
+  confirms the earlier attempt did not succeed. Only signed verified payment
+  evidence may reduce the balance. A pending, failed, unknown, or expired
+  attempt MUST leave the final bill unpaid and package output withheld. No
+  reminder or payment-link reissue is provided.
+- **FR-012**: Deposit/payment-hold links and their associated capacity holds
+  MUST continue to share one absolute deadline of at most 10 minutes from hold
+  creation. Final-payment attempts have a separate 10-minute provider URL expiry
+  from attempt creation and do not hold workshop capacity.
+- **FR-012a**: When a customer-facing verified settlement/refund outcome is accepted,
   003.3 MUST persist one unique immutable settlement notification handoff in
   the same local transaction and publish its reference only after commit. The
   event MUST contain only notification reference, settlement/bill or case
@@ -459,8 +500,10 @@ outcome.
   recipient address, payment-link value, raw gateway evidence, ticket/QR data,
   or unnecessary PII. Feature 007 obtains the immutable render-ready payload
   only through the approved 003.3 notification-delivery facade and owns
-  idempotent provider delivery/retry and operational logs. Delivery failure
-  MUST NOT reverse the accepted Settlement outcome.
+  idempotent provider delivery/retry and operational logs. The stored
+  recipient/rendered content MUST be retained for at most 30 days after
+  handoff. After 30 days the delivery payload MUST no longer be retrievable.
+  Delivery failure MUST NOT reverse the accepted Settlement outcome.
 - **FR-013**: Guest/authorized Member cancellation MUST be whole-booking only;
   session/ticket/participant self-service cancellation/refund is prohibited. An
   authenticated Member MUST pass ownership verification; a Guest MUST provide
@@ -470,15 +513,31 @@ outcome.
   accept no customer-selected financial or ticket/session input. An authenticated
   Member requires no additional ownership field; a Guest MUST provide exactly one
   stored contact phone or email as request-time proof.
+- **FR-013b**: A booking MUST have at most one customer-cancellation case. A
+  same-key request with the same semantic input MUST replay the existing safe
+  outcome; any new key after a case exists MUST NOT create another case or refund
+  operation and MUST return a conflict.
 - **FR-014**: Normal customer cancellation MUST require all tickets unused, no
-  required session started and no package output released, plus policy
-  eligibility.
+  required session started, and policy eligibility. The workshop product is
+  handed to the customer only after their workshop session; therefore the
+  no-session-started requirement also ensures no workshop product has already
+  been handed over. No separate package-output delivery check is required for
+  customer cancellation.
 - **FR-015**: The system MUST calculate paid-deposit refund against earliest
   session start in session/location timezone: 100% ≥72h, 50% ≥24h and <72h, else 0%.
-- **FR-016**: It MUST snapshot policy, earliest-session reference, paid amount,
-  computed amount, request time, and eligibility outcome for each request.
-- **FR-017**: It MUST use `REFUND_PENDING` until gateway outcome is confirmed,
+  A request whose computed refund is 0% MUST be rejected as ineligible; it MUST NOT
+  cancel the booking, revoke tickets, or release capacity.
+- **FR-016**: The case MUST snapshot policy, earliest-session reference, paid
+  amount, computed amount, request time, and eligibility outcome. A replay MUST
+  return that snapshot; a conflicting new key MUST NOT create another snapshot.
+- **FR-017**: It MUST use `PENDING_PROVIDER` until gateway outcome is confirmed,
   then revoke unused tickets/release future capacity only on confirmed refund.
+- **FR-017a**: After a refund request is accepted with a provider refund
+  transaction number, the system MUST query immediately and then every five
+  minutes for up to 24 hours. `05` and `06` remain pending; no refund request is
+  sent again. An `UNKNOWN` request without a provider refund transaction number
+  remains `PENDING_PROVIDER` for manual VNPay Merchant Admin investigation and
+  MUST NOT be marked complete without signed matching QueryDR evidence.
 - **FR-018**: An authorized Manager MAY replace one or more future required
   sessions only with compatible sessions that have capacity for the booking's
   unchanged participant count. For a multi-session package, the complete
@@ -560,8 +619,9 @@ outcome.
   its own reference and lifecycle; they MUST NOT be untracked action-only
   operations.
 - **FR-022b1**: Settlement cases MUST use `OPEN`, `RESOLVED`, `REJECTED`, or
-  `FAILED`. Only cases awaiting gateway evidence MAY use `PENDING_PROVIDER`; only
-  deferred-payment cases MAY use `EXPIRED`. A safe case projection MUST contain
+  `FAILED`. Only cases awaiting gateway evidence MAY use `PENDING_PROVIDER`.
+  Settlement defines no deferred-payment case or `EXPIRED` case state. A safe
+  case projection MUST contain
   case reference, type, status, booking code, and correlation reference, and
   MUST disclose policy/amount outcome only to an authorized caller.
 - **FR-022c**: The public REST contract MUST use the booking-scoped routes
@@ -569,13 +629,11 @@ outcome.
   `POST /workshop-bookings/{bookingCode}/final-bill/charges`, and
   `POST /workshop-bookings/{bookingCode}/final-bill/finalizations`. It MUST use
   booking-scoped `POST` case collections named `cancellation-cases`,
-  `required-session-change-cases`, `deferred-payment-cases`, and
-  `mland-cancellation-remedy-cases`, plus central
+  `required-session-change-cases`, and `mland-cancellation-remedy-cases`, plus central
   `GET/POST /workshop-refund-policies`.
 - **FR-022e**: The public REST contract MUST provide `GET`
   `/workshop-bookings/{bookingCode}/cancellation-cases/{caseReference}`,
-  `/workshop-bookings/{bookingCode}/required-session-change-cases/{caseReference}`,
-  `/workshop-bookings/{bookingCode}/deferred-payment-cases/{caseReference}`, and
+  `/workshop-bookings/{bookingCode}/required-session-change-cases/{caseReference}`, and
   `/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases/{caseReference}`.
   Each route MUST return only the safe case projection authorized for the
   requesting actor: an owning Member uses authenticated ownership and a Guest
@@ -592,8 +650,10 @@ outcome.
 - **Charge Line**: Immutable final-bill charge with either a permitted
   customer-selected fixed-price catalogue source or a Staff/Manager-confirmed
   variable material/service source.
-- **Deferred-Payment Exception**: Manager-approved time-bounded final-balance
-  request while the shop retains the package output.
+- **Package Output Handover**: Staff gives the workshop package deliverable to
+  the customer only after the final balance has been verified as paid. This
+  describes the product/output after the workshop, not the booking ticket used
+  to attend a session.
 - **Refund Case**: Customer-requested or Mland-caused whole-booking/package
   direct-payment refund with policy snapshot, amount, gateway outcome, and
   consequences.
@@ -605,8 +665,9 @@ outcome.
 
 - **SC-001**: 100% of acceptance-test bill corrections preserve original evidence
   and use a separate authorized void/adjustment.
-- **SC-002**: 100% of release attempts with an outstanding balance are rejected
-  unless a valid Manager exception exists.
+- **SC-002**: 100% of finalization and package-output release attempts with an
+  outstanding balance are rejected for every role until valid payment evidence
+  confirms the full amount.
 - **SC-003**: 100% of invalid/duplicate/mismatched/unsigned/late payment or refund
   events do not settle the related bill/refund twice.
 - **SC-004**: 100% of policy tests calculate the correct earliest-session refund

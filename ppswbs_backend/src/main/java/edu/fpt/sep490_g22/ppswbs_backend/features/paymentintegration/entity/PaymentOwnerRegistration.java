@@ -13,6 +13,7 @@ public class PaymentOwnerRegistration {
     @Enumerated(EnumType.STRING) @Column(name="payment_kind", nullable=false, length=24) private PaymentOwnerKind paymentKind;
     @Column(name="amount_vnd", nullable=false) private Long amountVnd;
     @Column(name="currency_code", nullable=false, length=3) private String currencyCode;
+    @Column(name="provider_create_date", length=14) private String providerCreateDate;
     @Column(name="lifecycle_status", nullable=false, length=24) @Builder.Default private String lifecycleStatus = "OPEN";
     @Column(name="created_at", nullable=false, updatable=false) private Instant createdAt;
     @PrePersist void onCreate(){ if(createdAt==null) createdAt=Instant.now(); }

@@ -11,11 +11,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class DepositPaymentService {
+    private static final DateTimeFormatter PROVIDER_DATE = DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(ZoneOffset.ofHours(7));
     private final BookingDepositPaymentAttemptService attemptService;
     private final BookingPaymentAttemptRepository attempts;
     private final PaymentGatewayCheckoutPort gateway;
@@ -65,8 +68,9 @@ public class DepositPaymentService {
         if (booking.getHoldExpiresAt().isBefore(expiresAt)) expiresAt = booking.getHoldExpiresAt();
         var invoice = attemptService.requireInvoice(booking.getId());
         String merchantReference = "DEP-" + bookingCode + "-" + UUID.randomUUID();
-        String url = gateway.createDepositUrl(merchantReference, bookingCode, invoice.getDepositAmount(), now, clientIp);
-        var attempt = attemptService.create(bookingCode, url, expiresAt, merchantReference);
+        String url = gateway.createDepositUrl(merchantReference, bookingCode, invoice.getDepositAmount(),
+                now, expiresAt, clientIp);
+        var attempt = attemptService.create(bookingCode, url, expiresAt, merchantReference, PROVIDER_DATE.format(now));
         return complete(claim, response(attempt));
     }
 

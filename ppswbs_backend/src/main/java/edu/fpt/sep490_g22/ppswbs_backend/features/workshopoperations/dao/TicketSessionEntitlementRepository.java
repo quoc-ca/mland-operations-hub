@@ -25,6 +25,13 @@ public interface TicketSessionEntitlementRepository extends JpaRepository<Ticket
 
     List<TicketSessionEntitlement> findByTicketId(Long ticketId);
 
+    @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.ticket.bookingReference = :bookingReference AND tse.ticket.validityState = 'ACTIVE'")
+    List<TicketSessionEntitlement> findActiveByBookingReference(@Param("bookingReference") String bookingReference);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.ticket.bookingReference = :bookingReference AND tse.ticket.validityState = 'ACTIVE' ORDER BY tse.id")
+    List<TicketSessionEntitlement> findActiveByBookingReferenceWithLock(@Param("bookingReference") String bookingReference);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.ticket.id = :ticketId")
     List<TicketSessionEntitlement> findByTicketIdWithLock(@Param("ticketId") Long ticketId);

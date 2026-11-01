@@ -12,6 +12,8 @@ import java.util.Optional;
 public interface MemberWorkshopBookingQuoteRepository extends JpaRepository<MemberWorkshopBookingQuote, Long> {
     Optional<MemberWorkshopBookingQuote> findByQuoteRefAndMemberAccountId(String quoteRef, Long memberAccountId);
 
+    Optional<MemberWorkshopBookingQuote> findByAcceptedBookingCode(String acceptedBookingCode);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select q from MemberWorkshopBookingQuote q where q.quoteRef = :quoteRef and q.memberAccountId = :memberId")
     Optional<MemberWorkshopBookingQuote> findOwnedForUpdate(@Param("quoteRef") String quoteRef,

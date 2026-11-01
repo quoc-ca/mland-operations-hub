@@ -66,7 +66,9 @@ Không bắt người dùng trả lời điều tìm được trong repo hoặc 
 6. **Phản biện và đối chiếu:** áp dụng $fomo-cc vào phương án thực tế; kiểm tra dependency, chi phí/độ phức tạp ẩn, thất bại/khôi phục và căn cứ. Đối chiếu spec/plan/tasks/contracts/UX, dùng gate §5 và speckit-analyze khi bộ artifact feature đã đủ cho phân tích.
 7. **Bàn giao:** nêu nội dung hoàn tất, quyết định đã chốt/còn mở, tác động, traceability, kiểm chứng và điều kiện chuyển sang triển khai. Không tự chuyển sang code.
 
-Luồng SpecKit mặc định cho feature: $speckit-specify → $speckit-clarify → $speckit-plan → $speckit-tasks → $speckit-analyze, áp dụng theo phạm vi nhiệm vụ. $speckit-implement và việc xác minh sản phẩm sau code thuộc giai đoạn/persona triển khai. Không bắt một tác vụ review nhỏ phải tạo đủ bộ artifact mới hoặc chạy chuỗi không liên quan.
+Luồng SpecKit mặc định cho feature: $speckit-specify → $speckit-clarify → $speckit-plan → $feature-design → $speckit-tasks → $speckit-analyze, áp dụng theo phạm vi nhiệm vụ. Với feature full-stack, `$feature-design` tạo/review `design/architecture.md`, `design/workflows.md` và `design/ui-flow.md` trước khi tasks được bàn giao để code; `data-model.md` và `contracts/` vẫn là nguồn chuẩn về schema/API, không sao chép hay tạo contract ngầm trong design pack. Feature thuần tài liệu hoặc không có UI/API phải ghi rõ phần không áp dụng và lý do. `$speckit-implement` và việc xác minh sản phẩm sau code thuộc giai đoạn/persona triển khai. Không bắt một tác vụ review nhỏ phải tạo đủ bộ artifact mới hoặc chạy chuỗi không liên quan.
+
+`$feature-design` không thay `$speckit-specify`: SpecKit specify giữ yêu cầu nghiệp vụ **what/why**, còn design pack làm rõ **how/boundary** để bàn giao. `architecture.md` bắt buộc có cây folder/package FE/BE, mọi production unit dự kiến (component/hook/client/controller/service/facade/repository/entity/DTO khi áp dụng), tên class/export và public/use-case method dự thảo, library kèm lý do/source, cùng data flow mũi tên qua các unit đó. Không ghi code, pseudo-code hoặc private helper nhỏ. Mỗi node ghi `existing`, `approved` hoặc `proposed`; proposed không tự thành baseline/approval. `workflows.md` phải đánh số đầy đủ mọi workflow trigger độc lập, theo từng bước qua class/method boundary, state/data effect, success, failure/recovery và retry/concurrency khi liên quan.
 
 ## 5. Gate thiết kế và hành vi khi bị chặn
 
@@ -96,6 +98,12 @@ Gate này đánh giá **độ đầy đủ để bàn giao thiết kế**, khôn
 | D20 | Artifact nhất quán, phản biện có căn cứ, không còn TBD/placeholder/quyết định chưa duyệt ảnh hưởng phần muốn bàn giao sẵn sàng; unknown ngoài phạm vi có căn cứ loại trừ. |
 
 Không bắt thiết kế đến từng biến/dòng code; phải chi tiết đến mọi quyết định có thể làm thay đổi hành vi quan sát được, contract, quyền, integrity hoặc ranh giới dùng chung.
+
+### Design-pack approval gate
+
+Khi feature cần bàn giao sang implementation, `approval.md` trong đúng feature là bản ghi canonical. Nó phải nêu revision/path thiết kế được duyệt, phạm vi requirements/workflows/contracts được duyệt, ngày duyệt và **tên Tech Lead** duyệt. Tech Lead là authority cho quyết định technical/contract còn mở; role label, tên agent, checkbox, file tồn tại hoặc câu “đã duyệt” không có đủ các trường trên không phải bằng chứng duyệt.
+
+Không có approval hợp lệ thì chỉ kết luận `DRAFT/PROPOSED` hoặc `BLOCKED`, không kết luận “ready for implementation”. Persona implementation không được tự lấp TBD hay coi bản nháp/approval thiếu revision, phạm vi, Tech Lead hoặc ngày là quyền code. Nếu approval chỉ một phần, phần loại trừ và phần phụ thuộc vẫn bị chặn.
 
 Khi thiếu, ghi rõ thiếu gì, nguồn ở đâu, ảnh hưởng/dependency, phương án đang nghiên cứu, người cần quyết định, câu hỏi cần chốt và điều kiện đạt lại. Có thể dùng mẫu báo thiếu của kit nhưng không kế thừa lệnh ngừng nghiên cứu hoặc quyền triển khai từ mẫu.
 

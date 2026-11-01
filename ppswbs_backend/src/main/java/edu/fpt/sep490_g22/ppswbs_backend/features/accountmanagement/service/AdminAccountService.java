@@ -5,6 +5,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountP
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.InternalAccountProvisioningRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AuditOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountLocationAssignment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountProfile;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.InternalAccountProvisioning;
@@ -123,7 +124,7 @@ public class AdminAccountService {
             adminId,
             account.getId(),
             "ACCOUNT_PROVISIONED_ADMIN",
-            "SUCCESS",
+            AuditOutcome.SUCCESS,
             correlationId,
             Map.of("new_role", role.name(), "new_status", AccountStatus.PENDING_SETUP.name())
         );
@@ -158,7 +159,7 @@ public class AdminAccountService {
             adminId,
             targetAccountId,
             "INVITATION_RESENT",
-            "SUCCESS",
+            AuditOutcome.SUCCESS,
             correlationId,
             null
         );
@@ -206,7 +207,7 @@ public class AdminAccountService {
             adminId,
             targetAccountId,
             "PROFILE_UPDATED_ADMIN",
-            "SUCCESS",
+            AuditOutcome.SUCCESS,
             correlationId,
             null
         );
@@ -263,7 +264,7 @@ public class AdminAccountService {
             adminId,
             targetAccountId,
             "ROLE_CHANGED",
-            "SUCCESS",
+            AuditOutcome.SUCCESS,
             correlationId,
             Map.of("previous_role", prevRole.name(), "new_role", newRole.name())
         );

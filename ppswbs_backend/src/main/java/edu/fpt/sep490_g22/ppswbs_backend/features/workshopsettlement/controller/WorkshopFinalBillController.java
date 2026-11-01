@@ -3,6 +3,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.ChargeCommandDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FinalBillProjectionDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FinalizationCommandDto;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FinalPaymentAttemptResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FinalPaymentCheckoutService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopFinalBillApiService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -10,12 +12,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/v1/workshop-bookings/{bookingCode}/final-bill")
 @RequiredArgsConstructor
 public class WorkshopFinalBillController {
     private final WorkshopFinalBillApiService service;
+    private final FinalPaymentCheckoutService paymentCheckout;
 
     @GetMapping
     public FinalBillProjectionDto read(@PathVariable String bookingCode,
@@ -47,5 +51,16 @@ public class WorkshopFinalBillController {
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlation,
             @Valid @RequestBody FinalizationCommandDto command, Authentication authentication) {
         return service.finalizeBill(bookingCode, idempotencyKey, correlation, command, authentication);
+    }
+
+    @PostMapping("/payment-attempts")
+    public FinalPaymentAttemptResponse startFinalPayment(@PathVariable String bookingCode,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlation,
+            Authentication authentication, HttpServletRequest request) {
+        var actor = authentication != null
+                && authentication.getPrincipal() instanceof edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor current
+                ? current : null;
+        return paymentCheckout.start(bookingCode, idempotencyKey, correlation, request.getRemoteAddr(), actor);
     }
 }

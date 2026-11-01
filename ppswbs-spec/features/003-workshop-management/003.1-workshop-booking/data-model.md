@@ -1,7 +1,7 @@
 # Data Model: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-29
+**Date updated**: 2026-11-01
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -34,9 +34,11 @@ WorkshopBooking (1) ── (1) BookingInvoice
 | PaymentAttempt / PaymentEventReceipt | booking/invoice; safe provider references; attempt outcome; unique provider event identity | Only valid, matching, non-duplicate provider evidence settles the invoice. `FAILED` belongs to an attempt, not booking state. |
 | BookingTicket | booking; delivery-safe ticket identity/QR reference and ticket code received from `WorkshopOperationsFacade`; delivery state | A booking-side delivery projection, not the authoritative Operations ticket. Exactly N tickets are available only after confirmation; no participant identity/contact is stored. |
 | TicketSessionEntitlement | `WorkshopOperationsFacade` delivery-safe view; booking-session commitment | A booking-side delivery view of each 003.2 ticket/session entitlement. A Silverclay ticket has two; 003.2 owns entitlement validation and check-in/attendance state on that pair. Customer reads obtain the current projection from 003.2, so this copy never becomes the authority for a replacement/refund schedule. |
-| MagicLinkAccess | booking; protected token hash; issued/expiry/revocation lifecycle state | Raw token is never persisted/logged. Access is reusable until associated workshop end or revocation; rotation revokes the old link and creates its replacement for the stored booking-contact email. |
-| NotificationIntent | booking; immutable notification reference, kind, correlation reference, and immutable render-ready delivery snapshot | Created transactionally with confirmed booking delivery, accepted resend, or accepted Magic-Link rotation. Its post-commit event carries references only; Feature 007 obtains the snapshot through the approved facade and owns delivery attempts/retries as operational logs. Delivery failure cannot reverse the accepted Booking outcome. |
-| BookingAuditEvidence | safe actor type or identity reference when available; booking code; applicable canonical location; action; outcome; correlation reference; timestamp; Manager reason where required | Covers accepted self-service resend, every internal resend, Magic-Link revoke/rotate, and Manager late-payment `RECORD`/`ESCALATE` follow-up. It excludes contact proof, raw Magic Link, QR, token material and unnecessary PII. |
+| MagicLinkAccess | booking; protected token hash; issued/expiry/revocation lifecycle state; delivery-value scrub timestamp | The hash is used for lookup and lifecycle enforcement. The raw bearer URL is the sole persistence exception and may exist only in the protected render-ready notification snapshot for the matching handoff. When expired or revoked, the URL is scrubbed from all associated snapshots by the one-minute cleanup sweep and `delivery_value_scrubbed_at` records completion. Access is reusable until the latest required-session end or revocation; rotation revokes the old link and creates its replacement for the stored booking-contact email. |
+| NotificationIntent | booking; immutable notification reference, kind, correlation reference, and render-ready delivery snapshot | Created transactionally with confirmed booking delivery, accepted resend, or accepted Magic-Link rotation. Its post-commit event carries references only; Feature 007 may retrieve one payload only through the internal facade after the matching handoff. The raw bearer URL is scrubbed from every snapshot no later than the next one-minute cleanup sweep after expiry/revocation; the remaining snapshot is immutable. The URL is excluded from events, business audit, and application/provider logs. Feature 007 owns delivery attempts/retries as operational logs. Delivery failure cannot reverse the accepted Booking outcome. |
+| BookingAuditEvidence | safe actor type or identity reference when available; booking code; applicable canonical location; action; outcome; correlation reference; timestamp; action reason where required; separate Manager reason where required | Covers customer pending-hold release, accepted self-service resend, every internal resend, Magic-Link revoke/rotate, and Manager late-payment `RECORD`/`ESCALATE` follow-up. Customer release stores the required reason in `action_reason`; Manager-only reasons remain in `manager_reason`. It excludes contact proof, raw Magic Link, QR, token material and unnecessary PII. |
+| BookingLatePaymentEvidence | booking reference/code, immutable merchant reference, verified evidence reference, optional provider transaction reference, exact VND amount, verification timestamp | One deduplicated row for signed/verified deposit success received after capacity release. It is reconciliation evidence only; it does not confirm the booking, reserve capacity, issue tickets, or retain raw provider payload/checksum. |
+| BookingDepositReconciliation | one row per deposit attempt; lifecycle status, next/last QueryDR time, short verified evidence reference | Durable post-expiry QueryDR candidate. The scheduler runs outside the original booking hold, never reopens it, and exposes unresolved rows older than 24 hours in a daily Manager list. No gateway payload, signature, secret, or contact data is stored. |
 
 ## Lifecycle
 
@@ -51,8 +53,9 @@ CONFIRMED + DEPOSIT_PAID
 ```
 
 The final conclusion changes only Booking's financial status. Booking retains a
-safe correlation/reference and does not receive raw VNPay/final-payment detail,
-calculate final balance, or treat a deferred-payment-link delivery as settlement.
+safe correlation/reference and does not receive raw VNPay/final-payment detail
+or calculate final balance. It becomes `FULLY_PAID` only after 003.3 has verified
+the complete final balance; this feature has no deferred-payment exception.
 
 Only the listed transitions belong to 003.1. Final payment, refund,
 reschedule, `CHECKED_IN`, `NO_SHOW`, and attendance finalization are outside it.

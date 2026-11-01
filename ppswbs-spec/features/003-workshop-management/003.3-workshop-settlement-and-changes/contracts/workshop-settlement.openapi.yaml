@@ -59,13 +59,36 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/final-bill/payment-attempts:
+    parameters: [{$ref: '#/components/parameters/BookingCode'}]
+    post:
+      summary: Start or return the active final-balance payment attempt
+      description: >-
+        Active Staff in the booking location or any active Manager may start the
+        attempt. The server calculates the exact outstanding VND balance; the
+        caller supplies no amount or currency. The response contains a short-lived
+        VNPay URL/QR value for the customer to pay at settlement. The URL expires
+        10 minutes after creation. A pending or unknown attempt prevents another
+        attempt; after expiry, QueryDR must confirm the prior attempt did not
+        succeed before a new attempt may be created. The URL is not logged,
+        audited, placed in an event, or stored in a notification snapshot.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '200': {$ref: '#/components/responses/FinalPaymentAttempt'}
+        '201': {$ref: '#/components/responses/FinalPaymentAttempt'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/final-bill/finalizations:
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:
       summary: Finalize an eligible final bill
       description: >-
-        Normal finalization requires zero outstanding balance. An active Manager
-        may explicitly request the audited exception and must provide a reason.
+        Finalization is allowed only after valid signed payment evidence confirms
+        the complete final balance. No role can waive or defer collection.
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -118,25 +141,6 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
-  /api/v1/workshop-bookings/{bookingCode}/deferred-payment-cases:
-    parameters: [{$ref: '#/components/parameters/BookingCode'}]
-    post:
-      summary: Open a Manager-approved deferred-payment case
-      description: The server derives outstanding amount and fixed 24-hour expiry.
-      security: [{bearerAuth: []}]
-      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/ReasonCommand'}
-      responses:
-        '201': {$ref: '#/components/responses/SettlementCase'}
-        '400': {$ref: '#/components/responses/Problem'}
-        '401': {$ref: '#/components/responses/Problem'}
-        '403': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
-        '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases:
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:
@@ -158,8 +162,6 @@ paths:
   /api/v1/workshop-bookings/{bookingCode}/cancellation-cases/{caseReference}:
     $ref: '#/components/pathItems/SettlementCaseRead'
   /api/v1/workshop-bookings/{bookingCode}/required-session-change-cases/{caseReference}:
-    $ref: '#/components/pathItems/SettlementCaseRead'
-  /api/v1/workshop-bookings/{bookingCode}/deferred-payment-cases/{caseReference}:
     $ref: '#/components/pathItems/SettlementCaseRead'
   /api/v1/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases/{caseReference}:
     $ref: '#/components/pathItems/SettlementCaseRead'
@@ -247,21 +249,10 @@ components:
         targetRequiredSessionReferences: {type: array, minItems: 1, items: {type: string}}
         reason: {type: string}
         cancellationHandoffReference: {type: string, description: Required when this is an Mland-caused replacement.}
-    ReasonCommand:
-      type: object
-      required: [reason]
-      properties: {reason: {type: string}}
     FinalizationCommand:
-      oneOf:
-        - type: object
-          required: [managerException]
-          properties:
-            managerException: {type: boolean, enum: [false]}
-        - type: object
-          required: [managerException, reason]
-          properties:
-            managerException: {type: boolean, enum: [true]}
-            reason: {type: string, minLength: 1, maxLength: 500}
+      type: object
+      additionalProperties: false
+      description: Empty command. Finalization has no unpaid-balance override.
     MlandRemedyCommand:
       type: object
       required: [reason, replacementOutcome, cancellationHandoffReference]
@@ -280,6 +271,17 @@ components:
         paidAmount: {type: integer, format: int64, minimum: 0}
         refundedAmount: {type: integer, format: int64, minimum: 0}
         charges: {type: array, items: {$ref: '#/components/schemas/CustomerVisibleCharge'}}
+    FinalPaymentAttempt:
+      type: object
+      required: [attemptReference, merchantReference, amountVnd, currency, paymentUrl, expiresAt, status]
+      properties:
+        attemptReference: {type: string}
+        merchantReference: {type: string}
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        currency: {type: string, enum: [VND]}
+        paymentUrl: {type: string, format: uri, nullable: true, description: Null after expiry or reconciliation; never log or persist in notification payloads.}
+        expiresAt: {type: string, format: date-time}
+        status: {type: string, enum: [PENDING, UNKNOWN, EXPIRED, VERIFIED_PAID, VERIFIED_UNPAID]}
     CustomerVisibleCharge:
       type: object
       required: [description, amount]
@@ -314,10 +316,22 @@ components:
       properties:
         code: {type: string}
         correlationReference: {type: string}
+        fieldErrors:
+          type: array
+          description: Safe validation metadata; never includes rejected values.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: {type: string}
+              message: {type: string}
   responses:
     FinalBill:
       description: Customer-safe final bill projection
       content: {application/json: {schema: {$ref: '#/components/schemas/FinalBillProjection'}}}
+    FinalPaymentAttempt:
+      description: Short-lived final-payment checkout attempt
+      content: {application/json: {schema: {$ref: '#/components/schemas/FinalPaymentAttempt'}}}
     SettlementCase:
       description: Safe settlement case projection
       content: {application/json: {schema: {$ref: '#/components/schemas/SettlementCaseProjection'}}}

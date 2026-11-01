@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementRefundPolicyRevisionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundPolicyRevision;
 import lombok.RequiredArgsConstructor;
@@ -26,10 +27,28 @@ public class MlandCancellationPolicyService {
         return revisions.findAllByOrderByEffectiveAtAsc();
     }
 
+    @Transactional(readOnly = true)
+    public List<SettlementRefundPolicyRevision> list(CurrentAccountActor actor) {
+        authorization.requireManager(actor);
+        return revisions.findAllByOrderByEffectiveAtAsc();
+    }
+
     @Transactional
     public SettlementRefundPolicyRevision create(String firebaseUid, Instant effectiveAt,
                                                  Integer wholeBookingRefundPercent) {
         var manager = authorization.requireManager(firebaseUid);
+        return createRevision(manager.accountId(), effectiveAt, wholeBookingRefundPercent);
+    }
+
+    @Transactional
+    public SettlementRefundPolicyRevision create(CurrentAccountActor actor, Instant effectiveAt,
+                                                 Integer wholeBookingRefundPercent) {
+        var manager = authorization.requireManager(actor);
+        return createRevision(manager.accountId(), effectiveAt, wholeBookingRefundPercent);
+    }
+
+    private SettlementRefundPolicyRevision createRevision(Long managerAccountId, Instant effectiveAt,
+                                                            Integer wholeBookingRefundPercent) {
         if (effectiveAt == null || !effectiveAt.isAfter(Instant.now())) {
             throw new WorkshopSettlementValidationException("effectiveAt must be in the future");
         }
@@ -44,7 +63,7 @@ public class MlandCancellationPolicyService {
                 .policyReference("POLICY-" + UUID.randomUUID())
                 .effectiveAt(effectiveAt)
                 .wholeBookingRefundPercent(wholeBookingRefundPercent)
-                .createdByAccountId(manager.accountId())
+                .createdByAccountId(managerAccountId)
                 .build());
     }
 
@@ -54,6 +73,16 @@ public class MlandCancellationPolicyService {
         String fingerprint = fingerprint(effectiveAt, wholeBookingRefundPercent);
         var result = idempotency.execute(idempotencyKey, fingerprint,
                 () -> create(firebaseUid, effectiveAt, wholeBookingRefundPercent).getPolicyReference());
+        return revisions.findByPolicyReference(result.outcomeReference())
+                .orElseThrow(() -> new WorkshopSettlementConflictException("IDEMPOTENCY_OUTCOME_INCOMPLETE"));
+    }
+
+    @Transactional
+    public SettlementRefundPolicyRevision create(CurrentAccountActor actor, Instant effectiveAt,
+                                                 Integer wholeBookingRefundPercent, String idempotencyKey) {
+        String fingerprint = fingerprint(effectiveAt, wholeBookingRefundPercent);
+        var result = idempotency.execute(idempotencyKey, fingerprint,
+                () -> create(actor, effectiveAt, wholeBookingRefundPercent).getPolicyReference());
         return revisions.findByPolicyReference(result.outcomeReference())
                 .orElseThrow(() -> new WorkshopSettlementConflictException("IDEMPOTENCY_OUTCOME_INCOMPLETE"));
     }

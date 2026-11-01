@@ -67,11 +67,17 @@ public class SecurityConfiguration {
                 .requestMatchers("/error").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/ai-support/messages").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/booking-magic-links/exchanges").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/booking-lookups").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/pending-hold-release").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/confirmation-deliveries").permitAll()
                 // VNPay calls the signed IPN server-to-server without a Mland bearer token.
                 // PaymentIngressService performs checksum, owner, amount and deduplication checks.
                 .requestMatchers(HttpMethod.GET, "/api/v1/integrations/payments/vnpay/events").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/payment-attempts").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/final-bill").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/required-session-change-cases/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/mland-cancellation-remedy-cases/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/final-bill/charges").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().denyAll()
@@ -91,7 +97,7 @@ public class SecurityConfiguration {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key"));
         configuration.setExposedHeaders(List.of("X-Correlation-Id"));
-        configuration.setAllowCredentials(true);
+        configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

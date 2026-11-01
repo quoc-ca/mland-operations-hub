@@ -35,6 +35,7 @@ paths:
   /api/v1/workshop-bookings/{bookingCode}/payment-attempts:
     post:
       summary: Start or retry the 50 percent deposit while the hold is active
+      description: The payment attempt and VNPay link expire at the booking's holdExpiresAt, which is at most 10 minutes after hold creation. Retrying never extends the hold deadline.
       parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       responses: {'200': {description: Payment initiation}, '409': {$ref: '#/components/responses/Problem'}}
   /api/v1/booking-lookups:
@@ -55,13 +56,22 @@ paths:
       responses: {'200': {description: Authorized projection}, '401': {$ref: '#/components/responses/Problem'}, '403': {$ref: '#/components/responses/Problem'}}
   /api/v1/workshop-bookings/{bookingCode}/pending-hold-release:
     post:
-      summary: Release an active pending hold
+      summary: Release an active pending hold from Guest or Member lookup
+      description: Guest supplies exactly one stored contact proof. An authenticated Member supplies no contact proof; Booking verifies that the Member owns this booking. Both callers must provide an audit-safe reason.
+      security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
-      responses: {'204': {description: Released}, '409': {$ref: '#/components/responses/Problem'}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PendingHoldReleaseRequest'}}}}
+      responses:
+        '204': {description: Released}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/confirmation-deliveries:
     post:
       summary: Resend booking confirmation only to the stored booking contact
-      description: Guest supplies exactly one stored contact proof; Member uses ownership; Staff may act only within active location scope, while any active Manager may act globally without customer proof.
+      description: Guest supplies exactly one stored contact proof; Member uses ownership; Staff may act only within active location scope, while any active Manager may act globally without customer proof. Rolling limits are 3 accepted self-service resends per booking per hour and 5 accepted internal resends per booking per 15 minutes; a rejected request queues no delivery.
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/ConfirmationDeliveryRequest'}}}}
@@ -81,9 +91,11 @@ paths:
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MagicLinkIncidentRequest'}}}}
       responses:
         '200': {description: Safe incident outcome, content: {application/json: {schema: {$ref: '#/components/schemas/BookingActionOutcome'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/late-payment-follow-ups:
     post:
       summary: Record or escalate a late-payment follow-up
@@ -173,12 +185,20 @@ components:
         contactEmail: {type: string, format: email, writeOnly: true}
         contactPhone: {type: string, writeOnly: true}
       description: Guest submits exactly one stored contact value. Member and authorized internal callers submit no proof in the body.
+    PendingHoldReleaseRequest:
+      type: object
+      required: [reason]
+      properties:
+        contactEmail: {type: string, format: email, writeOnly: true}
+        contactPhone: {type: string, writeOnly: true}
+        reason: {type: string, minLength: 1, maxLength: 1000, description: Required audit reason. Contact proofs are not copied to audit.}
+      description: Guest must provide exactly one stored contact proof and no bearer token. An authenticated Member must omit both contact proofs; the server verifies ownership from the bearer identity. Both require a reason.
     MagicLinkIncidentRequest:
       type: object
       required: [action, reason]
       properties:
         action: {type: string, enum: [REVOKE, ROTATE]}
-        reason: {type: string, minLength: 1, maxLength: 1000}
+        reason: {type: string, minLength: 1, maxLength: 1000, description: Required business reason; must not contain URLs, link fragments, or credentials.}
     LatePaymentFollowUpRequest:
       type: object
       required: [action, reason]

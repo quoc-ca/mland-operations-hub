@@ -3,6 +3,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountProfileRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AuditOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountProfile;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
 import lombok.RequiredArgsConstructor;
@@ -62,7 +63,7 @@ public class ProfileService {
             accountId,
             accountId,
             "PROFILE_UPDATED",
-            "SUCCESS",
+            AuditOutcome.SUCCESS,
             correlationId,
             null
         );

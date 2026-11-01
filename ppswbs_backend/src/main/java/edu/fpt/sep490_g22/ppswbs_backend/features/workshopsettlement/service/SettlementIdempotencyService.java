@@ -7,12 +7,26 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 @Service
 @RequiredArgsConstructor
 public class SettlementIdempotencyService {
     private final SettlementIdempotencyOutcomeRepository repository;
+
+    @Transactional(readOnly = true)
+    public Optional<String> findOutcomeReference(String operationReference, String requestFingerprint) {
+        return repository.findByOperationReference(operationReference).map(outcome -> {
+            if (!requestFingerprint.equals(outcome.getRequestFingerprint())) {
+                throw new WorkshopSettlementConflictException("IDEMPOTENCY_CONFLICT");
+            }
+            if (outcome.getOutcomeReference() == null || outcome.getOutcomeReference().isBlank()) {
+                throw new WorkshopSettlementConflictException("IDEMPOTENCY_OUTCOME_INCOMPLETE");
+            }
+            return outcome.getOutcomeReference();
+        });
+    }
 
     @Transactional
     public SettlementIdempotencyResult execute(String operationReference, String requestFingerprint,

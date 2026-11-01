@@ -50,6 +50,14 @@ public class WorkshopOperationsCorsConfiguration {
 
         FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(new CorsFilter(source));
         bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        bean.addUrlPatterns(
+            "/api/v1/workshop-locations/*",
+            "/api/v1/workshop-branches/*",
+            "/api/v1/workshop-slots/*",
+            "/api/v1/workshop-sessions/*",
+            "/api/v1/workshop-checkin/*",
+            "/api/v1/workshop-test/*"
+        );
         return bean;
     }
 }

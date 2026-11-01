@@ -8,6 +8,7 @@ import jakarta.persistence.LockModeType;
 import java.util.Optional;
 public interface SettlementFinalBillRepository extends JpaRepository<SettlementFinalBill, Long> {
  Optional<SettlementFinalBill> findByBookingReference(String bookingReference);
+ java.util.List<SettlementFinalBill> findByLifecycleStatusInOrderByIdAsc(java.util.Collection<String> lifecycleStatuses);
  @Lock(LockModeType.PESSIMISTIC_WRITE)
  @Query("select b from SettlementFinalBill b where b.bookingReference = :bookingReference")
  Optional<SettlementFinalBill> findByBookingReferenceForUpdate(@Param("bookingReference") String bookingReference);

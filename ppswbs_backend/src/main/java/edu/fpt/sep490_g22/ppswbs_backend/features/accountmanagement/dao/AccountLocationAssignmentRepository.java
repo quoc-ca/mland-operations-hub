@@ -15,4 +15,6 @@ public interface AccountLocationAssignmentRepository extends JpaRepository<Accou
     List<AccountLocationAssignment> findByAccountId(Long accountId);
 
     Optional<AccountLocationAssignment> findByAccountIdAndLocationIdAndActiveTrue(Long accountId, Long locationId);
+
+    List<AccountLocationAssignment> findByLocationIdAndActiveTrue(Long locationId);
 }

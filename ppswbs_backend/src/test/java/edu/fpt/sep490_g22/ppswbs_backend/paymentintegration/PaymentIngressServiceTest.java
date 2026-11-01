@@ -60,7 +60,7 @@ class PaymentIngressServiceTest {
     @Test void acceptsVnPayCallbackWhenCurrencyFieldIsOmitted() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
         when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
-        when(receipts.existsByDeliveryReference("DEP-BK-1-1|TX-1")).thenReturn(false);
+        when(receipts.existsByDeliveryReference("DEP-BK-1-1|TX-1|00|00")).thenReturn(false);
         when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var callback = params("DEP-BK-1-1", "5000000", "00", "TX-1");
         callback.remove("vnp_CurrCode");
@@ -74,7 +74,7 @@ class PaymentIngressServiceTest {
     @Test void deduplicatesSuccessfulDeliveryWhileAllowingConsumerProjectionRepair() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
         when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
-        when(receipts.existsByDeliveryReference("DEP-BK-1-1|TX-1")).thenReturn(true);
+        when(receipts.existsByDeliveryReference("DEP-BK-1-1|TX-1|00|00")).thenReturn(true);
         var outcome = service().receive(params("DEP-BK-1-1", "5000000", "00", "TX-1"));
         assertThat(outcome.message()).isEqualTo("Already received");
         verify(receipts, never()).saveAndFlush(any());
@@ -85,7 +85,7 @@ class PaymentIngressServiceTest {
     @Test void dispatchesValidDepositExactlyOnce() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
         when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
-        when(receipts.existsByDeliveryReference("DEP-BK-1-1|TX-1")).thenReturn(false);
+        when(receipts.existsByDeliveryReference("DEP-BK-1-1|TX-1|00|00")).thenReturn(false);
         when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var outcome = service().receive(params("DEP-BK-1-1", "5000000", "00", "TX-1"));
         assertThat(outcome.message()).isEqualTo("OK");
@@ -101,9 +101,10 @@ class PaymentIngressServiceTest {
                 .paymentKind(PaymentOwnerKind.FINAL_PAYMENT)
                 .amountVnd(75_000L)
                 .currencyCode("VND")
+                .providerCreateDate("20261030181359")
                 .build();
         when(registry.resolve("FINAL-BK-1-1")).thenReturn(Optional.of(settlementOwner));
-        when(receipts.existsByDeliveryReference("FINAL-BK-1-1|TX-1")).thenReturn(false);
+        when(receipts.existsByDeliveryReference("FINAL-BK-1-1|TX-1|00|00")).thenReturn(false);
         when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(settlement.applyVerifiedSettlementPaymentEvidence(any())).thenReturn(SettlementPaymentEvidenceOutcome.accepted());
         var outcome = service().receive(params("FINAL-BK-1-1", "7500000", "00", "TX-1"));
@@ -115,14 +116,70 @@ class PaymentIngressServiceTest {
     @Test void acknowledgesFailedProviderResponseWithoutDispatch() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
         when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
-        var outcome = service().receive(params("DEP-BK-1-1", "5000000", "24", "TX-1"));
+        when(receipts.existsByDeliveryReference(anyString())).thenReturn(false);
+        when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var callback = params("DEP-BK-1-1", "5000000", "24", "TX-1");
+        callback.put("vnp_TransactionStatus", "02");
+        var outcome = service().receive(callback);
         assertThat(outcome.message()).isEqualTo("OK");
-        verifyNoInteractions(receipts, booking, settlement);
+        var saved = org.mockito.ArgumentCaptor.forClass(PaymentIngressReceipt.class);
+        verify(receipts).saveAndFlush(saved.capture());
+        assertThat(saved.getValue().isTerminalOutcome()).isTrue();
+        verifyNoInteractions(booking, settlement);
+    }
+
+    @Test void acknowledgesStatus01AsNonterminalWithoutDispatch() {
+        when(checksum.valid(anyMap(), any())).thenReturn(true);
+        when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(receipts.existsByDeliveryReference(anyString())).thenReturn(false);
+        when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var callback = params("DEP-BK-1-1", "5000000", "00", "TX-1");
+        callback.put("vnp_TransactionStatus", "01");
+
+        var outcome = service().receive(callback);
+
+        assertThat(outcome.message()).isEqualTo("OK");
+        var saved = org.mockito.ArgumentCaptor.forClass(PaymentIngressReceipt.class);
+        verify(receipts).saveAndFlush(saved.capture());
+        assertThat(saved.getValue().isTerminalOutcome()).isFalse();
+        verifyNoInteractions(booking, settlement);
+    }
+
+    @Test void doesNotConfirmWhenResponseCodeIsSuccessButTransactionStatusIsTerminalFailure() {
+        when(checksum.valid(anyMap(), any())).thenReturn(true);
+        when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(receipts.existsByDeliveryReference(anyString())).thenReturn(false);
+        when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var callback = params("DEP-BK-1-1", "5000000", "00", "TX-1");
+        callback.put("vnp_TransactionStatus", "02");
+
+        var outcome = service().receive(callback);
+
+        assertThat(outcome.message()).isEqualTo("OK");
+        var saved = org.mockito.ArgumentCaptor.forClass(PaymentIngressReceipt.class);
+        verify(receipts).saveAndFlush(saved.capture());
+        assertThat(saved.getValue().isTerminalOutcome()).isTrue();
+        verifyNoInteractions(booking, settlement);
+    }
+
+    @Test void allowsLaterSuccessAfterSameTransactionWasPreviouslyReportedAsStatus01() {
+        when(checksum.valid(anyMap(), any())).thenReturn(true);
+        when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(receipts.existsByDeliveryReference(anyString())).thenReturn(false);
+        when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var pending = params("DEP-BK-1-1", "5000000", "00", "TX-1");
+        pending.put("vnp_TransactionStatus", "01");
+
+        assertThat(service().receive(pending).message()).isEqualTo("OK");
+        assertThat(service().receive(params("DEP-BK-1-1", "5000000", "00", "TX-1")).message()).isEqualTo("OK");
+
+        verify(receipts, times(2)).saveAndFlush(any());
+        verify(booking).applyVerifiedDepositPaymentEvidence(any());
     }
 
     private PaymentIngressService service() { return new PaymentIngressService(checksum, registry, receipts, booking, settlement); }
     private PaymentOwnerRegistration owner(long amount) { return PaymentOwnerRegistration.builder().merchantReference("DEP-BK-1-1").bookingReference("BK-1").paymentKind(PaymentOwnerKind.DEPOSIT).amountVnd(amount).currencyCode("VND").build(); }
     private Map<String,String> params(String ref, String amount, String response, String txn) {
-        return new HashMap<>(Map.of("vnp_TxnRef", ref, "vnp_Amount", amount, "vnp_CurrCode", "VND", "vnp_ResponseCode", response, "vnp_TransactionNo", txn, "vnp_SecureHash", "hash"));
+        return new HashMap<>(Map.of("vnp_TxnRef", ref, "vnp_Amount", amount, "vnp_CurrCode", "VND", "vnp_ResponseCode", response, "vnp_TransactionStatus", "00", "vnp_TransactionNo", txn, "vnp_SecureHash", "hash"));
     }
 }

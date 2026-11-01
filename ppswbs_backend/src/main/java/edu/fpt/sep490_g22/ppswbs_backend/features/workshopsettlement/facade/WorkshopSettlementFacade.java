@@ -6,4 +6,8 @@ public interface WorkshopSettlementFacade {
 
     SettlementPaymentEvidenceOutcome applyVerifiedSettlementPaymentEvidence(
             ApplyVerifiedSettlementPaymentEvidenceCommand command);
+
+    /** Feature 007 calls this only after receiving the matching ready event. */
+    SettlementNotificationDeliveryPayload getSettlementNotificationDeliveryPayload(
+            SettlementNotificationDeliveryPayloadQuery query);
 }

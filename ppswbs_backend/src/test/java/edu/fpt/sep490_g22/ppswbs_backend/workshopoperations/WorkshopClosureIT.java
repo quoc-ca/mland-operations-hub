@@ -229,15 +229,17 @@ public class WorkshopClosureIT {
     }
 
     private WorkshopSession createSession(SessionState state) {
+        Instant now = Instant.now();
         WorkshopSession session = sessionRepository.save(WorkshopSession.builder()
                 .reference("SES-" + UUID.randomUUID().toString().substring(0, 8))
                 .location(locationA)
                 .slot(slotMorning)
                 .workshopDate(LocalDate.now().plusDays(sessionDateOffset++))
-                .scheduledStartAt(Instant.now().minus(2, ChronoUnit.HOURS))
-                .scheduledEndAt(Instant.now().minus(30, ChronoUnit.MINUTES))
-                .checkInOpensAt(Instant.now().minus(3, ChronoUnit.HOURS))
+                .scheduledStartAt(now.minus(2, ChronoUnit.HOURS))
+                .scheduledEndAt(now.minus(30, ChronoUnit.MINUTES))
+                .checkInOpensAt(now.minus(3, ChronoUnit.HOURS))
                 .checkInOpeningSource(CheckInOpeningSource.DEFAULT)
+                .attendanceFinalizedAt(state == SessionState.ATTENDANCE_FINALIZED ? now.minus(15, ChronoUnit.MINUTES) : null)
                 .capacity(15)
                 .state(state)
                 .build());

@@ -72,6 +72,10 @@ public class BookingLookupService {
                 .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
     }
 
+    public BookingSummaryResponse projectForMagicLink(WorkshopBooking booking) {
+        return project(booking);
+    }
+
     private BookingSummaryResponse project(WorkshopBooking booking) {
         List<BookedSessionDto> sessions;
         List<BookingTicketDto> tickets;
