@@ -16,6 +16,8 @@ const appMessages = {
     promotionManagement: 'Quản lý ưu đãi',
     otaChannels: 'Kênh OTA',
     otaReconciliation: 'Đối soát OTA',
+    aiSupport: 'Trợ lý AI',
+    designWorkspace: 'Thiết kế AI',
     nav: 'Điều hướng chính',
   },
   en: {
@@ -30,6 +32,8 @@ const appMessages = {
     otaReconciliation: 'OTA Reconciliation',
     otaFinance: 'OTA Finance',
     otaAddons: 'Shop add-ons',
+    aiSupport: 'AI Support',
+    designWorkspace: 'AI Design',
     nav: 'Main navigation',
   },
 };
@@ -48,6 +52,8 @@ export default function AppLayout() {
           <Link to="/workshops">{t('workshops')}</Link>
           <Link to="/promotions">{t('promotions')}</Link>
           <Link to="/me/loyalty">{t('loyalty')}</Link>
+          <Link to="/ai-support">{t('aiSupport')}</Link>
+          <Link to="/design-requests/new">{t('designWorkspace')}</Link>
           <Link to="/catalogue-management/products">{t('management')}</Link>
           <Link to="/promotion-management/programs">{t('promotionManagement')}</Link>
           <Link to="/ota-connectivity/channels">{t('otaChannels')}</Link>
