@@ -1,0 +1,51 @@
+/* ==========================================================================
+   PROTOTYPE 006 — LOYALTY & PROMOTION (Operations Hub console style)
+   Loaded after ../002-product-management/styles.css, which holds the Style 3 tokens and the console shell;
+   this file only adds the components 006 needs.
+   ========================================================================== */
+
+.offer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.offer-card {
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--rounded-lg);
+  padding: 14px; display: flex; flex-direction: column; gap: 10px;
+}
+.offer-head { display: flex; gap: 6px; flex-wrap: wrap; }
+.offer-title { font-weight: 700; font-size: 14px; }
+.offer-discount { font-size: 18px; font-weight: 700; color: var(--color-text-primary); border-left: 4px solid var(--color-primary); padding-left: 8px; }
+
+.kv.compact { grid-template-columns: 120px 1fr; font-size: 12.5px; }
+.kv dt.total, .kv dd.total { font-size: 15px; font-weight: 700; color: var(--color-text-primary); border-top: 1px solid var(--color-border); padding-top: 6px; }
+.kv dd.minus { color: var(--color-success); font-weight: 600; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.stat-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--rounded-lg); padding: 14px; }
+.stat-label { font-size: 12px; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: .02em; }
+.stat-value { font-size: 26px; font-weight: 700; font-family: var(--font-mono); margin: 4px 0; }
+.stat-value.ok { color: var(--color-success); }
+.stat-value.warn { color: var(--color-warning); }
+
+.two-col { display: grid; grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr); gap: 14px; align-items: start; margin-bottom: 14px; }
+.two-col > div { display: flex; flex-direction: column; gap: 14px; }
+.panel.summary { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.btn-primary.full { width: 100%; justify-content: center; padding: 10px; }
+
+label.radio { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; flex-wrap: wrap; }
+label.radio.sub { padding-left: 22px; }
+.points-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0; }
+.points-row .inline-input { width: 180px; }
+.inline-input.qty { width: 64px; }
+
+.target-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin: 8px 0 14px; }
+.target-box { border: 1px solid var(--color-border); border-radius: var(--rounded-md); padding: 8px 10px; background: var(--color-surface-secondary); display: flex; flex-direction: column; gap: 2px; }
+.target-box input[name="workshopDates"] { margin-top: 6px; }
+
+.panel.tx { display: flex; flex-direction: column; gap: 8px; }
+.tx-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 600; }
+
+form[data-form="create"], form[data-form="edit-program"], form[data-form="policy"] { display: flex; flex-direction: column; gap: 12px; }
+
+@media (max-width: 1000px) {
+  .two-col { grid-template-columns: 1fr; }
+  .panel.summary { position: static; }
+  .kv.compact { grid-template-columns: 1fr; }
+}
