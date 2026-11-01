@@ -106,9 +106,8 @@ class LoyaltySecurityIT {
         assertThat(result.getResponse().getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN)).isNull();
     }
 
-    // Disabled: the shared chain of 001 answers 403 "Invalid CORS request" to every preflight in this context,
-    // also for 002 routes, although its configuration lists this origin (BE-DESIGN-0012). Re-enable when fixed.
-    @org.junit.jupiter.api.Disabled("BE-DESIGN-0012: shared CORS preflight rejects the configured origin")
+    // BE-DESIGN-0012 (fixed on develop 2026-11-01): workshopOperationsCorsFilter now runs on /api/v1/workshop-* only,
+    // so the shared chain of 001 answers the preflight of the configured origin.
     @Test
     void theConfiguredFrontendOriginIsAllowedWithoutAWildcard() throws Exception {
         MvcResult result = mvc.perform(options("/api/v1/promotion-programs")
@@ -120,6 +119,17 @@ class LoyaltySecurityIT {
                 .as("body=%s headers=%s", result.getResponse().getContentAsString(),
                         result.getResponse().getHeaderNames())
                 .isEqualTo(200);
+        assertThat(result.getResponse().getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN))
+                .isEqualTo("http://localhost:5173");
+    }
+
+    @Test
+    void theConfiguredFrontendOriginIsAllowedOnThePublicChainToo() throws Exception {
+        MvcResult result = mvc.perform(options("/api/v1/promotions")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.GET.name()))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
         assertThat(result.getResponse().getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN))
                 .isEqualTo("http://localhost:5173");
     }

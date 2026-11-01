@@ -1,7 +1,7 @@
 # Verification — FE-06 Loyalty & Promotion
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-01 (mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật))
+**Date updated**: 2026-11-01 (mục 30: chuẩn bị T075/T076, đối chiếu 41 FR; mục 29: phục hồi, tranh chấp nguồn, báo cáo lượt dùng; mục 28: workshop nguồn thật FE-03 và CORS; mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -450,3 +450,108 @@ Develop `bb5f56e` (`e061e90`, Bùi Trọng Thịnh): `RetailUnstartedExpiryServi
 - T055: component xong nhưng chưa được màn checkout FE-08 nhúng; `BenefitPreviewView` của FE-08 chưa trả số điểm tối đa (`maxPoints`) nên component chỉ hiện được khi owner bổ sung. T061: chờ FE-03 (quote workshop).
 - Đối tượng áp dụng nhập bằng mã (ID, cách nhau dấu phẩy) vì chưa có hợp đồng chọn sản phẩm/gói; lý do của quote là chuỗi tiếng Anh từ backend nên hiển thị nguyên văn.
 - Frontend chưa biết vai trò (chưa có bootstrap 001): khu Manager hiện cho mọi người đã đăng nhập, backend trả 403 nếu không phải Manager.
+
+## 28. Workshop nguồn thật của FE-03 và CORS sau develop 8d69792, 2026-11-01
+
+**Nguồn.** Develop `8d69792` (Hồ Hoàng Quốc, `de1be3c`, `69bc88c`, `109190a`) nối loyalty vào workshop theo Cách 2 và [hướng dẫn tích hợp](contracts/workshop-booking-integration.md):
+
+| Bước | Code của FE-03 | Gọi `LoyaltyFacade` |
+| --- | --- | --- |
+| Quote | `WorkshopBookingQuoteService.preview` | `previewBenefits`, lưu quote kèm `termsDigest`, trả `reasons` |
+| Accept | `MemberQuoteBookingAcceptanceService.accept` (một transaction) | kiểm tra lại quote → `previewBenefits` (có `reasons` thì `PROMOTION_INELIGIBLE`) → giữ chỗ mọi phiên → `reserveAcceptedTransaction` → lưu booking/invoice, cọc `ceil(post/2)`, còn lại `post − cọc` |
+| Cọc đã xác minh | `WorkshopBookingLoyaltyOutcomeService.settleVerifiedDeposit` | `settleAcceptedBenefits(WORKSHOP_DEPOSIT_ACCEPTED)` |
+| Hết hạn chưa trả đã xác nhận | `BookingDepositReconciliationService` → `finishConfirmedUnpaidExpiry` | `releaseHeldBenefits` + `finishIneligibleEarn(UNPAID_EXPIRY_CONFIRMED)` |
+| Hủy hợp lệ | `workshopsettlement.WorkshopCancellationLoyaltyService` | restore + kết thúc earn (`VALID_WORKSHOP_CANCELLATION`) |
+| No-show / hoàn thành + trả đủ | `workshopsettlement.WorkshopLoyaltyOutcomeProcessor` | `finishIneligibleEarn(WORKSHOP_NO_SHOW_FINAL)` / `grantEarnedPoints(WORKSHOP_COMPLETED_AND_FULLY_PAID)` |
+
+**Bằng chứng** (MySQL 8.4, database trống `ppswbs_loyalty_build20`–`26`):
+- `LoyaltyWorkshopBookingAcceptanceIT` (mới, 006) **5/5** — đi qua `WorkshopBookingQuoteService` và `MemberQuoteBookingAcceptanceService` thật; chỉ thay ranh giới của feature khác (Workshop Operations 003.2: gói/phiên/giữ chỗ; kiểm tra Member của 001). Voucher 100.000 + 900 điểm (chính sách tối đa 10%) trên 1.000.000 → post 810.000, cọc 405.000, còn lại 405.000; voucher/điểm `HELD`, ví giữ 900, lượt giữ 1, quote `ACCEPTED`. Cọc xác minh gửi hai lần → voucher/điểm `CONSUMED` một lần, số dư 2.000 → 1.100, earn chưa `GRANTED`, cọc + còn lại = post (điểm không bị trừ lại ở phần còn lại). Net lẻ 500.001 → cọc 250.001, còn lại 250.000. Giữ chỗ bị từ chối → không giữ điểm/lượt, quote vẫn `OPEN`. Quote có lý do (5 điểm dưới tối thiểu) → accept bị từ chối, không có booking, không giữ điểm.
+- `LoyaltyWorkshopSourceIntegrationIT` (Hồ Hoàng Quốc viết, chạy lại) **4/4** — cọc rồi hoàn thành + trả đủ cộng điểm đúng một lần (xử lý hai lần), hết hạn chưa trả trả điểm và đóng earn, hủy hợp lệ hoàn điểm còn no-show không hoàn, loyalty commit rồi giữ chỗ lỗi thì rollback cả hai, booking Guest không có hiệu lực loyalty.
+- `LoyaltyWorkshopFacadeIT` **6/6**.
+- Toàn bộ test 006 (`-Dtest=edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.**.*`, database `ppswbs_loyalty_build26`): **237 chạy, 237 đạt, 0 bỏ qua**.
+
+**CORS (BE-DESIGN-0012 của 006).** `WorkshopOperationsCorsConfiguration` trên develop chỉ đăng ký filter cho `/api/v1/workshop-*` (`addUrlPatterns`). Đã bỏ `@Disabled` ở `LoyaltySecurityIT.theConfiguredFrontendOriginIsAllowedWithoutAWildcard` và thêm `theConfiguredFrontendOriginIsAllowedOnThePublicChainToo`: **11/11**, không còn test bỏ qua (preflight origin `http://localhost:5173` → 200 kèm `Access-Control-Allow-Origin`; origin lạ → 403).
+
+**Tick:** T057, T059, T060. **Chưa tick:** T062 (outcome trễ/gửi lặp và hủy sai dưới source guard của FE-03 chưa có test nguồn thật riêng), T063 (tranh chấp phía nguồn FE-03/FE-08), T064–T065 (phụ thuộc T062/T063), T072 (còn phần UI/API với phiên 001 thật), T061 (quote workshop của FE-03 chưa trả số điểm tối đa dùng được).
+
+## 29. Phục hồi, tranh chấp phía nguồn, báo cáo lượt dùng và component workshop (T061–T065, T071), 2026-11-01
+
+**Nguồn thật.** `support/RealWorkshopBookings` (test, 006) đóng vai Member đi qua code thật của FE-03: quote (`WorkshopBookingQuoteService`), accept (`MemberQuoteBookingAcceptanceService`), trả cọc (`WorkshopBookingFacade.applyVerifiedDepositPaymentEvidence`: kiểm tra lần thanh toán và số tiền, xác nhận booking, chốt giữ chỗ rồi settle loyalty), hết hạn (`BookingDepositReconciliationService.reconcileDue`). Chỉ thay ranh giới của feature khác: Workshop Operations 003.2 (gói, phiên, giữ chỗ, vé), kiểm tra Member 001, và dòng "lần thanh toán" của cổng thanh toán.
+
+**Lỗi tìm thấy và đã sửa (006).** `AcceptedBenefit` kiểm tra version trước khi nhận ra outcome gửi lặp. FE-03 gửi hủy hợp lệ theo cặp (restore ở v, kết thúc earn ở v+1); khi lần hủy được gửi lại (cùng key, version v) loyalty báo `BENEFIT_STATE_CONFLICT` "A newer source outcome was already applied" thay vì coi là gửi lặp. Sửa: settle/release/restore/grant/finish nhận ra key đã ghi cho đúng chuyển trạng thái đó và trả "không đổi" trước khi so version; outcome khác key, version cũ hơn vẫn bị từ chối. Unit test `LoyaltyEntityRulesTests.aRedeliveredOutcomeIsANoOpEvenAfterANewerOutcomeOfTheSource`.
+
+| Task | Test (MySQL 8.4, database trống) | Kết quả |
+| --- | --- | --- |
+| T062 | `LoyaltyRecoverySourceIntegrationIT` (mới) | **6/6**: hủy hợp lệ sau cọc (gửi hai lần) → điểm và voucher `RESTORED` một lần, số dư về 2.000, earn `INELIGIBLE`, hoàn thành sau đó không cộng điểm; case không phải `CUSTOMER_CANCELLATION` → không hoàn; no-show cuối → không hoàn, không cộng; còn nợ phần còn lại hoặc cửa sổ điểm danh chưa đóng → không cộng; cọc đến sau khi hết hạn → FE-03 từ chối (`REJECTED`), loyalty vẫn `RELEASED`, không trừ điểm; chương trình tạm dừng vẫn giữ lượt đã dùng |
+| T063 (phía nguồn) | `LoyaltyWorkshopSourceConcurrencyIT` (mới), `LoyaltyRetailCheckoutIT.theSameVerifiedPaymentDeliveredTwiceAtOnceConsumesAndEarnsOnce` (mới) | **3/3** (mỗi kịch bản 3 vòng) và **8/8**: cùng một cọc xác minh gửi hai lần cùng lúc → trừ một lần, booking `CONFIRMED`; hủy hợp lệ tranh với hoàn thành → hoặc hoàn hoặc cộng điểm, không bao giờ cả hai; cọc tranh với hết hạn giữ chỗ (đã có lần thanh toán) → cọc bị từ chối, loyalty vẫn `HELD` chờ đối soát, không tự release; thanh toán bán lẻ gửi hai lần cùng lúc dưới khóa của FE-08 → trừ voucher và cộng điểm đúng một lần, bán hàng một lần. Phía loyalty đã có từ trước (`LoyaltyMySqlConcurrencyIT` 11/11, mục 18/21) |
+| T064 | review code nguồn + T062/T063 | FE-03 gọi release/restore/finish qua facade dưới khóa nguồn (`findLockedByBookingCode`, `findByBookingReferenceForUpdate`), phân xử theo proof/version; thanh toán chưa rõ thì đối soát (`BookingDepositReconciliation`), không tự release; bộ xử lý cuối gọi `findBenefitResult` trước khi quyết định. Phía bán lẻ giữ nguyên (mục 23–26) |
+| T065 | `LoyaltyRecoverySourceIntegrationIT` | Báo cáo lượt dùng sau hủy hợp lệ: đã dùng 0, đang giữ 0, tiền giảm 0, đọc lại vẫn 0 (không âm); lịch sử điểm của Member vẫn có HOLD/CONSUME/RESTORE và số điểm khả dụng tải lại là 2.000; chương trình tạm dừng giữ nguyên lượt đã dùng và tiền giảm |
+| T071 | `LoyaltyApiContractIT` (8 test, mục 19) | Đủ 15 operation; các phụ thuộc T070/T065/T047/T034/T040 đã xong; đạt trong lần chạy toàn bộ dưới đây |
+| T061 (chưa tick) | `BenefitSelector context="workshop"` + 2 test frontend | Hiện giá gốc / giảm ưu đãi / giảm điểm / sau ưu đãi / cọc / còn lại theo đúng `WorkshopBookingQuoteResponse` của FE-03, không có giảm tự động, quote có lý do không xác nhận được. Chưa tick: FE-03 chưa nhúng vào màn hình booking và quote chưa trả số điểm tối đa dùng được |
+
+**Chạy lại toàn bộ** (sau khi sửa `AcceptedBenefit`): `.\mvnw.cmd -o test "-Dtest=edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.**.*,ModulithArchitectureTests"` trên database trống `ppswbs_loyalty_build32` → **253 chạy, 253 đạt, 0 bỏ qua** (006: 248, Modulith: 5). Frontend: `npm test` 5 file, **59 test pass**; `npm run build` đạt.
+
+**Còn mở:** T072 (UI/API với phiên 001 thật — backend chưa khởi tạo Firebase Admin), T073–T076 (phụ thuộc T072), T078 (tích hợp UI thật), T055/T061 (owner nhúng component, bổ sung số điểm tối đa).
+
+## 30. Chuẩn bị T075/T076: đối chiếu yêu cầu, bằng chứng và tài liệu, 2026-11-01
+
+**Trạng thái: CHUẨN BỊ, chưa tick.** T075 phụ thuộc T074 → T073 → T072; T072 còn chờ phiên đăng nhập 001 (backend chưa gọi `FirebaseApp.initializeApp`). Bảng dưới là hiện trạng thật tại `khuong` sau khi ghép develop `365dcf3`; khi T072 xong chỉ cần chạy lại và cập nhật cột kết quả.
+
+**Lần chạy làm căn cứ:** `.\mvnw.cmd -o test "-Dtest=edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.**.*,ModulithArchitectureTests"`, MySQL 8.4, database trống `ppswbs_loyalty_build32` → **253/253 đạt, 0 bỏ qua** (mục 29). Frontend `npm test` 59/59, `npm run build` đạt (mục 27, 29).
+
+Ký hiệu kết quả: **ĐẠT** = có test chạy thật trên MySQL/nguồn thật; **ĐẠT (giả lập)** = chỉ test với HTTP/component giả lập; **NOT RUN** = chưa chạy được, kèm lý do.
+
+| FR | Nội dung (rút gọn) | Task | Bằng chứng (lớp test) | Kết quả |
+| --- | --- | --- | --- | --- |
+| FR-001 | Kiểm tra quyền từng thao tác (Manager/Member/Guest) | T007, T025, T027, T033, T072 | `LoyaltyAuthorizationTests`, `LoyaltySecurityIT`, `LoyaltyApiContractIT` (ma trận quyền) | ĐẠT phía backend; phiên 001 thật NOT RUN (T072) |
+| FR-002 | Phạm vi: voucher sản phẩm/workshop, giảm tự động sản phẩm, điểm | T004, T024 | `PromotionCreateContractIT` (giảm tự động chỉ sản phẩm), `LoyaltyEntityRulesTests` | ĐẠT |
+| FR-003 | Tạo voucher sản phẩm | T024–T029 | `PromotionCreateContractIT` | ĐẠT |
+| FR-004 | Tạo voucher workshop (gói/chi nhánh/ngày/phiên) | T024–T029 | `PromotionCreateContractIT` (provider workshop), `LoyaltyWorkshopFacadeIT` | ĐẠT |
+| FR-005 | Tạo giảm tự động sản phẩm | T024–T029 | `PromotionCreateContractIT` | ĐẠT |
+| FR-006 | Mã trim, không phân biệt hoa/thường, duy nhất, không tái dùng | T006–T009 | `LoyaltyValuesTest`, `PromotionCreateContractIT` (`CODE_EXISTS`), `LoyaltyMySqlMigrationIT` | ĐẠT |
+| FR-007 | Kiểm tra trường, thời gian, số tiền/tỷ lệ | T010, T024 | `LoyaltyValuesTest`, `PromotionCreateContractIT` | ĐẠT |
+| FR-008 | Danh sách/chi tiết/lọc, lượt dùng, tổng tiền giảm | T041–T047 | `PromotionManagementContractIT`, `PromotionUsageIT`, `LoyaltyRecoverySourceIntegrationIT` (báo cáo sau hủy) | ĐẠT; UI ĐẠT (giả lập) |
+| FR-009 | Sửa, tạm dừng, mở lại | T041–T047 | `PromotionManagementContractIT`, `LoyaltyMySqlConcurrencyIT` | ĐẠT; UI ĐẠT (giả lập) |
+| FR-010 | Giao dịch đã chấp nhận giữ điều kiện đã ghi | T017, T018, T065 | `LoyaltyEarnIT`, `LoyaltyRetailCheckoutIT`, `LoyaltyWorkshopBookingAcceptanceIT` | ĐẠT |
+| FR-011 | Thẻ ưu đãi công khai | T066–T070 | `SavedVoucherContractIT`, `LoyaltyApiContractIT` | ĐẠT; UI ĐẠT (giả lập) |
+| FR-012 | Kho voucher, chọn mã đã lưu hoặc nhập trực tiếp | T066–T070, T055 | `SavedVoucherContractIT`; component `BenefitSelector` | ĐẠT backend; chọn trong checkout chờ owner nhúng (T055/T061) |
+| FR-013 | Lý do mã không dùng được | T066–T070, T050 | `LoyaltyRetailQuoteTest`, `LoyaltyWorkshopQuoteTest`, `LoyaltyRetailSourceIntegrationIT` | ĐẠT (lý do là chuỗi tiếng Anh từ backend) |
+| FR-014 | Cơ sở tính giảm chỉ dòng thuộc phạm vi | T019–T020, T048–T053 | `LoyaltyCalculationTest`, `LoyaltyRetailQuoteTest` | ĐẠT |
+| FR-015 | Tối đa một ưu đãi/đơn | T048–T053 | `LoyaltyRetailQuoteTest`, `LoyaltyCalculationTest` | ĐẠT |
+| FR-016 | Checkout hiện điểm khả dụng, điểm tối đa, breakdown | T050, T055 | `LoyaltyRetailQuoteTest` (maxPoints trong `BenefitPreview`); component | **Thiếu ở owner:** `BenefitPreviewView` (FE-08) và `WorkshopBookingQuoteResponse` (FE-03) chưa trả `maxPoints` |
+| FR-017 | Kiểm tra lại khi xác nhận, accept nguyên tử | T051–T054 | `LoyaltyRetailCheckoutIT`, `LoyaltyRetailSourceIntegrationIT` (FE-08 thật) | ĐẠT |
+| FR-018 | Chốt khi FE-08 xác nhận trả đủ hoặc đơn 0đ | T054 | `LoyaltyRetailCheckoutIT` (thanh toán, đơn 0đ, gửi trùng) | ĐẠT |
+| FR-019 | Kiểm tra gói/chi nhánh/ngày/phiên, một voucher/booking | T056–T059 | `LoyaltyWorkshopQuoteTest`, `LoyaltyWorkshopFacadeIT`, `LoyaltyWorkshopBookingAcceptanceIT` (FE-03 thật) | ĐẠT |
+| FR-020 | Voucher rồi điểm → `post_promotion_amount`; cọc do FE-03 | T056–T060 | `LoyaltyWorkshopBookingAcceptanceIT` (cọc ceil(post/2), net lẻ) | ĐẠT |
+| FR-021 | Giữ khi accept, chốt khi cọc xác minh | T059, T060 | `LoyaltyWorkshopBookingAcceptanceIT`, `LoyaltyWorkshopSourceIntegrationIT` | ĐẠT |
+| FR-022 | Từ chối phí sau giảm ≤ 0 | T058 | `LoyaltyWorkshopQuoteTest`, `LoyaltyWorkshopFacadeIT` (`WORKSHOP_NET_AMOUNT_INVALID`) | ĐẠT |
+| FR-023 | Một số dư chung, điểm không hết hạn | T011, T012 | `LoyaltyEntityRulesTests`, `LoyaltyRetentionIT` | ĐẠT |
+| FR-024 | Cấu hình khởi đầu 10.000đ/100đ/10 điểm/10% | T031–T033 | `LoyaltyMySqlMigrationIT`, `LoyaltyPolicyContractIT`; quan sát lại ở `LoyaltyWorkshopBookingAcceptanceIT` (trần 10%) | ĐẠT |
+| FR-025 | Điểm dùng nguyên, không vượt khả dụng/trần | T020, T051 | `LoyaltyCalculationTest`, `LoyaltyRetailQuoteTest` | ĐẠT |
+| FR-026 | Manager xem/cập nhật thông số | T031–T034 | `LoyaltyPolicyContractIT`; UI `PointPolicyPage` | ĐẠT; UI ĐẠT (giả lập) |
+| FR-027 | Đổi cấu hình chỉ áp dụng giao dịch sau | T031–T033 | `LoyaltyPolicyContractIT`, `LoyaltyEarnIT` | ĐẠT |
+| FR-028 | Chỉ cấp điểm cho giao dịch Member đủ điều kiện | T035–T040, T054, T060 | `LoyaltyEarnIT`, `LoyaltyRecoverySourceIntegrationIT` (còn nợ/no-show không cộng), `LoyaltyWorkshopSourceIntegrationIT` (Guest) | ĐẠT |
+| FR-029 | Cơ sở tích sau ưu đãi, làm tròn xuống | T035–T038 | `LoyaltyCalculationTest`, `LoyaltyEarnIT` | ĐẠT |
+| FR-030 | Một kết quả cấp điểm/giao dịch | T035–T038 | `LoyaltyEarnIT`, `LoyaltyRetailCheckoutIT` (gửi trùng cùng lúc), `LoyaltyWorkshopSourceIntegrationIT` | ĐẠT |
+| FR-031 | My Loyalty: số dư/giữ/khả dụng/lịch sử | T039, T040 | `LoyaltyAccountContractIT`; UI `MyLoyaltyPage` | ĐẠT; UI ĐẠT (giả lập) |
+| FR-032 | Không dùng lại điểm/lượt đang giữ khi đồng thời | T017–T018, T021–T023 | `LoyaltyMySqlConcurrencyIT` (11), `LoyaltyWorkshopSourceConcurrencyIT` | ĐẠT |
+| FR-033 | Hết hạn / hủy trước thanh toán → giải phóng | T051–T053, T064 | `LoyaltyRetailCheckoutIT` (hủy, hết hạn), `LoyaltyRecoverySourceIntegrationIT` (hết hạn workshop) | ĐẠT |
+| FR-034 | Hủy workshop dựa trên FE-03 xác nhận | T062, T064 | `LoyaltyRecoverySourceIntegrationIT` | ĐẠT |
+| FR-035 | Hủy hợp lệ trả lượt Member và tổng chương trình | T062, T065 | `LoyaltyRecoverySourceIntegrationIT`, `LoyaltyCancellationIT` | ĐẠT |
+| FR-036 | Phân biệt từng quyền lợi, thử lại an toàn | T062, T064 | `LoyaltyEntityRulesTests` (gửi lặp sau outcome mới hơn), `LoyaltyRecoverySourceIntegrationIT` | ĐẠT (sửa lỗi gửi lặp 2026-11-01) |
+| FR-037 | Không đến / hủy sai / đã hoàn thành không tự hoàn | T062 | `LoyaltyRecoverySourceIntegrationIT`, `LoyaltyWorkshopSourceIntegrationIT` | ĐẠT |
+| FR-038 | Thanh toán/hết hạn/hủy gần nhau theo xác nhận nguồn | T063, T064 | `LoyaltyWorkshopSourceConcurrencyIT`, `LoyaltyRetailCheckoutIT`, `LoyaltyMySqlConcurrencyIT` | ĐẠT |
+| FR-039 | Hành trình hoàn thành từ web tách riêng | T077, T030–T070, T078 | 59 test frontend; trình duyệt với backend local (trang công khai) | ĐẠT (giả lập); tích hợp thật NOT RUN (T078: chưa có phiên 001) |
+| FR-040 | Dùng chung xác thực FE-01/001 | T007, T072 | `LoyaltySecurityIT` 11/11 (CORS đã gỡ) | ĐẠT phía chain; phiên Firebase thật NOT RUN (001 chưa khởi tạo Firebase Admin) |
+| FR-041 | Lưu lịch sử/nhật ký tối thiểu 5 năm | T014–T018, T074 | `LoyaltyRetentionIT`, `LoyaltyMySqlMigrationIT` | ĐẠT; đối chiếu vận hành chờ T074 |
+
+**Tổng hợp:** 36/41 FR ĐẠT với nguồn thật; FR-012, FR-016 thiếu phần ở owner (nhúng component, `maxPoints`); FR-001, FR-039, FR-040 thiếu kiểm chứng với phiên 001 thật.
+
+**Chuẩn bị T076 — chênh lệch tài liệu so với code (sửa khi đóng T076):**
+1. `plan.md` dòng cấu trúc thư mục ghi `ppswbs_frontend/ (chưa khởi tạo; vị trí dự kiến)` và `contracts/interfaces.md` mục 5 ghi `ppswbs_frontend/`, "chưa khởi tạo": frontend đã có (002 T088/T089; 006 `src/features/loyaltypromotion/`), router/state/i18n đã chốt theo [đề xuất nền frontend](../002-product-management/frontend-foundation-proposal.md).
+2. `contracts/interfaces.md` mục facade chưa ghi rõ quy tắc gửi lặp: outcome cùng key đã áp dụng cho đúng chuyển trạng thái là "không đổi" kể cả khi nguồn đã áp dụng outcome version mới hơn (sửa `AcceptedBenefit` 2026-11-01); outcome khác key, version cũ hơn vẫn bị từ chối.
+3. `contracts/interfaces.md` mục 5 nên ghi component checkout nhận `maxPoints` từ quote của owner và các owner (FE-08 `BenefitPreviewView`, FE-03 `WorkshopBookingQuoteResponse`) cần trả trường này để đạt FR-016.
+4. Khớp: OpenAPI 15 operation = 15 route thật (`LoyaltyApiContractIT`); 8 method `LoyaltyFacade` (`previewBenefits`, `reserveAcceptedTransaction`, `settleAcceptedBenefits`, `releaseHeldBenefits`, `restoreCancelledWorkshopBenefits`, `grantEarnedPoints`, `finishIneligibleEarn`, `findBenefitResult`) đều có trong `interfaces.md`; các `OutcomeKind` dùng thật (`RETAIL_*`, `WORKSHOP_*`, `UNPAID_EXPIRY_CONFIRMED`, `VALID_WORKSHOP_CANCELLATION`) đều có trong tài liệu. Migration loyalty V10–V12 vẫn đúng số trên develop.
+5. `speckit-analyze` chưa chạy lại cho artifact hiện hành; chạy khi đóng T076.
+
+**Handoff còn mở (owner):** 001 (Phan Sơn) — khởi tạo Firebase Admin, màn đăng nhập, tạo Admin/Manager đầu tiên → mở T072, T078 rồi T073–T076. FE-08 (Bùi Trọng Thịnh) — nhúng `BenefitSelector`, thêm `maxPoints` → T055. FE-03 (Hồ Hoàng Quốc) — nhúng `BenefitSelector context="workshop"`, thêm `maxPoints` → T061.

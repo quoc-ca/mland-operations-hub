@@ -285,6 +285,37 @@ class LoyaltyRetailCheckoutIT {
         assertThatThrownBy(() -> cancellation.cancel(member, accepted.id())).isInstanceOf(RetailConflictException.class);
     }
 
+    /** T063 (source side, FE-08): the same verified payment delivered twice at once is applied once under FE-08's lock. */
+    @Test
+    void theSameVerifiedPaymentDeliveredTwiceAtOnceConsumesAndEarnsOnce() {
+        Sale sale = sale(5);
+        String code = voucher(sale.productId());
+        long member = member(500);
+        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), LOCATION, 2));
+        CheckoutDtos.BenefitSelection selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
+        CheckoutDtos.BenefitPreviewView preview = previews.preview(member, previewRequest(selection));
+        CheckoutDtos.GroupedCheckoutView accepted = acceptance.accept(member, UUID.randomUUID().toString(),
+                acceptRequest(preview, selection));
+        transaction.executeWithoutResult(status -> checkouts.lockOwned(accepted.id(), member).orElseThrow().beginPayment());
+        BigDecimal payable = new BigDecimal(preview.payableAmount());
+        String proof = "proof-" + UUID.randomUUID();
+
+        List<LoyaltyTestSupport.Outcome<CheckoutDtos.GroupedCheckoutView>> results = LoyaltyTestSupport.concurrently(
+                () -> payments.simulateVerifiedPayment(member, accepted.id(), payable, "VND", proof),
+                () -> payments.simulateVerifiedPayment(member, accepted.id(), payable, "VND", proof));
+
+        assertThat(results).allSatisfy(result -> assertThat(result.succeeded()).as("the second delivery is a replay").isTrue());
+        BenefitResult result = loyalty.findBenefitResult(SourceKind.RETAIL, accepted.id());
+        assertThat(result.voucherState()).isEqualTo(ComponentState.CONSUMED);
+        assertThat(result.earnState()).isEqualTo(EarnState.GRANTED);
+        assertThat(program(code).getConsumedCount()).isEqualTo(1);
+        assertThat(wallet(member).getHeldPoints()).isZero();
+        BigInteger once = wallet(member).getBalancePoints();
+        payments.simulateVerifiedPayment(member, accepted.id(), payable, "VND", proof);
+        assertThat(wallet(member).getBalancePoints()).as("earned exactly once").isEqualTo(once);
+        assertThat(remaining(sale.sizeId())).as("the rings are sold once").isEqualTo(BigInteger.valueOf(3));
+    }
+
     // ---- helpers ----
 
     private record Sale(long productId, long sizeId) {
