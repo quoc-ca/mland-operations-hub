@@ -1,7 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.designreview.facade;
 
-import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.BookingDesignRequest;
-import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.BookingDesignRequestRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.DesignRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.DesignRequestRepository;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,15 +16,16 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class DesignAnalysisFacade {
 
-    private final BookingDesignRequestRepository requestRepository;
+    private final DesignRequestRepository requestRepository;
 
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class BookingDesignSummaryDto {
+    public static class DesignRequestSummaryDto {
         private String designRequestId;
-        private String bookingCode;
+        private String requestReference;
+        private Long ownerAccountId;
         private Integer designVersion;
         private String analysisStatus;
         private String reviewStatus;
@@ -33,19 +34,20 @@ public class DesignAnalysisFacade {
     }
 
     @Transactional(readOnly = true)
-    public Optional<BookingDesignSummaryDto> getLatestDesignStatusForBooking(String bookingCode) {
-        if (bookingCode == null || bookingCode.isBlank()) {
+    public Optional<DesignRequestSummaryDto> getDesignRequestSummary(String designRequestId) {
+        if (designRequestId == null || designRequestId.isBlank()) {
             return Optional.empty();
         }
-        return requestRepository.findFirstByBookingCodeOrderByDesignVersionDesc(bookingCode.trim())
+        return requestRepository.findById(designRequestId.trim())
                 .map(this::toSummaryDto);
     }
 
-    private BookingDesignSummaryDto toSummaryDto(BookingDesignRequest req) {
-        return BookingDesignSummaryDto.builder()
+    private DesignRequestSummaryDto toSummaryDto(DesignRequest req) {
+        return DesignRequestSummaryDto.builder()
                 .designRequestId(req.getId())
-                .bookingCode(req.getBookingCode())
-                .designVersion(req.getDesignVersion())
+                .requestReference(req.getRequestReference())
+                .ownerAccountId(req.getOwnerAccountId())
+                .designVersion(req.getRequestVersion())
                 .analysisStatus(req.getAnalysisStatus().name())
                 .reviewStatus(req.getReviewStatus().name())
                 .estimatedValue(req.getEstimatedValue())

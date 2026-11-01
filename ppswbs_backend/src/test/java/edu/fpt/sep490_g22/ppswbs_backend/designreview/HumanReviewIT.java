@@ -1,9 +1,9 @@
 package edu.fpt.sep490_g22.ppswbs_backend.designreview;
 
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.AnalysisStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.BookingDesignRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.DesignRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.BookingDesignRequestRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.DesignRequestRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
@@ -43,7 +43,7 @@ public class HumanReviewIT {
     private MockMvc mockMvc;
 
     @Autowired
-    private BookingDesignRequestRepository requestRepository;
+    private DesignRequestRepository requestRepository;
 
     @MockitoBean
     private TokenVerificationService tokenVerificationService;
@@ -60,32 +60,40 @@ public class HumanReviewIT {
 
         // Low value request: 1,800,000 VND (<= 3M, Staff allowed)
         lowValueRequestId = UUID.randomUUID().toString();
-        requestRepository.save(BookingDesignRequest.builder()
+        requestRepository.save(DesignRequest.builder()
                 .id(lowValueRequestId)
-                .memberId(customerId)
-                .bookingCode("WB-LOW-VAL-01")
-                .designVersion(1)
+                .requestReference("DR-LOW01")
+                .ownerAccountId(customerId)
+                .ownershipType("MEMBER")
+                .description("Yêu cầu thiết kế nhẫn bạc trơn")
+                .catalogueReference("PKG-SILVER-01")
+                .requestVersion(1)
                 .idempotencyKey("idemp-low-01")
+                .requestStatus("ACTIVE")
                 .analysisStatus(AnalysisStatus.SUCCEEDED)
                 .reviewStatus(ReviewStatus.NEED_REVIEW)
                 .estimatedValue(1_800_000L)
-                .nextAction("AWAITING_REVIEW")
+                .nextAction("AWAITING_HUMAN_REVIEW")
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build());
 
         // High value request: 4,500,000 VND (> 3M, Manager only)
         highValueRequestId = UUID.randomUUID().toString();
-        requestRepository.save(BookingDesignRequest.builder()
+        requestRepository.save(DesignRequest.builder()
                 .id(highValueRequestId)
-                .memberId(customerId)
-                .bookingCode("WB-HIGH-VAL-01")
-                .designVersion(1)
+                .requestReference("DR-HIGH01")
+                .ownerAccountId(customerId)
+                .ownershipType("MEMBER")
+                .description("Yêu cầu thiết kế nhẫn đúc sáp phôi cao cấp")
+                .catalogueReference("PKG-WAX-01")
+                .requestVersion(1)
                 .idempotencyKey("idemp-high-01")
+                .requestStatus("ACTIVE")
                 .analysisStatus(AnalysisStatus.SUCCEEDED)
                 .reviewStatus(ReviewStatus.NEED_REVIEW)
                 .estimatedValue(4_500_000L)
-                .nextAction("AWAITING_REVIEW")
+                .nextAction("AWAITING_HUMAN_REVIEW")
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build());
@@ -134,12 +142,12 @@ public class HumanReviewIT {
                                 {
                                   "decision": "ACCEPTED",
                                   "designVersion": 1,
-                                  "reason": "Thiết kế nhẫn bạc trơn đạt yêu cầu kỹ thuật và phù hợp với buổi workshop."
+                                  "reason": "Thiết kế nhẫn bạc trơn đạt yêu cầu kỹ thuật và phù hợp với quy trình chế tác."
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reviewStatus").value("ACCEPTED"))
-                .andExpect(jsonPath("$.nextAction").value("PROCEED_TO_BOOKING"));
+                .andExpect(jsonPath("$.nextAction").value("DESIGN_ACCEPTED"));
     }
 
     @Test
@@ -171,7 +179,8 @@ public class HumanReviewIT {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.reviewStatus").value("ACCEPTED"));
+                .andExpect(jsonPath("$.reviewStatus").value("ACCEPTED"))
+                .andExpect(jsonPath("$.nextAction").value("DESIGN_ACCEPTED"));
     }
 
     @Test

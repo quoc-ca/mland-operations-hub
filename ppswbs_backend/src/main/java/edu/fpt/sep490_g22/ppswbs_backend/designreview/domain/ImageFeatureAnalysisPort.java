@@ -14,5 +14,5 @@ public interface ImageFeatureAnalysisPort {
             String failureCode
     ) {}
 
-    FeatureAnalysisResult analyzeRingImage(byte[] imageBytes, String contentType, String packageName, String correlationId);
+    FeatureAnalysisResult analyzeRingImage(byte[] imageBytes, String contentType, String catalogueReference, String correlationId);
 }

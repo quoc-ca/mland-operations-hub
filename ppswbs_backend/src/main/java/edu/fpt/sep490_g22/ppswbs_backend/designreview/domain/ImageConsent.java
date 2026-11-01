@@ -18,11 +18,11 @@ public class ImageConsent {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "member_id", nullable = false)
-    private Long memberId;
+    @Column(name = "actor_account_id", nullable = false)
+    private Long actorAccountId;
 
-    @Column(name = "booking_code", nullable = false, length = 64)
-    private String bookingCode;
+    @Column(name = "design_request_id", length = 36)
+    private String designRequestId;
 
     @Column(name = "purpose", nullable = false, length = 64)
     private String purpose;
@@ -45,7 +45,7 @@ public class ImageConsent {
             this.affirmativeAction = "CHECKBOX_CONFIRMED";
         }
         if (this.purpose == null) {
-            this.purpose = "WORKSHOP_BOOKING_DESIGN_ANALYSIS";
+            this.purpose = "INDEPENDENT_DESIGN_IMAGE_ANALYSIS";
         }
     }
 }
