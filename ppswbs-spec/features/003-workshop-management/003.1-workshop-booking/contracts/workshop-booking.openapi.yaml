@@ -152,13 +152,14 @@ components:
         requestedPoints: {type: string, pattern: '^(0|[1-9][0-9]*)$', maxLength: 19}
     WorkshopBookingQuote:
       type: object
-      required: [quoteRef, expiresAt, grossAmount, programDiscount, pointsUsed, pointDiscount, postPromotionAmount, depositAmount, remainingAmount, earnBase, termsDigest, reasons]
+      required: [quoteRef, expiresAt, grossAmount, programDiscount, pointsUsed, maxPoints, pointDiscount, postPromotionAmount, depositAmount, remainingAmount, earnBase, termsDigest, reasons]
       properties:
         quoteRef: {type: string, format: uuid}
         expiresAt: {type: string, format: date-time, description: Exactly 30 minutes after quote preview creation.}
         grossAmount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
         programDiscount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
         pointsUsed: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
+        maxPoints: {type: string, pattern: '^(0|[1-9][0-9]*)$', description: Maximum loyalty points the Member may apply to this workshop quote.}
         pointDiscount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
         postPromotionAmount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
         depositAmount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}

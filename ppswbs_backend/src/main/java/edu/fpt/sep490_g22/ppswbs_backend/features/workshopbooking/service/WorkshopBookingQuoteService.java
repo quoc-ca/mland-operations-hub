@@ -76,7 +76,7 @@ public class WorkshopBookingQuoteService {
         long post = quote.getPostPromotionAmount();
         long deposit = Math.floorDiv(post, 2) + (post % 2);
         return new WorkshopBookingQuoteResponse(quoteRef, quote.getExpiresAt(), str(quote.getGrossAmount()), str(quote.getProgramDiscount()),
-                str(quote.getPointsUsed()), str(quote.getPointDiscount()), str(post), str(deposit), str(post - deposit),
+                str(quote.getPointsUsed()), str(exact(preview.maxPoints())), str(quote.getPointDiscount()), str(post), str(deposit), str(post - deposit),
                 str(quote.getEarnBase()), quote.getTermsDigest(), preview.reasons());
     }
 
