@@ -1,7 +1,7 @@
 # Validation Report: Product Management
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-10-27 (sau merge develop, T002/T007, REST API, T051, T073, T083, các task viết test; facade FE-08 phía 002)
+**Date updated**: 2026-11-01 (frontend React T088/T089 và màn hình 002; 2026-10-27: sau merge develop, T002/T007, REST API, T051, T073, T083, các task viết test; facade FE-08 phía 002)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -78,3 +78,18 @@ Ký hiệu: **PASS** = đạt qua REST với security thật trên MySQL; **PASS
 - Transaction lệnh ở REPEATABLE READ đọc snapshot cũ sau khi chờ khóa → chuyển READ COMMITTED.
 - `CatalogueStrictJsonConverter` đăng ký dạng bean làm Spring Boot bỏ bộ chuyển Jackson mặc định, mọi feature ghi ngày giờ dạng số → đăng ký qua `WebMvcConfigurer`.
 - `AccountExceptionHandler` của 001 bắt lỗi của mọi feature (500) → handler của 002 đặt ưu tiên cao nhất cho controller của 002; đã báo owner 001.
+
+## Frontend React (2026-11-01)
+
+```powershell
+Set-Location D:/mland-operations-hub/mland-operations-hub/ppswbs_frontend
+npm.cmd test
+npm.cmd run build
+```
+
+| Kiểm tra | Kết quả |
+| --- | --- |
+| `npm test` (Vitest 4.1.12, jsdom) | 4 file, 42 test pass — HTTP client theo bảng lỗi, API 002, màn hình với HTTP giả lập |
+| `npm run build` (Vite 7.3.7) | Đạt; cảnh báo bundle > 500 kB (Firebase SDK) |
+| Trình duyệt, Vite dev, không có backend | Lỗi kết nối có Thử lại; tiêu chí lọc đọc lại từ URL; khu quản trị báo chưa cấu hình Firebase; 375px không cuộn ngang |
+| Tích hợp UI/API thật (V-13, T090) | **NOT RUN**: chưa có cấu hình Firebase / đăng nhập 001; CORS preflight bị `workshopOperationsCorsFilter` chặn (BE-DESIGN-0012) |
