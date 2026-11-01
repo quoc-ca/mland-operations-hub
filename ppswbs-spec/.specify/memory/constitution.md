@@ -5,7 +5,7 @@ Sync Impact Report
 - Decision evidence: group decision approved by Hồ Hoàng Quốc (PM) on 2026-10-27.
   Phan Sơn is the responsible document updater.
 - Modified principles: I (canonical cross-feature business identifiers).
-- Added sections: none. Removed sections: none.
+- Added sections: proposed frontend architecture baseline (pending Project Owner ratification). Removed sections: none.
 - Compliance impact: synchronize spec-general.md and affected feature contracts
   so `workshopLocationId` replaces any separate branch/location identity.
 - Deferred follow-up: legacy constitution metadata was not backfilled.
@@ -91,6 +91,47 @@ HTML email templates or determine production hosting or repository separation.
 Feature designs MUST define applicable UI loading, empty, validation, success,
 failure, navigation, and credential/state-recovery behavior. Frontend visibility
 or route guards MUST NOT substitute for backend authorization.
+
+#### Proposed Frontend Architecture Baseline (Pending Ratification)
+
+The following rules are the project frontend proposal and are not a ratified
+constitution amendment until the Project Owner records approval. Production
+frontend work MUST either follow these rules after ratification or identify an
+explicit feature-scoped exception.
+
+The frontend MUST use a vertical-slice boundary based on user capability or
+journey. A frontend feature is not required to mirror a backend module one to
+one. `src/main.jsx` is a mount-only entrypoint and `src/app/App.jsx` is the
+composition root for providers, routing, and application layouts.
+
+Business code MUST live under `src/features/<capability>/`; root-level
+`screens/`, `hooks/`, `services/`, or `templates/` directories MUST NOT become
+business-code dumping grounds. A feature MAY contain only the layers it needs:
+`ui/`, `application/`, `domain/`, `infrastructure/`, `routes/`, and `tests/`.
+
+The dependency direction is `app -> feature ui -> feature application ->
+feature domain`, with `application` and `ui` allowed to use the feature's
+`infrastructure` through an explicit feature port. `domain` MUST NOT depend on
+React, routing, Firebase, HTTP, or browser APIs. UI code MUST NOT call `fetch()`
+or Firebase directly. `shared/` contains technical foundations only and MUST
+NOT import feature code or encode business endpoints.
+
+Features MUST communicate through public ports or API boundaries. They MUST NOT
+import another feature's private components, hooks, mutable state, or
+infrastructure implementation. Server DTOs MUST be mapped at the
+infrastructure boundary; UI components MUST NOT become coupled to backend
+entities or raw response shapes.
+
+Feature state MUST remain local by default. React Context is reserved for
+cross-application concerns such as authenticated session/account, i18n, and
+application configuration. Redux, Zustand, TanStack Query, and global server
+cache MUST NOT be introduced as project defaults without an explicit decision
+covering ownership, freshness, invalidation, isolation, and recovery.
+
+The frontend baseline is JavaScript/JSX. New framework, state, UI-kit, or
+transport dependencies require an explicit approved decision. Prototype screens
+and local example data are reference material only and MUST NOT be used as
+evidence of production feature completion or API integration.
 
 ### IV. Evidence-Based Verification and Compatibility
 

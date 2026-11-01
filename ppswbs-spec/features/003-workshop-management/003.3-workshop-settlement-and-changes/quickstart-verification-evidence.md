@@ -34,7 +34,7 @@ mvn -f ppswbs_backend/pom.xml test "-Dtest=WorkshopSettlementContractIT,Settleme
 | `WorkshopSettlementContractIT` | 3 | 0 | 0 | 0 | **PASS** | 13 OpenAPI route mappings, mutating POST idempotency headers, typed boundaries. |
 | `SettlementPaymentEvidenceIT` | 3 | 0 | 0 | 0 | **PASS** | Shared ingress verified payment evidence, owner-qualified dispatch, zero raw payload. |
 | `MlandCancellationRemedyIT` | 5 | 0 | 0 | 0 | **PASS** | Replacement-first, handoff mismatch rejection, unavailable/declined remedy, floor-VND partial refund. |
-| `CustomerCancellationIT` | 7 | 0 | 0 | 0 | **PASS** | 72h (100%), 24-72h (50%), <24h (0%) refund tier rules; checked-in lock; zero capacity change prior to refund. |
+| `CustomerCancellationIT` | 7 | 0 | 0 | 0 | **PASS** | Eligible direct cancellation is handed to Operations and resolves with `DIRECT_DEPOSIT_FORFEITED`; ineligible requests are rejected; no refund allocation, VNPay refund, or QueryDR dispatch. |
 | `RequiredSessionChangeIT` | 5 | 0 | 0 | 0 | **PASS** | Real MySQL operations session replacement, gap policy, QR preservation, entitlement projection. |
 | `WorkshopSettlementModuleTest` | 2 | 0 | 0 | 0 | **PASS** | Spring Modulith module boundaries, named interfaces, allowed facade dependencies. |
 | `WorkshopSettlementEvidenceConsumerTest` | 5 | 0 | 0 | 0 | **PASS** | Final payment evidence processing, idempotency replay, amount matching. |
@@ -48,7 +48,7 @@ mvn -f ppswbs_backend/pom.xml test "-Dtest=WorkshopSettlementContractIT,Settleme
 | `SettlementNotificationHandoffServiceTest` | 2 | 0 | 0 | 0 | **PASS** | Deduplication, immutable handoff payload construction, delivery failure resilience. |
 | `SettlementNotificationPayloadFacadeTest` | 2 | 0 | 0 | 0 | **PASS** | Reference-only delivery payload resolution for Feature 007 consumption. |
 | `VariableChargeServiceTest` | 3 | 0 | 0 | 0 | **PASS** | Staff/Manager variable charge creation, reason auditing, pre-finalization lock. |
-| `WorkshopRefundServiceTest` | 6 | 0 | 0 | 0 | **PASS** | VNPay refund dispatch, QueryDR verification, oldest-payment-first partial allocation. |
+| `WorkshopRefundServiceTest` | 6 | 0 | 0 | 0 | **PASS** | Mland-remedy refund dispatch and QueryDR verification only; not used by direct customer deposit cancellation. |
 | `WorkshopSettlementAuthorizationServiceTest` | 2 | 0 | 0 | 0 | **PASS** | Staff location scope, global Manager authority, denied audit without side effects. |
 | **Total** | **72** | **0** | **0** | **0** | **BUILD SUCCESS** | **100% Pass Rate** |
 
@@ -59,7 +59,7 @@ mvn -f ppswbs_backend/pom.xml test "-Dtest=WorkshopSettlementContractIT,Settleme
 - **Scenario 3 (Finalization and client retries)**: Verified by `FinalBookingBillServiceTest`, `SettlementIdempotencyServiceTest`, and `WorkshopSettlementContractIT`. Non-zero balances cannot be finalized; replay returns cached outcome; changed semantic reuse produces `409 IDEMPOTENCY_CONFLICT`.
 - **Scenario 4 (VNPay evidence & QueryDR)**: Verified by `SettlementPaymentEvidenceIT`, `WorkshopSettlementEvidenceConsumerTest`, and `WorkshopRefundServiceTest`. Verified `FINAL_PAYMENT` evidence settles outstanding balance; signature/amount mismatches do not dispatch.
 - **Scenario 5 (No credit and output handover)**: Verified by `FinalBookingBillServiceTest`. Both Staff and Manager are rejected if attempting finalization with an outstanding balance.
-- **Scenario 6 (Customer cancellation tiers)**: Verified by `CustomerCancellationIT`. 72h (100%), 24-72h (50%), <24h (0%) refund tier rules pass without side effect on capacity until refund conclusion.
+- **Scenario 6 (Non-refundable direct customer cancellation)**: Verified by `CustomerCancellationIT` and `CustomerBookingCancellationServiceTest`. Eligible future whole-booking cancellation is handed to Operations and resolved without refund; ineligible/Operations-rejected requests remain rejected.
 - **Scenario 7 (Replacement and Mland remedy)**: Verified on MySQL by `RequiredSessionChangeIT` (5/5) and `MlandCancellationRemedyIT` (5/5). Complete target session sets are required; QR reference is preserved; matching `cancellationHandoffReference` is strictly required.
 - **Scenario 8 (Policy and authorization)**: Verified by `MlandCancellationRemedyIT` and `WorkshopSettlementAuthorizationServiceTest`. Future revisions affect only subsequent confirmed bookings; floor-VND rounding rule applies.
 - **Scenario 9 (Notification isolation)**: Verified by `SettlementNotificationEventDispatcherTest` and `SettlementNotificationHandoffServiceTest`. Replay creates no duplicate delivery request; no recipient PII or payment secrets are logged or published.

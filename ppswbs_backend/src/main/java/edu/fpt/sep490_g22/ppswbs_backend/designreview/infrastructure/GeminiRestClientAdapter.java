@@ -64,14 +64,14 @@ public class GeminiRestClientAdapter implements AiTextSupportPort, ImageFeatureA
     }
 
     @Override
-    public FeatureAnalysisResult analyzeRingImage(byte[] imageBytes, String contentType, String packageName, String correlationId) {
+    public FeatureAnalysisResult analyzeRingImage(byte[] imageBytes, String contentType, String catalogueReference, String correlationId) {
         log.info("Analyzing ring reference image: correlationId={}, size={} bytes, contentType={}", correlationId, imageBytes.length, contentType);
 
         String providerCorrId = "gemini-vision-" + UUID.randomUUID().toString().substring(0, 8);
 
         // Deterministic candidate features extracted from image analysis
-        boolean isIntricate = (packageName != null && packageName.toLowerCase().contains("sáp"))
-                || (packageName != null && packageName.toLowerCase().contains("wax"));
+        boolean isIntricate = (catalogueReference != null && catalogueReference.toLowerCase().contains("sáp"))
+                || (catalogueReference != null && catalogueReference.toLowerCase().contains("wax"));
 
         long estimatedValue = isIntricate ? 3_500_000L : 1_800_000L;
 

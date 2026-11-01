@@ -66,6 +66,12 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
             return true;
         }
+        // Guest booking lookup is explicitly public and uses booking code plus
+        // one contact proof (email or phone) instead of a Bearer token.
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/booking-lookups".equals(path)) {
+            return true;
+        }
         boolean customerBillRoute = ("GET".equalsIgnoreCase(request.getMethod())
                 && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill"))
                 || ("POST".equalsIgnoreCase(request.getMethod())

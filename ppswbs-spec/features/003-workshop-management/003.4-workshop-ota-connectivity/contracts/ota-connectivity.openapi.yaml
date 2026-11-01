@@ -227,7 +227,7 @@ paths:
       - $ref: '#/components/parameters/ChannelBookingId'
     post:
       operationId: createOtaAddonQuote
-      summary: Create a zero-charge engraving record or a paid direct-Mland add-on quote.
+      summary: At the Mland shop, create a zero-charge engraving record or a paid direct-Mland add-on quote outside OTA checkout.
       requestBody:
         required: true
         content:
@@ -245,7 +245,7 @@ paths:
       - $ref: '#/components/parameters/QuoteId'
     post:
       operationId: acceptOtaAddonQuote
-      summary: Record customer acceptance for a paid direct-Mland add-on quote.
+      summary: Record customer acceptance at the Mland shop for a paid direct-Mland add-on quote outside OTA checkout.
       requestBody:
         required: true
         content:
@@ -263,7 +263,7 @@ paths:
       - $ref: '#/components/parameters/QuoteId'
     post:
       operationId: createDirectMlandAddonBill
-      summary: Create the separate Settlement-owned direct-Mland bill after acceptance.
+      summary: Create the separate Settlement-owned direct-Mland shop bill after acceptance; no OTA checkout payment is created.
       responses:
         '201': { $ref: '#/components/responses/DirectBillLink' }
         '401': { $ref: '#/components/responses/Unauthorized' }

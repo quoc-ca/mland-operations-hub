@@ -89,6 +89,7 @@ class WorkshopBookingQuoteExpiryTest {
         assertThat(response.grossAmount()).isEqualTo("450000");
         assertThat(response.programDiscount()).isEqualTo("0");
         assertThat(response.pointsUsed()).isEqualTo("0");
+        assertThat(response.maxPoints()).isEqualTo("0");
         assertThat(response.pointDiscount()).isEqualTo("0");
         assertThat(response.postPromotionAmount()).isEqualTo("450000");
         assertThat(response.depositAmount()).isEqualTo("225000");

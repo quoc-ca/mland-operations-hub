@@ -24,10 +24,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.Ot
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaProvider;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaReconciliationWorkItem;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaReconciliationWorkItemRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.AcceptOtaBookingCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OtaBookingCapacityOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.OtaBookingOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.RejectionReason;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -69,7 +68,7 @@ class OtaBookingIT {
     @Mock private OtaReconciliationWorkItemRepository reconciliationRepository;
     @Mock private OtaInboundEventService inboundEventService;
     @Mock private OtaBookingReadinessService readinessService;
-    @Mock private WorkshopOperationsFacade workshopOperationsFacade;
+    @Mock private WorkshopBookingFacade workshopBookingFacade;
 
     private OtaProviderEventHandler eventHandler;
 
@@ -96,7 +95,7 @@ class OtaBookingIT {
                 reconciliationRepository,
                 inboundEventService,
                 readinessService,
-                workshopOperationsFacade
+                workshopBookingFacade
         );
 
         connection = OtaChannelConnection.builder()
@@ -177,8 +176,8 @@ class OtaBookingIT {
                     .thenReturn(ReadinessValidationResult.approved(priceSnapshot));
 
             List<UUID> operationsTickets = List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
-            when(workshopOperationsFacade.acceptOtaBooking(any(AcceptOtaBookingCommand.class)))
-                    .thenReturn(OtaBookingCapacityOutcome.accepted(operationsTickets));
+            when(workshopBookingFacade.createOrReturnOtaBooking(any()))
+                    .thenReturn(OtaBookingOutcome.accepted("OTA-BOOKING-REF", operationsTickets));
 
             OtaBookingEventCommand cmd = new OtaBookingEventCommand(
                     OtaProvider.KLOOK,
@@ -224,8 +223,8 @@ class OtaBookingIT {
                     .thenReturn(ReadinessValidationResult.approved(priceSnapshot));
 
             List<UUID> operationsTickets = List.of(UUID.randomUUID(), UUID.randomUUID());
-            when(workshopOperationsFacade.acceptOtaBooking(any(AcceptOtaBookingCommand.class)))
-                    .thenReturn(OtaBookingCapacityOutcome.accepted(operationsTickets));
+            when(workshopBookingFacade.createOrReturnOtaBooking(any()))
+                    .thenReturn(OtaBookingOutcome.accepted("OTA-BOOKING-REF", operationsTickets));
 
             OtaBookingEventCommand cmd = new OtaBookingEventCommand(
                     OtaProvider.KLOOK,
@@ -253,7 +252,7 @@ class OtaBookingIT {
             assertThat(replayResult.ticketReferences()).containsExactlyElementsOf(firstResult.ticketReferences());
 
             // Operations facade called only ONCE
-            verify(workshopOperationsFacade, times(1)).acceptOtaBooking(any());
+            verify(workshopBookingFacade, times(1)).createOrReturnOtaBooking(any());
             // Booking saved only ONCE
             verify(bookingRepository, times(1)).save(any());
         }
@@ -289,7 +288,7 @@ class OtaBookingIT {
             assertThat(result.rejectionReason()).isEqualTo("PARTIAL_PAYMENT_REJECTED");
             assertThat(result.ticketReferences()).isEmpty();
 
-            verify(workshopOperationsFacade, never()).acceptOtaBooking(any());
+            verify(workshopBookingFacade, never()).createOrReturnOtaBooking(any());
             verify(bookingRepository, never()).save(any());
             verify(customerPaymentRepository, never()).save(any());
             verify(reconciliationRepository, times(1)).save(any(OtaReconciliationWorkItem.class));
@@ -321,7 +320,7 @@ class OtaBookingIT {
             assertThat(result.rejectionReason()).isEqualTo("CURRENCY_MISMATCH");
             assertThat(result.ticketReferences()).isEmpty();
 
-            verify(workshopOperationsFacade, never()).acceptOtaBooking(any());
+            verify(workshopBookingFacade, never()).createOrReturnOtaBooking(any());
             verify(bookingRepository, never()).save(any());
         }
     }
@@ -356,7 +355,7 @@ class OtaBookingIT {
             assertThat(result.rejectionReason()).contains("MAPPING_DISABLED");
             assertThat(result.ticketReferences()).isEmpty();
 
-            verify(workshopOperationsFacade, never()).acceptOtaBooking(any());
+            verify(workshopBookingFacade, never()).createOrReturnOtaBooking(any());
         }
 
         @Test
@@ -365,8 +364,8 @@ class OtaBookingIT {
             when(readinessService.evaluateBookingReadiness(eq(mapping), eq(150_000L), eq("VND"), any()))
                     .thenReturn(ReadinessValidationResult.approved(priceSnapshot));
 
-            when(workshopOperationsFacade.acceptOtaBooking(any(AcceptOtaBookingCommand.class)))
-                    .thenReturn(OtaBookingCapacityOutcome.rejected(RejectionReason.INSUFFICIENT_CAPACITY));
+            when(workshopBookingFacade.createOrReturnOtaBooking(any()))
+                    .thenReturn(OtaBookingOutcome.rejected("INSUFFICIENT_CAPACITY"));
 
             OtaBookingEventCommand cmd = new OtaBookingEventCommand(
                     OtaProvider.KLOOK,

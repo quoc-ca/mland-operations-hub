@@ -101,9 +101,11 @@ are evidenced.
   amount and currency were paid on the channel. If the provider's callback or
   reconciliation contract cannot establish that fact, the mapping stays
   sales-closed until the provider evidence is approved.
-- Laser engraving is included free. Any other paid option needs a prior quote
-  and customer acceptance, then a direct Mland bill with no OTA price, payout,
-  commission, or refund effect.
+- Add-ons are not sold through the OTA checkout. After an OTA-origin customer
+  arrives at the Mland shop, laser engraving is included free and creates only
+  a zero-charge operational record. Any other paid option needs a prior quote
+  and customer acceptance at the shop, then a separate direct Mland bill with
+  no OTA price, payout, commission, or refund effect.
 
 ## User Scenarios & Testing
 
@@ -225,24 +227,27 @@ replay is rejected.
 
 ---
 
-### User Story 5 — Staff sells an OTA add-on transparently (Priority: P2)
+### User Story 5 — Staff records an add-on at the Mland shop transparently (Priority: P2)
 
-Staff needs to provide an extra service without silently changing the OTA sale.
+Staff needs to provide an extra service at the Mland shop after an OTA booking
+without silently changing the OTA sale.
 
 **Why this priority**: It protects customer consent and reconciliation.
 
-**Independent Test**: Quote a paid option, record acceptance, and take direct
-Mland payment. The counter bill remains separate from OTA financial facts.
+**Independent Test**: At the Mland counter, record free laser engraving or
+quote/accept a paid option and take direct Mland payment. The counter bill
+remains separate from OTA financial facts.
 
 **Acceptance Scenarios**:
 
-1. **Given** an OTA booking, **When** laser engraving is recorded, **Then** it
-   is included at zero charge.
-2. **Given** a paid option lacks quote acceptance, **When** Staff attempts to
-   add it, **Then** the option cannot be charged.
-3. **Given** a guest accepts a quote, **When** Staff bills it, **Then** the bill
-   snapshots item, price, currency, consent, actor, and payment reference and
-   does not alter OTA financial facts.
+1. **Given** an OTA booking, **When** the customer requests laser engraving at
+   the Mland shop, **Then** it is recorded at zero charge.
+2. **Given** a paid option is requested at the Mland shop without quote
+   acceptance, **When** Staff attempts to add it, **Then** the option cannot be
+   charged.
+3. **Given** a guest accepts a shop quote, **When** Staff bills it directly,
+   **Then** the bill snapshots item, price, currency, consent, actor, and
+   payment reference and does not alter OTA financial facts.
 
 ### Edge Cases
 
@@ -370,12 +375,13 @@ Mland payment. The counter bill remains separate from OTA financial facts.
 - **FR-018**: The system MUST retain only contractually permitted, operationally
   necessary OTA customer data and MUST NOT create a Member, participant profile,
   magic link, or marketing audience from it.
-- **FR-019**: Laser engraving MUST be included free. Other paid options MUST
-  receive a prior quote and customer acceptance.
-- **FR-020**: The system MUST record an accepted paid OTA add-on as a separate
-  Mland counter bill with immutable item/price/currency/consent/actor/payment
-  evidence, without changing OTA price, channel payment, commission, payout,
-  settlement, or channel refund.
+- **FR-019**: For an OTA-origin booking, laser engraving requested at the Mland
+  shop MUST be included free and recorded with zero charge. Other paid options
+  MUST receive a prior shop quote and customer acceptance before billing.
+- **FR-020**: The system MUST record an accepted paid add-on sold at the Mland
+  shop as a separate Mland counter bill with immutable
+  item/price/currency/consent/actor/payment evidence, without changing OTA
+  price, channel payment, commission, payout, settlement, or channel refund.
 - **FR-021**: The system MUST authorize configuration, publication,
   reconciliation resolution, and fallback check-in on the server using active
   Mland authority and resource scope; OTA claims/UI visibility grant no power.
@@ -393,7 +399,8 @@ Mland payment. The counter bill remains separate from OTA financial facts.
 - **Channel Price Snapshot**: Accepted retail/target-net/currency/fee terms and
   subsequent actual financial evidence.
 - **Channel Payout Position**: Supplier receivable lifecycle and immutable ledger.
-- **Direct OTA Add-on Bill**: Separate Mland charge excluded from OTA calculations.
+- **Direct Mland Shop Add-on Bill**: Separate Mland charge for an optional
+  service requested at the shop, excluded from OTA calculations.
 - **Reconciliation Work Item**: Unresolved delivery, mapping, state, or financial
   difference with safe correlation and authorized resolution.
 

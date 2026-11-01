@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-01
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -17,8 +17,10 @@ explicitly Admin-only actions remain unchanged. There is no central Manager tier
 003.3 owns direct-Mland post-workshop settlement: exactly one final bill for one
 booking/package, accepted additional charges, a short-lived final-payment
 checkout attempt, verified final payment before package-output handover,
-whole-booking refund, Manager-mediated required-session change, and
-Mland-caused cancellation remedy. It is not an item/session finance system, cart,
+non-refundable customer cancellation decision, Manager-mediated required-session change, and
+Mland-caused cancellation remedy. Direct customer cancellation records a
+non-refundable deposit decision and does not invoke VNPay refund/QueryDR. It is
+not an item/session finance system, cart,
 OTA payment system, capacity owner, or normal check-in system.
 
 ## Technical Context
@@ -29,7 +31,7 @@ OTA payment system, capacity owner, or normal check-in system.
 | Module | Spring Modulith; only explicit owner facades cross business modules. |
 | Persistence | MySQL/JPA and append-only Flyway migrations when implementation is authorized. |
 | Identity | Firebase bearer token proves identity; Account Management supplies canonical role/status, ownership and location facts. Active Manager authority is global for Manager actions; Staff actions use canonical `workshop_location.id` and `activeLocationIds`. |
-| Payment | VNPay only. Shared `paymentintegration` owns provider credentials, immutable `FINAL_PAYMENT`/refund owner registry, checkout URL generation, provider attempt expiry, outbound QueryDR/refund protocol and operation journal. 003.3 requests the server-derived outstanding VND amount using a typed technical port and stable idempotency reference; each final-payment URL expires after 10 minutes. Pending/unknown attempts block another attempt until QueryDR confirms non-payment. `paymentintegration` verifies inbound IPN/QueryDR evidence and dispatches redacted evidence to 003.3. Browser Return URL is display-only. |
+| Payment | VNPay only. Shared `paymentintegration` owns provider credentials, checkout URL generation, provider attempt expiry and payment/IPN evidence. Direct customer-deposit cancellation never calls the refund/QueryDR protocol; OTA refunds remain external to this flow. Final-payment checkout uses the server-derived outstanding VND amount and expires after 10 minutes. Browser Return URL is display-only. |
 | Contract | Versioned `/api/v1` REST contract in `contracts/workshop-settlement.openapi.yaml`. |
 | Validation | Module-boundary, authorization, lifecycle, idempotency, facade, contract, migration-upgrade and recovery evidence. |
 
@@ -119,8 +121,9 @@ policy snapshot, not a caller amount.
 Any active Manager may read or revise global refund-policy history. A
 revision has a future effective time, integral percentage `0..100`, applies only
 to later-confirmed bookings, and computes its snapshot refund as
-`floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND. A customer
-may see only their booking's retained snapshot/outcome.
+`floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND for a
+Mland-caused remedy. Direct customer cancellation has no refund percentage: the
+deposit is forfeited and the booking is cancelled by Operations.
 
 ### Payment and retry boundaries
 

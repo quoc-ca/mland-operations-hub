@@ -1,15 +1,29 @@
 import React from 'react';
 import { createBrowserRouter } from 'react-router';
+import { designReviewRoutes } from '../features/designreview/routes';
 import { loyaltyPromotionRoutes } from '../features/loyaltypromotion/routes';
 import { productManagementRoutes } from '../features/productmanagement/routes';
-import PrototypeApp from '../main';
+import { workshopRoutes } from '../workshops/routes';
+import { otaConnectivityRoutes } from '../ota-connectivity/routes';
+import { operationsRoutes } from '../workshop-operations/routes';
+import { settlementRoutes } from '../workshop-settlement/routes';
 import AppLayout from './AppLayout';
+import NotImplementedPage from './NotImplementedPage';
 
-// Feature routes use real paths inside the app layout; every other path falls back to the hash-based prototype
-// screens (e7657ff) until their owners move them into src/features/<feature>/.
 export const routes = [
-  { element: <AppLayout />, children: [...productManagementRoutes, ...loyaltyPromotionRoutes] },
-  { path: '*', element: <PrototypeApp /> },
+  {
+    element: <AppLayout />,
+    children: [
+      ...productManagementRoutes,
+      ...loyaltyPromotionRoutes,
+      ...workshopRoutes,
+      ...otaConnectivityRoutes,
+      ...operationsRoutes,
+      ...settlementRoutes,
+      ...designReviewRoutes,
+      { path: '*', element: <NotImplementedPage /> },
+    ],
+  },
 ];
 
 export const router = createBrowserRouter(routes);

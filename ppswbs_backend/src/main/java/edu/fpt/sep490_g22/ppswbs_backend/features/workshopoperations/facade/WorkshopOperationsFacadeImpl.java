@@ -546,6 +546,64 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
         return outcome;
     }
 
+    @Override
+    @Transactional
+    public CancellationCompletionOutcome cancelBooking(CancelBookingCommand command) {
+        String action = "FACADE_CANCEL_BOOKING";
+        String fingerprint = command.bookingReference() + "|" + command.cancellationCaseReference();
+        ClaimResult claim = idempotencyManager.acquireClaim(
+                action, command.operationReference(), command.correlationReference(), fingerprint);
+        if (claim.getStatus() == ClaimStatus.MISMATCH) {
+            return CancellationCompletionOutcome.rejected(RejectionReason.INVALID_STATE);
+        }
+        if (claim.getStatus() == ClaimStatus.IN_PROGRESS) {
+            return CancellationCompletionOutcome.inProgress();
+        }
+        if (claim.getStatus() == ClaimStatus.ALREADY_COMPLETED) {
+            return reconstructCancellationOutcome(claim.getCompletedRecord());
+        }
+
+        List<TicketSessionEntitlement> entitlements = entitlementRepository
+                .findActiveByBookingReferenceWithLock(command.bookingReference());
+        if (entitlements.isEmpty()) {
+            CancellationCompletionOutcome outcome = CancellationCompletionOutcome.rejected(RejectionReason.INVALID_STATE);
+            idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
+            return outcome;
+        }
+        Instant now = Instant.now();
+        List<WorkshopSession> sessions = entitlements.stream().map(TicketSessionEntitlement::getSession)
+                .filter(Objects::nonNull).distinct().toList();
+        boolean blocked = sessions.size() != entitlements.stream().map(e -> e.getSession().getId()).distinct().count()
+                || sessions.stream().anyMatch(session -> session.getScheduledStartAt() == null
+                || !session.getScheduledStartAt().isAfter(now)
+                || session.getState() == SessionState.IN_PROGRESS
+                || session.getState() == SessionState.ATTENDANCE_FINALIZED
+                || session.getState() == SessionState.CANCELLATION_REQUESTED
+                || session.getState() == SessionState.CANCELLED);
+        boolean attended = entitlements.stream().anyMatch(e -> e.getCheckedInAt() != null
+                || e.getAttendanceState() != AttendanceState.NOT_CHECKED_IN);
+        if (blocked || attended) {
+            CancellationCompletionOutcome outcome = CancellationCompletionOutcome.rejected(RejectionReason.INVALID_STATE);
+            idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
+            return outcome;
+        }
+
+        List<AttendanceTicket> tickets = ticketRepository.findByBookingReferenceWithLock(command.bookingReference());
+        tickets.forEach(ticket -> {
+            ticket.setValidityState(TicketValidityState.CANCELLED);
+            ticketRepository.save(ticket);
+        });
+        sessions.forEach(session -> {
+            session.setState(SessionState.CANCELLED);
+            sessionRepository.save(session);
+            otaSnapshotService.publishForObservableChange(session, command.operationReference(), now);
+            recordBusinessAudit(action, command.correlationReference(), "SUCCESS", session.getId());
+        });
+        CancellationCompletionOutcome outcome = CancellationCompletionOutcome.accepted();
+        idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), null, null);
+        return outcome;
+    }
+
     private void recordBusinessAudit(String action, String correlationReference, String outcome, Long sessionId) {
         OperationsAuditEvent event = OperationsAuditEvent.builder()
             .sessionId(sessionId)

@@ -110,13 +110,18 @@ class DepositPaymentIT {
     }
 
     @Test
-    void browserReturnWithEvenValidProviderParametersCannotConfirmBooking() throws Exception {
+    void browserReturnRedirectsToDisplayPageAndCannotConfirmBooking() throws Exception {
         Fixture fixture = pendingBooking();
         clearInvocations(operations);
         Map<String, String> callback = signedCallback(fixture.merchantReference(), "5000000", "00", "00", "TX-REDIRECT");
+        callback.put("vnp_OrderInfo", "Workshop deposit " + fixture.bookingCode());
 
         mvc.perform(get("/payment/vnpay/return").params(toMvcParams(callback)))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isFound())
+                .andExpect(result -> assertThat(result.getResponse().getRedirectedUrl())
+                        .contains("/workshop-booking/" + fixture.bookingCode() + "/payment-return"))
+                .andExpect(result -> assertThat(result.getResponse().getRedirectedUrl())
+                        .doesNotContain("vnp_SecureHash"));
 
         assertThat(bookings.findByBookingCode(fixture.bookingCode()).orElseThrow().getBookingStatus())
                 .isEqualTo(BookingStatus.PENDING_PAYMENT);

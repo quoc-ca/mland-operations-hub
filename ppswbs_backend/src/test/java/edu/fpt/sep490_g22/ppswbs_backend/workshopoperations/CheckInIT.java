@@ -84,6 +84,9 @@ public class CheckInIT {
     private WorkshopSlotRepository slotRepository;
 
     @Autowired
+    private WorkshopPackageRepository packageRepository;
+
+    @Autowired
     private WorkshopSessionRepository sessionRepository;
 
     @Autowired
@@ -267,8 +270,24 @@ public class CheckInIT {
                 .map(s -> UUID.fromString(s.getReference()))
                 .toList();
 
+        // Capacity reservation now requires a published package selection. Use
+        // a package fixture matching the number of required sessions in this
+        // scenario, including the two-session Silverclay case.
+        Long packageId = packageRepository.save(WorkshopPackage.builder()
+                .name("Check-in test package")
+                .description("Synthetic fixture")
+                .publicPrice(1000L)
+                .minParticipants(1)
+                .maxParticipants(10)
+                .requiredSessionCount(sessions.size())
+                .sameLocationRequired(true)
+                .minimumSameDaySlotGap(0)
+                .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState.PUBLISHED)
+                .build()).getId();
+
         CapacityHoldOutcome hold = operationsFacade.reserveBookingCapacity(
-                new ReserveBookingCapacityCommand(bookingRef, sessionRefs, seats, "op-hold-" + UUID.randomUUID(), "corr-hold"));
+                new ReserveBookingCapacityCommand(bookingRef, String.valueOf(packageId), sessionRefs,
+                        seats, "op-hold-" + UUID.randomUUID(), "corr-hold"));
         assertThat(hold.status()).isEqualTo(OutcomeStatus.ACCEPTED);
 
         CapacityCommitOutcome commit = operationsFacade.commitBookingHolds(
