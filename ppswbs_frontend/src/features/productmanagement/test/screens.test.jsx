@@ -268,3 +268,81 @@ describe('T071 public catalogue', () => {
     expect(await screen.findByText('No product matches these criteria.')).toBeInTheDocument();
   });
 });
+
+describe('T085 remaining management journeys', () => {
+  const published = () => managementProduct({
+    firstPublishedAt: '2026-10-30T00:00:00Z', published: true, reviews: [],
+    variants: [{ ...managementProduct().variants[0], appliedPrice: '1250000',
+      proposals: [{ id: '601', variantId: '101', revision: 2, version: 3, state: 'APPROVED', effective: true, proposedPrice: '1300000', approvedPrice: '1300000', baseAppliedSequence: 0, applied: false }] }],
+  });
+
+  it('an image upload that fails is retried with the same key and then attached by mediaId', async () => {
+    const user = userEvent.setup();
+    let uploads = 0;
+    const calls = mockFetch({
+      [`GET ${M}/products/42`]: json(200, managementProduct()),
+      [`GET ${M}/categories`]: json(200, categoryPage),
+      [`POST ${M}/media-uploads`]: () => (++uploads === 1
+        ? json(503, { code: 'MEDIA_DEPENDENCY_UNAVAILABLE', message: 'Down.' })
+        : json(201, { mediaId: '22222222-2222-2222-2222-222222222222', state: 'READY', contentType: 'image/png', byteCount: 3 })),
+      [`PUT ${M}/products/42/images`]: json(200, actionResult('42', 'product.images')),
+    });
+    const { container } = open('/catalogue-management/products/42');
+    const images = (await screen.findByRole('heading', { name: 'Ảnh' })).closest('section');
+    await user.click(within(images).getByRole('button', { name: 'Sửa' }));
+    await user.upload(container.querySelector('input[type=file]'), new File(['png'], 'ring.png', { type: 'image/png' }));
+    expect(await within(images).findByText(/Dịch vụ lưu ảnh tạm thời không phản hồi/)).toBeInTheDocument();
+    await user.click(within(images).getByRole('button', { name: 'Thử lại' }));
+    expect(await within(images).findByText('Đã tải lên.')).toBeInTheDocument();
+    await user.type(within(images).getByLabelText('Mô tả ảnh 2'), 'Mặt bên');
+    await user.click(within(images).getByRole('button', { name: 'Lưu' }));
+
+    expect(await screen.findByText('Đã lưu danh sách ảnh.')).toBeInTheDocument();
+    const posts = calls.filter(call => call.method === 'POST');
+    expect(posts[1].headers['Idempotency-Key']).toBe(posts[0].headers['Idempotency-Key']);
+    expect(calls.find(call => call.method === 'PUT').body).toEqual({ expectedVersion: 3, images: [
+      { mediaId: '11111111-1111-1111-1111-111111111111', altText: 'Mặt trước', position: 0 },
+      { mediaId: '22222222-2222-2222-2222-222222222222', altText: 'Mặt bên', position: 1 },
+    ] });
+  });
+
+  it('applying an approved price sends no amount', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      [`GET ${M}/products/42`]: json(200, published()),
+      [`GET ${M}/categories`]: json(200, categoryPage),
+      [`POST ${M}/price-proposals/601/applications`]: json(200, actionResult('601', 'price.apply')),
+    });
+    open('/catalogue-management/products/42');
+    const prices = (await screen.findByRole('heading', { name: 'Đề xuất giá' })).closest('section');
+    await user.click(within(prices).getByRole('button', { name: /Áp dụng giá đã duyệt 1\.300\.000/ }));
+    expect(await screen.findByText('Đã áp dụng giá.')).toBeInTheDocument();
+    expect(calls.find(call => call.method === 'POST').body).toEqual({ expectedVersion: 3 });
+  });
+
+  it('publishing shows missing prerequisites and hiding sends published=false', async () => {
+    const user = userEvent.setup();
+    let attempt = 0;
+    const calls = mockFetch({
+      [`GET ${M}/products/42`]: () => json(200, attempt === 0 ? managementProduct() : published()),
+      [`GET ${M}/categories`]: json(200, categoryPage),
+      [`PUT ${M}/products/42/publication`]: call => (++attempt === 1
+        ? json(409, { code: 'PUBLICATION_PREREQUISITES_MISSING', message: 'Missing.' })
+        : json(200, actionResult('42', 'product.publication'))),
+    });
+    open('/catalogue-management/products/42');
+    const section = (await screen.findByRole('heading', { name: 'Công khai' })).closest('section');
+    await user.click(within(section).getByRole('button', { name: 'Công khai sản phẩm' }));
+    expect(await within(section).findByText(/Chưa đủ điều kiện công khai/)).toBeInTheDocument();
+    expect(calls.filter(call => call.method === 'PUT')[0].body).toEqual({ expectedVersion: 3, published: true });
+  });
+
+  it('names and descriptions are shown as text, never as markup', async () => {
+    mockFetch({ 'GET /api/v1/products/42': json(200, publicProduct({ name: '<img src=x onerror=alert(1)>', description: '<b>bold</b>' })) });
+    const { container } = open('/products/42');
+    expect(await screen.findByRole('heading', { level: 1, name: '<img src=x onerror=alert(1)>' })).toBeInTheDocument();
+    expect(screen.getByText('<b>bold</b>')).toBeInTheDocument();
+    expect(container.querySelector('img[src="x"]')).toBeNull();
+    expect(container.querySelector('b')).toBeNull();
+  });
+});

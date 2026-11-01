@@ -10,6 +10,7 @@ import java.util.List;
 
 public interface OtaReconciliationWorkItemRepository extends JpaRepository<OtaReconciliationWorkItem, Long> {
     java.util.Optional<OtaReconciliationWorkItem> findByPublicReference(String publicReference);
+    java.util.Optional<OtaReconciliationWorkItem> findByAuditReference(String auditReference);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select item from OtaReconciliationWorkItem item join fetch item.mapping mapping "

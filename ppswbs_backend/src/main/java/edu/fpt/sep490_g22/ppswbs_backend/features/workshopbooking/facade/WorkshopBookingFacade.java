@@ -44,4 +44,6 @@ public interface WorkshopBookingFacade {
      * Read booking eligibility snapshot for design analysis (called by Feature 004).
      */
     java.util.Optional<BookingEligibilitySnapshot> getBookingEligibilityForDesign(String bookingCode, Long memberAccountId);
+
+    OtaBookingOutcome createOrReturnOtaBooking(OtaBookingCommand command);
 }

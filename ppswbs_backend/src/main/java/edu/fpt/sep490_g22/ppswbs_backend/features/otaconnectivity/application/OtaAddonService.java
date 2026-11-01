@@ -1,5 +1,8 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaConflictException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaResourceNotFoundException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaUnprocessableException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.facade.OtaAddonSettlementPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.facade.OtaAddonSettlementPort.CreateDirectBillCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.facade.OtaAddonSettlementPort.DirectBillCreationOutcome;
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -59,32 +63,42 @@ public class OtaAddonService {
             String currencyCode
     ) {
         OtaChannelBooking booking = bookingRepository.findByPublicReference(channelBookingPublicRef)
-                .orElseThrow(() -> new IllegalArgumentException("OTA Channel Booking not found: " + channelBookingPublicRef));
+                .orElseThrow(() -> new OtaResourceNotFoundException("OTA Channel Booking not found: " + channelBookingPublicRef));
 
         if (!"VND".equalsIgnoreCase(currencyCode)) {
             throw new IllegalArgumentException("Only VND currency is supported for add-ons");
         }
 
         String status;
+        String resolvedItemCode = itemCode;
         if (ADDON_TYPE_LASER_ENGRAVING.equalsIgnoreCase(addonType)) {
             if (amountMinor != 0L) {
                 throw new IllegalArgumentException("Laser engraving is free of charge and must have zero amount");
             }
             status = STATUS_RECORDED_FREE;
+            if (resolvedItemCode == null || resolvedItemCode.isBlank()) {
+                resolvedItemCode = "FREE-ENGRAVE";
+            }
         } else if (ADDON_TYPE_PAID_OPTION.equalsIgnoreCase(addonType)) {
             if (amountMinor <= 0L) {
                 throw new IllegalArgumentException("Paid option requires a positive amount");
+            }
+            if (resolvedItemCode == null || resolvedItemCode.isBlank()) {
+                throw new IllegalArgumentException("Paid option requires an itemCode");
             }
             status = STATUS_QUOTED;
         } else {
             throw new IllegalArgumentException("Unsupported add-on type: " + addonType);
         }
 
-        String quoteReference = "quote-" + UUID.randomUUID().toString();
+        String quoteReference = UUID.randomUUID().toString();
 
         OtaAddonBillLink link = OtaAddonBillLink.builder()
                 .channelBooking(booking)
                 .settlementQuoteReference(quoteReference)
+                .addonType(addonType.toUpperCase())
+                .itemCode(resolvedItemCode)
+                .itemDescription(itemDescription != null && !itemDescription.isBlank() ? itemDescription : (status.equals(STATUS_RECORDED_FREE) ? "Laser Engraving" : "Workshop Add-on"))
                 .amountMinor(amountMinor)
                 .currencyCode(currencyCode.toUpperCase())
                 .status(status)
@@ -92,15 +106,7 @@ public class OtaAddonService {
 
         addonBillLinkRepository.save(link);
 
-        return new AddonQuoteResult(
-                quoteReference,
-                booking.getPublicReference(),
-                addonType.toUpperCase(),
-                itemCode,
-                amountMinor,
-                currencyCode.toUpperCase(),
-                status
-        );
+        return toResult(link);
     }
 
     @Transactional
@@ -109,42 +115,39 @@ public class OtaAddonService {
             Instant acceptedAt,
             String customerConsentReference
     ) {
-        OtaAddonBillLink link = addonBillLinkRepository.findBySettlementQuoteReference(quoteReference)
-                .orElseThrow(() -> new IllegalArgumentException("Add-on quote not found: " + quoteReference));
+        OtaAddonBillLink link = findLink(quoteReference)
+                .orElseThrow(() -> new OtaResourceNotFoundException("Add-on quote not found: " + quoteReference));
 
         if (customerConsentReference == null || customerConsentReference.isBlank()) {
             throw new IllegalArgumentException("Customer consent reference is required for acceptance");
         }
 
         if (STATUS_RECORDED_FREE.equals(link.getStatus())) {
-            // Free engraving is already recorded free, no paid acceptance needed
-            return new AddonQuoteResult(
-                    link.getSettlementQuoteReference(),
-                    link.getChannelBooking().getPublicReference(),
-                    ADDON_TYPE_LASER_ENGRAVING,
-                    "FREE-ENGRAVE",
-                    link.getAmountMinor(),
-                    link.getCurrencyCode(),
-                    link.getStatus()
-            );
+            throw new OtaConflictException("Free laser engraving is already recorded free; paid acceptance is rejected");
+        }
+
+        if (STATUS_ACCEPTED.equals(link.getStatus())) {
+            // Idempotent replay: if same consent reference, return existing quote
+            if (customerConsentReference.trim().equals(link.getCustomerConsentReference())) {
+                return toResult(link);
+            }
+            throw new OtaConflictException("The add-on quote was already accepted with a different consent reference");
+        }
+
+        if (STATUS_BILLED.equals(link.getStatus())) {
+            throw new OtaConflictException("The add-on quote has already been billed");
         }
 
         if (!STATUS_QUOTED.equals(link.getStatus())) {
-            throw new IllegalStateException("Only a QUOTED add-on can be accepted, current status: " + link.getStatus());
+            throw new OtaConflictException("Only a QUOTED add-on can be accepted, current status: " + link.getStatus());
         }
 
         link.setStatus(STATUS_ACCEPTED);
+        link.setCustomerConsentReference(customerConsentReference.trim());
+        link.setAcceptedAt(acceptedAt != null ? acceptedAt : Instant.now());
         addonBillLinkRepository.save(link);
 
-        return new AddonQuoteResult(
-                link.getSettlementQuoteReference(),
-                link.getChannelBooking().getPublicReference(),
-                ADDON_TYPE_PAID_OPTION,
-                "PAID-OPTION",
-                link.getAmountMinor(),
-                link.getCurrencyCode(),
-                link.getStatus()
-        );
+        return toResult(link);
     }
 
     @Transactional
@@ -154,33 +157,57 @@ public class OtaAddonService {
             String staffActorReference,
             Long locationId
     ) {
-        OtaAddonBillLink link = addonBillLinkRepository.findBySettlementQuoteReference(quoteReference)
-                .orElseThrow(() -> new IllegalArgumentException("Add-on quote not found: " + quoteReference));
+        OtaAddonBillLink link = findLink(quoteReference)
+                .orElseThrow(() -> new OtaResourceNotFoundException("Add-on quote not found: " + quoteReference));
 
         if (STATUS_RECORDED_FREE.equals(link.getStatus())) {
-            throw new IllegalStateException("Laser engraving is free and does not generate a bill");
+            throw new OtaUnprocessableException("Laser engraving is free and does not generate a bill");
+        }
+
+        if (STATUS_BILLED.equals(link.getStatus()) && link.getSettlementBillReference() != null) {
+            // Idempotent replay: already billed
+            return new DirectBillResult(
+                    link.getSettlementQuoteReference(),
+                    link.getSettlementBillReference(),
+                    null,
+                    STATUS_BILLED
+            );
         }
 
         // Strict Missing-Consent Rejection: Cannot create direct bill if not accepted by customer
         if (!STATUS_ACCEPTED.equals(link.getStatus())) {
-            throw new IllegalStateException("Customer acceptance is required before a direct bill can be created (current status: " + link.getStatus() + ")");
+            throw new OtaConflictException("Customer acceptance is required before a direct bill can be created (current status: " + link.getStatus() + ")");
         }
+
+        String consent = customerConsentReference != null && !customerConsentReference.isBlank()
+                ? customerConsentReference.trim()
+                : link.getCustomerConsentReference();
+
+        if (consent == null || consent.isBlank()) {
+            throw new OtaConflictException("Customer consent reference is required before a direct bill can be created");
+        }
+
+        String itemCode = link.getItemCode() != null && !link.getItemCode().isBlank() ? link.getItemCode() : "ADDON-ITEM";
+        String itemDesc = link.getItemDescription() != null && !link.getItemDescription().isBlank() ? link.getItemDescription() : "Workshop Add-on";
 
         // Delegate to Settlement facade
         CreateDirectBillCommand cmd = new CreateDirectBillCommand(
                 link.getChannelBooking().getPublicReference(),
                 link.getSettlementQuoteReference(),
-                "ADDON-ITEM",
-                "Workshop Add-on",
+                itemCode,
+                itemDesc,
                 link.getAmountMinor(),
                 link.getCurrencyCode(),
-                customerConsentReference,
+                consent,
                 staffActorReference,
                 locationId
         );
 
         DirectBillCreationOutcome outcome = settlementPort.createDirectBill(cmd);
         if (!outcome.created()) {
+            if ("IDEMPOTENCY_CONFLICT".equals(outcome.errorCode())) {
+                throw new OtaConflictException("Settlement rejected direct bill: " + outcome.errorMessage());
+            }
             throw new IllegalStateException("Settlement rejected direct bill creation: " + outcome.errorMessage());
         }
 
@@ -195,5 +222,58 @@ public class OtaAddonService {
                 STATUS_BILLED
         );
     }
-}
 
+    @Transactional
+    public DirectBillResult createDirectBill(
+            String quoteReference,
+            String staffActorReference,
+            Long locationId
+    ) {
+        return createDirectBill(quoteReference, null, staffActorReference, locationId);
+    }
+
+    public Long getLocationIdForBooking(String channelBookingReference) {
+        OtaChannelBooking booking = bookingRepository.findByPublicReference(channelBookingReference)
+                .orElseThrow(() -> new OtaResourceNotFoundException("OTA Channel Booking not found: " + channelBookingReference));
+        String locRef = booking.getMapping().getLocationReference();
+        try {
+            return Long.valueOf(locRef);
+        } catch (NumberFormatException nfe) {
+            return null;
+        }
+    }
+
+    public Long getLocationIdForQuote(String quoteReference) {
+        OtaAddonBillLink link = findLink(quoteReference)
+                .orElseThrow(() -> new OtaResourceNotFoundException("Add-on quote not found: " + quoteReference));
+        return getLocationIdForBooking(link.getChannelBooking().getPublicReference());
+    }
+
+    public OtaAddonBillLink findQuote(String quoteReference) {
+        return findLink(quoteReference)
+                .orElseThrow(() -> new OtaResourceNotFoundException("Add-on quote not found: " + quoteReference));
+    }
+
+    public Optional<OtaAddonBillLink> findLink(String quoteReference) {
+        if (quoteReference == null) return Optional.empty();
+        Optional<OtaAddonBillLink> found = addonBillLinkRepository.findBySettlementQuoteReference(quoteReference);
+        if (found.isPresent()) return found;
+        if (quoteReference.startsWith("quote-")) {
+            return addonBillLinkRepository.findBySettlementQuoteReference(quoteReference.substring("quote-".length()));
+        } else {
+            return addonBillLinkRepository.findBySettlementQuoteReference("quote-" + quoteReference);
+        }
+    }
+
+    private AddonQuoteResult toResult(OtaAddonBillLink link) {
+        return new AddonQuoteResult(
+                link.getSettlementQuoteReference(),
+                link.getChannelBooking().getPublicReference(),
+                link.getAddonType() != null ? link.getAddonType() : (link.getAmountMinor() == 0 ? ADDON_TYPE_LASER_ENGRAVING : ADDON_TYPE_PAID_OPTION),
+                link.getItemCode() != null ? link.getItemCode() : (link.getAmountMinor() == 0 ? "FREE-ENGRAVE" : "PAID-OPTION"),
+                link.getAmountMinor(),
+                link.getCurrencyCode(),
+                link.getStatus()
+        );
+    }
+}

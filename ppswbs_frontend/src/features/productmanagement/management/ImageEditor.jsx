@@ -26,7 +26,10 @@ export function ImageEditor({ images, onChange, errors = {}, disabled }) {
   const previews = useRef(new Set());
   useEffect(() => () => previews.current.forEach(url => URL.revokeObjectURL(url)), []);
 
-  const update = (localId, patch) => onChange(latest.current.map(item => (item.localId === localId ? { ...item, ...patch } : item)));
+  // Every change goes through commit so a later change in the same tick (an upload result right after adding the file)
+  // builds on it instead of on the list of the last render.
+  const commit = next => { latest.current = next; onChange(next); };
+  const update = (localId, patch) => commit(latest.current.map(item => (item.localId === localId ? { ...item, ...patch } : item)));
 
   const upload = async item => {
     update(item.localId, { state: 'uploading', error: null });
@@ -48,7 +51,7 @@ export function ImageEditor({ images, onChange, errors = {}, disabled }) {
       previews.current.add(previewUrl);
       return { localId: newCommandId(), mediaId: null, altText: '', state: hint ? 'rejected' : 'uploading', hint, file, previewUrl, commandId: newCommandId() };
     });
-    onChange([...latest.current, ...added]);
+    commit([...latest.current, ...added]);
     added.filter(item => !item.hint).forEach(upload);
   };
 
@@ -56,9 +59,9 @@ export function ImageEditor({ images, onChange, errors = {}, disabled }) {
     const next = [...latest.current];
     const [item] = next.splice(index, 1);
     next.splice(index + delta, 0, item);
-    onChange(next);
+    commit(next);
   };
-  const remove = localId => onChange(latest.current.filter(item => item.localId !== localId));
+  const remove = localId => commit(latest.current.filter(item => item.localId !== localId));
 
   return (
     <div className="image-editor">

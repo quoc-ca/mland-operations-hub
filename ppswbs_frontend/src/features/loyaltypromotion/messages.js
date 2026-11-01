@@ -71,6 +71,9 @@ const vi = {
   'checkout.outdated': 'Lựa chọn đã thay đổi. Bấm Tính lại để xem tổng tiền mới.',
   'checkout.goods': 'Tiền hàng', 'checkout.programDiscount': 'Giảm từ ưu đãi', 'checkout.pointsDiscount': 'Giảm từ điểm',
   'checkout.shipping': 'Phí giao hàng', 'checkout.shippingLater': 'Tính khi chọn giao hàng', 'checkout.payable': 'Cần thanh toán',
+  'checkout.workshopGross': 'Giá workshop', 'checkout.pointsDiscountUsed': 'Giảm từ {points} điểm', 'checkout.workshopNet': 'Sau ưu đãi',
+  'checkout.deposit': 'Cọc cần trả bây giờ', 'checkout.remaining': 'Còn lại trả sau',
+  'checkout.remainingHint': 'Cọc và phần còn lại đều tính trên số tiền sau ưu đãi; điểm chỉ được trừ một lần.',
   'checkout.reasons': 'Lý do', 'checkout.ack': 'Tôi đã xem tổng tiền và ưu đãi ở trên', 'checkout.confirm': 'Xác nhận',
 
   'validation.required': 'Bắt buộc nhập.', 'validation.nameTooLong': 'Tối đa 200 ký tự.',
@@ -168,6 +171,9 @@ const en = {
   'checkout.outdated': 'Your choice changed. Choose Recalculate to see the new total.',
   'checkout.goods': 'Goods', 'checkout.programDiscount': 'Offer discount', 'checkout.pointsDiscount': 'Points discount',
   'checkout.shipping': 'Shipping', 'checkout.shippingLater': 'Calculated with delivery', 'checkout.payable': 'To pay',
+  'checkout.workshopGross': 'Workshop price', 'checkout.pointsDiscountUsed': 'Discount from {points} points', 'checkout.workshopNet': 'After offers',
+  'checkout.deposit': 'Deposit due now', 'checkout.remaining': 'Remaining, paid later',
+  'checkout.remainingHint': 'Both the deposit and the remaining amount come from the amount after offers; points are deducted only once.',
   'checkout.reasons': 'Reasons', 'checkout.ack': 'I have reviewed the total and offers above', 'checkout.confirm': 'Confirm',
 
   'validation.required': 'Required.', 'validation.nameTooLong': 'At most 200 characters.',

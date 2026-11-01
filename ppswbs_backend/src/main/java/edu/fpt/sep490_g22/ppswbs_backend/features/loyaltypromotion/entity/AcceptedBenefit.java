@@ -195,6 +195,9 @@ public class AcceptedBenefit {
 
     /** HELD to CONSUMED on a verified paid, deposit or zero outcome; records the settlement fact once. */
     public Changes settle(String outcomeKey, long outcomeVersion, Instant at) {
+        if (isReplay(settlementOutcomeKey, outcomeKey)) {
+            return new Changes(false, false, false);
+        }
         acceptVersion(outcomeVersion);
         if (settlementOutcomeKey != null) {
             requireSameKey(settlementOutcomeKey, outcomeKey);
@@ -218,6 +221,9 @@ public class AcceptedBenefit {
 
     /** HELD to RELEASED on a confirmed unpaid expiry; consumed components are never released. */
     public Changes release(String outcomeKey, long outcomeVersion, Instant at) {
+        if (isReplay(releaseOutcomeKey, outcomeKey)) {
+            return new Changes(false, false, false);
+        }
         acceptVersion(outcomeVersion);
         if (releaseOutcomeKey != null) {
             requireSameKey(releaseOutcomeKey, outcomeKey);
@@ -244,6 +250,9 @@ public class AcceptedBenefit {
      * handled on its own, so a retry after a partial result only completes what is missing.
      */
     public Changes restore(String outcomeKey, long outcomeVersion, Instant at) {
+        if (isReplay(restoreOutcomeKey, outcomeKey)) {
+            return new Changes(false, false, false);
+        }
         acceptVersion(outcomeVersion);
         if (restoreOutcomeKey != null) {
             requireSameKey(restoreOutcomeKey, outcomeKey);
@@ -279,6 +288,9 @@ public class AcceptedBenefit {
 
     /** PENDING to GRANTED once every used component is CONSUMED (or not used). Zero points still record the result. */
     public boolean grantEarn(String outcomeKey, long outcomeVersion, BigInteger earned) {
+        if (earnState == EarnState.GRANTED && isReplay(earnOutcomeKey, outcomeKey)) {
+            return false;
+        }
         acceptVersion(outcomeVersion);
         if (earnState == EarnState.GRANTED) {
             requireSameKey(earnOutcomeKey, outcomeKey);
@@ -299,6 +311,9 @@ public class AcceptedBenefit {
 
     /** PENDING to INELIGIBLE on a terminal outcome that never qualifies; consumed components stay untouched. */
     public boolean finishIneligibleEarn(String outcomeKey, long outcomeVersion, Instant at) {
+        if (earnState == EarnState.INELIGIBLE && isReplay(earnOutcomeKey, outcomeKey)) {
+            return false;
+        }
         acceptVersion(outcomeVersion);
         if (earnState == EarnState.GRANTED) {
             throw new LoyaltyException(LoyaltyErrorCode.BENEFIT_STATE_CONFLICT, "Earned points are never withdrawn.");
@@ -329,6 +344,15 @@ public class AcceptedBenefit {
 
     private static boolean isSettledForEarn(ComponentState state) {
         return state == ComponentState.NONE || state == ComponentState.CONSUMED;
+    }
+
+    /**
+     * The same outcome delivered again (same key as the one recorded for this transition) changes nothing, even after a
+     * newer outcome of the source was applied: a source may send its outcomes in pairs (for example restore, then finish
+     * the earn at the next version) and redeliver the first one.
+     */
+    private static boolean isReplay(String recorded, String incoming) {
+        return recorded != null && recorded.equals(incoming);
     }
 
     /** Outcomes are monotonic per source; a late older version is rejected, an equal or newer one is handled. */

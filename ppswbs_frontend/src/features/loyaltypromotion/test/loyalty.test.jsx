@@ -233,6 +233,38 @@ describe('T070 public offers and voucher wallet', () => {
   });
 });
 
+describe('T061 offer picker in the workshop context', () => {
+  it('shows gross, voucher, points, net, deposit and remaining from the FE-03 quote and has no automatic discount', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    // Shape of FE-03 WorkshopBookingQuoteResponse (develop 8d69792).
+    const quote = { grossAmount: '1000000', programDiscount: '100000', pointsUsed: '900', pointDiscount: '90000', postPromotionAmount: '810000', depositAmount: '405000', remainingAmount: '405000', reasons: [] };
+    function Host() {
+      const [ack, setAck] = useState(false);
+      return <BenefitSelector context="workshop" value={{ choice: 'VOUCHER', voucherCode: 'WK10', requestedPoints: '900' }} onChange={() => {}}
+        quote={quote} quoteMatches acknowledged={ack} onAcknowledge={setAck} onRecalculate={() => {}} onConfirm={onConfirm} />;
+    }
+    render(<I18nProvider initialLanguage="vi"><Host /></I18nProvider>);
+
+    expect(screen.queryByLabelText('Giảm giá tự động (nếu có)')).toBeNull();
+    expect(screen.getByText('1.000.000 ₫')).toBeInTheDocument();
+    expect(screen.getByText('Giảm từ 900 điểm')).toBeInTheDocument();
+    expect(screen.getByText('810.000 ₫')).toBeInTheDocument();
+    expect(screen.getAllByText('405.000 ₫')).toHaveLength(2);
+    await user.click(screen.getByLabelText('Tôi đã xem tổng tiền và ưu đãi ở trên'));
+    await user.click(screen.getByRole('button', { name: 'Xác nhận' }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('a quote with reasons cannot be confirmed', () => {
+    const quote = { grossAmount: '1000000', programDiscount: '0', pointsUsed: '5', pointDiscount: '0', postPromotionAmount: '1000000', depositAmount: '500000', remainingAmount: '500000', reasons: ['Points must be between 10 and 1000.'] };
+    render(<I18nProvider initialLanguage="vi"><BenefitSelector context="workshop" value={{ choice: 'NONE', voucherCode: '', requestedPoints: '5' }} onChange={() => {}}
+      quote={quote} quoteMatches acknowledged onAcknowledge={() => {}} onRecalculate={() => {}} onConfirm={() => {}} /></I18nProvider>);
+    expect(screen.getByText('Points must be between 10 and 1000.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Xác nhận' })).toBeDisabled();
+  });
+});
+
 describe('T055 offer picker for checkout', () => {
   function Host({ quote, onRecalculate, onConfirm }) {
     const [value, setValue] = useState({ choice: 'NONE', voucherCode: '', requestedPoints: '0' });

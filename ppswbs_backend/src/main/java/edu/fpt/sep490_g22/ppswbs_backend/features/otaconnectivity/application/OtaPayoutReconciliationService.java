@@ -267,7 +267,7 @@ public class OtaPayoutReconciliationService {
         };
     }
 
-    private static void requireManager(AccountSummary actor) {
+    static void requireManager(AccountSummary actor) {
         if (actor == null || actor.accountId() == null || actor.status() != ActorStatus.ACTIVE
                 || actor.role() != ActorRole.MANAGER) {
             throw new OtaForbiddenException("Payout reconciliation requires an active Manager");

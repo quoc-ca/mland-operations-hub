@@ -75,6 +75,15 @@ public class WorkshopOperationsAdapter {
                         correlationReference));
     }
 
+    public edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OtaBookingCapacityOutcome acceptOtaBooking(
+            String bookingReference, String packageReference, UUID sessionReference, int participantCount,
+            String operationReference, String correlationReference) {
+        return workshopOperationsFacade.acceptOtaBooking(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.AcceptOtaBookingCommand(
+                        bookingReference, packageReference, sessionReference, participantCount,
+                        operationReference, correlationReference));
+    }
+
     public CapacityCommitOutcome commitBookingHolds(
             String bookingReference,
             List<UUID> expectedHoldReferences,

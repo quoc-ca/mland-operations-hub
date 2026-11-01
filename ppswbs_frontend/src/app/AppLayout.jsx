@@ -21,7 +21,7 @@ export default function AppLayout() {
         <a className="brand" href="/">MLAND</a>
         <nav aria-label={t('nav')}>
           <Link to="/products">{t('products')}</Link>
-          <a href="/#/workshops">{t('workshops')}</a>
+          <Link to="/workshops">{t('workshops')}</Link>
           <Link to="/promotions">{t('promotions')}</Link>
           <Link to="/me/loyalty">{t('loyalty')}</Link>
           <Link to="/catalogue-management/products">{t('management')}</Link>
@@ -31,7 +31,7 @@ export default function AppLayout() {
           <LanguageSwitch />
           {status === 'signed-in'
             ? <button type="button" className="button outline small" onClick={signOut}>{tShared('session.signOut')}</button>
-            : <a className="header-login" href="/#/login">{tShared('session.signIn')}</a>}
+            : <a className="header-login" href="/login">{tShared('session.signIn')}</a>}
         </div>
       </header>
       <Outlet />

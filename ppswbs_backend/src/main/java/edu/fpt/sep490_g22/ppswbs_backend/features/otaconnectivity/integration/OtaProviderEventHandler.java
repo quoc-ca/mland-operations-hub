@@ -20,10 +20,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.Ot
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaProvider;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaReconciliationWorkItem;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaReconciliationWorkItemRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.AcceptOtaBookingCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OtaBookingCapacityOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.OtaBookingCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.OtaBookingOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -58,7 +57,7 @@ public class OtaProviderEventHandler {
     private final OtaReconciliationWorkItemRepository reconciliationRepository;
     private final OtaInboundEventService inboundEventService;
     private final OtaBookingReadinessService readinessService;
-    private final WorkshopOperationsFacade workshopOperationsFacade;
+    private final WorkshopBookingFacade workshopBookingFacade;
 
     public record OtaBookingEventCommand(
             OtaProvider provider,
@@ -208,27 +207,18 @@ public class OtaProviderEventHandler {
 
         OtaChannelPriceSnapshot priceSnapshot = readiness.priceSnapshot();
 
-        String mlandBookingRef = "OTA-" + UUID.randomUUID();
         String operationRef = "ota-book-" + UUID.randomUUID();
         String correlationRef = command.correlationReference() != null
                 ? command.correlationReference()
                 : UUID.randomUUID().toString();
 
-        AcceptOtaBookingCommand operationsCommand = new AcceptOtaBookingCommand(
-                mlandBookingRef,
-                mapping.getOfferReference(),
-                UUID.fromString(mapping.getSessionReference()),
-                command.participantCount(),
-                operationRef,
-                correlationRef
-        );
+        OtaBookingOutcome bookingOutcome = workshopBookingFacade.createOrReturnOtaBooking(new OtaBookingCommand(
+                command.provider().name(), command.externalBookingReference(), mapping.getOfferReference(),
+                UUID.fromString(mapping.getSessionReference()), command.participantCount(), operationRef, correlationRef));
 
-        OtaBookingCapacityOutcome capacityOutcome = workshopOperationsFacade.acceptOtaBooking(operationsCommand);
-
-        if (capacityOutcome.status() != OutcomeStatus.ACCEPTED) {
-            String rejectionReason = capacityOutcome.reason() != null
-                    ? capacityOutcome.reason().name()
-                    : "OPERATIONS_CAPACITY_REJECTED";
+        if (bookingOutcome.status() != OtaBookingOutcome.Status.ACCEPTED) {
+            String rejectionReason = bookingOutcome.rejectionReason() == null
+                    ? "BOOKING_CAPACITY_REJECTED" : bookingOutcome.rejectionReason();
 
             inboundEventService.recordOutcome(receipt.eventId(),
                     new OtaInboundEventOutcome(OtaInboundEventOutcome.Status.REJECTED, rejectionReason));
@@ -245,7 +235,7 @@ public class OtaProviderEventHandler {
                 command.externalBookingReference(),
                 "CONFIRMED",
                 command.participantCount(),
-                mlandBookingRef,
+                bookingOutcome.bookingReference(),
                 command.provider().name(),
                 "POLICY_DEFAULT",
                 "1.0",
@@ -277,7 +267,7 @@ public class OtaProviderEventHandler {
         );
         customerPaymentRepository.save(paymentEvidence);
 
-        List<UUID> ticketRefs = capacityOutcome.ticketReferences();
+        List<UUID> ticketRefs = bookingOutcome.ticketReferences();
         for (int i = 0; i < ticketRefs.size(); i++) {
             OtaBookingTicketLink link = OtaBookingTicketLink.link(
                     channelBooking.getId(),
@@ -296,7 +286,7 @@ public class OtaProviderEventHandler {
 
         return OtaBookingEventResult.confirmed(
                 channelBooking.getPublicReference(),
-                mlandBookingRef,
+                bookingOutcome.bookingReference(),
                 channelBooking.getParticipantCount(),
                 ticketReferenceStrings
         );

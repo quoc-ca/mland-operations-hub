@@ -1,7 +1,7 @@
 # Integration Gates — FE-06
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01 (T077 đạt — dùng nền frontend của 002; trước đó: 2026-10-27 (T002: cập nhật hiện trạng G-01–G-07 theo `khuong` và `origin/develop` `37d68cf`; T077: frontend chưa có))
+**Date updated**: 2026-11-01 (hiện trạng G-01–G-07 2026-11-01 (chuẩn bị T075); nguồn workshop FE-03 và CORS — verification mục 28; T077 đạt — dùng nền frontend của 002; trước đó: 2026-10-27 (T002: cập nhật hiện trạng G-01–G-07 theo `khuong` và `origin/develop` `37d68cf`; T077: frontend chưa có))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -66,3 +66,19 @@ Nguồn: nhánh `khuong` (`73ac306` cộng thay đổi chưa commit của 006) v
 - **Lỗi**: scope khác PRODUCT hoặc dimension khác PRODUCT/VARIANT → `INVALID_INPUT`; không đọc được catalogue → `DEPENDENCY_UNAVAILABLE` (không bao giờ cho phép mặc định). Không khóa dòng, không gọi remote.
 - **Đã chốt 2026-10-26** (Đặng Thị Khương, phương án A): VARIANT là một SKU cụ thể; quy tắc `belongsToParent` ở trên được giữ, không đổi contract `TargetRef`. Ghi tại `spec.md` (Clarifications, Session 2026-10-26) và `contracts/interfaces.md` (Target port). Không có loại phạm vi "mọi nhẫn cùng con số size".
 - **Chưa đóng G-02**: phần source sales (giá/số lượng/đơn đã chấp nhận) thuộc FE-08; test owner serialize xóa sản phẩm với accept của FE-06 cần FE-08.
+
+**Diễn biến 2026-11-01 — develop `8d69792`.** FE-03 (003.1/003.3) đã nối accept, cọc đã xác minh, hết hạn chưa trả, hủy hợp lệ, no-show và hoàn thành + trả đủ vào `LoyaltyFacade`; 006 đã review và kiểm chứng qua service thật (verification mục 28, T057/T059/T060). CORS dùng chung không còn bị `workshopOperationsCorsFilter` chặn (`LoyaltySecurityIT` 11/11). Còn mở: test nguồn thật cho outcome trễ/gửi lặp và hủy sai (T062), tranh chấp phía nguồn (T063), đăng nhập 001 cho tích hợp UI thật (T072/T078; backend chưa khởi tạo Firebase Admin).
+
+## Hiện trạng gate 2026-11-01 (chuẩn bị T075, chưa tick)
+
+Đối chiếu tại `khuong` sau khi ghép develop `365dcf3`; bằng chứng chi tiết ở [verification](verification.md) mục 27–30. Không gate nào được đánh đóng chỉ vì tài liệu đủ.
+
+| Gate | Hiện trạng | Còn thiếu / owner |
+| --- | --- | --- |
+| G-01 Identity | Chain dùng chung và `AccountFacade` của 001 có trên develop; CORS không còn bị chặn (`LoyaltySecurityIT` 11/11). | Backend chưa gọi `FirebaseApp.initializeApp` nên chưa xác minh được token thật; chưa có màn đăng nhập và cách tạo Admin/Manager đầu tiên — Phan Sơn (001). |
+| G-02 Catalogue | Target PRODUCT (002) và WORKSHOP (003) dùng thật; nguồn bán hàng FE-08 thật. | Không còn thiếu phía 006. |
+| G-03 Retail (FE-08) | Accept, thanh toán, đơn 0đ, hủy trước thanh toán, hết hạn đã xác nhận và gửi trùng đều chạy qua service thật (mục 24–26, 29). | Nhúng `BenefitSelector`, trả `maxPoints` trong `BenefitPreviewView` — Bùi Trọng Thịnh (T055). |
+| G-04 Booking (FE-03) | Quote/accept thật giữ voucher + điểm cùng giữ chỗ; cọc ceil(post/2) (mục 28). | Nhúng `BenefitSelector context="workshop"`, trả `maxPoints` trong `WorkshopBookingQuoteResponse` — Hồ Hoàng Quốc (T061). |
+| G-05 Workshop hậu xử lý | Cọc xác minh, hết hạn, hủy hợp lệ, no-show, hoàn thành + trả đủ đều do code FE-03 quyết định, kể cả gửi lặp và tranh chấp (mục 28–29). | Không còn thiếu phía 006. |
+| G-06 Data/module | Migration loyalty V10–V12 trên develop; `ModulithArchitectureTests` 5/5; toàn bộ 006 248/248 (mục 29). | Chạy lại khi đóng T073. |
+| G-07 Governance | Tài liệu Approved; chênh lệch tài liệu cần sửa khi đóng T076 liệt kê ở verification mục 30. | Chạy lại speckit-analyze khi đóng T076. |
