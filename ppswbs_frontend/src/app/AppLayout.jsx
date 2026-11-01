@@ -32,7 +32,7 @@ const appMessages = {
   },
 };
 
-/** Header and footer for the routed feature screens; prototype screens keep their own (src/main.jsx). */
+/** Header and footer for production-oriented feature routes. */
 export default function AppLayout() {
   const t = useT(appMessages);
   const tShared = useT(sharedMessages);
@@ -43,7 +43,7 @@ export default function AppLayout() {
         <a className="brand" href="/">MLAND</a>
         <nav aria-label={t('nav')}>
           <Link to="/products">{t('products')}</Link>
-          <a href="/#/workshops">{t('workshops')}</a>
+          <Link to="/workshops">{t('workshops')}</Link>
           <Link to="/promotions">{t('promotions')}</Link>
           <Link to="/me/loyalty">{t('loyalty')}</Link>
           <Link to="/ai-support">{t('aiSupport')}</Link>
@@ -55,7 +55,7 @@ export default function AppLayout() {
           <LanguageSwitch />
           {status === 'signed-in'
             ? <button type="button" className="button outline small" onClick={signOut}>{tShared('session.signOut')}</button>
-            : <a className="header-login" href="/#/login">{tShared('session.signIn')}</a>}
+            : <a className="header-login" href="/login">{tShared('session.signIn')}</a>}
         </div>
       </header>
       <Outlet />

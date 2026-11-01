@@ -1,4 +1,4 @@
--- Flyway Migration V60: Independent Design Request Rebase (Feature 004)
+-- Flyway Migration V62: Independent Design Request Rebase (Feature 004)
 -- Append-only migration
 
 CREATE TABLE design_requests (
