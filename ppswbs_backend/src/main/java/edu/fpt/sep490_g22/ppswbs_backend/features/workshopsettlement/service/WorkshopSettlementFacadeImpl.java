@@ -9,6 +9,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.Sett
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementHandoffIdempotency;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementNotificationHandoff;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementNotificationHandoffRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementAddonBillRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementAddonBill;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.CancellationHandoffOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.OpenCancellationHandoffCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
@@ -20,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -38,6 +41,53 @@ public class WorkshopSettlementFacadeImpl implements WorkshopSettlementFacade {
     private final ObjectMapper objectMapper;
     private final FinalPaymentService finalPaymentService;
     private final SettlementNotificationHandoffRepository notificationHandoffs;
+    @Autowired private SettlementAddonBillRepository addonBills;
+
+    @Override
+    @Transactional
+    public DirectShopAddonBillOutcome createDirectShopAddonBill(DirectShopAddonBillCommand command) {
+        if (command == null) return DirectShopAddonBillOutcome.rejected("VALIDATION_ERROR", "command is required");
+        if (blank(command.channelBookingReference()) || blank(command.quoteReference())
+                || blank(command.itemCode()) || blank(command.itemDescription())
+                || blank(command.customerConsentReference()) || blank(command.staffActorReference())) {
+            return DirectShopAddonBillOutcome.rejected("VALIDATION_ERROR", "shop add-on bill fields are required");
+        }
+        if (command.amountMinor() <= 0 || !"VND".equals(command.currencyCode())) {
+            return DirectShopAddonBillOutcome.rejected("INVALID_AMOUNT_OR_CURRENCY", "paid shop add-on must be positive VND");
+        }
+        SettlementAddonBill existing = addonBills.findByQuoteReference(command.quoteReference().trim()).orElse(null);
+        if (existing != null) {
+            if (existing.getAmountMinor() != command.amountMinor()
+                    || !existing.getCurrencyCode().equals(command.currencyCode())
+                    || !existing.getChannelBookingReference().equals(command.channelBookingReference().trim())) {
+                return DirectShopAddonBillOutcome.rejected("IDEMPOTENCY_CONFLICT", "quoteReference reused with different parameters");
+            }
+            return DirectShopAddonBillOutcome.success(existing.getBillReference());
+        }
+        SettlementAddonBill bill = SettlementAddonBill.builder()
+                .billReference("SETTLE-ADDON-BILL-" + UUID.randomUUID())
+                .channelBookingReference(command.channelBookingReference().trim())
+                .quoteReference(command.quoteReference().trim())
+                .itemCode(command.itemCode().trim())
+                .itemDescription(command.itemDescription().trim())
+                .amountMinor(command.amountMinor())
+                .currencyCode(command.currencyCode())
+                .customerConsentReference(command.customerConsentReference().trim())
+                .staffActorReference(command.staffActorReference().trim())
+                .locationId(command.locationId())
+                .lifecycleStatus("OPEN")
+                .build();
+        try {
+            addonBills.saveAndFlush(bill);
+            return DirectShopAddonBillOutcome.success(bill.getBillReference());
+        } catch (DataIntegrityViolationException duplicate) {
+            return addonBills.findByQuoteReference(command.quoteReference().trim())
+                    .map(value -> DirectShopAddonBillOutcome.success(value.getBillReference()))
+                    .orElseGet(() -> DirectShopAddonBillOutcome.rejected("CONCURRENT_CREATE", "retry with the same quote"));
+        }
+    }
+
+    private static boolean blank(String value) { return value == null || value.isBlank(); }
 
     /** Delegates verified evidence to the transactional Settlement payment consumer. */
     @Override

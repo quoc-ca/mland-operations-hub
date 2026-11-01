@@ -53,6 +53,21 @@ public class OtaAddonBillLink {
     @Column(name = "status", nullable = false, length = 24)
     private String status;
 
+    @Column(name = "addon_type", length = 32)
+    private String addonType;
+
+    @Column(name = "item_code", length = 100)
+    private String itemCode;
+
+    @Column(name = "item_description", length = 500)
+    private String itemDescription;
+
+    @Column(name = "customer_consent_reference", length = 128)
+    private String customerConsentReference;
+
+    @Column(name = "accepted_at")
+    private Instant acceptedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
