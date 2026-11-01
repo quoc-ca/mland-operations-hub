@@ -6,8 +6,30 @@ import { LanguageSwitch } from '../shared/ui/components';
 import { sharedMessages } from '../shared/ui/messages';
 
 const appMessages = {
-  vi: { home: 'Trang chủ', products: 'Sản phẩm', workshops: 'Workshop', promotions: 'Ưu đãi', loyalty: 'Điểm của tôi', management: 'Quản trị sản phẩm', promotionManagement: 'Quản lý ưu đãi', nav: 'Điều hướng chính' },
-  en: { home: 'Home', products: 'Products', workshops: 'Workshops', promotions: 'Offers', loyalty: 'My points', management: 'Catalogue management', promotionManagement: 'Offer management', nav: 'Main navigation' },
+  vi: {
+    home: 'Trang chủ',
+    products: 'Sản phẩm',
+    workshops: 'Workshop',
+    promotions: 'Ưu đãi',
+    loyalty: 'Điểm của tôi',
+    management: 'Quản trị sản phẩm',
+    promotionManagement: 'Quản lý ưu đãi',
+    aiSupport: 'Trợ lý AI',
+    designWorkspace: 'Thiết kế AI',
+    nav: 'Điều hướng chính',
+  },
+  en: {
+    home: 'Home',
+    products: 'Products',
+    workshops: 'Workshops',
+    promotions: 'Offers',
+    loyalty: 'My points',
+    management: 'Catalogue management',
+    promotionManagement: 'Offer management',
+    aiSupport: 'AI Support',
+    designWorkspace: 'AI Design',
+    nav: 'Main navigation',
+  },
 };
 
 /** Header and footer for the routed feature screens; prototype screens keep their own (src/main.jsx). */
@@ -24,6 +46,8 @@ export default function AppLayout() {
           <a href="/#/workshops">{t('workshops')}</a>
           <Link to="/promotions">{t('promotions')}</Link>
           <Link to="/me/loyalty">{t('loyalty')}</Link>
+          <Link to="/ai-support">{t('aiSupport')}</Link>
+          <Link to="/design-requests/new">{t('designWorkspace')}</Link>
           <Link to="/catalogue-management/products">{t('management')}</Link>
           <Link to="/promotion-management/programs">{t('promotionManagement')}</Link>
         </nav>

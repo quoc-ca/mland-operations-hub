@@ -14,7 +14,7 @@ ownership gate until the unresolved decisions in `spec.md` are approved.
 - [x] T009 Implement independent AI analysis/result state, temporary deletion and retention policy.
 - [x] T010 Implement approved Staff/Manager review policy, revision/withdrawal transitions and audit constraints.
 - [x] T011 Preserve Manager-only price suggestion and Admin technical/audit projection without catalogue auto-publication.
-- [ ] T012 Replace booking-dependent React screens with the standalone Design Workspace flow.
+- [x] T012 Replace booking-dependent React screens with the standalone Design Workspace flow.
 - [x] T013 Add Flyway append-only migration for independent ownership/data model (`V60__independent_design_request.sql`); reserve V12 for Loyalty/Feature-006.
 - [x] T014 Add unit, controller, authorization, provider-contract, concurrency/idempotency and retention tests.
 - [x] T015 Add negative tests proving no booking/payment/capacity/ticket/custom-order mutation or dependency.

@@ -1,4 +1,4 @@
-# Version 1.3 — Feature 004: AI Chatbox Analysis and Suggestion
+# Version 1.4 — Feature 004: AI Chatbox Analysis and Suggestion (Frontend Delivery & Testing)
 
 - **Feature**: 004 — AI Chatbox Analysis and Suggestion
 - **Author**: Ngô Tiến Đạt
@@ -50,7 +50,7 @@
 - Added safe projections; raw images, provider payloads, credentials and unnecessary PII are not returned.
 - Replaced the legacy booking review action with the independent `DESIGN_ACCEPTED` action.
 
-### Phase E — Verification evidence
+### Phase E — Backend verification evidence (Historical)
 
 The following results are historical evidence recorded from the implementation run on 2026-10-29. They must be reproduced after the final commit before release. A rerun during this documentation update was attempted but the Maven PowerShell wrapper failed before Maven started (`Cannot index into a null array`), so no new pass claim is made.
 
@@ -59,16 +59,44 @@ The following results are historical evidence recorded from the implementation r
 - Coverage included Guest/Member access, invalid tokens, prompt injection, consent, image validation, idempotency, rate limiting, ownership isolation, human review conflicts and price-suggestion permissions.
 - No Feature-004 production code imports the legacy Workshop Booking package or calls the booking eligibility facade.
 
+### Phase F — Frontend React + Vite Implementation & Test Verification (2026-11-01)
+
+- Built the complete standalone `F04-DESIGN-WORKSPACE` inside `ppswbs_frontend/src/features/designreview/`; fully independent of workshop booking, payment, session, ticket, and capacity hold flows.
+- Implemented modules following project frontend guidelines (`AGENT.md`, React 19, react-router 7, Vitest):
+  - `rules.js`: Limits (prompt 2,000, description 4,000, reason 2,000, image 10 MB, dimensions 4096×4096), allowed MIME types (`image/jpeg`, `image/png`, `image/webp`), consent purpose (`INDEPENDENT_DESIGN_IMAGE_ANALYSIS`), consent version (`v1.0`), currency (VND) and date formatters.
+  - `messages.js`: Complete bilingual (Vietnamese / English) dictionary covering all screen copy, fields, advisory badges, and typed backend error codes (`AI_INPUT_INVALID`, `IMAGE_RATE_LIMITED`, `SELF_REVIEW_NOT_ALLOWED`, `STAFF_LIMIT_EXCEEDED`, `AI_PROMPT_INJECTION_DETECTED`, `AUTHENTICATION_REQUIRED`, `MEMBER_INACTIVE_OR_INVALID`, etc.).
+  - `api/designReviewApi.js`: API client consuming the backend REST controller contract (`POST /api/v1/ai-support/messages`, multipart `POST /api/v1/design-requests` with `Idempotency-Key`, `GET /api/v1/design-requests/:id`, `GET /api/v1/design-review-requests`, `POST /api/v1/design-review-requests/:id/decisions`, `POST /api/v1/price-proposals/:id/ai-suggestions?targetType=...`, `GET /api/v1/price-proposals/:id/ai-suggestions`, `POST /api/v1/price-proposals/:id/ai-suggestions/decisions`).
+  - `api/useDesignReviewApi.js`: Session-bound hook utilizing shared `useHttp()`.
+  - `public/AiSupportPage.jsx` (`F04-AI-CHAT` - `/ai-support`): Basic AI Support for Guest and Member, 2,000-character limit counter, advisory disclaimer badge, chat bubble stream, error recovery and idempotent retry.
+  - `workspace/DesignWorkspacePage.jsx` (`F04-DESIGN-WORKSPACE`, `F04-IMAGE-UPLOAD`, `F04-CONSENT` - `/design-requests/new`): Member design request submission with independent boundary banner, up to 4,000-character description, optional catalogue reference, client-side image validation (MIME, 10 MB limit), affirmative consent requirement, multipart submission with `Idempotency-Key`, rate limit (429) & error recovery preserving user form inputs.
+  - `workspace/DesignDetailPage.jsx` (`F04-ANALYSIS-STATUS`, `F04-RESULT` - `/design-requests/:designRequestId`): Displays safe extracted candidate features (style, material, gemstone, structure, dimensions, preliminary estimated value), image quality indicators, model confidence, technical explanation, review status, and next action. Never exposes raw provider payload or raw image.
+  - `review/ReviewQueuePage.jsx` (`F04-REVIEW-QUEUE` - `/design-review-requests`): Staff/Manager review queue with responsive table, version, status, and navigation to review detail.
+  - `review/ReviewDetailPage.jsx` (`F04-REVIEW-DETAIL` - `/design-review-requests/:reviewRequestId`): Reviewer interface with extracted features, decision controls (`ACCEPTED`, `REJECTED`, `CLARIFICATION_REQUIRED`), reason validation (1–2,000 chars), optimistic `designVersion`, `ConfirmDialog` modal, and error recovery for self-review (403) and staff limit exceeded (403).
+  - `pricing/PriceProposalAiPage.jsx` (`F04-PRICE-PROPOSAL`, `F04-ADMIN-AUDIT` - `/price-proposals/:proposalId/ai-suggestions`):
+    - Manager view: Displays suggested price in VND, advisory note, re-request button, decision form (`ACCEPTED`, `ADJUSTED`, `REJECTED`, `MANUAL_FALLBACK`), final price input, note, and catalogue workflow reminder.
+    - Admin view (`technicalAuditEvidenceOnly === true`): Displays technical audit evidence only (provider correlation ID, timestamps, status); strictly hides commercial pricing fields according to separation of duties.
+  - `routes.jsx`: Registered all 6 feature routes with `RequireSession` guards where appropriate.
+  - `src/app/router.jsx`: Integrated into main app router.
+  - `src/app/AppLayout.jsx`: Added main navigation links for AI Support (`/ai-support`) and AI Design (`/design-requests/new`).
+- Automated verification evidence:
+  - Command: `npx vitest run src/features/designreview`
+  - Results: **2/2 test files passed, 21/21 tests passed (100%)**.
+    - `test/designReviewApi.test.js`: 8/8 tests passed (API endpoints, FormData, Idempotency-Key, query parameters, auth flags).
+    - `test/screens.test.jsx`: 13/13 tests passed (Guest chat, 503 retry, session requirement, boundary notice, empty validation, image consent, 429 rate limit recovery, safe candidate projections, review queue, review decision submission, self-review 403 error, Manager price proposal, Admin audit projection).
+  - Repository regression check: `npx vitest run src/features` — **6/6 test files passed, 68/68 tests passed (100%)**.
+  - Production build: `npm run build` — **128 modules transformed, build passed in 2.04s**.
+
 ---
 
 ## 2. Incomplete / Next steps
 
-### Giai đoạn 1: Frontend React + Vite
+### Giai đoạn 1: Frontend React + Vite (Đã hoàn thành)
 
-- Build the standalone `F04-DESIGN-WORKSPACE`; do not place it inside the booking flow.
-- Implement Basic AI Chat, Design Request description/image submission, consent and validation states, processing/result screens, owner-safe result view, Staff/Manager review queue, Manager price suggestion and Admin technical/audit projection.
-- Cover loading, empty, denied, validation, timeout, rate-limit, stale-version, conflict and retry states.
-- Do not add package, location/session, booking summary, payment or ticket screens to Feature-004.
+- [x] Build the standalone `F04-DESIGN-WORKSPACE`; do not place it inside the booking flow.
+- [x] Implement Basic AI Chat, Design Request description/image submission, consent and validation states, processing/result screens, owner-safe result view, Staff/Manager review queue, Manager price suggestion and Admin technical/audit projection.
+- [x] Cover loading, empty, denied, validation, timeout, rate-limit, stale-version, conflict and retry states.
+- [x] Do not add package, location/session, booking summary, payment or ticket screens to Feature-004.
+- [x] Automated test suite: 21/21 tests passed (Vitest), production build passed in 2.04s.
 
 ### Giai đoạn 2: Gemini production integration and prompt evaluation
 
@@ -137,9 +165,10 @@ The following results are historical evidence recorded from the implementation r
 | Phase A | Independent contract and boundary artifacts | Approved ownership/review/retention decisions |
 | Phase B | Independent entity model and V60 migration | Existing-database history check and MySQL upgrade test |
 | Phase C | Services, security and authorization rebase | Final policy-driven behavior |
-| Phase D | Independent REST backend contract | React + Vite Design Workspace |
+| Phase D | Independent REST backend contract | Full integration with live backend |
 | Phase E | Historical Modulith and 44/44 integration results | Fresh final-commit verification and E2E evidence |
-| Giai đoạn 1 | Backend API available | Frontend implementation |
+| Phase F | React + Vite Design Workspace (21/21 tests, build passed) | Live browser E2E in staging |
+| Giai đoạn 1 | Frontend implementation (6 screens, 21 tests passed) | Live browser E2E in staging |
 | Giai đoạn 2 | Provider port and validation boundary | Production Gemini configuration/evaluation |
 | Giai đoạn 3 | Retention and review mechanisms exist | Policy and notification decisions |
 | Giai đoạn 4 | Test plan exists | Migration, E2E and release evidence |
