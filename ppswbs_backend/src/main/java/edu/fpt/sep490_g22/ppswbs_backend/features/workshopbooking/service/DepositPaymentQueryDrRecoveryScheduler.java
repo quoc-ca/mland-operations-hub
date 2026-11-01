@@ -12,9 +12,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.Booking
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRejectionReason;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RecordLateDepositEvidenceCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.config.VnpayProperties;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -26,7 +25,6 @@ import java.util.List;
 
 /** Requests the two bounded QueryDR checks while the Booking hold is still active. */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class DepositPaymentQueryDrRecoveryScheduler {
     private static final DateTimeFormatter PROVIDER_DATE = DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(ZoneOffset.ofHours(7));
@@ -35,7 +33,20 @@ public class DepositPaymentQueryDrRecoveryScheduler {
     private final PaymentIngressOutcomeQueryPort ingressOutcomes;
     private final VnpayMerchantOperationsPort merchantOperations;
     private final WorkshopBookingFacade booking;
-    private final VnpayProperties vnpayProperties;
+    private final String merchantApiIpAddress;
+
+    public DepositPaymentQueryDrRecoveryScheduler(
+            BookingPaymentAttemptRepository attempts,
+            PaymentIngressOutcomeQueryPort ingressOutcomes,
+            VnpayMerchantOperationsPort merchantOperations,
+            WorkshopBookingFacade booking,
+            @Value("${vnpay.merchant-api-ip-address:}") String merchantApiIpAddress) {
+        this.attempts = attempts;
+        this.ingressOutcomes = ingressOutcomes;
+        this.merchantOperations = merchantOperations;
+        this.booking = booking;
+        this.merchantApiIpAddress = merchantApiIpAddress;
+    }
 
     @Scheduled(fixedDelayString = "${workshop.booking.query-dr.poll-delay-ms:15000}")
     public void recoverEligibleDeposits() {
@@ -53,8 +64,7 @@ public class DepositPaymentQueryDrRecoveryScheduler {
     }
 
     void recover(DepositPaymentRecoveryCandidate candidate, Instant now) {
-        if (vnpayProperties.getMerchantApiIpAddress() == null
-                || vnpayProperties.getMerchantApiIpAddress().isBlank()) {
+        if (merchantApiIpAddress == null || merchantApiIpAddress.isBlank()) {
             log.warn("Booking QueryDR recovery skipped: VNPAY_MERCHANT_API_IP_ADDRESS is not configured");
             return;
         }
@@ -70,7 +80,7 @@ public class DepositPaymentQueryDrRecoveryScheduler {
             String operationRef = "QDR-" + candidate.attemptReference() + "-M" + minute;
             var result = merchantOperations.queryTransaction(new VnpayQueryDrCommand(operationRef,
                     candidate.merchantReference(), candidate.providerCreateDate(),
-                    "Workshop deposit " + candidate.bookingCode(), vnpayProperties.getMerchantApiIpAddress()));
+                    "Workshop deposit " + candidate.bookingCode(), merchantApiIpAddress));
             if (result == null || !result.responseSignatureVerified()
                     || !"00".equals(result.providerResponseCode())
                     || !"00".equals(result.transactionStatus())

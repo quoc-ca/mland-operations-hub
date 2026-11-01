@@ -131,6 +131,18 @@ public class OtaChannelBooking {
         return booking;
     }
 
+    public void markCancellationRequested() {
+        this.providerStatus = "CANCELLATION_REQUESTED";
+    }
+
+    public void markCancelled() {
+        this.providerStatus = "CANCELLED";
+    }
+
+    public void markRefunded() {
+        this.providerStatus = "REFUNDED";
+    }
+
     private static boolean negative(Long amount) {
         return amount != null && amount < 0;
     }

@@ -1,13 +1,13 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.*;
-import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.config.VnpayProperties;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RecordLateDepositEvidenceCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -34,7 +34,7 @@ public class BookingDepositReconciliationService {
     private final WorkshopBookingFacade bookingFacade;
     private final PaymentIngressOutcomeQueryPort ingress;
     private final VnpayMerchantOperationsPort merchant;
-    private final VnpayProperties properties;
+    private final String merchantApiIpAddress;
     private final TransactionTemplate transaction;
 
     public BookingDepositReconciliationService(WorkshopBookingRepository bookings,
@@ -42,7 +42,8 @@ public class BookingDepositReconciliationService {
             BookingLatePaymentEvidenceRepository latePayments, BookingHoldReleaseService holdRelease,
             WorkshopBookingLoyaltyOutcomeService loyalty, WorkshopBookingFacade bookingFacade,
             PaymentIngressOutcomeQueryPort ingress, VnpayMerchantOperationsPort merchant,
-            VnpayProperties properties, PlatformTransactionManager manager) {
+            @Value("${vnpay.merchant-api-ip-address:}") String merchantApiIpAddress,
+            PlatformTransactionManager manager) {
         this.bookings = bookings;
         this.attempts = attempts;
         this.reconciliations = reconciliations;
@@ -52,7 +53,7 @@ public class BookingDepositReconciliationService {
         this.bookingFacade = bookingFacade;
         this.ingress = ingress;
         this.merchant = merchant;
-        this.properties = properties;
+        this.merchantApiIpAddress = merchantApiIpAddress;
         this.transaction = new TransactionTemplate(manager);
     }
 
@@ -125,7 +126,7 @@ public class BookingDepositReconciliationService {
                 row.setUpdatedAt(now);
                 return null;
             }
-            if (properties.getMerchantApiIpAddress() == null || properties.getMerchantApiIpAddress().isBlank()
+            if (merchantApiIpAddress == null || merchantApiIpAddress.isBlank()
                     || attempt.getProviderCreateDate() == null) return null;
             long slot = Duration.between(attempt.getExpiresAt(), now).toMinutes() / QUERY_INTERVAL.toMinutes();
             String operation = "QDR-" + attempt.getAttemptReference() + "-POST-" + slot;
@@ -138,7 +139,7 @@ public class BookingDepositReconciliationService {
         if (check == null) return;
         VnpayMerchantOperationResult result = merchant.queryTransaction(new VnpayQueryDrCommand(
                 check.operationReference(), check.merchantReference(), check.providerCreateDate(),
-                "Workshop deposit " + check.bookingCode(), properties.getMerchantApiIpAddress()));
+                "Workshop deposit " + check.bookingCode(), merchantApiIpAddress));
         if (result == null || !result.responseSignatureVerified()
                 || !"00".equals(result.providerResponseCode())
                 || !check.merchantReference().equals(result.merchantReference())
