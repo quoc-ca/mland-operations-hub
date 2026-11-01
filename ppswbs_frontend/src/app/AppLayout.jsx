@@ -14,6 +14,8 @@ const appMessages = {
     loyalty: 'Điểm của tôi',
     management: 'Quản trị sản phẩm',
     promotionManagement: 'Quản lý ưu đãi',
+    otaChannels: 'Kênh OTA',
+    otaReconciliation: 'Đối soát OTA',
     aiSupport: 'Trợ lý AI',
     designWorkspace: 'Thiết kế AI',
     nav: 'Điều hướng chính',
@@ -26,6 +28,10 @@ const appMessages = {
     loyalty: 'My points',
     management: 'Catalogue management',
     promotionManagement: 'Offer management',
+    otaChannels: 'OTA Channels',
+    otaReconciliation: 'OTA Reconciliation',
+    otaFinance: 'OTA Finance',
+    otaAddons: 'Shop add-ons',
     aiSupport: 'AI Support',
     designWorkspace: 'AI Design',
     nav: 'Main navigation',
@@ -50,6 +56,12 @@ export default function AppLayout() {
           <Link to="/design-requests/new">{t('designWorkspace')}</Link>
           <Link to="/catalogue-management/products">{t('management')}</Link>
           <Link to="/promotion-management/programs">{t('promotionManagement')}</Link>
+          <Link to="/ota-connectivity/channels">{t('otaChannels')}</Link>
+          <Link to="/ota-connectivity/reconciliation">{t('otaReconciliation')}</Link>
+          <Link to="/ota-connectivity/finance">{t('otaFinance')}</Link>
+          <Link to="/ota-connectivity/add-ons">{t('otaAddons')}</Link>
+          <Link to="/operations/sessions">Operations</Link>
+          <Link to="/settlement">Settlement</Link>
         </nav>
         <div className="header-tools">
           <LanguageSwitch />

@@ -74,6 +74,9 @@ public class SecurityConfiguration {
                 // VNPay calls the signed IPN server-to-server without a Mland bearer token.
                 // PaymentIngressService performs checksum, owner, amount and deduplication checks.
                 .requestMatchers(HttpMethod.GET, "/api/v1/integrations/payments/vnpay/events").permitAll()
+                // Browser return is display-only. It only redirects to the React result page;
+                // no payment state is accepted from this request.
+                .requestMatchers(HttpMethod.GET, "/payment/vnpay/return").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/payment-attempts").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/final-bill").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/required-session-change-cases/*").permitAll()
