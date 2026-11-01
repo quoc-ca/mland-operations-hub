@@ -1,0 +1,21 @@
+CREATE TABLE settlement_addon_bills (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    bill_reference VARCHAR(128) NOT NULL,
+    channel_booking_reference VARCHAR(128) NOT NULL,
+    quote_reference VARCHAR(128) NOT NULL,
+    item_code VARCHAR(128) NOT NULL,
+    item_description VARCHAR(255) NOT NULL,
+    amount_minor BIGINT NOT NULL,
+    currency_code CHAR(3) NOT NULL,
+    customer_consent_reference VARCHAR(128) NOT NULL,
+    staff_actor_reference VARCHAR(128) NOT NULL,
+    location_id BIGINT NULL,
+    lifecycle_status VARCHAR(24) NOT NULL,
+    created_at TIMESTAMP(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_settlement_addon_bill_reference (bill_reference),
+    UNIQUE KEY uq_settlement_addon_quote_reference (quote_reference),
+    KEY ix_settlement_addon_booking (channel_booking_reference),
+    CONSTRAINT ck_settlement_addon_amount CHECK (amount_minor > 0),
+    CONSTRAINT ck_settlement_addon_currency CHECK (currency_code = 'VND')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

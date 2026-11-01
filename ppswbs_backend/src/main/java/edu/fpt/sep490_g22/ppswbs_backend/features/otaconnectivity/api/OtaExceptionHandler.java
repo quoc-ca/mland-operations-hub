@@ -1,11 +1,13 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api;
 
 import edu.fpt.sep490_g22.ppswbs_backend.common.CorrelationIdFilter;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaForbiddenException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaLocationScopeException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaMappingLifecycleException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaResourceNotFoundException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaUnauthorizedException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaUnprocessableException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -62,9 +64,20 @@ public class OtaExceptionHandler {
         return response(HttpStatus.CONFLICT, "CONFLICT", "The OTA data changed; reload before retrying", request);
     }
 
-    @ExceptionHandler(OtaMappingLifecycleException.class)
-    public ResponseEntity<OtaApiError> conflict(OtaMappingLifecycleException exception, HttpServletRequest request) {
-        return response(HttpStatus.CONFLICT, "CONFLICT", "The requested OTA action conflicts with current state", request);
+    @ExceptionHandler({OtaMappingLifecycleException.class, OtaConflictException.class, IllegalStateException.class})
+    public ResponseEntity<OtaApiError> conflict(RuntimeException exception, HttpServletRequest request) {
+        String msg = exception.getMessage() != null && !exception.getMessage().isBlank()
+                ? exception.getMessage()
+                : "The requested OTA action conflicts with current state";
+        return response(HttpStatus.CONFLICT, "CONFLICT", msg, request);
+    }
+
+    @ExceptionHandler(OtaUnprocessableException.class)
+    public ResponseEntity<OtaApiError> unprocessable(OtaUnprocessableException exception, HttpServletRequest request) {
+        String msg = exception.getMessage() != null && !exception.getMessage().isBlank()
+                ? exception.getMessage()
+                : "Business gate rejects the requested operation";
+        return response(HttpStatus.UNPROCESSABLE_ENTITY, "UNPROCESSABLE", msg, request);
     }
 
     @ExceptionHandler(OtaResourceNotFoundException.class)

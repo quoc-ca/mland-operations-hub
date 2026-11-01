@@ -9,6 +9,7 @@ public record WorkshopBookingQuoteResponse(
         String grossAmount,
         String programDiscount,
         String pointsUsed,
+        String maxPoints,
         String pointDiscount,
         String postPromotionAmount,
         String depositAmount,
