@@ -32,7 +32,7 @@ public class BookingLatePaymentEvidence {
     @Column(name = "amount_vnd", nullable = false)
     private Long amountVnd;
 
-    @Column(name = "currency_code", nullable = false, length = 3)
+    @Column(name = "currency_code", nullable = false, length = 3, columnDefinition = "char(3)")
     private String currencyCode;
 
     @Column(name = "verified_at", nullable = false, updatable = false)

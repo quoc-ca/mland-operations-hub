@@ -3,6 +3,7 @@ target/
 logs/
 ERROR-LOG.md
 RUN-PROJ-DEV.md
+firebase-service-account.json
 .env
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
