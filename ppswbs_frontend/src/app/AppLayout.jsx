@@ -10,7 +10,7 @@ const appMessages = {
   en: { home: 'Home', products: 'Products', workshops: 'Workshops', promotions: 'Offers', loyalty: 'My points', management: 'Catalogue management', promotionManagement: 'Offer management', nav: 'Main navigation' },
 };
 
-/** Header and footer for the routed feature screens; prototype screens keep their own (src/main.jsx). */
+/** Header and footer for production-oriented feature routes. */
 export default function AppLayout() {
   const t = useT(appMessages);
   const tShared = useT(sharedMessages);

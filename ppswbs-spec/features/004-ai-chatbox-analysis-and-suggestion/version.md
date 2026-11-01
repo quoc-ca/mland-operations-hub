@@ -27,7 +27,7 @@
 - Replaced the booking-specific request model with `DesignRequest` and `design_requests`.
 - Removed booking fields and booking foreign-key assumptions from Feature-004 persistence.
 - Refactored consent, analysis, review and image-reference records to use independent Design Request ownership/version data. The current V12 migration still evolves the pre-existing `image_consents` table; this must be verified during Flyway upgrade testing.
-- Added append-only migration [`V12__independent_design_request.sql`](../../../ppswbs_backend/src/main/resources/db/migration/V12__independent_design_request.sql).
+- Added append-only migration [`V60__independent_design_request.sql`](../../../ppswbs_backend/src/main/resources/db/migration/V60__independent_design_request.sql).
 - Preserved the separation between technical analysis state (`PENDING → PROCESSING → SUCCEEDED / FAILED`) and business review state (`NEED_REVIEW → ACCEPTED / REJECTED / CLARIFICATION_REQUIRED`).
 
 ### Phase C — Application services, security and authorization
@@ -322,7 +322,7 @@ The current Feature-004 code stores the Manager decision in `PriceSuggestion`; a
 
 - The Maven wrapper could not be started in the current environment, so this update does not claim fresh test execution.
 - Flyway still contains duplicate V6, V7 and V9 filenames; V12 cannot be considered release-ready until repository-wide migration ordering is resolved.
-- `V12__independent_design_request.sql` still modifies the legacy `image_consents` schema and requires clean-install/upgrade verification against the actual baseline.
+- `V60__independent_design_request.sql` still modifies the legacy `image_consents` schema and requires clean-install/upgrade verification against the actual baseline.
 - `DesignAnalysisService` currently requires an active Member even though the entity contains Guest-proof fields.
 - `consentPurpose` is accepted by the controller but the current service does not independently validate it against `INDEPENDENT_DESIGN_IMAGE_ANALYSIS`.
 - The current in-memory `LocalStorageAdapter` is suitable for deterministic local/test processing, not multi-instance production deployment.
