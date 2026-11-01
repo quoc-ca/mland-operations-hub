@@ -26,8 +26,8 @@
 
 - Replaced the booking-specific request model with `DesignRequest` and `design_requests`.
 - Removed booking fields and booking foreign-key assumptions from Feature-004 persistence.
-- Refactored consent, analysis, review and image-reference records to use independent Design Request ownership/version data. The current V12 migration still evolves the pre-existing `image_consents` table; this must be verified during Flyway upgrade testing.
-- Added append-only migration [`V12__independent_design_request.sql`](../../../ppswbs_backend/src/main/resources/db/migration/V12__independent_design_request.sql).
+- Refactored consent, analysis, review and image-reference records to use independent Design Request ownership/version data. The current V60 migration still evolves the pre-existing `image_consents` table; this must be verified during Flyway upgrade testing.
+- Added append-only migration [`V60__independent_design_request.sql`](../../../ppswbs_backend/src/main/resources/db/migration/V60__independent_design_request.sql). Loyalty/Feature-006 retains the canonical V12 migration.
 - Preserved the separation between technical analysis state (`PENDING → PROCESSING → SUCCEEDED / FAILED`) and business review state (`NEED_REVIEW → ACCEPTED / REJECTED / CLARIFICATION_REQUIRED`).
 
 ### Phase C — Application services, security and authorization
@@ -102,6 +102,7 @@ The following results are historical evidence recorded from the implementation r
 
 - Linearize all repository Flyway migrations without editing already-applied migrations.
 - Verify upgrade compatibility and preserve existing data before claiming database readiness.
+- Before applying V60 to an existing database, inspect `flyway_schema_history` for version `12`. A database with only Loyalty V12 may apply V60 normally; a database with Feature-004 recorded as V12 requires a separate history-recovery decision and must not be repaired implicitly.
 
 ### Phase C — Remaining implementation gate
 
@@ -123,7 +124,7 @@ The following results are historical evidence recorded from the implementation r
 ## 3. Active blockers and audit notes
 
 1. **Policy blocker:** Guest ownership, request-content, review, revision/withdrawal and image-retention policies are not fully approved.
-2. **Migration blocker:** Repository-wide Flyway version collisions must be resolved before clean-install/upgrade readiness can be claimed.
+2. **Migration blocker:** The source-level V12 collision is resolved by moving Feature-004 to V60; clean-install/upgrade readiness still requires checking existing `flyway_schema_history` and running the MySQL upgrade test.
 3. **Evidence status:** The 44/44 and Modulith results above are historical execution evidence, not fresh verification of this documentation-only update.
 4. **Historical baseline:** Earlier booking-coupled implementation notes and the previous `53/53` result are retained only as audit history in Git, not as the current Feature-004 contract.
 
@@ -134,7 +135,7 @@ The following results are historical evidence recorded from the implementation r
 | Phase | Current evidence | Remaining evidence |
 | --- | --- | --- |
 | Phase A | Independent contract and boundary artifacts | Approved ownership/review/retention decisions |
-| Phase B | Independent entity model and V12 migration | Repository-wide migration linearization and MySQL upgrade test |
+| Phase B | Independent entity model and V60 migration | Existing-database history check and MySQL upgrade test |
 | Phase C | Services, security and authorization rebase | Final policy-driven behavior |
 | Phase D | Independent REST backend contract | React + Vite Design Workspace |
 | Phase E | Historical Modulith and 44/44 integration results | Fresh final-commit verification and E2E evidence |
@@ -321,8 +322,8 @@ The current Feature-004 code stores the Manager decision in `PriceSuggestion`; a
 ### 5.8. Current implementation caveats
 
 - The Maven wrapper could not be started in the current environment, so this update does not claim fresh test execution.
-- Flyway still contains duplicate V6, V7 and V9 filenames; V12 cannot be considered release-ready until repository-wide migration ordering is resolved.
-- `V12__independent_design_request.sql` still modifies the legacy `image_consents` schema and requires clean-install/upgrade verification against the actual baseline.
+- Flyway previously contained duplicate V6, V7 and V9 filenames; those collisions were renumbered in the shared migration history. The current collision was V12 between Loyalty and Feature-004 and has been resolved in source by assigning Feature-004 to V60.
+- `V60__independent_design_request.sql` still modifies the legacy `image_consents` schema and requires clean-install/upgrade verification against the actual baseline.
 - `DesignAnalysisService` currently requires an active Member even though the entity contains Guest-proof fields.
 - `consentPurpose` is accepted by the controller but the current service does not independently validate it against `INDEPENDENT_DESIGN_IMAGE_ANALYSIS`.
 - The current in-memory `LocalStorageAdapter` is suitable for deterministic local/test processing, not multi-instance production deployment.
@@ -550,6 +551,6 @@ PriceProposalController
 8. `GeminiRestClientAdapter` currently returns deterministic/mock-like results rather than calling the live provider.
 9. `LocalStorageAdapter` is in-memory and unsuitable for multi-instance production deployment.
 10. Maven wrapper execution failed in the current environment before Maven started; no fresh backend integration evidence is available for this frontend handoff.
-11. Repository Flyway migrations still contain duplicate V6, V7 and V9 filenames.
+11. The source-level V12 collision is resolved by moving Feature-004 to V60; existing databases must still be checked for a previously applied Feature-004 V12 history row before rollout.
 12. `consentPurpose` is accepted by the controller but is not independently validated by `DesignAnalysisService`; the frontend must send `INDEPENDENT_DESIGN_IMAGE_ANALYSIS` and the backend contract should be hardened separately.
 

@@ -96,11 +96,45 @@
 
 ---
 
-## 7. Summary of All Verified Tests
+## 7. OpenAPI Contract Drift & Documentation Verification (`OtaConnectivityOpenApiIT`, `OtaFinancialEvidenceControllerIT`, `OtaAddonControllerIT`, `OtaReconciliationApiTest`, `OtaVoucherFallbackServiceTest`)
+
+- **Command**:
+  ```bash
+  mvn -f ppswbs_backend/pom.xml test -Dtest=OtaConnectivityOpenApiIT,OtaFinancialEvidenceControllerIT,OtaAddonControllerIT,OtaReconciliationApiTest,OtaVoucherFallbackServiceTest,OtaConnectivityModuleTest
+  ```
+- **Verification points (T053)**:
+  - **OpenAPI 3.1.0 Contract Metadata**: Verified against `contracts/ota-connectivity.openapi.yaml`; base server URL is strictly `/api/v1`.
+  - **Route Inventory & Alignment**: All 14 operational REST paths verified with exact HTTP methods, parameter models, and Spring controller mappings across `OtaChannelController`, `OtaReconciliationController`, `OtaFinancialEvidenceController`, and `OtaAddonController`.
+  - **Response Status Codes & Errors**: Success (200, 201, 202) and typed error statuses (400, 401, 403, 404, 409, 422) adhere to `ApiError` (`code`, `message`, `correlationId`).
+  - **Strict Request & Schema Safety**: All request/response schemas enforce `additionalProperties: false` via `OtaStrictRequest`; unknown fields return HTTP 400.
+  - **Enum Fidelity**: 100% enum agreement for providers, mapping states, commercial statuses, 12 readiness checks, work item statuses, resolution options, customer payment states, payout states, and add-on types/statuses.
+  - **Privacy & Redaction**: Zero exposure of provider tokens, API keys, passwords, credentials, raw signatures, QR secrets, or customer PII (credit cards, phone, personal email) in contracts, schemas, or runtime responses.
+  - **Shared-voucher Incident Fallback**: Verified server-safe audit correlation without automatic check-in.
+- **Total Tests**: 67/67 passed (9 + 21 + 19 + 9 + 9).
+
+---
+
+## 7. Persistent Publication, Retry, Resync & Authorization Verification (T050)
+
+- **Command**:
+  ```bash
+  mvn -f ppswbs_backend/pom.xml test "-Dtest=edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaInventorySyncIT,edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaSyncDeliveryPersistenceIT,edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaSyncDeliveryServiceTest,edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.security.OtaAuthorizationIT"
+  ```
+- **Environment**: isolated, generated MySQL schemas created from `WORKSHOP_OTA_TEST_JDBC_URL`; the shared `ppswbs_workshop_test_20261029` schema was not reset or modified destructively.
+- **Result**: **23/23 passed, 0 failures, 0 errors**.
+- **Verification points**:
+  - Persistent Spring Modulith publication replayed after injected consumer failure and application-context restart without duplicate logical outbound changes.
+  - Duplicate/older source versions were ignored; source-version gaps triggered affected-mapping suspension and authoritative resync.
+  - Retry attempts and retry exhaustion were persisted; exhaustion created reconciliation work without mutating Operations capacity, tickets, or direct-Mland availability.
+  - Confirmed resync restored preparation synchronization only after the authoritative snapshot and mapping state were accepted.
+  - Manager/global and Staff/location-scoped authorization boundaries remained enforced.
+
+## 8. Summary of All Verified Tests
 
 | Test Suite Class | Tests Run | Pass | Fail | Description |
 |---|---|---|---|---|
 | `OtaConnectivityModuleTest` | 2 | 2 | 0 | Spring Modulith module & facade dependency rules |
+| `OtaConnectivityOpenApiIT` | 9 | 9 | 0 | OpenAPI 3.1.0 contract drift, schema constraints & controller alignment |
 | `OtaAuthorizationIT` | 6 | 6 | 0 | Canonical role & location-scoped security boundaries |
 | `OtaTicketDeliveryGateTest` | 6 | 6 | 0 | Shared voucher vs individual ticket scan gate |
 | `OtaInventoryAdapterContractTest` | 13 | 13 | 0 | Neutral provider adapter contract & serialization |
@@ -109,7 +143,10 @@
 | `OtaCancellationIT` | 6 | 6 | 0 | Request vs confirmed cancellation lifecycle & idempotency |
 | `OtaCancellationCallbackSecurityIT` | 3 | 3 | 0 | Invalid event routing, reconciliation queue & PII hygiene |
 | `OtaFinancialEvidenceIT` | 2 | 2 | 0 | Separated channel-payment vs supplier payout on MySQL |
+| `OtaFinancialEvidenceControllerIT` | 21 | 21 | 0 | Payout reconciliation REST endpoints, stages, disputes & redaction |
 | `OtaAddonBillingIT` | 3 | 3 | 0 | Free engraving, consent rejection & paid add-on isolation |
 | `OtaAddonSettlementContractTest` | 5 | 5 | 0 | Settlement facade contract & Staff location authorization |
-| **Total Verified** | **52** | **52** | **0** | **100% Passing** |
-
+| `OtaAddonControllerIT` | 19 | 19 | 0 | Add-on quote, acceptance & direct-bill REST controller integration |
+| `OtaReconciliationApiTest` | 9 | 9 | 0 | Reconciliation work item listing, resolve action & idempotency |
+| `OtaVoucherFallbackServiceTest` | 9 | 9 | 0 | Shared voucher incident fallback authorization, audit & replay |
+| **Total Verified** | **119** | **119** | **0** | **100% Passing** |

@@ -94,7 +94,7 @@ These paths are specified in the proposed OpenAPI contract. Responses expose saf
 | `POST /api/v1/ota-reconciliation-work-items/{id}/resolve` | Record a reviewed resolution; may queue re-sync. | Active Manager globally or Admin globally, subject to the action rule; immutable decision audit. |
 | `GET /api/v1/ota-channel-bookings/{channelBookingId}/financial-evidence` | Read separated channel-payment and payout evidence. | Active Manager globally. |
 | `POST /api/v1/ota-channel-bookings/{channelBookingId}/payout-reconciliation` | Append staged payout, variance, dispute, adjustment, or reversal evidence. A bank receipt needs a booking-specific allocation reference and the same payout reference as the accepted remittance; a correction links the original public ledger UUID. Only matched payout reference, net, and currency evidence advances to `PAID_OUT`. | Active Manager globally. |
-| `POST /api/v1/ota-channel-bookings/{channelBookingId}/add-on-quotes` | Create a free engraving record or paid direct-Mland add-on quote. | Authorized Staff scope. |
+| `POST /api/v1/ota-channel-bookings/{channelBookingId}/add-on-quotes` | At the Mland shop, create a free engraving record or paid direct-Mland add-on quote outside OTA checkout. | Authorized Staff scope. |
 | `POST /api/v1/ota-addon-quotes/{quoteId}/acceptance` | Record acceptance for a paid quote. | Authorized Staff scope; no bill before acceptance. |
 | `POST /api/v1/ota-addon-quotes/{quoteId}/direct-bill` | Create the separate Settlement-owned direct-Mland bill. | Authorized Staff scope; quote must be accepted. |
 

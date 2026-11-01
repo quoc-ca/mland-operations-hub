@@ -1,6 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { screenGroups, screenIndex } from './screenRegistry';
 import { getPublicProduct, listPublicCategories, listPublicProducts, publicMediaUrl } from './api/catalogue';
+import { WorkshopListPage } from './workshops/WorkshopListPage';
+import { WorkshopDetailPage } from './workshops/WorkshopDetailPage';
+import { WorkshopBookingPage } from './workshops/WorkshopBookingPage';
+import { WorkshopPaymentReturnPage } from './workshops/WorkshopPaymentReturnPage';
+import { WorkshopLookupPage } from './workshops/WorkshopLookupPage';
+import { WorkshopAccessPage } from './workshops/WorkshopAccessPage';
 import './style.css';
 import './retail.css';
 import './operations.css';
@@ -20,12 +26,51 @@ const banners = [
 ];
 
 function toHref(id) { return `#/${id}`; }
-function currentRoute() { return (window.location.hash.replace(/^#\//, '').split('?')[0]) || 'home'; }
+function parseRoute() {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  const hashRaw = window.location.hash.replace(/^#[/]?/, '');
+  const hashPath = hashRaw.split('?')[0];
+
+  const candidate = (path !== '/' && path !== '') ? path : ('/' + hashPath);
+
+  if (candidate === '/workshops') {
+    return { route: 'workshops', params: {} };
+  }
+  const bookMatch = candidate.match(/^\/workshops\/([^/]+)\/book$/);
+  if (bookMatch) {
+    return { route: 'booking-setup', params: { packageId: decodeURIComponent(bookMatch[1]) } };
+  }
+  const detailMatch = candidate.match(/^\/workshops\/([^/]+)$/);
+  if (detailMatch) {
+    return { route: 'workshop-details', params: { packageId: decodeURIComponent(detailMatch[1]) } };
+  }
+  if (candidate === '/workshop-booking/lookup') {
+    return { route: 'booking-lookup', params: {} };
+  }
+  if (candidate === '/workshop-booking/access') {
+    return { route: 'booking-access', params: {} };
+  }
+  const paymentReturnMatch = candidate.match(/^\/workshop-booking\/([^/]+)\/payment-return$/);
+  if (paymentReturnMatch) {
+    return { route: 'workshop-payment-return', params: { bookingCode: decodeURIComponent(paymentReturnMatch[1]) } };
+  }
+
+  const legacyKey = hashPath || 'home';
+  return { route: legacyKey, params: {} };
+}
 
 function useRoute() {
-  const [route, setRoute] = useState(currentRoute());
-  useEffect(() => { const listener = () => setRoute(currentRoute()); window.addEventListener('hashchange', listener); return () => window.removeEventListener('hashchange', listener); }, []);
-  return route;
+  const [routeInfo, setRouteInfo] = useState(parseRoute());
+  useEffect(() => {
+    const listener = () => setRouteInfo(parseRoute());
+    window.addEventListener('hashchange', listener);
+    window.addEventListener('popstate', listener);
+    return () => {
+      window.removeEventListener('hashchange', listener);
+      window.removeEventListener('popstate', listener);
+    };
+  }, []);
+  return routeInfo;
 }
 
 function CarouselControls({ index, count, change, label }) {
@@ -144,15 +189,19 @@ function RoleScreen({ screen }) {
 }
 
 function App() {
-  const route = useRoute(); const screen = screenIndex[route] || screenIndex.home;
+  const { route, params } = useRoute(); const screen = screenIndex[route] || screenIndex.home;
   let content;
   if (route === 'home') content = <HomePage />;
   else if (route === 'catalogue') content = <LiveCatalogue />;
   else if (route === 'product-details') content = <RetailProductDetails />;
-  else if (route === 'workshops') content = <WorkshopCatalogue />;
-  else if (route === 'workshop-details') content = <WorkshopCatalogue details />;
+  else if (route === 'workshops') content = <WorkshopListPage />;
+  else if (route === 'workshop-details') content = <WorkshopDetailPage packageId={params.packageId} />;
+  else if (route === 'booking-setup') content = <WorkshopBookingPage packageId={params.packageId || 1} />;
+  else if (route === 'workshop-payment-return') content = <WorkshopPaymentReturnPage bookingCode={params.bookingCode} />;
+  else if (route === 'booking-lookup') content = <WorkshopLookupPage />;
+  else if (route === 'booking-access') content = <WorkshopAccessPage />;
   else if (['login', 'register', 'forgot-password'].includes(route)) content = <LoginLike mode={route} />;
-  else if (['booking-setup', 'signature-setup', 'wax-setup', 'booking-summary'].includes(route)) content = <BookingFlow title={screen.title} />;
+  else if (['signature-setup', 'wax-setup', 'booking-summary'].includes(route)) content = <BookingFlow title={screen.title} />;
   else if (route === 'cart') content = <RetailCartWorkspace />;
   else if (route === 'checkout') content = <RetailCheckoutWorkspace />;
   else if (route === 'my-orders') content = <RetailOrdersExperience />;
