@@ -10,7 +10,7 @@ BEGIN
        OR EXISTS (SELECT 1 FROM retail_cart_lines)
        OR EXISTS (SELECT 1 FROM retail_carts) THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Clear pre-FE-02 local/test retail rows before V38';
+            SET MESSAGE_TEXT = 'Clear pre-FE-02 local/test retail rows before V54';
     END IF;
 END$$
 CALL assert_retail_variant_migration_safe()$$

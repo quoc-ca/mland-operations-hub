@@ -1,7 +1,7 @@
 # Integration Gates — FE-06
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27 (T002: cập nhật hiện trạng G-01–G-07 theo `khuong` và `origin/develop` `37d68cf`; T077: frontend chưa có)
+**Date updated**: 2026-11-01 (T077 đạt — dùng nền frontend của 002; trước đó: 2026-10-27 (T002: cập nhật hiện trạng G-01–G-07 theo `khuong` và `origin/develop` `37d68cf`; T077: frontend chưa có))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -33,7 +33,9 @@ Nguồn: nhánh `khuong` (`73ac306` cộng thay đổi chưa commit của 006) v
 
 **Thứ tự adapter sau facade:** (1) G-01 xong CORS; (2) FE-08 thay `LocalRetailBenefitAdapter` bằng adapter qua facade, chạy `LoyaltyRetailSourceIntegrationIT` với nguồn thật; (3) FE-03 thêm accept booking và hook cọc; (4) FE-03 thêm outcome hậu xử lý; (5) 006 chạy T057, T062, T065 và phần nguồn thật của T063. 006 không tự viết adapter thay owner.
 
-**T077 — nền frontend dùng chung (2026-10-27): CHẶN.** `ppswbs_frontend/` trên `khuong` và `origin/develop` chỉ có `AGENT.md`; T088 và T089 của 002 còn `[ ]`. Chưa có React + Vite, REST client hay lệnh build/test. Các task UI T030, T034, T040, T047, T055, T061, T070 và T078 chờ T088/T089. 006 không khởi tạo frontend thứ hai.
+**T077 — nền frontend dùng chung (2026-11-01): ĐẠT.** 002 T088/T089 đã dựng nền React + Vite (version ghim, `npm run build`, `npm test`, router, i18n vi/en, REST client có bearer/Idempotency-Key/typed error/401/409/503); FE-06 dùng chung, không khởi tạo bản thứ hai (xem [verification](verification.md) mục 27). Tích hợp thật còn chờ đăng nhập 001 và CORS (T078).
+
+**T077 — nền frontend dùng chung (2026-10-27, lịch sử): CHẶN.** `ppswbs_frontend/` trên `khuong` và `origin/develop` chỉ có `AGENT.md`; T088 và T089 của 002 còn `[ ]`. Chưa có React + Vite, REST client hay lệnh build/test. Các task UI T030, T034, T040, T047, T055, T061, T070 và T078 chờ T088/T089. 006 không khởi tạo frontend thứ hai.
 
 ## Không hỏi lại các quyết định đã có
 

@@ -37,4 +37,22 @@ public class WorkshopBookingLoyaltyOutcomeService {
                 true,
                 verifiedEvidenceReference));
     }
+
+    /** Called only after every deposit attempt has a matching, verified failure outcome. */
+    public void finishConfirmedUnpaidExpiry(WorkshopBooking booking, String verifiedEvidenceReference) {
+        if (booking.getMemberAccountId() == null) return;
+        var quote = quotes.findByAcceptedBookingCode(booking.getBookingCode()).orElse(null);
+        if (quote == null || !booking.getMemberAccountId().equals(quote.getMemberAccountId())) return;
+        Instant now = Instant.now();
+        long version = booking.getVersion() == null ? 0L : booking.getVersion();
+        String key = "unpaid-expiry-" + booking.getBookingCode();
+        loyalty.releaseHeldBenefits(new AuthoritativeOutcome(SourceKind.WORKSHOP,
+                booking.getBookingCode(), "workshopbooking", key, version,
+                OutcomeKind.UNPAID_EXPIRY_CONFIRMED, now, booking.getHoldExpiresAt(),
+                quote.getQuoteRef(), true, verifiedEvidenceReference));
+        loyalty.finishIneligibleEarn(new AuthoritativeOutcome(SourceKind.WORKSHOP,
+                booking.getBookingCode(), "workshopbooking", key + "-earn", version + 1,
+                OutcomeKind.UNPAID_EXPIRY_CONFIRMED, now, booking.getHoldExpiresAt(),
+                quote.getQuoteRef(), true, verifiedEvidenceReference));
+    }
 }

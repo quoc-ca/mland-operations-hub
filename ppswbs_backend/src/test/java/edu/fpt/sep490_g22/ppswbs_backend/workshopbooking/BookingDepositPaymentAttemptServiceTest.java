@@ -16,16 +16,19 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class BookingDepositPaymentAttemptServiceTest {
     @Mock WorkshopBookingRepository bookings; @Mock BookingInvoiceRepository invoices;
-    @Mock BookingPaymentAttemptRepository attempts; @Mock PaymentOwnerRegistrationPort owners;
+    @Mock BookingPaymentAttemptRepository attempts; @Mock BookingDepositReconciliationRepository reconciliations;
+    @Mock PaymentOwnerRegistrationPort owners;
     @Test void registersOwnerBeforeReturningAttempt() {
         var booking = WorkshopBooking.builder().id(1L).bookingCode("BK-1").bookingStatus(BookingStatus.PENDING_PAYMENT).build();
         var invoice = BookingInvoice.builder().id(2L).booking(booking).depositAmount(50_000L).build();
         when(bookings.findByBookingCode("BK-1")).thenReturn(java.util.Optional.of(booking));
         when(invoices.findByBookingId(1L)).thenReturn(java.util.Optional.of(invoice));
         when(attempts.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
-        var attempt = new BookingDepositPaymentAttemptService(bookings, invoices, attempts, owners)
+        var attempt = new BookingDepositPaymentAttemptService(bookings, invoices, attempts, reconciliations, owners)
                 .create("BK-1", "https://sandbox.vnpayment.vn/payment", Instant.now().plusSeconds(900));
         assertThat(attempt.getMerchantReference()).startsWith("DEP-BK-1-");
-        verify(owners).registerOwner(eq(attempt.getMerchantReference()), eq("BK-1"), eq("DEPOSIT"), eq(50_000L), eq("VND"));
+        verify(owners).registerOwner(eq(attempt.getMerchantReference()), eq("BK-1"), eq("DEPOSIT"), eq(50_000L), eq("VND"), isNull());
+        verify(reconciliations).saveAndFlush(argThat(row -> row.getAttempt() == attempt
+                && "PENDING".equals(row.getLifecycleStatus())));
     }
 }

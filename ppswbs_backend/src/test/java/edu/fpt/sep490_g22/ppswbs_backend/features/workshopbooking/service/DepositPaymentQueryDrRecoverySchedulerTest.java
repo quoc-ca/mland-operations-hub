@@ -13,7 +13,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.Booking
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ApplyVerifiedDepositPaymentEvidenceCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RecordLateDepositEvidenceCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.config.VnpayProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -159,9 +158,7 @@ class DepositPaymentQueryDrRecoverySchedulerTest {
     }
 
     private DepositPaymentQueryDrRecoveryScheduler scheduler() {
-        VnpayProperties properties = new VnpayProperties();
-        properties.setMerchantApiIpAddress("203.0.113.10");
-        return new DepositPaymentQueryDrRecoveryScheduler(attempts, ingressOutcomes, merchantOperations, booking, properties);
+        return new DepositPaymentQueryDrRecoveryScheduler(attempts, ingressOutcomes, merchantOperations, booking, "203.0.113.10");
     }
 
     private VnpayMerchantOperationResult result(boolean signature, String merchant, long amount) {

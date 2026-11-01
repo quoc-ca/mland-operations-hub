@@ -1,7 +1,7 @@
 # Verification — FE-06 Loyalty & Promotion
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật)
+**Date updated**: 2026-11-01 (mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -429,3 +429,24 @@ Develop `bb5f56e` (`e061e90`, Bùi Trọng Thịnh): `RetailUnstartedExpiryServi
 | Toàn bộ `features/loyaltypromotion/**` + `ModulithArchitectureTests` (MySQL 8.4, database trống `ppswbs_loyalty_build38`, `39`, đã xóa) | 249, 1 bỏ qua có sẵn (CORS, BE-DESIGN-0012) |
 
 **Tick T054**: đủ các mục của task — quoteRef/ack của nguồn, kiểm tra giá/số lượng trước loyalty, accept và reserve cùng transaction, thanh toán đủ/đơn 0đ settle rồi grant cùng transaction, hết hạn đã xác nhận → release + finishIneligibleEarn, hạn gốc và phân xử theo trạng thái nguồn (quá hạn khi đang thanh toán thì FE-08 đối soát, không tự nhả). Còn lại cho G-03: cổng thanh toán thật (hiện `SimulatedRetailPaymentOutcomeService`) và phí ship trong digest khi bật GHTK.
+
+## 27. Frontend React của FE-06 (T077, T030, T034, T040, T047, T070; T055 chuẩn bị), 2026-11-01
+
+**Nền chung (T077).** Dùng đúng nền của 002 T088/T089 ([002 blocker-report](../002-product-management/blocker-report.md) mục "Nền frontend và màn hình 002"), không tạo bản khởi tạo thứ hai: `src/shared/api/http.js` (bearer Firebase, `Idempotency-Key` theo hành động, Thử lại cùng key, lỗi `ErrorResponse` có `fieldErrors`/`correlationId`, 409 tải bản mới nhất), `src/shared/i18n` (vi/en), `src/shared/auth` (thêm `RequireSession`). Riêng 006: `expectedVersion` gửi dạng **chuỗi** đúng OpenAPI 006 (002 gửi số).
+
+| Task | Màn hình (`ppswbs_frontend/src/features/loyaltypromotion/`) | Route |
+| --- | --- | --- |
+| T030 | `management/ProgramListPage.jsx` (lọc phạm vi/trạng thái trên URL, phân trang cursor), `ProgramCreatePage.jsx` (trường theo kind/scope: giảm tự động chỉ sản phẩm và luôn cho dùng điểm, chỉ voucher có mã và giới hạn; lỗi theo trường giữ dữ liệu), `ProgramDetailPage.jsx` | `/promotion-management/programs`, `/new`, `/:programId` |
+| T047 | `ProgramDetailPage.jsx`: sửa (PATCH chỉ trường đổi + `expectedVersion`; kind/scope/mã/đối tượng không sửa), tạm dừng / mở lại có xác nhận, 409 tải bản mới giữ nội dung đang sửa, xem `getPromotionUsage` | như trên |
+| T034 | `management/PointPolicyPage.jsx`: chính sách hiện hành + version, sửa đủ 4 giá trị, chỉ báo "đã lưu" từ response xác nhận, ghi rõ chỉ áp dụng cho giao dịch sau | `/promotion-management/point-policy` |
+| T040 | `member/MyLoyaltyPage.jsx`: có thể dùng / số dư / đang giữ, quy đổi, lịch sử phân trang cursor; lỗi tải không hiện số cũ, lịch sử rỗng có chữ riêng; không có màn xóa/hết hạn điểm | `/me/loyalty` |
+| T070 | `public/PromotionListPage.jsx`, `PromotionDetailPage.jsx`, `SaveVoucherButton.jsx` (Guest phải đăng nhập trước khi lưu, Member lưu bằng PUT có key), `member/SavedVouchersPage.jsx` (trạng thái ACTIVE/PAUSED/SCHEDULED/EXPIRED/NO_PUBLIC_TARGET, rỗng). Component chọn ưu đãi nhận danh sách voucher đã lưu và vẫn cho nhập mã trực tiếp | `/promotions`, `/promotions/:id`, `/me/saved-vouchers` |
+| T055 (chưa tick) | `checkout/BenefitSelector.jsx`: không dùng / tự động / voucher (nhập mã hoặc chọn từ Kho), số điểm + tối đa dùng được, breakdown hàng / giảm ưu đãi / giảm điểm / phí giao / cần trả, lý do, đổi lựa chọn không gửi gì, Tính lại → xem → tích xác nhận → Xác nhận. Không có route, không gọi API: màn hình checkout FE-08 truyền quote và gửi accept | — |
+
+**Lệnh và kết quả** (`ppswbs_frontend`): `npm test` → 5 file, **57 test pass** (15 test mới của 006 trong `features/loyaltypromotion/test/loyalty.test.jsx`, HTTP giả lập: lọc + cursor, form theo kind, lỗi trường giữ dữ liệu, PATCH chỉ trường đổi, 409 giữ nội dung, tạm dừng có Hủy, chính sách chỉ báo lưu sau xác nhận, My Loyalty lỗi/rỗng/phân trang, Guest không gửi request, lưu voucher có key, 404 ưu đãi, component checkout). `npm run build` đạt. Trình duyệt (Vite dev + backend local `ppswbs_dev`): `/promotions` gọi `GET /api/v1/promotions` thật → 200, hiện "Hiện chưa có ưu đãi nào."; khu Manager và trang Member báo chưa cấu hình Firebase; khổ 375px không cuộn ngang.
+
+**Chưa chạy / còn mở.**
+- T078 (tích hợp UI/API thật): NOT RUN — backend chưa khởi tạo Firebase Admin (không có `FirebaseApp.initializeApp`), chưa có màn đăng nhập và cách tạo Admin/Manager của 001; preflight CORS của route không phải workshop bị `workshopOperationsCorsFilter` trả 403 (BE-DESIGN-0012).
+- T055: component xong nhưng chưa được màn checkout FE-08 nhúng; `BenefitPreviewView` của FE-08 chưa trả số điểm tối đa (`maxPoints`) nên component chỉ hiện được khi owner bổ sung. T061: chờ FE-03 (quote workshop).
+- Đối tượng áp dụng nhập bằng mã (ID, cách nhau dấu phẩy) vì chưa có hợp đồng chọn sản phẩm/gói; lý do của quote là chuỗi tiếng Anh từ backend nên hiển thị nguyên văn.
+- Frontend chưa biết vai trò (chưa có bootstrap 001): khu Manager hiện cho mọi người đã đăng nhập, backend trả 403 nếu không phải Manager.

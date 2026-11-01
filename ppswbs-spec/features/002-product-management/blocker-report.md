@@ -1,7 +1,7 @@
 # Product Management — Implementation Prerequisites
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-30 (nguồn giữ hàng thật của FE-08; V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; baseline T001)
+**Date updated**: 2026-11-01 (nền frontend T088/T089 và màn hình 002; 2026-10-30: nguồn giữ hàng thật của FE-08; V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; baseline T001)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -182,3 +182,42 @@ Bước kế tiếp là review tasks và speckit-analyze khi được giao. Task
   - **T082** — `ModulithArchitectureTests` và `CatalogueDependenciesIT` đạt với đủ dependency thật: identity 001 (`accountmanagement::facade`), FE-08 (`readyringsales` chỉ dùng `productmanagement::facade`, nguồn giữ hàng và thanh toán thật), Cloudinary (T051); thiếu nguồn vẫn trả lỗi có kiểu (`CatalogueSalesIT`).
   - Kết quả (MySQL 8.4, database trống `ppswbs_pm_sales40`, `41`, đã xóa): 002 và `ModulithArchitectureTests` 342 test đều pass.
   - Còn mở: T074 (cần nhật ký thao tác trình duyệt của frontend), 13 task frontend (chờ T088/T089), T086/T087 (chốt cuối). Ghi chú cho FE-08: chưa gọi `releaseMediaReferences`, chưa có luồng hết hạn chưa thanh toán.
+
+## Nền frontend và màn hình 002 (2026-11-01)
+
+**Quyết định đã duyệt (T088).** Đặng Thị Khương (owner 002) duyệt trong phiên làm việc ngày 2026-11-01 các mục 1–8 của [frontend-foundation-proposal.md](frontend-foundation-proposal.md) làm cơ sở cho 002, dùng prototype `e7657ff` (Bùi Trọng Thịnh) làm nền giao diện. Duyệt của PM (Hồ Hoàng Quốc), xác nhận mục 7 của 001 (Phan Sơn) và đồng ý tách prototype của Thịnh **chưa có**; nếu họ chốt khác, phần `src/shared/` và `src/app/` phải sửa theo.
+
+| Mục | Quyết định áp dụng |
+| --- | --- |
+| Cấu trúc | `ppswbs_frontend/src/app/` (khởi động, router, layout), `src/shared/{api,auth,i18n,ui}`, `src/features/productmanagement/{public,management,api}`. Feature chỉ import `shared/`. Prototype giữ nguyên ở `src/main.jsx` (chỉ đổi dòng cuối thành `export default App`) và chạy ở mọi đường dẫn chưa thuộc feature nào. |
+| Version (ghim chính xác) | react / react-dom 19.3.1, react-router 7.18.5, firebase 12.19.0, vite 7.3.7, @vitejs/plugin-react 5.2.0, vitest 4.1.12, jsdom 27.4.0, @testing-library/react 16.3.3, user-event 14.6.8, jest-dom 6.10.0. |
+| Build / test | `npm run build` (Vite), `npm test` (`vitest run`, jsdom, Testing Library), `npm run dev`. |
+| Routing | `createBrowserRouter`: `/products`, `/products/:productId`, `/catalogue-management/{products, products/new, products/:productId, categories, imports}`; còn lại về prototype (hash). Hosting phải trả `index.html` cho mọi đường dẫn (SPA fallback). |
+| State | Không thư viện state, không cache dữ liệu server; mở màn hình là đọc lại, chỉ phản hồi mới nhất được hiển thị. Context chỉ cho phiên và ngôn ngữ. |
+| i18n | Từ điển vi/en tự viết (`src/shared/i18n`), mặc định tiếng Việt, ngôn ngữ lưu `localStorage`; lỗi dịch theo `code` của backend, thiếu bản dịch thì hiện `message` an toàn kèm correlation ID. |
+| Phiên (T089, mục 7) | Firebase Web SDK, cấu hình `VITE_FIREBASE_*`; token đọc từ SDK cho từng request, không lưu, không đưa vào URL/log. 401 → làm mới token, gửi lại một lần → vẫn 401 thì đăng xuất. Màn đăng nhập thuộc 001; chưa có cấu hình Firebase thì khu quản trị báo chưa đăng nhập được. |
+| HTTP client (T089, mục 8) | `src/shared/api/http.js`: `Idempotency-Key` UUID cho mỗi hành động, Thử lại dùng lại đúng key, không tự thử lại; `expectedVersion` theo từng API; lỗi `ApiError` đọc `code`, `message`, `correlationId`, `fieldErrors`; 409 → nút Tải bản mới nhất, input giữ nguyên; 503/mất phản hồi → Thử lại cùng key. |
+
+**Màn hình (chỉ gọi đúng API backend 002 đang có).**
+
+| Task | Màn hình / file trong `ppswbs_frontend/src/features/productmanagement/` |
+| --- | --- |
+| T071 | `public/PublicProductListPage.jsx`, `PublicProductDetailPage.jsx`: tìm/lọc giá/danh mục/có thể mua/sắp xếp/phân trang lưu trên URL, khoảng giá, size ngừng bán/hết hàng, 404 = không còn công khai; không có nút mua (T072). |
+| T028 | `management/ProductListPage.jsx`, `ProductCreatePage.jsx`: danh sách lọc theo URL; tạo với size chỉ chọn lúc tạo, giá đề xuất, số lượng, ảnh; lỗi trường gắn đúng ô và giữ dữ liệu. |
+| T050 | `sections/ContentSection.jsx`, `ImagesSection.jsx` + `ImageEditor.jsx` (tải từng ảnh, thử lại cùng key, gắn bằng mediaId), `VariantsSection.jsx` (size/SKU chỉ đọc; còn lại / đang giữ / có thể bán tách riêng). |
+| T034 | `sections/ReviewSection.jsx`: gửi duyệt có xác nhận, Manager duyệt toàn bộ (giá mọi size) hoặc từ chối có lý do, cảnh báo nội dung đổi sau khi gửi, lịch sử. |
+| T040 | `sections/PublicationSection.jsx`: đề xuất / đã duyệt / đã áp dụng tách riêng, công khai / ẩn. |
+| T057 | `sections/PriceSection.jsx`: lịch sử revision, đề xuất / sửa / gửi / quyết định / áp dụng (không có ô số tiền khi áp dụng); trước lần công khai đầu, quyết định đi qua hồ sơ. |
+| T064 | `VariantsSection.jsx` (ngừng bán / mở bán từng size), `sections/DeleteSection.jsx` (hộp thoại riêng, Hủy không gọi API). |
+| T079 | `categories/CategoriesPage.jsx`: tạo / sửa, xem tác động (số và danh sách sản phẩm, version) trước khi đổi kích hoạt. |
+| T101 | `import/ImportPage.jsx`: tải mẫu, chọn `.xlsx` (gợi ý đuôi/dung lượng), bảng lỗi theo dòng/cột + tải báo cáo, xem trước, xác nhận riêng, kết quả có liên kết; mất phản hồi khi xác nhận thì đọc lại batch trước khi gửi lại cùng key; hết hạn / `IMPORT_PREVIEW_STALE` yêu cầu kiểm tra lại; nhắc thêm ảnh. |
+
+**Bằng chứng.** `ppswbs_frontend`: `npm test` → 4 file, **42 test pass** (`shared/api/http.test.js` theo bảng lỗi 400/401/403/404/409/413/415/503 của interfaces, làm mới token, không gửi token khi đọc công khai, mất phản hồi; `catalogueApi.test.js`; `screens.test.jsx` với HTTP giả lập: chưa đăng nhập, danh sách/rỗng, lỗi trường giữ dữ liệu, 503 thử lại cùng key, 409 tải bản mới giữ input, `QUANTITY_BELOW_HELD`, quyết định hồ sơ, xóa có Hủy, tác động danh mục, lỗi import, catalogue công khai, tiếng Anh). `npm run build` đạt (cảnh báo bundle 550 kB do Firebase SDK). Kiểm tra trình duyệt (Vite dev, `http://localhost:5173`, không có backend): trang công khai hiện lỗi kết nối có Thử lại và đọc lại tiêu chí từ URL; khu quản trị báo chưa cấu hình Firebase; khổ 375px không cuộn ngang, có menu quản trị; prototype vẫn chạy ở `/`.
+
+**Chưa chạy / còn mở.**
+- Tích hợp thật với backend (T090, T074): chưa có cấu hình Firebase và màn đăng nhập của 001 nên không có bearer thật; preflight CORS của mọi route không phải workshop đang bị `workshopOperationsCorsFilter` trả 403 (đã báo Hồ Hoàng Quốc, xem BE-DESIGN-0012 của 006). GET công khai đơn giản không bị preflight. Kết quả trên chỉ là test với HTTP giả lập, không phải bằng chứng backend hoạt động.
+- Ảnh của sản phẩm chưa công khai không xem trước được vì backend chỉ phục vụ ảnh công khai; màn hình hiện mô tả ảnh và xem trước file vừa chọn trên máy.
+- Ô chọn danh mục chỉ lấy trang đầu (20 danh mục) của API danh mục quản trị.
+- Frontend chưa biết vai trò (chưa có bootstrap 001) nên nút quyết định hiện cho mọi người dùng; backend trả 403 cho Staff.
+- `npm install` báo lỗ hổng trong cây phụ thuộc (`npm audit`), chưa xử lý vì nâng version cần duyệt.
+- Còn mở: T072 (hợp đồng chuyển sang FE-08), T085, T090, T074, T086, T087.

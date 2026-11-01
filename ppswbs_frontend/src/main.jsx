@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createRoot } from 'react-dom/client';
 import { screenGroups, screenIndex } from './screenRegistry';
 import { getPublicProduct, listPublicCategories, listPublicProducts, publicMediaUrl } from './api/catalogue';
 import './style.css';
@@ -165,4 +164,4 @@ function App() {
   return <><Header />{content}<footer><div className="container footer-inner"><strong>MLAND</strong><span>© MLAND</span></div></footer></>;
 }
 
-createRoot(document.getElementById('root')).render(<App />);
+export default App;
