@@ -19,8 +19,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.Ot
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaProvider;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaReconciliationWorkItem;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaReconciliationWorkItemRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,7 +41,6 @@ import java.util.UUID;
  * - Raw provider webhooks are translated via provider-specific OtaCancellationAdapter.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class OtaCancellationService {
 
@@ -53,6 +52,27 @@ public class OtaCancellationService {
     private final OtaInboundEventService inboundEventService;
     private final OtaCancellationConsequenceService consequenceService;
     private final OtaCancellationAdapterRegistry cancellationAdapterRegistry;
+
+    @Autowired
+    public OtaCancellationService(
+            OtaChannelConnectionRepository connectionRepository,
+            OtaChannelMappingRepository mappingRepository,
+            OtaChannelBookingRepository bookingRepository,
+            OtaCustomerPaymentEvidenceRepository customerPaymentRepository,
+            OtaReconciliationWorkItemRepository reconciliationRepository,
+            OtaInboundEventService inboundEventService,
+            OtaCancellationConsequenceService consequenceService,
+            OtaCancellationAdapterRegistry cancellationAdapterRegistry
+    ) {
+        this.connectionRepository = connectionRepository;
+        this.mappingRepository = mappingRepository;
+        this.bookingRepository = bookingRepository;
+        this.customerPaymentRepository = customerPaymentRepository;
+        this.reconciliationRepository = reconciliationRepository;
+        this.inboundEventService = inboundEventService;
+        this.consequenceService = consequenceService;
+        this.cancellationAdapterRegistry = cancellationAdapterRegistry;
+    }
 
     public OtaCancellationService(
             OtaChannelConnectionRepository connectionRepository,
