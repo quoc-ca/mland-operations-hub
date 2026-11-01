@@ -56,8 +56,8 @@ implementation-owned.
 
 ### Refund and cancellation policy
 
-Customer cancellation/refund is whole-booking only under existing timing and
-attendance rules. For Mland-caused cancellation, offer replacement first; if it
+Customer cancellation is whole-booking, non-refundable, and subject to the
+existing timing and attendance rules. For Mland-caused cancellation, offer replacement first; if it
 is unavailable/declined, refund the whole package under its confirmation-time
 policy snapshot. The current default is 100% of every collected payment,
 including deposit/final payment, even if an earlier session was attended.

@@ -8,13 +8,11 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.Book
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCustomerCancellationSnapshotRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementRefundAllocationRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.GuestContactProofDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.SettlementCaseProjectionDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementBusinessAudit;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCase;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCustomerCancellationSnapshot;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundAllocation;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
 import lombok.extern.slf4j.Slf4j;
@@ -23,10 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.HexFormat;
@@ -45,8 +41,6 @@ public class CustomerBookingCancellationService {
     private final SettlementCaseRepository cases;
     private final SettlementCustomerCancellationSnapshotRepository snapshots;
     private final SettlementBusinessAuditRepository audits;
-    private final SettlementRefundAllocationRepository allocations;
-    private final WorkshopRefundService refunds;
     private final TransactionTemplate transaction;
 
     public CustomerBookingCancellationService(WorkshopBookingSettlementAdapter booking,
@@ -55,8 +49,6 @@ public class CustomerBookingCancellationService {
             SettlementCaseRepository cases,
             SettlementCustomerCancellationSnapshotRepository snapshots,
             SettlementBusinessAuditRepository audits,
-            SettlementRefundAllocationRepository allocations,
-            WorkshopRefundService refunds,
             PlatformTransactionManager transactionManager) {
         this.booking = booking;
         this.operations = operations;
@@ -64,8 +56,6 @@ public class CustomerBookingCancellationService {
         this.cases = cases;
         this.snapshots = snapshots;
         this.audits = audits;
-        this.allocations = allocations;
-        this.refunds = refunds;
         this.transaction = new TransactionTemplate(transactionManager);
     }
 
@@ -101,9 +91,24 @@ public class CustomerBookingCancellationService {
             throw new WorkshopSettlementConflictException("CANCELLATION_CASE_ALREADY_EXISTS");
         }
 
-        if (opened != null && "PENDING_PROVIDER".equals(opened.status())) {
-            refunds.dispatchCase(opened.caseReference());
-            return readCase(bookingReference, opened.caseReference());
+        if ("OPEN".equals(opened.status())) {
+            String caseReference = opened.caseReference();
+            var completion = operations.cancelBooking(bookingReference, caseReference,
+                    operationReference + "-OPERATIONS", correlation);
+            if (completion.status() == edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus.ACCEPTED) {
+                var bookingCompletion = booking.cancelConfirmedBooking(bookingReference, caseReference,
+                        operationReference + "-BOOKING", correlation);
+                if (bookingCompletion == null || bookingCompletion.status() != edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingOutcomeStatus.ACCEPTED) {
+                    return updateCaseAfterOperations(caseReference, "REJECTED", "BOOKING_CANCELLATION_REJECTED",
+                            "CUSTOMER_CANCELLATION_BOOKING_STATE_REJECTED", actorReference, correlation);
+                }
+                return updateCaseAfterOperations(caseReference, "RESOLVED", "DIRECT_DEPOSIT_FORFEITED",
+                        "CUSTOMER_CANCELLATION_RESOLVED_NO_REFUND", actorReference, correlation);
+            }
+            if (completion.status() == edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus.REJECTED) {
+                return updateCaseAfterOperations(caseReference, "REJECTED", "OPERATIONS_CANCELLATION_REJECTED",
+                        "CUSTOMER_CANCELLATION_REJECTED_BY_OPERATIONS", actorReference, correlation);
+            }
         }
         return opened;
     }
@@ -155,64 +160,59 @@ public class CustomerBookingCancellationService {
 
         String earliestSessionReference = eligibility == null ? null : eligibility.earliestRequiredSessionReference();
         Instant earliestSessionStart = eligibility == null ? null : eligibility.earliestRequiredSessionStart();
-        int refundPercent = refundPercent(requestedAt, earliestSessionStart);
-        long aggregateRefund = refundAmount(paidAmount, refundPercent);
-        String rejectionReason = null;
-        boolean eligible = eligibility != null && eligibility.eligible() && earliestSessionStart != null
-                && earliestSessionStart.isAfter(requestedAt) && paymentFactsValid && aggregateRefund > 0;
-        if (!eligible) {
-            if (eligibility == null) rejectionReason = "CANCELLATION_ELIGIBILITY_UNAVAILABLE";
-            else if (!eligibility.eligible()) rejectionReason = safeReason(eligibility.reason(), "CANCELLATION_INELIGIBLE");
-            else if (earliestSessionStart == null || !earliestSessionStart.isAfter(requestedAt)) rejectionReason = "SESSION_ALREADY_STARTED";
-            else if (!paymentFactsValid) rejectionReason = "VERIFIED_DEPOSIT_EVIDENCE_UNAVAILABLE";
-            else rejectionReason = "ZERO_REFUND";
-        }
+        // Direct Mland deposits are non-refundable.  A customer cancellation must
+        // never create a VNPay refund/QueryDR operation; OTA refunds are handled by
+        // the OTA owner outside this direct-booking flow.
+        String rejectionReason;
+        if (eligibility == null) rejectionReason = "CANCELLATION_ELIGIBILITY_UNAVAILABLE";
+        else if (!eligibility.eligible()) rejectionReason = safeReason(eligibility.reason(), "CANCELLATION_INELIGIBLE");
+        else if (earliestSessionStart == null || !earliestSessionStart.isAfter(requestedAt)) rejectionReason = "SESSION_ALREADY_STARTED";
+        else if (!paymentFactsValid) rejectionReason = "VERIFIED_DEPOSIT_EVIDENCE_UNAVAILABLE";
+        else rejectionReason = null;
+        boolean eligible = rejectionReason == null;
+        String caseStatus = eligible ? "OPEN" : "REJECTED";
+        String reason = eligible ? "DIRECT_DEPOSIT_FORFEITED" : rejectionReason;
 
         String caseReference = "SETTLE-CANCEL-" + UUID.randomUUID();
         SettlementCase settlementCase = cases.saveAndFlush(SettlementCase.builder()
                 .caseReference(caseReference).bookingReference(bookingReference).caseType("CUSTOMER_CANCELLATION")
-                .lifecycleStatus(eligible ? "PENDING_PROVIDER" : "REJECTED")
-                .reasonReference(rejectionReason).correlationReference(correlation)
+                .lifecycleStatus(caseStatus)
+                .reasonReference(reason).correlationReference(correlation)
                 .createdAt(requestedAt).updatedAt(requestedAt).build());
 
         snapshots.saveAndFlush(SettlementCustomerCancellationSnapshot.builder()
                 .snapshotReference("CANCEL-SNAPSHOT-" + UUID.randomUUID())
                 .caseReference(caseReference).bookingReference(bookingReference)
-                .policyRevision(POLICY_REVISION).refundPercent((short) refundPercent)
+                .policyRevision(POLICY_REVISION).refundPercent((short) 0)
                 .earliestSessionReference(earliestSessionReference).earliestSessionStart(earliestSessionStart)
-                .paidDepositAmountVnd(paidAmount).refundAmountVnd(eligible ? aggregateRefund : 0L)
-                .currencyCode("VND").eligibilityOutcome(eligible ? "ELIGIBLE" : "REJECTED")
-                .rejectionReason(rejectionReason).requestedAt(requestedAt).build());
+                .paidDepositAmountVnd(paidAmount).refundAmountVnd(0L)
+                .currencyCode("VND").eligibilityOutcome(eligible ? "NO_REFUND" : "REJECTED")
+                .rejectionReason(eligible ? null : rejectionReason).requestedAt(requestedAt).build());
 
-        if (eligible) allocate(caseReference, payments, aggregateRefund, requestedAt);
         audits.save(SettlementBusinessAudit.builder().auditReference("SETTLE-AUDIT-" + UUID.randomUUID())
                 .aggregateType("SETTLEMENT_CASE").aggregateReference(caseReference)
-                .actionCode(eligible ? "CUSTOMER_CANCELLATION_OPENED" : "CUSTOMER_CANCELLATION_REJECTED")
+                .actionCode(eligible ? "CUSTOMER_CANCELLATION_OPENED_NO_REFUND" : "CUSTOMER_CANCELLATION_REJECTED")
                 .actorReference(actorReference).correlationReference(correlation)
-                .reasonReference(rejectionReason == null ? "CUSTOMER_REQUEST" : rejectionReason)
+                .reasonReference(reason)
                 .createdAt(requestedAt).build());
         return settlementCase.getCaseReference();
     }
 
-    private void allocate(String caseReference, List<VerifiedBookingPayment> payments,
-                          long refundAmount, Instant createdAt) {
-        long remaining = refundAmount;
-        for (VerifiedBookingPayment payment : payments) {
-            if (remaining == 0) break;
-            long amount = Math.min(payment.amountVnd(), remaining);
-            if (amount <= 0) continue;
-            String allocationReference = "REFUND-ALLOCATION-" + UUID.randomUUID();
-            allocations.save(SettlementRefundAllocation.builder()
-                    .allocationReference(allocationReference).caseReference(caseReference)
-                    .originalPaymentReference(payment.reference())
-                    .originalProviderTransactionNumber(payment.providerTransactionNumber())
-                    .originalProviderCreateDate(payment.originalProviderCreateDate())
-                    .originalAmountVnd(payment.amountVnd()).allocatedAmountVnd(amount)
-                    .currencyCode("VND").operationReference("VNPAY-REFUND-" + UUID.randomUUID())
-                    .lifecycleStatus("PREPARED").createdAt(createdAt).updatedAt(createdAt).build());
-            remaining -= amount;
-        }
-        if (remaining != 0) throw new IllegalStateException("REFUND_ALLOCATION_TOTAL_MISMATCH");
+    private SettlementCaseProjectionDto updateCaseAfterOperations(String caseReference, String status,
+            String reason, String auditAction, String actorReference, String correlationReference) {
+        return transaction.execute(statusContext -> {
+            SettlementCase settlementCase = cases.findByCaseReference(caseReference)
+                    .orElseThrow(() -> new WorkshopSettlementConflictException("CANCELLATION_CASE_OUTCOME_MISSING"));
+            settlementCase.setLifecycleStatus(status);
+            settlementCase.setReasonReference(reason);
+            cases.saveAndFlush(settlementCase);
+            audits.save(SettlementBusinessAudit.builder().auditReference("SETTLE-AUDIT-" + UUID.randomUUID())
+                    .aggregateType("SETTLEMENT_CASE").aggregateReference(caseReference)
+                    .actionCode(auditAction).actorReference(actorReference)
+                    .correlationReference(correlationReference).reasonReference(reason)
+                    .createdAt(Instant.now()).build());
+            return SettlementCaseProjectionDto.from(settlementCase);
+        });
     }
 
     private void authorizeCustomerAccess(String bookingReference, GuestContactProofDto guestProof,
@@ -229,19 +229,6 @@ public class CustomerBookingCancellationService {
         if ((email == null) == (phone == null)) throw new WorkshopSettlementValidationException("EXACTLY_ONE_GUEST_CONTACT_PROOF_REQUIRED");
         var access = booking.verifyCustomerAccess(bookingReference, null, email, phone);
         if (access == null || !access.authorized()) throw new WorkshopSettlementNotFoundException();
-    }
-
-    private static int refundPercent(Instant requestedAt, Instant earliestStart) {
-        if (earliestStart == null || !earliestStart.isAfter(requestedAt)) return 0;
-        Duration until = Duration.between(requestedAt, earliestStart);
-        if (until.compareTo(Duration.ofHours(72)) >= 0) return 100;
-        if (until.compareTo(Duration.ofHours(24)) >= 0) return 50;
-        return 0;
-    }
-
-    private static long refundAmount(long paidAmount, int percent) {
-        return BigInteger.valueOf(paidAmount).multiply(BigInteger.valueOf(percent))
-                .divide(BigInteger.valueOf(100)).longValueExact();
     }
 
     private static String accessFingerprint(GuestContactProofDto proof, CurrentAccountActor actor) {

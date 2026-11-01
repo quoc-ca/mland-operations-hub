@@ -149,4 +149,21 @@
 | `OtaAddonControllerIT` | 19 | 19 | 0 | Add-on quote, acceptance & direct-bill REST controller integration |
 | `OtaReconciliationApiTest` | 9 | 9 | 0 | Reconciliation work item listing, resolve action & idempotency |
 | `OtaVoucherFallbackServiceTest` | 9 | 9 | 0 | Shared voucher incident fallback authorization, audit & replay |
-| **Total Verified** | **119** | **119** | **0** | **100% Passing** |
+| `OtaCancellationAdapterContractTest` | 13 | 13 | 0 | Provider cancellation/refund adapter contract, signature, allowlist & fail-closed reconciliation |
+| **Total Verified** | **132** | **132** | **0** | **100% Passing** |
+
+## 9. Provider Cancellation Adapter Verification (T038)
+
+- **Date**: 2026-11-01
+- **Command**:
+  ```bash
+  mvn -f ppswbs_backend/pom.xml test "-Dtest=edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.adapter.OtaCancellationAdapterContractTest,edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaCancellationIT,edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaCancellationCallbackSecurityIT"
+  ```
+- **Result**: **22/22 passed, 0 failures, 0 errors**.
+- **Verification points**:
+  - `KlookCancellationAdapter` and `GetYourGuideCancellationAdapter` map valid test payloads (`CANCEL_REQUESTED`, `CANCEL_CONFIRMED`, `REFUNDED`) into domain `OtaCancellationEventCommand`.
+  - Signature header (`X-Ota-Signature`) verification enforces opaque credential reference; invalid signatures reject with `UNAUTHORIZED` without leakages.
+  - Strict default-deny rejects payloads containing forbidden fields (credit card, customer password, raw email/phone PII) with `ALLOWLIST_VIOLATION`.
+  - Missing external booking reference fails closed with `VALIDATION_ERROR`.
+  - Unmapped or unknown provider event actions return `Unmapped` without guessing semantics and route safely to `INBOUND_EVENT` reconciliation work items, without executing automatic cancellation or refund side-effects.
+  - Direct customer cancellation policy in 003.3 remains non-refundable, isolated, and untouched.
