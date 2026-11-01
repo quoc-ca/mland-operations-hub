@@ -194,6 +194,23 @@ class LoyaltyEntityRulesTests {
         assertCode(() -> benefit.settle("paid-2", 2, NOW), LoyaltyErrorCode.BENEFIT_STATE_CONFLICT);
     }
 
+    /** FE-03 sends a cancellation as a pair (restore at v, finish the earn at v+1) and may redeliver the first one. */
+    @Test
+    void aRedeliveredOutcomeIsANoOpEvenAfterANewerOutcomeOfTheSource() {
+        AcceptedBenefit benefit = accepted(SourceKind.WORKSHOP, 200, true);
+        benefit.settle("deposit-1", 2, NOW);
+        assertThat(benefit.restore("cancel-1", 3, NOW).points()).isTrue();
+        assertThat(benefit.finishIneligibleEarn("cancel-1-earn", 4, NOW)).isFalse();
+
+        assertThat(benefit.restore("cancel-1", 3, NOW).any()).as("redelivered restore").isFalse();
+        assertThat(benefit.settle("deposit-1", 2, NOW).any()).as("redelivered deposit").isFalse();
+        assertThat(benefit.finishIneligibleEarn("cancel-1-earn", 4, NOW)).isFalse();
+        assertThat(benefit.getPointsState()).isEqualTo(ComponentState.RESTORED);
+        assertThat(benefit.getVoucherState()).isEqualTo(ComponentState.RESTORED);
+        // A different, older outcome is still refused.
+        assertCode(() -> benefit.release("expiry-1", 1, NOW), LoyaltyErrorCode.BENEFIT_STATE_CONFLICT);
+    }
+
     @Test
     void settlementIsRecordedEvenWhenNothingWasHeld() {
         AcceptedBenefit benefit = accepted(SourceKind.RETAIL, 0, false);

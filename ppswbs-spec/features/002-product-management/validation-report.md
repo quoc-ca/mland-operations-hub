@@ -1,7 +1,7 @@
 # Validation Report: Product Management
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-01 (frontend React T088/T089 và màn hình 002; 2026-10-27: sau merge develop, T002/T007, REST API, T051, T073, T083, các task viết test; facade FE-08 phía 002)
+**Date updated**: 2026-11-01 (regression toàn hệ thống T086; chạy lại sau develop 365dcf3: T074, T085, T086; frontend React T088/T089 và màn hình 002; 2026-10-27: sau merge develop, T002/T007, REST API, T051, T073, T083, các task viết test; facade FE-08 phía 002)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -93,3 +93,63 @@ npm.cmd run build
 | `npm run build` (Vite 7.3.7) | Đạt; cảnh báo bundle > 500 kB (Firebase SDK) |
 | Trình duyệt, Vite dev, không có backend | Lỗi kết nối có Thử lại; tiêu chí lọc đọc lại từ URL; khu quản trị báo chưa cấu hình Firebase; 375px không cuộn ngang |
 | Tích hợp UI/API thật (V-13, T090) | **NOT RUN**: chưa có cấu hình Firebase / đăng nhập 001; CORS preflight bị `workshopOperationsCorsFilter` chặn (BE-DESIGN-0012) |
+
+## Chạy lại sau develop `365dcf3` (T074, T085, T086), 2026-11-01
+
+**Môi trường.** Nhánh `khuong` = develop `365dcf3` + thay đổi chưa commit của 002/006; Java 21.0.12, Spring Boot 3.4.1, MySQL 8.4.13 (dịch vụ `MySQL84`), mỗi lần chạy một database trống (`ppswbs_pm_sales50`–`53`, đã xóa sau khi chạy); Node 24.16, Vitest 4.1.12, Vite 7.3.7. Cloudinary: không có `CLOUDINARY_*` trong lần chạy này nên `CatalogueCloudinaryIT` tự bỏ qua; bằng chứng Cloudinary thật vẫn là lần chạy 2026-10-26 (T051).
+
+```powershell
+Set-Location D:/mland-operations-hub/mland-operations-hub/ppswbs_backend
+$env:PM_TEST_JDBC_URL = "jdbc:mysql://localhost:3306/ppswbs_pm_salesNN?createDatabaseIfNotExist=true"
+.\mvnw.cmd -o test "-Dtest=Catalogue*Tests,Catalogue*IT,ModulithArchitectureTests,**/features/productmanagement/*/**/*"
+Set-Location ../ppswbs_frontend
+npm.cmd test; npm.cmd run build
+```
+
+| Lệnh | Kết quả |
+| --- | --- |
+| 002 + Modulith (lệnh trên) | 342 test: 326 đạt trong lần chạy chung; `CatalogueSalesIT` (16) lỗi khởi tạo context vì MySQL "Too many connections" (giới hạn kết nối khi chạy nhiều context cùng backend local), chạy lại riêng 16/16 đạt → **342/342 đạt, 0 bỏ qua** (`CatalogueCloudinaryIT` không có trong lần chạy vì thiếu `CLOUDINARY_*`) |
+| `CataloguePublicApiIT` (mới, T074) | 6/6 — trường công khai đúng tập (không lộ đề xuất/duyệt/số lượng/version/mediaId), `no-store`, không `Set-Cookie`, duyệt catalogue không tạo dòng nào ở `catalogue_audit_events`, `catalogue_command_receipts`, `retail_variant_holds`, `retail_carts`, `retail_cart_lines`, `retail_grouped_checkouts`, `retail_orders`; khoảng giá 150.000–180.000 và "có thể mua" trên cùng size; size ngừng bán giữ nhãn; `INVALID_SORT`, giá thập phân, `categoryId` sai, trang âm bị 400; từ khóa 200 nhận, 201 bị 400; 20 sản phẩm/trang, trang 2 có 1, giá bằng nhau xếp theo id; URL cũ của sản phẩm ẩn/xóa → 404 `PRODUCT_NOT_FOUND`, ảnh của sản phẩm ẩn → 404; nguồn giữ hàng FE-08 trả kết quả không kiểm chứng được → 503 `AVAILABILITY_DEPENDENCY_UNAVAILABLE` có correlation ID, phục hồi → 200 |
+| Frontend `npm test` | 6 file, 66 test đạt; `npm run build` đạt |
+
+**Lỗi tìm thấy và đã sửa (002 frontend).** `ImageEditor`: ảnh vừa chọn biến mất khỏi danh sách ngay khi kết quả tải lên trả về, vì lần cập nhật trạng thái dựa trên danh sách của lần render trước. Sửa: mọi thay đổi đi qua `commit` cập nhật danh sách ngay. Test `T085 remaining management journeys` (tải ảnh lỗi 503 → Thử lại cùng key → gắn bằng `mediaId`).
+
+**Hành trình trình duyệt (T074, T090 phần công khai).** Vite dev `http://localhost:5173` + backend local `http://localhost:8080` (database `ppswbs_dev` trống, chạy bằng `.env` với `SPRING_JPA_HIBERNATE_DDL_AUTO=none`, xem ghi chú dưới):
+- `/products?q=nhan&sort=price-desc&canBuy=true` → `GET /api/v1/products?q=nhan&canBuy=true&sort=price-desc` 200, form đọc lại đủ tiêu chí từ URL, trạng thái rỗng "Không có sản phẩm khớp với tiêu chí hiện tại.".
+- `/products?minimumPrice=1.5` → 400, thông báo lỗi kèm mã tra cứu từ backend.
+- `/products/999999` → 404, "Sản phẩm không tồn tại hoặc không còn được công khai".
+- Không có header `Authorization` trên các GET công khai. Database trống nên chưa xem được thẻ sản phẩm thật: tạo sản phẩm cần khu quản trị, mà khu quản trị chưa đăng nhập được (001).
+
+**Ghi chú môi trường (không phải lỗi của 002).** Develop `f5e29a4` (001) đặt mặc định `spring.jpa.hibernate.ddl-auto=validate`; entity `BookingLatePaymentEvidence.currency_code` (FE-03, `varchar(3)`) lệch với migration V40 (`CHAR(3)`), nên ứng dụng không khởi động trên database mới. Test vẫn đạt vì profile test dùng `ddl-auto=none`. Chạy local dùng `SPRING_JPA_HIBERNATE_DDL_AUTO=none`; cần owner 001/003 thống nhất.
+
+### Ma trận V-01–V-15 cập nhật 2026-11-01
+
+| ID | Trạng thái | Bằng chứng mới so với bảng trên | Còn lại |
+| --- | --- | --- | --- |
+| V-01 | PASS (backend) | Không đổi; CORS dùng chung đã gỡ (006 `LoyaltySecurityIT` 11/11) | Phiên Firebase thật NOT RUN (001 chưa khởi tạo Firebase Admin) |
+| V-02 | PASS | Không đổi | — |
+| V-03 | PASS | Không đổi | — |
+| V-04 | PASS | `CatalogueAcceptedPriceIT`: đơn đã accept giữ giá cũ khi áp giá mới | — |
+| V-05 | PASS | Không đổi; Cloudinary thật lần 2026-10-26 | — |
+| V-06 | PASS | Nguồn giữ hàng FE-08 thật: `CatalogueQuantityIT` (10), `CatalogueContentEditIT` | — |
+| V-07 | PASS | `CatalogueLifecycleConcurrencyIT` (5): checkout accept trước khi ẩn/xóa vẫn thanh toán/hủy được; xóa tranh với accept thật không bán sản phẩm đã xóa | — |
+| V-08 | PASS | Giữ hàng thật khi đổi danh mục (`CatalogueCategoryConcurrencyIT`) | — |
+| V-09 | PASS | `CataloguePublicApiIT` qua HTTP (mục trên); số đang giữ thật trừ vào "có thể mua" | Thẻ sản phẩm trên trình duyệt với dữ liệu thật chờ khu quản trị (001) |
+| V-10 | PASS | Nguồn giữ hàng không kiểm chứng được → 503 rồi phục hồi (`CataloguePublicApiIT`) | — |
+| V-11 | PASS | Không đổi | — |
+| V-12 | PASS | Chạy lại trên database trống với 59 migration của develop | — |
+| V-13 | PARTIAL | Frontend React có: build đạt, test component/API giả lập (66 test đạt), hành trình trình duyệt trang công khai với backend thật | Màn quản trị với backend thật NOT RUN (chưa có phiên 001); nút mua (T072) chờ FE-08 |
+| V-14 | PASS | `CatalogueRetentionIT` (2): job dọn ở mốc 6 năm không xóa receipt/audit/ảnh của sản phẩm đã xóa mềm | — |
+| V-15 | PASS | Không đổi | — |
+
+### Regression toàn backend (T086), 2026-11-01
+
+Sau khi tăng tạm `max_connections` của MySQL từ 151 lên 500 (`SET GLOBAL`, mất khi dịch vụ khởi động lại; Đặng Thị Khương đồng ý), chạy `.\mvnw.cmd -o test` (cấu hình Surefire hiện hành) với database trống riêng cho từng profile: `JDBC_URL` → `ppswbs_reg_app`, `PM_TEST_JDBC_URL` → `ppswbs_reg_pm`, `LOYALTY_TEST_JDBC_URL` → `ppswbs_reg_loyalty`, `WORKSHOP_OPERATIONS_TEST_JDBC_*` → `ppswbs_reg_ws`.
+
+| Phạm vi | Kết quả |
+| --- | --- |
+| Toàn backend | 1.463 test: 21 failure, 62 error, 64 bỏ qua |
+| 002 (productmanagement) + 006 (loyaltypromotion) + `ModulithArchitectureTests` | **613 chạy, 0 failure, 0 error** |
+| Feature khác (lớp lỗi: số test, failure, error) | features.readyringsales.GroupedCheckoutIntegrationTest (1, F0, E1); features.readyringsales.LocalCheckoutCancellationIntegrationTest (1, F0, E1); workshopbooking.WorkshopBookingQuotePersistenceIT (1, F0, E1); workshopoperations.WorkshopPackageFacadeIT (11, F0, E10); workshopoperations.WorkshopOtaSnapshotIT (11, F0, E11); workshopoperations.AttendanceTicketContractIT (11, F1, E0); workshopoperations.SettlementChangeFacadeIT (13, F0, E13); workshopoperations.OtaBookingFacadeIT (3, F0, E3); features.readyringsales.CartJourneyTest (4, F0, E4); workshopsettlement.RequiredSessionChangeIT (5, F0, E5); workshopoperations.WorkshopOperationsQuickstartIT (6, F0, E6); workshopbooking.WorkshopBookingDtoTests (6, F1, E0); workshopbooking.WorkshopBookingMigrationIT (7, F0, E7); workshopoperations.WorkshopLifecycleContractIT (7, F3, E0); workshopoperations.WorkshopOperationsSnapshotTest (8, F2, E0); workshopoperations.CapacityHoldIT (8, F6, E0); workshopoperations.CheckInIT (8, F8, E0) |
+
+Các lỗi ngoài 002/006 đến từ cách dựng database test của feature khác, không do 002: `readyringsales` (profile `test` dùng H2 trống, "Table RETAIL_CARTS not found"), `workshopbooking`/`workshopsettlement`/`workshopoperations` (database của `WORKSHOP_OPERATIONS_TEST_JDBC_URL` chưa có bảng `workshop_locations`, và một số assertion phụ thuộc dữ liệu/thứ tự). `CatalogueCloudinaryIT` bỏ qua vì không có `CLOUDINARY_*` (Cloudinary thật: lần chạy 2026-10-26). V-01/V-13 với phiên 001 thật vẫn NOT RUN.

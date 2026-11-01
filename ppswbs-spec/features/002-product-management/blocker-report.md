@@ -1,7 +1,7 @@
 # Product Management — Implementation Prerequisites
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01 (nền frontend T088/T089 và màn hình 002; 2026-10-30: nguồn giữ hàng thật của FE-08; V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; baseline T001)
+**Date updated**: 2026-11-01 (T074/T085 xong, T086 còn regression toàn hệ thống; nền frontend T088/T089 và màn hình 002; 2026-10-30: nguồn giữ hàng thật của FE-08; V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; baseline T001)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -221,3 +221,11 @@ Bước kế tiếp là review tasks và speckit-analyze khi được giao. Task
 - Frontend chưa biết vai trò (chưa có bootstrap 001) nên nút quyết định hiện cho mọi người dùng; backend trả 403 cho Staff.
 - `npm install` báo lỗ hổng trong cây phụ thuộc (`npm audit`), chưa xử lý vì nâng version cần duyệt.
 - Còn mở: T072 (hợp đồng chuyển sang FE-08), T085, T090, T074, T086, T087.
+
+## Cập nhật 2026-11-01 — T074, T085, T086
+
+- **T074 (tick):** `CataloguePublicApiIT` 6/6 qua HTTP với nguồn giữ hàng FE-08 thật và hành trình trình duyệt trang công khai với backend local ([validation-report](validation-report.md) mục "Chạy lại sau develop 365dcf3"). Phần "FE-08 handoff không giữ giá cũ" ở phía backend đã có `CatalogueAcceptedPriceIT`; nút mua trên giao diện thuộc T072.
+- **T085 (tick):** khóa vi/en của 002 khớp 283/283, mọi khóa màn hình dùng đều có, mọi mã lỗi của hợp đồng có bản dịch (`src/features/productmanagement/test/i18n.test.js`); bổ sung test tải ảnh lỗi → thử lại cùng key, áp dụng giá không gửi số tiền, công khai thiếu điều kiện, dữ liệu hiển thị dạng chữ (không chạy markup). Sửa lỗi `ImageEditor` làm mất ảnh vừa chọn. Frontend 66/66.
+- **T086 (tick sau regression toàn hệ thống: 002/006/Modulith 613/613, validation-report mục "Regression toàn backend (T086)"; ghi chú ban đầu):** lệnh quickstart của 002 + Modulith 342/342 (một lớp phải chạy lại riêng vì MySQL "Too many connections"). Chưa chạy được regression toàn hệ thống trong một lần vì giới hạn kết nối MySQL của máy (cần tăng `max_connections` hoặc chạy theo từng feature); V-01/V-13 còn NOT RUN với phiên 001 thật.
+- **Môi trường develop:** `f5e29a4` (001) đặt `ddl-auto=validate` mặc định; `BookingLatePaymentEvidence.currency_code` (FE-03, varchar) lệch V40 (`CHAR(3)`) nên ứng dụng không khởi động trên database mới. Cần owner 001/003 thống nhất; chạy local tạm dùng `SPRING_JPA_HIBERNATE_DDL_AUTO=none`.
+- **Còn mở:** T072 (chờ FE-08 chốt chuyển sang giỏ), T086 (regression toàn hệ thống), T090 (màn quản trị chờ phiên 001), T087 (chốt cuối).
