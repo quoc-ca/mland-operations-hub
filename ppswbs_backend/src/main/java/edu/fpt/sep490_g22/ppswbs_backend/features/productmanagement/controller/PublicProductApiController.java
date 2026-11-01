@@ -4,6 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.Category
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.PublicCatalogueDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.PublicCatalogueQueryService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.PublicMediaService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.PublicSellingLocationService;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
@@ -27,10 +28,19 @@ class PublicProductApiController {
 
     private final PublicCatalogueQueryService catalogue;
     private final PublicMediaService media;
+    private final PublicSellingLocationService locations;
 
-    PublicProductApiController(PublicCatalogueQueryService catalogue, PublicMediaService media) {
+    PublicProductApiController(PublicCatalogueQueryService catalogue, PublicMediaService media,
+                               PublicSellingLocationService locations) {
         this.catalogue = catalogue;
         this.media = media;
+        this.locations = locations;
+    }
+
+    /** Branches to choose before "Add to cart" (decision A, 2026-11-01); 503 when the branch source is unavailable. */
+    @GetMapping("/product-selling-locations")
+    ResponseEntity<PublicCatalogueDtos.SellingLocationList> sellingLocations() {
+        return ok(locations.list());
     }
 
     @GetMapping("/products")

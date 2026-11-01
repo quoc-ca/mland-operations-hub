@@ -70,10 +70,40 @@ export function serverFieldErrors(error) {
 }
 
 /** The effective revision of each size's proposal history (the one the backend acts on). */
+/**
+ * The size's current proposal: the effective one with the highest revision. An applied proposal stays effective
+ * (it is the record of the applied price), so after a new proposal is made there are two effective ones.
+ */
 export function effectiveProposal(variant) {
-  return (variant.proposals || []).find(proposal => proposal.effective) || null;
+  return latestEffective(variant.proposals);
 }
 
 export function currentReview(product) {
-  return (product.reviews || []).find(review => review.effective) || null;
+  return latestEffective(product.reviews);
+}
+
+function latestEffective(items) {
+  return (items || []).filter(item => item.effective).reduce((latest, item) => (!latest || Number(item.revision) > Number(latest.revision) ? item : latest), null);
+}
+
+/** Lower case, no Vietnamese marks, words joined by "-": "Nhẫn bạc Sóng nước" → "nhan-bac-song-nuoc". */
+export function slugOf(text) {
+  return String(text || '').normalize('NFD').replace(/\p{Mn}/gu, '').replace(/[đĐ]/g, 'd').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Product an image file is meant for, from its name: the file name (without extension) contains the product's group
+ * key or name as whole words, e.g. "SONG-NUOC-2.jpg" or "nhan bac song nuoc.png". The longest match wins so that
+ * "nhan-bac" does not take a file of "nhan-bac-song-nuoc"; no match gives null and the image stays unassigned.
+ */
+export function matchProductForFile(fileName, products) {
+  const base = `-${slugOf(String(fileName).replace(/\.[^.]*$/, ''))}-`;
+  let best = null;
+  products.forEach(product => {
+    [product.groupKey, product.name].map(slugOf).filter(Boolean).forEach(key => {
+      if (base.includes(`-${key}-`) && (!best || key.length > best.length)) best = { id: product.id, length: key.length };
+    });
+  });
+  return best ? best.id : null;
 }

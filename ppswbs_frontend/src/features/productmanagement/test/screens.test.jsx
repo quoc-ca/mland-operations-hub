@@ -101,6 +101,49 @@ describe('T028 product list and create', () => {
 });
 
 describe('T050 product detail edits', () => {
+  it('after publication a new price, next to the applied one, goes draft → submit → Manager decision → apply, with a hint at each step', async () => {
+    const user = userEvent.setup();
+    const stage = { value: 'DRAFT' };
+    const proposal = () => ({
+      id: '601', variantId: '101', revision: 2, version: 1, effective: true, baseAppliedSequence: 1, proposedPrice: '1350000',
+      state: stage.value, approvedPrice: stage.value === 'APPROVED' ? '1300000' : null, applied: false,
+    });
+    const product = () => managementProduct({
+      published: true, firstPublishedAt: '2026-10-30T00:00:00Z', reviews: [{ id: '301', revision: 1, contentVersion: 1, state: 'APPROVED', effective: true }],
+      // The applied first proposal stays effective next to the new one, as the backend returns it.
+      variants: [{ ...managementProduct().variants[0], appliedPrice: '1250000', appliedSequence: 1, proposals: [
+        { id: '501', variantId: '101', revision: 1, version: 2, state: 'APPROVED', effective: true, proposedPrice: '1250000', approvedPrice: '1250000', baseAppliedSequence: 0, applied: true },
+        proposal(),
+      ] }],
+    });
+    const calls = mockFetch({
+      [`GET ${M}/products/42`]: () => json(200, product()),
+      [`GET ${M}/categories`]: json(200, categoryPage),
+      [`POST ${M}/price-proposals/601/submissions`]: () => { stage.value = 'PENDING'; return json(200, actionResult('601', 'SUBMIT_PRICE')); },
+      [`POST ${M}/price-proposals/601/decisions`]: () => { stage.value = 'APPROVED'; return json(200, actionResult('601', 'DECIDE_PRICE')); },
+    });
+    open('/catalogue-management/products/42');
+    expect(await screen.findByText(/Đề xuất đang là nháp, Manager chưa thấy/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Gửi duyệt giá' }));
+
+    expect(await screen.findByText(/Đang chờ Manager duyệt/)).toBeInTheDocument();
+    const prices = screen.getByRole('heading', { name: 'Đề xuất giá' }).closest('section');
+    await user.click(within(prices).getByRole('button', { name: 'Duyệt' }));
+    const amount = within(prices).getByLabelText('Giá duyệt (₫)');
+    await user.clear(amount);
+    await user.type(amount, '1300000');
+    await user.click(within(prices).getByRole('button', { name: 'Duyệt' }));
+
+    expect(await within(prices).findByRole('button', { name: /Áp dụng giá đã duyệt/ })).toBeInTheDocument();
+    expect(calls.find(call => call.path.endsWith('/decisions')).body).toMatchObject({ decision: 'APPROVE', approvedPrice: '1300000', expectedVersion: 1 });
+  });
+
+  it('shows each size ID, the value a Manager types as a size target of an FE-06 offer', async () => {
+    mockFetch({ [`GET ${M}/products/42`]: json(200, managementProduct()), [`GET ${M}/categories`]: json(200, categoryPage) });
+    open('/catalogue-management/products/42');
+    expect(await screen.findByText('Mã size 101')).toBeInTheDocument();
+  });
+
   it('on 409 STALE_VERSION loads the latest product and keeps the typed content', async () => {
     const user = userEvent.setup();
     let reads = 0;
@@ -229,6 +272,51 @@ describe('T101 import', () => {
     expect(await screen.findByText('Ngoài khoảng cho phép.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Tải báo cáo lỗi' })).toBeInTheDocument();
   });
+
+  it('after import, images are matched by file name, assigned by hand or per product, and saved product by product', async () => {
+    const user = userEvent.setup();
+    let uploads = 0;
+    const preview = [{ groupKey: 'SONG-NUOC', name: 'Nhẫn bạc sóng nước', sizes: [10, 12] }, { groupKey: 'DINH-DA', name: 'Nhẫn bạc đính đá CZ', sizes: [11] }];
+    const batch = state => ({
+      batchId: 'b1', fileName: 'a.xlsx', state, version: state === 'VALIDATED' ? 0 : 1, rowCount: 3, productCount: 2, variantCount: 3, errorCount: 0,
+      expiresAt: '2026-11-01T10:00:00Z',
+      ...(state === 'VALIDATED' ? { preview } : { created: [{ groupKey: 'SONG-NUOC', productId: '51', skus: ['SP000051-S10'] }, { groupKey: 'DINH-DA', productId: '52', skus: ['SP000052-S11'] }] }),
+    });
+    const calls = mockFetch({
+      [`POST ${M}/product-imports`]: json(201, batch('VALIDATED')),
+      [`POST ${M}/product-imports/b1/confirmations`]: json(200, batch('IMPORTED')),
+      [`POST ${M}/media-uploads`]: () => json(201, { mediaId: `0000000${++uploads}-0000-0000-0000-000000000000`, state: 'READY', contentType: 'image/png', byteCount: 3 }),
+      [`GET ${M}/products/51`]: json(200, managementProduct({ id: '51', images: [], version: 7 })),
+      [`GET ${M}/products/52`]: json(200, managementProduct({ id: '52', images: [], version: 2 })),
+      [`PUT ${M}/products/51/images`]: json(200, actionResult('51', 'product.images')),
+      [`PUT ${M}/products/52/images`]: json(503, { code: 'MEDIA_DEPENDENCY_UNAVAILABLE', message: 'Down.' }),
+    });
+    const { container } = open('/catalogue-management/imports');
+    await user.upload(container.querySelector('input[type=file]'), new File(['x'], 'a.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    await user.click(screen.getByRole('button', { name: 'Kiểm tra file' }));
+    await user.click(await screen.findByRole('button', { name: 'Xác nhận import' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Xác nhận import' }));
+    expect(await screen.findByText('Gắn ảnh cho các sản phẩm vừa import')).toBeInTheDocument();
+
+    const png = name => new File(['img'], name, { type: 'image/png' });
+    await user.upload(screen.getByLabelText('Chọn nhiều ảnh'), [png('song-nuoc-2.png'), png('IMG_2041.png')]);
+    expect(screen.getByText('Ảnh chưa gắn (1)')).toBeInTheDocument();
+    const [stray] = screen.getAllByLabelText('Gắn vào sản phẩm').filter(select => select.value === '');
+    await user.selectOptions(stray, '51');
+    await user.upload(screen.getByLabelText('Chọn ảnh cho Nhẫn bạc đính đá CZ'), png('anything.png'));
+    expect(screen.getAllByLabelText('Mô tả ảnh').map(input => input.value)).toEqual(['Nhẫn bạc sóng nước', 'Nhẫn bạc sóng nước', 'Nhẫn bạc đính đá CZ']);
+    expect(calls.filter(call => call.path.endsWith('/media-uploads'))).toHaveLength(0);
+
+    await user.click(screen.getByRole('button', { name: 'Lưu ảnh cho 2 sản phẩm' }));
+    expect(await screen.findByText('Đã lưu ảnh')).toBeInTheDocument();
+    const put51 = calls.find(call => call.path.endsWith('/products/51/images'));
+    expect(put51.body).toEqual({ expectedVersion: 7, images: [
+      { mediaId: '00000001-0000-0000-0000-000000000000', altText: 'Nhẫn bạc sóng nước', position: 0 },
+      { mediaId: '00000002-0000-0000-0000-000000000000', altText: 'Nhẫn bạc sóng nước', position: 1 },
+    ] });
+    expect(await screen.findByText(/tạm thời không phản hồi|Dịch vụ ảnh/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Lưu ảnh cho 1 sản phẩm' })).toBeEnabled();
+  });
 });
 
 describe('T071 public catalogue', () => {
@@ -248,12 +336,13 @@ describe('T071 public catalogue', () => {
     expect(reads.every(call => !call.headers.Authorization)).toBe(true);
   });
 
-  it('detail labels a disabled size and offers no buy action', async () => {
+  it('detail labels a disabled size and buying it is not offered', async () => {
     mockFetch({ 'GET /api/v1/products/42': json(200, publicProduct()) });
     open('/products/42');
     expect(await screen.findByRole('heading', { level: 1, name: 'Nhẫn bạc' })).toBeInTheDocument();
     expect(screen.getByText('Ngừng bán')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /giỏ|mua/i })).toBeNull();
+    expect(await screen.findByLabelText('Size')).toBeInTheDocument();
+    expect(screen.getAllByRole('option').map(option => option.textContent)).not.toContain('Size 14');
   });
 
   it('a hidden or deleted product reads as not found', async () => {
@@ -344,5 +433,101 @@ describe('T085 remaining management journeys', () => {
     expect(screen.getByText('<b>bold</b>')).toBeInTheDocument();
     expect(container.querySelector('img[src="x"]')).toBeNull();
     expect(container.querySelector('b')).toBeNull();
+  });
+});
+
+describe('T072 hand-off to the FE-08 cart', () => {
+  const locations = { items: [{ id: '3', name: 'MLAND Quận 1', address: '12 Lê Lợi' }, { id: '9', name: 'MLAND Thủ Đức', address: '' }] };
+
+  it('a Member adds the chosen size, branch and quantity and goes to /member/cart', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      'GET /api/v1/products/42': json(200, publicProduct()),
+      'GET /api/v1/product-selling-locations': json(200, locations),
+      'POST /api/v1/members/me/ready-ring-cart/lines': json(201, { id: 'cart' }),
+    });
+    // FE-08 owns /member/cart; a stand-in route shows that the page navigates there.
+    const { router } = renderRoutes([...productManagementRoutes, { path: '/member/cart', element: <p>FE-08 cart</p> }], { path: '/products/42' });
+    const add = await screen.findByRole('button', { name: 'Thêm vào giỏ' });
+    expect(add).toBeDisabled();
+    expect(screen.getAllByRole('option').map(option => option.textContent)).not.toContain('Size 14');
+    await user.selectOptions(await screen.findByLabelText('Chi nhánh'), '9');
+    const quantity = screen.getByLabelText('Số lượng');
+    await user.clear(quantity);
+    await user.type(quantity, '2');
+    await user.click(add);
+
+    expect(await screen.findByText('FE-08 cart')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/member/cart');
+    const post = calls.find(call => call.method === 'POST');
+    expect(post.body).toEqual({ variantId: 101, locationId: 9, quantity: 2 });
+    expect(post.headers.Authorization).toBe('Bearer test-token');
+    expect(calls.filter(call => call.method !== 'GET')).toHaveLength(1);
+  });
+
+  it('a Guest is sent to sign-in with the choice kept in returnTo, and the choice comes back', async () => {
+    mockFetch({
+      'GET /api/v1/products/42': json(200, publicProduct()),
+      'GET /api/v1/product-selling-locations': json(200, locations),
+    });
+    open('/products/42?variantId=101&locationId=3&quantity=4', { session: fakeSession('signed-out') });
+    const link = await screen.findByRole('link', { name: 'Đăng nhập để thêm vào giỏ' });
+    await waitFor(() => expect(screen.getByLabelText('Chi nhánh')).toHaveValue('3'));
+    expect(screen.getByLabelText('Số lượng')).toHaveValue('4');
+    expect(decodeURIComponent(link.getAttribute('href'))).toBe('/#/login?returnTo=/products/42?variantId=101&locationId=3&quantity=4');
+  });
+
+  it('without the branch source the button stays disabled and offers a retry; FE-08 errors show its message', async () => {
+    const user = userEvent.setup();
+    let locationReads = 0;
+    mockFetch({
+      'GET /api/v1/products/42': json(200, publicProduct()),
+      'GET /api/v1/product-selling-locations': () => (++locationReads === 1
+        ? json(503, { code: 'LOCATION_DEPENDENCY_UNAVAILABLE', message: 'Down.' })
+        : json(200, locations)),
+      'POST /api/v1/members/me/ready-ring-cart/lines': json(409, { code: 'RETAIL_CONFLICT', message: 'Giỏ hàng đã đủ 50 dòng.', correlationId: 'c-9' }),
+    });
+    open('/products/42');
+    expect(await screen.findByText('Chưa tải được danh sách chi nhánh. Bấm Thử lại.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Thêm vào giỏ' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Thử lại' }));
+    await user.selectOptions(await screen.findByRole('combobox', { name: 'Chi nhánh' }), '3');
+    await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
+    expect(await screen.findByText('Giỏ hàng đã đủ 50 dòng.')).toBeInTheDocument();
+    expect(screen.getByText('Mã tra cứu: c-9')).toBeInTheDocument();
+  });
+});
+
+describe('T090 session end on 401 (identity mocked: 001 has no Firebase sign-in yet)', () => {
+  it('a token still refused after one refresh ends the session and shows the sign-in notice', async () => {
+    const session = fakeSession();
+    const calls = mockFetch({
+      [`GET ${M}/products`]: json(401, { code: 'AUTHENTICATION_REQUIRED', message: 'Session expired.' }),
+      [`GET ${M}/categories`]: json(200, categoryPage),
+    });
+    open('/catalogue-management/products', { session });
+    expect(await screen.findByRole('link', { name: 'Đăng nhập' })).toHaveAttribute('href', '/#/login');
+    expect(session.getIdToken).toHaveBeenCalledWith(true);
+    expect(session.signOut).toHaveBeenCalled();
+    expect(screen.queryByRole('link', { name: 'Nhẫn bạc' })).toBeNull();
+    expect(calls.every(call => !call.path.includes('test-token') && Object.keys(call.query).every(key => !/token/i.test(key)))).toBe(true);
+  });
+});
+
+describe('image file name matching after import', () => {
+  it('matches a group key or product name as whole words, without accents, longest first', async () => {
+    const { matchProductForFile } = await import('../rules');
+    const products = [
+      { id: 'a', groupKey: 'SONG-NUOC', name: 'Nhẫn bạc sóng nước' },
+      { id: 'b', groupKey: 'NHAN-BAC', name: 'Nhẫn bạc' },
+      { id: 'c', groupKey: 'CAP-TRON', name: 'Cặp nhẫn bạc khắc tên' },
+    ];
+    expect(matchProductForFile('SONG-NUOC.png', products)).toBe('a');
+    expect(matchProductForFile('song_nuoc (2).JPG', products)).toBe('a');
+    expect(matchProductForFile('Cặp nhẫn bạc khắc tên.webp', products)).toBe('c');
+    expect(matchProductForFile('nhan-bac-song-nuoc.jpg', products)).toBe('a');
+    expect(matchProductForFile('nhan-bac-1.jpg', products)).toBe('b');
+    expect(matchProductForFile('IMG_2041.png', products)).toBeNull();
+    expect(matchProductForFile('songnuoc.png', products)).toBeNull();
   });
 });

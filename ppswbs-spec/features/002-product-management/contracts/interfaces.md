@@ -1,7 +1,7 @@
 # Interface Contracts: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29 (`readSaleFacts` cho giỏ hàng FE-08 theo xác nhận của owner FE-08)
+**Date updated**: 2026-11-01 (bước gắn ảnh hàng loạt sau import; SellingLocationPort, GET product-selling-locations, hợp đồng chuyển sang giỏ FE-08; trước đó: 2026-10-29 (`readSaleFacts` cho giỏ hàng FE-08 theo xác nhận của owner FE-08))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -90,14 +90,14 @@ Frontend là ứng dụng React + Vite tách riêng, render phía client và ch�
 
 | Màn hình | REST operations | Hành vi UI bắt buộc |
 | --- | --- | --- |
-| Danh sách / chi tiết công khai | `GET /api/v1/products`, `GET /api/v1/product-categories` | Public; GET không tạo cart/hold. Không phát minh route checkout của FE-08 nếu chưa có contract riêng; chọn mua chuyển sang FE-08 qua handoff đã có contract. |
+| Danh sách / chi tiết công khai | `GET /api/v1/products`, `GET /api/v1/product-categories`, `GET /api/v1/product-selling-locations`; "Add to cart" gọi `POST /api/v1/members/me/ready-ring-cart/lines` của FE-08 | Public; GET không tạo cart/hold. Không phát minh route checkout của FE-08 nếu chưa có contract riêng; chọn mua chuyển sang FE-08 qua handoff đã có contract. |
 | Danh sách / tạo / chi tiết sản phẩm quản trị | GET/POST `products`, GET/PUT/DELETE `products/{productId}` | Mỗi lệnh ghi có commandId + expectedVersion; Manager được tự duyệt. Xóa qua hộp thoại xác nhận riêng. |
 | Ảnh sản phẩm | POST `media-uploads`, PUT `products/{productId}/images` | Tải multipart một file rồi attach bằng mediaId; không dùng URL tùy ý; hiển thị tiến trình, lỗi và thử lại cùng key. |
 | Gửi duyệt / quyết định | POST `review-submissions`, POST `review-decisions` | Hiển thị snapshot đúng; REJECT cần lý do; không duyệt một phần. |
 | Công khai / ẩn / lượng bán / ngừng bán | PUT `publication`, PUT `variants/{variantId}/quantity`, sale-status operation | Proposed/approved/applied amounts và state hiển thị riêng. |
 | Đề xuất giá | price-proposal operations (revise/submit/decide/apply) | Chỉ apply đúng giá đã duyệt; không có amount field ở apply. |
 | Danh mục | category operations và impact | Tên duy nhất, xác nhận tác động, không mất lịch sử. |
-| Import sản phẩm từ Excel | `product-imports/template`, `POST product-imports`, `GET product-imports/{batchId}`, `error-report`, `confirmations` | Tải mẫu → chọn file (kiểm tra phía client chỉ là gợi ý: đuôi `.xlsx`, dung lượng) → xem kết quả kiểm tra: bảng lỗi theo dòng/cột + nút tải báo cáo lỗi, hoặc bản xem trước số sản phẩm/biến thể → hộp thoại xác nhận riêng → kết quả liệt kê mã sản phẩm/SKU với liên kết sang chi tiết. Sinh commandId cho từng bước; sau mất phản hồi gọi `getProductImport` trước khi thử lại cùng key; batch hết hạn hoặc 409 `IMPORT_PREVIEW_STALE` yêu cầu tải/kiểm tra lại. Nhắc rõ sản phẩm import chưa có ảnh và phải thêm ảnh trước khi gửi duyệt. |
+| Import sản phẩm từ Excel | `product-imports/template`, `POST product-imports`, `GET product-imports/{batchId}`, `error-report`, `confirmations` | Tải mẫu → chọn file (kiểm tra phía client chỉ là gợi ý: đuôi `.xlsx`, dung lượng) → xem kết quả kiểm tra: bảng lỗi theo dòng/cột + nút tải báo cáo lỗi, hoặc bản xem trước số sản phẩm/biến thể → hộp thoại xác nhận riêng → kết quả liệt kê mã sản phẩm/SKU với liên kết sang chi tiết. Sinh commandId cho từng bước; sau mất phản hồi gọi `getProductImport` trước khi thử lại cùng key; batch hết hạn hoặc 409 `IMPORT_PREVIEW_STALE` yêu cầu tải/kiểm tra lại. Nhắc rõ sản phẩm import chưa có ảnh và phải thêm ảnh trước khi gửi duyệt. Sau khi import, bước "Gắn ảnh" (2026-11-01) cho chọn ảnh theo từng sản phẩm, chọn nhiều ảnh rồi gán sản phẩm, hoặc tự gán khi tên file chứa Mã nhóm/tên sản phẩm; chỉ dùng `media-uploads`, `GET products/{id}` và `PUT products/{id}/images` có sẵn, từng sản phẩm độc lập, lỗi sản phẩm nào giữ ảnh để thử lại. File Excel vẫn không chứa ảnh (A-003 không đổi). |
 
 Hành vi chung: mỗi màn hình có loading, empty (khác dependency error), validation (lỗi gắn đúng trường, giữ dữ liệu đã nhập), success và failure/recovery. 409 STALE_VERSION tải latest và yêu cầu xác nhận lại; 503 cho kiểm tra receipt/thử lại cùng commandId; lỗi hiển thị correlation ID. Nhãn/input có tên rõ, hỗ trợ vi/en theo cơ chế i18n frontend, không tự tuyên bố đạt một accessibility standard chưa phê chuẩn. Ẩn nút hoặc route guard phía client không thay authorization phía server.
 
@@ -128,6 +128,13 @@ Không dùng facade kiểu getEntity/setField và không cho frontend gọi meth
 - Kiểu Java (2026-10-27): `Map<Long, HeldSnapshot> readSnapshots(Collection<Long> variantIds, Instant asOf)` và `<T> T withGuard(Collection<Long> variantIds, Instant asOf, Function<Map<Long, HeldSnapshot>, T> work)`. 002 truyền ID theo thứ tự tăng dần; kết quả phải có đúng một snapshot cho mỗi ID yêu cầu, thiếu/thừa/sai ID bị coi là không xác minh được (503). Nguồn không đọc được nên ném `CatalogueSalesException` `DEPENDENCY_UNAVAILABLE`. Binding phía 002 là `CatalogueAvailabilityService` (cũng là `VariantHoldReader` runtime).
 
 - **Adapter thật (2026-10-30)**: FE-08 cài `readyringsales/service/RetailAvailabilityGuardService` (develop `b0e7796`): guard row tạo khi cần bằng upsert rồi khóa bi quan theo ID tăng dần; `readSnapshots` cộng các hold có trạng thái `HELD`, trả 0 khi size chưa từng có hold; `sourceRevision` là version của guard row, đổi mỗi lần tạo/chốt/nhả/hết hạn hold. Hold quá hạn vẫn được tính cho tới khi FE-08 chuyển sang `EXPIRED` (FE-08 sở hữu hết hạn; 002 không suy từ deadline, nên không bán vượt). Accept checkout của FE-08 (`RetailCheckoutAcceptanceService`) gọi `withLockedSaleContext` → `retainMediaReferences` → `withGuard` → tạo hold → reserve loyalty; giỏ hàng gọi `readSaleFacts` (`CatalogueRetailAdapter`). Từ develop `82d7a7d` (2026-10-31): thanh toán (`SimulatedRetailPaymentOutcomeService`, profile `retail-payment-sim`, chỉ bằng chứng cổng thanh toán là mô phỏng) và đơn 0đ đi `withLockedHistoricalContext` → chốt hold trong `withGuard` → `recordAcceptedSale` (operationRef UUID cố định theo checkout + size); hủy trước thanh toán (`RetailCheckoutCancellationService`) đi `withLockedHistoricalContext` → nhả hold. Chưa có: `releaseMediaReferences` (khi hết thời hạn lưu dòng đơn) và luồng hết hạn chưa thanh toán.
+
+### SellingLocationPort — productmanagement owns SPI, 003.2 implements (quyết định A, 2026-11-01)
+
+- `List<SellingLocation> activeSellingLocations()`; `SellingLocation(long id, String displayName, String addressSnapshot)` (tên trường theo `workshop_locations` của 003.2; API công khai vẫn trả `{ id, name, address }`). Chỉ chi nhánh đang hoạt động, mỗi chi nhánh một lần; dữ liệu không kiểm chứng được phải ném lỗi, không trả rỗng thay lỗi. `id` là `locationId` của dòng giỏ FE-08.
+- Đọc công khai `GET /api/v1/product-selling-locations` (không cần identity, `no-store`): `{ items: [{ id, name, address }] }` sắp theo tên rồi id. Thiếu bean cài đặt, lỗi hoặc trùng id → 503 `LOCATION_DEPENDENCY_UNAVAILABLE`.
+- V1: mọi chi nhánh đang hoạt động bán mọi sản phẩm đã công khai; số lượng và giữ hàng vẫn theo size (`AvailabilityGuardPort`). productmanagement không import module của 003.2.
+- **Hợp đồng chuyển sang giỏ (T072, Bùi Trọng Thịnh chốt 2026-11-01):** trang chi tiết gọi `POST /api/v1/members/me/ready-ring-cart/lines` với bearer của Member và body `{ variantId, locationId, quantity }` (1–99), không gửi giá/productId; thành công chuyển `/member/cart`; Guest đi đăng nhập kèm `returnTo`; FE-08 kiểm tra lại giá/khả năng bán, lỗi `VALIDATION_ERROR` (400) hoặc `RETAIL_CONFLICT` (409) hiển thị `message`. Xem catalogue không tạo giỏ/giữ hàng.
 
 ### PromotionTargetPort — FE-06 owns SPI, productmanagement implements
 

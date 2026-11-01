@@ -12,7 +12,8 @@ export function DiscountText({ discount }) {
 }
 
 /** Conditions shown on cards and details: window, minimum, points, scope targets, limits. */
-export function Terms({ item }) {
+/** Terms of a programme; `labels` ({ productIds: {id: name}, ... }) names targets where the page could read them. */
+export function Terms({ item, labels }) {
   const t = useT(messages);
   const format = useFormat();
   const targets = item.targets || {};
@@ -21,7 +22,9 @@ export function Terms({ item }) {
     [t('field.minimumEligibleAmount'), format.money(item.minimumEligibleAmount)],
     [t('field.allowPoints'), item.allowPoints ? t('yes') : t('no')],
   ];
-  Object.entries(targets).forEach(([key, values]) => { if (values?.length) rows.push([t(`target.${key}`), values.join(', ')]); });
+  Object.entries(targets).forEach(([key, values]) => {
+    if (values?.length) rows.push([t(`target.${key}`), values.map(value => labels?.[key]?.[value] || value).join('; ')]);
+  });
   if (item.totalLimit) rows.push([t('field.totalLimit'), format.number(item.totalLimit)]);
   if (item.perMemberLimit) rows.push([t('field.perMemberLimit'), format.number(item.perMemberLimit)]);
   return (

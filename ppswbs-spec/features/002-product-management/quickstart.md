@@ -1,7 +1,7 @@
 # Quickstart and Validation: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; lệnh và lớp test thực tế, liên kết validation-report; cập nhật 2026-10-27 sau REST API)
+**Date updated**: 2026-11-01 (T087 — lệnh hiện hành và điều kiện còn thiếu; trước đó: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; lệnh và lớp test thực tế, liên kết validation-report; cập nhật 2026-10-27 sau REST API))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -36,6 +36,23 @@ Các lớp đã có (2026-10-27): xem bảng "Nhóm test của 002" trong [valid
 Bộ MySQL IT dùng profile `productmanagement-mysql-test`: datasource lấy từ `PM_TEST_JDBC_URL`/`PM_TEST_JDBC_USER`/`PM_TEST_JDBC_PASSWORD`, nếu thiếu thì `JDBC_URL`/`JDBC_USER`/`JDBC_PASSWORD`; không có giá trị mặc định, không H2. `CatalogueMySqlEnvironmentIT` từ chối chạy nếu server không phải MySQL 8.4. `CatalogueMySqlIT` tạo database tạm `ppswbs_pm_fresh_<ngẫu nhiên>` trên cùng server (tài khoản test cần quyền `CREATE`/`DROP` database) và tự xóa sau khi chạy; không đụng tới database test hay database thật. Username/password do môi trường kiểm chứng cấp qua biến môi trường, không ghi ở đây.
 
 Để chạy ứng dụng sau implementation, cấp datasource/identity/media/FE-08 settings theo contract cấu hình đã review rồi dùng `.\mvnw.cmd spring-boot:run` cho backend; chạy frontend React + Vite riêng sau khi `ppswbs_frontend/` được khởi tạo. Không suy rằng các settings/adapter này đã tồn tại. G-01 đã chốt hướng/phiên nhưng quản trị vẫn không được enable khi dependency MFA/session/capability chưa đáp ứng; không dùng fallback permitAll để bỏ qua.
+
+### Lệnh hiện hành (T087, 2026-11-01)
+
+```powershell
+# Backend 002 + Modulith trên MySQL 8.4, database trống:
+Set-Location D:/mland-operations-hub/mland-operations-hub/ppswbs_backend
+$env:PM_TEST_JDBC_URL = 'jdbc:mysql://localhost:3306/ppswbs_pm_salesNN?createDatabaseIfNotExist=true'
+.mvnw.cmd -o test "-Dtest=edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.**.*,ModulithArchitectureTests"
+# Frontend:
+Set-Location ../ppswbs_frontend
+npm test
+npm run build
+# Chạy app local (bỏ JDBC_URL cấp user nếu trỏ database hỏng; .env không commit):
+Remove-Item Env:JDBC_URL; .mvnw.cmd spring-boot:run "-Dspring-boot.run.arguments=--spring.config.import=optional:file:.env[.properties]"
+```
+
+Các lớp ở đoạn trên ghi "chưa tồn tại" nay đã có hoặc được thay: `CataloguePublicApiIT` (T074), `CatalogueSalesIT`/`CatalogueSalesSourceIntegrationIT` (FE-08 thật), `CatalogueSellingLocationIT` (T072). Frontend React đã khởi tạo (T088/T089). Điều kiện còn thiếu: đăng nhập 001 (V-01/V-13 với phiên thật), `SellingLocationPort` do 003.2 cài, trang `/member/cart` của FE-08. Kết quả: [validation-report](validation-report.md).
 
 ## Acceptance fixtures
 

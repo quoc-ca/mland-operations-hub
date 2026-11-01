@@ -7,9 +7,18 @@ import { I18nProvider } from '../../../shared/i18n/I18nProvider';
 import { loyaltyApi } from '../api/loyaltyApi';
 import { BenefitSelector } from '../checkout/BenefitSelector';
 import { loyaltyPromotionRoutes } from '../routes';
+import { serverFieldErrors } from '../rules';
 import { account, policy, program, publicPromotion, transaction, voucherUsage } from './fixtures';
 
 const P = '/api/v1/promotion-programs';
+const C = '/api/v1/catalogue-management/products';
+const catalogue = {
+  items: [
+    { id: '42', name: 'Nhẫn bạc', variants: [{ id: '101', size: 12, sku: 'SP000042-S12' }, { id: '102', size: 14, sku: 'SP000042-S14' }] },
+    { id: '43', name: 'Nhẫn vàng', variants: [{ id: '103', size: 16, sku: 'SP000043-S16' }] },
+  ],
+  page: 0, pageSize: 20, totalElements: '2',
+};
 const open = (path, options) => renderRoutes(loyaltyPromotionRoutes, { path, ...options });
 
 describe('006 REST operations', () => {
@@ -27,6 +36,17 @@ describe('006 REST operations', () => {
 });
 
 describe('T030 programmes', () => {
+  it('shows an error on one list item on its list field, with the item', () => {
+    expect(serverFieldErrors({ fieldErrors: [
+      { field: 'targets.variantIds[16]', message: 'This target does not exist.' },
+      { field: 'targets.variantIds[17]', message: 'This target does not exist.' },
+      { field: 'code', message: 'Already issued.' },
+    ] })).toEqual({
+      'targets.variantIds': '16: This target does not exist. 17: This target does not exist.',
+      code: 'Already issued.',
+    });
+  });
+
   it('lists with filters from the URL and loads the next cursor page', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({
@@ -52,43 +72,110 @@ describe('T030 programmes', () => {
     expect(screen.queryByLabelText('Tổng số lượt')).toBeNull();
   });
 
-  it('keeps the typed values and marks server field errors; success opens the programme', async () => {
+  it('fills code and window, keeps typed values on a field error, redraws a taken code; success opens the programme', async () => {
     const user = userEvent.setup();
     let attempt = 0;
     const calls = mockFetch({
-      [`POST ${P}`]: () => (++attempt === 1
-        ? json(409, { code: 'CODE_EXISTS', message: 'Exists.', fieldErrors: [{ field: 'code', message: 'Already issued.' }] })
-        : json(201, program({ id: '9', code: 'MLAND11' }))),
-      [`GET ${P}/9`]: json(200, program({ id: '9', code: 'MLAND11' })),
+      [`POST ${P}`]: () => {
+        attempt += 1;
+        if (attempt === 1) return json(400, { code: 'INVALID_INPUT', message: 'Bad.', fieldErrors: [{ field: 'name', message: 'Name rejected.' }] });
+        if (attempt === 2) return json(409, { code: 'CODE_EXISTS', message: 'Exists.', fieldErrors: [{ field: 'code', message: 'Already issued.' }] });
+        return json(201, program({ id: '9' }));
+      },
+      [`GET ${P}/9`]: json(200, program({ id: '9' })),
       [`GET ${P}/9/usage`]: json(200, voucherUsage),
+      [`GET ${C}`]: json(200, catalogue),
+      [`GET ${C}/42`]: json(200, catalogue.items[0]),
+      [`GET ${C}/43`]: json(200, catalogue.items[1]),
     });
     open('/promotion-management/programs/new');
-    await user.type(await screen.findByLabelText('Tên chương trình'), 'Giảm 10%');
-    await user.type(screen.getByLabelText('Mã voucher'), 'MLAND10');
-    await user.type(screen.getByLabelText('Bắt đầu'), '2026-11-01T08:00');
-    await user.type(screen.getByLabelText('Kết thúc'), '2026-12-01T08:00');
+    const code = await screen.findByLabelText('Mã voucher');
+    expect(code).toHaveAttribute('readonly');
+    expect(code.value).toMatch(/^ML[A-HJKMNP-Z2-9]{8}$/);
+    expect(screen.getByLabelText('Bắt đầu').value).not.toBe('');
+    expect(screen.getAllByText(/^Tức là: /)).toHaveLength(2);
+    await user.click(screen.getByRole('button', { name: 'Sinh mã khác' }));
+    const shown = screen.getByLabelText('Mã voucher').value;
+
+    await user.type(screen.getByLabelText('Tên chương trình'), 'Giảm 10%');
     await user.type(screen.getByLabelText('Phần trăm giảm (%)'), '10');
     await user.type(screen.getByLabelText('Giảm tối đa (₫)'), '50000');
     await user.type(screen.getByLabelText('Tổng số lượt'), '100');
-    await user.type(screen.getByLabelText('Mã sản phẩm'), '42, 43');
+    await user.type(screen.getByLabelText('Tìm sản phẩm'), 'nhẫn');
+    await user.click(screen.getByRole('button', { name: 'Tìm' }));
+    await user.click(await screen.findByRole('checkbox', { name: /#42\)/ }));
+    await user.click(screen.getByRole('checkbox', { name: /#43\)/ }));
     await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
 
-    expect(await screen.findByText('Already issued.')).toBeInTheDocument();
+    expect(await screen.findByText('Name rejected.')).toBeInTheDocument();
     expect(screen.getByLabelText('Tên chương trình')).toHaveValue('Giảm 10%');
     const first = calls.find(call => call.method === 'POST');
     expect(first.body).toMatchObject({
-      kind: 'VOUCHER', scope: 'PRODUCT', name: 'Giảm 10%', code: 'MLAND10', allowPoints: true, totalLimit: '100', perMemberLimit: '1',
+      kind: 'VOUCHER', scope: 'PRODUCT', name: 'Giảm 10%', code: shown, allowPoints: true, totalLimit: '100', perMemberLimit: '1',
       discount: { kind: 'PERCENT', percentage: '10', maxDiscountAmount: '50000' }, minimumEligibleAmount: '0', targets: { productIds: ['42', '43'] },
     });
     expect(first.body.startAt).toMatch(/Z$/);
 
-    const code = screen.getByLabelText('Mã voucher');
-    await user.clear(code);
-    await user.type(code, 'MLAND11');
+    // The code was taken meanwhile: a new one is drawn and the request sent again, with a new key, without asking.
     await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
     expect(await screen.findByText('Đã tạo chương trình.')).toBeInTheDocument();
     const posts = calls.filter(call => call.method === 'POST');
-    expect(posts[1].headers['Idempotency-Key']).not.toBe(posts[0].headers['Idempotency-Key']);
+    expect(posts).toHaveLength(3);
+    expect(posts[1].body.code).toBe(shown);
+    expect(posts[2].body.code).not.toBe(shown);
+    expect(posts[2].body.code).toMatch(/^ML[A-HJKMNP-Z2-9]{8}$/);
+    expect(posts[2].headers['Idempotency-Key']).not.toBe(posts[1].headers['Idempotency-Key']);
+  });
+});
+
+describe('product target picker', () => {
+  it('searches 002 products, sends only the chosen IDs and a whole product covers its sizes', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({ [`GET ${C}`]: json(200, catalogue), [`POST ${P}`]: json(400, { code: 'INVALID_INPUT', message: 'x' }) });
+    open('/promotion-management/programs/new');
+    await user.type(await screen.findByLabelText('Tìm sản phẩm'), 'SP000042');
+    await user.keyboard('{Enter}');
+    const size14 = await screen.findByRole('checkbox', { name: /Size 14/ });
+    expect(calls.find(call => call.path === C).query).toEqual({ q: 'SP000042', page: '0' });
+    await user.click(size14);
+    expect(screen.getByText('Nhẫn bạc · size 14 · SP000042-S14')).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: /Size 16/ }));
+    await user.click(screen.getByRole('checkbox', { name: /#42\)/ }));
+    expect(screen.getByRole('checkbox', { name: /Size 12/ })).toBeDisabled();
+    expect(screen.queryByText('Nhẫn bạc · size 14 · SP000042-S14')).toBeNull();
+    expect(screen.getByText('Đã chọn (2)')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Bỏ chọn Nhẫn vàng · size 16 · SP000043-S16' }));
+    expect(screen.getByText('Đã chọn (1)')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Tên chương trình'), 'Giảm');
+    await user.type(screen.getByLabelText('Phần trăm giảm (%)'), '10');
+    await user.type(screen.getByLabelText('Giảm tối đa (₫)'), '50000');
+    await user.type(screen.getByLabelText('Tổng số lượt'), '100');
+    await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
+    await waitFor(() => expect(calls.some(call => call.method === 'POST')).toBe(true));
+    expect(calls.find(call => call.method === 'POST').body.targets).toEqual({ productIds: ['42'] });
+  });
+
+  it('asks for a target before sending anything', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({});
+    open('/promotion-management/programs/new');
+    await user.click(await screen.findByRole('button', { name: 'Tạo chương trình' }));
+    expect(await screen.findByText('Chọn ít nhất một sản phẩm hoặc một size.')).toBeInTheDocument();
+    expect(calls.filter(call => call.method === 'POST')).toHaveLength(0);
+  });
+
+  it('the detail names its products and sizes and keeps an ID it cannot read', async () => {
+    mockFetch({
+      [`GET ${P}/5`]: json(200, program({ targets: { productIds: ['43', '99'], variantIds: ['102'] } })),
+      [`GET ${P}/5/usage`]: json(200, voucherUsage),
+      [`GET ${C}/43`]: json(200, catalogue.items[1]),
+      [`GET ${C}/99`]: json(404, { code: 'PRODUCT_NOT_FOUND', message: 'x' }),
+      [`GET ${C}`]: json(200, catalogue),
+    });
+    open('/promotion-management/programs/5');
+    expect(await screen.findByText('Nhẫn vàng (#43); 99')).toBeInTheDocument();
+    expect(await screen.findByText('Nhẫn bạc · size 14 · SP000042-S14')).toBeInTheDocument();
   });
 });
 
@@ -307,5 +394,79 @@ describe('T055 offer picker for checkout', () => {
     await user.type(points, '100');
     expect(screen.getByText('Lựa chọn đã thay đổi. Bấm Tính lại để xem tổng tiền mới.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Xác nhận' })).toBeDisabled();
+  });
+});
+
+describe('T078 session end and escaping (identity mocked: 001 has no Firebase sign-in yet)', () => {
+  it('a 401 after one refresh ends the Manager session and hides the data', async () => {
+    const session = fakeSession();
+    mockFetch({ [`GET ${P}`]: json(401, { code: 'AUTHENTICATION_REQUIRED', message: 'Session expired.' }) });
+    open('/promotion-management/programs', { session });
+    expect(await screen.findByText('Khu quản lý ưu đãi cần đăng nhập bằng tài khoản Manager.')).toBeInTheDocument();
+    expect(session.getIdToken).toHaveBeenCalledWith(true);
+    expect(session.signOut).toHaveBeenCalled();
+  });
+
+  it('a 401 on My Loyalty ends the Member session', async () => {
+    const session = fakeSession();
+    mockFetch({
+      'GET /api/v1/members/me/loyalty-accounts/current': json(401, { code: 'AUTHENTICATION_REQUIRED', message: 'x' }),
+      'GET /api/v1/members/me/loyalty-transactions': json(401, { code: 'AUTHENTICATION_REQUIRED', message: 'x' }),
+    });
+    open('/me/loyalty', { session });
+    expect(await screen.findByText(/cần đăng nhập bằng tài khoản Member/)).toBeInTheDocument();
+    expect(session.signOut).toHaveBeenCalled();
+    expect(screen.queryByText('1.300')).toBeNull();
+  });
+
+  it('names and codes from the server are shown as text, never as markup', async () => {
+    const evil = '<img src=x onerror="window.__xss=1">';
+    mockFetch({
+      [`GET ${P}`]: json(200, { items: [program({ name: evil })], nextCursor: null }),
+      'GET /api/v1/promotions': json(200, { items: [publicPromotion({ name: `<script>window.__xss=1</script>`, code: '<b>X</b>' })], nextCursor: null }),
+    });
+    const manager = open('/promotion-management/programs');
+    expect(await screen.findByRole('link', { name: evil })).toBeInTheDocument();
+    expect(manager.container.querySelector('img[src="x"]')).toBeNull();
+    manager.unmount();
+    const guest = open('/promotions', { session: fakeSession('signed-out') });
+    expect(await screen.findByText('<b>X</b>')).toBeInTheDocument();
+    expect(guest.container.querySelector('script, b')).toBeNull();
+    expect(window.__xss).toBeUndefined();
+  });
+});
+
+describe('voucher code and window helpers', () => {
+  it('draws ML + 8 characters without look-alikes, and the window starts on a quarter hour for 30 days', async () => {
+    const { generateVoucherCode, defaultWindow } = await import('../rules');
+    expect(generateVoucherCode(values => values.fill(0))).toBe('MLAAAAAAAA');
+    expect(generateVoucherCode()).toMatch(/^ML[A-HJKMNP-Z2-9]{8}$/);
+    expect(defaultWindow(new Date(2026, 10, 1, 21, 7, 30))).toEqual({ startAt: '2026-11-01T21:15', endAt: '2026-12-01T21:15' });
+    expect(defaultWindow(new Date(2026, 10, 1, 21, 15, 0))).toEqual({ startAt: '2026-11-01T21:30', endAt: '2026-12-01T21:30' });
+  });
+});
+
+describe('24-hour time on the programme form', () => {
+  it('offers hours 00–23 without AM/PM and an earlier end time is refused before sending', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({});
+    open('/promotion-management/programs/new');
+    const startHour = await screen.findByLabelText('Bắt đầu — giờ (00–23)');
+    const hours = within(startHour).getAllByRole('option').map(option => option.textContent);
+    expect(hours[0]).toBe('00 h');
+    expect(hours.at(-1)).toBe('23 h');
+    expect(hours).toHaveLength(24);
+
+    const date = screen.getByLabelText('Bắt đầu').value;
+    await user.selectOptions(startHour, '22');
+    await user.selectOptions(screen.getByLabelText('Bắt đầu — phút'), '00');
+    const endDate = screen.getByLabelText('Kết thúc');
+    await user.clear(endDate);
+    await user.type(endDate, date);
+    await user.selectOptions(screen.getByLabelText('Kết thúc — giờ (00–23)'), '12');
+    expect(screen.getAllByText(/^Tức là: 22:00/)).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
+    expect(await screen.findByText('Thời gian kết thúc phải sau thời gian bắt đầu.')).toBeInTheDocument();
+    expect(calls.filter(call => call.method === 'POST')).toHaveLength(0);
   });
 });
