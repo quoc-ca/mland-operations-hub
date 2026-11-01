@@ -1,5 +1,8 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.adapter.OtaCancellationAdapter;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.adapter.OtaCancellationAdapterRegistry;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.adapter.OtaCancellationMappingResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaCancellationConsequenceService.CancellationConsequenceResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.AuthenticatedOtaInboundEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaInboundEventService;
@@ -22,18 +25,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * T036: Cancellation-request versus confirmed-cancellation/refund state handling
- * and safe reconciliation routing.
+ * T036 / T038: Cancellation-request versus confirmed-cancellation/refund state handling
+ * and safe reconciliation routing via adapter boundary.
  * Rules:
  * - A request records REQUEST_RECORDED / REFUND_REQUESTED without invoking Operations or releasing inventory.
  * - An authenticated confirmed cancellation invokes Operations consequence exactly once.
  * - Duplicate requested or duplicate confirmed events are idempotent.
- * - Out-of-order or invalid events safely route to OtaReconciliationWorkItem.
+ * - Out-of-order, unmapped, or invalid events safely route to OtaReconciliationWorkItem.
+ * - Raw provider webhooks are translated via provider-specific OtaCancellationAdapter.
  */
 @Service
 @RequiredArgsConstructor
@@ -47,6 +52,21 @@ public class OtaCancellationService {
     private final OtaReconciliationWorkItemRepository reconciliationRepository;
     private final OtaInboundEventService inboundEventService;
     private final OtaCancellationConsequenceService consequenceService;
+    private final OtaCancellationAdapterRegistry cancellationAdapterRegistry;
+
+    public OtaCancellationService(
+            OtaChannelConnectionRepository connectionRepository,
+            OtaChannelMappingRepository mappingRepository,
+            OtaChannelBookingRepository bookingRepository,
+            OtaCustomerPaymentEvidenceRepository customerPaymentRepository,
+            OtaReconciliationWorkItemRepository reconciliationRepository,
+            OtaInboundEventService inboundEventService,
+            OtaCancellationConsequenceService consequenceService
+    ) {
+        this(connectionRepository, mappingRepository, bookingRepository,
+                customerPaymentRepository, reconciliationRepository,
+                inboundEventService, consequenceService, null);
+    }
 
     public record OtaCancellationEventCommand(
             OtaProvider provider,
@@ -270,6 +290,65 @@ public class OtaCancellationService {
                 "INVALID_CANCELLATION_KIND",
                 null
         );
+    }
+
+    @Transactional
+    public OtaCancellationEventResult handleRawProviderCancellation(
+            OtaProvider provider,
+            OtaEnvironment environment,
+            String rawJsonPayload,
+            Map<String, String> headers
+    ) {
+        OtaChannelConnection connection = connectionRepository
+                .findByProviderCodeAndEnvironment(provider, environment)
+                .orElseThrow(() -> new IllegalArgumentException("OTA connection not found for provider "
+                        + provider + " and environment " + environment));
+
+        if (cancellationAdapterRegistry == null) {
+            throw new IllegalStateException("OtaCancellationAdapterRegistry is not configured");
+        }
+
+        Optional<OtaCancellationAdapter> adapterOpt = cancellationAdapterRegistry.findAdapter(provider);
+        if (adapterOpt.isEmpty()) {
+            OtaReconciliationWorkItem workItem = OtaReconciliationWorkItem.builder()
+                    .publicReference(UUID.randomUUID().toString())
+                    .locationReference("GLOBAL")
+                    .category("INBOUND_EVENT")
+                    .status("OPEN")
+                    .decision("UNSUPPORTED_PROVIDER: " + provider)
+                    .build();
+            reconciliationRepository.save(workItem);
+            return OtaCancellationEventResult.rejected(null, "UNSUPPORTED_PROVIDER", workItem.getPublicReference());
+        }
+
+        OtaCancellationAdapter adapter = adapterOpt.get();
+        OtaCancellationMappingResult mappingResult = adapter.mapCancellationEvent(connection, rawJsonPayload, headers);
+
+        return switch (mappingResult) {
+            case OtaCancellationMappingResult.Mapped mapped -> handleCancellationEvent(mapped.command());
+            case OtaCancellationMappingResult.Rejected rejected -> {
+                OtaReconciliationWorkItem workItem = OtaReconciliationWorkItem.builder()
+                        .publicReference(UUID.randomUUID().toString())
+                        .locationReference("GLOBAL")
+                        .category("INBOUND_EVENT")
+                        .status("OPEN")
+                        .decision("ADAPTER_REJECTED: " + rejected.failureCategory() + " - " + rejected.reason())
+                        .build();
+                reconciliationRepository.save(workItem);
+                yield OtaCancellationEventResult.rejected(null, rejected.failureCategory() + ": " + rejected.reason(), workItem.getPublicReference());
+            }
+            case OtaCancellationMappingResult.Unmapped unmapped -> {
+                OtaReconciliationWorkItem workItem = OtaReconciliationWorkItem.builder()
+                        .publicReference(UUID.randomUUID().toString())
+                        .locationReference("GLOBAL")
+                        .category("INBOUND_EVENT")
+                        .status("OPEN")
+                        .decision("UNMAPPED_PROVIDER_EVENT: " + unmapped.eventType() + " - " + unmapped.reason())
+                        .build();
+                reconciliationRepository.save(workItem);
+                yield OtaCancellationEventResult.rejected(null, "UNMAPPED_PROVIDER_EVENT: " + unmapped.reason(), workItem.getPublicReference());
+            }
+        };
     }
 }
 
