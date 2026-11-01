@@ -42,8 +42,8 @@ function VariantPrices({ product, variant, api, reload, setNotice, deleted }) {
             <span role="columnheader">{t('price.applied')}</span><span role="columnheader">{t('price.reason')}</span>
           </div>
           {history.map(proposal => (
-            <div className={`data-row prices${proposal.effective ? ' current' : ''}`} role="row" key={`${proposal.id}-${proposal.revision}`}>
-              <span role="cell">{proposal.revision}{proposal.effective && ` (${t('price.current')})`}</span>
+            <div className={`data-row prices${proposal === current ? ' current' : ''}`} role="row" key={`${proposal.id}-${proposal.revision}`}>
+              <span role="cell">{proposal.revision}{proposal === current && ` (${t('price.current')})`}</span>
               <span role="cell">{t(`state.${proposal.state}`)}</span>
               <span role="cell">{format.money(proposal.proposedPrice)}</span>
               <span role="cell">{format.money(proposal.approvedPrice)}</span>
@@ -61,9 +61,11 @@ function VariantPrices({ product, variant, api, reload, setNotice, deleted }) {
               send={(key, amount) => api.revisePrice(key, current.id, current.version, amount)} successKey="price.revised" reload={reload} setNotice={setNotice} />
             : <AmountForm label={t('price.propose')} initial=""
               send={(key, amount) => api.proposePrice(key, variant.id, variant.version, amount)} successKey="price.proposedNotice" reload={reload} setNotice={setNotice} />}
+          {state === 'DRAFT' && independent && <p className="muted small price-step">{t('price.draftHint')}</p>}
           {state === 'DRAFT' && independent && (
             <ActionButton label={t('price.submit')} send={key => api.submitPrice(key, current.id, current.version)} successKey="price.submitted" reload={reload} setNotice={setNotice} />
           )}
+          {state === 'PENDING' && independent && <p className="muted small price-step">{t('price.pendingHint')}</p>}
           {state === 'PENDING' && independent && <PriceDecision proposal={current} api={api} reload={reload} setNotice={setNotice} />}
           {state === 'PENDING' && !independent && <p className="muted small">{t('price.decideInReview')}</p>}
           {state === 'APPROVED' && !current.applied && (

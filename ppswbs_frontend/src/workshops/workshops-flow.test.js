@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 
 import {
@@ -7,6 +7,7 @@ import {
   listWorkshopPackages,
   getWorkshopPackage,
   listWorkshopSessions,
+  previewWorkshopBookingQuote,
   createWorkshopBooking,
 } from '../api/workshops.js';
 
@@ -279,6 +280,63 @@ describe('003.1 T018 & T026: Workshop Flow & Client Selection Contract', () => {
       assert.strictEqual(capturedBody.quoteRef, quoteUuid);
       assert.strictEqual(capturedBody.contactEmail, 'member@mland.vn');
       assert.strictEqual(outcome.bookingCode, 'WS-20261101-QUOTE');
+    });
+  });
+
+  describe('T061: Member workshop benefit quote integration', () => {
+    it('previews the selected workshop benefits with the Member bearer and returns quote facts', async () => {
+      let requestedUrl;
+      let sentHeaders;
+      let sentBody;
+      const sessionUuid = '48e583d2-3bf9-4560-a42e-152e0be5b84c';
+
+      globalThis.fetch = async (url, options) => {
+        requestedUrl = url;
+        sentHeaders = options.headers;
+        sentBody = JSON.parse(options.body);
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            quoteRef: 'f81d4fae-7dec-11d0-a765-00a0c91e6bf6',
+            expiresAt: '2026-11-01T12:45:00Z',
+            grossAmount: 900000,
+            programDiscount: 0,
+            pointsUsed: 100,
+            maxPoints: 500,
+            pointDiscount: 10000,
+            postPromotionAmount: 890000,
+            depositAmount: 445000,
+            remainingAmount: 445000,
+            earnBase: 890000,
+            termsDigest: 'digest-workshop-061',
+            reasons: [],
+          }),
+        };
+      };
+
+      const quote = await previewWorkshopBookingQuote({
+        packageId: 2,
+        sessionReferences: [sessionUuid],
+        participantCount: 1,
+        benefitSelection: { choice: 'NONE', voucherCode: '', requestedPoints: '100' },
+        authorization: 'Bearer member-test-token',
+      });
+
+      assert.strictEqual(requestedUrl.pathname, '/api/v1/workshop-booking-quotes');
+      assert.strictEqual(sentHeaders.Authorization, 'Bearer member-test-token');
+      assert.strictEqual(sentBody.packageId, 2);
+      assert.deepStrictEqual(sentBody.sessionReferences, [sessionUuid]);
+      assert.strictEqual(sentBody.participantCount, 1);
+      assert.deepStrictEqual(sentBody.benefitSelection, {
+        choice: 'NONE',
+        voucherCode: '',
+        requestedPoints: '100',
+      });
+      assert.strictEqual(quote.quoteRef, 'f81d4fae-7dec-11d0-a765-00a0c91e6bf6');
+      assert.strictEqual(quote.maxPoints, 500);
+      assert.strictEqual(quote.depositAmount, 445000);
+      assert.deepStrictEqual(quote.reasons, []);
     });
   });
 });

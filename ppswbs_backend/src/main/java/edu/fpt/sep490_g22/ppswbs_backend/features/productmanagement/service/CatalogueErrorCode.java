@@ -53,6 +53,7 @@ public enum CatalogueErrorCode {
     IDENTITY_DEPENDENCY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Identity verification is temporarily unavailable."),
     AVAILABILITY_DEPENDENCY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Availability information is temporarily unavailable."),
     MEDIA_DEPENDENCY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Image storage is temporarily unavailable."),
+    LOCATION_DEPENDENCY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Branch information is temporarily unavailable."),
     CATALOGUE_SAVE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "The change could not be saved. Check the command result and retry with the same key."),
     CATALOGUE_BUSY(HttpStatus.SERVICE_UNAVAILABLE, "The catalogue is busy. Retry with the same key.");
 

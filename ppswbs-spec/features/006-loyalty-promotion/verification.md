@@ -495,7 +495,7 @@ Develop `bb5f56e` (`e061e90`, Bùi Trọng Thịnh): `RetailUnstartedExpiryServi
 
 ## 30. Chuẩn bị T075/T076: đối chiếu yêu cầu, bằng chứng và tài liệu, 2026-11-01
 
-**Trạng thái: CHUẨN BỊ, chưa tick.** T075 phụ thuộc T074 → T073 → T072; T072 còn chờ phiên đăng nhập 001 (backend chưa gọi `FirebaseApp.initializeApp`). Bảng dưới là hiện trạng thật tại `khuong` sau khi ghép develop `365dcf3`; khi T072 xong chỉ cần chạy lại và cập nhật cột kết quả.
+**Trạng thái: đã chốt ở mục 31.** (Đoạn dưới giữ nguyên lúc chuẩn bị.) T075 phụ thuộc T074 → T073 → T072; T072 còn chờ phiên đăng nhập 001 (backend chưa gọi `FirebaseApp.initializeApp`). Bảng dưới là hiện trạng thật tại `khuong` sau khi ghép develop `365dcf3`; khi T072 xong chỉ cần chạy lại và cập nhật cột kết quả.
 
 **Lần chạy làm căn cứ:** `.\mvnw.cmd -o test "-Dtest=edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.**.*,ModulithArchitectureTests"`, MySQL 8.4, database trống `ppswbs_loyalty_build32` → **253/253 đạt, 0 bỏ qua** (mục 29). Frontend `npm test` 59/59, `npm run build` đạt (mục 27, 29).
 
@@ -555,3 +555,21 @@ Ký hiệu kết quả: **ĐẠT** = có test chạy thật trên MySQL/nguồn 
 5. `speckit-analyze` chưa chạy lại cho artifact hiện hành; chạy khi đóng T076.
 
 **Handoff còn mở (owner):** 001 (Phan Sơn) — khởi tạo Firebase Admin, màn đăng nhập, tạo Admin/Manager đầu tiên → mở T072, T078 rồi T073–T076. FE-08 (Bùi Trọng Thịnh) — nhúng `BenefitSelector`, thêm `maxPoints` → T055. FE-03 (Hồ Hoàng Quốc) — nhúng `BenefitSelector context="workshop"`, thêm `maxPoints` → T061.
+
+## 31. Đóng T072, T078, T073–T076 với xác minh token giả lập, 2026-11-01
+
+**Căn cứ quyết định:** Phan Sơn (001) xác nhận 2026-11-01 không làm đăng nhập trong sprint này và đề nghị giả lập. Phạm vi giả lập: chỉ bước kiểm chữ ký Firebase (`TokenVerificationService` là `@MockitoBean` trong test) và phiên phía frontend (`fakeSession`). Gate identity, tra tài khoản, trạng thái/vai trò hiện tại và ma trận quyền là code thật của 001/006. Ứng dụng không có chế độ đăng nhập giả, không tắt kiểm tra token, không permitAll.
+
+**T072 — `LoyaltySessionIT` 4/4** (MySQL 8.4, HTTP qua MockMvc với security chain thật): token bị thu hồi → 401; token hết hạn → 401; cookie (`token`, `Authorization`) không thay bearer → 401; Manager bị SUSPENDED với token còn hạn → bị từ chối ngay request sau; Manager hạ xuống Member → 403 ở route quản lý, 200 ở route Member; Member/Admin/Staff không vào route quản lý FE-06, Admin không có quyền Member FE-06. Cùng với `LoyaltySecurityIT` 11/11 và `LoyaltyApiContractIT` (ma trận 15 operation × mọi vai trò). Phiên Firebase thật: NOT RUN: 001 chưa khởi tạo Firebase Admin và chưa có màn đăng nhập (Phan Sơn xác nhận 2026-11-01 không làm trong sprint này).
+
+**T078 — frontend:** `npm test` **73/73**, `npm run build` đạt. Test mới: 401 sau một lần làm mới token kết thúc phiên Manager/Member và ẩn số liệu; tên chương trình/mã/tên ưu đãi chứa `<img onerror>`, `<script>`, `<b>` hiện dạng chữ, không tạo phần tử. Các màn T030, T034, T040, T047, T070 và component T055/T061 đã có test loading/empty/validation/success/failure/recovery/409/503 (mục 27, 29). Tích hợp thật với phiên: NOT RUN: 001 chưa khởi tạo Firebase Admin và chưa có màn đăng nhập (Phan Sơn xác nhận 2026-11-01 không làm trong sprint này); trang công khai đã chạy với backend local (mục 28).
+
+**T073 — chạy lại toàn bộ:** `.mvnw.cmd -o test "-Dtest=edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.**.*,ModulithArchitectureTests"`, MySQL 8.4, database trống `ppswbs_loyalty_build41` → **257/257 đạt, 0 bỏ qua**. `ModulithArchitectureTests` 5/5 (nguồn → loyaltypromotion → accountmanagement facade, không vòng). Không đổi version trong `pom.xml`, không SQL ứng dụng ngoài migration, không dùng schema sinh tự động thay migration.
+
+**T074 — retention/vận hành:** `LoyaltyRetentionIT` 3/3 trong lần chạy trên (không có đường xóa, không job dọn trong loyalty, không hết hạn điểm; phân trang lịch sử qua `idx_loyalty_ledger_member`); đối chiếu `quickstart.md` mục 6 không đổi. Chưa có dashboard/cảnh báo và người phụ trách vận hành; SLA production không tự chốt.
+
+**T075 — bảng FR (mục 30) sau đóng:** FR-001, FR-040 → ĐẠT phía backend với phiên/role hiện tại kiểm mỗi request (`LoyaltySessionIT`), phiên Firebase thật NOT RUN. FR-039 → ĐẠT (giả lập), tích hợp phiên thật NOT RUN. FR-041 → ĐẠT. FR-012, FR-016 vẫn chờ owner (nhúng `BenefitSelector`, trả `maxPoints`). **Tổng:** 36/41 ĐẠT nguồn thật; 3 FR ĐẠT với phần identity giả lập; 2 FR chờ owner. Không coi test double là tích hợp thật.
+
+**T076 — đối chiếu tài liệu:** đã sửa `plan.md` (frontend đã khởi tạo), `contracts/interfaces.md` mục 5 (frontend, `maxPoints`) và mục khóa/thứ tự (quy tắc gửi lặp outcome). OpenAPI 15 operation khớp 15 route (`LoyaltyApiContractIT`); 8 method `LoyaltyFacade` khớp `interfaces.md`. **Giới hạn:** lệnh `speckit-analyze` không có trong phiên làm việc nên phân tích được làm thủ công theo artifact hiện hành (spec/plan/tasks/interfaces/OpenAPI); không đổi spec/plan sang Approved, không sửa research tổng.
+
+**Còn mở (owner):** 001 Phan Sơn — đăng nhập thật (chạy lại T072/T078 với phiên thật); FE-08 Bùi Trọng Thịnh — nhúng `BenefitSelector`, `maxPoints` (T055); FE-03 Hồ Hoàng Quốc — nhúng `BenefitSelector context="workshop"`, `maxPoints` (T061); 004 Đạt — đổi số migration V12 trùng.

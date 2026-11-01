@@ -1,5 +1,6 @@
 -- Flyway Migration V62: Independent Design Request Rebase (Feature 004)
--- Append-only migration
+-- Version 60 was already allocated to the workshop settlement add-on bill migration.
+-- Keep this migration append-only and uniquely versioned across the repository.
 
 CREATE TABLE design_requests (
     id VARCHAR(36) NOT NULL PRIMARY KEY,

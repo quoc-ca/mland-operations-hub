@@ -7,6 +7,8 @@ import { DiscountText, ScopeBadge, Terms } from '../display';
 import { messages } from '../messages';
 import { isAmount, isPercent, isPositive, LIMITS, serverFieldErrors, toInstant, toLocalInput } from '../rules';
 import { PageTop } from './PromotionManagementLayout';
+import { useTargetLabels } from './useTargetLabels';
+import { DateTimeField } from './DateTimeField';
 
 /**
  * T030 detail and T047 edit / pause / resume with usage. Kind, scope, code and targets never change. Each command
@@ -25,6 +27,7 @@ export default function ProgramDetailPage() {
   const [editing, setEditing] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const toggle = useCommand();
+  const labels = useTargetLabels(api, program.data?.scope === 'PRODUCT' ? program.data.targets : null);
 
   const reloadAll = () => { program.reload(); usage.reload(); };
   if (program.loading && !program.data) return <Loading />;
@@ -62,7 +65,7 @@ export default function ProgramDetailPage() {
           <span className={paused ? 'status' : 'status ok'}>{t(`status.${data.status}`)}</span>
         </div>
         <p><strong>{t('field.discount')}:</strong> <DiscountText discount={data.discount} /></p>
-        <Terms item={data} />
+        <Terms item={data} labels={labels} />
         <p className="muted small">{t('detail.meta', { version: data.version, revision: data.revision, createdAt: format.dateTime(data.createdAt) })}</p>
         <div className="actions form-actions">
           {!editing && <button type="button" className="button outline" onClick={() => setEditing(true)}>{t('edit')}</button>}
@@ -121,6 +124,8 @@ function initialForm(program) {
 /** Only changed fields are sent (PATCH); kind, scope, code and targets are not editable. */
 function EditForm({ program, api, onDone, onCancel, onReload }) {
   const t = useT(messages);
+  const format = useFormat();
+  const inWords = local => (toInstant(local) ? t('create.timeInWords', { at: format.dateTime(toInstant(local)) }) : null);
   const [form, setForm] = useState(() => initialForm(program));
   const [hints, setHints] = useState({});
   const command = useCommand();
@@ -179,8 +184,8 @@ function EditForm({ program, api, onDone, onCancel, onReload }) {
       <div className="form-grid">
         <Field label={t('field.name')} error={errorOf('name')}><input value={form.name} onChange={set('name')} maxLength={LIMITS.nameMax} /></Field>
         <div />
-        <Field label={t('field.startAt')} error={errorOf('startAt')}><input type="datetime-local" value={form.startAt} onChange={set('startAt')} /></Field>
-        <Field label={t('field.endAt')} error={errorOf('endAt')}><input type="datetime-local" value={form.endAt} onChange={set('endAt')} /></Field>
+        <DateTimeField label={t('field.startAt')} error={errorOf('startAt')} hint={inWords(form.startAt)} value={form.startAt} onChange={value => setForm(current => ({ ...current, startAt: value }))} />
+        <DateTimeField label={t('field.endAt')} error={errorOf('endAt')} hint={inWords(form.endAt)} value={form.endAt} onChange={value => setForm(current => ({ ...current, endAt: value }))} />
         <Field label={t('field.discountKind')} error={errorOf('discount.kind')}>
           <select value={form.discountKind} onChange={set('discountKind')}>
             <option value="PERCENT">{t('discount.PERCENT')}</option>

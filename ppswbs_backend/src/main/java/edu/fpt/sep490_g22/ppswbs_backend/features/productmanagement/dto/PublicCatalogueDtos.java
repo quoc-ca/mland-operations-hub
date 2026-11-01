@@ -36,4 +36,11 @@ public final class PublicCatalogueDtos {
 
     public record PriceRange(String minimum, String maximum, String currency) {
     }
+
+    /** Active branch a Member picks before adding to FE-08's cart; {@code id} is the cart line's {@code locationId}. */
+    public record PublicSellingLocation(String id, String name, String address) {
+    }
+
+    public record SellingLocationList(List<PublicSellingLocation> items) {
+    }
 }

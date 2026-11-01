@@ -87,7 +87,7 @@ ppswbs_backend/src/main/resources/
   db/migration/      new additive migration, number allocated at implementation
 ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/
   features/loyaltypromotion/  future calculation, lifecycle, contract, security, MySQL checks
-ppswbs_frontend/      (chưa khởi tạo; vị trí dự kiến)
+ppswbs_frontend/      (đã khởi tạo bởi 002 T088/T089: React + Vite, react-router, i18n vi/en, REST client dùng chung)
   src/features/loyaltypromotion/  promotions, wallet/account, management, policy screens và checkout components
 ```
 

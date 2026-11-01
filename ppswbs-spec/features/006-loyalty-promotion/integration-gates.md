@@ -1,7 +1,7 @@
 # Integration Gates — FE-06
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01 (hiện trạng G-01–G-07 2026-11-01 (chuẩn bị T075); nguồn workshop FE-03 và CORS — verification mục 28; T077 đạt — dùng nền frontend của 002; trước đó: 2026-10-27 (T002: cập nhật hiện trạng G-01–G-07 theo `khuong` và `origin/develop` `37d68cf`; T077: frontend chưa có))
+**Date updated**: 2026-11-01 (đóng T072–T076/T078 với xác minh token giả lập — verification mục 31; hiện trạng G-01–G-07 2026-11-01 (chuẩn bị T075); nguồn workshop FE-03 và CORS — verification mục 28; T077 đạt — dùng nền frontend của 002; trước đó: 2026-10-27 (T002: cập nhật hiện trạng G-01–G-07 theo `khuong` và `origin/develop` `37d68cf`; T077: frontend chưa có))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -80,5 +80,5 @@ Nguồn: nhánh `khuong` (`73ac306` cộng thay đổi chưa commit của 006) v
 | G-03 Retail (FE-08) | Accept, thanh toán, đơn 0đ, hủy trước thanh toán, hết hạn đã xác nhận và gửi trùng đều chạy qua service thật (mục 24–26, 29). | Nhúng `BenefitSelector`, trả `maxPoints` trong `BenefitPreviewView` — Bùi Trọng Thịnh (T055). |
 | G-04 Booking (FE-03) | Quote/accept thật giữ voucher + điểm cùng giữ chỗ; cọc ceil(post/2) (mục 28). | Nhúng `BenefitSelector context="workshop"`, trả `maxPoints` trong `WorkshopBookingQuoteResponse` — Hồ Hoàng Quốc (T061). |
 | G-05 Workshop hậu xử lý | Cọc xác minh, hết hạn, hủy hợp lệ, no-show, hoàn thành + trả đủ đều do code FE-03 quyết định, kể cả gửi lặp và tranh chấp (mục 28–29). | Không còn thiếu phía 006. |
-| G-06 Data/module | Migration loyalty V10–V12 trên develop; `ModulithArchitectureTests` 5/5; toàn bộ 006 248/248 (mục 29). | Chạy lại khi đóng T073. |
-| G-07 Governance | Tài liệu Approved; chênh lệch tài liệu cần sửa khi đóng T076 liệt kê ở verification mục 30. | Chạy lại speckit-analyze khi đóng T076. |
+| G-06 Data/module | Migration loyalty V10–V12 trên develop; `ModulithArchitectureTests` 5/5; toàn bộ 006 248/248 (mục 29). | Đã chạy lại 2026-11-01: 257/257 đạt, 0 bỏ qua (verification mục 31). |
+| G-07 Governance | Tài liệu Approved; chênh lệch tài liệu cần sửa khi đóng T076 liệt kê ở verification mục 30. | T076 đóng 2026-11-01: sửa chênh lệch tài liệu; speckit-analyze không có trong phiên, phân tích thủ công (verification mục 31). |

@@ -1,7 +1,7 @@
 # Product Management — Implementation Prerequisites
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01 (T074/T085 xong, T086 còn regression toàn hệ thống; nền frontend T088/T089 và màn hình 002; 2026-10-30: nguồn giữ hàng thật của FE-08; V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; baseline T001)
+**Date updated**: 2026-11-01 (T090, T087; T072 và SellingLocationPort; T074/T085 xong, T086 còn regression toàn hệ thống; nền frontend T088/T089 và màn hình 002; 2026-10-30: nguồn giữ hàng thật của FE-08; V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; baseline T001)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -229,3 +229,21 @@ Bước kế tiếp là review tasks và speckit-analyze khi được giao. Task
 - **T086 (tick sau regression toàn hệ thống: 002/006/Modulith 613/613, validation-report mục "Regression toàn backend (T086)"; ghi chú ban đầu):** lệnh quickstart của 002 + Modulith 342/342 (một lớp phải chạy lại riêng vì MySQL "Too many connections"). Chưa chạy được regression toàn hệ thống trong một lần vì giới hạn kết nối MySQL của máy (cần tăng `max_connections` hoặc chạy theo từng feature); V-01/V-13 còn NOT RUN với phiên 001 thật.
 - **Môi trường develop:** `f5e29a4` (001) đặt `ddl-auto=validate` mặc định; `BookingLatePaymentEvidence.currency_code` (FE-03, varchar) lệch V40 (`CHAR(3)`) nên ứng dụng không khởi động trên database mới. Cần owner 001/003 thống nhất; chạy local tạm dùng `SPRING_JPA_HIBERNATE_DDL_AUTO=none`.
 - **Còn mở:** T072 (chờ FE-08 chốt chuyển sang giỏ), T086 (regression toàn hệ thống), T090 (màn quản trị chờ phiên 001), T087 (chốt cuối).
+
+## Chuyển sang giỏ FE-08 (T072), 2026-11-01
+
+- **Quyết định:** hợp đồng chuyển do Bùi Trọng Thịnh (FE-08) chốt; phương án A cho chi nhánh do Đặng Thị Khương (owner 002) chọn. Ghi ở spec (Clarifications 2026-11-01, FR-046) và [interfaces](contracts/interfaces.md) mục `SellingLocationPort`.
+- **Backend (002):** `facade/SellingLocationPort` + `SellingLocation`; `PublicSellingLocationService`; `GET /api/v1/product-selling-locations` (công khai qua `CatalogueSecurityConfiguration`); mã lỗi `LOCATION_DEPENDENCY_UNAVAILABLE` (503); OpenAPI thêm operation `listSellingLocations` và schema `PublicSellingLocation`, `SellingLocationList` (33 operation, 49 schema). Test: `CatalogueSellingLocationIT` 3/3 (sắp xếp, không cần bearer, nguồn lỗi/null/trùng id → 503, chưa có nguồn → 503), `CatalogueContractIT` 4/4, `ModulithArchitectureTests` 5/5.
+- **Frontend (002):** `public/AddToCartPanel.jsx` trên trang chi tiết: chọn size mua được, chi nhánh, số lượng 1–99; Member → POST giỏ FE-08 với `{ variantId, locationId, quantity }` rồi `/member/cart`; Guest → link đăng nhập `/#/login?returnTo=…` giữ lựa chọn, quay lại thì khôi phục; nguồn chi nhánh 503 → nút khóa, có Thử lại; lỗi FE-08 hiện `message` và mã tra cứu. Test: 3 test T072 trong `screens.test.jsx`; frontend 69/69, build đạt. Backend local: endpoint trả 503 đúng mã (chưa có nguồn), preflight CORS giỏ FE-08 200.
+- **Còn phụ thuộc:** 003.2 (Hồ Hoàng Quốc) cài `SellingLocationPort` (đọc `workshop_locations` đang hoạt động) — tới khi đó nút "Add to cart" luôn khóa; FE-08 chưa có trang `/member/cart` trong frontend (route rơi về prototype); thao tác thật với Member cần đăng nhập 001 (T090). Đề nghị FE-08 kiểm tra `locationId` là chi nhánh đang hoạt động khi thêm giỏ.
+
+## Còn mở sau T087, 2026-11-01
+
+102/102 task đã tick; các phần dưới đây là phụ thuộc owner khác, không phải task 002 còn lại.
+
+| Phụ thuộc | Owner | Ảnh hưởng | Điều kiện đóng |
+| --- | --- | --- | --- |
+| Đăng nhập Firebase (`FirebaseApp.initializeApp`, màn đăng nhập, tài khoản Manager đầu tiên) | 001 — Phan Sơn (không làm trong sprint này, 2026-11-01) | V-01/V-13 với phiên thật NOT RUN; UI đã test với phiên giả lập | Có đăng nhập → chạy lại hành trình quản trị theo quickstart |
+| `SellingLocationPort` | 003.2 — Hồ Hoàng Quốc | Nút "Thêm vào giỏ" luôn khóa (503 `LOCATION_DEPENDENCY_UNAVAILABLE`) | Bean cài đặt đọc chi nhánh đang hoạt động; `CatalogueSellingLocationIT` chạy lại |
+| Trang `/member/cart` | FE-08 — Bùi Trọng Thịnh | Sau khi thêm giỏ chuyển tới route chưa có | FE-08 thêm route |
+| Migration V12 trùng số trên develop | 004 — Đạt | Chưa pull develop mới | Đổi số migration của 004 |

@@ -52,9 +52,12 @@ credentials, provider calls, schema changes or deployment.
    state change. Confirm signed matching VNPay evidence settles the full balance
    before finalization/output handover becomes available. There is no deferred
    payment case, reminder, or payment-link reissue route.
-6. **Customer cancellation**: submit Member and Guest whole-booking cancellation
-   cases. Validate the 72-hour, 24-to-72-hour, and below-24-hour/checked-in
-   paths; tickets/capacity change only after verified refund outcome.
+6. **Customer cancellation**: submit one Member or Guest whole-booking
+   cancellation case. Verify an eligible future booking is handed to Operations,
+   the case resolves with `DIRECT_DEPOSIT_FORFEITED`, and the direct deposit is
+   retained. Ineligible or Operations-rejected requests remain `REJECTED`; no
+   VNPay refund/QueryDR request or refund allocation is created. OTA refunds are
+   tested separately through 003.4 evidence reconciliation.
 7. **Replacement and Mland remedy**: submit a complete target session set and
    reason for a Manager change. Verify Operations applies all capacity/entitlement
    changes or none and QR persists. For Mland cancellation, require the same

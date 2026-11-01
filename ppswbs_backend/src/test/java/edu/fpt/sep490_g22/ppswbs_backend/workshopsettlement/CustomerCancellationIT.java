@@ -19,6 +19,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.Cus
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopRefundService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingCancellationEligibilitySnapshot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.CancellationCompletionOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingCancellationOutcome;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,20 +62,23 @@ class CustomerCancellationIT {
         when(booking.verifiedDepositPayments("BK-IT-1")).thenReturn(new VerifiedBookingDepositPaymentsProjection(List.of(
                 payment("PAY-NEW", "20261030190000", 50_001L),
                 payment("PAY-OLD", "20261030180000", 50_001L))));
+        when(operations.cancelBooking(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(CancellationCompletionOutcome.accepted());
+        when(booking.cancelConfirmedBooking(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(BookingCancellationOutcome.accepted());
     }
 
     @Test
-    void persistsOneWholeBookingClaimAndOldestFirstAllocationsBeforeRefundDispatch() {
+    void persistsOneWholeBookingClaimWithoutDirectDepositRefundDispatch() {
         var result = service.open("BK-IT-1", "member-cancel-1", "CORR-IT-1", null, member());
 
-        assertThat(result.status()).isEqualTo("PENDING_PROVIDER");
+        assertThat(result.status()).isEqualTo("RESOLVED");
         assertThat(cases.findByCaseReference(result.caseReference())).get()
-                .extracting(SettlementCase::getLifecycleStatus).isEqualTo("PENDING_PROVIDER");
+                .extracting(SettlementCase::getLifecycleStatus).isEqualTo("RESOLVED");
         assertThat(snapshots.findByBookingReference("BK-IT-1")).isPresent();
         assertThat(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(result.caseReference()))
-                .extracting(SettlementRefundAllocation::getOriginalPaymentReference)
-                .containsExactly("PAY-OLD", "PAY-NEW");
-        verify(refunds).dispatchCase(result.caseReference());
+                .isEmpty();
+        verifyNoInteractions(refunds);
         verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
     }
 
@@ -84,12 +89,12 @@ class CustomerCancellationIT {
         var replay = service.open("BK-IT-1", "guest-cancel-1", "CORR-IT-2", proof, null);
 
         assertThat(replay.caseReference()).isEqualTo(first.caseReference());
-        assertThat(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(first.caseReference())).hasSize(2);
+        assertThat(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(first.caseReference())).isEmpty();
         assertThatThrownBy(() -> service.open("BK-IT-1", "guest-cancel-2", "CORR-IT-3", proof, null))
                 .isInstanceOf(WorkshopSettlementConflictException.class)
                 .hasMessage("CANCELLATION_CASE_ALREADY_EXISTS");
         assertThat(cases.count()).isEqualTo(1);
-        assertThat(allocations.count()).isEqualTo(2);
+        assertThat(allocations.count()).isZero();
         verify(booking, atLeastOnce()).verifyCustomerAccess("BK-IT-1", null, null, "+84901234567");
     }
 
@@ -132,7 +137,7 @@ class CustomerCancellationIT {
 
         var result = service.open("BK-IT-1", "member-cancel-3", "CORR-IT-4", null, member());
 
-        assertThat(result.status()).isEqualTo("REJECTED");
+        assertThat(result.status()).isEqualTo("RESOLVED");
         assertThat(allocations.count()).isZero();
         verifyNoInteractions(refunds);
         verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());

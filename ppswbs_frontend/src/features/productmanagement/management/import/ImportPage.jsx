@@ -6,6 +6,7 @@ import { useCatalogueApi } from '../../api/useCatalogueApi';
 import { messages } from '../../messages';
 import { LIMITS } from '../../rules';
 import { PageTop } from '../ManagementLayout';
+import { BulkImagesPanel } from './BulkImagesPanel';
 
 function save({ blob, fileName }, fallback) {
   const url = URL.createObjectURL(blob);
@@ -38,6 +39,9 @@ export default function ImportPage() {
   const validation = useCommand();
   const confirmation = useCommand();
   const refresh = useCommand();
+  // Names by group key, kept from the preview: the imported batch lists only group keys and product IDs.
+  const names = useRef({});
+  if (batch?.preview) names.current = Object.fromEntries(batch.preview.map(item => [item.groupKey, item.name]));
 
   const choose = event => {
     const chosen = event.target.files[0] || null;
@@ -168,6 +172,7 @@ export default function ImportPage() {
                 ))}
               </ul>
               <p className="notice">{t('import.addImages')}</p>
+              <BulkImagesPanel api={api} products={(batch.created || []).map(item => ({ id: item.productId, groupKey: item.groupKey, name: names.current[item.groupKey] || item.groupKey }))} />
               <button type="button" className="button outline" onClick={restart}>{t('import.another')}</button>
             </>
           )}

@@ -1,4 +1,4 @@
-# Version 1.3 — Feature 004: AI Chatbox Analysis and Suggestion
+# Version 1.4 — Feature 004: AI Chatbox Analysis and Suggestion (Frontend Delivery & Testing)
 
 - **Feature**: 004 — AI Chatbox Analysis and Suggestion
 - **Author**: Ngô Tiến Đạt
@@ -26,8 +26,8 @@
 
 - Replaced the booking-specific request model with `DesignRequest` and `design_requests`.
 - Removed booking fields and booking foreign-key assumptions from Feature-004 persistence.
-- Refactored consent, analysis, review and image-reference records to use independent Design Request ownership/version data. The current V12 migration still evolves the pre-existing `image_consents` table; this must be verified during Flyway upgrade testing.
-- Added append-only migration [`V62__independent_design_request.sql`](../../../ppswbs_backend/src/main/resources/db/migration/V62__independent_design_request.sql).
+- Refactored consent, analysis, review and image-reference records to use independent Design Request ownership/version data. The current V62 migration still evolves the pre-existing `image_consents` table; this must be verified during Flyway upgrade testing.
+- Added append-only migration [`V62__independent_design_request.sql`](../../../ppswbs_backend/src/main/resources/db/migration/V62__independent_design_request.sql). Loyalty/Feature-006 retains the canonical V12 migration, settlement retains V60 and OTA retains V61.
 - Preserved the separation between technical analysis state (`PENDING → PROCESSING → SUCCEEDED / FAILED`) and business review state (`NEED_REVIEW → ACCEPTED / REJECTED / CLARIFICATION_REQUIRED`).
 
 ### Phase C — Application services, security and authorization
@@ -50,7 +50,7 @@
 - Added safe projections; raw images, provider payloads, credentials and unnecessary PII are not returned.
 - Replaced the legacy booking review action with the independent `DESIGN_ACCEPTED` action.
 
-### Phase E — Verification evidence
+### Phase E — Backend verification evidence (Historical)
 
 The following results are historical evidence recorded from the implementation run on 2026-10-29. They must be reproduced after the final commit before release. A rerun during this documentation update was attempted but the Maven PowerShell wrapper failed before Maven started (`Cannot index into a null array`), so no new pass claim is made.
 
@@ -59,16 +59,44 @@ The following results are historical evidence recorded from the implementation r
 - Coverage included Guest/Member access, invalid tokens, prompt injection, consent, image validation, idempotency, rate limiting, ownership isolation, human review conflicts and price-suggestion permissions.
 - No Feature-004 production code imports the legacy Workshop Booking package or calls the booking eligibility facade.
 
+### Phase F — Frontend React + Vite Implementation & Test Verification (2026-11-01)
+
+- Built the complete standalone `F04-DESIGN-WORKSPACE` inside `ppswbs_frontend/src/features/designreview/`; fully independent of workshop booking, payment, session, ticket, and capacity hold flows.
+- Implemented modules following project frontend guidelines (`AGENT.md`, React 19, react-router 7, Vitest):
+  - `rules.js`: Limits (prompt 2,000, description 4,000, reason 2,000, image 10 MB, dimensions 4096×4096), allowed MIME types (`image/jpeg`, `image/png`, `image/webp`), consent purpose (`INDEPENDENT_DESIGN_IMAGE_ANALYSIS`), consent version (`v1.0`), currency (VND) and date formatters.
+  - `messages.js`: Complete bilingual (Vietnamese / English) dictionary covering all screen copy, fields, advisory badges, and typed backend error codes (`AI_INPUT_INVALID`, `IMAGE_RATE_LIMITED`, `SELF_REVIEW_NOT_ALLOWED`, `STAFF_LIMIT_EXCEEDED`, `AI_PROMPT_INJECTION_DETECTED`, `AUTHENTICATION_REQUIRED`, `MEMBER_INACTIVE_OR_INVALID`, etc.).
+  - `api/designReviewApi.js`: API client consuming the backend REST controller contract (`POST /api/v1/ai-support/messages`, multipart `POST /api/v1/design-requests` with `Idempotency-Key`, `GET /api/v1/design-requests/:id`, `GET /api/v1/design-review-requests`, `POST /api/v1/design-review-requests/:id/decisions`, `POST /api/v1/price-proposals/:id/ai-suggestions?targetType=...`, `GET /api/v1/price-proposals/:id/ai-suggestions`, `POST /api/v1/price-proposals/:id/ai-suggestions/decisions`).
+  - `api/useDesignReviewApi.js`: Session-bound hook utilizing shared `useHttp()`.
+  - `public/AiSupportPage.jsx` (`F04-AI-CHAT` - `/ai-support`): Basic AI Support for Guest and Member, 2,000-character limit counter, advisory disclaimer badge, chat bubble stream, error recovery and idempotent retry.
+  - `workspace/DesignWorkspacePage.jsx` (`F04-DESIGN-WORKSPACE`, `F04-IMAGE-UPLOAD`, `F04-CONSENT` - `/design-requests/new`): Member design request submission with independent boundary banner, up to 4,000-character description, optional catalogue reference, client-side image validation (MIME, 10 MB limit), affirmative consent requirement, multipart submission with `Idempotency-Key`, rate limit (429) & error recovery preserving user form inputs.
+  - `workspace/DesignDetailPage.jsx` (`F04-ANALYSIS-STATUS`, `F04-RESULT` - `/design-requests/:designRequestId`): Displays safe extracted candidate features (style, material, gemstone, structure, dimensions, preliminary estimated value), image quality indicators, model confidence, technical explanation, review status, and next action. Never exposes raw provider payload or raw image.
+  - `review/ReviewQueuePage.jsx` (`F04-REVIEW-QUEUE` - `/design-review-requests`): Staff/Manager review queue with responsive table, version, status, and navigation to review detail.
+  - `review/ReviewDetailPage.jsx` (`F04-REVIEW-DETAIL` - `/design-review-requests/:reviewRequestId`): Reviewer interface with extracted features, decision controls (`ACCEPTED`, `REJECTED`, `CLARIFICATION_REQUIRED`), reason validation (1–2,000 chars), optimistic `designVersion`, `ConfirmDialog` modal, and error recovery for self-review (403) and staff limit exceeded (403).
+  - `pricing/PriceProposalAiPage.jsx` (`F04-PRICE-PROPOSAL`, `F04-ADMIN-AUDIT` - `/price-proposals/:proposalId/ai-suggestions`):
+    - Manager view: Displays suggested price in VND, advisory note, re-request button, decision form (`ACCEPTED`, `ADJUSTED`, `REJECTED`, `MANUAL_FALLBACK`), final price input, note, and catalogue workflow reminder.
+    - Admin view (`technicalAuditEvidenceOnly === true`): Displays technical audit evidence only (provider correlation ID, timestamps, status); strictly hides commercial pricing fields according to separation of duties.
+  - `routes.jsx`: Registered all 6 feature routes with `RequireSession` guards where appropriate.
+  - `src/app/router.jsx`: Integrated into main app router.
+  - `src/app/AppLayout.jsx`: Added main navigation links for AI Support (`/ai-support`) and AI Design (`/design-requests/new`).
+- Automated verification evidence:
+  - Command: `npx vitest run src/features/designreview`
+  - Results: **2/2 test files passed, 21/21 tests passed (100%)**.
+    - `test/designReviewApi.test.js`: 8/8 tests passed (API endpoints, FormData, Idempotency-Key, query parameters, auth flags).
+    - `test/screens.test.jsx`: 13/13 tests passed (Guest chat, 503 retry, session requirement, boundary notice, empty validation, image consent, 429 rate limit recovery, safe candidate projections, review queue, review decision submission, self-review 403 error, Manager price proposal, Admin audit projection).
+  - Repository regression check: `npx vitest run src/features` — **6/6 test files passed, 68/68 tests passed (100%)**.
+  - Production build: `npm run build` — **128 modules transformed, build passed in 2.04s**.
+
 ---
 
 ## 2. Incomplete / Next steps
 
-### Giai đoạn 1: Frontend React + Vite
+### Giai đoạn 1: Frontend React + Vite (Đã hoàn thành)
 
-- Build the standalone `F04-DESIGN-WORKSPACE`; do not place it inside the booking flow.
-- Implement Basic AI Chat, Design Request description/image submission, consent and validation states, processing/result screens, owner-safe result view, Staff/Manager review queue, Manager price suggestion and Admin technical/audit projection.
-- Cover loading, empty, denied, validation, timeout, rate-limit, stale-version, conflict and retry states.
-- Do not add package, location/session, booking summary, payment or ticket screens to Feature-004.
+- [x] Build the standalone `F04-DESIGN-WORKSPACE`; do not place it inside the booking flow.
+- [x] Implement Basic AI Chat, Design Request description/image submission, consent and validation states, processing/result screens, owner-safe result view, Staff/Manager review queue, Manager price suggestion and Admin technical/audit projection.
+- [x] Cover loading, empty, denied, validation, timeout, rate-limit, stale-version, conflict and retry states.
+- [x] Do not add package, location/session, booking summary, payment or ticket screens to Feature-004.
+- [x] Automated test suite: 21/21 tests passed (Vitest), production build passed in 2.04s.
 
 ### Giai đoạn 2: Gemini production integration and prompt evaluation
 
@@ -102,7 +130,7 @@ The following results are historical evidence recorded from the implementation r
 
 - Linearize all repository Flyway migrations without editing already-applied migrations.
 - Verify upgrade compatibility and preserve existing data before claiming database readiness.
-- Before applying V60 to an existing database, inspect `flyway_schema_history` for version `12`. A database with only Loyalty V12 may apply V60 normally; a database with Feature-004 recorded as V12 requires a separate history-recovery decision and must not be repaired implicitly.
+- Before applying V62 to an existing database, inspect `flyway_schema_history` for versions `12`, `60`, `61` and `62`. A database with only Loyalty V12, settlement V60 and OTA V61 may apply V62 normally; a database with Feature-004 recorded as V12, V60 or V61 requires a separate history-recovery decision and must not be repaired implicitly.
 
 ### Phase C — Remaining implementation gate
 
@@ -124,7 +152,7 @@ The following results are historical evidence recorded from the implementation r
 ## 3. Active blockers and audit notes
 
 1. **Policy blocker:** Guest ownership, request-content, review, revision/withdrawal and image-retention policies are not fully approved.
-2. **Migration blocker:** The source-level V12 collision is resolved by moving Feature-004 to V60; clean-install/upgrade readiness still requires checking existing `flyway_schema_history` and running the MySQL upgrade test.
+2. **Migration blocker:** The source-level V12, V60 and V61 collisions are resolved by assigning Feature-004 to V62; clean-install/upgrade readiness still requires checking existing `flyway_schema_history` and running the MySQL upgrade test.
 3. **Evidence status:** The 44/44 and Modulith results above are historical execution evidence, not fresh verification of this documentation-only update.
 4. **Historical baseline:** Earlier booking-coupled implementation notes and the previous `53/53` result are retained only as audit history in Git, not as the current Feature-004 contract.
 
@@ -135,11 +163,12 @@ The following results are historical evidence recorded from the implementation r
 | Phase | Current evidence | Remaining evidence |
 | --- | --- | --- |
 | Phase A | Independent contract and boundary artifacts | Approved ownership/review/retention decisions |
-| Phase B | Independent entity model and V60 migration | Existing-database history check and MySQL upgrade test |
+| Phase B | Independent entity model and V62 migration | Existing-database history check and MySQL upgrade test |
 | Phase C | Services, security and authorization rebase | Final policy-driven behavior |
-| Phase D | Independent REST backend contract | React + Vite Design Workspace |
+| Phase D | Independent REST backend contract | Full integration with live backend |
 | Phase E | Historical Modulith and 44/44 integration results | Fresh final-commit verification and E2E evidence |
-| Giai đoạn 1 | Backend API available | Frontend implementation |
+| Phase F | React + Vite Design Workspace (21/21 tests, build passed) | Live browser E2E in staging |
+| Giai đoạn 1 | Frontend implementation (6 screens, 21 tests passed) | Live browser E2E in staging |
 | Giai đoạn 2 | Provider port and validation boundary | Production Gemini configuration/evaluation |
 | Giai đoạn 3 | Retention and review mechanisms exist | Policy and notification decisions |
 | Giai đoạn 4 | Test plan exists | Migration, E2E and release evidence |
@@ -323,10 +352,14 @@ The current Feature-004 code stores the Manager decision in `PriceSuggestion`; a
 
 - The Maven wrapper could not be started in the current environment, so this update does not claim fresh test execution.
 <<<<<<< HEAD
+<<<<<<< HEAD
 - Flyway still contains duplicate V6, V7 and V9 filenames; V12 cannot be considered release-ready until repository-wide migration ordering is resolved.
 =======
 - Flyway previously contained duplicate V6, V7 and V9 filenames; those collisions were renumbered in the shared migration history. The current collision was V12 between Loyalty and Feature-004 and has been resolved in source by assigning Feature-004 to V60.
 >>>>>>> bc3369824d8e1266a3cf137376a5b43deb48f07a
+=======
+- Flyway previously contained duplicate V6, V7 and V9 filenames; those collisions were renumbered in the shared migration history. The later V12, V60 and V61 collisions are resolved by assigning Feature-004 to V62; V60 remains owned by settlement add-on bills and V61 by OTA add-on link details.
+>>>>>>> 5fec1179a79de6e4f258f85501d39558ffcffc48
 - `V62__independent_design_request.sql` still modifies the legacy `image_consents` schema and requires clean-install/upgrade verification against the actual baseline.
 - `DesignAnalysisService` currently requires an active Member even though the entity contains Guest-proof fields.
 - `consentPurpose` is accepted by the controller but the current service does not independently validate it against `INDEPENDENT_DESIGN_IMAGE_ANALYSIS`.
@@ -555,6 +588,17 @@ PriceProposalController
 8. `GeminiRestClientAdapter` currently returns deterministic/mock-like results rather than calling the live provider.
 9. `LocalStorageAdapter` is in-memory and unsuitable for multi-instance production deployment.
 10. Maven wrapper execution failed in the current environment before Maven started; no fresh backend integration evidence is available for this frontend handoff.
-11. The source-level V12 collision is resolved by moving Feature-004 to V60; existing databases must still be checked for a previously applied Feature-004 V12 history row before rollout.
+11. The source-level V12/V60/V61 collisions are resolved by moving Feature-004 to V62; existing databases must still be checked for a previously applied Feature-004 V12, V60 or V61 history row before rollout.
 12. `consentPurpose` is accepted by the controller but is not independently validated by `DesignAnalysisService`; the frontend must send `INDEPENDENT_DESIGN_IMAGE_ANALYSIS` and the backend contract should be hardened separately.
+
+### 6.7. Merge conflict resolution log (2026-11-01)
+
+The following four conflicts were identified while preparing the `dat` branch for merge with `develop`:
+
+1. **Application router conflict** — `develop` introduced `workshopRoutes` and `NotImplementedPage`, while `dat` introduced `designReviewRoutes` and retained the prototype fallback. Resolution: use the production router structure from `develop`, compose product, loyalty, workshop and Feature-004 routes together, and use `NotImplementedPage` for the catch-all route. The hash-based `PrototypeApp` fallback was removed.
+2. **Application layout conflict** — `develop` converted Workshop and Login navigation to real paths, while `dat` added Feature-004 navigation. Resolution: keep `/workshops` and `/login` from `develop`, preserve `/ai-support` and `/design-requests/new`, and retain the bilingual Feature-004 labels.
+3. **Task status conflict** — `develop` still marked T012 incomplete, while `dat` contained the implemented frontend. Resolution: retain T012 as completed and keep the V62 migration note reserving V12 for Loyalty/Feature-006, V60 for settlement add-on bills and V61 for OTA add-on link details.
+4. **Version/audit document conflict** — `develop` contained stale migration wording and committed conflict markers, while `dat` contained Version 1.4 frontend evidence. Resolution: keep the Version 1.4 frontend delivery record, remove stale conflict markers, retain V62 as the Feature-004 migration and document the remaining live-backend, E2E and migration-history verification gaps.
+
+Verification after resolution: no conflict markers, no source-level duplicate Flyway versions, `git diff --check` clean. The frontend test/build suite must be rerun after the actual branch merge.
 

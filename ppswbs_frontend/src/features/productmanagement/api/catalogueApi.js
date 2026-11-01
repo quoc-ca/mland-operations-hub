@@ -14,6 +14,10 @@ export function catalogueApi(request) {
     listPublicProducts: filters => publicRead('/products', filters),
     getPublicProduct: productId => publicRead(`/products/${id(productId)}`),
     listPublicCategories: page => publicRead('/product-categories', { page }),
+    listSellingLocations: () => publicRead('/product-selling-locations'),
+
+    // Hand-off to FE-08's cart (T072): the Member's bearer, body { variantId, locationId, quantity } only.
+    addCartLine: body => request('/api/v1/members/me/ready-ring-cart/lines', { method: 'POST', body }),
 
     // Products (T028, T050, T064)
     listProducts: filters => read('/products', filters),

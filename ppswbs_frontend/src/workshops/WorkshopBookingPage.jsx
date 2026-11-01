@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { getWorkshopPackage, listWorkshopSessions, createWorkshopBooking, WorkshopApiError } from '../api/workshops';
+import { getWorkshopPackage, listWorkshopSessions, previewWorkshopBookingQuote, createWorkshopBooking, WorkshopApiError } from '../api/workshops';
+import { BenefitSelector } from '../features/loyaltypromotion/checkout/BenefitSelector';
+import { useAuth } from '../shared/auth/AuthProvider';
 
 const AVAILABLE_LOCATIONS = [
   { id: 1, name: 'MLAND Quận 1 — 123 Đồng Khởi, Bến Nghé, Quận 1, TP.HCM' },
@@ -32,6 +34,7 @@ function formatSessionTime(isoStart, isoEnd) {
 }
 
 export function WorkshopBookingPage({ packageId }) {
+  const { status: authStatus, getIdToken } = useAuth();
   // Package facts
   const [pkg, setPkg] = useState(null);
   const [loadingPkg, setLoadingPkg] = useState(true);
@@ -45,7 +48,11 @@ export function WorkshopBookingPage({ packageId }) {
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [participantCount, setParticipantCount] = useState(1);
-  const [memberQuoteRef, setMemberQuoteRef] = useState('');
+  const [benefitSelection, setBenefitSelection] = useState({ choice: 'NONE', voucherCode: '', requestedPoints: '0' });
+  const [memberQuote, setMemberQuote] = useState(null);
+  const [quoteMatches, setQuoteMatches] = useState(false);
+  const [benefitsAcknowledged, setBenefitsAcknowledged] = useState(false);
+  const [isQuoteLoading, setIsQuoteLoading] = useState(false);
 
   // Location & Session discovery
   const today = new Date();
@@ -68,6 +75,11 @@ export function WorkshopBookingPage({ packageId }) {
   const [formValidationErrors, setFormValidationErrors] = useState({});
   const [serverError, setServerError] = useState(null);
   const [bookingOutcome, setBookingOutcome] = useState(null);
+
+  const invalidateMemberQuote = () => {
+    setQuoteMatches(false);
+    setBenefitsAcknowledged(false);
+  };
 
   // Load package facts
   useEffect(() => {
@@ -131,6 +143,54 @@ export function WorkshopBookingPage({ packageId }) {
     });
     // Clear previous errors when user changes selection
     setServerError(null);
+    if (bookingMode === 'MEMBER') invalidateMemberQuote();
+  };
+
+  const handleBenefitChange = (nextValue) => {
+    setBenefitSelection(nextValue);
+    invalidateMemberQuote();
+    setServerError(null);
+  };
+
+  const recalculateMemberQuote = async () => {
+    setServerError(null);
+    setFormValidationErrors({});
+    if (selectedSessionRefs.length === 0) {
+      setFormValidationErrors({ sessions: 'Vui lòng chọn đủ ca workshop trước khi tính ưu đãi.' });
+      return;
+    }
+
+    setIsQuoteLoading(true);
+    try {
+      const idToken = authStatus === 'signed-in' ? await getIdToken() : null;
+      const quote = await previewWorkshopBookingQuote({
+        packageId,
+        sessionReferences: selectedSessionRefs,
+        participantCount,
+        benefitSelection,
+        authorization: idToken ? `Bearer ${idToken}` : undefined,
+      });
+      setMemberQuote(quote);
+      setQuoteMatches(true);
+      setBenefitsAcknowledged(false);
+    } catch (err) {
+      if (err instanceof WorkshopApiError) {
+        setServerError({
+          code: err.code,
+          message: err.detail || err.message,
+          correlationId: err.correlationId,
+        });
+      } else {
+        setServerError({
+          code: 'CLIENT_ERROR',
+          message: err?.message || 'Không thể tính lại ưu đãi workshop. Vui lòng thử lại.',
+          correlationId: null,
+        });
+      }
+      setQuoteMatches(false);
+    } finally {
+      setIsQuoteLoading(false);
+    }
   };
 
   // Validate form before submission
@@ -146,10 +206,10 @@ export function WorkshopBookingPage({ packageId }) {
     if (!participantCount || participantCount < 1) {
       errors.participantCount = 'Số lượng người tham gia tối thiểu là 1.';
     }
-    if (bookingMode === 'MEMBER' && !memberQuoteRef) {
-      errors.memberQuoteRef = 'Vui lòng nhập mã báo giá hội viên (Quote Ref UUID) hoặc chuyển sang Khách vãng lai.';
+    if (bookingMode === 'MEMBER' && (!memberQuote || !quoteMatches || !benefitsAcknowledged)) {
+      errors.memberBenefits = 'Vui lòng tính lại và xác nhận ưu đãi trước khi đặt workshop.';
     }
-    if (bookingMode === 'GUEST' && selectedSessionRefs.length === 0) {
+    if (selectedSessionRefs.length === 0) {
       errors.sessions = `Vui lòng chọn ít nhất 1 ca workshop phù hợp.`;
     }
     return errors;
@@ -157,7 +217,7 @@ export function WorkshopBookingPage({ packageId }) {
 
   // Handle booking submission
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setServerError(null);
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
@@ -171,14 +231,16 @@ export function WorkshopBookingPage({ packageId }) {
       const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : `idemp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const idToken = authStatus === 'signed-in' ? await getIdToken() : null;
 
       let payload;
       if (bookingMode === 'MEMBER') {
         payload = {
-          quoteRef: memberQuoteRef.trim(),
+          quoteRef: memberQuote.quoteRef,
           contactEmail: contactEmail.trim(),
           contactPhone: contactPhone.trim(),
           idempotencyKey,
+          authorization: idToken ? `Bearer ${idToken}` : undefined,
         };
       } else {
         payload = {
@@ -345,14 +407,23 @@ export function WorkshopBookingPage({ packageId }) {
         <button
           type="button"
           className={`button ${bookingMode === 'GUEST' ? 'primary' : 'outline'}`}
-          onClick={() => { setBookingMode('GUEST'); setServerError(null); }}
+          onClick={() => {
+            setBookingMode('GUEST');
+            setServerError(null);
+            setFormValidationErrors({});
+          }}
         >
           Khách vãng lai (Guest)
         </button>
         <button
           type="button"
           className={`button ${bookingMode === 'MEMBER' ? 'primary' : 'outline'}`}
-          onClick={() => { setBookingMode('MEMBER'); setServerError(null); }}
+          onClick={() => {
+            setBookingMode('MEMBER');
+            setServerError(null);
+            setFormValidationErrors({});
+            invalidateMemberQuote();
+          }}
         >
           Hội viên MLAND (Member)
         </button>
@@ -401,7 +472,10 @@ export function WorkshopBookingPage({ packageId }) {
                     min={pkg.minParticipants || 1}
                     max={pkg.maxParticipants || 10}
                     value={participantCount}
-                    onChange={e => setParticipantCount(Math.max(1, Number(e.target.value)))}
+                    onChange={e => {
+                      setParticipantCount(Math.max(1, Number(e.target.value)));
+                      if (bookingMode === 'MEMBER') invalidateMemberQuote();
+                    }}
                     disabled={isSubmitting}
                   />
                   {formValidationErrors.participantCount && (
@@ -440,31 +514,9 @@ export function WorkshopBookingPage({ packageId }) {
                 </label>
               </div>
 
-              {bookingMode === 'MEMBER' && (
-                <div style={{ marginTop: '16px', padding: '16px', background: '#f5f7fa', border: '1px solid #dcdfe6' }}>
-                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '6px' }}>
-                    Mã báo giá hội viên (Quote Reference UUID) *
-                    <input
-                      type="text"
-                      placeholder="e.g. f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
-                      value={memberQuoteRef}
-                      onChange={e => setMemberQuoteRef(e.target.value)}
-                      disabled={isSubmitting}
-                      style={{ width: '100%', marginTop: '6px' }}
-                    />
-                  </label>
-                  {formValidationErrors.memberQuoteRef && (
-                    <small style={{ color: '#b00' }}>{formValidationErrors.memberQuoteRef}</small>
-                  )}
-                  <p className="muted" style={{ fontSize: '13px', marginTop: '6px' }}>
-                    * Nếu có báo giá áp dụng ưu đãi điểm/voucher đã tạo trước đó, nhập mã báo giá tại đây để hoàn tất với quyền lợi hội viên.
-                  </p>
-                </div>
-              )}
             </section>
 
-            {bookingMode === 'GUEST' && (
-              <section className="workspace-card" style={{ marginTop: '24px' }}>
+            <section className="workspace-card" style={{ marginTop: '24px' }}>
                 <div className="card-head">
                   <div>
                     <h2>2. Chọn {requiredSessions} ca workshop</h2>
@@ -489,6 +541,7 @@ export function WorkshopBookingPage({ packageId }) {
                       onChange={e => {
                         setLocationId(Number(e.target.value));
                         setSelectedSessionRefs([]);
+                        if (bookingMode === 'MEMBER') invalidateMemberQuote();
                       }}
                       disabled={isSubmitting}
                     >
@@ -500,12 +553,28 @@ export function WorkshopBookingPage({ packageId }) {
 
                   <label style={{ flex: '1 1 120px' }}>
                     Từ ngày
-                    <input type="date" value={from} onChange={e => setFrom(e.target.value)} disabled={isSubmitting} />
+                    <input
+                      type="date"
+                      value={from}
+                      onChange={e => {
+                        setFrom(e.target.value);
+                        if (bookingMode === 'MEMBER') invalidateMemberQuote();
+                      }}
+                      disabled={isSubmitting}
+                    />
                   </label>
 
                   <label style={{ flex: '1 1 120px' }}>
                     Đến ngày
-                    <input type="date" value={to} onChange={e => setTo(e.target.value)} disabled={isSubmitting} />
+                    <input
+                      type="date"
+                      value={to}
+                      onChange={e => {
+                        setTo(e.target.value);
+                        if (bookingMode === 'MEMBER') invalidateMemberQuote();
+                      }}
+                      disabled={isSubmitting}
+                    />
                   </label>
                 </div>
 
@@ -585,6 +654,27 @@ export function WorkshopBookingPage({ packageId }) {
                   </div>
                 )}
               </section>
+
+            {bookingMode === 'MEMBER' && (
+              <div style={{ marginTop: '24px' }}>
+                <BenefitSelector
+                  context="workshop"
+                  value={benefitSelection}
+                  onChange={handleBenefitChange}
+                  quote={memberQuote}
+                  quoteMatches={quoteMatches}
+                  acknowledged={benefitsAcknowledged}
+                  onAcknowledge={setBenefitsAcknowledged}
+                  onRecalculate={recalculateMemberQuote}
+                  onConfirm={() => handleSubmit()}
+                  pending={isSubmitting || isQuoteLoading}
+                />
+                {formValidationErrors.memberBenefits && (
+                  <small style={{ display: 'block', color: '#b00', marginTop: '8px' }}>
+                    {formValidationErrors.memberBenefits}
+                  </small>
+                )}
+              </div>
             )}
           </div>
 
@@ -596,11 +686,9 @@ export function WorkshopBookingPage({ packageId }) {
               <p style={{ margin: 0 }}>Gói: <strong>{pkg.name}</strong></p>
               <p style={{ margin: 0 }}>Số người: <strong>{participantCount}</strong></p>
               <p style={{ margin: 0 }}>Đơn giá: <strong>{Number(pkg.publicPrice).toLocaleString('vi-VN')} ₫ / người</strong></p>
-              {bookingMode === 'GUEST' && (
-                <p style={{ margin: 0 }}>
-                  Ca đã chọn: <strong>{selectedSessionRefs.length} / {requiredSessions} ca</strong>
-                </p>
-              )}
+              <p style={{ margin: 0 }}>
+                Ca đã chọn: <strong>{selectedSessionRefs.length} / {requiredSessions} ca</strong>
+              </p>
             </div>
 
             <div style={{ lineHeight: '2' }}>
@@ -618,16 +706,18 @@ export function WorkshopBookingPage({ packageId }) {
               </div>
             </div>
 
-            <div style={{ marginTop: '24px' }}>
-              <button
-                type="submit"
-                className="button primary"
-                disabled={isSubmitting}
-                style={{ width: '100%', minHeight: '48px', fontSize: '16px', cursor: isSubmitting ? 'wait' : 'pointer' }}
-              >
-                {isSubmitting ? 'Đang xử lý giữ chỗ...' : 'Xác nhận đặt chỗ & Giữ chỗ'}
-              </button>
-            </div>
+            {bookingMode === 'GUEST' && (
+              <div style={{ marginTop: '24px' }}>
+                <button
+                  type="submit"
+                  className="button primary"
+                  disabled={isSubmitting}
+                  style={{ width: '100%', minHeight: '48px', fontSize: '16px', cursor: isSubmitting ? 'wait' : 'pointer' }}
+                >
+                  {isSubmitting ? 'Đang xử lý giữ chỗ...' : 'Xác nhận đặt chỗ & Giữ chỗ'}
+                </button>
+              </div>
+            )}
 
             <p className="muted" style={{ fontSize: '12px', marginTop: '16px', lineHeight: '1.5' }}>
               * Khi bấm xác nhận, hệ thống sẽ tiến hành giữ chỗ tức thời qua Workshop Operations. Đơn đặt chỗ sẽ có hiệu lực giữ chỗ trong 10 phút để hoàn tất thủ tục đặt cọc.

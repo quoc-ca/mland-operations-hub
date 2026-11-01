@@ -98,7 +98,7 @@ class CatalogueContractIT {
     }
 
     @Test
-    void everyContractOperationIsMappedAndTheContractHas47Schemas() {
+    void everyContractOperationIsMappedAndTheContractHas49Schemas() {
         Set<String> mapped = new HashSet<>();
         for (RequestMappingInfo info : mappings.getHandlerMethods().keySet()) {
             for (String pattern : info.getPatternValues()) {
@@ -107,9 +107,9 @@ class CatalogueContractIT {
         }
         List<String> operations = operations().stream().map(op -> op.method + " " + normalize(op.path)).toList();
 
-        assertThat(operations).hasSize(32);
+        assertThat(operations).hasSize(33);
         assertThat(mapped).containsAll(operations);
-        assertThat(contract.get("components").get("schemas").size()).isEqualTo(47);
+        assertThat(contract.get("components").get("schemas").size()).isEqualTo(49);
     }
 
     @Test
