@@ -322,6 +322,34 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         return DepositPaymentEvidenceOutcome.accepted();
     }
 
+    @Override
+    @Transactional
+    public BookingCancellationOutcome cancelConfirmedBooking(CancelConfirmedBookingCommand command) {
+        if (command == null || command.bookingReference() == null || command.bookingReference().isBlank()) {
+            return BookingCancellationOutcome.rejected(BookingRejectionReason.NOT_READY);
+        }
+        WorkshopBooking booking = bookingRepository.findLockedByBookingCode(command.bookingReference().trim()).orElse(null);
+        if (booking == null) return BookingCancellationOutcome.rejected(BookingRejectionReason.NOT_READY);
+        if (booking.getBookingStatus() == BookingStatus.CANCELLED) return BookingCancellationOutcome.accepted();
+        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
+            return BookingCancellationOutcome.rejected(BookingRejectionReason.INVALID_STATE);
+        }
+        booking.setBookingStatus(BookingStatus.CANCELLED);
+        booking.setCancelledAt(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS));
+        bookingRepository.save(booking);
+        auditEvidenceRepository.save(BookingAuditEvidence.builder()
+                .bookingCode(booking.getBookingCode())
+                .locationId(1L)
+                .actorType("CUSTOMER")
+                .action("CUSTOMER_CANCELLATION_NO_REFUND")
+                .outcome("ACCEPTED")
+                .correlationReference(command.correlationReference() == null ? "BOOKING-CANCEL" : command.correlationReference())
+                .actionReason("DIRECT_DEPOSIT_FORFEITED")
+                .occurredAt(Instant.now())
+                .build());
+        return BookingCancellationOutcome.accepted();
+    }
+
     /**
      * Provider evidence is authoritative for the payment attempt identified by
      * the immutable merchant reference.  This update is deliberately limited

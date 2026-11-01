@@ -40,4 +40,10 @@ public class WorkshopOperationsSettlementAdapter {
         return operations.completeCancellationHandoff(new CompleteCancellationHandoffCommand(
                 java.util.UUID.fromString(sessionReference), cancellationCaseReference, operationReference, correlationReference));
     }
+
+    public CancellationCompletionOutcome cancelBooking(String bookingReference,
+            String cancellationCaseReference, String operationReference, String correlationReference) {
+        return operations.cancelBooking(new CancelBookingCommand(
+                bookingReference, cancellationCaseReference, operationReference, correlationReference));
+    }
 }

@@ -35,6 +35,9 @@ public interface WorkshopBookingFacade {
     /** Persist redacted, verified deposit evidence that arrived after booking capacity was released. */
     DepositPaymentEvidenceOutcome recordLateDepositEvidence(RecordLateDepositEvidenceCommand command);
 
+    /** Cancel a confirmed direct booking after Operations has cancelled its sessions/tickets. */
+    BookingCancellationOutcome cancelConfirmedBooking(CancelConfirmedBookingCommand command);
+
     /**
      * Request delivery of existing ticket set (called by 003.2 resend flow).
      */
