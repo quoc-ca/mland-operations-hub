@@ -54,8 +54,11 @@ public class RetailCheckoutService {
         List<RetailCheckoutPorts.PricedLine> lines = pricingPort.price(cart.getLines()).stream()
             .filter(line -> line.locationId().equals(request.locationId())).toList();
         if (lines.isEmpty()) throw new RetailConflictException("Cart has no line for the selected location");
-        RetailCheckoutPorts.ShippingQuote quote = shippingQuotePort.quote(memberAccountId, request.locationId(), lines);
-        return new CheckoutDtos.ShippingQuoteView(quote.quoteId(), quote.locationId(), "VND", money(quote.charge()), money(quote.charge()), quote.expiresAt().toString());
+        var recipient = request.recipient() == null ? null : new RetailCheckoutPorts.RecipientAddress(
+            request.recipient().address(), request.recipient().province(), request.recipient().district(), request.recipient().ward());
+        RetailCheckoutPorts.ShippingQuote quote = shippingQuotePort.quote(memberAccountId, request.locationId(), lines, recipient);
+        return new CheckoutDtos.ShippingQuoteView(quote.quoteId(), quote.locationId(), "VND", money(quote.charge()), money(quote.charge()),
+            quote.expiresAt().toString(), quote.deliveryAvailable(), quote.message());
     }
 
     @Transactional

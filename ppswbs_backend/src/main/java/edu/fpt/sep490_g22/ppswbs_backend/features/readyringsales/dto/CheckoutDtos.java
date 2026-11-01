@@ -39,9 +39,20 @@ public final class CheckoutDtos {
                 payableAmount, expiresAt, "0");
         }
     }
-    public record ShippingQuoteRequest(@NotNull @Positive Long locationId) { }
+    public record RecipientAddressInput(@NotBlank @Size(max = 255) String address,
+                                        @NotBlank @Size(max = 128) String province,
+                                        @NotBlank @Size(max = 128) String district,
+                                        @NotBlank @Size(max = 128) String ward) { }
+    public record ShippingQuoteRequest(@NotNull @Positive Long locationId, @Valid RecipientAddressInput recipient) {
+        public ShippingQuoteRequest(Long locationId) { this(locationId, null); }
+    }
     public record ShippingQuoteView(String quoteId, Long locationId, String currency, String deliveryFee,
-                                    String totalCharge, String expiresAt) { }
+                                    String totalCharge, String expiresAt, boolean deliveryAvailable, String message) {
+        public ShippingQuoteView(String quoteId, Long locationId, String currency, String deliveryFee,
+                                 String totalCharge, String expiresAt) {
+            this(quoteId, locationId, currency, deliveryFee, totalCharge, expiresAt, true, null);
+        }
+    }
     public record BranchOrderCheckoutInput(@NotNull @Positive Long locationId, @NotBlank String method,
                                            String shippingQuoteId) { }
     public record CreateGroupedCheckoutRequest(@NotEmpty List<@Valid BranchOrderCheckoutInput> branchOrders,

@@ -27,7 +27,7 @@ class UnavailableRetailBenefitAdapter implements RetailBenefitPort {
 }
 @Service @Profile("!local")
 class UnavailableRetailShippingQuoteAdapter implements RetailShippingQuotePort {
-    public RetailCheckoutPorts.ShippingQuote quote(Long m, Long l, List<RetailCheckoutPorts.PricedLine> lines) { throw UnavailableCheckoutBoundary.unavailable(); }
+    public RetailCheckoutPorts.ShippingQuote quote(Long m, Long l, List<RetailCheckoutPorts.PricedLine> lines, RetailCheckoutPorts.RecipientAddress recipient) { throw UnavailableCheckoutBoundary.unavailable(); }
     public RetailCheckoutPorts.ShippingQuote requireValidQuote(Long m, Long l, String id) { throw UnavailableCheckoutBoundary.unavailable(); }
 }
 @Service @Profile("!local")
