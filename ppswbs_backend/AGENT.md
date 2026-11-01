@@ -31,9 +31,15 @@ thiết kế trong thư mục spec không thay persona triển khai này.
 | [Baseline nghiệp vụ](../documents/docs/) | Kiểm tra nguồn yêu cầu và quyết định mà feature dẫn chiếu khi có tác động. |
 | Code/test/prototype hiện tại | Bằng chứng hiện trạng và convention; không tự thay thiết kế đã duyệt. |
 
-Đọc các bản ghi `ERROR-LOG.md` cùng cấp nếu có; blocker còn mở liên quan nhiệm vụ
-phải được xử lý trước khi code. Không lấy blocker của phạm vi không phụ thuộc
-làm lý do chặn nhiệm vụ khác được giao rõ.
+Đọc các bản ghi `ERROR-LOG.md` cùng cấp nếu có; đây là nhật ký blocker **local-only**
+do agent tạo trong lúc implement, khác với runtime log tự sinh ở `logs/`. Blocker
+còn mở liên quan nhiệm vụ phải được xử lý trước khi code. Không lấy blocker của
+phạm vi không phụ thuộc làm lý do chặn nhiệm vụ khác được giao rõ.
+
+Trước khi chạy backend, kiểm tra `RUN-PROJ-DEV.md` cùng cấp. File này là runbook
+**local-only** và bị ignore; nếu thiếu, tạo lại theo cấu trúc chuẩn: điều kiện,
+cấu hình môi trường, lệnh chạy, artifacts/tác động runtime và lỗi/phục hồi. Không
+commit `RUN-PROJ-DEV.md`, `ERROR-LOG.md`, `.env` hoặc nội dung dưới `logs/`.
 
 Bằng chứng duyệt có thể là chỉ thị rõ trong phiên hoặc bản ghi truy xuất được
 xác định nội dung/phiên bản và phạm vi. Không hỏi lại quyết định đã rõ. Nếu nguồn
@@ -108,26 +114,41 @@ deploy hoặc tự reset/rollback các thay đổi đã có. Giữ hiện trạn
 tối thiểu để ghi bằng chứng. Không quy kết design sai nếu chưa có căn cứ: ghi rõ
 điều quan sát được và điều chưa xác định.
 
-Tạo hoặc bổ sung đúng file **`ERROR-LOG.md` cùng cấp AGENT.md này**. Sau đó báo
-đường dẫn, blocker, hiện trạng và điều kiện nhận lại công việc trong phản hồi.
-Việc ghi báo cáo lỗi là ngoại lệ được phép sau khi dừng, không phải quyền tiếp tục code.
+Tạo hoặc bổ sung đúng file **`ERROR-LOG.md` cùng cấp AGENT.md này**. Đây là file
+local-only, bị ignore và không được commit. Sau đó báo đường dẫn, blocker, hiện
+trạng và điều kiện nhận lại công việc trong phản hồi. Việc ghi báo cáo lỗi là ngoại
+lệ được phép sau khi dừng, không phải quyền tiếp tục code.
 
 ## 6. Hợp đồng ERROR-LOG.md và tiếp tục công việc
 
 Không tạo log rỗng khi không có blocker. Nếu file đã tồn tại, giữ lịch sử và thêm
 bản ghi/diễn biến; không xóa hoặc ghi đè bản ghi cũ. Dùng ID `BE-DESIGN-0001` rồi
 tăng theo ID đã có; lỗi lặp cùng blocker thì thêm bằng chứng vào diễn biến mang
-cùng ID. Timestamp ISO 8601 có offset, ví dụ `YYYY-MM-DDTHH:mm:ss+07:00`.
+cùng ID. Chỉ ghi ngày ISO 8601 `YYYY-MM-DD`, không ghi giờ hoặc offset.
 
 Mỗi bản ghi phải có đủ:
 
-1. ID, thời điểm có múi giờ, reporter thực tế, feature/task và trạng thái `BLOCKED`.
+1. ID, trạng thái `BLOCKED`, **Ngày** (`YYYY-MM-DD`), reporter thực tế,
+   **Người yêu cầu** (tên/handle từ session; nếu không xác định ghi đúng
+   `Không xác định trong session`), **Feature/task** và **Lỗi/blocker**.
 2. Phạm vi bị dừng và nguồn design: file/mục/requirement/contract/phiên bản cụ thể.
-3. Khuyết/mâu thuẫn chính xác; trigger, luồng hoặc scenario tái hiện vấn đề.
-4. Bằng chứng tài liệu/code/check đã chạy; tách fact, suy luận và unknown.
-5. Vì sao không thể implement đúng nếu không tự quyết; tác động nếu tiếp tục đoán.
-6. File đã thay đổi, việc đang dở, kiểm tra đã/chưa chạy và kết quả tại lúc dừng.
-7. Quyết định hoặc thiết kế cần bổ sung, người cần chốt nếu đã biết và điều kiện tiếp tục.
+3. Trigger, luồng hoặc scenario tái hiện; bằng chứng tài liệu/code/check đã chạy,
+   tách fact, suy luận và unknown.
+4. Vì sao không thể implement đúng nếu không tự quyết; tác động nếu tiếp tục đoán.
+5. File đã thay đổi, việc đang dở, kiểm tra đã/chưa chạy và kết quả tại lúc dừng.
+6. Quyết định hoặc thiết kế cần bổ sung, người cần chốt nếu đã biết và điều kiện tiếp tục.
+
+Đầu bản ghi dùng mẫu tối thiểu sau trước các mục bằng chứng/ảnh hưởng/tiếp tục:
+
+```md
+## BE-DESIGN-0001 — BLOCKED
+
+- Ngày: YYYY-MM-DD
+- Reporter: <tác nhân thực tế>
+- Người yêu cầu: <tên/handle từ session | Không xác định trong session>
+- Feature/task: <feature hoặc task đang implement>
+- Lỗi/blocker: <mô tả chính xác>
+```
 
 Không đưa secret/token/PII vào log. Đây là báo cáo vận hành, reporter là tác nhân
 thực sự; không chờ tên thành viên phụ trách metadata SpecKit mới ghi lỗi. Nếu ghi
