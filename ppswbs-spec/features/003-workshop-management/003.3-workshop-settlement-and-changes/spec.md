@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-01
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -29,7 +29,7 @@ post-package charges and final bills, final payment and release control,
 immediate final-balance collection before package-output handover,
 Manager-mediated change of one or more
 future required sessions,
-customer-requested whole-booking cancellation/refund, and Mland-caused
+customer-requested whole-booking cancellation decision, and Mland-caused
 package cancellation remedies.
 
 It consumes booking/deposit evidence from 003.1 and authoritative session,
@@ -41,8 +41,8 @@ rescheduling, or process OTA payments/refunds.
 
 ### Session 2026-10-31 — owner-approved refund execution
 
-- Once a customer cancellation or Mland-caused remedy is eligible, Settlement
-  automatically initiates the policy-calculated refund; no second manual send
+- Once an Mland-caused remedy is eligible, Settlement automatically initiates
+  the policy-calculated refund; no second manual send
   step is required. Every original collected payment has at most one distinct
   refund operation. Calculate the aggregate refund once using the policy's
   whole-VND rounding, then allocate it oldest original payment first, capped at
@@ -59,6 +59,17 @@ rescheduling, or process OTA payments/refunds.
   supplies the verified provider transaction number and immutable original
   payment URL creation date.
 
+### Session 2026-11-01 - direct deposit cancellation policy
+
+- Direct Mland booking deposits are non-refundable. When the booking is eligible,
+  a customer cancellation is handed to Operations, all future sessions/tickets
+  are cancelled atomically, and the Settlement case becomes `RESOLVED` with
+  `DIRECT_DEPOSIT_FORFEITED`; no refund allocation, VNPay refund, or VNPay
+  QueryDR is created. Ineligible requests remain `REJECTED`.
+- VNPay payment creation and signed payment/IPN evidence remain in scope for
+  collecting the deposit. OTA cancellation/refund evidence is owned and
+  reconciled by 003.4 outside this direct-booking policy.
+
 ### Session 2026-10-27
 
 - Q: Is a Workshop Branch a separate authorization/resource identity from a
@@ -71,11 +82,10 @@ rescheduling, or process OTA payments/refunds.
 
 ### Session 2026-10-24
 
-- Q: What is the customer refund unit? → A: Only the whole direct booking;
-  customers cannot self-service cancel/refund a session, ticket, or participant.
-- Q: What is the direct-booking refund policy? → A: Against the earliest session
-  start: 100% of paid deposit at least 72 hours before; 50% from 24 to under 72
-  hours; 0% below 24 hours, for no-show, or after any ticket check-in.
+> The direct-deposit cancellation decision above supersedes the earlier refund-tier
+> clarification in this section. The historical tier text is no longer an active
+> direct-booking rule; refund tiers remain applicable only to approved Mland-caused
+> remedy/provider flows.
 
 ### Session 2026-10-25
 
@@ -363,17 +373,15 @@ Guest or Member needs a clear direct-booking cancellation/refund result without
 being offered a session/ticket-level refund.
 
 **Independent Test**: An eligible unstarted booking receives one whole-booking
-request, snapshots its policy result, and changes tickets/capacity only after
-confirmed refund.
+request, snapshots the non-refundable policy result, and Operations cancels all
+future sessions/tickets atomically.
 
-1. **Given** all tickets are unused and earliest session is at least 72 hours
-   away, **When** the customer requests cancellation, **Then** 100% of paid
-   deposit is requested as refund.
-2. **Given** earliest session is 24 to under 72 hours away, **Then** 50% is
-   requested; below 24 hours, no-show, or checked-in ticket rejects the normal
-   customer refund path.
-3. **Given** refund is pending or fails, **Then** tickets/capacity do not change
-   until confirmed and the booking is not restored for use after failure.
+1. **Given** all tickets are unused and every required session is in the future,
+   **When** the customer requests cancellation, **Then** Operations cancels the
+   whole booking, the case becomes `RESOLVED`, and the paid deposit is retained.
+2. **Given** a session has started, a ticket was checked in/no-show, or Operations
+   rejects the command, **Then** the case remains/reverts to `REJECTED` and no
+   refund or QueryDR call is made.
 
 ### User Story 3 — Manager changes future required sessions (P2)
 
@@ -523,21 +531,17 @@ outcome.
   no-session-started requirement also ensures no workshop product has already
   been handed over. No separate package-output delivery check is required for
   customer cancellation.
-- **FR-015**: The system MUST calculate paid-deposit refund against earliest
-  session start in session/location timezone: 100% ≥72h, 50% ≥24h and <72h, else 0%.
-  A request whose computed refund is 0% MUST be rejected as ineligible; it MUST NOT
-  cancel the booking, revoke tickets, or release capacity.
+- **FR-015**: Direct customer cancellation MUST NOT calculate or request a refund.
+  If all required sessions are future and all tickets are unused, Settlement MUST
+  hand the booking to Operations for an idempotent whole-booking cancellation;
+  the case is `RESOLVED` only after Operations accepts, and the paid deposit is
+  retained. An Operations rejection leaves the case `REJECTED`.
 - **FR-016**: The case MUST snapshot policy, earliest-session reference, paid
   amount, computed amount, request time, and eligibility outcome. A replay MUST
   return that snapshot; a conflicting new key MUST NOT create another snapshot.
-- **FR-017**: It MUST use `PENDING_PROVIDER` until gateway outcome is confirmed,
-  then revoke unused tickets/release future capacity only on confirmed refund.
-- **FR-017a**: After a refund request is accepted with a provider refund
-  transaction number, the system MUST query immediately and then every five
-  minutes for up to 24 hours. `05` and `06` remain pending; no refund request is
-  sent again. An `UNKNOWN` request without a provider refund transaction number
-  remains `PENDING_PROVIDER` for manual VNPay Merchant Admin investigation and
-  MUST NOT be marked complete without signed matching QueryDR evidence.
+- **FR-017**: Direct customer cancellation MUST never create a `PENDING_PROVIDER`
+  case and MUST never invoke VNPay refund or QueryDR. Provider refund states are
+  limited to approved Mland-caused remedy/provider flows.
 - **FR-018**: An authorized Manager MAY replace one or more future required
   sessions only with compatible sessions that have capacity for the booking's
   unchanged participant count. For a multi-session package, the complete
@@ -654,9 +658,10 @@ outcome.
   the customer only after the final balance has been verified as paid. This
   describes the product/output after the workshop, not the booking ticket used
   to attend a session.
-- **Refund Case**: Customer-requested or Mland-caused whole-booking/package
-  direct-payment refund with policy snapshot, amount, gateway outcome, and
-  consequences.
+- **Refund Case**: Mland-caused whole-booking/package direct-payment remedy
+  refund with policy snapshot, amount, gateway outcome, and consequences.
+  Customer-requested direct cancellation is a non-refundable Operations
+  cancellation case and is not a Refund Case.
 - **Reschedule Record**: Audited booking-level replacement of one or more future
   required sessions, including the prior/resulting session sets and the
   all-or-none 003.2 outcome.
@@ -670,8 +675,9 @@ outcome.
   confirms the full amount.
 - **SC-003**: 100% of invalid/duplicate/mismatched/unsigned/late payment or refund
   events do not settle the related bill/refund twice.
-- **SC-004**: 100% of policy tests calculate the correct earliest-session refund
-  percentage and no customer path refunds only a session/ticket/participant.
+- **SC-004**: 100% of Mland-remedy policy tests calculate the correct
+  whole-booking refund percentage; direct customer cancellation never creates a
+  refund and no path refunds only a session/ticket/participant.
 - **SC-005**: 100% of successful required-session-change tests transfer all and
   only affected capacity/ticket entitlements atomically while preserving the
   persistent QR and maintaining the resulting package/session-set invariants.

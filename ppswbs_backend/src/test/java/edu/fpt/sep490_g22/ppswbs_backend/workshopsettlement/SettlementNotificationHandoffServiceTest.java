@@ -59,4 +59,35 @@ class SettlementNotificationHandoffServiceTest {
                 .isInstanceOf(IllegalStateException.class);
         verifyNoInteractions(repository, dispatcher);
     }
+
+    @Test
+    void rejectsMissingOrBlankArgumentsFailClosed() {
+        TransactionSynchronizationManager.initSynchronization();
+
+        assertThatThrownBy(() -> service.create(null, "FINAL_PAYMENT_VERIFIED", "CORR-1", "rec@test.com", "Content"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("settlementReference is required");
+
+        assertThatThrownBy(() -> service.create("BILL-1", " ", "CORR-1", "rec@test.com", "Content"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("notificationKind is required");
+
+        assertThatThrownBy(() -> service.create("BILL-1", "FINAL_PAYMENT_VERIFIED", "", "rec@test.com", "Content"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("correlationReference is required");
+
+        assertThatThrownBy(() -> service.create("BILL-1", "FINAL_PAYMENT_VERIFIED", "CORR-1", null, "Content"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("storedRecipient is required");
+
+        assertThatThrownBy(() -> service.create("BILL-1", "FINAL_PAYMENT_VERIFIED", "CORR-1", "   ", "Content"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("storedRecipient is required");
+
+        assertThatThrownBy(() -> service.create("BILL-1", "FINAL_PAYMENT_VERIFIED", "CORR-1", "rec@test.com", " "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("renderedContent is required");
+
+        verifyNoInteractions(repository, dispatcher);
+    }
 }

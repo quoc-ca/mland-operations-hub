@@ -1,5 +1,6 @@
 /**
- * Only public boundary of productmanagement: CatalogueSalesFacade, AvailabilityGuardPort and their
+ * Only public boundary of productmanagement: CatalogueSalesFacade, AvailabilityGuardPort,
+ * SellingLocationPort and their
  * immutable boundary records. No entity, repository, DTO or internal service is exported.
  */
 @NamedInterface("facade")

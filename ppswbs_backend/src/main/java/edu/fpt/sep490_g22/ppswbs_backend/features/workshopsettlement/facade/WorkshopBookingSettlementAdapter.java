@@ -11,6 +11,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.Custome
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingLoyaltyOutcomeSource;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingLoyaltyOutcomeSourceQuery;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.CancelConfirmedBookingCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingCancellationOutcome;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -42,5 +44,11 @@ public class WorkshopBookingSettlementAdapter {
             String settlementReference, String operationReference, String correlationReference) {
         return booking.recordFinalBalanceResolved(new RecordFinalBalanceResolvedCommand(
                 bookingReference, settlementReference, operationReference, correlationReference));
+    }
+
+    public BookingCancellationOutcome cancelConfirmedBooking(String bookingReference, String cancellationCaseReference,
+            String operationReference, String correlationReference) {
+        return booking.cancelConfirmedBooking(new CancelConfirmedBookingCommand(
+                bookingReference, cancellationCaseReference, operationReference, correlationReference));
     }
 }

@@ -7,7 +7,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.Custome
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConfirmedBookingFinancialProjection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.VerifiedBookingDepositPaymentsProjection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.VerifiedBookingPayment;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingCancellationOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingCancellationEligibilitySnapshot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.CancellationCompletionOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCustomerCancellationSnapshotRepository;
@@ -74,16 +76,20 @@ class CustomerBookingCancellationServiceTest {
             Supplier<String> create = invocation.getArgument(2);
             return new SettlementIdempotencyResult(false, create.get());
         });
+        when(operations.cancelBooking(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(CancellationCompletionOutcome.accepted());
+        when(booking.cancelConfirmedBooking(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(BookingCancellationOutcome.accepted());
         when(booking.confirmedProjection("BK-1")).thenReturn(new ConfirmedBookingFinancialProjection(
                 "PKG-1", 100_000L, 100_000L, 50_000L, 50_000L, 1, List.of("session-uuid"), 1L));
         when(booking.verifyCustomerAccess(eq("BK-1"), any(), any(), any()))
                 .thenReturn(new CustomerBookingAccessDecision(true));
         service = new CustomerBookingCancellationService(booking, operations, idempotency, cases, snapshots,
-                audits, allocations, refunds, transactionManager);
+                audits, transactionManager);
     }
 
     @Test
-    void eligibleMemberGetsWholeBookingRefundAllocatedOldestPaymentFirst() {
+    void eligibleMemberCancellationRecordsNonRefundableDecisionWithoutProviderCall() {
         when(operations.cancellationEligibility("BK-1")).thenReturn(eligibleIn(DurationHours.hours(96)));
         when(booking.verifiedDepositPayments("BK-1")).thenReturn(new VerifiedBookingDepositPaymentsProjection(List.of(
                 payment("PAY-NEW", "20261030190000", 50_001L),
@@ -91,26 +97,24 @@ class CustomerBookingCancellationServiceTest {
 
         var result = service.open("BK-1", "cancel-key", "CORR-1", null, member());
 
-        assertThat(result.status()).isEqualTo("PENDING_PROVIDER");
-        assertThat(savedAllocations).extracting(SettlementRefundAllocation::getOriginalPaymentReference)
-                .containsExactly("PAY-OLD", "PAY-NEW");
-        assertThat(savedAllocations).extracting(SettlementRefundAllocation::getAllocatedAmountVnd)
-                .containsExactly(50_001L, 50_001L);
-        verify(refunds).dispatchCase(result.caseReference());
+        assertThat(result.status()).isEqualTo("RESOLVED");
+        assertThat(savedAllocations).isEmpty();
+        assertThat(savedCase.get().getReasonReference()).isEqualTo("DIRECT_DEPOSIT_FORFEITED");
+        verifyNoInteractions(refunds);
     }
 
     @Test
-    void fiftyPercentPolicyRoundsAggregateBeforeAllocatingOldestPayment() {
+    void cancellationNeverCreatesPartialRefundAllocation() {
         when(operations.cancellationEligibility("BK-1")).thenReturn(eligibleIn(DurationHours.hours(48)));
         when(booking.verifiedDepositPayments("BK-1")).thenReturn(new VerifiedBookingDepositPaymentsProjection(List.of(
                 payment("PAY-OLD", "20261030180000", 50_001L),
                 payment("PAY-NEW", "20261030190000", 50_001L))));
 
-        service.open("BK-1", "cancel-key-2", "CORR-2", null, member());
+        var result = service.open("BK-1", "cancel-key-2", "CORR-2", null, member());
 
-        assertThat(savedAllocations).hasSize(1);
-        assertThat(savedAllocations.getFirst().getOriginalPaymentReference()).isEqualTo("PAY-OLD");
-        assertThat(savedAllocations.getFirst().getAllocatedAmountVnd()).isEqualTo(50_001L);
+        assertThat(result.status()).isEqualTo("RESOLVED");
+        assertThat(savedAllocations).isEmpty();
+        verifyNoInteractions(refunds);
     }
 
     @Test
@@ -121,8 +125,8 @@ class CustomerBookingCancellationServiceTest {
 
         var result = service.open("BK-1", "cancel-key-3", "CORR-3", null, member());
 
-        assertThat(result.status()).isEqualTo("REJECTED");
-        assertThat(savedCase.get().getReasonReference()).isEqualTo("ZERO_REFUND");
+        assertThat(result.status()).isEqualTo("RESOLVED");
+        assertThat(savedCase.get().getReasonReference()).isEqualTo("DIRECT_DEPOSIT_FORFEITED");
         assertThat(savedAllocations).isEmpty();
         verifyNoInteractions(refunds);
     }

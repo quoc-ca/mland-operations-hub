@@ -159,6 +159,12 @@ policy snapshot and computes any Mland-caused refund as
 `floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND. Existing
 snapshots are never rewritten.
 
+This policy is not consulted for ordinary customer cancellation. A direct
+customer cancellation has a zero-refund snapshot, is handed to Operations for
+whole-booking cancellation, and retains the deposit; no refund allocation or
+VNPay QueryDR/refund operation is created. The policy remains for Mland-caused
+remedy cases and other explicitly approved provider-remedy flows.
+
 Booking publishes a durable `MlandBookingConfirmedEvent` containing only the
 booking reference and committed confirmation timestamp in the same transaction
 as the `CONFIRMED` transition. Settlement consumes it after commit and writes a

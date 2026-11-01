@@ -30,4 +30,7 @@ public interface WorkshopOperationsFacade {
     RefundConsequenceOutcome applyVerifiedRefundConsequence(ApplyVerifiedRefundConsequenceCommand command);
 
     CancellationCompletionOutcome completeCancellationHandoff(CompleteCancellationHandoffCommand command);
+
+    /** Cancels every active session and ticket belonging to one booking atomically. */
+    CancellationCompletionOutcome cancelBooking(CancelBookingCommand command);
 }
