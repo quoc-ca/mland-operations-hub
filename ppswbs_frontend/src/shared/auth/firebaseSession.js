@@ -1,5 +1,13 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  onAuthStateChanged,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+} from 'firebase/auth';
 import { firebaseConfig, hasFirebaseConfig } from './firebaseConfig';
 
 // Firebase session (proposal §7). Firebase proves identity only; the backend resolves the Mland account and
@@ -17,6 +25,42 @@ function firebaseAuth() {
   if (!config) return null;
   auth = getAuth(initializeApp(config));
   return auth;
+}
+
+export function getFirebaseAuth() {
+  return firebaseAuth();
+}
+
+function requireFirebaseAuth() {
+  const current = firebaseAuth();
+  if (!current) {
+    const error = new Error('Firebase is not configured');
+    error.code = 'CONFIGURATION_REQUIRED';
+    throw error;
+  }
+  return current;
+}
+
+export async function signInWithPassword(email, password) {
+  return signInWithEmailAndPassword(requireFirebaseAuth(), email, password);
+}
+
+export async function registerWithPassword(email, password) {
+  return createUserWithEmailAndPassword(requireFirebaseAuth(), email, password);
+}
+
+export async function sendPasswordReset(email) {
+  return sendPasswordResetEmail(requireFirebaseAuth(), email);
+}
+
+export async function sendVerificationEmail() {
+  const current = requireFirebaseAuth();
+  if (!current.currentUser) {
+    const error = new Error('No signed-in user');
+    error.code = 'AUTHENTICATION_REQUIRED';
+    throw error;
+  }
+  return sendEmailVerification(current.currentUser);
 }
 
 /** Subscribes to sign-in changes; returns an unsubscribe function. Reports 'unconfigured' without config. */

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, Outlet } from 'react-router';
+import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '../shared/auth/AuthProvider';
 import { useT } from '../shared/i18n/I18nProvider';
 import { LanguageSwitch } from '../shared/ui/components';
@@ -12,9 +12,11 @@ const appMessages = {
 
 /** Header and footer for production-oriented feature routes. */
 export default function AppLayout() {
+  const location = useLocation();
   const t = useT(appMessages);
   const tShared = useT(sharedMessages);
   const { status, signOut } = useAuth();
+  if (['/sign-in', '/login', '/register', '/forgot-password'].includes(location.pathname)) return <Outlet />;
   return (
     <>
       <header className="app-header">
