@@ -21,7 +21,8 @@ public record AuthoritativeOutcome(SourceKind sourceKind, String sourceRef, Stri
         if (sourceOutcomeVersion < 0) {
             throw LoyaltyException.invalidField("sourceOutcomeVersion", "Outcome version must not be negative.");
         }
-        boolean retailOutcome = outcome == OutcomeKind.RETAIL_FULLY_PAID || outcome == OutcomeKind.RETAIL_ZERO_ACCEPTED;
+        boolean retailOutcome = outcome == OutcomeKind.RETAIL_FULLY_PAID || outcome == OutcomeKind.RETAIL_ZERO_ACCEPTED
+                || outcome == OutcomeKind.RETAIL_CANCELLED_BEFORE_PAYMENT;
         boolean workshopOutcome = outcome == OutcomeKind.WORKSHOP_DEPOSIT_ACCEPTED
                 || outcome == OutcomeKind.WORKSHOP_COMPLETED_AND_FULLY_PAID
                 || outcome == OutcomeKind.VALID_WORKSHOP_CANCELLATION

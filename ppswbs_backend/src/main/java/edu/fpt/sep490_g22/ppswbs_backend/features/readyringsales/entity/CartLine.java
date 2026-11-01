@@ -30,8 +30,8 @@ public class CartLine {
     @JoinColumn(name = "cart_id", nullable = false)
     private RetailCart cart;
 
-    @Column(name = "variant_id", nullable = false, length = 128)
-    private String variantId;
+    @Column(name = "variant_id", nullable = false)
+    private Long variantId;
 
     @Column(name = "location_id", nullable = false)
     private Long locationId;
@@ -47,7 +47,7 @@ public class CartLine {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    CartLine(RetailCart cart, String variantId, Long locationId, int quantity) {
+    CartLine(RetailCart cart, Long variantId, Long locationId, int quantity) {
         this.cart = cart;
         this.variantId = variantId;
         this.locationId = locationId;

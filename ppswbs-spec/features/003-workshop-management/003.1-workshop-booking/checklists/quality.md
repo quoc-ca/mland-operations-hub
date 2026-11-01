@@ -31,7 +31,7 @@
 - [x] CHK013 Does the specification define whether capacity is consumed by participant count rather than booking-row count? [Clarity, Spec FR-005/FR-008]
 - [x] CHK014 Are creation, confirmation, expiry and explicit pending-hold release requirements consistent about when capacity is held, committed and released? [Consistency, Spec §FR-008–FR-009, §FR-017h]
 - [x] CHK015 Are concurrent requests for the final available participant capacity explicitly covered? [Edge Case, Spec Edge Cases]
-- [x] CHK016 Is the 15-minute hold deadline defined independently from the payment link deadline? [Completeness, Spec §FR-008]
+- [x] CHK016 Do the payment link and capacity hold share the same absolute deadline of at most 10 minutes? [Completeness, Spec §§FR-008, FR-010d]
 - [x] CHK017 Does the specification define idempotent release behavior so one hold cannot be released twice? [Idempotency, Spec §FR-021]
 
 ## Authorization and Lookup

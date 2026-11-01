@@ -47,7 +47,7 @@ import static org.mockito.Mockito.when;
  * 8. Strict privacy (no customer PII, tokens, or raw QR secrets leaked in responses/audits).
  */
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "workshopoperations-mysql-test"})
 @TestPropertySource(properties = {
         "workshop.operations.auth.allow-test-tokens=true"
 })
@@ -116,44 +116,29 @@ public class WorkshopOperationsQuickstartIT {
     @BeforeEach
     void setUp() {
         if (jdbcTemplate != null) {
-            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
-            jdbcTemplate.execute("TRUNCATE TABLE attendance_actions");
-            jdbcTemplate.execute("TRUNCATE TABLE ticket_session_entitlements");
-            jdbcTemplate.execute("TRUNCATE TABLE attendance_tickets");
-            jdbcTemplate.execute("TRUNCATE TABLE capacity_holds");
-            jdbcTemplate.execute("TRUNCATE TABLE session_operational_leads");
-            jdbcTemplate.execute("TRUNCATE TABLE session_staff_assignments");
-            jdbcTemplate.execute("TRUNCATE TABLE cancellation_handoffs");
-            jdbcTemplate.execute("TRUNCATE TABLE operations_audit_events");
-            jdbcTemplate.execute("TRUNCATE TABLE workshop_sessions");
-            jdbcTemplate.execute("TRUNCATE TABLE workshop_slots");
-            jdbcTemplate.execute("TRUNCATE TABLE workshop_locations");
-            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
-        } else {
-            actionRepository.deleteAll();
-            auditEventRepository.deleteAll();
-            handoffRepository.deleteAll();
-            entitlementRepository.deleteAll();
-            ticketRepository.deleteAll();
-            holdRepository.deleteAll();
-            operationalLeadRepository.deleteAll();
-            staffAssignmentRepository.deleteAll();
-            sessionRepository.deleteAll();
-            slotRepository.deleteAll();
-            locationRepository.deleteAll();
+            try (var connection = jdbcTemplate.getDataSource().getConnection()) {
+                String productName = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
+                org.junit.jupiter.api.Assumptions.assumeTrue(productName.contains("mysql"),
+                        "WorkshopOperationsQuickstartIT requires real MySQL/Flyway evidence; detected " + productName);
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to inspect database metadata", e);
+            }
         }
+
+        // Generate isolated test entities with unique codes to preserve database rows
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
 
         // 1. Create canonical workshop location
         location = locationRepository.save(WorkshopLocation.builder()
-                .code("LOC-QS-01")
-                .displayName("Quickstart Saigon Center")
+                .code("LOC-QS-" + suffix)
+                .displayName("Quickstart Saigon Center " + suffix)
                 .addressSnapshot("123 Le Loi, District 1, HCMC")
                 .active(true)
                 .build());
 
         // 2. Create non-overlapping default slots
         slotMorning = slotRepository.save(WorkshopSlot.builder()
-                .reference("SLOT-QS-MORN")
+                .reference("SLOT-QS-MORN-" + suffix)
                 .location(location)
                 .label("Morning Slot")
                 .startTime(LocalTime.of(9, 0))
@@ -163,7 +148,7 @@ public class WorkshopOperationsQuickstartIT {
                 .build());
 
         slotAfternoon = slotRepository.save(WorkshopSlot.builder()
-                .reference("SLOT-QS-AFTN")
+                .reference("SLOT-QS-AFTN-" + suffix)
                 .location(location)
                 .label("Afternoon Slot")
                 .startTime(LocalTime.of(14, 0))
@@ -287,10 +272,11 @@ public class WorkshopOperationsQuickstartIT {
                 .build());
 
         // Create capacity hold for 3 seats
+        String bkgRef = "BKG-QS-" + UUID.randomUUID().toString().substring(0, 8);
         CapacityHold hold = holdRepository.save(CapacityHold.builder()
                 .reference(UUID.randomUUID().toString())
                 .session(session)
-                .bookingReference("BKG-QS-1001")
+                .bookingReference(bkgRef)
                 .requestedTicketCount(3)
                 .state(CapacityHoldState.ACTIVE)
                 .expiresAt(Instant.now().plus(15, ChronoUnit.MINUTES))
@@ -308,7 +294,7 @@ public class WorkshopOperationsQuickstartIT {
                     .reference(UUID.randomUUID().toString())
                     .ticketCode("TCK-QS-" + i + "-" + UUID.randomUUID().toString().substring(0, 6))
                     .qrReference("QR-REF-" + i + "-" + UUID.randomUUID().toString().substring(0, 8))
-                    .bookingReference("BKG-QS-1001")
+                    .bookingReference(bkgRef)
                     .ticketSequence(i)
                     .validityState(TicketValidityState.ACTIVE)
                     .version(1L)
@@ -321,7 +307,7 @@ public class WorkshopOperationsQuickstartIT {
                     .build());
         }
 
-        List<AttendanceTicket> tickets = ticketRepository.findByBookingReference("BKG-QS-1001");
+        List<AttendanceTicket> tickets = ticketRepository.findByBookingReference(bkgRef);
         assertThat(tickets).hasSize(3);
     }
 
@@ -355,12 +341,16 @@ public class WorkshopOperationsQuickstartIT {
                 .assignedAt(now.minus(4, ChronoUnit.HOURS))
                 .build());
 
+        String bkgRef4 = "BKG-QS-" + UUID.randomUUID().toString().substring(0, 8);
+        String t1Code = "TCK-QS-CHECKIN-" + UUID.randomUUID().toString().substring(0, 6);
+        String t2Code = "TCK-QS-NOSHOW-" + UUID.randomUUID().toString().substring(0, 6);
+
         // Create Ticket 1 (will be CHECKED_IN)
         AttendanceTicket t1 = ticketRepository.save(AttendanceTicket.builder()
                 .reference(UUID.randomUUID().toString())
-                .ticketCode("TCK-QS-CHECKIN-1")
-                .qrReference("QR-QS-CHECKIN-1")
-                .bookingReference("BKG-QS-2001")
+                .ticketCode(t1Code)
+                .qrReference("QR-QS-CHECKIN-" + UUID.randomUUID().toString().substring(0, 8))
+                .bookingReference(bkgRef4)
                 .ticketSequence(1)
                 .validityState(TicketValidityState.ACTIVE)
                 .version(1L)
@@ -383,9 +373,9 @@ public class WorkshopOperationsQuickstartIT {
         // Create Ticket 2 (will NOT check in -> should become NO_SHOW on finalization)
         AttendanceTicket t2 = ticketRepository.save(AttendanceTicket.builder()
                 .reference(UUID.randomUUID().toString())
-                .ticketCode("TCK-QS-NOSHOW-2")
-                .qrReference("QR-QS-NOSHOW-2")
-                .bookingReference("BKG-QS-2001")
+                .ticketCode(t2Code)
+                .qrReference("QR-QS-NOSHOW-" + UUID.randomUUID().toString().substring(0, 8))
+                .bookingReference(bkgRef4)
                 .ticketSequence(2)
                 .validityState(TicketValidityState.ACTIVE)
                 .version(1L)
@@ -461,8 +451,9 @@ public class WorkshopOperationsQuickstartIT {
                 .reasonNote("Instructor fell ill; no participants booked yet")
                 .build();
 
+        String opRef1 = "op-ref-" + UUID.randomUUID().toString().substring(0, 8);
         CancellationResult directResult = cancellationHandoffService.requestSessionCancellation(
-                MANAGER_TOKEN, "corr-cancel-direct", "op-ref-1", emptySession.getReference(), cancelReq
+                MANAGER_TOKEN, "corr-cancel-direct", opRef1, emptySession.getReference(), cancelReq
         );
         assertThat(directResult.getStatusCode()).isEqualTo(200);
         assertThat(directResult.getSession().getState()).isEqualTo(SessionState.CANCELLED);
@@ -483,11 +474,12 @@ public class WorkshopOperationsQuickstartIT {
                 .build());
 
         // Add active ticket commitment
+        String bkgRef6 = "BKG-QS-" + UUID.randomUUID().toString().substring(0, 8);
         AttendanceTicket committedTicket = ticketRepository.save(AttendanceTicket.builder()
                 .reference(UUID.randomUUID().toString())
-                .ticketCode("TCK-QS-COMMIT-1")
-                .qrReference("QR-QS-COMMIT-1")
-                .bookingReference("BKG-QS-3001")
+                .ticketCode("TCK-QS-COMMIT-" + UUID.randomUUID().toString().substring(0, 6))
+                .qrReference("QR-QS-COMMIT-" + UUID.randomUUID().toString().substring(0, 8))
+                .bookingReference(bkgRef6)
                 .ticketSequence(1)
                 .validityState(TicketValidityState.ACTIVE)
                 .version(1L)
@@ -498,8 +490,9 @@ public class WorkshopOperationsQuickstartIT {
                 .attendanceState(AttendanceState.NOT_CHECKED_IN)
                 .build());
 
+        String opRef2 = "op-ref-" + UUID.randomUUID().toString().substring(0, 8);
         CancellationResult handoffResult = cancellationHandoffService.requestSessionCancellation(
-                MANAGER_TOKEN, "corr-cancel-handoff", "op-ref-2", bookedSession.getReference(), cancelReq
+                MANAGER_TOKEN, "corr-cancel-handoff", opRef2, bookedSession.getReference(), cancelReq
         );
         assertThat(handoffResult.getStatusCode()).isEqualTo(202);
         assertThat(handoffResult.isHandoffCreated()).isTrue();
@@ -521,14 +514,43 @@ public class WorkshopOperationsQuickstartIT {
     @Test
     @DisplayName("Quickstart Scenario 7: Privacy non-disclosure and immutable audit correlation")
     void testPrivacyAndAuditTrail() {
-        List<OperationsAuditEvent> allAudits = auditEventRepository.findAll();
-        for (OperationsAuditEvent audit : allAudits) {
+        Instant now = Instant.now();
+        WorkshopSession session = sessionRepository.save(WorkshopSession.builder()
+                .reference("SES-QS-AUDIT-" + UUID.randomUUID().toString().substring(0, 8))
+                .location(location)
+                .slot(slotAfternoon)
+                .workshopDate(LocalDate.now())
+                .capacity(10)
+                .state(SessionState.IN_PROGRESS)
+                .scheduledStartAt(now.minus(2, ChronoUnit.HOURS))
+                .scheduledEndAt(now.minus(10, ChronoUnit.MINUTES))
+                .checkInOpensAt(now.minus(3, ChronoUnit.HOURS))
+                .checkInOpeningSource(CheckInOpeningSource.DEFAULT)
+                .version(1L)
+                .build());
+
+        staffAssignmentRepository.save(SessionStaffAssignment.builder()
+                .session(session)
+                .accountId(STAFF_ID)
+                .assignedById(MANAGER_ID)
+                .assignedAt(now.minus(3, ChronoUnit.HOURS))
+                .build());
+
+        String correlation = "corr-audit-test-" + UUID.randomUUID().toString().substring(0, 8);
+        finalizationService.finalizeAttendance(
+                STAFF_TOKEN, correlation, session.getReference(),
+                AttendanceFinalizationRequest.builder().confirmedSessionEnded(true).build()
+        );
+
+        List<OperationsAuditEvent> sessionAudits = auditEventRepository.findBySessionIdOrderByOccurredAtDesc(session.getId());
+        assertThat(sessionAudits).isNotEmpty();
+        for (OperationsAuditEvent audit : sessionAudits) {
             String metadata = audit.getMetadata() != null ? audit.getMetadata() : "";
             assertThat(metadata).as("Audit metadata must not contain raw tokens or passwords")
                     .doesNotContain("Bearer")
                     .doesNotContain("sa123123");
-            assertThat(audit.getCorrelationId()).as("Correlation ID must be preserved")
-                    .isNotNull();
+            assertThat(audit.getCorrelationId()).as("Correlation ID must match")
+                    .isEqualTo(correlation);
         }
     }
 }

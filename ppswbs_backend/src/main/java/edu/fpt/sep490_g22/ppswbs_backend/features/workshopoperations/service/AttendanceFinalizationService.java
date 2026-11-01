@@ -75,7 +75,7 @@ public class AttendanceFinalizationService {
             throw new WorkshopValidationException("Explicit confirmation that session has actually ended onsite is required (confirmedSessionEnded=true)");
         }
 
-        WorkshopSession session = resolveSession(sessionReference);
+        WorkshopSession session = resolveSessionForUpdate(sessionReference);
 
         // Guard: session must be IN_PROGRESS
         if (session.getState() != SessionState.IN_PROGRESS) {
@@ -83,13 +83,14 @@ public class AttendanceFinalizationService {
             throw new WorkshopLifecycleException("Session is in state " + session.getState() + "; finalization requires IN_PROGRESS");
         }
 
-        // Authorization: assigned Staff or recorded Manager operational lead within location scope
+        // Authorization: assigned Staff in location scope or any active Manager globally.
         AccountSummary actor = authorizationService.requireStaffSessionAssignment(authHeader, session.getId());
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
         // 1. Transition session state to ATTENDANCE_FINALIZED
         session.setState(SessionState.ATTENDANCE_FINALIZED);
+        session.setAttendanceFinalizedAt(now);
         sessionRepository.save(session);
         otaSnapshotService.publishForObservableChange(session, "ATTENDANCE_FINALIZED", now);
 
@@ -154,6 +155,18 @@ public class AttendanceFinalizationService {
                 .or(() -> {
                     try {
                         return sessionRepository.findById(Long.parseLong(sessionReference));
+                    } catch (NumberFormatException e) {
+                        return Optional.empty();
+                    }
+                })
+                .orElseThrow(() -> new WorkshopNotFoundException("Workshop session not found with reference or ID: " + sessionReference));
+    }
+
+    private WorkshopSession resolveSessionForUpdate(String sessionReference) {
+        return sessionRepository.findByReferenceWithLock(sessionReference)
+                .or(() -> {
+                    try {
+                        return sessionRepository.findByIdWithLock(Long.parseLong(sessionReference));
                     } catch (NumberFormatException e) {
                         return Optional.empty();
                     }

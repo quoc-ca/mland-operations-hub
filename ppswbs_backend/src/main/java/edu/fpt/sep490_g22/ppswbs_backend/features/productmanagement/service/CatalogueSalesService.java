@@ -16,6 +16,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Produ
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductImage;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.AcceptedSaleResult;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CartSaleFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesException.Reason;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesFacade;
@@ -99,6 +100,45 @@ public class CatalogueSalesService implements CatalogueSalesFacade {
         this.mediaReferences = mediaReferences;
         this.receipts = receipts;
         this.audit = audit;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CartSaleFact> readSaleFacts(Collection<Long> variantIds) {
+        if (variantIds == null || variantIds.isEmpty() || variantIds.stream().anyMatch(Objects::isNull)) {
+            throw new CatalogueSalesException(Reason.INVALID_REQUEST, "At least one size is required.");
+        }
+        return translated(() -> {
+            Set<Long> ids = new TreeSet<>(variantIds);
+            Map<Long, ProductVariant> sizes = variants.findAllById(ids).stream()
+                    .collect(Collectors.toMap(ProductVariant::getId, Function.identity()));
+            List<Long> missing = ids.stream().filter(id -> !sizes.containsKey(id)).toList();
+            if (!missing.isEmpty()) {
+                throw new CatalogueSalesException(Reason.NOT_FOUND, "Some sizes do not exist.", missing);
+            }
+            Set<Long> productIds = sizes.values().stream().map(ProductVariant::getProductId)
+                    .collect(Collectors.toCollection(TreeSet::new));
+            Map<Long, Product> owners = products.findAllById(productIds).stream()
+                    .collect(Collectors.toMap(Product::getId, Function.identity()));
+            Set<Long> eligibleProducts = new HashSet<>(publicQueries.findEligibleIds(productIds));
+            List<Long> eligible = ids.stream()
+                    .filter(id -> eligibleProducts.contains(sizes.get(id).getProductId()) && sizes.get(id).isSaleEnabled())
+                    .toList();
+            Map<Long, HeldSnapshot> held = availability.readSnapshots(eligible, now());
+
+            List<CartSaleFact> facts = new ArrayList<>();
+            for (Long id : ids) {
+                ProductVariant size = sizes.get(id);
+                Product product = owners.get(size.getProductId());
+                boolean saleEligible = held.containsKey(id);
+                BigInteger available = saleEligible
+                        ? size.getRemainingUnsold().subtract(held.get(id).heldQuantity()).max(BigInteger.ZERO)
+                        : BigInteger.ZERO;
+                facts.add(new CartSaleFact(id, product.getId(), product.getName(), size.getSku(), size.getRingSize(),
+                        size.getAppliedPrice(), SaleVariantFact.CURRENCY, saleEligible, available));
+            }
+            return List.copyOf(facts);
+        });
     }
 
     @Override

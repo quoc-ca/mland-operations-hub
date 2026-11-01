@@ -15,10 +15,30 @@ public final class CheckoutDtos {
 
     public record BenefitSelection(@NotBlank String choice, @Size(max = 128) String voucherCode,
                                    @NotBlank String requestedPoints) { }
-    public record BenefitPreviewRequest(@NotNull @Valid BenefitSelection selection) { }
+    public record BenefitPreviewRequest(@NotNull @Valid BenefitSelection selection,
+                                        List<@Valid BranchOrderCheckoutInput> branchOrders) {
+        public BenefitPreviewRequest(BenefitSelection selection) { this(selection, null); }
+    }
     public record BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
                                      boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
-                                     String payableAmount, String expiresAt) { }
+                                     String payableAmount, String expiresAt, String shippingTotal,
+                                     boolean eligible, List<String> reasons) {
+        public BenefitPreviewView {
+            reasons = reasons == null ? List.of() : List.copyOf(reasons);
+        }
+        public BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
+                                  boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
+                                  String payableAmount, String expiresAt, String shippingTotal) {
+            this(previewId, currency, merchandiseSubtotal, shippingExcluded, discountAmount, pointsDiscountAmount,
+                payableAmount, expiresAt, shippingTotal, true, List.of());
+        }
+        public BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
+                                  boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
+                                  String payableAmount, String expiresAt) {
+            this(previewId, currency, merchandiseSubtotal, shippingExcluded, discountAmount, pointsDiscountAmount,
+                payableAmount, expiresAt, "0");
+        }
+    }
     public record ShippingQuoteRequest(@NotNull @Positive Long locationId) { }
     public record ShippingQuoteView(String quoteId, Long locationId, String currency, String deliveryFee,
                                     String totalCharge, String expiresAt) { }
@@ -33,4 +53,5 @@ public final class CheckoutDtos {
                                       String combinedShippingCharge, String combinedPayableAmount, String paymentState,
                                       String paymentInitiatedAt) { }
     public record PaymentRedirectView(String checkoutId, String paymentUrl, String expiresAt, String paymentState) { }
+    public record CancellationView(GroupedCheckoutView checkout, int unrestoredQuantity, String message) { }
 }

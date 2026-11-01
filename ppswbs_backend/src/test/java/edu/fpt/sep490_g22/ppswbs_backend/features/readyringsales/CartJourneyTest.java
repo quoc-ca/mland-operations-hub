@@ -16,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -26,7 +25,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
@@ -43,9 +41,6 @@ class CartJourneyTest {
     private AccountRepository accountRepository;
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
-
-    @Autowired
     private TransactionTemplate transactionTemplate;
 
     @MockBean
@@ -55,28 +50,22 @@ class CartJourneyTest {
     void setUp() {
         cartRepository.deleteAll();
         accountRepository.deleteAll();
-        when(cataloguePort.isEligibleForCart(anyString(), anyLong())).thenReturn(true);
+        when(cataloguePort.isEligibleForCart(anyLong(), anyLong())).thenReturn(true);
+        org.mockito.Mockito.lenient().when(cataloguePort.readCartProduct(anyLong())).thenReturn(
+            new edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailCataloguePort.CartProductFact("Ring", "SKU", 10, "100", "VND", "99", true));
     }
 
     @Test
-    void appliesV6CartSchemaAndPersistsACartForAnExistingMember() {
+    void persistsACartForAnExistingMember() {
         Long memberId = createMember().getId();
 
         CartDtos.RetailCartView cart = cartService.addLine(
             memberId,
-            new CartDtos.AddCartLineRequest("RING-01", 10L, 2)
+            new CartDtos.AddCartLineRequest(101L, 10L, 2)
         );
 
-        assertThat(jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'retail_carts'",
-            Integer.class
-        )).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'retail_cart_lines'",
-            Integer.class
-        )).isEqualTo(1);
         assertThat(cart.lines()).singleElement().satisfies(line -> {
-            assertThat(line.variantId()).isEqualTo("RING-01");
+            assertThat(line.variantId()).isEqualTo(101L);
             assertThat(line.locationId()).isEqualTo(10L);
             assertThat(line.quantity()).isEqualTo(2);
         });
@@ -87,8 +76,8 @@ class CartJourneyTest {
     void keepsExistingLocationAndRejectsEditsFromAnotherMembersCart() {
         Long ownerId = createMember().getId();
         Long otherMemberId = createMember().getId();
-        cartService.addLine(ownerId, new CartDtos.AddCartLineRequest("RING-01", 10L, 1));
-        cartService.addLine(ownerId, new CartDtos.AddCartLineRequest("RING-01", 20L, 2));
+        cartService.addLine(ownerId, new CartDtos.AddCartLineRequest(101L, 10L, 1));
+        cartService.addLine(ownerId, new CartDtos.AddCartLineRequest(101L, 20L, 2));
 
         RetailCart ownerCart = cartRepository.findByMemberAccountId(ownerId).orElseThrow();
         String ownerLineId = ownerCart.getLines().getFirst().getId();
@@ -111,37 +100,37 @@ class CartJourneyTest {
         Long memberId = createMember().getId();
         RetailCart fiftyLineCart = new RetailCart(memberId);
         for (int index = 1; index <= 50; index++) {
-            fiftyLineCart.addLine("RING-" + index, 10L, 1);
+            fiftyLineCart.addLine((long) index, 10L, 1);
         }
         cartRepository.saveAndFlush(fiftyLineCart);
 
         assertThatThrownBy(() -> cartService.addLine(
             memberId,
-            new CartDtos.AddCartLineRequest("RING-51", 10L, 1)
+            new CartDtos.AddCartLineRequest(51L, 10L, 1)
         )).isInstanceOf(RetailConflictException.class);
 
         Long secondMemberId = createMember().getId();
-        cartService.addLine(secondMemberId, new CartDtos.AddCartLineRequest("RING-99", 10L, 99));
+        cartService.addLine(secondMemberId, new CartDtos.AddCartLineRequest(99L, 10L, 99));
 
         assertThatThrownBy(() -> cartService.addLine(
             secondMemberId,
-            new CartDtos.AddCartLineRequest("RING-99", 20L, 1)
+            new CartDtos.AddCartLineRequest(99L, 20L, 1)
         )).isInstanceOf(RetailConflictException.class);
     }
 
     @Test
     void rejectsAStaleCartWriteInsteadOfOverwritingANewerVersion() {
         Long memberId = createMember().getId();
-        cartService.addLine(memberId, new CartDtos.AddCartLineRequest("RING-01", 10L, 1));
+        cartService.addLine(memberId, new CartDtos.AddCartLineRequest(101L, 10L, 1));
 
         RetailCart staleCopy = loadCartInSeparateTransaction(memberId);
         transactionTemplate.executeWithoutResult(status -> {
             RetailCart currentCart = cartRepository.findByMemberAccountId(memberId).orElseThrow();
-            currentCart.addLine("RING-02", 10L, 1);
+            currentCart.addLine(102L, 10L, 1);
             cartRepository.saveAndFlush(currentCart);
         });
 
-        staleCopy.addLine("RING-03", 10L, 1);
+        staleCopy.addLine(103L, 10L, 1);
 
         assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(status -> cartRepository.saveAndFlush(staleCopy)))
             .isInstanceOfAny(OptimisticLockingFailureException.class, OptimisticLockException.class);

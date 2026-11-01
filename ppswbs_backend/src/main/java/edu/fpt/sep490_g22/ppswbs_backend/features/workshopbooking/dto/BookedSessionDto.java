@@ -5,12 +5,17 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+import java.util.UUID;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class BookedSessionDto {
-    private Long sessionId;
+    private UUID sessionReference;
     private Long locationId;
     private Integer ordinal;
+    private Instant scheduledStart;
+    private Instant scheduledEnd;
 }

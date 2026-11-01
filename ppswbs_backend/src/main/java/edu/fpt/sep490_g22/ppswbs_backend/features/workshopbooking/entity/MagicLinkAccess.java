@@ -43,6 +43,9 @@ public class MagicLinkAccess {
     @Column(name = "revoked_by_account_id")
     private Long revokedByAccountId;
 
+    @Column(name = "delivery_value_scrubbed_at")
+    private Instant deliveryValueScrubbedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

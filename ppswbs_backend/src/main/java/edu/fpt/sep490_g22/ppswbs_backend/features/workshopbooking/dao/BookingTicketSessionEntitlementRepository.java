@@ -11,5 +11,5 @@ public interface BookingTicketSessionEntitlementRepository extends JpaRepository
 
     List<BookingTicketSessionEntitlement> findByBookingTicketId(Long bookingTicketId);
 
-    List<BookingTicketSessionEntitlement> findBySessionId(Long sessionId);
+    List<BookingTicketSessionEntitlement> findBySessionReference(String sessionReference);
 }

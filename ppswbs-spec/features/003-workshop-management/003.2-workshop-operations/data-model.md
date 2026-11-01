@@ -1,7 +1,7 @@
 # Data Model: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -59,13 +59,21 @@ Constraints and ownership invariants:
   recompute them from this master record;
 - a Package has no separate business package code in V1.
 
-Package commands are Operations-owned. The authorized Central Manager is an
-active canonical `MANAGER` whose `activeLocationIds` include every active
-canonical Workshop Location. This is an Operations policy, not a new Account
-role/capability or a persisted Package-to-Manager assignment. Local Managers
-retain only their location/session responsibilities. The derived rule requires
-a post-003 integration review before Package administration is widened or
-replaced by explicit central-assignment governance.
+Package commands are Operations-owned. Any active canonical `MANAGER` may
+administer Packages globally; `activeLocationIds` does not narrow Manager
+authority anywhere in Feature 003. There is no Central Manager tier or persisted
+Package-to-Manager assignment. Staff operational actions remain location-scoped.
+
+### WorkshopBookingPackagePolicySnapshot
+
+Operations stores one immutable snapshot per accepted booking, uniquely keyed
+by `bookingReference`, containing the package reference, required session count,
+participant bounds, same-location requirement and minimum same-day slot gap
+validated in the capacity-reservation transaction. Later Package edits are
+prospective and do not change this snapshot. Complete required-session
+replacement validates against these frozen constraints. Existing bookings with
+no snapshot are not backfilled from the mutable Package master and cannot be
+replaced automatically; they require an evidenced/manual resolution.
 
 ### WorkshopLocation
 
@@ -174,6 +182,18 @@ ticket's entitlement from every replaced session to the complete resulting set;
 the persistent QR remains the same. Failure changes neither capacity nor
 entitlement. Individual attendance detail, ticket detail, Staff/audit and PII
 are never returned for this purpose.
+
+### Fixed workshop add-on catalogue
+
+Operations owns an add-on entry identified externally by an opaque UUID and
+scoped to one Package and one canonical `workshop_location.id`. It retains a
+customer-safe description, positive whole-VND price and lifecycle (`DRAFT`,
+`ACTIVE`, `RETIRED`). Active Manager changes are audited. Editing is prospective;
+each accepted Settlement charge stores the selected description and price
+snapshot and remains unchanged when the catalogue entry changes or retires. The
+Operations facade returns an eligible snapshot only for an active entry,
+published Package and active location; it never returns an internal numeric
+add-on row ID.
 
 ### Package-discovery boundary
 
@@ -345,6 +365,14 @@ ACTIVE / NOT_CHECKED_IN -> ACTIVE / NO_SHOW   (whole-session finalisation)
 This lifecycle applies independently to each ticket/session entitlement. After
 that session's finalisation, only the Manager correction path may change the
 projection; the original action remains immutable.
+
+Each `WorkshopSession` stores nullable `attendanceFinalizedAt`, set in the same
+transaction that changes the session to `ATTENDANCE_FINALIZED`. For a booking,
+the correction deadline is 24 hours after the latest `attendanceFinalizedAt`
+among all required sessions. Operations serializes correction and settlement
+readiness against the required session and entitlement rows; at or after the
+deadline, corrections are rejected without a separate Manager seal. Missing
+finalization timestamps fail closed and do not establish terminal attendance.
 
 ## Referential and Concurrency Rules
 

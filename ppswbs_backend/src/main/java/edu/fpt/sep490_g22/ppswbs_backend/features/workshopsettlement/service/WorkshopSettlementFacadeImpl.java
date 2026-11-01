@@ -7,9 +7,15 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.Settlem
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.HandoffIdempotencyStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCancellationCase;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementHandoffIdempotency;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementNotificationHandoff;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementNotificationHandoffRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.CancellationHandoffOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.OpenCancellationHandoffCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.ApplyVerifiedSettlementPaymentEvidenceCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementPaymentEvidenceOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementNotificationDeliveryPayload;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementNotificationDeliveryPayloadQuery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -18,11 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
+import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +36,33 @@ public class WorkshopSettlementFacadeImpl implements WorkshopSettlementFacade {
     private final SettlementCancellationCaseRepository caseRepository;
     private final SettlementHandoffIdempotencyRepository idempotencyRepository;
     private final ObjectMapper objectMapper;
+    private final FinalPaymentService finalPaymentService;
+    private final SettlementNotificationHandoffRepository notificationHandoffs;
+
+    /** Delegates verified evidence to the transactional Settlement payment consumer. */
+    @Override
+    @Transactional
+    public SettlementPaymentEvidenceOutcome applyVerifiedSettlementPaymentEvidence(
+            ApplyVerifiedSettlementPaymentEvidenceCommand command) {
+        if (command == null) throw new WorkshopSettlementValidationException("command is required");
+        return finalPaymentService.apply(command);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SettlementNotificationDeliveryPayload getSettlementNotificationDeliveryPayload(
+            SettlementNotificationDeliveryPayloadQuery query) {
+        if (query == null || query.notificationReference() == null || query.notificationReference().isBlank()) {
+            return null;
+        }
+        SettlementNotificationHandoff handoff = notificationHandoffs
+                .findByNotificationReference(query.notificationReference().trim()).orElse(null);
+        if (handoff == null || !handoff.getPayloadExpiresAt().isAfter(Instant.now())) return null;
+
+        return new SettlementNotificationDeliveryPayload(handoff.getNotificationKind(),
+                handoff.getStoredRecipient(), handoff.getRenderedSettlementContent(),
+                handoff.getCorrelationReference());
+    }
 
     @Override
     @Transactional

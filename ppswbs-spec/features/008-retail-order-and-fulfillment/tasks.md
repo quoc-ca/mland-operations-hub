@@ -5,7 +5,7 @@ description: "Dependency-ordered implementation tasks for FE-08"
 # Tasks: Retail Order and Fulfillment
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-29
 **Author**: thinh
 **Last updated by**: Thinh
 
@@ -161,3 +161,10 @@ callbacks, secrets, and expired recipient PII are absent.
 - A mock GHTK label does not prove custody.
 - A browser VNPay return does not prove payment.
 - A timer cannot release benefits while payment is unresolved.
+
+## Phase 9: Convergence
+
+- [ ] T059 [P] Write MySQL integration tests for exact held-quantity snapshots, stable ascending variant guards, no-hold guard rows, concurrent hold attempts, and hold release/settlement in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/RetailAvailabilityGuardIntegrationTest.java` per `data-model.md` CheckoutHold and `productmanagement::facade.AvailabilityGuardPort` (missing).
+- [ ] T060 Allocate the next append-only FE-08 migration after reconciling `implementation-readiness.md`, then create the variant-guard/hold schema plus `RetailVariantAvailabilityGuard` and `RetailVariantHold` mappings under `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/`; each hold is keyed by grouped checkout and canonical numeric variant, contains positive quantity/status/expiry facts, and each requested variant has a stable guard row even before its first hold per `data-model.md` CheckoutHold (missing).
+- [ ] T061 After FE-02 adds its approved pre-sale guard-provisioning call, implement `AvailabilityGuardPort` in `readyringsales`, add the legal `productmanagement::facade` module dependency, and route creation, release, expiry, and settlement of FE-08 inventory holds through its ascending-ID `withGuard` boundary; do not replace local checkout/payment mocks with real FE-02 settlement until the approved catalogue facade integration task runs (partial).
+- [ ] T062 Supersede the pre-sale provision assumption in T061 after FE-02 merges `readSaleFacts`: use it only for cart/preview, keep `withLockedSaleContext` mandatory at checkout acceptance, and lazy-initialize a missing stable guard within `withGuard` through the approved atomic MySQL provision-and-lock primitive before reading or changing holds (partial).

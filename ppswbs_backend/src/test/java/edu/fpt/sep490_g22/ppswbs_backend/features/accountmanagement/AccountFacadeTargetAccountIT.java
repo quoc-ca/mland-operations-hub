@@ -10,7 +10,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.TargetAccountSnapshot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountProfile;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -176,5 +177,75 @@ class AccountFacadeTargetAccountIT {
                 f.toLowerCase().contains("entity") ||
                 f.toLowerCase().contains("repo")
         );
+    }
+
+    @Test
+    @DisplayName("findTargetFacts returns FOUND with active locations, and NOT_FOUND for unknown account")
+    void findTargetFactsTests() {
+        TargetFactsOutcome notFound = accountFacade.findTargetFacts(AccountId.of(999999L));
+        assertThat(notFound).isInstanceOf(TargetFactsOutcome.NotFound.class);
+
+        Account account = accountRepository.save(Account.builder()
+                .firebaseUid("uid-facts-" + UUID.randomUUID())
+                .loginEmail("staff-facts@mland.vn")
+                .role(AccountRole.STAFF)
+                .status(AccountStatus.ACTIVE)
+                .build());
+
+        locationAssignmentRepository.save(AccountLocationAssignment.builder()
+                .accountId(account.getId())
+                .locationId(501L)
+                .active(true)
+                .build());
+
+        locationAssignmentRepository.save(AccountLocationAssignment.builder()
+                .accountId(account.getId())
+                .locationId(502L)
+                .active(false)
+                .build());
+
+        TargetFactsOutcome found = accountFacade.findTargetFacts(AccountId.of(account.getId()));
+        assertThat(found).isInstanceOf(TargetFactsOutcome.Found.class);
+        TargetAccountFacts facts = ((TargetFactsOutcome.Found) found).facts();
+        assertThat(facts.accountId()).isEqualTo(AccountId.of(account.getId()));
+        assertThat(facts.role()).isEqualTo(AccountRole.STAFF);
+        assertThat(facts.status()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(facts.activeWorkshopLocationIds()).containsExactly(501L);
+    }
+
+    @Test
+    @DisplayName("findEligibleRoster returns ACTIVE staff/managers assigned to location with Profile full_name")
+    void findEligibleRosterTests() {
+        Account staff = accountRepository.save(Account.builder()
+                .firebaseUid("uid-roster-staff-" + UUID.randomUUID())
+                .loginEmail("staff-roster@mland.vn")
+                .role(AccountRole.STAFF)
+                .status(AccountStatus.ACTIVE)
+                .build());
+
+        profileRepository.save(AccountProfile.builder()
+                .accountId(staff.getId())
+                .fullName("Nguyen Van Staff")
+                .phone("0901234567")
+                .build());
+
+        locationAssignmentRepository.save(AccountLocationAssignment.builder()
+                .accountId(staff.getId())
+                .locationId(600L)
+                .active(true)
+                .build());
+
+        RosterOutcome outcome = accountFacade.findEligibleRoster(600L, AccountRole.STAFF);
+        assertThat(outcome).isInstanceOf(RosterOutcome.Available.class);
+        List<InternalRosterEntry> entries = ((RosterOutcome.Available) outcome).entries();
+        assertThat(entries).hasSize(1);
+        assertThat(entries.get(0).accountId()).isEqualTo(AccountId.of(staff.getId()));
+        assertThat(entries.get(0).displayName()).isEqualTo("Nguyen Van Staff");
+        assertThat(entries.get(0).role()).isEqualTo(AccountRole.STAFF);
+
+        // Different role returns empty
+        RosterOutcome mgrOutcome = accountFacade.findEligibleRoster(600L, AccountRole.MANAGER);
+        assertThat(mgrOutcome).isInstanceOf(RosterOutcome.Available.class);
+        assertThat(((RosterOutcome.Available) mgrOutcome).entries()).isEmpty();
     }
 }

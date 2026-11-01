@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -13,6 +14,6 @@ import java.util.List;
 @AllArgsConstructor
 public class BookingTicketDto {
     private String ticketCode;
-    private String qrToken;
-    private List<Long> sessionIds;
+    private String qrReference;
+    private List<UUID> sessionReferences;
 }

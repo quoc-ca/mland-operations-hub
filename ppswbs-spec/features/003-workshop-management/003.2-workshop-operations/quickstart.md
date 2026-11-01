@@ -74,12 +74,12 @@ run is not sufficient proof of index, lock or migration behaviour.
 
 ## Acceptance Walkthrough
 
-1. With an active canonical `MANAGER` whose `activeLocationIds` include every
-   active canonical Workshop Location, create a `DRAFT` Workshop Package with
+1. With an active canonical `MANAGER` whose `activeLocationIds` cover only one
+   location, create a `DRAFT` Workshop Package for another active location with
    its public name, description, per-participant price, inclusive participant
    bounds, required-session count, same-location rule and same-day slot-gap
-   rule. Verify a local
-   Manager who lacks that all-location scope is denied. Verify `packageId` is
+   rule. Verify another active Manager with different location assignments can
+   also perform this action. Verify `packageId` is
    system-generated and no package code is required.
 2. Publish the valid Package through its explicit lifecycle command. Verify an
    unauthenticated public Package read returns it only after publication;

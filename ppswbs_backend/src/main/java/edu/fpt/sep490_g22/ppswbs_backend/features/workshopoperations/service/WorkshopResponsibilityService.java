@@ -50,8 +50,7 @@ public class WorkshopResponsibilityService {
         AccountSummary actor = authorizationService.authenticate(authHeader);
         WorkshopSession session = requireSessionEntity(sessionReference);
 
-        // Manager in location scope or higher-privilege actor required
-        validateManagerLocationScope(actor, session.getLocation().getId());
+        validateManagerAuthority(actor);
 
         if (request == null || request.getAccountId() == null) {
             throw new WorkshopValidationException("Staff assignment request and accountId must not be null");
@@ -104,7 +103,7 @@ public class WorkshopResponsibilityService {
         AccountSummary actor = authorizationService.authenticate(authHeader);
         WorkshopSession session = requireSessionEntity(sessionReference);
 
-        validateManagerLocationScope(actor, session.getLocation().getId());
+        validateManagerAuthority(actor);
 
         if (targetAccountId == null) {
             throw new WorkshopValidationException("accountId is required for staff assignment removal");
@@ -153,7 +152,7 @@ public class WorkshopResponsibilityService {
         AccountSummary actor = authorizationService.authenticate(authHeader);
         WorkshopSession session = requireSessionEntity(sessionReference);
 
-        validateManagerLocationScope(actor, session.getLocation().getId());
+        validateManagerAuthority(actor);
 
         if (request == null || request.getManagerAccountId() == null) {
             throw new WorkshopValidationException("Operational lead request and managerAccountId are required");
@@ -181,14 +180,6 @@ public class WorkshopResponsibilityService {
 
         if (targetAccount.status() != ActorStatus.ACTIVE) {
             throw new WorkshopLifecycleException("Target manager account is not ACTIVE, found " + targetAccount.status());
-        }
-
-        Long sessionLocationId = session.getLocation().getId();
-        if (targetAccount.canonicalRole() != ActorRole.ADMIN &&
-            (targetAccount.activeLocationIds() == null || !targetAccount.activeLocationIds().contains(sessionLocationId))) {
-            log.warn("Target manager accountId={} has active locations {} outside session locationId={}",
-                    targetManagerAccountId, targetAccount.activeLocationIds(), sessionLocationId);
-            throw new WorkshopLocationScopeException("Target manager account ID " + targetManagerAccountId + " is outside active location scope for location ID " + sessionLocationId);
         }
 
         // Atomic handover: deactivate existing active lead and activate incoming lead in one transaction
@@ -262,16 +253,12 @@ public class WorkshopResponsibilityService {
                (targetOpt.get().canonicalRole() == ActorRole.MANAGER || targetOpt.get().canonicalRole() == ActorRole.ADMIN);
     }
 
-    private void validateManagerLocationScope(AccountSummary actor, Long locationId) {
+    private void validateManagerAuthority(AccountSummary actor) {
         if (authorizationService.isAllLocationActor(actor)) {
             return;
         }
         if (!authorizationService.isManager(actor)) {
             throw new WorkshopForbiddenException("Access requires MANAGER role");
-        }
-        List<Long> scope = accountFacade.getLocationScope(actor.accountId());
-        if (scope == null || !scope.contains(locationId)) {
-            throw new WorkshopLocationScopeException("Location ID " + locationId + " is outside actor's active location scope");
         }
     }
 

@@ -13,4 +13,6 @@ public interface BookingPaymentReceiptRepository extends JpaRepository<BookingPa
     Optional<BookingPaymentReceipt> findByProviderEventId(String providerEventId);
 
     List<BookingPaymentReceipt> findByBookingId(Long bookingId);
+
+    boolean existsByPaymentAttempt_Id(Long paymentAttemptId);
 }

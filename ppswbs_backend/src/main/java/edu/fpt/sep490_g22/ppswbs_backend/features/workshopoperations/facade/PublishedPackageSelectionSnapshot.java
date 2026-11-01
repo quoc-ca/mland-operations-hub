@@ -7,5 +7,13 @@ public record PublishedPackageSelectionSnapshot(
         int maxParticipants,
         int requiredSessionCount,
         boolean sameLocationRequired,
-        int minimumSameDaySlotGap) {
+        int minimumSameDaySlotGap,
+        String packageName) {
+
+    public PublishedPackageSelectionSnapshot(String packageReference, long publicPerParticipantPrice,
+                                             int minParticipants, int maxParticipants, int requiredSessionCount,
+                                             boolean sameLocationRequired, int minimumSameDaySlotGap) {
+        this(packageReference, publicPerParticipantPrice, minParticipants, maxParticipants, requiredSessionCount,
+                sameLocationRequired, minimumSameDaySlotGap, null);
+    }
 }

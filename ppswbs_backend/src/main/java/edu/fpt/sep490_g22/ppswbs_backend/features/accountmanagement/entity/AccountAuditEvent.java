@@ -28,8 +28,9 @@ public class AccountAuditEvent {
     @Column(name = "action", nullable = false, length = 80)
     private String action;
 
-    @Column(name = "outcome", nullable = false)
-    private String outcome; // SUCCESS, FAILURE
+    @Column(name = "outcome", nullable = false, length = 16)
+    @Enumerated(EnumType.STRING)
+    private AuditOutcome outcome;
 
     @Column(name = "correlation_id", nullable = false, length = 64)
     private String correlationId;

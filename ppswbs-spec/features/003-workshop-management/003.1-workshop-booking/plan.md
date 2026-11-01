@@ -1,7 +1,7 @@
 # Implementation Plan: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-28
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -37,7 +37,7 @@ ticket issuance/delivery and authorized lookup.
 | Runtime | Java 21, Spring Boot REST, Spring Modulith, JPA/Spring Data, MySQL and append-only Flyway migrations. |
 | Client | Separate React + Vite client using versioned REST APIs; no backend-rendered booking UI. |
 | Identity and authorization | Firebase bearer tokens prove identity only. Account Management supplies canonical `MEMBER`, `STAFF`, `MANAGER`, or `ADMIN` role, active status and `activeLocationIds`; Booking applies its own support-action rules against the booking's canonical location. Guest access uses booking-contact proof or a protected Magic Link. |
-| State | Persisted booking/hold/payment/ticket state; 15-minute holds and 10-minute payment links; booking-critical local work uses one MySQL transaction; no new global session/token store. |
+| State | Persisted booking/hold/payment/ticket state; one shared absolute deadline of at most 10 minutes for the capacity hold and payment link; booking-critical local work uses one MySQL transaction; no new global session/token store. |
 | Payment | Shared `paymentintegration` ingress verifies VNPay once and routes redacted evidence by immutable merchant-reference target; 003.1 consumes only `DEPOSIT` evidence through its facade. |
 | Verification | Unit/integration, contract, concurrency, callback/idempotency, migration, and Spring Modulith boundary verification. |
 | Unknowns | VNPay integration values/environments, QueryDR/refund configuration, and production rollout approval. The 003 facade types and shared ingress boundary are defined in the shared internal contract. |
@@ -79,14 +79,15 @@ delivery-safe projection again, so a later 003.3/003.2 replacement or verified
 refund consequence cannot leave the customer seeing an old schedule.
 003.3 consumes frozen deposit/base-price evidence for later settlement, refund
 and reschedule. It returns only an idempotent final-balance-resolved conclusion
-when final settlement or an authorized audited deferred-payment resolution is
-complete; Booking alone records `FULLY_PAID` from that conclusion and never
-receives raw final-payment evidence or calculates the final balance. 003.4 owns
+after the complete final balance has been verified as paid; Booking alone
+records `FULLY_PAID` from that conclusion and never receives raw final-payment
+evidence or calculates the final balance. 003.4 owns
 OTA completely. For internal booking support,
 Mland rechecks canonical active account facts and Booking's support-action rule
 against booking-location scope at
-action time. Assigned Staff or location-responsible Managers may resend the
-confirmation; only the responsible Manager may revoke or rotate a Magic Link.
+action time. Staff may resend the confirmation only within their active
+location scope; any active Manager may resend globally or revoke/rotate a Magic
+Link globally.
 The `ADMIN` role alone grants neither action.
 
 Create flow: validate Booking-owned contact input; preserve the selected Package
@@ -135,8 +136,13 @@ remain downstream-owned. A client Idempotency-Key protects create,
 payment-start and release commands; provider event identity protects callbacks.
 
 Magic Link is a reusable bearer credential for the read-only booking/ticket
-projection until the associated workshop ends or the link is revoked. Only a
-protected hash and safe lifecycle state are persisted. Rotation immediately
+projection until the latest required session ends or the link is revoked. Its
+hash and safe lifecycle state are persisted; the raw bearer URL is the sole
+persistence exception and is retained only in the protected render-ready
+notification snapshot for Feature 007 after the matching handoff through the
+dedicated `workshopbooking :: notification` named interface. That value is
+scrubbed from snapshots by the next one-minute cleanup sweep after expiry or
+revocation. Rotation immediately
 revokes the old link, creates a replacement for the submitted booking-contact
 email and queues delivery; delivery failure never restores the old link.
 Guest booking-code plus stored-phone lookup remains the recovery route. The
@@ -151,7 +157,9 @@ resend, Magic-Link revoke/rotate, and Manager late-payment follow-up. They hold
 only the actor type or identity reference when available, booking code,
 applicable location, action, outcome, correlation reference and timestamp; a
 revoke/rotate and late-payment follow-up also have their required Manager
-reason. Contact proof, raw Magic Link, QR, and token data are excluded.
+reason. Contact proof, raw Magic Link, QR, and token data are excluded. The raw
+link is also excluded from handoff events, business audit, and
+application/provider logs.
 Notification delivery attempts and retries are operational logs, not business
 audit records.
 

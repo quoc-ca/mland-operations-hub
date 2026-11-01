@@ -27,7 +27,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "workshopoperations-mysql-test"})
 class WorkshopBookingMigrationIT {
 
     @Autowired(required = false)
@@ -129,6 +129,60 @@ class WorkshopBookingMigrationIT {
     }
 
     @Test
+    @DisplayName("Verify V34 payment integration operation journal exists")
+    void verifyV34MerchantOperationJournalApplied() {
+        assertThat(jdbcTemplate).isNotNull();
+        Integer v34Count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '34' AND success = 1",
+                Integer.class);
+        assertThat(v34Count).as("V34 must be applied by Flyway").isNotNull().isGreaterThanOrEqualTo(1);
+        Integer tableCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?",
+                Integer.class, "vnpay_merchant_operations");
+        assertThat(tableCount).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("T010: Verify V37 migrated commitments and ticket entitlements to opaque UUID references")
+    void verifyV37OpaqueSessionReferenceMigrationApplied() {
+        Integer v37Count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '37' AND success = 1",
+                Integer.class);
+        assertThat(v37Count).as("V37 must be applied by Flyway").isNotNull().isGreaterThanOrEqualTo(1);
+
+        assertColumnExists("booking_session_commitments", "session_reference");
+        assertColumnExists("booking_ticket_session_entitlements", "session_reference");
+        assertColumnMissing("booking_session_commitments", "session_id");
+        assertColumnMissing("booking_ticket_session_entitlements", "session_id");
+
+        Integer invalidCommitments = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM booking_session_commitments WHERE session_reference NOT REGEXP " +
+                        "'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'",
+                Integer.class);
+        assertThat(invalidCommitments).as("persisted session references must be canonical UUIDs").isZero();
+        Integer mismatchedEntitlements = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM booking_ticket_session_entitlements btse " +
+                        "JOIN booking_session_commitments bsc ON bsc.id = btse.session_commitment_id " +
+                        "WHERE btse.session_reference <> bsc.session_reference",
+                Integer.class);
+        assertThat(mismatchedEntitlements).as("ticket entitlements must match their booking commitment").isZero();
+    }
+
+    private void assertColumnExists(String table, String column) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?",
+                Integer.class, table, column);
+        assertThat(count).as("Column %s.%s should exist", table, column).isEqualTo(1);
+    }
+
+    private void assertColumnMissing(String table, String column) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?",
+                Integer.class, table, column);
+        assertThat(count).as("Legacy column %s.%s should be removed", table, column).isZero();
+    }
+
+    @Test
     @Transactional
     @DisplayName("T009-1: Verify Booking, commitment, hold and invoice persistence and invariants")
     void verifyBookingPersistenceLifecycle() {
@@ -148,9 +202,10 @@ class WorkshopBookingMigrationIT {
         booking = bookingRepository.save(booking);
         assertThat(booking.getId()).isNotNull();
 
+        String sessionReference = UUID.randomUUID().toString();
         BookingSessionCommitment commitment = BookingSessionCommitment.builder()
                 .booking(booking)
-                .sessionId(200L)
+                .sessionReference(sessionReference)
                 .locationId(testLocationId)
                 .ordinal(1)
                 .seatCount(2)
@@ -187,6 +242,7 @@ class WorkshopBookingMigrationIT {
         List<BookingSessionCommitment> commitments = commitmentRepository.findByBookingIdOrderByOrdinalAsc(booking.getId());
         assertThat(commitments).hasSize(1);
         assertThat(commitments.get(0).getSeatCount()).isEqualTo(2);
+        assertThat(UUID.fromString(commitments.get(0).getSessionReference()).toString()).isEqualTo(sessionReference);
 
         BookingInvoice fetchedInvoice = invoiceRepository.findByBookingId(booking.getId()).orElseThrow();
         assertThat(fetchedInvoice.getDepositAmount()).isEqualTo(500000L);
@@ -262,9 +318,10 @@ class WorkshopBookingMigrationIT {
                 .paymentStatus(PaymentStatus.DEPOSIT_PAID)
                 .build());
 
+        String sessionReference = UUID.randomUUID().toString();
         BookingSessionCommitment commitment = commitmentRepository.save(BookingSessionCommitment.builder()
                 .booking(booking)
-                .sessionId(300L)
+                .sessionReference(sessionReference)
                 .locationId(testLocationId)
                 .ordinal(1)
                 .seatCount(1)
@@ -281,7 +338,7 @@ class WorkshopBookingMigrationIT {
         BookingTicketSessionEntitlement entitlement = entitlementRepository.save(BookingTicketSessionEntitlement.builder()
                 .bookingTicket(ticket)
                 .sessionCommitment(commitment)
-                .sessionId(300L)
+                .sessionReference(sessionReference)
                 .build());
         assertThat(entitlement.getId()).isNotNull();
 

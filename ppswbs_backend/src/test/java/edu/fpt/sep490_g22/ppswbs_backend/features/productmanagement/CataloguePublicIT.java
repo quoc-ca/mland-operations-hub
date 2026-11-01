@@ -27,6 +27,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -55,7 +56,10 @@ class CataloguePublicIT {
     static class StubHolds {
         static final TestOnlyAvailabilityGuard SOURCE = new TestOnlyAvailabilityGuard();
 
+        // @Primary: the real FE-08 source (RetailAvailabilityGuardService) is also a bean since develop b0e7796;
+        // these tests need controllable held quantities, the real source is covered by CatalogueQuantityIT.
         @Bean
+        @Primary
         AvailabilityGuardPort testOnlyAvailabilityGuard() {
             return SOURCE;
         }
@@ -199,6 +203,56 @@ class CataloguePublicIT {
         assertThat(first.items().get(0).name()).startsWith("Trang 01");
         assertThat(second.items().get(0).name()).startsWith("Trang 21");
         assertThat(ids(first)).doesNotContainAnyElementsOf(ids(second));
+    }
+
+    @Test
+    void priceRangeBoundsAreInclusive() {
+        long productId = published("Biên");
+        // size 5: 150000, size 12: 180000
+        assertThat(ids(list("150000", "150000", null, null))).containsExactly(productId);
+        assertThat(ids(list("180000", "180000", null, null))).containsExactly(productId);
+        assertThat(ids(list("150001", "179999", null, null))).isEmpty();
+        assertThat(ids(list(null, "149999", null, null))).isEmpty();
+        assertThat(ids(list("180001", null, null, null))).isEmpty();
+    }
+
+    @Test
+    void proposedAndApprovedButUnappliedPricesNeverReachThePublicCatalogue() {
+        long productId = published("Đề xuất");
+        ProductVariant size5 = sizes(productId).get(0);
+        long proposalId = Long.parseLong(proposals.create(STAFF, UUID.randomUUID(), size5.getId().toString(),
+                size5.getVersion(), "100000").resourceId());
+        proposals.submit(STAFF, UUID.randomUUID(), Long.toString(proposalId), fixture.proposal(proposalId).getVersion());
+
+        assertPublicPriceOfSize5(productId, "150000");
+        assertThat(ids(list(null, "120000", null, null))).isEmpty();
+
+        proposals.decide(MANAGER, UUID.randomUUID(), Long.toString(proposalId), new PriceProposalService.DecisionCommand(
+                fixture.proposal(proposalId).getVersion(), PriceProposalService.Decision.APPROVE, "100000", null));
+
+        assertPublicPriceOfSize5(productId, "150000");
+        assertThat(ids(list(null, "120000", null, null))).isEmpty();
+
+        applyService.apply(STAFF, UUID.randomUUID(), Long.toString(proposalId), fixture.proposal(proposalId).getVersion());
+
+        assertPublicPriceOfSize5(productId, "100000");
+        assertThat(ids(list(null, "120000", null, null))).containsExactly(productId);
+    }
+
+    @Test
+    void aKeywordOfExactlyTwoHundredCodePointsIsAccepted() {
+        // Length is counted in Unicode code points after trimming: 200 is the maximum, 201 is refused.
+        String exact = "  " + "ẫ".repeat(200) + "  ";
+        assertThat(catalogue.list(new PublicCatalogueQueryService.Filter(exact, null, null, null, null, null, 0)).items())
+                .isEmpty();
+        assertCode(() -> catalogue.list(new PublicCatalogueQueryService.Filter("ẫ".repeat(201), null, null, null, null,
+                null, 0)), CatalogueErrorCode.VALIDATION_ERROR);
+    }
+
+    private void assertPublicPriceOfSize5(long productId, String price) {
+        PublicCatalogueDtos.PublicProduct detail = catalogue.get(Long.toString(productId));
+        assertThat(detail.variants().get(0).appliedPrice()).isEqualTo(price);
+        assertThat(detail.priceRange().minimum()).isEqualTo(price);
     }
 
     @Test

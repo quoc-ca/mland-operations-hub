@@ -5,8 +5,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CartDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailCart;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.CartService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailActorResolver;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailAccessDeniedException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailMemberActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailUnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,7 +61,7 @@ class CartControllerTest {
     void returnsOnlyTheResolvedMembersCart() throws Exception {
         CartDtos.RetailCartView cart = new CartDtos.RetailCartView(
             4L,
-            List.of(new CartDtos.CartLineView("line-01", "RING-01", 10L, 2))
+            List.of(new CartDtos.CartLineView("line-01", 101L, 10L, 2))
         );
         when(actorResolver.requireActiveMember(any(HttpServletRequest.class))).thenReturn(new RetailMemberActor(99L));
         when(cartService.getCart(99L)).thenReturn(cart);
@@ -74,10 +76,34 @@ class CartControllerTest {
     }
 
     @Test
+    void rejectsUnauthenticatedCartAccessWithoutReadingCart() throws Exception {
+        when(actorResolver.requireActiveMember(any(HttpServletRequest.class)))
+            .thenThrow(new RetailUnauthorizedException("not authenticated"));
+
+        mockMvc.perform(get(CART_PATH))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+        verifyNoInteractions(cartService);
+    }
+
+    @Test
+    void rejectsUnauthorizedCartChangesWithoutWritingCart() throws Exception {
+        when(actorResolver.requireActiveMember(any(HttpServletRequest.class)))
+            .thenThrow(new RetailAccessDeniedException("not an active member"));
+
+        mockMvc.perform(post(CART_PATH + "/lines")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"variantId\":101,\"locationId\":10,\"quantity\":1}"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+        verifyNoInteractions(cartService);
+    }
+
+    @Test
     void rejectsAnInvalidAddLineRequestBeforeCallingTheCartService() throws Exception {
         mockMvc.perform(post(CART_PATH + "/lines")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"variantId\":\"RING-01\",\"locationId\":10,\"quantity\":0}"))
+                .content("{\"variantId\":101,\"locationId\":10,\"quantity\":0}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
@@ -86,7 +112,7 @@ class CartControllerTest {
 
     @Test
     void mapsCartConflictsToAStableConflictResponse() throws Exception {
-        CartDtos.AddCartLineRequest request = new CartDtos.AddCartLineRequest("RING-01", 10L, 1);
+        CartDtos.AddCartLineRequest request = new CartDtos.AddCartLineRequest(101L, 10L, 1);
         when(actorResolver.requireActiveMember(any(HttpServletRequest.class))).thenReturn(new RetailMemberActor(99L));
         when(cartService.addLine(eq(99L), any(CartDtos.AddCartLineRequest.class)))
             .thenThrow(new RetailConflictException("Cart cannot contain more than 50 lines"));
@@ -102,7 +128,7 @@ class CartControllerTest {
 
     @Test
     void mapsAnOptimisticLockFailureToAConflictResponse() throws Exception {
-        CartDtos.AddCartLineRequest request = new CartDtos.AddCartLineRequest("RING-01", 10L, 1);
+        CartDtos.AddCartLineRequest request = new CartDtos.AddCartLineRequest(101L, 10L, 1);
         when(actorResolver.requireActiveMember(any(HttpServletRequest.class))).thenReturn(new RetailMemberActor(99L));
         when(cartService.addLine(eq(99L), any(CartDtos.AddCartLineRequest.class)))
             .thenThrow(new ObjectOptimisticLockingFailureException(RetailCart.class, "cart-01"));

@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 /**
- * T081 on MySQL 8.4: all migrations (001's V5, 002's V9 and those of other features) run on an EMPTY database (fresh install) and on a database that already has
+ * T081 on MySQL 8.4: all migrations (001's V5, 002's V15 and those of other features) run on an EMPTY database (fresh install) and on a database that already has
  * the V5 account data (upgrade). Each case uses its own temporary database {@code ppswbs_pm_fresh_<random>}
  * created on the same server as the test database and dropped afterwards; the test database itself and any real
  * database are never touched. Connection settings come from {@code PM_TEST_JDBC_*} or {@code JDBC_*}; without them
@@ -85,8 +85,8 @@ class CatalogueMySqlIT {
         MigrateResult result = flyway(database, null).migrate();
 
         assertThat(result.success).isTrue();
-        // Other features own the numbers in between and after; 002 only requires 001's V5 before its V9.
-        assertThat(result.migrations).extracting(migration -> migration.version).containsSubsequence("5", "9");
+        // Other features own the numbers in between and after; 002 only requires 001's V5 before its V15 (renumbered from V9 on develop, e143b52).
+        assertThat(result.migrations).extracting(migration -> migration.version).containsSubsequence("5", "15");
         try (Connection connection = database(database)) {
             Map<String, String[]> tables = rows(connection, """
                     select table_name, engine, table_collation from information_schema.tables
@@ -155,7 +155,7 @@ class CatalogueMySqlIT {
         MigrateResult upgrade = flyway(database, null).migrate();
 
         assertThat(upgrade.success).isTrue();
-        assertThat(upgrade.migrations).extracting(migration -> migration.version).contains("9").doesNotContain("5");
+        assertThat(upgrade.migrations).extracting(migration -> migration.version).contains("15").doesNotContain("5");
         try (Connection connection = database(database);
              PreparedStatement select = connection.prepareStatement("""
                      select a.role, a.status, p.full_name from accounts a join account_profiles p on p.account_id = a.id

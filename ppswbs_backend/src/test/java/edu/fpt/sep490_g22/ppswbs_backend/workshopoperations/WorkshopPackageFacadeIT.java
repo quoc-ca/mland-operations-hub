@@ -15,6 +15,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.Capa
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.RejectionReason;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReserveBookingCapacityCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilityQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageDiscoveryService;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "workshopoperations-mysql-test"})
 class WorkshopPackageFacadeIT {
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -74,11 +75,28 @@ class WorkshopPackageFacadeIT {
         assertThat(snapshot.requiredSessionCount()).isEqualTo(1);
         assertThat(snapshot.sameLocationRequired()).isTrue();
         assertThat(snapshot.minimumSameDaySlotGap()).isZero();
+        assertThat(snapshot.packageName()).isEqualTo(published.getName());
 
         published.setState(WorkshopPackageState.RETIRED);
         packageRepository.save(published);
         assertThat(operationsFacade.getPublishedPackageSelection(
                 new PublishedPackageSelectionQuery(published.getId().toString()))).isNull();
+    }
+
+    @Test
+    void saleEligibilitySnapshotUsesCanonicalUuidAndUnknownReferenceReturnsNoFacts() {
+        WorkshopLocation location = location("PKG-SNAPSHOT");
+        WorkshopSession session = createSession(location, 3, 10, LocalDate.now(ZONE).plusDays(8));
+        UUID sessionReference = UUID.fromString(session.getReference());
+
+        var snapshot = operationsFacade.getSaleEligibility(new SaleEligibilityQuery(sessionReference));
+
+        assertThat(snapshot.sessionReference()).isEqualTo(sessionReference);
+        assertThat(snapshot.locationReference()).isEqualTo(location.getId());
+        assertThat(snapshot.workshopDate()).isEqualTo(session.getWorkshopDate());
+        assertThat(java.util.Arrays.stream(snapshot.getClass().getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName)).doesNotContain("sessionId");
+        assertThat(operationsFacade.getSaleEligibility(new SaleEligibilityQuery(UUID.randomUUID()))).isNull();
     }
 
     @Test
@@ -89,7 +107,7 @@ class WorkshopPackageFacadeIT {
                 .map(java.lang.reflect.RecordComponent::getName))
                 .containsExactly("packageReference", "publicPerParticipantPrice", "minParticipants",
                         "maxParticipants", "requiredSessionCount", "sameLocationRequired",
-                        "minimumSameDaySlotGap");
+                        "minimumSameDaySlotGap", "packageName");
     }
 
     @Test

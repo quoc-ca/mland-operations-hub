@@ -21,11 +21,11 @@ import java.util.UUID;
 public class OrderItem {
     @Id @Column(length = 36) private String id;
     @ManyToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "retail_order_id", nullable = false) private RetailOrder retailOrder;
-    @Column(name = "variant_id", nullable = false, length = 128) private String variantId;
+    @Column(name = "variant_id", nullable = false) private Long variantId;
     @Column(nullable = false) private int quantity;
     @Column(name = "unit_price", nullable = false, precision = 19, scale = 2) private BigDecimal unitPrice;
     @Column(name = "line_total", nullable = false, precision = 19, scale = 2) private BigDecimal lineTotal;
-    public OrderItem(RetailOrder retailOrder, String variantId, int quantity, BigDecimal unitPrice) {
+    public OrderItem(RetailOrder retailOrder, Long variantId, int quantity, BigDecimal unitPrice) {
         this.retailOrder = retailOrder; this.variantId = variantId; this.quantity = quantity; this.unitPrice = unitPrice;
         this.lineTotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
     }

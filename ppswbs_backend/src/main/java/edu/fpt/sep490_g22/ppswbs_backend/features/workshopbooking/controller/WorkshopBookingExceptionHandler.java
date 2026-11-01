@@ -100,6 +100,14 @@ public class WorkshopBookingExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "CONFLICT", "Conflict", ex.getMessage(), correlationId);
     }
 
+    @ExceptionHandler(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingCreationRejectedException.class)
+    public ResponseEntity<ProblemDetailResponse> handleCreationRejected(
+            edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingCreationRejectedException ex,
+            HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        return buildResponse(HttpStatus.CONFLICT, ex.getCode(), "Booking Selection Rejected", ex.getMessage(), correlationId);
+    }
+
     @ExceptionHandler(BookingRateLimitException.class)
     public ResponseEntity<ProblemDetailResponse> handleRateLimit(
             BookingRateLimitException ex, HttpServletRequest request) {

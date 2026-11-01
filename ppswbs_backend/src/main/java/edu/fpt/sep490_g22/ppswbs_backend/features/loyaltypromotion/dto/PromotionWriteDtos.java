@@ -6,6 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Loyalt
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetDimension;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetRef;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetScope;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopSessionFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.DiscountTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyValues;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyValues.NormalizedCode;
@@ -236,7 +237,14 @@ public final class PromotionWriteDtos {
         List<TargetRef> refs = new ArrayList<>();
         refs.addAll(ids(targets, "packageIds", TargetDimension.PACKAGE));
         refs.addAll(ids(targets, "branchIds", TargetDimension.BRANCH));
-        refs.addAll(ids(targets, "sessionIds", TargetDimension.SESSION));
+        for (String raw : uniqueStrings(targets, "sessionIds")) {
+            // Session targets are 003's public session references (UUID), stored in canonical lowercase form.
+            try {
+                refs.add(new TargetRef(TargetDimension.SESSION, WorkshopSessionFact.canonical(raw)));
+            } catch (LoyaltyException e) {
+                throw LoyaltyException.invalidField("targets.sessionIds", "Each session must be a session reference (UUID).");
+            }
+        }
         for (String date : uniqueStrings(targets, "workshopDates")) {
             try {
                 LocalDate.parse(date);

@@ -51,41 +51,27 @@ class WorkshopPackageServiceTest {
 
     @BeforeEach
     void setUp() {
-        authorization = new WorkshopPackageAuthorizationService(accountFacade, authenticationService, locationRepository);
+        authorization = new WorkshopPackageAuthorizationService(authenticationService);
         packageService = new WorkshopPackageService(packageRepository, auditRepository, new ObjectMapper());
     }
 
     @Test
-    void centralManagerMustBeActiveAndCoverEveryCurrentlyActiveLocation() {
+    void anyActiveManagerMayManagePackagesRegardlessOfLocationAssignments() {
         when(authenticationService.authenticate("Bearer manager-token"))
                 .thenReturn(new AccountSummary(17L, ActorRole.MANAGER, ActorStatus.ACTIVE,
                         "private@example.test", Instant.EPOCH, Instant.EPOCH));
-        when(accountFacade.getTargetAccount(17L)).thenReturn(Optional.of(
-                new TargetAccountSnapshot(17L, ActorRole.MANAGER, ActorStatus.ACTIVE, List.of(2L, 1L))));
-        when(locationRepository.findByActiveTrue()).thenReturn(List.of(
-                WorkshopLocation.builder().id(1L).build(), WorkshopLocation.builder().id(2L).build()));
-
-        assertThat(authorization.requireCentralManager("Bearer manager-token")).isEqualTo(17L);
+        assertThat(authorization.requireActiveManager("Bearer manager-token")).isEqualTo(17L);
     }
 
     @Test
-    void incompleteLocationCoverageOrNonManagerIsDenied() {
+    void nonManagerIsDenied() {
         when(authenticationService.authenticate("Bearer token"))
                 .thenReturn(new AccountSummary(18L, ActorRole.MANAGER, ActorStatus.ACTIVE,
                         "private@example.test", Instant.EPOCH, Instant.EPOCH));
-        when(accountFacade.getTargetAccount(18L)).thenReturn(Optional.of(
-                new TargetAccountSnapshot(18L, ActorRole.MANAGER, ActorStatus.ACTIVE, List.of(1L))));
-        when(locationRepository.findByActiveTrue()).thenReturn(List.of(
-                WorkshopLocation.builder().id(1L).build(), WorkshopLocation.builder().id(2L).build()));
-        assertThatThrownBy(() -> authorization.requireCentralManager("Bearer token"))
-                .isInstanceOf(WorkshopForbiddenException.class);
-
         when(authenticationService.authenticate("Bearer token"))
                 .thenReturn(new AccountSummary(18L, ActorRole.STAFF, ActorStatus.ACTIVE,
                         "private@example.test", Instant.EPOCH, Instant.EPOCH));
-        when(accountFacade.getTargetAccount(18L)).thenReturn(Optional.of(
-                new TargetAccountSnapshot(18L, ActorRole.STAFF, ActorStatus.ACTIVE, List.of(1L, 2L))));
-        assertThatThrownBy(() -> authorization.requireCentralManager("Bearer token"))
+        assertThatThrownBy(() -> authorization.requireActiveManager("Bearer token"))
                 .isInstanceOf(WorkshopForbiddenException.class);
     }
 

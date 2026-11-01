@@ -128,14 +128,16 @@ public class WorkshopBookingAuthorizationService {
             throw new WorkshopBookingForbiddenException("Confirmation resend requires STAFF or MANAGER role");
         }
 
-        try {
-            verifyLocationScope(account.accountId(), bookingLocationId);
-        } catch (WorkshopBookingLocationScopeException ex) {
-            if (bookingCode != null) {
-                recordDeniedAttempt(bookingCode, bookingLocationId, account.role().name(), account.accountId(),
-                        "CONFIRMATION_RESEND", correlationReference, ex.getMessage());
+        if (isStaff(account)) {
+            try {
+                verifyLocationScope(account.accountId(), bookingLocationId);
+            } catch (WorkshopBookingLocationScopeException ex) {
+                if (bookingCode != null) {
+                    recordDeniedAttempt(bookingCode, bookingLocationId, account.role().name(), account.accountId(),
+                            "CONFIRMATION_RESEND", correlationReference, ex.getMessage());
+                }
+                throw ex;
             }
-            throw ex;
         }
         return account;
     }
@@ -172,15 +174,6 @@ public class WorkshopBookingAuthorizationService {
                     "Magic Link incident management strictly requires MANAGER role; Staff and ADMIN alone are denied");
         }
 
-        try {
-            verifyLocationScope(account.accountId(), bookingLocationId);
-        } catch (WorkshopBookingLocationScopeException ex) {
-            if (bookingCode != null) {
-                recordDeniedAttempt(bookingCode, bookingLocationId, account.role().name(), account.accountId(),
-                        "MAGIC_LINK_" + action, correlationReference, ex.getMessage());
-            }
-            throw ex;
-        }
         return account;
     }
 
@@ -215,15 +208,6 @@ public class WorkshopBookingAuthorizationService {
             throw new WorkshopBookingForbiddenException("Late-payment follow-up requires MANAGER role");
         }
 
-        try {
-            verifyLocationScope(account.accountId(), bookingLocationId);
-        } catch (WorkshopBookingLocationScopeException ex) {
-            if (bookingCode != null) {
-                recordDeniedAttempt(bookingCode, bookingLocationId, account.role().name(), account.accountId(),
-                        "LATE_PAYMENT_" + action, correlationReference, ex.getMessage());
-            }
-            throw ex;
-        }
         return account;
     }
 
@@ -274,22 +258,19 @@ public class WorkshopBookingAuthorizationService {
     public boolean canResendConfirmation(AccountSummary account, Long bookingLocationId) {
         return account != null
                 && account.status() == ActorStatus.ACTIVE
-                && (isStaff(account) || isManager(account))
-                && hasLocationScope(account.accountId(), bookingLocationId);
+                && (isManager(account) || (isStaff(account) && hasLocationScope(account.accountId(), bookingLocationId)));
     }
 
     public boolean canHandleMagicLinkIncident(AccountSummary account, Long bookingLocationId) {
         return account != null
                 && account.status() == ActorStatus.ACTIVE
-                && isManager(account)
-                && hasLocationScope(account.accountId(), bookingLocationId);
+                && isManager(account);
     }
 
     public boolean canFollowUpLatePayment(AccountSummary account, Long bookingLocationId) {
         return account != null
                 && account.status() == ActorStatus.ACTIVE
-                && isManager(account)
-                && hasLocationScope(account.accountId(), bookingLocationId);
+                && isManager(account);
     }
 
     public boolean isOwner(AccountSummary account, Long bookingOwnerAccountId) {

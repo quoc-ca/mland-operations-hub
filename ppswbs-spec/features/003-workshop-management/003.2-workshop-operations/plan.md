@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -78,13 +78,11 @@ it. Published Package edits are prospective: 003.1 owns its selected Package
 and financial snapshots and must not recalculate them from master data.
 
 Operations owns public discovery of published Packages and customer-selectable
-future sessions, as well as Central-Manager Package administration on the same
-Package resource. A public caller can observe only `PUBLISHED` Packages. The
-Central Manager is, in V1, an active canonical `MANAGER` whose
-`activeLocationIds` include every active canonical Workshop Location. That is
-an Operations authorization rule, not a new Account role or capability. It
-requires a post-003 integration review before this governance is widened or
-replaced with explicit central assignment.
+future sessions, as well as active-Manager Package administration on the same
+Package resource. A public caller can observe only `PUBLISHED` Packages. Every
+active canonical `MANAGER` has global authority for Manager-authorized actions
+throughout Feature 003; `activeLocationIds` does not filter Manager access.
+There is no Central Manager tier or extra Account role/capability.
 
 Public Package routes include `GET /workshop-packages/{packageId}/sessions` for
 customer discovery. It requires a canonical `locationId` and accepts optional
@@ -99,6 +97,18 @@ Package discovery query/snapshot and requires `packageReference` on the
 capacity-reserve command. Operations rechecks Package publication, participant
 and selected-session rules atomically with reserve; Booking cannot authorize a
 selection from a stale discovery snapshot.
+
+### Fixed workshop add-on catalogue
+
+Operations owns fixed customer-selectable add-ons, each scoped to one Package
+and one canonical workshop location. An active Manager has global authority to
+create a draft, prospectively edit, activate, or retire an entry; every
+state-changing command is audited. Public discovery returns active entries only
+for a published Package and active location. Price is a positive whole-VND
+amount. Settlement obtains the eligible price through the Operations facade
+and stores the selected amount and description in its immutable charge, so
+later catalogue changes do not rewrite an existing bill. Customer requests
+cannot supply a price.
 
 ### Account Target-Authorization Dependency
 
@@ -312,8 +322,8 @@ boundary.
 
 1. **Establish Package master and discovery boundaries.** Model the
    Operations-owned Package lifecycle and prospective-edit invariant before
-   Booking integration. Implement Central-Manager authorization as the approved
-   all-active-location-scope rule, without adding an Account role/capability.
+   Booking integration. Implement active-Manager authorization globally,
+   independent of `activeLocationIds`, without adding an Account role/capability.
    Expose public reads only for `PUBLISHED` Packages and protected Package
    create/update/lifecycle commands. Implement the approved semantic Package
    discovery facade and require `packageReference` on reserve before 003.1
@@ -427,7 +437,8 @@ boundary.
 ## Validation Strategy
 
 - Contract-test Package create/read/update/publish/retire, public exclusion of
-  `DRAFT` and `RETIRED` records, Central-Manager all-active-location-scope
+  `DRAFT` and `RETIRED` records, global active-Manager authorization regardless
+  of location assignments,
   authorization, participant-bound validation, generic required-session rules
   and immutable/prospective Booking snapshot behaviour.
 - Cross-module-test that 003.1 consumes only the approved Package-discovery

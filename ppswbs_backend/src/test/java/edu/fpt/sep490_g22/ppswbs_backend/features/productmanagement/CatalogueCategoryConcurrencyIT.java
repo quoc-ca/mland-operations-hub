@@ -14,6 +14,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.Upda
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueFlowFixture;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueTestSupport;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.Concurrently;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.RealRetailHolds;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,15 +33,17 @@ import java.util.concurrent.TimeUnit;
 import static edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueTestSupport.MANAGER;
 import static edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueTestSupport.STAFF;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * T080 on MySQL with real concurrent transactions: duplicate names created at the same time, the category
  * lock serializing activation with publication, opposite category moves without deadlock, and reactivation
- * not reviving deleted/hidden products (FR-026/029/030). The new-hold race needs the real FE-08 adapter (T003).
+ * not reviving deleted/hidden products (FR-026/029/030), and deactivation racing a new REAL FE-08 hold
+ * ({@link RealRetailHolds}, develop b0e7796).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles(CatalogueTestSupport.MYSQL_PROFILE)
-@Import(CatalogueFlowFixture.class)
+@Import({CatalogueFlowFixture.class, RealRetailHolds.class})
 class CatalogueCategoryConcurrencyIT {
 
     @Autowired private CatalogueFlowFixture fixture;
@@ -50,6 +55,8 @@ class CatalogueCategoryConcurrencyIT {
     @Autowired private ProductCategoryRepository categoryRepository;
     @Autowired private ProductRepository products;
     @Autowired private TransactionTemplate transaction;
+    @Autowired private RealRetailHolds retail;
+    @Autowired private ProductVariantRepository variants;
 
     @Test
     void namesDifferingOnlyByCaseCreatedAtTheSameTimeLeaveExactlyOneCategory() {
@@ -143,6 +150,36 @@ class CatalogueCategoryConcurrencyIT {
         Product product = product(productId);
         return updates.update(STAFF, UUID.randomUUID(), Long.toString(productId), product.getVersion(),
                 new UpdateProductService.UpdateCommand(product.getName(), product.getDescription(), Long.toString(categoryId)));
+    }
+
+    @Test
+    void deactivationRacingANewHoldNeverHoldsInAnInactiveCategoryAndKeepsOldHolds() {
+        for (int round = 0; round < 3; round++) {
+            long productId = fixture.publishedProduct(STAFF, MANAGER);
+            long sizeId = transaction.execute(status -> variants.findByProductIdOrderByRingSizeAsc(productId)).get(0).getId();
+            String old = retail.newCheckout();
+            retail.hold(old, sizeId, 1);
+            long categoryId = fixture.categoryOf(productId);
+            long categoryVersion = fixture.category(categoryId).getVersion();
+            String racing = retail.newCheckout();
+
+            List<Concurrently.Outcome<Object>> outcomes = Concurrently.run(
+                    () -> categories.setActive(MANAGER, UUID.randomUUID(), Long.toString(categoryId), categoryVersion, false),
+                    () -> retail.hold(racing, sizeId, 1));
+
+            assertThat(outcomes.get(0).succeeded()).isTrue();
+            if (!outcomes.get(1).succeeded()) {
+                assertThat(outcomes.get(1).failure()).isInstanceOfSatisfying(CatalogueSalesException.class,
+                        error -> assertThat(error.reason()).isEqualTo(CatalogueSalesException.Reason.NOT_FOR_SALE));
+            }
+            // After the deactivation no new hold is possible, the old hold is untouched and can still be released.
+            String late = retail.newCheckout();
+            assertThatThrownBy(() -> retail.hold(late, sizeId, 1)).isInstanceOfSatisfying(CatalogueSalesException.class,
+                    error -> assertThat(error.reason()).isEqualTo(CatalogueSalesException.Reason.NOT_FOR_SALE));
+            assertThat(retail.holdStatus(old, sizeId)).isEqualTo("HELD");
+            retail.release(old, sizeId);
+            assertThat(retail.holdStatus(old, sizeId)).isEqualTo("RELEASED");
+        }
     }
 
     private Product product(long productId) {

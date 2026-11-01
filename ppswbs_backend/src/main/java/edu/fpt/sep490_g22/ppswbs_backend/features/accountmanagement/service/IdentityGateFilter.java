@@ -53,6 +53,24 @@ public class IdentityGateFilter extends OncePerRequestFilter {
             return true;
         }
         String path = request.getRequestURI();
+        if ("GET".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/integrations/payments/vnpay/events".equals(path)) {
+            return true;
+        }
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-bookings/[^/]+/payment-attempts")) {
+            return true;
+        }
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/workshop-bookings".equals(path)
+                && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
+            return true;
+        }
+        boolean customerBillRoute = ("GET".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill/charges"));
+        if (customerBillRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) return true;
         return !path.startsWith("/api/");
     }
 
@@ -116,10 +134,10 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 token,
                 List.of(new SimpleGrantedAuthority("ROLE_" + actor.role().name()))
             );
-            authentication.setDetails(identity);
+            authentication.setDetails(identity.toFacade());
             SecurityContextHolder.getContext().setAuthentication(authentication);
             request.setAttribute("currentAccountActor", actor);
-            request.setAttribute("verifiedIdentity", identity);
+            request.setAttribute("verifiedIdentity", identity.toFacade());
         } else {
             String path = request.getRequestURI();
             String method = request.getMethod();
@@ -137,10 +155,10 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                     token,
                     List.of(new SimpleGrantedAuthority("ROLE_MEMBER"))
                 );
-                authentication.setDetails(identity);
+                authentication.setDetails(identity.toFacade());
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 request.setAttribute("currentAccountActor", bootstrapActor);
-                request.setAttribute("verifiedIdentity", identity);
+                request.setAttribute("verifiedIdentity", identity.toFacade());
             } else {
                 writeError(response, HttpStatus.UNAUTHORIZED, "ACCOUNT_NOT_FOUND", "Account not found for verified identity. Please bootstrap account first.", correlationId);
                 return;

@@ -53,7 +53,7 @@ public class GeminiRestClientAdapter implements AiTextSupportPort, ImageFeatureA
             reply = "Atelier Mland tọa lạc tại trung tâm thành phố, mở cửa từ 09:00 đến 21:00 hàng ngày. Bạn có thể xem bản đồ chỉ đường tại trang Thông tin cửa hàng.";
         } else if (lower.contains("chính sách") || lower.contains("hủy") || lower.contains("hoàn tiền") || lower.contains("faq") || lower.contains("thanh toán")) {
             detectedScope = AiScope.FAQ;
-            reply = "Chính sách Mland quy định tiền đặt cọc workshop giữ chỗ tối đa 15 phút trước khi hết hạn. Nếu cần hỗ trợ thêm, bạn vui lòng liên hệ nhân viên tại atelier.";
+            reply = "Chính sách Mland quy định tiền đặt cọc workshop giữ chỗ tối đa 10 phút; link thanh toán và giữ chỗ dùng chung một thời hạn. Nếu cần hỗ trợ thêm, bạn vui lòng liên hệ nhân viên tại atelier.";
         } else {
             detectedScope = AiScope.OUT_OF_SCOPE;
             reply = "Xin lỗi, tôi chỉ hỗ trợ giải đáp thông tin về sản phẩm, lịch workshop, thông tin cửa hàng và câu hỏi thường gặp của Mland. Vui lòng đặt câu hỏi liên quan.";

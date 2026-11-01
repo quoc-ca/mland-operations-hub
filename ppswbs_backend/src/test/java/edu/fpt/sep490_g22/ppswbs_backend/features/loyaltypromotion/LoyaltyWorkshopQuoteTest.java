@@ -6,6 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Loyalt
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SelectionChoice;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopSessionFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.DiscountTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.PolicyTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.RetailQuote;
@@ -17,6 +18,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,13 +38,23 @@ class LoyaltyWorkshopQuoteTest {
         return BigInteger.valueOf(value);
     }
 
-    /** Package 1, branch 2, session 3 on 2026-11-20, 4 participants, package fee as given. */
+    private static final String SESSION = "00000000-0000-4000-8000-000000000003";
+    private static final String SECOND = "00000000-0000-4000-8000-000000000004";
+    private static final String OTHER = "00000000-0000-4000-8000-000000000008";
+
+    /** Package 1, one session (branch 2) on 2026-11-20, 4 participants, package fee as given. */
     private static WorkshopFact booking(long fee) {
-        return new WorkshopFact(1L, 2L, DAY, 3L, 4, n(fee));
+        return WorkshopFact.singleSession(1L, 4, n(fee), WorkshopSessionFact.of(SESSION, 2L, DAY));
+    }
+
+    /** A Silverclay-like booking: one package, two sessions on two days at branch 2. */
+    private static WorkshopFact twoSessions(long fee) {
+        return new WorkshopFact(1L, 4, n(fee), List.of(WorkshopSessionFact.of(SECOND, 2L, DAY.plusDays(1)),
+                WorkshopSessionFact.of(SESSION, 2L, DAY)));
     }
 
     private static WorkshopCandidate voucher(DiscountTerms terms, boolean allowPoints, Set<Long> packages,
-                                             Set<Long> branches, Set<LocalDate> dates, Set<Long> sessions,
+                                             Set<Long> branches, Set<LocalDate> dates, Set<String> sessions,
                                              String unavailable) {
         RetailQuote.Candidate base = new RetailQuote.Candidate(9, 90, 1, ProgramKind.VOUCHER, CREATED, terms,
                 allowPoints, Set.of(), Set.of(), "WS9", unavailable);
@@ -106,14 +118,14 @@ class LoyaltyWorkshopQuoteTest {
     @Test
     void everyTargetDimensionMustMatch() {
         WorkshopCandidate narrow = voucher(fixed(100_000, 100_000, 0), true, Set.of(1L), Set.of(2L), Set.of(DAY),
-                Set.of(3L), null);
+                Set.of(SESSION), null);
         assertThat(WorkshopBenefitEvaluator.compute(booking(1_000_000), voucherSelection(0), narrow, POLICY, n(0), true)
                 .programDiscount()).isEqualTo(n(100_000));
         for (WorkshopCandidate wrong : new WorkshopCandidate[] {
                 voucher(fixed(1, 1, 0), true, Set.of(5L), Set.of(), Set.of(), Set.of(), null),
                 voucher(fixed(1, 1, 0), true, Set.of(1L), Set.of(7L), Set.of(), Set.of(), null),
                 voucher(fixed(1, 1, 0), true, Set.of(1L), Set.of(), Set.of(DAY.plusDays(1)), Set.of(), null),
-                voucher(fixed(1, 1, 0), true, Set.of(1L), Set.of(), Set.of(), Set.of(8L), null)}) {
+                voucher(fixed(1, 1, 0), true, Set.of(1L), Set.of(), Set.of(), Set.of(OTHER), null)}) {
             RetailQuote.Result preview = WorkshopBenefitEvaluator.compute(booking(1_000_000), voucherSelection(0), wrong,
                     POLICY, n(0), false);
             assertThat(preview.candidate()).isNull();
@@ -121,6 +133,41 @@ class LoyaltyWorkshopQuoteTest {
             assertCode(() -> WorkshopBenefitEvaluator.compute(booking(1_000_000), voucherSelection(0), wrong, POLICY,
                     n(0), true), LoyaltyErrorCode.PROMOTION_INELIGIBLE);
         }
+    }
+
+    @Test
+    void everySelectedSessionMustSatisfyTheRestrictions() {
+        // Decision 2026-10-29: a two-session package is discounted only if BOTH sessions are covered.
+        WorkshopCandidate firstDayOnly = voucher(fixed(100_000, 100_000, 0), true, Set.of(1L), Set.of(), Set.of(DAY),
+                Set.of(), null);
+        WorkshopCandidate bothDays = voucher(fixed(100_000, 100_000, 0), true, Set.of(1L), Set.of(),
+                Set.of(DAY, DAY.plusDays(1)), Set.of(), null);
+        WorkshopCandidate firstSessionOnly = voucher(fixed(100_000, 100_000, 0), true, Set.of(1L), Set.of(), Set.of(),
+                Set.of(SESSION), null);
+        WorkshopCandidate bothSessions = voucher(fixed(100_000, 100_000, 0), true, Set.of(1L), Set.of(2L), Set.of(),
+                Set.of(SESSION, SECOND), null);
+
+        for (WorkshopCandidate partial : new WorkshopCandidate[] {firstDayOnly, firstSessionOnly}) {
+            assertCode(() -> WorkshopBenefitEvaluator.compute(twoSessions(1_000_000), voucherSelection(0), partial,
+                    POLICY, n(0), true), LoyaltyErrorCode.PROMOTION_INELIGIBLE);
+            assertThat(WorkshopBenefitEvaluator.compute(booking(1_000_000), voucherSelection(0), partial, POLICY, n(0),
+                    true).programDiscount()).as("the same voucher fits a one-session booking").isEqualTo(n(100_000));
+        }
+        for (WorkshopCandidate full : new WorkshopCandidate[] {bothDays, bothSessions}) {
+            assertThat(WorkshopBenefitEvaluator.compute(twoSessions(1_000_000), voucherSelection(0), full, POLICY, n(0),
+                    true).programDiscount()).as("the cap still applies once per booking").isEqualTo(n(100_000));
+        }
+    }
+
+    @Test
+    void sessionFactsAreValidated() {
+        assertThatThrownBy(() -> WorkshopSessionFact.of("3", 2L, DAY)).isInstanceOf(LoyaltyException.class);
+        assertThatThrownBy(() -> new WorkshopFact(1L, 1, n(1), List.of())).isInstanceOf(LoyaltyException.class);
+        assertThatThrownBy(() -> new WorkshopFact(1L, 1, n(1), List.of(WorkshopSessionFact.of(SESSION, 2L, DAY),
+                WorkshopSessionFact.of(SESSION, 2L, DAY)))).isInstanceOf(LoyaltyException.class);
+        assertThat(twoSessions(1).sessions()).extracting(WorkshopSessionFact::sessionRef)
+                .as("stable order: date, then reference").containsExactly(SESSION, SECOND);
+        assertThat(WorkshopSessionFact.of(SESSION.toUpperCase(), 2L, DAY).sessionRef()).isEqualTo(SESSION);
     }
 
     @Test

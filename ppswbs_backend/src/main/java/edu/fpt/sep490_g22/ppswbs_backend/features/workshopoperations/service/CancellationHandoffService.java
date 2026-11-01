@@ -125,7 +125,7 @@ public class CancellationHandoffService {
         WorkshopSession session = resolveSession(sessionReference);
 
         // Guard: Authorization - strictly Manager within canonical location scope (Staff denied)
-        AccountSummary actor = authorizationService.requireManagerLocationScope(authHeader, session.getLocation().getId());
+        AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
 
         String effectiveCorrelationId = (correlationId != null && !correlationId.isBlank())
                 ? correlationId

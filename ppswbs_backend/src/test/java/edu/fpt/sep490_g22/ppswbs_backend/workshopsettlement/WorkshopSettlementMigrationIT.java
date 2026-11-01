@@ -1,51 +1,24 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaMigrationTestSupport;
+import org.flywaydb.core.api.output.MigrateResult;
 import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
-
-import javax.sql.DataSource;
-import java.sql.SQLException;
-
+import java.sql.*;
+import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-@ActiveProfiles("test")
 class WorkshopSettlementMigrationIT {
-    @Autowired DataSource dataSource;
-    @Autowired JdbcTemplate jdbcTemplate;
-
-    @BeforeEach
-    void requireMySql() throws SQLException {
-        String product = dataSource.getConnection().getMetaData().getDatabaseProductName();
-        Assumptions.assumeTrue("MySQL".equalsIgnoreCase(product), "Requires real MySQL evidence");
+    private static final List<String> TABLES = List.of("settlement_cancellation_cases", "settlement_handoff_idempotency", "settlement_final_bills", "settlement_charges", "settlement_cases", "settlement_evidence_conclusions", "settlement_refund_policy_snapshots", "settlement_business_audits", "settlement_idempotency_outcomes", "settlement_notification_handoffs", "settlement_customer_cancellation_snapshots", "settlement_refund_allocations", "settlement_final_payment_attempts");
+    @Test void freshSchemaAppliesSettlementFoundation() throws Exception {
+        OtaMigrationTestSupport support = configuredSupport(); if (support == null) return;
+        try (support) { String database=support.createDatabase(); MigrateResult result=support.flyway(database,null).migrate(); assertThat(result.success).isTrue(); assertThat(result.migrations).extracting(m->m.version).contains("17","18","30","44","45","47"); try(Connection c=support.databaseConnection(database)){assertTables(c,database); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='30' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='44' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='45' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='47' AND success=1")).isEqualTo(1); assertColumns(c,database,"payment_owner_registrations",List.of("provider_create_date")); assertColumns(c,database,"settlement_evidence_conclusions",List.of("provider_transaction_number","original_provider_create_date")); assertColumns(c,database,"settlement_customer_cancellation_snapshots",List.of("case_reference","booking_reference","refund_percent","refund_amount_vnd","eligibility_outcome")); assertColumns(c,database,"settlement_refund_allocations",List.of("original_payment_reference","original_provider_transaction_number","original_provider_create_date","allocated_amount_vnd","provider_refund_transaction_number","provider_transaction_type","provider_transaction_status","last_query_at")); assertColumns(c,database,"settlement_final_payment_attempts",List.of("attempt_reference","bill_reference","booking_reference","operation_reference","merchant_reference","amount_vnd","currency_code","provider_create_date","payment_url_snapshot","lifecycle_status","expires_at"));} }
     }
-
-    @Test
-    void v17SettlementAndV18OperationsOutboxAreApplied() {
-        Integer cases = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'settlement_cancellation_cases'",
-                Integer.class);
-        Integer idempotency = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'settlement_handoff_idempotency'",
-                Integer.class);
-        Integer migration = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '17' AND success = 1",
-                Integer.class);
-        Integer outbox = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'workshop_cancellation_outbox'",
-                Integer.class);
-        Integer outboxMigration = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '18' AND success = 1",
-                Integer.class);
-        assertThat(cases).isEqualTo(1);
-        assertThat(idempotency).isEqualTo(1);
-        assertThat(migration).isEqualTo(1);
-        assertThat(outbox).isEqualTo(1);
-        assertThat(outboxMigration).isEqualTo(1);
-    }
+    @Test void upgradeFromVersion29PreservesLegacyTablesAndIsIdempotent() throws Exception {
+        OtaMigrationTestSupport support=configuredSupport(); if(support==null)return;
+        try(support){String database=support.createDatabase(); support.flyway(database,"29").migrate(); try(Connection c=support.databaseConnection(database); Statement s=c.createStatement()){s.executeUpdate("INSERT INTO settlement_cancellation_cases (case_reference,session_reference,affected_booking_references,cancellation_reason_reference,operation_reference,correlation_reference,status,created_at,updated_at) VALUES ('migration-case','session-1','[\\\"booking-1\\\"]','reason','operation-1','correlation-1','OPEN',CURRENT_TIMESTAMP(6),CURRENT_TIMESTAMP(6))");} MigrateResult upgrade=support.flyway(database,null).migrate(); MigrateResult replay=support.flyway(database,null).migrate(); assertThat(upgrade.success).isTrue(); assertThat(replay.migrations).isEmpty(); try(Connection c=support.databaseConnection(database)){assertTables(c,database); assertThat(count(c,"SELECT COUNT(*) FROM settlement_cancellation_cases WHERE case_reference='migration-case'")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='30' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='45' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='47' AND success=1")).isEqualTo(1);}} }
+    private static OtaMigrationTestSupport configuredSupport(){var s=OtaMigrationTestSupport.fromEnvironment(); Assumptions.assumeTrue(s.isPresent(),"Requires WORKSHOP_OTA_TEST_JDBC_URL/USER/PASSWORD for isolated local MySQL migration evidence"); return s.orElseThrow();}
+    private static void assertTables(Connection c,String db)throws Exception{try(PreparedStatement q=c.prepareStatement("SELECT table_name FROM information_schema.tables WHERE table_schema=? AND table_name LIKE 'settlement\\_%'")){q.setString(1,db);try(ResultSet r=q.executeQuery()){java.util.ArrayList<String>a=new java.util.ArrayList<>();while(r.next())a.add(r.getString(1));assertThat(a).containsAll(TABLES);}}}
+    private static void assertColumns(Connection c,String db,String table,List<String> expected)throws Exception{try(PreparedStatement q=c.prepareStatement("SELECT column_name FROM information_schema.columns WHERE table_schema=? AND table_name=?")){q.setString(1,db);q.setString(2,table);try(ResultSet r=q.executeQuery()){java.util.ArrayList<String>a=new java.util.ArrayList<>();while(r.next())a.add(r.getString(1));assertThat(a).containsAll(expected);}}}
+    private static long count(Connection c,String sql)throws Exception{try(Statement s=c.createStatement();ResultSet r=s.executeQuery(sql)){assertThat(r.next()).isTrue();return r.getLong(1);}}
 }

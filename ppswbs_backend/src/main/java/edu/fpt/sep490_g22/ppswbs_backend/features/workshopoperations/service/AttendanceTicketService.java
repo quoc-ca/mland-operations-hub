@@ -103,6 +103,7 @@ public class AttendanceTicketService {
             List<TicketSessionEntitlement> entitlements = entitlementRepository.findByTicketId(ticket.getId());
             List<SessionEntitlementProjection> sessionProjections = entitlements.stream()
                     .map(e -> new SessionEntitlementProjection(
+                            UUID.fromString(e.getSession().getReference()),
                             e.getSession().getLocation() != null ? e.getSession().getLocation().getId() : null,
                             e.getSession().getScheduledStartAt(),
                             e.getSession().getScheduledEndAt()
@@ -111,6 +112,7 @@ public class AttendanceTicketService {
 
             projections.add(new DeliverySafeTicket(
                     UUID.fromString(ticket.getReference()),
+                    ticket.getQrReference(),
                     ticket.getTicketCode(),
                     sessionProjections
             ));

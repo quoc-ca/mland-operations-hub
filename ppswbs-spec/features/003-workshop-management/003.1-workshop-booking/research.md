@@ -12,7 +12,7 @@ This file makes the business baseline for the customer-facing, **direct-Mland** 
 | Source | Use in this research |
 | --- | --- |
 | [FE-03 — Workshop Management](../../../research.md#fe-03): “Chính sách giá theo số người”, “Chú thích — suất làm và vé check-in”, “Khám phá package và tạo booking”, “Thanh toán cọc, xác nhận và tra cứu”, “Mô hình ticket cá nhân”, and “Quyền sở hữu và phân phối ticket” | Inherited business baseline for the direct-Mland V1 booking flow. The source calls several rules “Đề xuất đã chọn”; the 2026-10-25 owner decision below supersedes its former `BASE_PLUS_EXTRA` rule for 003.1 V1. |
-| [General spec](../../../spec-general.md) §§1–4 | React + Vite is a separate REST client; Firebase proves identity while Mland authorizes; a valid signed payment result, 10-minute payment link, and at-most-15-minute workshop hold are shared constraints. |
+| [General spec](../../../spec-general.md) §§1–4 | React + Vite is a separate REST client; Firebase proves identity while Mland authorizes; a valid signed payment result and a shared 10-minute payment-link/workshop-hold deadline are constraints for this booking flow. |
 | [Project constitution](../../../.specify/memory/constitution.md) principles I–V | Modulith ownership/facade rules, REST DTO/OpenAPI boundary, data/security/evidence constraints, and explicit-decision discipline. |
 | [REBASE-NOTES.md](REBASE-NOTES.md) | Confirms that the old one-session booking aggregate must be replaced by booking → package/course → required sessions → attendance tickets. |
 | 003.2, 003.3, and 003.4 specifications | Define the ownership boundary recorded below. They do not approve new 003.1 APIs, schemas, migrations, roles, or frontend behavior. |
@@ -71,7 +71,7 @@ that price. `BASE_PLUS_EXTRA`, shared-item/co-maker pricing, and a
 - its selected package/course, required-session set, and frozen price information;
 - one attendance ticket for every participant of the package;
 - one aggregate 50% deposit invoice; and
-- a capacity hold for each ticket in its assigned session, lasting no more than 15 minutes.
+- a capacity hold for each ticket in its assigned session, sharing the payment-link deadline and lasting no more than 10 minutes.
 
 The creation/hold outcome is all-or-nothing: if any required session is closed, full, invalid, or loses a capacity race, 003.1 must not leave a booking or capacity reservation. Session availability is calculated from confirmed tickets and unexpired ticket holds in that session, never from booking-row count.
 

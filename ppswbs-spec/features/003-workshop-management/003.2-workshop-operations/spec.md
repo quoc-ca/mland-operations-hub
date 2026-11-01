@@ -1,9 +1,16 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
+
+**Feature 003 authorization decision (2026-10-29)**: Every active canonical
+`MANAGER` has global location authority for Manager-authorized actions across
+all 003 subfeatures. `activeLocationIds` does not restrict Manager authority;
+Staff actions remain location-scoped, Member ownership remains enforced, and
+Admin-only technical actions remain Admin-only. The Central Manager distinction
+is removed.
 
 **Feature Branch**: `003.2-workshop-operations`
 
@@ -42,6 +49,13 @@ where they conflict with the following V1 decisions:
   otherwise unchanged. Manual early start follows the same publication rule.
 - Attendance correction remains Manager-only. An active Manager may correct
   attendance globally; Staff may not correct attendance.
+- A finalized session records its finalization timestamp. Manager attendance
+  corrections remain available until 24 hours after the latest required
+  session for the booking is finalized. At that exclusive deadline, Operations
+  rejects further corrections automatically; no Manager sealing action is
+  required. Settlement may treat the booking-wide attendance projection as
+  terminal only after every required session is finalized and this correction
+  window has closed.
 
 Any older paragraph, example or scenario that requires a Staff assignment,
 Manager operational lead, capability key or manual scheduled start is legacy
@@ -260,7 +274,10 @@ perform refunds or connect directly to external OTAs.
   `ATTENDANCE_FINALIZED`. It is false while any required session is not
   finalized, including when it is cancelled. The result includes no individual
   attendance, ticket, Staff, audit or PII detail; 003.3 must not infer it from
-  scheduled end time or calculate it from per-session states.
+  scheduled end time or calculate it from per-session states. It also reports
+  whether the 24-hour attendance-correction window has closed and whether any
+  required ticket is `NO_SHOW`; Settlement emits a terminal Loyalty outcome
+  only after the correction window closes.
 - Q: May a Manager replace a booking's required session with a target session
   that is `SALES_PAUSED`? → A: No. Every replacement target must be future,
   `PUBLISHED`, customer-selectable and have capacity for the booking's complete
@@ -300,18 +317,18 @@ perform refunds or connect directly to external OTAs.
 - Q: Which module owns the customer-facing Package and session-discovery REST routes? → A: 003.2 owns them because it owns the Package master and authoritative session sale eligibility. The public URLs remain stable for the frontend. 003.1 owns only Booking commands and reads, and consumes the required data through 003.2's internal facade rather than exposing a competing discovery route.
 - Q: Should Package publication and retirement be ordinary updates or explicit lifecycle commands? → A: They are explicit Manager-only lifecycle commands below the Package resource. Create/read/update use normal resource routes; publication and retirement use separate commands so authorization and immutable audit clearly record the business transition.
 - Q: May a Manager change a published Package's commercial or session-selection rules? → A: Yes. A Manager may change its description, public price, participant constraints or required-session rules. The change applies only to bookings created after the update; each existing booking retains its already frozen Package and financial snapshot.
-- Q: Which actor manages Workshop Packages shared across locations? → A: A Central Manager manages the shared Package catalogue across the system. Local Managers manage only the locations, slots, sessions and capacity within their location scope; they do not manage shared Package master data.
-- Q: How does V1 identify the Central Manager without adding a new Account role or capability? → A: V1 derives it at command time: the actor must be an active `MANAGER` whose `activeLocationIds` contain every active canonical Workshop Location. This is a V1 authorization policy owned by Operations, not an Account role/capability. After all 003 implementation and integration verification complete, Mland MUST review replacing this derived rule with an explicit Central Manager assignment before widening Package administration.
+- Q: Which actor manages Workshop Packages shared across locations? → A: Every active canonical Manager may manage the shared Package catalogue globally. There is no Central/Local Manager tier and `activeLocationIds` does not filter Manager authority.
+- Q: How does V1 identify Manager authority without adding an Account role or capability? → A: Operations checks the active canonical `MANAGER` role at command time. Every active Manager has global authority for Manager-authorized actions throughout Feature 003.
 
-- Q: Do public Package discovery and Central Manager Package management use one REST resource path? → A: Yes. Both use `/api/v1/workshop-packages`. Public callers may only read `PUBLISHED` Packages; Central Manager create, update and lifecycle commands are differentiated by method and server-side authorization rather than a separate management namespace.
+- Q: Do public Package discovery and Manager Package management use one REST resource path? → A: Yes. Both use `/api/v1/workshop-packages`. Public callers may only read `PUBLISHED` Packages; active Manager create, update and lifecycle commands are differentiated by method and server-side authorization rather than a separate management namespace.
 
 - Q: Does a Package use a fixed type enum or generic required-session rules? → A: It uses generic `requiredSessionCount` and `sameLocationRequired` rules. Basic Ring (`1`, `true`) and Silverclay (`2`, `true`) are current Package configurations, not a closed package-type enum; future Packages may use other valid values without a code enum change.
 
-- Q: Does V1 need a separate immutable business package code? → A: No. The system-generated `packageId` is the technical identity and the Central Manager supplies an editable public `name`. Every Package also has a required public per-participant price; V1 has no separate `packageCode`.
+- Q: Does V1 need a separate immutable business package code? → A: No. The system-generated `packageId` is the technical identity and an active Manager supplies an editable public `name`. Every Package also has a required public per-participant price; V1 has no separate `packageCode`.
 
 - Q: What participant constraints does a V1 Workshop Package define? → A: It defines `minParticipants` and `maxParticipants` for one booking. A booking's participant count must be within that inclusive range and must still fit the authoritative available capacity of every selected required session.
 
-- Q: Which REST command performs Package publish or retirement? → A: Central Manager uses `POST /api/v1/workshop-packages/{packageId}/lifecycle-transitions` with `targetState` `PUBLISHED` or `RETIRED`. Package lifecycle state is never changed through a generic `PATCH` field.
+- Q: Which REST command performs Package publish or retirement? → A: An active Manager uses `POST /api/v1/workshop-packages/{packageId}/lifecycle-transitions` with `targetState` `PUBLISHED` or `RETIRED`. Package lifecycle state is never changed through a generic `PATCH` field.
 - Q: Which public route discovers customer-selectable future sessions for one Package? → A: 003.2 exposes `GET /api/v1/workshop-packages/{packageId}/sessions`. It is public and returns only `PUBLISHED`, customer-selectable future sessions that satisfy the Package's selection rules. The existing `GET /api/v1/workshop-sessions` remains Manager/Staff-scoped and is never opened for public discovery.
 - Q: Where is a Package's participant and required-session rule rechecked when a Booking reserves capacity? → A: 003.1 supplies the selected `packageReference` with its reserve command. Operations rechecks that the Package is `PUBLISHED`, participant bounds, required-session count, same-location rule, sale eligibility and capacity as one all-or-nothing reserve decision. Booking, the frontend and a stale discovery snapshot cannot independently authorize a selection.
 - Q: What availability does public Package session discovery disclose? → A: It returns the exact current `remainingCapacity`, together with session identity, canonical location, scheduled start/end, sale state and `customerSelectable`. This is a customer-selection snapshot only; the atomic reserve command remains the authoritative final capacity decision.
@@ -663,20 +680,16 @@ correction, with before/after audit evidence.
   description, required public per-participant price, participant constraints
   and complete required-session rules. The system-generated `packageId` is the
   technical identity; V1 MUST NOT require a separate business `packageCode`. It
-  MUST restrict those shared Package commands to a Central Manager. In V1, that
-  is an active `MANAGER` whose `activeLocationIds` contain every active canonical
-  Workshop Location; a local Manager has no Package-master authority solely
-  because they manage one or more locations. This derived rule is Operations-
-  owned and is not an Account role/capability. After all 003 implementation and
-  integration verification complete, Mland MUST review replacing it with an
-  explicit Central Manager assignment before widening Package administration.
+  MUST restrict those shared Package commands to an active canonical Manager.
+  Every active Manager has global authority throughout Feature 003, independent
+  of `activeLocationIds`; this is not a new Account role/capability.
   It MUST own public customer discovery of published packages and
   customer-selectable future sessions, and provide 003.1 the corresponding
   semantic internal read boundary. A package MUST define session-count and
   selection rules only; it MUST NOT attach concrete dated sessions.
-  Public Package discovery and Central Manager Package management use the same
+  Public Package discovery and Manager Package management use the same
   `/api/v1/workshop-packages` resource path. Public callers may read only
-  `PUBLISHED` Packages; Central Manager methods and lifecycle commands require
+  `PUBLISHED` Packages; active Manager methods and lifecycle commands require
   server-side authorization.
   Customer session discovery uses
   `GET /api/v1/workshop-packages/{packageId}/sessions`; it returns only

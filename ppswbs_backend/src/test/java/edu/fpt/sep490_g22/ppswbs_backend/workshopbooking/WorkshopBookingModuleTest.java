@@ -10,8 +10,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ApplyVerifiedDepositPaymentEvidenceCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingNotificationDeliveryPayload;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingNotificationDeliveryPayloadQuery;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.BookingNotificationDeliveryPayload;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.BookingNotificationDeliveryPayloadQuery;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.WorkshopBookingNotificationFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingOutcomeStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRejectionReason;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConfirmedBookingFinancialProjection;
@@ -75,6 +76,9 @@ class WorkshopBookingModuleTest {
 
     @Autowired
     private WorkshopBookingFacade bookingFacade;
+
+    @Autowired
+    private WorkshopBookingNotificationFacade bookingNotificationFacade;
 
     @Autowired
     private WorkshopOperationsAdapter operationsAdapter;
@@ -165,7 +169,7 @@ class WorkshopBookingModuleTest {
 
         // Apply verified deposit evidence
         ApplyVerifiedDepositPaymentEvidenceCommand depositCmd = new ApplyVerifiedDepositPaymentEvidenceCommand(
-                "BK-001", "EV-001", "OP-002", "CORR-002");
+                "BK-001", "EV-001", "M-001", 50_000L, "VND", "OP-002", "CORR-002");
         DepositPaymentEvidenceOutcome depositOutcome = bookingFacade.applyVerifiedDepositPaymentEvidence(depositCmd);
         assertThat(depositOutcome.status()).isEqualTo(BookingOutcomeStatus.REJECTED);
         assertThat(depositOutcome.reason()).isEqualTo(BookingRejectionReason.NOT_READY);
@@ -179,7 +183,7 @@ class WorkshopBookingModuleTest {
 
         // Notification delivery payload query
         BookingNotificationDeliveryPayloadQuery notifQuery = new BookingNotificationDeliveryPayloadQuery("NOTIF-001");
-        assertThat(bookingFacade.getBookingNotificationDeliveryPayload(notifQuery)).isNull();
+        assertThat(bookingNotificationFacade.getBookingNotificationDeliveryPayload(notifQuery)).isNull();
     }
 
     @Test
@@ -320,8 +324,8 @@ class WorkshopBookingModuleTest {
                 .isInstanceOf(WorkshopBookingLocationScopeException.class)
                 .hasMessageContaining("outside actor's active location scope");
 
-        // 4. Manager in location scope can resend confirmation
-        AccountSummary resendMgr = authorizationService.requireConfirmationResendAuthority("Bearer test-uid:manager-uid", 1L);
+        // 4. Active Manager can resend globally even when target location is outside activeLocationIds
+        AccountSummary resendMgr = authorizationService.requireConfirmationResendAuthority("Bearer test-uid:manager-uid", 2L);
         assertThat(resendMgr.accountId()).isEqualTo(102L);
 
         // 5. Member cannot resend confirmation
@@ -334,9 +338,12 @@ class WorkshopBookingModuleTest {
                 .isInstanceOf(WorkshopBookingForbiddenException.class)
                 .hasMessageContaining("STAFF or MANAGER role");
 
-        // 7. Manager in location scope can handle Magic Link incident
-        AccountSummary mlMgr = authorizationService.requireMagicLinkIncidentAuthority("Bearer test-uid:manager-uid", 1L);
+        // 7. Active Manager can handle Magic Link incidents globally
+        AccountSummary mlMgr = authorizationService.requireMagicLinkIncidentAuthority("Bearer test-uid:manager-uid", 2L);
         assertThat(mlMgr.accountId()).isEqualTo(102L);
+        assertThat(authorizationService.canResendConfirmation(activeManagerLoc1, 2L)).isTrue();
+        assertThat(authorizationService.canHandleMagicLinkIncident(activeManagerLoc1, 2L)).isTrue();
+        assertThat(authorizationService.canFollowUpLatePayment(activeManagerLoc1, 2L)).isTrue();
 
         // 8. Staff CANNOT handle Magic Link incident (FR-017b5: Staff and ADMIN alone MUST NOT have that authority)
         assertThatThrownBy(() -> authorizationService.requireMagicLinkIncidentAuthority("Bearer test-uid:staff-uid", 1L))

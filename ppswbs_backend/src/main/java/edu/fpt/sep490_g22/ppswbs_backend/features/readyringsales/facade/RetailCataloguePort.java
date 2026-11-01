@@ -6,5 +6,10 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade;
  */
 public interface RetailCataloguePort {
 
-    boolean isEligibleForCart(String variantId, Long locationId);
+    boolean isEligibleForCart(Long variantId, Long locationId);
+
+    CartProductFact readCartProduct(Long variantId);
+
+    record CartProductFact(String productName, String sku, Integer size, String indicativePrice,
+                           String currency, String availableQuantity, boolean saleEligible) {}
 }

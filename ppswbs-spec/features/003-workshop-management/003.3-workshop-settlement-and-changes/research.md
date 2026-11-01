@@ -1,7 +1,7 @@
 # Research: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-10-31
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -62,10 +62,10 @@ is unavailable/declined, refund the whole package under its confirmation-time
 policy snapshot. The current default is 100% of every collected payment,
 including deposit/final payment, even if an earlier session was attended.
 
-One designated central Manager may change this policy prospectively. Existing
-snapshots stay immutable; location-scoped Managers resolve individual cases under the
-existing snapshot. This is business authority, not a new role mapping. Booking
-level handling matches course-booking patterns such as [Bookwhen cancellation guidance](https://support.bookwhen.com/en/articles/3790128-cancelling-an-event).
+Any active Manager may change this policy prospectively or resolve an individual
+case globally. Existing booking snapshots stay immutable. This is business
+authority, not a new role mapping. Booking-level handling matches course-booking
+patterns such as [Bookwhen cancellation guidance](https://support.bookwhen.com/en/articles/3790128-cancelling-an-event).
 
 ## Ownership and audit
 
@@ -86,7 +86,9 @@ token, card data, OTP and unnecessary PII. Operational retries are separate.
 
 The approved public contract is resource-oriented: one booking-scoped final bill
 with nested charges/finalization, and auditable booking-scoped cancellation,
-required-session-change, deferred-payment and Mland-remedy cases. Prospective
+required-session-change and Mland-remedy cases. Final balance must be verified
+as paid before package-output handover; no credit/deferred-payment workflow is
+part of V1. Prospective
 Mland cancellation refund policy is a central resource because it applies across
 locations only to later-confirmed bookings. Client commands use an
 `Idempotency-Key`; VNPay IPN remains signed provider evidence replay-protected by
@@ -101,6 +103,8 @@ truth.
    facts; 003.3 applies its own approved location/resource action rules and
    central-policy-editor rule.
 3. VNPay merchant, IPN/QueryDR and refund configuration must be provider-approved.
-4. Notification owner must provide the post-commit link/reminder/outcome handoff.
+4. Notification owner provides the post-commit verified-outcome handoff; it
+   carries no payment link or collection action. There is no reminder/reissue
+   workflow because unpaid balances are not deferred.
 
 None authorizes endpoints, schema, role mapping or provider policy to be invented.

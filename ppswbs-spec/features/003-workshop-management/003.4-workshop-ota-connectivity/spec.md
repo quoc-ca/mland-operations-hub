@@ -1,7 +1,7 @@
 # Feature Specification: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-27
+**Date updated**: 2026-11-01
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -55,7 +55,8 @@ are evidenced.
 ### Session 2026-10-24
 
 - Q: Những thay đổi lịch nào từ Mland phải tự động đồng bộ sang từng OTA candidate? → A: Tự động đồng bộ toàn bộ thay đổi ảnh hưởng lịch/availability; có retry, reconciliation và force re-sync.
-- Q: Ai được phép force re-sync lịch/availability và xử lý reconciliation của một OTA? → A: Manager theo location xử lý sync/reconciliation nghiệp vụ; Admin quản lý connection/credentials và có quyền toàn cục.
+- Q: Ai được phép force re-sync lịch/availability và xử lý reconciliation của một OTA? → A: Active Manager thực hiện các thao tác nghiệp vụ OTA trên mọi location; Admin quản lý connection/credentials và có quyền kỹ thuật/toàn cục đã được giao.
+- Q: Manager OTA có bị giới hạn theo location được gán không? → A: Không. Mọi Manager active có cùng quyền nghiệp vụ OTA trên mọi location; không cần kiểm tra `activeLocationIds` để authorize Manager. Quyết định này không tự mở rộng quyền của Manager vào thao tác được dành riêng cho Admin hoặc Staff.
 - Q: Sau khi retry đồng bộ lịch/availability thất bại và chưa reconcile được, Mland phải xử lý khả năng bán của OTA đó thế nào? → A: Đóng bán mapping bị lỗi sau retry; chỉ mở lại sau resync xác nhận.
 - Q: Nếu một OTA gửi booking sau khi Mland đã đóng hoặc suspend mapping do lỗi sync, Mland phải xử lý booking đó thế nào? → A: Mland từ chối/không xác nhận booking đến muộn, không giữ capacity, và tạo reconciliation case có audit. Mapping chỉ được mở lại sau authoritative resync và xác nhận reconciliation; không dùng overbooking hoặc tự chuyển khách sang session khác.
 
@@ -91,6 +92,15 @@ are evidenced.
 - Customer channel payment, OTA payout owed to Mland, actual payout, and a
   direct Mland add-on bill are separate financial facts. Corrections append
   evidence rather than editing history.
+- For an OTA-origin workshop package, the customer pays the full amount due
+  through the OTA checkout. Mland does not collect a deposit or final payment
+  for that base package. The OTA's later supplier payout to Mland is a separate
+  receivable and reconciliation flow; a payout is not customer-payment proof.
+- Mland may confirm an OTA booking and issue its tickets only after an
+  authenticated provider outcome establishes that the full accepted customer
+  amount and currency were paid on the channel. If the provider's callback or
+  reconciliation contract cannot establish that fact, the mapping stays
+  sales-closed until the provider evidence is approved.
 - Laser engraving is included free. Any other paid option needs a prior quote
   and customer acceptance, then a direct Mland bill with no OTA price, payout,
   commission, or refund effect.
@@ -112,8 +122,10 @@ the repeat returns the original result without another capacity deduction.
 **Acceptance Scenarios**:
 
 1. **Given** enough Mland capacity, **When** an approved OTA submits a valid
-   booking for N participants, **Then** Mland creates one channel booking,
-   exactly N active tickets, and commits N places as one result.
+   booking for N participants with authenticated evidence of full payment of
+   the accepted channel amount, **Then** Mland creates one channel booking,
+   exactly N active tickets, and commits N places as one result. A booking
+   lacking full-payment evidence is not confirmed and receives no tickets.
 2. **Given** the same accepted request is delivered again, **When** Mland
    processes it, **Then** it returns the original result without duplicate
    booking, ticket, capacity, or financial effects.
@@ -200,6 +212,17 @@ a payout reference is matched.
 3. **Given** a variance/dispute, **When** it is recorded, **Then** it creates a
    linked adjustment/dispute and does not imply an OTA payout.
 
+Manager-led reconciliation records separate eligibility, invoice, remittance,
+and bank-receipt evidence for each booking. `PAID_OUT` requires booking-specific
+allocation evidence whose received total and currency match the expected net
+plus signed, evidenced adjustments and reversals. A customer refund or fee does
+not silently change the supplier receivable: Manager records its contractual
+impact as a linked adjustment. Missing or mismatched evidence opens a dispute
+and does not advance the payout state. Grouped OTA payouts require a distinct
+allocation reference for each booking; the system does not guess the split.
+Replay of the same evidence returns the original fact, while a conflicting
+replay is rejected.
+
 ---
 
 ### User Story 5 — Staff sells an OTA add-on transparently (Priority: P2)
@@ -261,11 +284,18 @@ Mland payment. The counter bill remains separate from OTA financial facts.
   retaining the OTA mapping as valid. When 003.2 resumes sales, 003.4 MUST
   publish the reopened state from the new authoritative snapshot. Neither normal
   transition may be treated as mapping sync failure or require re-onboarding.
-- **FR-004b**: A Manager MAY force re-sync and resolve a business reconciliation
-  item only for an assigned location. Admin owns OTA credentials and connection
-  configuration and MAY perform these actions across locations. Every action
+- **FR-004b**: An active Manager MAY perform authorized OTA business sync and
+  reconciliation actions across all locations; Manager authorization does not
+  depend on `activeLocationIds`. Admin owns OTA credentials and connection
+  configuration and MAY perform its authorized technical/recovery actions
+  across locations. Every action
   MUST record actor, location, channel, scope, reason, and outcome; a display
   role name alone MUST NOT grant either authority.
+- **FR-004b1**: An active Manager MAY read separated OTA financial evidence and
+  perform payout reconciliation for any canonical location. These actions are
+  Manager-authorized globally and MUST append immutable, auditable evidence;
+  location assignment does not restrict access. Provider connection/credential
+  changes and production booking enablement remain Admin-only.
 - **FR-004c**: The system MUST close sales for an OTA mapping whose automatic
   synchronization retries are exhausted. It MUST keep inbound provider events
   available for reconciliation and MUST reopen sales only after a successful
@@ -316,7 +346,13 @@ Mland payment. The counter bill remains separate from OTA financial facts.
   confirmation.
 - **FR-012**: The system MUST record customer channel-payment states as
   `PAID_ON_CHANNEL`, `REFUND_REQUESTED`, `PARTIALLY_REFUNDED`, or `REFUNDED`.
-  They MUST NOT be read as a direct-Mland payment, booking, or payout state.
+  `PAID_ON_CHANNEL` MUST represent authenticated evidence that the full
+  accepted customer amount and currency were collected by the OTA for the
+  booking. An incomplete, mismatched, or absent payment outcome MUST NOT
+  confirm the channel booking or issue tickets. These states MUST NOT be read
+  as a direct-Mland payment, booking, or supplier-payout state. Mland MUST NOT
+  create a `DEPOSIT` or `FINAL_PAYMENT` attempt for the OTA-collected base
+  package.
 - **FR-013**: The system MUST snapshot sales channel, displayed policy/version,
   cutoff/timezone, price terms, commission/fee facts, and accepted currency
   amounts for each OTA booking; later configuration cannot rewrite the snapshot.
@@ -400,8 +436,9 @@ customer refunds, supplier receivables, and direct counter sales. Separate
 adapters, ticket gates, immutable financial facts, idempotency, and reconciliation
 are required boundaries.
 
-**Not implementation-ready yet**: Provider contracts, commercial terms,
-credential/callback configuration, quotas, approved OTA action-authorization
-rules, and
-deployment ownership need approved follow-up design. This specification grants
-neither implementation nor publication authority.
+**Provider release gates remain**: Provider contracts, commercial terms,
+credential/callback configuration, quotas, late-booking behavior, and deployment
+ownership need approved follow-up evidence. Finance authorization is resolved:
+any active Manager may read financial evidence and perform payout reconciliation
+globally. This specification grants neither provider publication nor production
+booking enablement authority.

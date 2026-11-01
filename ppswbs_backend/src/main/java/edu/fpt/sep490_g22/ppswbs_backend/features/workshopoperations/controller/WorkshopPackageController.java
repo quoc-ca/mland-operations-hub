@@ -46,7 +46,7 @@ public class WorkshopPackageController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = CORRELATION_HEADER, required = false) String correlationReference,
             @Valid @RequestBody PackageRequest request) {
-        Long actorId = packageAuthorization.requireCentralManager(authorization);
+        Long actorId = packageAuthorization.requireActiveManager(authorization);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(packageService.createDraft(request, actorId, correlationReference));
     }
@@ -62,7 +62,7 @@ public class WorkshopPackageController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = CORRELATION_HEADER, required = false) String correlationReference,
             @Valid @RequestBody PackageRequest request) {
-        Long actorId = packageAuthorization.requireCentralManager(authorization);
+        Long actorId = packageAuthorization.requireActiveManager(authorization);
         return packageService.updateProspectively(packageId, request, actorId, correlationReference);
     }
 
@@ -72,7 +72,7 @@ public class WorkshopPackageController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = CORRELATION_HEADER, required = false) String correlationReference,
             @Valid @RequestBody PackageLifecycleTransitionRequest request) {
-        Long actorId = packageAuthorization.requireCentralManager(authorization);
+        Long actorId = packageAuthorization.requireActiveManager(authorization);
         return packageService.transition(packageId, request.getTargetState(), actorId, correlationReference);
     }
 

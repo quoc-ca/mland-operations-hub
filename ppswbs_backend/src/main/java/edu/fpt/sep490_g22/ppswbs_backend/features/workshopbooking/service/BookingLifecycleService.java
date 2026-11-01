@@ -2,9 +2,10 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBookingConfirmedEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingNotificationReady;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.BookingNotificationReady;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopOperationsAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.*;
 import lombok.RequiredArgsConstructor;
@@ -45,11 +46,12 @@ public class BookingLifecycleService {
     private final BookingInvoiceRepository invoiceRepository;
     private final BookingPaymentReceiptRepository paymentReceiptRepository;
     private final BookingTicketRepository ticketRepository;
-    private final BookingTicketSessionEntitlementRepository entitlementRepository;
+    private final BookingConfirmationService bookingConfirmationService;
     private final MagicLinkAccessRepository magicLinkRepository;
     private final BookingNotificationIntentRepository notificationIntentRepository;
     private final BookingAuditEvidenceRepository auditEvidenceRepository;
     private final WorkshopOperationsAdapter operationsAdapter;
+    private final BookingHoldReleaseService holdReleaseService;
     private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
 
@@ -66,50 +68,47 @@ public class BookingLifecycleService {
             String contactPhone,
             Long memberAccountId,
             int participantCount,
-            List<Long> sessionIds,
+            List<UUID> sessionReferences,
             Long pricePerParticipant,
             Long postPromotionAmount,
             String operationReference,
             String correlationReference
     ) {
-        log.info("createPendingBookingReservation: bookingCode={}, packageId={}, participantCount={}, sessions={}",
-                bookingCode, packageId, participantCount, sessionIds);
+        log.info("createPendingBookingReservation: bookingCode={}, packageId={}, participantCount={}, sessionCount={}",
+                bookingCode, packageId, participantCount, sessionReferences == null ? 0 : sessionReferences.size());
 
         if (participantCount < 1) {
             throw new BookingValidationException("participantCount must be at least 1");
         }
-        if (sessionIds == null || sessionIds.isEmpty() || sessionIds.size() > 2) {
-            throw new BookingValidationException("sessionIds must contain 1 or 2 distinct sessions");
+        if (sessionReferences == null || sessionReferences.isEmpty()
+                || sessionReferences.stream().anyMatch(Objects::isNull)
+                || new HashSet<>(sessionReferences).size() != sessionReferences.size()) {
+            throw new BookingValidationException("sessionReferences must contain distinct session references");
         }
 
-        // 1. Check sale eligibility for each session via WorkshopOperationsAdapter
+        // Resolve only customer-safe snapshots. Operations remains the authority for the
+        // Package's required count, location and schedule constraints during atomic reserve.
         Long sessionLocationId = null;
-        for (Long sessionId : sessionIds) {
-            SaleEligibilitySnapshot eligibility = operationsAdapter.getSaleEligibility(sessionId);
-            if (eligibility == null || !Boolean.TRUE.equals(eligibility.customerSelectable())) {
-                log.warn("Session {} is not customer-selectable", sessionId);
-                throw new BookingConflictException("Session " + sessionId + " is not customer-selectable");
-            }
-            if (eligibility.remainingCapacity() < participantCount) {
-                log.warn("Session {} has insufficient remaining capacity: {} < {}",
-                        sessionId, eligibility.remainingCapacity(), participantCount);
-                throw new BookingConflictException("Session " + sessionId + " does not have sufficient capacity");
+        Map<UUID, SaleEligibilitySnapshot> eligibilityByReference = new HashMap<>();
+        for (UUID sessionReference : sessionReferences) {
+            SaleEligibilitySnapshot eligibility = operationsAdapter.getSaleEligibility(sessionReference);
+            if (eligibility == null || (eligibility.sessionReference() != null
+                    && !sessionReference.equals(eligibility.sessionReference())) || !eligibility.customerSelectable()) {
+                throw new BookingConflictException("A selected session is not currently available");
             }
             if (sessionLocationId == null && eligibility.locationReference() != null) {
                 sessionLocationId = eligibility.locationReference();
             }
+            eligibilityByReference.put(sessionReference, eligibility);
         }
         if (sessionLocationId == null) {
-            sessionLocationId = 36L; // Fallback to existing verification location if not provided
+            throw new BookingConflictException("A selected session is not currently available");
         }
 
-        // 2. Reserve capacity across all sessions all-or-nothing
-        List<UUID> sessionUuids = sessionIds.stream()
-                .map(id -> new UUID(0L, id))
-                .toList();
-
+        // 2. Reserve the whole selection against the current published Package.
         CapacityHoldOutcome holdOutcome = operationsAdapter.reserveBookingCapacity(
-                bookingCode, sessionUuids, participantCount, operationReference, correlationReference);
+                bookingCode, String.valueOf(packageId), sessionReferences, participantCount,
+                operationReference, correlationReference);
 
         if (holdOutcome == null || holdOutcome.status() != OutcomeStatus.ACCEPTED) {
             String reason = holdOutcome != null ? String.valueOf(holdOutcome.reason()) : "UNKNOWN";
@@ -117,9 +116,11 @@ public class BookingLifecycleService {
             throw new BookingConflictException("Capacity reservation rejected: " + reason);
         }
 
-        Instant holdExpiresAt = holdOutcome.expiresAt() != null
-                ? holdOutcome.expiresAt()
-                : Instant.now().plus(15, ChronoUnit.MINUTES);
+        if (holdOutcome.holdReferences().size() != sessionReferences.size() || holdOutcome.expiresAt() == null) {
+            throw new BookingConflictException("Capacity reservation returned an incomplete outcome");
+        }
+
+        Instant holdExpiresAt = holdOutcome.expiresAt();
 
         // 3. Persist WorkshopBooking
         WorkshopBooking booking = WorkshopBooking.builder()
@@ -139,20 +140,22 @@ public class BookingLifecycleService {
         // 4. Persist Commitments and Holds
         int ordinal = 1;
         List<UUID> holdReferences = holdOutcome.holdReferences() != null ? holdOutcome.holdReferences() : List.of();
-        for (int i = 0; i < sessionIds.size(); i++) {
-            Long sessId = sessionIds.get(i);
+        Map<UUID, UUID> holdBySession = new HashMap<>();
+        for (int i = 0; i < sessionReferences.size(); i++) holdBySession.put(sessionReferences.get(i), holdReferences.get(i));
+        List<UUID> chronologicalReferences = sessionReferences.stream().sorted(Comparator.comparing(reference ->
+                Optional.ofNullable(eligibilityByReference.get(reference).scheduledStart()).orElse(Instant.MAX))).toList();
+        for (UUID sessionReference : chronologicalReferences) {
+            SaleEligibilitySnapshot eligibility = eligibilityByReference.get(sessionReference);
             BookingSessionCommitment commitment = BookingSessionCommitment.builder()
                     .booking(booking)
-                    .sessionId(sessId)
-                    .locationId(sessionLocationId)
+                    .sessionReference(sessionReference.toString())
+                    .locationId(eligibility.locationReference())
                     .ordinal(ordinal++)
                     .seatCount(participantCount)
                     .build();
             commitment = commitmentRepository.save(commitment);
 
-            String holdRef = i < holdReferences.size()
-                    ? holdReferences.get(i).toString()
-                    : UUID.randomUUID().toString();
+            String holdRef = holdBySession.get(sessionReference).toString();
 
             BookingCapacityHold hold = BookingCapacityHold.builder()
                     .booking(booking)
@@ -164,8 +167,13 @@ public class BookingLifecycleService {
         }
 
         // 5. Calculate and persist frozen Invoice
-        long pkgTotal = (long) participantCount * pricePerParticipant;
-        long deposit = (long) Math.ceil(postPromotionAmount / 2.0);
+        long pkgTotal;
+        try {
+            pkgTotal = Math.multiplyExact((long) participantCount, pricePerParticipant);
+        } catch (ArithmeticException ex) {
+            throw new BookingValidationException("Package total exceeds the supported VND range");
+        }
+        long deposit = Math.floorDiv(postPromotionAmount, 2) + (postPromotionAmount % 2);
         long remaining = postPromotionAmount - deposit;
 
         BookingInvoice invoice = BookingInvoice.builder()
@@ -201,56 +209,7 @@ public class BookingLifecycleService {
      */
     @Transactional
     public void releasePendingHold(String bookingCode, String operationReference, String correlationReference) {
-        log.info("releasePendingHold: bookingCode={}, opRef={}", bookingCode, operationReference);
-
-        Optional<WorkshopBooking> opt = bookingRepository.findByBookingCode(bookingCode);
-        if (opt.isEmpty()) {
-            log.warn("Booking {} not found for release", bookingCode);
-            return;
-        }
-
-        WorkshopBooking booking = opt.get();
-        if (booking.getBookingStatus() != BookingStatus.PENDING_PAYMENT) {
-            log.info("Booking {} is already in status {}, skipping release", bookingCode, booking.getBookingStatus());
-            return;
-        }
-
-        // Release holds in Operations
-        List<BookingCapacityHold> holds = holdRepository.findByBookingId(booking.getId());
-        List<UUID> holdUuids = new ArrayList<>();
-        for (BookingCapacityHold hold : holds) {
-            if ("RESERVED".equalsIgnoreCase(hold.getHoldStatus())) {
-                try {
-                    holdUuids.add(UUID.fromString(hold.getHoldReference()));
-                } catch (IllegalArgumentException e) {
-                    holdUuids.add(new UUID(0L, hold.getId()));
-                }
-                hold.setHoldStatus("RELEASED");
-                holdRepository.save(hold);
-            }
-        }
-
-        if (!holdUuids.isEmpty()) {
-            operationsAdapter.releaseBookingHolds(bookingCode, holdUuids, operationReference, correlationReference);
-        }
-
-        booking.setBookingStatus(BookingStatus.CANCELLED);
-        booking.setCancelledAt(Instant.now());
-        bookingRepository.save(booking);
-
-        List<BookingSessionCommitment> comms = commitmentRepository.findByBookingIdOrderByOrdinalAsc(booking.getId());
-        Long locId = comms.isEmpty() ? 36L : comms.get(0).getLocationId();
-
-        BookingAuditEvidence audit = BookingAuditEvidence.builder()
-                .bookingCode(bookingCode)
-                .locationId(locId)
-                .actorType("SYSTEM")
-                .action("RELEASE_HOLD")
-                .outcome("ACCEPTED")
-                .correlationReference(correlationReference)
-                .occurredAt(Instant.now())
-                .build();
-        auditEvidenceRepository.save(audit);
+        holdReleaseService.releasePendingHold(bookingCode, operationReference, correlationReference);
     }
 
     /**
@@ -302,9 +261,9 @@ public class BookingLifecycleService {
         List<UUID> holdUuids = new ArrayList<>();
         for (BookingCapacityHold hold : holds) {
             try {
-                holdUuids.add(UUID.fromString(hold.getHoldReference()));
+                holdUuids.add(parseHoldReference(hold.getHoldReference()));
             } catch (IllegalArgumentException e) {
-                holdUuids.add(new UUID(0L, hold.getId()));
+                throw new BookingConflictException("A stored capacity hold reference is invalid");
             }
         }
 
@@ -325,7 +284,7 @@ public class BookingLifecycleService {
         // Update booking state
         booking.setBookingStatus(BookingStatus.CONFIRMED);
         booking.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
-        booking.setConfirmedAt(Instant.now());
+        booking.setConfirmedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
         booking = bookingRepository.save(booking);
 
         // Record payment receipt
@@ -339,57 +298,11 @@ public class BookingLifecycleService {
                 .build();
         paymentReceiptRepository.save(receipt);
 
-        // Fetch ticket projection ONLY AFTER successful commit
-        DeliverySafeTicketSet ticketSet = operationsAdapter.getBookingTicketProjection(bookingCode);
         List<BookingSessionCommitment> commitments = commitmentRepository.findByBookingIdOrderByOrdinalAsc(booking.getId());
-
-        List<String> renderedTicketCodes = new ArrayList<>();
-        if (ticketSet != null && ticketSet.tickets() != null && !ticketSet.tickets().isEmpty()) {
-            for (DeliverySafeTicket safeTicket : ticketSet.tickets()) {
-                String qrRef = safeTicket.ticketReference() != null
-                        ? safeTicket.ticketReference().toString()
-                        : "QR-" + UUID.randomUUID();
-                BookingTicket ticket = BookingTicket.builder()
-                        .booking(booking)
-                        .ticketCode(safeTicket.ticketCode())
-                        .qrReference(qrRef)
-                        .deliveryStatus(TicketDeliveryStatus.PENDING)
-                        .build();
-                ticket = ticketRepository.save(ticket);
-                renderedTicketCodes.add(ticket.getTicketCode());
-
-                for (BookingSessionCommitment commitment : commitments) {
-                    BookingTicketSessionEntitlement entitlement = BookingTicketSessionEntitlement.builder()
-                            .bookingTicket(ticket)
-                            .sessionCommitment(commitment)
-                            .sessionId(commitment.getSessionId())
-                            .build();
-                    entitlementRepository.save(entitlement);
-                }
-            }
-        } else {
-            // Fallback generation for ticket projection when tickets are issued synchronously
-            for (int i = 1; i <= booking.getParticipantCount(); i++) {
-                String tkCode = "TK-" + bookingCode + "-" + i;
-                BookingTicket ticket = BookingTicket.builder()
-                        .booking(booking)
-                        .ticketCode(tkCode)
-                        .qrReference("QR-" + UUID.randomUUID())
-                        .deliveryStatus(TicketDeliveryStatus.PENDING)
-                        .build();
-                ticket = ticketRepository.save(ticket);
-                renderedTicketCodes.add(tkCode);
-
-                for (BookingSessionCommitment commitment : commitments) {
-                    BookingTicketSessionEntitlement entitlement = BookingTicketSessionEntitlement.builder()
-                            .bookingTicket(ticket)
-                            .sessionCommitment(commitment)
-                            .sessionId(commitment.getSessionId())
-                            .build();
-                    entitlementRepository.save(entitlement);
-                }
-            }
-        }
+        // Operations is the only authority for issued ticket identities. Never invent a ticket fallback.
+        BookingConfirmationService.ConfirmedTicketProjection confirmedTickets = bookingConfirmationService
+                .projectConfirmedTickets(booking, commitments);
+        List<String> renderedTicketCodes = confirmedTickets.ticketCodes();
 
         // Generate Magic Link Access with protected token hash
         String rawMagicToken = UUID.randomUUID().toString();
@@ -398,7 +311,7 @@ public class BookingLifecycleService {
                 .booking(booking)
                 .tokenHash(tokenHash)
                 .lifecycleStatus(MagicLinkLifecycleStatus.ACTIVE)
-                .expiresAt(Instant.now().plus(7, ChronoUnit.DAYS))
+                .expiresAt(confirmedTickets.workshopEndsAt())
                 .build();
         magicLinkRepository.save(magicLink);
 
@@ -429,6 +342,11 @@ public class BookingLifecycleService {
                 .occurredAt(Instant.now())
                 .build();
         auditEvidenceRepository.save(audit);
+
+        // This publication is recorded in the same local transaction as CONFIRMED.
+        // Settlement snapshots the applicable Mland refund policy after commit.
+        eventPublisher.publishEvent(new MlandBookingConfirmedEvent(
+                booking.getBookingCode(), booking.getConfirmedAt()));
 
         // Publish post-commit handoff event to Feature 007
         BookingNotificationReady readyEvent = new BookingNotificationReady(
@@ -546,5 +464,11 @@ public class BookingLifecycleService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 algorithm not available", e);
         }
+    }
+
+    private UUID parseHoldReference(String reference) {
+        UUID parsed = UUID.fromString(reference);
+        if (!parsed.toString().equals(reference)) throw new IllegalArgumentException("Non-canonical UUID");
+        return parsed;
     }
 }

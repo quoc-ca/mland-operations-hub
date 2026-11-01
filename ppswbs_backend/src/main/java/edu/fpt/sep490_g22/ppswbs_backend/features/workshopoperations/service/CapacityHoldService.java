@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.CapacityHoldRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopBookingPackagePolicySnapshotRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.TicketSessionEntitlementRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
@@ -37,6 +38,7 @@ public class CapacityHoldService {
 
     private final WorkshopSessionRepository sessionRepository;
     private final CapacityHoldRepository capacityHoldRepository;
+    private final WorkshopBookingPackagePolicySnapshotRepository bookingPolicySnapshotRepository;
     private final TicketSessionEntitlementRepository entitlementRepository;
     private final OperationsAuditEventRepository auditEventRepository;
     private final FacadeCommandIdempotencyManager idempotencyManager;
@@ -51,6 +53,13 @@ public class CapacityHoldService {
     @Transactional
     public CapacityHoldOutcome reserveBookingCapacity(ReserveBookingCapacityCommand command,
                                                        Supplier<RejectionReason> packageValidation) {
+        return reserveBookingCapacity(command, packageValidation, null);
+    }
+
+    @Transactional
+    public CapacityHoldOutcome reserveBookingCapacity(ReserveBookingCapacityCommand command,
+                                                       Supplier<RejectionReason> packageValidation,
+                                                       Supplier<WorkshopBookingPackagePolicySnapshot> policySnapshotSupplier) {
         String fingerprint = command.bookingReference() + "|" + command.packageReference() + "|"
                 + command.orderedRequiredSessionReferences() + "|" + command.participantCount();
 
@@ -79,6 +88,23 @@ public class CapacityHoldService {
             CapacityHoldOutcome outcome = CapacityHoldOutcome.rejected(packageRejection);
             idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
             return outcome;
+        }
+
+        WorkshopBookingPackagePolicySnapshot policySnapshot = null;
+        if (policySnapshotSupplier != null) {
+            policySnapshot = policySnapshotSupplier.get();
+            if (policySnapshot == null) {
+                CapacityHoldOutcome outcome = CapacityHoldOutcome.rejected(RejectionReason.INVALID_STATE);
+                idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
+                return outcome;
+            }
+            WorkshopBookingPackagePolicySnapshot existing = bookingPolicySnapshotRepository
+                    .findByBookingReference(command.bookingReference()).orElse(null);
+            if (existing != null && !samePolicy(existing, policySnapshot)) {
+                CapacityHoldOutcome outcome = CapacityHoldOutcome.rejected(RejectionReason.INVALID_STATE);
+                idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
+                return outcome;
+            }
         }
 
         // Lock sessions deterministically sorted by reference to prevent application deadlocks
@@ -133,7 +159,11 @@ public class CapacityHoldService {
         }
 
         // All sessions qualified: create active holds
-        Instant expiresAt = now.plus(15, ChronoUnit.MINUTES);
+        if (policySnapshot != null && bookingPolicySnapshotRepository
+                .findByBookingReference(command.bookingReference()).isEmpty()) {
+            bookingPolicySnapshotRepository.save(policySnapshot);
+        }
+        Instant expiresAt = now.plus(10, ChronoUnit.MINUTES);
         List<UUID> holdRefs = new ArrayList<>();
 
         for (WorkshopSession session : orderedSessions) {
@@ -160,6 +190,16 @@ public class CapacityHoldService {
         String payload = buildHoldPayload(holdRefs, expiresAt);
         idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), null, payload);
         return outcome;
+    }
+
+    private static boolean samePolicy(WorkshopBookingPackagePolicySnapshot left,
+                                      WorkshopBookingPackagePolicySnapshot right) {
+        return left.getPackageReference().equals(right.getPackageReference())
+                && left.getRequiredSessionCount().equals(right.getRequiredSessionCount())
+                && left.getMinParticipants().equals(right.getMinParticipants())
+                && left.getMaxParticipants().equals(right.getMaxParticipants())
+                && left.isSameLocationRequired() == right.isSameLocationRequired()
+                && left.getMinimumSameDaySlotGap().equals(right.getMinimumSameDaySlotGap());
     }
 
     /**

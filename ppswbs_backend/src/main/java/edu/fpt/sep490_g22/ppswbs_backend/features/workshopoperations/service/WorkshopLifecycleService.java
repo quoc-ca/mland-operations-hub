@@ -64,7 +64,7 @@ public class WorkshopLifecycleService {
         WorkshopSession session = requireSessionEntity(sessionReference);
         Long sessionLocationId = session.getLocation().getId();
 
-        // 3. Enforce direct location scope at command time
+        // 3. Enforce Staff location scope at command time; Managers are global.
         if (!authorizationService.isGlobalWorkshopActor(actor)) {
             List<Long> locationScope = accountFacade.getLocationScope(actor.accountId());
             if (locationScope == null || !locationScope.contains(sessionLocationId)) {
@@ -119,7 +119,7 @@ public class WorkshopLifecycleService {
             throw new WorkshopLifecycleException("Cannot transition to PUBLISHED from state " + currentState);
         }
 
-        // Only Manager in location scope or Admin can publish or resume sales
+        // Active Manager or Admin can publish or resume sales globally.
         if (!authorizationService.isAllLocationActor(actor) && !authorizationService.isManager(actor)) {
             throw new WorkshopForbiddenException("Only a Manager can publish or resume sales for a session");
         }
@@ -132,7 +132,7 @@ public class WorkshopLifecycleService {
             throw new WorkshopLifecycleException("Cannot transition to SALES_PAUSED from state " + currentState);
         }
 
-        // Only Manager in location scope or Admin can pause sales
+        // Active Manager or Admin can pause sales globally.
         if (!authorizationService.isAllLocationActor(actor) && !authorizationService.isManager(actor)) {
             throw new WorkshopForbiddenException("Only a Manager can pause session sales");
         }

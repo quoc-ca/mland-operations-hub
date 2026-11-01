@@ -35,6 +35,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Target
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetScope;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TrustedSourceContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopSessionFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.DiscountTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.PolicyTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyPolicyService;
@@ -46,6 +47,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -58,7 +60,13 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -91,6 +99,7 @@ class LoyaltyMySqlConcurrencyIT {
     @Autowired private LoyaltyRegistryRepository registry;
     @Autowired private LoyaltyPolicyService policyService;
     @Autowired private PromotionMaintenanceService maintenance;
+    @Autowired private JdbcTemplate jdbc;
 
     @BeforeEach
     void requireMySql() {
@@ -140,7 +149,8 @@ class LoyaltyMySqlConcurrencyIT {
 
     private static TrustedSourceContext booking(long memberId) {
         return new TrustedSourceContext(SourceKind.WORKSHOP, memberId, Instant.now(), List.of(),
-                new WorkshopFact(8_100L, 2L, DAY, 3L, 1, n(1_000_000)), BigInteger.ZERO);
+                WorkshopFact.singleSession(8_100L, 1, n(1_000_000),
+                        WorkshopSessionFact.of("00000000-0000-4000-8000-000000000003", 2L, DAY)), BigInteger.ZERO);
     }
 
     private static AcceptedSourceContext accept(TrustedSourceContext context, String sourceRef, String digest) {
@@ -434,6 +444,137 @@ class LoyaltyMySqlConcurrencyIT {
             assertThat(benefit.getVoucherState()).isEqualTo(ComponentState.RELEASED);
             assertThat(wallet.getBalancePoints()).isEqualTo(n(500));
             assertThat(after.getConsumedCount()).isZero();
+        }
+    }
+
+    // ----- forced lock timeout and deadlock, then retry -----
+
+    /** Runs {@code work} in its own transaction on another thread; returns a handle to wait for it. */
+    private Future<Object> inBackground(Callable<Object> work) {
+        ExecutorService pool = Executors.newSingleThreadExecutor();
+        try {
+            return pool.submit(work);
+        } finally {
+            pool.shutdown();
+        }
+    }
+
+    /**
+     * Reserves with a 1-second InnoDB lock wait for this transaction only (test-only session setting, reset before the
+     * connection returns to the pool), so a blocked lock surfaces quickly instead of after MySQL's 50-second default.
+     */
+    private AcceptedBenefitRef reserveWithShortLockWait(AcceptedSourceContext context, BenefitSelection selection) {
+        return transaction.execute(status -> {
+            jdbc.execute("SET SESSION innodb_lock_wait_timeout = 1");
+            try {
+                return loyalty.reserveAcceptedTransaction(context, selection, "cmd-" + context.sourceRef());
+            } finally {
+                jdbc.execute("SET SESSION innodb_lock_wait_timeout = DEFAULT");
+            }
+        });
+    }
+
+    @Test
+    void aLockTimeoutIsATypedRetryableErrorThatHoldsNothingAndARetrySucceeds() throws Exception {
+        long member = newMember();
+        wallet(member, 500);
+        BenefitSelection points = new BenefitSelection(SelectionChoice.NONE, null, n(200));
+        String digest = digest(cart(member), points);
+        AcceptedSourceContext context = accept(cart(member), "order-" + UUID.randomUUID(), digest);
+
+        CountDownLatch walletLocked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        Future<Object> blocker = inBackground(() -> transaction.execute(status -> {
+            wallets.lockByMemberId(member).orElseThrow();
+            walletLocked.countDown();
+            try {
+                release.await(30, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return "released";
+        }));
+        assertThat(walletLocked.await(10, TimeUnit.SECONDS)).isTrue();
+
+        Throwable failure = null;
+        try {
+            reserveWithShortLockWait(context, points);
+        } catch (Throwable e) {
+            failure = e;
+        } finally {
+            release.countDown();
+            blocker.get(30, TimeUnit.SECONDS);
+        }
+
+        assertThat(failure).isInstanceOfSatisfying(LoyaltyException.class,
+                error -> assertThat(error.code()).isEqualTo(LoyaltyErrorCode.RETRYABLE_CONTENTION));
+        assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, context.sourceRef())).isEmpty();
+        assertThat(wallets.findById(member).orElseThrow().getHeldPoints()).as("nothing held after the timeout").isZero();
+
+        AcceptedBenefitRef retried = reserve(context, points);
+        assertThat(retried).isNotNull();
+        assertThat(wallets.findById(member).orElseThrow().getHeldPoints()).isEqualTo(n(200));
+        assertThat(ledger.findAll().stream().filter(entry -> entry.getMemberId() == member
+                && entry.getEntryKind() == LedgerEntryKind.HOLD)).hasSize(1);
+    }
+
+    @Test
+    void aDeadlockLeavesNoPartialHoldAndTheLoserCanRetry() throws Exception {
+        String code = voucher(5, 5);
+        long member = newMember();
+        wallet(member, 500);
+        BenefitSelection selection = new BenefitSelection(SelectionChoice.VOUCHER, code, n(100));
+        String digest = digest(cart(member), selection);
+        AcceptedSourceContext context = accept(cart(member), "order-" + UUID.randomUUID(), digest);
+        long programId = program(code).getId();
+
+        // The other transaction takes the wallet first, then the programme: the reverse of loyalty's lock order.
+        CountDownLatch walletLocked = new CountDownLatch(1);
+        CountDownLatch takeProgramme = new CountDownLatch(1);
+        Future<Object> reverseOrder = inBackground(() -> transaction.execute(status -> {
+            wallets.lockByMemberId(member).orElseThrow();
+            walletLocked.countDown();
+            try {
+                takeProgramme.await(30, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            programs.lockAllByIdIn(List.of(programId));
+            return "reverse-order";
+        }));
+        assertThat(walletLocked.await(10, TimeUnit.SECONDS)).isTrue();
+
+        // Loyalty locks registry → programme, then waits on the wallet; the other side then asks for the programme.
+        Future<Object> accept = inBackground(() -> reserve(context, selection));
+        Thread.sleep(700);
+        takeProgramme.countDown();
+
+        Throwable acceptFailure = failureOf(accept);
+        Throwable reverseFailure = failureOf(reverseOrder);
+        assertThat(acceptFailure == null || reverseFailure == null).as("MySQL rolls back exactly one side").isTrue();
+        assertThat(acceptFailure != null || reverseFailure != null).as("the reverse order really deadlocked").isTrue();
+
+        PromotionProgram afterRace = program(code);
+        if (acceptFailure != null) {
+            assertThat(acceptFailure).isInstanceOfSatisfying(LoyaltyException.class,
+                    error -> assertThat(error.code()).isEqualTo(LoyaltyErrorCode.RETRYABLE_CONTENTION));
+            assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, context.sourceRef())).isEmpty();
+            assertThat(afterRace.getHeldCount()).as("no partial voucher hold").isZero();
+            assertThat(wallets.findById(member).orElseThrow().getHeldPoints()).as("no partial points hold").isZero();
+            reserve(context, selection);
+        }
+        PromotionProgram afterRetry = program(code);
+        assertThat(afterRetry.getHeldCount()).isEqualTo(1);
+        assertThat(wallets.findById(member).orElseThrow().getHeldPoints()).isEqualTo(n(100));
+        assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, context.sourceRef())).isPresent();
+    }
+
+    private static Throwable failureOf(Future<Object> future) throws Exception {
+        try {
+            future.get(60, TimeUnit.SECONDS);
+            return null;
+        } catch (ExecutionException e) {
+            return e.getCause();
         }
     }
 }

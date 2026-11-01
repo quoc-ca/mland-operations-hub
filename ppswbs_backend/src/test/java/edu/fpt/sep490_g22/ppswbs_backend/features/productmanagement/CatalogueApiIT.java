@@ -90,11 +90,11 @@ class CatalogueApiIT {
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.pageSize").value(20))
                 .andExpect(jsonPath("$.items[0].id").value(Long.toString(draft)));
-        // A product that was published needs FE-08 held quantities, which do not exist yet: 503, never zero.
+        // A product that was published reads FE-08 held quantities through the real source (develop b0e7796).
         long published = fixture.publishedProduct("9101", "9102");
         mvc.perform(as("manager", get("/api/v1/catalogue-management/products/" + published)))
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.code").value("AVAILABILITY_DEPENDENCY_UNAVAILABLE"));
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"));
     }
 
     @Test

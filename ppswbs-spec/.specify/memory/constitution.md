@@ -1,15 +1,13 @@
 <!--
 Sync Impact Report
-- Version change: 3.0.0 -> 3.1.0 (MINOR amendment: adds shared
-  fail-closed route security and runtime-credential configuration obligations).
-- Decision evidence: group consensus recorded by the user on 2026-10-26; Hồ Hoàng
-  Quốc (PM, ratification authority confirmed by the user) approved this amendment.
+- Version change: 3.1.0 -> 3.2.0 (MINOR amendment: adds a canonical shared
+  Workshop Location identifier and ownership obligation).
+- Decision evidence: group decision approved by Hồ Hoàng Quốc (PM) on 2026-10-27.
   Phan Sơn is the responsible document updater.
-- Modified principles: II (runtime credential configuration); III (explicit public
-  routes, deny-by-default, and scoped CORS/CSRF).
+- Modified principles: I (canonical cross-feature business identifiers).
 - Added sections: none. Removed sections: none.
-- Compliance impact: synchronize spec-general.md, FE-001 plan/contracts, FE-002
-  identity consumer contract, and backend security/configuration designs.
+- Compliance impact: synchronize spec-general.md and affected feature contracts
+  so `workshopLocationId` replaces any separate branch/location identity.
 - Deferred follow-up: legacy constitution metadata was not backfilled.
 -->
 
@@ -42,6 +40,13 @@ SQL. Schema evolution MUST use ordered, append-only Flyway migrations. An
 applied migration MUST NOT be edited or reused. Cross-module work uses
 one-way facade calls or minimal, idempotent domain events only when asynchronous
 processing or cycle removal requires them.
+
+Shared business concepts MUST have one canonical name, identifier, and owning
+feature. `Workshop Location` is the canonical site-and-scope concept for
+workshop operations; its identifier is `workshopLocationId` and its lifecycle
+is owned by the workshop-location feature. A feature MAY use “branch” as a
+display label, but MUST NOT create a second branch identifier or a Branch-to-
+Workshop-Location mapping for the same scope without a ratified exception.
 
 ### II. Identity and Sensitive-Data Boundary
 
@@ -186,5 +191,5 @@ ratifier, ratification date, and review condition. No unexplained template
 placeholder is permitted. Reviews and implementation handoffs MUST verify
 constitution compliance before claiming completion.
 
-**Version**: 3.1.0 | **Ratified**: Hồ Hoàng Quốc (PM), 2026-10-26 |
-**Last Amended**: 2026-10-26
+**Version**: 3.2.0 | **Ratified**: Hồ Hoàng Quốc (PM), 2026-10-26 |
+**Last Amended**: 2026-10-27

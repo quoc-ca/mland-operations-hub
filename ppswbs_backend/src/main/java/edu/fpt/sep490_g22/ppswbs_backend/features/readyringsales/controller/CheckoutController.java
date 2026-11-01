@@ -5,6 +5,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailA
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailMemberActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailPaymentService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutQuotePreviewService;
+import org.springframework.beans.factory.ObjectProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,11 +25,14 @@ public class CheckoutController {
     private final RetailActorResolver actorResolver;
     private final RetailCheckoutService checkoutService;
     private final RetailPaymentService paymentService;
+    private final ObjectProvider<RetailCheckoutQuotePreviewService> quotePreview;
 
     @PostMapping("/api/v1/ready-ring-benefit-previews")
     public CheckoutDtos.BenefitPreviewView previewBenefits(HttpServletRequest request, @Valid @RequestBody CheckoutDtos.BenefitPreviewRequest body) {
         RetailMemberActor actor = actorResolver.requireActiveMember(request);
-        return checkoutService.previewBenefits(actor.accountId(), body);
+        var realPreview = quotePreview.getIfAvailable();
+        return realPreview == null ? checkoutService.previewBenefits(actor.accountId(), body)
+            : realPreview.preview(actor.accountId(), body);
     }
 
     @PostMapping("/api/v1/ready-ring-shipping-quotes")

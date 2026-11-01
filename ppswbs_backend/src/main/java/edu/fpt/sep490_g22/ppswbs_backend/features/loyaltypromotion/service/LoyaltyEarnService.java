@@ -38,7 +38,8 @@ public class LoyaltyEarnService {
     private static final Set<OutcomeKind> GRANTING = Set.of(OutcomeKind.RETAIL_FULLY_PAID,
             OutcomeKind.RETAIL_ZERO_ACCEPTED, OutcomeKind.WORKSHOP_COMPLETED_AND_FULLY_PAID);
     private static final Set<OutcomeKind> CLOSING = Set.of(OutcomeKind.UNPAID_EXPIRY_CONFIRMED,
-            OutcomeKind.VALID_WORKSHOP_CANCELLATION, OutcomeKind.WORKSHOP_NO_SHOW_FINAL);
+            OutcomeKind.RETAIL_CANCELLED_BEFORE_PAYMENT, OutcomeKind.VALID_WORKSHOP_CANCELLATION,
+            OutcomeKind.WORKSHOP_NO_SHOW_FINAL);
 
     private final AcceptedBenefitRepository benefits;
     private final LoyaltyPolicyRepository policies;

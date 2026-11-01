@@ -14,5 +14,5 @@ public interface BookingSessionCommitmentRepository extends JpaRepository<Bookin
 
     Optional<BookingSessionCommitment> findByBookingIdAndOrdinal(Long bookingId, Integer ordinal);
 
-    Optional<BookingSessionCommitment> findByBookingIdAndSessionId(Long bookingId, Long sessionId);
+    Optional<BookingSessionCommitment> findByBookingIdAndSessionReference(Long bookingId, String sessionReference);
 }

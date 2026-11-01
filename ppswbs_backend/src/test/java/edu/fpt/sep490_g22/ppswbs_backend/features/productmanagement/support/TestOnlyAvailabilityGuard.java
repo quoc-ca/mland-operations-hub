@@ -17,7 +17,8 @@ import java.util.function.Function;
 /**
  * TEST-ONLY stand-in for the FE-08 hold source behind {@link AvailabilityGuardPort}. Held quantities live in
  * memory (default zero), there is no real guard row, and it is never part of the runtime: tests using it
- * prove productmanagement's side only, not the FE-08 integration (T003/T042/T065 stay open).
+ * prove productmanagement's side only. Registered as {@code @Primary} over the real FE-08 source; the real
+ * source is exercised by CatalogueQuantityIT.
  */
 public class TestOnlyAvailabilityGuard implements AvailabilityGuardPort {
 

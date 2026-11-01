@@ -27,7 +27,7 @@ import java.util.Set;
 public class LoyaltyReleaseService {
 
     private static final Set<OutcomeKind> ALLOWED = Set.of(OutcomeKind.UNPAID_EXPIRY_CONFIRMED,
-            OutcomeKind.VALID_WORKSHOP_CANCELLATION);
+            OutcomeKind.RETAIL_CANCELLED_BEFORE_PAYMENT, OutcomeKind.VALID_WORKSHOP_CANCELLATION);
 
     private final BenefitEffectSupport effects;
     private final LoyaltyAuditService audit;

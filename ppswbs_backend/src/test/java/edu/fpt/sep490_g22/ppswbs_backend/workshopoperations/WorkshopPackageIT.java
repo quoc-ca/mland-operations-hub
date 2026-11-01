@@ -82,25 +82,18 @@ class WorkshopPackageIT {
     }
 
     @Test
-    void centralManagerMustCoverEveryActiveCanonicalLocation() {
-        WorkshopLocation first = location("PKG-CENTRAL-A", true);
-        WorkshopLocation second = location("PKG-CENTRAL-B", true);
-        location("PKG-CENTRAL-INACTIVE", false);
+    void activeManagerMayManagePackagesRegardlessOfLocationAssignments() {
+        location("PKG-GLOBAL-A", true);
+        location("PKG-GLOBAL-B", true);
+        location("PKG-GLOBAL-INACTIVE", false);
         Long managerId = 73001L;
         when(authenticationService.authenticate("Bearer test-manager"))
                 .thenReturn(new AccountSummary(managerId, ActorRole.MANAGER, ActorStatus.ACTIVE,
                         "internal-test@example.invalid", Instant.EPOCH, Instant.EPOCH));
-        List<Long> everyActiveLocationId = locationRepository.findByActiveTrue().stream()
-                .map(WorkshopLocation::getId).toList();
         when(accountFacade.getTargetAccount(managerId)).thenReturn(Optional.of(
-                new TargetAccountSnapshot(managerId, ActorRole.MANAGER, ActorStatus.ACTIVE, everyActiveLocationId)));
+                new TargetAccountSnapshot(managerId, ActorRole.MANAGER, ActorStatus.ACTIVE, List.of())));
 
-        assertThat(packageAuthorization.requireCentralManager("Bearer test-manager")).isEqualTo(managerId);
-
-        when(accountFacade.getTargetAccount(managerId)).thenReturn(Optional.of(
-                new TargetAccountSnapshot(managerId, ActorRole.MANAGER, ActorStatus.ACTIVE, List.of(first.getId()))));
-        assertThatThrownBy(() -> packageAuthorization.requireCentralManager("Bearer test-manager"))
-                .isInstanceOf(WorkshopForbiddenException.class);
+        assertThat(packageAuthorization.requireActiveManager("Bearer test-manager")).isEqualTo(managerId);
     }
 
     @Test

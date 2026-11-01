@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -143,5 +145,16 @@ public class BookingIdempotencyService {
                 throw new IllegalStateException("Fencing check failed: claim was superseded by another claimant");
             }
         });
+    }
+
+    /** Completes a claim in the caller's business transaction so booking and cached outcome commit together. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void completeClaimWithinTransaction(Long recordId, Long expectedVersion, int statusCode, String responsePayload) {
+        Instant now = Instant.now();
+        int updated = repository.completeClaim(recordId, expectedVersion,
+                BookingIdempotencyLifecycleStatus.COMPLETED, now, statusCode, responsePayload, now);
+        if (updated == 0) {
+            throw new IllegalStateException("Booking idempotency claim was superseded before completion");
+        }
     }
 }
