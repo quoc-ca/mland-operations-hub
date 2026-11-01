@@ -21,10 +21,12 @@ public class DesignRequestController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<DesignAnalysisService.DesignRequestViewDto> submitDesignRequest(
-            @RequestParam("bookingCode") String bookingCode,
-            @RequestParam("consentVersion") String consentVersion,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "catalogueReference", required = false) String catalogueReference,
+            @RequestParam(value = "consentVersion", required = false) String consentVersion,
+            @RequestParam(value = "consentPurpose", required = false) String consentPurpose,
             @RequestParam(value = "designVersion", defaultValue = "1") Integer designVersion,
-            @RequestPart("image") MultipartFile image,
+            @RequestPart(value = "image", required = false) MultipartFile image,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             Authentication authentication
     ) {
@@ -36,8 +38,10 @@ public class DesignRequestController {
 
         DesignAnalysisService.DesignRequestViewDto response = designAnalysisService.submitDesignRequest(
                 callerUid,
-                bookingCode,
+                description,
+                catalogueReference,
                 consentVersion,
+                consentPurpose,
                 designVersion,
                 idempotencyKey,
                 image

@@ -1,10 +1,10 @@
 package edu.fpt.sep490_g22.ppswbs_backend.designreview.application;
 
-import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.BookingDesignRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.DesignRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.HumanReviewDecision;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewDecision;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.BookingDesignRequestRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.DesignRequestRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.HumanReviewDecisionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class HumanReviewService {
 
-    private final BookingDesignRequestRepository requestRepository;
+    private final DesignRequestRepository requestRepository;
     private final HumanReviewDecisionRepository decisionRepository;
     private final DesignAnalysisService designAnalysisService;
     private final AccountFacade accountFacade;
@@ -42,7 +42,7 @@ public class HumanReviewService {
             throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Bạn không có quyền truy cập hàng đợi duyệt thiết kế.");
         }
 
-        List<BookingDesignRequest> queue = requestRepository.findByReviewStatusOrderByCreatedAtAsc(ReviewStatus.NEED_REVIEW);
+        List<DesignRequest> queue = requestRepository.findByReviewStatusOrderByCreatedAtAsc(ReviewStatus.NEED_REVIEW);
 
         return queue.stream()
                 .filter(req -> {
@@ -84,12 +84,12 @@ public class HumanReviewService {
             throw DesignReviewException.badRequest("AI_INPUT_INVALID", "Lý do thẩm duyệt không được để trống.");
         }
 
-        BookingDesignRequest request = requestRepository.findById(reviewRequestId)
+        DesignRequest request = requestRepository.findById(reviewRequestId)
                 .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy yêu cầu thẩm duyệt với ID đã cung cấp."));
 
         // Separation of duties: Reviewer cannot review own request
         accountFacade.resolveAccount(reviewerUid).ifPresent(account -> {
-            if (account.accountId().equals(request.getMemberId())) {
+            if (account.accountId().equals(request.getOwnerAccountId())) {
                 throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Không thể tự phê duyệt yêu cầu thiết kế do chính bạn tạo.");
             }
         });
@@ -100,7 +100,7 @@ public class HumanReviewService {
         }
 
         // Design version check
-        if (designVersion != null && !designVersion.equals(request.getDesignVersion())) {
+        if (designVersion != null && !designVersion.equals(request.getRequestVersion())) {
             throw DesignReviewException.conflict("DESIGN_VERSION_STALE", "Phiên bản thiết kế đã thay đổi hoặc đã có cập nhật mới hơn.");
         }
 
@@ -116,7 +116,7 @@ public class HumanReviewService {
                 .designRequestId(request.getId())
                 .reviewerUserId(reviewerUid)
                 .reviewerRole(reviewerRole)
-                .designVersion(request.getDesignVersion())
+                .designVersion(request.getRequestVersion())
                 .decision(decision)
                 .reason(reason.trim())
                 .estimatedValueSnapshot(estimatedValue)
@@ -132,7 +132,7 @@ public class HumanReviewService {
         };
 
         String nextAction = switch (decision) {
-            case ACCEPTED -> "PROCEED_TO_BOOKING";
+            case ACCEPTED -> "DESIGN_ACCEPTED";
             case REJECTED -> "DESIGN_REJECTED";
             case CLARIFICATION_REQUIRED -> "NEW_VERSION_REQUIRED";
         };
