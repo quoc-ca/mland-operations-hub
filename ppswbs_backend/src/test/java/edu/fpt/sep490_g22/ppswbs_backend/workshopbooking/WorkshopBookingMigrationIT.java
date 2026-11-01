@@ -27,7 +27,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "workshopoperations-mysql-test"})
 class WorkshopBookingMigrationIT {
 
     @Autowired(required = false)

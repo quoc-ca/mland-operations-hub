@@ -50,7 +50,7 @@ import static org.mockito.Mockito.when;
 
 /** MySQL acceptance coverage for Settlement -> Operations required-session replacement (T027). */
 @SpringBootTest
-@ActiveProfiles("workshopoperations-mysql-test")
+@ActiveProfiles({"test", "workshopoperations-mysql-test"})
 @Transactional
 class RequiredSessionChangeIT {
     @Autowired private JdbcTemplate jdbcTemplate;

@@ -5,8 +5,7 @@
                 "accountmanagement :: facade",
                 "workshopbooking :: facade",
                 "workshopoperations :: facade",
-                "loyaltypromotion :: facade",
-                "common :: payment"
+                "loyaltypromotion :: facade"
         }
 )
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement;
