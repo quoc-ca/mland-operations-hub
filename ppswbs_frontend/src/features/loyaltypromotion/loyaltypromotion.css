@@ -23,3 +23,15 @@
 .breakdown .total{font-size:17px}
 .reasons{color:#7a1c0a;font-size:14px;padding-left:20px}
 @media(max-width:600px){.points-grid{grid-template-columns:1fr}.promo-card .facts{grid-template-columns:1fr}}
+.target-picker{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
+.target-search{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+.target-search .field{display:flex;flex-direction:column;gap:7px;font-size:14px;font-weight:700;flex:1;min-width:220px}
+.target-search input{padding:12px;border:1px solid #b8b8b8;border-radius:0;font-weight:400}
+.target-results,.target-chosen{list-style:none;margin:0;padding:0;border-top:1px solid #e3e3e3}
+.target-results li{padding:12px 0;border-bottom:1px solid #e3e3e3}
+.target-sizes{display:flex;flex-wrap:wrap;gap:6px 18px;margin:8px 0 0 26px;font-size:14px}
+.target-chosen li{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid #e3e3e3;font-size:14px}
+.picker-title{font-size:16px;margin:8px 0 0}
+.code-field{display:flex;flex-direction:column;gap:4px}.code-field .text-button{align-self:flex-start}
+.date-time{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.date-time input{flex:1;min-width:150px;padding:12px;border:1px solid #b8b8b8;border-radius:0;background:#fff}.date-time select{padding:12px 8px;border:1px solid #b8b8b8;border-radius:0;background:#fff}
+.form-grid .date-time select{min-width:0;width:auto;flex:0 0 auto}.form-grid .date-time input{min-width:0;flex:1 1 130px}.date-time{flex-wrap:nowrap}

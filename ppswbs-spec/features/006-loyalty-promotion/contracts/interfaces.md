@@ -1,7 +1,7 @@
 # Interface Contracts: Loyalty & Promotion
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-30
+**Date updated**: 2026-11-01 (mã voucher tự sinh, thời gian hiện bằng chữ; bộ chọn đối tượng sản phẩm trên form tạo chương trình; T076 — frontend đã khởi tạo, quy tắc gửi lặp outcome, maxPoints cho component checkout; trước đó: 2026-10-30)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -127,19 +127,19 @@ Terminal effects có thể bắt đầu ở source lifecycle guard rồi đến 
 - Same actor/action/command key + same canonical payload returns committed minimal result sau auth; khác payload 409. Canonical digest chứa normalized selection, refs/versions và amounts đã xác minh, không token/correlation.
 - Owner accepted source row, loyalty reserve và source invoice/quantity/capacity holds commit cùng transaction; same sourceRef repeat trả đúng accepted snapshot, không giữ thêm.
 - Atomic path là mặc định. Nếu owner cần bridge outcome legacy đã commit, owner phải ghi durable delivery receipt trong chính transaction nguồn và retry vào loyalty với cùng proof. Không dùng event in-memory, không cho loyalty tự polling source repo; route bridge chỉ enable sau contract/integration tests của owner.
-- Delivery của một sourceRef phải được owner serialize theo sourceOutcomeVersion; paid outcome xử lí settle rồi grant trong cùng transaction delivery. Outcome cũ đã áp dụng thì replay receipt, outcome mâu thuẫn trạng thái terminal thì conflict để owner đối soát, không cưỡng ép state hoặc bỏ qua debit để grant trước.
+- Delivery của một sourceRef phải được owner serialize theo sourceOutcomeVersion; paid outcome xử lí settle rồi grant trong cùng transaction delivery. Outcome cũ đã áp dụng thì replay receipt — outcome cùng key đã áp dụng đúng chuyển trạng thái là "không đổi" kể cả khi nguồn đã áp dụng outcome version mới hơn (ví dụ restore ở v được gửi lại sau finish ở v+1); outcome khác key với version cũ hơn vẫn bị từ chối, outcome mâu thuẫn trạng thái terminal thì conflict để owner đối soát, không cưỡng ép state hoặc bỏ qua debit để grant trước.
 - Timeout/deadlock rollback; không external side effect trước commit. Expiry/payment unresolved do source giữ trạng thái cần đối soát, không tự release và không gia hạn.
 
 ## 5. Frontend contracts (React + Vite, REST-only)
 
-Frontend là ứng dụng React + Vite tách riêng (`ppswbs_frontend/`, chưa khởi tạo), render phía client và chỉ gọi REST. Backend không render UI hoặc HTML form. Client route, thư viện routing/state và i18n do kế hoạch frontend chốt, không chọn ở đây. Mọi lệnh ghi gửi UUID `Idempotency-Key`; update/pause/resume/policy gửi `expectedVersion`.
+Frontend là ứng dụng React + Vite tách riêng (`ppswbs_frontend/`, đã khởi tạo bởi 002 T088/T089; FE-06 ở `src/features/loyaltypromotion/`), render phía client và chỉ gọi REST. Backend không render UI hoặc HTML form. Router (react-router), i18n vi/en và REST client dùng chung theo [đề xuất nền frontend](../../002-product-management/frontend-foundation-proposal.md). Component `BenefitSelector` (checkout/workshop) do owner FE-08/FE-03 nhúng; quote của owner MUST trả `maxPoints` (FE-08 `BenefitPreviewView`, FE-03 `WorkshopBookingQuoteResponse`) để hiện điểm tối đa theo FR-016. Mọi lệnh ghi gửi UUID `Idempotency-Key`; update/pause/resume/policy gửi `expectedVersion`.
 
 | Màn hình / thành phần | Actor | REST operations | Core behavior |
 | --- | --- | --- | --- |
 | Danh sách / chi tiết ưu đãi công khai | Public | `listPublicPromotions`, `getPublicPromotion` | Scope-labelled cards và điều kiện; login trước khi lưu. |
 | Kho Voucher | Member | `listOwnSavedVouchers`, `saveOwnVoucher` | Kho chính mình, status/lý do không dùng, save không quota hold. |
 | My Loyalty | Member | `getOwnLoyaltyAccount`, `listOwnLoyaltyTransactions` | Balance, held, available, conversion/history; lỗi tải không hiện số cũ như confirmed. |
-| Danh sách & tạo chương trình | Manager | `listPromotionPrograms`, `createPromotionProgram` | List/filter và form tạo theo kind/scope; lỗi theo trường, giữ input. |
+| Danh sách & tạo chương trình | Manager | `listPromotionPrograms`, `createPromotionProgram`; đọc `GET /api/v1/catalogue-management/products` của 002 cho bộ chọn | List/filter và form tạo theo kind/scope; lỗi theo trường, giữ input. Đối tượng phạm vi sản phẩm chọn bằng bộ chọn (tìm theo tên/mã/SKU, chọn cả sản phẩm hoặc từng size; vẫn gửi `productIds`/`variantIds`); phạm vi workshop vẫn nhập mã. Trang chi tiết hiện tên sản phẩm/size đọc từ 002, đọc không được thì giữ mã (2026-11-01). Mã voucher do frontend sinh (`ML` + 8 ký tự ngẫu nhiên, bỏ ký tự dễ nhầm), Manager không gõ; backend vẫn là nơi quyết định duy nhất theo FR-006, gặp `CODE_EXISTS` thì sinh mã mới và gửi lại (tối đa 3 lần, khóa lệnh mới). Thời gian mặc định từ mốc 15 phút kế tiếp, 30 ngày; dưới mỗi ô thời gian hiện lại bằng chữ theo ngôn ngữ đang chọn. |
 | Sửa / dừng / mở lại chương trình | Manager | `getPromotionProgram`, `updatePromotionProgram`, `pausePromotionProgram`, `resumePromotionProgram`, `getPromotionUsage` | expectedVersion, UUID command, không đổi immutable fields; nút Mở lại cho PAUSED, giữ history/quota và xem current nếu stale. |
 | Chính sách điểm | Manager | `getCurrentLoyaltyPolicy`, `updateCurrentLoyaltyPolicy` | Form có version, ảnh hưởng tương lai. |
 | Thành phần chọn ưu đãi trong checkout FE-03/FE-08 | Member | Dữ liệu quote/breakdown từ API của owner FE-03/FE-08; không thêm endpoint public mới | FE-06 cung cấp component chọn mã/điểm và breakdown để màn hình của owner nhúng; owner gửi accept, FE-06 không tự tạo booking/order. |

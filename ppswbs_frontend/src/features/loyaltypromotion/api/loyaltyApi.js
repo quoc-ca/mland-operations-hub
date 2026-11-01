@@ -25,6 +25,10 @@ export function loyaltyApi(request) {
     resumeProgram: (key, programId, expectedVersion) => write('POST', `/api/v1/promotion-programs/${id(programId)}/resumptions`, key, { expectedVersion }),
     getUsage: programId => request(`/api/v1/promotion-programs/${id(programId)}/usage`),
 
+    // Product targets for the Manager picker: read-only use of 002 management reads (productmanagement REST).
+    searchCatalogueProducts: ({ q, page } = {}) => request('/api/v1/catalogue-management/products', { query: { q, page } }),
+    getCatalogueProduct: productId => request(`/api/v1/catalogue-management/products/${id(productId)}`),
+
     // Manager point policy (T034)
     getPolicy: () => request('/api/v1/loyalty-policies/current'),
     updatePolicy: (key, body) => write('PUT', '/api/v1/loyalty-policies/current', key, body),

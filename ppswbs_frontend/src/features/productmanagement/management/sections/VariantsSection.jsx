@@ -51,7 +51,7 @@ function VariantRow({ variant, api, reload, setNotice, deleted }) {
   return (
     <>
       <div className="data-row variants" role="row">
-        <span role="cell"><strong>{variant.size}</strong></span>
+        <span role="cell"><strong>{variant.size}</strong><br /><span className="muted small">{t('variant.id', { id: variant.id })}</span></span>
         <span role="cell" className="mono">{variant.sku}</span>
         <span role="cell">
           {quantity === null ? (

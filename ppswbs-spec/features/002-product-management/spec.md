@@ -1,7 +1,7 @@
 # Feature Specification: Product Management
 
 **Date created**: 2026-10-23
-**Date updated**: 2026-10-26 (Manager quản lí danh mục; phạm vi ưu đãi FE-06; V1 không MFA theo 001)
+**Date updated**: 2026-11-01 (chi nhánh bán khi thêm giỏ — quyết định A, FR-046; trước đó: 2026-10-26 (Manager quản lí danh mục; phạm vi ưu đãi FE-06; V1 không MFA theo 001))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -42,6 +42,11 @@ Nguồn chính là FE-02 hiện tại và các quyết định trực tiếp c�
 - Q: Vai trò nội bộ (Staff/Manager) có cần MFA trong V1 không? → A: Không. Theo 001 (Assumptions: V1 does not require MFA). FE-02 kiểm tra bearer, thu hồi, role/status hiện tại qua facade identity của 001; không chờ thiết kế MFA. Nếu 001/spec-general bổ sung yêu cầu xác thực sau này thì FE-02 chỉ tiêu thụ kết quả qua facade.
 
 [Spec 001](../001-account-management/spec.md) là nguồn thiết kế cơ chế xác thực dùng chung. FE-02 theo contract xác thực của 001, không biến phiên/luồng khởi tạo Member thành quyền Staff/Manager và không sửa luồng 001. V1 không yêu cầu MFA cho vai trò nội bộ (chốt 2026-10-26 theo 001); nếu sau này 001/spec-general bổ sung yêu cầu xác thực cho vai trò nội bộ thì FE-02 chỉ tiêu thụ kết quả qua facade identity của 001, không tự thêm bước xác thực.
+
+### Session 2026-11-01 (chuyển sang giỏ FE-08)
+
+- Q: Trang chi tiết sản phẩm chuyển sang giỏ FE-08 thế nào? → A (Bùi Trọng Thịnh, owner FE-08): trang chi tiết của FE-02 là trang chính thức; nút "Add to cart" gọi `POST /api/v1/members/me/ready-ring-cart/lines` với `variantId`, `locationId`, `quantity` (không gửi `productId`, không gửi giá), thành công chuyển đến `/member/cart`. V1 chỉ có "Add to cart". Khách chưa đăng nhập được chuyển đến đăng nhập kèm `returnTo` giữ size/chi nhánh/số lượng. FE-08 kiểm tra lại giá/khả năng bán; lỗi hiện `message` của response.
+- Q: `locationId` lấy từ đâu khi số lượng FE-02 tính theo size? → A (Đặng Thị Khương, owner FE-02, chọn phương án A): mọi chi nhánh đang hoạt động bán mọi sản phẩm đã công khai; số lượng vẫn tính theo size. FE-02 cung cấp danh sách chi nhánh công khai qua cổng `SellingLocationPort` do owner danh mục chi nhánh (003.2) cài đặt; không tự gán chi nhánh mặc định.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -293,6 +298,7 @@ Là Staff hoặc Manager có quyền tạo sản phẩm, tôi muốn tải lên 
 - **FR-042**: Import MUST là tất cả hoặc không: nếu có bất kỳ dòng không hợp lệ, lỗi lưu hoặc lỗi audit thì MUST không tạo sản phẩm, biến thể, SKU hay audit một phần (FR-007, FR-026). Khi xác nhận, hệ thống MUST kiểm tra lại với dữ liệu mới nhất (đặc biệt danh mục còn hoạt động) và từ chối dùng kết quả xem trước đã cũ.
 - **FR-043**: File tải lên MUST là `.xlsx` hợp lệ, không macro, tối đa 5.000.000 bytes và 500 dòng dữ liệu, chỉ đọc sheet đầu tiên; MUST đọc ô như dữ liệu, không thực thi công thức hay liên kết ngoài, và không lưu lâu dài nội dung file gốc ngoài bản ghi kết quả. Giá trị bắt đầu bằng `=`, `+`, `-`, `@` MUST được vô hiệu hóa khi đưa vào báo cáo lỗi xuất ra file. Số MUST theo đúng miền FR-004; không làm tròn, cắt hay chuyển đổi ngầm (ví dụ `12.5`, `1e3`).
 - **FR-044**: Xác nhận import MUST idempotent: gửi lặp cùng yêu cầu xác nhận MUST không tạo trùng và trả kết quả lần import đã có, theo FR-028. Kết quả MUST liệt kê mã sản phẩm và SKU đã tạo.
+- **FR-046**: Trang chi tiết công khai MUST cho Member chọn chi nhánh đang hoạt động trước khi thêm vào giỏ FE-08 (quyết định 2026-11-01); danh sách chi nhánh MUST lấy từ nguồn chi nhánh chuẩn qua `SellingLocationPort`, không phụ thuộc sản phẩm trong V1, số lượng vẫn theo size. Nguồn chi nhánh thiếu hoặc không kiểm chứng được MUST trả lỗi tạm thời có kiểu (`LOCATION_DEPENDENCY_UNAVAILABLE`) thay vì danh sách rỗng giả, và trang MUST khóa "Add to cart" kèm thử lại trong khi việc xem sản phẩm vẫn hoạt động.
 - **FR-045**: Mỗi lần import thành công hoặc bị từ chối MUST có audit gồm người thực hiện, tên file, số dòng/sản phẩm/biến thể, mã sản phẩm tạo ra (nếu có), thời điểm và kết quả, giữ theo FR-027/FR-028; MUST NOT ghi toàn bộ nội dung file hay bí mật xác thực.
 
 ### Key Entities *(include if feature involves data)*

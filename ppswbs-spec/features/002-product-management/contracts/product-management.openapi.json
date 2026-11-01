@@ -3654,6 +3654,50 @@
           }
         }
       }
+    },
+    "/api/v1/product-selling-locations": {
+      "get": {
+        "operationId": "listSellingLocations",
+        "summary": "List active branches to choose before adding a size to the FE-08 cart",
+        "description": "Decision A (2026-11-01): in V1 every active branch sells every published product; quantities stay per size. The id is the locationId of FE-08 POST /api/v1/members/me/ready-ring-cart/lines. 503 LOCATION_DEPENDENCY_UNAVAILABLE when the branch source (SellingLocationPort, implemented by 003.2) is missing or unverifiable; never an empty list in place of an error.",
+        "tags": [
+          "Public catalogue"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Active branches sorted by name, then id.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "description": "No storage of stale availability."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellingLocationList"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5032,6 +5076,44 @@
           "expiresAt"
         ],
         "description": "Validation result or import result. A file with row errors is a successful validation call with state=REJECTED, not an HTTP error. The original file is not retained."
+      },
+      "PublicSellingLocation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "address"
+        ]
+      },
+      "SellingLocationList": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicSellingLocation"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
       }
     }
   }

@@ -25,13 +25,43 @@ export function toLocalInput(instant) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+// No 0/O, 1/I/L: a code is read aloud and typed by customers.
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+/**
+ * A new voucher code, "ML" + 8 random characters from a browser CSPRNG (31^8 ≈ 8.5·10^11 values). Uniqueness is still
+ * decided by the backend (CODE_EXISTS); the create form draws a new code and sends again when that happens.
+ */
+export function generateVoucherCode(random = values => crypto.getRandomValues(values)) {
+  const bytes = random(new Uint32Array(8));
+  return 'ML' + Array.from(bytes, value => CODE_ALPHABET[value % CODE_ALPHABET.length]).join('');
+}
+
+/** Default window of a new programme: from the next full quarter hour, for 30 days (local time). */
+export function defaultWindow(now = new Date()) {
+  const start = new Date(now);
+  start.setSeconds(0, 0);
+  start.setMinutes(Math.ceil((start.getMinutes() + 1) / 15) * 15);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 30);
+  return { startAt: toLocalInput(start.toISOString()), endAt: toLocalInput(end.toISOString()) };
+}
+
 /** "a, b , c" → ['a','b','c'] (empty items dropped, duplicates kept so the backend reports them). */
 export function splitList(text) {
   return String(text || '').split(',').map(item => item.trim()).filter(Boolean);
 }
 
+/** Server field errors by form field; "targets.variantIds[16]" is shown on its list field, prefixed by the item. */
 export function serverFieldErrors(error) {
-  return Object.fromEntries((error?.fieldErrors || []).map(item => [item.field, item.message]));
+  const byField = {};
+  (error?.fieldErrors || []).forEach(({ field, message }) => {
+    const item = /^(.*)\[([^\]]*)\]$/.exec(field);
+    const key = item ? item[1] : field;
+    const text = item ? `${item[2]}: ${message}` : message;
+    byField[key] = byField[key] ? `${byField[key]} ${text}` : text;
+  });
+  return byField;
 }
 
 /** Request body of createPromotionProgram from the form. */

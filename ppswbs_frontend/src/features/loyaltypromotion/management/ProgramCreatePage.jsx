@@ -1,29 +1,43 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useT } from '../../../shared/i18n/I18nProvider';
+import { useFormat, useT } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, useCommand } from '../../../shared/ui/components';
 import { useLoyaltyApi } from '../api/useLoyaltyApi';
 import { messages } from '../messages';
-import { checkCreate, createBody, LIMITS, serverFieldErrors } from '../rules';
+import { checkCreate, createBody, defaultWindow, generateVoucherCode, LIMITS, serverFieldErrors, toInstant } from '../rules';
+import { DateTimeField } from './DateTimeField';
+import { ProductTargetPicker } from './ProductTargetPicker';
 import { PageTop } from './PromotionManagementLayout';
 
-const EMPTY = {
-  kind: 'VOUCHER', scope: 'PRODUCT', name: '', startAt: '', endAt: '', discountKind: 'PERCENT', percentage: '', amount: '',
-  maxDiscountAmount: '', minimumEligibleAmount: '0', allowPoints: true, code: '', totalLimit: '', perMemberLimit: '1',
+const MAX_CODE_DRAWS = 3;
+
+const emptyForm = () => ({
+  ...defaultWindow(), code: generateVoucherCode(),
+  kind: 'VOUCHER', scope: 'PRODUCT', name: '', discountKind: 'PERCENT', percentage: '', amount: '',
+  maxDiscountAmount: '', minimumEligibleAmount: '0', allowPoints: true, totalLimit: '', perMemberLimit: '1',
   productIds: '', variantIds: '', packageIds: '', branchIds: '', workshopDates: '', sessionIds: '',
-};
+});
 
 /**
  * T030 create: fields follow kind and scope (an automatic discount is product-only and always allows points; only a
- * voucher has a code and limits). Targets are entered as IDs because no target picker contract exists yet. Errors
- * keep every value; success opens the created programme.
+ * voucher has a code and limits). Product targets are picked from 002's product list (whole product or single sizes);
+ * workshop targets are still entered as IDs because 003 offers no picker read yet. Errors keep every value; success
+ * opens the created programme. The voucher code is generated (never typed); if the backend reports it as already
+ * issued, a new code is drawn and the request sent again, at most MAX_CODE_DRAWS times. The window starts filled in
+ * uses a 24-hour time, and each time is repeated in words under its field.
  */
 export default function ProgramCreatePage() {
   const t = useT(messages);
   const api = useLoyaltyApi();
   const navigate = useNavigate();
-  const [form, setForm] = useState(EMPTY);
+  const format = useFormat();
+  const [form, setForm] = useState(emptyForm);
   const [hints, setHints] = useState({});
+  const [picked, setPicked] = useState({ products: {}, variants: {} });
+  const pick = next => {
+    setPicked(next);
+    setForm(current => ({ ...current, productIds: Object.keys(next.products).join(','), variantIds: Object.keys(next.variants).join(',') }));
+  };
   const command = useCommand();
   const serverErrors = serverFieldErrors(command.error);
   const errorOf = field => serverErrors[field] || (hints[field] && t(hints[field]));
@@ -36,6 +50,7 @@ export default function ProgramCreatePage() {
     });
   };
   const voucher = form.kind === 'VOUCHER';
+  const inWords = local => (toInstant(local) ? t('create.timeInWords', { at: format.dateTime(toInstant(local)) }) : null);
 
   const open = outcome => {
     if (outcome?.ok) navigate(`/promotion-management/programs/${encodeURIComponent(outcome.result.id)}`, { state: { notice: 'program.created' } });
@@ -45,8 +60,14 @@ export default function ProgramCreatePage() {
     const found = checkCreate(form);
     setHints(found);
     if (Object.keys(found).length) return;
-    const body = createBody(form);
-    open(await command.run(key => api.createProgram(key, body)));
+    let current = form;
+    for (let draw = 1; ; draw += 1) {
+      const body = createBody(current);
+      const outcome = await command.run(key => api.createProgram(key, body));
+      if (outcome.ok || outcome.error?.code !== 'CODE_EXISTS' || current.kind !== 'VOUCHER' || draw >= MAX_CODE_DRAWS) { open(outcome); return; }
+      current = { ...current, code: generateVoucherCode() };
+      setForm(current);
+    }
   };
 
   return (
@@ -67,9 +88,16 @@ export default function ProgramCreatePage() {
             </select>
           </Field>
           <Field label={t('field.name')} error={errorOf('name')}><input value={form.name} onChange={set('name')} maxLength={LIMITS.nameMax} /></Field>
-          {voucher && <Field label={t('field.code')} error={errorOf('code')} hint={t('create.codeHint')}><input value={form.code} onChange={set('code')} maxLength={LIMITS.codeMax} /></Field>}
-          <Field label={t('field.startAt')} error={errorOf('startAt')}><input type="datetime-local" value={form.startAt} onChange={set('startAt')} /></Field>
-          <Field label={t('field.endAt')} error={errorOf('endAt')}><input type="datetime-local" value={form.endAt} onChange={set('endAt')} /></Field>
+          {voucher && (
+            <div className="code-field">
+              <Field label={t('field.code')} error={errorOf('code')} hint={t('create.codeGenerated')}>
+                <input value={form.code} readOnly className="mono" maxLength={LIMITS.codeMax} />
+              </Field>
+              <button type="button" className="text-button" onClick={() => setForm(current => ({ ...current, code: generateVoucherCode() }))}>{t('create.newCode')}</button>
+            </div>
+          )}
+          <DateTimeField label={t('field.startAt')} error={errorOf('startAt')} hint={inWords(form.startAt)} value={form.startAt} onChange={value => setForm(current => ({ ...current, startAt: value }))} />
+          <DateTimeField label={t('field.endAt')} error={errorOf('endAt')} hint={inWords(form.endAt)} value={form.endAt} onChange={value => setForm(current => ({ ...current, endAt: value }))} />
         </div>
 
         <h2 className="section-title">{t('field.discount')}</h2>
@@ -101,23 +129,19 @@ export default function ProgramCreatePage() {
         )}
 
         <h2 className="section-title">{t('create.targets')}</h2>
-        <p className="muted small">{t('create.targetsHint')}</p>
+        <p className="muted small">{t(form.scope === 'PRODUCT' ? 'create.productTargetsHint' : 'create.targetsHint')}</p>
         {errorOf('targets') && <p className="field-error">{errorOf('targets')}</p>}
-        <div className="form-grid">
-          {form.scope === 'PRODUCT' ? (
-            <>
-              <Field label={t('target.productIds')} error={errorOf('targets.productIds')}><input value={form.productIds} onChange={set('productIds')} placeholder="12, 15" /></Field>
-              <Field label={t('target.variantIds')} error={errorOf('targets.variantIds')}><input value={form.variantIds} onChange={set('variantIds')} placeholder="101, 102" /></Field>
-            </>
-          ) : (
-            <>
-              <Field label={t('target.packageIds')} error={errorOf('targets.packageIds')}><input value={form.packageIds} onChange={set('packageIds')} /></Field>
-              <Field label={t('target.branchIds')} error={errorOf('targets.branchIds')}><input value={form.branchIds} onChange={set('branchIds')} /></Field>
-              <Field label={t('target.workshopDates')} error={errorOf('targets.workshopDates')} hint="YYYY-MM-DD"><input value={form.workshopDates} onChange={set('workshopDates')} /></Field>
-              <Field label={t('target.sessionIds')} error={errorOf('targets.sessionIds')}><input value={form.sessionIds} onChange={set('sessionIds')} /></Field>
-            </>
-          )}
-        </div>
+        {form.scope === 'PRODUCT' ? (
+          <ProductTargetPicker api={api} value={picked} onChange={pick}
+            errors={{ productIds: errorOf('targets.productIds'), variantIds: errorOf('targets.variantIds') }} />
+        ) : (
+          <div className="form-grid">
+            <Field label={t('target.packageIds')} error={errorOf('targets.packageIds')}><input value={form.packageIds} onChange={set('packageIds')} /></Field>
+            <Field label={t('target.branchIds')} error={errorOf('targets.branchIds')}><input value={form.branchIds} onChange={set('branchIds')} /></Field>
+            <Field label={t('target.workshopDates')} error={errorOf('targets.workshopDates')} hint="YYYY-MM-DD"><input value={form.workshopDates} onChange={set('workshopDates')} /></Field>
+            <Field label={t('target.sessionIds')} error={errorOf('targets.sessionIds')}><input value={form.sessionIds} onChange={set('sessionIds')} /></Field>
+          </div>
+        )}
 
         <ErrorNotice error={command.error} messages={messages} onRetry={async () => open(await command.retry())} />
         <div className="actions form-actions">

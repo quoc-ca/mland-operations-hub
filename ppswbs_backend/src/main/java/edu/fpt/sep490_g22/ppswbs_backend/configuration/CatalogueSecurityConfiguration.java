@@ -30,7 +30,8 @@ public class CatalogueSecurityConfiguration {
             new AntPathRequestMatcher("/api/v1/products", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/api/v1/products/*", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/api/v1/product-categories", HttpMethod.GET.name()),
-            new AntPathRequestMatcher("/api/v1/product-media/*", HttpMethod.GET.name()));
+            new AntPathRequestMatcher("/api/v1/product-media/*", HttpMethod.GET.name()),
+            new AntPathRequestMatcher("/api/v1/product-selling-locations", HttpMethod.GET.name()));
 
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE + 10)

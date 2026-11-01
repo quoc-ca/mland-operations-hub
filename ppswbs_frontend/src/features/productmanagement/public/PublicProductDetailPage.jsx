@@ -6,11 +6,12 @@ import { ErrorNotice, Loading, useResource } from '../../../shared/ui/components
 import { mediaUrl } from '../api/catalogueApi';
 import { useCatalogueApi } from '../api/useCatalogueApi';
 import { messages } from '../messages';
+import { AddToCartPanel } from './AddToCartPanel';
 import { PriceRange } from './PriceRange';
 
 /**
- * T071: public detail. Reading creates no cart, hold or order. The hand-off to FE-08 (T072) waits for its
- * contract, so this screen offers no buy action.
+ * T071: public detail. Reading creates no cart, hold or order; only "Add to cart" (T072, {@link AddToCartPanel})
+ * writes, through FE-08's cart API.
  */
 export default function PublicProductDetailPage() {
   const t = useT(messages);
@@ -69,6 +70,7 @@ export default function PublicProductDetailPage() {
               </li>
             ))}
           </ul>
+          <AddToCartPanel product={data} />
           <p className="muted small">{t('public.priceNotice')}</p>
         </div>
       </div>
