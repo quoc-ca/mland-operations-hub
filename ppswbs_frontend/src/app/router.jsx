@@ -1,5 +1,6 @@
 import React from 'react';
 import { createBrowserRouter } from 'react-router';
+import { designReviewRoutes } from '../features/designreview/routes';
 import { loyaltyPromotionRoutes } from '../features/loyaltypromotion/routes';
 import { productManagementRoutes } from '../features/productmanagement/routes';
 import { workshopRoutes } from '../workshops/routes';
@@ -13,6 +14,7 @@ export const routes = [
       ...productManagementRoutes,
       ...loyaltyPromotionRoutes,
       ...workshopRoutes,
+      ...designReviewRoutes,
       { path: '*', element: <NotImplementedPage /> },
     ],
   },
