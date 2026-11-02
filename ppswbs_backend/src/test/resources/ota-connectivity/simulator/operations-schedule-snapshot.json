@@ -1,0 +1,10 @@
+{
+  "fixturePurpose": "SIMULATOR_ONLY_NOT_PROVIDER_CONTRACT",
+  "sessionReference": "00000000-0000-4000-8000-000000000401",
+  "locationReference": 401,
+  "scheduledStart": "2026-11-15T09:00:00+07:00",
+  "scheduledEnd": "2026-11-15T12:00:00+07:00",
+  "sourceVersion": 11,
+  "changeReference": "00000000-0000-4000-8000-000000000411",
+  "effectiveAt": "2026-10-29T09:30:00+07:00"
+}

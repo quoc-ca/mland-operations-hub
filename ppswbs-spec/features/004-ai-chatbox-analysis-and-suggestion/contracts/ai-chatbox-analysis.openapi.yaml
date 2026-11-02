@@ -1,0 +1,285 @@
+openapi: 3.1.0
+info:
+  title: Feature-04 Independent AI Design API
+  version: 2.0.0
+  description: |
+    Basic AI support, independent Design Requests and advisory catalogue pricing.
+    Design Requests have no Workshop Booking or payment dependency.
+servers:
+  - url: /api/v1
+tags:
+  - name: AI Support
+  - name: Design Requests
+  - name: Design Review
+  - name: Price Suggestions
+paths:
+  /ai-support/messages:
+    post:
+      tags: [AI Support]
+      security: []
+      summary: Ask Basic AI Support
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiSupportRequest' }
+      responses:
+        '200': { description: Safe public-scope response, content: { application/json: { schema: { $ref: '#/components/schemas/AiSupportResponse' } } } }
+        '400': { $ref: '#/components/responses/InvalidInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/PolicyViolation' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /design-requests:
+    post:
+      tags: [Design Requests]
+      summary: Create an independent Design Request
+      description: |
+        Accepts an optional description and/or reference image. It MUST NOT accept
+        bookingCode, bookingId, bookingStatus, package/location/session, payment,
+        ticket, hold or deposit fields. Guest access remains disabled until an
+        approved ownership-proof policy is implemented.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IndependentDesignRequest'
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202': { description: Request accepted, content: { application/json: { schema: { $ref: '#/components/schemas/DesignRequestProjection' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/PolicyViolation' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /design-requests/{designRequestId}:
+    get:
+      tags: [Design Requests]
+      summary: Get an owner-safe Design Request projection
+      parameters:
+        - $ref: '#/components/parameters/DesignRequestId'
+      responses:
+        '200': { description: Safe projection, content: { application/json: { schema: { $ref: '#/components/schemas/DesignRequestProjection' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /design-review-requests:
+    get:
+      tags: [Design Review]
+      security: [{ firebaseBearer: [] }]
+      summary: List independent requests requiring human review
+      responses:
+        '200': { description: Scoped review queue, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewQueue' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /design-review-requests/{reviewRequestId}/decisions:
+    post:
+      tags: [Design Review]
+      security: [{ firebaseBearer: [] }]
+      summary: Record an independent human-review decision
+      parameters:
+        - name: reviewRequestId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewDecisionRequest' }
+      responses:
+        '200': { description: Decision recorded, content: { application/json: { schema: { $ref: '#/components/schemas/DesignRequestProjection' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /price-proposals/{proposalId}/ai-suggestions:
+    get:
+      tags: [Price Suggestions]
+      security: [{ firebaseBearer: [] }]
+      summary: View a price suggestion projection
+      parameters: [{ $ref: '#/components/parameters/ProposalId' }]
+      responses:
+        '200': { description: Manager or technical Admin projection, content: { application/json: { schema: { $ref: '#/components/schemas/PriceSuggestionProjection' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Price Suggestions]
+      security: [{ firebaseBearer: [] }]
+      summary: Request an advisory price suggestion
+      parameters: [{ $ref: '#/components/parameters/ProposalId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PriceSuggestionRequest' }
+      responses:
+        '202': { description: Advisory suggestion, content: { application/json: { schema: { $ref: '#/components/schemas/PriceSuggestionProjection' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /price-proposals/{proposalId}/ai-suggestions/decisions:
+    post:
+      tags: [Price Suggestions]
+      security: [{ firebaseBearer: [] }]
+      summary: Record a Manager pricing decision
+      parameters: [{ $ref: '#/components/parameters/ProposalId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PriceDecisionRequest' }
+      responses:
+        '200': { description: Decision recorded; catalogue publication remains separate, content: { application/json: { schema: { $ref: '#/components/schemas/PriceSuggestionProjection' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+components:
+  securitySchemes:
+    firebaseBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase-ID-token
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 16, maxLength: 128 }
+    DesignRequestId:
+      name: designRequestId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ProposalId:
+      name: proposalId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    AiSupportRequest:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string, minLength: 1, maxLength: 2000 }
+    AiSupportResponse:
+      type: object
+      required: [answer, advisory, scope]
+      properties:
+        answer: { type: string }
+        advisory: { type: boolean, const: true }
+        scope: { type: string, enum: [PRODUCT, WORKSHOP, STORE, FAQ] }
+        correlationId: { type: string }
+    IndependentDesignRequest:
+      type: object
+      properties:
+        description: { type: string, maxLength: 4000 }
+        catalogueReference: { type: string, maxLength: 128 }
+        consentVersion: { type: string, maxLength: 64 }
+        consentPurpose: { type: string, const: INDEPENDENT_DESIGN_IMAGE_ANALYSIS }
+        image:
+          type: string
+          format: binary
+          description: Optional JPEG, PNG or WEBP; maximum 10 MB and 4096x4096.
+      description: At least description or image is required. Booking/payment fields are forbidden.
+    DesignRequestProjection:
+      type: object
+      required: [id, requestVersion, requestStatus, analysisStatus, reviewStatus]
+      properties:
+        id: { type: string, format: uuid }
+        requestReference: { type: string }
+        requestVersion: { type: integer, minimum: 1 }
+        requestStatus: { type: string, enum: [ACTIVE, WITHDRAWN, COMPLETED] }
+        analysisStatus: { type: string, enum: [PENDING, PROCESSING, SUCCEEDED, FAILED] }
+        reviewStatus: { type: string, enum: [NOT_REQUIRED, NEED_REVIEW, ACCEPTED, REJECTED, CLARIFICATION_REQUIRED] }
+        nextAction: { type: string }
+        safeResult: { type: object, additionalProperties: true }
+        reason: { type: string }
+    ReviewQueue:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/DesignRequestProjection' } }
+    ReviewDecisionRequest:
+      type: object
+      required: [decision, requestVersion, reason]
+      properties:
+        decision: { type: string, enum: [ACCEPTED, REJECTED, CLARIFICATION_REQUIRED] }
+        requestVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+    PriceSuggestionRequest:
+      type: object
+      required: [targetType, materials, components, pricingContext]
+      properties:
+        targetType: { type: string, enum: [WORKSHOP_PACKAGE, RETAIL_PRODUCT] }
+        materials: { type: array, items: { type: object }, minItems: 1 }
+        components: { type: array, items: { type: object }, minItems: 1 }
+        pricingContext: { type: object, additionalProperties: true }
+    PriceSuggestionProjection:
+      type: object
+      required: [proposalId, targetType, advisory, suggestionStatus]
+      properties:
+        proposalId: { type: string, format: uuid }
+        targetType: { type: string, enum: [WORKSHOP_PACKAGE, RETAIL_PRODUCT] }
+        advisory: { type: boolean, const: true }
+        suggestionStatus: { type: string, enum: [SUCCEEDED, INVALID, FAILED] }
+        suggestedPrice: { type: number, minimum: 0, nullable: true }
+        explanation: { type: string, nullable: true }
+        technicalEvidence: { type: object, additionalProperties: true }
+        managerDecision: { type: string, enum: [ACCEPTED, ADJUSTED, REJECTED, MANUAL_FALLBACK], nullable: true }
+        finalPrice: { type: number, minimum: 0, nullable: true }
+    PriceDecisionRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [ACCEPTED, ADJUSTED, REJECTED, MANUAL_FALLBACK] }
+        finalPrice: { type: number, minimum: 0, nullable: true }
+        note: { type: string, maxLength: 2000 }
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        correlationId: { type: string }
+    ProblemResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+  responses:
+    InvalidInput:
+      description: Invalid input or business validation
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    PolicyViolation:
+      description: Security or AI policy violation
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    Unauthorized:
+      description: Authentication required or invalid
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    Forbidden:
+      description: Actor or ownership is not authorized
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    NotFound:
+      description: Resource not found or not visible
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    Conflict:
+      description: Idempotency, version or concurrent state conflict
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    Unavailable:
+      description: Provider unavailable
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }

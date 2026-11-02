@@ -1,0 +1,24 @@
+@startuml
+!pragma charset UTF-8
+title Email Sender Use Cases
+left to right direction
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+actor "Email Sender\n(TBD provider)" as Email
+
+rectangle "Personalized Product Sales and Workshop Booking System" {
+  usecase "Deliver booking\nnotification" as BookingEmail
+  usecase "Deliver design-review\nnotification" as ReviewEmail
+  usecase "Deliver retail order\nstatus notification" as OrderEmail
+}
+
+Email --> BookingEmail
+Email --> ReviewEmail
+Email --> OrderEmail
+@enduml
+

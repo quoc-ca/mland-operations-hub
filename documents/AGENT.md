@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This folder is the Git-first source of truth for Mland Operations Hub (MOH) documentation. Markdown bundles and CSV trackers are validated locally, generated into DOCX files, and synchronized by GitHub Actions to mapped Google Docs and Google Sheets.
+This folder is the Git-first source of truth for Personalized Product Sales and Workshop Booking System documentation. Markdown bundles and CSV trackers are validated locally, generated into DOCX files, and synchronized by GitHub Actions to mapped Google Docs and Google Sheets.
 
 Act as a controlled documentation editor: make the smallest evidence-based change requested, preserve the source contracts, and surface uncertainty instead of filling gaps with plausible content.
 
@@ -18,7 +18,7 @@ Act as a controlled documentation editor: make the smallest evidence-based chang
 - Preserve the distinction between `Known Mland context`, `Observed`, `Stakeholder statement`, `Group decision`, `Assumption — validate with Mland`, and `TBD — Mland decision required`.
 - Do not invent facts, stakeholder decisions, people, schedules, budgets, architecture, credentials, test results, or production data.
 - Keep personal, customer, employee, and transaction data out of documentation unless the task explicitly needs minimized and authorized data.
-- MOH's operational audit log is a product requirement. Do not remove or weaken it when applying the document-history policy below.
+- The project's operational audit log is a product requirement. Do not remove or weaken it when applying the document-history policy below.
 
 ## Change history
 
@@ -37,7 +37,7 @@ GitHub Issues are the sole operational source of truth for assignable work: impl
 
 - Never add a declaration with an invented assignee, label, deadline, fact, or decision. Do not create, close, reopen, or manually alter a managed Issue outside the `develop` synchronization workflow.
 - Manually discovered Issues are allowed through the repository Issue form. They remain unmanaged and are reviewed by the team before assignment.
-- `IssuesOnGithub` is a generated, read-only snapshot on `main`; do not edit its CSV rows or Google Sheet tab. GitHub's own history remains the authoritative Issue lifecycle record.
+- `IssuesOnGithub` is a generated, read-only snapshot published from `develop`; do not edit its CSV rows or Google Sheet tab. GitHub's own history remains the authoritative Issue lifecycle record.
 
 ## Escalation
 
