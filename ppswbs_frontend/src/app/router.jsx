@@ -1,8 +1,8 @@
 import React from 'react';
 import { createBrowserRouter } from 'react-router';
 import { designReviewRoutes } from '../features/designreview/routes';
-import { loyaltyPromotionRoutes } from '../features/loyaltypromotion/routes';
-import { productManagementRoutes } from '../features/productmanagement/routes';
+import { loyaltyPromotionRoutes } from '../features/loyalty-promotion';
+import { productManagementRoutes } from '../features/product-management';
 import { workshopRoutes } from '../workshops/routes';
 import AuthPage from '../features/account/AuthPage';
 import { otaConnectivityRoutes } from '../ota-connectivity/routes';

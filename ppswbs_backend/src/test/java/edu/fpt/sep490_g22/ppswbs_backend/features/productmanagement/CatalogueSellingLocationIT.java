@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocation;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocationPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueTestSupport;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopLocation;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +19,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doReturn;
@@ -28,7 +32,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * Decision A (2026-11-01) over HTTP on MySQL 8.4: {@code GET /api/v1/product-selling-locations} is public, no-store and
  * returns the active branches of {@link SellingLocationPort} sorted by name then id; a missing, failing or
  * unverifiable branch source is 503 {@code LOCATION_DEPENDENCY_UNAVAILABLE}, never an empty list. The port is
- * implemented by 003.2; until then the "no source" case is what develop answers.
+ * implemented by 003.2 ({@code WorkshopSellingLocationAdapter}, active {@code workshop_locations}); the last nested
+ * class reads through that real source.
  */
 class CatalogueSellingLocationIT {
 
@@ -85,16 +90,30 @@ class CatalogueSellingLocationIT {
     @SpringBootTest
     @AutoConfigureMockMvc
     @ActiveProfiles(CatalogueTestSupport.MYSQL_PROFILE)
-    class WithoutABranchSource {
+    class WithTheWorkshopOperationsSource {
 
         @Autowired private MockMvc mvc;
         @Autowired private ObjectMapper json;
+        @Autowired private WorkshopLocationRepository locations;
 
         @Test
-        void withoutAnImplementationTheReadIs503() throws Exception {
-            JsonNode body = call(mvc, json, 503);
-            assertThat(body.get("code").asText()).isEqualTo("LOCATION_DEPENDENCY_UNAVAILABLE");
-            assertThat(body.get("correlationId").asText()).isNotBlank();
+        void listsOnlyActiveWorkshopLocationsSortedByName() throws Exception {
+            String run = UUID.randomUUID().toString().substring(0, 8);
+            WorkshopLocation b = save("B-" + run, true, "2 Nguyễn Huệ");
+            WorkshopLocation a = save("A-" + run, true, "1 Lê Lợi");
+            save("C-" + run, false, "Đã đóng");
+
+            JsonNode items = call(mvc, json, 200).get("items");
+            List<JsonNode> ours = StreamSupport.stream(items.spliterator(), false)
+                    .filter(item -> item.get("name").asText().endsWith(run)).toList();
+            assertThat(ours).extracting(item -> item.get("id").asText())
+                    .containsExactly(String.valueOf(a.getId()), String.valueOf(b.getId()));
+            assertThat(ours.get(0).get("address").asText()).isEqualTo("1 Lê Lợi");
+        }
+
+        private WorkshopLocation save(String name, boolean active, String address) {
+            return locations.save(WorkshopLocation.builder().code("PM-IT-" + name).displayName(name)
+                    .addressSnapshot(address).active(active).build());
         }
     }
 }
