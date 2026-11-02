@@ -42,7 +42,7 @@ export default function PublicProductListPage() {
   const lastPage = data ? Math.max(0, Math.ceil(total / (data.pageSize || 20)) - 1) : 0;
 
   return (
-    <main className="container public-page">
+    <main className="container public-page pm-theme pm-public">
       <p className="eyebrow">{t('public.eyebrow')}</p>
       <h1>{t('public.title')}</h1>
       <form className="filter-bar" onSubmit={apply} role="search">

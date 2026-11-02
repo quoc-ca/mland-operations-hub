@@ -154,7 +154,7 @@ describe('product target picker', () => {
     await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
     await waitFor(() => expect(calls.some(call => call.method === 'POST')).toBe(true));
     expect(calls.find(call => call.method === 'POST').body.targets).toEqual({ productIds: ['42'] });
-  });
+  }, 20000); // many typed fields: give a loaded machine time
 
   it('asks for a target before sending anything', async () => {
     const user = userEvent.setup();

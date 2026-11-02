@@ -15,7 +15,7 @@ export default function PromotionDetailPage() {
   const promotion = useResource(() => api.getPublicPromotion(promotionId), [promotionId]);
 
   return (
-    <main className="container public-page">
+    <main className="container public-page lp-theme lp-public">
       <p className="eyebrow"><Link to="/promotions">{t('public.eyebrow')}</Link></p>
       {promotion.loading && !promotion.data && <Loading />}
       {promotion.error && (promotion.error.status === 404

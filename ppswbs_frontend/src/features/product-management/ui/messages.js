@@ -5,6 +5,7 @@ const vi = {
 
   'nav.label': 'Quản trị sản phẩm', 'nav.group': 'STAFF / MANAGER', 'nav.products': 'Danh sách sản phẩm',
   'nav.newProduct': 'Thêm sản phẩm', 'nav.categories': 'Danh mục', 'nav.import': 'Import Excel',
+  'nav.productDetail': 'Chi tiết sản phẩm', 'nav.breadcrumb': 'Vị trí hiện tại',
 
   'public.eyebrow': 'SẢN PHẨM', 'public.title': 'Khám phá bộ sưu tập', 'public.search': 'Tìm kiếm',
   'public.searchPlaceholder': 'Tên sản phẩm', 'public.category': 'Danh mục', 'public.allCategories': 'Tất cả',
@@ -173,6 +174,7 @@ const en = {
 
   'nav.label': 'Catalogue management', 'nav.group': 'STAFF / MANAGER', 'nav.products': 'Products',
   'nav.newProduct': 'New product', 'nav.categories': 'Categories', 'nav.import': 'Excel import',
+  'nav.productDetail': 'Product detail', 'nav.breadcrumb': 'You are here',
 
   'public.eyebrow': 'PRODUCTS', 'public.title': 'Explore the collection', 'public.search': 'Search',
   'public.searchPlaceholder': 'Product name', 'public.category': 'Category', 'public.allCategories': 'All',

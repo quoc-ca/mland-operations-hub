@@ -19,8 +19,6 @@ export const routes = [
       { path: '/login', element: <AuthPage mode="signin" /> },
       { path: '/register', element: <AuthPage mode="register" /> },
       { path: '/forgot-password', element: <AuthPage mode="forgot" /> },
-      ...productManagementRoutes,
-      ...loyaltyPromotionRoutes,
       ...workshopRoutes,
       ...otaConnectivityRoutes,
       ...operationsRoutes,
@@ -29,6 +27,10 @@ export const routes = [
       { path: '*', element: <NotImplementedPage /> },
     ],
   },
+  // 002/006 screens follow Figma page "002-006" (2026-11-03): full-page layouts of their own, without the shared
+  // header and footer, so they sit outside AppLayout.
+  ...productManagementRoutes,
+  ...loyaltyPromotionRoutes,
 ];
 
 export const router = createBrowserRouter(routes);

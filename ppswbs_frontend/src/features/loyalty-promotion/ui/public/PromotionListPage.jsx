@@ -20,7 +20,7 @@ export default function PromotionListPage() {
   const list = useCursorList(cursor => api.listPublicPromotions({ scope: scope || undefined, cursor }), [scope]);
 
   return (
-    <main className="container public-page">
+    <main className="container public-page lp-theme lp-public">
       <p className="eyebrow">{t('public.eyebrow')}</p>
       <h1>{t('public.title')}</h1>
       <div className="filter-bar">

@@ -69,12 +69,12 @@ export default function ProductListPage() {
         ? <div className="empty-state">{t('list.empty')}</div>
         : <section className="workspace-card">
           <div className="data-table" role="table" aria-label={t('list.title')}>
-            <div className="data-row head" role="row">
+            <div className="data-row products head" role="row">
               <span role="columnheader">{t('field.name')}</span><span role="columnheader">{t('field.category')}</span>
               <span role="columnheader">{t('list.sizes')}</span><span role="columnheader">{t('list.state')}</span>
             </div>
             {data.items.map(product => (
-              <div className="data-row" role="row" key={product.id}>
+              <div className="data-row products" role="row" key={product.id}>
                 <span role="cell"><Link className="text-link" to={`/catalogue-management/products/${encodeURIComponent(product.id)}`}>{product.name}</Link></span>
                 <span role="cell">{product.category?.name || '—'}</span>
                 <span role="cell">{(product.variants || []).map(variant => variant.size).join(', ')}</span>

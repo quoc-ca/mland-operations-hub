@@ -20,11 +20,11 @@ export default function PublicProductDetailPage() {
   const product = useResource(() => api.getPublicProduct(productId), [productId]);
   const [imageIndex, setImageIndex] = useState(0);
 
-  if (product.loading) return <main className="container public-page"><Loading /></main>;
+  if (product.loading) return <main className="container public-page pm-theme pm-public"><Loading /></main>;
   if (product.error) {
     const missing = product.error.status === 404;
     return (
-      <main className="container public-page">
+      <main className="container public-page pm-theme pm-public">
         <h1>{missing ? t('public.notFound') : t('public.loadFailed')}</h1>
         {!missing && <ErrorNotice error={product.error} messages={messages} />}
         <div className="actions">
@@ -39,7 +39,7 @@ export default function PublicProductDetailPage() {
   const image = images[Math.min(imageIndex, images.length - 1)];
 
   return (
-    <main className="container public-page">
+    <main className="container public-page pm-theme pm-public">
       <p className="eyebrow"><Link to="/products">{t('public.eyebrow')}</Link>{data.category && ` / ${data.category.name}`}</p>
       <h1>{data.name}</h1>
       <div className="detail-grid">

@@ -15,7 +15,7 @@ import { useCursorList } from '../../application/useCursorList';
 export default function MyLoyaltyPage() {
   const t = useT(messages);
   return (
-    <main className="container public-page">
+    <main className="container public-page lp-theme lp-public">
       <p className="eyebrow">MEMBER</p>
       <h1>{t('loyalty.title')}</h1>
       <RequireSession requiredText={t('session.member')}><LoyaltyContent /></RequireSession>
