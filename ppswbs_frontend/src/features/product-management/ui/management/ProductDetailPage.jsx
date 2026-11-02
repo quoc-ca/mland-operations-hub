@@ -1,5 +1,5 @@
-import React, { useCallback, useRef, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useOutletContext, useParams } from 'react-router';
 import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../../../shared/ui/components';
 import { useCatalogueApi } from '../../application/useCatalogueApi';
@@ -26,6 +26,13 @@ export default function ProductDetailPage() {
   const location = useLocation();
   const product = useResource(() => api.getProduct(productId), [productId]);
   const [notice, setNotice] = useState(location.state?.notice || null);
+  const setCrumb = useOutletContext()?.setCrumb;
+  const name = product.data?.name;
+  useEffect(() => {
+    if (!setCrumb) return undefined;
+    setCrumb(name || null);
+    return () => setCrumb(null);
+  }, [setCrumb, name]);
 
   if (product.loading && !product.data) return <Loading />;
   if (!product.data) {
@@ -51,7 +58,8 @@ export default function ProductDetailPage() {
       </PageTop>
       <SuccessNotice>{notice && t(notice)}</SuccessNotice>
       {product.error && <ErrorNotice error={product.error} messages={messages} onRetry={product.reload} />}
-      <section className="workspace-card summary">
+      <section className="workspace-card summary" aria-labelledby="summary-title">
+        <h2 id="summary-title">{t('detail.state')}</h2>
         <dl className="facts">
           <div><dt>{t('detail.state')}</dt><dd><ProductStateBadge product={data} /></dd></div>
           <div><dt>{t('field.category')}</dt><dd>{data.category ? `${data.category.name}${data.category.active ? '' : ` (${t('category.inactive')})`}` : '—'}</dd></div>
