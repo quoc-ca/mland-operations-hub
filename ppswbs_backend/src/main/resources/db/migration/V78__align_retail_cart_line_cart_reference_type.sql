@@ -1,6 +1,9 @@
 ALTER TABLE retail_checkout_quotes
     DROP FOREIGN KEY fk_retail_quote_cart;
 
+ALTER TABLE retail_cart_lines
+    DROP FOREIGN KEY fk_retail_cart_lines_cart;
+
 ALTER TABLE retail_carts
     MODIFY COLUMN id VARCHAR(36) NOT NULL;
 
