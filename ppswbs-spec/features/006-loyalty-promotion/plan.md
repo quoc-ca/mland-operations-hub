@@ -88,7 +88,7 @@ ppswbs_backend/src/main/resources/
 ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/
   features/loyaltypromotion/  future calculation, lifecycle, contract, security, MySQL checks
 ppswbs_frontend/      (đã khởi tạo bởi 002 T088/T089: React + Vite, react-router, i18n vi/en, REST client dùng chung)
-  src/features/loyaltypromotion/  promotions, wallet/account, management, policy screens và checkout components
+  src/features/loyalty-promotion/  ui/ (management, public), application/ (hook gọi API), domain/ (luật thuần), infrastructure/ (REST client), routes/, tests/; cổng công khai index.js — theo FRONTEND-ARCHITECTURE (chuyển 2026-11-02); index.js xuất loyaltyPromotionRoutes và BenefitSelector cho FE-03/FE-08
 ```
 
 **Structure Decision**: Theo constitution I, backend tổ chức `features/<feature>/{controller,dto,dao,entity,service,facade}`; FE-06 là module Modulith riêng tên `loyaltypromotion` (gói `features/loyaltypromotion`, backend đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24), nên module tạo mới). Plan phải kiểm chứng bằng `ApplicationModules.verify()` rằng `loyaltypromotion` được nhận diện là module riêng, không chỉ gói grouping `features`. Trong văn bản tài liệu FE-06, chữ "loyalty" khi nói về module nghĩa là module `loyaltypromotion`; tên bảng `loyalty_*`/`promotion_*` và tên class `Loyalty*`/`Promotion*` giữ nguyên. Module riêng theo ownership FE06, không nhét vào billing/common hoặc dùng frontend-only local storage cho điểm. Danh sách source tree là vị trí dự kiến, chưa tạo code.

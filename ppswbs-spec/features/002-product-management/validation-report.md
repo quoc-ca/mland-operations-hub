@@ -160,3 +160,19 @@ Các lỗi ngoài 002/006 đến từ cách dựng database test của feature k
 - **Phạm vi:** T028, T034, T040, T044, T050, T057, T064, T071, T072, T079 (và T101) — loading, empty, validation, success, failure, recovery, 401/409/503. Test mới: 401 vẫn bị từ chối sau khi làm mới token một lần → `signOut`, màn quản trị hiện thông báo đăng nhập, không còn dữ liệu, token không nằm trong URL.
 - **Cách giả lập:** phiên là `fakeSession` (token test cố định), API là fetch giả lập trả đúng shape DTO backend. Ứng dụng không có chế độ đăng nhập giả và không tắt kiểm tra token (AGENT.md frontend).
 - **Tích hợp thật:** trang công khai và CORS đã chạy với backend local (T074); hành trình cần phiên Manager/Staff/Member — NOT RUN: 001 chưa khởi tạo Firebase Admin và chưa có màn đăng nhập (Phan Sơn xác nhận 2026-11-01 không làm trong sprint này). Khi 001 có đăng nhập: chạy lại V-01/V-13 qua trình duyệt theo quickstart.
+
+## Cấu trúc frontend theo FRONTEND-ARCHITECTURE, 2026-11-02
+
+- Chuyển `src/features/productmanagement` → `src/features/product-management` và `src/features/loyaltypromotion` → `src/features/loyalty-promotion` (`git mv`, giữ lịch sử), chia lớp `ui/`, `application/`, `domain/`, `infrastructure/`, `routes/`, `tests/`; mỗi feature có cổng công khai `index.js` (router chỉ import qua đó). Hành vi không đổi: frontend toàn ứng dụng 171/171, `npm run build` đạt.
+- Hướng phụ thuộc đã kiểm: `domain` không import React/HTTP; `ui` không import `infrastructure` (ảnh công khai qua `application/useCatalogueApi.publicImageUrl`); `application` không import `ui` (nhãn đối tượng ưu đãi chuyển vào `domain/promotionRules`); không `fetch()`/Firebase trong `ui`; 002 và 006 không import code riêng của nhau.
+- **Còn lệch chuẩn (ghi nhận):** lớp `infrastructure` chưa chuyển đổi DTO sang view model — màn hình vẫn đọc đúng shape response của backend; `shared/api` chưa đổi tên `shared/http` vì dùng chung với 001/003/FE-08. FRONTEND-ARCHITECTURE còn ở trạng thái chờ Product Owner duyệt.
+- Đường dẫn `features/productmanagement/...`/`features/loyaltypromotion/...` trong tasks và bằng chứng cũ là lịch sử, ứng với vị trí mới cùng tên file trong lớp tương ứng.
+
+## Chạy lại backend sau V78; V80 còn lỗi, 2026-11-02
+
+Lần chạy 2026-11-02 sau khi owner 003 sửa V78 (develop `a64aa29`, commit `5556f45`):
+- V78 đã qua. **V80** `V80__align_retail_grouped_checkout_reference_types.sql` (`76f104b`, 003/FE-08) cùng lỗi MySQL 1833: đổi `retail_grouped_checkouts.id` khi khóa ngoại `fk_retail_checkout_holds_checkout` còn tồn tại (thiếu `DROP FOREIGN KEY`). Quét tĩnh V1–V88 tìm thao tác đổi cột còn khóa ngoại: chỉ còn V80. Đã báo owner.
+- Để biết phần còn lại, chạy với V78 của develop và V80 **vá tạm trên máy** (thêm `ALTER TABLE retail_checkout_holds DROP FOREIGN KEY fk_retail_checkout_holds_checkout;` đầu file); sau đó đã trả cả hai file về đúng bản của nhánh, không commit bản vá. Database trống `ppswbs_loyalty_build45`/`ppswbs_pm_sales45`, MySQL 8.4:
+  - 006 + `ModulithArchitectureTests` + `WorkshopSellingLocationAdapterTest`: **258/258 đạt**.
+  - 002: 297 chạy, 296 đạt; 1 lỗi `CatalogueSellingLocationIT$WithoutABranchSource` ("Too many connections" — `max_connections` về mặc định sau khi MySQL khởi động lại; kịch bản này cũng đã lỗi thời vì 003.2 đã có nguồn chi nhánh). Đã thay bằng `WithTheWorkshopOperationsSource` đọc qua `WorkshopSellingLocationAdapter` thật (chỉ chi nhánh đang hoạt động, sắp theo tên): `CatalogueSellingLocationIT` **3/3** khi chạy riêng.
+- Kết luận chỉ có giá trị khi V80 được sửa đúng như bản vá; chạy lại trên develop sau khi owner sửa.

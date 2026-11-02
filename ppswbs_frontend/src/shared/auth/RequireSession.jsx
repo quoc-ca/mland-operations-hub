@@ -3,6 +3,7 @@ import { useT } from '../i18n/I18nProvider';
 import { Loading } from '../ui/components';
 import { sharedMessages } from '../ui/messages';
 import { useAuth } from './AuthProvider';
+import { SignInLink } from './SignInLink';
 
 /**
  * Renders children only with a Firebase session; otherwise the sign-in notice (the sign-in screen belongs to 001).
@@ -16,7 +17,7 @@ export function RequireSession({ children, requiredText }) {
   return (
     <div className="empty-state" role="status">
       <p>{status === 'unconfigured' ? t('session.unconfigured') : requiredText || t('error.AUTHENTICATION_REQUIRED')}</p>
-      <a className="button primary" href="/#/login">{t('session.signIn')}</a>
+      <SignInLink>{t('session.signIn')}</SignInLink>
     </div>
   );
 }
