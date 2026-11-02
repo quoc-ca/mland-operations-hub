@@ -44,3 +44,11 @@
 - Cart UI supports local quantity edits, removal, branch grouping and the 50-line presentation limit. Checkout validates recipient fields, presents delivery/pickup, voucher/points and branch shipping summaries. Member order filtering and Staff-operation progress are interactive UI states.
 - `src/api/retail.js` encodes the known protected FE-08 API routes and typed error shape. It deliberately requires a caller-provided Firebase ID token and makes no request without one.
 - Verification: `npm.cmd run build` passed. These interactions are client-side preparation, not evidence of Member API integration.
+
+### GHTK quote integration check — 2026-11-01T00:00:00+07:00
+
+- Scope requested: connect the FE-08 checkout UI to the local, read-only GHTK fee-quote endpoint.
+- Backend contract now expects a verified Member bearer token and `POST /api/v1/ready-ring-shipping-quotes` with `locationId` plus recipient address/province/district/ward. It returns a server quote or `deliveryAvailable=false`; it does not create a shipment.
+- The existing `RetailCheckoutWorkspace` is a local-data prototype. `src/api/retail.js` deliberately requires a caller-provided Firebase ID token, but no approved Firebase session provider/token lifecycle/API-origin recovery flow exists in the rendered application.
+- No frontend source was changed. Calling the protected endpoint with a browser-invented token or a debug account header would violate the Member authorization contract.
+- To resume this narrow integration: provide the existing FE-01 auth/session hook or provider that yields the current Firebase ID token for the Member checkout route, and confirm the API-origin/error-recovery contract. The existing GHTK recipient form can then call `createRetailClient(getIdToken).quoteShipping(...)` without exposing the provider token.

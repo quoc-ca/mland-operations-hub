@@ -47,11 +47,11 @@ a transaction waiting on a lock sees committed availability.
 
 ## Proposed physical records
 
-Thinh approved reallocating FE-08 migrations after `develop` allocated V32–V37
-to payment and workshop. FE-08 now uses V38–V43, with **V40** for quote storage.
-Existing databases that applied earlier FE-08 versions require a separately
-approved upgrade path; do not reset or repair their history automatically.
-Existing
+Thinh initially selected V26 for this quote schema. After `develop` allocated
+V24–V31 to other features, the FE-08 migrations were moved to V32–V34, with
+**V34** for quote storage. Confirm database history before shared deployment;
+previously tested FE-08 V24–V26 databases require a separately approved path.
+V13–V31 remain unchanged. Existing
 V14 demo checkouts are not converted into real accepted quotes.
 
 ### `retail_checkout_quotes`
@@ -124,7 +124,7 @@ available to the Member after a rejected acceptance.
 
 ## Verification
 
-- MySQL 8.4 fresh migration and upgrade from the V39 baseline; verify keys,
+- MySQL 8.4 fresh migration and upgrade from the V33 baseline; verify keys,
   constraints and that existing V14 local-demo rows are preserved.
 - Unit/API tests for preview shape, ownership, changed/expired quote, branch
   selection, replay and mismatched idempotency key.
