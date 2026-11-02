@@ -28,7 +28,7 @@ export function Terms({ item, labels }) {
   if (item.totalLimit) rows.push([t('field.totalLimit'), format.number(item.totalLimit)]);
   if (item.perMemberLimit) rows.push([t('field.perMemberLimit'), format.number(item.perMemberLimit)]);
   return (
-    <dl className="facts">
+    <dl className="facts terms">
       {rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
     </dl>
   );

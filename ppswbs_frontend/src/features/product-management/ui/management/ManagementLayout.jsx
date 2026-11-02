@@ -14,7 +14,7 @@ import { messages } from '../messages';
 export default function ManagementLayout() {
   const t = useT(messages);
   const tShared = useT(sharedMessages);
-  const { status } = useAuth();
+  const { status, signOut } = useAuth();
   const { pathname } = useLocation();
   const links = [
     ['/catalogue-management/products', t('nav.products'), t('list.title')],
@@ -31,7 +31,7 @@ export default function ManagementLayout() {
       : [links.find(([to]) => to === pathname)?.[2] || t('nav.label')];
   const linkClass = to => ({ isActive }) => (isActive || (onDetail && to === links[0][0]) ? 'active' : undefined);
   return (
-    <main className="app-shell pm-shell">
+    <main className="app-shell pm-shell pm-theme">
       <aside className="side-nav" aria-label={t('nav.label')}>
         <div className="pm-brand">
           <span className="pm-brand-mark" aria-hidden="true">M</span>
@@ -39,6 +39,7 @@ export default function ManagementLayout() {
         </div>
         <p className="eyebrow">{t('nav.group')}</p>
         {links.map(([to, label]) => <NavLink key={to} to={to} end className={linkClass(to)}>{label}</NavLink>)}
+        {status === 'signed-in' && <button type="button" className="side-signout" onClick={signOut}>{tShared('session.signOut')}</button>}
       </aside>
       <div className="pm-main">
         <nav className="pm-topbar" aria-label={t('nav.breadcrumb')}>

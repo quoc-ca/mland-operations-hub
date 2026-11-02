@@ -2,7 +2,7 @@
 const vi = {
   all: 'Tất cả', back: 'Quay lại', cancel: 'Hủy', save: 'Lưu', saving: 'Đang lưu…', edit: 'Sửa', more: 'Xem thêm', yes: 'Có', no: 'Không',
 
-  'nav.label': 'Quản lý ưu đãi', 'nav.programs': 'Chương trình ưu đãi', 'nav.newProgram': 'Tạo chương trình', 'nav.policy': 'Chính sách điểm',
+  'nav.label': 'Quản lý ưu đãi', 'nav.programs': 'Chương trình ưu đãi', 'nav.newProgram': 'Tạo chương trình', 'nav.policy': 'Chính sách điểm', 'nav.programDetail': 'Chi tiết chương trình', 'nav.breadcrumb': 'Vị trí hiện tại',
   'nav.promotions': 'Xem ưu đãi', 'nav.savedVouchers': 'Kho Voucher',
   'session.manager': 'Khu quản lý ưu đãi cần đăng nhập bằng tài khoản Manager.',
   'session.member': 'Bạn cần đăng nhập bằng tài khoản Member để xem mục này.',
@@ -109,7 +109,7 @@ const vi = {
 const en = {
   all: 'All', back: 'Back', cancel: 'Cancel', save: 'Save', saving: 'Saving…', edit: 'Edit', more: 'Load more', yes: 'Yes', no: 'No',
 
-  'nav.label': 'Offer management', 'nav.programs': 'Programmes', 'nav.newProgram': 'New programme', 'nav.policy': 'Point policy',
+  'nav.label': 'Offer management', 'nav.programs': 'Programmes', 'nav.newProgram': 'New programme', 'nav.policy': 'Point policy', 'nav.programDetail': 'Programme detail', 'nav.breadcrumb': 'You are here',
   'nav.promotions': 'See offers', 'nav.savedVouchers': 'Voucher wallet',
   'session.manager': 'Offer management requires a Manager account.',
   'session.member': 'Please sign in with a Member account to see this.',
