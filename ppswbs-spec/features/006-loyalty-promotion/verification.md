@@ -573,3 +573,31 @@ Ký hiệu kết quả: **ĐẠT** = có test chạy thật trên MySQL/nguồn 
 **T076 — đối chiếu tài liệu:** đã sửa `plan.md` (frontend đã khởi tạo), `contracts/interfaces.md` mục 5 (frontend, `maxPoints`) và mục khóa/thứ tự (quy tắc gửi lặp outcome). OpenAPI 15 operation khớp 15 route (`LoyaltyApiContractIT`); 8 method `LoyaltyFacade` khớp `interfaces.md`. **Giới hạn:** lệnh `speckit-analyze` không có trong phiên làm việc nên phân tích được làm thủ công theo artifact hiện hành (spec/plan/tasks/interfaces/OpenAPI); không đổi spec/plan sang Approved, không sửa research tổng.
 
 **Còn mở (owner):** 001 Phan Sơn — đăng nhập thật (chạy lại T072/T078 với phiên thật); FE-08 Bùi Trọng Thịnh — nhúng `BenefitSelector`, `maxPoints` (T055); FE-03 Hồ Hoàng Quốc — nhúng `BenefitSelector context="workshop"`, `maxPoints` (T061); 004 Đạt — đổi số migration V12 trùng.
+
+## 32. T061 đóng sau develop `55f7da2`; 001 có đăng nhập, 2026-11-02
+
+**Nguồn:** develop `55f7da2` (gồm `9b7b38e` của Hồ Hoàng Quốc, `e7459ba`/`e510952` của Phan Sơn), đã gộp vào `khuong` không xung đột.
+
+**T061 — rà phần nhúng của FE-03** (`ppswbs_frontend/src/workshops/WorkshopBookingPage.jsx`): Member không còn dán UUID báo giá; trang giữ `benefitSelection { choice, voucherCode, requestedPoints }`, "Tính lại" gọi `POST /api/v1/workshop-booking-quotes` với bearer của phiên, đưa nguyên `WorkshopBookingQuoteResponse` (có `maxPoints`) vào `BenefitSelector context="workshop"`; mọi thay đổi lựa chọn, ca, số người làm báo giá mất hiệu lực và bỏ xác nhận; chỉ đặt được khi báo giá khớp và đã xác nhận, accept bằng `quoteRef`. Khớp hợp đồng component (mục 29) và FR-016/FR-019–FR-021. Không truyền Kho Voucher (`savedVouchers`) — tùy chọn, Member vẫn nhập mã trực tiếp.
+
+**Chạy lại:** frontend toàn ứng dụng `npm test` **171/171** (14 file, gồm `workshops-flow.test.js` của FE-03 có mục T061), `npm run build` đạt. Backend 006 + 002 + `ModulithArchitectureTests` + `WorkshopSellingLocationAdapterTest` trên MySQL 8.4, database trống `ppswbs_loyalty_build42`/`ppswbs_pm_sales42` → ****BLOCKED** — 251 test chạy, 97 đạt (unit, `ModulithArchitectureTests` 5/5, `WorkshopSellingLocationAdapterTest`), 154 lỗi vì Flyway dừng ở migration `V78__align_retail_cart_line_cart_reference_type.sql` của develop (`76f104b`, 003/FE-08): đổi `retail_carts.id` khi khóa ngoại `fk_retail_cart_lines_cart` (V13) còn tồn tại → MySQL 1833. Không có thay đổi 006 nào trong lần gộp; lần chạy đầy đủ gần nhất 257/257 (mục 31). Chạy lại khi owner sửa V78. 002 cùng lỗi: 290 chạy, 177 lỗi do V78**.
+
+**001 đã có đăng nhập** (`FirebaseConfiguration` gọi `FirebaseApp.initializeApp`; trang `/login`, `/register`, `/forgot-password`). 006/002 đổi mọi nút đăng nhập sang `/login?returnTo=…` (`shared/auth/SignInLink`; trước đó trỏ `/#/login` không tồn tại với router đường dẫn thường). Phiên thật của T072/T078 vẫn **NOT RUN**: local chưa có cấu hình Firebase (`VITE_FIREBASE_*`, service account) và chưa có cách tạo Admin/Manager/Staff đầu tiên (đăng ký chỉ tạo Member); trang `/login` của 001 chưa đọc `returnTo`. Đã đề nghị Phan Sơn.
+
+**Còn mở:** T055 — FE-08 (Bùi Trọng Thịnh) chưa nhúng `BenefitSelector` retail và `BenefitPreviewView` chưa có `maxPoints` (develop `28280da` chỉ chỉnh bản mẫu checkout).
+
+## 33. Cấu trúc frontend theo FRONTEND-ARCHITECTURE, 2026-11-02
+
+- Chuyển `src/features/productmanagement` → `src/features/product-management` và `src/features/loyaltypromotion` → `src/features/loyalty-promotion` (`git mv`, giữ lịch sử), chia lớp `ui/`, `application/`, `domain/`, `infrastructure/`, `routes/`, `tests/`; mỗi feature có cổng công khai `index.js` (router chỉ import qua đó). Hành vi không đổi: frontend toàn ứng dụng 171/171, `npm run build` đạt.
+- Hướng phụ thuộc đã kiểm: `domain` không import React/HTTP; `ui` không import `infrastructure` (ảnh công khai qua `application/useCatalogueApi.publicImageUrl`); `application` không import `ui` (nhãn đối tượng ưu đãi chuyển vào `domain/promotionRules`); không `fetch()`/Firebase trong `ui`; 002 và 006 không import code riêng của nhau. Trang đặt workshop của FE-03 còn import đường cũ `features/loyaltypromotion/checkout/BenefitSelector` — giữ một file chuyển tiếp tại đó (re-export từ cổng công khai) cho tới khi owner FE-03 đổi import.
+- **Còn lệch chuẩn (ghi nhận):** lớp `infrastructure` chưa chuyển đổi DTO sang view model — màn hình vẫn đọc đúng shape response của backend; `shared/api` chưa đổi tên `shared/http` vì dùng chung với 001/003/FE-08. FRONTEND-ARCHITECTURE còn ở trạng thái chờ Product Owner duyệt.
+- Đường dẫn `features/productmanagement/...`/`features/loyaltypromotion/...` trong tasks và bằng chứng cũ là lịch sử, ứng với vị trí mới cùng tên file trong lớp tương ứng.
+
+## 34. Chạy lại backend sau V78; V80 còn lỗi, 2026-11-02
+
+Lần chạy 2026-11-02 sau khi owner 003 sửa V78 (develop `a64aa29`, commit `5556f45`):
+- V78 đã qua. **V80** `V80__align_retail_grouped_checkout_reference_types.sql` (`76f104b`, 003/FE-08) cùng lỗi MySQL 1833: đổi `retail_grouped_checkouts.id` khi khóa ngoại `fk_retail_checkout_holds_checkout` còn tồn tại (thiếu `DROP FOREIGN KEY`). Quét tĩnh V1–V88 tìm thao tác đổi cột còn khóa ngoại: chỉ còn V80. Đã báo owner.
+- Để biết phần còn lại, chạy với V78 của develop và V80 **vá tạm trên máy** (thêm `ALTER TABLE retail_checkout_holds DROP FOREIGN KEY fk_retail_checkout_holds_checkout;` đầu file); sau đó đã trả cả hai file về đúng bản của nhánh, không commit bản vá. Database trống `ppswbs_loyalty_build45`/`ppswbs_pm_sales45`, MySQL 8.4:
+  - 006 + `ModulithArchitectureTests` + `WorkshopSellingLocationAdapterTest`: **258/258 đạt**.
+  - 002: 297 chạy, 296 đạt; 1 lỗi `CatalogueSellingLocationIT$WithoutABranchSource` ("Too many connections" — `max_connections` về mặc định sau khi MySQL khởi động lại; kịch bản này cũng đã lỗi thời vì 003.2 đã có nguồn chi nhánh). Đã thay bằng `WithTheWorkshopOperationsSource` đọc qua `WorkshopSellingLocationAdapter` thật (chỉ chi nhánh đang hoạt động, sắp theo tên): `CatalogueSellingLocationIT` **3/3** khi chạy riêng.
+- Kết luận chỉ có giá trị khi V80 được sửa đúng như bản vá; chạy lại trên develop sau khi owner sửa.
