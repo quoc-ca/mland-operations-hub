@@ -4,6 +4,8 @@
 
 ## Personalized Product Sales and Workshop Booking System
 
+**Group:** SEP490_G22  
+**Status:** Active project, under validation  
 
 ## Table of Contents
 
