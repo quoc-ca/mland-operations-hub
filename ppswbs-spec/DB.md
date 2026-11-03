@@ -2207,6 +2207,27 @@ Rules:
 
 - One base ring form may be referenced by many designs; one base form per design is a stated proposal, not a documented final cardinality.
 - Shape is separate from gemstone cut, ring size and a complete catalogue model. Its exact structural attribute schema remains `TBD`.
+- Feature-011 logical review schema is documented below; it is not an applied migration.
+
+## Feature-011 — Review Management (logical design, not an applied migration)
+
+Feature-011 owns review content for `WORKSHOP_SESSION` and `RETAIL_PRODUCT`.
+The source is an opaque verified `WORKSHOP_ATTENDANCE` or `RETAIL_ORDER_LINE`
+reference supplied by the owning facade. It does not store branch reviews or
+Google Places review content.
+
+Logical tables are `reviews`, `review_revisions`, `review_replies`, and
+`review_moderation_events`. `reviews` has a unique constraint on
+`(source_type, source_reference)`, immutable target mapping, rating `1..5`,
+optional text up to 2,000 characters, and closed status vocabulary
+`PUBLIC/HIDDEN/REMOVED`. Revisions and moderation events are append-only;
+`REMOVED` is a soft state and no cascade may erase business history. One current
+reply is enforced by a unique review reference.
+
+Aggregates and public listings include `PUBLIC` rows only. Public projections
+must omit email, phone and transaction details. Physical foreign keys to
+Workshop/Retail tables, table names, additional indexes and the Flyway version
+remain proposed until source ownership and migration history are checked.
 - Material, component placement and size compatibility must be checked against approved hard constraints; a numeric score alone cannot override an incompatible design.
 - A standalone shape price contribution is included only under an approved estimation rule and must not double-count component/labour prices.
 - Form/score/price changes do not rewrite frozen design versions. Disable an option for new selection rather than deleting referenced history.

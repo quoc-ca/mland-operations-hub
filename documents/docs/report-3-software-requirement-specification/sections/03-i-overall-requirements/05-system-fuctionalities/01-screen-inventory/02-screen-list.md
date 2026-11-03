@@ -80,3 +80,10 @@
 | 76 | Operational Parameters | Administrative Configuration | Allows Admins to validate and save supported system parameters. |
 | 77 | Integration List | Integration Administration | Allows Admins to browse configured integrations and maintain supported settings with masked secrets and safe connection checks. |
 | 78 | Technical Order Support | Technical Support | Allows Admins to view minimized order and payment diagnostics without customer details, impersonation, business mutation or paid override. |
+| 79 | Eligible Review Sources | Review Management | Allows a Guest to look up eligible sources by email/phone or a Member to view own checked-in workshop attendance and picked-up/delivered retail order lines. |
+| 80 | Create Review | Review Management | Collects a 1–5 rating and optional text up to 2,000 characters; valid submission is immediately PUBLIC. |
+| 81 | Edit Published Review | Review Management | Allows the review owner to edit their own public review while recording a revision/audit entry. |
+| 82 | Public Review List and Aggregate | Review Management | Lists PUBLIC reviews, supports target/rating filters, masks names and calculates aggregates from PUBLIC rows only. |
+| 83 | Review Moderation Queue | Review Management | Allows Staff/Managers to open authorized post-publication review actions. |
+| 84 | Review Moderation Details | Review Management | Allows Staff to HIDE and Managers to HIDE/REMOVE with reason and audit evidence. |
+| 85 | Manager Reply Editor | Review Management | Allows one current Manager reply per review and audited reply edits; no threaded replies. |
