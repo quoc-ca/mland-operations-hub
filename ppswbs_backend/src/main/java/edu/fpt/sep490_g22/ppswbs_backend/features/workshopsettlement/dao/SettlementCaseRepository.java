@@ -7,4 +7,9 @@ public interface SettlementCaseRepository extends JpaRepository<SettlementCase, 
  java.util.List<SettlementCase> findTop100ByCaseTypeAndLifecycleStatusOrderByCreatedAtAsc(String caseType, String lifecycleStatus);
  java.util.List<SettlementCase> findTop100ByCaseTypeInAndLifecycleStatusOrderByCreatedAtAsc(
          java.util.Collection<String> caseTypes, String lifecycleStatus);
+ java.util.List<SettlementCase> findTop100ByOrderByCreatedAtDesc();
+ java.util.List<SettlementCase> findTop100ByCaseTypeOrderByCreatedAtDesc(String caseType);
+ java.util.List<SettlementCase> findTop100ByLifecycleStatusOrderByCreatedAtDesc(String lifecycleStatus);
+ java.util.List<SettlementCase> findTop100ByCaseTypeAndLifecycleStatusOrderByCreatedAtDesc(
+         String caseType, String lifecycleStatus);
 }
