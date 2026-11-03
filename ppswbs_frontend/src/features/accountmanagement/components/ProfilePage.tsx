@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router';
+import type { User } from 'firebase/auth';
 import { useProfile } from '../hooks/useProfile';
 import { useVerifiedEmailGate } from '../hooks/useVerifiedEmailGate';
 import { firebaseAuthClient } from '../auth/FirebaseAuthClient';
@@ -33,6 +34,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const editSectionRef = useRef<HTMLDivElement>(null);
   const passwordSectionRef = useRef<HTMLDivElement>(null);
   const emailSectionRef = useRef<HTMLDivElement>(null);
+
+  const [currentUser, setCurrentUser] = useState<User | null>(() => firebaseAuthClient.getCurrentUser());
+
+  useEffect(() => {
+    const unsub = firebaseAuthClient.onAuthStateChanged(u => {
+      setCurrentUser(u);
+    });
+    return () => {
+      unsub();
+    };
+  }, []);
+
+  const activeUser = currentUser || firebaseAuthClient.getCurrentUser();
+  // Defensive provider check: hide password section and quick-action trigger if !user.providerData.some(p => p.providerId === 'password')
+  const isOAuthOnly = Boolean(
+    activeUser?.providerData &&
+    activeUser.providerData.length > 0 &&
+    !activeUser.providerData.some(p => p.providerId === 'password')
+  );
+  const showPasswordSection = !isOAuthOnly;
 
   const handleSessionExpired = React.useCallback(() => {
     resetForm();
@@ -70,14 +91,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   }, [initialMode, initialSection]);
 
-  // Password change state
+  // Password change state (T066)
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [passwordPending, setPasswordPending] = useState(false);
 
-  // Email change state
+  // Email change state (T067)
+  const [emailCurrentPassword, setEmailCurrentPassword] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [emailChangeError, setEmailChangeError] = useState<string | null>(null);
   const [emailChangeSuccess, setEmailChangeSuccess] = useState<string | null>(null);
@@ -94,6 +117,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     setPasswordError(null);
     setPasswordSuccess(null);
 
+    if (!currentPassword) {
+      setPasswordError('Vui lòng nhập mật khẩu hiện tại.');
+      return;
+    }
     if (newPassword.length < 6) {
       setPasswordError('Mật khẩu mới phải chứa ít nhất 6 ký tự.');
       return;
@@ -105,20 +132,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
     setPasswordPending(true);
     try {
+      // In-place re-authentication via reauthenticateWithCredential before updatePassword (T066)
+      await firebaseAuthClient.reauthenticateWithCredential(currentPassword);
       await firebaseAuthClient.updatePassword(newPassword);
       setPasswordSuccess('Đổi mật khẩu thành công.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
     } catch (err: any) {
-      if (err?.code === 'auth/requires-recent-login') {
-        setPasswordError(
-          'Thao tác yêu cầu xác thực gần đây. Vui lòng đăng nhập lại trước khi đổi mật khẩu.'
-        );
+      // On re-auth failure (wrong current password), clear only currentPassword, show inline error, retain newPassword/confirmPassword
+      setCurrentPassword('');
+      if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
+        setPasswordError('Mật khẩu hiện tại không chính xác.');
+      } else if (err?.code === 'auth/user-token-expired' || err?.code === 'auth/user-disabled') {
+        setNewPassword('');
+        setConfirmPassword('');
+        handleSessionExpired();
       } else {
         setPasswordError(err?.message || 'Không thể đổi mật khẩu. Vui lòng thử lại.');
       }
     } finally {
-      // Per AGENT.md & Plan: No password field value retained after submission
-      setNewPassword('');
-      setConfirmPassword('');
       setPasswordPending(false);
     }
   };
@@ -136,18 +169,27 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
     setEmailChangePending(true);
     try {
-      // FR-006: verifyBeforeUpdateEmail sends a confirmation link to new email.
-      // Current email remains active until user clicks verification link.
+      // In-place re-authentication via reauthenticateWithCredential before verifyBeforeUpdateEmail (T067)
+      if (emailCurrentPassword) {
+        await firebaseAuthClient.reauthenticateWithCredential(emailCurrentPassword);
+      }
       await firebaseAuthClient.verifyBeforeUpdateEmail(trimmed);
       setEmailChangeSuccess(
         `Thư xác nhận đã được gửi đến ${trimmed}. Email hiện tại của bạn sẽ được giữ nguyên cho đến khi xác minh hoàn tất.`
       );
+      setEmailCurrentPassword('');
       setNewEmail('');
     } catch (err: any) {
-      if (err?.code === 'auth/requires-recent-login') {
-        setEmailChangeError(
-          'Thao tác yêu cầu xác thực gần đây. Vui lòng đăng nhập lại trước khi đổi email.'
-        );
+      setEmailCurrentPassword('');
+      if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
+        setEmailChangeError('Mật khẩu hiện tại không chính xác.');
+      } else if (err?.code === 'auth/user-token-expired' || err?.code === 'auth/user-disabled') {
+        setNewEmail('');
+        handleSessionExpired();
+      } else if (err?.code === 'auth/email-already-in-use') {
+        setEmailChangeError('Địa chỉ email này đã được sử dụng bởi một tài khoản khác.');
+      } else if (err?.code === 'auth/invalid-email') {
+        setEmailChangeError('Địa chỉ email không hợp lệ.');
       } else {
         setEmailChangeError(err?.message || 'Không thể gửi thư đổi email. Vui lòng thử lại.');
       }
@@ -167,8 +209,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   }
 
   // Not signed in handling
-  const user = firebaseAuthClient.getCurrentUser();
-  if (!user && !profile && !profileLoading) {
+  if (!activeUser && !profile && !profileLoading) {
     return (
       <div className="account-page-container">
         <div className="account-card" style={{ textAlign: 'center', padding: '3rem 1rem' }}>
@@ -334,13 +375,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           >
             Chỉnh sửa hồ sơ
           </button>
-          <button
-            type="button"
-            className="account-btn account-btn-secondary"
-            onClick={() => passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
-          >
-            Đổi mật khẩu
-          </button>
+          {showPasswordSection && (
+            <button
+              type="button"
+              className="account-btn account-btn-secondary"
+              onClick={() => passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              Đổi mật khẩu
+            </button>
+          )}
           <button
             type="button"
             className="account-btn account-btn-secondary"
@@ -487,69 +530,87 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       </section>
 
       {/* SECTION 3: Change Password Form (screen.md: Change Password — form) */}
-      <section
-        ref={passwordSectionRef}
-        className="account-card"
-        aria-labelledby="password-heading"
-      >
-        <h2 id="password-heading" className="account-card-title">
-          Đổi mật khẩu
-        </h2>
+      {showPasswordSection && (
+        <section
+          ref={passwordSectionRef}
+          className="account-card"
+          aria-labelledby="password-heading"
+        >
+          <h2 id="password-heading" className="account-card-title">
+            Đổi mật khẩu
+          </h2>
 
-        {passwordSuccess && (
-          <div className="account-alert account-alert-success" role="status">
-            <span>{passwordSuccess}</span>
-          </div>
-        )}
+          {passwordSuccess && (
+            <div className="account-alert account-alert-success" role="status">
+              <span>{passwordSuccess}</span>
+            </div>
+          )}
 
-        {passwordError && (
-          <div className="account-alert account-alert-error" role="alert">
-            <span>{passwordError}</span>
-          </div>
-        )}
+          {passwordError && (
+            <div className="account-alert account-alert-error" role="alert">
+              <span>{passwordError}</span>
+            </div>
+          )}
 
-        <form className="account-form" onSubmit={handlePasswordChange}>
-          <div className="account-field">
-            <label className="account-label account-label-required" htmlFor="new-password">
-              Mật khẩu mới
-            </label>
-            <input
-              id="new-password"
-              type="password"
-              className="account-input"
-              value={newPassword}
-              onChange={e => setNewPassword(e.target.value)}
-              autoComplete="new-password"
-              disabled={passwordPending}
-            />
-          </div>
+          <form className="account-form" onSubmit={handlePasswordChange}>
+            <div className="account-field">
+              <label className="account-label account-label-required" htmlFor="current-password">
+                Mật khẩu hiện tại
+              </label>
+              <input
+                id="current-password"
+                type="password"
+                className="account-input"
+                value={currentPassword}
+                onChange={e => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+                disabled={passwordPending}
+              />
+            </div>
 
-          <div className="account-field">
-            <label className="account-label account-label-required" htmlFor="confirm-new-password">
-              Xác nhận mật khẩu mới
-            </label>
-            <input
-              id="confirm-new-password"
-              type="password"
-              className="account-input"
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              autoComplete="new-password"
-              disabled={passwordPending}
-            />
-          </div>
+            <div className="account-field">
+              <label className="account-label account-label-required" htmlFor="new-password">
+                Mật khẩu mới
+              </label>
+              <input
+                id="new-password"
+                type="password"
+                className="account-input"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                disabled={passwordPending}
+              />
+              <span className="account-field-hint">Tối thiểu 6 ký tự.</span>
+            </div>
 
-          <div>
-            <button
-              type="submit"
-              className="account-btn account-btn-secondary"
-              disabled={passwordPending || !newPassword}
-            >
-              {passwordPending ? 'Đang xử lý…' : 'Cập nhật mật khẩu'}
-            </button>
-          </div>
-        </form>
-      </section>
+            <div className="account-field">
+              <label className="account-label account-label-required" htmlFor="confirm-new-password">
+                Xác nhận mật khẩu mới
+              </label>
+              <input
+                id="confirm-new-password"
+                type="password"
+                className="account-input"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                disabled={passwordPending}
+              />
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                className="account-btn account-btn-secondary"
+                disabled={passwordPending || !currentPassword || !newPassword || !confirmPassword}
+              >
+                {passwordPending ? 'Đang xử lý…' : 'Cập nhật mật khẩu'}
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
 
       {/* SECTION 4: Email Change Form */}
       <section
@@ -573,35 +634,58 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
         )}
 
-        <form className="account-form" onSubmit={handleEmailChange}>
-          <div className="account-field">
-            <label className="account-label account-label-required" htmlFor="new-email">
-              Địa chỉ email mới
-            </label>
-            <input
-              id="new-email"
-              type="email"
-              className="account-input"
-              value={newEmail}
-              onChange={e => setNewEmail(e.target.value)}
-              placeholder="nhap.email.moi@example.com"
-              disabled={emailChangePending}
-            />
-            <span className="account-field-hint">
-              Hệ thống sẽ gửi email xác thực đến địa chỉ mới. Email đăng nhập chỉ thay đổi sau khi bạn xác minh.
+        {isOAuthOnly ? (
+          <div className="account-alert account-alert-info" role="status">
+            <span>
+              Tài khoản của bạn đăng nhập bằng nhà cung cấp bên ngoài (Google). Vui lòng cập nhật địa chỉ email trực tiếp trên tài khoản Google của bạn.
             </span>
           </div>
+        ) : (
+          <form className="account-form" onSubmit={handleEmailChange}>
+            <div className="account-field">
+              <label className="account-label" htmlFor="email-current-password">
+                Mật khẩu hiện tại
+              </label>
+              <input
+                id="email-current-password"
+                type="password"
+                className="account-input"
+                value={emailCurrentPassword}
+                onChange={e => setEmailCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+                disabled={emailChangePending}
+              />
+            </div>
 
-          <div>
-            <button
-              type="submit"
-              className="account-btn account-btn-secondary"
-              disabled={emailChangePending || !newEmail.trim()}
-            >
-              {emailChangePending ? 'Đang gửi…' : 'Yêu cầu đổi email'}
-            </button>
-          </div>
-        </form>
+            <div className="account-field">
+              <label className="account-label account-label-required" htmlFor="new-email">
+                Địa chỉ email mới
+              </label>
+              <input
+                id="new-email"
+                type="email"
+                className="account-input"
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+                placeholder="nhap.email.moi@example.com"
+                disabled={emailChangePending}
+              />
+              <span className="account-field-hint">
+                Hệ thống sẽ gửi email xác thực đến địa chỉ mới. Email đăng nhập chỉ thay đổi sau khi bạn xác minh.
+              </span>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                className="account-btn account-btn-secondary"
+                disabled={emailChangePending || !newEmail.trim()}
+              >
+                {emailChangePending ? 'Đang gửi…' : 'Yêu cầu đổi email'}
+              </button>
+            </div>
+          </form>
+        )}
       </section>
     </div>
   );

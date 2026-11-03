@@ -9,6 +9,11 @@ import {
   onAuthStateChanged as fbOnAuthStateChanged,
   updatePassword as fbUpdatePassword,
   verifyBeforeUpdateEmail as fbVerifyBeforeUpdateEmail,
+  GoogleAuthProvider,
+  signInWithRedirect as fbSignInWithRedirect,
+  getRedirectResult as fbGetRedirectResult,
+  EmailAuthProvider,
+  reauthenticateWithCredential as fbReauthenticateWithCredential,
   User,
   Auth,
 } from 'firebase/auth';
@@ -145,6 +150,36 @@ class FirebaseAuthClient {
       throw error;
     }
     await fbUpdatePassword(user, newPassword);
+  }
+
+  public async signInWithGoogleRedirect(): Promise<void> {
+    const auth = this.requireAuth();
+    const provider = new GoogleAuthProvider();
+    await fbSignInWithRedirect(auth, provider);
+  }
+
+  public async getRedirectAuthResult(): Promise<User | null> {
+    const auth = this.getAuth();
+    if (!auth) return null;
+    const cred = await fbGetRedirectResult(auth);
+    return cred ? cred.user : null;
+  }
+
+  public async reauthenticateWithCredential(password: string): Promise<void> {
+    const user = this.getCurrentUser();
+    if (!user || !user.email) {
+      const error: any = new Error('No authenticated user with email found to re-authenticate');
+      error.code = 'AUTHENTICATION_REQUIRED';
+      throw error;
+    }
+    const credential = EmailAuthProvider.credential(user.email, password);
+    await fbReauthenticateWithCredential(user, credential);
+  }
+
+  public hasPasswordProvider(): boolean {
+    const user = this.getCurrentUser();
+    if (!user || !Array.isArray(user.providerData)) return false;
+    return user.providerData.some(p => p.providerId === 'password');
   }
 
   public onAuthStateChanged(callback: (user: User | null) => void): () => void {

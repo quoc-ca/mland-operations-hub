@@ -297,24 +297,24 @@
 
 **Goal**: Support Google OAuth sign-in via redirect (`signInWithRedirect`), in-place re-authentication for password change and email change, and defensive provider eligibility checks.
 
-- [ ] T064 [US1] [FE] Implement Google redirect authentication in `ppswbs_frontend/src/features/accountmanagement/auth/FirebaseAuthClient.ts`:
+- [x] T064 [US1] [FE] Implement Google redirect authentication in `ppswbs_frontend/src/features/accountmanagement/auth/FirebaseAuthClient.ts`:
   - `signInWithGoogleRedirect()`: calls `signInWithRedirect(this.requireAuth(), new GoogleAuthProvider())`
   - `getRedirectAuthResult()`: calls `getRedirectResult(this.requireAuth())` returning `User | null`
   - `reauthenticateWithCredential(password)`: calls `reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password))`
-- [ ] T065 [US1] [FE] Update `ppswbs_frontend/src/features/accountmanagement/components/AuthPage.tsx`:
+- [x] T065 [US1] [FE] Update `ppswbs_frontend/src/features/accountmanagement/components/AuthPage.tsx`:
   - Add "Đăng nhập với Google" button with Google icon on both `signin` and `register` modes
   - On component mount, call `firebaseAuthClient.getRedirectAuthResult()`; when authenticated user returned, bootstrap account via `accountManagementApiClient.bootstrapOwnAccount()` and navigate to `/`
   - Error mapping: map `auth/account-exists-with-different-credential` to "Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc."
-- [ ] T066 [US2] [FE] Update `ProfilePage.tsx` for In-Place Password Re-authentication:
+- [x] T066 [US2] [FE] Update `ProfilePage.tsx` for In-Place Password Re-authentication:
   - Form has 3 fields: `currentPassword`, `newPassword` ($\ge 6$ chars), `confirmPassword`
   - On submit: call `firebaseAuthClient.reauthenticateWithCredential(currentPassword)` before `firebaseAuthClient.updatePassword(newPassword)`
   - Provider check: hide password section and quick-action trigger if `!user.providerData.some(p => p.providerId === 'password')`
   - Error handling: on re-auth failure (wrong current password), clear only `currentPassword`, show inline error, retain `newPassword`/`confirmPassword` in React state; clear all fields on success
-- [ ] T067 [US2] [FE] Update `ProfilePage.tsx` for In-Place Email Change Re-authentication:
+- [x] T067 [US2] [FE] Update `ProfilePage.tsx` for In-Place Email Change Re-authentication:
   - Form has 2 fields: `currentPassword`, `newEmail`
   - On submit: call `firebaseAuthClient.reauthenticateWithCredential(currentPassword)` before `firebaseAuthClient.verifyBeforeUpdateEmail(newEmail)`
   - Error handling: on re-auth failure, clear only `currentPassword`, show inline error, retain `newEmail` in React state; clear on success
-- [ ] T068 [US1/US2] [FE] Component and unit test coverage in `ppswbs_frontend/src/features/accountmanagement/tests/`:
+- [x] T068 [US1/US2] [FE] Component and unit test coverage in `ppswbs_frontend/src/features/accountmanagement/tests/`:
   - Verify Google redirect initiation, redirect result bootstrap, collision error handling, and 3-field password re-authentication
 
 ---
