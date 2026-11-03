@@ -682,3 +682,44 @@ Với member@gmail.com:
 **Kết luận:** phần quản trị và Member của T072/T078 nay đã chạy với phiên thật. Còn mở: T055 (FE-08).
 
 **Chạy lại toàn bộ backend 006 (2026-11-03, sau T079/T080 và các sửa frontend mục 42):** MySQL 8.4, database trống. `features.loyaltypromotion.**` + `ModulithArchitectureTests` + `WorkshopSellingLocationAdapterTest`: **276/276 đạt**, 0 lỗi, 0 bỏ qua.
+
+## 43. T055 sau develop `38c8427` (FE-08 thêm trang giỏ và checkout), 2026-11-03
+
+- FE-08 (Bùi Trọng Thịnh, commit `5b20812`) thêm `/member/cart`, `/member/checkout`, `/member/orders` và `RetailBenefitPanel` riêng. Panel này **không nhúng** `BenefitSelector`, nhưng vẫn dùng dữ liệu FE-06: Kho voucher, `loyalty-accounts/current`, `ready-ring-benefit-previews`.
+- `BenefitPreviewView` vẫn chưa có `maxPoints`. Panel tự tính `maxPoints = min(availablePoints, floor(merchandiseSubtotal × maxRedeemPercent / 100 / redeemPointValue))`, lệch với `LoyaltyCalculator.pointsLimit` ở 3 chỗ:
+  1. Tính trên tiền hàng gốc thay vì `netBeforePoints` (sau ưu đãi chương trình).
+  2. Không chặn khi số điểm tối đa nhỏ hơn `minRedeemPoints`.
+  3. Không đưa về 0 khi chương trình có `allowPoints = false`.
+  Hệ quả: khách có thể chọn số điểm mà backend từ chối (`POINTS_LIMIT_CHANGED` / `POINTS_USE_NOT_ALLOWED`).
+- **Quyết định của owner 006 (Đặng Thị Khương, 2026-11-03):** chấp nhận FE-08 dùng giao diện riêng thay cho nhúng `BenefitSelector`. **T055 chỉ tick sau khi FE-08 sửa `maxPoints`**, theo một trong hai cách:
+  - `BenefitPreviewView` trả `maxPoints`/`pointsRedeemable` từ `LoyaltyCalculator.pointsLimit` (đề xuất);
+  - frontend tính đúng cả 3 điểm trên.
+  Khi FE-08 sửa xong: chạy lại hành trình checkout bán lẻ có voucher và điểm, rồi tick T055.
+- Đã gửi Thịnh nội dung cần sửa.
+
+## 44. T055: FE-08 đã sửa `maxPoints` (nhánh `thinh` `5185994`), 2026-11-03
+
+- **Backend FE-08:** `BenefitPreviewView` thêm `maxPoints`, lấy từ `result.maxPoints()` của báo giá FE-06. `RetailCheckoutQuotePreviewService` từ chối kết quả thiếu hoặc âm `maxPoints`, và trả `maxPoints` cả khi `eligible = false`.
+  - Phía 006, `RetailQuote.Result.maxPoints` = `LoyaltyCalculator.pointsLimit(policy, netBeforePoints, available, combinable).maxPoints()`, tức là tính trên tiền **sau ưu đãi chương trình** và bằng 0 khi chương trình không cho dùng điểm. Hai lệch (1) và (3) của mục 43 đã hết.
+- **Frontend FE-08:** `RetailBenefitPanel` bỏ phần tự tính, dùng `quote.maxPoints`. Chỉ nhận giá trị khi báo giá trùng lựa chọn voucher hiện tại; chưa tính lại thì nút gạt điểm bị khóa, kèm dòng "Tính lại ưu đãi để xem điểm tối đa". Mức tối đa 0 thì không bật được. Đổi voucher thì đưa điểm về 0.
+- **Lệch (2), dưới mức tối thiểu:** nếu `maxPoints` nhỏ hơn `minRedeemPoints` (ví dụ 9 so với 10), nút gạt vẫn bật được. Khi đó báo giá trả `eligible = false` với lý do "Points must be between 10 and 9.", panel hiện lý do và khóa "Tạo đơn", nên không thể tạo đơn sai. Đây chỉ là chỗ cải thiện trải nghiệm: muốn khóa sẵn nút gạt thì `BenefitPreviewView` cần trả thêm `minRedeemPoints` hoặc `pointsRedeemable`. Không chặn T055.
+- **Kiểm chứng trên worktree tạm `origin/thinh` (MySQL 8.4, database trống):**
+  - Backend: `RetailCheckoutQuotePreviewServiceTest` 5, `RetailCheckoutQuoteTest` 2, `RetailCheckoutQuoteValidatorTest` 4, `LoyaltyRetailQuoteTest` 14, `LoyaltyRetailCheckoutIT` 8, `LoyaltyRetailSourceIntegrationIT` 10, `ModulithArchitectureTests` 5 → **48/48 đạt**.
+  - Frontend: `readyringsales` (gồm `RetailBenefitPanel.test.jsx` 4) + 006 + 002 → **68/68 đạt**.
+- **Chưa chạy:**
+  - Hành trình checkout bán lẻ trên trình duyệt: database local chưa có chi nhánh đang hoạt động (003.2), nên không thêm được vào giỏ.
+  - Commit `5185994` mới nằm trên `origin/thinh`, chưa có trên `develop`.
+
+## 45. Đóng T055 trên develop `4fdae05`, 2026-11-03
+
+- `5185994` (dùng `maxPoints` từ báo giá FE-06) và `3c5608a` (thêm `minRedeemPoints`) của FE-08 đã vào develop qua `4fdae05`. Develop không đổi file nào của 002/006 so với `38c8427`.
+- Cả 3 lệch của mục 43 đã hết:
+  1. `maxPoints` tính trên tiền sau ưu đãi chương trình (`LoyaltyCalculator.pointsLimit`).
+  2. `BenefitPreviewView.minRedeemPoints`: khi `maxPoints` nhỏ hơn mức tối thiểu, `RetailBenefitPanel` khóa nút gạt và hiện "Cần tối thiểu N điểm để sử dụng".
+  3. Chương trình không cho dùng điểm thì `maxPoints` = 0, nút gạt bị khóa.
+- Kiểm chứng trên worktree tạm của `origin/develop` (MySQL 8.4, database trống):
+  - Backend: `RetailCheckoutQuotePreviewServiceTest` 5, `RetailCheckoutQuoteTest` 2, `RetailCheckoutQuoteValidatorTest` 4, `LoyaltyRetailQuoteTest` 14, `LoyaltyRetailCheckoutIT` 8, `LoyaltyRetailSourceIntegrationIT` 10, `ModulithArchitectureTests` 5 → **48/48 đạt**.
+  - Frontend: `readyringsales` + 006 + 002 → **88/88 đạt**.
+- **T055 tick** theo quyết định của owner 006: FE-08 dùng giao diện riêng, dữ liệu và giới hạn điểm lấy từ FE-06.
+- Còn lại, không phải task 006: hành trình checkout bán lẻ trên trình duyệt cần chi nhánh đang hoạt động (003.2) để thêm được vào giỏ.
+- 006 nay **80/80 task đã tick**.
