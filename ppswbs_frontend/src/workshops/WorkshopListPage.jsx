@@ -71,8 +71,8 @@ export function WorkshopListPage() {
                 </p>
                 <div style={{ fontSize: '13px', color: '#595959', display: 'flex', flexDirection: 'column', gap: '4px', margin: '12px 0' }}>
                   <span>⏱ Số buổi yêu cầu: <strong>{pkg.requiredSessionCount || 1} buổi</strong></span>
-                  <span>👥 Số người: <strong>{pkg.minParticipants} - {pkg.maxParticipants} người</strong></span>
-                  <span>📍 Chi nhánh: <strong>{pkg.sameLocationRequired ? 'Cùng chi nhánh' : 'Linh hoạt'}</strong></span>
+                  <span>👥 Quy định số vé / booking: <strong>{pkg.minParticipants} - {pkg.maxParticipants}</strong></span>
+                  <span>📍 Quy định địa điểm: <strong>{pkg.sameLocationRequired ? 'Chọn cùng một chi nhánh' : 'Có thể linh hoạt'}</strong></span>
                   {pkg.minimumSameDaySlotGap > 0 && (
                     <span>⏳ Cách tối thiểu: <strong>{pkg.minimumSameDaySlotGap} ca trong ngày</strong></span>
                   )}

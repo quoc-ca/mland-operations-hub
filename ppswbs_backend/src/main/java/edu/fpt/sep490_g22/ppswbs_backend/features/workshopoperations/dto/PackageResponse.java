@@ -19,5 +19,6 @@ public class PackageResponse {
     private Integer requiredSessionCount;
     private Boolean sameLocationRequired;
     private Integer minimumSameDaySlotGap;
+    private Integer requiredFoundryWorkingDaysBetweenSessions;
     private WorkshopPackageState state;
 }

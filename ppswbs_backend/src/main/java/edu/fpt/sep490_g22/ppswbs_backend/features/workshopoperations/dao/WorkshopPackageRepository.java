@@ -19,6 +19,8 @@ public interface WorkshopPackageRepository extends Repository<WorkshopPackage, L
 
     List<WorkshopPackage> findByStateOrderByIdAsc(WorkshopPackageState state);
 
+    List<WorkshopPackage> findAllByOrderByIdAsc();
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from WorkshopPackage p where p.id = :packageId")
     Optional<WorkshopPackage> findByIdWithLock(@Param("packageId") Long packageId);

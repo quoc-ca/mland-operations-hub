@@ -199,7 +199,8 @@ public class CapacityHoldService {
                 && left.getMinParticipants().equals(right.getMinParticipants())
                 && left.getMaxParticipants().equals(right.getMaxParticipants())
                 && left.isSameLocationRequired() == right.isSameLocationRequired()
-                && left.getMinimumSameDaySlotGap().equals(right.getMinimumSameDaySlotGap());
+                && left.getMinimumSameDaySlotGap().equals(right.getMinimumSameDaySlotGap())
+                && Objects.equals(left.getRequiredFoundryWorkingDaysBetweenSessions(), right.getRequiredFoundryWorkingDaysBetweenSessions());
     }
 
     /**

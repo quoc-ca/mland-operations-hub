@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-02
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -248,15 +248,15 @@ perform refunds or connect directly to external OTAs.
   in the same Operations local transaction. 003.4 consumes it at-least-once and
   owns its separate durable outbound OTA delivery; V1 uses no broker.
 
-- Q: Should a Silverclay participant have one QR ticket or one QR per session?
+- Q: Should a multi-session (currently Wax Casting) participant have one QR ticket or one QR per session?
   → A: Each participant has one persistent QR ticket. It is valid for every
   required session of the package; attendance remains independently recorded
   for each ticket/session pair.
-- Q: How is a persistent Silverclay QR validated at a session? → A: The
+- Q: How is a persistent multi-session QR validated at a session? → A: The
   scanner operates in its current session/branch context. It accepts the QR
   only when the ticket is entitled to that session and branch and has not
   already checked in at that session; it does not let the QR select a session.
-- Q: What does a prior check-in at the first Silverclay session do to the
+- Q: What does a prior check-in at the first multi-session workshop session do to the
   second session? → A: Check-in is independent for each ticket/session pair.
   A repeat scan at the first session returns already checked-in there, while
   the same QR remains eligible for the second session until it is checked in
@@ -305,6 +305,22 @@ perform refunds or connect directly to external OTAs.
 ### Session 2026-10-27
 
 - Q: Are a Workshop Branch and a Workshop Location separate resources or the same resource? → A: They are the same canonical physical Mland workshop location. Every `activeLocationId` supplied by Account Management and every session/slot location reference use the canonical `workshop_location.id`. Operations MUST NOT create, maintain, or authorize against an independent branch identifier or a branch-to-location mapping.
+
+### Session 2026-11-03
+
+- Q: How do Manager Operations REST writes apply the module-owned idempotency
+  ledger? → A: Every state-changing endpoint used by package, package add-on,
+  location, slot or session administration MUST require an `Idempotency-Key`
+  header (1–128 characters). The key is the durable operation reference and is
+  globally unique across Operations REST commands, while the ledger retains the
+  action, request scope and semantic fingerprint. Reusing the same key with the
+  same semantic command MUST replay the original response without another audit
+  event or business mutation. Reusing it with a changed payload, scope or action
+  MUST return typed `409 IDEMPOTENCY_CONFLICT`; an equivalent request while the
+  first claim is active MUST return typed `409 IDEMPOTENCY_IN_PROGRESS`. A
+  failed technical command abandons the in-progress claim so the same command
+  can be retried safely. `X-Correlation-Id` remains tracing/audit context only
+  and MUST NOT be used for deduplication.
 - Q: Should Workshop Operations use `branch` or `location` in its public contract and data terminology? → A: It uses `location` throughout public API routes, DTO fields and schema terminology. “Branch” is a legacy synonym only in older prose awaiting rebase; it MUST NOT prescribe a separate resource or identifier.
 
 ### Session 2026-10-28
@@ -312,7 +328,18 @@ perform refunds or connect directly to external OTAs.
 - Q: Which 003 subfeature owns the published Workshop Package catalogue and its required-session rules? → A: 003.2 Workshop Operations owns the published Workshop Package master configuration: description, public price, participant constraints, and required-session rules. It exposes a semantic package-discovery/read boundary to 003.1. 003.1 consumes that boundary and freezes the selected package and applicable price into its booking snapshot; it does not own or mutate the package master.
 - Q: Does a Manager manage Workshop Packages through 003.2 REST APIs in V1? → A: Yes. 003.2 provides Manager-only REST management for Workshop Package configuration and publication. 003.1 remains the consumer for public package discovery through the internal semantic boundary and for booking snapshots; it does not expose or own package-management commands.
 - Q: Does a Workshop Package attach concrete sessions or define only required-session rules? → A: It defines only the required-session rule. Customers select concrete future sessions during booking; 003.2 authoritatively validates their sale eligibility and reserves capacity. Managers create and manage sessions independently, without editing a package whenever the schedule changes.
-- Q: Must the two required Silverclay sessions use the same Workshop Location? → A: Yes. V1 requires both selected Silverclay sessions to use the same canonical `locationId`, although they may use different future dates or slots at that location.
+- Q: What is the confirmed Mland Workshop package catalogue? → A: The five
+  commercial offers and their supplied prices/material facts are canonical in
+  [catalogue.md](./catalogue.md): Signature Brass, Signature Silver 925, Silver
+  Clay 5g, Silver Clay 7g and Wax Casting. Silver Clay is a one-session offer;
+  Wax Casting is the two-session offer. Older “Basic Ring” and two-session
+  “Silverclay” examples are superseded for new catalogue configuration.
+- Q: How does Operations enforce Wax Casting's two-session spacing? → A: The
+  two distinct, chronological sessions must use the same location and have
+  exactly two foundry-working local dates strictly between their dates.
+  Monday–Friday are foundry-working dates; Saturday and Sunday are skipped.
+  Session time/slot is irrelevant, so Monday's final slot followed by Thursday's
+  first slot is valid. This is not the legacy same-day slot-gap rule.
 - Q: What lifecycle does a V1 Workshop Package use? → A: `DRAFT → PUBLISHED → RETIRED`. A retired package cannot accept a new booking and cannot be deleted when it has ever been published or frozen into a booking snapshot. Historical bookings retain their frozen snapshot.
 - Q: Which module owns the customer-facing Package and session-discovery REST routes? → A: 003.2 owns them because it owns the Package master and authoritative session sale eligibility. The public URLs remain stable for the frontend. 003.1 owns only Booking commands and reads, and consumes the required data through 003.2's internal facade rather than exposing a competing discovery route.
 - Q: Should Package publication and retirement be ordinary updates or explicit lifecycle commands? → A: They are explicit Manager-only lifecycle commands below the Package resource. Create/read/update use normal resource routes; publication and retirement use separate commands so authorization and immutable audit clearly record the business transition.
@@ -322,7 +349,7 @@ perform refunds or connect directly to external OTAs.
 
 - Q: Do public Package discovery and Manager Package management use one REST resource path? → A: Yes. Both use `/api/v1/workshop-packages`. Public callers may only read `PUBLISHED` Packages; active Manager create, update and lifecycle commands are differentiated by method and server-side authorization rather than a separate management namespace.
 
-- Q: Does a Package use a fixed type enum or generic required-session rules? → A: It uses generic `requiredSessionCount` and `sameLocationRequired` rules. Basic Ring (`1`, `true`) and Silverclay (`2`, `true`) are current Package configurations, not a closed package-type enum; future Packages may use other valid values without a code enum change.
+- Q: Does a Package use a fixed type enum or generic required-session rules? → A: It uses generic `requiredSessionCount` and `sameLocationRequired` rules. The four Signature/Silver Clay catalogue offers currently require one selected session and Wax Casting requires two; these are Package configurations, not a closed package-type enum.
 
 - Q: Does V1 need a separate immutable business package code? → A: No. The system-generated `packageId` is the technical identity and an active Manager supplies an editable public `name`. Every Package also has a required public per-participant price; V1 has no separate `packageCode`.
 
@@ -335,7 +362,11 @@ perform refunds or connect directly to external OTAs.
 - Q: What is the canonical Workshop Session identity shared with Booking? → A: Operations keeps its UUID session identity. 003.1 consumes it only as an opaque UUID/string `sessionReference`; it must retire its legacy `int64` session identifier contract. V1 does not accept two session identity formats.
 - Q: Which safe reasons distinguish Package reserve refusal? → A: Operations returns `PACKAGE_NOT_PUBLISHED` when the Package is no longer bookable and `PACKAGE_SELECTION_INVALID` when participant bounds, required-session count or same-location rules fail. Capacity exhaustion remains `INSUFFICIENT_CAPACITY`. These reasons are safe semantic outcomes, not internal rule or persistence detail.
 - Q: Which filters are required for public Package session discovery? → A: `locationId` is required. `from` and `to` are optional customer date filters; clients may apply a short default window when absent. The result remains limited to future, `PUBLISHED`, customer-selectable sessions for that Package at the one requested location.
-- Q: How is Silverclay's same-day non-adjacent-session rule retained without making Booking own a Silverclay special case? → A: Package configuration adds generic non-negative `minimumSameDaySlotGap`. It is `1` for Silverclay, meaning two selected sessions on the same local day must have at least one configured slot between them; it is `0` for Packages with no same-day separation requirement, including Basic Ring. Operations validates it atomically with reserve.
+- Q: What happens to the former Silverclay same-day non-adjacent rule? → A: It
+  was an illustrative legacy configuration, not a property of the confirmed
+  Silver Clay catalogue. `minimumSameDaySlotGap` remains a generic field for a
+  same-local-date package rule, but it must not be used for Wax Casting, whose
+  foundry-working-date requirement is represented separately.
 
 ## Business model
 
@@ -355,10 +386,14 @@ scope. The target implementation and all public contracts use `location` and
   attaches concrete dated sessions. A customer selects eligible future sessions
   during booking; Operations validates and reserves their capacity
   authoritatively. Its generic required-session rule contains
-  `requiredSessionCount`, `sameLocationRequired` and non-negative
-  `minimumSameDaySlotGap`. Basic Ring (`1`, `true`, `0`) and Silverclay (`2`,
-  `true`, `1`) are current configurations, not a closed
-  package-type enum. A package may be published only when this feature can
+  `requiredSessionCount`, `sameLocationRequired`, non-negative
+  `minimumSameDaySlotGap` and non-negative
+  `requiredFoundryWorkingDaysBetweenSessions`. The four Signature/Silver Clay
+  offers use one required session and a foundry-working-day value of `0`; Wax
+  Casting uses two and a value of `2`. For Wax Casting, Operations counts
+  Monday–Friday local dates strictly between the two sessions and excludes
+  Saturday/Sunday. These configurations are not
+  a closed package-type enum. A package may be published only when this feature can
   evaluate its required sessions through the authoritative location/session
   sale-eligibility boundary. Booking reads this master data but stores its own
   immutable selected-package and price snapshot when it creates a booking. Its
@@ -706,8 +741,9 @@ correction, with before/after audit evidence.
   Every reserve request from 003.1 MUST carry the selected `packageReference`.
   Operations MUST atomically recheck that the Package is `PUBLISHED`, the
   requested participant count is within its bounds, the complete selected
-  session set satisfies its required-session count, location rule and any
-  same-day slot-gap rule, and every session remains sale-eligible with capacity.
+  session set satisfies its required-session count, location rule, any
+  same-day slot-gap rule and any foundry-working-date rule, and every session
+  remains sale-eligible with capacity.
   It reserves every requested
   session or none. A frontend, Booking snapshot or prior discovery result never
   independently authorizes that selection.
@@ -733,10 +769,13 @@ correction, with before/after audit evidence.
   participant count MUST be inside that range and still fit every selected
   required session's authoritative available capacity.
   A Package MUST expose generic `requiredSessionCount`,
-  `sameLocationRequired` and non-negative `minimumSameDaySlotGap` rules.
-  Basic Ring (`1`, `true`, `0`) and Silverclay (`2`, `true`, `1`) are current
-  configurations, not a closed type enum. A value of `1` requires at least one
-  configured slot between two selected sessions on the same local date. 003.1 MUST NOT
+  `sameLocationRequired`, non-negative `minimumSameDaySlotGap` and non-negative
+  `requiredFoundryWorkingDaysBetweenSessions` rules. The four Signature/Silver
+  Clay catalogue offers use one selected session and a foundry-working-day value
+  of `0`; Wax Casting uses two and a value of `2`. Operations must count
+  exactly two Monday–Friday local dates strictly between Wax Casting sessions,
+  excluding Saturday/Sunday; `minimumSameDaySlotGap` never satisfies that rule.
+  003.1 MUST NOT
   access Operations entities or repositories, mutate package
   master data, or derive the required-session set independently; it freezes the
   selected package and applicable price only in its own booking snapshot. A
@@ -1084,6 +1123,16 @@ correction, with before/after audit evidence.
 - **FR-012b**: The system MUST consume, but MUST NOT create, modify or revoke,
   Manager-to-location assignments. Account/personnel management owns that
   assignment lifecycle.
+- **FR-013**: Workshop add-on inventory MUST expose separate public and
+  management contracts. The public package/location add-on read MUST expose
+  only currently `ACTIVE` add-ons that are eligible for customer display. The
+  Manager management read MUST expose `DRAFT`, `ACTIVE` and `RETIRED` add-ons
+  for the selected package and location so that a page reload cannot hide
+  lifecycle state. Add-on creation, editing and lifecycle transitions MUST use
+  the canonical authenticated Operations write routes; the management
+  inventory route is read-only and MUST NOT be used as a second create/update
+  contract. Frontend code MUST NOT fabricate missing lifecycle states when the
+  management API returns an empty result.
 
 ## Success Criteria
 

@@ -107,7 +107,7 @@ class WorkshopPackageFacadeIT {
                 .map(java.lang.reflect.RecordComponent::getName))
                 .containsExactly("packageReference", "publicPerParticipantPrice", "minParticipants",
                         "maxParticipants", "requiredSessionCount", "sameLocationRequired",
-                        "minimumSameDaySlotGap", "packageName");
+                        "minimumSameDaySlotGap", "requiredFoundryWorkingDaysBetweenSessions", "packageName");
     }
 
     @Test

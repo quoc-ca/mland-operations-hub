@@ -144,8 +144,8 @@ export function WorkshopDetailPage({ packageId }) {
             <h3 style={{ margin: '0 0 12px', fontSize: '16px' }}>Quy định của gói workshop</h3>
             <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.8', fontSize: '14px', color: '#333' }}>
               <li>Số buổi thực hiện: <strong>{pkg.requiredSessionCount || 1} buổi</strong></li>
-              <li>Số người tham gia: <strong>{pkg.minParticipants} - {pkg.maxParticipants} người / ca</strong></li>
-              <li>Chi nhánh: <strong>{pkg.sameLocationRequired ? 'Bắt buộc cùng một chi nhánh' : 'Linh hoạt giữa các chi nhánh'}</strong></li>
+              <li>Quy định số vé / booking: <strong>{pkg.minParticipants} - {pkg.maxParticipants} vé</strong></li>
+              <li>Quy định địa điểm: <strong>{pkg.sameLocationRequired ? 'Bắt buộc chọn cùng một chi nhánh' : 'Có thể chọn linh hoạt giữa các chi nhánh'}</strong></li>
               {pkg.minimumSameDaySlotGap > 0 && (
                 <li>Khoảng cách tối thiểu nếu học cùng ngày: <strong>cách ít nhất {pkg.minimumSameDaySlotGap} ca</strong></li>
               )}

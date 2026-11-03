@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Records a fixed Operations catalogue snapshot only after Booking confirms customer authority. */
+/** Records a fixed Operations catalogue snapshot after Staff/Manager confirms it at the workshop. */
 @Service
 @RequiredArgsConstructor
 public class CatalogueAddOnService {
@@ -22,13 +22,12 @@ public class CatalogueAddOnService {
     private final WorkshopOperationsSettlementAdapter operations;
 
     @Transactional
-    public SettlementCharge add(String bookingCode, Long memberAccountId, String contactEmail, String contactPhone,
-                                String addOnReference) {
-        var access = booking.verifyCustomerAccess(bookingCode, memberAccountId, contactEmail, contactPhone);
-        if (access == null || !access.authorized()) throw new WorkshopSettlementNotFoundException();
+    public SettlementCharge add(String bookingCode, String addOnReference) {
         var bill = bills.findByBookingReference(bookingCode)
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
         if (!"OPEN".equals(bill.getLifecycleStatus())) throw new WorkshopSettlementConflictException("FINAL_BILL_NOT_OPEN");
+        // The API service has already authenticated the Staff/Manager and resolved the booking.
+        // Keep this service focused on snapshotting the eligible catalogue price into the open bill.
         var confirmed = booking.confirmedProjection(bookingCode);
         if (confirmed == null) throw new WorkshopSettlementNotFoundException();
         var snapshot = operations.addOnPrice(confirmed.packageReference(), confirmed.bookingLocationReference(), addOnReference);

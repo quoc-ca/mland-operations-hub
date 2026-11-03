@@ -42,6 +42,15 @@ public class WorkshopPackageService {
     }
 
     @Transactional(readOnly = true)
+    public List<PackageResponse> listForManagement(
+            edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.WorkshopPackageState state) {
+        List<WorkshopPackage> packages = state == null
+                ? packageRepository.findAllByOrderByIdAsc()
+                : packageRepository.findByStateOrderByIdAsc(WorkshopPackageState.valueOf(state.name()));
+        return packages.stream().map(WorkshopPackageService::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
     public PackageResponse getPublished(Long packageId) {
         WorkshopPackage workshopPackage = packageRepository.findById(packageId)
                 .filter(candidate -> candidate.getState() == WorkshopPackageState.PUBLISHED)
@@ -54,6 +63,9 @@ public class WorkshopPackageService {
                                                String correlationReference) {
         WorkshopPackage workshopPackage = packageRepository.findByIdWithLock(packageId)
                 .orElseThrow(() -> new WorkshopNotFoundException("Workshop Package not found"));
+        if (workshopPackage.getState() == WorkshopPackageState.RETIRED) {
+            throw new WorkshopLifecycleException("Retired Workshop Package cannot be edited");
+        }
         applyRequest(workshopPackage, request);
         WorkshopPackage saved = packageRepository.save(workshopPackage);
         recordAudit("WORKSHOP_PACKAGE_UPDATED", actorId, saved.getId(), saved.getState(), correlationReference);
@@ -121,6 +133,7 @@ public class WorkshopPackageService {
         entity.setRequiredSessionCount(request.getRequiredSessionCount());
         entity.setSameLocationRequired(Boolean.TRUE.equals(request.getSameLocationRequired()));
         entity.setMinimumSameDaySlotGap(request.getMinimumSameDaySlotGap());
+        entity.setRequiredFoundryWorkingDaysBetweenSessions(request.getRequiredFoundryWorkingDaysBetweenSessions());
     }
 
     private static PackageResponse toResponse(WorkshopPackage entity) {
@@ -134,6 +147,7 @@ public class WorkshopPackageService {
                 .requiredSessionCount(entity.getRequiredSessionCount())
                 .sameLocationRequired(entity.isSameLocationRequired())
                 .minimumSameDaySlotGap(entity.getMinimumSameDaySlotGap())
+                .requiredFoundryWorkingDaysBetweenSessions(entity.getRequiredFoundryWorkingDaysBetweenSessions())
                 .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.WorkshopPackageState
                         .valueOf(entity.getState().name()))
                 .build();

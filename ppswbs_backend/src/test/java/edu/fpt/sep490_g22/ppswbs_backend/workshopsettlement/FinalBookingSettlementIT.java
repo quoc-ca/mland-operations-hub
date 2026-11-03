@@ -46,7 +46,7 @@ import static org.mockito.Mockito.*;
  * verified-payment-before-output-handover, ownership/proof, browser-return denial,
  * and reference-only notification-handoff delivery-failure isolation.
  */
-@SpringBootTest
+@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 @ActiveProfiles("test")
 @Transactional
 class FinalBookingSettlementIT {
@@ -104,7 +104,7 @@ class FinalBookingSettlementIT {
     }
 
     @Test
-    @DisplayName("Staff variable charge and Customer catalogue add-on charge increase outstanding balance")
+    @DisplayName("Staff variable charge and Staff-confirmed catalogue add-on increase outstanding balance")
     void addCharges_variableAndCatalogueAddOn_increasesOutstandingBalance() {
         setupOpenBill(40_000L);
 
@@ -116,16 +116,19 @@ class FinalBookingSettlementIT {
         assertThat(afterVar.charges().get(0).description()).isEqualTo("Extra clay and glaze");
         assertThat(afterVar.charges().get(0).amount()).isEqualTo(10_000L);
 
-        // 2. Member adds catalogue add-on charge of 15,000 VND
-        when(bookingAdapter.verifyCustomerAccess(BOOKING_CODE, MEMBER_ID, null, null))
-                .thenReturn(new CustomerBookingAccessDecision(true));
+        // 2. Staff confirms a catalogue add-on at the workshop.
         when(operationsAdapter.addOnPrice("PKG-1", LOCATION_ID, "ADDON-GIFT-BOX"))
                 .thenReturn(new WorkshopAddOnPriceSnapshot("ADDON-GIFT-BOX", "Premium gift wrap box", 15_000L, "VND"));
 
         ChargeCommandDto catCmd = new ChargeCommandDto("ADDON-GIFT-BOX", null, null, null, null, null);
-        FinalBillProjectionDto afterCat = apiService.addCharge(BOOKING_CODE, "idem-charge-cat", "CORR-03", catCmd, memberAuth(MEMBER_ID));
+        FinalBillProjectionDto afterCat = apiService.addCharge(BOOKING_CODE, "idem-charge-cat", "CORR-03", catCmd, staffAuth(LOCATION_ID));
         assertThat(afterCat.outstandingAmount()).isEqualTo(65_000L);
         assertThat(afterCat.charges()).hasSize(2);
+
+        // Customer identities cannot mutate settlement charges.
+        assertThatThrownBy(() -> apiService.addCharge(BOOKING_CODE, "idem-charge-cat-member", "CORR-04", catCmd, memberAuth(MEMBER_ID)))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                .hasMessage("LOCATION_SCOPE_DENIED");
     }
 
     @Test

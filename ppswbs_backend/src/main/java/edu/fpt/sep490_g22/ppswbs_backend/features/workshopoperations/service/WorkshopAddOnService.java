@@ -39,6 +39,19 @@ public class WorkshopAddOnService {
                 .map(AddOnResponse::from).toList();
     }
 
+    /**
+     * Management inventory deliberately differs from the public catalogue: a
+     * Manager must be able to see drafts and retired entries in order to audit
+     * and operate their lifecycle.  The controller authenticates the Manager;
+     * this method validates only that the scoped records still exist.
+     */
+    @Transactional(readOnly = true)
+    public List<AddOnResponse> listForManagement(Long packageId, Long locationId) {
+        requirePackageAndLocation(packageId, locationId);
+        return addOns.findByPackageIdAndLocationIdOrderByDescriptionAsc(packageId, locationId).stream()
+                .map(AddOnResponse::from).toList();
+    }
+
     @Transactional
     public AddOnResponse createDraft(Long packageId, Long locationId, AddOnWrite request,
                                      Long actorId, String correlationId) {

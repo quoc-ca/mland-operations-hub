@@ -1,7 +1,7 @@
 # Implementation Plan: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-02
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -13,21 +13,25 @@
 ## Summary
 
 003.1 is the direct-Mland customer booking core. One booking purchases exactly
-one Package, with no cart of unrelated Packages. The current Basic Ring and
-direct-Mland Silverclay configurations select respectively one and two common
-workshop sessions at one canonical Workshop Location; Operations, not Booking,
-authoritatively applies each Package's required-session and same-day-gap rules.
-Both reservations are committed or neither exists. Each participant consumes one
-place in every selected session, and every Package shares that session's single
-capacity pool.
+one Package, with no cart of unrelated Packages. The confirmed catalogue is in
+`003.2-workshop-operations/catalogue.md`: Signature Brass, Signature Silver
+925, Silver Clay 5g and Silver Clay 7g select one session; Wax Casting selects
+two at one canonical Workshop Location. Operations, not Booking, authoritatively
+applies each Package's required-session and same-location rules. Wax Casting
+requires exactly two Monday–Friday local dates strictly between its two
+sessions, skipping Saturday/Sunday; the legacy `minimumSameDaySlotGap` cannot
+represent it. Both reservations
+are committed or neither exists. Each participant consumes one place in every
+selected session, and every Package shares that session's single capacity pool.
 
 The booking freezes `participant_count × price_per_participant`, the resulting
 post-promotion amount, `ceil(post_promotion_amount / 2)` deposit, and exact
 remaining amount. It creates one deposit invoice and no participant identity
 records.
 Valid, idempotent gateway evidence — never a browser redirect — confirms the
-booking and issues one QR ticket per participant. A Silverclay ticket admits
-one seat in both selected sessions. It is not identity-bound. 003.1 stops at
+booking and issues one QR ticket per participant. A multi-session ticket (Wax
+Casting under the confirmed catalogue) admits one seat in every selected
+session. It is not identity-bound. 003.1 stops at
 ticket issuance/delivery and authorized lookup.
 
 ## Technical Context
@@ -167,8 +171,8 @@ audit records.
 
 The model in [data-model.md](data-model.md) adds a booking-to-session commitment
 instead of a cart/item model. Its delivery projection represents one 003.2
-ticket per participant and its entitled sessions, allowing one Silverclay QR to
-be checked independently in either session without storing a participant
+ticket per participant and its entitled sessions, allowing one multi-session
+QR to be checked independently in either session without storing a participant
 identity. Monetary snapshots are integer VND, with even `price_per_participant`.
 
 No existing applied migration may be edited. Development/test reset is allowed
@@ -183,9 +187,10 @@ account/scope checks, pending synchronization into `spec-general.md` and
 
 ## Verification plan
 
-Use [quickstart.md](quickstart.md) to verify: one-session Basic Ring; two-session
-Silverclay with shared capacity; all-or-nothing failure; same-location/ordering/
-same-day-gap rules; odd/even post-promotion amount with rounded-up deposit and
+Use [quickstart.md](quickstart.md) to verify: each one-session catalogue offer;
+two-session Wax Casting with shared capacity and exactly two intervening
+Monday–Friday foundry-working dates; all-or-nothing failure; same-location and ordering rules; odd/even
+post-promotion amount with rounded-up deposit and
 exact remaining amount; valid/invalid/duplicate/late gateway
 events; ticket issuance and lookup; Magic-Link revocation; hold expiry; and
 authorization-safe lookup. The approved frontend E2E suite must prove that a
@@ -198,8 +203,8 @@ evidence MySQL migration coverage, API contract validation, and
 
 ## Design risks and handoff conditions
 
-The deliberately rejected shortcut is a generic cart or a separate Silverclay
-slot/capacity type: both contradict the approved one-package booking and shared
+The deliberately rejected shortcut is a generic cart or a separate
+multi-session slot/capacity type: both contradict the approved one-package booking and shared
 slot model while adding avoidable allocation complexity. The remaining blockers
 are not product decisions to guess:
 

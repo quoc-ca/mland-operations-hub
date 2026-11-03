@@ -55,6 +55,10 @@ public class WorkshopPackage {
     @Column(name = "minimum_same_day_slot_gap", nullable = false)
     private Integer minimumSameDaySlotGap;
 
+    @Column(name = "required_foundry_working_days_between_sessions", nullable = false)
+    @Builder.Default
+    private Integer requiredFoundryWorkingDaysBetweenSessions = 0;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "state", nullable = false, length = 16)
     @Builder.Default

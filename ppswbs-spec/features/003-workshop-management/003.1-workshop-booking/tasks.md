@@ -146,6 +146,21 @@ invalid/revoked/expired proof reveals no booking data and recovery stays safe.
   including oldest-first merge, unverified-provider exclusion, duplicate late
   evidence deduplication, nullable legacy provider facts and a PII-free type.
 
+- [X] T053 Consume 003.2's extended published-package and accepted-hold policy
+  snapshot after T084--T086 without adding Booking-owned calendar logic. Add
+  Booking acceptance coverage that the complete Wax Casting pair is forwarded
+  unchanged and that Operations' weekday-count refusal produces no booking,
+  hold, Loyalty reservation, or payment attempt. Historical two-session
+  Silverclay evidence does not verify the confirmed Wax Casting rule.
+  Verified by `WaxCastingBookingAcceptanceIT` (5/5 passed on MySQL):
+  `mondayToThursdayValidAccepted` and `fridayToWednesdayNextWeekValidAccepted`
+  forward complete session pairs intact to Operations facade;
+  `mondayToWednesdayInvalidRejectedWithoutMutations` and
+  `fridayToTuesdayNextWeekInvalidRejectedWithoutMutations` atomically fail with
+  `PACKAGE_SELECTION_INVALID` leaving 0 bookings, 0 holds, 0 tickets, and 0 payment attempts;
+  `memberQuoteAcceptanceRejectionLeavesZeroLoyaltyReservationOrBooking` verifies
+  `loyaltyFacade.reserveAcceptedTransaction` is never invoked on Operations refusal.
+
 ## Dependencies and execution order
 
 - T052 exposes verified deposit payment facts through `WorkshopBookingFacade`
@@ -176,3 +191,13 @@ on T005. This delivers discovery, one-package atomic booking, and
 deposit-confirmed ticket delivery. Then add safe lookup/recovery (US4).
 
 All checklist items remain unchecked until implementation evidence is available.
+
+### Frontend auth-journey correction (2026-11-03)
+
+The approved T026/T042 booking and lookup journeys now derive Guest versus Member
+from `AuthProvider` plus the canonical account profile. Signed-out or unconfigured
+visitors receive the Guest proof flow; authenticated `MEMBER` accounts receive the
+Member ownership/benefit flow. The UI no longer renders a manual Guest/Member
+switch or asks Members to paste a bearer token. A signed-in account whose profile
+cannot be loaded or whose canonical role is not `MEMBER` is fail-closed with the
+form disabled. Verified with `npm run build` and `npm test -- --run` (189/189).

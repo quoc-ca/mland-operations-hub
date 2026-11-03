@@ -8,6 +8,39 @@ info:
     ../../contracts/vnpay-payment-ingress.openapi.yaml. Browser return URLs never
     settle payment.
 paths:
+  /api/v1/workshop-settlement-cases:
+    get:
+      summary: List settlement cases for Manager operations
+      description: >-
+        Returns safe settlement-case projections ordered newest first. This
+        central operations view is Manager-only because settlement cases do not
+        carry a location scope. Optional filters are exact caseType/status;
+        limit defaults to 100 and is capped at 100.
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: caseType
+          in: query
+          required: false
+          schema: {type: string}
+        - name: status
+          in: query
+          required: false
+          schema: {type: string}
+        - name: limit
+          in: query
+          required: false
+          schema: {type: integer, minimum: 1, maximum: 100, default: 100}
+      responses:
+        '200':
+          description: Safe settlement-case projections
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/SettlementCaseProjection'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/final-bill:
     parameters:
       - $ref: '#/components/parameters/BookingCode'
@@ -38,12 +71,15 @@ paths:
   /api/v1/workshop-bookings/{bookingCode}/final-bill/charges:
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:
-      summary: Add a permitted fixed catalogue add-on or a confirmed variable charge
+      summary: Record a Staff-confirmed catalogue add-on or variable charge
       description: >-
-        Customer use requires Member ownership or Guest contact proof and permits
-        only catalogueAddOnReference. Staff/Manager variable charge uses
-        description, amount and reason. Staff must be in active booking-location
-        scope; any active Manager may act globally. The server derives catalogue price.
+        Member/Guest routes are read-only and cannot create charges. An active
+        Staff member in booking-location scope or any active Manager records the
+        add-on after customer consent at the workshop. The server derives the
+        catalogue price. A direct OPEN bill may append the line; a finalized
+        direct booking requires a separate direct-Mland add-on bill, while an
+        OTA booking always uses that separate bill and never mutates OTA facts.
+        Variable charge uses description, amount and reason.
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
