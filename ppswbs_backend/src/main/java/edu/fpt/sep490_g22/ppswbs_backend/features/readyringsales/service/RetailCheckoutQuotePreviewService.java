@@ -82,7 +82,8 @@ public class RetailCheckoutQuotePreviewService {
         if (result == null || result.termsDigest() == null || result.termsDigest().isBlank()
             || result.programDiscount() == null || result.pointDiscount() == null
             || result.postPromotionAmount() == null || result.pointsUsed() == null || result.maxPoints() == null
-            || result.maxPoints().signum() < 0 || !subtotal.equals(result.grossAmount())
+            || result.maxPoints().signum() < 0 || result.minRedeemPoints() == null || result.minRedeemPoints().signum() < 0
+            || !subtotal.equals(result.grossAmount())
             || !subtotal.subtract(result.programDiscount()).subtract(result.pointDiscount()).equals(result.postPromotionAmount())) {
             throw new RetailIntegrationUnavailableException("Loyalty returned unverifiable preview facts");
         }
@@ -91,7 +92,7 @@ public class RetailCheckoutQuotePreviewService {
         if (!eligible) {
             return new CheckoutDtos.BenefitPreviewView(null, "VND", subtotal.toString(), true,
                 result.programDiscount().toString(), result.pointDiscount().toString(), result.postPromotionAmount().toString(),
-                null, "0", false, result.reasons(), result.maxPoints().toString());
+                null, "0", false, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString());
         }
         Instant expiresAt = now.plus(15, ChronoUnit.MINUTES);
         var quote = new RetailCheckoutQuote(memberId, cart.getId(), cart.getVersion(), selection.choice().name(),
@@ -111,7 +112,7 @@ public class RetailCheckoutQuotePreviewService {
         quotes.saveAndFlush(quote);
         return new CheckoutDtos.BenefitPreviewView(quote.getId(), "VND", subtotal.toString(), true,
             result.programDiscount().toString(), result.pointDiscount().toString(), result.postPromotionAmount().toString(),
-            expiresAt.toString(), "0", true, result.reasons(), result.maxPoints().toString());
+            expiresAt.toString(), "0", true, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString());
     }
 
     private Map<Long, CheckoutDtos.BranchOrderCheckoutInput> choices(List<CheckoutDtos.BranchOrderCheckoutInput> inputs) {

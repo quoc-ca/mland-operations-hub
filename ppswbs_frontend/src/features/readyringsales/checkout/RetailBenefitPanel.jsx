@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import { useFormat } from '../../../shared/i18n/I18nProvider';
 
 /** FE-08 presentation for FE-06 data: a Shopee-like voucher picker and all-eligible-points switch. */
-export function RetailBenefitPanel({ selection, onChange, savedVouchers, maxPoints, quote, quoteMatches, acknowledged, onAcknowledge, onRecalculate, onConfirm, pending }) {
+export function RetailBenefitPanel({ selection, onChange, savedVouchers, maxPoints, minRedeemPoints, quote, quoteMatches, acknowledged, onAcknowledge, onRecalculate, onConfirm, pending }) {
   const format = useFormat();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [typedCode, setTypedCode] = useState('');
   const selectedVoucher = savedVouchers.find(item => item.code === selection.voucherCode);
   const pointsEnabled = selection.requestedPoints !== '0';
+  const validPoints = value => /^(0|[1-9][0-9]*)$/.test(String(value ?? ''));
+  const limitsKnown = validPoints(maxPoints) && validPoints(minRedeemPoints);
+  const belowMinimum = limitsKnown && BigInt(maxPoints) < BigInt(minRedeemPoints);
+  const canUsePoints = limitsKnown && BigInt(maxPoints) > 0n && !belowMinimum;
   const applyVoucher = code => {
     const clean = code.trim();
     if (!clean) return;
@@ -25,8 +29,8 @@ export function RetailBenefitPanel({ selection, onChange, savedVouchers, maxPoin
     </button>
     <label className="retail-benefit-row point-row">
       <span className="retail-benefit-icon">Ⓟ</span><strong>Dùng {format.number(maxPoints ?? '0')} điểm thành viên</strong>
-      <span className="muted">{maxPoints == null ? 'Tính lại ưu đãi để xem điểm tối đa' : 'Điểm tối đa theo báo giá'}</span>
-      <input className="switch" type="checkbox" checked={pointsEnabled} disabled={pending || ((maxPoints == null || maxPoints === '0') && !pointsEnabled)} onChange={event => togglePoints(event.target.checked)} />
+      <span className="muted">{!limitsKnown ? 'Tính lại ưu đãi để xem điểm tối đa' : belowMinimum ? `Cần tối thiểu ${format.number(minRedeemPoints)} điểm để sử dụng` : 'Điểm tối đa theo báo giá'}</span>
+      <input className="switch" type="checkbox" checked={pointsEnabled} disabled={pending || (!canUsePoints && !pointsEnabled)} onChange={event => togglePoints(event.target.checked)} />
     </label>
     {quote && <div className="retail-benefit-quote">
       {!quoteMatches && <p className="notice error">Lựa chọn đã đổi. Hãy tính lại tổng tiền.</p>}

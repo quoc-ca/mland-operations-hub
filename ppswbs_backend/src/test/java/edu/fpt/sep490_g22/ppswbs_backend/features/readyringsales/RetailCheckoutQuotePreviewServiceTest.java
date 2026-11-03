@@ -77,6 +77,7 @@ class RetailCheckoutQuotePreviewServiceTest {
         assertThat(result.eligible()).isFalse();
         assertThat(result.reasons()).containsExactly("Points must be between 10 and 20.");
         assertThat(result.maxPoints()).isEqualTo("20");
+        assertThat(result.minRedeemPoints()).isEqualTo("10");
         assertThat(result.previewId()).isNull();
         verifyNoInteractions(quotes);
     }

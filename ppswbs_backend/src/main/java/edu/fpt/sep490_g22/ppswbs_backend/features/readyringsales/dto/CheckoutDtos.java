@@ -22,7 +22,7 @@ public final class CheckoutDtos {
     public record BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
                                      boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
                                      String payableAmount, String expiresAt, String shippingTotal,
-                                     boolean eligible, List<String> reasons, String maxPoints) {
+                                     boolean eligible, List<String> reasons, String maxPoints, String minRedeemPoints) {
         public BenefitPreviewView {
             reasons = reasons == null ? List.of() : List.copyOf(reasons);
         }
@@ -30,7 +30,7 @@ public final class CheckoutDtos {
                                   boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
                                   String payableAmount, String expiresAt, String shippingTotal) {
             this(previewId, currency, merchandiseSubtotal, shippingExcluded, discountAmount, pointsDiscountAmount,
-                payableAmount, expiresAt, shippingTotal, true, List.of(), null);
+                payableAmount, expiresAt, shippingTotal, true, List.of(), null, null);
         }
         public BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
                                   boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,

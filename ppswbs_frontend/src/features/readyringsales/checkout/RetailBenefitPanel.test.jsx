@@ -7,7 +7,7 @@ import { RetailBenefitPanel } from './RetailBenefitPanel';
 
 function show(overrides = {}) {
   const props = { selection: { choice: 'AUTO', voucherCode: '', requestedPoints: '0' }, onChange: vi.fn(),
-    savedVouchers: [], maxPoints: null, quote: null, quoteMatches: false, acknowledged: false,
+    savedVouchers: [], maxPoints: null, minRedeemPoints: null, quote: null, quoteMatches: false, acknowledged: false,
     onAcknowledge: vi.fn(), onRecalculate: vi.fn(), onConfirm: vi.fn(), pending: false, ...overrides };
   render(<I18nProvider initialLanguage="vi"><RetailBenefitPanel {...props} /></I18nProvider>);
   return props;
@@ -15,7 +15,7 @@ function show(overrides = {}) {
 
 describe('FE-08 benefit selection', () => {
   it('uses the points limit returned by the quote and never enables a zero limit', async () => {
-    const props = show({ maxPoints: '20' });
+    const props = show({ maxPoints: '20', minRedeemPoints: '10' });
     await userEvent.setup().click(screen.getByRole('checkbox'));
     expect(props.onChange).toHaveBeenCalledWith({ choice: 'AUTO', voucherCode: '', requestedPoints: '20' });
   });
@@ -40,5 +40,16 @@ describe('FE-08 benefit selection', () => {
     show();
     expect(screen.getByRole('checkbox')).toBeDisabled();
     expect(screen.getByText('Tính lại ưu đãi để xem điểm tối đa')).toBeInTheDocument();
+  });
+
+  it('disables points when the maximum is below the required minimum', () => {
+    show({ maxPoints: '60', minRedeemPoints: '100' });
+    expect(screen.getByRole('checkbox')).toBeDisabled();
+    expect(screen.getByText('Cần tối thiểu 100 điểm để sử dụng')).toBeInTheDocument();
+  });
+
+  it('allows points when the maximum equals the required minimum', () => {
+    show({ maxPoints: '100', minRedeemPoints: '100' });
+    expect(screen.getByRole('checkbox')).toBeEnabled();
   });
 });

@@ -71,6 +71,7 @@ function CheckoutContent() {
         onChange={next => { setSelection(next); setAcknowledged(false); setCheckout(null); }}
         savedVouchers={savedVouchers}
         maxPoints={quotedSelection && JSON.parse(quotedSelection).choice === selectionBody.choice && JSON.parse(quotedSelection).voucherCode === selectionBody.voucherCode ? quote?.maxPoints : null}
+        minRedeemPoints={quotedSelection && JSON.parse(quotedSelection).choice === selectionBody.choice && JSON.parse(quotedSelection).voucherCode === selectionBody.voucherCode ? quote?.minRedeemPoints : null}
         quote={quote}
         quoteMatches={quotedSelection === selectionSignature}
         acknowledged={acknowledged}
