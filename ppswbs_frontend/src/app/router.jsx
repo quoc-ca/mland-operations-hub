@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBrowserRouter } from 'react-router';
 import { designReviewRoutes } from '../features/designreview/routes';
+import { readyRingSalesRoutes } from '../features/readyringsales/routes';
 import { loyaltyPromotionRoutes } from '../features/loyalty-promotion';
 import { productManagementRoutes } from '../features/product-management';
 import { workshopRoutes } from '../workshops/routes';
@@ -19,6 +20,7 @@ export const routes = [
       { path: '/login', element: <AuthPage mode="signin" /> },
       { path: '/register', element: <AuthPage mode="register" /> },
       { path: '/forgot-password', element: <AuthPage mode="forgot" /> },
+      ...readyRingSalesRoutes,
       ...workshopRoutes,
       ...otaConnectivityRoutes,
       ...operationsRoutes,
