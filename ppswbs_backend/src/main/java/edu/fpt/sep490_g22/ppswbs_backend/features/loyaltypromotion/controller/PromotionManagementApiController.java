@@ -10,6 +10,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.Loyal
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.PromotionCreationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.PromotionMaintenanceService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.PromotionManagementQueryService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.PromotionTargetWarningService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.PromotionUsageQueryService;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -41,15 +42,18 @@ class PromotionManagementApiController {
     private final PromotionManagementQueryService query;
     private final PromotionMaintenanceService maintenance;
     private final PromotionUsageQueryService usageQuery;
+    private final PromotionTargetWarningService targetWarnings;
 
     PromotionManagementApiController(LoyaltyAuthorization authorization, PromotionCreationService creation,
                                      PromotionManagementQueryService query, PromotionMaintenanceService maintenance,
-                                     PromotionUsageQueryService usageQuery) {
+                                     PromotionUsageQueryService usageQuery,
+                                     PromotionTargetWarningService targetWarnings) {
         this.authorization = authorization;
         this.creation = creation;
         this.query = query;
         this.maintenance = maintenance;
         this.usageQuery = usageQuery;
+        this.targetWarnings = targetWarnings;
     }
 
     @PostMapping
@@ -73,7 +77,9 @@ class PromotionManagementApiController {
     ResponseEntity<PromotionReadDtos.Program> get(@PathVariable String programId) {
         authorization.requireManager(Capability.MANAGE_PROGRAMS);
         long id = LoyaltyScalarCodec.parseId("programId", programId);
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(query.get(id));
+        // Scope warnings only on the detail read, outside the loyalty transaction (PromotionTargetWarningService).
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(targetWarnings.withWarnings(query.get(id)));
     }
 
     @PatchMapping("/{programId}")

@@ -1,7 +1,7 @@
 # Interface Contracts: Loyalty & Promotion
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01 (mã voucher tự sinh, thời gian hiện bằng chữ; bộ chọn đối tượng sản phẩm trên form tạo chương trình; T076 — frontend đã khởi tạo, quy tắc gửi lặp outcome, maxPoints cho component checkout; trước đó: 2026-10-30)
+**Date updated**: 2026-11-03 (`getPromotionProgram` thêm `targetCheck`/`targetWarnings`; khôi phục lệnh tạo mất phản hồi; trước đó: 2026-11-01 (mã voucher tự sinh, thời gian hiện bằng chữ; bộ chọn đối tượng sản phẩm trên form tạo chương trình; T076 — frontend đã khởi tạo, quy tắc gửi lặp outcome, maxPoints cho component checkout; trước đó: 2026-10-30)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -132,7 +132,7 @@ Terminal effects có thể bắt đầu ở source lifecycle guard rồi đến 
 
 ## 5. Frontend contracts (React + Vite, REST-only)
 
-Frontend là ứng dụng React + Vite tách riêng (`ppswbs_frontend/`, đã khởi tạo bởi 002 T088/T089; FE-06 ở `src/features/loyaltypromotion/`), render phía client và chỉ gọi REST. Backend không render UI hoặc HTML form. Router (react-router), i18n vi/en và REST client dùng chung theo [đề xuất nền frontend](../../002-product-management/frontend-foundation-proposal.md). Component `BenefitSelector` (checkout/workshop) do owner FE-08/FE-03 nhúng; quote của owner MUST trả `maxPoints` (FE-08 `BenefitPreviewView`, FE-03 `WorkshopBookingQuoteResponse`) để hiện điểm tối đa theo FR-016. Mọi lệnh ghi gửi UUID `Idempotency-Key`; update/pause/resume/policy gửi `expectedVersion`.
+Frontend là ứng dụng React + Vite tách riêng (`ppswbs_frontend/`, đã khởi tạo bởi 002 T088/T089; FE-06 ở `src/features/loyalty-promotion/` theo FRONTEND-ARCHITECTURE; màn hình khác chỉ import qua cổng công khai `features/loyalty-promotion` (index.js), ví dụ `import { BenefitSelector } from '…/features/loyalty-promotion'`), render phía client và chỉ gọi REST. Backend không render UI hoặc HTML form. Router (react-router), i18n vi/en và REST client dùng chung theo [đề xuất nền frontend](../../002-product-management/frontend-foundation-proposal.md). Component `BenefitSelector` (checkout/workshop) do owner FE-08/FE-03 nhúng; quote của owner MUST trả `maxPoints` (FE-08 `BenefitPreviewView`, FE-03 `WorkshopBookingQuoteResponse`) để hiện điểm tối đa theo FR-016. Mọi lệnh ghi gửi UUID `Idempotency-Key`; update/pause/resume/policy gửi `expectedVersion`.
 
 | Màn hình / thành phần | Actor | REST operations | Core behavior |
 | --- | --- | --- | --- |

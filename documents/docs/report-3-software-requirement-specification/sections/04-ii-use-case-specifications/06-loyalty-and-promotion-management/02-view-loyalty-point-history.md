@@ -10,56 +10,54 @@
 
 #### Description
 
-This use case allows a member to review the loyalty point ledger for their account. The history includes points earned, redeemed, held, adjusted, or expired, together with the related order or business event when available.
+This use case allows a Member to review the history of their loyalty points. Each entry shows points earned, used, released or refunded, the number of points changed and the retail order or workshop booking it belongs to.
 
 #### Preconditions
 
-1. The member is signed in.
-2. The member's loyalty point ledger is available.
-3. The member is authorized to access only their own loyalty data.
+1. The Member is signed in and the account is active.
 
 #### Normal Flow
 
 **View Loyalty Point History**
 
-1. The member opens the loyalty point history.
-2. The system retrieves the member's loyalty transactions.
-3. The member optionally filters the history by transaction type or date range.
-4. The system displays each transaction's date, type, amount, balance impact, status, and related order reference when available.
-5. The member opens a transaction to view its details.
+1. The Member opens the point history from My Loyalty.
+2. The system loads the Member's own point entries, newest first.
+3. The system displays each entry's type (earned, used, released or refunded), the points changed, the time and the linked order or booking reference.
+4. The Member may open the linked order or booking.
 
 #### Alternative Flows
 
-**Step 2 — No transaction history**
+**Step 1 — Session expired or revoked**
 
-1. The member has no loyalty point transactions.
-2. The system displays an empty-state message.
+The system asks the Member to sign in again (MSG02).
 
-**Step 3 — Invalid filter**
+**Step 2 — Data cannot be loaded**
 
-1. The selected date range or filter is invalid.
-2. The system rejects the filter and asks the member to provide valid criteria.
+The system shows a load error with a retry option (MSG05) and does not present it as an empty history.
 
-**Step 2 — History retrieval failure**
+**Step 2 — No entries yet**
 
-1. The system cannot retrieve the ledger.
-2. The system displays an error message and allows the member to retry.
+The system shows an empty history with guidance on how points are earned.
+
+**Step 2 — Request for another Member's history**
+
+The system rejects the request (MSG01).
 
 #### Postconditions
 
-- The member can view the permitted loyalty point transaction history.
-- No loyalty point transaction is modified by this use case.
-- Sensitive information belonging to another member is not disclosed.
+- The Member sees a consistent history that matches the balance.
+- No point transaction is created or changed.
 
 #### Business Rules
 
-- BR-39-01
-- BR-39-02
+- BR-43-01
+- BR-43-02
+- BR-43-03
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
-| BR-39-01 | Loyalty point history must be traceable to an account, business event, and transaction status when applicable. |
-| BR-39-02 | Loyalty point history is read-only for members. |
-
+| BR-43-01 | A Member can view only their own point history. |
+| BR-43-02 | Every earned, used, released and refunded entry links to its order or booking; a refund links to the original deduction. |
+| BR-43-03 | Point history, voucher usage, change logs and operation results are kept for at least 5 years and are not removed while a transaction is open or still referenced. |

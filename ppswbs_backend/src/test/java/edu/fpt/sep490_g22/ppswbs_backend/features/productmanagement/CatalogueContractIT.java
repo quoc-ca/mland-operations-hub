@@ -107,7 +107,8 @@ class CatalogueContractIT {
         }
         List<String> operations = operations().stream().map(op -> op.method + " " + normalize(op.path)).toList();
 
-        assertThat(operations).hasSize(33);
+        // 33 operations + getManagementProductMedia (T103, 2026-11-03).
+        assertThat(operations).hasSize(34);
         assertThat(mapped).containsAll(operations);
         assertThat(contract.get("components").get("schemas").size()).isEqualTo(49);
     }

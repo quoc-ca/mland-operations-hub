@@ -94,8 +94,8 @@ ppswbs_backend/src/main/resources/
   db/migration/        new catalogue migration, number allocated at implementation
 ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/
   features/productmanagement/  future contract/domain/MySQL/security/concurrency checks
-ppswbs_frontend/        (chưa khởi tạo; vị trí dự kiến)
-  src/features/productmanagement/  public/ và management/ screens, REST client, vi/en messages
+ppswbs_frontend/        (React + Vite)
+  src/features/product-management/  ui/ (management, public), application/ (hook gọi API), domain/ (luật thuần), infrastructure/ (REST client), routes/, tests/; cổng công khai index.js — theo FRONTEND-ARCHITECTURE (chuyển 2026-11-02)
 ```
 
 **Structure Decision**: Theo constitution I, backend tổ chức `features/<feature>/{controller,dto,dao,entity,service,facade}`. Feature 002 là module Modulith riêng tên `productmanagement` (Java package hợp lệ; slug tài liệu là `product-management`). Toàn bộ `ppswbs_backend/src`, kể cả shell `catalogue` cũ, đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24); `productmanagement` là module mới tạo từ đầu, không kế thừa code cũ. Plan phải kiểm chứng bằng `ApplicationModules.verify()` rằng `productmanagement` được nhận diện là module riêng, không chỉ gói grouping `features`. Không tạo service mới hoặc làm chung module FE-08. Tên bảng `catalogue_*`, route `/api/v1/catalogue-management/...` và tên class `Catalogue*` giữ nguyên trong tài liệu này (không thuộc yêu cầu đổi gói). Member Profile không được triển khai/sửa từ tác vụ này. Những file trên là vị trí dự kiến, không phải file production đã tạo.

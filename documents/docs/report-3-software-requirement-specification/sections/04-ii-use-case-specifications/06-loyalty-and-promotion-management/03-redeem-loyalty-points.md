@@ -6,79 +6,76 @@
 
 #### Secondary Actors
 
-- Checkout and Payment Workflow
+- Order Management and Fulfillment (retail checkout and payment)
+- Workshop Management (booking and deposit payment)
 
 #### Description
 
-This use case allows a member to apply eligible loyalty points to an order during checkout. The system validates the member's available balance and the active loyalty policy, creates a temporary point hold for the checkout session, and applies the permitted value to the payable amount.
+This use case allows a Member to choose how many available points to use as a non-cash discount on a retail order or a direct website workshop booking. Points are applied after the voucher or automatic discount, are held when the order or booking is accepted, and are deducted only after the payment is verified.
 
 #### Preconditions
 
-1. The member is signed in.
-2. The member has an eligible order in checkout.
-3. The member has enough spendable loyalty points for the selected redemption amount.
-4. An active loyalty policy defines the conversion rate, minimum order value, and redemption limits.
+1. The Member is signed in and the account is active.
+2. The Member is reviewing a retail checkout or a workshop booking.
+3. A confirmed loyalty point policy exists. The initial policy is 100 VND per point, at least 10 points per use, and a cap of 10% of the amount after the program discount.
 
 #### Normal Flow
 
 **Redeem Loyalty Points**
 
-1. The member opens the loyalty point option during checkout.
-2. The system displays the available points and the active redemption rules.
-3. The member selects the amount of points to redeem.
-4. The system validates the balance, conversion rate, minimum order value, maximum redemption limit, and order eligibility.
-5. The system creates a temporary point hold for the checkout session.
-6. The system recalculates and displays the payable order amount.
-7. The member continues to payment.
-8. After successful payment verification, the system converts the hold into a completed redemption transaction.
+1. The system shows the available points and the maximum points allowed for this order or booking. The maximum is the smaller of the available points and `floor(cap × amount after program discount / point value)`; with the initial policy, `min(available, floor(10% × amount after discount / 100))`.
+2. The Member chooses not to use points, or enters a whole number of points from the minimum to the maximum.
+3. The system calculates the point discount and shows the item amount, program discount, point discount, shipping (retail only) and total. For a workshop, it shows the fee after discounts, which Workshop Management uses to calculate the deposit and the remaining amount.
+4. The Member confirms the order or booking.
+5. The system rechecks the price, conditions, available points and limits, records the point policy in effect, and holds the points together with the accepted order or booking.
+6. After the retail payment or the workshop deposit is verified, the system deducts the held points once and records a used entry.
 
 #### Alternative Flows
 
-**Step 4 — Insufficient points**
+**Step 1 — The selected voucher does not allow points**
 
-1. The selected amount exceeds the member's spendable point balance.
-2. The system rejects the redemption and asks the member to select a lower amount.
+The system disables point use and explains why (MSG49). Automatic discounts always allow points.
 
-**Step 4 — Order does not meet the policy**
+**Step 2 — Points below the minimum or above the maximum**
 
-1. The order does not meet the minimum amount, product scope, or other loyalty policy conditions.
-2. The system prevents redemption and explains the unmet condition.
+The system rejects the amount and shows the allowed range (MSG50). For example, an amount after discount of 9,900 VND allows at most 9 points, so the 10-point minimum cannot be reached.
 
-**Step 4 — Redemption limit exceeded**
+**Step 5 — Points, price or limits changed before acceptance**
 
-1. The selected points exceed the configured per-order or account limit.
-2. The system restricts the amount to the permitted limit or asks the member to choose a lower amount.
+The system recalculates and asks the Member to confirm the new total (MSG51). No order or booking is created with a total the Member did not agree to.
 
-**Step 7 — Payment fails or checkout expires**
+**Step 5 — Another transaction is holding the same points**
 
-1. Payment fails, is cancelled, or the checkout session expires.
-2. The system releases the temporary point hold and does not complete the redemption.
+Held points cannot be used twice. The transaction that cannot hold the points receives the new limit and must confirm again.
 
-**Step 4 — Balance changes during checkout**
+**Step 6 — Payment is not verified before the hold expires, or the Member cancels a retail order before payment**
 
-1. The member's spendable balance changes before payment completion.
-2. The system revalidates the balance and asks the member to confirm a new redemption amount.
+The held points are released under UC-50 Release or Refund Promotion Benefits.
+
+**Step 6 — Browser shows payment success but no verified result exists**
+
+The system does not deduct points from a browser message alone.
 
 #### Postconditions
 
-- A valid redemption is applied to the order after successful payment verification.
-- A temporary point hold is released when payment or checkout does not complete.
-- The member's loyalty ledger records the completed or released transaction.
-- The order may use one eligible voucher together with loyalty points.
+- Used points are deducted exactly once after verified payment and recorded in the history.
+- The order or booking keeps the point policy and discount recorded when it was accepted, even if the policy changes later.
+- Collecting the remaining workshop amount does not deduct points again.
 
 #### Business Rules
 
-- BR-40-01
-- BR-40-02
-- BR-40-03
-- BR-40-04
+- BR-44-01
+- BR-44-02
+- BR-44-03
+- BR-44-04
+- BR-44-05
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
-| BR-40-01 | Loyalty points are non-cash and may be redeemed only according to the active loyalty policy. |
-| BR-40-02 | A member may apply at most one eligible voucher to an order, and the voucher may be combined with loyalty points when policy conditions are satisfied. |
-| BR-40-03 | Points must not be permanently debited before the related payment is successfully verified. |
-| BR-40-04 | Redemption is subject to configured conversion, minimum order, per-order, and account-level limits. |
-
+| BR-44-01 | Points are a non-cash discount chosen by the Member; the system never deducts points automatically. |
+| BR-44-02 | Points used are whole numbers from the minimum per use up to `min(available points, floor(cap × amount after program discount / point value))`. |
+| BR-44-03 | Points can be combined with an automatic discount, or with a voucher only when that voucher allows points. |
+| BR-44-04 | Points are held when the order or booking is accepted and deducted once after verified payment of the retail order or the workshop deposit; the remaining workshop payment does not deduct points again. |
+| BR-44-05 | Points earned by a transaction cannot discount that same transaction. |

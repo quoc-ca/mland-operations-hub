@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
@@ -165,7 +166,12 @@ class PromotionCreateContractIT {
         MvcResult read = perform(get(PROGRAMS + "/" + program.path("id").asText())
                 .header(HttpHeaders.AUTHORIZATION, manager));
         assertThat(read.getResponse().getStatus()).isEqualTo(200);
-        assertThat(body(read)).isEqualTo(program);
+        // The detail read adds the scope check (T079); everything else equals the create response.
+        ObjectNode detail = (ObjectNode) body(read);
+        assertThat(detail.path("targetCheck").asText()).isEqualTo("CHECKED");
+        assertThat(program.has("targetCheck")).isFalse();
+        detail.remove(java.util.List.of("targetCheck", "targetWarnings"));
+        assertThat(detail).isEqualTo(program);
     }
 
     @Test

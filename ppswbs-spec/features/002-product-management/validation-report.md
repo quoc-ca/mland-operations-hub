@@ -1,11 +1,11 @@
 # Validation Report: Product Management
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-01 (T090 UI với API giả lập, tích hợp thật NOT RUN; T087 đồng bộ tài liệu; regression toàn hệ thống T086; chạy lại sau develop 365dcf3: T074, T085, T086; frontend React T088/T089 và màn hình 002; 2026-10-27: sau merge develop, T002/T007, REST API, T051, T073, T083, các task viết test; facade FE-08 phía 002)
+**Date updated**: 2026-11-03 (rà soát spec–code–Figma: FR-003, FR-028, T103 xem ảnh quản trị, nhãn khu vực; trước đó: 2026-11-01 (T090 UI với API giả lập, tích hợp thật NOT RUN; T087 đồng bộ tài liệu; regression toàn hệ thống T086; chạy lại sau develop 365dcf3: T074, T085, T086; frontend React T088/T089 và màn hình 002; 2026-10-27: sau merge develop, T002/T007, REST API, T051, T073, T083, các task viết test; facade FE-08 phía 002)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
-**Status**: Đang cập nhật — kết quả tạm thời, **chưa phải nghiệm thu**. Nguồn giữ hàng FE-08 và frontend React chưa có, nên các V-ID phụ thuộc chúng là NOT RUN hoặc BLOCKED. Không mục nào được ghi PASS chỉ nhờ fixture hoặc prototype; chỗ nào dùng stub (xác minh Firebase token, provider ảnh, nguồn giữ hàng) đều ghi rõ.
+**Status**: Đang cập nhật — kết quả tạm thời, **chưa phải nghiệm thu**. Bảng mới nhất là "Ma trận V-01–V-15 cập nhật 2026-11-01" cộng mục "Rà soát task và trạng thái, 2026-11-03" ở cuối; bảng đầu tiên giữ làm lịch sử (lúc đó FE-08 và frontend React chưa có). Không mục nào được ghi PASS chỉ nhờ fixture hoặc prototype; chỗ nào dùng stub (xác minh Firebase token, provider ảnh, nguồn giữ hàng) đều ghi rõ.
 **References**: [quickstart](quickstart.md), [tasks](tasks.md), [blocker report](blocker-report.md), [spec](spec.md).
 
 ## Môi trường
@@ -160,3 +160,157 @@ Các lỗi ngoài 002/006 đến từ cách dựng database test của feature k
 - **Phạm vi:** T028, T034, T040, T044, T050, T057, T064, T071, T072, T079 (và T101) — loading, empty, validation, success, failure, recovery, 401/409/503. Test mới: 401 vẫn bị từ chối sau khi làm mới token một lần → `signOut`, màn quản trị hiện thông báo đăng nhập, không còn dữ liệu, token không nằm trong URL.
 - **Cách giả lập:** phiên là `fakeSession` (token test cố định), API là fetch giả lập trả đúng shape DTO backend. Ứng dụng không có chế độ đăng nhập giả và không tắt kiểm tra token (AGENT.md frontend).
 - **Tích hợp thật:** trang công khai và CORS đã chạy với backend local (T074); hành trình cần phiên Manager/Staff/Member — NOT RUN: 001 chưa khởi tạo Firebase Admin và chưa có màn đăng nhập (Phan Sơn xác nhận 2026-11-01 không làm trong sprint này). Khi 001 có đăng nhập: chạy lại V-01/V-13 qua trình duyệt theo quickstart.
+
+## Cấu trúc frontend theo FRONTEND-ARCHITECTURE, 2026-11-02
+
+- Chuyển `src/features/productmanagement` → `src/features/product-management` và `src/features/loyaltypromotion` → `src/features/loyalty-promotion` (`git mv`, giữ lịch sử), chia lớp `ui/`, `application/`, `domain/`, `infrastructure/`, `routes/`, `tests/`; mỗi feature có cổng công khai `index.js` (router chỉ import qua đó). Hành vi không đổi: frontend toàn ứng dụng 171/171, `npm run build` đạt.
+- Hướng phụ thuộc đã kiểm: `domain` không import React/HTTP; `ui` không import `infrastructure` (ảnh công khai qua `application/useCatalogueApi.publicImageUrl`); `application` không import `ui` (nhãn đối tượng ưu đãi chuyển vào `domain/promotionRules`); không `fetch()`/Firebase trong `ui`; 002 và 006 không import code riêng của nhau.
+- **Còn lệch chuẩn (ghi nhận):** lớp `infrastructure` chưa chuyển đổi DTO sang view model — màn hình vẫn đọc đúng shape response của backend; `shared/api` chưa đổi tên `shared/http` vì dùng chung với 001/003/FE-08. FRONTEND-ARCHITECTURE còn ở trạng thái chờ Product Owner duyệt.
+- Đường dẫn `features/productmanagement/...`/`features/loyaltypromotion/...` trong tasks và bằng chứng cũ là lịch sử, ứng với vị trí mới cùng tên file trong lớp tương ứng.
+
+## Chạy lại backend sau V78; V80 còn lỗi, 2026-11-02
+
+Lần chạy 2026-11-02 sau khi owner 003 sửa V78 (develop `a64aa29`, commit `5556f45`):
+- V78 đã qua. **V80** `V80__align_retail_grouped_checkout_reference_types.sql` (`76f104b`, 003/FE-08) cùng lỗi MySQL 1833: đổi `retail_grouped_checkouts.id` khi khóa ngoại `fk_retail_checkout_holds_checkout` còn tồn tại (thiếu `DROP FOREIGN KEY`). Quét tĩnh V1–V88 tìm thao tác đổi cột còn khóa ngoại: chỉ còn V80. Đã báo owner.
+- Để biết phần còn lại, chạy với V78 của develop và V80 **vá tạm trên máy** (thêm `ALTER TABLE retail_checkout_holds DROP FOREIGN KEY fk_retail_checkout_holds_checkout;` đầu file); sau đó đã trả cả hai file về đúng bản của nhánh, không commit bản vá. Database trống `ppswbs_loyalty_build45`/`ppswbs_pm_sales45`, MySQL 8.4:
+  - 006 + `ModulithArchitectureTests` + `WorkshopSellingLocationAdapterTest`: **258/258 đạt**.
+  - 002: 297 chạy, 296 đạt; 1 lỗi `CatalogueSellingLocationIT$WithoutABranchSource` ("Too many connections" — `max_connections` về mặc định sau khi MySQL khởi động lại; kịch bản này cũng đã lỗi thời vì 003.2 đã có nguồn chi nhánh). Đã thay bằng `WithTheWorkshopOperationsSource` đọc qua `WorkshopSellingLocationAdapter` thật (chỉ chi nhánh đang hoạt động, sắp theo tên): `CatalogueSellingLocationIT` **3/3** khi chạy riêng.
+- Kết luận chỉ có giá trị khi V80 được sửa đúng như bản vá; chạy lại trên develop sau khi owner sửa.
+
+## Giao diện theo Figma "002-006" (đợt 1), 2026-11-03
+
+- Nguồn: Figma page "002-006" (node 129:276, 100 frame), đọc qua Chrome đã đăng nhập (Figma MCP hết lượt cho View seat).
+- 002: bộ biến `.pm-theme` (màu nền #F4F5F7, thanh bên #121316, nhấn #EEDC35, chữ #1A1A1A, viền #E5E7EB…) dùng cho khung quản trị (`.pm-shell`) và trang công khai (`.pm-public`); thanh lọc công khai dạng lưới, thẻ sản phẩm, chi tiết sản phẩm, khối thêm giỏ.
+- 006: bộ biến `.lp-theme` cùng giá trị; khung quản lý ưu đãi có logo + topbar đường dẫn như 006-09; trang công khai/Member (`.lp-public`); `BenefitSelector` có biến riêng `--bs-*` vì FE-03/FE-08 nhúng vào trang của họ.
+- Chỉ sửa `ui/` (JSX lớp/khung, CSS, chữ vi/en mới cho topbar); không đổi API, validation, phân quyền.
+- Kiểm tra: `npm test` 171/171, `npm run build` đạt. Trình duyệt thật (backend local develop f2a17fd, chưa đăng nhập): /catalogue-management/products (khớp 002-01b), /products có dữ liệu thật (gần 002-07), /promotion-management/programs (khớp 006-09b), /promotions (rỗng).
+- Chưa đối chiếu được: màn cần đăng nhập Staff/Manager (002-02…06 có dữ liệu, 006-10…13) — chờ tài khoản 001; màn Member (006-16/17) — cần đăng ký Member; bộ chọn ưu đãi trong trang FE-03/FE-08.
+
+## Giao diện theo Figma "002-006" (đợt 2: màn quản trị), 2026-11-03
+
+- Nguồn: ảnh xuất từ Figma page "002-006" (100 frame, `test-data/figma/`, không commit). So trên frontend thật (Vite local) với backend local (develop f2a17fd) và tài khoản Firebase thật của dự án: staff@gmail.com (STAFF), manager@gmail.com (MANAGER); vai trò đặt bằng cùng lệnh UPDATE như script set-admin-role của 001.
+- 002: 02 (dữ liệu thật) khớp sau khi sửa ô chọn; 04d sửa đệm thẻ có bảng, viền đỏ khối Xóa, trạng thái size/công khai dạng chữ, nút Sửa/Ngừng bán có viền, bỏ nền dòng giá hiện hành; 03 sửa cao ô mô tả và khoảng cách tiêu đề nhóm; 05, 06 khớp. Figma ghi nhãn trên tiêu đề 05/06 là "QUẢN LÝ SẢN PHẨM" khác 02–04 ("STAFF / MANAGER"): giữ chung "STAFF / MANAGER", chờ nhóm chốt.
+- Quyền: Staff vào được 002, trang quản lý ưu đãi 006 trả 403 "Tài khoản của bạn không có quyền thực hiện thao tác này" — đúng ma trận.
+- 006 (Manager): 10 sửa nhãn phạm vi viết thường, mã voucher và nhãn phạm vi xuống dòng; 11 ô mã nền trắng, "Sinh mã khác"/"Tìm" là nút có viền; 12 tiêu đề thẻ dạng hàng với nhãn bên phải, điều khoản 2 cột (thời gian chiếm cả hàng), lượt dùng 4 cột; 13 hai cột, nút Sửa bên phải. Đo bằng computed style vì Chrome không chụp được ảnh khi cửa sổ bị ẩn.
+- `npm test` 171/171, `npm run build` đạt.
+- Chưa so: màn Member (006-14b/15/16/17, 002-08 có đăng nhập), các frame trạng thái phụ (lỗi, xác nhận, 409), BenefitSelector trong trang FE-03.
+
+## Giao diện theo Figma "002-006" (đợt 3: màn Member), 2026-11-03
+
+- Tài khoản member@gmail.com (MEMBER, tự đăng ký). Đo bằng computed style vì cửa sổ Chrome bị thu nhỏ (không chụp ảnh được).
+- 006-16 Điểm của tôi: ba số điểm không khung, số 30px đen; danh sách quy tắc không thụt lề; bảng lịch sử có hàng tiêu đề nền xám.
+- 006-14/15/17 thẻ ưu đãi và Kho Voucher: 2 thẻ mỗi hàng, hàng nhãn (phạm vi, trạng thái), mã voucher thành thanh nền xám, dòng mức giảm đậm 17px, điều khoản 2 cột; chi tiết ưu đãi có nhãn phạm vi và loại nằm bên trái.
+- `npm test` 171/171, `npm run build` đạt.
+- Chưa so: trạng thái phụ (lỗi tải, rỗng), 002-08 với khối thêm giỏ khi đã đăng nhập (chi nhánh thật của 003.2), BenefitSelector trong trang FE-03 (cần gói workshop thật).
+
+## Bỏ header/footer chung, nút Đăng xuất ở thanh bên, 2026-11-03
+
+- Theo yêu cầu của owner 002/006 (làm y hệt Figma page "002-006", không có header/footer chung): `src/app/router.jsx` đưa `productManagementRoutes` và `loyaltyPromotionRoutes` ra ngoài `AppLayout` (chỉ dời 2 dòng của 002/006, route của feature khác giữ nguyên). Khung quản trị và trang công khai/Member phủ toàn màn hình.
+- Vì header chung chứa nút Đăng xuất và đổi ngôn ngữ, đã thêm nút "Đăng xuất" (bản dịch chung `session.signOut`) ở cuối thanh bên của khung 002 và 006, chỉ hiện khi đã đăng nhập. Trang công khai/Member không có nút này; đổi ngôn ngữ chưa có trên các màn 002/006.
+- Sau đăng nhập, trang `/login` của 001 luôn chuyển về `/` (chưa có màn) và chưa đọc `returnTo`: đã đề nghị owner 001.
+- FE-03 vẫn import `features/loyaltypromotion/checkout/BenefitSelector`; file chuyển tiếp ở đường cũ được giữ.
+- `npm test` 171/171, `npm run build` đạt.
+
+## Chạy lại toàn bộ trước khi gộp, 2026-11-03
+
+- Trước khi gộp lên develop (nhánh `khuong` = develop `efa3c78` + phần 002/006): MySQL 8.4, database trống.
+  - 006 + `ModulithArchitectureTests` + `WorkshopSellingLocationAdapterTest`: **258/258 đạt** (V78/V80 đã sửa trên develop).
+  - 002: 297 chạy, 294 đạt, 3 lỗi "Too many connections" ở `CatalogueSellingLocationIT` (MySQL `max_connections` mặc định khi chạy dài); chạy riêng lớp đó **3/3 đạt**.
+  - Frontend `npm test` 171/171, `npm run build` đạt.
+
+## Nhập size nhanh trên màn Thêm sản phẩm, nhãn "QUẢN LÝ SẢN PHẨM", 2026-11-03
+
+- Owner 002 chốt: nhãn trên tiêu đề màn Danh mục và Import là "QUẢN LÝ SẢN PHẨM" (en "PRODUCT MANAGEMENT"), các màn khác giữ "STAFF / MANAGER" như Figma. (Đây là quyết định hiện hành, xác nhận lại 2026-11-03: nhãn làm theo Figma.)
+- Màn Thêm sản phẩm (phương án A + B do owner chọn): `ui/management/SizePicker.jsx` — 25 ô bấm size 5–29, chọn khoảng từ/đến, chọn tất cả/bỏ chọn; nhập một giá đề xuất và số lượng rồi "Áp dụng" cho mọi size đã chọn; bảng một dòng mỗi size (xếp tăng dần) để sửa riêng, có "Bỏ size". Body gửi backend không đổi (`variants[{size, proposedPrice, quantity}]`), luật size 5–29/tối đa 25/giá > 0/số lượng ≥ 0 vẫn do `checkVariants` và backend kiểm; lỗi theo ô hiển thị ở đúng dòng. Không chọn được size trùng hoặc ngoài khoảng.
+- Test: 3 test tạo sản phẩm cập nhật theo cách chọn mới + 1 test cho ô size, khoảng, áp dụng chung và sửa riêng. `npm test` 172/172, `npm run build` đạt; kiểm tra trên Chrome thật (bấm nhanh nhiều size liên tiếp giữ đủ).
+- Figma 002-03/03b/03c còn vẽ kiểu cũ (mỗi size một dòng gõ số): cần cập nhật ở phiên Figma.
+
+## Nhãn khu vực và thanh lọc công khai, 2026-11-03
+
+- ~~Owner chốt nhãn: mọi màn quản trị 002 (tiêu đề và nhóm trên thanh bên) là "QUẢN LÝ SẢN PHẨM" / "PRODUCT MANAGEMENT";~~ (phần 002 không còn hiệu lực: owner chốt lại 2026-11-03 làm theo Figma, xem mục rà soát bên dưới) màn tích điểm 006 (Chính sách điểm, Điểm của tôi) là "QUẢN LÝ TÍCH ĐIỂM" / "LOYALTY POINTS"; các màn chương trình ưu đãi giữ "MANAGER", Kho voucher giữ "MEMBER".
+- Thanh lọc trang sản phẩm công khai xếp theo frame 002-07: hàng 1 Tìm kiếm (2 cột), Danh mục, Sắp xếp; hàng 2 Giá từ, Giá đến, Chỉ hiện sản phẩm có thể mua, Áp dụng.
+- `npm test` 172/172, `npm run build` đạt. Danh sách chênh lệch Figma ↔ code đã gửi owner để cập nhật Figma.
+
+## Rà soát spec–code–Figma, sửa FR-003/FR-028 và xem ảnh quản trị, 2026-11-03
+
+- FR-003: danh sách quản trị hiện mã sản phẩm (`SP000042`) dưới tên; khi từ khóa là SKU, size có SKU khớp được đánh dấu và ghi "Khớp SKU … (size …)" (`productCode`/`skuMatch` trong `domain/productRules.js`). Fixture test đổi SKU sang đúng FR-006 (`SP000042-S12`).
+- `GET catalogue-management/media/{mediaId}` (T103): chỉ phục vụ ảnh gắn với sản phẩm **chưa xóa mềm** (đồng nhất với chi tiết quản trị, sản phẩm đã xóa trả 404) hoặc ảnh do chính actor tải lên và chưa gắn vào sản phẩm nào (`ProductImageRepository.existsOnLiveProduct`). Thêm `CatalogueManagementMediaIT` (Staff/Manager xem ảnh nháp mà công khai không xem được, ảnh chưa gắn chỉ người tải lên xem, sản phẩm đã xóa 404, 401/403, 404/503 có kiểu) và test frontend cho `StaffImage` (bearer, blob URL, ô số thứ tự khi lỗi).
+- Nhãn khu vực làm theo Figma (owner chốt 2026-11-03): nhóm trên thanh bên và tiêu đề màn 002-01…04 (danh sách, thêm, chi tiết) là "STAFF / MANAGER" (`nav.group`); màn 002-05 Danh mục và 002-06 Import là "QUẢN LÝ SẢN PHẨM" / "PRODUCT MANAGEMENT" (`nav.section`). Code vốn đã như vậy; đánh dấu câu "mọi màn quản trị 002 là QUẢN LÝ SẢN PHẨM" ở mục trước là không còn hiệu lực, sửa ngày các mục ghi nhầm 2026-11-04.
+- FR-028: hook `application/useCatalogueCommand.js` (không sửa `shared/`): lệnh ghi mất phản hồi (status 0) thì Thử lại gọi `GET command-receipts/{key}?action=…` trước; có receipt thì dùng kết quả, không gửi lại; `COMMAND_RESULT_NOT_FOUND` thì gửi lại đúng key. Áp dụng cho chi tiết sản phẩm (mọi section), xóa, danh mục và tạo sản phẩm; import giữ cách đọc lại batch đã có. Tạo sản phẩm (không có expectedVersion) giữ key trong sessionStorage tới khi biết kết quả: sau khi tải lại trang, màn Thêm sản phẩm hỏi receipt và hiện liên kết tới sản phẩm đã tạo thay vì để tạo lần hai.
+- Figma (chưa sửa: tài khoản là ghế View, MCP không ghi được): cần cập nhật 002-04/04b/04d…04k khối Ảnh (bỏ câu "Ảnh của sản phẩm chưa công khai không được xem trước từ máy chủ", vẽ ảnh thu nhỏ, ô số thứ tự khi đang tải/lỗi); 002-02/02d thêm mã sản phẩm dưới tên và size khớp SKU; mọi frame quản trị 002 thêm nút Đăng xuất cuối thanh bên (nhãn giữ nguyên như Figma); 002-03/03b/03c nhập size bằng ô bấm (đã ghi ở mục trước).
+- Kiểm tra: frontend `npm test` 180/180 (002: 47, thêm `tests/recovery.test.jsx`), `npm run build` đạt. Backend MySQL 8.4, database trống: `CatalogueManagementMediaIT` 5/5, `CatalogueMediaAvailabilityIT` 2/2, `CataloguePublicApiIT` 6/6, `CatalogueMediaIT` 5/5, `CatalogueSaleStatusAndDeleteIT` 5/5 (23/23). Chưa chạy lại toàn bộ 002 và chưa kiểm trên trình duyệt với phiên Staff/Manager thật.
+
+## Duyệt giá nhiều size (B1 + B2), 2026-11-03
+
+Chỉ sửa frontend; không đổi spec, API hay backend. Mọi lệnh vẫn đi qua endpoint hiện có, mỗi lệnh một Idempotency-Key.
+
+- B1, duyệt hồ sơ ban đầu (`sections/ReviewSection.jsx`): bảng giá duyệt có thêm cột ô chọn và cột "Chênh lệch" so với giá đề xuất (dòng đã chỉnh được tô nền). Khi có từ 2 size trở lên thì hiện thêm ô "Giá duyệt chung" với nút "Áp dụng cho N size đã chọn" và nút "Lấy lại giá đề xuất". Vẫn duyệt cả hồ sơ một lần (FR-010): ô chọn chỉ quyết định size nào nhận giá chung, body gửi vẫn có giá của mọi size.
+- B2, giá từng size sau khi đã công khai (`sections/BatchPrices.jsx`, đặt ở đầu `PriceSection`):
+  - Bảng "Giá đang chờ duyệt (N size)" hiện khi có từ 2 size Chờ duyệt. Mỗi dòng có: ô chọn, giá đang áp dụng, giá đề xuất, ô giá duyệt, chênh lệch. Có giá duyệt chung giống B1. Nút "Duyệt N size đã chọn" và "Từ chối N size đã chọn" (lý do dùng chung, bắt buộc theo `checkReason`).
+  - Nút "Áp dụng giá đã duyệt cho N size": hiện cả trước và sau lần công khai đầu, không gửi số tiền (FR-015).
+  - Nút "Gửi duyệt N size nháp": chỉ hiện sau lần công khai đầu.
+  - Các lệnh của từng size chạy lần lượt (`decidePrice`, `applyPrice`, `submitPrice`). Mỗi size là một quyết định riêng (FR-013/FR-014): size lỗi không chặn size khác, kết quả hiện theo từng size ("Kết quả: 2/3 size thành công", kèm lý do của size lỗi), và tải lại sản phẩm nếu có ít nhất một size thành công.
+  - Size bị mất phản hồi được giữ key: lần chạy sau hỏi `command-receipts` trước, rồi mới gửi lại đúng key đó (FR-028).
+  - Các khối từng size bên dưới giữ nguyên.
+- Test: thêm 3 test trong `tests/screens.test.jsx`:
+  - B1: giá chung cho các size đã chọn, body gửi đủ mọi size.
+  - B2: từ chối thiếu lý do không gửi gì; duyệt 3 size với key khác nhau, size 14 bị 409 được báo riêng, 2/3 thành công.
+  - Áp dụng 2 giá đã duyệt một lần, không gửi số tiền.
+- Kiểm tra: frontend `npx vitest run` 187/187, `npm run build` đạt. Chưa kiểm trên trình duyệt với phiên Manager thật.
+- Figma: chưa có frame cho bảng duyệt nhiều size. Cần bổ sung nếu muốn Figma khớp code: 002-04 khối Duyệt hồ sơ (thanh giá chung, cột chọn, cột chênh lệch) và khối Đề xuất giá (bảng Giá đang chờ duyệt, các nút làm cho N size).
+
+## Import: nhiều size trong một dòng (A1), 2026-11-03
+
+Owner chọn phương án A1. Đã sửa spec FR-040 (thêm Clarification Session 2026-11-03 và edge case), `contracts/interfaces.md` (quy tắc ô Size, mã lỗi `INVALID_SIZE_LIST`) và `tasks.md` (T104).
+
+- Backend `ProductImportValidator`:
+  - Ô Size dạng văn bản có `,`/`;` hoặc khoảng giữa hai số (`12-20`, `20 – 21`) được đọc thành danh sách size, theo thứ tự đã viết. Mỗi size là một biến thể dùng giá đề xuất và số lượng của dòng. Ô số và ô văn bản không có dấu phân tách giữ quy tắc cũ (`5.0`, `+5`, `05`, `-5` vẫn `INVALID_NUMBER`).
+  - Lỗi: sai cú pháp hoặc khoảng ngược → `INVALID_SIZE_LIST`; ngoài 5–29 → `OUT_OF_RANGE`; size lặp trong ô hoặc giữa các dòng cùng nhóm → `DUPLICATE_SIZE_IN_GROUP`. Mọi lỗi ghi đúng dòng, cột Size và giá trị ô.
+  - Ô Size `12,5` giờ là danh sách size 12 và 5; test `12,5` dạng văn bản chuyển sang cột Giá (vẫn `INVALID_NUMBER`).
+- `ProductImportService`: bước xác nhận báo danh mục cũ một lần cho mỗi dòng file (một dòng có thể ra nhiều biến thể).
+- `ImportTemplateWriter`: hướng dẫn mới về cú pháp Size và giá dùng chung; ví dụ gồm `5-15`, `16,18,20` và một dòng một size.
+- Không đổi DTO hay API: xem trước vẫn trả `sizes` cho mỗi nhóm. `rowCount` là số dòng file, `variantCount` là số size.
+- Frontend:
+  - Bước tải mẫu thêm gợi ý cú pháp cột Size.
+  - Xem trước ghi "7 size: 5–9, 12, 14" (`compactSizes` trong `domain/productRules.js`).
+  - Thêm thông điệp `importCode.INVALID_SIZE_LIST` (vi/en).
+- Kiểm tra:
+  - Backend MySQL 8.4 (database test mới `ppswbs_pm_sales_1103`): `CatalogueImportTests` 30/30 (thêm khoảng/danh sách, lỗi theo dòng, giới hạn 25 size, giá dạng văn bản) và `CatalogueImportApiIT` 7/7 (thêm tải file `5-9` + `12,14` → xem trước 7 size → xác nhận tạo 7 SKU, giá đề xuất đúng theo dòng).
+  - Frontend `npx vitest run` 188/188, `npm run build` đạt.
+  - Toàn bộ backend 002 (MySQL 8.4, database mới): 358 test, ban đầu lỗi 4. Sửa 1: `CatalogueContractIT` vẫn đếm 33 operation dù T103 đã thêm `getManagementProductMedia`, nên đổi thành 34. Chạy lại riêng thì đạt: `CatalogueContractIT` 4/4, `CatalogueSellingLocationIT` 3/3 (lần chạy chung lỗi do hết kết nối MySQL, không phải lỗi logic).
+  - Chưa thử trên trình duyệt với phiên thật.
+
+## Rà soát task và trạng thái, 2026-11-03
+
+- `tasks.md`: 104/104 task đã tick (T001–T104). Không còn dấu chưa chốt (NEEDS CLARIFICATION/TBD) trong spec, plan, data-model, quickstart và contract. Code 002 không còn TODO/FIXME.
+- Cập nhật V-ID so với bảng 2026-11-01:
+  - V-01: phiên Firebase thật của 001 đã có. Đăng nhập thật bằng staff@gmail.com, manager@gmail.com, member@gmail.com: Staff vào được 002, còn khu ưu đãi 006 trả 403; Member không vào được khu quản trị. Trạng thái: PASS (backend + phiên thật ở mức vào màn hình).
+  - V-13: PARTIAL. Màn quản trị đã mở với backend và phiên thật (danh sách, chi tiết, danh mục, import, đối chiếu Figma). **Chưa chạy trọn trên trình duyệt** hành trình nghiệp vụ: tạo → gửi duyệt → Manager duyệt → áp dụng giá → công khai → thấy trên trang công khai; import file thật; duyệt giá nhiều size (B2).
+- Còn phụ thuộc người khác (không phải task 002):
+  - 001 (Phan Sơn): sau đăng nhập `/login` luôn về `/`, chưa đọc `returnTo` hay chuyển theo vai trò.
+  - FE-08 (Bùi Trọng Thịnh): trang `/member/cart` chưa có; nút "Thêm vào giỏ" thành công thì chuyển tới trang trống.
+  - FE-03 (Quốc): còn import `BenefitSelector` qua đường cũ `features/loyaltypromotion` (006, file chuyển tiếp còn giữ).
+- Figma: các thay đổi code chưa có frame (bộ chọn size 002-03, nút trên từng dòng 002-04, nút Đăng xuất, bảng duyệt giá nhiều size, gợi ý cột Size khi import). Prompt sửa Figma đã gửi owner.
+
+## V-13: hành trình nghiệp vụ trên trình duyệt với phiên thật, 2026-11-03
+
+Môi trường: Chrome đã đăng nhập Firebase thật bằng manager@gmail.com (MANAGER), frontend Vite local, backend local nhánh `khuong` (đã có A1, B1/B2), MySQL 8.4. Dữ liệu tạo ra nằm trong database local của máy dev.
+
+1. **Tạo → duyệt → áp giá → công khai: ĐẠT.**
+   - Thêm sản phẩm: chọn size 12, 14, 16 bằng ô bấm; áp giá chung 350000 và số lượng 5; sửa riêng size 16 thành 380000; tải ảnh. Kết quả SP000006 với SKU `SP000006-S12/S14/S16`.
+   - Gửi duyệt, Manager duyệt với B1: bỏ chọn size 16, áp giá duyệt chung 360000 cho 12 và 14; cột chênh lệch hiện "+10.000 ₫"; size 16 "Bằng đề xuất".
+   - "Áp dụng giá đã duyệt cho 3 size" (B2): 3/3 thành công. Công khai.
+   - Trang `/products/6` hiện 360.000–380.000 ₫, 3 size "Có thể mua".
+2. **Import có khoảng size: ĐẠT.** File `test-data/import-khoang-size.xlsx` (3 dòng: `5-9`, `12,14`, `16;18;20`):
+   - Xem trước: "2 sản phẩm, 10 size", "7 size: 5–9, 12, 14".
+   - Xác nhận: tạo SP000007 (7 SKU) và SP000008 (3 SKU). Giá đề xuất đúng theo dòng (5–9 = 350.000 ₫, 12 và 14 = 380.000 ₫).
+3. **Duyệt giá nhiều size sau công khai (B2): ĐẠT.**
+   - SP000006: đề xuất mới cho 3 size, "Gửi duyệt 3 size nháp" 3/3. Bảng "Giá đang chờ duyệt (3 size)": sửa riêng size 16 thành 385000, "Duyệt 3 size đã chọn" 3/3. "Áp dụng giá đã duyệt cho 3 size" 3/3. API công khai trả 370000/370000/385000.
+   - Từ chối: đề xuất 999000 cho 2 size; bấm từ chối thiếu lý do thì báo "Cần nhập lý do." và không gửi; có lý do thì cả 2 size "Bị từ chối" kèm lý do, giá đang áp dụng giữ nguyên.
+- **Lỗi tìm thấy và đã sửa:**
+  - Trang chi tiết công khai hiện dòng đỏ "Chọn chi nhánh trước khi thêm vào giỏ." ngay khi mở trang, kể cả khi không có chi nhánh. Đổi thành gợi ý thường (`hint`), chỉ hiện khi có chi nhánh để chọn (`AddToCartPanel.jsx`).
+- **Ghi chú môi trường:**
+  - Lần đầu, bảng duyệt nhiều size bị vỡ cột. Nguyên nhân: Vite dev server chưa nhận phần CSS nối thêm bằng lệnh shell. Sau khi Vite tải lại file thì bảng hiển thị đúng 6 cột (đã kiểm `grid-template-columns`). Không phải lỗi code.
+  - Database local chưa có chi nhánh đang hoạt động (003.2), nên chưa thử được "Thêm vào giỏ".
+- **Kết luận:** V-13 **PASS** cho các hành trình quản trị 002 với phiên thật. Phần nút mua vẫn chờ chi nhánh (003.2) và trang `/member/cart` (FE-08).
+- Kiểm tra sau khi sửa: frontend `npx vitest run` 187/188 khi chạy chung (1 test 006 quá 5 giây do máy bận; chạy riêng `loyalty-promotion` 30/30), `npm run build` đạt.

@@ -109,7 +109,7 @@ public class PromotionManagementQueryService {
                 revision.getMinimumEligibleAmount().toString(), revision.isAllowPoints(), targets(revisionTargets),
                 program.getTotalLimit() == null ? null : program.getTotalLimit().toString(),
                 program.getMemberLimit() == null ? null : program.getMemberLimit().toString(),
-                program.getCreatedAt().toString());
+                program.getCreatedAt().toString(), null, null);
     }
 
     private static PromotionReadDtos.Targets targets(List<PromotionTarget> rows) {

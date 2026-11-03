@@ -247,3 +247,9 @@ Bước kế tiếp là review tasks và speckit-analyze khi được giao. Task
 | `SellingLocationPort` | 003.2 — Hồ Hoàng Quốc | Nút "Thêm vào giỏ" luôn khóa (503 `LOCATION_DEPENDENCY_UNAVAILABLE`) | Bean cài đặt đọc chi nhánh đang hoạt động; `CatalogueSellingLocationIT` chạy lại |
 | Trang `/member/cart` | FE-08 — Bùi Trọng Thịnh | Sau khi thêm giỏ chuyển tới route chưa có | FE-08 thêm route |
 | Migration V12 trùng số trên develop | 004 — Đạt | Chưa pull develop mới | Đổi số migration của 004 |
+
+## Sau develop `55f7da2`, 2026-11-02
+
+- 001 đã có đăng nhập (`/login`); 002 đổi các nút đăng nhập sang `/login?returnTo=…` (`shared/auth/SignInLink`). Frontend toàn ứng dụng 171/171, build đạt.
+- 003.2 đã cài `SellingLocationPort` (`WorkshopSellingLocationAdapter`); record `SellingLocation` dùng tên trường `displayName`/`addressSnapshot` cho khớp 003.2, API công khai không đổi.
+- **Chặn chạy lại test MySQL:** migration `V78__align_retail_cart_line_cart_reference_type.sql` (develop `76f104b`) lỗi MySQL 1833 trên database trống — đổi `retail_carts.id` khi khóa ngoại `fk_retail_cart_lines_cart` còn tồn tại. 290 test 002 chạy, 177 lỗi đều do Flyway dừng ở V78. Đã báo owner 003/FE-08; chạy lại khi sửa.
