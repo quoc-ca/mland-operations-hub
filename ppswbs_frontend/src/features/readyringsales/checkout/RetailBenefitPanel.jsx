@@ -1,0 +1,58 @@
+import React, { useMemo, useState } from 'react';
+import { useFormat } from '../../../shared/i18n/I18nProvider';
+
+const whole = value => /^\d+$/.test(String(value ?? '')) ? BigInt(value) : 0n;
+
+/** FE-08 presentation for FE-06 data: a Shopee-like voucher picker and all-eligible-points switch. */
+export function RetailBenefitPanel({ selection, onChange, savedVouchers, account, merchandiseSubtotal, quote, quoteMatches, acknowledged, onAcknowledge, onRecalculate, onConfirm, pending }) {
+  const format = useFormat();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [typedCode, setTypedCode] = useState('');
+  const maxPoints = useMemo(() => maximumPoints(account, merchandiseSubtotal), [account, merchandiseSubtotal]);
+  const selectedVoucher = savedVouchers.find(item => item.code === selection.voucherCode);
+  const pointsEnabled = selection.requestedPoints !== '0';
+  const applyVoucher = code => {
+    const clean = code.trim();
+    onChange({ ...selection, choice: clean ? 'VOUCHER' : 'AUTO', voucherCode: clean });
+    setPickerOpen(false);
+  };
+  const togglePoints = checked => onChange({ ...selection, requestedPoints: checked ? maxPoints : '0' });
+  const canConfirm = Boolean(quote?.eligible && quoteMatches && acknowledged && !pending);
+
+  return <section className="retail-benefits" aria-label="Ưu đãi và điểm thành viên">
+    <button type="button" className="retail-benefit-row" onClick={() => setPickerOpen(true)}>
+      <span className="retail-benefit-icon">▣</span><strong>Voucher MLAND</strong>
+      <span className={selectedVoucher ? 'benefit-applied' : 'muted'}>{selectedVoucher?.name || (selection.voucherCode ? selection.voucherCode : 'Chọn hoặc nhập mã')}</span><span>›</span>
+    </button>
+    <label className="retail-benefit-row point-row">
+      <span className="retail-benefit-icon">Ⓟ</span><strong>Dùng {format.number(maxPoints)} điểm thành viên</strong>
+      <span className="muted">Giảm tối đa theo chính sách</span>
+      <input className="switch" type="checkbox" checked={pointsEnabled} disabled={!maxPoints || pending} onChange={event => togglePoints(event.target.checked)} />
+    </label>
+    {quote && <div className="retail-benefit-quote">
+      {!quoteMatches && <p className="notice error">Lựa chọn đã đổi. Hãy tính lại tổng tiền.</p>}
+      {quote.reasons?.length > 0 && <p className="notice error">{quote.reasons.join(' ')}</p>}
+      <label className="check-row"><input type="checkbox" checked={acknowledged} disabled={!quoteMatches || !quote.eligible} onChange={event => onAcknowledge(event.target.checked)} /> Tôi đã xem tổng tiền và ưu đãi.</label>
+    </div>}
+    <div className="retail-benefit-actions"><button type="button" className="button outline" disabled={pending} onClick={onRecalculate}>Tính lại ưu đãi</button><button type="button" className="button primary" disabled={!canConfirm} onClick={onConfirm}>Tạo đơn</button></div>
+    {pickerOpen && <div className="benefit-picker-backdrop" role="presentation"><section className="benefit-picker" role="dialog" aria-modal="true" aria-label="Chọn voucher">
+      <div className="card-head"><h2>Chọn voucher MLAND</h2><button type="button" className="text-link" onClick={() => setPickerOpen(false)}>Đóng</button></div>
+      <div className="voucher-code-entry"><input value={typedCode} maxLength="128" placeholder="Nhập mã voucher" onChange={event => setTypedCode(event.target.value)} /><button type="button" className="button primary" onClick={() => applyVoucher(typedCode)}>Áp dụng</button></div>
+      <h3>Voucher đề xuất</h3>
+      {savedVouchers.filter(item => item.availability === 'ACTIVE').length === 0 && <p className="muted">Bạn chưa có voucher khả dụng.</p>}
+      {savedVouchers.filter(item => item.availability === 'ACTIVE').map(item => <button type="button" className={`voucher-option${item.code === selection.voucherCode ? ' selected' : ''}`} key={item.code} onClick={() => applyVoucher(item.code)}><span className="voucher-stamp">MLAND</span><span><strong>{item.name}</strong><small>{item.code}</small></span><span>{item.code === selection.voucherCode ? '✓' : '○'}</span></button>)}
+      {selection.voucherCode && <button type="button" className="text-link" onClick={() => applyVoucher('')}>Bỏ voucher đang chọn</button>}
+    </section></div>}
+  </section>;
+}
+
+function maximumPoints(account, merchandiseSubtotal) {
+  const available = whole(account?.availablePoints);
+  const policy = account?.policy;
+  const pointValue = whole(policy?.redeemPointValue);
+  const percentage = whole(policy?.maxRedeemPercent);
+  const subtotal = whole(merchandiseSubtotal);
+  if (!available || !pointValue || !percentage || !subtotal) return '0';
+  const byPolicy = (subtotal * percentage / 100n) / pointValue;
+  return (available < byPolicy ? available : byPolicy).toString();
+}

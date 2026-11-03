@@ -51,6 +51,7 @@ export default function AppLayout() {
         <a className="brand" href="/">MLAND</a>
         <nav aria-label={t('nav')}>
           <Link to="/products">{t('products')}</Link>
+          <Link to="/member/cart">Giỏ hàng</Link>
           <Link to="/workshops">{t('workshops')}</Link>
           <Link to="/promotions">{t('promotions')}</Link>
           <Link to="/me/loyalty">{t('loyalty')}</Link>

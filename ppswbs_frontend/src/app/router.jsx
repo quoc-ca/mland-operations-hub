@@ -3,6 +3,7 @@ import { createBrowserRouter } from 'react-router';
 import { designReviewRoutes } from '../features/designreview/routes';
 import { loyaltyPromotionRoutes } from '../features/loyaltypromotion/routes';
 import { productManagementRoutes } from '../features/productmanagement/routes';
+import { readyRingSalesRoutes } from '../features/readyringsales/routes';
 import { workshopRoutes } from '../workshops/routes';
 import AuthPage from '../features/account/AuthPage';
 import { otaConnectivityRoutes } from '../ota-connectivity/routes';
@@ -20,6 +21,7 @@ export const routes = [
       { path: '/register', element: <AuthPage mode="register" /> },
       { path: '/forgot-password', element: <AuthPage mode="forgot" /> },
       ...productManagementRoutes,
+      ...readyRingSalesRoutes,
       ...loyaltyPromotionRoutes,
       ...workshopRoutes,
       ...otaConnectivityRoutes,
