@@ -92,11 +92,13 @@ The final bill is available only after 003.2 reports every required session as
 
 ### Charges and bill access
 
-Customer selection is limited to an eligible fixed-price catalogue add-on for
-the booking package/location. The server derives its price from the catalogue
-snapshot. An owning Member uses authenticated ownership; a Guest supplies the
-booking code plus exactly one stored phone or email per request. The command is
-rejected once the bill is finalized. Magic Link is read-only.
+Customers may view eligible fixed-price catalogue add-ons for the booking
+package/location, but cannot select or create a charge. At the workshop, an
+active Staff member scoped to the booking location or a global Manager records
+customer consent and the server derives the immutable price from the catalogue
+snapshot. A direct booking appends to an OPEN final bill; after finalization it
+uses a separate direct-Mland add-on bill. An OTA booking always uses a separate
+direct-Mland add-on bill and never mutates OTA payment or payout facts.
 
 Staff in the booking location or any active Manager may create/confirm variable material or service
 charges. The command has description, VND amount and reason and produces audit
@@ -163,8 +165,8 @@ The contract is the normative transport detail in
 
 | Resource group | Public route family | Authority / proof |
 | --- | --- | --- |
-| Final bill | `/api/v1/workshop-bookings/{bookingCode}/final-bill` | Member ownership, Guest contact proof for read/customer fixed add-on; in-scope Staff for create/finalization. |
-| Charges | `/final-bill/charges` | Customer fixed catalogue selection, Staff in booking-location scope, or any active Manager globally for variable charges. |
+| Final bill | `/api/v1/workshop-bookings/{bookingCode}/final-bill` | Member ownership or Guest contact proof for read-only projection; Staff/Manager for settlement actions. |
+| Charges | `/final-bill/charges` | Staff in booking-location scope or any active Manager globally; customer routes cannot create charge lines. |
 | Settlement cases | `/.../{case-collection}` and `/{caseReference}` | Customer cancellation/read by ownership/proof; Manager for required-session change and Mland remedy. |
 | Refund policy | `/api/v1/workshop-refund-policies` | Any active Manager, global scope. |
 | VNPay ingress | Shared integration contract | `paymentintegration` owns the signed GET; this feature never owns the provider route. |

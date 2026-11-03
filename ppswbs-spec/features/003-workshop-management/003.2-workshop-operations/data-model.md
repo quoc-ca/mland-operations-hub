@@ -1,7 +1,7 @@
 # Data Model: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-02
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -33,7 +33,8 @@ requires a new session ownership record.
 `packageId` is a system-generated technical identity. A Package has an editable
 public `name`, description, required public per-participant price, inclusive
 `minParticipants` and `maxParticipants`, generic `requiredSessionCount`,
-`sameLocationRequired`, non-negative `minimumSameDaySlotGap`, lifecycle state
+`sameLocationRequired`, non-negative `minimumSameDaySlotGap`, non-negative
+`requiredFoundryWorkingDaysBetweenSessions`, lifecycle state
 and audit timestamps/references. It
 defines selection rules only: it has no concrete dated-session attachment,
 branch mapping or local copy of a Location.
@@ -45,12 +46,15 @@ Constraints and ownership invariants:
 - required session count is positive; `sameLocationRequired` is a rule that
   applies to the customer-selected required-session set, not a storage
   relationship to one or more sessions;
-- the current Basic Ring and Silverclay configurations are respectively
-  `(requiredSessionCount: 1, sameLocationRequired: true,
-  minimumSameDaySlotGap: 0)` and `(requiredSessionCount: 2,
-  sameLocationRequired: true, minimumSameDaySlotGap: 1)`; a value of `1`
-  requires at least one configured slot between two selected sessions on the
-  same local date. They do not form a closed Package-type enum;
+- the confirmed commercial catalogue is documented in
+  [catalogue.md](./catalogue.md). Signature Brass, Signature Silver 925, Silver
+  Clay 5g and Silver Clay 7g use `requiredSessionCount: 1`; Wax Casting uses
+  `requiredSessionCount: 2`. They do not form a closed Package-type enum;
+- `minimumSameDaySlotGap` can constrain only two selected sessions on the same
+  local date. It never implements Wax Casting's rule. For Wax Casting,
+  `requiredFoundryWorkingDaysBetweenSessions` is `2`: Operations requires at least
+  two Monday–Friday local dates strictly between the chronological sessions,
+  skipping Saturday and Sunday. It is `0` for the current one-session offers;
 - state transitions are `DRAFT -> PUBLISHED -> RETIRED`; `RETIRED` rejects new
   Booking selection and a Package that has been published or frozen into a
   Booking snapshot is never deleted;
@@ -68,8 +72,9 @@ Package-to-Manager assignment. Staff operational actions remain location-scoped.
 
 Operations stores one immutable snapshot per accepted booking, uniquely keyed
 by `bookingReference`, containing the package reference, required session count,
-participant bounds, same-location requirement and minimum same-day slot gap
-validated in the capacity-reservation transaction. Later Package edits are
+participant bounds, same-location requirement, minimum same-day slot gap and
+required foundry-working-days-between-sessions value validated in the
+capacity-reservation transaction. Later Package edits are
 prospective and do not change this snapshot. Complete required-session
 replacement validates against these frozen constraints. Existing bookings with
 no snapshot are not backfilled from the mutable Package master and cannot be
@@ -202,7 +207,8 @@ currently `PUBLISHED` Package and evaluate its generic participant and
 required-session rules. Its selection snapshot contains the opaque
 `packageReference`, public per-participant price, participant bounds,
 required-session count, same-location rule and same-day slot-gap rule. It
-returns Package facts only;
+returns Package facts, including the foundry-working-days-between-sessions
+rule, only;
 it does not return
 Operations entities/repositories, Account data, Booking data, payment data,
 attendance, ticket data or PII. Booking consumes that result to select and
@@ -212,7 +218,7 @@ The shared interfeature facade contract defines this as
 `PublishedPackageSelectionQuery(packageReference)` and
 `PublishedPackageSelectionSnapshot(packageReference, publicPerParticipantPrice,
 minParticipants, maxParticipants, requiredSessionCount, sameLocationRequired,
-minimumSameDaySlotGap)`.
+minimumSameDaySlotGap, requiredFoundryWorkingDaysBetweenSessions)`.
 It is a conceptual Java boundary contract, not approval of persistence shape.
 
 Customer REST discovery is separate from the facade: for one Package and one

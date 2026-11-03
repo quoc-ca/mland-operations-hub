@@ -1,7 +1,7 @@
 # Quickstart Validation: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-02
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -19,9 +19,12 @@ per-run evidence to this guide.
    never use production customer data.
    If legacy booking/customer data is present, use an approved append-only
    preservation migration and upgrade/recovery evidence instead of resetting it.
-2. Seed one published Basic Ring package and one direct-Mland Silverclay package
-   with a valid VND price per participant; include a promotion case whose
-   post-promotion amount is odd VND.
+2. Seed the confirmed catalogue offers from
+   [003.2/catalogue.md](../003.2-workshop-operations/catalogue.md) with valid
+   VND per-person/piece prices. Include a promotion case whose post-promotion
+   amount is odd VND. Wax Casting must be configured with its Operations-owned
+   foundry-working-date policy: exactly two Monday–Friday dates strictly
+   between the two selected sessions, with Saturday/Sunday excluded.
 3. Create published common workshop sessions in one canonical workshop location with a shared
    capacity pool. Provide two non-adjacent same-day slots and two slots across
    different days.
@@ -36,19 +39,21 @@ per-run evidence to this guide.
    `/workshops/:packageId` to `/workshops/:packageId/book`. Verify it requires
    no more than three primary interactions using user-visible controls; retain
    the result in the approved CI report/artifact.
-2. Create a Basic Ring booking for N participants and one session. Verify one
+2. Create a one-session Signature or Silver Clay booking for N participants and
+   one session. Verify one
    pending booking, one invoice at `N × price_per_participant`, exact 50% VND
    deposit, and an N-seat hold in that session.
-3. Create a Silverclay booking for N participants and the two valid
-   same-location sessions required by its Package rule. Verify chronological
+3. Create a Wax Casting booking for N participants and its two valid sessions:
+   Monday 16:00–19:00 followed by Thursday 09:30–12:00. Verify chronological
    ordinals, N held seats in both shared pools, one invoice and no
-   cart/multiple booking records.
-4. Attempt a selected set rejected by the Package rule (duplicate session,
-   different location, or adjacent same-day pair for Silverclay), a full second
-   session, or concurrent last-seat race. Verify Operations returns the safe
-   refusal and no partial booking or hold persists. Verify
-   final-slot-today/first-slot-tomorrow is accepted for the Silverclay gap rule. Put
-   one selected session in `SALES_PAUSED` and verify no new hold is created,
+   cart/multiple booking records. Verify that Monday-to-Wednesday and
+   Friday-to-Tuesday are rejected, while Friday-to-Wednesday is accepted
+   because the weekend does not count.
+4. Attempt a selected set rejected by the active Package rule (duplicate
+   session, a pair rejected by the Wax Casting foundry-working-date rule, a full
+   required session, or a concurrent last-seat race). Verify Operations returns
+   the safe refusal and no partial booking or hold persists. Put one selected
+   session in `SALES_PAUSED` and verify no new hold is created,
    while a pre-existing unexpired hold remains eligible to commit. Verify the
    Booking flow receives each sale-eligibility and hold outcome synchronously
    from 003.2 `WorkshopOperationsFacade`; a later event cannot change that
@@ -56,7 +61,8 @@ per-run evidence to this guide.
    neither the booking nor any session hold commits.
 5. Start payment, submit a valid signed matching gateway event, and verify one
    confirmed booking, one accepted deposit, and an N-ticket delivery-safe
-   projection from 003.2 `WorkshopOperationsFacade`. For Silverclay,
+   projection from 003.2 `WorkshopOperationsFacade`. For an approved
+   multi-session package,
    each ticket projection carries both session entitlements. Verify Booking
    neither receives attendance state nor derives ticket entitlement. Browser
    return alone must not confirm payment. Inject a local persistence failure

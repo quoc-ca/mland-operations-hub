@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-02
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -66,11 +66,14 @@ duplicate identifier.
 description, required per-participant public price, inclusive participant
 bounds, generic required-session rules and lifecycle. A Package has only a
 system-generated `packageId`; V1 has no separate business package code and no
-concrete dated-session attachment. It also defines a non-negative
-`minimumSameDaySlotGap`: Basic Ring currently uses `1`/same-location/gap `0`,
-while Silverclay uses `2`/same-location/gap `1` (one configured slot must fall
-between same-local-day selected sessions). These are configuration examples,
-not a closed Package type.
+concrete dated-session attachment. It defines non-negative
+`minimumSameDaySlotGap` and `requiredFoundryWorkingDaysBetweenSessions`: the confirmed catalogue is in
+[catalogue.md](./catalogue.md). Signature Brass, Signature Silver 925 and both
+Silver Clay offers select one session; Wax Casting selects two. Wax Casting
+requires exactly two Monday–Friday local dates strictly between the selected
+sessions, skipping Saturday and Sunday. This date rule is separate from the
+same-local-date slot-gap field and must be persisted, snapshotted and enforced
+by Operations before Wax Casting can be published.
 
 The lifecycle is `DRAFT -> PUBLISHED -> RETIRED`. A retired Package rejects new
 selection but is never deleted after publication or after a Booking has frozen
@@ -168,7 +171,8 @@ state or direct-Mland booking. V1 uses no broker and no external OTA call in
 the Operations transaction. Migration version remains a tech-lead-selected
 append-only value at implementation time.
 
-One participant has one persistent QR ticket, including for Silverclay. Its
+One participant has one persistent QR ticket, including for a multi-session
+package such as Wax Casting. Its
 validity is evaluated against its entitled session in the scanner's current
 session/location context, and attendance is independent for every ticket/session
 pair. Operations supplies Booking only a delivery-safe ticket projection: QR

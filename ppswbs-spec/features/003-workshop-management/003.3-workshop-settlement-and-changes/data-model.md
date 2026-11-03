@@ -195,8 +195,10 @@ transaction/reference.
 
 1. At most one final bill exists for one direct booking/package.
 2. Frozen financial amounts from 003.1 are never recalculated by 003.3.
-3. A customer-selected charge never supplies its own price and is rejected after
-   bill finalization.
+3. Customers do not create charge lines. A Staff/Manager-confirmed catalogue
+   add-on never supplies its own price: the server snapshots the eligible
+   package/location price. It appends only to an OPEN direct bill; finalized
+   direct and all OTA add-ons use a separate direct-Mland bill.
 4. A charge creates no participant, ticket, capacity seat or booking.
 5. Valid matched VNPay evidence resolves a final bill/refund exactly once.
 6. Operations replacement is complete-set and all-or-none; 003.3 persists no
