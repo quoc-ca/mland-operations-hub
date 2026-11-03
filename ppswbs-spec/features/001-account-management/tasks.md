@@ -29,7 +29,7 @@
 - [x] T002 Reserve the next repository-wide Flyway integer (check highest applied version) and create an append-only migration `V{N}__audit_outcome_varchar.sql` in `ppswbs_backend/src/main/resources/db/migration/` that changes `account_audit_events.outcome` from `ENUM('SUCCESS','FAILURE')` to `VARCHAR(16) NOT NULL` preserving existing rows
 - [ ] T003 Verify fresh-database Flyway startup (V1 → current) and upgrade-path startup (V5 baseline → current) both succeed and Hibernate validate passes; retain evidence in `ppswbs-spec/features/001-account-management/verification.md`
 - [x] T004 [P] Create `AuditOutcome` Java enum with exactly `SUCCESS` and `FAILURE` in `ppswbs_backend/src/main/java/.../features/accountmanagement/entity/AuditOutcome.java`
-- [ ] T005 [P] Confirm `ppswbs_frontend/` is a separate React + Vite project at `http://localhost:5173`; confirm `VITE_API_BASE_URL` and Firebase config are supplied via `.env.local` (not committed)
+- [x] T005 [P] Confirm `ppswbs_frontend/` is a separate React + Vite project at `http://localhost:5173`; confirm `VITE_API_BASE_URL` and Firebase config are supplied via `.env.local` (not committed)
 
 **Checkpoint**: Backend starts successfully with Hibernate validate on fresh and upgrade MySQL; `AuditOutcome` enum exists; frontend dev server runs.
 
@@ -90,16 +90,16 @@
   - Route: `POST /accounts/me` (bootstrap) and `GET /accounts/me` (get current)
   - Public route for `POST /accounts/me`? No — bearer is required; identity gate resolves actor first
   - Response DTO: `accountId` (opaque string), `role`, `status`, `emailVerified`; no Firebase UID, email, or token
-- [ ] T016 [US1] [P] Implement `FirebaseAuthClient.ts` in `ppswbs_frontend/src/features/accountmanagement/auth/FirebaseAuthClient.ts`:
+- [x] T016 [US1] [P] Implement `FirebaseAuthClient.ts` in `ppswbs_frontend/src/features/accountmanagement/auth/FirebaseAuthClient.ts`:
   - `register(email, password)`, `signIn(email, password)`, `signOut()`
   - `sendVerificationEmail()`, `sendPasswordReset(email)`
   - Optional: `signInWithGoogle()`, `signInWithFacebook()` — shown only when provider configured
   - Never makes role/permission decisions; no provider display name used as identity fact
-- [ ] T017 [US1] Implement `useCurrentAccount.ts` in `ppswbs_frontend/src/features/accountmanagement/hooks/useCurrentAccount.ts`:
+- [x] T017 [US1] Implement `useCurrentAccount.ts` in `ppswbs_frontend/src/features/accountmanagement/hooks/useCurrentAccount.ts`:
   - On Firebase auth state change: calls `POST /accounts/me` with current bearer
   - Active account → navigate to Home
   - Error states: `401` → sign-in; `403` → eligibility guidance; `503` → explicit retry; never infer old role/scope
-- [ ] T018 [US1] Implement `AuthPage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/AuthPage.tsx`:
+- [x] T018 [US1] Implement `AuthPage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/AuthPage.tsx`:
   - Email/password registration and sign-in forms; show configured provider buttons only when available
   - Duplicate-submit pending state; do not expose Account existence in error messages
   - Provider failure is distinct from invalid credentials; always explicit retry/alternative-method guidance
@@ -131,22 +131,22 @@
   - `GET /accounts/me/profile` — get own profile
   - `PUT /accounts/me/email` — bodyless synchronization of the current verified Firebase identity after a fresh-token verification check
   - Credential recovery, password change, and Member verification/resend are direct Firebase Web SDK actions; no Mland route receives password or sends Member verification email
-- [ ] T023 [P] [US2] Implement `useProfile.ts` in `ppswbs_frontend/src/features/accountmanagement/hooks/useProfile.ts`:
+- [x] T023 [P] [US2] Implement `useProfile.ts` in `ppswbs_frontend/src/features/accountmanagement/hooks/useProfile.ts`:
   - Load profile, form state management, save with validation
   - Retain safe unsaved full name/phone after validation/dependency errors; never retain password/token
   - Success only after server response; `409` → reconcile current values; `401/403` → safe account recovery
-- [ ] T024 [US2] Implement `ProfilePage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/ProfilePage.tsx`:
+- [x] T024 [US2] Implement `ProfilePage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/ProfilePage.tsx`:
   - Show verification banner (non-blocking) when email unverified; allow explicit resend
   - On Profile entry invoke the proposed verified-email gate before enabling save; its accessible-name/tooltip reload icon repeats the check, reloads Firebase user state, forces a fresh bearer and calls canonical `PUT /api/v1/accounts/me/email`
   - After Firebase resend succeeds, retain only Account-ID-keyed expiry in `localStorage` and disable resend for 90 seconds across browser restart; do not store email, UID, token or action code
   - Field inline validation: name length, phone length, control char
   - Credential sections: password change, email change through reauthenticated Firebase `verifyBeforeUpdateEmail`; do not persist proposed email while verification is pending
   - No password field value retained after submission
-- [ ] T051 [US2] Implement the proposed `useVerifiedEmailGate` in `ppswbs_frontend/src/features/accountmanagement/hooks/useVerifiedEmailGate.ts` and wire it through `AccountManagementApiClient.ts`:
+- [x] T051 [US2] Implement the proposed `useVerifiedEmailGate` in `ppswbs_frontend/src/features/accountmanagement/hooks/useVerifiedEmailGate.ts` and wire it through `AccountManagementApiClient.ts`:
   - Trigger only on Profile entry or the labelled/tooltip status-reload icon, never as a background job or poll.
   - Reload current Firebase user; if verified, force a fresh ID token and call bodyless `PUT /api/v1/accounts/me/email`; do not send email, boolean, UID, or `oobCode` in a request body.
   - If still unverified, present verification/resend guidance and do not start Profile save. For missing/expired session discard Profile draft and sign in; for `403` or `503`, retain safe input and offer explicit icon retry without automatically retrying a mutation.
-- [ ] T052 [P] [US2] Add frontend/API integration coverage in `ppswbs_frontend/src/features/accountmanagement/tests/verifiedEmailGate.test.tsx` for Profile entry (same-browser and other-device verification), stale/unverified token, expired session/draft discard, Firebase reload failure, and `PUT /accounts/me/email` `503`; test accessible reload icon, 90-second Account-ID-keyed `localStorage` resend expiry, `verifyBeforeUpdateEmail` old-email retention, and no poll/background retry/raw action-code persistence.
+- [x] T052 [P] [US2] Add frontend/API integration coverage in `ppswbs_frontend/src/features/accountmanagement/tests/verifiedEmailGate.test.tsx` for Profile entry (same-browser and other-device verification), stale/unverified token, expired session/draft discard, Firebase reload failure, and `PUT /accounts/me/email` `503`; test accessible reload icon, 90-second Account-ID-keyed `localStorage` resend expiry, `verifyBeforeUpdateEmail` old-email retention, and no poll/background retry/raw action-code persistence.
 
 **Checkpoint**: Verified customer can update profile and trigger credential flows. Unverified email shows reminder but does not block Home. Verification-required functions deny with guidance.
 
@@ -188,12 +188,12 @@
   - `findTargetFacts(AccountId)`: read-only; resolves Account + effective `activeWorkshopLocationIds`; typed outcome; no audit event
   - `findEligibleRoster(workshopLocationId, role)`: read-only; returns ACTIVE Accounts with effective scope; display name = Profile.full_name; no email/phone/UID/lifecycle; no audit event
   - Both: if Account or Workshop Location scope cannot be verified → `UNAVAILABLE`
-- [ ] T031 [US3] Implement `InternalAccountCreatePage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/InternalAccountCreatePage.tsx`:
+- [x] T031 [US3] Implement `InternalAccountCreatePage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/InternalAccountCreatePage.tsx`:
   - Role selector (STAFF/MANAGER only); location picker from Workshop Location source; email input
   - Generate and attach `Idempotency-Key` header on submit
   - Pending setup ≠ active access (UI must reflect PENDING_SETUP state)
   - Never display raw Firebase action link; repeat click/retry preserves one provisioning request
-- [ ] T032 [US3] Implement `useAdminAccounts.ts` (create/resend/detail portions) in `ppswbs_frontend/src/features/accountmanagement/hooks/useAdminAccounts.ts`:
+- [x] T032 [US3] Implement `useAdminAccounts.ts` (create/resend/detail portions) in `ppswbs_frontend/src/features/accountmanagement/hooks/useAdminAccounts.ts`:
   - `create`, `resend`, `loadDetail`; retain safe form data on `503`; reload on `409`
 
 **Checkpoint**: Admin creates one pending internal account; resend works with cooldown; intended person activates; duplicate create is idempotent; profile/role/location edit is version-safe.
@@ -227,7 +227,7 @@
   - Failure is durable reconciliation; a pending revocation does not silently make a suspended account usable
 - [x] T036 [P] [US4] Add routes to `AdminAccountController.java`:
   - `PUT /admin/accounts/{accountId}/status` — suspend or restore (ADMIN only; version required; reason required for suspend)
-- [ ] T037 [US4] Implement `AdminAccountDetailPage.tsx` suspension/restoration UI in `ppswbs_frontend/src/features/accountmanagement/components/AdminAccountDetailPage.tsx`:
+- [x] T037 [US4] Implement `AdminAccountDetailPage.tsx` suspension/restoration UI in `ppswbs_frontend/src/features/accountmanagement/components/AdminAccountDetailPage.tsx`:
   - Explain impact; show current committed status/effective scope
   - Suspension requires non-empty reason; restoration shows revocation-pending state when blocked
   - Location deactivation does not claim role/lifecycle change in UI
@@ -256,14 +256,14 @@
 - [x] T040 [P] [US5] Add routes to `AdminAccountController.java` and `RoleCatalogueController.java`:
   - `GET /admin/accounts` — list with filters and pagination (ADMIN only)
   - `GET /roles` — fixed role catalogue (ADMIN only)
-- [ ] T041 [P] [US5] Implement `AdminAccountListPage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/AdminAccountListPage.tsx`:
+- [x] T041 [P] [US5] Implement `AdminAccountListPage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/AdminAccountListPage.tsx`:
   - Search by email or full name; filter by role and status; paginated results
   - No credentials, provider identifiers, or unrelated business records shown
   - ADMIN accounts excluded from suspension/edit actions
-- [ ] T042 [P] [US5] Implement `RoleCataloguePage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/RoleCataloguePage.tsx`:
+- [x] T042 [P] [US5] Implement `RoleCataloguePage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/RoleCataloguePage.tsx`:
   - Read-only display of fixed role descriptions; loading/error state
   - No permission/role editing controls rendered
-- [ ] T043 [US5] Implement `useAdminAccounts.ts` (list/search portions) in `ppswbs_frontend/src/features/accountmanagement/hooks/useAdminAccounts.ts`:
+- [x] T043 [US5] Implement `useAdminAccounts.ts` (list/search portions) in `ppswbs_frontend/src/features/accountmanagement/hooks/useAdminAccounts.ts`:
   - `search(filters, page)`, `loadDetail(accountId)`
   - `updateProfile`, `assignRoleLocation`, `changeStatus` with version-safe retry on `409`
 
@@ -282,7 +282,7 @@
 - [x] T045 [P] Validate all `AccountId` representations at controller and facade boundaries:
   - REST/UI input: reject non-positive, padded, signed, blank, provider-UID, or alternate-ID representations → `400`
   - Java facade: all boundary crossings use `AccountId` type; no raw `Long` or `String` at facade boundary
-- [ ] T046 [P] Wire `AccountManagementApiClient.ts` in `ppswbs_frontend/src/features/accountmanagement/api/AccountManagementApiClient.ts`:
+- [x] T046 [P] Wire `AccountManagementApiClient.ts` in `ppswbs_frontend/src/features/accountmanagement/api/AccountManagementApiClient.ts`:
   - Covers all approved routes from plan.md; attaches Firebase bearer via authenticated request client
   - `Idempotency-Key` and `X-Correlation-ID` headers included where required
   - No raw token/UID/password stored or logged by the client

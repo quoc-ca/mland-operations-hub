@@ -9,6 +9,7 @@ const appMessages = {
   vi: {
     home: 'Trang chủ',
     products: 'Sản phẩm',
+    profile: 'Hồ sơ cá nhân',
     workshops: 'Workshop',
     promotions: 'Ưu đãi',
     loyalty: 'Điểm của tôi',
@@ -23,6 +24,7 @@ const appMessages = {
   en: {
     home: 'Home',
     products: 'Products',
+    profile: 'Personal Profile',
     workshops: 'Workshops',
     promotions: 'Offers',
     loyalty: 'My points',
@@ -51,6 +53,7 @@ export default function AppLayout() {
         <a className="brand" href="/">MLAND</a>
         <nav aria-label={t('nav')}>
           <Link to="/products">{t('products')}</Link>
+          <Link to="/profile">{t('profile')}</Link>
           <Link to="/member/cart">Giỏ hàng</Link>
           <Link to="/workshops">{t('workshops')}</Link>
           <Link to="/promotions">{t('promotions')}</Link>
@@ -68,9 +71,24 @@ export default function AppLayout() {
         </nav>
         <div className="header-tools">
           <LanguageSwitch />
-          {status === 'signed-in'
-            ? <button type="button" className="button outline small" onClick={signOut}>{tShared('session.signOut')}</button>
-            : <a className="header-login" href="/login">{tShared('session.signIn')}</a>}
+          {status === 'signed-in' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Link
+                to="/profile"
+                className="button outline small"
+                style={{ textDecoration: 'none' }}
+              >
+                {t('profile')}
+              </Link>
+              <button type="button" className="button outline small" onClick={signOut}>
+                {tShared('session.signOut')}
+              </button>
+            </div>
+          ) : (
+            <a className="header-login" href="/login">
+              {tShared('session.signIn')}
+            </a>
+          )}
         </div>
       </header>
       <Outlet />

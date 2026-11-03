@@ -147,6 +147,7 @@ class AccountFacadeTargetAccountIT {
         assertThat(snapshot.status()).isEqualTo(ActorStatus.ACTIVE);
 
         // Crucial invariant: activeLocationIds contains 101 and 103, strictly excludes inactive 102
+        assertThat(snapshot.activeWorkshopLocationIds()).containsExactlyInAnyOrder(101L, 103L);
         assertThat(snapshot.activeLocationIds()).containsExactlyInAnyOrder(101L, 103L);
         assertThat(snapshot.activeLocationIds()).doesNotContain(102L);
     }
@@ -164,7 +165,7 @@ class AccountFacadeTargetAccountIT {
                 "accountId",
                 "canonicalRole",
                 "status",
-                "activeLocationIds"
+                "activeWorkshopLocationIds"
         );
 
         // Strictly verify no PII or internal security details exist
