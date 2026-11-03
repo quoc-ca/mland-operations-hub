@@ -4,6 +4,16 @@ const PUBLIC = '/api/v1';
 const MANAGEMENT = '/api/v1/catalogue-management';
 const id = value => encodeURIComponent(value);
 
+/** Backend action names of the writes, the scope of a command receipt (FR-028). */
+export const ACTIONS = {
+  createProduct: 'product.create', editProduct: 'product.edit', deleteProduct: 'product.delete', images: 'product.images',
+  submitReview: 'product.review.submit', decideReview: 'product.review.decide',
+  publish: 'product.publish', unpublish: 'product.unpublish',
+  quantity: 'variant.quantity', saleStatus: 'variant.sale-status',
+  proposePrice: 'price.propose', revisePrice: 'price.revise', submitPrice: 'price.submit', decidePrice: 'price.decide', applyPrice: 'price.apply',
+  createCategory: 'category.create', updateCategory: 'category.update', categoryActivation: 'category.activation',
+};
+
 export function catalogueApi(request) {
   const publicRead = (path, query) => request(`${PUBLIC}${path}`, { query, auth: false });
   const read = (path, query) => request(`${MANAGEMENT}${path}`, { query });
@@ -31,6 +41,8 @@ export function catalogueApi(request) {
       form.append('file', file);
       return request(`${MANAGEMENT}/media-uploads`, { method: 'POST', idempotencyKey: key, form });
     },
+    // Staff preview of a product image (draft/hidden included); fetched with the bearer, shown from a blob URL.
+    getMediaPreview: mediaId => request(`${MANAGEMENT}/media/${id(mediaId)}`, { responseType: 'blob' }),
 
     // Review and publication (T034, T040)
     submitReview: (key, productId, expectedVersion) => write('POST', `/products/${id(productId)}/review-submissions`, key, { expectedVersion }),
@@ -52,6 +64,9 @@ export function catalogueApi(request) {
     updateCategory: (key, categoryId, body) => write('PUT', `/categories/${id(categoryId)}`, key, body),
     categoryImpact: (categoryId, page) => read(`/categories/${id(categoryId)}/impact`, { page }),
     setCategoryActive: (key, categoryId, expectedVersion, active) => write('PUT', `/categories/${id(categoryId)}/activation`, key, { expectedVersion, active }),
+
+    // Did a write whose answer was lost commit? (FR-028) 404 COMMAND_RESULT_NOT_FOUND when there is no receipt.
+    getCommandReceipt: (commandId, action) => read(`/command-receipts/${id(commandId)}`, { action }),
 
     // Excel import (T101)
     downloadImportTemplate: () => request(`${MANAGEMENT}/product-imports/template`, { responseType: 'blob' }),

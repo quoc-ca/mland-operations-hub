@@ -3,7 +3,7 @@ const vi = {
   retry: 'Thử lại', cancel: 'Hủy', save: 'Lưu', saving: 'Đang lưu…', edit: 'Sửa', yes: 'Có', no: 'Không',
   size: 'Size {size}',
 
-  'nav.label': 'Quản trị sản phẩm', 'nav.group': 'STAFF / MANAGER', 'nav.products': 'Danh sách sản phẩm',
+  'nav.label': 'Quản trị sản phẩm', 'nav.group': 'STAFF / MANAGER', 'nav.section': 'QUẢN LÝ SẢN PHẨM', 'nav.products': 'Danh sách sản phẩm',
   'nav.newProduct': 'Thêm sản phẩm', 'nav.categories': 'Danh mục', 'nav.import': 'Import Excel',
   'nav.productDetail': 'Chi tiết sản phẩm', 'nav.breadcrumb': 'Vị trí hiện tại',
 
@@ -28,6 +28,7 @@ const vi = {
 
   'list.title': 'Danh sách sản phẩm', 'list.publication': 'Công khai', 'list.all': 'Tất cả', 'list.sizes': 'Size',
   'list.state': 'Trạng thái', 'list.empty': 'Chưa có sản phẩm nào khớp với bộ lọc.',
+  'list.skuMatch': 'Khớp SKU {sku} (size {size})',
   'status.published': 'Đang công khai', 'status.unpublished': 'Chưa công khai', 'status.deleted': 'Đã xóa',
   'state.DRAFT': 'Nháp', 'state.PENDING': 'Chờ duyệt', 'state.APPROVED': 'Đã duyệt', 'state.REJECTED': 'Bị từ chối',
 
@@ -37,8 +38,11 @@ const vi = {
 
   'create.title': 'Thêm sản phẩm', 'create.sizes': 'Size, giá đề xuất và số lượng',
   'create.sizesHint': 'Danh sách size chỉ chọn khi tạo, sau đó không thêm hoặc bớt được. Giá đề xuất chưa phải giá bán: giá chỉ được bán sau khi Manager duyệt và được áp dụng.',
-  'create.addSize': 'Thêm size', 'create.removeSize': 'Bỏ size', 'create.submit': 'Tạo sản phẩm',
+  'create.addSize': 'Thêm size', 'create.removeSize': 'Bỏ size',
+  'size.choose': 'Chọn size', 'size.from': 'Từ size', 'size.to': 'Đến size', 'size.addRange': 'Chọn khoảng', 'size.all': 'Chọn tất cả', 'size.none': 'Bỏ chọn',
+  'size.applyHint': 'Áp dụng cho {count} size đã chọn:', 'size.apply': 'Áp dụng', 'size.priceFor': 'Giá đề xuất size {size}', 'size.quantityFor': 'Số lượng size {size}', 'size.removeOne': 'Bỏ size {size}', 'create.submit': 'Tạo sản phẩm',
   'create.success': 'Đã tạo sản phẩm. Bổ sung ảnh và gửi duyệt khi sẵn sàng.',
+  'create.recovered': 'Lần tạo trước bị mất phản hồi nhưng sản phẩm đã được lưu.', 'create.openRecovered': 'Mở sản phẩm đó',
 
   'section.content': 'Nội dung', 'section.images': 'Ảnh', 'section.variants': 'Size và số lượng',
   'section.prices': 'Đề xuất giá', 'section.review': 'Duyệt hồ sơ ban đầu', 'section.publication': 'Công khai',
@@ -62,7 +66,6 @@ const vi = {
   'bulk.unassignedTitle': 'Ảnh chưa gắn ({count})', 'bulk.saveAll': 'Lưu ảnh cho {count} sản phẩm', 'bulk.savingAll': 'Đang lưu ảnh…',
   'bulk.saved': 'Đã lưu ảnh', 'bulk.saving': 'Đang lưu…', 'bulk.tooMany': 'Tối đa {max} ảnh mỗi sản phẩm.',
   'bulk.fixRefused': 'Có ảnh không hợp lệ (định dạng hoặc dung lượng); hãy bỏ ảnh đó.', 'bulk.altRequired': 'Mỗi ảnh cần mô tả 1–{max} ký tự.',
-  'images.previewHint': 'Ảnh của sản phẩm chưa công khai không được xem trước từ máy chủ; ảnh vừa chọn được xem trước trên máy bạn.',
 
   'variant.id': 'Mã size {id}', 'variant.remaining': 'Còn lại', 'variant.held': 'Đang giữ', 'variant.available': 'Có thể bán', 'variant.appliedPrice': 'Giá đang áp dụng',
   'variant.sale': 'Bán size', 'variant.onSale': 'Đang bán', 'variant.saleOff': 'Ngừng bán', 'variant.stopSale': 'Ngừng bán size',
@@ -80,6 +83,15 @@ const vi = {
   'price.approvedAmount': 'Giá duyệt (₫)', 'price.proposedNotice': 'Đã tạo đề xuất giá.', 'price.revised': 'Đã sửa đề xuất giá.',
   'price.submitted': 'Đã gửi duyệt giá.', 'price.approvedNotice': 'Đã duyệt giá.', 'price.rejectedNotice': 'Đã từ chối giá.',
   'price.appliedNotice': 'Đã áp dụng giá.',
+  'bulk.price': 'Giá duyệt chung (₫)', 'bulk.applyTo': 'Áp dụng cho {count} size đã chọn', 'bulk.resetProposed': 'Lấy lại giá đề xuất',
+  'bulk.selectAll': 'Chọn tất cả size', 'bulk.selectSize': 'Chọn size {size}', 'bulk.diff': 'Chênh lệch', 'bulk.same': 'Bằng đề xuất',
+  'batch.pendingTitle': 'Giá đang chờ duyệt ({count} size)',
+  'batch.hint': 'Manager duyệt hoặc từ chối nhiều size một lần. Mỗi size là một quyết định riêng: size bị lỗi không ảnh hưởng size khác và vẫn được chọn để thử lại.',
+  'batch.applied': 'Giá đang áp dụng', 'batch.approve': 'Duyệt {count} size đã chọn', 'batch.reject': 'Từ chối {count} size đã chọn',
+  'batch.rejectReason': 'Lý do từ chối (dùng chung cho các size đã chọn)', 'batch.confirmReject': 'Xác nhận từ chối {count} size',
+  'batch.noneSelected': 'Chọn ít nhất một size.', 'batch.applyAll': 'Áp dụng giá đã duyệt cho {count} size', 'batch.submitAll': 'Gửi duyệt {count} size nháp',
+  'batch.running': 'Đang xử lý size {size}…', 'batch.result': 'Kết quả: {ok}/{total} size thành công.',
+  'batch.okItem': 'Size {size}: thành công.', 'batch.failItem': 'Size {size}: {error}',
 
   'decision.approve': 'Duyệt', 'decision.reject': 'Từ chối', 'decision.reason': 'Lý do từ chối',
 
@@ -121,7 +133,7 @@ const vi = {
   'import.summary': '{file}: {rows} dòng, {products} sản phẩm, {variants} size.', 'import.errorCount': 'Có {count} lỗi. Sửa file rồi kiểm tra lại.',
   'import.errors': 'Lỗi theo dòng', 'import.row': 'Dòng', 'import.column': 'Cột', 'import.value': 'Giá trị', 'import.problem': 'Lỗi',
   'import.errorsExpired': 'Danh sách lỗi đã hết hạn.', 'import.downloadReport': 'Tải báo cáo lỗi', 'import.again': 'Kiểm tra file khác',
-  'import.expiresAt': 'Kết quả kiểm tra có hiệu lực đến {at}.', 'import.previewSizes': 'size {sizes}', 'import.confirm': 'Xác nhận import',
+  'import.expiresAt': 'Kết quả kiểm tra có hiệu lực đến {at}.', 'import.previewSizes': '{count} size: {sizes}', 'import.confirm': 'Xác nhận import',
   'import.confirmTitle': 'Xác nhận import', 'import.confirmText': 'Sẽ tạo {products} sản phẩm với {variants} size. Dữ liệu được kiểm tra lại với dữ liệu mới nhất khi xác nhận.',
   'import.done': 'Đã tạo {count} sản phẩm.', 'import.createdProduct': 'Sản phẩm #{id} (nhóm {group})',
   'import.addImages': 'Sản phẩm vừa import chưa có ảnh. Hãy thêm ảnh trước khi gửi duyệt.', 'import.another': 'Import file khác',
@@ -129,7 +141,8 @@ const vi = {
   'importCode.OUT_OF_RANGE': 'Ngoài khoảng cho phép.', 'importCode.CATEGORY_NOT_ACTIVE_OR_UNKNOWN': 'Danh mục không tồn tại hoặc ngừng hoạt động.',
   'importCode.GROUP_FIELD_MISMATCH': 'Các dòng cùng mã nhóm phải trùng tên, mô tả và danh mục.', 'importCode.DUPLICATE_SIZE_IN_GROUP': 'Size bị trùng trong nhóm.',
   'importCode.TOO_MANY_SIZES': 'Nhóm có quá 25 size.', 'importCode.FORMULA_NOT_SUPPORTED': 'Không hỗ trợ công thức, ô gộp, liên kết hoặc ô lỗi.',
-  'importCode.EMPTY_ROW_IN_DATA': 'Có dòng trống xen giữa dữ liệu.',
+  'importCode.EMPTY_ROW_IN_DATA': 'Có dòng trống xen giữa dữ liệu.', 'importCode.INVALID_SIZE_LIST': 'Size phải là một số, một khoảng như 12-20 (từ nhỏ đến lớn) hoặc danh sách như 12,14,16.',
+  'import.sizeFormatHint': 'Cột Size nhận một size (12), một khoảng (12-20), một danh sách (12,14,16) hoặc kết hợp (5-9,12). Mọi size trong một dòng dùng chung giá đề xuất và số lượng của dòng; size cần giá riêng thì viết thành dòng khác cùng Mã nhóm.',
 
   'validation.required': 'Bắt buộc nhập.', 'validation.nameTooLong': 'Tối đa 200 ký tự.', 'validation.descriptionTooLong': 'Tối đa 5.000 ký tự.',
   'validation.altTooLong': 'Tối đa 200 ký tự.', 'validation.size': 'Size là số nguyên từ 5 đến 29.', 'validation.duplicateSize': 'Size bị trùng.',
@@ -172,7 +185,7 @@ const en = {
   retry: 'Try again', cancel: 'Cancel', save: 'Save', saving: 'Saving…', edit: 'Edit', yes: 'Yes', no: 'No',
   size: 'Size {size}',
 
-  'nav.label': 'Catalogue management', 'nav.group': 'STAFF / MANAGER', 'nav.products': 'Products',
+  'nav.label': 'Catalogue management', 'nav.group': 'STAFF / MANAGER', 'nav.section': 'PRODUCT MANAGEMENT', 'nav.products': 'Products',
   'nav.newProduct': 'New product', 'nav.categories': 'Categories', 'nav.import': 'Excel import',
   'nav.productDetail': 'Product detail', 'nav.breadcrumb': 'You are here',
 
@@ -197,6 +210,7 @@ const en = {
 
   'list.title': 'Products', 'list.publication': 'Publication', 'list.all': 'All', 'list.sizes': 'Sizes',
   'list.state': 'State', 'list.empty': 'No product matches the filters.',
+  'list.skuMatch': 'Matches SKU {sku} (size {size})',
   'status.published': 'Published', 'status.unpublished': 'Not published', 'status.deleted': 'Deleted',
   'state.DRAFT': 'Draft', 'state.PENDING': 'Pending', 'state.APPROVED': 'Approved', 'state.REJECTED': 'Rejected',
 
@@ -206,8 +220,11 @@ const en = {
 
   'create.title': 'New product', 'create.sizes': 'Sizes, proposed prices and quantities',
   'create.sizesHint': 'Sizes are chosen only when creating; none can be added or removed later. A proposed price is not a selling price: it is sold only after a Manager approves it and it is applied.',
-  'create.addSize': 'Add size', 'create.removeSize': 'Remove size', 'create.submit': 'Create product',
+  'create.addSize': 'Add size', 'create.removeSize': 'Remove size',
+  'size.choose': 'Choose sizes', 'size.from': 'From size', 'size.to': 'To size', 'size.addRange': 'Add range', 'size.all': 'Select all', 'size.none': 'Clear',
+  'size.applyHint': 'Apply to the {count} chosen sizes:', 'size.apply': 'Apply', 'size.priceFor': 'Proposed price of size {size}', 'size.quantityFor': 'Quantity of size {size}', 'size.removeOne': 'Remove size {size}', 'create.submit': 'Create product',
   'create.success': 'Product created. Add images and submit it for review when ready.',
+  'create.recovered': 'The previous create lost its answer, but the product was saved.', 'create.openRecovered': 'Open that product',
 
   'section.content': 'Content', 'section.images': 'Images', 'section.variants': 'Sizes and quantities',
   'section.prices': 'Price proposals', 'section.review': 'Initial review', 'section.publication': 'Publication',
@@ -231,7 +248,6 @@ const en = {
   'bulk.unassignedTitle': 'Unassigned images ({count})', 'bulk.saveAll': 'Save images of {count} products', 'bulk.savingAll': 'Saving images…',
   'bulk.saved': 'Images saved', 'bulk.saving': 'Saving…', 'bulk.tooMany': 'At most {max} images per product.',
   'bulk.fixRefused': 'An image was refused (format or size); remove it.', 'bulk.altRequired': 'Each image needs a 1–{max} character description.',
-  'images.previewHint': 'Images of an unpublished product are not served by the server for preview; newly chosen files are previewed on your device.',
 
   'variant.id': 'Size ID {id}', 'variant.remaining': 'Remaining', 'variant.held': 'Held', 'variant.available': 'Available', 'variant.appliedPrice': 'Applied price',
   'variant.sale': 'Size sale', 'variant.onSale': 'On sale', 'variant.saleOff': 'Not on sale', 'variant.stopSale': 'Stop selling size',
@@ -249,6 +265,15 @@ const en = {
   'price.approvedAmount': 'Approved price (₫)', 'price.proposedNotice': 'Price proposal created.', 'price.revised': 'Price proposal revised.',
   'price.submitted': 'Price submitted.', 'price.approvedNotice': 'Price approved.', 'price.rejectedNotice': 'Price rejected.',
   'price.appliedNotice': 'Price applied.',
+  'bulk.price': 'Shared approved price (₫)', 'bulk.applyTo': 'Apply to {count} chosen sizes', 'bulk.resetProposed': 'Reset to proposed prices',
+  'bulk.selectAll': 'Choose all sizes', 'bulk.selectSize': 'Choose size {size}', 'bulk.diff': 'Difference', 'bulk.same': 'Same as proposed',
+  'batch.pendingTitle': 'Prices waiting for a decision ({count} sizes)',
+  'batch.hint': 'A Manager approves or rejects several sizes at once. Each size is its own decision: a failed size does not affect the others and stays chosen to try again.',
+  'batch.applied': 'Applied price', 'batch.approve': 'Approve {count} chosen sizes', 'batch.reject': 'Reject {count} chosen sizes',
+  'batch.rejectReason': 'Rejection reason (shared by the chosen sizes)', 'batch.confirmReject': 'Confirm rejecting {count} sizes',
+  'batch.noneSelected': 'Choose at least one size.', 'batch.applyAll': 'Apply approved prices of {count} sizes', 'batch.submitAll': 'Submit {count} draft sizes',
+  'batch.running': 'Working on size {size}…', 'batch.result': 'Result: {ok}/{total} sizes succeeded.',
+  'batch.okItem': 'Size {size}: done.', 'batch.failItem': 'Size {size}: {error}',
 
   'decision.approve': 'Approve', 'decision.reject': 'Reject', 'decision.reason': 'Rejection reason',
 
@@ -290,7 +315,7 @@ const en = {
   'import.summary': '{file}: {rows} rows, {products} products, {variants} sizes.', 'import.errorCount': '{count} errors. Fix the file and check it again.',
   'import.errors': 'Row errors', 'import.row': 'Row', 'import.column': 'Column', 'import.value': 'Value', 'import.problem': 'Problem',
   'import.errorsExpired': 'The error list has expired.', 'import.downloadReport': 'Download error report', 'import.again': 'Check another file',
-  'import.expiresAt': 'This check is valid until {at}.', 'import.previewSizes': 'sizes {sizes}', 'import.confirm': 'Confirm import',
+  'import.expiresAt': 'This check is valid until {at}.', 'import.previewSizes': '{count} sizes: {sizes}', 'import.confirm': 'Confirm import',
   'import.confirmTitle': 'Confirm import', 'import.confirmText': '{products} products with {variants} sizes will be created. The data is checked again against the latest data on confirmation.',
   'import.done': '{count} products created.', 'import.createdProduct': 'Product #{id} (group {group})',
   'import.addImages': 'Imported products have no images yet. Add images before submitting them for review.', 'import.another': 'Import another file',
@@ -298,7 +323,8 @@ const en = {
   'importCode.OUT_OF_RANGE': 'Out of range.', 'importCode.CATEGORY_NOT_ACTIVE_OR_UNKNOWN': 'Unknown or inactive category.',
   'importCode.GROUP_FIELD_MISMATCH': 'Rows of one group must share name, description and category.', 'importCode.DUPLICATE_SIZE_IN_GROUP': 'Duplicate size in the group.',
   'importCode.TOO_MANY_SIZES': 'More than 25 sizes in the group.', 'importCode.FORMULA_NOT_SUPPORTED': 'Formulas, merged cells, links and error cells are not supported.',
-  'importCode.EMPTY_ROW_IN_DATA': 'Empty row inside the data.',
+  'importCode.EMPTY_ROW_IN_DATA': 'Empty row inside the data.', 'importCode.INVALID_SIZE_LIST': 'Size must be one number, a range such as 12-20 (low to high) or a list such as 12,14,16.',
+  'import.sizeFormatHint': 'The Size column takes one size (12), a range (12-20), a list (12,14,16) or both (5-9,12). Every size of a row shares the row proposed price and quantity; write a size that needs its own price on another row with the same group key.',
 
   'validation.required': 'Required.', 'validation.nameTooLong': 'At most 200 characters.', 'validation.descriptionTooLong': 'At most 5,000 characters.',
   'validation.altTooLong': 'At most 200 characters.', 'validation.size': 'A size is a whole number from 5 to 29.', 'validation.duplicateSize': 'Duplicate size.',

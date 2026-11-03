@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useOutletContext, useParams } from 'react-router';
 import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
-import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../../../shared/ui/components';
+import { ErrorNotice, Loading, SuccessNotice, useResource } from '../../../../shared/ui/components';
+import { useCatalogueCommand } from '../../application/useCatalogueCommand';
 import { useCatalogueApi } from '../../application/useCatalogueApi';
 import { messages } from '../messages';
 import { ContentSection } from './sections/ContentSection';
@@ -80,17 +81,18 @@ export default function ProductDetailPage() {
 }
 
 /**
- * One command of a section: runs with a fresh key, reloads the product after success and shows the notice.
+ * One command of a section: runs with a fresh key, reloads the product after success and shows the notice. A lost
+ * answer is checked against its receipt before anything is resent (useCatalogueCommand, FR-028).
  * Returns the command so the section can show its error (Retry = same key, Load latest = reload).
  */
 export function useProductCommand({ reload, setNotice }) {
-  const command = useCommand();
+  const command = useCatalogueCommand();
   const { run: runCommand, retry: retryCommand } = command;
   const success = useRef(null);
-  const run = useCallback(async (send, successKey) => {
+  const run = useCallback(async (send, successKey, action) => {
     setNotice(null);
     success.current = successKey;
-    const outcome = await runCommand(send);
+    const outcome = await runCommand(send, action);
     if (outcome.ok) { setNotice(successKey); await reload(); }
     return outcome;
   }, [runCommand, reload, setNotice]);

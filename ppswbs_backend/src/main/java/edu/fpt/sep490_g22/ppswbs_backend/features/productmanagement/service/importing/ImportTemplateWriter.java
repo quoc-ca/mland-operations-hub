@@ -36,10 +36,12 @@ public final class ImportTemplateWriter {
 
             Sheet guide = workbook.createSheet(GUIDE_SHEET);
             String[] lines = {
-                    "Mỗi dòng là một size của một sản phẩm. Các dòng cùng Mã nhóm tạo thành một sản phẩm.",
-                    "Các dòng cùng Mã nhóm phải có cùng Tên sản phẩm, Mô tả và Danh mục; tối đa 25 size khác nhau.",
+                    "Mỗi dòng là một hoặc nhiều size của một sản phẩm. Các dòng cùng Mã nhóm tạo thành một sản phẩm.",
+                    "Các dòng cùng Mã nhóm phải có cùng Tên sản phẩm, Mô tả và Danh mục; tối đa 25 size khác nhau, không trùng.",
                     "Tên sản phẩm: 1–200 ký tự. Mô tả: 1–5.000 ký tự. Danh mục: đúng tên một danh mục đang hoạt động.",
-                    "Size: số nguyên từ 5 đến 29. Giá đề xuất: số nguyên VND lớn hơn 0. Số lượng: số nguyên từ 0.",
+                    "Size: số nguyên từ 5 đến 29; hoặc khoảng 12-20; hoặc danh sách 12,14,16; hoặc kết hợp 5-9,12.",
+                    "Mọi size trong một dòng dùng chung Giá đề xuất và Số lượng của dòng đó; size cần giá riêng thì viết thành dòng khác cùng Mã nhóm.",
+                    "Giá đề xuất: số nguyên VND lớn hơn 0. Số lượng: số nguyên từ 0.",
                     "Không dùng công thức, ô gộp, hyperlink, dấu phân cách hàng nghìn hay số thập phân.",
                     "Không thêm, xóa hay đổi thứ tự cột. Tối đa 500 dòng dữ liệu; file tối đa 5.000.000 byte.",
                     "File không chứa ảnh: sau khi import, thêm ảnh cho từng sản phẩm trước khi gửi duyệt.",
@@ -50,8 +52,9 @@ public final class ImportTemplateWriter {
                 guide.createRow(i).createCell(0).setCellValue(lines[i]);
             }
             String[][] example = {
-                    {"NHAN-01", "Nhẫn bạc trơn", "Nhẫn bạc 925 mặt trơn", "Nhẫn bạc", "12", "350000", "5"},
-                    {"NHAN-01", "Nhẫn bạc trơn", "Nhẫn bạc 925 mặt trơn", "Nhẫn bạc", "14", "350000", "3"}
+                    {"NHAN-01", "Nhẫn bạc trơn", "Nhẫn bạc 925 mặt trơn", "Nhẫn bạc", "5-15", "350000", "5"},
+                    {"NHAN-01", "Nhẫn bạc trơn", "Nhẫn bạc 925 mặt trơn", "Nhẫn bạc", "16,18,20", "380000", "3"},
+                    {"NHAN-02", "Nhẫn bạc khắc", "Nhẫn bạc 925 có khắc", "Nhẫn bạc", "12", "420000", "2"}
             };
             Row exampleHeader = guide.createRow(lines.length);
             for (ImportColumn column : ImportColumn.ORDER) {

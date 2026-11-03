@@ -4,7 +4,7 @@ import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { ConfirmDialog, ErrorNotice, useCommand } from '../../../../../shared/ui/components';
 import { useCatalogueApi } from '../../../application/useCatalogueApi';
 import { messages } from '../../messages';
-import { LIMITS } from '../../../domain/productRules';
+import { compactSizes, LIMITS } from '../../../domain/productRules';
 import { PageTop } from '../ManagementLayout';
 import { BulkImagesPanel } from './BulkImagesPanel';
 
@@ -86,10 +86,11 @@ export default function ImportPage() {
 
   return (
     <>
-      <PageTop eyebrow={t('nav.group')} title={t('import.title')} />
+      <PageTop eyebrow={t('nav.section')} title={t('import.title')} />
       <section className="workspace-card">
         <h2>{t('import.step1')}</h2>
         <p className="muted small">{t('import.templateHint')}</p>
+        <p className="muted small">{t('import.sizeFormatHint')}</p>
         <button type="button" className="button outline" disabled={template.pending}
           onClick={async () => { const outcome = await template.run(() => api.downloadImportTemplate()); if (outcome.ok) save(outcome.result, 'mau-import-san-pham.xlsx'); }}>
           {t('import.downloadTemplate')}
@@ -153,7 +154,7 @@ export default function ImportPage() {
               <p>{t('import.expiresAt', { at: format.dateTime(batch.expiresAt) })}</p>
               <ul className="preview-list">
                 {(batch.preview || []).map(item => (
-                  <li key={item.groupKey}><strong>{item.name}</strong> <span className="muted">({item.groupKey})</span> — {t('import.previewSizes', { sizes: item.sizes.join(', ') })}</li>
+                  <li key={item.groupKey}><strong>{item.name}</strong> <span className="muted">({item.groupKey})</span> — {t('import.previewSizes', { count: item.sizes.length, sizes: compactSizes(item.sizes) })}</li>
                 ))}
               </ul>
               {!staleImport && <button type="button" className="button primary" onClick={() => { confirmation.reset(); setConfirmOpen(true); }}>{t('import.confirm')}</button>}

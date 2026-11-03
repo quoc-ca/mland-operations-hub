@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field } from '../../../../../shared/ui/components';
+import { ACTIONS } from '../../../infrastructure/catalogueApi';
 import { messages } from '../../messages';
 import { checkReason, effectiveProposal, isAmount, LIMITS, serverFieldErrors } from '../../../domain/productRules';
 import { useProductCommand } from '../ProductDetailPage';
+import { BatchPrices } from './BatchPrices';
 
 /**
  * T057 price proposals per size: proposed, approved and applied amounts are shown apart with the revision
@@ -17,6 +19,7 @@ export function PriceSection({ product, ...context }) {
     <section className="workspace-card" aria-labelledby="price-title">
       <h2 id="price-title">{t('section.prices')}</h2>
       {!product.firstPublishedAt && <p className="muted small">{t('price.initialHint')}</p>}
+      {!context.deleted && <BatchPrices product={product} {...context} />}
       {(product.variants || []).map(variant => <VariantPrices key={variant.id} product={product} variant={variant} {...context} />)}
     </section>
   );
@@ -58,18 +61,18 @@ function VariantPrices({ product, variant, api, reload, setNotice, deleted }) {
         <div className="price-actions">
           {canRevise
             ? <AmountForm label={t('price.revise')} hint={state === 'PENDING' ? t('price.reviseWithdraws') : null} initial={current.proposedPrice}
-              send={(key, amount) => api.revisePrice(key, current.id, current.version, amount)} successKey="price.revised" reload={reload} setNotice={setNotice} />
+              send={(key, amount) => api.revisePrice(key, current.id, current.version, amount)} action={ACTIONS.revisePrice} successKey="price.revised" reload={reload} setNotice={setNotice} />
             : <AmountForm label={t('price.propose')} initial=""
-              send={(key, amount) => api.proposePrice(key, variant.id, variant.version, amount)} successKey="price.proposedNotice" reload={reload} setNotice={setNotice} />}
+              send={(key, amount) => api.proposePrice(key, variant.id, variant.version, amount)} action={ACTIONS.proposePrice} successKey="price.proposedNotice" reload={reload} setNotice={setNotice} />}
           {state === 'DRAFT' && independent && <p className="muted small price-step">{t('price.draftHint')}</p>}
           {state === 'DRAFT' && independent && (
-            <ActionButton label={t('price.submit')} send={key => api.submitPrice(key, current.id, current.version)} successKey="price.submitted" reload={reload} setNotice={setNotice} />
+            <ActionButton label={t('price.submit')} send={key => api.submitPrice(key, current.id, current.version)} action={ACTIONS.submitPrice} successKey="price.submitted" reload={reload} setNotice={setNotice} />
           )}
           {state === 'PENDING' && independent && <p className="muted small price-step">{t('price.pendingHint')}</p>}
           {state === 'PENDING' && independent && <PriceDecision proposal={current} api={api} reload={reload} setNotice={setNotice} />}
           {state === 'PENDING' && !independent && <p className="muted small">{t('price.decideInReview')}</p>}
           {state === 'APPROVED' && !current.applied && (
-            <ActionButton label={t('price.apply', { amount: format.money(current.approvedPrice) })} send={key => api.applyPrice(key, current.id, current.version)} successKey="price.appliedNotice" reload={reload} setNotice={setNotice} />
+            <ActionButton label={t('price.apply', { amount: format.money(current.approvedPrice) })} send={key => api.applyPrice(key, current.id, current.version)} action={ACTIONS.applyPrice} successKey="price.appliedNotice" reload={reload} setNotice={setNotice} />
           )}
         </div>
       )}
@@ -77,7 +80,7 @@ function VariantPrices({ product, variant, api, reload, setNotice, deleted }) {
   );
 }
 
-function AmountForm({ label, hint, initial, send, successKey, reload, setNotice }) {
+function AmountForm({ label, hint, initial, send, action, successKey, reload, setNotice }) {
   const t = useT(messages);
   const [amount, setAmount] = useState(null);
   const [localError, setLocalError] = useState(null);
@@ -87,7 +90,7 @@ function AmountForm({ label, hint, initial, send, successKey, reload, setNotice 
     event.preventDefault();
     if (!isAmount(amount)) { setLocalError(t('validation.amount')); return; }
     setLocalError(null);
-    const outcome = await command.run(key => send(key, amount), successKey);
+    const outcome = await command.run(key => send(key, amount), successKey, action);
     if (outcome.ok) setAmount(null);
   };
   const fieldError = serverFieldErrors(command.error).proposedPrice || localError;
@@ -103,11 +106,11 @@ function AmountForm({ label, hint, initial, send, successKey, reload, setNotice 
   );
 }
 
-function ActionButton({ label, send, successKey, reload, setNotice }) {
+function ActionButton({ label, send, action, successKey, reload, setNotice }) {
   const command = useProductCommand({ reload, setNotice });
   return (
     <div>
-      <button type="button" className="button primary" disabled={command.pending} onClick={() => command.run(send, successKey)}>{label}</button>
+      <button type="button" className="button primary" disabled={command.pending} onClick={() => command.run(send, successKey, action)}>{label}</button>
       <ErrorNotice error={command.error} messages={messages} onRetry={command.retry} onReload={reload} />
     </div>
   );
@@ -133,7 +136,7 @@ function PriceDecision({ proposal, api, reload, setNotice }) {
       body = { expectedVersion: proposal.version, decision: 'REJECT', reason: reason.trim() };
     }
     setLocalError(null);
-    const outcome = await command.run(key => api.decidePrice(key, proposal.id, body), mode === 'APPROVE' ? 'price.approvedNotice' : 'price.rejectedNotice');
+    const outcome = await command.run(key => api.decidePrice(key, proposal.id, body), mode === 'APPROVE' ? 'price.approvedNotice' : 'price.rejectedNotice', ACTIONS.decidePrice);
     if (outcome.ok) setMode(null);
   };
 

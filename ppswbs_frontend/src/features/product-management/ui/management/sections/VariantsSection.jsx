@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { ErrorNotice } from '../../../../../shared/ui/components';
+import { ACTIONS } from '../../../infrastructure/catalogueApi';
 import { messages } from '../../messages';
 import { isQuantity, serverFieldErrors } from '../../../domain/productRules';
 import { useProductCommand } from '../ProductDetailPage';
@@ -40,11 +41,11 @@ function VariantRow({ variant, api, reload, setNotice, deleted }) {
     event.preventDefault();
     if (!isQuantity(quantity)) { setHint('validation.quantity'); return; }
     setHint(null);
-    const outcome = await quantityCommand.run(key => api.setQuantity(key, variant.id, variant.version, quantity), 'variant.quantitySaved');
+    const outcome = await quantityCommand.run(key => api.setQuantity(key, variant.id, variant.version, quantity), 'variant.quantitySaved', ACTIONS.quantity);
     if (outcome.ok) setQuantity(null);
   };
   const toggleSale = () => saleCommand.run(key => api.setSaleStatus(key, variant.id, variant.version, !variant.saleEnabled),
-    variant.saleEnabled ? 'variant.saleStopped' : 'variant.saleResumed');
+    variant.saleEnabled ? 'variant.saleStopped' : 'variant.saleResumed', ACTIONS.saleStatus);
 
   const quantityError = serverFieldErrors(quantityCommand.error).quantity || (hint && t(hint));
 

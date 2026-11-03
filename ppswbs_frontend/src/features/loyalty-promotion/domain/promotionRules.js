@@ -116,3 +116,6 @@ export function checkCreate(form) {
 /** Label of a whole product or of one size, shown in the target picker, its selection and the programme detail. */
 export const productLabel = product => `${product.name} (#${product.id})`;
 export const sizeLabel = (product, variant) => `${product.name} · size ${variant.size} · ${variant.sku}`;
+/** Public pages show no internal product number: the name, or the name and size. */
+export const publicProductLabel = product => product.name;
+export const publicSizeLabel = (product, variant) => `${product.name} · size ${variant.size}`;

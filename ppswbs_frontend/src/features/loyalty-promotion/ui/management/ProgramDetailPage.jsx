@@ -4,6 +4,7 @@ import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
 import { ConfirmDialog, ErrorNotice, Field, Loading, SuccessNotice, useCommand, useResource } from '../../../../shared/ui/components';
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { DiscountText, ScopeBadge, Terms } from '../display';
+import { sharedMessages } from '../../../../shared/ui/messages';
 import { messages } from '../messages';
 import { isAmount, isPercent, isPositive, LIMITS, serverFieldErrors, toInstant, toLocalInput } from '../../domain/promotionRules';
 import { PageTop } from './PromotionManagementLayout';
@@ -52,7 +53,7 @@ export default function ProgramDetailPage() {
 
   return (
     <>
-      <PageTop title={data.name}><Link className="button outline" to="/promotion-management/programs">{t('back')}</Link></PageTop>
+      <PageTop eyebrow={t('manage.eyebrow')} title={data.name}><Link className="button outline" to="/promotion-management/programs">{t('back')}</Link></PageTop>
       <SuccessNotice>{notice && t(notice)}</SuccessNotice>
       {program.error && <ErrorNotice error={program.error} messages={messages} onRetry={program.reload} />}
 
@@ -66,6 +67,7 @@ export default function ProgramDetailPage() {
         </div>
         <p><strong>{t('field.discount')}:</strong> <DiscountText discount={data.discount} /></p>
         <Terms item={data} labels={labels} />
+        <TargetWarnings program={data} labels={labels} onRetry={program.reload} />
         <p className="muted small">{t('detail.meta', { version: data.version, revision: data.revision, createdAt: format.dateTime(data.createdAt) })}</p>
         <div className="actions form-actions">
           {!editing && <button type="button" className="button outline" onClick={() => setEditing(true)}>{t('edit')}</button>}
@@ -102,6 +104,36 @@ export default function ProgramDetailPage() {
         <ErrorNotice error={toggle.error} messages={messages} onRetry={() => runToggle(() => toggle.retry())} />
       </ConfirmDialog>
     </>
+  );
+}
+
+/**
+ * Products or sizes of the scope that can no longer be bought (spec clarification 2026-10-26), from targetCheck /
+ * targetWarnings of getPromotionProgram. Nothing is changed: the Manager decides whether to pause.
+ */
+function TargetWarnings({ program, labels, onRetry }) {
+  const t = useT(messages);
+  const tShared = useT(sharedMessages);
+  if (program.targetCheck === 'UNAVAILABLE') {
+    return (
+      <div className="notice error" role="status">
+        <p>{t('warn.unavailable')}</p>
+        <button type="button" className="button outline small" onClick={onRetry}>{tShared('retry')}</button>
+      </div>
+    );
+  }
+  const warnings = program.targetWarnings || [];
+  if (warnings.length === 0) return null;
+  const nameOf = ({ dimension, targetKey }) => labels?.[dimension === 'VARIANT' ? 'variantIds' : 'productIds']?.[targetKey]
+    || t(`warn.${dimension}`, { id: targetKey });
+  return (
+    <div className="notice error" role="status">
+      <p><strong>{t('warn.title')}</strong></p>
+      <ul>
+        {warnings.map(warning => <li key={`${warning.dimension}-${warning.targetKey}`}>{nameOf(warning)} — {t(`warn.${warning.state}`)}</li>)}
+      </ul>
+      <p className="small">{t('warn.hint')}</p>
+    </div>
   );
 }
 

@@ -1103,6 +1103,108 @@
         }
       }
     },
+    "/api/v1/catalogue-management/media/{mediaId}": {
+      "get": {
+        "operationId": "getManagementProductMedia",
+        "summary": "Staff preview of a product image, draft or hidden included",
+        "tags": [
+          "Catalogue management"
+        ],
+        "security": [
+          {
+            "bearerIdentity": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "READY media attached to any product that is not soft-deleted (draft, hidden or published; like the management detail, a deleted product gives 404) or uploaded by the caller and not yet attached. Bytes are streamed by the backend; the provider URL is never returned or redirected to. Content-Type matches verified image/jpeg, image/png or image/webp.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "description": "No storage of management data or stale availability."
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Requires catalogue.read-internal (Staff or Manager active). Unknown, non-READY, unattached media of another actor, media shown only by soft-deleted products, or media the provider has lost returns 404 MEDIA_NOT_FOUND; provider failure is 503 MEDIA_DEPENDENCY_UNAVAILABLE. Not a public URL: the client fetches it with the bearer and displays it from a local blob."
+      }
+    },
     "/api/v1/catalogue-management/media-uploads": {
       "post": {
         "operationId": "uploadCatalogueMedia",
