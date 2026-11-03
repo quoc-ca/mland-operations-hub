@@ -3,7 +3,6 @@ import { Link } from 'react-router';
 import { RequireSession } from '../../../shared/auth/RequireSession';
 import { useFormat } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../../shared/ui/components';
-import { useLoyaltyApi } from '../../loyaltypromotion/api/useLoyaltyApi';
 import { useRetailApi } from '../api/useRetailApi';
 import { RetailBenefitPanel } from './RetailBenefitPanel';
 
@@ -15,11 +14,10 @@ export default function MemberCheckoutPage() {
 
 function CheckoutContent() {
   const api = useRetailApi();
-  const loyaltyApi = useLoyaltyApi();
   const format = useFormat();
   const cart = useResource(() => api.getCart(), []);
-  const savedVoucherResource = useResource(() => loyaltyApi.listSavedVouchers({ limit: 100 }), []);
-  const loyaltyAccount = useResource(() => loyaltyApi.getOwnAccount(), []);
+  const savedVoucherResource = useResource(() => api.listSavedVouchers(), []);
+  const loyaltyAccount = useResource(() => api.getLoyaltyAccount(), []);
   const quoteCommand = useCommand();
   const createCommand = useCommand();
   const paymentCommand = useCommand();

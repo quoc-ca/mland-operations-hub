@@ -573,3 +573,72 @@ Ký hiệu kết quả: **ĐẠT** = có test chạy thật trên MySQL/nguồn 
 **T076 — đối chiếu tài liệu:** đã sửa `plan.md` (frontend đã khởi tạo), `contracts/interfaces.md` mục 5 (frontend, `maxPoints`) và mục khóa/thứ tự (quy tắc gửi lặp outcome). OpenAPI 15 operation khớp 15 route (`LoyaltyApiContractIT`); 8 method `LoyaltyFacade` khớp `interfaces.md`. **Giới hạn:** lệnh `speckit-analyze` không có trong phiên làm việc nên phân tích được làm thủ công theo artifact hiện hành (spec/plan/tasks/interfaces/OpenAPI); không đổi spec/plan sang Approved, không sửa research tổng.
 
 **Còn mở (owner):** 001 Phan Sơn — đăng nhập thật (chạy lại T072/T078 với phiên thật); FE-08 Bùi Trọng Thịnh — nhúng `BenefitSelector`, `maxPoints` (T055); FE-03 Hồ Hoàng Quốc — nhúng `BenefitSelector context="workshop"`, `maxPoints` (T061); 004 Đạt — đổi số migration V12 trùng.
+
+## 32. T061 đóng sau develop `55f7da2`; 001 có đăng nhập, 2026-11-02
+
+**Nguồn:** develop `55f7da2` (gồm `9b7b38e` của Hồ Hoàng Quốc, `e7459ba`/`e510952` của Phan Sơn), đã gộp vào `khuong` không xung đột.
+
+**T061 — rà phần nhúng của FE-03** (`ppswbs_frontend/src/workshops/WorkshopBookingPage.jsx`): Member không còn dán UUID báo giá; trang giữ `benefitSelection { choice, voucherCode, requestedPoints }`, "Tính lại" gọi `POST /api/v1/workshop-booking-quotes` với bearer của phiên, đưa nguyên `WorkshopBookingQuoteResponse` (có `maxPoints`) vào `BenefitSelector context="workshop"`; mọi thay đổi lựa chọn, ca, số người làm báo giá mất hiệu lực và bỏ xác nhận; chỉ đặt được khi báo giá khớp và đã xác nhận, accept bằng `quoteRef`. Khớp hợp đồng component (mục 29) và FR-016/FR-019–FR-021. Không truyền Kho Voucher (`savedVouchers`) — tùy chọn, Member vẫn nhập mã trực tiếp.
+
+**Chạy lại:** frontend toàn ứng dụng `npm test` **171/171** (14 file, gồm `workshops-flow.test.js` của FE-03 có mục T061), `npm run build` đạt. Backend 006 + 002 + `ModulithArchitectureTests` + `WorkshopSellingLocationAdapterTest` trên MySQL 8.4, database trống `ppswbs_loyalty_build42`/`ppswbs_pm_sales42` → ****BLOCKED** — 251 test chạy, 97 đạt (unit, `ModulithArchitectureTests` 5/5, `WorkshopSellingLocationAdapterTest`), 154 lỗi vì Flyway dừng ở migration `V78__align_retail_cart_line_cart_reference_type.sql` của develop (`76f104b`, 003/FE-08): đổi `retail_carts.id` khi khóa ngoại `fk_retail_cart_lines_cart` (V13) còn tồn tại → MySQL 1833. Không có thay đổi 006 nào trong lần gộp; lần chạy đầy đủ gần nhất 257/257 (mục 31). Chạy lại khi owner sửa V78. 002 cùng lỗi: 290 chạy, 177 lỗi do V78**.
+
+**001 đã có đăng nhập** (`FirebaseConfiguration` gọi `FirebaseApp.initializeApp`; trang `/login`, `/register`, `/forgot-password`). 006/002 đổi mọi nút đăng nhập sang `/login?returnTo=…` (`shared/auth/SignInLink`; trước đó trỏ `/#/login` không tồn tại với router đường dẫn thường). Phiên thật của T072/T078 vẫn **NOT RUN**: local chưa có cấu hình Firebase (`VITE_FIREBASE_*`, service account) và chưa có cách tạo Admin/Manager/Staff đầu tiên (đăng ký chỉ tạo Member); trang `/login` của 001 chưa đọc `returnTo`. Đã đề nghị Phan Sơn.
+
+**Còn mở:** T055 — FE-08 (Bùi Trọng Thịnh) chưa nhúng `BenefitSelector` retail và `BenefitPreviewView` chưa có `maxPoints` (develop `28280da` chỉ chỉnh bản mẫu checkout).
+
+## 33. Cấu trúc frontend theo FRONTEND-ARCHITECTURE, 2026-11-02
+
+- Chuyển `src/features/productmanagement` → `src/features/product-management` và `src/features/loyaltypromotion` → `src/features/loyalty-promotion` (`git mv`, giữ lịch sử), chia lớp `ui/`, `application/`, `domain/`, `infrastructure/`, `routes/`, `tests/`; mỗi feature có cổng công khai `index.js` (router chỉ import qua đó). Hành vi không đổi: frontend toàn ứng dụng 171/171, `npm run build` đạt.
+- Hướng phụ thuộc đã kiểm: `domain` không import React/HTTP; `ui` không import `infrastructure` (ảnh công khai qua `application/useCatalogueApi.publicImageUrl`); `application` không import `ui` (nhãn đối tượng ưu đãi chuyển vào `domain/promotionRules`); không `fetch()`/Firebase trong `ui`; 002 và 006 không import code riêng của nhau. Trang đặt workshop của FE-03 còn import đường cũ `features/loyaltypromotion/checkout/BenefitSelector` — giữ một file chuyển tiếp tại đó (re-export từ cổng công khai) cho tới khi owner FE-03 đổi import.
+- **Còn lệch chuẩn (ghi nhận):** lớp `infrastructure` chưa chuyển đổi DTO sang view model — màn hình vẫn đọc đúng shape response của backend; `shared/api` chưa đổi tên `shared/http` vì dùng chung với 001/003/FE-08. FRONTEND-ARCHITECTURE còn ở trạng thái chờ Product Owner duyệt.
+- Đường dẫn `features/productmanagement/...`/`features/loyaltypromotion/...` trong tasks và bằng chứng cũ là lịch sử, ứng với vị trí mới cùng tên file trong lớp tương ứng.
+
+## 34. Chạy lại backend sau V78; V80 còn lỗi, 2026-11-02
+
+Lần chạy 2026-11-02 sau khi owner 003 sửa V78 (develop `a64aa29`, commit `5556f45`):
+- V78 đã qua. **V80** `V80__align_retail_grouped_checkout_reference_types.sql` (`76f104b`, 003/FE-08) cùng lỗi MySQL 1833: đổi `retail_grouped_checkouts.id` khi khóa ngoại `fk_retail_checkout_holds_checkout` còn tồn tại (thiếu `DROP FOREIGN KEY`). Quét tĩnh V1–V88 tìm thao tác đổi cột còn khóa ngoại: chỉ còn V80. Đã báo owner.
+- Để biết phần còn lại, chạy với V78 của develop và V80 **vá tạm trên máy** (thêm `ALTER TABLE retail_checkout_holds DROP FOREIGN KEY fk_retail_checkout_holds_checkout;` đầu file); sau đó đã trả cả hai file về đúng bản của nhánh, không commit bản vá. Database trống `ppswbs_loyalty_build45`/`ppswbs_pm_sales45`, MySQL 8.4:
+  - 006 + `ModulithArchitectureTests` + `WorkshopSellingLocationAdapterTest`: **258/258 đạt**.
+  - 002: 297 chạy, 296 đạt; 1 lỗi `CatalogueSellingLocationIT$WithoutABranchSource` ("Too many connections" — `max_connections` về mặc định sau khi MySQL khởi động lại; kịch bản này cũng đã lỗi thời vì 003.2 đã có nguồn chi nhánh). Đã thay bằng `WithTheWorkshopOperationsSource` đọc qua `WorkshopSellingLocationAdapter` thật (chỉ chi nhánh đang hoạt động, sắp theo tên): `CatalogueSellingLocationIT` **3/3** khi chạy riêng.
+- Kết luận chỉ có giá trị khi V80 được sửa đúng như bản vá; chạy lại trên develop sau khi owner sửa.
+
+## 35. Giao diện theo Figma "002-006" (đợt 1), 2026-11-03
+
+- Nguồn: Figma page "002-006" (node 129:276, 100 frame), đọc qua Chrome đã đăng nhập (Figma MCP hết lượt cho View seat).
+- 002: bộ biến `.pm-theme` (màu nền #F4F5F7, thanh bên #121316, nhấn #EEDC35, chữ #1A1A1A, viền #E5E7EB…) dùng cho khung quản trị (`.pm-shell`) và trang công khai (`.pm-public`); thanh lọc công khai dạng lưới, thẻ sản phẩm, chi tiết sản phẩm, khối thêm giỏ.
+- 006: bộ biến `.lp-theme` cùng giá trị; khung quản lý ưu đãi có logo + topbar đường dẫn như 006-09; trang công khai/Member (`.lp-public`); `BenefitSelector` có biến riêng `--bs-*` vì FE-03/FE-08 nhúng vào trang của họ.
+- Chỉ sửa `ui/` (JSX lớp/khung, CSS, chữ vi/en mới cho topbar); không đổi API, validation, phân quyền.
+- Kiểm tra: `npm test` 171/171, `npm run build` đạt. Trình duyệt thật (backend local develop f2a17fd, chưa đăng nhập): /catalogue-management/products (khớp 002-01b), /products có dữ liệu thật (gần 002-07), /promotion-management/programs (khớp 006-09b), /promotions (rỗng).
+- Chưa đối chiếu được: màn cần đăng nhập Staff/Manager (002-02…06 có dữ liệu, 006-10…13) — chờ tài khoản 001; màn Member (006-16/17) — cần đăng ký Member; bộ chọn ưu đãi trong trang FE-03/FE-08.
+
+## 36. Giao diện theo Figma "002-006" (đợt 2: màn Manager), 2026-11-03
+
+- Nguồn: ảnh xuất từ Figma page "002-006" (100 frame, `test-data/figma/`, không commit). So trên frontend thật (Vite local) với backend local (develop f2a17fd) và tài khoản Firebase thật của dự án: staff@gmail.com (STAFF), manager@gmail.com (MANAGER); vai trò đặt bằng cùng lệnh UPDATE như script set-admin-role của 001.
+- 002: 02 (dữ liệu thật) khớp sau khi sửa ô chọn; 04d sửa đệm thẻ có bảng, viền đỏ khối Xóa, trạng thái size/công khai dạng chữ, nút Sửa/Ngừng bán có viền, bỏ nền dòng giá hiện hành; 03 sửa cao ô mô tả và khoảng cách tiêu đề nhóm; 05, 06 khớp. Figma ghi nhãn trên tiêu đề 05/06 là "QUẢN LÝ SẢN PHẨM" khác 02–04 ("STAFF / MANAGER"): giữ chung "STAFF / MANAGER", chờ nhóm chốt.
+- Quyền: Staff vào được 002, trang quản lý ưu đãi 006 trả 403 "Tài khoản của bạn không có quyền thực hiện thao tác này" — đúng ma trận.
+- 006 (Manager): 10 sửa nhãn phạm vi viết thường, mã voucher và nhãn phạm vi xuống dòng; 11 ô mã nền trắng, "Sinh mã khác"/"Tìm" là nút có viền; 12 tiêu đề thẻ dạng hàng với nhãn bên phải, điều khoản 2 cột (thời gian chiếm cả hàng), lượt dùng 4 cột; 13 hai cột, nút Sửa bên phải. Đo bằng computed style vì Chrome không chụp được ảnh khi cửa sổ bị ẩn.
+- `npm test` 171/171, `npm run build` đạt.
+- Chưa so: màn Member (006-14b/15/16/17, 002-08 có đăng nhập), các frame trạng thái phụ (lỗi, xác nhận, 409), BenefitSelector trong trang FE-03.
+
+## 37. Giao diện theo Figma "002-006" (đợt 3: màn Member), 2026-11-03
+
+- Tài khoản member@gmail.com (MEMBER, tự đăng ký). Đo bằng computed style vì cửa sổ Chrome bị thu nhỏ (không chụp ảnh được).
+- 006-16 Điểm của tôi: ba số điểm không khung, số 30px đen; danh sách quy tắc không thụt lề; bảng lịch sử có hàng tiêu đề nền xám.
+- 006-14/15/17 thẻ ưu đãi và Kho Voucher: 2 thẻ mỗi hàng, hàng nhãn (phạm vi, trạng thái), mã voucher thành thanh nền xám, dòng mức giảm đậm 17px, điều khoản 2 cột; chi tiết ưu đãi có nhãn phạm vi và loại nằm bên trái.
+- `npm test` 171/171, `npm run build` đạt.
+- Chưa so: trạng thái phụ (lỗi tải, rỗng), 002-08 với khối thêm giỏ khi đã đăng nhập (chi nhánh thật của 003.2), BenefitSelector trong trang FE-03 (cần gói workshop thật).
+
+## 38. Bỏ header/footer chung, nút Đăng xuất ở thanh bên, 2026-11-03
+
+- Theo yêu cầu của owner 002/006 (làm y hệt Figma page "002-006", không có header/footer chung): `src/app/router.jsx` đưa `productManagementRoutes` và `loyaltyPromotionRoutes` ra ngoài `AppLayout` (chỉ dời 2 dòng của 002/006, route của feature khác giữ nguyên). Khung quản trị và trang công khai/Member phủ toàn màn hình.
+- Vì header chung chứa nút Đăng xuất và đổi ngôn ngữ, đã thêm nút "Đăng xuất" (bản dịch chung `session.signOut`) ở cuối thanh bên của khung 002 và 006, chỉ hiện khi đã đăng nhập. Trang công khai/Member không có nút này; đổi ngôn ngữ chưa có trên các màn 002/006.
+- Sau đăng nhập, trang `/login` của 001 luôn chuyển về `/` (chưa có màn) và chưa đọc `returnTo`: đã đề nghị owner 001.
+- FE-03 vẫn import `features/loyaltypromotion/checkout/BenefitSelector`; file chuyển tiếp ở đường cũ được giữ.
+- `npm test` 171/171, `npm run build` đạt.
+
+## 39. Chạy lại toàn bộ trước khi gộp, 2026-11-04
+
+- Trước khi gộp lên develop (nhánh `khuong` = develop `efa3c78` + phần 002/006): MySQL 8.4, database trống.
+  - 006 + `ModulithArchitectureTests` + `WorkshopSellingLocationAdapterTest`: **258/258 đạt** (V78/V80 đã sửa trên develop).
+  - 002: 297 chạy, 294 đạt, 3 lỗi "Too many connections" ở `CatalogueSellingLocationIT` (MySQL `max_connections` mặc định khi chạy dài); chạy riêng lớp đó **3/3 đạt**.
+  - Frontend `npm test` 171/171, `npm run build` đạt.

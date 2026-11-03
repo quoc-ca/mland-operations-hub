@@ -17,6 +17,8 @@ export function retailApi(request) {
     listOrders: () => request('/api/v1/members/me/ready-ring-orders'),
     getOrder: orderId => request(`/api/v1/members/me/ready-ring-orders/${id(orderId)}`),
 
+    listSavedVouchers: () => request('/api/v1/members/me/saved-vouchers', { query: { limit: 100 } }),
+    getLoyaltyAccount: () => request('/api/v1/members/me/loyalty-accounts/current'),
     previewBenefits: body => request('/api/v1/ready-ring-benefit-previews', { method: 'POST', body }),
     quoteShipping: body => request('/api/v1/ready-ring-shipping-quotes', { method: 'POST', body }),
     createCheckout: (body, key = newCommandId()) => request('/api/v1/ready-ring-orders', { method: 'POST', body, idempotencyKey: key }),
