@@ -1,7 +1,7 @@
 # Tasks: Account Management (FE-001)
 
 **Date created**: 2026-11-01
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-03
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -129,19 +129,24 @@
 - [x] T022 [P] [US2] Add routes to `AccountController.java`:
   - `PUT /accounts/me/profile` — save own profile (owner only, verified-email check per FR-007 requirements)
   - `GET /accounts/me/profile` — get own profile
-  - `POST /accounts/me/email-sync` — synchronize email from current identity
-  - `POST /accounts/me/password-change` — delegate to Firebase; FE-001 never receives password
-  - `POST /auth/verification-email` — delegate to Firebase: send verification email; declare as public? No — bearer required for verified-owner context; applies to signed-in unverified accounts
-  - `POST /auth/password-reset` — public route: delegate to Firebase; MUST NOT reveal email existence
+  - `PUT /accounts/me/email` — bodyless synchronization of the current verified Firebase identity after a fresh-token verification check
+  - Credential recovery, password change, and Member verification/resend are direct Firebase Web SDK actions; no Mland route receives password or sends Member verification email
 - [ ] T023 [P] [US2] Implement `useProfile.ts` in `ppswbs_frontend/src/features/accountmanagement/hooks/useProfile.ts`:
   - Load profile, form state management, save with validation
   - Retain safe unsaved full name/phone after validation/dependency errors; never retain password/token
   - Success only after server response; `409` → reconcile current values; `401/403` → safe account recovery
 - [ ] T024 [US2] Implement `ProfilePage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/ProfilePage.tsx`:
   - Show verification banner (non-blocking) when email unverified; allow explicit resend
+  - On Profile entry invoke the proposed verified-email gate before enabling save; its accessible-name/tooltip reload icon repeats the check, reloads Firebase user state, forces a fresh bearer and calls canonical `PUT /api/v1/accounts/me/email`
+  - After Firebase resend succeeds, retain only Account-ID-keyed expiry in `localStorage` and disable resend for 90 seconds across browser restart; do not store email, UID, token or action code
   - Field inline validation: name length, phone length, control char
-  - Credential sections: password change, email change via Firebase provider flow
+  - Credential sections: password change, email change through reauthenticated Firebase `verifyBeforeUpdateEmail`; do not persist proposed email while verification is pending
   - No password field value retained after submission
+- [ ] T051 [US2] Implement the proposed `useVerifiedEmailGate` in `ppswbs_frontend/src/features/accountmanagement/hooks/useVerifiedEmailGate.ts` and wire it through `AccountManagementApiClient.ts`:
+  - Trigger only on Profile entry or the labelled/tooltip status-reload icon, never as a background job or poll.
+  - Reload current Firebase user; if verified, force a fresh ID token and call bodyless `PUT /api/v1/accounts/me/email`; do not send email, boolean, UID, or `oobCode` in a request body.
+  - If still unverified, present verification/resend guidance and do not start Profile save. For missing/expired session discard Profile draft and sign in; for `403` or `503`, retain safe input and offer explicit icon retry without automatically retrying a mutation.
+- [ ] T052 [P] [US2] Add frontend/API integration coverage in `ppswbs_frontend/src/features/accountmanagement/tests/verifiedEmailGate.test.tsx` for Profile entry (same-browser and other-device verification), stale/unverified token, expired session/draft discard, Firebase reload failure, and `PUT /accounts/me/email` `503`; test accessible reload icon, 90-second Account-ID-keyed `localStorage` resend expiry, `verifyBeforeUpdateEmail` old-email retention, and no poll/background retry/raw action-code persistence.
 
 **Checkpoint**: Verified customer can update profile and trigger credential flows. Unverified email shows reminder but does not block Home. Verification-required functions deny with guidance.
 
@@ -379,8 +384,11 @@ After Phase 2 completes:
 - OpenAPI regeneration is a required pre-handoff step (see plan.md open blockers D02/D06); its tasks are tracked in `verification.md`, not here
 - All quickstart scenarios in `quickstart.md` must be run and evidence retained before Tech Lead handoff (T048–T049)
 
-**Total tasks**: 50
-**By story**: Setup 5 | Foundational 7 | US1 7 | US2 5 | US3 8 | US4 5 | US5 6 | Polish 7
+- Code refactoring prerequisite: code-level `activeLocationIds` must be renamed to canonical `activeWorkshopLocationIds` across entities, DTOs, and facade types during implementation.
+- OpenAPI contract: `contracts/account-management.openapi.yaml` has been regenerated to full OpenAPI 3.1.0 specification.
+
+**Total tasks**: 52
+**By story**: Setup 5 | Foundational 7 | US1 7 | US2 7 | US3 8 | US4 5 | US5 6 | Polish 7
 **Parallel opportunities**: 32 tasks marked [P]
-**MVP scope**: Phases 1–6 (T001–T042, excluding T038–T043 US5 tasks)
+**MVP scope**: Phases 1–6 tasks (T001–T037) + Phase 8 required polish (T044–T046, T048–T050). Phase 7 US5 (T038–T043) and WCAG scan (T047) are deferred to full release.
 **Suggested MVP**: Complete US1 (Phase 3) alone first → validate independently → proceed to US2, US3, US4

@@ -1,13 +1,13 @@
 # Feature Specification: Account Management
 
 **Date created**: 2026-10-19
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-03
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
 **Feature Branch**: `son`
 
-**Status**: Draft — business decisions clarified; planning, contract, and task artifacts must be regenerated before implementation.
+**Status**: Approved — specification, design, contracts (OpenAPI 3.1.0), and task artifacts finalized; approved by Tech Lead Phan Sơn for implementation (see `approval.md`).
 
 **Input**: Replace the obsolete Member Profile scope with FE-001 Account Management, using `research.md` and the decisions recorded during the 2026-10-24–2026-10-25 clarification.
 
@@ -81,6 +81,19 @@ The feature serves a small-to-medium business. It deliberately uses fixed roles 
 - Q: Bạn có chốt FE-001 chỉ công khai đúng hai method nội bộ cho FE-003: findTargetFacts(accountId) và findEligibleRoster(workshopLocationId, requiredRole) không? → A: Có; dùng hai typed facade method này, không có REST endpoint hoặc generic Account directory.
 - Q: Bạn muốn giữ task/plan cũ dưới dạng tài liệu lịch sử riêng hay thay trực tiếp bằng bộ artifact triển khai mới? → A: Thay trực tiếp artifact cũ; dùng Git history để xem bản trước.
 
+### Session 2026-11-03
+
+- Q: V1 có dùng Mland custom email-action handler, Firebase callback/webhook, hay background job để đồng bộ email verification không? → A: Không. Firebase dùng email-action handler mặc định; FE-001 không nhận/lưu `oobCode`, không custom handler và không chạy polling/job nền.
+- Q: Sau khi Member xác minh email tại Firebase, hệ thống phát hiện và đồng bộ thế nào? → A: Chỉ khi Member vào một capability yêu cầu email verified hoặc chọn kiểm tra lại trạng thái, FE chủ động `reload` Firebase user, ép ID token mới, rồi gọi endpoint đồng bộ email của FE-001. Không được suy email verification từ browser payload; BE xác minh token mới cho từng command.
+- Q: Ai gửi lại email verification cho Member? → A: Firebase Web SDK ở FE gửi khi Member đang đăng nhập và chủ động chọn resend. Đây là email identity-provider, không phải email nghiệp vụ do FE-07 gửi; FE-07 vẫn sở hữu delivery của invitation/lock/unlock/role-change notification.
+- Q: Trong FE-001 hiện tại, capability nào phải chạy verification gate trước khi thực hiện? → A: Chỉ thao tác lưu/chỉnh Profile. Kích hoạt Staff/Manager vẫn do BE kiểm tra email verified theo FR-013; Admin commands không có gate email riêng. Capability khác chỉ được thêm sau khi có thay đổi spec rõ ràng.
+- Q: Khi Member mở Profile, verification gate chạy lúc nào và thao tác kiểm tra lại hiển thị thế nào? → A: Tự chạy khi mở Profile; Member có thể chạy lại bằng icon reload trong phần trạng thái verification. Chỉ cho phép Save sau khi đồng bộ thành công. Icon phải có accessible name/tooltip, trạng thái đang tải và lỗi để dùng được bằng bàn phím/screen reader.
+- Q: Sau khi Member resend email verification từ Profile, UI giới hạn tần suất thế nào? → A: Sau khi Firebase xác nhận gửi thành công, UI áp dụng cooldown 90 giây. Firebase vẫn là nguồn quyết định quota; lỗi/quota không tự động gửi lại.
+- Q: Nếu Profile gate không còn Firebase session hoặc token không hợp lệ, giữ Profile draft thế nào? → A: Không giữ draft. Chuyển người dùng về đăng nhập để không lưu dữ liệu Profile tạm trong browser.
+- Q: Khi Member đổi email, Firebase cập nhật email mới trước hay xác thực email mới trước? → A: Dùng `verifyBeforeUpdateEmail`: Firebase và DB giữ email cũ đến khi Member xác thực email mới; sau đó Profile gate đồng bộ email mới đã verified. Không dùng luồng đổi ngay rồi chờ sync.
+- Q: Nếu Firebase tạo Member thành công nhưng lần gửi email verification đầu tiên thất bại, hệ thống làm gì? → A: Vẫn bootstrap và chuyển Member tới Home, hiển thị reminder an toàn và cho Member chủ động resend từ Profile; không retry nền và không rollback Account.
+- Q: Cooldown resend verification 90 giây có giữ sau refresh/đóng-mở browser không? → A: Có. Dùng `localStorage` theo Account ID, chỉ lưu mốc hết hạn và tự hết hạn sau 90 giây; không dùng email, Firebase UID, token hay action code làm storage key/value.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Register and use a personal account (Priority: P1)
@@ -109,10 +122,14 @@ A signed-in person can see that their email still needs verification, verify it 
 
 **Acceptance Scenarios**:
 
-1. **Given** a signed-in person whose email is not verified, **When** they open Home, **Then** they see a non-blocking verification reminder and can explicitly request another verification email.
-2. **Given** that person attempts a function that requires a verified email, **When** verification is still incomplete, **Then** the function is denied without losing the entered form data and the person is guided to verification.
-3. **Given** a verified active account, **When** its owner saves a valid full name and optional phone number, **Then** the account shows the newly saved values and no role, status, email, or location changes.
-4. **Given** an owner completes an identity-provider email change and returns with a current verified identity, **When** the system synchronizes the account, **Then** it records the current email for the same account and never accepts an email value supplied only by the browser.
+1. **Given** a signed-in person whose email is not verified, **When** they open Home or Profile, **Then** they see a non-blocking verification reminder and can explicitly request another verification email from Firebase; after a successful send, the resend action has a 90-second UI cooldown.
+2. **Given** that person opens Profile, **When** the FE automatically reloads the Firebase user and obtains a forced-fresh ID token, **Then** a newly verified identity is synchronized by the server before Profile save proceeds; no browser email or boolean is accepted as authority.
+3. **Given** that person is still unverified after the Profile check, **When** they try to save Profile, **Then** the command is denied without losing safe entered form data and the person is guided to verify or resend; the FE does not poll or retry the command automatically.
+4. **Given** verification was completed in a different browser/device without a current Firebase session, **When** the person later signs in and opens Profile, **Then** the same check-and-sync path completes without requiring a Firebase callback or a background job.
+5. **Given** a verified active account, **When** its owner saves a valid full name and optional phone number, **Then** the account shows the newly saved values and no role, status, email, or location changes.
+6. **Given** an owner completes an identity-provider email change and returns with a current verified identity, **When** the system synchronizes the account, **Then** it records the current email for the same account and never accepts an email value supplied only by the browser.
+7. **Given** an owner requests an email change, **When** Firebase sends verification to the proposed new email, **Then** the current Firebase and Account email remain unchanged until that new email is verified; after the owner returns to Profile, the normal gate synchronizes the verified new email.
+8. **Given** Firebase registration succeeds but the initial verification-email send fails, **When** bootstrap completes, **Then** the Member reaches Home with safe verification reminder/recovery guidance; no Account is rolled back and no background resend occurs.
 
 ---
 
@@ -167,8 +184,11 @@ An Admin can search and inspect accounts, see the fixed role catalogue, and make
 
 - A configured external sign-in provider is unavailable, a popup is blocked, or the provider reports an account-method conflict: no local account is created until a valid identity is established, and the person receives retry/alternative-method guidance.
 - A password-reset or verification request must not reveal whether an email account exists.
+- If Firebase registration succeeds but its initial verification-email send fails, bootstrap remains successful and Home presents safe reminder/recovery guidance; the Member can explicitly resend from Profile, with no rollback or background retry.
 - A person can sign in with an unverified email but cannot bypass an operation's verified-email requirement, even by refreshing the UI or presenting stale identity information.
 - An email change that succeeds at the identity provider but initially fails to synchronize can be retried from the current identity without reverting to an older email.
+- An email-change request uses Firebase `verifyBeforeUpdateEmail` after required reauthentication. The proposed new email is not persisted as Account login email or treated as current identity before Firebase verifies it; the existing verified email remains current until the Profile gate synchronizes the completed change.
+- If the Profile verification gate has no current Firebase user or receives an invalid/expired-session outcome, it discards the unsaved Profile draft and directs the person to sign in again; it does not persist that draft in browser storage.
 - A location becomes inactive after a Staff/Manager account is active: the account's role/status is not changed automatically, but actions in that location are denied.
 - An invitation expires, is not delivered, or an internal creation partly fails: the original account remains pending; an authorized resend/recovery never creates a second identity or account.
 - A notification-delivery failure does not undo a committed account, role, status, or audit change; it remains recoverable through FE-07.
@@ -181,9 +201,9 @@ An Admin can search and inspect accounts, see the fixed role catalogue, and make
 - **FR-001**: The system MUST create or return one Account for each verified identity and MUST use that identity, not a client-supplied email, account ID, role, or provider profile, to determine account ownership.
 - **FR-002**: The system MUST support email/password registration and sign-in and MAY show Google/Facebook sign-in only when the corresponding provider is configured for the environment.
 - **FR-003**: The system MUST send every successful sign-in to Home and MUST NOT make a role dashboard or policy acceptance a sign-in prerequisite.
-- **FR-004**: The system MUST permit a person with an unverified email to sign in and see a clear verification reminder; each protected function MUST independently enforce its verified-email requirement.
-- **FR-005**: The system MUST let an account owner explicitly sign out, request email verification, reset an eligible password, change an eligible password after required reauthentication, and change login email only through a verified identity-provider flow.
-- **FR-006**: The system MUST synchronize a changed login email only from the current verified identity for the same Account and MUST reject stale or browser-supplied email data as an authority source.
+- **FR-004**: The system MUST permit a person with an unverified email to sign in and see a clear verification reminder; each protected function MUST independently enforce its verified-email requirement on the server.
+- **FR-005**: The system MUST let an account owner explicitly sign out, request or resend email verification through the Firebase Web SDK while signed in, reset an eligible password, change an eligible password after required reauthentication, and change login email only through Firebase `verifyBeforeUpdateEmail` after required reauthentication. Firebase retains the current email until the proposed new email is verified; the Profile gate then synchronizes that verified current identity email. After Firebase confirms a Member verification-email send, the Profile UI MUST disable further resend for 90 seconds. This cooldown persists across refresh/browser restart in `localStorage`, keyed only by opaque Account ID and storing only an expiry timestamp; it expires after 90 seconds and MUST NOT store email, Firebase UID, bearer/token, or action code. Firebase remains the quota authority, and a send/quota failure is shown with safe guidance without automatic retry. V1 uses Firebase’s default email-action handler; it has no Mland custom action handler, no Firebase callback/webhook, and no scheduled/polling verification job. FE-07 does not deliver Member verification email.
+- **FR-006**: The system MUST synchronize the current login email and verification snapshot only from a current Firebase identity for the same Account. In the current FE-001 scope, on Profile entry the FE MUST reload the Firebase user and obtain a forced-fresh Firebase ID token; the owner may invoke the same check again through a verification-status reload icon. The icon MUST expose an accessible name/tooltip plus loading and failure states. If no current Firebase user exists or the session is invalid/expired, the FE MUST discard unsaved Profile draft and direct the owner to sign in; it MUST NOT persist the draft in browser storage. The BE MUST verify that token and reject stale or browser-supplied email/verification data as an authority source. Profile save is enabled only after successful synchronization and is never automatically retried after synchronization. Staff/Manager activation independently enforces verified email under FR-013; Admin commands have no additional email-verification gate. A future capability may use this gate only after an explicit specification change.
 - **FR-007**: The system MUST create an Account Profile with every Account bootstrap. Its initial full name is the portion before `@` of the current identity email, never a client-supplied value or provider display name. An active, verified account owner can later view and replace their own full name and optional phone number. A full name is required after outer-whitespace trimming, contains 1–100 Unicode characters, and contains no ISO control character. A phone is optional, trimmed, 7–30 characters when present, and is neither normalized, verified by OTP, nor required to be unique.
 - **FR-008**: The system MUST keep profile, role/location, status, email, credential, and identity changes as distinct actions. Profile editing MUST NOT change role, status, login email, identity, or location scope.
 - **FR-009**: The system MUST support exactly the fixed roles `MEMBER`, `STAFF`, `MANAGER`, and `ADMIN`. Each Account has exactly one role; provider claims and frontend visibility MUST NOT grant a business role.

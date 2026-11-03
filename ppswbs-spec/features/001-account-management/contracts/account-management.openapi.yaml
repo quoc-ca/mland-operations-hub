@@ -1,96 +1,1206 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: Mland Account Management API
-  version: 1.0.0-draft
-  description: Bearer-only Account Management contract. Firebase proves identity; Mland decides Account authority.
+  version: 1.0.0
+  description: >
+    Production REST transport contract for FE-001 Account Management.
+    Bearer-only credential transport using Firebase ID tokens.
+    Firebase proves identity; Mland backend determines Account role, status, and authority.
+servers:
+  - url: http://localhost:8080
+    description: Local Spring Boot Backend
 paths:
   /api/v1/accounts/me:
     put:
-      summary: Bootstrap or load the caller Account
-      security: [{ bearerAuth: [] }]
-      responses: { '200': { $ref: '#/components/responses/Account' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '503': { $ref: '#/components/responses/Error' } }
+      summary: Bootstrap current Account
+      description: >
+        Resolves or creates the caller's Account from the verified Firebase identity.
+        If unknown with a valid email, creates one MEMBER/ACTIVE Account atomically with initial profile.
+        Idempotent on repeated calls.
+      operationId: bootstrapOwnAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Account bootstrapped or resolved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+    get:
+      summary: Get current Account
+      description: Returns current Account facts for the authenticated caller.
+      operationId: getOwnAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Current account facts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
   /api/v1/accounts/me/profile:
     get:
-      security: [{ bearerAuth: [] }]
-      responses: { '200': { $ref: '#/components/responses/Profile' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' } }
+      summary: Get current Account owner profile
+      description: Returns profile details (full name, phone) for the authenticated account owner.
+      operationId: getOwnProfile
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Own profile details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
     put:
-      security: [{ bearerAuth: [] }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ProfileInput' } } } }
-      responses: { '200': { $ref: '#/components/responses/Profile' }, '400': { $ref: '#/components/responses/Error' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' } }
+      summary: Update current Account owner profile
+      description: >
+        Replaces own full name and optional phone.
+        Requires verified email per FR-007 / WF-08.
+        Last-successful-commit wins (no version conflict on own profile).
+      operationId: updateOwnProfile
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdateRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
   /api/v1/accounts/me/email:
     put:
-      summary: Synchronize current verified identity email
-      security: [{ bearerAuth: [] }]
-      responses: { '200': { $ref: '#/components/responses/Account' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
+      summary: Synchronize verified Firebase identity email
+      description: >
+        Bodyless route. Server verifies current Firebase ID token and updates login_email
+        and email_verified_at snapshot if token has verified email.
+        Does not accept browser-supplied email, verification flag, or action code.
+      operationId: syncOwnEmail
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Email and verification snapshot synchronized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
   /api/v1/accounts:
     get:
-      summary: Admin account list
-      security: [{ bearerAuth: [] }]
+      summary: List accounts (Admin search/filter)
+      description: Paginated search and filtering of accounts. Excludes credentials and provider UIDs.
+      operationId: listAccounts
+      security:
+        - bearerAuth: []
       parameters:
-        - { name: q, in: query, schema: { type: string } }
-        - { name: role, in: query, schema: { $ref: '#/components/schemas/Role' } }
-        - { name: status, in: query, schema: { $ref: '#/components/schemas/Status' } }
-        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
-        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
-      responses: { '200': { $ref: '#/components/responses/AccountPage' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' } }
-  /api/v1/accounts/{accountId}:
+        - name: q
+          in: query
+          description: Search term matching email or full name
+          required: false
+          schema:
+            type: string
+        - name: role
+          in: query
+          description: Filter by fixed role
+          required: false
+          schema:
+            $ref: '#/components/schemas/AccountRole'
+        - name: status
+          in: query
+          description: Filter by lifecycle status
+          required: false
+          schema:
+            $ref: '#/components/schemas/AccountStatus'
+        - name: page
+          in: query
+          description: Zero-based page index
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          description: Number of records per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Paginated accounts list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedAccountSummaryResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/v1/admin/accounts:
     get:
-      summary: Admin account detail
-      security: [{ bearerAuth: [] }]
-      parameters: [{ $ref: '#/components/parameters/AccountId' }]
-      responses: { '200': { $ref: '#/components/responses/Account' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' } }
+      summary: List accounts (Admin alias)
+      description: Alias to GET /api/v1/accounts.
+      operationId: listAccountsAdminAlias
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: role
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AccountRole'
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AccountStatus'
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Paginated accounts list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedAccountSummaryResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/v1/accounts/{id}:
+    get:
+      summary: Get account detail (Admin)
+      description: Returns full account detail including profile and location assignments.
+      operationId: getAccountDetail
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPathParam'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Account detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/v1/admin/accounts/{id}:
+    get:
+      summary: Get account detail (Admin alias)
+      description: Alias to GET /api/v1/accounts/{id}.
+      operationId: getAccountDetailAdminAlias
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPathParam'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Account detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
   /api/v1/internal-accounts:
     post:
-      summary: Create pending Staff or Manager account
-      security: [{ bearerAuth: [] }]
-      parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, format: uuid } }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InternalCreate' } } } }
-      responses: { '201': { $ref: '#/components/responses/Account' }, '400': { $ref: '#/components/responses/Error' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' }, '503': { $ref: '#/components/responses/Error' } }
-  /api/v1/accounts/{accountId}/setup-invitations:
+      summary: Create pending internal Staff or Manager account
+      description: >
+        Admin creates a Staff or Manager account in PENDING_SETUP state.
+        Requires an Idempotency-Key header.
+        Validates workshopLocationId(s) against authoritative Workshop Location facade.
+      operationId: createInternalAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternalAccountCreateRequest'
+      responses:
+        '200':
+          description: Internal account created or preserved idempotent response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalAccountSummaryResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
+  /api/v1/admin/accounts/internal:
     post:
-      summary: Queue fresh pending-account invitation
-      security: [{ bearerAuth: [] }]
-      parameters: [{ $ref: '#/components/parameters/AccountId' }]
-      responses: { '202': { $ref: '#/components/responses/Account' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' } }
-  /api/v1/accounts/{accountId}/profile:
+      summary: Create pending internal account (Admin alias)
+      description: Alias to POST /api/v1/internal-accounts.
+      operationId: createInternalAccountAdminAlias
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternalAccountCreateRequest'
+      responses:
+        '200':
+          description: Internal account created or preserved idempotent response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalAccountSummaryResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
+  /api/v1/accounts/{id}/setup-invitations:
+    post:
+      summary: Resend invitation for pending internal account
+      description: >
+        Resends setup invitation to a PENDING_SETUP account.
+        Enforces a 5-minute cooldown between resends.
+      operationId: resendInvitation
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPathParam'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Setup invitation resent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalAccountSummaryResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /api/v1/admin/accounts/{id}/invitations:
+    post:
+      summary: Resend invitation (Admin alias)
+      description: Alias to POST /api/v1/accounts/{id}/setup-invitations.
+      operationId: resendInvitationAdminAlias
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPathParam'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Setup invitation resent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalAccountSummaryResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /api/v1/accounts/{id}/profile:
     put:
-      security: [{ bearerAuth: [] }]
-      parameters: [{ $ref: '#/components/parameters/AccountId' }]
-      requestBody: { required: true, content: { application/json: { schema: { allOf: [{ $ref: '#/components/schemas/ProfileInput' }, { $ref: '#/components/schemas/Versioned' }] } } } }
-      responses: { '200': { $ref: '#/components/responses/Account' }, '400': { $ref: '#/components/responses/Error' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
-  /api/v1/accounts/{accountId}/role-assignment:
+      summary: Admin update internal account profile
+      description: Updates full name and phone for a Staff or Manager account. Requires optimistic lock version.
+      operationId: updateAccountProfileAdmin
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPathParam'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternalProfileUpdateRequest'
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetailResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /api/v1/admin/accounts/{id}/profile:
     put:
-      security: [{ bearerAuth: [] }]
-      parameters: [{ $ref: '#/components/parameters/AccountId' }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RoleAssignment' } } } }
-      responses: { '200': { $ref: '#/components/responses/Account' }, '400': { $ref: '#/components/responses/Error' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
-  /api/v1/accounts/{accountId}/status:
+      summary: Admin update internal account profile (alias)
+      description: Alias to PUT /api/v1/accounts/{id}/profile.
+      operationId: updateAccountProfileAdminAlias
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPathParam'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternalProfileUpdateRequest'
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetailResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /api/v1/accounts/{id}/role-assignment:
     put:
-      security: [{ bearerAuth: [] }]
-      parameters: [{ $ref: '#/components/parameters/AccountId' }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StatusCommand' } } } }
-      responses: { '200': { $ref: '#/components/responses/Account' }, '202': { $ref: '#/components/responses/Account' }, '400': { $ref: '#/components/responses/Error' }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
+      summary: Assign role and workshop locations
+      description: >
+        Admin updates role (STAFF or MANAGER) and location assignments.
+        Staff requires exactly 1 location; Manager requires 1 or more.
+        Requires optimistic lock version.
+      operationId: assignRoleAndLocation
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPathParam'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleLocationAssignRequest'
+      responses:
+        '200':
+          description: Role and locations assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetailResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /api/v1/admin/accounts/{id}/role-location:
+    put:
+      summary: Assign role and workshop locations (alias)
+      description: Alias to PUT /api/v1/accounts/{id}/role-assignment.
+      operationId: assignRoleAndLocationAlias
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPathParam'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleLocationAssignRequest'
+      responses:
+        '200':
+          description: Role and locations assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetailResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /api/v1/accounts/{id}/status:
+    put:
+      summary: Update account status (suspend or restore)
+      description: >
+        Admin updates status via operation enum: SUSPEND (requires non-empty reason) or UNSUSPEND.
+        Protected access is revoked immediately upon suspension.
+        Restoration requires prior session revocation to be confirmed.
+      operationId: updateAccountStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPathParam'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusCommandRequest'
+      responses:
+        '200':
+          description: Account status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountSummaryResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /api/v1/admin/accounts/{id}/suspend:
+    post:
+      summary: Suspend account
+      description: Dedicated POST endpoint to suspend an account with a mandatory reason.
+      operationId: suspendAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPathParam'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountSuspendRequest'
+      responses:
+        '200':
+          description: Account suspended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountSummaryResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/v1/admin/accounts/{id}/restore:
+    post:
+      summary: Restore account
+      description: Dedicated POST endpoint to restore a suspended account after revocation completes.
+      operationId: restoreAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPathParam'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Account restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountSummaryResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
   /api/v1/roles:
     get:
-      summary: Read fixed role catalogue
-      security: [{ bearerAuth: [] }]
-      responses: { '200': { description: Fixed roles and scope descriptions }, '401': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' } }
+      summary: Fixed role catalogue
+      description: Returns fixed roles and descriptions. Read-only; no permission configuration.
+      operationId: listRoles
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Fixed role catalogue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleCatalogueResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/v1/admin/roles:
+    get:
+      summary: Fixed role catalogue (alias)
+      description: Alias to GET /api/v1/roles.
+      operationId: listRolesAdminAlias
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Fixed role catalogue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleCatalogueResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
 components:
-  securitySchemes: { bearerAuth: { type: http, scheme: bearer, bearerFormat: FirebaseIDToken } }
-  parameters: { AccountId: { name: accountId, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]*$' } } }
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID Token
+      description: Firebase ID token passed in the Authorization header as `Bearer <token>`.
+
+  parameters:
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      description: Optional client-supplied tracing correlation identifier. Generated by backend if absent.
+      schema:
+        type: string
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Unique client-generated key (UUID or opaque string) for safe retries of account creation.
+      schema:
+        type: string
+
+    AccountIdPathParam:
+      name: id
+      in: path
+      required: true
+      description: Canonical opaque positive integer account identifier.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+
   schemas:
-    Role: { type: string, enum: [MEMBER, STAFF, MANAGER, ADMIN] }
-    Status: { type: string, enum: [ACTIVE, PENDING_SETUP, SUSPENDED] }
-    Versioned: { type: object, required: [version], properties: { version: { type: integer, minimum: 0 } } }
-    ProfileInput: { type: object, required: [fullName], additionalProperties: false, properties: { fullName: { type: string, minLength: 1, maxLength: 100 }, phone: { type: string, nullable: true, minLength: 7, maxLength: 30 } } }
-    InternalCreate: { type: object, required: [fullName, email, role, locationIds], additionalProperties: false, properties: { fullName: { type: string }, email: { type: string, format: email }, role: { type: string, enum: [STAFF, MANAGER] }, locationIds: { type: array, minItems: 1, items: { type: string, pattern: '^[1-9][0-9]*$' } } } }
-    RoleAssignment: { allOf: [{ $ref: '#/components/schemas/Versioned' }, { type: object, required: [role, locationIds], additionalProperties: false, properties: { role: { type: string, enum: [STAFF, MANAGER] }, locationIds: { type: array, minItems: 1, items: { type: string } } } }] }
-    StatusCommand: { allOf: [{ $ref: '#/components/schemas/Versioned' }, { type: object, required: [operation], additionalProperties: false, properties: { operation: { type: string, enum: [SUSPEND, UNSUSPEND] }, reason: { type: string, minLength: 1, maxLength: 500 } } }] }
-    Account: { type: object, required: [id, email, emailVerified, role, status, locations, version], properties: { id: { type: string }, email: { type: string, format: email }, emailVerified: { type: boolean }, role: { $ref: '#/components/schemas/Role' }, status: { $ref: '#/components/schemas/Status' }, locations: { type: array, items: { type: object, properties: { id: { type: string }, name: { type: string } } } }, version: { type: integer }, createdAt: { type: string, format: date-time }, updatedAt: { type: string, format: date-time } } }
-    Profile: { allOf: [{ $ref: '#/components/schemas/Account' }, { type: object, properties: { fullName: { type: string, nullable: true }, phone: { type: string, nullable: true } } }] }
-    Error: { type: object, required: [code, message, correlationId, timestamp], properties: { code: { type: string }, message: { type: string }, correlationId: { type: string }, timestamp: { type: string, format: date-time }, fieldErrors: { type: array, items: { type: object, properties: { field: { type: string }, message: { type: string } } } } } }
+    AccountRole:
+      type: string
+      enum:
+        - MEMBER
+        - STAFF
+        - MANAGER
+        - ADMIN
+      description: Canonical fixed business roles. Exactly one per account.
+
+    AccountStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - PENDING_SETUP
+        - SUSPENDED
+      description: Account lifecycle status.
+
+    RevocationStatus:
+      type: string
+      enum:
+        - NOT_APPLICABLE
+        - PENDING
+        - CONFIRMED
+      description: External identity session revocation progress tracking.
+
+    InternalProvisioningStatus:
+      type: string
+      enum:
+        - PENDING_SETUP
+        - INVITATION_SENT
+        - ACTIVATED
+      description: Internal account provisioning lifecycle state.
+
+    LocationRefResponse:
+      type: object
+      required:
+        - locationId
+        - name
+      properties:
+        locationId:
+          type: string
+          description: Canonical workshop location identifier string.
+        name:
+          type: string
+          description: Human-readable location display name.
+
+    LocationAssignmentResponse:
+      type: object
+      required:
+        - locationId
+        - assignedAt
+        - active
+      properties:
+        locationId:
+          type: integer
+          format: int64
+        assignedAt:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+
+    AccountResponse:
+      type: object
+      required:
+        - id
+        - email
+        - emailVerified
+        - role
+        - status
+        - locations
+        - version
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Canonical positive integer account identifier as an opaque string.
+          example: "42"
+        email:
+          type: string
+          format: email
+        emailVerified:
+          type: boolean
+        role:
+          $ref: '#/components/schemas/AccountRole'
+        status:
+          $ref: '#/components/schemas/AccountStatus'
+        locations:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocationRefResponse'
+        version:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProfileResponse:
+      allOf:
+        - $ref: '#/components/schemas/AccountResponse'
+        - type: object
+          properties:
+            fullName:
+              type: string
+              nullable: true
+              maxLength: 100
+              example: "Nguyen Van A"
+            phone:
+              type: string
+              nullable: true
+              maxLength: 30
+              example: "0901234567"
+
+    AccountProfileResponse:
+      type: object
+      properties:
+        fullName:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+
+    AccountSummaryResponse:
+      type: object
+      required:
+        - accountId
+        - role
+        - status
+        - loginEmail
+        - revocationStatus
+        - createdAt
+        - updatedAt
+      properties:
+        accountId:
+          type: integer
+          format: int64
+        role:
+          $ref: '#/components/schemas/AccountRole'
+        status:
+          $ref: '#/components/schemas/AccountStatus'
+        loginEmail:
+          type: string
+          format: email
+        revocationStatus:
+          $ref: '#/components/schemas/RevocationStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AccountDetailResponse:
+      type: object
+      required:
+        - accountId
+        - role
+        - status
+        - loginEmail
+        - revocationStatus
+        - createdAt
+        - updatedAt
+        - locationAssignments
+        - version
+      properties:
+        accountId:
+          type: integer
+          format: int64
+        role:
+          $ref: '#/components/schemas/AccountRole'
+        status:
+          $ref: '#/components/schemas/AccountStatus'
+        loginEmail:
+          type: string
+          format: email
+        revocationStatus:
+          $ref: '#/components/schemas/RevocationStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        profile:
+          $ref: '#/components/schemas/AccountProfileResponse'
+        locationAssignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocationAssignmentResponse'
+        version:
+          type: integer
+          format: int64
+
+    InternalAccountSummaryResponse:
+      type: object
+      required:
+        - accountId
+        - role
+        - status
+        - loginEmail
+        - revocationStatus
+        - createdAt
+        - updatedAt
+      properties:
+        accountId:
+          type: integer
+          format: int64
+        role:
+          $ref: '#/components/schemas/AccountRole'
+        status:
+          $ref: '#/components/schemas/AccountStatus'
+        loginEmail:
+          type: string
+          format: email
+        revocationStatus:
+          $ref: '#/components/schemas/RevocationStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        provisioningStatus:
+          $ref: '#/components/schemas/InternalProvisioningStatus'
+        invitationLastSentAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    PagedAccountSummaryResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountSummaryResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    PageMeta:
+      type: object
+      required:
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+
+    ProfileUpdateRequest:
+      type: object
+      required:
+        - fullName
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Required full name. Whitespace-trimmed, no ISO control chars.
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+          description: Optional phone number (7-30 chars).
+
+    InternalAccountCreateRequest:
+      type: object
+      required:
+        - role
+        - email
+        - fullName
+        - locationIds
+      properties:
+        role:
+          $ref: '#/components/schemas/AccountRole'
+          description: Must be STAFF or MANAGER.
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+        locationIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+          description: Exactly 1 location for STAFF; 1 or more for MANAGER.
+
+    InternalProfileUpdateRequest:
+      type: object
+      required:
+        - version
+        - fullName
+      properties:
+        version:
+          type: integer
+          format: int64
+          description: Optimistic concurrency control version.
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+
+    RoleLocationAssignRequest:
+      type: object
+      required:
+        - version
+        - role
+        - locationIds
+      properties:
+        version:
+          type: integer
+          format: int64
+        role:
+          $ref: '#/components/schemas/AccountRole'
+        locationIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+
+    StatusCommandRequest:
+      type: object
+      required:
+        - operation
+      properties:
+        version:
+          type: integer
+          format: int64
+          nullable: true
+        operation:
+          type: string
+          enum:
+            - SUSPEND
+            - UNSUSPEND
+        reason:
+          type: string
+          nullable: true
+          description: Mandatory non-empty string when operation is SUSPEND.
+
+    AccountSuspendRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: Non-empty operational justification for account suspension.
+
+    RoleCatalogueResponse:
+      type: object
+      required:
+        - roles
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleEntryResponse'
+
+    RoleEntryResponse:
+      type: object
+      required:
+        - code
+        - displayName
+      properties:
+        code:
+          $ref: '#/components/schemas/AccountRole'
+        displayName:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+        - correlationId
+        - timestamp
+      properties:
+        code:
+          type: string
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          example: "Full name is required"
+        correlationId:
+          type: string
+          example: "c84b15da-1b9a-4c28-971a-297ebce5a782"
+        timestamp:
+          type: string
+          format: date-time
+        fieldErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldErrorDetail'
+
+    FieldErrorDetail:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+
   responses:
-    Account: { description: Account result, content: { application/json: { schema: { $ref: '#/components/schemas/Account' } } } }
-    Profile: { description: Profile result, content: { application/json: { schema: { $ref: '#/components/schemas/Profile' } } } }
-    AccountPage: { description: Paged Accounts }
-    Error: { description: Safe typed error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    ValidationError:
+      description: Bad request / validation failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    UnauthorizedError:
+      description: Authentication failure (missing, expired, or invalid bearer token)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ForbiddenError:
+      description: Authorization failure (suspended account, unverified email, or insufficient role)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFoundError:
+      description: Requested account or resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ConflictError:
+      description: Conflict (stale optimistic lock version, idempotency digest mismatch, active cooldown, or pending revocation)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ServiceUnavailableError:
+      description: Transient dependency failure (Workshop Location facade or identity provider unavailable)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

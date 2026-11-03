@@ -1,7 +1,7 @@
 # Quickstart Validation Guide: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-03
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -52,7 +52,7 @@ Refer to [data-model.md](data-model.md) for entity invariants and [contracts/int
 
 ## Scenario V-02: Unverified email sign-in and verification gate (US2)
 
-**Covers**: FR-004, SC-001
+**Covers**: FR-004, FR-005, FR-006, SC-001
 
 **Setup**: Account bootstrapped in V-01; email not yet verified in Firebase.
 
@@ -64,8 +64,37 @@ Refer to [data-model.md](data-model.md) for entity invariants and [contracts/int
 **Expected outcomes**:
 - Non-blocking verification reminder is visible on Home
 - The user can navigate to `/profile`
-- Attempting a verification-required action (e.g., profile save if configured as verification-required) is denied with clear guidance
+- Opening Profile automatically enters a neutral checking state; Profile save is disabled while verification remains unverified or synchronization is unavailable
 - No role/status change occurs
+
+**Verification-required capability check (same browser)**:
+```
+3. Verify the email using Firebase's default verification-email handler
+4. Enter /profile
+5. FE reloads the current Firebase user and forces a fresh ID token
+6. FE calls PUT /api/v1/accounts/me/email with the fresh bearer before enabling profile save
+```
+**Expected**:
+- The server, not a browser-supplied boolean, observes `emailVerified=true` from the verified Firebase token and updates the Account verification snapshot
+- Profile save can proceed only after that sync succeeds
+- No Mland action-handler route, Firebase callback/webhook, polling job, raw action code, or automatic retry of profile save is used
+
+**Resend and reload-icon behavior**:
+```
+7. While unverified, select resend from Profile and observe Firebase accepts it
+8. Restart the browser and return to the same Account's Profile within 90 seconds
+9. Activate the verification-status reload icon using mouse and keyboard
+```
+**Expected**: Resend remains disabled until its 90-second Account-specific `localStorage` expiry, with no email/UID/token/action code stored. The icon exposes a readable accessible name/tooltip, shows loading/failure state, and repeats only the Profile check.
+
+**Different browser/device recovery**:
+```
+10. Repeat setup, but complete the Firebase verification link in a browser/device without the Member's active session
+11. Sign in again in the original application browser and enter /profile
+```
+**Expected**: Firebase verification remains valid; entry check reloads the signed-in Firebase user, forces a fresh bearer, synchronizes the same Account, and then allows profile save.
+
+**Invalid state**: If `reload` still reports unverified, Firebase is unavailable, or synchronization returns 403/503, profile save does not start; safe unsaved form input remains and the Member can resend or explicitly retry with the icon. If no Firebase user exists or the session is expired, the draft is discarded and the user is directed to sign in.
 
 ---
 
@@ -86,13 +115,14 @@ Refer to [data-model.md](data-model.md) for entity invariants and [contracts/int
 - `Account.login_email`, `role`, `status`, and location scope are unchanged
 - Inline validation rejects: empty name, name > 100 chars, name with ISO control chars, phone < 7 or > 30 chars
 
-**Email sync**:
+**Email change and sync**:
 ```
-1. Change login email via Firebase provider flow (outside FE-001 UI)
-2. Sign in with the new email (new Firebase ID token)
-3. POST /accounts/me/email-sync with the current bearer
+1. Reauthenticate, then request change from old email to new email with Firebase `verifyBeforeUpdateEmail`
+2. Before the new email is verified, confirm Firebase and Account still show the old email; no pending email is persisted in Mland
+3. Verify the new email through Firebase's default handler
+4. Return to /profile; automatic reload and forced-fresh bearer call PUT /accounts/me/email
 ```
-**Expected**: `Account.login_email` updates to the provider email; browser-supplied email is never accepted
+**Expected**: `Account.login_email` changes only after Firebase verifies the new email and the Profile gate syncs it; browser-supplied email is never accepted. An inaccessible/expired new-email link leaves the old email current; repeat `verifyBeforeUpdateEmail` to retry or propose another address.
 
 ---
 

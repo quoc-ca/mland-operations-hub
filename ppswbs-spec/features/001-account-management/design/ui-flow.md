@@ -1,7 +1,7 @@
 # UI Flow Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-10-29
+**Date updated**: 2026-11-03
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -24,7 +24,8 @@ The frontend may hide navigation as a usability affordance, but cannot decide ro
 | --- | --- | --- | --- | --- | --- | --- |
 | Sign-in / registration | Anonymous | WF-02, WF-06 | proposed `AuthPage` / `FirebaseAuthClient` | FR-002–006; Firebase client boundary | Show configured provider availability, validation and duplicate-submit pending state. Do not expose Account existence. Provider failure is distinct from invalid credentials. | Explicit retry/alternative method; preserve no secret beyond active secure control. |
 | Bootstrap / landing | New authenticated user | WF-01, WF-02 | proposed `useCurrentAccount` | `/accounts/me` contract must be regenerated | Neutral loading while Account resolves. Active account goes Home; unverified account gets non-blocking reminder. No Account detail on failed resolution. | `401` sign in again; `403` eligibility guidance; `503` explicit retry; never infer old role/scope. |
-| Profile / security | Current Account owner | WF-02, WF-06 | proposed `ProfilePage`, `useProfile` | FR-005–008; OpenAPI profile/email endpoints | Field validation inline; committed success only after server response. Retain safe unsaved full name/phone after validation/dependency errors. Password/token never retained. | `409` reconcile current values when applicable; `401/403` safe account recovery. |
+| Profile verification gate | Signed-in Account owner opening Profile | WF-08 | proposed `useVerifiedEmailGate`, `FirebaseAuthClient`, `AccountManagementApiClient` | FR-004–006; `PUT /api/v1/accounts/me/email` | On Profile entry: neutral checking state; reload Firebase user; unverified state offers resend; verified state synchronizes before enabling save. A labelled/tooltip reload icon repeats the check. No custom email-action page/callback/polling state. | `401` discards draft and signs in; unverified stays blocked; `403` shows verification guidance; `503` preserves safe input and offers explicit icon retry. |
+| Profile / security | Current Account owner | WF-02, WF-08, WF-06 | proposed `ProfilePage`, `useProfile`, `useVerifiedEmailGate` | FR-004–008; OpenAPI profile/email endpoints | Field validation inline; save stays disabled until the Profile gate succeeds. Member resend uses Firebase SDK; after success an Account-ID-keyed `localStorage` expiry disables it for 90 seconds across browser restart. Email change uses `verifyBeforeUpdateEmail`; current email remains until verification completes. | `409` reconcile current values when applicable; `401` discards draft and signs in; `403` shows guidance; no automatic retry of save. |
 | Admin list/detail | Admin | WF-01, WF-03, WF-04 | proposed `AdminAccountListPage`, `AdminAccountDetailPage`, `useAdminAccounts` | FR-016–025; OpenAPI requires regeneration | Loading progress; explicit empty result; restricted detail data; success only after commit. | `409` reload before reapply; `503` keep safe form data for explicit retry. |
 | Create/resend internal Account | Admin | WF-03 | proposed `InternalAccountCreatePage`, `useAdminAccounts` | FR-011–015, 023–025 | Validate role/location before submit. Pending setup is not active access. Repeat click/retry preserves one intended provisioning request. Never display raw action link. | Provider/notification failure gives safe recovery; resend/reconciliation does not create a second account. |
 | Role/location/status action | Admin | WF-03, WF-04 | proposed detail page/hook | FR-017–021 | Explain impact, show current committed role/status/effective scope. Location deactivation does not claim role/lifecycle change. | Version conflict reloads; denied access returns to allowed safe view. |
@@ -40,6 +41,7 @@ The frontend may hide navigation as a usability affordance, but cannot decide ro
 - A later cookie-based flow requires a new approved CORS/CSRF/session/logout design; it is not enabled by this decision.
 - On `401`, return to sign-in after retaining only safe navigation/form context. On `403`, do not auto-retry. On `409`, reload/reconcile. On `503`, retain safe unsaved input and provide explicit retry.
 - Do not render/store raw ID token, provider UID, password, reset/action link, another Account’s contact data or lifecycle detail to simplify recovery.
+- Email verification email is sent through Firebase Web SDK after an explicit signed-in owner request. A 90-second resend expiry is stored under an Account-ID-keyed `localStorage` key; no email, UID, token, or action code is stored. V1 uses Firebase’s default action handler, does not configure an Mland action page/callback route, and does not poll Firebase in the background. The only proactive check is WF-08 on Profile entry or its reload icon.
 
 ### Still-unsourced UI acceptance baseline
 
@@ -69,6 +71,13 @@ The approved shared envelope is `code`, `message`, `correlationId`, `timestamp`,
 | No eligible roster candidates | Empty state without directory/contact/lifecycle exposure | WF-05 |
 | Request from `localhost:3000` | Browser is not CORS-authorized under approved local policy | WF-06 |
 | Cookie-authenticated request attempted | Not an approved V1 transport; no implicit credential fallback | WF-06 |
+| Member opens Profile after verified email | Gate reloads Firebase user, forces fresh bearer, synchronizes Account snapshot, then enables save | WF-08 |
+| Member remains unverified | Save does not start; Member receives verify/resend guidance and safe form input remains | WF-08 |
+| Member verified on another device | On next sign-in/Profile entry, the same gate synchronizes; no webhook/job is required | WF-08 |
+| Firebase reload or email synchronization unavailable | Command does not start; explicit retry is available and no mutation is auto-retried | WF-08 |
+| Profile session expired | Draft is discarded and UI directs to sign-in; no Profile PII is browser-persisted | WF-08 |
+| Verification resend followed by browser restart | Resend remains disabled only until the Account-specific 90-second expiry; Firebase remains quota authority | WF-08 |
+| Unverified email-change request | Current email stays visible/current; retry invokes `verifyBeforeUpdateEmail` again and no pending email is persisted in Mland | WF-08 |
 
 ## Open decisions and dependencies
 
@@ -79,3 +88,4 @@ The approved shared envelope is `code`, `message`, `correlationId`, `timestamp`,
 | FE-003 facade interface revision | Workshop picker cannot be built against a stable boundary | Account/Workshop owners approve `interfaces.md` revision |
 | Accessibility/browser baseline | Acceptance cannot be measured consistently | Frontend foundation owner approves source |
 | Regenerated OpenAPI/routes | API client implementation cannot rely on obsolete contract | Contract owner regenerates after design approval |
+| Verification-required gate design | `useVerifiedEmailGate` and its error/retry behavior are proposed until the revised design/contract is approved | Tech Lead approves revised FE-001 design scope |

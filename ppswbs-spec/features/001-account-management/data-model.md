@@ -1,7 +1,7 @@
 # Account Management Data Model
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-03
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -24,7 +24,7 @@
 - `AccountStatus`: `ACTIVE`, `PENDING_SETUP`, `SUSPENDED` only.
 - `resume_status` is populated only when suspending an eligible `ACTIVE` or
   `PENDING_SETUP` account and is consumed on successful restoration.
-- Email verification is an identity assurance, not an Account status.
+- Email verification is an identity assurance, not an Account status. `email_verified_at` is an Account-owned observation snapshot written only after FE-001 verifies a fresh Firebase ID token; it is not permission authority and is never set from a browser boolean or email action code.
 - Location deactivation leaves Account role/status unchanged but removes usable
   scope for commands in that location.
 
@@ -40,6 +40,14 @@
 - `firebase_uid` unique; account IDs are opaque positive IDs.
 - Login email is a current identity snapshot, not an ownership key. A UID/email
   mismatch never causes automatic merge or role upgrade.
+- A verified-email synchronization is idempotent: for the same UID and current
+  verified identity it may update `login_email` and records the observation time;
+  it cannot alter role, Account status, location scope or identity ownership.
+- `localStorage` is not Account data. The only permitted verification-resend
+  browser state is an opaque-Account-ID-keyed expiry timestamp lasting 90
+  seconds; it stores no email, Firebase UID, token, action code, or proposed
+  email-change value. A proposed email remains only in Firebase's verified-
+  before-update flow and is never a pending Account attribute.
 - Unknown-UID bootstrap creates its Account Profile in the same transaction only
   when the verified identity includes a valid email claim. The initial full name
   derives only from that email local part; browser input and provider display

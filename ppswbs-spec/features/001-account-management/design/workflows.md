@@ -1,7 +1,7 @@
 # Workflow Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-03
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -13,9 +13,10 @@
 | --- | --- | --- | --- | --- | --- |
 | WF-01 | Bearer admission and current actor | Every protected request | FR-026–027 | Architecture §Data flows 1 | Designed; actor field contract needs reconciliation |
 | WF-02 | Bootstrap and self-service | Verified identity / Account owner | FR-001–008, 022, 025 | Flow 2 | Designed; OpenAPI regeneration pending |
-| WF-03 | Provision and activate internal Account | Admin / intended internal identity | FR-011–018, 023–025 | Flow 3 | Designed; FE-07/Location contracts are dependencies |
-| WF-04 | Suspend and restore | Admin / affected Account | FR-019–021, 023–027 | Flow 4 | Designed; provider reconciliation evidence pending |
-| WF-05 | Target facts and roster | Authorized FE-003 actor/service | FR-028–033 | Flow 5 | BLOCKED for implementation by missing facade contract |
+| WF-03 | Provision and activate internal Account | Admin / intended internal identity | FR-011–018, 023–025 | Flow 4 | Designed; FE-07/Location contracts are dependencies |
+| WF-04 | Suspend and restore | Admin / affected Account | FR-019–021, 023–027 | Flow 5 | Designed; provider reconciliation evidence pending |
+| WF-05 | Target facts and roster | Authorized FE-003 actor/service | FR-028–033 | Flow 6 | BLOCKED for implementation by missing facade contract |
+| WF-08 | Profile verification gate | Owner opens Profile / activates reload icon | FR-004–006 | Flow 3 | proposed |
 | WF-06 | Browser transport and typed errors | Browser/API caller | FR-025, 027 | Flows 1–4 | Local policy approved; non-local operations open |
 | WF-07 | Schema/configuration startup | Service runtime/operator | Constitution; data-model | Persistence/config boundary | Designed; runtime verification pending |
 
@@ -60,7 +61,7 @@
 
 - **Trigger and actor**: Current `ADMIN` creates/resends/edits Staff or Manager; intended identity subsequently signs in.
 - **Preconditions and authorization**: Admin authority is checked server-side. Create permits only `STAFF`/`MANAGER`; Staff has exactly one and Manager one-or-more effective active Workshop Locations. Request contains a fresh idempotency key.
-- **Related architecture flow**: Architecture §Data flows 3.
+- **Related architecture flow**: Architecture §Data flows 4.
 
 1. `AdminAccountService.create` validates role, canonical `workshopLocationId` assignments and idempotency key/digest through the authoritative Location boundary.
 2. It records durable provisioning progress; Firebase identity/action-link work is outside the DB transaction and must be reconciled, not assumed rollback-safe.
@@ -79,7 +80,7 @@
 
 - **Trigger and actor**: Authorized Admin acts on a non-Admin target Account.
 - **Preconditions and authorization**: Current Admin actor, valid reason and current target/version. Admin accounts are outside feature administration.
-- **Related architecture flow**: Architecture §Data flows 4.
+- **Related architecture flow**: Architecture §Data flows 5.
 
 1. `SuspensionService.suspend` changes `ACTIVE` or `PENDING_SETUP` to `SUSPENDED`, retains prior eligible state, and commits redacted audit plus notification intent.
 2. Protected server actions are denied immediately through WF-01, independently of email delivery or Firebase revocation completion.
@@ -96,7 +97,7 @@
 
 - **Trigger and actor**: An approved FE-003 service after it authorizes its own actor and Workshop resource.
 - **Preconditions and authorization**: FE-003 authorization happens before facade invocation. `workshopLocationId` is canonical positive opaque Account-independent site/scope ID.
-- **Related architecture flow**: Architecture §Data flows 5.
+- **Related architecture flow**: Architecture §Data flows 6.
 
 1. FE-003 calls proposed `AccountFacade.findEligibleRoster(workshopLocationId, requiredRole)` to present only minimal ACTIVE candidates matching effective `activeWorkshopLocationIds`.
 2. UI may display current profile display name plus Account ID only to disambiguate names; it receives no email, phone, provider UID or lifecycle detail.
@@ -143,6 +144,26 @@
 3. The local `.env` helper may check file presence only and must not inspect content.
 4. Production rollout/rollback and observability owner are not sourced; this blocks production readiness, not this draft design.
 
+## WF-08: Profile verification gate
+
+- **Trigger and actor**: A signed-in Account owner opens Profile, or activates the accessible verification-status reload icon in Profile.
+- **Preconditions and authorization**: Firebase Web SDK has a current signed-in user; Profile save has not started. This is the only FE-001 client-side email-verification gate; Staff/Manager activation and every protected command retain their independent server checks.
+- **Related architecture data flow**: Architecture §Data flows 3.
+
+1. `ProfilePage` invokes proposed `useVerifiedEmailGate.checkProfileVerification` on entry; the owner may run it again with the labelled/tooltip reload icon. It never polls, schedules a job, receives a Firebase callback/webhook, or uses an Mland email-action handler.
+2. `FirebaseAuthClient.reloadCurrentUser` reloads the Firebase user. If no current user exists, the gate returns session recovery; if its observed `emailVerified` remains false, it returns blocked verification guidance without invoking a business command.
+3. For an observed verified user, `FirebaseAuthClient.getFreshIdToken` forces a fresh Firebase ID token. `AccountManagementApiClient.synchronizeEmail` calls bodyless `PUT /api/v1/accounts/me/email` with that bearer only; it sends no email address, verification boolean, UID or Firebase action code.
+4. `IdentityGateFilter` verifies token/revocation. `AccountController.syncOwnEmail` and `EmailSyncService` verify same-UID current identity and verified-email condition, then update only the Account email/verification observation snapshot. Role, Account status, scope and ownership do not change.
+5. Only after successful synchronization does the gate enable Profile save. The save independently passes WF-01/server authorization and verified-email enforcement.
+
+### Failure, recovery, and integrity
+
+1. A still-unverified user sees verification/resend guidance; Firebase Web SDK sends a new verification email only after explicit owner action. After successful send, `localStorage` retains only `emailVerificationResendUntil.<accountId>` expiry timestamp for 90 seconds, including browser restart; it stores no email, provider UID, token, or action code. FE-07 does not deliver this identity-provider email.
+2. Firebase reload/token failure, `401`, `403`, or `503` during synchronization keeps Profile save unstarted. Missing/expired session discards Profile draft and directs to sign-in; other temporary failures retain safe input and offer explicit reload-icon retry. The UI never automatically retries Profile save.
+3. A verification completed on a different browser/device has no local Firebase session/action callback requirement. On the owner’s next sign-in and Profile entry, this workflow observes the verified identity and synchronizes it.
+4. Email change uses Firebase `verifyBeforeUpdateEmail` after reauthentication. Until the new address verifies, Firebase and Account retain the old address; no pending address is persisted in Mland. The owner can repeat the same identity-provider flow to resend/change the proposed address.
+5. Raw Firebase email action links/codes are not rendered, stored, logged, forwarded to the backend, or included in audit metadata. There is no concurrency-sensitive business mutation in the synchronization itself; repeated successful checks are idempotent snapshot writes.
+
 ## Open decisions and dependencies
 
 | Item | Impact | Owner / resume condition |
@@ -153,3 +174,4 @@
 | FE-07 and Workshop Location contracts | Integration details cannot be invented | Link approved owning contracts |
 | Non-local origins, deployment and observability | No production transport/operations claim | Deployment owner provides approved source |
 | Accessibility/browser baseline | UI testable acceptance incomplete | Frontend foundation owner provides approved source |
+| Revised verification-required gate | Existing draft did not specify refresh, sync, recovery or no-job constraint | Tech Lead approves the revised workflow and canonical OpenAPI route |

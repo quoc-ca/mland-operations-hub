@@ -1,7 +1,7 @@
 # Research: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-03
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -217,6 +217,21 @@ No REST endpoint, no generic Account directory, no cross-feature entity/DAO impo
 **Decision**: `CurrentAccountActor` (identity gate output) does not include Workshop scope. `TargetAccountFacts.FOUND` includes `activeWorkshopLocationIds` = active Account assignments ∩ currently active authoritative Workshop Locations. This effective scope is resolved per-action, never cached, never event-replicated in V1.
 
 **Source**: FR-027–FR-028; clarification 2026-10-27 / 2026-10-28; architecture.md approved decisions
+
+---
+
+### D-19: Member email-verification observation and synchronization
+
+**Decision**: V1 uses Firebase’s default email-action handler. FE-001 does not implement a Mland action-handler page, receive a Firebase callback/webhook, store an email action code, or run a scheduled/polling verification job. Only on Profile entry, or its accessible verification-status reload icon, the FE reloads the current Firebase user and requests a forced-fresh ID token. If the refreshed Firebase identity is verified, the FE calls the canonical `PUT /api/v1/accounts/me/email` synchronization route before enabling Profile save. Member resend uses Firebase Web SDK and a 90-second Account-ID-keyed `localStorage` expiry; Firebase remains quota authority. Email change uses reauthenticated `verifyBeforeUpdateEmail`, retaining the old email until Firebase verifies the new address. The BE remains the final per-command verification gate.
+
+**Rationale**: The identity provider is authoritative for email verification. A forced token refresh makes a completed Firebase verification observable without turning the backend into a provider poller. Limiting the UI gate to Profile avoids silently adding an email requirement to unrelated commands. `verifyBeforeUpdateEmail` prevents an unverified proposed address becoming Mland's current email snapshot.
+
+**Alternatives considered**:
+- Custom Mland email-action handler with `oobCode` and `applyActionCode` — rejected for V1: it adds an externally configured callback route, action-code lifecycle, cross-device recovery and configuration/rollout scope without a stated product need.
+- Backend polling or querying Firebase on every protected request — rejected: unnecessary provider dependency/cost and contradicts per-request token proof as the selected identity boundary.
+- Trust `emailVerified` or email supplied by the browser — rejected: stale/client-controlled data violates FR-001/FR-006 and Constitution Principle II.
+
+**Source**: User decision, 2026-11-03; FR-004–006; Firebase Web SDK `reload`, `getIdToken(true)`, and `sendEmailVerification` behavior.
 
 ---
 
