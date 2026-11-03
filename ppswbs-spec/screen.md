@@ -1,5 +1,21 @@
 # Mland — Screen Flow
 
+## Feature-011 Review Management screens
+
+```text
+Eligible Review Sources → Create Review → Public Review / Aggregate → Edit Own Review
+Staff Review Moderation → Hide Review
+Manager Review Moderation → Hide / Remove / Reply Editor
+Admin Technical/Audit View → Sanitized Evidence
+```
+
+Guest uses email/phone lookup; Member uses authenticated own-source lookup.
+Only checked-in workshop attendance and picked-up/delivered retail order lines
+are shown. Create validates rating 1–5 and text ≤2,000 characters, then shows
+the review as `PUBLIC`. There is no branch-review action, Google write-back,
+media upload, OTP or notification center; public cards show only a partially
+masked display name and aggregates exclude `HIDDEN` and `REMOVED`.
+
 Sơ đồ điều hướng toàn hệ thống, gồm các màn public/authentication và bốn điểm vào sau đăng nhập: **Member Dashboard**, **Staff Dashboard**, **Manager Dashboard**, **Admin Dashboard**. Các nhánh chi tiết bên dưới mở rộng sơ đồ tổng quan; tên màn trùng nhau giữa các sơ đồ chỉ cùng một màn hoặc cùng một bố cục theo quyền.
 
 ## Quy ước

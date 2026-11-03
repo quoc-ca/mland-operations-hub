@@ -1,5 +1,27 @@
 #### a. Screen Flow
 
+### Feature-011 — Review Management
+
+```mermaid
+flowchart LR
+  Public[Homepage / Product Details / Workshop Details] --> Sources[Eligible Review Sources]
+  Guest[Guest email or phone] --> Sources
+  Member[Member own history] --> Sources
+  Sources --> Create[Create Review]
+  Create -->|Valid rating/text and eligible source| PublicReview[PUBLIC Review]
+  PublicReview --> List[Public Review List / Aggregate]
+  PublicReview --> Edit[Edit Own Review]
+  Edit -->|Revision and audit; stays PUBLIC| PublicReview
+  Staff[Staff Moderation] --> Hide[HIDE]
+  Manager[Manager Moderation] --> Hide
+  Manager --> Remove[REMOVE]
+  Manager --> Reply[Manager Reply Editor]
+```
+
+Feature-011 is independent from booking creation and payment. Its source
+eligibility is checked against completed attendance/fulfilment; branch reviews,
+Google review import/write-back, media uploads and notifications are excluded.
+
 <!-- This part shows the system screens and the relationship among screens. -->
 
 ```mermaid
