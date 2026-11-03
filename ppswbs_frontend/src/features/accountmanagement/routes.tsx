@@ -6,6 +6,7 @@ import AdminAccountListPage from './components/AdminAccountListPage';
 import AdminAccountDetailPage from './components/AdminAccountDetailPage';
 import InternalAccountCreatePage from './components/InternalAccountCreatePage';
 import RoleCataloguePage from './components/RoleCataloguePage';
+import AddressBookPage from './components/AddressBookPage';
 
 export const accountManagementRoutes: RouteObject[] = [
   // Authentication routes
@@ -20,6 +21,11 @@ export const accountManagementRoutes: RouteObject[] = [
   { path: '/member/personal-profile', element: <ProfilePage initialMode="overview" /> },
   { path: '/member/profile', element: <ProfilePage initialMode="overview" /> },
   { path: '/me/profile', element: <ProfilePage initialMode="overview" /> },
+
+  // Shipping Address Book routes (WF-09 / US6)
+  { path: '/profile/addresses', element: <AddressBookPage /> },
+  { path: '/member/addresses', element: <AddressBookPage /> },
+  { path: '/addresses', element: <AddressBookPage /> },
 
   // Edit Profile routes (screen.md: Edit Profile — form)
   { path: '/edit-profile', element: <ProfilePage initialMode="edit" /> },

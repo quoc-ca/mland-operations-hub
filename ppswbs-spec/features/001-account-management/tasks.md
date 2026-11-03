@@ -287,8 +287,8 @@
 - [x] T058 [US6] Implement `MemberAddressService` in `ppswbs_backend/src/main/java/.../service/MemberAddressService.java` enforcing max 10 quota (`409 ADDRESS_LIMIT_EXCEEDED`), phone normalization (`^0[35789]\d{8}$`), auto-default for first address, atomic default swapping, blocking deletion of default address if total count > 1, and physical Hard Delete
 - [x] T059 [US6] Implement `AccountAddressController` in `ppswbs_backend/src/main/java/.../controller/AccountAddressController.java` exposing `GET/POST /api/v1/accounts/me/addresses`, `GET /default`, `PUT/DELETE /{addressId}`, `PATCH /{addressId}/default` with Bean Validation
 - [x] T060 [US6] Implement `AccountFacade` methods `findDefaultShippingAddress(AccountId)` and `findShippingAddressById(AccountId, Long)` returning `Optional<MemberAddressSnapshot>` in `ppswbs_backend/src/main/java/.../facade/AccountFacadeImpl.java` for FE-008 checkout snapshotting
-- [ ] T061 [P] [US6] Implement `AddressApiClient.ts` and `useMemberAddresses.ts` in `ppswbs_frontend/src/features/accountmanagement/` for address state, phone formatting, cascading dropdowns, and pre-fill from Profile
-- [ ] T062 [P] [US6] Implement `AddressModal.tsx` and `AddressBookPage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/` with WCAG 2.2 AA accessibility, loading states, and error handling
+- [x] T061 [P] [US6] Implement `AddressApiClient.ts` and `useMemberAddresses.ts` in `ppswbs_frontend/src/features/accountmanagement/` for address state, phone formatting, cascading dropdowns, and pre-fill from Profile
+- [x] T062 [P] [US6] Implement `AddressModal.tsx` and `AddressBookPage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/` with WCAG 2.2 AA accessibility, loading states, and error handling
 - [x] T063 [US6] Write integration tests in `ppswbs_backend/src/test/.../MemberAddressIntegrationTest.java` verifying address CRUD, 10-quota rejection, default swapping, delete protection, and FE-008 facade snapshot
 
 ---

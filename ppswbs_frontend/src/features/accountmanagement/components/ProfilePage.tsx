@@ -348,6 +348,29 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           >
             Thay đổi email
           </button>
+          <Link
+            to="/profile/addresses"
+            className="account-btn account-btn-secondary"
+          >
+            Sổ địa chỉ nhận hàng
+          </Link>
+        </div>
+      </section>
+
+      {/* SECTION: Address Book Summary Card (WF-09 / US6) */}
+      <section className="account-card" aria-labelledby="address-book-heading">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h2 id="address-book-heading" className="account-card-title" style={{ marginBottom: '0.25rem' }}>
+              Sổ địa chỉ nhận hàng
+            </h2>
+            <p style={{ color: '#4b5563', margin: 0, fontSize: '0.95rem' }}>
+              Quản lý danh sách địa chỉ giao nhận hàng của bạn (tối đa 10 địa chỉ), tương thích đơn vị vận chuyển GHTK.
+            </p>
+          </div>
+          <Link to="/profile/addresses" className="account-btn account-btn-primary">
+            Quản lý sổ địa chỉ →
+          </Link>
         </div>
       </section>
 

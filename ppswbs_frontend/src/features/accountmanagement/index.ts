@@ -2,12 +2,22 @@
 export { accountManagementRoutes } from './routes';
 export { firebaseAuthClient } from './auth/FirebaseAuthClient';
 export { accountManagementApiClient } from './api/AccountManagementApiClient';
+export { addressApiClient, AddressApiClient } from './api/AddressApiClient';
 export { useCurrentAccount } from './hooks/useCurrentAccount';
 export { useVerifiedEmailGate } from './hooks/useVerifiedEmailGate';
 export { useProfile } from './hooks/useProfile';
 export { useAdminAccounts } from './hooks/useAdminAccounts';
+export {
+  useMemberAddresses,
+  useAdministrativeDivisions,
+  normalizePhoneNumber,
+  validatePhoneNumber,
+  validateAddressInput,
+} from './hooks/useMemberAddresses';
 export { AuthPage } from './components/AuthPage';
 export { ProfilePage } from './components/ProfilePage';
+export { AddressBookPage } from './components/AddressBookPage';
+export { AddressModal } from './components/AddressModal';
 export { InternalAccountCreatePage } from './components/InternalAccountCreatePage';
 export { AdminAccountDetailPage } from './components/AdminAccountDetailPage';
 export { AdminAccountListPage } from './components/AdminAccountListPage';
@@ -20,6 +30,12 @@ export type {
   InternalAccountSummaryResponse,
   RoleCatalogueEntry,
 } from './api/AccountManagementApiClient';
+export type {
+  AddressResponse,
+  AddressCreateRequest,
+  AddressUpdateRequest,
+  AdministrativeDivisionResponse,
+} from './api/AddressApiClient';
 export type { CurrentAccountStatus } from './hooks/useCurrentAccount';
 export type { GateState } from './hooks/useVerifiedEmailGate';
 
