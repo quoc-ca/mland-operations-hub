@@ -74,6 +74,26 @@ public class AccountExceptionHandler {
         return buildResponse(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND", ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(AddressNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAddressNotFound(AddressNotFoundException ex, HttpServletRequest request) {
+        return buildResponse(HttpStatus.NOT_FOUND, "ADDRESS_NOT_FOUND", ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(AddressLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleAddressLimitExceeded(AddressLimitExceededException ex, HttpServletRequest request) {
+        return buildResponse(HttpStatus.CONFLICT, "ADDRESS_LIMIT_EXCEEDED", ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(DefaultAddressDeletionException.class)
+    public ResponseEntity<ErrorResponse> handleDefaultAddressDeletion(DefaultAddressDeletionException ex, HttpServletRequest request) {
+        return buildResponse(HttpStatus.CONFLICT, "DEFAULT_ADDRESS_CANNOT_BE_DELETED", ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(InvalidPhoneNumberException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPhoneNumber(InvalidPhoneNumberException ex, HttpServletRequest request) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "INVALID_PHONE_NUMBER", ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex, HttpServletRequest request) {
         List<ErrorResponse.FieldErrorDetail> fieldErrors = new ArrayList<>();

@@ -1,7 +1,7 @@
 # Tasks: Account Management (FE-001)
 
 **Date created**: 2026-11-01
-**Date updated**: 2026-11-03
+**Date updated**: 2026-11-04
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -30,8 +30,8 @@
 - [ ] T003 Verify fresh-database Flyway startup (V1 → current) and upgrade-path startup (V5 baseline → current) both succeed and Hibernate validate passes; retain evidence in `ppswbs-spec/features/001-account-management/verification.md`
 - [x] T004 [P] Create `AuditOutcome` Java enum with exactly `SUCCESS` and `FAILURE` in `ppswbs_backend/src/main/java/.../features/accountmanagement/entity/AuditOutcome.java`
 - [x] T005 [P] Confirm `ppswbs_frontend/` is a separate React + Vite project at `http://localhost:5173`; confirm `VITE_API_BASE_URL` and Firebase config are supplied via `.env.local` (not committed)
-- [ ] T053 [P] Configure system timezone to `Asia/Ho_Chi_Minh` (UTC+7) in `ppswbs_backend/src/main/resources/application.properties` (`connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true`), and create `TimezoneConfiguration.java` to set JVM default timezone and Jackson mapper with `+07:00` offset
-- [ ] T054 [P] Create append-only Flyway migration `V89__member_shipping_addresses.sql` in `ppswbs_backend/src/main/resources/db/migration/` defining `member_addresses` table with columns for `account_id`, `recipient_name`, `phone_number`, `province_id`, `province_name`, `district_id`, `district_name`, `ward_id`, `ward_name`, nullable `hamlet_id`, `hamlet_name` (GHTK Level 4), `detail_address`, `address_type` (`HOME`/`OFFICE`), `is_default`, and `created_at`/`updated_at` in `DATETIME(6)`
+- [x] T053 [P] Configure system timezone to `Asia/Ho_Chi_Minh` (UTC+7) in `ppswbs_backend/src/main/resources/application.properties` (`connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true`), and create `TimezoneConfiguration.java` to set JVM default timezone and Jackson mapper with `+07:00` offset
+- [x] T054 [P] Create append-only Flyway migration `V89__member_shipping_addresses.sql` in `ppswbs_backend/src/main/resources/db/migration/` defining `member_addresses` table with columns for `account_id`, `recipient_name`, `phone_number`, `province_id`, `province_name`, `district_id`, `district_name`, `ward_id`, `ward_name`, nullable `hamlet_id`, `hamlet_name` (GHTK Level 4), `detail_address`, `address_type` (`HOME`/`OFFICE`), `is_default`, and `created_at`/`updated_at` in `DATETIME(6)`
 
 **Checkpoint**: Backend starts successfully with Hibernate validate on fresh and upgrade MySQL; `AuditOutcome` enum exists; frontend dev server runs.
 
@@ -281,15 +281,15 @@
 
 ### Implementation for User Story 6
 
-- [ ] T055 [P] [US6] Create `AddressType` enum (`HOME`, `OFFICE`) and `MemberAddress` entity in `ppswbs_backend/src/main/java/.../entity/MemberAddress.java` mapping the `member_addresses` table with validation annotations
-- [ ] T056 [P] [US6] Create `MemberAddressRepository` in `ppswbs_backend/src/main/java/.../dao/MemberAddressRepository.java` with methods `countByAccountId`, `findAllByAccountIdOrderByIsDefaultDescUpdatedAtDesc`, `findByAccountIdAndId`, and `findByAccountIdAndIsDefaultTrue`
-- [ ] T057 [US6] Implement `AdministrativeDivisionService` and `AdministrativeDivisionController` in `ppswbs_backend/src/main/java/.../` providing cascading lookup endpoints for Provinces, Districts, Wards (and optional Hamlets) compatible with GHTK
-- [ ] T058 [US6] Implement `MemberAddressService` in `ppswbs_backend/src/main/java/.../service/MemberAddressService.java` enforcing max 10 quota (`409 ADDRESS_LIMIT_EXCEEDED`), phone normalization (`^0[35789]\d{8}$`), auto-default for first address, atomic default swapping, blocking deletion of default address if total count > 1, and physical Hard Delete
-- [ ] T059 [US6] Implement `AccountAddressController` in `ppswbs_backend/src/main/java/.../controller/AccountAddressController.java` exposing `GET/POST /api/v1/accounts/me/addresses`, `GET /default`, `PUT/DELETE /{addressId}`, `PATCH /{addressId}/default` with Bean Validation
-- [ ] T060 [US6] Implement `AccountFacade` methods `findDefaultShippingAddress(AccountId)` and `findShippingAddressById(AccountId, Long)` returning `Optional<MemberAddressSnapshot>` in `ppswbs_backend/src/main/java/.../facade/AccountFacadeImpl.java` for FE-008 checkout snapshotting
+- [x] T055 [P] [US6] Create `AddressType` enum (`HOME`, `OFFICE`) and `MemberAddress` entity in `ppswbs_backend/src/main/java/.../entity/MemberAddress.java` mapping the `member_addresses` table with validation annotations
+- [x] T056 [P] [US6] Create `MemberAddressRepository` in `ppswbs_backend/src/main/java/.../dao/MemberAddressRepository.java` with methods `countByAccountId`, `findAllByAccountIdOrderByIsDefaultDescUpdatedAtDesc`, `findByAccountIdAndId`, and `findByAccountIdAndIsDefaultTrue`
+- [x] T057 [US6] Implement `AdministrativeDivisionService` and `AdministrativeDivisionController` in `ppswbs_backend/src/main/java/.../` providing cascading lookup endpoints for Provinces, Districts, Wards (and optional Hamlets) compatible with GHTK
+- [x] T058 [US6] Implement `MemberAddressService` in `ppswbs_backend/src/main/java/.../service/MemberAddressService.java` enforcing max 10 quota (`409 ADDRESS_LIMIT_EXCEEDED`), phone normalization (`^0[35789]\d{8}$`), auto-default for first address, atomic default swapping, blocking deletion of default address if total count > 1, and physical Hard Delete
+- [x] T059 [US6] Implement `AccountAddressController` in `ppswbs_backend/src/main/java/.../controller/AccountAddressController.java` exposing `GET/POST /api/v1/accounts/me/addresses`, `GET /default`, `PUT/DELETE /{addressId}`, `PATCH /{addressId}/default` with Bean Validation
+- [x] T060 [US6] Implement `AccountFacade` methods `findDefaultShippingAddress(AccountId)` and `findShippingAddressById(AccountId, Long)` returning `Optional<MemberAddressSnapshot>` in `ppswbs_backend/src/main/java/.../facade/AccountFacadeImpl.java` for FE-008 checkout snapshotting
 - [ ] T061 [P] [US6] Implement `AddressApiClient.ts` and `useMemberAddresses.ts` in `ppswbs_frontend/src/features/accountmanagement/` for address state, phone formatting, cascading dropdowns, and pre-fill from Profile
 - [ ] T062 [P] [US6] Implement `AddressModal.tsx` and `AddressBookPage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/` with WCAG 2.2 AA accessibility, loading states, and error handling
-- [ ] T063 [US6] Write integration tests in `ppswbs_backend/src/test/.../MemberAddressIntegrationTest.java` verifying address CRUD, 10-quota rejection, default swapping, delete protection, and FE-008 facade snapshot
+- [x] T063 [US6] Write integration tests in `ppswbs_backend/src/test/.../MemberAddressIntegrationTest.java` verifying address CRUD, 10-quota rejection, default swapping, delete protection, and FE-008 facade snapshot
 
 ---
 

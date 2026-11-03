@@ -43,4 +43,8 @@ public interface AccountFacade {
     TargetFactsOutcome findTargetFacts(AccountId accountId);
 
     RosterOutcome findEligibleRoster(Long workshopLocationId, AccountRole role);
+
+    Optional<MemberAddressSnapshot> findDefaultShippingAddress(AccountId accountId);
+
+    Optional<MemberAddressSnapshot> findShippingAddressById(AccountId accountId, Long addressId);
 }

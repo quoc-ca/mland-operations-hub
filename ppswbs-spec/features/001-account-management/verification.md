@@ -1,7 +1,7 @@
 # Verification Report: Account Management (FE-001)
 
 **Date created**: 2026-11-03
-**Date updated**: 2026-11-03
+**Date updated**: 2026-11-04
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -31,8 +31,8 @@ Acceptance is split into two distinct tiers:
 | **V-07** | Workshop Consumer Facade (Facts & Roster) | FR-028, FR-029, FR-030, FR-031, FR-032 | Integration Test (Java Module Boundary) | **BACKEND VERIFIED** | `findEligibleRoster` returns only ACTIVE candidates with effective `activeWorkshopLocationIds`; `findTargetFacts` returns FOUND, NOT_FOUND, or UNAVAILABLE; zero entity/credential/PII leakage. | T010, T030 |
 | **V-08** | Shared Identity Gate & Security Boundaries | FR-026, FR-027, WF-01, WF-06 | Integration Test / HTTP | **BACKEND VERIFIED** | Missing/invalid/revoked bearer → 401; suspended account → 403; non-allowed origin → CORS blocked; gate resolves minimal actor without Workshop scope. | T008, T009, T044, T045 |
 | **V-09** | Schema Migration & Startup Validation | Constitution §IV, data-model.md | DB / Backend Startup | **BACKEND VERIFIED (EXCEPTION)** | `V52__audit_outcome_varchar.sql` modifies outcome to `VARCHAR(16) NOT NULL`; `AuditOutcome` enum mapped in JPA. MySQL environment exception documented. | T001, T002, T003 |
-| **V-10** | Member Shipping Address Book & FE-08 Facade Snapshot | FR-036–FR-040, SC-008 | Integration Test / HTTP API & Facade | **PENDING IMPLEMENTATION** | Quota max 10 addresses; auto-default on first; default swap atomically; delete default blocked when multiple exist; phone normalized (^0[35789]\d{8}$); GHTK cascading divisions; FE-08 immutable order snapshot. | T055–T063 |
-| **V-11** | System-wide Timezone Standardization (UTC+7) | FR-035, SC-009 | DB & Configuration Verification | **PENDING IMPLEMENTATION** | MySQL `DATETIME(6)` stores Vietnam wall-clock time directly (`Asia/Ho_Chi_Minh`); JDBC connectionTimeZone enforces session time; JVM default timezone and Jackson ISO-8601 offset verified. | T053, T054 |
+| **V-10** | Member Shipping Address Book & FE-08 Facade Snapshot | FR-036–FR-040, SC-008 | Integration Test / HTTP API & Facade | **BACKEND VERIFIED** | Quota max 10 addresses; auto-default on first; default swap atomically; delete default blocked when multiple exist; phone normalized (^0[35789]\d{8}$); GHTK cascading divisions; FE-08 immutable order snapshot. | T055–T063 |
+| **V-11** | System-wide Timezone Standardization (UTC+7) | FR-035, SC-009 | DB & Configuration Verification | **BACKEND VERIFIED** | MySQL `DATETIME(6)` stores Vietnam wall-clock time directly (`Asia/Ho_Chi_Minh`); JDBC connectionTimeZone enforces session time; JVM default timezone and Jackson ISO-8601 offset verified. | T053, T054 |
 
 ---
 
@@ -105,11 +105,18 @@ The following items have been statically validated across design artifacts (`spe
   - Command: `mvnw.cmd test -Dtest=AccountManagementSecurityIT`
   - Result: **PASS** (7 tests run, 0 failures).
   - Exact CORS origin matching (`http://localhost:5173`), 401 on missing/invalid bearer, no token in error envelopes.
+- [x] **V-10 (Member Shipping Address Book & FE-08 Facade Snapshot - US6)**:
+  - Command: `mvnw.cmd test -Dtest=MemberAddressIntegrationTest`
+  - Result: **PASS** (7 tests run, 0 failures).
+  - Quota max 10 addresses, auto-default for first address, atomic default swapping, delete default protection, phone normalization (`^0[35789]\d{8}$`), public cascading divisions (`/api/v1/addresses/*`), and immutable FE-08 facade snapshot verified.
+- [x] **V-11 (System-wide Timezone Standardization UTC+7)**:
+  - Configuration: `connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true` in `application.properties`, `TimezoneConfiguration.java` setting JVM timezone and Jackson mapper offset.
+  - Verification: `member_addresses` table created with `DATETIME(6)` in `V89__member_shipping_addresses.sql`, log timestamps and test execution verified under UTC+7.
 
 ### 4.3 Total Test Suite Verification
 - Combined test command:
-  `mvnw.cmd test -Dtest=AccountAuthenticationIT,AccountManagementIntegrationTests,AccountManagementSecurityIT,AccountProtectionIT,AccountSelfServiceIT,InternalAccountAdministrationIT,AccountFacadeTargetAccountIT,ModulithArchitectureTests`
-- Total tests executed: **38**
+  `mvnw.cmd test -Dtest=AccountAuthenticationIT,AccountFacadeTargetAccountIT,AccountManagementIntegrationTests,AccountManagementSecurityIT,AccountProtectionIT,AccountSelfServiceIT,InternalAccountAdministrationIT,MemberAddressIntegrationTest,ModulithArchitectureTests`
+- Total tests executed: **45**
 - Failures: **0**, Errors: **0**, Skipped: **0**
 - Build Status: **BUILD SUCCESS**
 

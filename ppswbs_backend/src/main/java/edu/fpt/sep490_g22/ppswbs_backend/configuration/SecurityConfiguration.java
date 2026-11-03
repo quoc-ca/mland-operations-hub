@@ -65,6 +65,7 @@ public class SecurityConfiguration {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/error").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/addresses/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/ai-support/messages").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/booking-magic-links/exchanges").permitAll()
