@@ -11,7 +11,7 @@
 |7|MSG07|Error|The catalogue search criteria are invalid, such as a keyword over 200 characters, a negative price, a minimum above the maximum or an unknown category (UC-10).|The search criteria are invalid: {reason}.|
 |8|MSG08|Error|A field fails validation when saving a product, category, program or point policy.|{Field} is invalid: {rule}.|
 |9|MSG09|Success|A draft product is created (UC-12).|Product {product code} was created as a draft with SKUs {SKU list}.|
-|10|MSG10|Success|Product, quantity, sale status or category changes are saved (UC-12, UC-18).|Your changes have been saved.|
+|10|MSG10|Success|Product content, images, quantity, sale status or category changes are saved (UC-12, UC-18). Shown at the top of the page and under the button used.|{What was saved}, e.g. "Quantity of size {size} changed: {old} → {new}." / "Quantities of {n} sizes changed." / "Category "{name}" saved."|
 |11|MSG11|Error|An image breaks the type, size, count or alt-text rules (UC-12).|Images must be JPEG, PNG or WebP, at most 5,000,000 bytes each, up to 10 per product, with alt text of 1–200 characters.|
 |12|MSG12|Error|An image cannot be stored (UC-12).|The image could not be uploaded. The previous images have been kept. Please try again.|
 |13|MSG13|Error|The actor tries to add or change sizes after the product is saved (UC-12).|Sizes cannot be added or changed after the product has been saved.|
@@ -21,11 +21,11 @@
 |17|MSG17|Error|An action targets a deleted product (UC-12 to UC-17).|This product has been deleted and can no longer be changed or sold.|
 |18|MSG18|Error|A new product is submitted without a required prerequisite (UC-14).|The product cannot be submitted for approval: {missing prerequisite}.|
 |19|MSG19|Error|A second price proposal is submitted for a size that already has a pending proposal (UC-14).|Size {size} already has a pending price proposal. Edit the current proposal instead.|
-|20|MSG20|Success|A product or price proposal is submitted for approval (UC-14).|Submitted for Manager approval.|
+|20|MSG20|Success|A product, a price proposal or the proposals of several sizes are saved or submitted for approval (UC-14).|{What was submitted} and the next step, e.g. "Price of size {size} submitted. A Manager sees it under Prices waiting for a decision." / "Prices of {n} sizes submitted."|
 |21|MSG21|Error|A rejection is confirmed without a valid reason (UC-15).|Enter a rejection reason of 1–2,000 characters.|
-|22|MSG22|Success|The Manager records a decision (UC-15).|Decision recorded: {Approved / Adjusted / Rejected}.|
+|22|MSG22|Success|The Manager records a decision, for one size, several sizes or a whole product review (UC-15).|Decision recorded: {Approved / Rejected} for {size / n sizes / the review}, and whether the price is applied yet, e.g. "Price {amount} approved for size {size}. It is not applied yet."|
 |23|MSG23|Error|The proposal or decision is no longer pending or valid (UC-15, UC-16).|This item is no longer valid for this action. Reload to see the latest version.|
-|24|MSG24|Success|An approved price is applied (UC-16).|The new price of {SKU} has been applied: {old price} → {new price} VND.|
+|24|MSG24|Success|An approved price is applied, later or right after the approval (UC-15, UC-16).|"Price {amount} applied to size {size}." / "Approved prices applied to {n} sizes." / "Price {amount} approved and applied for size {size}. The new selling price is in effect."|
 |25|MSG25|Error|A product is published without meeting all conditions (UC-17).|The product cannot be published: {unmet condition}.|
 |26|MSG26|Success|A product is published or unpublished (UC-17).|Product {product code} is now {Published / Unpublished}.|
 |27|MSG27|Error|The actor removes the last usable image of a published product (UC-12).|The last image cannot be removed while the product is published.|
@@ -55,3 +55,4 @@
 |51|MSG51|Confirmation|The price, discount, points or limits changed before the order or booking was accepted (UC-44, UC-48).|The total has changed to {new total} VND. Please review and confirm again.|
 |52|MSG52|Error|The workshop fee after discounts is 0 or less (UC-48).|The fee after discounts must be greater than 0. Please adjust the voucher or points.|
 |53|MSG53|Success|The loyalty point policy is updated (UC-51).|The loyalty point policy has been updated. It applies to transactions accepted from now on.|
+|54|MSG54|Error|A change of several sizes succeeds for some sizes only (UC-12, UC-14, UC-15, UC-16).|{done}/{total} sizes done. The other sizes were not saved; see the details under {section}. (Each failed size and its reason is listed under the button used.)|

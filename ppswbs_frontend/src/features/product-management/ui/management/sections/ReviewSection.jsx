@@ -3,38 +3,56 @@ import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { ConfirmDialog, ErrorNotice, Field } from '../../../../../shared/ui/components';
 import { ACTIONS } from '../../../infrastructure/catalogueApi';
 import { messages } from '../../messages';
-import { checkReason, currentReview, effectiveProposal, isAmount, LIMITS, serverFieldErrors } from '../../../domain/productRules';
+import { checkReason, currentReview, effectiveProposal, isAmount, LIMITS, missingRequirements, REQUIREMENT_SECTIONS, serverFieldErrors } from '../../../domain/productRules';
 import { useProductCommand } from '../ProductDetailPage';
-import { BulkPriceBar, PriceGap, SelectCell } from './BatchPrices';
+import { newCommandId } from '../../../../../shared/api/http';
+import { ApplyApproved, ApplyNowToggle, approvedRows, BulkPriceBar, PriceGap, SelectCell } from './BatchPrices';
+import { NoticeAt } from '../notices';
 
 /**
  * T034 initial review, before the first publication: submit freezes the content and every size's proposal;
  * a Manager approves the whole file (an amount for every size, adjustable) or rejects it with a reason — never a
  * part of it. Approval applies and publishes nothing. Cancel never calls the API.
  */
-export function ReviewSection({ product, api, reload, setNotice, deleted }) {
+export function ReviewSection({ product, api, reload, setNotice, deleted, missing = {}, flagMissing = () => {} }) {
   const t = useT(messages);
   const review = currentReview(product);
   const submitCommand = useProductCommand({ reload, setNotice });
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const history = [...(product.reviews || [])].sort((a, b) => b.revision - a.revision);
 
-  const submit = async () => {
-    const outcome = await submitCommand.run(key => api.submitReview(key, product.id, product.version), 'review.submitted', ACTIONS.submitReview);
-    if (outcome.ok || !outcome.error?.retryable) setConfirmSubmit(false);
+  // A known gap (no image, inactive category, a size without a price) is pointed at before anything is sent.
+  const askSubmit = () => {
+    if (Object.keys(missingRequirements(product)).length) { submitCommand.reset(); flagMissing(); return; }
+    setConfirmSubmit(true);
   };
+  const submit = async () => {
+    const outcome = await submitCommand.run(key => api.submitReview(key, product.id, product.version), { key: 'review.submitted', at: 'review' }, ACTIONS.submitReview);
+    if (outcome.ok || !outcome.error?.retryable) setConfirmSubmit(false);
+    if (!outcome.ok && outcome.error?.fieldErrors?.length) flagMissing();
+  };
+  const missingList = Object.entries(REQUIREMENT_SECTIONS).filter(([section]) => missing[section]);
 
   return (
     <section className="workspace-card" aria-labelledby="review-title">
       <h2 id="review-title">{t('section.review')}</h2>
       <p>{t('review.current')}: <strong>{review ? t(`state.${review.state}`) : t('review.none')}</strong></p>
       {review?.state === 'REJECTED' && review.reason && <p className="notice error pre-line">{t('review.rejectedBecause', { reason: review.reason })}</p>}
-      {review?.state === 'APPROVED' && <p className="notice success">{t('review.approvedNext')}</p>}
+      {review?.state === 'APPROVED' && <p className="notice success">{t(approvedRows(product).length ? 'review.approvedNext' : 'review.approvedPublishNext')}</p>}
+      {review?.state === 'APPROVED' && !deleted && <ApplyApproved product={product} api={api} reload={reload} setNotice={setNotice} />}
 
       {!deleted && review?.state !== 'PENDING' && review?.state !== 'APPROVED' && (
         <>
           <p className="muted small">{t('review.prerequisites')}</p>
-          <button type="button" className="button primary" onClick={() => setConfirmSubmit(true)}>{t('review.submit')}</button>
+          {missingList.length > 0 && (
+            <div className="notice error" role="alert">
+              <p>{t('require.title')}</p>
+              <ul className="batch-results">
+                {missingList.map(([section, id]) => <li key={section}><a href={`#${id}`}>{t(missing[section])}</a></li>)}
+              </ul>
+            </div>
+          )}
+          <button type="button" className="button primary" onClick={askSubmit}>{t('review.submit')}</button>
           {!confirmSubmit && <ErrorNotice error={submitCommand.error} messages={messages} onReload={reload} />}
         </>
       )}
@@ -45,6 +63,8 @@ export function ReviewSection({ product, api, reload, setNotice, deleted }) {
       </ConfirmDialog>
 
       {!deleted && review?.state === 'PENDING' && <ReviewDecision product={product} review={review} api={api} reload={reload} setNotice={setNotice} />}
+
+      <NoticeAt at="review" />
 
       {history.length > 0 && (
         <details className="history">
@@ -74,6 +94,7 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
   const [selected, setSelected] = useState({});
   const [reason, setReason] = useState('');
   const [errors, setErrors] = useState({});
+  const [applyNow, setApplyNow] = useState(true);
   const command = useProductCommand({ reload, setNotice });
   const chosen = rows.filter(({ variant }) => selected[variant.id] !== false);
   const changedSinceSubmit = review.contentVersion !== product.contentVersion;
@@ -98,7 +119,23 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
     }
     setErrors(found);
     if (Object.keys(found).length) return;
-    const outcome = await command.run(key => api.decideReview(key, product.id, body), mode === 'APPROVE' ? 'review.approved' : 'review.rejected', ACTIONS.decideReview);
+    // Approve, then (if ticked) apply each approved price read back from the product, every apply its own command.
+    // If an apply fails the error shows here; Retry replays the same decision (same key) and applies what is left.
+    const withApply = mode === 'APPROVE' && applyNow;
+    const send = async key => {
+      const result = await api.decideReview(key, product.id, body);
+      let applied = 0;
+      if (withApply) {
+        for (const { proposal } of approvedRows(await api.getProduct(product.id))) {
+          await api.applyPrice(newCommandId(), proposal.id, proposal.version);
+          applied += 1;
+        }
+      }
+      return { ...result, applied };
+    };
+    const notice = mode === 'REJECT' ? { key: 'review.rejected', at: 'review' }
+      : result => (withApply ? { key: 'review.approvedApplied', params: { count: result?.applied ?? 0 }, at: 'review' } : { key: 'review.approved', at: 'review' });
+    const outcome = await command.run(send, notice, ACTIONS.decideReview);
     if (outcome.ok) setMode(null);
   };
 
@@ -153,6 +190,7 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
             </Field>
           )}
           {serverErrors.prices && <p className="field-error">{serverErrors.prices}</p>}
+          {mode === 'APPROVE' && <ApplyNowToggle checked={applyNow} onChange={setApplyNow} />}
           <ErrorNotice error={command.error} messages={messages} onRetry={command.retry} onReload={reload} />
           <div className="actions form-actions">
             <button type="submit" className={`button primary${mode === 'REJECT' ? ' danger' : ''}`} disabled={command.pending}>{mode === 'APPROVE' ? t('review.approveAll') : t('decision.reject')}</button>

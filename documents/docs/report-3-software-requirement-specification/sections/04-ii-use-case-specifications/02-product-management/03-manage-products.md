@@ -52,6 +52,13 @@ This use case includes the following sub-flows:
 4. For Resume sale, the system checks the size data and price; it does not publish the product.
 5. The system saves the change, records an audit entry and confirms (MSG10). A stopped size keeps its quantity, shows a label and cannot be added to a cart; other sizes are not affected.
 
+**Update Quantity of Several Sizes**
+
+1. The actor opens Edit quantities of several sizes and selects sizes one by one or as a size range.
+2. The actor enters one number and chooses Add (added to the remaining quantity, for a restock) or Set to (replaces it), then may still change any row.
+3. The system checks every changed size as in step 3 above before sending anything; only sizes whose quantity changes are saved.
+4. The system saves each size as its own change with its own audit entry; a size that fails does not affect the others. It confirms with the number of sizes saved (MSG10), or lists the sizes that failed and why.
+
 **Delete Product**
 
 1. The actor selects Delete on a product.
@@ -123,6 +130,6 @@ BR-12-01, BR-12-02, BR-12-03, BR-12-04, BR-12-05, BR-12-06, BR-12-07, BR-12-08, 
 | BR-12-05 | A new product is saved as Unpublished with a Draft review record and is never approved, priced or published automatically. |
 | BR-12-06 | A product has at most 10 JPEG, PNG or WebP images, each at most 5,000,000 bytes, with alt text of 1–200 characters and a unique position; a failed image operation keeps the previous images. |
 | BR-12-07 | Before the first publication, any content, image or proposed-price change invalidates the submitted or approved version and returns it to Draft; after the first publication, content and image changes apply directly. |
-| BR-12-08 | Quantity is shared across all branches per size and cannot be set below the quantity held by valid holds; stop and resume sale apply to one size and do not change publication. |
+| BR-12-08 | Quantity is shared across all branches per size and cannot be set below the quantity held by valid holds; stop and resume sale apply to one size and do not change publication. Editing several sizes at once is only a way of entering values: each size is still saved and audited on its own. |
 | BR-12-09 | Delete is a confirmed soft delete; a deleted product cannot be edited, reviewed, priced, published, resumed or added to a cart, and its SKUs and history are kept. |
 | BR-12-10 | Every change checks the latest version, saves all or nothing, is idempotent on retry and is audited with actor, object, version, change, time and result for 5 years. |

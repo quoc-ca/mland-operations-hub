@@ -77,6 +77,22 @@ export function skuMatch(keyword, variants) {
 }
 
 /** Field errors of an ApiError as { field: message }; backend messages are already safe text. */
+/**
+ * What a product still lacks before it can be submitted or published, by section: 'content' (active category),
+ * 'images' (at least one image) and 'prices' (a proposal for every size). Each value is a message key. The backend
+ * checks again (image READY state included); this only points the user at the section to fix.
+ */
+export function missingRequirements(product) {
+  const missing = {};
+  if (product.category && product.category.active === false) missing.content = 'require.category';
+  if (!(product.images || []).length) missing.images = 'require.images';
+  if ((product.variants || []).some(variant => !effectiveProposal(variant))) missing.prices = 'require.prices';
+  return missing;
+}
+
+/** Section ids of missingRequirements, in page order, for scrolling to the first one. */
+export const REQUIREMENT_SECTIONS = { content: 'content-title', images: 'images-title', prices: 'price-title' };
+
 export function serverFieldErrors(error) {
   return Object.fromEntries((error?.fieldErrors || []).map(item => [item.field, item.message]));
 }
