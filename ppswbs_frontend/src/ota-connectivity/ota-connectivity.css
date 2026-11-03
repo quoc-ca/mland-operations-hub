@@ -191,3 +191,15 @@
 .check-item label {
   font-weight: 600;
 }
+
+.ota-result-card {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #d9e2ef;
+  background: #f7fbff;
+  border-radius: 0.5rem;
+}
+
+.ota-result-card code { color: #123d78; }

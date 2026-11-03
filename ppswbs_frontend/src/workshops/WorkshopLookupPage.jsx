@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   lookupGuestBooking,
   lookupMemberBooking,
@@ -7,13 +7,47 @@ import {
   requestConfirmationDelivery,
   WorkshopApiError,
 } from '../api/workshops';
+import { useAuth } from '../shared/auth/AuthProvider';
+import { useHttp } from '../shared/api/useHttp';
+import { classifyPaymentCommandError } from '../shared/payment/paymentRecoveryState';
 
 export function WorkshopLookupPage() {
-  const [mode, setMode] = useState('GUEST'); // 'GUEST' | 'MEMBER'
+  const { status: authStatus, getIdToken } = useAuth();
+  const http = useHttp();
+  const [accountProfile, setAccountProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState(null);
   const [bookingCode, setBookingCode] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
-  const [memberToken, setMemberToken] = useState('');
+  const lookupMode = authStatus === 'signed-out' || authStatus === 'unconfigured'
+    ? 'GUEST'
+    : accountProfile?.role === 'MEMBER' ? 'MEMBER' : null;
+
+  useEffect(() => {
+    let active = true;
+    if (authStatus !== 'signed-in') {
+      setAccountProfile(null);
+      setProfileLoading(false);
+      setProfileError(null);
+      return () => { active = false; };
+    }
+    setProfileLoading(true);
+    setProfileError(null);
+    http('/api/v1/accounts/me/profile')
+      .then(profile => {
+        if (active) setAccountProfile(profile || null);
+      })
+      .catch(error => {
+        if (!active) return;
+        setAccountProfile(null);
+        setProfileError(error?.message || 'KhÃ´ng thá»ƒ táº£i há»“ sÆ¡ Member.');
+      })
+      .finally(() => {
+        if (active) setProfileLoading(false);
+      });
+    return () => { active = false; };
+  }, [authStatus, http]);
 
   // Loaded projection
   const [loading, setLoading] = useState(false);
@@ -32,6 +66,7 @@ export function WorkshopLookupPage() {
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(null);
   const [resendError, setResendError] = useState(null);
+  const paymentRequestKey = useRef(null);
 
   // Countdown for pending hold
   const [countdownSeconds, setCountdownSeconds] = useState(null);
@@ -65,9 +100,14 @@ export function WorkshopLookupPage() {
     setLoading(true);
     try {
       let result;
-      if (mode === 'MEMBER') {
-        const auth = memberToken.trim() ? (memberToken.startsWith('Bearer ') ? memberToken.trim() : `Bearer ${memberToken.trim()}`) : undefined;
-        result = await lookupMemberBooking(bookingCode.trim(), { authorization: auth });
+      if (lookupMode === null) {
+        setError('KhÃ´ng thá»ƒ xÃ¡c minh vai trÃ² tÃ i khoáº£n Ä‘á»ƒ tra cá»©u booking.');
+        return;
+      }
+      if (lookupMode === 'MEMBER') {
+        const idToken = await getIdToken();
+        if (!idToken) throw new Error('PhiÃªn Ä‘Äƒng nháº­p Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i.');
+        result = await lookupMemberBooking(bookingCode.trim(), { authorization: `Bearer ${idToken}` });
       } else {
         const hasEmail = Boolean(contactEmail.trim());
         const hasPhone = Boolean(contactPhone.trim());
@@ -112,16 +152,21 @@ export function WorkshopLookupPage() {
     setPayError(null);
 
     try {
-      const attempt = await initiateDepositPayment(bookingData.bookingCode);
+      if (!paymentRequestKey.current) {
+        paymentRequestKey.current = globalThis.crypto?.randomUUID?.()
+          || `deposit-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      }
+      const attempt = await initiateDepositPayment(bookingData.bookingCode, {
+        idempotencyKey: paymentRequestKey.current,
+      });
+      paymentRequestKey.current = null;
       if (attempt.paymentUrl) {
         window.location.href = attempt.paymentUrl;
       }
     } catch (err) {
-      if (err instanceof WorkshopApiError) {
-        setPayError(err.detail || 'Không thể tạo phiên thanh toán mới. Vui lòng thử lại sau.');
-      } else {
-        setPayError(err?.message || 'Lỗi khi khởi tạo thanh toán cọc.');
-      }
+      const classified = classifyPaymentCommandError(err);
+      if (classified.kind !== 'UNKNOWN') paymentRequestKey.current = null;
+      setPayError(classified);
     } finally {
       setIsPaying(false);
     }
@@ -139,10 +184,10 @@ export function WorkshopLookupPage() {
 
     try {
       await releasePendingHold(bookingData.bookingCode, {
-        contactEmail: mode === 'GUEST' && contactEmail.trim() ? contactEmail.trim() : undefined,
-        contactPhone: mode === 'GUEST' && contactPhone.trim() ? contactPhone.trim() : undefined,
+        contactEmail: lookupMode === 'GUEST' && contactEmail.trim() ? contactEmail.trim() : undefined,
+        contactPhone: lookupMode === 'GUEST' && contactPhone.trim() ? contactPhone.trim() : undefined,
         reason: cancelReason.trim(),
-        authorization: mode === 'MEMBER' && memberToken.trim() ? (memberToken.startsWith('Bearer ') ? memberToken.trim() : `Bearer ${memberToken.trim()}`) : undefined,
+        authorization: lookupMode === 'MEMBER' ? `Bearer ${await getIdToken()}` : undefined,
       });
 
       // Update local projection to CANCELLED
@@ -170,9 +215,9 @@ export function WorkshopLookupPage() {
 
     try {
       await requestConfirmationDelivery(bookingData.bookingCode, {
-        contactEmail: mode === 'GUEST' && contactEmail.trim() ? contactEmail.trim() : undefined,
-        contactPhone: mode === 'GUEST' && contactPhone.trim() ? contactPhone.trim() : undefined,
-        authorization: mode === 'MEMBER' && memberToken.trim() ? (memberToken.startsWith('Bearer ') ? memberToken.trim() : `Bearer ${memberToken.trim()}`) : undefined,
+        contactEmail: lookupMode === 'GUEST' && contactEmail.trim() ? contactEmail.trim() : undefined,
+        contactPhone: lookupMode === 'GUEST' && contactPhone.trim() ? contactPhone.trim() : undefined,
+        authorization: lookupMode === 'MEMBER' ? `Bearer ${await getIdToken()}` : undefined,
       });
       setResendSuccess('Yêu cầu gửi lại xác nhận vé đã được tiếp nhận thành công.');
     } catch (err) {
@@ -195,26 +240,23 @@ export function WorkshopLookupPage() {
       <p className="eyebrow">TRA CỨU & QUẢN LÝ ĐẶT CHỖ</p>
       <h1>Tra cứu đơn đặt Workshop</h1>
 
-      <div style={{ display: 'flex', gap: '8px', marginTop: '20px', marginBottom: '24px' }}>
-        <button
-          type="button"
-          className={`button ${mode === 'GUEST' ? 'primary' : 'outline'}`}
-          onClick={() => { setMode('GUEST'); setError(null); }}
-        >
-          Khách vãng lai (Guest)
-        </button>
-        <button
-          type="button"
-          className={`button ${mode === 'MEMBER' ? 'primary' : 'outline'}`}
-          onClick={() => { setMode('MEMBER'); setError(null); }}
-        >
-          Hội viên (Member)
-        </button>
+      <div role="status" style={{ marginTop: '20px', marginBottom: '24px', padding: '12px 16px', border: '1px solid #dcdfe6', background: '#f8fafc', color: '#002967' }}>
+        {authStatus === 'loading' || profileLoading
+          ? 'Äang xÃ¡c Ä‘á»‹nh thÃ´ng tin tÃ i khoáº£n...'
+          : lookupMode === 'MEMBER'
+            ? 'Tra cá»©u theo booking thuá»™c tÃ i khoáº£n Member Ä‘ang Ä‘Äƒng nháº­p.'
+            : lookupMode === 'GUEST'
+              ? 'Tra cá»©u Guest báº±ng mÃ£ Ä‘áº·t chá»— vÃ  má»™t thÃ´ng tin liÃªn há»‡.'
+              : 'KhÃ´ng thá»ƒ xÃ¡c minh vai trÃ² tÃ i khoáº£n.'}
       </div>
+      {lookupMode === null && authStatus === 'signed-in' && (
+        <p style={{ color: '#b00', marginBottom: '16px' }}>{profileError || 'TÃ i khoáº£n hiá»‡n táº¡i khÃ´ng cÃ³ vai trÃ² Member Ä‘á»ƒ tra cá»©u booking.'}</p>
+      )}
 
       {/* Lookup Form */}
       <section className="workspace-card" style={{ maxWidth: '640px' }}>
         <form onSubmit={handleLookup}>
+          <fieldset disabled={authStatus === 'loading' || profileLoading || lookupMode === null} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
           <label style={{ display: 'block', marginBottom: '14px' }}>
             Mã đặt chỗ (Booking Code) *
             <input
@@ -228,7 +270,7 @@ export function WorkshopLookupPage() {
             />
           </label>
 
-          {mode === 'GUEST' ? (
+          {lookupMode === 'GUEST' ? (
             <div style={{ padding: '14px', background: '#fafafa', border: '1px solid #e3e3e3', marginBottom: '16px' }}>
               <p style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: 'bold' }}>
                 Xác minh thông tin (Chỉ cần điền 1 trong 2 mục):
@@ -262,23 +304,11 @@ export function WorkshopLookupPage() {
                 </label>
               </div>
             </div>
-          ) : (
-            <label style={{ display: 'block', marginBottom: '16px' }}>
-              Mã xác thực tài khoản Hội viên (Bearer Token)
-              <input
-                type="password"
-                placeholder="Nhập Bearer token tài khoản"
-                value={memberToken}
-                onChange={e => setMemberToken(e.target.value)}
-                disabled={loading}
-                style={{ width: '100%', marginTop: '6px' }}
-              />
-            </label>
-          )}
-
+          ) : null}
           <button type="submit" className="button primary" disabled={loading} style={{ width: '100%' }}>
             {loading ? 'Đang tra cứu...' : 'Tra cứu đơn đặt chỗ'}
           </button>
+          </fieldset>
         </form>
 
         {error && (
@@ -310,7 +340,7 @@ export function WorkshopLookupPage() {
 
           <div style={{ marginTop: '18px', lineHeight: '1.8' }}>
             <p style={{ margin: '4px 0' }}>Gói workshop: <strong>{bookingData.packageName}</strong></p>
-            <p style={{ margin: '4px 0' }}>Số người tham gia: <strong>{bookingData.participantCount} người</strong></p>
+            <p style={{ margin: '4px 0' }}>Số vé: <strong>{bookingData.participantCount}</strong></p>
 
             {Array.isArray(bookingData.sessions) && bookingData.sessions.length > 0 && (
               <div style={{ marginTop: '14px', background: '#f9f9f9', padding: '16px', border: '1px solid #eee' }}>
@@ -341,9 +371,11 @@ export function WorkshopLookupPage() {
                   type="button"
                   className="button primary"
                   onClick={handleResumePayment}
-                  disabled={isPaying || (countdownSeconds !== null && countdownSeconds <= 0)}
+                  disabled={isPaying || payError?.kind === 'EXPIRED' || (countdownSeconds !== null && countdownSeconds <= 0)}
                 >
-                  {isPaying ? 'Đang tạo phiên...' : 'Tiến hành thanh toán cọc VNPay (50%)'}
+                  {isPaying
+                    ? (payError?.kind === 'UNKNOWN' ? 'Đang kiểm tra lại...' : 'Đang tạo phiên...')
+                    : (payError?.kind === 'UNKNOWN' ? 'Kiểm tra lại với cùng yêu cầu' : 'Tiến hành thanh toán cọc VNPay (50%)')}
                 </button>
 
                 <button
@@ -356,7 +388,12 @@ export function WorkshopLookupPage() {
                 </button>
               </div>
 
-              {payError && <p style={{ color: '#b00', marginTop: '10px' }}>{payError}</p>}
+              {payError && (
+                <div role="alert" style={{ color: '#b00', marginTop: '10px' }}>
+                  <strong>{payError.kind === 'UNKNOWN' ? 'Chưa xác định kết quả' : payError.kind === 'EXPIRED' ? 'Đã hết hạn' : 'Không thể thanh toán'}</strong>
+                  <p style={{ margin: '4px 0 0' }}>{payError.message}</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -430,8 +467,8 @@ export function WorkshopLookupPage() {
                 </button>
               </div>
 
-              {resendSuccess && <p style={{ color: '#0b5c34', marginTop: '8px' }}>{resendSuccess}</p>}
-              {resendError && <p style={{ color: '#b00', marginTop: '8px' }}>{resendError}</p>}
+              {resendSuccess && <p role="status" style={{ color: '#0b5c34', marginTop: '8px' }}>{resendSuccess}</p>}
+              {resendError && <p role="alert" style={{ color: '#b00', marginTop: '8px' }}>{resendError} Hệ thống không tự động gửi lại.</p>}
             </div>
           )}
 
@@ -449,6 +486,9 @@ export function WorkshopLookupPage() {
             <div style={{ marginTop: '20px', padding: '16px', background: '#fff1f0', border: '1px solid #ffa39e' }}>
               <p style={{ margin: 0, color: '#cf1322' }}>
                 Đơn đặt chỗ đã hết thời hạn giữ chỗ 10 phút trước khi hoàn tất thanh toán cọc.
+              </p>
+              <p style={{ margin: '8px 0 0', color: '#595959' }}>
+                Liên kết thanh toán cũ không được gửi lại hoặc cấp lại cho booking đã hết hạn.
               </p>
               <div style={{ marginTop: '12px' }}>
                 <a className="button primary" href="/workshops">

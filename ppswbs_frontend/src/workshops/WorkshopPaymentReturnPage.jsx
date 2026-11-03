@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { lookupGuestBooking, initiateDepositPayment, WorkshopApiError } from '../api/workshops';
+import { lookupGuestBooking, lookupMemberBooking, WorkshopApiError } from '../api/workshops';
+import { useAuth } from '../shared/auth/AuthProvider';
+import { useHttp } from '../shared/api/useHttp';
 
 export function WorkshopPaymentReturnPage({ bookingCode }) {
+  const { status: authStatus, getIdToken } = useAuth();
+  const http = useHttp();
   const [params, setParams] = useState(() => new URLSearchParams(window.location.search));
   const vnpResponseCode = params.get('vnp_ResponseCode');
   const vnpTransactionNo = params.get('vnp_TransactionNo');
@@ -14,14 +18,31 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [bookingData, setBookingData] = useState(null);
   const [verifyError, setVerifyError] = useState(null);
-
-  // Retry state
-  const [isRetrying, setIsRetrying] = useState(false);
-  const [retryError, setRetryError] = useState(null);
-  const [activePaymentAttempt, setActivePaymentAttempt] = useState(null);
+  const [accountProfile, setAccountProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const lookupMode = authStatus === 'signed-out' || authStatus === 'unconfigured'
+    ? 'GUEST'
+    : accountProfile?.role === 'MEMBER' ? 'MEMBER' : null;
 
   // Countdown timer for active hold
   const [countdownSeconds, setCountdownSeconds] = useState(null);
+
+  // Return pages follow the same identity invariant as booking and lookup:
+  // a signed-in non-Member is blocked rather than silently downgraded to Guest.
+  useEffect(() => {
+    let active = true;
+    if (authStatus !== 'signed-in') {
+      setAccountProfile(null);
+      setProfileLoading(false);
+      return () => { active = false; };
+    }
+    setProfileLoading(true);
+    http('/api/v1/accounts/me/profile')
+      .then(profile => { if (active) setAccountProfile(profile || null); })
+      .catch(() => { if (active) setAccountProfile(null); })
+      .finally(() => { if (active) setProfileLoading(false); });
+    return () => { active = false; };
+  }, [authStatus, http]);
 
   // Update countdown
   useEffect(() => {
@@ -41,7 +62,11 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
   const handleVerifyBackend = async (e) => {
     if (e) e.preventDefault();
     if (!bookingCode) return;
-    if (!contactProof.trim()) {
+    if (lookupMode === null) {
+      setVerifyError('Unable to verify the signed-in account for this booking. Please sign in again.');
+      return;
+    }
+    if (lookupMode === 'GUEST' && !contactProof.trim()) {
       setVerifyError('Vui lòng nhập Email hoặc Số điện thoại người đặt để đồng bộ trạng thái đơn.');
       return;
     }
@@ -50,12 +75,18 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
     setVerifyError(null);
 
     try {
-      const payload = {
-        bookingCode,
-        contactEmail: proofType === 'email' ? contactProof.trim() : undefined,
-        contactPhone: proofType === 'phone' ? contactProof.trim() : undefined,
-      };
-      const result = await lookupGuestBooking(payload);
+      let result;
+      if (lookupMode === 'MEMBER') {
+        const idToken = await getIdToken();
+        if (!idToken) throw new Error('MEMBER_SESSION_EXPIRED');
+        result = await lookupMemberBooking(bookingCode, { authorization: `Bearer ${idToken}` });
+      } else {
+        result = await lookupGuestBooking({
+          bookingCode,
+          contactEmail: proofType === 'email' ? contactProof.trim() : undefined,
+          contactPhone: proofType === 'phone' ? contactProof.trim() : undefined,
+        });
+      }
       setBookingData(result);
     } catch (err) {
       if (err instanceof WorkshopApiError) {
@@ -68,40 +99,7 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
     }
   };
 
-  const handleRetryPayment = async () => {
-    // Invariant: Do not create a new attempt if the old attempt is still pending
-    if (activePaymentAttempt && activePaymentAttempt.status === 'PENDING') {
-      setRetryError('Giao dịch thanh toán hiện tại đang chờ xử lý. Vui lòng không tạo giao dịch mới.');
-      return;
-    }
-    // Invariant: Cannot retry if hold has expired
-    if (countdownSeconds !== null && countdownSeconds <= 0) {
-      setRetryError('Thời hạn giữ chỗ 10 phút đã hết hạn. Không thể tạo phiên thanh toán mới.');
-      return;
-    }
-
-    setIsRetrying(true);
-    setRetryError(null);
-
-    try {
-      const attempt = await initiateDepositPayment(bookingCode);
-      setActivePaymentAttempt(attempt);
-      if (attempt.paymentUrl) {
-        window.location.href = attempt.paymentUrl;
-      }
-    } catch (err) {
-      if (err instanceof WorkshopApiError) {
-        setRetryError(err.detail || 'Không thể khởi tạo phiên thanh toán mới. Vui lòng kiểm tra lại đơn đặt chỗ.');
-      } else {
-        setRetryError(err?.message || 'Lỗi khi khởi tạo thanh toán cọc.');
-      }
-    } finally {
-      setIsRetrying(false);
-    }
-  };
-
   const isProviderSuccess = vnpResponseCode === '00';
-  const isHoldExpired = countdownSeconds !== null && countdownSeconds <= 0;
 
   return (
     <main className="container public-page">
@@ -132,11 +130,14 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
 
         {!bookingData ? (
           <form onSubmit={handleVerifyBackend} style={{ maxWidth: '520px' }}>
-            <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '14px' }}>
+            <p hidden={lookupMode !== 'GUEST'} style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '14px' }}>
               Vui lòng nhập Email hoặc Số điện thoại đã dùng khi đặt chỗ để đồng bộ kết quả xác thực backend:
             </p>
 
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+            <p className="muted" hidden={lookupMode !== 'MEMBER'}>
+              Your signed-in Member account is used to verify booking ownership. No contact proof is requested.
+            </p>
+            <div hidden={lookupMode !== 'GUEST'} style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
                 <input
                   type="radio"
@@ -157,7 +158,7 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
               </label>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div hidden={lookupMode !== 'GUEST'} style={{ display: 'flex', gap: '10px' }}>
               <input
                 type={proofType === 'email' ? 'email' : 'tel'}
                 placeholder={proofType === 'email' ? 'email@example.com' : '0901234567'}
@@ -165,12 +166,22 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
                 onChange={e => setContactProof(e.target.value)}
                 style={{ flex: 1, padding: '10px 14px', border: '1px solid #ccc' }}
                 disabled={isVerifying}
-                required
+                required={lookupMode === 'GUEST'}
               />
               <button type="submit" className="button primary" disabled={isVerifying}>
                 {isVerifying ? 'Đang kiểm tra...' : 'Xem trạng thái đơn'}
               </button>
             </div>
+
+            {lookupMode === 'MEMBER' ? (
+              <button type="submit" className="button primary" disabled={isVerifying}>
+                {isVerifying ? 'Checking…' : 'Check booking status'}
+              </button>
+            ) : null}
+            {profileLoading ? <p className="muted">Checking signed-in account…</p> : null}
+            {lookupMode === null && !profileLoading ? (
+              <p className="muted">Sign in again with a Member account, or sign out to use Guest contact proof.</p>
+            ) : null}
 
             {verifyError && (
               <p style={{ color: '#b00', fontSize: '13px', marginTop: '8px' }}>{verifyError}</p>
@@ -187,7 +198,7 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
                       ✓ ĐÃ XÁC NHẬN THÀNH CÔNG
                     </span>
                     <h3 style={{ margin: '8px 0 0', color: '#002967' }}>
-                      {bookingData.packageName} — {bookingData.participantCount} người tham gia
+                      {bookingData.packageName} — {bookingData.participantCount} vé
                     </h3>
                   </div>
                   <span className="badge" style={{ background: '#fff' }}>
@@ -249,21 +260,7 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
                     {isVerifying ? 'Đang kiểm tra...' : 'Kiểm tra lại trạng thái'}
                   </button>
 
-                  {!isHoldExpired && (
-                    <button
-                      type="button"
-                      className="button primary"
-                      onClick={handleRetryPayment}
-                      disabled={isRetrying || (activePaymentAttempt && activePaymentAttempt.status === 'PENDING')}
-                    >
-                      {isRetrying ? 'Đang tạo phiên mới...' : 'Thử lại thanh toán cọc VNPay'}
-                    </button>
-                  )}
                 </div>
-
-                {retryError && (
-                  <p style={{ color: '#b00', fontSize: '13px', marginTop: '10px' }}>{retryError}</p>
-                )}
               </div>
             )}
 
@@ -276,6 +273,9 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
                 <h3 style={{ margin: '10px 0 6px', color: '#cf1322' }}>Đơn đặt chỗ đã hết hạn 10 phút</h3>
                 <p style={{ margin: '0 0 16px', fontSize: '14px', lineHeight: '1.6' }}>
                   Thời hạn giữ chỗ đã kết thúc do chưa nhận được thanh toán cọc hợp lệ trong thời gian quy định. Các ca giữ chỗ đã được giải phóng cho khách hàng khác.
+                </p>
+                <p style={{ margin: '0 0 16px', fontSize: '14px', lineHeight: '1.6' }}>
+                  Liên kết cũ không được cấp lại. Nếu vẫn muốn tham gia, vui lòng tạo một booking mới để hệ thống kiểm tra sức chứa lại.
                 </p>
                 <a className="button primary" href="/workshops">
                   Đặt lại gói workshop khác
