@@ -18,7 +18,7 @@ export function DeleteSection({ product, api, reload, deleted }) {
   if (deleted) return null;
 
   const finish = outcome => {
-    if (outcome?.ok) navigate('/catalogue-management/products', { state: { notice: 'delete.done' } });
+    if (outcome?.ok) navigate('/catalogue-management/products', { state: { notice: { key: 'delete.done', params: { name: product.name } } } });
     else if (outcome && !outcome.error.retryable) setOpen(false);
   };
   const confirm = async () => finish(await command.run(key => api.deleteProduct(key, product.id, product.version), ACTIONS.deleteProduct));

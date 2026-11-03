@@ -55,7 +55,7 @@ export default function ProductCreatePage() {
     if (!outcome) return;
     if (outcome.ok) {
       pending.forget();
-      navigate(`/catalogue-management/products/${encodeURIComponent(outcome.result.resourceId)}`, { state: { notice: 'create.success' } });
+      navigate(`/catalogue-management/products/${encodeURIComponent(outcome.result.resourceId)}`, { state: { notice: { key: 'create.success', params: { name: form.name.trim() } } } });
     } else if (!outcome.error.retryable) pending.forget();
   };
 

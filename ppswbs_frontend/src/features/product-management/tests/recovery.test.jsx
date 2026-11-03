@@ -85,7 +85,7 @@ describe('FR-028 lost answers', () => {
     mockFetchMore(calls, { [`GET ${M}/command-receipts/${key}`]: receipt(key, 'category.create', '8') });
     await user.click(screen.getByRole('button', { name: 'Thử lại' }));
 
-    expect(await screen.findByText('Đã tạo danh mục.')).toBeInTheDocument();
+    expect(await screen.findAllByText(/^Đã tạo danh mục "/)).toHaveLength(2); // page top and under the form
     expect(creates).toBe(1);
     expect(calls.find(call => call.path === `${M}/command-receipts/${key}`).query).toEqual({ action: 'category.create' });
   });
@@ -104,7 +104,7 @@ describe('FR-028 lost answers', () => {
     mockFetchMore(calls, { [`GET ${M}/command-receipts/${keys[0]}`]: json(404, { code: 'COMMAND_RESULT_NOT_FOUND', message: 'No receipt.' }) });
     await user.click(screen.getByRole('button', { name: 'Thử lại' }));
 
-    expect(await screen.findByText('Đã tạo danh mục.')).toBeInTheDocument();
+    expect(await screen.findAllByText(/^Đã tạo danh mục "/)).toHaveLength(2); // page top and under the form
     expect(keys).toHaveLength(2);
     expect(keys[1]).toBe(keys[0]);
   });

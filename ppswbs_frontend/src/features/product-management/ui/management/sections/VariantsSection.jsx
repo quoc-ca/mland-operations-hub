@@ -5,6 +5,8 @@ import { ACTIONS } from '../../../infrastructure/catalogueApi';
 import { messages } from '../../messages';
 import { isQuantity, serverFieldErrors } from '../../../domain/productRules';
 import { useProductCommand } from '../ProductDetailPage';
+import { BatchQuantities } from './BatchQuantities';
+import { NoticeAt } from '../notices';
 
 /**
  * T050 quantity and T064 sale status per size. Size and SKU are read-only; remaining, held and available are
@@ -16,6 +18,7 @@ export function VariantsSection({ product, ...context }) {
   return (
     <section className="workspace-card" aria-labelledby="variants-title">
       <h2 id="variants-title">{t('section.variants')}</h2>
+      {!context.deleted && <BatchQuantities product={product} {...context} />}
       <div className="data-table" role="table" aria-label={t('section.variants')}>
         <div className="data-row head variants" role="row">
           <span role="columnheader">{t('field.size')}</span><span role="columnheader">SKU</span>
@@ -36,16 +39,18 @@ function VariantRow({ variant, api, reload, setNotice, deleted }) {
   const [hint, setHint] = useState(null);
   const quantityCommand = useProductCommand({ reload, setNotice });
   const saleCommand = useProductCommand({ reload, setNotice });
+  const at = `variant-${variant.id}`;
 
   const saveQuantity = async event => {
     event.preventDefault();
     if (!isQuantity(quantity)) { setHint('validation.quantity'); return; }
     setHint(null);
-    const outcome = await quantityCommand.run(key => api.setQuantity(key, variant.id, variant.version, quantity), 'variant.quantitySaved', ACTIONS.quantity);
+    const outcome = await quantityCommand.run(key => api.setQuantity(key, variant.id, variant.version, quantity),
+      { key: 'variant.quantitySaved', params: { size: variant.size, from: variant.remainingUnsold, to: quantity }, at }, ACTIONS.quantity);
     if (outcome.ok) setQuantity(null);
   };
   const toggleSale = () => saleCommand.run(key => api.setSaleStatus(key, variant.id, variant.version, !variant.saleEnabled),
-    variant.saleEnabled ? 'variant.saleStopped' : 'variant.saleResumed', ACTIONS.saleStatus);
+    { key: variant.saleEnabled ? 'variant.saleStopped' : 'variant.saleResumed', params: { size: variant.size }, at }, ACTIONS.saleStatus);
 
   const quantityError = serverFieldErrors(quantityCommand.error).quantity || (hint && t(hint));
 
@@ -80,6 +85,7 @@ function VariantRow({ variant, api, reload, setNotice, deleted }) {
           <ErrorNotice error={saleCommand.error} messages={messages} onRetry={saleCommand.retry} onReload={reload} />
         </div>
       )}
+      <NoticeAt at={at} />
     </>
   );
 }

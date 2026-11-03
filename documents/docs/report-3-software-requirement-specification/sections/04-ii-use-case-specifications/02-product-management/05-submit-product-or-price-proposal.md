@@ -38,6 +38,13 @@ This use case includes the following sub-flows:
 3. The system checks that the size has no other pending proposal.
 4. The system saves the proposal with its own proposal code, version, product, size, amount, submitter and status, records an audit entry and confirms (MSG20). The current applied price stays in use while the proposal is pending.
 
+**Submit Price Proposals for Several Sizes**
+
+1. The actor opens Edit proposed prices of several sizes and selects sizes one by one or as a size range.
+2. The actor enters one shared positive whole VND amount and may still change any row; sizes left empty are not changed.
+3. The actor selects Save as draft or, after the first publication, Save and submit.
+4. For each size, the system revises the current Draft or Pending proposal (a Pending one returns to Draft) or creates a new proposal, then submits it when asked, as in the sub-flow above. Each size is its own proposal; a size that fails does not affect the others. The system confirms with the number of sizes (MSG20), or lists the sizes that failed and why.
+
 #### Alternative Flows
 
 **All sub-flows — Actor is not authorized or the session has expired**
@@ -46,7 +53,7 @@ The system rejects the request (MSG01, MSG02).
 
 **New Product Step 3 — Prerequisite missing**
 
-The system names the missing prerequisite, such as no usable image, an inactive category or a size without a proposed price (MSG18), and keeps the record in Draft.
+The system names the missing prerequisite, such as no usable image, an inactive category or a size without a proposed price (MSG18), and keeps the record in Draft. The screen checks the prerequisites it knows before sending, marks each section that lacks something in red with what to do, scrolls to the first one and lists them next to Submit for approval; the system still checks again when the request is sent.
 
 **New Product Step 3 — Same content already pending**
 

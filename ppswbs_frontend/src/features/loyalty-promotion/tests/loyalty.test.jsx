@@ -477,7 +477,7 @@ describe('24-hour time on the programme form', () => {
     await user.clear(endDate);
     await user.type(endDate, date);
     await user.selectOptions(screen.getByLabelText('Kết thúc — giờ (00–23)'), '12');
-    expect(screen.getAllByText(/^Tức là: 22:00/)).toHaveLength(1);
+    expect(screen.getAllByText(/^Tức là: .*, 22:00$/)).toHaveLength(1);
     await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
     expect(await screen.findByText('Thời gian kết thúc phải sau thời gian bắt đầu.')).toBeInTheDocument();
     expect(calls.filter(call => call.method === 'POST')).toHaveLength(0);

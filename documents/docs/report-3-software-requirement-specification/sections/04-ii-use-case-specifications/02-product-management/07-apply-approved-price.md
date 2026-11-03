@@ -10,7 +10,7 @@ None.
 
 #### Description
 
-As an authorized catalogue maintainer, I want to apply an approved price to a size as a separate action so that the selling price changes only when I choose, without affecting orders that were already accepted.
+As an authorized catalogue maintainer, I want to apply an approved price to a size as a separate action, either later or right after a Manager approves it, so that the selling price changes only when chosen, without affecting orders that were already accepted.
 
 #### Preconditions
 
@@ -28,6 +28,14 @@ As an authorized catalogue maintainer, I want to apply an approved price to a si
 5. The system sets the approved price as the applied price, records the previous and new price, the decision, the actor and the time, and confirms (MSG24).
 
 #### Alternative Flows
+
+**Step 1 — Several sizes at once**
+
+The actor selects Apply approved prices of N sizes. The system applies each size as its own action; a size that fails does not affect the others.
+
+**Step 1 — Applied right after approval**
+
+When the Manager kept "Apply price right after approval" selected in UC-15, steps 1–3 are skipped and the system applies the version that was just approved.
 
 **Step 4 — Decision is no longer valid**
 
@@ -59,6 +67,6 @@ BR-16-01, BR-16-02, BR-16-03
 
 | ID | Rule Definition |
 |---|---|
-| BR-16-01 | Applying a price is a separate action that accepts only a valid approved decision for the same size and terms, at exactly the approved amount. |
+| BR-16-01 | Applying a price is a separate action that accepts only a valid approved decision for the same size and terms, at exactly the approved amount; it may be requested right after the approval but always keeps its own record. |
 | BR-16-02 | An older request cannot overwrite a newer applied price, and applying records the previous and new price, decision, actor and time. |
 | BR-16-03 | A new applied price affects only new views and checkouts; it never changes accepted orders or valid holds, and a pending new price does not remove the current applied price. |
