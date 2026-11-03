@@ -13,7 +13,7 @@
 
 ## Summary
 
-FE-001 delivers the Mland account lifecycle: email/password and optional social sign-in, profile/credential self-service, Admin provisioning and maintenance of internal Staff/Manager accounts, account suspension/restoration, a shared backend identity gate, and a typed internal facade for Workshop consumers. Email verification is observed on entry to a capability that requires it: the frontend reloads Firebase user state, forces a fresh bearer, synchronizes the Account snapshot, and the backend still decides the command. No Firebase callback/webhook, custom action handler, or background verification job is part of V1. This plan reflects every clarification session through 2026-11-03.
+FE-001 delivers the Mland account lifecycle: email/password and optional social sign-in, profile/credential self-service, Admin provisioning and maintenance of internal Staff/Manager accounts, account suspension/restoration, a shared backend identity gate, a typed internal facade for Workshop consumers, and member shipping address book management (Shopee model) with GHTK-compatible administrative divisions and order snapshot facade for FE-008 Retail Order & Fulfillment. It also establishes system-wide timezone standardization to Vietnam local time (`Asia/Ho_Chi_Minh`, UTC+7) for MySQL persistence, JDBC connection, and API responses. Email verification is observed on entry to a capability that requires it: the frontend reloads Firebase user state, forces a fresh bearer, synchronizes the Account snapshot, and the backend still decides the command. No Firebase callback/webhook, custom action handler, or background verification job is part of V1. This plan reflects every clarification session through 2026-11-03.
 
 **Technical approach**: React + Vite SPA (client-side); Java 21 / Spring Boot REST / Spring Modulith backend; Firebase Authentication for identity/credential management; MySQL + Flyway migrations; JPA/Spring Data persistence; FE-07 (Notification) and FE-003 (Workshop) as downstream consumers.
 
@@ -27,7 +27,7 @@ FE-001 delivers the Mland account lifecycle: email/password and optional social 
 - Backend: Spring Boot (latest approved), Spring Modulith, Spring Data JPA, Flyway, Firebase Admin SDK, Spring Security
 - Frontend: React 19, Vite, Firebase Web SDK, React Router
 
-**Storage**: MySQL (authoritative business state — Account, Profile, Assignment, Provisioning, Audit, NotificationIntent); Firebase Authentication (credentials, bearer tokens, session invalidation)
+**Storage**: MySQL (authoritative business state — Account, Profile, MemberAddress, Assignment, Provisioning, Audit, NotificationIntent; all `DATETIME(6)` values standardized on `Asia/Ho_Chi_Minh` UTC+7); Firebase Authentication (credentials, bearer tokens, session invalidation)
 
 **Testing**: JUnit 5 / Spring Boot Test / Spring Modulith module verification (backend); Vitest / React Testing Library (frontend). No TDD mandate in spec; tests are required only for integration evidence items listed in `verification.md`.
 
@@ -41,12 +41,13 @@ FE-001 delivers the Mland account lifecycle: email/password and optional social 
 - Bearer-only credential transport; no browser auth cookie, server session, app JWT, or refresh-token system (V1)
 - Local CORS origin is exactly `http://localhost:5173`; no wildcard; `Access-Control-Allow-Credentials: false`
 - `spring.jpa.hibernate.ddl-auto=validate`; no `update`, Flyway bypass, or test-only schema workaround
-- Flyway migrations use repository-wide append-only integer sequence; no editing of applied migrations
+- Flyway migrations use repository-wide append-only integer sequence; no editing of applied migrations; new `member_addresses` table created via append-only migration
+- System timezone is strictly standardized to `Asia/Ho_Chi_Minh` (UTC+7): JDBC URL enforces `connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true`, application default timezone is `Asia/Ho_Chi_Minh`, and Jackson serializers output ISO-8601 with `+07:00` offset
 - `AccountAuditEvent.outcome` must use Java `AuditOutcome` enum (`SUCCESS`/`FAILURE`) persisted as `VARCHAR(16)`; append-only migration from V5 is required before any MySQL integration test
 - No cache, event replication, cross-module transaction, or Workshop Location scope in the identity gate actor
 - Member verification email is sent by Firebase Web SDK on the signed-in owner’s explicit request; V1 uses Firebase’s default action handler and does not persist email action codes
 
-**Scale/Scope**: 5 user stories; ~34 functional requirements; 7 workflows; ~6 backend entity types; 2 facade methods for Workshop consumers; local-only acceptance
+**Scale/Scope**: 6 user stories; 40 functional requirements; 10 workflows; 7 backend entity types; 4 facade methods (2 for Workshop consumers, 2 for FE-008 shipping address snapshot); local-only acceptance
 
 ---
 

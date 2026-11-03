@@ -17,6 +17,9 @@
 | Opaque identifier | FR-033; [OpenAPI](../contracts/account-management.openapi.yaml) | REST/UI uses canonical positive-integer string; Java facade uses a boundary type | Regenerate | Reject padding, sign, decimal, blank, UID and alternate identifier |
 | Schema and persistence | [data-model.md](../data-model.md) | Data model remains schema/ownership authority; no duplicate Workshop Location entity | Regenerate | UID uniqueness, state, version, idempotency, migration/upgrade |
 | Public HTTP transport | [OpenAPI](../contracts/account-management.openapi.yaml) | Existing routes remain transport authority pending contract regeneration; no route is inferred by this document | Regenerate | OpenAPI/error validation |
+| Member shipping address book | [spec.md](../spec.md) FR-036–FR-039 | FE-001 owns MemberAddress entity, CRUD, quota (max 10), default address rules, phone normalization, and administrative division catalogue | T038–T045 | V-10 |
+| Timezone standardization (UTC+7) | [spec.md](../spec.md) FR-035 | System-wide UTC+7 (`Asia/Ho_Chi_Minh`) for MySQL `DATETIME(6)`, JDBC connection, JVM default timezone and Jackson | T001–T003 | V-11 |
+| Shipping address facade for FE-008 | [spec.md](../spec.md) FR-040; [interfaces.md](../contracts/interfaces.md) | Modulith facade methods returning immutable `MemberAddressSnapshot` for consumer checkout snapshotting | T043 | V-10 |
 
 ## Approved decisions and non-decisions
 
@@ -38,7 +41,9 @@ ppswbs_frontend/src/features/accountmanagement/                         [propose
   hooks/{useCurrentAccount,useProfile,useVerifiedEmailGate,useAdminAccounts}.ts [proposed]
   components/{AuthPage,ProfilePage,AdminAccountListPage,
               AdminAccountDetailPage,InternalAccountCreatePage,
-              RoleCataloguePage}.tsx                                    [proposed]
+              RoleCataloguePage,AddressBookPage,AddressModal}.tsx      [proposed]
+  api/AddressApiClient.ts                                               [proposed]
+  hooks/useMemberAddresses.ts                                           [proposed]
 
 ppswbs_backend/src/main/java/.../configuration/                         [existing — repository inspection 2026-10-28]
   SecurityConfiguration.java                                             [existing; currently divergent CORS credentials/origins]

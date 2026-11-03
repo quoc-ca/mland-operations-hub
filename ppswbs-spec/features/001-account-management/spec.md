@@ -22,6 +22,9 @@ The feature serves a small-to-medium business. It deliberately uses fixed roles 
 - Email/password registration and sign-in; Google and Facebook sign-in when those providers are configured.
 - Sign-out, email verification, password reset, password change, and login-email change.
 - Account bootstrap, own-profile management, and email synchronization after a verified email change.
+- Member shipping address book management (Shopee model: add, edit, hard delete, set default, maximum 10 addresses, HOME/OFFICE labels, normalized 10-digit VN phone, GHTK Level 1-4 standard administrative division integration).
+- System-wide time standardization to Vietnam local time (`Asia/Ho_Chi_Minh`, UTC+7) for MySQL DB, JDBC connection, and API responses.
+- Internal facade methods and REST endpoints providing shipping address lookups and snapshots for FE-008 Retail Order & Fulfillment.
 - Admin list/detail, internal-account creation, invitation resend, internal profile edit, role/location assignment, account suspension/restoration, and fixed-role reference.
 - Account lifecycle audit, safe retry/recovery, and notification requests to FE-07.
 
@@ -93,6 +96,12 @@ The feature serves a small-to-medium business. It deliberately uses fixed roles 
 - Q: Khi Member đổi email, Firebase cập nhật email mới trước hay xác thực email mới trước? → A: Dùng `verifyBeforeUpdateEmail`: Firebase và DB giữ email cũ đến khi Member xác thực email mới; sau đó Profile gate đồng bộ email mới đã verified. Không dùng luồng đổi ngay rồi chờ sync.
 - Q: Nếu Firebase tạo Member thành công nhưng lần gửi email verification đầu tiên thất bại, hệ thống làm gì? → A: Vẫn bootstrap và chuyển Member tới Home, hiển thị reminder an toàn và cho Member chủ động resend từ Profile; không retry nền và không rollback Account.
 - Q: Cooldown resend verification 90 giây có giữ sau refresh/đóng-mở browser không? → A: Có. Dùng `localStorage` theo Account ID, chỉ lưu mốc hết hạn và tự hết hạn sau 90 giây; không dùng email, Firebase UID, token hay action code làm storage key/value.
+- Q: Về việc lưu trữ thời gian trong DB bị sai lệch 7 tiếng so với thực tế ở Việt Nam, hệ thống chuẩn hóa thế nào? → A: Chuẩn hóa toàn diện sang UTC+7 (`Asia/Ho_Chi_Minh`) cho DB, JDBC connection (`connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true`), Spring Boot default timezone và Jackson serializer. Các cột `DATETIME` trong MySQL phản ánh trực tiếp giờ Việt Nam. Dữ liệu trong DB local/dev là dữ liệu kiểm thử, cho phép reset/re-seed sạch mà không cần migration bù giờ cũ.
+- Q: Danh sách các cấp hành chính (Tỉnh/Thành, Quận/Huyện, Phường/Xã) và địa chỉ cấp 4 của GHTK được quản lý và cung cấp thế nào? → A: Backend (FE-001) cung cấp API danh mục hành chính chuẩn tương thích GHTK (Tỉnh -> Huyện -> Xã). Frontend dùng cascading dropdown để Member chọn. Lưu cả tên chuẩn và mã định danh. Schema hỗ trợ sẵn `hamlet_id` và `hamlet_name` (nullable) cho địa chỉ cấp 4 của GHTK (thôn/ấp/xóm/bản) khi cần.
+- Q: Quy tắc nghiệp vụ sổ địa chỉ theo chuẩn Shopee được quy định ra sao? → A: Mỗi Member được lưu tối đa 10 địa chỉ. Luôn có tối đa 1 địa chỉ mặc định; địa chỉ đầu tiên tạo tự động là mặc định; khi đặt mặc định mới thì tự động bỏ cờ mặc định cũ. Không cho phép xóa địa chỉ đang là mặc định nếu tài khoản còn các địa chỉ khác (phải đổi mặc định trước). Thao tác xóa là Hard Delete (xóa vật lý). Có nhãn loại địa chỉ: Nhà riêng (`HOME`) hoặc Văn phòng (`OFFICE`).
+- Q: Số điện thoại người nhận được chuẩn hóa và kiểm tra thế nào? → A: Tự động chuẩn hóa (loại bỏ ký tự phân cách như dấu cách, gạch ngang, chấm; chuyển đổi `+84` hoặc `84` thành `0`), sau đó kiểm tra regex chuẩn 10 chữ số di động Việt Nam (`^0[35789]\d{8}$`) và lưu dạng 10 số sạch.
+- Q: Trải nghiệm UX khi Member thêm địa chỉ đầu tiên có hỗ trợ điền trước không? → A: Có. Tự động điền trước (pre-fill) họ tên từ `AccountProfile.fullName` và số điện thoại từ `AccountProfile.phone` (nếu có) khi mở form thêm địa chỉ đầu tiên; Member có thể chỉnh sửa tự do.
+- Q: Hợp đồng kết nối và chia sẻ dữ liệu địa chỉ giữa FE-001 và FE-008 hoạt động như thế nào? → A: FE-001 cung cấp REST API `/api/v1/accounts/me/addresses` cho Frontend và Spring Modulith Facade (`AccountFacade.findDefaultShippingAddress` và `findShippingAddressById`) trả về `MemberAddressSnapshot` cho Backend FE-008. Khi checkout, FE-008 sao chép lưu độc lập snapshot địa chỉ vào đơn hàng; việc sửa/xóa địa chỉ trong Profile của FE-001 sau đó hoàn toàn không làm đổi thông tin đơn hàng cũ.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -180,6 +189,24 @@ An Admin can search and inspect accounts, see the fixed role catalogue, and make
 2. **Given** a Staff assignment, **When** an Admin saves it, **Then** it has exactly one active location; a Manager assignment has one or more active locations.
 3. **Given** an Admin opens the role catalogue, **When** it is displayed, **Then** it explains the fixed role scope without offering permission or role editing.
 
+---
+
+### User Story 6 - Manage personal shipping address book and select at checkout (Priority: P1)
+
+A signed-in Member can view, add, edit, physically delete, and set a default shipping address from their profile or during checkout. Administrative levels (Province, District, Ward, and optional Level-4 Hamlet) are chosen from standard dropdowns compatible with GHTK. The checkout flow receives a stable address snapshot, so subsequent profile changes do not alter existing orders.
+
+**Why this priority**: Fast, accurate shipping destination entry is mandatory for physical retail fulfillment and live carrier fee quoting.
+
+**Independent Test**: A Member can save up to 10 addresses, exactly one default is maintained, deleting a default address while others exist is rejected, phone numbers with formatting or international codes are normalized to 10-digit Vietnamese format, and FE-008 checkout captures an immutable snapshot.
+
+**Acceptance Scenarios**:
+
+1. **Given** a Member with no saved addresses adds their first address, **When** they open the form, **Then** recipient name and phone are pre-filled from their Profile (editable), and saving sets `is_default = true` automatically.
+2. **Given** a Member adds an address with a phone number containing whitespace, punctuation, or `+84`/`84`, **When** the address is saved, **Then** the system normalizes the number to clean 10-digit format matching `^0[35789]\d{8}$` and rejects non-Vietnamese or malformed numbers.
+3. **Given** a Member with multiple addresses attempts to delete their default address, **When** the deletion is requested, **Then** the system rejects the deletion with an actionable error instructing them to designate another address as default first.
+4. **Given** a Member already has 10 saved addresses, **When** they submit an 11th address, **Then** the system returns an address quota conflict (`409 ADDRESS_LIMIT_EXCEEDED`).
+5. **Given** a Member selects an address during checkout in FE-008, **When** the order is created, **Then** FE-008 records an independent snapshot of all address fields; later edits or deletions in the Member's address book do not alter past orders.
+
 ### Edge Cases
 
 - A configured external sign-in provider is unavailable, a popup is blocked, or the provider reports an account-method conflict: no local account is created until a valid identity is established, and the person receives retry/alternative-method guidance.
@@ -232,6 +259,12 @@ An Admin can search and inspect accounts, see the fixed role catalogue, and make
 - **FR-032**: The target-facts and roster queries MUST be read-only and MUST NOT create Account audit events. Account Management audits its own Account security or administrative mutations. A consuming Workshop feature owns audit of its responsibility mutations and records its actor Account ID, target Account ID, resource ID, Workshop Location ID, action, outcome, correlation reference, and time without copying provider identity, contact data, or target lifecycle facts into that audit record.
 - **FR-033**: The shared Account ID is opaque outside Account Management. REST/UI contracts represent it as a canonical positive-integer string; malformed, padded, decimal, signed, blank, provider-UID, or alternate-ID representations are invalid. Java facade boundary types represent the same identifier without creating a Personnel ID, UUID, or mapping layer. The identifier is not a credential or authorization proof.
 - **FR-034**: Bootstrap for an unknown verified UID MUST require a syntactically valid identity email claim. When that email is unverified, the system still creates the Account and initial Profile, then applies the existing verification reminder and verified-email gates. When an unknown identity has no valid email claim, the system MUST create neither Account nor Profile, MUST NOT accept a browser-supplied email as a substitute, and MUST give safe alternative-method/recovery guidance. A pre-existing Account identified by UID remains resolvable without overwriting its email or Profile from a missing email claim.
+- **FR-035**: The system MUST store and process all date-time data using the fixed business timezone `Asia/Ho_Chi_Minh` (UTC+7). The MySQL database connection MUST enforce `connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true`, the application JVM default timezone MUST be set to `Asia/Ho_Chi_Minh`, and API serialization MUST output ISO-8601 with `+07:00` offset. All database `DATETIME` columns reflect local Vietnam wall-clock time directly.
+- **FR-036**: The system MUST allow an authenticated Member to maintain a personal shipping address book with a maximum quota of 10 addresses. Each address includes recipient name, normalized Vietnamese phone number, province, district, ward, optional hamlet (GHTK Level 4), detail address, address type (`HOME` or `OFFICE`), and a default flag. Only the owning Member can view or mutate their own addresses.
+- **FR-037**: The system MUST enforce that a Member has at most one default shipping address. The first created address automatically becomes default. Designating an address as default atomically removes the default flag from any previous default address. Deleting a default address when other addresses exist MUST be rejected. Deleting an address physically removes the record (Hard Delete).
+- **FR-038**: The system MUST automatically normalize recipient phone numbers by stripping whitespace and delimiters, converting `+84` or `84` prefixes to `0`, and validating against the standard 10-digit Vietnamese mobile pattern (`^0[35789]\d{8}$`).
+- **FR-039**: The system MUST provide standard administrative division lookup endpoints for Province, District, Ward, and optional Level-4 Hamlet compatible with GHTK, ensuring cascading selection and consistent naming and IDs.
+- **FR-040**: The system MUST expose public Spring Modulith `AccountFacade` methods (`findDefaultShippingAddress` and `findShippingAddressById`) returning an immutable `MemberAddressSnapshot` to approved consumer modules (such as FE-008 Retail Order & Fulfillment). Modifying or deleting an address in FE-001 MUST NOT alter historical order snapshots in FE-008.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -241,6 +274,7 @@ An Admin can search and inspect accounts, see the fixed role catalogue, and make
 - **Internal Account Provisioning**: The retryable record of one Admin request to create and invite a Staff/Manager account, including its setup progress.
 - **Account Audit Event**: Redacted evidence of an account/security action and its outcome, retained for support and accountability.
 - **Notification Request**: The post-commit request consumed by FE-07 to deliver an invitation or account-change message.
+- **Member Address**: The personal shipping destination owned by a Member Account; contains recipient contact, structured administrative division data (levels 1-4), detailed street address, type (`HOME`/`OFFICE`), default flag, and audit timestamps in `Asia/Ho_Chi_Minh`.
 
 ## Success Criteria *(mandatory)*
 
@@ -253,6 +287,8 @@ An Admin can search and inspect accounts, see the fixed role catalogue, and make
 - **SC-005**: Every tested Admin mutation records a redacted audit event and remains effective when the corresponding notification delivery is delayed or fails.
 - **SC-006**: Every documented unauthorized, stale, invalid, or provider-unavailable scenario returns a safe recovery outcome without revealing credentials, provider identifiers, or another account's protected information.
 - **SC-007**: Every FE-001 user-facing screen and recovery state meets WCAG 2.2 AA and is verified on the two latest major desktop versions of Chrome, Edge, and Firefox.
+- **SC-008**: In 100% of tested address operations, a Member can add up to 10 valid addresses, exactly one default address is maintained, deleting a default address while others exist is prevented, and phone numbers are normalized to 10-digit format.
+- **SC-009**: In 100% of tested database timestamp writes, `created_at` and `updated_at` across all tables match Vietnam wall-clock time (`Asia/Ho_Chi_Minh`, UTC+7) without a 7-hour discrepancy.
 
 ## Assumptions and dependencies
 

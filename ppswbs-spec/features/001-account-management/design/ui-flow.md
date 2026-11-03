@@ -12,7 +12,7 @@
 | Actor | Entry / route | Server-side rule | Status / source |
 | --- | --- | --- | --- |
 | Anonymous visitor | `/sign-in`, `/register`, `/forgot-password` | Only explicitly public operations support identity-provider flows. Browser routing does not authorize API. | proposed routes from plan; public-route contract must be regenerated |
-| Signed-in Account owner | `/`, `/profile`, `/security/password`, `/security/email` | WF-01 supplies current actor; server limits actions to owner and checks verification where required. | proposed; FR-003–008 |
+| Signed-in Account owner | `/`, `/profile`, `/profile/addresses`, `/security/password`, `/security/email` | WF-01 supplies current actor; server limits actions to owner and checks verification where required. | proposed; FR-003–008, FR-036–039 |
 | Admin | `/admin/accounts`, `/admin/accounts/new`, `/admin/accounts/:accountId`, `/admin/roles` | Server checks current `ADMIN`, target and current resource constraints for every action. | proposed; FR-010–025 |
 | Workshop-feature actor | FE-003 screen, not an FE-001 route | FE-003 authorizes actor/resource before roster/facts facade reads and before mutation. | approved behavior FR-028–032; UI owned by FE-003 |
 
@@ -31,6 +31,7 @@ The frontend may hide navigation as a usability affordance, but cannot decide ro
 | Role/location/status action | Admin | WF-03, WF-04 | proposed detail page/hook | FR-017–021 | Explain impact, show current committed role/status/effective scope. Location deactivation does not claim role/lifecycle change. | Version conflict reloads; denied access returns to allowed safe view. |
 | Fixed role catalogue | Admin | WF-01 | proposed `RoleCataloguePage` | FR-009–010 | Loading/error state; display read-only fixed role descriptions. No permission/role editing controls. | `401/403` account recovery; `503` retry. |
 | Workshop target picker | Authorized FE-003 actor | WF-05 | FE-003-owned component; proposed FE-001 facade client at module boundary | FR-029–031; internal interface contract missing | Load candidates by canonical location/role. Empty means no eligible candidate, not directory failure. Show current display name and optional opaque Account ID only. | `503` preserves safe FE-003 input; `409 TARGET_NOT_ELIGIBLE` requires new selection without lifecycle disclosure. |
+| Member shipping address book | Signed-in Member | WF-09 | proposed `AddressBookPage`, `AddressModal`, `useMemberAddresses`, `AddressApiClient` | FR-036–039; OpenAPI addresses endpoints | List up to 10 addresses with badge for default and type (HOME/OFFICE). Adding 1st address pre-fills name and phone from profile. Cascading dropdown for Province -> District -> Ward (-> Hamlet). Add disabled if 10 reached. Delete default blocked if multiple addresses exist. | `400` validation error; `409 ADDRESS_LIMIT_EXCEEDED` shows quota message; `409` default deletion blocked guidance; `503` explicit retry. |
 
 ## Session, data handling and accessibility
 

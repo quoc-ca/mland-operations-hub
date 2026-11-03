@@ -49,6 +49,18 @@ mutation. It maps `NOT_FOUND` or facts failing its own approved rule to generic
 unsaved input, and starts or commits no mutation. It must not use a cache,
 fallback scope, background retry or event-synchronized Account copy in V1.
 
+## FE-008 shipping address facade
+
+These methods provide shipping address lookups to approved order/fulfillment consumers (e.g. FE-008). They are module-boundary Java methods, returning immutable snapshots.
+
+| Method | Inputs | Typed result | Contract |
+| --- | --- | --- | --- |
+| `findDefaultShippingAddress` | Canonical opaque `AccountId` | `Optional<MemberAddressSnapshot>` | Returns the current default shipping address snapshot for the Member, or empty if none exists. |
+| `findShippingAddressById` | Canonical opaque `AccountId`, `Long addressId` | `Optional<MemberAddressSnapshot>` | Returns the verified address snapshot owned by the Member, or empty if not found or belongs to another account. |
+
+`MemberAddressSnapshot` contains: `id`, `recipientName`, `phoneNumber`, `provinceId`, `provinceName`, `districtId`, `districtName`, `wardId`, `wardName`, `hamletId`, `hamletName`, `detailAddress`, `addressType`.
+The consuming feature (FE-008) clones this snapshot into its order record at checkout; subsequent profile address edits or deletions in FE-001 do not alter historical orders.
+
 ## External boundaries
 
 - Firebase adapter verifies bearer identity and revocation; creates/reconciles

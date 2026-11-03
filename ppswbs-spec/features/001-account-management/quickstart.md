@@ -283,6 +283,52 @@ TargetFactsOutcome result = accountFacade.findTargetFacts(AccountId.of(42L));
 
 ---
 
+## Scenario V-10: Member shipping address book management (US6)
+
+**Covers**: FR-036, FR-037, FR-038, FR-039, FR-040, SC-008
+
+**Setup**: Authenticated Member signed in.
+
+```
+1. Open http://localhost:5173/profile/addresses
+2. Click "Thêm địa chỉ mới" (Add new address)
+   → Recipient name and phone pre-filled from AccountProfile
+3. Select Province -> District -> Ward from cascading dropdown
+4. Enter phone with punctuation/delimiters (e.g. "+84 901-234-567")
+5. Save address
+   → System auto-normalizes phone to "0901234567"
+   → First address automatically marked is_default = true
+6. Add a second address and mark it as default
+   → Second address becomes is_default = true; first address loses default flag atomically
+7. Attempt to delete the second (default) address while first address exists
+   → Request rejected with error requiring user to change default address first
+8. Add addresses up to 10
+9. Attempt to add an 11th address
+   → 409 ADDRESS_LIMIT_EXCEEDED returned; user advised to delete or edit existing address
+10. Delete a non-default address
+   → Row physically removed from member_addresses (Hard Delete)
+11. Simulate FE-08 checkout using AddressFacade:
+   → Address snapshot captured into order record; later profile edits do not alter the order
+```
+
+---
+
+## Scenario V-11: System timezone standardization to UTC+7 (FR-035, SC-009)
+
+**Covers**: FR-035, SC-009
+
+**Setup**: Backend connected to MySQL with `connectionTimeZone=Asia/Ho_Chi_Minh`.
+
+```
+1. Insert or update an Account or MemberAddress via API
+2. Query MySQL directly:
+   SELECT created_at, updated_at, NOW() FROM member_addresses;
+3. Verify that timestamps in MySQL match current Vietnam local time (UTC+7)
+4. Verify GET API responses format timestamps in ISO-8601 with "+07:00" offset
+```
+
+---
+
 ## Error Presentation Spot-Checks
 
 | Trigger | Expected response |
@@ -302,5 +348,5 @@ Before handoff, retain evidence for:
 1. Flyway fresh-database migration (V1 to current) — startup log screenshot or CI run
 2. Flyway upgrade migration (V5 baseline → current `AuditOutcome`/`VARCHAR(16)`) — startup log + sample query
 3. Spring Modulith boundary verification — test output confirming `accountmanagement` module detects correctly
-4. Scenarios V-01 through V-09 executed locally — annotated screenshots or test output per scenario
+4. Scenarios V-01 through V-11 executed locally — annotated screenshots or test output per scenario
 5. WCAG 2.2 AA baseline — accessibility scan output for all FE-001 screens (frontend foundation owner)

@@ -12,7 +12,9 @@
 
 Theo thẩm quyền Tech Lead dự án PPSWBS/Mland và căn cứ quy định tại [AGENT.md](../../AGENT.md) §5, tôi xác nhận phê duyệt toàn bộ bộ tài liệu đặc tả và thiết kế (Specification & Design Pack) của Feature **FE-001 Account Management** để chuyển giao sang giai đoạn triển khai (Implementation Phase).
 
-Mọi blocker thiết kế (Gate D02, D06, D18, D19, D20) đã được rà soát và giải quyết dứt điểm:
+Mọi blocker thiết kế (Gate D01 đến D20) đã được rà soát và giải quyết dứt điểm cho cả phạm vi bổ sung:
+- **Chuẩn hóa Timezone UTC+7 (`Asia/Ho_Chi_Minh`)**: Đã chuẩn hóa toàn diện cấu hình JDBC, JVM và Jackson; DB `DATETIME` phản ánh trực tiếp giờ Việt Nam.
+- **Sổ địa chỉ nhận hàng Member (Shopee model) & Tích hợp FE-08**: Đã chốt trọn vẹn hợp đồng REST API, Modulith Facade (`MemberAddressSnapshot`), quy tắc nghiệp vụ (giới hạn 10 địa chỉ, địa chỉ mặc định, chuẩn hóa SĐT, danh mục hành chính GHTK cấp 1-4, Hard Delete).
 1. **OpenAPI 3.1.0** đã được sinh đầy đủ tại `contracts/account-management.openapi.yaml`, phản ánh chính xác các route và DTOs đã duyệt.
 2. **Kế hoạch kiểm chứng** tại `verification.md` đã được chuẩn hóa đầy đủ từ V-01 đến V-09, phân định rõ bằng chứng thiết kế (Design-level) và bằng chứng chạy thực tế (Implementation-level).
 3. **Cơ chế lưu trữ AuditOutcome** đã chốt Option B (`AuditOutcome` Java enum + `VARCHAR(16) NOT NULL` append-only migration).
@@ -24,16 +26,16 @@ Mọi blocker thiết kế (Gate D02, D06, D18, D19, D20) đã được rà soá
 
 | STT | Tài liệu | Đường dẫn | Trạng thái phê duyệt |
 |---|---|---|---|
-| 1 | Feature Specification | `ppswbs-spec/features/001-account-management/spec.md` | **APPROVED** (FR-001–FR-034, SC-001–SC-007, US1–US5) |
-| 2 | Implementation Plan | `ppswbs-spec/features/001-account-management/plan.md` | **APPROVED** (React 19, Spring Modulith, Route groups) |
-| 3 | Physical Data Model | `ppswbs-spec/features/001-account-management/data-model.md` | **APPROVED** (6 entities, Option B AuditOutcome VARCHAR(16)) |
-| 4 | Internal Facade Contracts | `ppswbs-spec/features/001-account-management/contracts/interfaces.md` | **APPROVED** (TargetFactsOutcome, RosterOutcome, CurrentAccountActor) |
-| 5 | REST Transport Contract | `ppswbs-spec/features/001-account-management/contracts/account-management.openapi.yaml` | **APPROVED** (OpenAPI 3.1.0 production specification) |
-| 6 | Architecture Design | `ppswbs-spec/features/001-account-management/design/architecture.md` | **APPROVED** (Production unit blueprint, CORS & Bearer policy) |
-| 7 | Workflow Design | `ppswbs-spec/features/001-account-management/design/workflows.md` | **APPROVED** (WF-01 đến WF-08, gồm WF-08 Profile verification gate) |
-| 8 | UI Flow Design | `ppswbs-spec/features/001-account-management/design/ui-flow.md` | **APPROVED** (Route authorization, screen states, error presentation) |
-| 9 | Task Breakdown | `ppswbs-spec/features/001-account-management/tasks.md` | **APPROVED** (52 tasks, MVP scope T001–T037 + T044–T046, T048–T050) |
-| 10 | Verification Report & Plan | `ppswbs-spec/features/001-account-management/verification.md` | **APPROVED** (V-01 đến V-09 matrix, acceptance evidence placeholders) |
+| 1 | Feature Specification | `ppswbs-spec/features/001-account-management/spec.md` | **APPROVED** (FR-001–FR-040, SC-001–SC-009, US1–US6) |
+| 2 | Implementation Plan | `ppswbs-spec/features/001-account-management/plan.md` | **APPROVED** (React 19, Spring Modulith, Route groups, Timezone UTC+7, Member Addresses) |
+| 3 | Physical Data Model | `ppswbs-spec/features/001-account-management/data-model.md` | **APPROVED** (7 entities including MemberAddress, Timezone contract) |
+| 4 | Internal Facade Contracts | `ppswbs-spec/features/001-account-management/contracts/interfaces.md` | **APPROVED** (TargetFactsOutcome, RosterOutcome, CurrentAccountActor, MemberAddressSnapshot) |
+| 5 | REST Transport Contract | `ppswbs-spec/features/001-account-management/contracts/account-management.openapi.yaml` | **APPROVED** (OpenAPI 3.1.0 production specification with /accounts/me/addresses and /addresses endpoints) |
+| 6 | Architecture Design | `ppswbs-spec/features/001-account-management/design/architecture.md` | **APPROVED** (Production unit blueprint, CORS, Bearer policy, Address & Timezone components) |
+| 7 | Workflow Design | `ppswbs-spec/features/001-account-management/design/workflows.md` | **APPROVED** (WF-01 đến WF-10, gồm WF-09 Address Book và WF-10 FE-08 Order Snapshot) |
+| 8 | UI Flow Design | `ppswbs-spec/features/001-account-management/design/ui-flow.md` | **APPROVED** (Route authorization, AddressBookPage, AddressModal, screen states) |
+| 9 | Task Breakdown | `ppswbs-spec/features/001-account-management/tasks.md` | **APPROVED** (63 tasks, including US6 T055–T063 and Timezone T053–T054) |
+| 10 | Verification Report & Plan | `ppswbs-spec/features/001-account-management/verification.md` | **APPROVED** (V-01 đến V-11 matrix, acceptance evidence placeholders) |
 | 11 | Phase 0 Research Log | `ppswbs-spec/features/001-account-management/research.md` | **APPROVED** (Decisions D-01 đến D-19) |
 | 12 | Specification Checklist | `ppswbs-spec/features/001-account-management/checklists/requirements.md` | **APPROVED** (Audited 16/16 pass) |
 

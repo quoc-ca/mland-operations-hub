@@ -18,7 +18,7 @@
 - [x] **Written for non-technical stakeholders**
   *Evaluation*: **PASS**. Core scenarios read from the perspective of Customers, Staff, and Admins; business rules explain *what* happens rather than internal algorithms.
 - [x] **All mandatory sections completed**
-  *Evaluation*: **PASS**. Purpose and scope, Clarifications (through 2026-11-03), User Stories (US1–US5), Edge Cases, Functional Requirements (FR-001–FR-034), Key Entities, Success Criteria (SC-001–SC-007), Assumptions and Dependencies.
+  *Evaluation*: **PASS**. Purpose and scope, Clarifications (through 2026-11-03), User Stories (US1–US6), Edge Cases, Functional Requirements (FR-001–FR-040), Key Entities, Success Criteria (SC-001–SC-009), Assumptions and Dependencies.
 
 ---
 
@@ -33,7 +33,7 @@
 - [x] **Success criteria are technology-agnostic**
   *Evaluation*: **PASS**. Outcomes measure observable business states, response times, and compliance without dictating internal library methods.
 - [x] **All acceptance scenarios are defined**
-  *Evaluation*: **PASS**. Detailed Given/When/Then scenarios for all 5 user stories.
+  *Evaluation*: **PASS**. Detailed Given/When/Then scenarios for all 6 user stories.
 - [x] **Edge cases are identified**
   *Evaluation*: **PASS**. 11 distinct edge cases documented (provider failure, email collisions, unverified links, cross-device verification, concurrency conflict).
 - [x] **Scope is clearly bounded**
@@ -46,11 +46,11 @@
 ## Feature Readiness
 
 - [x] **All functional requirements have clear acceptance criteria**
-  *Evaluation*: **PASS**. 34 functional requirements mapped 1:1 to testable conditions and quickstart scenarios (V-01 through V-09).
+  *Evaluation*: **PASS**. 40 functional requirements mapped 1:1 to testable conditions and quickstart scenarios (V-01 through V-09).
 - [x] **User scenarios cover primary flows**
-  *Evaluation*: **PASS**. US1 (Customer personal), US2 (Self-service/verification), US3 (Admin provision), US4 (Admin suspend/restore), US5 (Role catalogue).
+  *Evaluation*: **PASS**. US1 (Customer personal), US2 (Self-service/verification), US3 (Admin provision), US4 (Admin suspend/restore), US5 (Role catalogue), US6 (Member shipping address book).
 - [x] **Feature meets measurable outcomes defined in Success Criteria**
-  *Evaluation*: **PASS**. Traceability from SC-001–SC-007 to verification scenarios in `verification.md`.
+  *Evaluation*: **PASS**. Traceability from SC-001–SC-009 to verification scenarios in `verification.md`.
 - [x] **No implementation details leak into specification**
   *Evaluation*: **PASS (with constitutional justification)**. Technical references are strictly confined to external architectural boundaries (Firebase bearer verification, REST opaque Account ID representation). No internal database schemas, private methods, or controller routes leaked into the core business requirement descriptions.
 
@@ -67,4 +67,4 @@
 ## Notes & Historical Traceability
 
 - Re-evaluated on 2026-11-03 following full synchronization of `contracts/account-management.openapi.yaml` (OpenAPI 3.1.0), `data-model.md`, and `verification.md`.
-- Clarifications up to 2026-11-03 (WF-08 Profile verification gate and 90-second cooldown) are fully reflected in FR-005, FR-006, and US2.
+- Clarifications up to 2026-11-03 (WF-08 Profile verification gate, 90-second cooldown, Timezone UTC+7 standardization, and Member shipping address book integration with FE-08) are fully reflected in FR-005, FR-006, FR-035–FR-040, US2, and US6.

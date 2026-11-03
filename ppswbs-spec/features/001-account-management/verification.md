@@ -31,6 +31,8 @@ Acceptance is split into two distinct tiers:
 | **V-07** | Workshop Consumer Facade (Facts & Roster) | FR-028, FR-029, FR-030, FR-031, FR-032 | Integration Test (Java Module Boundary) | **BACKEND VERIFIED** | `findEligibleRoster` returns only ACTIVE candidates with effective `activeWorkshopLocationIds`; `findTargetFacts` returns FOUND, NOT_FOUND, or UNAVAILABLE; zero entity/credential/PII leakage. | T010, T030 |
 | **V-08** | Shared Identity Gate & Security Boundaries | FR-026, FR-027, WF-01, WF-06 | Integration Test / HTTP | **BACKEND VERIFIED** | Missing/invalid/revoked bearer → 401; suspended account → 403; non-allowed origin → CORS blocked; gate resolves minimal actor without Workshop scope. | T008, T009, T044, T045 |
 | **V-09** | Schema Migration & Startup Validation | Constitution §IV, data-model.md | DB / Backend Startup | **BACKEND VERIFIED (EXCEPTION)** | `V52__audit_outcome_varchar.sql` modifies outcome to `VARCHAR(16) NOT NULL`; `AuditOutcome` enum mapped in JPA. MySQL environment exception documented. | T001, T002, T003 |
+| **V-10** | Member Shipping Address Book & FE-08 Facade Snapshot | FR-036–FR-040, SC-008 | Integration Test / HTTP API & Facade | **PENDING IMPLEMENTATION** | Quota max 10 addresses; auto-default on first; default swap atomically; delete default blocked when multiple exist; phone normalized (^0[35789]\d{8}$); GHTK cascading divisions; FE-08 immutable order snapshot. | T055–T063 |
+| **V-11** | System-wide Timezone Standardization (UTC+7) | FR-035, SC-009 | DB & Configuration Verification | **PENDING IMPLEMENTATION** | MySQL `DATETIME(6)` stores Vietnam wall-clock time directly (`Asia/Ho_Chi_Minh`); JDBC connectionTimeZone enforces session time; JVM default timezone and Jackson ISO-8601 offset verified. | T053, T054 |
 
 ---
 
@@ -48,6 +50,8 @@ The following items have been statically validated across design artifacts (`spe
 | **Error Contract** | Shared error envelope `{ code, message, correlationId, timestamp, fieldErrors? }` implemented in `AccountExceptionHandler.java`. | **PASS** | `AccountExceptionHandler.java`, `ErrorResponse.java` |
 | **CORS & Transport** | Local CORS exact origin `http://localhost:5173`; `Access-Control-Allow-Credentials: false`; bearer-only transport. | **PASS** | `SecurityConfiguration.java`, plan.md |
 | **WF-08 Email Gate Design** | Firebase-default verification handler; no custom Mland callback/webhook/job; 90-second Account-ID-keyed `localStorage` cooldown; `verifyBeforeUpdateEmail`. | **PASS** | `design/workflows.md` WF-08, `spec.md` FR-005/006 |
+| **Timezone UTC+7 Standardization** | `connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true` in JDBC URL; JVM default timezone; Jackson ISO-8601 format with +07:00; MySQL DATETIME stores Vietnam local time directly. | **PASS** | `spec.md` FR-035, `data-model.md` |
+| **Member Shipping Address Book Design** | Shopee model: max 10 addresses; phone normalized to 10 digits; first address auto-default; default deletion protected; GHTK levels 1-4 supported; FE-08 immutable order snapshot. | **PASS** | `spec.md` FR-036–040, `data-model.md`, `contracts/interfaces.md`, `contracts/account-management.openapi.yaml` |
 
 ---
 

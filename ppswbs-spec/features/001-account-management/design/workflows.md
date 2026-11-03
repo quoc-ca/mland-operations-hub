@@ -19,6 +19,8 @@
 | WF-08 | Profile verification gate | Owner opens Profile / activates reload icon | FR-004–006 | Flow 3 | proposed |
 | WF-06 | Browser transport and typed errors | Browser/API caller | FR-025, 027 | Flows 1–4 | Local policy approved; non-local operations open |
 | WF-07 | Schema/configuration startup | Service runtime/operator | Constitution; data-model | Persistence/config boundary | Designed; runtime verification pending |
+| WF-09 | Member shipping address book | Authenticated Member | FR-036–039 | Flow 7 | Designed |
+| WF-10 | Shipping address snapshot for FE-008 | FE-008 checkout process | FR-040 | Flow 8 | Designed |
 
 ## WF-01: Bearer admission and current actor
 
@@ -175,3 +177,39 @@
 | Non-local origins, deployment and observability | No production transport/operations claim | Deployment owner provides approved source |
 | Accessibility/browser baseline | UI testable acceptance incomplete | Frontend foundation owner provides approved source |
 | Revised verification-required gate | Existing draft did not specify refresh, sync, recovery or no-job constraint | Tech Lead approves the revised workflow and canonical OpenAPI route |
+
+
+## WF-09: Member shipping address book management
+
+- **Trigger and actor**: Authenticated Member in Profile (`/profile/addresses`) or during Checkout in FE-08 modal.
+- **Preconditions and authorization**: WF-01 resolves caller with role `MEMBER`. Only the owning Member can view or mutate addresses.
+- **Related architecture flow**: Flow 7.
+
+1. **List/Default Query**: `GET /api/v1/accounts/me/addresses` returns all active addresses for the Member. `GET /api/v1/accounts/me/addresses/default` returns the default address or empty.
+2. **Add Address**: `POST /api/v1/accounts/me/addresses`:
+   - Checks existing count: if already >= 10, rejects with `409 ADDRESS_LIMIT_EXCEEDED`.
+   - Normalizes phone number: strips spaces/delimiters, converts `+84`/`84` to `0`, validates against `^0[35789]\d{8}$`.
+   - Validates province, district, ward (and optional level-4 hamlet) against administrative division catalogue.
+   - If first address, auto-sets `is_default = true`.
+   - If `is_default == true` requested, atomically clears `is_default` on previous default address in the same transaction.
+   - Persists into `member_addresses` with timestamps in `Asia/Ho_Chi_Minh`.
+3. **Update Address**: `PUT /api/v1/accounts/me/addresses/{addressId}`:
+   - Validates ownership (`account_id == currentActor.id`); returns `404` or `403` if mismatch.
+   - Normalizes phone and updates fields. If set to default, unsets previous default atomically.
+4. **Delete Address**: `DELETE /api/v1/accounts/me/addresses/{addressId}`:
+   - Validates ownership.
+   - If `is_default == true` AND total address count > 1: rejects deletion with `400/409` (must set another default first).
+   - If single address or non-default address: physically deletes row (Hard Delete).
+5. **Set Default**: `PATCH /api/v1/accounts/me/addresses/{addressId}/default`:
+   - Atomically updates target to `is_default = true` and previous default to `false`.
+
+## WF-10: Shipping address snapshot for FE-008
+
+- **Trigger and actor**: FE-008 Retail Order & Fulfillment checkout service.
+- **Preconditions**: Customer is checking out an order.
+- **Related architecture flow**: Flow 8.
+
+1. FE-008 invokes Java Modulith facade: `AccountFacade.findDefaultShippingAddress(accountId)` or `findShippingAddressById(accountId, addressId)`.
+2. Facade queries `member_addresses` for the given account ID and returns `Optional<MemberAddressSnapshot>`.
+3. FE-008 clones all snapshot fields (`recipientName`, `phoneNumber`, `provinceId`, `provinceName`, `districtId`, `districtName`, `wardId`, `wardName`, `hamletId`, `hamletName`, `detailAddress`, `addressType`) directly into its order persistence.
+4. Subsequent modifications or deletions of the address in FE-001 have zero side effects on existing FE-008 orders.

@@ -692,6 +692,235 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenError'
 
+  /api/v1/accounts/me/addresses:
+    get:
+      summary: List current Member shipping addresses
+      description: Returns up to 10 shipping addresses owned by the authenticated Member, ordered with default address first.
+      operationId: getOwnAddresses
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: List of member shipping addresses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AddressResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+    post:
+      summary: Add new shipping address
+      description: Adds a new shipping address. Validates phone number to 10-digit VN format, enforces max 10 addresses quota. Auto-sets default if first address.
+      operationId: createOwnAddress
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressCreateRequest'
+      responses:
+        '201':
+          description: Shipping address created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /api/v1/accounts/me/addresses/default:
+    get:
+      summary: Get default shipping address
+      description: Returns the default shipping address for the authenticated Member, or 404 if no address is configured.
+      operationId: getDefaultAddress
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Default shipping address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/v1/accounts/me/addresses/{addressId}:
+    put:
+      summary: Update shipping address
+      description: Updates an existing shipping address owned by the authenticated Member.
+      operationId: updateOwnAddress
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: addressId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressUpdateRequest'
+      responses:
+        '200':
+          description: Address updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Delete shipping address
+      description: Physically removes a shipping address. Rejects deletion if address is default and other addresses exist.
+      operationId: deleteOwnAddress
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: addressId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '204':
+          description: Address deleted successfully
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /api/v1/accounts/me/addresses/{addressId}/default:
+    patch:
+      summary: Set address as default
+      description: Designates the address as default and unsets the previous default address atomically.
+      operationId: setDefaultAddress
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: addressId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Default address updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/v1/addresses/provinces:
+    get:
+      summary: List standard administrative provinces
+      description: Returns standard Vietnam provinces/cities compatible with GHTK.
+      operationId: listProvinces
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: List of provinces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdministrativeDivisionResponse'
+
+  /api/v1/addresses/districts:
+    get:
+      summary: List districts for province
+      description: Returns standard districts for a given province ID.
+      operationId: listDistricts
+      parameters:
+        - name: provinceId
+          in: query
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: List of districts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdministrativeDivisionResponse'
+
+  /api/v1/addresses/wards:
+    get:
+      summary: List wards for district
+      description: Returns standard wards/communes (and optional Level 4 hamlets) for a given district ID.
+      operationId: listWards
+      parameters:
+        - name: districtId
+          in: query
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: List of wards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdministrativeDivisionResponse'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1161,6 +1390,207 @@ components:
           type: string
         message:
           type: string
+
+    AddressType:
+      type: string
+      enum:
+        - HOME
+        - OFFICE
+      description: Shipping address classification label (Shopee model)
+
+    AddressResponse:
+      type: object
+      required:
+        - id
+        - recipientName
+        - phoneNumber
+        - provinceName
+        - districtName
+        - wardName
+        - detailAddress
+        - addressType
+        - isDefault
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+        recipientName:
+          type: string
+          example: Nguyen Van A
+        phoneNumber:
+          type: string
+          pattern: '^0[35789]\d{8}$'
+          example: '0901234567'
+        provinceId:
+          type: string
+          nullable: true
+          example: 'HCM'
+        provinceName:
+          type: string
+          example: Thành phố Hồ Chí Minh
+        districtId:
+          type: string
+          nullable: true
+          example: 'Q1'
+        districtName:
+          type: string
+          example: Quận 1
+        wardId:
+          type: string
+          nullable: true
+          example: 'PBN'
+        wardName:
+          type: string
+          example: Phường Bến Nghé
+        hamletId:
+          type: string
+          nullable: true
+        hamletName:
+          type: string
+          nullable: true
+        detailAddress:
+          type: string
+          example: 123 Đường Lê Duẩn
+        addressType:
+          $ref: '#/components/schemas/AddressType'
+        isDefault:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-11-03T22:30:00+07:00'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-11-03T22:30:00+07:00'
+
+    AddressCreateRequest:
+      type: object
+      required:
+        - recipientName
+        - phoneNumber
+        - provinceName
+        - districtName
+        - wardName
+        - detailAddress
+      properties:
+        recipientName:
+          type: string
+          minLength: 1
+          maxLength: 255
+        phoneNumber:
+          type: string
+          description: Vietnamese mobile phone number (normalized to 10 digits)
+          example: '0901234567'
+        provinceId:
+          type: string
+          nullable: true
+        provinceName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        districtId:
+          type: string
+          nullable: true
+        districtName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        wardId:
+          type: string
+          nullable: true
+        wardName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        hamletId:
+          type: string
+          nullable: true
+        hamletName:
+          type: string
+          nullable: true
+        detailAddress:
+          type: string
+          minLength: 1
+          maxLength: 255
+        addressType:
+          $ref: '#/components/schemas/AddressType'
+          default: HOME
+        isDefault:
+          type: boolean
+          default: false
+
+    AddressUpdateRequest:
+      type: object
+      required:
+        - recipientName
+        - phoneNumber
+        - provinceName
+        - districtName
+        - wardName
+        - detailAddress
+      properties:
+        recipientName:
+          type: string
+          minLength: 1
+          maxLength: 255
+        phoneNumber:
+          type: string
+          example: '0901234567'
+        provinceId:
+          type: string
+          nullable: true
+        provinceName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        districtId:
+          type: string
+          nullable: true
+        districtName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        wardId:
+          type: string
+          nullable: true
+        wardName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        hamletId:
+          type: string
+          nullable: true
+        hamletName:
+          type: string
+          nullable: true
+        detailAddress:
+          type: string
+          minLength: 1
+          maxLength: 255
+        addressType:
+          $ref: '#/components/schemas/AddressType'
+        isDefault:
+          type: boolean
+
+    AdministrativeDivisionResponse:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          example: 'HCM'
+        name:
+          type: string
+          example: Thành phố Hồ Chí Minh
+        code:
+          type: string
+          nullable: true
 
   responses:
     ValidationError:
