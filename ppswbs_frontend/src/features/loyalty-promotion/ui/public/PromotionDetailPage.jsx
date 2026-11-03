@@ -29,7 +29,7 @@ export default function PromotionDetailPage() {
           <section className="workspace-card">
             <div className="card-head"><ScopeBadge scope={promotion.data.scope} /><span className="muted">{t(`kind.${promotion.data.kind}`)}</span></div>
             {promotion.data.code && <p className="mono code-chip">{promotion.data.code}</p>}
-            <p><strong><DiscountText discount={promotion.data.discount} /></strong></p>
+            <p className="discount-line"><DiscountText discount={promotion.data.discount} /></p>
             <Terms item={promotion.data} labels={labels} />
             {promotion.data.kind === 'VOUCHER' && <div className="form-actions"><SaveVoucherButton promotion={promotion.data} /></div>}
           </section>

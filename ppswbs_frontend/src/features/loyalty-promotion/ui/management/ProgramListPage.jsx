@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
-import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
+import { useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, SuccessNotice } from '../../../../shared/ui/components';
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
-import { DiscountText, ScopeBadge } from '../display';
+import { DiscountText, ScopeBadge, useDateTime } from '../display';
 import { messages } from '../messages';
 import { PageTop } from './PromotionManagementLayout';
 import { useCursorList } from '../../application/useCursorList';
@@ -11,7 +11,7 @@ import { useCursorList } from '../../application/useCursorList';
 /** T030: programme list with scope/status filters (in the URL) and cursor paging. */
 export default function ProgramListPage() {
   const t = useT(messages);
-  const format = useFormat();
+  const dateTime = useDateTime();
   const api = useLoyaltyApi();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
@@ -64,7 +64,7 @@ export default function ProgramListPage() {
                 <span role="cell"><Link className="text-link" to={`/promotion-management/programs/${encodeURIComponent(program.id)}`}>{program.name}</Link>{program.code && <span className="mono"> · {program.code}</span>}</span>
                 <span role="cell">{t(`kind.${program.kind}`)} <ScopeBadge scope={program.scope} /></span>
                 <span role="cell"><DiscountText discount={program.discount} /></span>
-                <span role="cell">{format.dateTime(program.startAt)} – {format.dateTime(program.endAt)}</span>
+                <span role="cell">{dateTime(program.startAt)} – {dateTime(program.endAt)}</span>
                 <span role="cell"><span className={program.status === 'ENABLED' ? 'status ok' : 'status'}>{t(`status.${program.status}`)}</span></span>
               </div>
             ))}
