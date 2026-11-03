@@ -7,6 +7,9 @@ ALTER TABLE retail_orders
 ALTER TABLE retail_variant_holds
     DROP FOREIGN KEY fk_retail_variant_holds_checkout;
 
+ALTER TABLE retail_checkout_holds
+    DROP FOREIGN KEY fk_retail_checkout_holds_checkout;
+
 ALTER TABLE retail_grouped_checkouts
     MODIFY COLUMN id VARCHAR(36) NOT NULL;
 

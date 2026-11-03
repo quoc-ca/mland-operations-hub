@@ -11,6 +11,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.Wor
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopTicketConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopUnauthorizedException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopValidationException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopIdempotencyConflictException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopIdempotencyInProgressException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopRateLimitException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -79,6 +81,13 @@ public class WorkshopOperationsExceptionHandler {
             WorkshopValidationException ex, HttpServletRequest request) {
         String correlationId = resolveCorrelationId(request);
         return buildResponse(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Validation Error", ex.getMessage(), correlationId);
+    }
+
+    @ExceptionHandler({WorkshopIdempotencyConflictException.class, WorkshopIdempotencyInProgressException.class})
+    public ResponseEntity<ProblemDetailResponse> handleIdempotencyConflict(RuntimeException ex, HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        String code = ex instanceof WorkshopIdempotencyInProgressException ? "IDEMPOTENCY_IN_PROGRESS" : "IDEMPOTENCY_CONFLICT";
+        return buildResponse(HttpStatus.CONFLICT, code, "Idempotency Conflict", ex.getMessage(), correlationId);
     }
 
     @ExceptionHandler(WorkshopRateLimitException.class)

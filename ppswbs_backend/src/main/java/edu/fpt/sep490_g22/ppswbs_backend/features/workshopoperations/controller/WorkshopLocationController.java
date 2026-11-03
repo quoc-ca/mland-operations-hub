@@ -29,6 +29,7 @@ public class WorkshopLocationController {
 
     private final WorkshopLocationService locationService;
     private final WorkshopSlotService slotService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OperationsRestIdempotencyService restIdempotency;
 
     @GetMapping
     public ResponseEntity<List<LocationResponse>> listLocations(
@@ -40,8 +41,10 @@ public class WorkshopLocationController {
     @PostMapping
     public ResponseEntity<LocationResponse> createLocation(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody LocationRequest request) {
-        LocationResponse response = locationService.createLocation(authHeader, request);
+        LocationResponse response = restIdempotency.execute(idempotencyKey, "REST:POST:/api/v1/workshop-locations", "location:create", request,
+                LocationResponse.class, () -> locationService.createLocation(authHeader, request));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -57,8 +60,10 @@ public class WorkshopLocationController {
     public ResponseEntity<SlotResponse> createSlot(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable("locationId") Long locationId,
+            @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody SlotRequest request) {
-        SlotResponse response = slotService.createSlot(authHeader, locationId, request);
+        SlotResponse response = restIdempotency.execute(idempotencyKey, "REST:POST:/api/v1/workshop-locations/{locationId}/slots", "slot:create:" + locationId,
+                request, SlotResponse.class, () -> slotService.createSlot(authHeader, locationId, request));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

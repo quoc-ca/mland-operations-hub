@@ -120,6 +120,35 @@ class WorkshopPackageServiceTest {
         assertThat(published.getState()).isEqualTo(WorkshopPackageState.RETIRED);
     }
 
+    @Test
+    void retiredPackageCannotBeEdited() {
+        WorkshopPackage retired = packageEntity(55L, WorkshopPackageState.RETIRED);
+        when(packageRepository.findByIdWithLock(55L)).thenReturn(Optional.of(retired));
+
+        assertThatThrownBy(() -> packageService.updateProspectively(55L, request(700_000L), 17L, "corr-edit-retired"))
+                .isInstanceOf(WorkshopLifecycleException.class)
+                .hasMessageContaining("Retired Workshop Package cannot be edited");
+    }
+
+    @Test
+    void managementListingIncludesAllLifecycleStatesAndSupportsStateFilter() {
+        WorkshopPackage draft = packageEntity(61L, WorkshopPackageState.DRAFT);
+        WorkshopPackage published = packageEntity(62L, WorkshopPackageState.PUBLISHED);
+        WorkshopPackage retired = packageEntity(63L, WorkshopPackageState.RETIRED);
+        when(packageRepository.findAllByOrderByIdAsc()).thenReturn(List.of(draft, published, retired));
+        when(packageRepository.findByStateOrderByIdAsc(WorkshopPackageState.DRAFT)).thenReturn(List.of(draft));
+
+        assertThat(packageService.listForManagement(null))
+                .extracting(item -> item.getPackageId())
+                .containsExactly(61L, 62L, 63L);
+        assertThat(packageService.listForManagement(
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.WorkshopPackageState.DRAFT))
+                .extracting(item -> item.getPackageId())
+                .containsExactly(61L);
+        verify(packageRepository).findAllByOrderByIdAsc();
+        verify(packageRepository).findByStateOrderByIdAsc(WorkshopPackageState.DRAFT);
+    }
+
     private static WorkshopPackage packageEntity(Long id, WorkshopPackageState state) {
         return WorkshopPackage.builder().id(id).name("Basic Ring").description("Test")
                 .publicPrice(500_000L).minParticipants(1).maxParticipants(10).requiredSessionCount(1)

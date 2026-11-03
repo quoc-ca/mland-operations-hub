@@ -118,6 +118,32 @@ class WorkshopPackageIT {
     }
 
     @Test
+    void managerCanReloadEveryPackageLifecycleStateAndFilterByState() throws Exception {
+        Long managerId = 73003L;
+        when(authenticationService.authenticate("Bearer package-manager"))
+                .thenReturn(new AccountSummary(managerId, ActorRole.MANAGER, ActorStatus.ACTIVE,
+                        "package-manager@example.invalid", Instant.EPOCH, Instant.EPOCH));
+        WorkshopPackage draft = createPackage("Management Draft", 1, 4, 1, 0, WorkshopPackageState.DRAFT);
+        WorkshopPackage published = createPackage("Management Published", 1, 4, 1, 0, WorkshopPackageState.PUBLISHED);
+        WorkshopPackage retired = createPackage("Management Retired", 1, 4, 1, 0, WorkshopPackageState.RETIRED);
+
+        mockMvc.perform(get("/api/v1/workshop-package-management/packages")
+                        .header("Authorization", "Bearer package-manager"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.packageId == " + draft.getId() + ")].state").value(List.of("DRAFT")))
+                .andExpect(jsonPath("$[?(@.packageId == " + published.getId() + ")].state").value(List.of("PUBLISHED")))
+                .andExpect(jsonPath("$[?(@.packageId == " + retired.getId() + ")].state").value(List.of("RETIRED")));
+
+        mockMvc.perform(get("/api/v1/workshop-package-management/packages")
+                        .queryParam("state", "DRAFT")
+                        .header("Authorization", "Bearer package-manager"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.packageId == " + draft.getId() + ")].state").value(List.of("DRAFT")))
+                .andExpect(jsonPath("$[?(@.packageId == " + published.getId() + ")]").doesNotExist())
+                .andExpect(jsonPath("$[?(@.packageId == " + retired.getId() + ")]").doesNotExist());
+    }
+
+    @Test
     void basicRingAndSilverclayRemainGenericPublishedConfiguration() {
         WorkshopPackage basic = createPackage("Basic Ring", 1, 10, 1, 0, WorkshopPackageState.PUBLISHED);
         WorkshopPackage silverclay = createPackage("Silverclay", 2, 8, 2, 1, WorkshopPackageState.PUBLISHED);
