@@ -1,2 +1,6 @@
 __pycache__/
 *.py[cod]
+
+/local-notes
+logs/
+ppswbs_backend/logs/

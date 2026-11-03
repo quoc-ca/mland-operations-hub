@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: Mland VNPay Payment Ingress
+  version: 1.0.0-draft
+  description: >-
+    One technical provider ingress shared by Workshop Booking (003.1) and
+    Workshop Settlement and Changes (003.3). It is not client REST and does not
+    expose either feature's internal facade. External configuration prerequisites
+    and redacted acceptance evidence are defined in
+    vnpay-configuration-preflight.md; no credential is represented here.
+paths:
+  /api/v1/integrations/payments/vnpay/events:
+    get:
+      summary: Receive one signed VNPay IPN and dispatch verified evidence
+      description: >-
+        HTTPS provider ingress only. Verify VNPAY checksum before lookup; then
+        deduplicate provider delivery and resolve the immutable owner-qualified
+        merchant reference. Dispatch redacted verified evidence to exactly one
+        owner: DEPOSIT to WorkshopBookingFacade, FINAL_PAYMENT or REFUND to
+        WorkshopSettlementFacade. Unknown, ambiguous, mismatched, invalid, or
+        already-terminal references cause no business-state side effect. QueryDR
+        and refund invocation are outbound server-to-server operations, not
+        additional inbound routes. Browser Return URL never confirms payment.
+      parameters:
+        - {name: vnp_TxnRef, in: query, required: true, schema: {type: string}}
+        - {name: vnp_Amount, in: query, required: true, schema: {type: string}}
+        - {name: vnp_ResponseCode, in: query, required: true, schema: {type: string}}
+        - {name: vnp_TransactionStatus, in: query, required: false, schema: {type: string}}
+        - {name: vnp_TransactionNo, in: query, required: false, schema: {type: string}}
+        - {name: vnp_SecureHash, in: query, required: true, schema: {type: string, writeOnly: true}}
+      responses:
+        '200':
+          description: VNPay acknowledgement including safe duplicate acknowledgement
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VnPayAcknowledgement'}
+components:
+  schemas:
+    VnPayAcknowledgement:
+      type: object
+      required: [RspCode, Message]
+      properties:
+        RspCode: {type: string}
+        Message: {type: string}

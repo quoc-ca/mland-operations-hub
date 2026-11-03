@@ -1,0 +1,252 @@
+openapi: 3.0.3
+info:
+  title: Mland Manager Dashboard API
+  version: 1.0.0
+  description: Read-only executive revenue dashboard for authorized Managers.
+servers:
+  - url: /api/v1
+paths:
+  /executive-reports:
+    get:
+      operationId: getExecutiveReport
+      summary: Get the executive revenue report for an authorized branch scope
+      description: >-
+        Returns verified retail revenue, final paid workshop revenue, paid
+        retail order count, workshop utilization, and source-quality metadata.
+        Absence of locationId means all locations authorized for the Manager.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: periodType
+          in: query
+          required: false
+          description: Calendar period interpreted in Asia/Ho_Chi_Minh. Defaults to MONTH.
+          schema:
+            $ref: '#/components/schemas/PeriodType'
+        - name: anchorDate
+          in: query
+          required: false
+          description: Local date contained by the requested period. Defaults to today in Asia/Ho_Chi_Minh.
+          schema:
+            type: string
+            format: date
+        - name: locationId
+          in: query
+          required: false
+          description: Repeat to request multiple authorized branches. Omit for all authorized branches.
+          style: form
+          explode: true
+          schema:
+            type: array
+            uniqueItems: true
+            items:
+              type: integer
+              format: int64
+      responses:
+        '200':
+          description: Complete, empty, or explicitly partial dashboard data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutiveReportResponse'
+        '400':
+          description: Invalid period or request parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid authenticated identity.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Principal lacks Manager reporting capability or requested an unauthorized branch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: All required reporting sources are unavailable.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase-ID-Token
+  schemas:
+    PeriodType:
+      type: string
+      enum: [DAY, WEEK, MONTH, YEAR]
+      default: MONTH
+    DashboardStatus:
+      type: string
+      enum: [COMPLETE, EMPTY, PARTIAL]
+    SourceName:
+      type: string
+      enum: [RETAIL, WORKSHOP_REVENUE, WORKSHOP_CAPACITY, ATTENDANCE]
+    SourceStatus:
+      type: string
+      enum: [COMPLETE, EMPTY, UNAVAILABLE]
+    ReportingScope:
+      type: object
+      additionalProperties: false
+      required: [periodType, startAt, endAt, timezone, locationIds]
+      properties:
+        periodType:
+          $ref: '#/components/schemas/PeriodType'
+        startAt:
+          type: string
+          format: date-time
+          description: Inclusive reporting boundary.
+        endAt:
+          type: string
+          format: date-time
+          description: Exclusive reporting boundary, or the current instant for the default current-month view.
+        timezone:
+          type: string
+          enum: [Asia/Ho_Chi_Minh]
+        locationIds:
+          type: array
+          uniqueItems: true
+          items:
+            type: integer
+            format: int64
+    KpiValues:
+      type: object
+      additionalProperties: false
+      required:
+        - retailRevenue
+        - workshopRevenue
+        - totalRevenue
+        - paidRetailOrderCount
+        - checkedInParticipants
+        - completedSessionCapacity
+        - workshopUtilizationPercent
+      properties:
+        retailRevenue:
+          $ref: '#/components/schemas/NullableDecimalString'
+        workshopRevenue:
+          $ref: '#/components/schemas/NullableDecimalString'
+        totalRevenue:
+          $ref: '#/components/schemas/NullableDecimalString'
+        paidRetailOrderCount:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 0
+        checkedInParticipants:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 0
+        completedSessionCapacity:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 0
+        workshopUtilizationPercent:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          description: Weighted checked-in participants divided by configured capacity, multiplied by 100.
+    NullableDecimalString:
+      type: string
+      nullable: true
+      pattern: '^(0|[1-9][0-9]{0,18})$'
+      description: Non-negative base-10 integer string for VND values, preventing JavaScript precision loss.
+    BranchKpi:
+      type: object
+      additionalProperties: false
+      required: [locationId, branchName, currency, values]
+      properties:
+        locationId:
+          type: integer
+          format: int64
+        branchName:
+          type: string
+        currency:
+          type: string
+          enum: [VND]
+          description: FE-10 V1 reporting currency. A non-VND source fact is reported through partial quality metadata and is never converted.
+        values:
+          $ref: '#/components/schemas/KpiValues'
+    SourceQuality:
+      type: object
+      additionalProperties: false
+      required: [source, status]
+      properties:
+        source:
+          $ref: '#/components/schemas/SourceName'
+        status:
+          $ref: '#/components/schemas/SourceStatus'
+          description: A successful source read is COMPLETE or EMPTY. UNAVAILABLE means the source could not be read and its affected KPI is not treated as zero.
+        asOf:
+          type: string
+          format: date-time
+          nullable: true
+        safeReasonCode:
+          type: string
+          nullable: true
+          description: Safe machine-readable reason without internal or personal data.
+    ExecutiveReportResponse:
+      type: object
+      additionalProperties: false
+      required: [scope, status, currency, totals, branches, quality, lastUpdatedAt]
+      properties:
+        scope:
+          $ref: '#/components/schemas/ReportingScope'
+        status:
+          $ref: '#/components/schemas/DashboardStatus'
+        currency:
+          type: string
+          enum: [VND]
+          description: FE-10 V1 reporting currency.
+        totals:
+          $ref: '#/components/schemas/KpiValues'
+        branches:
+          type: array
+          items:
+            $ref: '#/components/schemas/BranchKpi'
+        quality:
+          type: array
+          minItems: 4
+          items:
+            $ref: '#/components/schemas/SourceQuality'
+        lastUpdatedAt:
+          type: string
+          format: date-time
+          description: Last successful dashboard update instant, rendered to the user in Asia/Ho_Chi_Minh.
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code, correlationId]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - INVALID_REPORTING_PERIOD
+            - AUTHENTICATION_REQUIRED
+            - MANAGER_REPORTING_FORBIDDEN
+            - BRANCH_SCOPE_FORBIDDEN
+            - REPORTING_SOURCES_UNAVAILABLE
+        detail:
+          type: string
+        correlationId:
+          type: string

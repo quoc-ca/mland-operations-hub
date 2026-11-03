@@ -30,13 +30,25 @@ def _run_git(arguments: list[str]) -> str:
     return completed.stdout
 
 
-def git_history_entries(start: Path, source: Path) -> tuple[GitCommit, ...]:
-    """Return commits touching ``source``, newest first, from its containing Git repository."""
+def git_history_entries_for_paths(start: Path, sources: tuple[Path, ...]) -> tuple[GitCommit, ...]:
+    """Return commits touching one or more sources, newest first.
+
+    A single ``git log -- <path>...`` invocation is intentional: Git emits a
+    commit once even when it changed several legacy paths.  This lets a new
+    template bundle retain provenance from multiple retired source bundles
+    without duplicating rows in its change log.
+    """
+    if not sources:
+        raise GitHistoryError("At least one history source is required.")
     git_root = Path(_run_git(["git", "-C", str(start), "rev-parse", "--show-toplevel"]).strip()).resolve()
-    try:
-        relative_source = source.resolve().relative_to(git_root).as_posix()
-    except ValueError as exc:
-        raise GitHistoryError(f"Source path is outside its Git repository: {source}") from exc
+    relative_sources: list[str] = []
+    for source in sources:
+        try:
+            relative_source = source.resolve().relative_to(git_root).as_posix()
+        except ValueError as exc:
+            raise GitHistoryError(f"Source path is outside its Git repository: {source}") from exc
+        if relative_source not in relative_sources:
+            relative_sources.append(relative_source)
 
     output = _run_git(
         [
@@ -47,7 +59,7 @@ def git_history_entries(start: Path, source: Path) -> tuple[GitCommit, ...]:
             "--date=short",
             "--format=%h%x1f%ad%x1f%an%x1f%s%x1e",
             "--",
-            relative_source,
+            *relative_sources,
         ]
     )
     entries: list[GitCommit] = []
@@ -59,6 +71,11 @@ def git_history_entries(start: Path, source: Path) -> tuple[GitCommit, ...]:
             raise GitHistoryError("Git returned an invalid change-history record.")
         entries.append(GitCommit(short_sha=fields[0], date=fields[1], author=fields[2], subject=fields[3]))
     return tuple(entries)
+
+
+def git_history_entries(start: Path, source: Path) -> tuple[GitCommit, ...]:
+    """Return commits touching one source; compatibility wrapper."""
+    return git_history_entries_for_paths(start, (source,))
 
 
 def markdown_change_history(entries: tuple[GitCommit, ...]) -> str:
@@ -74,4 +91,22 @@ def markdown_change_history(entries: tuple[GitCommit, ...]) -> str:
         subject = entry.subject.replace("|", "\\|").replace("\n", " ")
         author = entry.author.replace("|", "\\|").replace("\n", " ")
         rows.append(f"| `{entry.short_sha}` | {entry.date} | {subject} | {author} |")
+    return "\n".join(rows)
+
+
+def markdown_template_change_history(entries: tuple[GitCommit, ...], *, default_action: str = "M") -> str:
+    """Format history with the SEP490 template's change-log schema."""
+    if default_action not in {"A", "M", "D"}:
+        raise ValueError("default_action must be A, M, or D.")
+    rows = [
+        "| Date | A/M/D | In charge | Change Description |",
+        "| --- | --- | --- | --- |",
+    ]
+    if not entries:
+        rows.append("| — | — | — | No committed changes found for the configured history paths. |")
+        return "\n".join(rows)
+    for entry in entries:
+        subject = entry.subject.replace("|", "\\|").replace("\n", " ")
+        author = entry.author.replace("|", "\\|").replace("\n", " ")
+        rows.append(f"| {entry.date} | {default_action} | {author} | {subject} |")
     return "\n".join(rows)

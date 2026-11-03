@@ -1,0 +1,486 @@
+openapi: 3.0.3
+info:
+  title: Mland Workshop Operations API
+  version: 1.0.0-draft
+  description: >-
+    Public discovery plus globally authorized Manager and location-scoped Staff API for Workshop
+    Packages, fixed workshop add-ons, canonical workshop locations, slots,
+    sessions, attendance and exception audit. Authorization is evaluated server-side.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /workshop-packages:
+    get:
+      summary: Browse published Workshop Packages
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/PackageList' }
+    post:
+      summary: Create a draft Workshop Package as an active Manager (global scope)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageWrite' } } } }
+      responses:
+        '201': { $ref: '#/components/responses/Package' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}:
+    parameters: [ { $ref: '#/components/parameters/PackageId' } ]
+    get:
+      summary: Get one published Workshop Package
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/Package' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      summary: Prospectively update a Workshop Package as an active Manager without changing lifecycle state
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageWrite' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Package' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}/lifecycle-transitions:
+    parameters: [ { $ref: '#/components/parameters/PackageId' } ]
+    post:
+      summary: Publish or retire a Workshop Package as an active Manager
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageLifecycleTransitionRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Package' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}/sessions:
+    parameters: [ { $ref: '#/components/parameters/PackageId' } ]
+    get:
+      summary: Discover customer-selectable future sessions for one published Workshop Package at one location
+      security: []
+      parameters:
+        - { name: locationId, in: query, required: true, schema: { type: integer, format: int64 } }
+        - { name: from, in: query, required: false, schema: { type: string, format: date } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date } }
+      responses:
+        '200': { $ref: '#/components/responses/CustomerSessionAvailabilityList' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}/locations/{locationId}/add-ons:
+    parameters:
+      - { $ref: '#/components/parameters/PackageId' }
+      - { $ref: '#/components/parameters/LocationId' }
+    get:
+      summary: List active fixed-price add-ons for a published Package at an active location
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/AddOnList' }
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      summary: Create a draft fixed-price add-on as a globally authorized active Manager
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AddOnWrite' } } } }
+      responses:
+        '201': { $ref: '#/components/responses/AddOn' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}/locations/{locationId}/add-ons/{addOnReference}:
+    parameters:
+      - { $ref: '#/components/parameters/PackageId' }
+      - { $ref: '#/components/parameters/LocationId' }
+      - { $ref: '#/components/parameters/AddOnReference' }
+    patch:
+      summary: Prospectively update a draft or active add-on as a globally authorized active Manager
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AddOnWrite' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/AddOn' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}/locations/{locationId}/add-ons/{addOnReference}/lifecycle-transitions:
+    parameters:
+      - { $ref: '#/components/parameters/PackageId' }
+      - { $ref: '#/components/parameters/LocationId' }
+      - { $ref: '#/components/parameters/AddOnReference' }
+    post:
+      summary: Activate a draft add-on or retire an active add-on as a globally authorized active Manager
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AddOnLifecycleTransitionRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/AddOn' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-locations:
+    get:
+      summary: List workshop locations visible to the actor
+      responses:
+        '200': { $ref: '#/components/responses/LocationList' }
+        '401': { $ref: '#/components/responses/Problem' }
+    post:
+      summary: Create a workshop location
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LocationWrite' } } } }
+      responses:
+        '201': { $ref: '#/components/responses/Location' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /workshop-locations/{locationId}/slots:
+    parameters: [ { $ref: '#/components/parameters/LocationId' } ]
+    get:
+      summary: List location slots
+      responses:
+        '200': { $ref: '#/components/responses/SlotList' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      summary: Create a reusable non-overlapping slot
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SlotWrite' } } } }
+      responses:
+        '201': { $ref: '#/components/responses/Slot' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-slots/{slotId}:
+    parameters: [ { $ref: '#/components/parameters/SlotId' } ]
+    patch:
+      summary: Edit a reusable slot or change its active flag
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SlotWrite' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Slot' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions:
+    get:
+      summary: Search sessions within the actor's location scope
+      parameters:
+        - { name: locationId, in: query, schema: { type: integer, format: int64 } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: state, in: query, schema: { $ref: '#/components/schemas/SessionState' } }
+      responses:
+        '200': { $ref: '#/components/responses/SessionList' }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      summary: Create one future session in DRAFT by default
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SessionWrite' } } } }
+      responses:
+        '201': { $ref: '#/components/responses/Session' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/bulk:
+    post:
+      summary: Generate bounded future sessions and report duplicates skipped
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BulkSessionRequest' } } } }
+      responses:
+        '201': { $ref: '#/components/responses/BulkGenerationResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    get:
+      summary: Get a session within authorized location scope
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      summary: Update allowed session fields and return any schedule warning
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SessionWrite' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/state-transitions:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Apply a non-cancellation authorized lifecycle transition; cancellation uses the reasoned cancellation endpoint
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StateTransitionRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/staff-assignments:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    put:
+      summary: Add or replace a Staff assignment
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StaffAssignmentRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+    delete:
+      summary: Remove one Staff assignment when responsibility remains
+      parameters: [ { name: accountId, in: query, required: true, schema: { type: integer, format: int64 } } ]
+      responses:
+        '204': { description: Assignment removed }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/check-ins:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Normal QR or exact ticket-code check-in; repeat scan returns the existing result without another attendance action
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/CheckInResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/check-in-overrides:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Authorised exception check-in for an eligible ticket at the same session and location
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInOverrideRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Ticket' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/booking-lookups/{bookingCode}:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+      - { name: bookingCode, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Lookup only eligible tickets for the active session and location
+      responses:
+        '200': { $ref: '#/components/responses/TicketList' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/ticket-resends:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Request auditable resend of the buyer's tickets
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TicketResendRequest' } } } }
+      responses:
+        '202': { description: Delivery request accepted }
+        '403': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/attendance-finalizations:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Finalise the whole session's attendance
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/attendance-corrections:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Manager-only post-finalisation attendance correction
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AttendanceCorrectionRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Ticket' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/check-in-reversals:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Manager-only reversal of an erroneous check-in before attendance finalization
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInReversalRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Ticket' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/cancellation-requests:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    post:
+      summary: Cancel directly when no commitment exists, otherwise stop operations and create a 003.3 cancellation handoff
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReasonedRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '202': { description: Cancellation handoff created }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: Firebase-ID-token }
+  parameters:
+    PackageId: { name: packageId, in: path, required: true, schema: { type: integer, format: int64 } }
+    LocationId: { name: locationId, in: path, required: true, schema: { type: integer, format: int64 } }
+    SlotId: { name: slotId, in: path, required: true, schema: { type: string, format: uuid } }
+    SessionId: { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+    AddOnReference: { name: addOnReference, in: path, required: true, schema: { type: string, format: uuid } }
+  responses:
+    Package: { description: Workshop Package, content: { application/json: { schema: { $ref: '#/components/schemas/Package' } } } }
+    PackageList: { description: Published Workshop Packages, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Package' } } } } }
+    AddOn: { description: Fixed workshop add-on, content: { application/json: { schema: { $ref: '#/components/schemas/AddOn' } } } }
+    AddOnList: { description: Active fixed workshop add-ons, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AddOn' } } } } }
+    CustomerSessionAvailabilityList: { description: Customer-selectable Package sessions; remaining capacity is a non-guaranteed selection snapshot, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/CustomerSessionAvailability' } } } } }
+    Location: { description: Workshop location, content: { application/json: { schema: { $ref: '#/components/schemas/Location' } } } }
+    LocationList: { description: Workshop locations, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Location' } } } } }
+    Slot: { description: Slot, content: { application/json: { schema: { $ref: '#/components/schemas/Slot' } } } }
+    SlotList: { description: Slots, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Slot' } } } } }
+    Session: { description: Session, content: { application/json: { schema: { $ref: '#/components/schemas/Session' } } } }
+    SessionList: { description: Sessions, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Session' } } } } }
+    Ticket: { description: Ticket, content: { application/json: { schema: { $ref: '#/components/schemas/Ticket' } } } }
+    CheckInResult: { description: Normal check-in result, including a repeated-scan result, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInResult' } } } }
+    TicketList: { description: Tickets, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Ticket' } } } } }
+    BulkGenerationResult: { description: Generation outcome, content: { application/json: { schema: { $ref: '#/components/schemas/BulkGenerationResult' } } } }
+    Problem: { description: Problem response, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+  schemas:
+    PackageState:
+      type: string
+      enum: [DRAFT, PUBLISHED, RETIRED]
+    PackageWrite:
+      type: object
+      required: [name, description, publicPrice, minParticipants, maxParticipants, requiredSessionCount, sameLocationRequired, minimumSameDaySlotGap]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        publicPrice: { type: integer, format: int64, minimum: 0, description: Public per-participant price in whole VND. }
+        minParticipants: { type: integer, minimum: 1 }
+        maxParticipants: { type: integer, minimum: 1, description: Must be greater than or equal to minParticipants. }
+        requiredSessionCount: { type: integer, minimum: 1 }
+        sameLocationRequired: { type: boolean }
+        minimumSameDaySlotGap: { type: integer, minimum: 0, description: Required number of configured slots between selected sessions on the same local date; 0 disables this rule. }
+    Package:
+      allOf:
+        - { $ref: '#/components/schemas/PackageWrite' }
+        - type: object
+          required: [packageId, state]
+          properties:
+            packageId: { type: integer, format: int64 }
+            state: { $ref: '#/components/schemas/PackageState' }
+    PackageLifecycleTransitionRequest:
+      type: object
+      required: [targetState]
+      properties:
+        targetState: { type: string, enum: [PUBLISHED, RETIRED] }
+    AddOnState:
+      type: string
+      enum: [DRAFT, ACTIVE, RETIRED]
+    AddOnWrite:
+      type: object
+      required: [description, priceVnd]
+      properties:
+        description: { type: string, minLength: 1, maxLength: 200 }
+        priceVnd: { type: integer, format: int64, minimum: 1 }
+    AddOn:
+      allOf:
+        - { $ref: '#/components/schemas/AddOnWrite' }
+        - type: object
+          required: [addOnReference, packageId, locationId, state, currencyCode]
+          properties:
+            addOnReference: { type: string, format: uuid }
+            packageId: { type: integer, format: int64 }
+            locationId: { type: integer, format: int64 }
+            state: { $ref: '#/components/schemas/AddOnState' }
+            currencyCode: { type: string, enum: [VND] }
+    AddOnLifecycleTransitionRequest:
+      type: object
+      required: [targetState]
+      properties:
+        targetState: { type: string, enum: [ACTIVE, RETIRED] }
+    CustomerSessionAvailability:
+      type: object
+      required: [sessionReference, locationId, scheduledStart, scheduledEnd, saleState, customerSelectable, remainingCapacity]
+      properties:
+        sessionReference: { type: string, format: uuid, description: Opaque Operations session reference; not a numeric legacy ID. }
+        locationId: { type: integer, format: int64 }
+        scheduledStart: { type: string, format: date-time }
+        scheduledEnd: { type: string, format: date-time }
+        saleState: { type: string }
+        customerSelectable: { type: boolean }
+        remainingCapacity: { type: integer, minimum: 0, description: Exact current availability snapshot; reserve remains authoritative. }
+    LocationWrite:
+      type: object
+      required: [code, name]
+      properties: { code: { type: string }, name: { type: string }, address: { type: string }, active: { type: boolean } }
+    Location:
+      allOf: [ { $ref: '#/components/schemas/LocationWrite' }, { type: object, required: [id], properties: { id: { type: integer, format: int64 } } } ]
+    SlotWrite:
+      type: object
+      required: [label, startsAtLocal, endsAtLocal, defaultCapacity, active]
+      properties:
+        label: { type: string }
+        startsAtLocal: { type: string, format: time }
+        endsAtLocal: { type: string, format: time }
+        defaultCapacity: { type: integer, minimum: 1 }
+        active: { type: boolean }
+    Slot:
+      allOf: [ { $ref: '#/components/schemas/SlotWrite' }, { type: object, required: [id, locationId], properties: { id: { type: string, format: uuid }, locationId: { type: integer, format: int64 } } } ]
+    SessionState:
+      type: string
+      enum: [DRAFT, PUBLISHED, SALES_PAUSED, IN_PROGRESS, ATTENDANCE_FINALIZED, CANCELLATION_REQUESTED, CANCELLED]
+    SessionWrite:
+      type: object
+      required: [locationId, slotId, workshopDate, capacity]
+      properties:
+        locationId: { type: integer, format: int64 }
+        slotId: { type: string, format: uuid }
+        workshopDate: { type: string, format: date }
+        capacity: { type: integer, minimum: 1 }
+        checkInOpensAt: { type: string, format: date-time, nullable: true }
+    Session:
+      allOf:
+        - { $ref: '#/components/schemas/SessionWrite' }
+        - type: object
+          required: [id, state, scheduledStartAt, scheduledEndAt, checkInOpeningSource]
+          properties:
+            id: { type: string, format: uuid }
+            state: { $ref: '#/components/schemas/SessionState' }
+            scheduledStartAt: { type: string, format: date-time }
+            scheduledEndAt: { type: string, format: date-time }
+            checkInOpeningSource: { type: string, enum: [DEFAULT, MANAGER_SET] }
+    BulkSessionRequest:
+      type: object
+      required: [locationId, slotIds, from, to, weekdays]
+      properties:
+        locationId: { type: integer, format: int64 }
+        slotIds: { type: array, minItems: 1, items: { type: string, format: uuid } }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        weekdays: { type: array, minItems: 1, items: { type: string, enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY] } }
+        initialState: { type: string, enum: [DRAFT, PUBLISHED], default: DRAFT }
+    BulkGenerationResult:
+      type: object
+      required: [createdSessionIds, skippedDuplicates]
+      properties:
+        createdSessionIds: { type: array, items: { type: string, format: uuid } }
+        skippedDuplicates: { type: array, items: { type: string } }
+    StateTransitionRequest:
+      type: object
+      required: [targetState]
+      properties:
+        targetState: { type: string, enum: [PUBLISHED, SALES_PAUSED, IN_PROGRESS, ATTENDANCE_FINALIZED] }
+    StaffAssignmentRequest:
+      type: object
+      required: [accountId]
+      properties: { accountId: { type: integer, format: int64 } }
+    CheckInRequest:
+      type: object
+      properties: { qrToken: { type: string }, ticketCode: { type: string } }
+      oneOf: [ { required: [qrToken] }, { required: [ticketCode] } ]
+    CheckInOverrideRequest:
+      allOf: [ { $ref: '#/components/schemas/CheckInRequest' }, { $ref: '#/components/schemas/ReasonedRequest' } ]
+    TicketResendRequest:
+      type: object
+      required: [bookingCode]
+      properties: { bookingCode: { type: string } }
+    AttendanceCorrectionRequest:
+      allOf: [ { $ref: '#/components/schemas/ReasonedRequest' }, { type: object, required: [ticketCode, correctedAttendanceState], properties: { ticketCode: { type: string }, correctedAttendanceState: { type: string, enum: [CHECKED_IN, NO_SHOW] } } } ]
+    CheckInReversalRequest:
+      allOf: [ { $ref: '#/components/schemas/ReasonedRequest' }, { type: object, required: [ticketCode], properties: { ticketCode: { type: string } } } ]
+    ReasonedRequest:
+      type: object
+      required: [reasonCode]
+      properties: { reasonCode: { type: string }, reasonNote: { type: string }, evidenceReference: { type: string } }
+    Ticket:
+      type: object
+      required: [ticketCode, sessionId, locationId, validityState, attendanceState]
+      properties:
+        ticketCode: { type: string }
+        sessionId: { type: string, format: uuid }
+        locationId: { type: integer, format: int64 }
+        validityState: { type: string, enum: [ACTIVE, CANCELLED, REVOKED, REFUNDED] }
+        attendanceState: { type: string, enum: [NOT_CHECKED_IN, CHECKED_IN, NO_SHOW] }
+        checkedInAt: { type: string, format: date-time, nullable: true }
+    CheckInResult:
+      allOf:
+        - { $ref: '#/components/schemas/Ticket' }
+        - type: object
+          required: [checkInResult, checkedInAt]
+          properties:
+            checkInResult: { type: string, enum: [CHECKED_IN, ALREADY_CHECKED_IN] }
+            checkedInAt: { type: string, format: date-time }
+    Problem:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        code: { type: string, example: TICKET_ALREADY_CHECKED_IN }
+        detail: { type: string }

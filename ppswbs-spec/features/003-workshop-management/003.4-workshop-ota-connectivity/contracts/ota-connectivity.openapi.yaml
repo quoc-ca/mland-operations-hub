@@ -1,0 +1,623 @@
+openapi: 3.1.0
+info:
+  title: Mland OTA Connectivity API
+  version: 0.1.0-proposed
+  description: >-
+    Proposed Mland-owned operations API. Provider-specific callbacks, signatures,
+    credentials, payloads, and transport details are intentionally excluded until
+    the individual provider onboarding contract is approved.
+servers:
+  - url: /api/v1
+paths:
+  /ota-channels:
+    get:
+      operationId: listOtaChannels
+      summary: List channel connections and mappings visible to the authorized actor.
+      description: Requires an active canonical MANAGER or Admin with global access. This safe mapping view redacts connection and credential details.
+      responses:
+        '200': { $ref: '#/components/responses/ChannelList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /ota-channels/{channelId}/mappings:
+    parameters:
+      - $ref: '#/components/parameters/ChannelId'
+    post:
+      operationId: upsertOtaChannelMapping
+      summary: Create a draft channel mapping; no publish is implied.
+      description: Requires an active canonical MANAGER with global location scope or an authorized Admin. Provider connection and credential changes remain Admin-only. The connection/product/option tuple is the natural key; an exact duplicate returns the existing draft, while reuse with different workshop facts returns 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MappingUpsertRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/Mapping' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /ota-channel-mappings/{mappingId}:
+    parameters:
+      - $ref: '#/components/parameters/MappingId'
+    put:
+      operationId: updateOtaChannelMapping
+      summary: Update a draft or sales-closed mapping using optimistic versioning.
+      description: Requires an active canonical MANAGER with global location scope. The expected mapping version is compared atomically; stale updates return 409. Identity updates are rejected while any outbound inventory change is QUEUED or RETRYABLE.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MappingUpdateRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Mapping' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /ota-channel-mappings/{mappingId}/price-terms:
+    parameters:
+      - $ref: '#/components/parameters/MappingId'
+    post:
+      operationId: recordProviderConfirmedOtaPriceTerms
+      summary: Record externally confirmed price terms as an approved immutable snapshot.
+      description: Requires an active canonical MANAGER with global location scope. The provider must have confirmed the terms outside Mland; this operation records the final Mland decision and a safe evidence reference. Decimal amounts use the ISO 4217 minor-unit exponent from the runtime currency registry, reject non-zero excess fractional digits, and are never rounded. The newest effectiveFrom not after a booking instant supersedes older snapshots; effectiveTo is exclusive, and expiry leaves no active price rather than falling back. It does not publish or enable sale. Unconfirmed proposals are not submitted or persisted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PriceTermsRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/PriceTerms' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /ota-channel-mappings/{mappingId}/sync:
+    parameters:
+      - $ref: '#/components/parameters/MappingId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+    post:
+      operationId: queueOtaMappingSync
+      summary: Queue a preparation or full re-sync; delivery is asynchronous.
+      description: Business sync requires an active canonical MANAGER with global location scope. Admin may run explicitly authorized technical or recovery actions globally.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SyncRequest' }
+      responses:
+        '202': { $ref: '#/components/responses/OperationAccepted' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /ota-channel-mappings/{mappingId}/sales-close:
+    parameters:
+      - $ref: '#/components/parameters/MappingId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+    post:
+      operationId: closeOtaMappingSales
+      summary: Queue an auditable sales closure for a mapping.
+      description: >-
+        Requires an active canonical MANAGER with global location scope. Immediately closes the mapping in Mland,
+        appends the Manager decision, and queues a separate OTA control command with the supplied idempotency key.
+        Provider delivery acknowledgement is tracked separately from Operations inventory source versions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '202': { $ref: '#/components/responses/OperationAccepted' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /ota-channel-mappings/{mappingId}/booking-enable:
+    parameters:
+      - $ref: '#/components/parameters/MappingId'
+    post:
+      operationId: requestOtaBookingEnablement
+      summary: Record an Admin readiness decision and enable booking only when all checks pass.
+      description: >-
+        Admin-only and synchronous. The Admin attests that the referenced controlled readiness record
+        was reviewed for this provider, environment and mapping. Mland stores the immutable checklist
+        evidence references, reviewer, decision and mapping fingerprint. It does not fetch or copy the
+        external evidence documents. Every required check must be VERIFIED to enable a SALES_CLOSED
+        mapping; otherwise the rejected assessment is retained and the mapping stays sales-closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BookingEnableRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/BookingEnableDecision' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /ota-reconciliation-work-items:
+    get:
+      operationId: listOtaReconciliationWorkItems
+      summary: List authorized mapping sync and recovery work items.
+      description: >-
+        Requires an active canonical MANAGER or Admin with global access. This endpoint
+        lists only synchronization and recovery work items linked to a channel mapping.
+        Inbound-event and payout/financial work items are outside this list and are
+        surfaced through their owning API when those API contracts are available.
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, ESCALATED] }
+      responses:
+        '200': { $ref: '#/components/responses/ReconciliationWorkItemList' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /ota-reconciliation-work-items/{workItemId}/resolve:
+    parameters:
+      - $ref: '#/components/parameters/WorkItemId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+    post:
+      operationId: resolveOtaReconciliationWorkItem
+      summary: Record an authorized, auditable reconciliation decision.
+      description: >-
+        Requires an active canonical MANAGER or Admin with global access. Every decision is
+        appended to immutable audit history. RESYNC_REQUESTED keeps a mapping suspended and
+        the item IN_PROGRESS while the authoritative current Operations snapshot is queued.
+        ACCEPTED resolves a full-resync item only after every required outbound snapshot kind
+        is delivered and Operations still reports the recorded source version; the mapping
+        then returns to SALES_CLOSED. REJECTED leaves the item OPEN and mapping suspended.
+        ESCALATED sets the item status to ESCALATED and leaves the mapping suspended.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReconciliationResolutionRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ReconciliationWorkItem' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /ota-channel-bookings/{channelBookingId}/financial-evidence:
+    parameters:
+      - $ref: '#/components/parameters/ChannelBookingId'
+    get:
+      operationId: getOtaFinancialEvidence
+      summary: Read authorized, separated channel-payment and payout evidence.
+      description: Requires an active canonical MANAGER with global location scope.
+      responses:
+        '200': { $ref: '#/components/responses/FinancialEvidence' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /ota-channel-bookings/{channelBookingId}/payout-reconciliation:
+    parameters:
+      - $ref: '#/components/parameters/ChannelBookingId'
+    post:
+      operationId: reconcileOtaPayout
+      summary: Record Manager-verified payout stage, variance, or correction evidence.
+      description: Requires an active canonical MANAGER with global location scope.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PayoutReconciliationRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/FinancialEvidence' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /ota-channel-bookings/{channelBookingId}/add-on-quotes:
+    parameters:
+      - $ref: '#/components/parameters/ChannelBookingId'
+    post:
+      operationId: createOtaAddonQuote
+      summary: At the Mland shop, create a zero-charge engraving record or a paid direct-Mland add-on quote outside OTA checkout.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddonQuoteRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/AddonQuote' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /ota-addon-quotes/{quoteId}/acceptance:
+    parameters:
+      - $ref: '#/components/parameters/QuoteId'
+    post:
+      operationId: acceptOtaAddonQuote
+      summary: Record customer acceptance at the Mland shop for a paid direct-Mland add-on quote outside OTA checkout.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddonAcceptanceRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/AddonQuote' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /ota-addon-quotes/{quoteId}/direct-bill:
+    parameters:
+      - $ref: '#/components/parameters/QuoteId'
+    post:
+      operationId: createDirectMlandAddonBill
+      summary: Create the separate Settlement-owned direct-Mland shop bill after acceptance; no OTA checkout payment is created.
+      responses:
+        '201': { $ref: '#/components/responses/DirectBillLink' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+components:
+  parameters:
+    ChannelId:
+      name: channelId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    MappingId:
+      name: mappingId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    WorkItemId:
+      name: workItemId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Unique key for replay-safe sync and reconciliation actions. Reusing a key with a different request returns a conflict.
+      schema: { type: string, minLength: 8, maxLength: 128 }
+    ChannelBookingId:
+      name: channelBookingId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    QuoteId:
+      name: quoteId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    MappingUpsertRequest:
+      type: object
+      additionalProperties: false
+      required: [providerProductReference, providerOptionReference, workshopOfferReference, sessionReference]
+      properties:
+        providerProductReference: { type: string, minLength: 1, maxLength: 200 }
+        providerOptionReference: { type: string, minLength: 1, maxLength: 200 }
+        workshopOfferReference: { type: string, minLength: 1, maxLength: 200 }
+        sessionReference: { type: string, minLength: 1, maxLength: 200 }
+    MappingUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [providerProductReference, providerOptionReference, workshopOfferReference, sessionReference, version]
+      properties:
+        providerProductReference: { type: string, minLength: 1, maxLength: 200 }
+        providerOptionReference: { type: string, minLength: 1, maxLength: 200 }
+        workshopOfferReference: { type: string, minLength: 1, maxLength: 200 }
+        sessionReference: { type: string, minLength: 1, maxLength: 200 }
+        version: { type: integer, minimum: 1 }
+    Money:
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount: { type: string, pattern: '^-?[0-9]+(\.[0-9]{1,4})?$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+    ZeroMoney:
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount: { type: string, enum: ['0', '0.0', '0.00', '0.000', '0.0000'] }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+    PriceTermsRequest:
+      type: object
+      additionalProperties: false
+      required: [retailAmount, targetNetAmount, providerConfirmationEvidenceReference, effectiveFrom, reason]
+      properties:
+        retailAmount: { $ref: '#/components/schemas/Money' }
+        targetNetAmount: { $ref: '#/components/schemas/Money' }
+        providerConfirmationEvidenceReference: { type: string, minLength: 1, maxLength: 255, description: Safe reference to provider-confirmed commercial evidence; never a credential or raw contract document. }
+        effectiveFrom: { type: string, format: date-time }
+        effectiveTo: { type: string, format: date-time }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    SyncRequest:
+      type: object
+      additionalProperties: false
+      required: [mode, reason]
+      properties:
+        mode: { type: string, enum: [PREPARATION, FULL_RESYNC] }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    ReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    BookingEnableRequest:
+      type: object
+      additionalProperties: false
+      required: [readinessRecordReference, checks, reason]
+      properties:
+        readinessRecordReference: { type: string, minLength: 1, maxLength: 255, description: Safe reference to the controlled provider readiness record; Admin attests it was reviewed for this mapping and environment. }
+        checks:
+          type: array
+          minItems: 12
+          maxItems: 12
+          items: { $ref: '#/components/schemas/ReadinessCheckEvidence' }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    ReadinessCheckEvidence:
+      type: object
+      additionalProperties: false
+      required: [check, outcome]
+      properties:
+        check:
+          type: string
+          enum: [CONTRACT_ONBOARDING, COMMERCIAL_TERMS, CONNECTION_OWNERSHIP, CALLBACK_AUTHENTICATION, QUOTA_DELIVERY, PRODUCT_SESSION_MAPPING, DATA_ALLOWLIST, PREPARATION_SYNC, TICKET_DELIVERY_SCAN, CANCELLATION_REFUND, LATE_BOOKING_CAPACITY, FAILURE_RECONCILIATION]
+        outcome: { type: string, enum: [VERIFIED, FAILED, MISSING] }
+        evidenceReference: { type: string, minLength: 1, maxLength: 255 }
+      allOf:
+        - if:
+            properties: { outcome: { const: VERIFIED } }
+            required: [outcome]
+          then: { required: [evidenceReference] }
+    BookingEnableDecision:
+      type: object
+      additionalProperties: false
+      required: [assessmentId, decision, mappingState, safeReadinessStatus, recordedAt]
+      properties:
+        assessmentId: { type: string, format: uuid }
+        decision: { type: string, enum: [APPROVED, REJECTED] }
+        mappingState: { type: string, enum: [SALES_CLOSED, BOOKING_ENABLED] }
+        safeReadinessStatus: { type: string, enum: [INCOMPLETE, APPROVED, REJECTED] }
+        recordedAt: { type: string, format: date-time }
+    ReconciliationResolutionRequest:
+      type: object
+      additionalProperties: false
+      required: [resolution, reason]
+      properties:
+        resolution: { type: string, enum: [RESYNC_REQUESTED, ACCEPTED, REJECTED, ESCALATED] }
+        reason: { type: string, minLength: 1, maxLength: 1000 }
+    OperationAccepted:
+      type: object
+      additionalProperties: false
+      required: [operationReference, correlationId, status]
+      properties:
+        operationReference: { type: string, format: uuid }
+        correlationId: { type: string, format: uuid }
+        status: { type: string, enum: [QUEUED, PENDING_REVIEW] }
+    ChannelMapping:
+      type: object
+      additionalProperties: false
+      required: [mappingId, channelId, provider, state, commercialStatus, bookingEnabled, version]
+      properties:
+        mappingId: { type: string, format: uuid }
+        channelId: { type: string, format: uuid }
+        provider: { type: string, enum: [KLOOK, GETYOURGUIDE] }
+        state: { type: string, enum: [DRAFT, PREPARATION_SYNC, SALES_CLOSED, BOOKING_ENABLED, SYNC_SUSPENDED, DISABLED] }
+        commercialStatus: { type: string, enum: [PENDING_COMMERCIAL_CONFIRMATION, APPROVED] }
+        bookingEnabled: { type: boolean }
+        safeReadinessStatus: { type: string, enum: [INCOMPLETE, APPROVED, REJECTED] }
+        version: { type: integer, minimum: 1 }
+        salesControlStatus: { type: string, enum: [NONE, QUEUED, DELIVERED, EXHAUSTED] }
+    PriceTerms:
+      type: object
+      additionalProperties: false
+      required: [priceTermsId, mappingId, retailAmount, targetNetAmount, providerConfirmationEvidenceReference, effectiveFrom, status]
+      properties:
+        priceTermsId: { type: string, format: uuid }
+        mappingId: { type: string, format: uuid }
+        retailAmount: { $ref: '#/components/schemas/Money' }
+        targetNetAmount: { $ref: '#/components/schemas/Money' }
+        providerConfirmationEvidenceReference: { type: string, maxLength: 255 }
+        effectiveFrom: { type: string, format: date-time, description: Inclusive instant when these terms begin; a later snapshot supersedes earlier terms from this instant. }
+        effectiveTo: { type: string, format: date-time, description: Exclusive end instant. After expiry no earlier snapshot is selected as fallback. }
+        status: { type: string, enum: [APPROVED] }
+    ChannelList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ChannelMapping' }
+    ReconciliationWorkItem:
+      type: object
+      additionalProperties: false
+      required: [workItemId, mappingId, status, correlationId]
+      properties:
+        workItemId: { type: string, format: uuid }
+        mappingId: { type: string, format: uuid }
+        status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, ESCALATED] }
+        correlationId:
+          type: string
+          format: uuid
+          description: Persisted audit correlation for this item; reads do not regenerate it. An audited resolution returns its decision correlation. Development records repaired by V29 receive a tracking UUID without reconstructing historical log evidence.
+        safeSummary: { type: string, maxLength: 500 }
+    ReconciliationWorkItemList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ReconciliationWorkItem' }
+    PayoutReconciliationRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, evidenceType, amount, reference, reason, occurredAt]
+      properties:
+        kind: { type: string, enum: [PAYOUT, VARIANCE, DISPUTE, ADJUSTMENT, REVERSAL] }
+        evidenceType:
+          type: string
+          enum: [ELIGIBILITY, INVOICE, REMITTANCE, BANK_RECEIPT, ADJUSTMENT, REVERSAL, VARIANCE, DISPUTE]
+          description: Stage or correction evidence checked by an active Manager; BANK_RECEIPT requires a booking-specific allocation and payout reference matching the remittance before PAID_OUT.
+        amount: { $ref: '#/components/schemas/Money' }
+        reference: { type: string, minLength: 1, maxLength: 200 }
+        reason: { type: string, minLength: 1, maxLength: 1000 }
+        occurredAt: { type: string, format: date-time }
+        relatedEntryId: { type: string, format: uuid, description: Required for ADJUSTMENT and REVERSAL; references an existing ledger fact on this booking. }
+        allocationReference: { type: string, minLength: 1, maxLength: 128, description: Required for BANK_RECEIPT; identifies the amount allocated to this booking from any grouped OTA payout. }
+        payoutReference: { type: string, minLength: 1, maxLength: 200, description: Required for REMITTANCE and BANK_RECEIPT; the same OTA payout reference must appear on both stages. }
+    FinancialEvidence:
+      type: object
+      additionalProperties: false
+      required: [channelBookingId, customerPaymentState, payoutState, entries]
+      properties:
+        channelBookingId: { type: string, format: uuid }
+        customerPaymentState: { type: string, enum: [PAID_ON_CHANNEL, REFUND_REQUESTED, PARTIALLY_REFUNDED, REFUNDED] }
+        payoutState: { type: string, enum: [NOT_ELIGIBLE, ACCRUED, INVOICED, PAYOUT_PENDING, PAID_OUT] }
+        entries:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [entryId, kind, amount, reference, recordedAt]
+            properties:
+              entryId: { type: string, format: uuid }
+              kind: { type: string }
+              evidenceType: { type: string, description: Null for historical facts recorded before evidence-stage classification. }
+              amount: { $ref: '#/components/schemas/Money' }
+              reference: { type: string, maxLength: 200 }
+              reason: { type: string, description: Null for historical facts recorded before V49. }
+              relatedEntryId: { type: string, format: uuid }
+              allocationReference: { type: string, maxLength: 128 }
+              payoutReference: { type: string, maxLength: 200 }
+              recordedAt: { type: string, format: date-time }
+    AddonQuoteRequest:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [addonType, itemDescription, amount]
+          properties:
+            addonType: { const: LASER_ENGRAVING }
+            itemDescription: { type: string, minLength: 1, maxLength: 500 }
+            amount: { $ref: '#/components/schemas/ZeroMoney' }
+        - type: object
+          additionalProperties: false
+          required: [addonType, itemCode, itemDescription, amount]
+          properties:
+            addonType: { const: PAID_OPTION }
+            itemCode: { type: string, minLength: 1, maxLength: 100 }
+            itemDescription: { type: string, minLength: 1, maxLength: 500 }
+            amount: { $ref: '#/components/schemas/Money' }
+    AddonAcceptanceRequest:
+      type: object
+      additionalProperties: false
+      required: [acceptedAt, acceptanceReference]
+      properties:
+        acceptedAt: { type: string, format: date-time }
+        acceptanceReference: { type: string, minLength: 1, maxLength: 200 }
+    AddonQuote:
+      type: object
+      additionalProperties: false
+      required: [quoteId, channelBookingId, addonType, itemCode, amount, status]
+      properties:
+        quoteId: { type: string, format: uuid }
+        channelBookingId: { type: string, format: uuid }
+        addonType: { type: string, enum: [LASER_ENGRAVING, PAID_OPTION] }
+        itemCode: { type: string, maxLength: 100 }
+        amount: { $ref: '#/components/schemas/Money' }
+        status: { type: string, enum: [RECORDED_FREE, QUOTED, ACCEPTED, BILLED, REJECTED] }
+    DirectBillLink:
+      type: object
+      additionalProperties: false
+      required: [quoteId, settlementBillReference, correlationId]
+      properties:
+        quoteId: { type: string, format: uuid }
+        settlementBillReference: { type: string, minLength: 1, maxLength: 200 }
+        correlationId: { type: string, format: uuid }
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message, correlationId]
+      properties:
+        code: { type: string, maxLength: 100 }
+        message: { type: string, maxLength: 500 }
+        correlationId: { type: string, format: uuid }
+        fieldErrors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, code]
+            properties:
+              field: { type: string, maxLength: 100 }
+              code: { type: string, maxLength: 100 }
+  responses:
+    ChannelList:
+      description: Authorized channel mappings.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ChannelList' } } }
+    Mapping:
+      description: Mapping created or updated.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ChannelMapping' } } }
+    PriceTerms:
+      description: Submitted commercial price terms.
+      content: { application/json: { schema: { $ref: '#/components/schemas/PriceTerms' } } }
+    OperationAccepted:
+      description: Durable asynchronous operation accepted.
+      content: { application/json: { schema: { $ref: '#/components/schemas/OperationAccepted' } } }
+    BookingEnableDecision:
+      description: Readiness decision recorded synchronously; only an approved complete assessment enables booking.
+      content: { application/json: { schema: { $ref: '#/components/schemas/BookingEnableDecision' } } }
+    ReconciliationWorkItem:
+      description: Reconciliation work item.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ReconciliationWorkItem' } } }
+    ReconciliationWorkItemList:
+      description: Authorized reconciliation items.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ReconciliationWorkItemList' } } }
+    FinancialEvidence:
+      description: Separated channel-payment and payout evidence.
+      content: { application/json: { schema: { $ref: '#/components/schemas/FinancialEvidence' } } }
+    AddonQuote:
+      description: Add-on quote or free engraving record.
+      content: { application/json: { schema: { $ref: '#/components/schemas/AddonQuote' } } }
+    DirectBillLink:
+      description: Settlement-owned direct-Mland bill link.
+      content: { application/json: { schema: { $ref: '#/components/schemas/DirectBillLink' } } }
+    ValidationError:
+      description: Request fails validation.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    Unauthorized:
+      description: Mland identity is absent or invalid.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    Forbidden:
+      description: Actor lacks an active account, required OTA action authorization, or location scope.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    NotFound:
+      description: Resource is not visible in the actor's authorized scope.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    Conflict:
+      description: Current lifecycle state prevents the requested operation.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    Unprocessable:
+      description: Business gate rejects the requested operation.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }

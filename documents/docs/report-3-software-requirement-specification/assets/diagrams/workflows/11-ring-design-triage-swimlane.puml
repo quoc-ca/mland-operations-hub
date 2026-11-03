@@ -1,0 +1,60 @@
+@startuml
+!pragma charset UTF-8
+title Ring Design and Feasibility Triage Swimlane
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+|Guest or Member|
+start
+:Choose ring-design option;
+if (Approved catalogue model?) then (yes)
+  |System|
+  :Select confirmed feasible model;
+  :Continue booking / consultation;
+  stop
+elseif (Approved component configurator?) then (yes)
+  |System|
+  :Validate selection against Manager-approved\ncomponent catalogue and hard constraints;
+  :Continue booking / consultation;
+  stop
+else (Reference image)
+  if (Member with eligible booking context?) then (yes)
+    :Give explicit booking-design image consent;
+    :Submit reference image;
+    |System|
+    :Validate image request and rate limit;
+  if (Consent and request accepted?) then (yes)
+    |AI Vision API|
+    :Return image quality and candidate features only;
+    |System|
+    :Create pending human-review request;
+    if (Estimated value <= 3,000,000 VND?) then (yes)
+      |Staff|
+      :Review candidate features and estimate context;
+    else (no / Manager authority)
+      |Manager|
+      :Review candidate features and estimate context;
+    endif
+    |System|
+    :Record Accepted, Rejected or Clarification Required\nwith actor, reason, version and audit context;
+    :Continue, revise, or choose another design;
+  else (no)
+    :Do not send image to AI;
+    :Show consent / validation error;
+  endif
+  else (Guest / not eligible)
+    :Do not enter image branch;
+    :Show Member-only requirement;
+  endif
+endif
+
+note right
+Guest cannot enter the image branch. Every valid image request reaches Staff or Manager review.
+AI returns advisory candidate features and image quality only; it never accepts or rejects.
+end note
+stop
+@enduml
