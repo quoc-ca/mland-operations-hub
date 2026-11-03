@@ -231,7 +231,7 @@ provider-specific contract, security review, and feature approval.
 | `paymentintegration` | Inbound integration | `GET /api/v1/integrations/payments/vnpay/events` | VNPay | UC-01, UC-04 | One HTTPS ingress verifies the signed VNPay callback once, deduplicates delivery, resolves immutable owner-qualified merchant reference, and dispatches redacted evidence to exactly one owner facade. It never confirms business state itself. Canonical contract: `features/003-workshop-management/contracts/vnpay-payment-ingress.openapi.yaml`. | Confirmed 003 boundary; provider configuration TBD |
 | `designreview` | Outbound integration port | `ImageFeatureAnalysisPort.analyse(...)` | AI Vision API | UC-03 | Send a reference image only after explicit consent and accepted validation; treat output only as candidate features. | TBD dependency |
 | `workshopbooking`, `readyringsales` | Outbound integration port | `NotificationDeliveryPort.send(...)` | Email Sender | UC-01, UC-04 | Send requested booking/order notifications without leaking tokens or unnecessary PII. | TBD dependency |
-| Review-import owner (to be assigned) | Outbound integration port | `GoogleReviewImportPort.importPermittedReviews(...)` | Google Business Profile | Supporting capability; Google review-import detail diagram | One-way, authorized business-requested manual import only after verified profile, authorised API access, and approved retention/attribution/appeal policy. | TBD dependency |
+| Google Maps/Places read-only owner | Outbound read-only integration | Google Maps Embed and permitted Places display | Google Maps/Places | Display permitted public information with attribution/link; Feature-011 does not import or write review content. | Existing read-only boundary |
 
 Provider selection, signing/authentication scheme, payload schema, retry and
 reconciliation policy, dead-letter handling, rate limits, operational ownership,
@@ -262,3 +262,33 @@ ratify a SpecKit feature specification and publish/update a feature-level
 OpenAPI contract (or an integration contract for a non-HTTP boundary). That
 contract must define exact schemas, validation, authorization, success/error
 statuses, audit impact, and relevant idempotency/concurrency behaviour.
+
+## 7. Review Management (`reviewmanagement`) — proposed Feature-011
+
+Feature-011 owns review content and audit. It verifies source eligibility through
+`workshopbooking` and `readyringsales` facades; it must not access their
+repositories directly. The draft contract is
+`features/011-review-management/contracts/review-management.openapi.yaml`.
+
+| Boundary | Method and route | Access | Purpose | Maturity |
+| --- | --- | --- | --- | --- |
+| `reviewmanagement` | `POST /api/v1/review-eligibility/lookup` | Guest email/phone match | Return only eligible checked-in attendance and picked-up/delivered order-line sources. | Draft |
+| `reviewmanagement` | `GET /api/v1/reviews/eligible-sources` | Authenticated Member | Return the Member’s own eligible sources. | Draft |
+| `reviewmanagement` | `POST /api/v1/reviews` | Matched Guest or owning Member | Create one `PUBLIC` review with idempotency and source uniqueness. | Draft |
+| `reviewmanagement` | `GET /api/v1/reviews`, `GET /api/v1/reviews/{id}` | Public/authorized owner | Read public review projection and public-only aggregate. | Draft |
+| `reviewmanagement` | `PATCH /api/v1/reviews/{id}` | Review owner | Edit rating/text while retaining `PUBLIC`; append revision/audit. | Draft |
+| `reviewmanagement` | `PATCH /api/v1/reviews/{id}/visibility` | Staff/Manager | Staff hides; Manager hides/removes according to permission and audit rules. | Draft |
+| `reviewmanagement` | `GET /api/v1/review-moderation` | Staff/Manager | Read moderation projection within the feature’s permission boundary. | Draft |
+| `reviewmanagement` | `POST/PATCH /api/v1/reviews/{id}/reply` | Manager | Create/edit the single current reply; audit edits. | Draft |
+
+Admin has technical/audit access only and no business moderation authority. No
+endpoint imports or writes Google Places reviews. Exact fields, errors and
+statuses remain subject to contract ratification.
+
+### 7.1 Internal dependency contracts
+
+`ReviewEligibilityPort` consumes approved Workshop attendance and Retail
+fulfilment facades. Each facade must prove source ownership, target mapping and
+the required state (`CHECKED_IN`, `PICKED_UP` or `DELIVERED`). Feature-011
+receives opaque references and sanitized evidence, not foreign repositories or
+full transaction records.
