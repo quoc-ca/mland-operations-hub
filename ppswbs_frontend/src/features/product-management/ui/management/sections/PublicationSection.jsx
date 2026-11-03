@@ -1,6 +1,7 @@
 import React from 'react';
 import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { ErrorNotice } from '../../../../../shared/ui/components';
+import { ACTIONS } from '../../../infrastructure/catalogueApi';
 import { messages } from '../../messages';
 import { effectiveProposal } from '../../../domain/productRules';
 import { useProductCommand } from '../ProductDetailPage';
@@ -15,7 +16,7 @@ export function PublicationSection({ product, api, reload, setNotice, deleted })
   const format = useFormat();
   const command = useProductCommand({ reload, setNotice });
   const target = !product.published;
-  const toggle = () => command.run(key => api.setPublication(key, product.id, product.version, target), target ? 'publication.published' : 'publication.hidden');
+  const toggle = () => command.run(key => api.setPublication(key, product.id, product.version, target), target ? 'publication.published' : 'publication.hidden', target ? ACTIONS.publish : ACTIONS.unpublish);
 
   return (
     <section className="workspace-card" aria-labelledby="publication-title">

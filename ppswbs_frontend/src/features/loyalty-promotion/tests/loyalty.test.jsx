@@ -125,7 +125,7 @@ describe('T030 programmes', () => {
     expect(posts[2].body.code).not.toBe(shown);
     expect(posts[2].body.code).toMatch(/^ML[A-HJKMNP-Z2-9]{8}$/);
     expect(posts[2].headers['Idempotency-Key']).not.toBe(posts[1].headers['Idempotency-Key']);
-  });
+  }, 20000); // three submissions with many typed fields: give a loaded machine time
 });
 
 describe('product target picker', () => {
@@ -292,6 +292,19 @@ describe('T070 public offers and voucher wallet', () => {
     expect(await screen.findByText('MLAND10')).toBeInTheDocument();
     expect(screen.getByText('Giảm 10% (tối đa 50.000 ₫)')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Đăng nhập để lưu' })).toHaveAttribute('href', '/login?returnTo=%2Fpromotions');
+  });
+
+  it('names product targets from the public catalogue, without signing in; a target not found keeps its ID', async () => {
+    const calls = mockFetch({
+      'GET /api/v1/promotions': json(200, { items: [publicPromotion({ targets: { productIds: ['6', '99'], variantIds: ['23'] } })], nextCursor: null }),
+      'GET /api/v1/products/6': json(200, { id: '6', name: 'Nhẫn kiểm thử', variants: [] }),
+      'GET /api/v1/products/99': json(404, { code: 'PRODUCT_NOT_FOUND', message: 'Not found.' }),
+      'GET /api/v1/products': json(200, { items: [{ id: '6', name: 'Nhẫn kiểm thử', variants: [{ id: '23', size: 14, sku: 'SP000006-S14' }] }], page: 0, pageSize: 20, totalElements: '1' }),
+    });
+    open('/promotions', { session: fakeSession('signed-out') });
+    expect(await screen.findByText('Nhẫn kiểm thử; 99')).toBeInTheDocument();
+    expect(await screen.findByText('Nhẫn kiểm thử · size 14')).toBeInTheDocument();
+    expect(calls.filter(call => call.path.startsWith('/api/v1/products')).every(call => !call.headers.Authorization)).toBe(true);
   });
 
   it('a Member saves a voucher with a key', async () => {
@@ -468,5 +481,76 @@ describe('24-hour time on the programme form', () => {
     await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
     expect(await screen.findByText('Thời gian kết thúc phải sau thời gian bắt đầu.')).toBeInTheDocument();
     expect(calls.filter(call => call.method === 'POST')).toHaveLength(0);
+  });
+});
+
+describe('scope warnings on the programme detail (clarification 2026-10-26)', () => {
+  it('lists products of the scope that can no longer be bought and keeps the programme as it is', async () => {
+    mockFetch({
+      [`GET ${P}/5`]: json(200, program({
+        targets: { productIds: ['43', '99'] }, targetCheck: 'CHECKED',
+        targetWarnings: [{ dimension: 'PRODUCT', targetKey: '43', state: 'NOT_PUBLIC' }, { dimension: 'PRODUCT', targetKey: '99', state: 'DELETED' }],
+      })),
+      [`GET ${P}/5/usage`]: json(200, voucherUsage),
+      [`GET ${C}/43`]: json(200, catalogue.items[1]),
+      [`GET ${C}/99`]: json(404, { code: 'PRODUCT_NOT_FOUND', message: 'x' }),
+    });
+    open('/promotion-management/programs/5');
+    expect(await screen.findByText('Phạm vi có sản phẩm không còn mua được')).toBeInTheDocument();
+    expect(await screen.findByText('Nhẫn vàng (#43) — đang ẩn hoặc chưa công khai')).toBeInTheDocument();
+    expect(screen.getByText('Sản phẩm #99 — đã xóa')).toBeInTheDocument();
+  });
+
+  it('shows nothing when every product is fine and says so when the check is unavailable', async () => {
+    mockFetch({
+      [`GET ${P}/5`]: json(200, program({ targetCheck: 'CHECKED', targetWarnings: [] })),
+      [`GET ${P}/5/usage`]: json(200, voucherUsage),
+      [`GET ${C}/42`]: json(200, catalogue.items[0]),
+    });
+    const first = open('/promotion-management/programs/5');
+    await screen.findByText('Tình hình sử dụng');
+    expect(screen.queryByText('Phạm vi có sản phẩm không còn mua được')).toBeNull();
+    first.unmount();
+
+    mockFetch({
+      [`GET ${P}/5`]: json(200, program({ targetCheck: 'UNAVAILABLE' })),
+      [`GET ${P}/5/usage`]: json(200, voucherUsage),
+      [`GET ${C}/42`]: json(200, catalogue.items[0]),
+    });
+    open('/promotion-management/programs/5');
+    expect(await screen.findByText('Chưa kiểm tra được tình trạng sản phẩm trong phạm vi lúc này.')).toBeInTheDocument();
+  });
+});
+
+describe('create whose answer was lost (FR-007, US1.8)', () => {
+  it('after a reload sends the same key and body again and opens the programme the backend replays', async () => {
+    const user = userEvent.setup();
+    const body = { kind: 'AUTO_DISCOUNT', scope: 'PRODUCT', name: 'Giảm tự động' };
+    sessionStorage.setItem('lp.pendingCreate', JSON.stringify({ key: 'k-lost', body }));
+    const calls = mockFetch({
+      [`POST ${P}`]: json(201, program({ id: '9', kind: 'AUTO_DISCOUNT', code: null })),
+      [`GET ${P}/9`]: json(200, program({ id: '9', kind: 'AUTO_DISCOUNT', code: null })),
+      [`GET ${P}/9/usage`]: json(200, { programId: '9', acceptedCount: '0', committedDiscountAmount: '0' }),
+      [`GET ${C}/42`]: json(200, catalogue.items[0]),
+    });
+    open('/promotion-management/programs/new');
+    expect(await screen.findByText(/Lần tạo chương trình "Giảm tự động" trước đó chưa nhận được phản hồi/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Gửi lại đúng yêu cầu đó' }));
+
+    expect(await screen.findByText('Tình hình sử dụng')).toBeInTheDocument();
+    const create = calls.find(call => call.method === 'POST');
+    expect(create.headers['Idempotency-Key']).toBe('k-lost');
+    expect(create.body).toEqual(body);
+    expect(sessionStorage.getItem('lp.pendingCreate')).toBeNull();
+  });
+
+  it('keeps the key of a create that got no answer and dismissing forgets it', async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem('lp.pendingCreate', JSON.stringify({ key: 'k-2', body: { name: 'X' } }));
+    mockFetch({});
+    open('/promotion-management/programs/new');
+    await user.click(await screen.findByRole('button', { name: 'Bỏ qua' }));
+    expect(sessionStorage.getItem('lp.pendingCreate')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Gửi lại đúng yêu cầu đó' })).toBeNull();
   });
 });

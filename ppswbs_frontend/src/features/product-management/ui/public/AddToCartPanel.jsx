@@ -70,7 +70,8 @@ export function AddToCartPanel({ product }) {
             {buyable.map(variant => <option key={variant.id} value={variant.id}>{t('size', { size: variant.size })}</option>)}
           </select>
         </Field>
-        <Field label={t('cart.branch')} error={locations.data && !choice.locationId ? t('cart.chooseBranchHint') : null}>
+        {/* A plain hint, not an error: nothing is wrong before the shopper has tried to add anything. */}
+        <Field label={t('cart.branch')} hint={locations.data?.items.length && !choice.locationId ? t('cart.chooseBranchHint') : null}>
           <select value={choice.locationId} onChange={set('locationId')} disabled={!locations.data}>
             <option value="">{t('cart.chooseBranch')}</option>
             {(locations.data?.items || []).map(item => <option key={item.id} value={item.id}>{item.name}{item.address ? ` — ${item.address}` : ''}</option>)}

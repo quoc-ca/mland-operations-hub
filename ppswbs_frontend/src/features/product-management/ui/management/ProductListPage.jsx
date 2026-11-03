@@ -3,6 +3,7 @@ import { Link, useLocation, useSearchParams } from 'react-router';
 import { useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, SuccessNotice, useResource } from '../../../../shared/ui/components';
 import { useCatalogueApi } from '../../application/useCatalogueApi';
+import { productCode, skuMatch } from '../../domain/productRules';
 import { messages } from '../messages';
 import { PageTop } from './ManagementLayout';
 import { Pager } from './Pager';
@@ -75,15 +76,35 @@ export default function ProductListPage() {
             </div>
             {data.items.map(product => (
               <div className="data-row products" role="row" key={product.id}>
-                <span role="cell"><Link className="text-link" to={`/catalogue-management/products/${encodeURIComponent(product.id)}`}>{product.name}</Link></span>
+                <span role="cell">
+                  <Link className="text-link" to={`/catalogue-management/products/${encodeURIComponent(product.id)}`}>{product.name}</Link>
+                  <br /><span className="muted small mono">{productCode(product.id)}</span>
+                </span>
                 <span role="cell">{product.category?.name || '—'}</span>
-                <span role="cell">{(product.variants || []).map(variant => variant.size).join(', ')}</span>
+                <span role="cell"><VariantSizes variants={product.variants} keyword={criteria.q} /></span>
                 <span role="cell"><ProductStateBadge product={product} /></span>
               </div>
             ))}
           </div>
           <Pager page={page} pageSize={data.pageSize} total={data.totalElements} onChange={goTo} />
         </section>)}
+    </>
+  );
+}
+
+/** Sizes of a row; when the search was a SKU, the size it matched is marked with that SKU (FR-003). */
+function VariantSizes({ variants, keyword }) {
+  const t = useT(messages);
+  const matched = skuMatch(keyword, variants);
+  return (
+    <>
+      {(variants || []).map((variant, index) => (
+        <React.Fragment key={variant.id}>
+          {index > 0 && ', '}
+          {variant === matched ? <mark className="size-match">{variant.size}</mark> : variant.size}
+        </React.Fragment>
+      ))}
+      {matched && <><br /><span className="muted small">{t('list.skuMatch', { sku: matched.sku, size: matched.size })}</span></>}
     </>
   );
 }

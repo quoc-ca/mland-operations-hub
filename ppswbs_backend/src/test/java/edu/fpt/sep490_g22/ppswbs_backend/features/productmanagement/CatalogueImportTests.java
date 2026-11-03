@@ -136,11 +136,80 @@ class CatalogueImportTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"1.000", "12,5", "5.0", "1e3", "+5", "05", " 1 000"})
+    @ValueSource(strings = {"1.000", "5.0", "1e3", "+5", "05", " 1 000", "-5"})
     void numbersWrittenAsFormattedTextAreInvalid(String text) {
         var errors = validate(xlsx(HEADER, row("A", "N", "D", "Nhẫn bạc", text, 1, 1))).errors();
         assertThat(codes(errors)).containsExactly("INVALID_NUMBER");
         assertThat(errors.get(0).column()).isEqualTo("Size");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"12,5", "1.000", "1e3"})
+    void formattedPriceTextIsInvalid(String text) {
+        var errors = validate(xlsx(HEADER, row("A", "N", "D", "Nhẫn bạc", 12, text, 1))).errors();
+        assertThat(codes(errors)).containsExactly("INVALID_NUMBER");
+        assertThat(errors.get(0).column()).isEqualTo("Giá đề xuất (VND)");
+    }
+
+    // ---------- several sizes in one Size cell (FR-040, 2026-11-03) ----------
+
+    @Test
+    void sizeCellTakesRangesAndListsSharingTheRowPriceAndQuantity() {
+        var result = validate(xlsx(HEADER,
+                row("A", "N", "D", "Nhẫn bạc", "5-9", 350000, 5),
+                row("A", "N", "D", "Nhẫn bạc", "12, 14;16", 380000, 3),
+                row("A", "N", "D", "Nhẫn bạc", "20 – 21,25", 400000, 0),
+                row("B", "N2", "D", "Nhẫn bạc", "12,5", 1, 1),
+                row("C", "N3", "D", "Nhẫn bạc", 18, 1, 1)));
+
+        assertThat(result.errors()).isEmpty();
+        assertThat(result.variantCount()).isEqualTo(14);
+        var first = result.products().get(0).variants();
+        assertThat(first).extracting(v -> v.size()).containsExactly(5, 6, 7, 8, 9, 12, 14, 16, 20, 21, 25);
+        assertThat(first).filteredOn(v -> v.size() == 14).singleElement().satisfies(v -> {
+            assertThat(v.row()).isEqualTo(3);
+            assertThat(v.proposedPrice()).hasToString("380000");
+            assertThat(v.quantity()).hasToString("3");
+        });
+        assertThat(result.products().get(1).variants()).extracting(v -> v.size()).containsExactly(12, 5);
+    }
+
+    @Test
+    void sizeListErrorsNameTheRowAndCell() {
+        var errors = validate(xlsx(HEADER,
+                row("A", "N", "D", "Nhẫn bạc", "20-12", 1, 1),
+                row("B", "N", "D", "Nhẫn bạc", "12-30", 1, 1),
+                row("C", "N", "D", "Nhẫn bạc", "12,,14", 1, 1),
+                row("D", "N", "D", "Nhẫn bạc", "12-14,13", 1, 1),
+                row("E", "N", "D", "Nhẫn bạc", "5-15", 1, 1),
+                row("E", "N", "D", "Nhẫn bạc", "15,16", 1, 1),
+                row("F", "N", "D", "Nhẫn bạc", "5-29", 1, 1),
+                row("F", "N", "D", "Nhẫn bạc", "4", 1, 1),
+                row("G", "N", "D", "Nhẫn bạc", "5-9,10-29", 1, 1),
+                row("H", "N", "D", "Nhẫn bạc", "12 a", 1, 1))).errors();
+
+        assertThat(errors).extracting(ImportError::row, ImportError::code).containsExactly(
+                org.assertj.core.groups.Tuple.tuple(2, "INVALID_SIZE_LIST"),
+                org.assertj.core.groups.Tuple.tuple(3, "OUT_OF_RANGE"),
+                org.assertj.core.groups.Tuple.tuple(4, "INVALID_SIZE_LIST"),
+                org.assertj.core.groups.Tuple.tuple(5, "DUPLICATE_SIZE_IN_GROUP"),
+                org.assertj.core.groups.Tuple.tuple(7, "DUPLICATE_SIZE_IN_GROUP"),
+                org.assertj.core.groups.Tuple.tuple(9, "OUT_OF_RANGE"),
+                org.assertj.core.groups.Tuple.tuple(11, "INVALID_NUMBER"));
+        assertThat(errors).extracting(ImportError::column).containsOnly("Size");
+        assertThat(errors.get(0).value()).isEqualTo("20-12");
+    }
+
+    @Test
+    void aGroupOfRangesStillHasAtMostTwentyFiveSizes() {
+        var errors = validate(xlsx(HEADER,
+                row("A", "N", "D", "Nhẫn bạc", "5-20", 1, 1),
+                row("A", "N", "D", "Nhẫn bạc", "21-29", 1, 1))).errors();
+        assertThat(errors).isEmpty();
+        assertThat(codes(validate(xlsx(HEADER,
+                row("A", "N", "D", "Nhẫn bạc", "5-20", 1, 1),
+                row("A", "N", "D", "Nhẫn bạc", "21-29", 1, 1),
+                row("A", "N", "D", "Nhẫn bạc", 20, 1, 1))).errors())).containsExactly("DUPLICATE_SIZE_IN_GROUP");
     }
 
     @Test

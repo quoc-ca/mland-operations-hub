@@ -22,4 +22,9 @@ public interface ProductImageRepository extends JpaRepository<ProductImage, Long
     /** Products that currently show the image (public media serving, T070). */
     @Query("select distinct i.productId from ProductImage i where i.mediaObjectId = :mediaId")
     List<Long> findProductIdsByMediaObjectId(@Param("mediaId") UUID mediaId);
+
+    /** Whether a product that is not soft-deleted shows the image (management preview). */
+    @Query("select count(i) > 0 from ProductImage i, Product p where p.id = i.productId and p.deletedAt is null"
+            + " and i.mediaObjectId = :mediaId")
+    boolean existsOnLiveProduct(@Param("mediaId") UUID mediaId);
 }

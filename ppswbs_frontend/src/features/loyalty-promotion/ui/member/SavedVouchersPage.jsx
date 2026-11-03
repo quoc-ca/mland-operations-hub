@@ -4,6 +4,7 @@ import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading } from '../../../../shared/ui/components';
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
+import { usePublicTargetLabels } from '../../application/useTargetLabels';
 import { DiscountText, ScopeBadge, Terms } from '../display';
 import { messages } from '../messages';
 import { useCursorList } from '../../application/useCursorList';
@@ -25,6 +26,7 @@ function SavedList() {
   const format = useFormat();
   const api = useLoyaltyApi();
   const list = useCursorList(cursor => api.listSavedVouchers({ cursor }), []);
+  const labels = usePublicTargetLabels(api, list.items.map(item => item.promotion));
   return (
     <>
       <p className="muted small">{t('saved.hint')}</p>
@@ -43,7 +45,7 @@ function SavedList() {
             <h2>{promotion.name}</h2>
             <p className="mono code-chip">{promotion.code}</p>
             <p><DiscountText discount={promotion.discount} /></p>
-            <Terms item={promotion} />
+            <Terms item={promotion} labels={labels} />
             <p className="muted small">{t('saved.savedAt', { at: format.dateTime(savedAt) })}</p>
           </article>
         ))}

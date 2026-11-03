@@ -50,10 +50,10 @@ export default function PromotionManagementLayout() {
   );
 }
 
-export function PageTop({ title, children }) {
+export function PageTop({ title, eyebrow = 'MANAGER', children }) {
   return (
     <div className="workspace-top">
-      <div><p className="eyebrow">MANAGER</p><h1>{title}</h1></div>
+      <div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1></div>
       {children && <div className="actions">{children}</div>}
     </div>
   );

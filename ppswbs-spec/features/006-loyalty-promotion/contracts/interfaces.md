@@ -1,7 +1,7 @@
 # Interface Contracts: Loyalty & Promotion
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01 (mã voucher tự sinh, thời gian hiện bằng chữ; bộ chọn đối tượng sản phẩm trên form tạo chương trình; T076 — frontend đã khởi tạo, quy tắc gửi lặp outcome, maxPoints cho component checkout; trước đó: 2026-10-30)
+**Date updated**: 2026-11-03 (`getPromotionProgram` thêm `targetCheck`/`targetWarnings`; khôi phục lệnh tạo mất phản hồi; trước đó: 2026-11-01 (mã voucher tự sinh, thời gian hiện bằng chữ; bộ chọn đối tượng sản phẩm trên form tạo chương trình; T076 — frontend đã khởi tạo, quy tắc gửi lặp outcome, maxPoints cho component checkout; trước đó: 2026-10-30)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 

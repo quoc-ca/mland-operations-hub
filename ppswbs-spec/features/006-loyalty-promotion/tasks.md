@@ -1,7 +1,7 @@
 # Tasks: Loyalty & Promotion Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01 (tick T061 — FE-03 đã nhúng BenefitSelector workshop (develop 9b7b38e) và trả maxPoints (0bab915); tick T072 (phiên qua HTTP với xác minh token giả lập), T078 (UI giả lập), T073–T076 — đóng phần hoàn thiện; T055/T061 chờ owner nhúng; tick T062, T063, T064, T065, T071 — phục hồi/tranh chấp với nguồn thật FE-03/FE-08, sửa gửi lặp outcome trong AcceptedBenefit; tick T057, T059, T060 — workshop nguồn thật của FE-03 trên develop 8d69792; tick T077, T030, T034, T040, T047, T070 — frontend React trên nền 002, test với HTTP giả lập; T055 có component nhưng chưa được FE-08 nhúng; trước đó: 2026-10-29)
+**Date updated**: 2026-11-03 (thêm T079 cảnh báo phạm vi sản phẩm ẩn/xóa cho Manager, T080 khôi phục lệnh tạo chương trình mất phản hồi; trước đó: 2026-11-01 (tick T061 — FE-03 đã nhúng BenefitSelector workshop (develop 9b7b38e) và trả maxPoints (0bab915); tick T072 (phiên qua HTTP với xác minh token giả lập), T078 (UI giả lập), T073–T076 — đóng phần hoàn thiện; T055/T061 chờ owner nhúng; tick T062, T063, T064, T065, T071 — phục hồi/tranh chấp với nguồn thật FE-03/FE-08, sửa gửi lặp outcome trong AcceptedBenefit; tick T057, T059, T060 — workshop nguồn thật của FE-03 trên develop 8d69792; tick T077, T030, T034, T040, T047, T070 — frontend React trên nền 002, test với HTTP giả lập; T055 có component nhưng chưa được FE-08 nhúng; trước đó: 2026-10-29)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -199,6 +199,8 @@
 - [x] T075 (bằng chứng 2026-11-01: verification mục 30–31, integration-gates) Cập nhật `ppswbs-spec/features/006-loyalty-promotion/verification.md` và `ppswbs-spec/features/006-loyalty-promotion/integration-gates.md` bằng bằng chứng actual,41FR→task→scenario→result; ghi owner/dependency còn thiếu, NOTRUN/cần đối soát/minimalproofs. Không tick reviewerchecklist hoặcG01–G07chỉvìfileđủ; giữ source financial history và không claim testdoubles làrealintegration. (Phụ thuộc: T074.)
 - [x] T076 (bằng chứng 2026-11-01: verification mục 31; phân tích thủ công thay speckit-analyze) Đối chiếu `ppswbs-spec/features/006-loyalty-promotion/spec.md`, `ppswbs-spec/features/006-loyalty-promotion/plan.md`, `ppswbs-spec/features/006-loyalty-promotion/tasks.md`, `ppswbs-spec/features/006-loyalty-promotion/contracts/interfaces.md` và `ppswbs-spec/features/006-loyalty-promotion/contracts/loyalty-promotion.openapi.json` vớiimplementation/evidence; chạy speckit-analyze theoartifact hiện hành, ghi limitations/handoff. Không tựcommit/push/deploy hoặc sửaresearchtổng; chỉ đánh hoàn thành task nếu đúng acceptance và evidence. (Phụ thuộc: T075.)
 - [x] T078 (bằng chứng 2026-11-01: verification mục 31; tích hợp phiên thật NOT RUN có lý do) Chạy build frontend và kiểm thử UI/API integration cho mọi màn hình và component FE-06 ở T030, T034, T040, T047, T055, T061, T070 bằng lệnh đã chốt ở T088 của feature 002: loading, empty, validation, success, failure, recovery và 401/409/503. Ghi kết quả (hoặc NOT RUN kèm lý do) vào `ppswbs-spec/features/006-loyalty-promotion/verification.md`. FR-039, SC-008, Constitution IV. (Phụ thuộc: T072.)
+- [x] T079 (bổ sung 2026-11-03; bằng chứng: verification mục 41) [US2] Cảnh báo cho Manager khi sản phẩm/size trong phạm vi chương trình sản phẩm bị ẩn/chưa công khai, ngừng bán hoặc xóa mềm sau khi tạo (clarification 2026-10-26, Edge Cases): `PromotionTargetWarningService` đọc fact qua `PromotionTargetPort` (adapter 002) **ngoài** transaction loyalty, chỉ ở `getPromotionProgram`; thêm `targetCheck` (CHECKED/UNAVAILABLE) và `targetWarnings[{dimension,targetKey,state: DELETED|NOT_PUBLIC|NOT_ON_SALE}]` vào `Program`; không tạm dừng hay đổi phạm vi. Frontend `ProgramDetailPage` hiện khối cảnh báo (tên sản phẩm nếu đọc được, nếu không thì "Sản phẩm #id"). Kiểm chứng: `PromotionTargetWarningIT`, test frontend.
+- [x] T080 (bổ sung 2026-11-03; bằng chứng: verification mục 41) [US1] US1.8/FR-007 khi tải lại trang: `ProgramCreatePage` giữ key + body của lệnh tạo chưa biết kết quả trong sessionStorage; sau khi tải lại cho "Gửi lại đúng yêu cầu đó" (cùng Idempotency-Key, backend replay, không tạo chương trình thứ hai — giảm tự động không có mã nên không có CODE_EXISTS chặn trùng) hoặc "Bỏ qua". Kiểm chứng: test frontend.
 
 **Checkpoint**: Hoàn tất và kiểm chứng các task trong phase; ghi dependency/error/NOT RUN đúng thực tế, không chuyển quyền deploy hoặc tự đóng gate bằng fixture.
 
@@ -300,7 +302,8 @@ Chỉ đánh [x] trên task khi implementation đúng file/phạm vi, acceptance
 | Phase 9 / US7 | T062–T065 | 4 |
 | Phase 10 / US3 | T066–T070 | 5 |
 | Phase 11 | T071–T076, T078 | 7 |
-| **Total** | T001–T078 | **78** |
+| Bổ sung 2026-11-03 | T079–T080 | 2 |
+| **Total** | T001–T080 | **80** |
 
 Có 26 task gắn [P] với điều kiện prerequisite rõ. Các test/setup task không được coi là triển khai đã hoàn thành. Static format/ID/dependency/FR/operation coverage được kiểm tra khi tạo file; speckit-analyze đã chạy ngày 2026-10-24 và các phát hiện C1, C2, H1, M1–M4, L1, L2 đã được xử lý trong tài liệu; speckit-analyze chạy lại ngày 2026-10-26 sau thay đổi spec (clarification 2026-10-26, cọc workshop B): 0 CRITICAL, 3 HIGH, 4 MEDIUM, 2 LOW, độ phủ FR 41/41; F1/F4/F5/F7 đã sửa, F6/F8/F9/F10 còn lại là ghi chú không chặn; runtime tests chưa chạy.
 

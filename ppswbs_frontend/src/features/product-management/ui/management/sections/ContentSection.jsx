@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useT } from '../../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, useResource } from '../../../../../shared/ui/components';
+import { ACTIONS } from '../../../infrastructure/catalogueApi';
 import { messages } from '../../messages';
 import { checkProductContent, LIMITS, serverFieldErrors } from '../../../domain/productRules';
 import { useProductCommand } from '../ProductDetailPage';
@@ -28,7 +29,7 @@ export function ContentSection({ product, api, reload, setNotice, deleted }) {
     setHints(found);
     if (Object.keys(found).length) return;
     const body = { expectedVersion: product.version, name: form.name.trim(), description: form.description.trim(), categoryId: form.categoryId };
-    const outcome = await command.run(key => api.updateProduct(key, product.id, body), 'content.saved');
+    const outcome = await command.run(key => api.updateProduct(key, product.id, body), 'content.saved', ACTIONS.editProduct);
     if (outcome.ok) setEditing(false);
   };
   const cancel = () => { setEditing(false); setHints({}); command.reset(); };

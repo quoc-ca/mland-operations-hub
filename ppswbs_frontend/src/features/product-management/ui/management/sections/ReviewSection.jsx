@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { ConfirmDialog, ErrorNotice, Field } from '../../../../../shared/ui/components';
+import { ACTIONS } from '../../../infrastructure/catalogueApi';
 import { messages } from '../../messages';
 import { checkReason, currentReview, effectiveProposal, isAmount, LIMITS, serverFieldErrors } from '../../../domain/productRules';
 import { useProductCommand } from '../ProductDetailPage';
+import { BulkPriceBar, PriceGap, SelectCell } from './BatchPrices';
 
 /**
  * T034 initial review, before the first publication: submit freezes the content and every size's proposal;
@@ -18,7 +20,7 @@ export function ReviewSection({ product, api, reload, setNotice, deleted }) {
   const history = [...(product.reviews || [])].sort((a, b) => b.revision - a.revision);
 
   const submit = async () => {
-    const outcome = await submitCommand.run(key => api.submitReview(key, product.id, product.version), 'review.submitted');
+    const outcome = await submitCommand.run(key => api.submitReview(key, product.id, product.version), 'review.submitted', ACTIONS.submitReview);
     if (outcome.ok || !outcome.error?.retryable) setConfirmSubmit(false);
   };
 
@@ -66,10 +68,14 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
   const format = useFormat();
   const rows = (product.variants || []).map(variant => ({ variant, proposal: effectiveProposal(variant) }));
   const [mode, setMode] = useState(null);
-  const [prices, setPrices] = useState(() => Object.fromEntries(rows.map(({ variant, proposal }) => [variant.id, proposal?.proposedPrice || ''])));
+  const proposedPrices = () => Object.fromEntries(rows.map(({ variant, proposal }) => [variant.id, proposal?.proposedPrice || '']));
+  const [prices, setPrices] = useState(proposedPrices);
+  // The whole file is still approved at once (every size needs an amount); choosing sizes only scopes the bulk amount.
+  const [selected, setSelected] = useState({});
   const [reason, setReason] = useState('');
   const [errors, setErrors] = useState({});
   const command = useProductCommand({ reload, setNotice });
+  const chosen = rows.filter(({ variant }) => selected[variant.id] !== false);
   const changedSinceSubmit = review.contentVersion !== product.contentVersion;
 
   const decide = async event => {
@@ -92,7 +98,7 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
     }
     setErrors(found);
     if (Object.keys(found).length) return;
-    const outcome = await command.run(key => api.decideReview(key, product.id, body), mode === 'APPROVE' ? 'review.approved' : 'review.rejected');
+    const outcome = await command.run(key => api.decideReview(key, product.id, body), mode === 'APPROVE' ? 'review.approved' : 'review.rejected', ACTIONS.decideReview);
     if (outcome.ok) setMode(null);
   };
 
@@ -111,13 +117,23 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
       {mode && (
         <form onSubmit={decide} noValidate>
           {mode === 'APPROVE' ? (
-            <div className="data-table" role="table" aria-label={t('review.decisionTitle')}>
+            <>
+              {rows.length > 1 && (
+                <BulkPriceBar count={chosen.length}
+                  onApply={amount => setPrices(current => ({ ...current, ...Object.fromEntries(chosen.map(({ variant }) => [variant.id, amount])) }))}
+                  onReset={() => setPrices(proposedPrices())} />
+              )}
+              <div className="data-table" role="table" aria-label={t('review.decisionTitle')}>
               <div className="data-row head decision" role="row">
+                <SelectCell checked={chosen.length === rows.length} label={t('bulk.selectAll')}
+                  onChange={checked => setSelected(Object.fromEntries(rows.map(({ variant }) => [variant.id, checked])))} />
                 <span role="columnheader">{t('field.size')}</span><span role="columnheader">{t('price.proposed')}</span>
-                <span role="columnheader">{t('price.approvedAmount')}</span>
+                <span role="columnheader">{t('price.approvedAmount')}</span><span role="columnheader">{t('bulk.diff')}</span>
               </div>
               {rows.map(({ variant, proposal }, index) => (
-                <div className="data-row decision" role="row" key={variant.id}>
+                <div className={`data-row decision${String(prices[variant.id]) !== String(proposal?.proposedPrice || '') ? ' changed' : ''}`} role="row" key={variant.id}>
+                  <SelectCell checked={selected[variant.id] !== false} label={t('bulk.selectSize', { size: variant.size })}
+                    onChange={checked => setSelected(current => ({ ...current, [variant.id]: checked }))} />
                   <span role="cell">{variant.size}</span>
                   <span role="cell">{format.money(proposal?.proposedPrice)}</span>
                   <span role="cell">
@@ -126,9 +142,11 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
                       onChange={event => setPrices(current => ({ ...current, [variant.id]: event.target.value }))} />
                     {(errors[variant.id] || serverErrors[`prices[${index}].approvedPrice`]) && <span className="field-error">{errors[variant.id] || serverErrors[`prices[${index}].approvedPrice`]}</span>}
                   </span>
+                  <span role="cell"><PriceGap proposed={proposal?.proposedPrice} approved={prices[variant.id]} /></span>
                 </div>
               ))}
-            </div>
+              </div>
+            </>
           ) : (
             <Field label={t('decision.reason')} error={errors.reason || serverErrors.reason}>
               <textarea value={reason} maxLength={LIMITS.reasonMax} onChange={event => setReason(event.target.value)} />

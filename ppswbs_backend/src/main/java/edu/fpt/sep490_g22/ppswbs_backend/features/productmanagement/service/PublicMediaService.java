@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.InputStream;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -56,13 +55,30 @@ public class PublicMediaService {
     }
 
     public PublicMedia open(String rawMediaId) {
-        UUID mediaId = parse(rawMediaId);
+        return serve(parse(rawMediaId), (mediaId, object) ->
+                !publicQueries.findEligibleIds(images.findProductIdsByMediaObjectId(mediaId)).isEmpty());
+    }
+
+    /**
+     * Management preview (Staff/Manager with {@code READ_INTERNAL}): a READY image attached to a product that is not
+     * soft-deleted (draft or hidden included, like the management detail), or one the actor uploaded and has not
+     * attached yet. Same streaming and 404 rules as public.
+     */
+    public PublicMedia openForManagement(String rawMediaId, String actorId) {
+        return serve(parse(rawMediaId), (mediaId, object) -> images.existsOnLiveProduct(mediaId)
+                || (actorId.equals(object.getUploadedBy()) && !images.existsByMediaObjectId(mediaId)));
+    }
+
+    private interface Visibility {
+        boolean allows(UUID mediaId, CatalogueMediaObject object);
+    }
+
+    private PublicMedia serve(UUID mediaId, Visibility visibility) {
         Located located = transaction.execute(status -> {
             CatalogueMediaObject object = media.findById(mediaId)
                     .filter(found -> found.getState() == CatalogueMediaObject.State.READY)
                     .orElseThrow(() -> new CatalogueException(CatalogueErrorCode.MEDIA_NOT_FOUND));
-            List<Long> products = images.findProductIdsByMediaObjectId(mediaId);
-            if (publicQueries.findEligibleIds(products).isEmpty()) {
+            if (!visibility.allows(mediaId, object)) {
                 throw new CatalogueException(CatalogueErrorCode.MEDIA_NOT_FOUND);
             }
             return new Located(object.getContentType(), new MediaStoragePort.StoredObject(object.getStorageKey(),
