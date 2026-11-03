@@ -1,0 +1,239 @@
+openapi: 3.1.0
+info:
+  title: Review Management API
+  version: 0.1.0-draft
+  description: Proposed contract for Feature-011. It becomes an implementation baseline only after synchronization with ppswbs-spec/APIs.md.
+  x-status: draft
+servers:
+  - url: /api/v1
+security:
+  - firebaseBearer: []
+paths:
+  /review-eligibility/lookup:
+    post:
+      summary: Guest lookup of eligible review sources
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuestEligibilityLookup' }
+      responses:
+        '200':
+          description: Matching eligible sources only
+          content: { application/json: { schema: { $ref: '#/components/schemas/EligibleSourceList' } } }
+        '400': { $ref: '#/components/responses/InputInvalid' }
+        '422': { $ref: '#/components/responses/SourceNotEligible' }
+  /reviews/eligible-sources:
+    get:
+      summary: List eligible sources owned by the authenticated Member
+      responses:
+        '200':
+          description: Member-owned eligible sources
+          content: { application/json: { schema: { $ref: '#/components/schemas/EligibleSourceList' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /reviews:
+    post:
+      summary: Create one public review for an eligible source
+      description: Member calls with Firebase identity. Guest calls only with a server-issued eligibility proof from the lookup flow; the proof field, lifetime and replay policy are TBD and must be ratified before implementation.
+      security: [{}]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateReview' } } }
+      responses:
+        '201':
+          description: Review created as PUBLIC
+          content: { application/json: { schema: { $ref: '#/components/schemas/Review' } } }
+        '400': { $ref: '#/components/responses/InputInvalid' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/SourceNotEligible' }
+    get:
+      summary: List public reviews and public-only aggregate
+      security: []
+      parameters:
+        - { name: targetType, in: query, schema: { $ref: '#/components/schemas/TargetType' } }
+        - { name: targetReference, in: query, schema: { type: string, maxLength: 128 } }
+        - { name: rating, in: query, schema: { type: integer, minimum: 1, maximum: 5 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Public reviews; contact and transaction fields are excluded
+          content: { application/json: { schema: { $ref: '#/components/schemas/PublicReviewPage' } } }
+  /reviews/{reviewId}:
+    get:
+      summary: Get a public review or an authorized owner view
+      security: []
+      parameters: [{ $ref: '#/components/parameters/ReviewId' }]
+      responses:
+        '200': { description: Review, content: { application/json: { schema: { $ref: '#/components/schemas/Review' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      summary: Edit the authenticated owner review while keeping PUBLIC
+      parameters:
+        - $ref: '#/components/parameters/ReviewId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchVersion'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/EditReview' } } }
+      responses:
+        '200': { description: Updated public review, content: { application/json: { schema: { $ref: '#/components/schemas/Review' } } } }
+        '400': { $ref: '#/components/responses/InputInvalid' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /reviews/{reviewId}/visibility:
+    patch:
+      summary: Staff/Manager moderation visibility action
+      parameters:
+        - $ref: '#/components/parameters/ReviewId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchVersion'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/VisibilityCommand' } } }
+      responses:
+        '200': { description: Updated review, content: { application/json: { schema: { $ref: '#/components/schemas/Review' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /review-moderation:
+    get:
+      summary: Staff/Manager moderation queue
+      responses:
+        '200': { description: Moderation projection, content: { application/json: { schema: { $ref: '#/components/schemas/ModerationPage' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /reviews/{reviewId}/reply:
+    post:
+      summary: Manager creates the current reply
+      parameters: [{ $ref: '#/components/parameters/ReviewId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReplyCommand' } } } }
+      responses:
+        '201': { description: Reply created, content: { application/json: { schema: { $ref: '#/components/schemas/Reply' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    patch:
+      summary: Manager edits the current reply
+      parameters: [{ $ref: '#/components/parameters/ReviewId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatchVersion' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReplyCommand' } } } }
+      responses:
+        '200': { description: Reply updated, content: { application/json: { schema: { $ref: '#/components/schemas/Reply' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+components:
+  securitySchemes:
+    firebaseBearer: { type: http, scheme: bearer, bearerFormat: Firebase }
+  parameters:
+    ReviewId: { name: reviewId, in: path, required: true, schema: { type: string, minLength: 1 } }
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 16, maxLength: 128 } }
+    IfMatchVersion: { name: If-Match-Version, in: header, required: false, schema: { type: integer, minimum: 0 } }
+  schemas:
+    GuestEligibilityLookup:
+      type: object
+      required: [contactType, contactValue]
+      properties:
+        contactType: { type: string, enum: [EMAIL, PHONE] }
+        contactValue: { type: string, minLength: 3, maxLength: 254 }
+    EligibleSourceList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/EligibleSource' } }
+    EligibleSource:
+      type: object
+      required: [sourceType, sourceReference, targetType, targetReference, eligible]
+      properties:
+        sourceType: { type: string, enum: [WORKSHOP_ATTENDANCE, RETAIL_ORDER_LINE] }
+        sourceReference: { type: string }
+        targetType: { $ref: '#/components/schemas/TargetType' }
+        targetReference: { type: string }
+        label: { type: string }
+        eligible: { type: boolean }
+        reasonCode: { type: string, nullable: true }
+    TargetType: { type: string, enum: [WORKSHOP_SESSION, RETAIL_PRODUCT] }
+    CreateReview:
+      type: object
+      required: [sourceType, sourceReference, targetType, targetReference, rating]
+      properties:
+        sourceType: { type: string, enum: [WORKSHOP_ATTENDANCE, RETAIL_ORDER_LINE] }
+        sourceReference: { type: string, maxLength: 128 }
+        targetType: { $ref: '#/components/schemas/TargetType' }
+        targetReference: { type: string, maxLength: 128 }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        bodyText: { type: string, maxLength: 2000, nullable: true }
+    EditReview:
+      type: object
+      required: [rating]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        bodyText: { type: string, maxLength: 2000, nullable: true }
+    Review:
+      type: object
+      required: [id, targetType, targetReference, rating, status, maskedDisplayName, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        targetType: { $ref: '#/components/schemas/TargetType' }
+        targetReference: { type: string }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        bodyText: { type: string, nullable: true }
+        status: { type: string, enum: [PUBLIC, HIDDEN, REMOVED] }
+        maskedDisplayName: { type: string }
+        reply: { $ref: '#/components/schemas/Reply' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 0 }
+    PublicReviewPage:
+      type: object
+      required: [items, aggregate]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Review' } }
+        nextCursor: { type: string, nullable: true }
+        aggregate:
+          type: object
+          properties:
+            count: { type: integer, minimum: 0 }
+            averageRating: { type: number, minimum: 0, maximum: 5 }
+    VisibilityCommand:
+      type: object
+      required: [status, reason]
+      properties:
+        status: { type: string, enum: [PUBLIC, HIDDEN, REMOVED] }
+        reason: { type: string, minLength: 1, maxLength: 1000 }
+    ReplyCommand:
+      type: object
+      required: [bodyText]
+      properties:
+        bodyText: { type: string, minLength: 1, maxLength: 2000 }
+    Reply:
+      type: object
+      required: [id, bodyText, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        bodyText: { type: string, maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 0 }
+    ModerationPage:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Review' } }
+    Error:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        correlationId: { type: string }
+  responses:
+    InputInvalid: { description: Invalid input, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    SourceNotEligible: { description: Source is not eligible, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unauthorized: { description: Authentication required, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Forbidden: { description: Action not authorized, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: Resource not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: Duplicate, stale version or idempotency conflict, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

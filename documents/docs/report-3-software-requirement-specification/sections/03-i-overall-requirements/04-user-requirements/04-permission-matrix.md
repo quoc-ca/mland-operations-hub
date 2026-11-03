@@ -24,6 +24,7 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Independent Design Request|Create and view own request and safe analysis/review result|TBD by ownership-proof policy|Full under policy|No|No|Technical/audit only|
 |Independent Design Review|Review an in-scope request under approved authority policy|No|No|Restricted|Restricted|No business decision|
 |AI-assisted pricing|Review AI suggestions and decide the published price|No|No|No|Full|Restricted|
+|Review Management|Create/edit own eligible review; Staff hide; Manager hide/remove/reply; Admin technical/audit only|Guest/Member under source eligibility|Own sources only|Hide any review|Hide/remove/reply|Technical/audit only|
 |Loyalty|View own points and history|No|Full|No|No|Restricted|
 |Loyalty|Redeem points during eligible checkout|No|Full|No|No|Restricted|
 |Promotion and voucher|Create, update, activate, deactivate, and audit campaigns or vouchers|No|No|Restricted|Full|Restricted|
@@ -49,3 +50,4 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 4. Staff and Managers review independent Design Requests only under the approved Feature-004 authority and scope policy. Managers, not AI, decide published package and product prices.
 5. Admin manages technical configuration, accounts, RBAC, and approved integration credentials. Admin may view purpose-limited parameter-impact information in FE-09 but has no access to FE-10 executive revenue, branch rankings, customer details, or individual order/payment details. Admin does not replace Staff or Manager business approvals unless an explicit authorized override is defined.
 6. GHTK actions are internal records of manual handoff. The matrix does not grant any role access to GHTK tracking or delivery-management APIs because V1 has no such integration.
+7. Feature-011 allows a matched Guest or owning Member to create a review only for an eligible checked-in workshop attendance or picked-up/delivered retail order line. Staff may HIDE any Feature-011 review; Manager may HIDE/REMOVE and reply; Admin has technical/audit access only. This global Staff hide permission is deliberate and is not inferred from branch scope.

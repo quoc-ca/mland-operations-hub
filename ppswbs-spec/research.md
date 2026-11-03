@@ -1,8 +1,21 @@
 # Research — Phân loại luồng theo Features
 
-Phân loại theo 10 major features trong Report 1. Đây là cách tổ chức tài liệu, không phải xác nhận các tính năng đã được triển khai. Mỗi feature ghi rõ nội dung đã mô tả, đề xuất và phần chưa chốt.
+<a id="fe-11"></a>
 
-Mỗi luồng được mô tả tại một nơi. FE-01 và FE-07 có research riêng trong thư mục features tương ứng; các phần chưa tách vẫn giữ ở đây. Các điểm dùng chung được dẫn chiếu giữa feature; thanh toán không được tạo thành feature thứ 11.
+# FE-11 — Review Management
+
+Mland may store reviews only for workshop sessions and retail products when the
+source attendance/order-line eligibility is verified. This does not change the
+read-only Google Maps/Places boundary: Google review content is not persisted
+and nothing is written back to Google. Guest email/phone lookup deliberately has
+no OTP or rate limit in V1; source matching, one-review-per-source uniqueness,
+idempotency, audit and public identity masking are the selected mitigations.
+See `features/011-review-management/research.md` for evidence and remaining
+dependencies.
+
+Phân loại theo các major features trong Report 1. Đây là cách tổ chức tài liệu, không phải xác nhận các tính năng đã được triển khai. Mỗi feature ghi rõ nội dung đã mô tả, đề xuất và phần chưa chốt.
+
+Mỗi luồng được mô tả tại một nơi. FE-01 và FE-07 có research riêng trong thư mục features tương ứng; các phần chưa tách vẫn giữ ở đây. Các điểm dùng chung được dẫn chiếu giữa feature; thanh toán không được tạo thành feature riêng.
 
 <a id="fe-01"></a>
 
