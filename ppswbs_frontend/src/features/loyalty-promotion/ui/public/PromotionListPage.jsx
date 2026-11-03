@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading } from '../../../../shared/ui/components';
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
+import { usePublicTargetLabels } from '../../application/useTargetLabels';
 import { DiscountText, ScopeBadge, Terms } from '../display';
 import { messages } from '../messages';
 import { useCursorList } from '../../application/useCursorList';
@@ -18,6 +19,7 @@ export default function PromotionListPage() {
   const [params, setParams] = useSearchParams();
   const scope = params.get('scope') || '';
   const list = useCursorList(cursor => api.listPublicPromotions({ scope: scope || undefined, cursor }), [scope]);
+  const labels = usePublicTargetLabels(api, list.items);
 
   return (
     <main className="container public-page lp-theme lp-public">
@@ -43,7 +45,7 @@ export default function PromotionListPage() {
             <h2><Link to={`/promotions/${encodeURIComponent(promotion.id)}`}>{promotion.name}</Link></h2>
             {promotion.code && <p className="mono code-chip">{promotion.code}</p>}
             <p><DiscountText discount={promotion.discount} /></p>
-            <Terms item={promotion} />
+            <Terms item={promotion} labels={labels} />
             {promotion.kind === 'VOUCHER' && <SaveVoucherButton promotion={promotion} />}
           </article>
         ))}

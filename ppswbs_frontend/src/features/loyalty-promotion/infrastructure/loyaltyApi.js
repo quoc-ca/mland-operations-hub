@@ -29,6 +29,10 @@ export function loyaltyApi(request) {
     searchCatalogueProducts: ({ q, page } = {}) => request('/api/v1/catalogue-management/products', { query: { q, page } }),
     getCatalogueProduct: productId => request(`/api/v1/catalogue-management/products/${id(productId)}`),
 
+    // Names of product targets on public and Member pages: 002's public catalogue (published products only).
+    listPublicProducts: ({ page } = {}) => request('/api/v1/products', { query: { page }, auth: false }),
+    getPublicProduct: productId => request(`/api/v1/products/${id(productId)}`, { auth: false }),
+
     // Manager point policy (T034)
     getPolicy: () => request('/api/v1/loyalty-policies/current'),
     updatePolicy: (key, body) => write('PUT', '/api/v1/loyalty-policies/current', key, body),

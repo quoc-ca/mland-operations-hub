@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useT } from '../../../../../shared/i18n/I18nProvider';
-import { ConfirmDialog, ErrorNotice, Field, Loading, SuccessNotice, useCommand, useResource } from '../../../../../shared/ui/components';
+import { ConfirmDialog, ErrorNotice, Field, Loading, SuccessNotice, useResource } from '../../../../../shared/ui/components';
+import { useCatalogueCommand } from '../../../application/useCatalogueCommand';
+import { ACTIONS } from '../../../infrastructure/catalogueApi';
 import { useCatalogueApi } from '../../../application/useCatalogueApi';
 import { messages } from '../../messages';
 import { LIMITS, serverFieldErrors } from '../../../domain/productRules';
@@ -24,7 +26,7 @@ export default function CategoriesPage() {
 
   return (
     <>
-      <PageTop eyebrow={t('nav.group')} title={t('category.title')} />
+      <PageTop eyebrow={t('nav.section')} title={t('category.title')} />
       <SuccessNotice>{notice && t(notice)}</SuccessNotice>
       <CategoryForm api={api} onDone={() => done('category.created')} />
       {categories.loading && !data && <Loading />}
@@ -44,7 +46,7 @@ function CategoryForm({ api, category, onDone, onCancel, reload }) {
   const t = useT(messages);
   const [form, setForm] = useState({ name: category?.name || '', description: category?.description || '' });
   const [hint, setHint] = useState(null);
-  const command = useCommand();
+  const command = useCatalogueCommand();
   const serverErrors = serverFieldErrors(command.error);
   const set = name => event => setForm(current => ({ ...current, [name]: event.target.value }));
 
@@ -55,7 +57,7 @@ function CategoryForm({ api, category, onDone, onCancel, reload }) {
     const body = { name: form.name.trim(), description: form.description.trim() || null };
     const outcome = await command.run(key => (category
       ? api.updateCategory(key, category.id, { expectedVersion: category.version, ...body })
-      : api.createCategory(key, body)));
+      : api.createCategory(key, body)), category ? ACTIONS.updateCategory : ACTIONS.createCategory);
     if (outcome.ok) { if (!category) setForm({ name: '', description: '' }); onDone(); }
   };
 
@@ -101,12 +103,12 @@ function ImpactDialog({ category, api, onClose, onDone }) {
   const t = useT(messages);
   const [page, setPage] = useState(0);
   const impact = useResource(() => api.categoryImpact(category.id, page || undefined), [category.id, page]);
-  const command = useCommand();
+  const command = useCatalogueCommand();
   const target = !category.active;
   useEffect(() => { command.reset(); }, [impact.data?.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const confirm = async () => {
-    const outcome = await command.run(key => api.setCategoryActive(key, category.id, impact.data.version, target));
+    const outcome = await command.run(key => api.setCategoryActive(key, category.id, impact.data.version, target), ACTIONS.categoryActivation);
     if (outcome.ok) onDone(target ? 'category.activated' : 'category.deactivated');
   };
   const affected = impact.data?.affectedProducts;

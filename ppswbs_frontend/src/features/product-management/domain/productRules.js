@@ -64,6 +64,18 @@ export function checkReason(reason) {
   return null;
 }
 
+/** Product number as staff search it (FR-006): "SP" + at least 6 digits, e.g. 42 → "SP000042"; longer IDs stay whole. */
+export function productCode(id) {
+  return `SP${String(id ?? '').padStart(6, '0')}`;
+}
+
+/** The size whose SKU is exactly the keyword (trimmed, any case), so the list can point at it (FR-003); else null. */
+export function skuMatch(keyword, variants) {
+  const wanted = String(keyword || '').trim().toUpperCase();
+  if (!wanted) return null;
+  return (variants || []).find(variant => String(variant.sku || '').toUpperCase() === wanted) || null;
+}
+
 /** Field errors of an ApiError as { field: message }; backend messages are already safe text. */
 export function serverFieldErrors(error) {
   return Object.fromEntries((error?.fieldErrors || []).map(item => [item.field, item.message]));
@@ -106,4 +118,17 @@ export function matchProductForFile(fileName, products) {
     });
   });
   return best ? best.id : null;
+}
+
+/** Sizes in ascending order with consecutive runs folded, as an import file may write them: [12,5,6,7,14] → "5–7, 12, 14". */
+export function compactSizes(sizes) {
+  const sorted = [...new Set((sizes || []).map(Number))].sort((a, b) => a - b);
+  const parts = [];
+  for (let i = 0; i < sorted.length; i += 1) {
+    let end = i;
+    while (end + 1 < sorted.length && sorted[end + 1] === sorted[end] + 1) end += 1;
+    parts.push(end - i >= 2 ? `${sorted[i]}–${sorted[end]}` : sorted.slice(i, end + 1).join(', '));
+    i = end;
+  }
+  return parts.join(', ');
 }

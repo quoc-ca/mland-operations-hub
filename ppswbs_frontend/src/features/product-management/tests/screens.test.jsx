@@ -53,8 +53,8 @@ describe('T028 product list and create', () => {
     await user.type(screen.getByLabelText('Mô tả'), 'Mô tả');
     await screen.findByRole('option', { name: 'Nhẫn cưới' });
     await user.selectOptions(screen.getByLabelText('Danh mục'), '7');
-    await user.type(screen.getByLabelText('Size'), '12');
-    await user.type(screen.getByLabelText('Giá đề xuất (₫)'), '1250000');
+    await user.click(screen.getByRole('button', { name: '12' }));
+    await user.type(screen.getByLabelText('Giá đề xuất size 12'), '1250000');
     await user.click(screen.getByRole('button', { name: 'Tạo sản phẩm' }));
 
     expect(await screen.findByText('Must be a positive amount.')).toBeInTheDocument();
@@ -71,9 +71,44 @@ describe('T028 product list and create', () => {
     open('/catalogue-management/products/new');
     await user.click(await screen.findByRole('button', { name: 'Tạo sản phẩm' }));
     expect(screen.getAllByText('Bắt buộc nhập.').length).toBeGreaterThan(0);
-    expect(screen.getByText('Size là số nguyên từ 5 đến 29.')).toBeInTheDocument();
+    expect(screen.getByText('Cần ít nhất một size.')).toBeInTheDocument();
     expect(calls.some(call => call.method === 'POST')).toBe(false);
   });
+
+  it('sizes are chosen as chips or a range, one price and quantity apply to all, rows stay editable', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({ [`GET ${M}/categories`]: json(200, categoryPage), [`POST ${M}/products`]: json(400, { code: 'VALIDATION_ERROR', message: 'x' }) });
+    open('/catalogue-management/products/new');
+    const chips = await screen.findByRole('group', { name: 'Chọn size' });
+    expect(within(chips).getAllByRole('button')).toHaveLength(25);
+    await user.selectOptions(screen.getByLabelText('Từ size'), '14');
+    await user.selectOptions(screen.getByLabelText('Đến size'), '12');
+    await user.click(screen.getByRole('button', { name: 'Chọn khoảng' }));
+    await user.click(within(chips).getByRole('button', { name: '20' }));
+    expect(within(chips).getByRole('button', { name: '13' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('Áp dụng cho 4 size đã chọn:')).toBeInTheDocument();
+
+    const bulk = screen.getByText('Áp dụng cho 4 size đã chọn:').parentElement;
+    await user.type(within(bulk).getByLabelText('Giá đề xuất (₫)'), '350000');
+    await user.type(within(bulk).getByLabelText('Số lượng'), '5');
+    await user.click(within(bulk).getByRole('button', { name: 'Áp dụng' }));
+    const price14 = screen.getByLabelText('Giá đề xuất size 14');
+    await user.clear(price14);
+    await user.type(price14, '370000');
+    await user.click(within(chips).getByRole('button', { name: '13' }));
+
+    await user.type(screen.getByLabelText('Tên sản phẩm'), 'Nhẫn');
+    await user.type(screen.getByLabelText('Mô tả'), 'Bạc');
+    await screen.findByRole('option', { name: 'Nhẫn cưới' });
+    await user.selectOptions(screen.getByLabelText('Danh mục'), '7');
+    await user.click(screen.getByRole('button', { name: 'Tạo sản phẩm' }));
+    await waitFor(() => expect(calls.some(call => call.method === 'POST')).toBe(true));
+    expect(calls.find(call => call.method === 'POST').body.variants).toEqual([
+      { size: 12, proposedPrice: '350000', quantity: '5' },
+      { size: 14, proposedPrice: '370000', quantity: '5' },
+      { size: 20, proposedPrice: '350000', quantity: '5' },
+    ]);
+  }, 20000);
 
   it('a 503 is retried with the same key and then opens the product', async () => {
     const user = userEvent.setup();
@@ -88,8 +123,8 @@ describe('T028 product list and create', () => {
     await user.type(screen.getByLabelText('Mô tả'), 'Bạc 925');
     await screen.findByRole('option', { name: 'Nhẫn cưới' });
     await user.selectOptions(screen.getByLabelText('Danh mục'), '7');
-    await user.type(screen.getByLabelText('Size'), '12');
-    await user.type(screen.getByLabelText('Giá đề xuất (₫)'), '1250000');
+    await user.click(screen.getByRole('button', { name: '12' }));
+    await user.type(screen.getByLabelText('Giá đề xuất size 12'), '1250000');
     await user.click(screen.getByRole('button', { name: 'Tạo sản phẩm' }));
     await user.click(await screen.findByRole('button', { name: 'Thử lại' }));
 
@@ -176,7 +211,7 @@ describe('T050 product detail edits', () => {
     });
     open('/catalogue-management/products/42');
     const variants = (await screen.findByRole('heading', { name: 'Size và số lượng' })).closest('section');
-    expect(within(variants).getByText('P42-S12')).toBeInTheDocument();
+    expect(within(variants).getByText('SP000042-S12')).toBeInTheDocument();
     await user.click(within(variants).getByRole('button', { name: 'Sửa' }));
     const input = within(variants).getByLabelText('Số lượng mới của size 12');
     await user.clear(input);
@@ -213,6 +248,100 @@ describe('T034 review decision', () => {
       reviewId: '301', reviewRevision: 1, contentVersion: 1, decision: 'APPROVE',
       prices: [{ variantId: '101', proposalId: '501', approvedPrice: '1200000' }],
     });
+  });
+});
+
+describe('bulk price decisions', () => {
+  const variant = (id, size, proposal, extra = {}) => ({
+    ...managementProduct().variants[0], id, size, sku: `SP000042-S${size}`, appliedPrice: null, ...extra,
+    proposals: [{ id: proposal.id, variantId: id, revision: 1, version: 0, effective: true, baseAppliedSequence: 0, applied: false, approvedPrice: null, ...proposal }],
+  });
+
+  it('initial review: one amount fills the chosen sizes, the gap to the proposal shows, the whole file is still sent', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      [`GET ${M}/products/42`]: json(200, managementProduct({ variants: [
+        variant('101', 12, { id: '501', state: 'PENDING', proposedPrice: '1250000' }),
+        variant('102', 14, { id: '502', state: 'PENDING', proposedPrice: '1300000' }),
+        variant('103', 16, { id: '503', state: 'PENDING', proposedPrice: '1350000' }),
+      ] })),
+      [`GET ${M}/categories`]: json(200, categoryPage),
+      [`POST ${M}/products/42/review-decisions`]: json(200, actionResult('42', 'product.review.decide')),
+    });
+    open('/catalogue-management/products/42');
+    const review = (await screen.findByRole('heading', { name: 'Duyệt hồ sơ ban đầu' })).closest('section');
+    await user.click(within(review).getByRole('button', { name: 'Duyệt' }));
+    await user.click(within(review).getByLabelText('Chọn size 14'));
+    await user.type(within(review).getByLabelText('Giá duyệt chung (₫)'), '1200000');
+    await user.click(within(review).getByRole('button', { name: 'Áp dụng cho 2 size đã chọn' }));
+
+    expect(within(review).getByLabelText('Giá duyệt size 12')).toHaveValue('1200000');
+    expect(within(review).getByLabelText('Giá duyệt size 14')).toHaveValue('1300000');
+    expect(within(review).getByLabelText('Giá duyệt size 16')).toHaveValue('1200000');
+    expect(within(review).getByText('Bằng đề xuất')).toBeInTheDocument();
+    await user.click(within(review).getByRole('button', { name: 'Duyệt toàn bộ hồ sơ' }));
+    await waitFor(() => expect(calls.some(call => call.method === 'POST')).toBe(true));
+    expect(calls.find(call => call.method === 'POST').body.prices).toEqual([
+      { variantId: '101', proposalId: '501', approvedPrice: '1200000' },
+      { variantId: '102', proposalId: '502', approvedPrice: '1300000' },
+      { variantId: '103', proposalId: '503', approvedPrice: '1200000' },
+    ]);
+  });
+
+  it('after publication: approves the chosen sizes one by one with their own keys and reports each size', async () => {
+    const user = userEvent.setup();
+    const published = { published: true, firstPublishedAt: '2026-10-30T00:00:00Z', reviews: [{ id: '301', revision: 1, contentVersion: 1, state: 'APPROVED', effective: true }] };
+    const calls = mockFetch({
+      [`GET ${M}/products/42`]: json(200, managementProduct({ ...published, variants: [
+        variant('101', 12, { id: '601', state: 'PENDING', proposedPrice: '1250000' }, { appliedPrice: '1200000' }),
+        variant('102', 14, { id: '602', state: 'PENDING', proposedPrice: '1300000' }, { appliedPrice: '1200000' }),
+        variant('103', 16, { id: '603', state: 'PENDING', proposedPrice: '1350000' }, { appliedPrice: '1200000' }),
+      ] })),
+      [`GET ${M}/categories`]: json(200, categoryPage),
+      [`POST ${M}/price-proposals/601/decisions`]: json(200, actionResult('601', 'price.decide')),
+      [`POST ${M}/price-proposals/602/decisions`]: json(409, { code: 'STALE_VERSION', message: 'Stale.' }),
+      [`POST ${M}/price-proposals/603/decisions`]: json(200, actionResult('603', 'price.decide')),
+    });
+    open('/catalogue-management/products/42');
+    const batch = (await screen.findByRole('heading', { name: 'Giá đang chờ duyệt (3 size)' })).closest('.batch-prices');
+
+    await user.click(within(batch).getByRole('button', { name: 'Từ chối 3 size đã chọn' }));
+    await user.click(within(batch).getByRole('button', { name: 'Xác nhận từ chối 3 size' }));
+    expect(within(batch).getByText('Cần nhập lý do.')).toBeInTheDocument();
+    await user.click(within(batch).getByRole('button', { name: 'Hủy' }));
+
+    await user.type(within(batch).getByLabelText('Giá duyệt chung (₫)'), '1280000');
+    await user.click(within(batch).getByRole('button', { name: 'Áp dụng cho 3 size đã chọn' }));
+    await user.click(within(batch).getByRole('button', { name: 'Duyệt 3 size đã chọn' }));
+
+    expect(await within(batch).findByText('Kết quả: 2/3 size thành công.')).toBeInTheDocument();
+    expect(within(batch).getByText(/Size 14: Dữ liệu đã được người khác thay đổi/)).toBeInTheDocument();
+    const decisions = calls.filter(call => call.path.endsWith('/decisions'));
+    expect(decisions.map(call => call.path.split('/').at(-2))).toEqual(['601', '602', '603']);
+    expect(decisions.map(call => call.body)).toEqual([601, 602, 603].map(() => ({ expectedVersion: 0, decision: 'APPROVE', approvedPrice: '1280000' })));
+    expect(new Set(decisions.map(call => call.headers['Idempotency-Key'])).size).toBe(3);
+  });
+
+  it('applies every approved, not yet applied price in one go, sending no amount', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      [`GET ${M}/products/42`]: json(200, managementProduct({
+        reviews: [{ id: '301', revision: 1, contentVersion: 1, state: 'APPROVED', effective: true }],
+        variants: [
+          variant('101', 12, { id: '601', state: 'APPROVED', proposedPrice: '1250000', approvedPrice: '1250000' }),
+          variant('102', 14, { id: '602', state: 'APPROVED', proposedPrice: '1300000', approvedPrice: '1280000' }),
+        ],
+      })),
+      [`GET ${M}/categories`]: json(200, categoryPage),
+      [`POST ${M}/price-proposals/601/applications`]: json(200, actionResult('601', 'price.apply')),
+      [`POST ${M}/price-proposals/602/applications`]: json(200, actionResult('602', 'price.apply')),
+    });
+    open('/catalogue-management/products/42');
+    await user.click(await screen.findByRole('button', { name: 'Áp dụng giá đã duyệt cho 2 size' }));
+    expect(await screen.findByText('Kết quả: 2/2 size thành công.')).toBeInTheDocument();
+    const applications = calls.filter(call => call.path.endsWith('/applications'));
+    expect(applications).toHaveLength(2);
+    expect(applications.map(call => call.body)).toEqual([{ expectedVersion: 0 }, { expectedVersion: 0 }]);
   });
 });
 
@@ -271,6 +400,21 @@ describe('T101 import', () => {
     await user.click(screen.getByRole('button', { name: 'Kiểm tra file' }));
     expect(await screen.findByText('Ngoài khoảng cho phép.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Tải báo cáo lỗi' })).toBeInTheDocument();
+  });
+
+  it('explains the Size column and shows each previewed product with its sizes folded into ranges', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      [`POST ${M}/product-imports`]: json(201, {
+        batchId: 'b2', fileName: 'a.xlsx', state: 'VALIDATED', version: 0, rowCount: 2, productCount: 1, variantCount: 7, errorCount: 0,
+        expiresAt: '2026-11-01T10:00:00Z', preview: [{ groupKey: 'R1', name: 'Nhẫn khoảng size', sizes: [5, 6, 7, 8, 9, 14, 12] }],
+      }),
+    });
+    const { container } = open('/catalogue-management/imports');
+    expect(screen.getByText(/Cột Size nhận một size \(12\), một khoảng \(12-20\)/)).toBeInTheDocument();
+    await user.upload(container.querySelector('input[type=file]'), new File(['x'], 'a.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    await user.click(screen.getByRole('button', { name: 'Kiểm tra file' }));
+    expect(await screen.findByText(/7 size: 5–9, 12, 14/)).toBeInTheDocument();
   });
 
   it('after import, images are matched by file name, assigned by hand or per product, and saved product by product', async () => {

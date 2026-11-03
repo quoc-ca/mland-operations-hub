@@ -159,7 +159,7 @@ class LoyaltyApiContractIT {
 
         assertThat(operations).hasSize(15);
         assertThat(loyaltyRoutes).as("no extra route such as a public reserve/earn/restore").isEqualTo(operations);
-        assertThat(contract.get("components").get("schemas").size()).isEqualTo(34);
+        assertThat(contract.get("components").get("schemas").size()).isEqualTo(35); // + TargetWarning (T079)
     }
 
     // ---- authority ----

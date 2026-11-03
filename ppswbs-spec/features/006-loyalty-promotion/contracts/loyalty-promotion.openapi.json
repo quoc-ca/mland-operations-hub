@@ -1547,6 +1547,21 @@
           },
           "createdAt": {
             "$ref": "#/components/schemas/Timestamp"
+          },
+          "targetCheck": {
+            "type": "string",
+            "enum": [
+              "CHECKED",
+              "UNAVAILABLE"
+            ],
+            "description": "Only on getPromotionProgram of a PRODUCT programme (added 2026-11-03): CHECKED when the owning module answered (targetWarnings lists problems, possibly none); UNAVAILABLE when the product source could not be read (the detail still answers). Absent on workshop programmes and on write responses."
+          },
+          "targetWarnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TargetWarning"
+            },
+            "description": "Products/sizes of the scope that can no longer be bought since creation (spec clarification 2026-10-26). The programme is not paused or changed; the Manager decides."
           }
         },
         "required": [
@@ -2018,6 +2033,36 @@
         },
         "required": [
           "expectedVersion"
+        ]
+      },
+      "TargetWarning": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "dimension": {
+            "type": "string",
+            "enum": [
+              "PRODUCT",
+              "VARIANT"
+            ]
+          },
+          "targetKey": {
+            "$ref": "#/components/schemas/PositiveId"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "DELETED",
+              "NOT_PUBLIC",
+              "NOT_ON_SALE"
+            ],
+            "description": "DELETED: soft-deleted or gone; NOT_PUBLIC: unpublished, hidden or its category inactive; NOT_ON_SALE: public but no size on sale."
+          }
+        },
+        "required": [
+          "dimension",
+          "targetKey",
+          "state"
         ]
       }
     },

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useT } from '../../../../../shared/i18n/I18nProvider';
-import { ConfirmDialog, ErrorNotice, useCommand } from '../../../../../shared/ui/components';
+import { ConfirmDialog, ErrorNotice } from '../../../../../shared/ui/components';
+import { useCatalogueCommand } from '../../../application/useCatalogueCommand';
+import { ACTIONS } from '../../../infrastructure/catalogueApi';
 import { messages } from '../../messages';
 
 /**
@@ -12,14 +14,14 @@ export function DeleteSection({ product, api, reload, deleted }) {
   const t = useT(messages);
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const command = useCommand();
+  const command = useCatalogueCommand();
   if (deleted) return null;
 
   const finish = outcome => {
     if (outcome?.ok) navigate('/catalogue-management/products', { state: { notice: 'delete.done' } });
     else if (outcome && !outcome.error.retryable) setOpen(false);
   };
-  const confirm = async () => finish(await command.run(key => api.deleteProduct(key, product.id, product.version)));
+  const confirm = async () => finish(await command.run(key => api.deleteProduct(key, product.id, product.version), ACTIONS.deleteProduct));
 
   return (
     <section className="workspace-card danger-zone" aria-labelledby="delete-title">

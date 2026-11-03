@@ -1,7 +1,7 @@
 # Feature Specification: Loyalty & Promotion Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-30
+**Date updated**: 2026-11-03 (mã voucher do hệ thống sinh — ghi lại quyết định 2026-11-01 vào spec; trước đó: 2026-10-30)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -36,6 +36,10 @@ Nguồn chính là FE-06 hiện tại và quyết định trực tiếp trong h�
 
 - Q: Member hủy đơn nhẫn **trước khi thanh toán** (đơn đã chấp nhận, voucher/điểm đang giữ) thì xử lý thế nào? → A: Giống hết hạn chưa thanh toán: giải phóng voucher/điểm đang giữ đúng một lần (trả điểm khả dụng và lượt giữ của Member và tổng chương trình), không cộng điểm, không ghi đã dùng. FE-08 chỉ báo khi đã xác nhận dưới khóa đơn rằng không có thanh toán đang xử lý hoặc đã ghi nhận. Dùng loại kết quả riêng `RETAIL_CANCELLED_BEFORE_PAYMENT` để lịch sử phân biệt với hết hạn. Đơn đã thanh toán không hủy theo đường này (trả hàng/hoàn tiền nằm ngoài phạm vi).
 
+### Session 2026-11-03
+
+- Q: Mã voucher do Manager tự gõ hay hệ thống sinh? → A (Đặng Thị Khương, đã áp dụng từ 2026-11-01, ghi vào spec 2026-11-03): **Hệ thống sinh mã** trên form tạo voucher: "ML" + 8 ký tự ngẫu nhiên (bỏ 0/O, 1/I/L), Manager không gõ mã nhưng có thể bấm "Sinh mã khác"; nếu backend báo mã đã tồn tại thì form tự sinh mã khác và gửi lại (tối đa 3 lần). Mã vẫn duy nhất toàn hệ thống, không đổi sau khi tạo và không tái sử dụng. Backend vẫn tự kiểm tra duy nhất sau trim, không phân biệt hoa/thường cho mọi mã nhận được, nên kịch bản US1.4 kiểm ở mức API.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Tạo chương trình ưu đãi (Priority: P1)
@@ -48,10 +52,10 @@ Là Manager, tôi muốn tạo voucher riêng cho sản phẩm hoặc workshop v
 
 **Acceptance Scenarios**:
 
-1. **Given** Manager có quyền và phạm vi sản phẩm/biến thể hợp lệ, **When** tạo voucher với tên, mã, thời gian, kiểu/mức giảm, mức giảm tối đa, giá trị tối thiểu, tổng lượt, lượt mỗi Member và lựa chọn kết hợp điểm, **Then** lưu đủ điều kiện; voucher chỉ dùng cho sản phẩm và không giới hạn chi nhánh.
+1. **Given** Manager có quyền và phạm vi sản phẩm/biến thể hợp lệ, **When** tạo voucher với tên, mã do hệ thống sinh (Session 2026-11-03), thời gian, kiểu/mức giảm, mức giảm tối đa, giá trị tối thiểu, tổng lượt, lượt mỗi Member và lựa chọn kết hợp điểm, **Then** lưu đủ điều kiện; voucher chỉ dùng cho sản phẩm và không giới hạn chi nhánh.
 2. **Given** gói/lịch workshop hợp lệ, **When** tạo voucher với gói, chi nhánh, ngày/phiên, khoảng thời gian được đặt bằng mã, kiểu/mức giảm, trần giảm, phí gói tối thiểu, hạn mức và kết hợp điểm, **Then** lưu riêng cho workshop; thời gian đặt bằng mã phân biệt với ngày tham gia.
 3. **Given** Manager tạo giảm tự động sản phẩm, **When** lưu phạm vi, thời gian, mức giảm và điều kiện hợp lệ, **Then** không cần mã nhập, không giới hạn chi nhánh và luôn cho kết hợp điểm (Manager không tắt được); không tạo giảm tự động workshop.
-4. **Given** mã `TET10` đã được cấp, kể cả chương trình hết hạn/bị dừng, **When** tạo ` tet10 ` hoặc cấp lại cho phạm vi khác, **Then** từ chối sau khi bỏ khoảng trắng đầu/cuối và so sánh không phân biệt hoa/thường.
+4. **Given** mã `TET10` đã được cấp, kể cả chương trình hết hạn/bị dừng, **When** một yêu cầu tạo gửi mã ` tet10 ` hoặc cấp lại mã đó cho phạm vi khác (kiểm ở mức API; form tạo dùng mã hệ thống sinh), **Then** từ chối sau khi bỏ khoảng trắng đầu/cuối và so sánh không phân biệt hoa/thường; trên form, mã sinh ra bị trùng thì tự sinh mã khác.
 5. **Given** thiếu dữ liệu, bắt đầu không trước kết thúc, mức giảm tiền/trần không nguyên dương, tỷ lệ phần trăm ngoài khoảng lớn hơn 0 đến 100%, ngưỡng tiền âm/không nguyên, lượt không nguyên dương hoặc phạm vi không hợp lệ (gồm sản phẩm/biến thể không tồn tại, biến thể không thuộc sản phẩm hoặc sản phẩm đã xóa mềm; sản phẩm chưa công khai/đang ẩn/ngừng bán vẫn được chọn), **When** lưu, **Then** nêu lỗi tương ứng và không lưu chương trình thiếu điều kiện.
 6. **Given** Guest, Member, Staff hoặc tài khoản không có quyền Manager hiện hành, **When** tạo/sửa/tạm dừng/mở lại chương trình, **Then** từ chối; biết mã hoặc liên kết không cấp thêm quyền.
 7. **Given** chương trình ngày lễ, **When** tạo, **Then** vẫn thuộc sản phẩm hoặc workshop với thời gian riêng, không thành lớp voucher cộng thêm.
@@ -222,7 +226,7 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 - **FR-003**: Manager MUST tạo được voucher sản phẩm với tên, mã, thời gian, sản phẩm/biến thể, kiểu/mức giảm, trần giảm, ngưỡng phần đủ điều kiện, tổng lượt, lượt mỗi Member và cho/không kết hợp điểm.
 - **FR-004**: Manager MUST tạo được voucher workshop với tên/mã, gói/chi nhánh/ngày/phiên, thời gian đặt bằng mã, kiểu/mức giảm, trần giảm, phí gói tối thiểu, tổng lượt, lượt mỗi Member và kết hợp điểm; thời gian đặt phân biệt lịch tham gia.
 - **FR-005**: Manager MUST tạo được giảm tự động sản phẩm theo phạm vi, thời gian, kiểu/mức giảm và điều kiện tương ứng, không cần mã hoặc giới hạn chi nhánh. Giảm tự động luôn cho kết hợp điểm; không có lựa chọn tắt kết hợp điểm cho loại này.
-- **FR-006**: Hệ thống MUST bỏ khoảng trắng đầu/cuối và so sánh mã không phân biệt hoa/thường; mã duy nhất toàn hệ thống, không tái sử dụng. Không đổi mã hoặc phạm vi sản phẩm/workshop sau tạo.
+- **FR-006**: Mã voucher MUST do hệ thống sinh trên form tạo (Session 2026-11-03); hệ thống MUST bỏ khoảng trắng đầu/cuối và so sánh mã không phân biệt hoa/thường; mã duy nhất toàn hệ thống, không tái sử dụng. Không đổi mã hoặc phạm vi sản phẩm/workshop sau tạo.
 - **FR-007**: Hệ thống MUST kiểm tra trường bắt buộc, bắt đầu trước kết thúc, mức giảm tiền/trần nguyên VND dương, tỷ lệ giảm lớn hơn 0 không quá 100%, ngưỡng tiền nguyên VND không âm, lượt tổng/mỗi Member nguyên dương và phạm vi hợp lệ. Phạm vi sản phẩm hợp lệ khi sản phẩm/biến thể tồn tại, biến thể thuộc sản phẩm và chưa bị xóa mềm; sản phẩm chưa công khai, đang ẩn hoặc size ngừng bán vẫn được chọn. Từ chối dữ liệu sai hoặc thiếu quyền. Không báo lưu thành công khi chưa xác nhận hoặc tạo trùng từ thao tác đã ghi nhận.
 - **FR-008**: Manager MUST xem danh sách/chi tiết, lọc sản phẩm/workshop, xem điều kiện/thời gian/tổng hạn mức, lượt đã dùng và tổng tiền giảm hiện tại của chương trình. Không tính lượt đang giữ hoặc booking đã ghi nhận hủy hợp lệ vào số tổng; lịch sử dùng/hoàn được giữ để tra cứu. Xử lí hủy lặp không trừ số liệu thêm lần nữa; hết hạn/tạm dừng chương trình không loại giao dịch đã chốt chưa bị hủy khỏi báo cáo.
 - **FR-009**: Manager MUST sửa điều kiện được phép cho giao dịch mới, tạm dừng và mở lại chương trình đã tạm dừng. Mở lại cùng chương trình/mã, giữ lịch sử và lượt đã dùng/đang giữ; không tự gia hạn hoặc reset lượt, giao dịch mới vẫn kiểm tra điều kiện hiện hành. Không giảm tổng hạn mức/lượt mỗi Member dưới đã dùng cộng đang giữ tương ứng theo số liệu hiện tại.
