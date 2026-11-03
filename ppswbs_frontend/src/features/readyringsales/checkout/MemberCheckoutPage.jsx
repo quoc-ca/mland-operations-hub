@@ -17,7 +17,6 @@ function CheckoutContent() {
   const format = useFormat();
   const cart = useResource(() => api.getCart(), []);
   const savedVoucherResource = useResource(() => api.listSavedVouchers(), []);
-  const loyaltyAccount = useResource(() => api.getLoyaltyAccount(), []);
   const quoteCommand = useCommand();
   const createCommand = useCommand();
   const paymentCommand = useCommand();
@@ -71,8 +70,7 @@ function CheckoutContent() {
         selection={selection}
         onChange={next => { setSelection(next); setAcknowledged(false); setCheckout(null); }}
         savedVouchers={savedVouchers}
-        account={loyaltyAccount.data}
-        merchandiseSubtotal={quote?.merchandiseSubtotal || cart.data?.lines?.reduce((total, line) => total + BigInt(line.indicativePrice || '0') * BigInt(line.quantity || 0), 0n).toString() || '0'}
+        maxPoints={quotedSelection && JSON.parse(quotedSelection).choice === selectionBody.choice && JSON.parse(quotedSelection).voucherCode === selectionBody.voucherCode ? quote?.maxPoints : null}
         quote={quote}
         quoteMatches={quotedSelection === selectionSignature}
         acknowledged={acknowledged}
@@ -82,7 +80,6 @@ function CheckoutContent() {
         pending={quoteCommand.pending || createCommand.pending || Boolean(checkout)}
       />
       {savedVoucherResource.error && <ErrorNotice error={savedVoucherResource.error} onRetry={savedVoucherResource.reload} />}
-      {loyaltyAccount.error && <ErrorNotice error={loyaltyAccount.error} onRetry={loyaltyAccount.reload} />}
       {quoteCommand.error && <ErrorNotice error={quoteCommand.error} onRetry={quoteCommand.retry} onReload={cart.reload} />}
     </section>
     <aside className="retail-summary"><h2>Chi tiết thanh toán</h2>

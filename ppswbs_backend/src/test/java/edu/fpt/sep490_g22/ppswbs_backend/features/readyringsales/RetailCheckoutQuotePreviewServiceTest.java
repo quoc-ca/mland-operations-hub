@@ -39,6 +39,7 @@ class RetailCheckoutQuotePreviewServiceTest {
         assertThat(result.merchandiseSubtotal()).isEqualTo("200");
         assertThat(result.payableAmount()).isEqualTo("190");
         assertThat(result.shippingTotal()).isEqualTo("0");
+        assertThat(result.maxPoints()).isEqualTo("0");
         var captor = org.mockito.ArgumentCaptor.forClass(RetailCheckoutQuote.class);
         verify(quotes).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getTermsDigest()).isEqualTo("digest");
@@ -75,6 +76,7 @@ class RetailCheckoutQuotePreviewServiceTest {
         var result = service.preview(1L, requestWithSelection("NONE", null, "30"));
         assertThat(result.eligible()).isFalse();
         assertThat(result.reasons()).containsExactly("Points must be between 10 and 20.");
+        assertThat(result.maxPoints()).isEqualTo("20");
         assertThat(result.previewId()).isNull();
         verifyNoInteractions(quotes);
     }
