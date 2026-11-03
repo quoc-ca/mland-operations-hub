@@ -98,7 +98,7 @@ export function WorkshopAccessPage() {
 
           <div style={{ marginTop: '18px', lineHeight: '1.8' }}>
             <p>Gói workshop: <strong>{bookingData.packageName}</strong></p>
-            <p>Số người tham gia: <strong>{bookingData.participantCount} người</strong></p>
+            <p>Số vé: <strong>{bookingData.participantCount}</strong></p>
 
             {Array.isArray(bookingData.sessions) && bookingData.sessions.length > 0 && (
               <div style={{ marginTop: '16px', background: '#f9f9f9', padding: '16px', border: '1px solid #eee' }}>

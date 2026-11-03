@@ -1,7 +1,7 @@
 # Tasks: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-03
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -260,6 +260,32 @@ handoff to the implementation persona.
 - [X] T080 Implement global active-Manager add-on administration and public active add-on discovery under the package/location routes in `features/workshopoperations/{controller,dto,service}/`; audit create/edit/lifecycle changes, keep edits prospective, and expose no internal numeric add-on identifier to public callers.
 - [X] T081 Extend `WorkshopOperationsFacade` with a read-only eligibility/price snapshot operation for exactly one add-on/package/location tuple; return only active entries for a published package and active location and add boundary/no-disclosure tests.
 - [X] T082 Persist an immutable Operations-owned `WorkshopBookingPackagePolicySnapshot` in the accepted capacity-reservation transaction and validate complete session replacements against that booking-time policy; reject legacy bookings without a snapshot without backfill. Add append-only migration `V42__workshop_booking_package_policy_snapshot.sql` and MySQL coverage for snapshot immutability, successful reservation capture, changed Package master rules, missing legacy snapshot, same-location, required count, chronological order, and same-day slot gap in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/SettlementChangeFacadeIT.java`. Evidence: test database history shows V42 and V43 successful; `SettlementChangeFacadeIT` on MySQL 8.0.43: 13 tests passed, 0 failures/errors/skips, with `ddl-auto=none` and Flyway disabled.
+
+---
+
+## Phase 11: Wax Casting foundry calendar rule
+
+**Purpose**: replace the obsolete two-session Silverclay/same-day-slot example
+with the confirmed Wax Casting business calendar, without changing ordinary
+weekend workshop availability.
+
+**Independent Test**: a Wax Casting Package accepts Monday 16:00–19:00 plus
+Thursday 09:30–12:00 and Friday plus Wednesday, rejects Monday plus Wednesday
+and Friday plus Tuesday, and never derives its result from slot ordinal.
+
+- [X] T084 [P] Extend the Operations Package REST/facade contract, Package entity and immutable `WorkshopBookingPackagePolicySnapshot` with non-negative `requiredFoundryWorkingDaysBetweenSessions`; add an append-only Flyway migration selected from actual history. Persist `0` for the current one-session offers and `2` for Wax Casting. Do not reuse or reinterpret `minimumSameDaySlotGap`. Verified on 2026-11-02 by WorkshopPackageContractIT (6/6 passed), WorkshopPackageServiceTest (5/5 passed), WorkshopOperationsSnapshotTest (9/9 passed), WorkshopPackageFacadeIT (11/11 passed), WorkshopOperationsQuickstartIT (6/6 passed), and Flyway migration V89 applied successfully with checksum 327330707 on MySQL test schema.
+- [X] T085 Implement Operations-only atomic validation for the complete Wax Casting selection/replacement set: exactly two distinct chronological same-location sessions with exactly two Monday–Friday local dates strictly between them; skip Saturday/Sunday in the count and never treat slot/time as a substitute. Return the existing safe `PACKAGE_SELECTION_INVALID` outcome without a partial hold/transfer. Verified on 2026-11-02 by WaxCastingScheduleValidationTest (19/19 passed covering Monday->Thursday, Friday->Wednesday next week, Monday->Wednesday rejection, Friday->Tuesday rejection, Saturday/Sunday skipping, same-location requirement, distinct session requirement, strict == 2 working days, and zero partial hold/booking mutation on failure) and regression test suites WorkshopPackageContractIT (6/6), WorkshopPackageServiceTest (5/5), WorkshopOperationsSnapshotTest (9/9), and WorkshopOperationsQuickstartIT (6/6).
+- [X] T086 Add MySQL/Flyway and facade/booking-change integration coverage for T084–T085, including Monday-to-Thursday valid, Friday-to-Wednesday valid, Monday-to-Wednesday invalid, Friday-to-Tuesday invalid, same location/order/distinctness, immutable booking-time policy after Package edits, and no partial capacity result. Update 003.1/003.3 integration evidence only after these tests pass. Verified on 2026-11-03 by WaxCastingBookingIntegrationIT (15/15 passed against real MySQL test schema, covering Flyway V89 and columns verification, Monday-to-Thursday valid reservation and replacement, Friday-to-Wednesday valid reservation and replacement with weekend skipping, Monday-to-Wednesday rejected with zero partial holds and zero ticket mutation, Friday-to-Tuesday next week rejected, Monday-to-Friday rejected for strict == 2, same location enforcement, duplicate session rejection, chronological order enforcement, and immutable booking-time policy snapshot preservation after package mutations/retirement) alongside SettlementChangeFacadeIT (13/13 passed), WorkshopPackageFacadeIT (11/11 passed), WorkshopOperationsQuickstartIT (6/6 passed), and WaxCastingScheduleValidationTest (19/19 passed).
+
+---
+
+## Phase 12: Manager REST command idempotency
+
+**Purpose**: close the contract gap discovered by the Feature 003 frontend/backend
+audit: the Manager UI already sends `Idempotency-Key`, while package, add-on,
+location, slot and session write endpoints currently neither declare nor consume it.
+
+- [X] T087 Add one explicit `Idempotency-Key` contract to every state-changing Manager Operations REST endpoint used by `/operations/admin`, `/operations/packages`, and `/operations/package-add-ons`. Reuse the Operations-owned durable idempotency ledger rather than treating `X-Correlation-Id` as deduplication. Require the same key plus the same semantic command to replay the original response; reject the same key with changed payload/scope as `409`; return a typed safe response for an active in-progress claim; preserve one audit event and one business mutation only. Cover create/edit/transition for Package and package add-on, plus Location/Slot/Session write operations, with MySQL and HTTP tests. Evidence: `OperationsRestIdempotencyServiceTest` (4/4), `WorkshopAddOnControllerTest` (4/4), `WorkshopPackageContractIT` (6/6), and `WorkshopOperationsMySQLIT` (10/10) passed on 2026-11-04. The isolated MySQL schema `ppswbs_t087_mysql_20261104` applied Flyway migrations through V90 and verified the global unique `uq_fci_operation_reference` ledger index.
 
 ---
 

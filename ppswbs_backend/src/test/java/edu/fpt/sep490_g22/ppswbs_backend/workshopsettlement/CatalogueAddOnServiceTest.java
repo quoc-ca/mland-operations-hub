@@ -23,29 +23,33 @@ class CatalogueAddOnServiceTest {
     private final CatalogueAddOnService service = new CatalogueAddOnService(bills, charges,
             new WorkshopBookingSettlementAdapter(bookingFacade), new WorkshopOperationsSettlementAdapter(operationsFacade));
 
-    @Test void customerProofIsCheckedBeforeCataloguePriceIsRequested() {
-        when(bookingFacade.verifyCustomerBookingAccess(any())).thenReturn(new CustomerBookingAccessDecision(false));
-        assertThatThrownBy(() -> service.add("BK-1", null, "wrong@example.test", null, "ADDON-1"))
+    @Test void missingConfirmedBookingIsRejectedBeforeCataloguePriceIsRequested() {
+        when(bills.findByBookingReference("BK-1")).thenReturn(Optional.of(SettlementFinalBill.builder()
+                .billReference("BILL-1").bookingReference("BK-1").lifecycleStatus("OPEN").build()));
+        when(bookingFacade.getConfirmedBookingFinancialProjection(any())).thenReturn(null);
+        assertThatThrownBy(() -> service.add("BK-1", "ADDON-1"))
                 .isInstanceOf(WorkshopSettlementNotFoundException.class);
         verifyNoInteractions(operationsFacade, charges);
     }
 
     @Test void recordsTheScopedOperationsPriceAsAnImmutableVndCharge() {
-        when(bookingFacade.verifyCustomerBookingAccess(any())).thenReturn(new CustomerBookingAccessDecision(true));
         when(bills.findByBookingReference("BK-1")).thenReturn(Optional.of(SettlementFinalBill.builder()
                 .billReference("BILL-1").bookingReference("BK-1").lifecycleStatus("OPEN").build()));
         when(bookingFacade.getConfirmedBookingFinancialProjection(any())).thenReturn(
                 new ConfirmedBookingFinancialProjection("7", 100L, 100L, 50L, 50L, 1, java.util.List.of(), 9L));
+        // Direct Mland bookings use the Operations catalogue price even when the
+        // catalogue item is laser engraving. The OTA-only complimentary rule is
+        // implemented by OtaAddonService, not by Settlement's direct flow.
         when(operationsFacade.getWorkshopAddOnPrice(any())).thenReturn(
-                new WorkshopAddOnPriceSnapshot("ADDON-1", "Gift wrap", 15000L, "VND"));
+                new WorkshopAddOnPriceSnapshot("LASER-ENGRAVING", "Laser engraving", 100000L, "VND"));
         when(charges.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var result = service.add("BK-1", null, "guest@example.test", null, "ADDON-1");
+        var result = service.add("BK-1", "LASER-ENGRAVING");
 
         assertThat(result.getSourceCategory()).isEqualTo("CATALOGUE_ADD_ON");
-        assertThat(result.getDescription()).isEqualTo("Gift wrap");
-        assertThat(result.getAmountVnd()).isEqualTo(15000L);
+        assertThat(result.getDescription()).isEqualTo("Laser engraving");
+        assertThat(result.getAmountVnd()).isEqualTo(100000L);
         assertThat(result.getCurrencyCode()).isEqualTo("VND");
-        assertThat(result.getReasonReference()).isEqualTo("CATALOGUE-ADDON:ADDON-1");
+        assertThat(result.getReasonReference()).isEqualTo("CATALOGUE-ADDON:LASER-ENGRAVING");
     }
 }

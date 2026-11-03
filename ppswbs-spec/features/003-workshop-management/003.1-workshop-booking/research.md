@@ -37,7 +37,7 @@ Booking (commercial order, payer/contact, one aggregate deposit)
 ```
 
 - A booking is one commercial/payment aggregate with one booking contact, one selected package/course, and one deposit payment. It cannot contain unrelated packages or operate as a generic cart.
-- A package/course declares the required session set. A one-session package has one required session; a multi-session package such as Silverclay has every declared session as one purchased entitlement.
+- A package/course declares the required session set. A one-session package has one required session; the catalogue's multi-session Wax Casting package has every declared session as one purchased entitlement.
 - An attendance ticket is one person’s independent admission/check-in right. It has its own opaque QR/ticket identity; it is not a separate commercial order or payment obligation.
 - Capacity, later check-in, and later no-show are counted per ticket/session; price, deposit, and later remaining balance belong to the booking/package.
 
@@ -100,7 +100,7 @@ The creation/hold outcome is all-or-nothing: if any required session is closed, 
 | **003.1 Workshop Booking** | Direct-Mland booking aggregate, contact snapshot, workshop-item price/deposit snapshot, ticket issuance, ticket/session holds, aggregate deposit evidence, customer lookup, Magic Link/delivery intent. | Produces confirmed direct-booking, ticket, capacity-commitment, and deposit evidence needed downstream. |
 | **003.2 Workshop Operations** | Session/branch operation, capacity configuration, Staff assignment, ticket check-in, exceptions, attendance finalization/no-show. | 003.1 consumes eligible sale/session/capacity information but does not configure or check in a session. The future cross-feature facade/event contract remains to be designed. |
 | **003.3 Workshop Settlement and Changes** | Post-session charges/final bills, final payment/release control, refund, reschedule, and Mland-caused cancellation remedies. | 003.1 freezes base price and records allocated deposit; it does not settle the remaining balance, change a confirmed booking, or refund it. |
-| **003.4 Workshop OTA Connectivity** | Klook/future OTA availability, booking, ticket, and reconciliation integration. | 003.1 is direct-Mland only. The initial OTA catalogue is limited to basic ring packages completed in one session; the two-session Silverclay package is direct-Mland only. Any future group-pricing or co-maker behaviour needs separate 003.4 design and approval; it is not a V1 booking capability. |
+| **003.4 Workshop OTA Connectivity** | Klook/future OTA availability, booking, ticket, and reconciliation integration. | 003.1 is direct-Mland only. The existing OTA contract remains limited to its separately mapped one-session offer. Whether legacy name `Basic Ring` maps to catalogue Signature Brass or Signature Silver 925 is **TBD**; Wax Casting remains direct-Mland only until an OTA contract explicitly approves it. Any future group-pricing or co-maker behaviour needs separate 003.4 design and approval; it is not a V1 booking capability. |
 
 ## Reconciliation with legacy 003.1 artefacts
 

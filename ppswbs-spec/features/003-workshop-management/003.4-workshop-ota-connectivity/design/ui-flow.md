@@ -17,7 +17,7 @@
 | --- | --- | --- |
 | Admin | `/ota-connectivity/channels` | Manages technical channel connection/credential lifecycle; credentials are never rendered back. |
 | Manager | `/ota-connectivity/channels`, `/ota-connectivity/reconciliation`, `/ota-connectivity/finance` | Global Feature 003 business scope for mapping, publication, reconciliation and payout evidence. |
-| Staff | `/ota-connectivity/add-ons` | Location-scoped shop add-on actions only; no channel credential or payout authority. |
+| Staff | `/ota-connectivity/add-ons` | Location-scoped shop add-on actions for an OTA booking only; Staff records consent at the workshop and creates the separate direct-Mland bill. Direct bookings use Settlement's direct flow. No channel credential or payout authority. |
 
 ## Screen and interaction flows
 
@@ -30,8 +30,8 @@
 | Reconciliation work items | `GET/POST /ota-reconciliation-work-items` | Filter by state/category; resolve with evidence; duplicate key returns existing result; stale version is a conflict. |
 | Financial evidence | `GET /ota-channel-bookings/{channelBookingId}/financial-evidence` | Manager read; redact customer PII, card data and credentials; distinguish channel payment from payout state. |
 | Payout reconciliation | `POST /ota-channel-bookings/{channelBookingId}/payout-reconciliation` | Evidence lifecycle; only matching reference/net/currency reaches `PAID_OUT`; mismatch opens dispute and keeps current state. |
-| Shop add-on quote | `POST /ota-channel-bookings/{channelBookingId}/add-on-quotes` | Staff location scope; laser engraving is zero-charge; paid option requires positive VND amount and item code; no OTA checkout. |
-| Shop add-on acceptance/bill | `/ota-addon-quotes/{quoteId}/acceptance`, `/direct-bill` | Consent required before paid direct bill; replay same consent/bill is idempotent; changed replay conflicts; free engraving never creates a bill. |
+| Shop add-on quote | `POST /ota-channel-bookings/{channelBookingId}/add-on-quotes` | Staff location scope after customer consent at the workshop; for this OTA-only route laser engraving is zero-charge; paid option requires positive VND amount and item code; no OTA checkout and no mutation of the OTA base-package payment. |
+| Shop add-on acceptance/bill | `/ota-addon-quotes/{quoteId}/acceptance`, `/direct-bill` | Consent required before paid direct bill; replay same consent/bill is idempotent; changed replay conflicts; OTA free engraving never creates a bill. |
 
 ## Invariants captured for regeneration
 
@@ -39,7 +39,7 @@
 2. OTA cancellation/refund evidence is channel-owned; Mland direct VNPay refund is not used for OTA-collected money.
 3. Manager is globally scoped for OTA business operations; Admin owns technical credentials; Staff is location-scoped for shop add-ons.
 4. Credentials, raw provider payloads, card data and unnecessary PII are never shown in the UI or logged.
-5. Add-ons happen at the Mland shop and are financially separate from OTA booking facts; laser engraving is free, paid options use a separate direct Mland bill.
+5. Add-ons happen at the Mland shop and are financially separate from OTA booking facts; only OTA-origin laser engraving is free, while paid options use a separate direct Mland bill.
 6. Callback/reconciliation/payout actions are idempotent and never treat browser state as verified provider evidence.
 
 ## Session, data handling, and accessibility

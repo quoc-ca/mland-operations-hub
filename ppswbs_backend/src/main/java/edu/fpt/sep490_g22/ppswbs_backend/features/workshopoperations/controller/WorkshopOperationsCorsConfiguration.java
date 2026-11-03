@@ -34,7 +34,11 @@ public class WorkshopOperationsCorsConfiguration {
 
         configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id"));
+        // Management UIs attach an operation key to mutating requests.  This only
+        // permits the header through CORS; semantic replay protection is owned by
+        // the application-level command contract (T087).
+        configuration.setAllowedHeaders(List.of(
+            "Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key"));
         configuration.setExposedHeaders(List.of("X-Correlation-Id"));
         // Deny credentialed CORS by default per Constitution and T010
         configuration.setAllowCredentials(false);
@@ -45,6 +49,8 @@ public class WorkshopOperationsCorsConfiguration {
         source.registerCorsConfiguration("/api/v1/workshop-branches/**", configuration);
         source.registerCorsConfiguration("/api/v1/workshop-slots/**", configuration);
         source.registerCorsConfiguration("/api/v1/workshop-sessions/**", configuration);
+        source.registerCorsConfiguration("/api/v1/workshop-packages/**", configuration);
+        source.registerCorsConfiguration("/api/v1/workshop-package-management/**", configuration);
         source.registerCorsConfiguration("/api/v1/workshop-checkin/**", configuration);
         source.registerCorsConfiguration("/api/v1/workshop-test/**", configuration);
 
@@ -55,6 +61,8 @@ public class WorkshopOperationsCorsConfiguration {
             "/api/v1/workshop-branches/*",
             "/api/v1/workshop-slots/*",
             "/api/v1/workshop-sessions/*",
+            "/api/v1/workshop-packages/*",
+            "/api/v1/workshop-package-management/*",
             "/api/v1/workshop-checkin/*",
             "/api/v1/workshop-test/*"
         );

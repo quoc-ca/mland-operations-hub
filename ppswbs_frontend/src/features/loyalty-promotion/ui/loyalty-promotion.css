@@ -221,3 +221,20 @@
 /* Sign-out at the foot of the side menu (the shared header that held it is not used here). */
 .lp-shell .side-nav .side-signout{margin-top:auto;min-height:36px;padding:0 12px 0 28px;border:0;border-top:1px solid rgba(255,255,255,.08);background:none;color:var(--lp-muted);font-size:12px;font-weight:600;text-align:left;cursor:pointer}
 .lp-shell .side-nav .side-signout:hover{color:#fff}
+
+/* Second pass against frames 006-10, 12, 14, 15 (2026-11-04). */
+/* 006-10: both filters side by side on the left; 006-14: no card, the Voucher wallet link right next to the select. */
+.lp-shell .filter-bar{justify-content:flex-start}
+.lp-shell .filter-bar label,.lp-shell .filter-bar label:first-child{flex:0 1 400px}
+.lp-shell .filter-bar select{width:100%}
+.lp-public .filter-bar{background:none;border:0;padding:0;justify-content:flex-start;align-items:center}
+.lp-public .filter-bar label,.lp-public .filter-bar label:first-child{flex:0 1 300px}
+.lp-public .filter-bar .text-link{font-size:13px;font-weight:600;color:var(--lp-ink)}
+/* 006-12/15: one discount line at 600 (a nested <strong> made it 900 and broke Vietnamese marks); scope chip on the
+   right next to the status; targets on their own row so total and per-Member limits pair up; space before the meta line. */
+.lp-theme .workspace-card>p.discount-line{font-size:17px;font-weight:600}
+.lp-theme .facts.terms>div.wide{grid-column:1/-1}
+.lp-theme .card-head .chips{display:flex;align-items:center;gap:16px}
+.lp-theme .card-head .chips .badge{font-size:13px;padding:5px 12px}
+.lp-theme .workspace-card>.detail-meta{margin:20px 0 0}
+.lp-public .workspace-card>.card-head .badge{font-size:12px;padding:5px 12px}

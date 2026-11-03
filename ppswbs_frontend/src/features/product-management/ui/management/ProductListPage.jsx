@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
 import { useT } from '../../../../shared/i18n/I18nProvider';
-import { ErrorNotice, Loading, SuccessNotice, useResource } from '../../../../shared/ui/components';
+import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/components';
 import { useCatalogueApi } from '../../application/useCatalogueApi';
 import { productCode, skuMatch } from '../../domain/productRules';
 import { messages } from '../messages';
 import { PageTop } from './ManagementLayout';
+import { PageNotice } from './notices';
 import { Pager } from './Pager';
 
 /** T028: management list with search, category and publication filters (kept in the URL). */
@@ -41,7 +42,7 @@ export default function ProductListPage() {
       <PageTop eyebrow={t('nav.group')} title={t('list.title')}>
         <Link className="button primary" to="/catalogue-management/products/new">{t('nav.newProduct')}</Link>
       </PageTop>
-      <SuccessNotice>{location.state?.notice && t(location.state.notice)}</SuccessNotice>
+      <PageNotice notice={location.state?.notice} />
       <form className="filter-bar" onSubmit={apply} role="search">
         <label>{t('public.search')}<input value={draft.q} onChange={set('q')} maxLength={200} /></label>
         <label>{t('public.category')}

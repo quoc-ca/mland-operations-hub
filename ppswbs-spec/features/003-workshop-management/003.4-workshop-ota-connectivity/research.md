@@ -19,7 +19,7 @@ This file preserves approved OTA decisions migrated from the shared `ppswbs-spec
 - Mland may synchronize schedule, availability, and sales-closed status to an authorized candidate OTA before ticket proof so catalogue setup can be checked. This is not permission to accept a booking or consume capacity.
 - Confirmed failure posture: after automatic retry is exhausted, close sales for the affected OTA mapping, retain inbound events for reconciliation, and reopen only after successful confirmed re-sync.
 - Confirmed go-live boundary: public documentation is insufficient to decide whether Mland confirms or rejects a booking delivered after sales close during a sync incident. The provider must confirm this rule, timeout/retry/idempotency, and capacity responsibility in writing before Mland enables OTA bookings.
-- OTA customer payment/refund and OTA payout owed to Mland are distinct, append-only financial models. Laser engraving is free; other services require consent and a separate direct-Mland bill.
+- OTA customer payment/refund and OTA payout owed to Mland are distinct, append-only financial models. For OTA-origin bookings only, laser engraving is included free; other services require consent and a separate direct-Mland bill. Direct Mland bookings follow the Settlement catalogue price instead.
 - Store only contractually permitted operational customer data; do not create Mland identities or marketing audiences from OTA contacts.
 
 ## Public provider evidence checked on 2026-10-24

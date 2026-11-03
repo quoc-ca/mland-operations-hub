@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
+import { useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, useCommand } from '../../../../shared/ui/components';
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { messages } from '../messages';
+import { useDateTime } from '../display';
 import { checkCreate, createBody, defaultWindow, generateVoucherCode, LIMITS, serverFieldErrors, toInstant } from '../../domain/promotionRules';
 import { DateTimeField } from './DateTimeField';
 import { ProductTargetPicker } from './ProductTargetPicker';
@@ -43,7 +44,7 @@ export default function ProgramCreatePage() {
   const t = useT(messages);
   const api = useLoyaltyApi();
   const navigate = useNavigate();
-  const format = useFormat();
+  const dateTime = useDateTime();
   const [form, setForm] = useState(emptyForm);
   const [hints, setHints] = useState({});
   const [picked, setPicked] = useState({ products: {}, variants: {} });
@@ -65,7 +66,7 @@ export default function ProgramCreatePage() {
     });
   };
   const voucher = form.kind === 'VOUCHER';
-  const inWords = local => (toInstant(local) ? t('create.timeInWords', { at: format.dateTime(toInstant(local)) }) : null);
+  const inWords = local => (toInstant(local) ? t('create.timeInWords', { at: dateTime(toInstant(local)) }) : null);
 
   // A known outcome (created, or refused for good) ends the pending create; a lost answer or 503 keeps it.
   const open = outcome => {

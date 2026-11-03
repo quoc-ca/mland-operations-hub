@@ -1,12 +1,12 @@
 # Verification — FE-06 Loyalty & Promotion
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-03 (mục 40 sửa theo thực tế, mục 41: cảnh báo phạm vi cho Manager, khôi phục lệnh tạo, mã voucher trong spec; trước đó: 2026-11-01 (mục 30: chuẩn bị T075/T076, đối chiếu 41 FR; mục 29: phục hồi, tranh chấp nguồn, báo cáo lượt dùng; mục 28: workshop nguồn thật FE-03 và CORS; mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật))
+**Date updated**: 2026-11-04 (mục 46: rà soát hoàn thành — 80/80 task, backend 258/258, frontend 31/31, owner thử voucher thật; trước đó: 2026-11-03 (mục 40 sửa theo thực tế, mục 41: cảnh báo phạm vi cho Manager, khôi phục lệnh tạo, mã voucher trong spec; trước đó: 2026-11-01 (mục 30: chuẩn bị T075/T076, đối chiếu 41 FR; mục 29: phục hồi, tranh chấp nguồn, báo cáo lượt dùng; mục 28: workshop nguồn thật FE-03 và CORS; mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
 **Feature**: `006-loyalty-promotion`  
-**Trạng thái**: Đang triển khai — backend 006 đã có code, test và migration V10–V12 (chưa commit); bằng chứng runtime ở mục 8–18 chạy trên **build tạm** (BE-DESIGN-0011). Mục 1–7 là kết quả lúc lập tài liệu, giữ làm lịch sử.  
+**Trạng thái**: Đã triển khai đủ 80/80 task (mục 45, 46); code backend/frontend 006 đã vào develop. Test tự động chạy lại 2026-11-04 đều đạt. Còn mở (không phải task 006): một số hành trình liên feature trên trình duyệt chưa có bằng chứng (mục 46). Mục 1–7 là kết quả lúc lập tài liệu; mục 8–18 chạy trên **build tạm** (BE-DESIGN-0011); giữ làm lịch sử.  
 **Mục đích**: ghi kết quả T001–T003 (nguồn, review, analyze, readiness) theo [tasks.md](tasks.md). File này không phải phê duyệt và không cấp quyền code/deploy.
 
 ## 1. Nguồn đã đối chiếu (T001)
@@ -723,3 +723,35 @@ Với member@gmail.com:
 - **T055 tick** theo quyết định của owner 006: FE-08 dùng giao diện riêng, dữ liệu và giới hạn điểm lấy từ FE-06.
 - Còn lại, không phải task 006: hành trình checkout bán lẻ trên trình duyệt cần chi nhánh đang hoạt động (003.2) để thêm được vào giỏ.
 - 006 nay **80/80 task đã tick**.
+
+## 46. Rà soát hoàn thành 006, 2026-11-04
+
+**Tài liệu:**
+- `tasks.md`: **80/80** task đã tick (T001–T003 ghi `[X]`, T004–T080 ghi `[x]`); bảng tổng T001–T080 = 80.
+- Spec, plan, data-model, quickstart, contract: không còn NEEDS CLARIFICATION/TBD/TODO.
+- Report-3 (`04-ii-use-case-specifications/06-loyalty-and-promotion-management`) khớp spec ở các quyết định chính: mã voucher do hệ thống sinh ("ML" + 8 ký tự, BR-46-02); mã, loại và phạm vi không đổi sau tạo (FR-006, contract `updatePromotionProgram` "không đổi code/kind/scope", BR-45-03, BR-46-04); hạn mức không giảm dưới đã dùng + đang giữ (FR-009, BR-46-04).
+- Code `features/loyaltypromotion` (backend) và `features/loyalty-promotion` (frontend): không có TODO/FIXME. Không có thay đổi code 006 sau `aa322f1`.
+
+**Kiểm tra tự động (nhánh `khuong`, 2026-11-04):**
+- Backend: `.\mvnw.cmd -o test "-Dtest=edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.**.*,ModulithArchitectureTests"`, MySQL 8.4, database trống `ppswbs_loyalty_1104` → **258/258 đạt**, 0 lỗi, 0 bỏ qua (mục 42 đếm 276 vì chạy kèm `WorkshopSellingLocationAdapterTest` và test khác ngoài gói 006).
+- Frontend: `npx vitest run src/features/loyalty-promotion` → **31/31 đạt**.
+
+**Kiểm thử thực tế:** owner 006 (Đặng Thị Khương) đã thử phần quản lý voucher trên trình duyệt với backend local và phiên Manager thật ngày 2026-11-04 và xác nhận không có lỗi. Màn "Sửa chương trình" khóa loại, phạm vi, mã và đối tượng áp dụng đúng theo FR-006/contract.
+
+**Còn mở, không phải task 006** (cần bằng chứng trên trình duyệt trước khi nghiệm thu hành trình liên feature):
+1. Đặt nhẫn có voucher + điểm: giỏ → checkout → đơn (FE-08). Database local đã có chi nhánh hoạt động; phải dùng tài khoản Member (tài khoản Staff/Manager bị `RetailAuthorization` từ chối; lỗi đó hiện trả 500 thay vì 403 do `AccountExceptionHandler` của 001 bắt trước `RetailExceptionHandler` của 008 — đã ghi ở validation-report 002).
+2. Đặt workshop có voucher + điểm (FE-03, `BenefitSelector`).
+3. Tích điểm sau khi đơn/booking được xác nhận thanh toán (VNPay đang tắt ở local; cần cách xác nhận thanh toán của 008/003).
+4. Hủy hợp lệ đơn/booking và kiểm tra trả lại lượt voucher và điểm (`restoreCancelledWorkshopBenefits`, hoàn bán lẻ).
+
+## 47. Đối chiếu Figma lần 2 và sửa frontend, 2026-11-04
+
+- Nguồn Figma: ảnh xuất frame 006 trong `test-data/figma/` (2026-11-02; frame đã được dời sang page "04 · Manager"/"02 · Member", nội dung giữ nguyên). Figma MCP hết lượt cho ghế View nên không đọc trực tiếp.
+- So màn thật (Chrome, backend local) với 006-10, 11, 12, 13, 14, 15. Đã sửa phía frontend (chỉ `ui/`, không đổi API):
+  - Thời gian hiện ngày trước giờ như Figma ("3 thg 11, 2026, 16:00"): `useDateTime` trong `ui/display.jsx`, dùng cho mọi màn 006 (bộ định dạng dùng chung của app giữ nguyên cho feature khác).
+  - Dòng mức giảm ở chi tiết ưu đãi và chi tiết chương trình: bỏ `<strong>` lồng trong đoạn đã đậm (ra 900, vỡ dấu tiếng Việt), nay 600, 17px.
+  - Chi tiết chương trình (12): nhãn phạm vi chuyển sang phải cạnh trạng thái; hàng đối tượng áp dụng chiếm cả hàng để "Tổng số lượt" và "Số lượt mỗi Member" cùng hàng; giãn dòng "Phiên bản…".
+  - Thanh lọc: danh sách chương trình (10) hai ô cạnh nhau bên trái; ưu đãi công khai (14) bỏ thẻ trắng, "Kho Voucher" ngay cạnh ô chọn. Nhãn phạm vi trên chi tiết công khai 12px.
+- Kiểm tra: frontend 006 + 002 `npx vitest run` 89/89 (sửa 1 test theo định dạng thời gian mới). Trên Chrome đo computed style: trang `/promotions` và `/promotions/4` đúng như trên. Màn Manager (10, 12) chưa xem lại trên trình duyệt sau khi sửa: phiên Chrome lúc kiểm tra không còn là Manager (trang chi tiết chương trình trả 403).
+- Figma cũ hơn code (cần cập nhật Figma, không sửa code): 13 ghi "FLOOR" (code: "Làm tròn xuống (bỏ phần lẻ)"); 14/15 ghi "Mã sản phẩm 42" (code: "Sản phẩm" + tên, mục 42); chưa có frame cảnh báo phạm vi ở chi tiết chương trình; đường dẫn trên cùng của chi tiết/tạo chương trình khác chữ.
+- Chưa so: màn Member 16/17 (cần phiên Member), BenefitSelector 18 (trong trang FE-03), trạng thái phụ.

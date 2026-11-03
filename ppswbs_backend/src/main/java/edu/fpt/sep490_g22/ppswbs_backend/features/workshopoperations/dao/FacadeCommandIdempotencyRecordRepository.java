@@ -17,6 +17,8 @@ public interface FacadeCommandIdempotencyRecordRepository extends JpaRepository<
 
     Optional<FacadeCommandIdempotencyRecord> findByFacadeActionAndOperationReference(String facadeAction, String operationReference);
 
+    Optional<FacadeCommandIdempotencyRecord> findFirstByOperationReference(String operationReference);
+
     @Modifying
     @Query("UPDATE FacadeCommandIdempotencyRecord r SET r.lifecycleStatus = :newStatus, r.outcomeStatus = :outcomeStatus, r.rejectionReason = :rejectionReason, r.responsePayload = :responsePayload, r.completedAt = :completedAt, r.updatedAt = :completedAt WHERE r.id = :id AND r.claimVersion = :expectedVersion")
     int completeClaim(
@@ -38,6 +40,14 @@ public interface FacadeCommandIdempotencyRecordRepository extends JpaRepository<
         @Param("now") Instant now,
         @Param("newLeaseExpiresAt") Instant newLeaseExpiresAt,
         @Param("claimedAt") Instant claimedAt
+    );
+
+    @Modifying
+    @Query("DELETE FROM FacadeCommandIdempotencyRecord r WHERE r.id = :id AND r.claimVersion = :claimVersion AND r.lifecycleStatus = :status")
+    int deleteByIdAndClaimVersionAndLifecycleStatus(
+        @Param("id") Long id,
+        @Param("claimVersion") Long claimVersion,
+        @Param("status") IdempotencyLifecycleStatus status
     );
 
     @Modifying
