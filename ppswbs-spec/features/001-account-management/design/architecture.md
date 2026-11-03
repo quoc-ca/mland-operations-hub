@@ -1,7 +1,7 @@
 # Architecture Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-03
+**Date updated**: 2026-11-04
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -69,7 +69,7 @@ Dependency direction is UI component → hook → API/Firebase client → contro
 | Path | Type / status | Responsibility | Public/use-case methods or props | Allowed dependencies | Source |
 | --- | --- | --- | --- | --- | --- |
 | `frontend/.../api/AccountManagementApiClient.ts` | API client / proposed | Approved FE-001 REST routes; bearer attachment | bootstrap, get/update profile, sync email, list/detail/create internal, resend, update role/status, role catalogue | authenticated request client; OpenAPI DTOs | OpenAPI; FR-001–027 |
-| `frontend/.../auth/FirebaseAuthClient.ts` | client / proposed | Firebase registration/sign-in/out, verification resend, verified-before-email-change, user reload and forced bearer refresh; never role decision or action-code handling | register, signIn, signOut, sendVerification, verifyBeforeUpdateEmail, reloadCurrentUser, getFreshIdToken | Firebase client foundation | FR-002–006, research D-19 |
+| `frontend/.../auth/FirebaseAuthClient.ts` | client / proposed | Firebase registration/sign-in/out, Google redirect sign-in, in-place re-authentication, verification resend, verified-before-email-change, user reload and forced bearer refresh; never role decision or action-code handling | register, signIn, signInWithGoogleRedirect, getRedirectAuthResult, reauthenticateWithCredential, signOut, sendVerification, verifyBeforeUpdateEmail, reloadCurrentUser, getFreshIdToken | Firebase client foundation | FR-002–006, research D-19, D-20 |
 | `frontend/.../hooks/useCurrentAccount.ts` | hook / proposed | Bootstrap/load current Account and safe recovery | bootstrap, refresh | Auth/API client | FR-001–006 |
 | `frontend/.../hooks/useProfile.ts` | hook / proposed | Own-profile form state/validation/retry | load, save, synchronizeEmail | API client | FR-007–008, 025 |
 | `frontend/.../hooks/useVerifiedEmailGate.ts` | hook / proposed | On Profile entry or accessible status-reload icon only, observe Firebase verification, synchronize Account snapshot, and expose allow/blocked/retry state | checkProfileVerification | FirebaseAuthClient; AccountManagementApiClient; no business mutation dependency | FR-004–006, research D-19 |

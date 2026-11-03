@@ -33,6 +33,7 @@ Acceptance is split into two distinct tiers:
 | **V-09** | Schema Migration & Startup Validation | Constitution §IV, data-model.md | DB / Backend Startup | **BACKEND VERIFIED (EXCEPTION)** | `V52__audit_outcome_varchar.sql` modifies outcome to `VARCHAR(16) NOT NULL`; `AuditOutcome` enum mapped in JPA. MySQL environment exception documented. | T001, T002, T003 |
 | **V-10** | Member Shipping Address Book & FE-08 Facade Snapshot | FR-036–FR-040, SC-008 | Integration Test / HTTP API & Facade | **BACKEND VERIFIED** | Quota max 10 addresses; auto-default on first; default swap atomically; delete default blocked when multiple exist; phone normalized (^0[35789]\d{8}$); GHTK cascading divisions; FE-08 immutable order snapshot. | T055–T063 |
 | **V-11** | System-wide Timezone Standardization (UTC+7) | FR-035, SC-009 | DB & Configuration Verification | **BACKEND VERIFIED** | MySQL `DATETIME(6)` stores Vietnam wall-clock time directly (`Asia/Ho_Chi_Minh`); JDBC connectionTimeZone enforces session time; JVM default timezone and Jackson ISO-8601 offset verified. | T053, T054 |
+| **V-12** | Google Sign-In & In-Place Credential Re-authentication | FR-002, FR-005, US1, US2 | Frontend Component / Integration | **PENDING IMPLEMENTATION** | Google redirect sign-in (`signInWithRedirect`); account collision error guidance; in-place 3-field password change with `reauthenticateWithCredential`; provider eligibility check. | T064–T068 |
 
 ---
 
@@ -52,6 +53,7 @@ The following items have been statically validated across design artifacts (`spe
 | **WF-08 Email Gate Design** | Firebase-default verification handler; no custom Mland callback/webhook/job; 90-second Account-ID-keyed `localStorage` cooldown; `verifyBeforeUpdateEmail`. | **PASS** | `design/workflows.md` WF-08, `spec.md` FR-005/006 |
 | **Timezone UTC+7 Standardization** | `connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true` in JDBC URL; JVM default timezone; Jackson ISO-8601 format with +07:00; MySQL DATETIME stores Vietnam local time directly. | **PASS** | `spec.md` FR-035, `data-model.md` |
 | **Member Shipping Address Book Design** | Shopee model: max 10 addresses; phone normalized to 10 digits; first address auto-default; default deletion protected; GHTK levels 1-4 supported; FE-08 immutable order snapshot. | **PASS** | `spec.md` FR-036–040, `data-model.md`, `contracts/interfaces.md`, `contracts/account-management.openapi.yaml` |
+| **Google Sign-In & Re-auth Design** | Google redirect sign-in via `signInWithRedirect`; in-place 3-field password change with `reauthenticateWithCredential`; 2-field email change; provider eligibility check; collision guidance without auto-merge. | **PASS** | `spec.md` FR-002/005, `design/workflows.md` WF-02/WF-08, `design/ui-flow.md` |
 
 ---
 

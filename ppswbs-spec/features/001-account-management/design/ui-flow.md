@@ -1,7 +1,7 @@
 # UI Flow Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-03
+**Date updated**: 2026-11-04
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -22,10 +22,10 @@ The frontend may hide navigation as a usability affordance, but cannot decide ro
 
 | Screen / flow | Entry and actor | Workflow | Component/hook/API client | Contract reference | Loading / empty / validation / success / error / partial states | Recovery |
 | --- | --- | --- | --- | --- | --- | --- |
-| Sign-in / registration | Anonymous | WF-02, WF-06 | proposed `AuthPage` / `FirebaseAuthClient` | FR-002–006; Firebase client boundary | Show configured provider availability, validation and duplicate-submit pending state. Do not expose Account existence. Provider failure is distinct from invalid credentials. | Explicit retry/alternative method; preserve no secret beyond active secure control. |
+| Sign-in / registration | Anonymous | WF-02, WF-06 | proposed `AuthPage` / `FirebaseAuthClient` | FR-002–006; Firebase client boundary | Email/password form plus prominent "Đăng nhập với Google" button (via `signInWithRedirect`). On mount: resolves `getRedirectResult`, bootstraps account, navigates Home. Duplicate-submit pending state. Do not expose Account existence. Provider collision (`account-exists-with-different-credential`) displays guidance to use password credential without merge. | Explicit retry/alternative method; preserve no secret beyond active secure control. |
 | Bootstrap / landing | New authenticated user | WF-01, WF-02 | proposed `useCurrentAccount` | `/accounts/me` contract must be regenerated | Neutral loading while Account resolves. Active account goes Home; unverified account gets non-blocking reminder. No Account detail on failed resolution. | `401` sign in again; `403` eligibility guidance; `503` explicit retry; never infer old role/scope. |
 | Profile verification gate | Signed-in Account owner opening Profile | WF-08 | proposed `useVerifiedEmailGate`, `FirebaseAuthClient`, `AccountManagementApiClient` | FR-004–006; `PUT /api/v1/accounts/me/email` | On Profile entry: neutral checking state; reload Firebase user; unverified state offers resend; verified state synchronizes before enabling save. A labelled/tooltip reload icon repeats the check. No custom email-action page/callback/polling state. | `401` discards draft and signs in; unverified stays blocked; `403` shows verification guidance; `503` preserves safe input and offers explicit icon retry. |
-| Profile / security | Current Account owner | WF-02, WF-08, WF-06 | proposed `ProfilePage`, `useProfile`, `useVerifiedEmailGate` | FR-004–008; OpenAPI profile/email endpoints | Field validation inline; save stays disabled until the Profile gate succeeds. Member resend uses Firebase SDK; after success an Account-ID-keyed `localStorage` expiry disables it for 90 seconds across browser restart. Email change uses `verifyBeforeUpdateEmail`; current email remains until verification completes. | `409` reconcile current values when applicable; `401` discards draft and signs in; `403` shows guidance; no automatic retry of save. |
+| Profile / security | Current Account owner | WF-02, WF-08, WF-06 | proposed `ProfilePage`, `useProfile`, `useVerifiedEmailGate` | FR-004–008; OpenAPI profile/email endpoints | Field validation inline; save stays disabled until the Profile gate succeeds. Password change form has 3 fields (Current Password, New Password, Confirm Password) with in-place reauthentication before `updatePassword`; section hidden if no `password` in `user.providerData`. Email change form has 2 fields (Current Password, New Email) with in-place reauthentication before `verifyBeforeUpdateEmail`. Member resend uses Firebase SDK with 90s `localStorage` cooldown. | On wrong current password: clear only current password, show inline error, retain new password/email in ephemeral React state (never in storage). On success: clear all fields, show success notice. `401` discards draft and signs in with `returnTo: /profile`; `403` shows guidance; `409` reconciles current values. |
 | Admin list/detail | Admin | WF-01, WF-03, WF-04 | proposed `AdminAccountListPage`, `AdminAccountDetailPage`, `useAdminAccounts` | FR-016–025; OpenAPI requires regeneration | Loading progress; explicit empty result; restricted detail data; success only after commit. | `409` reload before reapply; `503` keep safe form data for explicit retry. |
 | Create/resend internal Account | Admin | WF-03 | proposed `InternalAccountCreatePage`, `useAdminAccounts` | FR-011–015, 023–025 | Validate role/location before submit. Pending setup is not active access. Repeat click/retry preserves one intended provisioning request. Never display raw action link. | Provider/notification failure gives safe recovery; resend/reconciliation does not create a second account. |
 | Role/location/status action | Admin | WF-03, WF-04 | proposed detail page/hook | FR-017–021 | Explain impact, show current committed role/status/effective scope. Location deactivation does not claim role/lifecycle change. | Version conflict reloads; denied access returns to allowed safe view. |
@@ -79,6 +79,10 @@ The approved shared envelope is `code`, `message`, `correlationId`, `timestamp`,
 | Profile session expired | Draft is discarded and UI directs to sign-in; no Profile PII is browser-persisted | WF-08 |
 | Verification resend followed by browser restart | Resend remains disabled only until the Account-specific 90-second expiry; Firebase remains quota authority | WF-08 |
 | Unverified email-change request | Current email stays visible/current; retry invokes `verifyBeforeUpdateEmail` again and no pending email is persisted in Mland | WF-08 |
+| Member changes password with wrong current password | In-place re-auth fails: clear only current password, display inline error, retain new password values in component memory | WF-02, WF-08 |
+| Member changes password successfully | In-place re-auth succeeds, password updated via Firebase SDK, all form fields cleared, success alert displayed | WF-02, WF-08 |
+| Member without password provider views Profile | Password change section and quick action trigger are hidden; only eligible providers see credential mutations | WF-02 |
+| Member changes email with in-place re-auth | Current password verifies identity, `verifyBeforeUpdateEmail` sends verification link, current email remains active | WF-08 |
 
 ## Open decisions and dependencies
 

@@ -1,7 +1,7 @@
 # Quickstart Validation Guide: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-03
+**Date updated**: 2026-11-04
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -329,6 +329,40 @@ TargetFactsOutcome result = accountFacade.findTargetFacts(AccountId.of(42L));
 
 ---
 
+## Scenario V-12: Google Sign-In and In-Place Credential Re-authentication (FR-002, FR-005, US1, US2)
+
+**Covers**: FR-002, FR-005, US1, US2
+
+**Setup**: Local frontend with Firebase configured; test Google account available.
+
+```
+1. Open /sign-in in browser:
+   → Verify "Đăng nhập với Google" button is displayed prominently
+2. Click "Đăng nhập với Google":
+   → Browser redirects via signInWithRedirect to accounts.google.com
+3. Complete Google sign-in:
+   → Browser redirects back to /sign-in
+   → getRedirectResult resolves authenticated user
+   → POST /accounts/me bootstraps Account and Profile
+   → Browser navigates to Home (/)
+4. Attempt Google sign-in with email already registered via password:
+   → Error auth/account-exists-with-different-credential handled
+   → Safe alert displayed: "Email này đã được đăng ký bằng Mật khẩu..."
+   → No account overwrite or automatic merge occurs
+5. Open Profile (/profile) with password-authenticated account:
+   → Verify 3-field Password Change form is displayed (Current, New, Confirm)
+   → Submit with incorrect current password:
+     → In-place re-auth fails with auth/invalid-credential or wrong-password
+     → Current password field is cleared; inline error shown; new password retained in form memory
+   → Submit with valid current password and matching new password (>= 6 chars):
+     → In-place re-auth succeeds; updatePassword succeeds without auth/requires-recent-login
+     → All fields cleared; green success alert displayed
+6. Open Profile (/profile) with Google-authenticated account:
+   → Verify Password Change section is hidden (providerData lacks "password")
+```
+
+---
+
 ## Error Presentation Spot-Checks
 
 | Trigger | Expected response |
@@ -348,5 +382,5 @@ Before handoff, retain evidence for:
 1. Flyway fresh-database migration (V1 to current) — startup log screenshot or CI run
 2. Flyway upgrade migration (V5 baseline → current `AuditOutcome`/`VARCHAR(16)`) — startup log + sample query
 3. Spring Modulith boundary verification — test output confirming `accountmanagement` module detects correctly
-4. Scenarios V-01 through V-11 executed locally — annotated screenshots or test output per scenario
+4. Scenarios V-01 through V-12 executed locally — annotated screenshots or test output per scenario
 5. WCAG 2.2 AA baseline — accessibility scan output for all FE-001 screens (frontend foundation owner)
