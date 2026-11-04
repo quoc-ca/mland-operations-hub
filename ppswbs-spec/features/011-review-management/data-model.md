@@ -82,9 +82,9 @@ as an alternate source of truth.
 
 ## Migration gate
 
-The repository currently contains migrations through `V88` according to the
-backend migration directory inspection. Before implementation, re-scan the
-repository and `flyway_schema_history`, select the next unused version, and
-verify clean install, upgrade, rerun and recovery behavior. Do not use
+The merged repository contains `develop` migrations through `V90`, while the
+Feature-011 migration is allocated as `V91`. Before applying it, re-scan the
+repository and `flyway_schema_history`, verify that `V91` is unused, and test
+clean install, upgrade, rerun and recovery behavior. Do not use
 `baseline`, `outOfOrder`, ignore patterns or checksum repair to conceal a
 duplicate version.

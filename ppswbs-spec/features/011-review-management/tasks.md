@@ -17,7 +17,7 @@ Last updated by: Ngô Tiến Đạt
 - [x] Review `spec.md` permission matrix, state rules and acceptance scenarios.
 - [x] Approve workshop attendance and retail order-line physical mappings.
 - [x] Review `data-model.md` and entity constraints.
-- [x] Scan repository/database Flyway history and select an unused migration version (`V89__review_management.sql`).
+- [x] Scan repository/database Flyway history and select an unused migration version (`V91__review_management.sql` after merge with `develop`).
 - [x] Define migration upgrade, rollback/recovery and data-retention evidence.
 - [x] Define Guest eligibility-handle TTL (30 min), binding, replay and storage contract (MySQL `guest_eligibility_handles`).
 - [x] Define Workshop Operations and Fulfilment facade DTOs for ownership and state evidence.
@@ -44,7 +44,7 @@ Last updated by: Ngô Tiến Đạt
 - [x] Unit and integration tests for eligibility, validation, lifecycle and permission rules (21/21 tests pass).
 - [x] Concurrent duplicate-create and idempotency tests.
 - [x] Privacy tests for masking and source enumeration.
-- [x] Migration clean/upgrade/re-run tests (`V89__review_management.sql`).
+- [x] Migration clean/upgrade/re-run tests (`V91__review_management.sql`).
 - [x] Guest handle expiry, source binding, replay and raw-source rejection tests.
 - [x] Realtime public aggregate excludes `HIDDEN` and `REMOVED` rows.
 - [ ] OpenAPI, architecture, `git diff --check` and manual acceptance review.

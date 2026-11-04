@@ -5,7 +5,7 @@
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-03
 - **Date updated**: 2026-11-04
-- **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V89__review_management.sql`, OpenAPI contract and synchronized project specifications
+- **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V91__review_management.sql`, OpenAPI contract and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
 > the Feature-011 artifacts and source code. Phase labels are retained for
@@ -27,7 +27,7 @@
 
 ### Phase B — Persistence and migration
 
-- Added [`V89__review_management.sql`](../../../ppswbs_backend/src/main/resources/db/migration/V89__review_management.sql).
+- Added [`V91__review_management.sql`](../../../ppswbs_backend/src/main/resources/db/migration/V91__review_management.sql) after merge resolution. `develop` introduced separate `V89` and `V90` migrations, so retaining Feature-011 as `V89` would leave duplicate Flyway versions.
 - Added logical persistence for `reviews`, `review_revisions`, `review_replies`, `review_moderation_events`, `guest_eligibility_handles` and `review_idempotency_records`.
 - Added unique source protection through `(source_type, source_reference)`.
 - Added rating constraint `1..5`, service-level source/target validation and `PUBLIC/HIDDEN/REMOVED` status model.
@@ -115,7 +115,7 @@ Reported total: **21 test cases**. A fresh execution was not claimed in this upd
 
 - Review `ON DELETE CASCADE` on `review_revisions`, `review_replies` and `review_moderation_events`. The approved business-history policy requires audit/revision/reply history to survive normal review removal; migration behavior must be changed or explicitly approved before production.
 - Run Flyway validation against a clean MySQL database and an existing database containing migrations through `V88`.
-- Verify `V89` upgrade, rerun behavior, schema constraints, indexes and `flyway_schema_history`.
+- Verify `V91` upgrade, rerun behavior, schema constraints, indexes and `flyway_schema_history`.
 - Add a recovery plan for partial migration failure; do not use checksum repair, `baseline` or `outOfOrder` to conceal version conflicts.
 
 ### Giai đoạn 4 — Verification and release readiness
@@ -148,7 +148,7 @@ Reported total: **21 test cases**. A fresh execution was not claimed in this upd
 5. **Privacy/ownership blocker:** Review detail access and public projection boundaries require a final audit to prevent source/owner metadata leakage.
 6. **Retention blocker:** Migration foreign keys currently cascade-delete revision, reply and moderation records; this conflicts with the business-history retention rule.
 7. **Evidence status:** The 21 test cases are present and previously reported, but no new pass result is claimed from the current Java 17 environment.
-8. **Migration status:** `V89` is present and follows the repository’s current highest inspected version `V88`; clean-install and existing-database validation remain outstanding.
+8. **Migration status:** Feature-011 was renamed from `V89` to `V91` after merging `develop`, which already contains `V89` and `V90` migrations. Clean-install and existing-database validation remain outstanding.
 
 ---
 
@@ -157,12 +157,27 @@ Reported total: **21 test cases**. A fresh execution was not claimed in this upd
 | Phase | Current evidence | Remaining evidence |
 | --- | --- | --- |
 | Phase A | `features/reviewmanagement` module, ports, adapters and security integration | Final Modulith dependency verification |
-| Phase B | `V89__review_management.sql`, six logical tables and unique source constraint | Retention-safe FK policy and MySQL upgrade evidence |
+| Phase B | `V91__review_management.sql`, six logical tables and unique source constraint | Retention-safe FK policy and MySQL upgrade evidence |
 | Phase C | Guest handle, Member lookup, Workshop/Retail adapters | Guest retail path, handle replay/consumption and final ownership evidence |
 | Phase D | Application, moderation, reply, masking and idempotency services | Admin boundary, conflict-of-interest and complete idempotency enforcement |
 | Phase E | Controllers and exception handler for ten endpoint operations | OpenAPI/DTO/header alignment and endpoint authorization tests |
 | Phase F | 21 Feature-011 test cases exist | Fresh execution under JDK 21 and expanded edge-case coverage |
 | Phase G | No Feature-011 frontend implementation recorded here | React/Vite implementation and integration verification |
+
+---
+
+## 6. Merge resolution log — `develop` into `dat`
+
+The merge completed without textual conflict markers, but migration analysis
+found semantic Flyway version collisions:
+
+1. Feature-011 `V89__review_management.sql` conflicted with `develop`’s occupied `V89` versions. It was renamed to `V91__review_management.sql`.
+2. `develop` contained two separate `V89` scripts: `V89__member_shipping_addresses.sql` and `V89__workshop_package_foundry_working_day_rule.sql`. The account migration remains `V89` because its feature artifacts and verification reference that version; the workshop package migration was renamed to `V92__workshop_package_foundry_working_day_rule.sql` and its header was updated.
+3. `V90__workshop_operations_global_idempotency_key.sql` remains unchanged.
+
+The repository must still be validated against `flyway_schema_history` before
+any database application. No `baseline`, checksum repair or out-of-order
+execution was used to hide the duplicate-version problem.
 
 ---
 

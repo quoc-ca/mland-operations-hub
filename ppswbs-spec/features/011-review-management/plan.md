@@ -29,7 +29,7 @@ Create validates input and source eligibility, then inserts review, first revisi
 - Source eligibility: Implemented via WorkshopAttendanceReviewPort (checking CHECKED_IN attendance tickets) and RetailFulfilmentReviewPort (checking PICKED_UP/DELIVERED retail order lines) with internal adapters.
 - Aggregate strategy: Realtime SQL query over reviews where status = 'PUBLIC'.
 - Staff global-hide permission: Confirmed Staff may hide any review globally.
-- Migration version: V89__review_management.sql.
+- Migration version: V91__review_management.sql after merging `develop`; `V89` and `V90` are already occupied by `develop` migrations.
 - Guest handle: Persisted in guest_eligibility_handles table, 30-minute TTL, valid for sources in that lookup session. Direct source IDs without valid handle are rejected.
 - Guest no-OTP risk acknowledged for V1 per design decision.
 
