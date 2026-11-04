@@ -7,5 +7,16 @@ public record CurrentAccountActor(
     ActorRole role,
     ActorStatus status,
     boolean emailVerified,
-    List<Long> activeLocationIds
-) {}
+    List<Long> activeWorkshopLocationIds
+) {
+    public CurrentAccountActor {
+        activeWorkshopLocationIds = activeWorkshopLocationIds != null ? List.copyOf(activeWorkshopLocationIds) : List.of();
+    }
+
+    /**
+     * Backward-compatibility accessor for consuming features during migration.
+     */
+    public List<Long> activeLocationIds() {
+        return activeWorkshopLocationIds;
+    }
+}

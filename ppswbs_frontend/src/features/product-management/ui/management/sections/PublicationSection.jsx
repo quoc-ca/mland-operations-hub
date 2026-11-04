@@ -1,21 +1,26 @@
 import React from 'react';
 import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { ErrorNotice } from '../../../../../shared/ui/components';
+import { ACTIONS } from '../../../infrastructure/catalogueApi';
 import { messages } from '../../messages';
 import { effectiveProposal } from '../../../domain/productRules';
 import { useProductCommand } from '../ProductDetailPage';
+import { NoticeAt } from '../notices';
 
 /**
  * T040 publication: shows per size the proposed, approved and applied amounts apart, then publishes or hides.
  * Missing prerequisites come back as PUBLICATION_PREREQUISITES_MISSING. Publishing does not open a checkout and
  * stock is not a condition. Hiding keeps every size and price.
  */
-export function PublicationSection({ product, api, reload, setNotice, deleted }) {
+export function PublicationSection({ product, api, reload, setNotice, deleted, flagMissing = () => {} }) {
   const t = useT(messages);
   const format = useFormat();
   const command = useProductCommand({ reload, setNotice });
   const target = !product.published;
-  const toggle = () => command.run(key => api.setPublication(key, product.id, product.version, target), target ? 'publication.published' : 'publication.hidden');
+  const toggle = async () => {
+    const outcome = await command.run(key => api.setPublication(key, product.id, product.version, target), { key: target ? 'publication.published' : 'publication.hidden', at: 'publication' }, target ? ACTIONS.publish : ACTIONS.unpublish);
+    if (outcome.error?.code === 'PUBLICATION_PREREQUISITES_MISSING') flagMissing();
+  };
 
   return (
     <section className="workspace-card" aria-labelledby="publication-title">
@@ -47,6 +52,7 @@ export function PublicationSection({ product, api, reload, setNotice, deleted })
         </button>
       )}
       <ErrorNotice error={command.error} messages={messages} onRetry={command.retry} onReload={reload} />
+      <NoticeAt at="publication" />
     </section>
   );
 }

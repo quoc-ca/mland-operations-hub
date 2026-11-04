@@ -1,7 +1,7 @@
 # Quickstart: Workshop Operations Verification
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-11-02
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -77,8 +77,8 @@ run is not sufficient proof of index, lock or migration behaviour.
 1. With an active canonical `MANAGER` whose `activeLocationIds` cover only one
    location, create a `DRAFT` Workshop Package for another active location with
    its public name, description, per-participant price, inclusive participant
-   bounds, required-session count, same-location rule and same-day slot-gap
-   rule. Verify another active Manager with different location assignments can
+   bounds, required-session count, same-location rule, same-day slot-gap and
+   foundry-working-days-between-sessions rules. Verify another active Manager with different location assignments can
    also perform this action. Verify `packageId` is
    system-generated and no package code is required.
 2. Publish the valid Package through its explicit lifecycle command. Verify an
@@ -87,10 +87,13 @@ run is not sufficient proof of index, lock or migration behaviour.
    already published Package and verify the change is prospective: a prior
    Booking retains its frozen Package and financial snapshots. Retire the
    Package and verify it cannot be newly selected or deleted while its Booking
-   history remains readable. Verify the current Basic Ring and Silverclay
-   configurations work as generic rules rather than as a closed Package enum;
-   for Silverclay, same-day selected sessions with no intervening configured
-   slot are rejected by the reserve boundary.
+   history remains readable. Verify the catalogue offers in
+   [catalogue.md](./catalogue.md) work as generic rules rather than as a closed
+   Package enum. The former Silverclay same-day-gap example is retired. Verify
+   Wax Casting with exactly two intervening foundry-working dates: Monday
+   16:00–19:00 to Thursday 09:30–12:00 is valid; Monday to Wednesday and
+   Friday to Tuesday are invalid. Saturday/Sunday do not count, so Friday to
+   Wednesday is valid (Monday and Tuesday are the two intervening dates).
 3. Verify that the approved Package-discovery facade is the only 003.1
    cross-module read boundary and that Booking cannot read or mutate Package
    entities/repositories. Call

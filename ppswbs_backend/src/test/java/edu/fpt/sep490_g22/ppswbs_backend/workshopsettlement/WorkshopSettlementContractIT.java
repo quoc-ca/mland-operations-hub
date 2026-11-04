@@ -18,6 +18,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.RequiredSessionChangeController;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.WorkshopFinalBillController;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.WorkshopRefundPolicyController;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.SettlementCaseListController;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -64,6 +65,7 @@ class WorkshopSettlementContractIT {
                 "GET /api/v1/workshop-bookings/{bookingCode}/required-session-change-cases/{caseReference}",
                 "POST /api/v1/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases",
                 "GET /api/v1/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases/{caseReference}",
+                "GET /api/v1/workshop-settlement-cases",
                 "GET /api/v1/workshop-refund-policies",
                 "POST /api/v1/workshop-refund-policies"));
 
@@ -119,7 +121,8 @@ class WorkshopSettlementContractIT {
     private static Map<String, Method> controllerOperations() {
         List<Class<?>> controllers = List.of(WorkshopFinalBillController.class,
                 CustomerBookingCancellationController.class, RequiredSessionChangeController.class,
-                MlandCancellationRemedyController.class, WorkshopRefundPolicyController.class);
+                MlandCancellationRemedyController.class, WorkshopRefundPolicyController.class,
+                SettlementCaseListController.class);
         return controllers.stream()
                 .flatMap(controller -> {
                     String basePath = controller.getAnnotation(RequestMapping.class).value()[0];

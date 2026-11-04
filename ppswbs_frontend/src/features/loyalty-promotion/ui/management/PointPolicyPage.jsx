@@ -3,6 +3,7 @@ import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, Loading, SuccessNotice, useCommand, useResource } from '../../../../shared/ui/components';
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { messages } from '../messages';
+import { useDateTime } from '../display';
 import { isPercent, isPositive, serverFieldErrors } from '../../domain/promotionRules';
 import { PageTop } from './PromotionManagementLayout';
 
@@ -16,6 +17,7 @@ const FIELDS = ['earnUnitAmount', 'redeemPointValue', 'minRedeemPoints', 'maxRed
 export default function PointPolicyPage() {
   const t = useT(messages);
   const format = useFormat();
+  const dateTime = useDateTime();
   const api = useLoyaltyApi();
   const policy = useResource(() => api.getPolicy(), []);
   const [form, setForm] = useState(null);
@@ -47,7 +49,7 @@ export default function PointPolicyPage() {
 
   return (
     <>
-      <PageTop title={t('policy.title')} />
+      <PageTop eyebrow={t('manage.eyebrow')} title={t('policy.title')} />
       <SuccessNotice>{notice && t(notice)}</SuccessNotice>
       {policy.error && <ErrorNotice error={policy.error} messages={messages} onRetry={policy.reload} />}
       <section className="workspace-card">
@@ -60,8 +62,8 @@ export default function PointPolicyPage() {
           <div><dt>{t('policy.redeemPointValue')}</dt><dd>{t('policy.redeemText', { amount: format.money(data.redeemPointValue) })}</dd></div>
           <div><dt>{t('policy.minRedeemPoints')}</dt><dd>{format.number(data.minRedeemPoints)}</dd></div>
           <div><dt>{t('policy.maxRedeemPercent')}</dt><dd>{data.maxRedeemPercent}%</dd></div>
-          <div><dt>{t('policy.roundingMode')}</dt><dd>{data.roundingMode}</dd></div>
-          <div><dt>{t('policy.version')}</dt><dd>{data.version} · {format.dateTime(data.createdAt)}</dd></div>
+          <div><dt>{t('policy.roundingMode')}</dt><dd>{t(`policy.rounding.${data.roundingMode}`)}</dd></div>
+          <div><dt>{t('policy.version')}</dt><dd>{data.version} · {dateTime(data.createdAt)}</dd></div>
         </dl>
         <p className="muted small">{t('policy.futureOnly')}</p>
       </section>

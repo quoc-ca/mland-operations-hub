@@ -212,6 +212,137 @@ class RequiredSessionChangeIT {
                 .hasMessageContaining("distinct");
     }
 
+    @Test
+    void waxCastingReplacementAcceptsMondayToThursday() {
+        String bookingReference = bookingReference();
+        LocalDate baseMonday = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusWeeks(2)
+                .with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY));
+        LocalDate thursday = baseMonday.plusDays(3);
+
+        WorkshopSession sourceOne = createSession(location, baseMonday, LocalTime.of(9, 0), 10);
+        WorkshopSession sourceTwo = createSession(location, thursday, LocalTime.of(9, 0), 10);
+        WorkshopSession targetOne = createSession(location, baseMonday, LocalTime.of(16, 0), 10);
+        WorkshopSession targetTwo = createSession(location, thursday, LocalTime.of(16, 0), 10);
+
+        AttendanceTicket ticket = createTicket(bookingReference, List.of(sourceOne, sourceTwo));
+        persistWaxCastingPolicy(bookingReference, 2);
+        givenConfirmedProjection(bookingReference, List.of(sourceOne, sourceTwo), 1);
+
+        var result = openChange(bookingReference, List.of(targetOne, targetTwo), "Wax Casting rescheduling");
+
+        assertThat(result.status()).isEqualTo("RESOLVED");
+        assertThat(entitlementRepository.findByTicketId(ticket.getId()))
+                .extracting(entitlement -> entitlement.getSession().getReference())
+                .containsExactlyInAnyOrder(targetOne.getReference(), targetTwo.getReference());
+        assertThat(ticketRepository.findById(ticket.getId()).orElseThrow().getQrReference())
+                .isEqualTo(ticket.getQrReference());
+    }
+
+    @Test
+    void waxCastingReplacementAcceptsFridayToWednesdayNextWeek() {
+        String bookingReference = bookingReference();
+        LocalDate baseMonday = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusWeeks(2)
+                .with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY));
+        LocalDate thursday = baseMonday.plusDays(3);
+        LocalDate friday = baseMonday.plusDays(4);
+        LocalDate nextWednesday = baseMonday.plusDays(9);
+
+        WorkshopSession sourceOne = createSession(location, baseMonday, LocalTime.of(9, 0), 10);
+        WorkshopSession sourceTwo = createSession(location, thursday, LocalTime.of(9, 0), 10);
+        WorkshopSession targetFri = createSession(location, friday, LocalTime.of(16, 0), 10);
+        WorkshopSession targetWed = createSession(location, nextWednesday, LocalTime.of(9, 30), 10);
+
+        AttendanceTicket ticket = createTicket(bookingReference, List.of(sourceOne, sourceTwo));
+        persistWaxCastingPolicy(bookingReference, 2);
+        givenConfirmedProjection(bookingReference, List.of(sourceOne, sourceTwo), 1);
+
+        var result = openChange(bookingReference, List.of(targetFri, targetWed), "Wax Casting weekend jump");
+
+        assertThat(result.status()).isEqualTo("RESOLVED");
+        assertThat(entitlementRepository.findByTicketId(ticket.getId()))
+                .extracting(entitlement -> entitlement.getSession().getReference())
+                .containsExactlyInAnyOrder(targetFri.getReference(), targetWed.getReference());
+    }
+
+    @Test
+    void waxCastingReplacementRejectsMondayToWednesdayWithoutMutations() {
+        String bookingReference = bookingReference();
+        LocalDate baseMonday = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusWeeks(2)
+                .with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY));
+        LocalDate thursday = baseMonday.plusDays(3);
+        LocalDate wednesday = baseMonday.plusDays(2);
+
+        WorkshopSession sourceOne = createSession(location, baseMonday, LocalTime.of(9, 0), 10);
+        WorkshopSession sourceTwo = createSession(location, thursday, LocalTime.of(9, 0), 10);
+        WorkshopSession targetMon = createSession(location, baseMonday, LocalTime.of(16, 0), 10);
+        WorkshopSession targetWed = createSession(location, wednesday, LocalTime.of(9, 30), 10);
+
+        AttendanceTicket ticket = createTicket(bookingReference, List.of(sourceOne, sourceTwo));
+        persistWaxCastingPolicy(bookingReference, 2);
+        givenConfirmedProjection(bookingReference, List.of(sourceOne, sourceTwo), 1);
+
+        assertRejected(bookingReference, List.of(targetMon, targetWed), "INVALID_REPLACEMENT");
+
+        assertThat(entitlementRepository.findByTicketId(ticket.getId()))
+                .extracting(entitlement -> entitlement.getSession().getReference())
+                .containsExactlyInAnyOrder(sourceOne.getReference(), sourceTwo.getReference());
+        assertThat(entitlementRepository.findBySessionId(targetMon.getId())).isEmpty();
+        assertThat(entitlementRepository.findBySessionId(targetWed.getId())).isEmpty();
+        assertThat(settlementCaseRepository.findAll()).noneMatch(row -> row.getBookingReference().equals(bookingReference));
+    }
+
+    @Test
+    void waxCastingReplacementRejectsFridayToTuesdayNextWeekWithoutMutations() {
+        String bookingReference = bookingReference();
+        LocalDate baseMonday = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusWeeks(2)
+                .with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY));
+        LocalDate thursday = baseMonday.plusDays(3);
+        LocalDate friday = baseMonday.plusDays(4);
+        LocalDate nextTuesday = baseMonday.plusDays(8);
+
+        WorkshopSession sourceOne = createSession(location, baseMonday, LocalTime.of(9, 0), 10);
+        WorkshopSession sourceTwo = createSession(location, thursday, LocalTime.of(9, 0), 10);
+        WorkshopSession targetFri = createSession(location, friday, LocalTime.of(16, 0), 10);
+        WorkshopSession targetTue = createSession(location, nextTuesday, LocalTime.of(9, 30), 10);
+
+        AttendanceTicket ticket = createTicket(bookingReference, List.of(sourceOne, sourceTwo));
+        persistWaxCastingPolicy(bookingReference, 2);
+        givenConfirmedProjection(bookingReference, List.of(sourceOne, sourceTwo), 1);
+
+        assertRejected(bookingReference, List.of(targetFri, targetTue), "INVALID_REPLACEMENT");
+
+        assertThat(entitlementRepository.findByTicketId(ticket.getId()))
+                .extracting(entitlement -> entitlement.getSession().getReference())
+                .containsExactlyInAnyOrder(sourceOne.getReference(), sourceTwo.getReference());
+        assertThat(settlementCaseRepository.findAll()).noneMatch(row -> row.getBookingReference().equals(bookingReference));
+    }
+
+    @Test
+    void waxCastingReplacementReplayWithSameIdempotencyKeyReturnsExistingProjection() {
+        String bookingReference = bookingReference();
+        LocalDate baseMonday = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusWeeks(2)
+                .with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY));
+        LocalDate thursday = baseMonday.plusDays(3);
+
+        WorkshopSession sourceOne = createSession(location, baseMonday, LocalTime.of(9, 0), 10);
+        WorkshopSession sourceTwo = createSession(location, thursday, LocalTime.of(9, 0), 10);
+        WorkshopSession targetOne = createSession(location, baseMonday, LocalTime.of(16, 0), 10);
+        WorkshopSession targetTwo = createSession(location, thursday, LocalTime.of(16, 0), 10);
+
+        createTicket(bookingReference, List.of(sourceOne, sourceTwo));
+        persistWaxCastingPolicy(bookingReference, 2);
+        givenConfirmedProjection(bookingReference, List.of(sourceOne, sourceTwo), 1);
+
+        String idempotencyKey = "key-replay-" + UUID.randomUUID();
+        var initial = changeService.open(bookingReference, idempotencyKey, "corr-replay-1",
+                new RequiredSessionChangeCommandDto(List.of(targetOne.getReference(), targetTwo.getReference()), "reason-1", null), manager());
+        var replay = changeService.open(bookingReference, idempotencyKey, "corr-replay-2",
+                new RequiredSessionChangeCommandDto(List.of(targetOne.getReference(), targetTwo.getReference()), "reason-1", null), manager());
+
+        assertThat(replay.caseReference()).isEqualTo(initial.caseReference());
+        assertThat(replay.status()).isEqualTo("RESOLVED");
+    }
+
     private edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.SettlementCaseProjectionDto
     openChange(String bookingReference, List<WorkshopSession> targets, String reason) {
         return changeService.open(bookingReference, "key-" + UUID.randomUUID(), "corr-" + UUID.randomUUID(),
@@ -235,6 +366,14 @@ class RequiredSessionChangeIT {
                 .bookingReference(bookingReference).packageReference("silverclay")
                 .requiredSessionCount(requiredCount).minParticipants(1).maxParticipants(20)
                 .sameLocationRequired(sameLocation).minimumSameDaySlotGap(minimumGap).build());
+    }
+
+    private void persistWaxCastingPolicy(String bookingReference, int requiredFoundryWorkingDays) {
+        policySnapshotRepository.saveAndFlush(WorkshopBookingPackagePolicySnapshot.builder()
+                .bookingReference(bookingReference).packageReference("wax-casting")
+                .requiredSessionCount(2).minParticipants(1).maxParticipants(6)
+                .sameLocationRequired(true).minimumSameDaySlotGap(0)
+                .requiredFoundryWorkingDaysBetweenSessions(requiredFoundryWorkingDays).build());
     }
 
     private AttendanceTicket createTicket(String bookingReference, List<WorkshopSession> sessions) {

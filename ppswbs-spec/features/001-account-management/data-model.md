@@ -1,7 +1,7 @@
 # Account Management Data Model
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-03
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -17,6 +17,7 @@
 | InternalAccountProvisioning | `accountmanagement` | Account creation request identity, idempotency key, normalized request digest, intended email/role/location snapshot, Firebase UID, Account ID, lifecycle/progress and retry diagnostics. Unique idempotency key; same key/different digest conflicts. |
 | AccountAuditEvent | `accountmanagement` | actor/target Account IDs nullable, action, outcome, correlation ID, safe metadata, occurred time. Retain five years; never store password, raw token/action-link, full name, phone. |
 | NotificationIntent | FE-07-owned delivery record | Account writes a referenceable intent in the same business commit for invitation, lock/unlock, or role change. No raw Firebase action link is persisted. |
+| MemberAddress | `accountmanagement` | `id`, FK `account_id`, `recipient_name`, `phone_number` (normalized 10-digit VN mobile), `province_id`, `province_name`, `district_id`, `district_name`, `ward_id`, `ward_name`, nullable `hamlet_id`, `hamlet_name` (GHTK Level 4), `detail_address`, `address_type` (`HOME`/`OFFICE`), `is_default`, timestamps. Hard delete; maximum 10 addresses per account; exactly one default address if address count > 0. |
 
 ## Enumerations and lifecycle
 
@@ -24,7 +25,7 @@
 - `AccountStatus`: `ACTIVE`, `PENDING_SETUP`, `SUSPENDED` only.
 - `resume_status` is populated only when suspending an eligible `ACTIVE` or
   `PENDING_SETUP` account and is consumed on successful restoration.
-- Email verification is an identity assurance, not an Account status.
+- Email verification is an identity assurance, not an Account status. `email_verified_at` is an Account-owned observation snapshot written only after FE-001 verifies a fresh Firebase ID token; it is not permission authority and is never set from a browser boolean or email action code.
 - Location deactivation leaves Account role/status unchanged but removes usable
   scope for commands in that location.
 
@@ -40,6 +41,14 @@
 - `firebase_uid` unique; account IDs are opaque positive IDs.
 - Login email is a current identity snapshot, not an ownership key. A UID/email
   mismatch never causes automatic merge or role upgrade.
+- A verified-email synchronization is idempotent: for the same UID and current
+  verified identity it may update `login_email` and records the observation time;
+  it cannot alter role, Account status, location scope or identity ownership.
+- `localStorage` is not Account data. The only permitted verification-resend
+  browser state is an opaque-Account-ID-keyed expiry timestamp lasting 90
+  seconds; it stores no email, Firebase UID, token, action code, or proposed
+  email-change value. A proposed email remains only in Firebase's verified-
+  before-update flow and is never a pending Account attribute.
 - Unknown-UID bootstrap creates its Account Profile in the same transaction only
   when the verified identity includes a valid email claim. The initial full name
   derives only from that email local part; browser input and provider display
@@ -116,3 +125,18 @@ action. Its `FOUND` value contains effective `activeWorkshopLocationIds`: active
 Account assignments intersected with currently active authoritative Workshop
 Locations. `UNAVAILABLE` is returned when that effective scope cannot be
 verified; only the dependent action fails closed.
+
+`MemberAddressSnapshot` is an immutable facade boundary record provided to approved
+consumer modules (e.g. FE-008 Retail Order & Fulfillment) at checkout:
+`id`, `recipientName`, `phoneNumber`, `provinceId`, `provinceName`, `districtId`,
+`districtName`, `wardId`, `wardName`, `hamletId`, `hamletName`, `detailAddress`, and `addressType`.
+Consumers copy this snapshot into order persistence so subsequent address changes in
+Account Management never alter existing orders.
+
+## Timezone storage contract — approved baseline
+
+All database date-time values are standardized on Vietnam local time (`Asia/Ho_Chi_Minh`, UTC+7).
+- JDBC URL enforces `connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true`.
+- Application JVM default timezone is configured to `Asia/Ho_Chi_Minh`.
+- Jackson serializers output ISO-8601 with `+07:00` offset.
+- MySQL `DATETIME(6)` columns store wall-clock time in UTC+7 directly.

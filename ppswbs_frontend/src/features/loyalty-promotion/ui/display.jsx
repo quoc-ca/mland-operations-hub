@@ -1,6 +1,24 @@
-import React from 'react';
-import { useFormat, useT } from '../../../shared/i18n/I18nProvider';
+import React, { useMemo } from 'react';
+import { useFormat, useLanguage, useT } from '../../../shared/i18n/I18nProvider';
 import { messages } from './messages';
+
+/**
+ * Date before time, "3 thg 11, 2026, 12:45" (en "Nov 3, 2026, 12:45 PM"), as in frames 006-10…17. The shared
+ * formatter puts the time first in Vietnamese; it stays as it is for the other features.
+ */
+export function useDateTime() {
+  const { language } = useLanguage();
+  return useMemo(() => {
+    const locale = language === 'en' ? 'en-US' : 'vi-VN';
+    const date = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
+    const time = new Intl.DateTimeFormat(locale, { timeStyle: 'short' });
+    return value => {
+      if (!value) return '—';
+      const at = new Date(value);
+      return Number.isNaN(at.getTime()) ? String(value) : `${date.format(at)}, ${time.format(at)}`;
+    };
+  }, [language]);
+}
 
 /** "10% (tối đa 50.000 ₫)" or "50.000 ₫ (tối đa …)". */
 export function DiscountText({ discount }) {
@@ -16,20 +34,21 @@ export function DiscountText({ discount }) {
 export function Terms({ item, labels }) {
   const t = useT(messages);
   const format = useFormat();
+  const dateTime = useDateTime();
   const targets = item.targets || {};
   const rows = [
-    [t('field.window'), `${format.dateTime(item.startAt)} – ${format.dateTime(item.endAt)}`],
+    [t('field.window'), `${dateTime(item.startAt)} – ${dateTime(item.endAt)}`],
     [t('field.minimumEligibleAmount'), format.money(item.minimumEligibleAmount)],
     [t('field.allowPoints'), item.allowPoints ? t('yes') : t('no')],
   ];
   Object.entries(targets).forEach(([key, values]) => {
-    if (values?.length) rows.push([t(`target.${key}`), values.map(value => labels?.[key]?.[value] || value).join('; ')]);
+    if (values?.length) rows.push([t(`target.${key}`), values.map(value => labels?.[key]?.[value] || value).join('; '), 'wide']);
   });
   if (item.totalLimit) rows.push([t('field.totalLimit'), format.number(item.totalLimit)]);
   if (item.perMemberLimit) rows.push([t('field.perMemberLimit'), format.number(item.perMemberLimit)]);
   return (
     <dl className="facts terms">
-      {rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+      {rows.map(([label, value, wide]) => <div key={label} className={wide}><dt>{label}</dt><dd>{value}</dd></div>)}
     </dl>
   );
 }

@@ -8,7 +8,7 @@ original V1 artifacts in this directory.
 ```text
 Booking (commercial order and payer/contact)
 └── One selected workshop package/course
-    ├── Required session × one or more (for example, Silverclay has two)
+    ├── Required session × one or more (for example, Wax Casting has two)
     └── Attendance ticket × actual people attending the package
 ```
 

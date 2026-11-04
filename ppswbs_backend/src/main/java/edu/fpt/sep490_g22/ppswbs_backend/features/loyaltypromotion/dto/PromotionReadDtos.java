@@ -17,7 +17,23 @@ public final class PromotionReadDtos {
     public record Program(String id, String version, String revision, String kind, String scope, String code,
                           String status, String name, String startAt, String endAt, Discount discount,
                           String minimumEligibleAmount, boolean allowPoints, Targets targets, String totalLimit,
-                          String perMemberLimit, String createdAt) {
+                          String perMemberLimit, String createdAt,
+                          @JsonInclude(JsonInclude.Include.NON_NULL) String targetCheck,
+                          @JsonInclude(JsonInclude.Include.NON_NULL) List<TargetWarning> targetWarnings) {
+
+        /** The same programme with the target check of its detail read (getPromotionProgram only). */
+        public Program withTargetCheck(String check, List<TargetWarning> warnings) {
+            return new Program(id, version, revision, kind, scope, code, status, name, startAt, endAt, discount,
+                    minimumEligibleAmount, allowPoints, targets, totalLimit, perMemberLimit, createdAt, check, warnings);
+        }
+    }
+
+    /**
+     * A product or size in a product programme's scope that is no longer usable for new purchases (spec clarification
+     * 2026-10-26): {@code state} is DELETED (soft-deleted or gone), NOT_PUBLIC (unpublished, hidden or its category
+     * inactive) or NOT_ON_SALE (public but no size on sale). The programme keeps running; the Manager decides.
+     */
+    public record TargetWarning(String dimension, String targetKey, String state) {
     }
 
     /** PERCENT carries {@code percentage}; FIXED carries {@code amount}. */

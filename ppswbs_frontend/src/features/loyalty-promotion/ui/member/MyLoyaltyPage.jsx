@@ -5,6 +5,7 @@ import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/components';
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { messages } from '../messages';
+import { useDateTime } from '../display';
 import { useCursorList } from '../../application/useCursorList';
 
 /**
@@ -26,6 +27,7 @@ export default function MyLoyaltyPage() {
 function LoyaltyContent() {
   const t = useT(messages);
   const format = useFormat();
+  const dateTime = useDateTime();
   const api = useLoyaltyApi();
   const account = useResource(() => api.getOwnAccount(), []);
   const history = useCursorList(cursor => api.listOwnTransactions({ cursor }), []);
@@ -70,7 +72,7 @@ function LoyaltyContent() {
             </div>
             {history.items.map(entry => (
               <div className="data-row ledger" role="row" key={entry.id}>
-                <span role="cell">{format.dateTime(entry.occurredAt)}</span>
+                <span role="cell">{dateTime(entry.occurredAt)}</span>
                 <span role="cell">{t(`ledger.${entry.kind}`)}</span>
                 <span role="cell">{t(`source.${entry.sourceKind}`)} #{entry.sourceRef}</span>
                 <span role="cell">{signed(format, entry.balanceChange)}</span>

@@ -1,7 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-03
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -111,7 +111,14 @@ through an approved boundary.
 - Q: Who owns customer Package and customer-session discovery? → A: 003.2 Workshop Operations owns both public resources. 003.1 consumes their public results and the approved internal facade; it no longer exposes competing package or session discovery routes.
 - Q: What session identity does Booking carry? → A: It carries only Operations' opaque UUID/string `sessionReference`; it retires every legacy numeric session ID contract and does not support two formats.
 - Q: How is a customer selection authorized at booking submission? → A: Booking sends `packageReference`, the complete selected session-reference set and participant count to Operations' reserve boundary. Operations atomically rechecks Package publication, participant bounds, session count, location, same-day slot-gap rule, sale eligibility and capacity before reserving all sessions or none.
-- Q: How is the former Silverclay same-day non-adjacent rule represented? → A: It is Operations-owned generic Package configuration `minimumSameDaySlotGap`. Silverclay currently has value `1`; Basic Ring has value `0`. Booking neither hard-codes Silverclay nor interprets the rule independently.
+- Q: How does Booking use the confirmed workshop catalogue? → A: 003.2 owns the
+  five-offer catalogue in
+  [003.2/catalogue.md](../003.2-workshop-operations/catalogue.md). Signature
+  and Silver Clay offers currently select one session; Wax Casting selects two.
+  Booking never hard-codes product names or interprets package rules itself.
+  Operations enforces Wax Casting's approved rule: exactly two Monday–Friday
+  local dates strictly between its chronological sessions, ignoring Saturday
+  and Sunday.
 - Q: Which safe Package refusal reasons can Booking surface? → A: `PACKAGE_NOT_PUBLISHED` means the Package is no longer bookable; `PACKAGE_SELECTION_INVALID` means its participant/session/location/slot-gap rule fails. Capacity exhaustion remains `INSUFFICIENT_CAPACITY`.
 
 ### Session 2026-10-27
@@ -220,7 +227,7 @@ seat and receives one independent ticket after valid payment confirmation.
 - Q: Does V1 retain `BASE_PLUS_EXTRA` or a selectable pricing model? → A: No.
   `BASE_PLUS_EXTRA`, `base_price`, included-participant counts, extra-person
   prices, and a `pricing_model` selection are out of scope for V1.
-- Q: How is a two-session package such as Silverclay priced? → A: Its displayed
+- Q: How is a two-session package such as Wax Casting priced? → A: Its displayed
   per-participant package price covers every required session. For four
   participants, the total is four times that price; the booking holds four
   participant seats in each required session and issues four tickets after a
@@ -231,12 +238,12 @@ seat and receives one independent ticket after valid payment confirmation.
   Staff outside the V1 customer booking flow.
 - Q: Does V1 provide a cart for unrelated workshop packages? → A: No. One
   booking purchases one package/course only. A package may contain one or more
-  required sessions; a Silverclay two-session package is one purchase, not two
+  required sessions; a Wax Casting two-session package is one purchase, not two
   cart items or two independent bookings.
 - Q: Which packages are available through an OTA in V1? → A: Only basic ring
-  packages completed in one session. The two-session Silverclay package is
+  packages completed in one session. The two-session Wax Casting package is
   direct-Mland only; OTA does not select, hold, or sell its session pair.
-- Q: How does a direct-Mland Silverclay booking select its two sessions? → A:
+- Q: How does a direct-Mland Wax Casting booking select its two sessions? → A:
   The customer selects exactly two distinct published, customer-selectable
   workshop sessions. Sessions use the same common slot concept as other
   workshop packages; the earlier session is automatically treated as session 1
@@ -246,27 +253,28 @@ seat and receives one independent ticket after valid payment confirmation.
   → A: The public session-discovery query is scoped by one selected package,
   one branch, and a requested `from`/`to` time range. It returns only the
   customer-safe sale-eligibility snapshot supplied by 003.2; selecting two
-  sessions for Silverclay may use the same range or later range queries.
-- Q: How are QR tickets issued for a confirmed Silverclay booking? → A: Each
+  sessions for Wax Casting may use the same range or later range queries.
+- Q: How are QR tickets issued for a confirmed Wax Casting booking? → A: Each
   participant receives one independent QR ticket that is valid for both selected
-  Silverclay sessions. Later attendance is recorded separately for each
+  Wax Casting sessions. Later attendance is recorded separately for each
   ticket/session pair; this feature does not implement check-in.
-- Q: May the two selected Silverclay sessions belong to different branches? →
+- Q: May the two selected Wax Casting sessions belong to different branches? →
   A: No. In V1, both selected sessions must belong to the same branch.
-- Q: What minimum separation applies between the two selected Silverclay
-  sessions? → A: If both sessions are on the same local calendar day, at least
-  one scheduled workshop slot must occur between them. Sessions on different
-  local calendar days are valid even when the first is the final slot on one day
-  and the second is the first slot on the next day.
-- Q: With Silverclay, may a customer combine any two sessions at booking? → A:
-  Yes. The customer may combine any two published, customer-selectable workshop
-  sessions. A session is always a common workshop slot; V1 has no
-  Silverclay-only slot type or preconfigured session-pair/cohort requirement.
-- Q: Must the same physical person attend both sessions under one Silverclay
+- Q: What separation applies between the two selected Wax Casting sessions? →
+  A: They must have exactly two Monday–Friday local dates strictly between them;
+  Saturday and Sunday are ignored. This is independent of slot/time, so Monday
+  16:00–19:00 to Thursday 09:30–12:00 is valid. Operations is authoritative;
+  Booking only shows the rule and submits the selection.
+- Q: With Wax Casting, may a customer combine any two sessions at booking? → A:
+  No. The customer may select any two published, customer-selectable common
+  workshop sessions only when the same-location, chronological and approved
+  foundry-working-date rule all pass. V1 has no Wax-Casting-only slot type or
+  preconfigured session-pair/cohort requirement.
+- Q: Must the same physical person attend both sessions under one Wax Casting
   ticket? → A: No. In V1, a ticket reserves one seat in both sessions but is
   not identity-bound or verified against a physical attendee. The booking
   contact receives and is responsible for distributing the ticket set.
-- Q: When Basic Ring and Silverclay select the same workshop session, do they
+- Q: When different packages select the same workshop session, do they
   share its capacity pool? → A: Yes. Each participant seat reserved by either
   package consumes one place from the same configured session capacity.
 - Q: How is a 50% deposit handled if the post-promotion booking amount is odd
@@ -274,10 +282,9 @@ seat and receives one independent ticket after valid payment confirmation.
   VND and the frozen remaining amount is `post_promotion_amount − deposit`.
   Price, voucher, and points may produce an odd post-promotion amount; no value
   is discarded or recalculated after confirmation.
-- Q: What maximum gap applies between two selected Silverclay sessions? → A:
-  None in V1. The sessions may be any distance apart while each remains
-  published and customer-selectable, provided they meet the same-branch and
-  minimum-separation rules.
+- Q: What maximum gap applies between two selected Wax Casting sessions? → A:
+  No independent maximum-gap rule exists. The pair must have exactly two
+  intervening foundry-working dates under the Operations-owned calendar rule.
 
 - Q: When is signed QueryDR used if a valid IPN has not been processed? → A:
   V1 runs a bounded automatic QueryDR recovery while the payment hold remains
@@ -619,16 +626,17 @@ appropriate booking summary without exposing another customer's booking.
   booking; the system must revalidate it before creating the booking.
 - A required session has no configured capacity; the package cannot accept a
   booking.
-- A Silverclay customer selects the same session twice, or one of the two
+- A Wax Casting customer selects the same session twice, or one of the two
   selected sessions becomes unavailable: the system rejects the selection and
   creates neither a pending booking nor a partial capacity hold.
-- A Silverclay customer selects sessions from different branches: the system
+- A Wax Casting customer selects sessions from different branches: the system
   rejects the selection and creates neither a pending booking nor a partial
   capacity hold.
-- A Silverclay customer selects two adjacent slots on the same local calendar
-  day: the system rejects the selection and creates neither a pending booking
-  nor a partial capacity hold. A final slot on one day followed by a first slot
-  on the next day remains valid.
+- A Wax Casting customer selects a pair that does not have exactly two
+  intervening Monday–Friday local dates: Operations rejects the selection and
+  creates neither a pending booking nor a partial capacity hold. Booking and the
+  frontend must surface the safe refusal rather than calculate an alternate
+  slot-gap rule.
 - Capacity is consumed concurrently by another booking; the system must not
   create a booking that exceeds the configured capacity.
 - The visitor abandons or cancels before submission; no booking, invoice, or
@@ -661,6 +669,25 @@ appropriate booking summary without exposing another customer's booking.
 - Staff/POS in-store QR scanning, phone/name fallback lookup, identity-document
   checking, and `CHECKED_IN` state transitions are deferred to a later feature.
 
+### Session 2026-11-02
+
+- Q: What quantity does the customer enter on the booking form? → A: The
+  customer enters the number of tickets/seats for the booking. The API and
+  persisted field remain `participantCount` for contract compatibility, while
+  customer-facing UI labels use `Số vé` (optionally clarified as `Số vé / số
+  người tham gia`).
+- Q: What upper bound should the booking form show for ticket quantity? → A:
+  Before all required sessions are selected, keep the quantity at `1` and do
+  not show the quantity control. After the required-session selection is
+  complete, use the minimum exact
+  `remainingCapacity` across every selected session, capped by the Package
+  `maxParticipants`: `effectiveMax = min(package.maxParticipants,
+  min(selectedSession.remainingCapacity))`. If no selected session has enough
+  capacity for the Package's `minParticipants`, show a validation error and
+  require another session. This is a customer-facing snapshot hint only;
+  Operations remains authoritative and atomically rechecks the Package bounds
+  and capacity during quote/booking acceptance.
+
 ## Requirements
 
 ### Functional Requirements
@@ -684,22 +711,41 @@ appropriate booking summary without exposing another customer's booking.
   required booking contact information before submitting a booking. It MUST NOT
   provide a generic cart for unrelated packages or require, infer, or persist a
   separate name or contact method for each participant in V1.
+- **FR-003c**: The customer booking form MUST present `participantCount` as a
+  ticket/seat quantity (customer-facing label `Số vé`, optionally clarified as
+  `Số vé / số người tham gia`). Before all required sessions are selected, the
+  quantity MUST remain `1` and its input MUST NOT be shown. Once the required
+  session selection is complete, the form MUST use the minimum exact `remainingCapacity` snapshot
+  among those sessions, subject to the published Package `maxParticipants`,
+  as the displayed/input upper bound. The client
+  MUST keep the Package's `minParticipants` lower bound, show a recoverable
+  validation message when the snapshot cannot satisfy that lower bound, and
+  MUST NOT treat this snapshot as final authorization; the backend MUST
+  revalidate atomically at quote/acceptance.
 - **FR-003a**: Guest booking creation MUST require a valid contact email and
   contact phone. Member booking forms MUST auto-fill both fields from the Member
   profile, allow edits for booking on behalf of another person, and persist the
   submitted values as immutable booking contact snapshots.
+- **FR-003a1**: The booking page MUST derive the customer journey from the
+  authenticated session and canonical account role. A signed-out visitor MUST
+  see only the Guest journey; an authenticated account whose canonical role is
+  `MEMBER` MUST see only the Member journey. The page MUST NOT expose a manual
+  Guest/Member switch that lets a visitor select a different authorization
+  context. If the authenticated profile cannot be loaded, the UI MUST make the
+  unresolved profile state explicit and MUST NOT present it as a confirmed
+  Member profile; backend authorization remains authoritative.
 - **FR-003b**: Booking MUST submit the complete selected Workshop Session UUID
   reference set required by the Package, but MUST NOT independently derive or
   authorize Package selection rules. Operations checks the Package's required
-  session count, same-location and same-day slot-gap rule atomically with
-  reserve. A session is a common workshop slot, not a Silverclay-only slot
+  session count, same-location, same-day slot-gap and foundry-working-date
+  rules atomically with reserve. A session is a common workshop slot, not a package-only slot
   type, and V1 MUST NOT require a preconfigured session-pair or cohort. Booking
   may retain a chronological display ordinal only after Operations accepts the
-  selection. For a Package whose `minimumSameDaySlotGap` is `1`, two selected
-  sessions on the same local calendar day require at least one scheduled slot
-  between them; sessions on different local calendar days have no further
-  minimum-gap requirement. V1 has no maximum gap while each selected session
-  remains published and customer-selectable.
+  selection. `minimumSameDaySlotGap`, where configured, applies only to two
+  selected sessions on the same local calendar day. Wax Casting instead uses
+  Operations' `requiredFoundryWorkingDaysBetweenSessions = 2` rule: exactly two
+  Monday–Friday local dates strictly between its selected sessions, with
+  Saturday/Sunday excluded.
 - **FR-004**: Booking MUST send `packageReference`, the complete selected UUID
   session-reference set and participant count to Operations for atomic
   revalidation at booking submission time. Operations MUST return
@@ -707,8 +753,8 @@ appropriate booking summary without exposing another customer's booking.
   `INSUFFICIENT_CAPACITY` as applicable; Booking MUST create neither a pending
   booking nor a partial hold on refusal.
 - **FR-004a**: All packages selecting the same workshop session MUST consume the
-  same configured session-capacity pool. Each participant seat reserved by a
-  Basic Ring or Silverclay booking consumes one place from that pool.
+  same configured session-capacity pool. Each participant seat reserved by any
+  package consumes one place from that pool.
 - **FR-005**: The system MUST reject a booking when any required session has no
   configured capacity or insufficient remaining capacity; it MUST leave no
   partial booking or capacity hold.
@@ -779,6 +825,20 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-012a**: A failed or cancelled payment attempt MUST leave the booking in
   `PENDING_PAYMENT` with financial status `UNPAID` while its 10-minute hold is
   active, and the visitor MUST be allowed to retry payment within that window.
+- **FR-012b**: The customer UI MUST classify a payment-attempt command as
+  `PENDING`, `VERIFIED_PAID`, `VERIFIED_UNPAID`, `UNKNOWN`, `EXPIRED`, or a
+  typed deterministic failure. A browser/network timeout, lost response, or
+  provider status that has not been verified is `UNKNOWN`; it MUST NOT be shown
+  as failed payment, a new attempt, or an expired booking. For `UNKNOWN`, the
+  client MUST retain the exact original `Idempotency-Key` and offer only a
+  status check or same-command retry with that key. It MUST NOT automatically
+  retry, generate a different key, or open another payment URL.
+- **FR-012c**: The customer UI MUST make the expired state terminal for that
+  pending booking: disable payment-resume/send-again controls, state that the
+  expired deposit link cannot be reissued, and offer only a new booking
+  journey. A new booking creates a new quote/hold and is not a reactivation of
+  the expired booking. No UI path may infer payment confirmation from a browser
+  return, a redirect response code, or an unverified provider message.
 - **FR-013**: The system MUST record payment outcomes idempotently so repeated
   payment events do not create duplicate transactions or duplicate settlement.
 - **FR-013a**: After an accepted successful payment result, the booking MUST
@@ -810,10 +870,10 @@ appropriate booking summary without exposing another customer's booking.
   `participant_count` independent QR check-in tickets after successful deposit
   confirmation. One booking/invoice/payment transaction settles the whole ticket
   set; each ticket represents one purchased participant seat.
-- **FR-014f**: For a confirmed Silverclay booking, each issued participant QR
+- **FR-014f**: For a confirmed multi-session booking such as Wax Casting, each issued participant QR
   ticket MUST be valid for both selected sessions. Later check-in and attendance
   state are per ticket/session pair and remain owned by 003.2.
-- **FR-014g**: V1 Silverclay tickets MUST reserve one seat in both selected
+- **FR-014g**: V1 multi-session tickets MUST reserve one seat in every selected
   sessions but MUST NOT be bound to or used to verify an individual participant
   identity. The booking contact receives the ticket set and is responsible for
   its distribution.
@@ -1054,7 +1114,7 @@ appropriate booking summary without exposing another customer's booking.
   associated with a booking.
 - **Booking Ticket**: One independently scannable QR representation of a
   purchased participant seat, available after booking confirmation. A confirmed
-  booking has exactly `participant_count` tickets. For Silverclay, each ticket
+  booking has exactly `participant_count` tickets. For a multi-session package, each ticket
   is valid for both selected sessions; later attendance remains per
   ticket/session pair.
 - **Payment Status**: The financial state of a booking, including unpaid,

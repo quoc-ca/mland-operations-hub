@@ -13,7 +13,7 @@ constraints. It is not an API, database, migration, or implementation instructio
 | Source | Inherited decision |
 | --- | --- |
 | 003.1 Booking | One direct booking buys one package; required sessions may be one or more. Package price and deposit evidence freeze at confirmation. |
-| 003.2 Operations | Owns sessions, capacity, ticket entitlement and attendance. 003.3 uses its facade only. |
+| 003.2 Operations | Owns sessions, capacity, ticket entitlement and attendance. 003.3 uses its facade only. For Wax Casting it also owns the date rule: exactly two Monday–Friday local dates strictly between the two chronological sessions; Saturday/Sunday are excluded. |
 | 003.3 `spec.md` | One final bill covers the whole booking/package, never a session, participant or legacy workshop item. |
 | FE-001 deferred decisions | Firebase proves identity only; Mland decides account status, role and scope. Vocabulary: `MEMBER`, `STAFF`, `MANAGER`, `ADMIN`. |
 
@@ -25,10 +25,11 @@ One final bill is issued after the final required session. Its balance is frozen
 package price plus accepted charges less accepted deposit. A future internal
 per-session allocation cannot change V1 checkout, final bill, or refund.
 
-A customer may select only an allowed fixed-price catalogue add-on for the
-package/location. A variable material/service charge enters the bill only after
-Staff/Manager confirmation. Customers cannot enter arbitrary price. This follows
-the controlled-option / merchant-confirmed pattern seen in [Square modifiers](https://squareup.com/help/us/en/article/5119-create-and-manage-item-modifiers)
+Customers may view allowed fixed-price catalogue add-ons for the package/location,
+but selection and consent are recorded by Staff/Manager at the workshop. A
+variable material/service charge enters the bill only after Staff/Manager
+confirmation. Customers cannot enter arbitrary price or create a bill line. This
+keeps the controlled-option / merchant-confirmed pattern seen in [Square modifiers](https://squareup.com/help/us/en/article/5119-create-and-manage-item-modifiers)
 and [Shopify draft orders](https://help.shopify.com/en/manual/fulfillment/managing-orders/create-orders/create-draft).
 
 ### Final payment
@@ -46,8 +47,10 @@ and its [FAQ](https://sandbox.vnpayment.vn/apis/docs/faqs/).
 There is no customer self-service reschedule. An authorized Manager requests one
 complete booking-level replacement set (one or both future sessions); 003.2 must
 validate capacity and entitlement and apply all changes or none. Persistent QR is
-kept. A Silverclay result remains same-location, distinct, chronological, with at
-least one slot between same-day sessions.
+kept. A multi-session result (currently Wax Casting) remains same-location,
+distinct and chronological. It must have exactly two Monday–Friday local dates
+strictly between the sessions, excluding Saturday/Sunday; it must not inherit
+the retired Silverclay same-day-slot rule.
 
 The approved `WorkshopOperationsFacade` now exposes the semantic complete-set
 replacement operation. It remains an in-process named-interface boundary, not a

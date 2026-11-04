@@ -3,9 +3,11 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountLocationAssignmentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountProfileRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.MemberAddressRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountLocationAssignment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountProfile;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.MemberAddress;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ public class AccountFacadeImpl implements AccountFacade {
     private final AccountRepository accountRepository;
     private final AccountLocationAssignmentRepository locationAssignmentRepository;
     private final AccountProfileRepository profileRepository;
+    private final MemberAddressRepository memberAddressRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -152,5 +155,43 @@ public class AccountFacadeImpl implements AccountFacade {
     private ActorStatus mapStatus(AccountStatus status) {
         if (status == null) return ActorStatus.ACTIVE;
         return ActorStatus.valueOf(status.name());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<MemberAddressSnapshot> findDefaultShippingAddress(AccountId accountId) {
+        if (accountId == null || accountId.value() == null) {
+            return Optional.empty();
+        }
+        return memberAddressRepository.findByAccountIdAndIsDefaultTrue(accountId.value())
+            .map(this::toAddressSnapshot);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<MemberAddressSnapshot> findShippingAddressById(AccountId accountId, Long addressId) {
+        if (accountId == null || accountId.value() == null || addressId == null) {
+            return Optional.empty();
+        }
+        return memberAddressRepository.findByAccountIdAndId(accountId.value(), addressId)
+            .map(this::toAddressSnapshot);
+    }
+
+    private MemberAddressSnapshot toAddressSnapshot(MemberAddress a) {
+        return new MemberAddressSnapshot(
+            a.getId(),
+            a.getRecipientName(),
+            a.getPhoneNumber(),
+            a.getProvinceId(),
+            a.getProvinceName(),
+            a.getDistrictId(),
+            a.getDistrictName(),
+            a.getWardId(),
+            a.getWardName(),
+            a.getHamletId(),
+            a.getHamletName(),
+            a.getDetailAddress(),
+            a.getAddressType()
+        );
     }
 }

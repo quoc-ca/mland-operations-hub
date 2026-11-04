@@ -8,8 +8,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.Cata
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueMediaService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.PublicMediaService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.importing.ImportTemplateWriter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.importing.ProductImportService;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -49,18 +51,32 @@ class ManagementFileApiController {
 
     private final CatalogueAuthorization authorization;
     private final CatalogueMediaService media;
+    private final PublicMediaService mediaPreview;
     private final ProductImportService imports;
     private final ProductCategoryRepository categories;
     private final TransactionTemplate transaction;
 
     ManagementFileApiController(CatalogueAuthorization authorization, CatalogueMediaService media,
-                                ProductImportService imports, ProductCategoryRepository categories,
-                                TransactionTemplate transaction) {
+                                PublicMediaService mediaPreview, ProductImportService imports,
+                                ProductCategoryRepository categories, TransactionTemplate transaction) {
         this.authorization = authorization;
         this.media = media;
+        this.mediaPreview = mediaPreview;
         this.imports = imports;
         this.categories = categories;
         this.transaction = transaction;
+    }
+
+    /** Preview of a product image for staff, draft or hidden products included; {@code no-store}, never the provider URL. */
+    @GetMapping("/media/{mediaId}")
+    ResponseEntity<InputStreamResource> preview(@PathVariable String mediaId) {
+        String actor = authorization.require(Capability.READ_INTERNAL);
+        PublicMediaService.PublicMedia image = mediaPreview.openForManagement(mediaId, actor);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .contentType(MediaType.parseMediaType(image.contentType()))
+                .header("X-Content-Type-Options", "nosniff")
+                .body(new InputStreamResource(image.content()));
     }
 
     @PostMapping(path = "/media-uploads", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

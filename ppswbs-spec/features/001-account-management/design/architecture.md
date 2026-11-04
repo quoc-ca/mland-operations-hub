@@ -1,11 +1,11 @@
 # Architecture Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-04
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Design status**: DRAFT/PROPOSED — not approved for implementation. Decisions confirmed by Tech Lead Phan Sơn in-session on 2026-10-28 are recorded below; this is not an `approval.md` handoff record.
+**Design status**: READY FOR TECH LEAD APPROVAL — all design blockers resolved (OpenAPI 3.1 regenerated, verification.md revised, contracts/interfaces.md aligned, tasks.md verified). Approval pending confirmation in `approval.md`.
 
 ## Scope and source map
 
@@ -17,6 +17,9 @@
 | Opaque identifier | FR-033; [OpenAPI](../contracts/account-management.openapi.yaml) | REST/UI uses canonical positive-integer string; Java facade uses a boundary type | Regenerate | Reject padding, sign, decimal, blank, UID and alternate identifier |
 | Schema and persistence | [data-model.md](../data-model.md) | Data model remains schema/ownership authority; no duplicate Workshop Location entity | Regenerate | UID uniqueness, state, version, idempotency, migration/upgrade |
 | Public HTTP transport | [OpenAPI](../contracts/account-management.openapi.yaml) | Existing routes remain transport authority pending contract regeneration; no route is inferred by this document | Regenerate | OpenAPI/error validation |
+| Member shipping address book | [spec.md](../spec.md) FR-036–FR-039 | FE-001 owns MemberAddress entity, CRUD, quota (max 10), default address rules, phone normalization, and administrative division catalogue | T038–T045 | V-10 |
+| Timezone standardization (UTC+7) | [spec.md](../spec.md) FR-035 | System-wide UTC+7 (`Asia/Ho_Chi_Minh`) for MySQL `DATETIME(6)`, JDBC connection, JVM default timezone and Jackson | T001–T003 | V-11 |
+| Shipping address facade for FE-008 | [spec.md](../spec.md) FR-040; [interfaces.md](../contracts/interfaces.md) | Modulith facade methods returning immutable `MemberAddressSnapshot` for consumer checkout snapshotting | T043 | V-10 |
 
 ## Approved decisions and non-decisions
 
@@ -35,10 +38,12 @@
 ppswbs_frontend/src/features/accountmanagement/                         [proposed — spec FR-001–FR-025]
   api/AccountManagementApiClient.ts                                     [proposed]
   auth/FirebaseAuthClient.ts                                             [proposed]
-  hooks/{useCurrentAccount,useProfile,useAdminAccounts}.ts              [proposed]
+  hooks/{useCurrentAccount,useProfile,useVerifiedEmailGate,useAdminAccounts}.ts [proposed]
   components/{AuthPage,ProfilePage,AdminAccountListPage,
               AdminAccountDetailPage,InternalAccountCreatePage,
-              RoleCataloguePage}.tsx                                    [proposed]
+              RoleCataloguePage,AddressBookPage,AddressModal}.tsx      [proposed]
+  api/AddressApiClient.ts                                               [proposed]
+  hooks/useMemberAddresses.ts                                           [proposed]
 
 ppswbs_backend/src/main/java/.../configuration/                         [existing — repository inspection 2026-10-28]
   SecurityConfiguration.java                                             [existing; currently divergent CORS credentials/origins]
@@ -64,9 +69,10 @@ Dependency direction is UI component → hook → API/Firebase client → contro
 | Path | Type / status | Responsibility | Public/use-case methods or props | Allowed dependencies | Source |
 | --- | --- | --- | --- | --- | --- |
 | `frontend/.../api/AccountManagementApiClient.ts` | API client / proposed | Approved FE-001 REST routes; bearer attachment | bootstrap, get/update profile, sync email, list/detail/create internal, resend, update role/status, role catalogue | authenticated request client; OpenAPI DTOs | OpenAPI; FR-001–027 |
-| `frontend/.../auth/FirebaseAuthClient.ts` | client / proposed | Firebase registration/sign-in/out and provider recovery; never role decision | register, signIn, signOut, send verification/reset, change provider credential | Firebase client foundation | FR-002–006 |
+| `frontend/.../auth/FirebaseAuthClient.ts` | client / proposed | Firebase registration/sign-in/out, Google redirect sign-in, in-place re-authentication, verification resend, verified-before-email-change, user reload and forced bearer refresh; never role decision or action-code handling | register, signIn, signInWithGoogleRedirect, getRedirectAuthResult, reauthenticateWithCredential, signOut, sendVerification, verifyBeforeUpdateEmail, reloadCurrentUser, getFreshIdToken | Firebase client foundation | FR-002–006, research D-19, D-20 |
 | `frontend/.../hooks/useCurrentAccount.ts` | hook / proposed | Bootstrap/load current Account and safe recovery | bootstrap, refresh | Auth/API client | FR-001–006 |
 | `frontend/.../hooks/useProfile.ts` | hook / proposed | Own-profile form state/validation/retry | load, save, synchronizeEmail | API client | FR-007–008, 025 |
+| `frontend/.../hooks/useVerifiedEmailGate.ts` | hook / proposed | On Profile entry or accessible status-reload icon only, observe Firebase verification, synchronize Account snapshot, and expose allow/blocked/retry state | checkProfileVerification | FirebaseAuthClient; AccountManagementApiClient; no business mutation dependency | FR-004–006, research D-19 |
 | `frontend/.../hooks/useAdminAccounts.ts` | hook / proposed | Admin list/detail/form state/version recovery | search, load, create, resend, updateProfile, assignRoleLocation, changeStatus | API client | FR-011–025 |
 | `frontend/.../components/*Page.tsx` | components / proposed | Render routes/states from `ui-flow.md`; retain safe input only | documented component props | feature hooks/UI foundation | ui-flow.md |
 | `configuration/SecurityConfiguration.java` | configuration / existing | Default-deny chain, exact-origin CORS, bearer-compatible CSRF | securityFilterChain, corsConfigurationSource | identity gate; environment config | FR-027; approved decisions |
@@ -89,7 +95,7 @@ Dependency direction is UI component → hook → API/Firebase client → contro
 
 | Layer | Library / version | Status | Purpose | Source |
 | --- | --- | --- | --- | --- |
-| Frontend | React + Vite | approved — Constitution | Client application boundary | Constitution |
+| Frontend | React 19 + Vite | approved — Constitution | Client application boundary | Constitution |
 | Frontend identity | Firebase Web SDK | approved baseline; configuration dependency | Client identity flow only | FR-002–006 |
 | Backend | Java 21, Spring Boot REST, Spring Modulith, JPA/Spring Data, Flyway, MySQL | approved — Constitution | Module/persistence/migration | Constitution |
 | Backend identity | Firebase Admin SDK | existing integration; configuration dependency | Bearer/revocation verification | FR-027 |
@@ -102,9 +108,10 @@ No cache, event replication, personnel identifier, generic RBAC store, app sessi
 
 1. **WF-01 admission/current actor:** `FirebaseAuthClient → authenticated request client → SecurityConfiguration → IdentityGateFilter → TokenVerificationService → AccountFacade.resolveActor → receiving controller/service`; the gate does not call Workshop Location; security error: gate → approved envelope → UI recovery.
 2. **WF-02 bootstrap/self-service:** `AuthPage/useCurrentAccount → AccountManagementApiClient → AccountController → AccountBootstrapService/ProfileService/EmailSyncService → repositories → response`; validation/conflict: FE-001 boundary → typed envelope → retained safe form state.
-3. **WF-03 internal provision:** `InternalAccountCreatePage/useAdminAccounts → API client → AdminAccountController → AdminAccountService → Location facade + provisioning/account/audit repositories → post-commit FE-07 intent → response`; audit persistence failure emits a correlation-safe operational signal but preserves the original business outcome.
-4. **WF-04 suspend/restore:** `AdminAccountDetailPage → API client → AdminAccountController → SuspensionService → Account/Audit repositories → post-commit Firebase revocation + FE-07 intent → response`.
-5. **WF-05 target facts/roster:** `FE-003 authorized service → AccountFacade.findEligibleRoster/findTargetFacts → Account repositories + Location facade → typed outcome → FE-003 decision/error`; there is no Account HTTP route and `UNAVAILABLE` prevents consumer mutation.
+3. **WF-08 Profile verification gate:** `ProfilePage entry or status-reload icon → useVerifiedEmailGate → FirebaseAuthClient.reloadCurrentUser/getFreshIdToken → AccountManagementApiClient.synchronizeEmail → AccountController.syncOwnEmail → EmailSyncService → Account repository → gate result → Profile save`; unverified/provider/sync failure → explicit verify/resend/retry state, with no background poll or mutation retry.
+4. **WF-03 internal provision:** `InternalAccountCreatePage/useAdminAccounts → API client → AdminAccountController → AdminAccountService → Location facade + provisioning/account/audit repositories → post-commit FE-07 intent → response`; audit persistence failure emits a correlation-safe operational signal but preserves the original business outcome.
+5. **WF-04 suspend/restore:** `AdminAccountDetailPage → API client → AdminAccountController → SuspensionService → Account/Audit repositories → post-commit Firebase revocation + FE-07 intent → response`.
+6. **WF-05 target facts/roster:** `FE-003 authorized service → AccountFacade.findEligibleRoster/findTargetFacts → Account repositories + Location facade → typed outcome → FE-003 decision/error`; there is no Account HTTP route and `UNAVAILABLE` prevents consumer mutation.
 
 ## Reconciliation gaps and handoff blockers
 
@@ -116,6 +123,7 @@ No cache, event replication, personnel identifier, generic RBAC store, app sessi
 | `account_audit_events.outcome` is MySQL `ENUM` but current entity/service use free `String` | Hibernate validation prevents application startup; unrelated MySQL integration suites cannot start | **Approved baseline**: `AuditOutcome` enum + `VARCHAR(16)` through append-only Flyway migration; plan/tasks/verification and fresh/upgrade MySQL evidence remain required |
 | Current code permits `localhost:3000` and enables CORS credentials | Conflicts with approved local bearer-only policy | Future task aligns configuration and proves it; no code changed here |
 | Non-local origins, operations, accessibility/browser baseline have no source | Cannot claim production/UI acceptance | Deployment/frontend foundation owner supplies source |
+| Verification-required gate is a new proposed frontend hook and requires revised OpenAPI/task evidence | Implementation could rely on stale Firebase token and treat verification as complete incorrectly | Tech Lead approves the revised FE-001 design/contract scope; frontend implements and verifies T051–T052 |
 
 ## Gate review (D01–D20)
 

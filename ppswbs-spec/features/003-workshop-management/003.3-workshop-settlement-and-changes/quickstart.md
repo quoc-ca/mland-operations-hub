@@ -13,7 +13,7 @@ credentials, provider calls, schema changes or deployment.
 - Use a test VNPay merchant configuration satisfying the shared
   [VNPay configuration preflight](../contracts/vnpay-configuration-preflight.md)
   and synthetic/non-production booking records only.
-- Prepare one confirmed Basic Ring booking and one confirmed Silverclay booking
+- Prepare one confirmed one-session booking and one confirmed Wax Casting booking
   with frozen post-promotion amount, accepted deposit and remaining amount.
 - Provide approved 003.2 facade outcomes for settlement readiness, complete
   replacement, verified-refund consequence and cancellation handoff.
@@ -26,14 +26,17 @@ credentials, provider calls, schema changes or deployment.
 ## Validation Scenarios
 
 1. **One bill per package**: once the final required session is attendance-
-   finalized, create/read one final bill for Basic Ring and Silverclay. Verify no
+   finalized, create/read one final bill for the one-session offer and Wax Casting. Verify no
    session/ticket/participant bill exists and frozen financial values do not
    change.
-2. **Customer-safe reads and charges**: verify an owning Member and a Guest with
-   booking code plus exactly one stored email/phone can read their bill and case.
-   Each may add only an eligible fixed catalogue add-on before finalization; reject
-   arbitrary price, invalid proof, Magic Link write access and post-finalization
-   add-on selection. Verify Staff/Manager variable-charge reason/audit behavior.
+2. **Customer-safe reads and Staff settlement charges**: verify an owning Member
+   and a Guest with booking code plus exactly one stored email/phone can read
+   their bill and case, but cannot create add-on or variable charge lines.
+   Verify in-scope Staff/Manager records customer-consented eligible catalogue
+   add-ons with a server-derived price (including priced laser engraving for a direct Mland booking), rejects arbitrary price and stale/duplicate
+   input, appends only to an OPEN direct bill, and routes finalized direct/OTA
+   add-ons to a separate direct-Mland bill. Verify variable-charge reason/audit
+   behavior.
 3. **Finalization and client retries**: verify in-scope Staff finalizes only a
    zero-balance bill. Verify Manager cannot override an outstanding amount and
    package output remains withheld until signed matching payment evidence

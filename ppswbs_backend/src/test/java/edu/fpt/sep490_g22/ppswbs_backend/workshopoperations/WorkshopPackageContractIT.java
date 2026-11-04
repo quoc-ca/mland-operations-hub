@@ -6,6 +6,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.Package
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.PackageRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.PackageResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.WorkshopPackageState;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackage;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionSnapshot;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeAll;
@@ -49,7 +51,7 @@ class WorkshopPackageContractIT {
     @SuppressWarnings("unchecked")
     void packageRoutesMatchOpenApiSecurityAndResponseContracts() {
         Map<String, Object> paths = (Map<String, Object>) openApi.get("paths");
-        assertThat(paths).containsKeys("/workshop-packages", "/workshop-packages/{packageId}",
+        assertThat(paths).containsKeys("/workshop-packages", "/workshop-package-management/packages", "/workshop-packages/{packageId}",
                 "/workshop-packages/{packageId}/lifecycle-transitions", "/workshop-packages/{packageId}/sessions");
 
         Map<String, Object> collection = (Map<String, Object>) paths.get("/workshop-packages");
@@ -57,16 +59,38 @@ class WorkshopPackageContractIT {
         assertOperationResponse(collection, "post", "201", "#/components/responses/Package");
         assertPublicOperation(collection, "get");
         assertAuthenticatedOperation(collection, "post");
+        assertIdempotencyKey(collection, "post");
+
+        Map<String, Object> management = (Map<String, Object>) paths.get("/workshop-package-management/packages");
+        assertOperationResponse(management, "get", "200", "#/components/responses/PackageManagementList");
+        assertAuthenticatedOperation(management, "get");
+        Map<String, Object> managementGet = (Map<String, Object>) management.get("get");
+        assertThat(((List<Map<String, Object>>) managementGet.get("parameters")))
+                .anySatisfy(parameter -> assertThat(parameter).containsEntry("name", "state").containsEntry("in", "query"));
 
         Map<String, Object> item = (Map<String, Object>) paths.get("/workshop-packages/{packageId}");
         assertOperationResponse(item, "get", "200", "#/components/responses/Package");
         assertOperationResponse(item, "patch", "200", "#/components/responses/Package");
         assertPublicOperation(item, "get");
         assertAuthenticatedOperation(item, "patch");
+        assertIdempotencyKey(item, "patch");
 
         Map<String, Object> lifecycle = (Map<String, Object>) paths.get("/workshop-packages/{packageId}/lifecycle-transitions");
         assertOperationResponse(lifecycle, "post", "200", "#/components/responses/Package");
         assertAuthenticatedOperation(lifecycle, "post");
+        assertIdempotencyKey(lifecycle, "post");
+
+        Map<String, Object> publicAddOns = (Map<String, Object>) paths.get("/workshop-packages/{packageId}/locations/{locationId}/add-ons");
+        assertOperationResponse(publicAddOns, "get", "200", "#/components/responses/AddOnList");
+        assertOperationResponse(publicAddOns, "post", "201", "#/components/responses/AddOn");
+        assertPublicOperation(publicAddOns, "get");
+        assertAuthenticatedOperation(publicAddOns, "post");
+        assertIdempotencyKey(publicAddOns, "post");
+
+        Map<String, Object> managementAddOns = (Map<String, Object>) paths.get("/workshop-package-management/packages/{packageId}/locations/{locationId}/add-ons");
+        assertOperationResponse(managementAddOns, "get", "200", "#/components/responses/AddOnList");
+        assertAuthenticatedOperation(managementAddOns, "get");
+        assertThat(managementAddOns).doesNotContainKey("post");
     }
 
     @Test
@@ -76,22 +100,32 @@ class WorkshopPackageContractIT {
         Map<String, Object> writeSchema = (Map<String, Object>) schemas.get("PackageWrite");
         Map<String, Object> properties = (Map<String, Object>) writeSchema.get("properties");
         Set<String> expected = Set.of("name", "description", "publicPrice", "minParticipants", "maxParticipants",
-                "requiredSessionCount", "sameLocationRequired", "minimumSameDaySlotGap");
+                "requiredSessionCount", "sameLocationRequired", "minimumSameDaySlotGap",
+                "requiredFoundryWorkingDaysBetweenSessions");
         assertThat(properties.keySet()).containsExactlyInAnyOrderElementsOf(expected);
         assertThat((List<String>) writeSchema.get("required")).containsExactlyInAnyOrderElementsOf(expected);
         assertThat(((Map<String, Object>) properties.get("publicPrice"))).containsEntry("type", "integer")
                 .containsEntry("format", "int64").containsEntry("minimum", 0);
         assertThat(((Map<String, Object>) properties.get("minimumSameDaySlotGap"))).containsEntry("minimum", 0);
+        assertThat(((Map<String, Object>) properties.get("requiredFoundryWorkingDaysBetweenSessions"))).containsEntry("minimum", 0);
 
         PackageRequest valid = validPackageRequest();
         assertThat(validator.validate(valid)).isEmpty();
+
+        // 1. DTO accepts 0 (one-session default) and 2 (Wax Casting)
+        assertThat(validator.validate(valid.toBuilder().requiredFoundryWorkingDaysBetweenSessions(0).build())).isEmpty();
+        assertThat(validator.validate(valid.toBuilder().requiredFoundryWorkingDaysBetweenSessions(2).build())).isEmpty();
+
+        // 2. DTO rejects negative values
+        assertThat(validator.validate(valid.toBuilder().requiredFoundryWorkingDaysBetweenSessions(-1).build())).isNotEmpty();
+
         assertThat(validator.validate(PackageRequest.builder().build())).isNotEmpty();
         assertThat(validator.validate(PackageRequest.builder().name("A").description("B").publicPrice(10L)
                 .minParticipants(5).maxParticipants(4).requiredSessionCount(1).sameLocationRequired(true)
-                .minimumSameDaySlotGap(0).build())).isNotEmpty();
+                .minimumSameDaySlotGap(0).requiredFoundryWorkingDaysBetweenSessions(0).build())).isNotEmpty();
         assertThat(validator.validate(PackageRequest.builder().name("A").description("B").publicPrice(-1L)
                 .minParticipants(1).maxParticipants(1).requiredSessionCount(1).sameLocationRequired(true)
-                .minimumSameDaySlotGap(-1).build())).isNotEmpty();
+                .minimumSameDaySlotGap(-1).requiredFoundryWorkingDaysBetweenSessions(0).build())).isNotEmpty();
 
         Map<String, Object> responseSchema = (Map<String, Object>) schemas.get("Package");
         List<Map<String, Object>> allOf = (List<Map<String, Object>>) responseSchema.get("allOf");
@@ -102,6 +136,7 @@ class WorkshopPackageContractIT {
         PackageResponse response = PackageResponse.builder().packageId(1L).name("Package")
                 .description("Description").publicPrice(100L).minParticipants(1).maxParticipants(4)
                 .requiredSessionCount(1).sameLocationRequired(true).minimumSameDaySlotGap(0)
+                .requiredFoundryWorkingDaysBetweenSessions(0)
                 .state(WorkshopPackageState.PUBLISHED).build();
         assertThat(response.getState()).isEqualTo(WorkshopPackageState.PUBLISHED);
     }
@@ -118,6 +153,14 @@ class WorkshopPackageContractIT {
         assertThat(validator.validate(new PackageLifecycleTransitionRequest(PackageLifecycleTargetState.PUBLISHED))).isEmpty();
         assertThat(validator.validate(new PackageLifecycleTransitionRequest(PackageLifecycleTargetState.RETIRED))).isEmpty();
         assertThat(validator.validate(new PackageLifecycleTransitionRequest(null))).isNotEmpty();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void assertIdempotencyKey(Map<String, Object> path, String method) {
+        Map<String, Object> operation = (Map<String, Object>) path.get(method);
+        List<Map<String, Object>> parameters = (List<Map<String, Object>>) operation.get("parameters");
+        assertThat(parameters).anySatisfy(parameter -> assertThat(parameter)
+                .containsEntry("$ref", "#/components/parameters/IdempotencyKey"));
     }
 
     @Test
@@ -161,10 +204,40 @@ class WorkshopPackageContractIT {
                 "branchId", "personnelId");
     }
 
+    @Test
+    void packageSnapshotRetainsFoundryWorkingDays() {
+        // One-session package retains 0 foundry working days
+        WorkshopPackage oneSession = WorkshopPackage.builder()
+                .id(10L).name("Basic Ring").description("One session").publicPrice(500_000L)
+                .minParticipants(1).maxParticipants(10).requiredSessionCount(1).sameLocationRequired(true)
+                .minimumSameDaySlotGap(0).requiredFoundryWorkingDaysBetweenSessions(0)
+                .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState.PUBLISHED).build();
+        PublishedPackageSelectionSnapshot oneSessionSnapshot = new PublishedPackageSelectionSnapshot(
+                oneSession.getId().toString(), oneSession.getPublicPrice(), oneSession.getMinParticipants(),
+                oneSession.getMaxParticipants(), oneSession.getRequiredSessionCount(),
+                oneSession.isSameLocationRequired(), oneSession.getMinimumSameDaySlotGap(),
+                oneSession.getRequiredFoundryWorkingDaysBetweenSessions(), oneSession.getName());
+        assertThat(oneSessionSnapshot.requiredFoundryWorkingDaysBetweenSessions()).isEqualTo(0);
+
+        // Wax Casting package retains 2 foundry working days
+        WorkshopPackage waxCasting = WorkshopPackage.builder()
+                .id(20L).name("Wax Casting").description("Foundry calendar package").publicPrice(1_200_000L)
+                .minParticipants(1).maxParticipants(6).requiredSessionCount(2).sameLocationRequired(true)
+                .minimumSameDaySlotGap(0).requiredFoundryWorkingDaysBetweenSessions(2)
+                .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState.PUBLISHED).build();
+        PublishedPackageSelectionSnapshot waxCastingSnapshot = new PublishedPackageSelectionSnapshot(
+                waxCasting.getId().toString(), waxCasting.getPublicPrice(), waxCasting.getMinParticipants(),
+                waxCasting.getMaxParticipants(), waxCasting.getRequiredSessionCount(),
+                waxCasting.isSameLocationRequired(), waxCasting.getMinimumSameDaySlotGap(),
+                waxCasting.getRequiredFoundryWorkingDaysBetweenSessions(), waxCasting.getName());
+        assertThat(waxCastingSnapshot.requiredFoundryWorkingDaysBetweenSessions()).isEqualTo(2);
+    }
+
     private static PackageRequest validPackageRequest() {
         return PackageRequest.builder().name("Basic Ring").description("One session")
                 .publicPrice(500_000L).minParticipants(1).maxParticipants(10).requiredSessionCount(1)
-                .sameLocationRequired(true).minimumSameDaySlotGap(0).build();
+                .sameLocationRequired(true).minimumSameDaySlotGap(0)
+                .requiredFoundryWorkingDaysBetweenSessions(0).build();
     }
 
     @SuppressWarnings("unchecked")

@@ -1,7 +1,7 @@
 # UI Flow Design: 003.1 Workshop Booking
 
 **Date created**: 2026-11-02
-**Date updated**: 2026-11-02
+**Date updated**: 2026-11-03
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -30,14 +30,32 @@ The server remains authoritative for ownership, role, quote validity, capacity, 
 | Screen / flow | Entry and actor | Workflow/API reference | Required states and recovery |
 | --- | --- | --- | --- |
 | Package list/detail | Public Guest/Member | Operations package/session discovery; see `003.2` contract | Loading; empty catalog; unavailable package; retry without inventing data. |
-| Booking form | Guest/Member from package detail | `POST /api/v1/workshop-booking-quotes` | Preserve contact and session selections on validation failure; show session capacity conflicts; disable submit while request is pending. |
-| Member benefits | Authenticated Member inside booking form | `POST /api/v1/workshop-booking-quotes` with `benefitSelection` | Use `BenefitSelector` state (`NONE`, `VOUCHER`, `POINTS`); Member must not type a quote UUID. Recalculate quote and set `quoteMatches=true` only for the current selection. |
+| Booking form | Guest/Member from package detail | `POST /api/v1/workshop-booking-quotes` | Derive the journey from session/authenticated canonical role: signed-out visitors see Guest only; authenticated `MEMBER` accounts see Member only. Do not render a manual Guest/Member switch. Keep ticket quantity at `1` until all required sessions are selected; render the ticket quantity control only after the required-session selection is complete. Once selected, label `participantCount` as `Số vé` (optionally `Số vé / số người tham gia`) and cap it at the minimum `remainingCapacity` across all selected sessions (still subject to the published Package policy). Preserve contact/session selections on validation failure, show capacity conflicts, and disable submit while pending. |
+| Member benefits | Authenticated Member inside booking form | `POST /api/v1/workshop-booking-quotes` with `benefitSelection` | Use `BenefitSelector` state (`NONE`, `VOUCHER`, `POINTS`); Member must not type a quote UUID. Recalculate quote and set `quoteMatches=true` only for the current selection. The Member form loads `/api/v1/accounts/me/profile`, auto-fills profile contact data, and keeps fields editable only for the explicit booking-for-another-person use case. |
 | Quote confirmation | Guest/Member | `POST /api/v1/workshop-bookings` using `quoteRef` | Reject changed/expired/invalid quotes; never accept a quote with unresolved `preview.reasons`; preserve the form for retry. |
 | Pending payment | Guest/Member after accept | `POST /api/v1/workshop-bookings/{bookingCode}/payment-attempts` | Capacity hold and payment link share one deadline of at most 10 minutes. Show countdown; allow a new attempt only under the contract; expired state releases hold and shows recovery. |
 | Lookup | Guest/Member | `POST /api/v1/booking-lookups`, member GET route, magic-link exchange | Loading; invalid proof; unauthorized ownership; expired magic link; preserve booking code but clear sensitive proof after failure. |
 | Payment return | Guest/Member from VNPay | Browser return only; IPN/verified evidence is backend-owned | Show provider response and “checking backend confirmation”; never mark booking paid from query parameters. |
 | Pending-hold release | Guest/Member | `POST /api/v1/workshop-bookings/{bookingCode}/pending-hold-release` | One cancellation action per booking attempt; release capacity, set booking `CANCELLED`, and do not create a refund. Replay returns the existing result. |
 | Confirmation delivery | Guest/Member | `POST /api/v1/workshop-bookings/{bookingCode}/confirmation-deliveries` | Show send/retry result and rate limit; do not expose raw provider payload or secrets. |
+
+## Payment recovery guardrails for regeneration
+
+These states apply to the booking lookup and browser-return views as well as
+the initial pending-payment view. They are intentionally stricter than a
+generic client-side "try again" pattern.
+
+| Observed state | UI action permitted | UI action prohibited |
+| --- | --- | --- |
+| `PENDING` | Show the server deadline and wait for the provider/verified backend result. | Creating another attempt or implying the booking is paid. |
+| `UNKNOWN` (network timeout, lost response, unverified provider result) | Keep the exact original `Idempotency-Key`; offer an explicit status check or a same-command retry with that key. | Automatic retry, a different key, a second payment URL, or a new booking. |
+| `VERIFIED_PAID` | Show the confirmed booking/ticket projection supplied by the backend. | Treating browser return parameters as the evidence. |
+| `VERIFIED_UNPAID` while the hold remains active | Follow only the backend's existing retry/attempt rule. | Extending the hold or inventing a payment link. |
+| `EXPIRED` | Disable resume/send-again controls and route to a new booking journey. | Link reissue, resend, hold extension, or reactivation of the old booking. |
+
+Confirmation resend is manually initiated and server rate-limited. A rejected
+or rate-limited resend sends no email. The client must not auto-retry, rotate
+tickets/Magic Link, or ask for a replacement delivery destination.
 
 ## Invariants captured for regeneration
 
@@ -48,6 +66,21 @@ The server remains authoritative for ownership, role, quote validity, capacity, 
 5. Customer cancellation while payment is pending releases the hold and does not refund.
 6. QR/ticket data is opaque and contains no PII.
 7. A stale response must not overwrite newer contact, session, or benefit-selection state.
+8. Until all required sessions are selected, the customer-facing ticket
+   quantity remains `1` and the quantity control is not shown. After the
+   required-session selection is complete, the upper bound is
+   `min(package.maxParticipants,
+   min(selectedSession.remainingCapacity))`. This is only a snapshot hint; the
+   backend remains authoritative and rechecks Package min/max and capacity.
+9. Regenerated clients must preserve the API field name `participantCount` and
+   the ticket/seat UI terminology; changing the label does not rename the
+   transport or persistence field.
+10. A payment command state is not inferred from the browser. `UNKNOWN` keeps
+    the original idempotency key and has only status-check/same-key recovery;
+    `EXPIRED` has no reissue/resend recovery and starts a new booking instead.
+11. Confirmation resend is user-initiated and rate-limited. It never retries
+    itself after an error and never changes the booking, payment, ticket set,
+    contact destination, or active Magic Link.
 
 ## Session, data handling, and accessibility
 

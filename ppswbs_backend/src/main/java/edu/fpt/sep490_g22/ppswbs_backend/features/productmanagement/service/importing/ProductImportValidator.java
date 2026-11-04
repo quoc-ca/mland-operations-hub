@@ -37,6 +37,10 @@ public final class ProductImportValidator {
     private static final int MAX_SIGNIFICANT_DIGITS = 15;
     private static final Pattern POSITIVE_TEXT = Pattern.compile("[1-9][0-9]{0,18}");
     private static final Pattern NONNEGATIVE_TEXT = Pattern.compile("0|[1-9][0-9]{0,18}");
+    /** A Size text is read as a list when it has a list separator or a range between two numbers. */
+    private static final Pattern SIZE_LIST_HINT = Pattern.compile("[,;]|[0-9]\\s*[-–]\\s*[0-9]");
+    private static final String SIZE_PART = "[1-9][0-9]{0,2}(?:\\s*[-–]\\s*[1-9][0-9]{0,2})?";
+    private static final Pattern SIZE_LIST = Pattern.compile(SIZE_PART + "(?:\\s*[,;]\\s*" + SIZE_PART + ")*");
 
     public record ImportError(int row, String column, String value, String code, String message) {
     }
@@ -90,13 +94,7 @@ public final class ProductImportValidator {
                             "CATEGORY_NOT_ACTIVE_OR_UNKNOWN", "The category does not exist or is not active."));
                 }
             }
-            BigInteger size = number(row, ImportColumn.SIZE, false, errors);
-            if (size != null && (size.compareTo(BigInteger.valueOf(CatalogueValues.MIN_SIZE)) < 0
-                    || size.compareTo(BigInteger.valueOf(CatalogueValues.MAX_SIZE)) > 0)) {
-                errors.add(error(row.rowNumber(), ImportColumn.SIZE, size.toString(), "OUT_OF_RANGE",
-                        "Size must be a whole number from 5 to 29."));
-                size = null;
-            }
+            List<Integer> sizes = sizes(row, errors);
             BigInteger price = number(row, ImportColumn.PROPOSED_PRICE, true, errors);
             BigInteger quantity = number(row, ImportColumn.QUANTITY, false, errors);
             if (errors.size() > before || groupKey == null) {
@@ -104,7 +102,7 @@ public final class ProductImportValidator {
             }
             ProductCategory rowCategory = category;
             Group group = groups.computeIfAbsent(groupKey, key -> new Group(key, name, description, rowCategory));
-            group.add(row.rowNumber(), name, description, rowCategory, size.intValueExact(), price, quantity, errors);
+            group.add(row.rowNumber(), name, description, rowCategory, sizes, price, quantity, errors);
         }
 
         List<PreviewProduct> products = errors.isEmpty()
@@ -128,7 +126,8 @@ public final class ProductImportValidator {
             this.category = category;
         }
 
-        void add(int row, String rowName, String rowDescription, ProductCategory rowCategory, int size,
+        /** One row may carry several sizes (a list or range); each becomes a variant with the row's price and quantity. */
+        void add(int row, String rowName, String rowDescription, ProductCategory rowCategory, List<Integer> rowSizes,
                  BigInteger price, BigInteger quantity, List<ImportError> errors) {
             if (!name.equals(rowName)) {
                 errors.add(error(row, ImportColumn.NAME, rowName, "GROUP_FIELD_MISMATCH",
@@ -145,22 +144,85 @@ public final class ProductImportValidator {
                         "Rows with the same group key must have the same category."));
                 return;
             }
-            if (!sizes.add(size)) {
-                errors.add(error(row, ImportColumn.SIZE, Integer.toString(size), "DUPLICATE_SIZE_IN_GROUP",
-                        "This size already appears in the same group."));
-                return;
+            for (int size : rowSizes) {
+                if (!sizes.add(size)) {
+                    errors.add(error(row, ImportColumn.SIZE, Integer.toString(size), "DUPLICATE_SIZE_IN_GROUP",
+                            "This size already appears in the same group."));
+                    return;
+                }
+                if (sizes.size() > CatalogueValues.MAX_SIZES_PER_PRODUCT) {
+                    errors.add(error(row, ImportColumn.GROUP_KEY, key, "TOO_MANY_SIZES",
+                            "A product can have at most 25 sizes."));
+                    return;
+                }
+                variants.add(new PreviewVariant(row, size, price, quantity));
             }
-            if (sizes.size() > CatalogueValues.MAX_SIZES_PER_PRODUCT) {
-                errors.add(error(row, ImportColumn.GROUP_KEY, key, "TOO_MANY_SIZES",
-                        "A product can have at most 25 sizes."));
-                return;
-            }
-            variants.add(new PreviewVariant(row, size, price, quantity));
         }
 
         PreviewProduct toPreview() {
             return new PreviewProduct(key, name, description, category.getId(), category.getName(), List.copyOf(variants));
         }
+    }
+
+    /**
+     * The Size cell (FR-040, 2026-11-03): one whole size 5–29 as before, or a text list of sizes and ranges such as
+     * {@code 12-20}, {@code 12,14,16} or {@code 5-9; 12}. A text without a list separator or a range between two
+     * numbers keeps the number rules ({@code 5.0}, {@code +5}, {@code 05} stay INVALID_NUMBER). Sizes keep the order
+     * written; a size repeated in one cell is DUPLICATE_SIZE_IN_GROUP.
+     */
+    private static List<Integer> sizes(RawRow row, List<ImportError> errors) {
+        RawCell cell = row.cell(ImportColumn.SIZE);
+        boolean list = cell.kind() == CellKind.TEXT && !cell.formula() && !cell.merged() && !cell.hyperlink()
+                && SIZE_LIST_HINT.matcher(cell.text()).find();
+        if (!list) {
+            BigInteger size = number(row, ImportColumn.SIZE, false, errors);
+            if (size == null) {
+                return null;
+            }
+            if (!sizeInRange(size)) {
+                errors.add(error(row.rowNumber(), ImportColumn.SIZE, size.toString(), "OUT_OF_RANGE",
+                        "Size must be a whole number from 5 to 29."));
+                return null;
+            }
+            return List.of(size.intValueExact());
+        }
+        String text = cell.text().strip();
+        if (!SIZE_LIST.matcher(text).matches()) {
+            errors.add(error(row.rowNumber(), ImportColumn.SIZE, text, "INVALID_SIZE_LIST",
+                    "Write one size, a range like 12-20 or a list like 12,14,16."));
+            return null;
+        }
+        List<Integer> sizes = new ArrayList<>();
+        Set<Integer> seen = new HashSet<>();
+        for (String part : text.split("[,;]")) {
+            String[] bounds = part.strip().split("\\s*[-–]\\s*");
+            BigInteger low = new BigInteger(bounds[0]);
+            BigInteger high = new BigInteger(bounds[bounds.length - 1]);
+            if (!sizeInRange(low) || !sizeInRange(high)) {
+                errors.add(error(row.rowNumber(), ImportColumn.SIZE, text, "OUT_OF_RANGE",
+                        "Size must be a whole number from 5 to 29."));
+                return null;
+            }
+            if (low.compareTo(high) > 0) {
+                errors.add(error(row.rowNumber(), ImportColumn.SIZE, text, "INVALID_SIZE_LIST",
+                        "A size range must go from the smaller to the larger size, like 12-20."));
+                return null;
+            }
+            for (int size = low.intValueExact(); size <= high.intValueExact(); size++) {
+                if (!seen.add(size)) {
+                    errors.add(error(row.rowNumber(), ImportColumn.SIZE, Integer.toString(size), "DUPLICATE_SIZE_IN_GROUP",
+                            "This size already appears in the same group."));
+                    return null;
+                }
+                sizes.add(size);
+            }
+        }
+        return List.copyOf(sizes);
+    }
+
+    private static boolean sizeInRange(BigInteger size) {
+        return size.compareTo(BigInteger.valueOf(CatalogueValues.MIN_SIZE)) >= 0
+                && size.compareTo(BigInteger.valueOf(CatalogueValues.MAX_SIZE)) <= 0;
     }
 
     /** Trimmed required text measured in code points; numbers are accepted as their integer text. */

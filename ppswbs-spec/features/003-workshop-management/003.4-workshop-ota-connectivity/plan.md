@@ -31,7 +31,8 @@ ordering. This internal boundary is not a public REST API or provider payload.
 If provider publication fails, only the affected 003.4 mapping may be
 sales-closed/suspended and reconciled. It must not change a 003.2 session's
 capacity or sale state, or alter direct-Mland booking behaviour. Basic Ring is
-the only OTA package in V1; Silverclay remains direct-Mland only. A normal
+the only OTA package in V1; its mapping to a confirmed catalogue Signature
+variant remains TBD. Wax Casting remains direct-Mland only. A normal
 `SALES_PAUSED` snapshot closes sale or publishes zero availability for the
 affected session while retaining its mapping; only a source gap/order failure or
 provider delivery failure suspends the mapping.

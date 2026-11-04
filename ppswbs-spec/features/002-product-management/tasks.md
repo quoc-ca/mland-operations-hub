@@ -1,7 +1,7 @@
 # Tasks: Product Management — FE-02
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01 (tick T090 — UI với API giả lập 73/73, tích hợp phiên thật NOT RUN do 001; tick T087 — đồng bộ quickstart/blocker/validation; tick T072 — chuyển sang giỏ FE-08 theo hợp đồng Thịnh chốt, chi nhánh qua SellingLocationPort (quyết định A); tick T086 — regression toàn hệ thống, 002/006/Modulith 613/613; tick T074 (CataloguePublicApiIT + hành trình trình duyệt trang công khai), T085 (rà vi/en, test bổ sung, sửa ImageEditor); tick T088, T089 — nền frontend theo đề xuất được owner duyệt; tick T028, T034, T040, T050, T057, T064, T071, T079, T101 — màn hình React có test component/API giả lập, tích hợp thật để T090; 2026-10-31: tick T058, T062, T065, T082 với thanh toán/hủy thật của FE-08; 2026-10-30: tick T084; tick T003, T019, T042, T046, T048, T080 với nguồn giữ hàng thật của FE-08; tick T066; tick T102 — chấp nhận khung ứng dụng của 001; T075 Manager quản lí danh mục; T091 không phụ thuộc FE-08; thêm T102 khung ứng dụng; V1 không MFA theo 001; tick T018, T020; tick T004; tick T092; tick T093, T096, T097; tick T005–T026 có bằng chứng MySQL; tick T030–T032, T036–T038; tick T053–T055, T060, T061, T076, T077, T095, T098, T100; tick T043, T045, T047, T067, T068; tick T081; tick T015, T016, T051; tick T091; tick T002, T007, T021, T027, T033, T039, T044, T049, T056, T063, T069, T070, T078, T094, T099; tick T029, T035, T041, T052, T059, T075, T083; tick T073)
+**Date updated**: 2026-11-03 (thêm T104 — import nhận khoảng/danh sách size trong một ô (A1); thêm T103 — xem ảnh quản trị `getManagementProductMedia`, size khớp SKU ở danh sách, kiểm tra command receipt trước khi gửi lại; trước đó: 2026-11-01 (tick T090 — UI với API giả lập 73/73, tích hợp phiên thật NOT RUN do 001; tick T087 — đồng bộ quickstart/blocker/validation; tick T072 — chuyển sang giỏ FE-08 theo hợp đồng Thịnh chốt, chi nhánh qua SellingLocationPort (quyết định A); tick T086 — regression toàn hệ thống, 002/006/Modulith 613/613; tick T074 (CataloguePublicApiIT + hành trình trình duyệt trang công khai), T085 (rà vi/en, test bổ sung, sửa ImageEditor); tick T088, T089 — nền frontend theo đề xuất được owner duyệt; tick T028, T034, T040, T050, T057, T064, T071, T079, T101 — màn hình React có test component/API giả lập, tích hợp thật để T090; 2026-10-31: tick T058, T062, T065, T082 với thanh toán/hủy thật của FE-08; 2026-10-30: tick T084; tick T003, T019, T042, T046, T048, T080 với nguồn giữ hàng thật của FE-08; tick T066; tick T102 — chấp nhận khung ứng dụng của 001; T075 Manager quản lí danh mục; T091 không phụ thuộc FE-08; thêm T102 khung ứng dụng; V1 không MFA theo 001; tick T018, T020; tick T004; tick T092; tick T093, T096, T097; tick T005–T026 có bằng chứng MySQL; tick T030–T032, T036–T038; tick T053–T055, T060, T061, T076, T077, T095, T098, T100; tick T043, T045, T047, T067, T068; tick T081; tick T015, T016, T051; tick T091; tick T002, T007, T021, T027, T033, T039, T044, T049, T056, T063, T069, T070, T078, T094, T099; tick T029, T035, T041, T052, T059, T075, T083; tick T073)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -208,6 +208,13 @@
 - [x] T099 [US9] Sau T007/T008/T098, expose `downloadProductImportTemplate`, `validateProductImport`, `getProductImport`, `confirmProductImport`, `downloadProductImportErrorReport` tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/productmanagement/controller/ManagementProductImportApiController.java` với DTO tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/productmanagement/dto/ProductImportDtos.java`; khớp OpenAPI, giới hạn multipart 5.100.000 bytes, mã lỗi `IMPORT_*` trong `CatalogueExceptionHandler`, auth trước batch lookup, no-store. Không expose entity/payload.
 - [x] T100 [P] [US9] Sau T098, tạo `ProductImportPayloadCleaner` (job nền có lịch) tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/productmanagement/service/importing/ProductImportPayloadCleaner.java`: xóa `parsed_payload` và `errors` của batch quá hạn và đặt EXPIRED (VALIDATED), không xóa metadata/audit/receipt (giữ 5 năm), idempotent và an toàn khi chạy đồng thời với xác nhận (version/lock). FR-043/045, data-model.
 - [x] T101 (bằng chứng 2026-11-01: blocker-report mục "Nền frontend và màn hình 002") [US9] Sau T088/T089/T099, tạo màn hình import trong React + Vite tại `ppswbs_frontend/src/features/productmanagement/management/import/` (vị trí dự kiến; `ppswbs_frontend/` chưa khởi tạo, cấu trúc do kế hoạch frontend chốt) gọi REST `/api/v1/catalogue-management/product-imports/...`: tải mẫu, chọn file `.xlsx`, bảng lỗi theo dòng/cột + tải báo cáo lỗi, bản xem trước, hộp thoại xác nhận riêng, kết quả liệt kê mã sản phẩm/SKU với liên kết sang chi tiết, nhắc cần thêm ảnh trước khi gửi duyệt; commandId mỗi bước, kiểm tra `getProductImport` sau mất phản hồi, xử lý hết hạn/`IMPORT_PREVIEW_STALE`; loading/empty/validation/success/failure/recovery, vi/en. Ẩn nút không thay authorization phía server. FR-038/041.
+- [x] T103 (bổ sung 2026-11-03; bằng chứng: validation-report mục "Rà soát spec–code–Figma, sửa FR-003/FR-028 và xem ảnh quản trị") [US4] Sau T027/T046/T070, expose `getManagementProductMedia` (`GET /api/v1/catalogue-management/media/{mediaId}`) tại `ManagementFileApiController` qua `PublicMediaService.openForManagement`: cần catalogue.read-internal; ảnh READY gắn với sản phẩm chưa xóa mềm (nháp/ẩn/công khai; sản phẩm đã xóa trả 404 như chi tiết quản trị) hoặc do chính actor tải lên và chưa gắn vào sản phẩm nào; stream bytes `no-store`, không trả/redirect URL provider; 404 `MEDIA_NOT_FOUND`/503 `MEDIA_DEPENDENCY_UNAVAILABLE`. Frontend `StaffImage` gọi kèm bearer, hiển thị từ blob URL, lỗi/đang tải hiện ô số thứ tự. Kiểm chứng: `CatalogueManagementMediaIT`, `tests/recovery.test.jsx`.
+- [x] T104 (bổ sung 2026-11-03, owner chọn A1; bằng chứng: validation-report mục "Import: nhiều size trong một dòng (A1)") [US9] Sau T097/T096/T101, ô *Size* của file import nhận khoảng `12-20`, danh sách `12,14,16` (`,` hoặc `;`) hoặc kết hợp `5-9,12`; mỗi size thành một biến thể dùng giá đề xuất và số lượng của dòng (FR-040). `ProductImportValidator` thêm lỗi `INVALID_SIZE_LIST` (sai cú pháp, khoảng ngược), size ngoài 5–29 là `OUT_OF_RANGE`, size lặp là `DUPLICATE_SIZE_IN_GROUP`; `ImportTemplateWriter` cập nhật hướng dẫn và ví dụ; bước xác nhận báo lỗi danh mục cũ một lần cho mỗi dòng. Frontend: gợi ý cú pháp ở bước tải mẫu, xem trước hiện số size và size gộp khoảng (`compactSizes`), thông điệp `importCode.INVALID_SIZE_LIST`. Kiểm chứng: `CatalogueImportTests`, `CatalogueImportApiIT`, `tests/screens.test.jsx`.
+- [x] T105 (bổ sung 2026-11-04; bằng chứng: validation-report mục "Thao tác nhiều size, áp dụng ngay, mục còn thiếu, thông báo (Session 2026-11-04)") [US5] Sau T057/B2, bảng "Sửa giá đề xuất nhiều size" tại `ppswbs_frontend/src/features/product-management/ui/management/sections/BatchPrices.jsx` (`ProposeBatch`): chọn size/khoảng size, giá chung, sửa từng dòng; size Nháp/Chờ duyệt gọi `revisePrice`, size khác `proposePrice`; sau lần công khai đầu có "Lưu và gửi duyệt" (gửi `submitPrice` với phiên bản vừa lưu); chỉ gửi size có giá mới; mỗi size một Idempotency-Key, mất phản hồi hỏi receipt theo action của size. FR-013/FR-028.
+- [x] T106 (bổ sung 2026-11-04; bằng chứng: validation-report mục "Thao tác nhiều size, áp dụng ngay, mục còn thiếu, thông báo (Session 2026-11-04)") [US4] Sau T050, bảng "Sửa số lượng nhiều size" tại `ppswbs_frontend/src/features/product-management/ui/management/sections/BatchQuantities.jsx`: chọn size/khoảng size, *Cộng thêm* hoặc *Đặt bằng*, chỉ gửi size có số khác hiện tại qua `setQuantity`; chặn trước khi gửi số nhỏ hơn `validHeldQuantity` (backend vẫn trả `QUANTITY_BELOW_HELD`); so sánh bằng BigInt. FR-019/FR-028.
+- [x] T107 (bổ sung 2026-11-04; bằng chứng: validation-report mục "Thao tác nhiều size, áp dụng ngay, mục còn thiếu, thông báo (Session 2026-11-04)") [US2/US3/US5] Ô "Áp dụng giá ngay sau khi duyệt" (mặc định chọn) ở `ReviewSection` (duyệt hồ sơ: sau `decideReview` đọc lại sản phẩm và `applyPrice` từng size đã duyệt), `PendingBatch` và `PriceDecision` (`applyPrice` với `resourceId`/`version` của kết quả duyệt); nút "Áp dụng giá đã duyệt" trong mục Duyệt hồ sơ khi còn giá chưa áp dụng. FR-014–FR-016.
+- [x] T108 (bổ sung 2026-11-04; bằng chứng: validation-report mục "Thao tác nhiều size, áp dụng ngay, mục còn thiếu, thông báo (Session 2026-11-04)") [US2] `missingRequirements` tại `ppswbs_frontend/src/features/product-management/domain/productRules.js`: trước `submitReview` kiểm tra ảnh/danh mục/giá đề xuất; thiếu thì không gửi, tô viền đỏ mục Nội dung/Ảnh/Đề xuất giá kèm hướng dẫn, cuộn tới mục đầu và liệt kê cạnh nút; lỗi điều kiện từ backend (`fieldErrors` khi gửi duyệt, `PUBLICATION_PREREQUISITES_MISSING` khi công khai) cũng tô mục thiếu. FR-009/FR-017.
+- [x] T109 (bổ sung 2026-11-04; bằng chứng: validation-report mục "Thao tác nhiều size, áp dụng ngay, mục còn thiếu, thông báo (Session 2026-11-04)") [US1–US7/US9] Thông báo kết quả tại `ppswbs_frontend/src/features/product-management/ui/management/notices.jsx`: câu cụ thể (việc đã làm, size/giá/số size hoặc tên, bước tiếp theo) hiện ở đầu trang và dưới nút vừa dùng sau khi tải lại; thao tác nhiều size lỗi một phần báo ở đầu trang và liệt kê size lỗi dưới nút; vi/en cùng key. FR-028 (thông báo chỉ sau khi đã lưu).
 
 **Checkpoint**: Import tạo đúng sản phẩm nháp như tạo tay, tất cả-hoặc-không, idempotent; chưa tuyên bố đạt cho tới khi V-15 chạy trên MySQL thật cùng identity thật.
 
@@ -301,17 +308,17 @@ Trong mỗi phase: dependency trước, coverage liên quan trước implementat
 | FR-006 | T020, T023, T025 | US1.2; SC-003, V-02 |
 | FR-007 | T021, T025, T028 | US1.1/3/6; V-02/11 |
 | FR-008 | T014–T016, T041, T044, T045, T047, T048, T051, T070 | US4.5/6/9; V-05/14 |
-| FR-009 | T013, T029, T030, T033 | US2.1/6; V-03 |
+| FR-009 | T013, T029, T030, T033, T108 | US2.1/6; V-03 |
 | FR-010 | T029, T031, T033, T034 | US2.2–4/6/7; V-03 |
 | FR-011 | T029, T032, T043, T045, T053 | US2.5, US4.1; V-03/05 |
 | FR-012 | T032, T043, T045, T050 | US4.1; V-05 |
-| FR-013 | T012, T030, T052, T053, T056 | Clarification pending proposal; US5.1/5; V-03 |
-| FR-014 | T031, T052, T054, T057 | US2.3, US5.2/3; V-03/04 |
-| FR-015 | T035–T037, T039, T055 | US3.1/2/6, US5.4/5; V-04 |
+| FR-013 | T012, T030, T052, T053, T056, T105 | Clarification pending proposal; US5.1/5; V-03 |
+| FR-014 | T031, T052, T054, T057, T107 | US2.3, US5.2/3; V-03/04 |
+| FR-015 | T035–T037, T039, T055, T107 | US3.1/2/6, US5.4/5; V-04 |
 | FR-016 | T036, T037, T055, T058 | US5.1/4, US3.1; V-04/07 |
-| FR-017 | T035, T038–T040 | US3.3–5; SC-001, V-04 |
+| FR-017 | T035, T038–T040, T108 | US3.3–5; SC-001, V-04 |
 | FR-018 | T038–T040, T059, T061, T064 | US3.6, US6.3; V-07/11 |
-| FR-019 | T019, T042, T046, T049 | US4.2/3; V-06 |
+| FR-019 | T019, T042, T046, T049, T106 | US4.2/3; V-06 |
 | FR-020 | T019, T046, T060, T062, T067 | US4.2, US8.3–5; V-06/09 |
 | FR-021 | T059, T060, T063, T064 | US6.1/2; V-07 |
 | FR-022 | T059, T061, T063, T064 | US6.4/5; V-07 |
@@ -320,7 +327,7 @@ Trong mỗi phase: dependency trước, coverage liên quan trước implementat
 | FR-025 | T059, T061, T065, T084 | US6.5/7; SC-002, V-07 |
 | FR-026 | T008–T010, T024, T025, T042, T046, T084 | US1.6, US2.7, US4.3/6, US7.1; V-06/11/12 |
 | FR-027 | T009, T031, T037, T047, T058, T076, T084 | US5.6, audit mutation scenarios; V-11/14 |
-| FR-028 | T010, T021, T027, T037, T058, T073, T084 | US1.6, US3.6, US5.6, US8.9; V-10/11/14 |
+| FR-028 | T010, T021, T027, T037, T058, T073, T084, T105, T106, T109 | US1.6, US3.6, US5.6, US8.9; V-10/11/14 |
 | FR-029 | T011, T075, T076, T078–T080 | US7.1/4/5; V-08 |
 | FR-030 | T075, T077–T080 | US7.2–4; V-08 |
 | FR-031 | T066, T067, T069, T070, T073, T074 | US8.1/9; V-09/10 |
@@ -372,6 +379,7 @@ SC-001: T029/T035/T066; SC-002: T021/T059/T065/T084; SC-003: T020/T023; SC-004: 
 | getCategoryImpact | T078 | US7 |
 | setCategoryActivation | T078 | US7 |
 | getCommandReceipt | T027 | US1/shared |
+| getManagementProductMedia | T103 | US4 |
 | downloadProductImportTemplate | T099 | US9 |
 | validateProductImport | T099 | US9 |
 | getProductImport | T099 | US9 |
@@ -431,7 +439,9 @@ Mốc có ý nghĩa để demo toàn bộ FE-02 gồm US1–US6 + US8, với cat
 | US9 (P2) | T092–T101 | 10 | Template/validate/confirm Excel import, all-or-nothing, idempotent |
 | Cross-feature FE-06 | T091 | 1 | PRODUCT target provider cho FE-06 |
 | Polish | T081–T087, T090 | 8 | Complete fresh evidence and documentation |
-| Total | T001–T102 | 102 | All unchecked; no implementation claimed |
+| Bổ sung 2026-11-03 | T103–T104 | 2 | Xem trước ảnh quản trị (nháp/ẩn) qua backend; import nhiều size trong một dòng |
+| Bổ sung 2026-11-04 | T105–T109 | 5 | Sửa giá/số lượng nhiều size, áp dụng ngay sau khi duyệt, chỉ ra mục còn thiếu, thông báo kết quả (chỉ frontend) |
+| Total | T001–T109 | 109 | Đã tick đủ 109 (2026-11-04); bằng chứng ghi trong validation-report/blocker-report |
 
 Ghi chú thứ tự ID: T102 (khung ứng dụng dùng chung) được thêm ngày 2026-10-26 sau speckit-analyze, đặt đầu Phase 2; T092–T101 (US9) được thêm sau cùng ngày 2026-10-24 và đặt ở Phase 12, trước mục Cross-feature; T088–T089 được chèn cuối Phase 2, T090 cuối Phase 11 và T091 ở mục Cross-feature sau khi chạy speckit-analyze, nên ID trong file không tăng liên tục theo vị trí. Thứ tự thực hiện theo phase và dependency, không theo số ID.
 

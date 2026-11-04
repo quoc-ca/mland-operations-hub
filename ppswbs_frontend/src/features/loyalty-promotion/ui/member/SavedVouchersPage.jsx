@@ -1,10 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
-import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
+import { useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading } from '../../../../shared/ui/components';
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
-import { DiscountText, ScopeBadge, Terms } from '../display';
+import { usePublicTargetLabels } from '../../application/useTargetLabels';
+import { DiscountText, ScopeBadge, Terms, useDateTime } from '../display';
 import { messages } from '../messages';
 import { useCursorList } from '../../application/useCursorList';
 
@@ -22,9 +23,10 @@ export default function SavedVouchersPage() {
 
 function SavedList() {
   const t = useT(messages);
-  const format = useFormat();
+  const dateTime = useDateTime();
   const api = useLoyaltyApi();
   const list = useCursorList(cursor => api.listSavedVouchers({ cursor }), []);
+  const labels = usePublicTargetLabels(api, list.items.map(item => item.promotion));
   return (
     <>
       <p className="muted small">{t('saved.hint')}</p>
@@ -43,8 +45,8 @@ function SavedList() {
             <h2>{promotion.name}</h2>
             <p className="mono code-chip">{promotion.code}</p>
             <p><DiscountText discount={promotion.discount} /></p>
-            <Terms item={promotion} />
-            <p className="muted small">{t('saved.savedAt', { at: format.dateTime(savedAt) })}</p>
+            <Terms item={promotion} labels={labels} />
+            <p className="muted small">{t('saved.savedAt', { at: dateTime(savedAt) })}</p>
           </article>
         ))}
       </div>

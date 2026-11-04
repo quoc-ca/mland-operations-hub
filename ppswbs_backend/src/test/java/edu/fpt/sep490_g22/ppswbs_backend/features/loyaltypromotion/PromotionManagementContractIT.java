@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
@@ -190,7 +191,8 @@ class PromotionManagementContractIT {
         assertError(update(created, ",\"discount\":{\"kind\":\"PERCENT\",\"percentage\":\"0\",\"maxDiscountAmount\":\"1\"}"),
                 400, "INVALID_INPUT");
         assertError(update(created, ",\"totalLimit\":\"0\""), 400, "INVALID_INPUT");
-        JsonNode now = ok(send(get(PROGRAMS + "/" + created.path("id").asText()), manager, null, null), 200);
+        ObjectNode now = (ObjectNode) ok(send(get(PROGRAMS + "/" + created.path("id").asText()), manager, null, null), 200);
+        now.remove(java.util.List.of("targetCheck", "targetWarnings")); // scope check of the detail read (T079)
         assertThat(now).isEqualTo(created);
     }
 

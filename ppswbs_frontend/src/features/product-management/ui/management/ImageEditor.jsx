@@ -5,13 +5,14 @@ import { useErrorText } from '../../../../shared/ui/components';
 import { useCatalogueApi } from '../../application/useCatalogueApi';
 import { messages } from '../messages';
 import { LIMITS } from '../../domain/productRules';
+import { StaffImage } from './StaffImage';
 
 const TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 /**
  * Ordered image list for create and replace. Each new file is uploaded on its own (POST media-uploads, one file,
- * its own key) and attached by mediaId only; a failed upload is retried with the same key. Draft images are not
- * served by the backend, so existing ones are listed by alt text; a new file shows a local preview.
+ * its own key) and attached by mediaId only; a failed upload is retried with the same key. Existing images are
+ * previewed through the staff media endpoint ({@link StaffImage}); a new file shows a local preview.
  * Item: { localId, mediaId, altText, state: 'ready'|'uploading'|'failed', error, file, previewUrl, commandId }.
  */
 export function ImageEditor({ images, onChange, errors = {}, disabled }) {
@@ -69,7 +70,9 @@ export function ImageEditor({ images, onChange, errors = {}, disabled }) {
       <ol className="image-list">
         {images.map((item, index) => (
           <li key={item.localId} className="image-item">
-            {item.previewUrl ? <img src={item.previewUrl} alt="" /> : <div className="image-placeholder" aria-hidden="true">#{index + 1}</div>}
+            {item.previewUrl
+              ? <img src={item.previewUrl} alt="" />
+              : <StaffImage mediaId={item.mediaId} placeholder={<div className="image-placeholder" aria-hidden="true">#{index + 1}</div>} />}
             <div className="image-fields">
               <label>
                 {t('image.altText', { position: index + 1 })}

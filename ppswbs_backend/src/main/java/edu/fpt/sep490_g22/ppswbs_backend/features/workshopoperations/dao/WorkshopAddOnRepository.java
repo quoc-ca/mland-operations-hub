@@ -15,6 +15,8 @@ public interface WorkshopAddOnRepository extends JpaRepository<WorkshopAddOn, Lo
     List<WorkshopAddOn> findByPackageIdAndLocationIdAndStateOrderByDescriptionAsc(
             Long packageId, Long locationId, WorkshopAddOnState state);
 
+    List<WorkshopAddOn> findByPackageIdAndLocationIdOrderByDescriptionAsc(Long packageId, Long locationId);
+
     Optional<WorkshopAddOn> findByReferenceAndPackageIdAndLocationId(String reference, Long packageId, Long locationId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

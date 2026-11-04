@@ -48,6 +48,14 @@ public class WorkshopBookingPackagePolicySnapshot {
     @Column(name = "minimum_same_day_slot_gap", nullable = false, updatable = false)
     private Integer minimumSameDaySlotGap;
 
+    @Column(name = "required_foundry_working_days_between_sessions", nullable = false, updatable = false)
+    @Builder.Default
+    private Integer requiredFoundryWorkingDaysBetweenSessions = 0;
+
+    public Integer getRequiredFoundryWorkingDaysBetweenSessions() {
+        return requiredFoundryWorkingDaysBetweenSessions != null ? requiredFoundryWorkingDaysBetweenSessions : 0;
+    }
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

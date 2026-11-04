@@ -13,16 +13,16 @@ import java.util.List;
  * @param accountId canonical account ID
  * @param canonicalRole canonical role (MEMBER, STAFF, MANAGER, ADMIN)
  * @param status account status (ACTIVE, PENDING_SETUP, SUSPENDED)
- * @param activeLocationIds active workshop location assignments (canonical workshop_location.id)
+ * @param activeWorkshopLocationIds active workshop location assignments (canonical workshop_location.id)
  */
 public record TargetAccountSnapshot(
     Long accountId,
     ActorRole canonicalRole,
     ActorStatus status,
-    List<Long> activeLocationIds
+    List<Long> activeWorkshopLocationIds
 ) {
     public TargetAccountSnapshot {
-        activeLocationIds = activeLocationIds != null ? List.copyOf(activeLocationIds) : List.of();
+        activeWorkshopLocationIds = activeWorkshopLocationIds != null ? List.copyOf(activeWorkshopLocationIds) : List.of();
     }
 
     /**
@@ -30,5 +30,12 @@ public record TargetAccountSnapshot(
      */
     public ActorRole role() {
         return canonicalRole;
+    }
+
+    /**
+     * Backward-compatibility accessor for consuming features during migration.
+     */
+    public List<Long> activeLocationIds() {
+        return activeWorkshopLocationIds;
     }
 }

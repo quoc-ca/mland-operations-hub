@@ -123,6 +123,36 @@ class CatalogueImportApiIT {
     }
 
     @Test
+    void sizeRangesAndListsBecomeOneVariantEachWithTheirRowPrice() throws Exception {
+        String category = fixture.category(fixture.activeCategory()).getName();
+        Object[][] rows = {{"R1", "Nhẫn khoảng size " + UUID.randomUUID(), "Mô tả", category, "5-9", "350000", 4},
+                {"R1", null, "Mô tả", category, "12,14", "380000", 1}};
+        JsonNode batch = json.readTree(mvc.perform(as("staff", multipart(BASE + "/product-imports")
+                                .file(xlsxPart(rows))).header("Idempotency-Key", UUID.randomUUID()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.state").value("VALIDATED"))
+                .andExpect(jsonPath("$.rowCount").value(2))
+                .andExpect(jsonPath("$.variantCount").value(7))
+                .andExpect(jsonPath("$.preview[0].sizes.length()").value(7))
+                .andReturn().getResponse().getContentAsString());
+
+        JsonNode imported = json.readTree(mvc.perform(as("staff", post(BASE + "/product-imports/" + batch.get("batchId").asText() + "/confirmations"))
+                        .header("Idempotency-Key", UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"expectedVersion\":" + batch.get("version").asLong() + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.created[0].skus.length()").value(7))
+                .andReturn().getResponse().getContentAsString());
+        String productId = imported.get("created").get(0).get("productId").asText();
+        JsonNode product = json.readTree(mvc.perform(as("staff", get(BASE + "/products/" + productId)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        Map<Integer, String> proposed = new java.util.TreeMap<>();
+        product.get("variants").forEach(variant -> proposed.put(variant.get("size").asInt(),
+                variant.get("proposals").get(0).get("proposedPrice").asText()));
+        assertThat(proposed).containsExactlyEntriesOf(new java.util.TreeMap<>(Map.of(5, "350000", 6, "350000", 7, "350000",
+                8, "350000", 9, "350000", 12, "380000", 14, "380000")));
+    }
+
+    @Test
     void aFileWithRowErrorsIsARejectedBatchWithADownloadableReport() throws Exception {
         String category = fixture.category(fixture.activeCategory()).getName();
         JsonNode batch = json.readTree(mvc.perform(as("staff", multipart(BASE + "/product-imports")

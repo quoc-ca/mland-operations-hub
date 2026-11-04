@@ -7,6 +7,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountR
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.InternalAccountProvisioningRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountLocationAssignment;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountProfile;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.InternalAccountProvisioning;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
@@ -29,7 +30,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -69,7 +69,7 @@ class AccountAuthenticationIT {
     }
 
     @Test
-    @DisplayName("US1-1: Successful first-time bootstrap creates MEMBER account")
+    @DisplayName("US1-1: Successful first-time bootstrap creates MEMBER account and profile")
     void whenFirstTimeBootstrap_thenCreatesActiveMemberAccount() throws Exception {
         String uid = "firebase-user-" + UUID.randomUUID();
         String token = "valid-token-" + uid;
@@ -90,6 +90,10 @@ class AccountAuthenticationIT {
         assertThat(account.getRole()).isEqualTo(AccountRole.MEMBER);
         assertThat(account.getStatus()).isEqualTo(AccountStatus.ACTIVE);
         assertThat(account.getLoginEmail()).isEqualTo("customer@example.com");
+
+        AccountProfile profile = profileRepository.findByAccountId(account.getId()).orElseThrow();
+        assertThat(profile.getFullName()).isEqualTo("customer");
+        assertThat(profile.getPhone()).isNull();
     }
 
     @Test
@@ -139,6 +143,24 @@ class AccountAuthenticationIT {
         assertThat(accountRepository.count()).isEqualTo(2);
         assertThat(accountRepository.findByFirebaseUid(uid1)).isPresent();
         assertThat(accountRepository.findByFirebaseUid(uid2)).isPresent();
+    }
+
+    @Test
+    @DisplayName("US1-4: Identity without valid email claim does not create account or profile")
+    void whenBootstrapWithoutValidEmailClaim_thenFailsWithoutCreatingRecords() throws Exception {
+        String uid = "no-email-user-" + UUID.randomUUID();
+        String token = "no-email-token";
+
+        when(tokenVerificationService.verify(eq(token)))
+            .thenReturn(new VerifiedIdentity(uid, null, false, Instant.now()));
+
+        mockMvc.perform(put("/api/v1/accounts/me")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
+
+        assertThat(accountRepository.findByFirebaseUid(uid)).isEmpty();
+        assertThat(profileRepository.count()).isEqualTo(0);
     }
 
     @Test

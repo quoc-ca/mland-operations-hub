@@ -1,7 +1,7 @@
 # Implementation Plan: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-04
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -13,7 +13,7 @@
 
 ## Summary
 
-FE-001 delivers the Mland account lifecycle: email/password and optional social sign-in, profile/credential self-service, Admin provisioning and maintenance of internal Staff/Manager accounts, account suspension/restoration, a shared backend identity gate, and a typed internal facade for Workshop consumers. All design artifacts pass the 16/16 spec-quality checklist; this plan reflects every clarification session through 2026-11-01.
+FE-001 delivers the Mland account lifecycle: email/password and Google redirect sign-in, in-place credential re-authentication, profile/credential self-service, Admin provisioning and maintenance of internal Staff/Manager accounts, account suspension/restoration, a shared backend identity gate, a typed internal facade for Workshop consumers, and member shipping address book management (Shopee model) with GHTK-compatible administrative divisions and order snapshot facade for FE-008 Retail Order & Fulfillment. It also establishes system-wide timezone standardization to Vietnam local time (`Asia/Ho_Chi_Minh`, UTC+7) for MySQL persistence, JDBC connection, and API responses. Email verification is observed on entry to a capability that requires it: the frontend reloads Firebase user state, forces a fresh bearer, synchronizes the Account snapshot, and the backend still decides the command. No Firebase callback/webhook, custom action handler, or background verification job is part of V1. This plan reflects every clarification session through 2026-11-04.
 
 **Technical approach**: React + Vite SPA (client-side); Java 21 / Spring Boot REST / Spring Modulith backend; Firebase Authentication for identity/credential management; MySQL + Flyway migrations; JPA/Spring Data persistence; FE-07 (Notification) and FE-003 (Workshop) as downstream consumers.
 
@@ -21,13 +21,13 @@ FE-001 delivers the Mland account lifecycle: email/password and optional social 
 
 ## Technical Context
 
-**Language/Version**: Java 21 (backend); TypeScript / React 18 + Vite (frontend)
+**Language/Version**: Java 21 (backend); TypeScript / React 19 + Vite (frontend)
 
 **Primary Dependencies**:
 - Backend: Spring Boot (latest approved), Spring Modulith, Spring Data JPA, Flyway, Firebase Admin SDK, Spring Security
-- Frontend: React 18, Vite, Firebase Web SDK, React Router
+- Frontend: React 19, Vite, Firebase Web SDK, React Router
 
-**Storage**: MySQL (authoritative business state — Account, Profile, Assignment, Provisioning, Audit, NotificationIntent); Firebase Authentication (credentials, bearer tokens, session invalidation)
+**Storage**: MySQL (authoritative business state — Account, Profile, MemberAddress, Assignment, Provisioning, Audit, NotificationIntent; all `DATETIME(6)` values standardized on `Asia/Ho_Chi_Minh` UTC+7); Firebase Authentication (credentials, bearer tokens, session invalidation)
 
 **Testing**: JUnit 5 / Spring Boot Test / Spring Modulith module verification (backend); Vitest / React Testing Library (frontend). No TDD mandate in spec; tests are required only for integration evidence items listed in `verification.md`.
 
@@ -41,11 +41,13 @@ FE-001 delivers the Mland account lifecycle: email/password and optional social 
 - Bearer-only credential transport; no browser auth cookie, server session, app JWT, or refresh-token system (V1)
 - Local CORS origin is exactly `http://localhost:5173`; no wildcard; `Access-Control-Allow-Credentials: false`
 - `spring.jpa.hibernate.ddl-auto=validate`; no `update`, Flyway bypass, or test-only schema workaround
-- Flyway migrations use repository-wide append-only integer sequence; no editing of applied migrations
+- Flyway migrations use repository-wide append-only integer sequence; no editing of applied migrations; new `member_addresses` table created via append-only migration
+- System timezone is strictly standardized to `Asia/Ho_Chi_Minh` (UTC+7): JDBC URL enforces `connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true`, application default timezone is `Asia/Ho_Chi_Minh`, and Jackson serializers output ISO-8601 with `+07:00` offset
 - `AccountAuditEvent.outcome` must use Java `AuditOutcome` enum (`SUCCESS`/`FAILURE`) persisted as `VARCHAR(16)`; append-only migration from V5 is required before any MySQL integration test
 - No cache, event replication, cross-module transaction, or Workshop Location scope in the identity gate actor
+- Member verification email is sent by Firebase Web SDK on the signed-in owner’s explicit request; V1 uses Firebase’s default action handler and does not persist email action codes
 
-**Scale/Scope**: 5 user stories; ~34 functional requirements; 7 workflows; ~6 backend entity types; 2 facade methods for Workshop consumers; local-only acceptance
+**Scale/Scope**: 6 user stories; 40 functional requirements; 10 workflows; 7 backend entity types; 4 facade methods (2 for Workshop consumers, 2 for FE-008 shipping address snapshot); local-only acceptance
 
 ---
 
@@ -179,6 +181,7 @@ ppswbs_backend/src/main/java/.../configuration/
 | Audit outcome schema conflict | Approved baseline: Java `AuditOutcome` enum + `VARCHAR(16)` via append-only migration; `V5` must not be edited. |
 | Idempotency for internal account create | Idempotency key + normalized digest; same key + same digest returns preserved result; same key + different digest → 409. |
 | CORS and credential transport | Exact local origin `http://localhost:5173`; `Authorization: Bearer`; no cookies; `Allow-Credentials: false`. |
+| Member verification synchronization | Only on Profile entry or its accessible verification-status reload icon: `reload` Firebase user → forced-fresh bearer → bodyless `PUT /accounts/me/email` → enable Profile save. Resend cooldown is 90 seconds in account-scoped `localStorage`; Firebase remains quota authority. Email change uses `verifyBeforeUpdateEmail`; no custom handler, callback/webhook, or background job. |
 | Flyway version convention | Repository-wide append-only integer sequence; reserve next number before creating migration. |
 
 ---
@@ -217,12 +220,12 @@ External boundaries:
 
 ### REST Transport Contract
 
-**Status**: `contracts/account-management.openapi.yaml` exists but is declared obsolete by spec.md. It must be regenerated to reflect the approved design before implementation. The plan records the approved routes; actual HTTP contract authority remains the regenerated OpenAPI file.
+**Status**: `contracts/account-management.openapi.yaml` regenerated to full OpenAPI 3.1.0 specification (2026-11-03). It defines all request/response DTOs, parameters, error schemas, headers (Idempotency-Key, X-Correlation-ID), and security schemes matching the backend implementation and approved plan.
 
 Approved route groups:
 - `POST /accounts/me` — bootstrap current identity
-- `GET /accounts/me`, `PUT /accounts/me/profile`, `POST /accounts/me/email-sync` — self-service
-- `POST /accounts/me/password-change`, `POST /auth/password-reset`, `POST /auth/verification-email` — credential flows (Firebase-delegated)
+- `GET /accounts/me`, `PUT /accounts/me/profile`, `PUT /accounts/me/email` — self-service; the email route has no body and synchronizes only current verified Firebase identity
+- Credential recovery, password change, and Member verification/resend are Firebase Web SDK actions; FE-001 exposes no backend credential-flow or Member-email-delivery route
 - `GET /admin/accounts`, `POST /admin/accounts`, `GET /admin/accounts/{accountId}` — Admin list/detail/create
 - `PUT /admin/accounts/{accountId}/profile`, `PUT /admin/accounts/{accountId}/role-location`, `PUT /admin/accounts/{accountId}/status` — Admin maintenance (version-safe)
 - `POST /admin/accounts/{accountId}/resend-invitation` — pending-only resend with 5-min cooldown
@@ -240,7 +243,7 @@ See [quickstart.md](quickstart.md) — runnable local validation scenarios provi
 
 | Layer | Library / version | Status | Purpose |
 |-------|-------------------|--------|---------|
-| Frontend | React 18 + Vite | approved — Constitution | Client application |
+| Frontend | React 19 + Vite | approved — Constitution | Client application |
 | Frontend identity | Firebase Web SDK | approved baseline; config dependency | Client identity flows |
 | Frontend router | React Router | approved | Client-side routing |
 | Backend | Java 21, Spring Boot | approved — Constitution | REST service |
@@ -254,20 +257,29 @@ No cache, event replication, personnel identifier, generic RBAC store, app sessi
 
 ---
 
-## Open Blockers (from architecture.md gate review)
+## Open Blockers & Gate Status
 
-| Gate | Status | Required action before implementation |
-|------|--------|---------------------------------------|
-| D02 | OPEN | Regenerate `account-management.openapi.yaml` from approved routes |
-| D03 | OPEN | Add Spring Modulith boundary verification evidence |
-| D06 | OPEN | Publish regenerated OpenAPI (facade contract is now in interfaces.md) |
-| D07 | OPEN | Implement append-only Flyway migration for `AuditOutcome`/`VARCHAR(16)`; retain fresh+upgrade evidence |
-| D14 | OPEN | WCAG 2.2 AA + Chrome/Edge/Firefox latest 2 desktop — frontend foundation owner |
-| D15 | OPEN | Append-only migration + fresh/upgrade MySQL evidence required |
-| D16 | OPEN | Non-local origins remain unresolved; deployment owner must supply |
-| D17 | OPEN | Observability/rollout owner absent |
-| D18 | OPEN | `tasks.md` regenerated (this plan is the prerequisite) |
-| D19 | OPEN | `verification.md` revision required |
-| D20 | OPEN | No complete Tech Lead approval record; blockers prevent handoff |
+| Gate | Status | Resolution / Action |
+|------|--------|---------------------|
+| D01 | MET | Spec purpose, scope, stories, acceptance scenarios defined |
+| D02 | MET | `contracts/account-management.openapi.yaml` regenerated to full OpenAPI 3.1.0 |
+| D03 | MET | Spring Modulith module structure verified in backend code |
+| D04 | MET | Workflows WF-01 through WF-08 defined in `design/workflows.md` |
+| D05 | MET | Server-side authorization & denial behavior specified |
+| D06 | MET | Full OpenAPI 3.1 + facade contract in `contracts/interfaces.md` |
+| D07 | PENDING EVIDENCE | Append-only migration V{N} exists; T003 fresh+upgrade MySQL evidence must be run by implementation persona |
+| D08 | MET | Lifecycle states & resume_status semantics specified |
+| D09 | MET | Bearer-only transport, no server session |
+| D10 | MET | Transaction boundaries & post-commit notifications defined |
+| D11 | MET | Concurrency (version) & idempotency (key + digest) defined |
+| D12 | MET | External boundaries (Firebase, FE-07, Workshop Location) defined |
+| D13 | MET | Sensitive data minimization & audit redaction specified |
+| D14 | OPEN | WCAG 2.2 AA scan (Phase 8 T047, deferred for MVP) |
+| D15 | PENDING EVIDENCE | T003 fresh/upgrade MySQL evidence required |
+| D16 | OUT OF SCOPE | Non-local origins explicitly deferred to production release scope |
+| D17 | OUT OF SCOPE | Observability & rollout deferred to production release scope |
+| D18 | MET | `tasks.md` regenerated and aligned with plan |
+| D19 | MET | `verification.md` revised to comprehensive verification plan |
+| D20 | READY | `approval.md` drafted for Tech Lead Phan Sơn sign-off |
 
-**Implementation resume condition**: tasks.md regenerated from this plan; append-only Flyway migration implemented and MySQL evidence retained; OpenAPI regenerated; Spring Modulith verification evidence captured; then Tech Lead approval record created.
+**Implementation resume condition**: OpenAPI 3.1 regenerated ✅; verification.md revised ✅; tasks.md aligned ✅; Tech Lead approval record confirmed.

@@ -1,15 +1,29 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router';
-import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
+import { Link, useNavigate } from 'react-router';
+import { useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, useCommand } from '../../../../shared/ui/components';
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { messages } from '../messages';
+import { useDateTime } from '../display';
 import { checkCreate, createBody, defaultWindow, generateVoucherCode, LIMITS, serverFieldErrors, toInstant } from '../../domain/promotionRules';
 import { DateTimeField } from './DateTimeField';
 import { ProductTargetPicker } from './ProductTargetPicker';
 import { PageTop } from './PromotionManagementLayout';
 
 const MAX_CODE_DRAWS = 3;
+
+/**
+ * FR-007 / US1.8: the key and body of a create whose answer is unknown stay in sessionStorage until the outcome is
+ * known. 006 has no receipt read, so after a reload the Manager can send that same request again: the backend replays
+ * a committed create for the same key instead of creating a second programme (an automatic discount has no code to
+ * catch a duplicate).
+ */
+const PENDING = 'lp.pendingCreate';
+const pending = {
+  read: () => { try { return JSON.parse(sessionStorage.getItem(PENDING) || 'null'); } catch { return null; } },
+  keep: value => { try { sessionStorage.setItem(PENDING, JSON.stringify(value)); } catch { /* no storage: Retry still works */ } },
+  forget: () => { try { sessionStorage.removeItem(PENDING); } catch { /* nothing kept */ } },
+};
 
 const emptyForm = () => ({
   ...defaultWindow(), code: generateVoucherCode(),
@@ -30,7 +44,7 @@ export default function ProgramCreatePage() {
   const t = useT(messages);
   const api = useLoyaltyApi();
   const navigate = useNavigate();
-  const format = useFormat();
+  const dateTime = useDateTime();
   const [form, setForm] = useState(emptyForm);
   const [hints, setHints] = useState({});
   const [picked, setPicked] = useState({ products: {}, variants: {} });
@@ -39,6 +53,8 @@ export default function ProgramCreatePage() {
     setForm(current => ({ ...current, productIds: Object.keys(next.products).join(','), variantIds: Object.keys(next.variants).join(',') }));
   };
   const command = useCommand();
+  const [kept, setKept] = useState(() => pending.read());
+  const recovery = useCommand();
   const serverErrors = serverFieldErrors(command.error);
   const errorOf = field => serverErrors[field] || (hints[field] && t(hints[field]));
   const set = name => event => {
@@ -50,11 +66,23 @@ export default function ProgramCreatePage() {
     });
   };
   const voucher = form.kind === 'VOUCHER';
-  const inWords = local => (toInstant(local) ? t('create.timeInWords', { at: format.dateTime(toInstant(local)) }) : null);
+  const inWords = local => (toInstant(local) ? t('create.timeInWords', { at: dateTime(toInstant(local)) }) : null);
 
+  // A known outcome (created, or refused for good) ends the pending create; a lost answer or 503 keeps it.
   const open = outcome => {
-    if (outcome?.ok) navigate(`/promotion-management/programs/${encodeURIComponent(outcome.result.id)}`, { state: { notice: 'program.created' } });
+    if (!outcome) return;
+    if (outcome.ok) {
+      pending.forget();
+      navigate(`/promotion-management/programs/${encodeURIComponent(outcome.result.id)}`, { state: { notice: 'program.created' } });
+    } else if (!outcome.error.retryable) pending.forget();
   };
+  const send = body => key => { pending.keep({ key, body }); return api.createProgram(key, body); };
+  const resend = async () => {
+    const outcome = await recovery.run(() => api.createProgram(kept.key, kept.body));
+    if (outcome.ok || !outcome.error.retryable) setKept(null);
+    open(outcome);
+  };
+  const discard = () => { pending.forget(); setKept(null); recovery.reset(); };
   const submit = async event => {
     event.preventDefault();
     const found = checkCreate(form);
@@ -63,7 +91,7 @@ export default function ProgramCreatePage() {
     let current = form;
     for (let draw = 1; ; draw += 1) {
       const body = createBody(current);
-      const outcome = await command.run(key => api.createProgram(key, body));
+      const outcome = await command.run(send(body));
       if (outcome.ok || outcome.error?.code !== 'CODE_EXISTS' || current.kind !== 'VOUCHER' || draw >= MAX_CODE_DRAWS) { open(outcome); return; }
       current = { ...current, code: generateVoucherCode() };
       setForm(current);
@@ -73,6 +101,17 @@ export default function ProgramCreatePage() {
   return (
     <>
       <PageTop title={t('create.title')} />
+      {kept?.key && (
+        <div className="notice error" role="status">
+          <p>{t('create.pending', { name: kept.body?.name || '' })}</p>
+          <div className="actions">
+            <button type="button" className="button primary small" disabled={recovery.pending} onClick={resend}>{t('create.pendingCheck')}</button>
+            <button type="button" className="button outline small" disabled={recovery.pending} onClick={discard}>{t('create.pendingDiscard')}</button>
+            <Link className="text-link" to="/promotion-management/programs">{t('create.pendingList')}</Link>
+          </div>
+          <ErrorNotice error={recovery.error} messages={messages} onRetry={resend} />
+        </div>
+      )}
       <form className="workspace-card" onSubmit={submit} noValidate>
         <div className="form-grid">
           <Field label={t('field.kind')} error={errorOf('kind')}>

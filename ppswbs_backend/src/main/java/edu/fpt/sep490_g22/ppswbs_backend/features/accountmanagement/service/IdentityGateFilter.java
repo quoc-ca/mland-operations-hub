@@ -49,10 +49,14 @@ public class IdentityGateFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
+        if ("GET".equalsIgnoreCase(request.getMethod()) && request.getRequestURI().startsWith("/api/v1/addresses/")) {
+            return true;
+        }
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;
         }
         String path = request.getRequestURI();
+
         if ("GET".equalsIgnoreCase(request.getMethod())
                 && "/api/v1/integrations/payments/vnpay/events".equals(path)) {
             return true;
@@ -159,6 +163,7 @@ public class IdentityGateFilter extends OncePerRequestFilter {
             request.setAttribute("verifiedIdentity", identity.toFacade());
         } else {
             String path = request.getRequestURI();
+
             String method = request.getMethod();
             if ("/api/v1/accounts/me".equals(path) && "PUT".equalsIgnoreCase(method)) {
                 // Allow bootstrap for new identity

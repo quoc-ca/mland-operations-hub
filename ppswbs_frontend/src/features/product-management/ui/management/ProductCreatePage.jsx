@@ -1,34 +1,67 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
+import { newCommandId } from '../../../../shared/api/http';
 import { useT } from '../../../../shared/i18n/I18nProvider';
-import { ErrorNotice, Field, useCommand, useResource } from '../../../../shared/ui/components';
+import { ErrorNotice, Field, useResource } from '../../../../shared/ui/components';
 import { useCatalogueApi } from '../../application/useCatalogueApi';
+import { useCatalogueCommand } from '../../application/useCatalogueCommand';
+import { ACTIONS } from '../../infrastructure/catalogueApi';
 import { messages } from '../messages';
 import { checkImages, checkProductContent, checkVariants, LIMITS, serverFieldErrors } from '../../domain/productRules';
 import { ImageEditor, imagesPayload, imagesPending } from './ImageEditor';
 import { PageTop } from './ManagementLayout';
-
-const emptyVariant = () => ({ size: '', proposedPrice: '', quantity: '0' });
+import { SizePicker } from './SizePicker';
 
 /**
- * T028 create: sizes are chosen only here (the size list is immutable afterwards). The proposed price is not a
- * selling price; it goes to the review. Errors keep everything typed; success opens the new product.
+ * T028 create: sizes are chosen only here (the size list is immutable afterwards), as chips 5–29 with one price and
+ * quantity applicable to all of them. The proposed price is not a selling price; it goes to the review. Errors keep everything typed; success opens the new product.
+ * FR-028: the key of a create whose answer is unknown is kept in sessionStorage until the outcome is known, so after a
+ * reload the page asks for its receipt and links the product that was created instead of letting it be created twice.
  */
+const PENDING = 'pm.pendingCreate';
+const pending = {
+  read: () => { try { return JSON.parse(sessionStorage.getItem(PENDING) || 'null'); } catch { return null; } },
+  keep: key => { try { sessionStorage.setItem(PENDING, JSON.stringify({ key })); } catch { /* no storage: retry still works */ } },
+  forget: () => { try { sessionStorage.removeItem(PENDING); } catch { /* nothing kept */ } },
+};
+
 export default function ProductCreatePage() {
   const t = useT(messages);
   const api = useCatalogueApi();
   const navigate = useNavigate();
   const categories = useResource(() => api.listCategories(), []);
   const [form, setForm] = useState({ name: '', description: '', categoryId: '' });
-  const [variants, setVariants] = useState([emptyVariant()]);
+  const [variants, setVariants] = useState([]);
   const [images, setImages] = useState([]);
   const [hints, setHints] = useState({});
-  const command = useCommand();
+  const command = useCatalogueCommand();
+  const [recovery, setRecovery] = useState(null);
+
+  const checkPending = async () => {
+    const kept = pending.read();
+    if (!kept?.key) return;
+    try {
+      const receipt = await api.getCommandReceipt(kept.key, ACTIONS.createProduct);
+      pending.forget();
+      setRecovery({ productId: receipt.result.resourceId });
+    } catch (error) {
+      if (error?.code === 'COMMAND_RESULT_NOT_FOUND') { pending.forget(); setRecovery(null); } else setRecovery({ error });
+    }
+  };
+  useEffect(() => { checkPending(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Known outcome (saved, or refused for good) ends the pending create; a lost answer or 503 keeps it for a retry.
+  const finish = outcome => {
+    if (!outcome) return;
+    if (outcome.ok) {
+      pending.forget();
+      navigate(`/catalogue-management/products/${encodeURIComponent(outcome.result.resourceId)}`, { state: { notice: { key: 'create.success', params: { name: form.name.trim() } } } });
+    } else if (!outcome.error.retryable) pending.forget();
+  };
 
   const serverErrors = serverFieldErrors(command.error);
   const errorOf = field => serverErrors[field] || (hints[field] && t(hints[field]));
   const set = name => event => setForm(current => ({ ...current, [name]: event.target.value }));
-  const setVariant = (index, name) => event => setVariants(current => current.map((variant, i) => (i === index ? { ...variant, [name]: event.target.value } : variant)));
 
   const submit = async event => {
     event.preventDefault();
@@ -43,8 +76,9 @@ export default function ProductCreatePage() {
       variants: variants.map(variant => ({ size: Number(variant.size), proposedPrice: variant.proposedPrice, quantity: variant.quantity })),
       images: imagesPayload(images),
     };
-    const outcome = await command.run(key => api.createProduct(key, body));
-    if (outcome.ok) navigate(`/catalogue-management/products/${encodeURIComponent(outcome.result.resourceId)}`, { state: { notice: 'create.success' } });
+    const key = newCommandId();
+    pending.keep(key);
+    finish(await command.run(sent => api.createProduct(sent, body), ACTIONS.createProduct, key));
   };
 
   const activeCategories = (categories.data?.items || []).filter(category => category.active);
@@ -52,6 +86,12 @@ export default function ProductCreatePage() {
   return (
     <>
       <PageTop eyebrow={t('nav.group')} title={t('create.title')} />
+      {recovery?.productId && (
+        <p className="notice success" role="status">{t('create.recovered')}{' '}
+          <Link className="text-link" to={`/catalogue-management/products/${encodeURIComponent(recovery.productId)}`}>{t('create.openRecovered')}</Link>
+        </p>
+      )}
+      {recovery?.error && <ErrorNotice error={recovery.error} messages={messages} onRetry={checkPending} />}
       <form className="workspace-card" onSubmit={submit} noValidate>
         <h2>{t('section.content')}</h2>
         <div className="form-grid">
@@ -69,26 +109,12 @@ export default function ProductCreatePage() {
         <h2 className="section-title">{t('create.sizes')}</h2>
         <p className="muted small">{t('create.sizesHint')}</p>
         {errorOf('variants') && <p className="field-error">{errorOf('variants')}</p>}
-        <div className="variant-rows">
-          {variants.map((variant, index) => (
-            <div className="variant-row" key={index}>
-              <Field label={t('field.size')} error={errorOf(`variants[${index}].size`)}><input inputMode="numeric" value={variant.size} onChange={setVariant(index, 'size')} /></Field>
-              <Field label={t('field.proposedPrice')} error={errorOf(`variants[${index}].proposedPrice`)}><input inputMode="numeric" value={variant.proposedPrice} onChange={setVariant(index, 'proposedPrice')} /></Field>
-              <Field label={t('field.quantity')} error={errorOf(`variants[${index}].quantity`)}><input inputMode="numeric" value={variant.quantity} onChange={setVariant(index, 'quantity')} /></Field>
-              <button type="button" className="button outline small" disabled={variants.length === 1}
-                onClick={() => setVariants(current => current.filter((_, i) => i !== index))}>{t('create.removeSize')}</button>
-            </div>
-          ))}
-        </div>
-        <button type="button" className="button outline" disabled={variants.length >= LIMITS.maxSizes} onClick={() => setVariants(current => [...current, emptyVariant()])}>{t('create.addSize')}</button>
+        <SizePicker variants={variants} onChange={update => { setVariants(update); setHints(current => ({ ...current, variants: undefined })); }} errorOf={errorOf} disabled={command.pending} />
 
         <h2 className="section-title">{t('section.images')}</h2>
         <ImageEditor images={images} onChange={setImages} errors={{ ...Object.fromEntries(Object.keys(hints).filter(key => key.startsWith('images')).map(key => [key, t(hints[key])])), ...Object.fromEntries(Object.entries(serverErrors).filter(([key]) => key.startsWith('images'))) }} disabled={command.pending} />
 
-        <ErrorNotice error={command.error} messages={messages} onRetry={async () => {
-          const outcome = await command.retry();
-          if (outcome?.ok) navigate(`/catalogue-management/products/${encodeURIComponent(outcome.result.resourceId)}`, { state: { notice: 'create.success' } });
-        }} />
+        <ErrorNotice error={command.error} messages={messages} onRetry={async () => finish(await command.retry())} />
         <div className="actions form-actions">
           <button type="submit" className="button primary" disabled={command.pending}>{command.pending ? t('saving') : t('create.submit')}</button>
           <button type="button" className="button outline" onClick={() => navigate('/catalogue-management/products')}>{t('cancel')}</button>

@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-03
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -111,11 +111,12 @@ rescheduling, or process OTA payments/refunds.
   V1 default is 100% of every successfully collected booking/package payment.
   Mland may revise the policy for bookings confirmed after its effective time;
   each confirmed booking retains the policy snapshot accepted at confirmation.
-- Q: How are additional material or service charges added? → A: A customer may
-  add a fixed-price catalogue add-on allowed for the package/location; it enters
-  the final bill at its displayed price. A variable material or service charge
-  becomes part of the bill only after Staff/Manager confirms it. Customers never
-  enter arbitrary prices.
+- Q: How are additional material or service charges added? → A: Customers may
+  view active catalogue add-ons, but only Staff/Manager records customer consent
+  and confirms one at the workshop. A direct booking appends the immutable line to
+  an OPEN final bill, or uses a separate direct-Mland add-on bill after the bill
+  is FINALIZED. An OTA booking always uses a separate direct-Mland add-on bill
+  and never changes OTA payment or payout facts. Customers never enter prices.
 - Q: Which V1 channel provides accepted final-payment evidence? → A: VNPay only.
   A customer may pay at the counter through the VNPay link/QR, but settlement
   requires valid signed VNPay IPN or QueryDR evidence; browser return and a
@@ -213,10 +214,10 @@ rescheduling, or process OTA payments/refunds.
   code and correlation reference; policy/amount outcome is included only for an
   authorized caller.
 - Q: How do fixed add-on and variable charge flow? → A: A customer supplies only
-  `catalogueAddOnReference`; the server validates package/location and creates the
-  accepted charge at its catalogue snapshot price. Only Staff/Manager supplies a
-  variable description, amount, and reason; that one audited command confirms
-  the variable charge. Customers have no variable-charge flow.
+  add-on reference after customer consent at the workshop; the server validates
+  package/location and derives the immutable catalogue snapshot price. Only
+  Staff/Manager supplies a variable description, amount, and reason. Customer
+  booking and lookup routes are read-only for catalogue information.
 - Q: How does VNPay evidence enter settlement? → A: HTTPS signed IPN is provider
   ingress and receives a VNPay acknowledgement; server-to-server QueryDR
   reconciles missing, late, or ambiguous IPN. Both match reference, amount, and
@@ -262,10 +263,10 @@ rescheduling, or process OTA payments/refunds.
   `0` through `100`. The system computes the refund as
   `floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND.
 - Q: Who may select a fixed-price catalogue add-on, and until when? → A: An
-  owning Member may use authenticated ownership and a Guest may use the booking
-  code plus one stored contact phone or email on each request. Both may select
-  only an eligible catalogue add-on before the final bill is finalized; Magic
-  Link remains read-only.
+  Staff in the booking location scope or a global Manager may record the
+  selection after customer consent at the workshop. Member and Guest routes may
+  display the active catalogue but cannot create a financial charge; Magic Link
+  remains read-only.
 - Q: Who may read the central refund-policy revision resource? → A: Any active
   Manager may read all policy revisions. Guest/Member may
   read only the retained policy snapshot and refund outcome permitted for their
@@ -281,10 +282,14 @@ rescheduling, or process OTA payments/refunds.
 - A final booking balance equals the remaining frozen package amount, approved
   additional material/service charges, less the paid deposit. Replacing required
   sessions within the same package never changes the frozen package price.
-- A customer may add a fixed-price catalogue add-on permitted for the package and
-  location; its displayed price becomes a final-bill charge. A variable material
-  or service charge becomes a final-bill charge only after Staff/Manager confirms
-  it. Customers cannot enter an arbitrary charge or price.
+- Customers may view active add-ons, but only Staff/Manager may confirm them at
+  the workshop with customer-consent evidence. A direct booking appends the
+  immutable line to an OPEN final bill, or uses a separate direct-Mland add-on
+  bill after finalization. An OTA booking always uses a separate direct-Mland
+  add-on bill isolated from OTA financial facts. Laser engraving is complimentary
+  only for OTA-origin bookings under the OTA shop add-on policy. For a direct
+  Mland booking, laser engraving is an ordinary catalogue add-on: its active
+  Operations price is snapshotted and charged like any other direct add-on.
 - Charge, payment, void, and adjustment records are immutable evidence. A
   correction is an authorized void or adjustment with audit, not an edit to
   historical evidence.
@@ -297,9 +302,11 @@ rescheduling, or process OTA payments/refunds.
   entitlements and capacity commitments through 003.2 as one booking-level
   all-or-none result. It retains the booking deposit and preserves each
   participant's persistent ticket/QR across the booking's resulting required
-  sessions. For Silverclay, 003.2 MUST validate the complete resulting pair as
-  same-location, distinct and chronologically ordered; if on the same day, the two
-  slots MUST have at least one slot between them.
+  sessions. For Wax Casting, 003.2 MUST validate the complete resulting pair as
+  same-location, distinct and chronologically ordered, with exactly two
+  Monday–Friday local dates strictly between them. Saturday/Sunday do not count;
+  slot/time does not alter this calculation. The retired Silverclay same-day
+  rule does not apply.
 - A whole-booking refund revokes unused tickets and releases future capacity only
   after the gateway confirms the refund. A failed refund does not restore the
   booking for use.
@@ -363,9 +370,11 @@ failed/duplicate evidence changes nothing.
    verified payment evidence reduces the balance to zero.
 3. **Given** a finalized bill, **When** Staff finds an error, **Then** only an
    audited void/adjustment corrects it; original evidence remains.
-4. **Given** a permitted fixed-price catalogue add-on, **When** the customer
-   selects it, **Then** it is visible in the final bill at its displayed price;
-   a variable charge appears only after Staff/Manager confirmation.
+4. **Given** a permitted fixed-price catalogue add-on, **When** Staff records
+   customer consent at the workshop, **Then** an eligible direct booking gets an
+   immutable line in its OPEN bill (or a separate direct-Mland bill if finalized);
+   an OTA booking gets only a separate direct-Mland bill and OTA facts remain
+   unchanged. A variable charge appears only after Staff/Manager confirmation.
 
 ### User Story 2 — Customer cancels a whole booking (P1)
 
@@ -426,17 +435,24 @@ outcome.
   adjustment, and Mland-caused remedy.
 - **FR-004**: The system MUST preserve immutable charge, payment, void, and
   adjustment records for each final bill.
-- **FR-004a**: The system MUST accept a customer-selected charge only for a
-  fixed-price catalogue add-on permitted for the booking's package and location,
-  at its displayed price. A variable material or service charge MUST require
-  Staff/Manager confirmation before it enters the final bill; customers MUST NOT
-  create arbitrary charge names or prices.
+- **FR-004a**: The system MUST accept a Staff/Manager-confirmed charge only for a
+  fixed-price catalogue add-on after customer consent at the workshop. Customer
+  routes MAY display eligible add-ons but MUST NOT create or select bill lines.
+  The
+  server MUST derive the price from the package/location catalogue snapshot and
+  MUST NOT accept customer-supplied financial mutation. A direct booking appends
+  to an OPEN bill or uses a separate direct-Mland bill after finalization; an OTA
+  booking always uses a separate direct-Mland bill isolated from OTA facts.
 - **FR-004b**: `POST /workshop-bookings/{bookingCode}/final-bill/charges` MUST
-  accept only `catalogueAddOnReference` from a customer and MUST derive the
-  accepted price from the permitted package/location catalogue snapshot. An owning
-  Member uses authenticated ownership; a Guest provides the booking code and one
-  stored contact phone or email at each request. Customer catalogue selection
-  MUST be rejected after final-bill finalization. A variable charge MUST be
+  accept `catalogueAddOnReference` only from an active Staff scoped to the
+  booking location or a global Manager, after workshop consent, and MUST derive
+  the accepted price from the permitted package/location catalogue snapshot.
+  Member/Guest access is read-only and cannot mutate charges. A direct booking
+  appends to an OPEN final bill, while a finalized direct booking requires a
+  separate direct-Mland add-on bill. An OTA booking always requires a separate
+  direct-Mland add-on bill isolated from OTA payment/payout facts; only that OTA
+  flow treats laser engraving as zero-charge. A direct Mland booking charges
+  laser engraving from the active catalogue like any other add-on. A variable charge MUST be
   submitted only by Staff/Manager with description, amount, and reason; that
   audited command confirms it. No customer variable-charge command exists.
 - **FR-005**: The system MUST calculate one booking/package final balance from
@@ -496,6 +512,15 @@ outcome.
   evidence may reduce the balance. A pending, failed, unknown, or expired
   attempt MUST leave the final bill unpaid and package output withheld. No
   reminder or payment-link reissue is provided.
+- **FR-011a**: A final-payment UI command with browser/network timeout, lost
+  response, or unverified provider outcome MUST be represented as `UNKNOWN`.
+  It MUST retain and reuse the original `Idempotency-Key` solely for an
+  explicit same-command retry or server-backed status check. It MUST NOT
+  automatically retry, generate another payment attempt, create a new payment
+  URL, or release package output. `EXPIRED` remains unpaid and requires
+  server-side QueryDR reconciliation before any later attempt is permitted by
+  the existing contract. Browser-return parameters are display-only and cannot
+  transition a bill, booking, or output-handover state.
 - **FR-012**: Deposit/payment-hold links and their associated capacity holds
   MUST continue to share one absolute deadline of at most 10 minutes from hold
   creation. Final-payment attempts have a separate 10-minute provider URL expiry
@@ -545,9 +570,10 @@ outcome.
 - **FR-018**: An authorized Manager MAY replace one or more future required
   sessions only with compatible sessions that have capacity for the booking's
   unchanged participant count. For a multi-session package, the complete
-  resulting session set MUST remain valid; Silverclay's resulting pair MUST be
-  same-location, distinct, chronologically ordered and, when on the same day,
-  separated by at least one slot. Feature 003.3 MUST request the complete
+  resulting session set MUST remain valid; Wax Casting's resulting pair MUST be
+  same-location, distinct and chronologically ordered, with exactly two
+  Monday–Friday local dates strictly between them (Saturday/Sunday excluded).
+  Settlement must not substitute the retired Silverclay same-day rule. Feature 003.3 MUST request the complete
   booking-level replacement set from 003.2 and MUST NOT directly read or change
   its capacity, ticket or session entities.
 - **FR-019**: Feature 003.2 MUST validate and apply the complete requested
@@ -652,8 +678,8 @@ outcome.
 - **Final Booking Bill**: Remaining package amount, charge/adjustment lines,
   paid deposit, payments, and outstanding balance.
 - **Charge Line**: Immutable final-bill charge with either a permitted
-  customer-selected fixed-price catalogue source or a Staff/Manager-confirmed
-  variable material/service source.
+  Staff/Manager-confirmed fixed-price catalogue source or a Staff/Manager-
+  confirmed variable material/service source.
 - **Package Output Handover**: Staff gives the workshop package deliverable to
   the customer only after the final balance has been verified as paid. This
   describes the product/output after the workshop, not the booking ticket used

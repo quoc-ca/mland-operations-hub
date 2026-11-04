@@ -1,7 +1,7 @@
 # Quickstart Validation Guide: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-04
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -52,7 +52,7 @@ Refer to [data-model.md](data-model.md) for entity invariants and [contracts/int
 
 ## Scenario V-02: Unverified email sign-in and verification gate (US2)
 
-**Covers**: FR-004, SC-001
+**Covers**: FR-004, FR-005, FR-006, SC-001
 
 **Setup**: Account bootstrapped in V-01; email not yet verified in Firebase.
 
@@ -64,8 +64,37 @@ Refer to [data-model.md](data-model.md) for entity invariants and [contracts/int
 **Expected outcomes**:
 - Non-blocking verification reminder is visible on Home
 - The user can navigate to `/profile`
-- Attempting a verification-required action (e.g., profile save if configured as verification-required) is denied with clear guidance
+- Opening Profile automatically enters a neutral checking state; Profile save is disabled while verification remains unverified or synchronization is unavailable
 - No role/status change occurs
+
+**Verification-required capability check (same browser)**:
+```
+3. Verify the email using Firebase's default verification-email handler
+4. Enter /profile
+5. FE reloads the current Firebase user and forces a fresh ID token
+6. FE calls PUT /api/v1/accounts/me/email with the fresh bearer before enabling profile save
+```
+**Expected**:
+- The server, not a browser-supplied boolean, observes `emailVerified=true` from the verified Firebase token and updates the Account verification snapshot
+- Profile save can proceed only after that sync succeeds
+- No Mland action-handler route, Firebase callback/webhook, polling job, raw action code, or automatic retry of profile save is used
+
+**Resend and reload-icon behavior**:
+```
+7. While unverified, select resend from Profile and observe Firebase accepts it
+8. Restart the browser and return to the same Account's Profile within 90 seconds
+9. Activate the verification-status reload icon using mouse and keyboard
+```
+**Expected**: Resend remains disabled until its 90-second Account-specific `localStorage` expiry, with no email/UID/token/action code stored. The icon exposes a readable accessible name/tooltip, shows loading/failure state, and repeats only the Profile check.
+
+**Different browser/device recovery**:
+```
+10. Repeat setup, but complete the Firebase verification link in a browser/device without the Member's active session
+11. Sign in again in the original application browser and enter /profile
+```
+**Expected**: Firebase verification remains valid; entry check reloads the signed-in Firebase user, forces a fresh bearer, synchronizes the same Account, and then allows profile save.
+
+**Invalid state**: If `reload` still reports unverified, Firebase is unavailable, or synchronization returns 403/503, profile save does not start; safe unsaved form input remains and the Member can resend or explicitly retry with the icon. If no Firebase user exists or the session is expired, the draft is discarded and the user is directed to sign in.
 
 ---
 
@@ -86,13 +115,14 @@ Refer to [data-model.md](data-model.md) for entity invariants and [contracts/int
 - `Account.login_email`, `role`, `status`, and location scope are unchanged
 - Inline validation rejects: empty name, name > 100 chars, name with ISO control chars, phone < 7 or > 30 chars
 
-**Email sync**:
+**Email change and sync**:
 ```
-1. Change login email via Firebase provider flow (outside FE-001 UI)
-2. Sign in with the new email (new Firebase ID token)
-3. POST /accounts/me/email-sync with the current bearer
+1. Reauthenticate, then request change from old email to new email with Firebase `verifyBeforeUpdateEmail`
+2. Before the new email is verified, confirm Firebase and Account still show the old email; no pending email is persisted in Mland
+3. Verify the new email through Firebase's default handler
+4. Return to /profile; automatic reload and forced-fresh bearer call PUT /accounts/me/email
 ```
-**Expected**: `Account.login_email` updates to the provider email; browser-supplied email is never accepted
+**Expected**: `Account.login_email` changes only after Firebase verifies the new email and the Profile gate syncs it; browser-supplied email is never accepted. An inaccessible/expired new-email link leaves the old email current; repeat `verifyBeforeUpdateEmail` to retry or propose another address.
 
 ---
 
@@ -253,6 +283,86 @@ TargetFactsOutcome result = accountFacade.findTargetFacts(AccountId.of(42L));
 
 ---
 
+## Scenario V-10: Member shipping address book management (US6)
+
+**Covers**: FR-036, FR-037, FR-038, FR-039, FR-040, SC-008
+
+**Setup**: Authenticated Member signed in.
+
+```
+1. Open http://localhost:5173/profile/addresses
+2. Click "Thêm địa chỉ mới" (Add new address)
+   → Recipient name and phone pre-filled from AccountProfile
+3. Select Province -> District -> Ward from cascading dropdown
+4. Enter phone with punctuation/delimiters (e.g. "+84 901-234-567")
+5. Save address
+   → System auto-normalizes phone to "0901234567"
+   → First address automatically marked is_default = true
+6. Add a second address and mark it as default
+   → Second address becomes is_default = true; first address loses default flag atomically
+7. Attempt to delete the second (default) address while first address exists
+   → Request rejected with error requiring user to change default address first
+8. Add addresses up to 10
+9. Attempt to add an 11th address
+   → 409 ADDRESS_LIMIT_EXCEEDED returned; user advised to delete or edit existing address
+10. Delete a non-default address
+   → Row physically removed from member_addresses (Hard Delete)
+11. Simulate FE-08 checkout using AddressFacade:
+   → Address snapshot captured into order record; later profile edits do not alter the order
+```
+
+---
+
+## Scenario V-11: System timezone standardization to UTC+7 (FR-035, SC-009)
+
+**Covers**: FR-035, SC-009
+
+**Setup**: Backend connected to MySQL with `connectionTimeZone=Asia/Ho_Chi_Minh`.
+
+```
+1. Insert or update an Account or MemberAddress via API
+2. Query MySQL directly:
+   SELECT created_at, updated_at, NOW() FROM member_addresses;
+3. Verify that timestamps in MySQL match current Vietnam local time (UTC+7)
+4. Verify GET API responses format timestamps in ISO-8601 with "+07:00" offset
+```
+
+---
+
+## Scenario V-12: Google Sign-In and In-Place Credential Re-authentication (FR-002, FR-005, US1, US2)
+
+**Covers**: FR-002, FR-005, US1, US2
+
+**Setup**: Local frontend with Firebase configured; test Google account available.
+
+```
+1. Open /sign-in in browser:
+   → Verify "Đăng nhập với Google" button is displayed prominently
+2. Click "Đăng nhập với Google":
+   → Browser redirects via signInWithRedirect to accounts.google.com
+3. Complete Google sign-in:
+   → Browser redirects back to /sign-in
+   → getRedirectResult resolves authenticated user
+   → POST /accounts/me bootstraps Account and Profile
+   → Browser navigates to Home (/)
+4. Attempt Google sign-in with email already registered via password:
+   → Error auth/account-exists-with-different-credential handled
+   → Safe alert displayed: "Email này đã được đăng ký bằng Mật khẩu..."
+   → No account overwrite or automatic merge occurs
+5. Open Profile (/profile) with password-authenticated account:
+   → Verify 3-field Password Change form is displayed (Current, New, Confirm)
+   → Submit with incorrect current password:
+     → In-place re-auth fails with auth/invalid-credential or wrong-password
+     → Current password field is cleared; inline error shown; new password retained in form memory
+   → Submit with valid current password and matching new password (>= 6 chars):
+     → In-place re-auth succeeds; updatePassword succeeds without auth/requires-recent-login
+     → All fields cleared; green success alert displayed
+6. Open Profile (/profile) with Google-authenticated account:
+   → Verify Password Change section is hidden (providerData lacks "password")
+```
+
+---
+
 ## Error Presentation Spot-Checks
 
 | Trigger | Expected response |
@@ -272,5 +382,5 @@ Before handoff, retain evidence for:
 1. Flyway fresh-database migration (V1 to current) — startup log screenshot or CI run
 2. Flyway upgrade migration (V5 baseline → current `AuditOutcome`/`VARCHAR(16)`) — startup log + sample query
 3. Spring Modulith boundary verification — test output confirming `accountmanagement` module detects correctly
-4. Scenarios V-01 through V-09 executed locally — annotated screenshots or test output per scenario
+4. Scenarios V-01 through V-12 executed locally — annotated screenshots or test output per scenario
 5. WCAG 2.2 AA baseline — accessibility scan output for all FE-001 screens (frontend foundation owner)

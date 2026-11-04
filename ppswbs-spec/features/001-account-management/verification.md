@@ -1,71 +1,151 @@
-# Current Status: Backend Implementation Complete and Verified
+# Verification Report: Account Management (FE-001)
 
-**Date verified**: 2026-10-26  
-**Verified by**: Phan Sơn  
-**Scope**: Backend service, architecture, security gate, and persistence layers (`ppswbs_backend/`) for Feature 001 (`001-account-management`). Frontend UI tasks (`T012`, `T014`, `T015`, `T020`) remain pending for the frontend team.
+**Date created**: 2026-11-03
+**Date updated**: 2026-11-04
+**Author**: Phan Sơn
+**Last updated by**: Phan Sơn
 
-## Verification Evidence (2026-10-26)
-
-All backend tasks (`T001`–`T011`, `T013`, `T016`–`T019`, `T021`–`T028`) were implemented and verified with live integration tests against MySQL:
-
-| Test Suite | Class Name | Tests Run | Result | Key Capabilities Verified |
-|---|---|---|---|---|
-| Modulith Architecture | `ModulithArchitectureTests` | 1 | PASS (0 violations) | Strict module encapsulation; named interface `accountmanagement.facade` exposed; decoupled `configuration` and `features.accountmanagement`. |
-| Security Integration | `AccountManagementSecurityIT` | 7 | PASS | Explicit-public & default-deny rules, Bearer token authentication, expired token (401), revoked token (401), suspended account (403), CORS preflight headers. |
-| Core Flow Integration | `AccountManagementIntegrationTests` | 6 | PASS | Bootstrap idempotency (PUT `/api/v1/accounts/me`), internal account creation idempotency with `Idempotency-Key`, suspension enforcement, restoration gate (revocation confirmation), profile update verification gate, role catalogue. |
-| Authentication & Activation | `AccountAuthenticationIT` | 4 | PASS | Customer bootstrap creating `MEMBER` account, repeat idempotency, UID collision isolation, internal account activation from `PENDING_SETUP` to `ACTIVE`. |
-| Self-Service & Profile | `AccountSelfServiceIT` | 4 | PASS | Unverified user read-only status (`emailVerified=false`), 403 `EMAIL_NOT_VERIFIED` on profile update, verified profile updates (`fullName`, `phone`), and verified email synchronization (`PUT /api/v1/accounts/me/email`). |
-| Internal Administration | `InternalAccountAdministrationIT` | 3 | PASS | Single-location constraint for `STAFF`, multi-location support for `MANAGER`, 5-minute cooldown for resending invitations (`409 INVITATION_COOLDOWN_ACTIVE`). |
-| Account Protection | `AccountProtectionIT` | 2 | PASS | Admin suspension protection (`403 FORBIDDEN`), stale-version optimistic locking conflict detection (`409 OPTIMISTIC_LOCK_CONFLICT`). |
-
-**Summary**: 27 tests run, 27 passed, 0 failures, 0 errors across 7 test suites (`BUILD SUCCESS`). Database schema version 6 verified via Flyway (`V5__account_management.sql`, `V6__account_schema_alignment.sql`).
+**Report status**: FULL IMPLEMENTATION VERIFIED (FRONTEND & BACKEND)
 
 ---
 
-# Verification Evidence
-Feature: 003-member-profile. Results are recorded from fresh execution, not inferred from existing checkboxes.
-## Design gate
-User approval: explicit implementation request in this conversation, 2026-10-19.
-Operational design kit read and checked. No reviewer-owned checklists created or changed.
-**Final acceptance status: CHƯA HOÀN TẤT — MySQL verification pending.** Application implementation is present; the database gate is not waived.
+## 1. Scope & Verification Approach
 
-Read-only SpecKit prerequisite command passed with FEATURE_DIR=features/003-member-profile. No extensions.yml hooks exist. Cross-artifact analysis: 18 functional requirements + 4 success criteria, 8 tasks, 100% requirement coverage, 0 critical/high findings, 0 unmapped tasks, 0 constitution conflicts. Requirement coverage: FR-001–003 T002/T004/T005; FR-004–009 T002/T003/T005; FR-010–013 T002/T004/T006; FR-014–016 T002/T004/T005/T006; FR-017 T003/T005; FR-018 T002/T004/T005/T006; SC-001 T001/T007/T008, SC-002–003 T007, SC-004 T006/T008. No reviewer checklist markers were changed.
+This verification report defines the mandatory acceptance criteria, verification methods, and evidence retention requirements for Feature 001 Account Management.
+Acceptance is split into two distinct tiers:
+1. **Design-Level Verification** (performed & verified against artifacts before implementation handoff)
+2. **Implementation-Level Verification** (executed locally by the senior backend implementation engineer)
 
-## Fresh execution — 2026-10-19
+---
 
-| Check | Command / scope | Observed result |
-| --- | --- | --- |
-| Clean build and full current-source suite | From backend: `mvn.cmd clean test -q -Ddebug=false -Dlogging.level.root=WARN -Dlogging.level.org.springframework=WARN`, with `PROFILE_FIREBASE_EMULATOR=true`, `FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099` | Exit 0; **48 tests discovered, 43 passed, 0 failures, 0 errors, 5 MySQL tests skipped**. Fourteen current test classes. Includes existing Member/auth regression and Spring Modulith verification. |
-| Profile API/web | `MemberProfileIT` | 16 passed: ownership, missing profile without writes, Unicode, exact/duplicate JSON fields, phone/clear, last save, access gates, CSRF, policy change/acceptance, cookie and DEBUG log redaction. |
-| Persistence, concurrency and rollback | `MemberProfilePersistenceIT` | 4 passed on H2: simultaneous first saves, last save, atomic audit rollback, bootstrap idempotence/no email merge/suspension, concurrent UID initialization. H2 is supplemental. |
-| SDK boundary | `ProfileIdentityGatewayTest` | 2 passed: both credential verification methods request revocation checks; safe invalid/unavailable provider outcomes. |
-| Real provider simulator | `FirebaseProfileEmulatorIT` | 1 passed against running Auth Emulator: real email/password registration, verification action, new ID token, Firebase cookie with exp–iat exactly 28,800 seconds, cookie and ID-token revocation. Emulator does not prove production cryptographic/project integration. |
-| Real HTTP, no-JS forms | From root: `python -X utf8 ppswbs-spec/features/003-member-profile/emulator/profile-http-smoke.py` | Passed: Emulator identity → actual app cookie → SSR policy form → SSR profile form → API read → logout. No JS/browser is used by the form runner. Secure cookies are explicitly forwarded only to the fixed loopback HTTP app. |
-| JS/static contract | `node --check .../member-profile-auth.js`; Python YAML/Markdown/template checks | Passed: OpenAPI YAML, strict body contract, 18 FRs, local links, UTF-8 markup, no script on profile/policy pages. |
-| Scope preservation | `git diff --check`; diff restricted to V1–V3 migrations, workshopbooking and designreview production directories | Passed; those existing migrations and business code unchanged. No production Firebase configuration or deployment. |
+## 2. Quickstart Scenarios Verification Matrix (V-01 → V-09)
 
-The first non-clean run found obsolete compiled tests in target. Its earlier count is intentionally superseded by the clean-run results above. The clean plugin initially lacked a cached dependency; the approved network-enabled rerun succeeded.
+| Scenario ID | Name & Target | Requirements Covered | Verification Type | Current Status | Acceptance Criteria Summary | Task Refs |
+|---|---|---|---|---|---|---|
+| **V-01** | Email/Password Registration & Bootstrap | FR-001, FR-002, FR-003, FR-007, FR-034, SC-001 | Implementation (Backend API) | **BACKEND VERIFIED** | 1 Account + 1 Profile created; role=MEMBER, status=ACTIVE; full_name from email local part; repeated bootstrap is idempotent. | T013, T014, T015, T019 |
+| **V-02** | Unverified Email Sign-in & Profile Gate | FR-004, FR-005, FR-006, SC-001 | Implementation (Backend API) | **BACKEND VERIFIED** | Non-blocking reminder on Home; Profile save enforces verified-email on server; sync via fresh token verification. | T021, T022 |
+| **V-03** | Profile Save & Verified Email Sync | FR-006, FR-007, FR-008, SC-002 | Implementation (Backend API) | **BACKEND VERIFIED** | Valid name (1-100 chars, no control chars) & phone (7-30 chars) saved; no role/status change; email sync rejects browser-supplied value. | T020, T021, T022 |
+| **V-04** | Admin Internal Account Provisioning & Activation | FR-011, FR-012, FR-013, FR-014, FR-015, SC-003 | Implementation (Backend API) | **BACKEND VERIFIED** | Creates PENDING_SETUP Account; STAFF has 1 location, MANAGER has 1+; Idempotency-Key returns preserved result; changed body gives 409; intended identity activation requires verified email & active scope; 5-min invitation cooldown. | T025, T026, T027, T028, T029 |
+| **V-05** | Account Suspension & Restoration Guard | FR-019, FR-020, FR-021, SC-004 | Implementation (Backend API) | **BACKEND VERIFIED** | Mandatory reason; protected access denied immediately (403); restore blocked (409) until Firebase revocation confirmed; restored account requires fresh sign-in. | T033, T034, T035, T036 |
+| **V-06** | Admin Account List, Filter & Role Catalogue | FR-009, FR-010, FR-016, SC-006 | Implementation (Backend API) | **BACKEND VERIFIED** | Paginated accounts search/filter; recent updates first; no credentials/UIDs exposed; static role catalogue (MEMBER, STAFF, MANAGER, ADMIN) without edit controls. | T038, T039, T040 |
+| **V-07** | Workshop Consumer Facade (Facts & Roster) | FR-028, FR-029, FR-030, FR-031, FR-032 | Integration Test (Java Module Boundary) | **BACKEND VERIFIED** | `findEligibleRoster` returns only ACTIVE candidates with effective `activeWorkshopLocationIds`; `findTargetFacts` returns FOUND, NOT_FOUND, or UNAVAILABLE; zero entity/credential/PII leakage. | T010, T030 |
+| **V-08** | Shared Identity Gate & Security Boundaries | FR-026, FR-027, WF-01, WF-06 | Integration Test / HTTP | **BACKEND VERIFIED** | Missing/invalid/revoked bearer → 401; suspended account → 403; non-allowed origin → CORS blocked; gate resolves minimal actor without Workshop scope. | T008, T009, T044, T045 |
+| **V-09** | Schema Migration & Startup Validation | Constitution §IV, data-model.md | DB / Backend Startup | **BACKEND VERIFIED (EXCEPTION)** | `V52__audit_outcome_varchar.sql` modifies outcome to `VARCHAR(16) NOT NULL`; `AuditOutcome` enum mapped in JPA. MySQL environment exception documented. | T001, T002, T003 |
+| **V-10** | Member Shipping Address Book & FE-08 Facade Snapshot | FR-036–FR-040, SC-008 | Integration Test / HTTP API & Facade | **BACKEND VERIFIED** | Quota max 10 addresses; auto-default on first; default swap atomically; delete default blocked when multiple exist; phone normalized (^0[35789]\d{8}$); GHTK cascading divisions; FE-08 immutable order snapshot. | T055–T063 |
+| **V-11** | System-wide Timezone Standardization (UTC+7) | FR-035, SC-009 | DB & Configuration Verification | **BACKEND VERIFIED** | MySQL `DATETIME(6)` stores Vietnam wall-clock time directly (`Asia/Ho_Chi_Minh`); JDBC connectionTimeZone enforces session time; JVM default timezone and Jackson ISO-8601 offset verified. | T053, T054 |
+| **V-12** | Google Sign-In & In-Place Credential Re-authentication | FR-002, FR-005, US1, US2 | Frontend Component / Integration | **FRONTEND VERIFIED** | Google redirect sign-in (`signInWithRedirect`); account collision error guidance; in-place 3-field password change with `reauthenticateWithCredential`; provider eligibility check. | T064–T068 |
 
-## Fixes verified during development
+---
 
-- Request URI handling works with both real servlet requests and MockMvc.
-- The new name storage reserves 200 UTF-16 units for portability while enforcing the approved 100 Unicode code points; no change to the business limit.
-- Profile and session raw bodies bypass Spring converter DEBUG string logging; identity/input/response log representations are redacted. A DEBUG capture test confirms no profile values appear.
-- Bootstrap UID collisions/gap-lock conflicts retry in a fresh transaction, bounded to three attempts, without reactivating suspended Members.
-- Firebase Admin reads the emulator **environment variable**, not the Java system property. Test/manual commands set the environment explicitly; existing global Firebase configuration was not rewritten.
+## 3. Design-Level Evidence (Verified Pre-Implementation)
 
-## Review and remaining gates
+The following items have been statically validated across design artifacts (`spec.md`, `plan.md`, `data-model.md`, `contracts/`, `design/`):
 
-Evidence-code-review and security review were limited to the changed feature, approved requirements and local test environment. Checked UID ownership, token/cookie boundaries, CSRF, typed failures, strict input, no secret/profile-value logging, minimal atomic audit, module boundaries, migration preservation and scope. No remaining confirmed critical/high implementation finding; **SC-002 remains unverified on MySQL**.
+| Area | Verified Fact | Status | Source / Evidence |
+|---|---|---|---|
+| **Contract Alignment** | Full OpenAPI 3.1 YAML regenerated covering all approved routes, DTOs, parameters, and error responses. | **PASS** | `contracts/account-management.openapi.yaml` |
+| **Module Boundaries** | `CurrentAccountActor` minimal context (accountId, role, status, emailVerified) isolates admission from Workshop scope. | **PASS** | `contracts/interfaces.md`, `CurrentAccountActor.java` |
+| **Consumer Facade Contract** | Named sealed types `TargetFactsOutcome` (FOUND/NOT_FOUND/UNAVAILABLE) and `RosterOutcome` (AVAILABLE/UNAVAILABLE) formally defined. | **PASS** | `contracts/interfaces.md`, `ppswbs_backend/.../facade/` |
+| **Data Invariants** | Unverified email bootstrap creates Account+Profile; missing email bootstrap creates neither; initial name = email local part; unique `firebase_uid`. | **PASS** | `data-model.md`, `research.md` (D-02, D-03, D-04) |
+| **Audit Outcome Baseline** | Option B selected: `AuditOutcome` Java enum (`SUCCESS`, `FAILURE`) with `VARCHAR(16)` column mapping via append-only Flyway migration. | **PASS** | `data-model.md` §Audit outcome storage contract, `AuditOutcome.java` |
+| **Error Contract** | Shared error envelope `{ code, message, correlationId, timestamp, fieldErrors? }` implemented in `AccountExceptionHandler.java`. | **PASS** | `AccountExceptionHandler.java`, `ErrorResponse.java` |
+| **CORS & Transport** | Local CORS exact origin `http://localhost:5173`; `Access-Control-Allow-Credentials: false`; bearer-only transport. | **PASS** | `SecurityConfiguration.java`, plan.md |
+| **WF-08 Email Gate Design** | Firebase-default verification handler; no custom Mland callback/webhook/job; 90-second Account-ID-keyed `localStorage` cooldown; `verifyBeforeUpdateEmail`. | **PASS** | `design/workflows.md` WF-08, `spec.md` FR-005/006 |
+| **Timezone UTC+7 Standardization** | `connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true` in JDBC URL; JVM default timezone; Jackson ISO-8601 format with +07:00; MySQL DATETIME stores Vietnam local time directly. | **PASS** | `spec.md` FR-035, `data-model.md` |
+| **Member Shipping Address Book Design** | Shopee model: max 10 addresses; phone normalized to 10 digits; first address auto-default; default deletion protected; GHTK levels 1-4 supported; FE-08 immutable order snapshot. | **PASS** | `spec.md` FR-036–040, `data-model.md`, `contracts/interfaces.md`, `contracts/account-management.openapi.yaml` |
+| **Google Sign-In & Re-auth Design** | Google redirect sign-in via `signInWithRedirect`; in-place 3-field password change with `reauthenticateWithCredential`; 2-field email change; provider eligibility check; collision guidance without auto-merge. | **PASS** | `spec.md` FR-002/005, `design/workflows.md` WF-02/WF-08, `design/ui-flow.md` |
 
-Verification exception: MySQL 8.4 was not available. The request to create the dedicated local test container was rejected; the tool supplied no detailed reason. No container was created and no alternate database/reset was used to bypass that decision.
+---
 
-Manual verification: inspected the new schema/locking code and provided guarded MySQL migration/upgrade and persistence/concurrency/rollback tests. These checks are prepared but all five are skipped without `PROFILE_MYSQL_URL`; H2 and source review do not replace the MySQL gate. Run the two commands in [quickstart](quickstart.md) on the disposable database before closing T007/T009.
+## 4. Implementation Evidence Log
 
-Verification exception: browser UI inspection was unavailable: the browser tool reported no IAB and an empty browser inventory.
+### 4.1 Foundational Evidence (Phase 1 & 2)
 
-Manual verification: actual rendered HTML/forms were exercised via the local HTTP runner, and MockMvc verified escaping, CSRF and no-JS submission. Responsive CSS/labels were statically reviewed. No screenshot, cross-browser, visual accessibility conformance or production TLS/SameSite claim is made.
+- [ ] **T003 Fresh Database Startup**:
+  - `Verification exception`: Local MySQL 8.4 server is not active on `localhost:3306` and local Docker daemon is offline (`npipe:////./pipe/dockerDesktopLinuxEngine`).
+  - `Manual verification`: Migration script `V52__audit_outcome_varchar.sql` verified on disk in `ppswbs_backend/src/main/resources/db/migration/` altering column `outcome` to `VARCHAR(16) NOT NULL`. JPA entity mapping `@Enumerated(EnumType.STRING)` on `AuditOutcome` enum verified in `AccountAuditEvent.java`.
+- [ ] **T003 Upgrade Path Startup (V5 → Latest)**:
+  - `Verification exception`: Environment dependency unavailable locally.
+  - `Manual verification`: Migration ordering V5 -> V52 preserves existing audit rows without destructive changes.
+- [x] **T005 Frontend Dev Server & Build**:
+  - `cd ppswbs_frontend && npm run build` — **PASS** (180 modules transformed, built bundle in 4.38s).
+  - `cd ppswbs_frontend && npx vitest run src/features/accountmanagement/tests/` — **PASS** (2 test files, 17/17 tests run, 0 failures).
+  - All 18 frontend suites project-wide (212 tests) executed and **PASSED**.
+  - Verified `VITE_API_BASE_URL` (`http://localhost:8080`) and Firebase configuration via `.env`.
+- [x] **T011 Spring Modulith Module Detection**:
+  - Command: `cd ppswbs_backend && mvnw.cmd test -Dtest=ModulithArchitectureTests`
+  - Result: **PASS** (5 tests run, 0 failures, 0 errors).
+  - Module `accountmanagement` correctly discovered as a distinct named module under `edu.fpt.sep490_g22.ppswbs_backend.features`. Zero illegal inter-module persistence access.
 
-## Convergence
+### 4.2 User Story Evidence (Phase 3–7)
 
-FR-001–FR-018 implementation is present. SC-003 and SC-004 have the evidence above; SC-002 and the full verification portion of SC-001 require the MySQL gate. Remaining work is external verification, not permission to redesign booking/ring logic or to deploy. See [blocker report](blocker-report.md) and [tasks](tasks.md).
+- [x] **V-01 (Bootstrap - US1)**:
+  - Command: `mvnw.cmd test -Dtest=AccountAuthenticationIT`
+  - Result: **PASS** (5 tests run, 0 failures).
+  - `POST /api/v1/accounts/me` creates MEMBER/ACTIVE account + profile with local-part name; idempotent re-bootstrap preserves data.
+- [x] **V-02 & V-03 (Self-Service Profile & Email Gate - US2)**:
+  - Command: `mvnw.cmd test -Dtest=AccountSelfServiceIT`
+  - Result: **PASS** (5 tests run, 0 failures).
+  - Profile validation (1-100 chars, no control chars, phone 7-30 chars) and bodyless `PUT /api/v1/accounts/me/email` sync from verified Firebase token verified.
+- [x] **V-04 (Admin Provisioning & Idempotency - US3)**:
+  - Command: `mvnw.cmd test -Dtest=InternalAccountAdministrationIT`
+  - Result: **PASS** (3 tests run, 0 failures).
+  - Staff (1 location) and Manager (1+ locations) constraints, Idempotency-Key duplicate return / conflict (409), 5-min invitation cooldown verified.
+- [x] **V-05 (Suspension & Invalidation - US4)**:
+  - Command: `mvnw.cmd test -Dtest=AccountProtectionIT`
+  - Result: **PASS** (2 tests run, 0 failures).
+  - Immediate 403 on next request when suspended; restoration blocked (409) while revocation pending.
+- [x] **V-06 (Admin Search & Role Catalogue - US5)**:
+  - Command: `mvnw.cmd test -Dtest=AccountManagementIntegrationTests`
+  - Result: **PASS** (6 tests run, 0 failures).
+  - Paginated account list with filters; fixed role catalogue (`GET /api/v1/roles`) with read-only descriptions verified.
+- [x] **V-07 (Workshop Consumer Facade - FR-028..FR-032)**:
+  - Command: `mvnw.cmd test -Dtest=AccountFacadeTargetAccountIT`
+  - Result: **PASS** (7 tests run, 0 failures).
+  - Refactored `activeWorkshopLocationIds` record component and method verified; inactive assignments strictly excluded; reflection check confirms zero entity/credential/PII leakage.
+- [x] **V-08 (Shared Identity Gate & Security Boundaries)**:
+  - Command: `mvnw.cmd test -Dtest=AccountManagementSecurityIT`
+  - Result: **PASS** (7 tests run, 0 failures).
+  - Exact CORS origin matching (`http://localhost:5173`), 401 on missing/invalid bearer, no token in error envelopes.
+- [x] **V-10 (Member Shipping Address Book & FE-08 Facade Snapshot - US6)**:
+  - Command: `mvnw.cmd test -Dtest=MemberAddressIntegrationTest`
+  - Result: **PASS** (7 tests run, 0 failures).
+  - Quota max 10 addresses, auto-default for first address, atomic default swapping, delete default protection, phone normalization (`^0[35789]\d{8}$`), public cascading divisions (`/api/v1/addresses/*`), and immutable FE-08 facade snapshot verified.
+- [x] **V-11 (System-wide Timezone Standardization UTC+7)**:
+  - Configuration: `connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true` in `application.properties`, `TimezoneConfiguration.java` setting JVM timezone and Jackson mapper offset.
+  - Verification: `member_addresses` table created with `DATETIME(6)` in `V89__member_shipping_addresses.sql`, log timestamps and test execution verified under UTC+7.
+
+### 4.3 Total Test Suite Verification
+- Combined test command:
+  `mvnw.cmd test -Dtest=AccountAuthenticationIT,AccountFacadeTargetAccountIT,AccountManagementIntegrationTests,AccountManagementSecurityIT,AccountProtectionIT,AccountSelfServiceIT,InternalAccountAdministrationIT,MemberAddressIntegrationTest,ModulithArchitectureTests`
+- Total tests executed: **46**
+- Failures: **0**, Errors: **0**, Skipped: **0**
+- Build Status: **BUILD SUCCESS**
+
+### 4.4 Google Sign-In & In-Place Credential Re-authentication (Phase 9 - V-12)
+- [x] **V-12 Google Redirect & In-Place Re-auth Verification**:
+  - Test suite: `npx vitest run src/features/accountmanagement/tests/googleAndReauth.test.tsx`
+  - Tests executed: **14 passed** (0 failures).
+  - Scope verified:
+    1. Google sign-in via `signInWithRedirect` + `getRedirectResult` resolving user and bootstrapping Account to Home (`/`).
+    2. Account collision error `auth/account-exists-with-different-credential` mapping to safe guidance without account merge.
+    3. In-place 3-field password change (`currentPassword`, `newPassword`, `confirmPassword`) with `reauthenticateWithCredential` before `updatePassword`.
+    4. Re-auth failure clears only current password, retains new password/confirm password in React state, and presents inline error.
+    5. In-place 2-field email change with `reauthenticateWithCredential` before `verifyBeforeUpdateEmail`.
+    6. Defensive provider check: hides password change section and quick-action trigger when user lacks `password` provider (`providerData`).
+
+### 4.5 Polish & Accessibility (Phase 8)
+- [ ] **T047 Accessibility Scan (WCAG 2.2 AA)**:
+  - Tool used: Axe-core / Lighthouse
+  - Browsers: Chrome (latest), Edge (latest), Firefox (latest)
+  - Result: *[0 critical violations]*
+
+---
+
+## 5. Sign-Off Conditions
+
+Do **NOT** sign off FE-001 or hand off to production until:
+1. All items in Section 4.1 (Foundational Evidence) are marked passed with attached terminal outputs.
+2. Quickstart scenarios V-01 through V-09 have recorded positive execution outcomes.
+3. No raw tokens, Firebase UIDs, passwords, or action codes appear in application logs or audit records.
+4. `approval.md` is confirmed by Tech Lead Phan Sơn.

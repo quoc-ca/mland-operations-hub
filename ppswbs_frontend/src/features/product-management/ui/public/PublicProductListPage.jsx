@@ -53,13 +53,13 @@ export default function PublicProductListPage() {
             {(categories.data?.items || []).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
           </select>
         </label>
-        <label>{t('public.minimumPrice')}<input inputMode="numeric" value={draft.minimumPrice} onChange={set('minimumPrice')} /></label>
-        <label>{t('public.maximumPrice')}<input inputMode="numeric" value={draft.maximumPrice} onChange={set('maximumPrice')} /></label>
         <label>{t('public.sort')}
           <select value={draft.sort} onChange={set('sort')}>
             {SORTS.map(sort => <option key={sort || 'default'} value={sort}>{t(`public.sort.${sort || 'default'}`)}</option>)}
           </select>
         </label>
+        <label>{t('public.minimumPrice')}<input inputMode="numeric" value={draft.minimumPrice} onChange={set('minimumPrice')} /></label>
+        <label>{t('public.maximumPrice')}<input inputMode="numeric" value={draft.maximumPrice} onChange={set('maximumPrice')} /></label>
         <label className="check"><input type="checkbox" checked={draft.canBuy === 'true'} onChange={set('canBuy')} /> {t('public.onlyBuyable')}</label>
         <button className="button primary" type="submit">{t('public.apply')}</button>
       </form>

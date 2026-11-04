@@ -10,7 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class PackageRequest {
@@ -43,6 +43,11 @@ public class PackageRequest {
     @NotNull(message = "minimumSameDaySlotGap is required")
     @Min(value = 0, message = "minimumSameDaySlotGap must be nonnegative")
     private Integer minimumSameDaySlotGap;
+
+    @NotNull(message = "requiredFoundryWorkingDaysBetweenSessions is required")
+    @Min(value = 0, message = "requiredFoundryWorkingDaysBetweenSessions must be nonnegative")
+    @Builder.Default
+    private Integer requiredFoundryWorkingDaysBetweenSessions = 0;
 
     @JsonIgnore
     @AssertTrue(message = "maxParticipants must be greater than or equal to minParticipants")

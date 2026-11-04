@@ -10,55 +10,57 @@
 
 #### Description
 
-This use case allows a member to view the current loyalty point balance and the point status that can be used in an eligible order. The system calculates the displayed balance from the member's valid loyalty ledger and active loyalty policy.
+This use case allows a Member to open My Loyalty and see their own point balance, the points currently held by pending orders or bookings, the points available to use, and the current value of one point. One shared balance is used for both retail products and workshops.
 
 #### Preconditions
 
-1. The member is signed in.
-2. The member's account and loyalty profile are available.
-3. An active loyalty policy is configured by the system administrator.
+1. The Member is signed in through the shared Account Management sign-in and the account is active.
+2. A confirmed loyalty point policy exists.
 
 #### Normal Flow
 
 **View Loyalty Point Balance**
 
-1. The member opens the loyalty section.
-2. The system retrieves the member's valid loyalty point ledger and active policy.
-3. The system calculates the available, held, expired, and redeemed point amounts when applicable.
-4. The system displays the spendable point balance, applicable limits, and the latest balance update time.
+1. The Member opens My Loyalty.
+2. The system loads the Member's own loyalty account and the current point policy.
+3. The system calculates available points as the balance minus the points held by pending orders or bookings.
+4. The system displays the balance, held points, available points and the value of one point in VND. For example, a balance of 200 with 50 held shows 150 available.
+5. The Member may continue to UC-43 View Loyalty Point History.
 
 #### Alternative Flows
 
-**Step 2 — No loyalty activity**
+**Step 1 — Session expired or revoked**
 
-1. The member has no loyalty point transaction.
-2. The system displays a zero balance and explains how points can be earned.
+The system asks the Member to sign in again (MSG02) and does not show the last known balance as current.
 
-**Step 2 — Loyalty policy is unavailable**
+**Step 2 — Data cannot be loaded**
 
-1. No active loyalty policy can be retrieved.
-2. The system displays the recorded balance and temporarily hides policy-dependent redemption limits.
+The system shows a load error with a retry option (MSG05) instead of a zero balance.
 
-**Step 2 — Data retrieval failure**
+**Step 2 — Member has no point activity yet**
 
-1. The system cannot retrieve the latest point balance.
-2. The system displays an error message and allows the member to retry.
+The system displays a balance of 0 with guidance on how points are earned.
+
+**Step 2 — Request for another Member's balance**
+
+The system rejects the request without revealing whether the account exists (MSG01).
 
 #### Postconditions
 
-- The member can view the latest available loyalty point balance.
-- No points are earned, held, redeemed, or changed by this use case.
-- The displayed balance is based on the member's own account.
+- The Member sees the confirmed balance, held and available points.
+- After points are earned, used, released or refunded, reloading the page shows the confirmed result.
+- No point transaction is created.
 
 #### Business Rules
 
-- BR-38-01
-- BR-38-02
+- BR-42-01
+- BR-42-02
+- BR-42-03
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
-| BR-38-01 | Loyalty points are non-cash benefits and may be used only under the active loyalty policy. |
-| BR-38-02 | The system must display only the loyalty balance belonging to the signed-in member. |
-
+| BR-42-01 | A Member can view only their own loyalty account; knowing another Member's identifier grants no access. |
+| BR-42-02 | Available points equal the balance minus all held points; only available points can be used. |
+| BR-42-03 | Each Member has one shared balance for products and workshops; points do not expire and there are no membership tiers or separate wallets. |

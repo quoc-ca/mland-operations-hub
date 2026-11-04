@@ -62,6 +62,24 @@ class WorkshopAddOnServiceTest {
     }
 
     @Test
+    void managementListIncludesAllLifecycleStatesWithoutRequiringPublishedPackage() {
+        when(packages.findById(10L)).thenReturn(Optional.of(workshopPackage(10L, WorkshopPackageState.DRAFT)));
+        when(locations.findById(20L)).thenReturn(Optional.of(location(20L)));
+        when(addOns.findByPackageIdAndLocationIdOrderByDescriptionAsc(10L, 20L)).thenReturn(List.of(
+                addOn(91L, "abc00000-0000-4000-8000-000000000001", 10L, 20L,
+                        "Draft kit", 15_000L, WorkshopAddOnState.DRAFT),
+                addOn(92L, "abc00000-0000-4000-8000-000000000002", 10L, 20L,
+                        "Retired kit", 20_000L, WorkshopAddOnState.RETIRED)));
+
+        List<AddOnResponse> result = service().listForManagement(10L, 20L);
+
+        assertThat(result).extracting(AddOnResponse::state)
+                .containsExactly(WorkshopAddOnState.DRAFT, WorkshopAddOnState.RETIRED);
+        verify(addOns).findByPackageIdAndLocationIdOrderByDescriptionAsc(10L, 20L);
+        verify(addOns, never()).findByPackageIdAndLocationIdAndStateOrderByDescriptionAsc(any(), any(), any());
+    }
+
+    @Test
     void quoteSnapshotRequiresPublishedPackageActiveLocationAndExactActiveTuple() {
         when(packages.findById(10L)).thenReturn(Optional.of(workshopPackage(10L, WorkshopPackageState.PUBLISHED)));
         when(locations.findByIdAndActiveTrue(20L)).thenReturn(Optional.of(location(20L)));

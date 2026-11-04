@@ -3,7 +3,8 @@ import { Link, useLocation, useParams } from 'react-router';
 import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
 import { ConfirmDialog, ErrorNotice, Field, Loading, SuccessNotice, useCommand, useResource } from '../../../../shared/ui/components';
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
-import { DiscountText, ScopeBadge, Terms } from '../display';
+import { DiscountText, ScopeBadge, Terms, useDateTime } from '../display';
+import { sharedMessages } from '../../../../shared/ui/messages';
 import { messages } from '../messages';
 import { isAmount, isPercent, isPositive, LIMITS, serverFieldErrors, toInstant, toLocalInput } from '../../domain/promotionRules';
 import { PageTop } from './PromotionManagementLayout';
@@ -18,6 +19,7 @@ import { DateTimeField } from './DateTimeField';
 export default function ProgramDetailPage() {
   const t = useT(messages);
   const format = useFormat();
+  const dateTime = useDateTime();
   const api = useLoyaltyApi();
   const { programId } = useParams();
   const location = useLocation();
@@ -52,21 +54,22 @@ export default function ProgramDetailPage() {
 
   return (
     <>
-      <PageTop title={data.name}><Link className="button outline" to="/promotion-management/programs">{t('back')}</Link></PageTop>
+      <PageTop eyebrow={t('manage.eyebrow')} title={data.name}><Link className="button outline" to="/promotion-management/programs">{t('back')}</Link></PageTop>
       <SuccessNotice>{notice && t(notice)}</SuccessNotice>
       {program.error && <ErrorNotice error={program.error} messages={messages} onRetry={program.reload} />}
 
       <section className="workspace-card">
         <div className="card-head">
           <div>
-            <h2>{t(`kind.${data.kind}`)} <ScopeBadge scope={data.scope} /></h2>
+            <h2>{t(`kind.${data.kind}`)}</h2>
             {data.code && <p className="mono">{t('field.code')}: {data.code}</p>}
           </div>
-          <span className={paused ? 'status' : 'status ok'}>{t(`status.${data.status}`)}</span>
+          <div className="chips"><ScopeBadge scope={data.scope} /><span className={paused ? 'status' : 'status ok'}>{t(`status.${data.status}`)}</span></div>
         </div>
-        <p><strong>{t('field.discount')}:</strong> <DiscountText discount={data.discount} /></p>
+        <p className="discount-line">{t('field.discount')}: <DiscountText discount={data.discount} /></p>
         <Terms item={data} labels={labels} />
-        <p className="muted small">{t('detail.meta', { version: data.version, revision: data.revision, createdAt: format.dateTime(data.createdAt) })}</p>
+        <TargetWarnings program={data} labels={labels} onRetry={program.reload} />
+        <p className="muted small detail-meta">{t('detail.meta', { version: data.version, revision: data.revision, createdAt: dateTime(data.createdAt) })}</p>
         <div className="actions form-actions">
           {!editing && <button type="button" className="button outline" onClick={() => setEditing(true)}>{t('edit')}</button>}
           <button type="button" className={paused ? 'button primary' : 'button outline'} onClick={() => { toggle.reset(); setConfirm(true); }}>{paused ? t('program.resume') : t('program.pause')}</button>
@@ -105,6 +108,36 @@ export default function ProgramDetailPage() {
   );
 }
 
+/**
+ * Products or sizes of the scope that can no longer be bought (spec clarification 2026-10-26), from targetCheck /
+ * targetWarnings of getPromotionProgram. Nothing is changed: the Manager decides whether to pause.
+ */
+function TargetWarnings({ program, labels, onRetry }) {
+  const t = useT(messages);
+  const tShared = useT(sharedMessages);
+  if (program.targetCheck === 'UNAVAILABLE') {
+    return (
+      <div className="notice error" role="status">
+        <p>{t('warn.unavailable')}</p>
+        <button type="button" className="button outline small" onClick={onRetry}>{tShared('retry')}</button>
+      </div>
+    );
+  }
+  const warnings = program.targetWarnings || [];
+  if (warnings.length === 0) return null;
+  const nameOf = ({ dimension, targetKey }) => labels?.[dimension === 'VARIANT' ? 'variantIds' : 'productIds']?.[targetKey]
+    || t(`warn.${dimension}`, { id: targetKey });
+  return (
+    <div className="notice error" role="status">
+      <p><strong>{t('warn.title')}</strong></p>
+      <ul>
+        {warnings.map(warning => <li key={`${warning.dimension}-${warning.targetKey}`}>{nameOf(warning)} — {t(`warn.${warning.state}`)}</li>)}
+      </ul>
+      <p className="small">{t('warn.hint')}</p>
+    </div>
+  );
+}
+
 function initialForm(program) {
   return {
     name: program.name,
@@ -124,8 +157,8 @@ function initialForm(program) {
 /** Only changed fields are sent (PATCH); kind, scope, code and targets are not editable. */
 function EditForm({ program, api, onDone, onCancel, onReload }) {
   const t = useT(messages);
-  const format = useFormat();
-  const inWords = local => (toInstant(local) ? t('create.timeInWords', { at: format.dateTime(toInstant(local)) }) : null);
+  const dateTime = useDateTime();
+  const inWords = local => (toInstant(local) ? t('create.timeInWords', { at: dateTime(toInstant(local)) }) : null);
   const [form, setForm] = useState(() => initialForm(program));
   const [hints, setHints] = useState({});
   const command = useCommand();

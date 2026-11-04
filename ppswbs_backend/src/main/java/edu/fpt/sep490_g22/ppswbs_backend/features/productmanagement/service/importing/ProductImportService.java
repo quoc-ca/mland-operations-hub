@@ -24,6 +24,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -181,9 +182,11 @@ public class ProductImportService {
             var lockedCategories = locks.lock(new CatalogueLockCoordinator.LockRequest(categoryIds, Set.of(), Set.of()))
                     .categories();
             List<ProductImportDtos.ImportError> stale = new ArrayList<>();
+            // A file row with several sizes gives several payload rows; its stale category is reported once.
+            Set<Integer> staleRows = new HashSet<>();
             for (PayloadRow row : rows) {
                 ProductCategory category = lockedCategories.get(Long.parseLong(row.categoryId()));
-                if (category == null || !category.isActive()) {
+                if ((category == null || !category.isActive()) && staleRows.add(row.row())) {
                     stale.add(new ProductImportDtos.ImportError(row.row(), ImportColumn.CATEGORY.header(),
                             row.categoryName(), "CATEGORY_NOT_ACTIVE_OR_UNKNOWN",
                             "The category does not exist or is not active."));

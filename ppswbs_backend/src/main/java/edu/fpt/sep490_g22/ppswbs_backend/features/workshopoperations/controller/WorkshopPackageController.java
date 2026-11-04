@@ -35,20 +35,31 @@ public class WorkshopPackageController {
     private final WorkshopPackageService packageService;
     private final WorkshopPackageDiscoveryService discoveryService;
     private final WorkshopPackageAuthorizationService packageAuthorization;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OperationsRestIdempotencyService restIdempotency;
 
     @GetMapping("/workshop-packages")
     public List<PackageResponse> listPublishedPackages() {
         return packageService.listPublished();
     }
 
+    @GetMapping("/workshop-package-management/packages")
+    public List<PackageResponse> listManagedPackages(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam(required = false) edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.WorkshopPackageState state) {
+        packageAuthorization.requireActiveManager(authorization);
+        return packageService.listForManagement(state);
+    }
+
     @PostMapping("/workshop-packages")
     public ResponseEntity<PackageResponse> createDraft(
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = CORRELATION_HEADER, required = false) String correlationReference,
+            @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody PackageRequest request) {
         Long actorId = packageAuthorization.requireActiveManager(authorization);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(packageService.createDraft(request, actorId, correlationReference));
+                .body(restIdempotency.execute(idempotencyKey, "REST:POST:/api/v1/workshop-packages", "package:create:" + actorId,
+                        request, PackageResponse.class, () -> packageService.createDraft(request, actorId, correlationReference)));
     }
 
     @GetMapping("/workshop-packages/{packageId}")
@@ -61,9 +72,11 @@ public class WorkshopPackageController {
             @PathVariable Long packageId,
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = CORRELATION_HEADER, required = false) String correlationReference,
+            @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody PackageRequest request) {
         Long actorId = packageAuthorization.requireActiveManager(authorization);
-        return packageService.updateProspectively(packageId, request, actorId, correlationReference);
+        return restIdempotency.execute(idempotencyKey, "REST:PATCH:/api/v1/workshop-packages/{packageId}", "package:update:" + packageId,
+                request, PackageResponse.class, () -> packageService.updateProspectively(packageId, request, actorId, correlationReference));
     }
 
     @PostMapping("/workshop-packages/{packageId}/lifecycle-transitions")
@@ -71,9 +84,11 @@ public class WorkshopPackageController {
             @PathVariable Long packageId,
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = CORRELATION_HEADER, required = false) String correlationReference,
+            @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody PackageLifecycleTransitionRequest request) {
         Long actorId = packageAuthorization.requireActiveManager(authorization);
-        return packageService.transition(packageId, request.getTargetState(), actorId, correlationReference);
+        return restIdempotency.execute(idempotencyKey, "REST:POST:/api/v1/workshop-packages/{packageId}/lifecycle-transitions", "package:transition:" + packageId,
+                request, PackageResponse.class, () -> packageService.transition(packageId, request.getTargetState(), actorId, correlationReference));
     }
 
     @GetMapping("/workshop-packages/{packageId}/sessions")

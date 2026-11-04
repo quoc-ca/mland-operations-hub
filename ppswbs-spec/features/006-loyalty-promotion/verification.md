@@ -1,12 +1,12 @@
 # Verification — FE-06 Loyalty & Promotion
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-01 (mục 30: chuẩn bị T075/T076, đối chiếu 41 FR; mục 29: phục hồi, tranh chấp nguồn, báo cáo lượt dùng; mục 28: workshop nguồn thật FE-03 và CORS; mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật))
+**Date updated**: 2026-11-04 (mục 46: rà soát hoàn thành — 80/80 task, backend 258/258, frontend 31/31, owner thử voucher thật; trước đó: 2026-11-03 (mục 40 sửa theo thực tế, mục 41: cảnh báo phạm vi cho Manager, khôi phục lệnh tạo, mã voucher trong spec; trước đó: 2026-11-01 (mục 30: chuẩn bị T075/T076, đối chiếu 41 FR; mục 29: phục hồi, tranh chấp nguồn, báo cáo lượt dùng; mục 28: workshop nguồn thật FE-03 và CORS; mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
 **Feature**: `006-loyalty-promotion`  
-**Trạng thái**: Đang triển khai — backend 006 đã có code, test và migration V10–V12 (chưa commit); bằng chứng runtime ở mục 8–18 chạy trên **build tạm** (BE-DESIGN-0011). Mục 1–7 là kết quả lúc lập tài liệu, giữ làm lịch sử.  
+**Trạng thái**: Đã triển khai đủ 80/80 task (mục 45, 46); code backend/frontend 006 đã vào develop. Test tự động chạy lại 2026-11-04 đều đạt. Còn mở (không phải task 006): một số hành trình liên feature trên trình duyệt chưa có bằng chứng (mục 46). Mục 1–7 là kết quả lúc lập tài liệu; mục 8–18 chạy trên **build tạm** (BE-DESIGN-0011); giữ làm lịch sử.  
 **Mục đích**: ghi kết quả T001–T003 (nguồn, review, analyze, readiness) theo [tasks.md](tasks.md). File này không phải phê duyệt và không cấp quyền code/deploy.
 
 ## 1. Nguồn đã đối chiếu (T001)
@@ -636,9 +636,122 @@ Lần chạy 2026-11-02 sau khi owner 003 sửa V78 (develop `a64aa29`, commit `
 - FE-03 vẫn import `features/loyaltypromotion/checkout/BenefitSelector`; file chuyển tiếp ở đường cũ được giữ.
 - `npm test` 171/171, `npm run build` đạt.
 
-## 39. Chạy lại toàn bộ trước khi gộp, 2026-11-04
+## 39. Chạy lại toàn bộ trước khi gộp, 2026-11-03
 
 - Trước khi gộp lên develop (nhánh `khuong` = develop `efa3c78` + phần 002/006): MySQL 8.4, database trống.
   - 006 + `ModulithArchitectureTests` + `WorkshopSellingLocationAdapterTest`: **258/258 đạt** (V78/V80 đã sửa trên develop).
   - 002: 297 chạy, 294 đạt, 3 lỗi "Too many connections" ở `CatalogueSellingLocationIT` (MySQL `max_connections` mặc định khi chạy dài); chạy riêng lớp đó **3/3 đạt**.
   - Frontend `npm test` 171/171, `npm run build` đạt.
+
+## 40. Nhãn khu vực và thanh lọc công khai, 2026-11-03
+
+- Nhãn 006 theo đúng code hiện tại (sửa lại 2026-11-03; bản trước ghi nhầm "QUẢN LÝ TÍCH ĐIỂM", nhãn này không có trong code): nhóm trên thanh bên quản lý ưu đãi "MANAGER"; tiêu đề Danh sách chương trình và Tạo chương trình "MANAGER"; Chi tiết chương trình và Chính sách điểm "QUẢN LÝ ƯU ĐÃI" / "PROMOTION MANAGEMENT" (`manage.eyebrow`); Ưu đãi đang có và chi tiết ưu đãi "ƯU ĐÃI" / "OFFERS"; Điểm của tôi và Kho Voucher "MEMBER". Khớp các frame Figma 006-10, 11d, 12, 13, 14b, 15c, 16. Nhãn của 002 xem validation-report của 002.
+- (Thanh lọc trang sản phẩm công khai thuộc 002, xem validation-report của 002.)
+- `npm test` 172/172, `npm run build` đạt. Danh sách chênh lệch Figma ↔ code đã gửi owner để cập nhật Figma.
+
+## 41. Rà soát spec–code–Figma: cảnh báo phạm vi, khôi phục lệnh tạo, mã voucher, 2026-11-03
+
+- T079 (clarification 2026-10-26, Edge Cases): `getPromotionProgram` của chương trình sản phẩm có `targetCheck` (CHECKED/UNAVAILABLE) và `targetWarnings[{dimension, targetKey, state}]` với state DELETED (đã xóa mềm/không còn), NOT_PUBLIC (chưa công khai/đang ẩn/danh mục ngừng), NOT_ON_SALE (công khai nhưng không size nào đang bán). `PromotionTargetWarningService` đọc fact qua `PromotionTargetPort` (adapter 002) ngoài transaction loyalty và chỉ ở GET chi tiết: nguồn sản phẩm lỗi thì chi tiết vẫn trả với UNAVAILABLE; phản hồi lệnh ghi không có hai trường này. Chương trình không bị tạm dừng hay đổi phạm vi. Contract: `Program` thêm hai trường tùy chọn, schema mới `TargetWarning` (35 schema). Frontend `ProgramDetailPage` hiện khối cảnh báo (tên sản phẩm nếu đọc được, nếu không "Sản phẩm #id") hoặc thông báo chưa kiểm tra được kèm Thử lại.
+- T080 (US1.8, FR-007): `ProgramCreatePage` giữ key + body lệnh tạo chưa biết kết quả trong sessionStorage (`lp.pendingCreate`); sau tải lại hiện "Gửi lại đúng yêu cầu đó" (cùng Idempotency-Key, backend replay, không tạo chương trình thứ hai) hoặc "Bỏ qua". 006 không có endpoint receipt nên dùng replay; giảm tự động không có mã nên trước đây có thể bị tạo trùng.
+- Spec: thêm Clarification "Session 2026-11-03" ghi quyết định mã voucher do hệ thống sinh ("ML" + 8 ký tự, "Sinh mã khác", tự sinh lại khi trùng), sửa US1.1, US1.4 (kiểm ở mức API) và FR-006.
+- Mục 39–40: sửa ngày (ghi nhầm 2026-11-04) và nhãn theo đúng code; bỏ phần thuộc 002.
+- Kiểm tra: frontend 006 30/30 (thêm 4 test), toàn bộ frontend 181/184 (3 test của OTA và 002 lỗi lúc máy đang chạy Maven song song; chạy lại riêng hai file đó 40/40 đạt), `npm run build` đạt. Backend MySQL 8.4, database trống: `PromotionTargetWarningIT` 1/1 (adapter 002 thật: sản phẩm công khai không cảnh báo, nháp NOT_PUBLIC, đã xóa DELETED), `PromotionManagementContractIT` 13/13, `PromotionCreateContractIT` 11/11, `LoyaltyApiContractIT` 8/8, `SavedVoucherContractIT` 7/7, `PromotionUsageIT` 4/4, `LoyaltySecurityIT` 11/11 (55/55). Hai contract IT so chi tiết với phản hồi tạo được sửa để bỏ qua hai trường chỉ có ở chi tiết; test đếm schema 34 → 35. Chưa chạy lại toàn bộ 006 và chưa kiểm trên trình duyệt với phiên Manager thật.
+
+## 42. Rà soát task và hành trình 006 với phiên thật, 2026-11-03
+
+**Rà soát:**
+- `tasks.md`: chỉ còn **T055** chưa tick. Trên code mới nhất (develop `efa3c78`), trang checkout FE-08 chưa nhúng `BenefitSelector`, và `BenefitPreviewView` (`readyringsales/dto/CheckoutDtos.java`) chưa có `maxPoints`. FE-03 đã có cả hai (T061 đã đóng).
+- Spec, plan, data-model, quickstart, contract không còn chỗ chưa chốt. Code 006 không có TODO/FIXME.
+
+**Hành trình trên Chrome, đăng nhập Firebase thật (frontend Vite local, backend local nhánh `khuong`, MySQL 8.4):**
+
+Với manager@gmail.com:
+1. Tạo voucher: mã do hệ thống sinh `MLP34YJ4PK`, giảm 10% tối đa 50.000 ₫, 100 lượt, 1 lượt/Member, phạm vi sản phẩm #6 chọn qua `ProductTargetPicker`. Tạo xong chuyển sang chi tiết #4: điều khoản đúng, lượt dùng 0/100, không có cảnh báo phạm vi (sản phẩm đang công khai). **ĐẠT**
+2. Tạm dừng (có hộp xác nhận): `GET /api/v1/promotions` không còn voucher. Mở lại: voucher xuất hiện lại. **ĐẠT**
+3. Chính sách điểm: nhập 150% → "Phần trăm từ lớn hơn 0 đến 100…", không lưu. Đổi điểm tối thiểu 10 → 20 lưu được (phiên bản 3), trả về 10 (phiên bản 4). **ĐẠT**
+
+Với member@gmail.com:
+4. `/promotions` hiện voucher; "Lưu vào Kho Voucher" → "Đã lưu."; `/me/saved-vouchers` hiện voucher kèm "Đã lưu lúc …". **ĐẠT**
+5. `/me/loyalty`: số dư 0/0/0, quy tắc theo chính sách phiên bản 4 (tối thiểu 10 điểm, tối đa 10%), lịch sử trống có thông báo riêng. **ĐẠT**
+6. Member mở `/promotion-management/programs` → 403 "Tài khoản của bạn không có quyền thực hiện thao tác này." kèm mã tra cứu. **ĐẠT**
+
+**Lỗi tìm thấy:**
+- Đã sửa: trang Chính sách điểm hiện mã `FLOOR`. Nay hiện "Làm tròn xuống (bỏ phần lẻ)" / "Round down (drop fractions)" (`policy.rounding.FLOOR`). Frontend 006 30/30, kiểm lại trên trình duyệt.
+- Đã sửa (owner đồng ý): trên thẻ ưu đãi công khai, trang chi tiết ưu đãi và Kho Voucher, đối tượng hiện ID thô ("Mã sản phẩm: 6"). Nay `usePublicTargetLabels` đọc API sản phẩm công khai của 002 (`GET /api/v1/products/{id}`, `GET /api/v1/products`, không gửi bearer) để hiện tên sản phẩm, hoặc "tên · size N". Sản phẩm ẩn/xóa không có trong catalogue công khai nên vẫn hiện ID. Nhãn đổi thành "Sản phẩm" / "Size" (en "Products" / "Sizes"). Trang quản trị giữ cách cũ (API quản trị, "tên (#id)"). Thêm 1 test (tên lấy từ catalogue công khai, không có Authorization, ID không tìm thấy giữ nguyên). Frontend 006 31/31, build đạt, kiểm trên Chrome với member@gmail.com: "Sản phẩm: Nhẫn kiểm thử hành trình 1103" ở cả 3 trang.
+
+**Kết luận:** phần quản trị và Member của T072/T078 nay đã chạy với phiên thật. Còn mở: T055 (FE-08).
+
+**Chạy lại toàn bộ backend 006 (2026-11-03, sau T079/T080 và các sửa frontend mục 42):** MySQL 8.4, database trống. `features.loyaltypromotion.**` + `ModulithArchitectureTests` + `WorkshopSellingLocationAdapterTest`: **276/276 đạt**, 0 lỗi, 0 bỏ qua.
+
+## 43. T055 sau develop `38c8427` (FE-08 thêm trang giỏ và checkout), 2026-11-03
+
+- FE-08 (Bùi Trọng Thịnh, commit `5b20812`) thêm `/member/cart`, `/member/checkout`, `/member/orders` và `RetailBenefitPanel` riêng. Panel này **không nhúng** `BenefitSelector`, nhưng vẫn dùng dữ liệu FE-06: Kho voucher, `loyalty-accounts/current`, `ready-ring-benefit-previews`.
+- `BenefitPreviewView` vẫn chưa có `maxPoints`. Panel tự tính `maxPoints = min(availablePoints, floor(merchandiseSubtotal × maxRedeemPercent / 100 / redeemPointValue))`, lệch với `LoyaltyCalculator.pointsLimit` ở 3 chỗ:
+  1. Tính trên tiền hàng gốc thay vì `netBeforePoints` (sau ưu đãi chương trình).
+  2. Không chặn khi số điểm tối đa nhỏ hơn `minRedeemPoints`.
+  3. Không đưa về 0 khi chương trình có `allowPoints = false`.
+  Hệ quả: khách có thể chọn số điểm mà backend từ chối (`POINTS_LIMIT_CHANGED` / `POINTS_USE_NOT_ALLOWED`).
+- **Quyết định của owner 006 (Đặng Thị Khương, 2026-11-03):** chấp nhận FE-08 dùng giao diện riêng thay cho nhúng `BenefitSelector`. **T055 chỉ tick sau khi FE-08 sửa `maxPoints`**, theo một trong hai cách:
+  - `BenefitPreviewView` trả `maxPoints`/`pointsRedeemable` từ `LoyaltyCalculator.pointsLimit` (đề xuất);
+  - frontend tính đúng cả 3 điểm trên.
+  Khi FE-08 sửa xong: chạy lại hành trình checkout bán lẻ có voucher và điểm, rồi tick T055.
+- Đã gửi Thịnh nội dung cần sửa.
+
+## 44. T055: FE-08 đã sửa `maxPoints` (nhánh `thinh` `5185994`), 2026-11-03
+
+- **Backend FE-08:** `BenefitPreviewView` thêm `maxPoints`, lấy từ `result.maxPoints()` của báo giá FE-06. `RetailCheckoutQuotePreviewService` từ chối kết quả thiếu hoặc âm `maxPoints`, và trả `maxPoints` cả khi `eligible = false`.
+  - Phía 006, `RetailQuote.Result.maxPoints` = `LoyaltyCalculator.pointsLimit(policy, netBeforePoints, available, combinable).maxPoints()`, tức là tính trên tiền **sau ưu đãi chương trình** và bằng 0 khi chương trình không cho dùng điểm. Hai lệch (1) và (3) của mục 43 đã hết.
+- **Frontend FE-08:** `RetailBenefitPanel` bỏ phần tự tính, dùng `quote.maxPoints`. Chỉ nhận giá trị khi báo giá trùng lựa chọn voucher hiện tại; chưa tính lại thì nút gạt điểm bị khóa, kèm dòng "Tính lại ưu đãi để xem điểm tối đa". Mức tối đa 0 thì không bật được. Đổi voucher thì đưa điểm về 0.
+- **Lệch (2), dưới mức tối thiểu:** nếu `maxPoints` nhỏ hơn `minRedeemPoints` (ví dụ 9 so với 10), nút gạt vẫn bật được. Khi đó báo giá trả `eligible = false` với lý do "Points must be between 10 and 9.", panel hiện lý do và khóa "Tạo đơn", nên không thể tạo đơn sai. Đây chỉ là chỗ cải thiện trải nghiệm: muốn khóa sẵn nút gạt thì `BenefitPreviewView` cần trả thêm `minRedeemPoints` hoặc `pointsRedeemable`. Không chặn T055.
+- **Kiểm chứng trên worktree tạm `origin/thinh` (MySQL 8.4, database trống):**
+  - Backend: `RetailCheckoutQuotePreviewServiceTest` 5, `RetailCheckoutQuoteTest` 2, `RetailCheckoutQuoteValidatorTest` 4, `LoyaltyRetailQuoteTest` 14, `LoyaltyRetailCheckoutIT` 8, `LoyaltyRetailSourceIntegrationIT` 10, `ModulithArchitectureTests` 5 → **48/48 đạt**.
+  - Frontend: `readyringsales` (gồm `RetailBenefitPanel.test.jsx` 4) + 006 + 002 → **68/68 đạt**.
+- **Chưa chạy:**
+  - Hành trình checkout bán lẻ trên trình duyệt: database local chưa có chi nhánh đang hoạt động (003.2), nên không thêm được vào giỏ.
+  - Commit `5185994` mới nằm trên `origin/thinh`, chưa có trên `develop`.
+
+## 45. Đóng T055 trên develop `4fdae05`, 2026-11-03
+
+- `5185994` (dùng `maxPoints` từ báo giá FE-06) và `3c5608a` (thêm `minRedeemPoints`) của FE-08 đã vào develop qua `4fdae05`. Develop không đổi file nào của 002/006 so với `38c8427`.
+- Cả 3 lệch của mục 43 đã hết:
+  1. `maxPoints` tính trên tiền sau ưu đãi chương trình (`LoyaltyCalculator.pointsLimit`).
+  2. `BenefitPreviewView.minRedeemPoints`: khi `maxPoints` nhỏ hơn mức tối thiểu, `RetailBenefitPanel` khóa nút gạt và hiện "Cần tối thiểu N điểm để sử dụng".
+  3. Chương trình không cho dùng điểm thì `maxPoints` = 0, nút gạt bị khóa.
+- Kiểm chứng trên worktree tạm của `origin/develop` (MySQL 8.4, database trống):
+  - Backend: `RetailCheckoutQuotePreviewServiceTest` 5, `RetailCheckoutQuoteTest` 2, `RetailCheckoutQuoteValidatorTest` 4, `LoyaltyRetailQuoteTest` 14, `LoyaltyRetailCheckoutIT` 8, `LoyaltyRetailSourceIntegrationIT` 10, `ModulithArchitectureTests` 5 → **48/48 đạt**.
+  - Frontend: `readyringsales` + 006 + 002 → **88/88 đạt**.
+- **T055 tick** theo quyết định của owner 006: FE-08 dùng giao diện riêng, dữ liệu và giới hạn điểm lấy từ FE-06.
+- Còn lại, không phải task 006: hành trình checkout bán lẻ trên trình duyệt cần chi nhánh đang hoạt động (003.2) để thêm được vào giỏ.
+- 006 nay **80/80 task đã tick**.
+
+## 46. Rà soát hoàn thành 006, 2026-11-04
+
+**Tài liệu:**
+- `tasks.md`: **80/80** task đã tick (T001–T003 ghi `[X]`, T004–T080 ghi `[x]`); bảng tổng T001–T080 = 80.
+- Spec, plan, data-model, quickstart, contract: không còn NEEDS CLARIFICATION/TBD/TODO.
+- Report-3 (`04-ii-use-case-specifications/06-loyalty-and-promotion-management`) khớp spec ở các quyết định chính: mã voucher do hệ thống sinh ("ML" + 8 ký tự, BR-46-02); mã, loại và phạm vi không đổi sau tạo (FR-006, contract `updatePromotionProgram` "không đổi code/kind/scope", BR-45-03, BR-46-04); hạn mức không giảm dưới đã dùng + đang giữ (FR-009, BR-46-04).
+- Code `features/loyaltypromotion` (backend) và `features/loyalty-promotion` (frontend): không có TODO/FIXME. Không có thay đổi code 006 sau `aa322f1`.
+
+**Kiểm tra tự động (nhánh `khuong`, 2026-11-04):**
+- Backend: `.\mvnw.cmd -o test "-Dtest=edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.**.*,ModulithArchitectureTests"`, MySQL 8.4, database trống `ppswbs_loyalty_1104` → **258/258 đạt**, 0 lỗi, 0 bỏ qua (mục 42 đếm 276 vì chạy kèm `WorkshopSellingLocationAdapterTest` và test khác ngoài gói 006).
+- Frontend: `npx vitest run src/features/loyalty-promotion` → **31/31 đạt**.
+
+**Kiểm thử thực tế:** owner 006 (Đặng Thị Khương) đã thử phần quản lý voucher trên trình duyệt với backend local và phiên Manager thật ngày 2026-11-04 và xác nhận không có lỗi. Màn "Sửa chương trình" khóa loại, phạm vi, mã và đối tượng áp dụng đúng theo FR-006/contract.
+
+**Còn mở, không phải task 006** (cần bằng chứng trên trình duyệt trước khi nghiệm thu hành trình liên feature):
+1. Đặt nhẫn có voucher + điểm: giỏ → checkout → đơn (FE-08). Database local đã có chi nhánh hoạt động; phải dùng tài khoản Member (tài khoản Staff/Manager bị `RetailAuthorization` từ chối; lỗi đó hiện trả 500 thay vì 403 do `AccountExceptionHandler` của 001 bắt trước `RetailExceptionHandler` của 008 — đã ghi ở validation-report 002).
+2. Đặt workshop có voucher + điểm (FE-03, `BenefitSelector`).
+3. Tích điểm sau khi đơn/booking được xác nhận thanh toán (VNPay đang tắt ở local; cần cách xác nhận thanh toán của 008/003).
+4. Hủy hợp lệ đơn/booking và kiểm tra trả lại lượt voucher và điểm (`restoreCancelledWorkshopBenefits`, hoàn bán lẻ).
+
+## 47. Đối chiếu Figma lần 2 và sửa frontend, 2026-11-04
+
+- Nguồn Figma: ảnh xuất frame 006 trong `test-data/figma/` (2026-11-02; frame đã được dời sang page "04 · Manager"/"02 · Member", nội dung giữ nguyên). Figma MCP hết lượt cho ghế View nên không đọc trực tiếp.
+- So màn thật (Chrome, backend local) với 006-10, 11, 12, 13, 14, 15. Đã sửa phía frontend (chỉ `ui/`, không đổi API):
+  - Thời gian hiện ngày trước giờ như Figma ("3 thg 11, 2026, 16:00"): `useDateTime` trong `ui/display.jsx`, dùng cho mọi màn 006 (bộ định dạng dùng chung của app giữ nguyên cho feature khác).
+  - Dòng mức giảm ở chi tiết ưu đãi và chi tiết chương trình: bỏ `<strong>` lồng trong đoạn đã đậm (ra 900, vỡ dấu tiếng Việt), nay 600, 17px.
+  - Chi tiết chương trình (12): nhãn phạm vi chuyển sang phải cạnh trạng thái; hàng đối tượng áp dụng chiếm cả hàng để "Tổng số lượt" và "Số lượt mỗi Member" cùng hàng; giãn dòng "Phiên bản…".
+  - Thanh lọc: danh sách chương trình (10) hai ô cạnh nhau bên trái; ưu đãi công khai (14) bỏ thẻ trắng, "Kho Voucher" ngay cạnh ô chọn. Nhãn phạm vi trên chi tiết công khai 12px.
+- Kiểm tra: frontend 006 + 002 `npx vitest run` 89/89 (sửa 1 test theo định dạng thời gian mới). Trên Chrome đo computed style: trang `/promotions` và `/promotions/4` đúng như trên. Màn Manager (10, 12) chưa xem lại trên trình duyệt sau khi sửa: phiên Chrome lúc kiểm tra không còn là Manager (trang chi tiết chương trình trả 403).
+- Figma cũ hơn code (cần cập nhật Figma, không sửa code): 13 ghi "FLOOR" (code: "Làm tròn xuống (bỏ phần lẻ)"); 14/15 ghi "Mã sản phẩm 42" (code: "Sản phẩm" + tên, mục 42); chưa có frame cảnh báo phạm vi ở chi tiết chương trình; đường dẫn trên cùng của chi tiết/tạo chương trình khác chữ.
+- Chưa so: màn Member 16/17 (cần phiên Member), BenefitSelector 18 (trong trang FE-03), trạng thái phụ.

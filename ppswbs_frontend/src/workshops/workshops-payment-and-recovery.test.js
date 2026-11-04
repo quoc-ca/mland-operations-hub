@@ -55,6 +55,32 @@ describe('003.1 T035: Payment Pending, Display-Only Return, Confirmation Ticket 
       assert.strictEqual(result.status, 'PENDING');
     });
 
+    it('preserves an explicit Idempotency-Key when checking an unknown payment again', async () => {
+      const stableKey = 'deposit-recovery-stable-key';
+      const capturedKeys = [];
+
+      globalThis.fetch = async (_url, options) => {
+        capturedKeys.push(options.headers['Idempotency-Key']);
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            attemptReference: 'att-recovered',
+            merchantReference: 'MLAND-DEP-RECOVERED',
+            amountVnd: 225000,
+            currency: 'VND',
+            paymentUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?recovered=true',
+            status: 'PENDING',
+          }),
+        };
+      };
+
+      await initiateDepositPayment('WS-RECOVERY-001', { idempotencyKey: stableKey });
+      await initiateDepositPayment('WS-RECOVERY-001', { idempotencyKey: stableKey });
+
+      assert.deepStrictEqual(capturedKeys, [stableKey, stableKey]);
+    });
+
     it('rejects initiateDepositPayment when bookingCode is missing or blank', async () => {
       await assert.rejects(() => initiateDepositPayment(), { message: 'BOOKING_CODE_REQUIRED' });
       await assert.rejects(() => initiateDepositPayment(''), { message: 'BOOKING_CODE_REQUIRED' });
