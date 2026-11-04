@@ -35,7 +35,7 @@ Guest email/phone lookup without OTP or rate limiting reduces friction but incre
 
 1. A source facade must verify workshop attendance and retail fulfilment without direct repository coupling.
 2. Physical mapping for attendance tickets and retail order lines is not yet approved.
-3. Aggregate strategy (realtime calculation versus projection) remains an implementation decision; both must count only `PUBLIC` rows.
+3. Aggregate strategy is now fixed for V1 as a realtime query over `PUBLIC` rows; projection is deferred.
 4. Migration version must be selected after checking every Flyway version in the repository and the target database history.
 5. The API names in the contract are proposed until `ppswbs-spec/APIs.md` is reviewed and synchronized.
 6. The current Report 3 review-list screen is not proof that Feature-011 is approved; it is a related baseline to update.
@@ -43,4 +43,4 @@ Guest email/phone lookup without OTP or rate limiting reduces friction but incre
 
 ## Research conclusion
 
-The feature is ready for cross-artifact review, not code generation. No unresolved item above changes the already supplied business behavior, but items 1–5 block a production-ready implementation contract.
+The feature is ready for cross-artifact review, not code generation. No unresolved item above changes the already supplied business behavior, but source-facade DTOs, Guest handle security details, migration selection and final API ratification still block a production-ready implementation contract.

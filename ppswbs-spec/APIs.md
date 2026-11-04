@@ -272,9 +272,9 @@ repositories directly. The draft contract is
 
 | Boundary | Method and route | Access | Purpose | Maturity |
 | --- | --- | --- | --- | --- |
-| `reviewmanagement` | `POST /api/v1/review-eligibility/lookup` | Guest email/phone match | Return only eligible checked-in attendance and picked-up/delivered order-line sources. | Draft |
+| `reviewmanagement` | `POST /api/v1/review-eligibility/lookup` | Guest email/phone match | Normalize contact, verify eligible sources through Workshop Operations/Fulfilment facades, and return sources plus an opaque eligibility handle. | Draft |
 | `reviewmanagement` | `GET /api/v1/reviews/eligible-sources` | Authenticated Member | Return the Member’s own eligible sources. | Draft |
-| `reviewmanagement` | `POST /api/v1/reviews` | Matched Guest or owning Member | Create one `PUBLIC` review with idempotency and source uniqueness. | Draft |
+| `reviewmanagement` | `POST /api/v1/reviews` | Matched Guest with valid handle or owning Member with Firebase identity | Revalidate source/target ownership, then create one `PUBLIC` review with idempotency and source uniqueness. | Draft |
 | `reviewmanagement` | `GET /api/v1/reviews`, `GET /api/v1/reviews/{id}` | Public/authorized owner | Read public review projection and public-only aggregate. | Draft |
 | `reviewmanagement` | `PATCH /api/v1/reviews/{id}` | Review owner | Edit rating/text while retaining `PUBLIC`; append revision/audit. | Draft |
 | `reviewmanagement` | `PATCH /api/v1/reviews/{id}/visibility` | Staff/Manager | Staff hides; Manager hides/removes according to permission and audit rules. | Draft |
@@ -282,8 +282,9 @@ repositories directly. The draft contract is
 | `reviewmanagement` | `POST/PATCH /api/v1/reviews/{id}/reply` | Manager | Create/edit the single current reply; audit edits. | Draft |
 
 Admin has technical/audit access only and no business moderation authority. No
-endpoint imports or writes Google Places reviews. Exact fields, errors and
-statuses remain subject to contract ratification.
+endpoint imports or writes Google Places reviews. Guest create requires the
+opaque handle returned by lookup; a raw source identifier is insufficient.
+Exact fields, errors and statuses remain subject to contract ratification.
 
 ### 7.1 Internal dependency contracts
 

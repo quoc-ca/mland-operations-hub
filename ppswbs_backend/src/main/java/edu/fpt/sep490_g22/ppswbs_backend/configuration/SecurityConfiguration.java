@@ -82,6 +82,10 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/required-session-change-cases/*").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/mland-cancellation-remedy-cases/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/final-bill/charges").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/review-eligibility/lookup").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/reviews").permitAll()
+                .requestMatchers(HttpMethod.PATCH, "/api/v1/reviews/*").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().denyAll()
             );
