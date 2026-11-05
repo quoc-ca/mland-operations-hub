@@ -16,6 +16,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.Cata
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueValues;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CreateProductService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.SkuGenerator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -58,6 +60,7 @@ public class ProductImportService {
 
     public static final String VALIDATE_ACTION = "product.import.validate";
     public static final String CONFIRM_ACTION = "product.import.confirm";
+    private static final Logger log = LoggerFactory.getLogger(ProductImportService.class);
     private static final TypeReference<List<PayloadRow>> PAYLOAD = new TypeReference<>() {
     };
     private static final TypeReference<List<ProductImportDtos.ImportError>> ERRORS = new TypeReference<>() {
@@ -94,7 +97,13 @@ public class ProductImportService {
     }
 
     public CatalogueCommandExecutor.Outcome validate(String actorId, UUID commandId, String fileName, byte[] file) {
-        List<ProductImportParser.RawRow> rows = ProductImportParser.parse(fileName, file);
+        List<ProductImportParser.RawRow> rows;
+        try {
+            rows = ProductImportParser.parse(fileName, file);
+        } catch (CatalogueException rejected) {
+            recordRejectedFile(actorId, commandId, fileName, file, rejected);
+            throw rejected;
+        }
         String sha256 = sha256(file);
         var key = new CatalogueCommandExecutor.CommandKey(actorId, VALIDATE_ACTION, commandId,
                 CatalogueCommandExecutor.digest(Map.of("fileSha256", sha256)));
@@ -102,10 +111,7 @@ public class ProductImportService {
             ProductImportValidator.Result result = ProductImportValidator.validate(rows,
                     categories.findByActiveTrueOrderByNameAscIdAsc());
             Instant now = CatalogueValues.toStoredInstant(Instant.now());
-            String storedName = fileName.strip();
-            if (storedName.codePointCount(0, storedName.length()) > 255) {
-                storedName = storedName.substring(0, storedName.offsetByCodePoints(0, 255));
-            }
+            String storedName = storedFileName(fileName);
             ProductImportBatch batch = batches.saveAndFlush(ProductImportBatch.validated(UUID.randomUUID(), actorId,
                     storedName, sha256, commandId, result.rowCount(), result.products().size(),
                     result.variantCount(), result.errors().size(),
@@ -113,7 +119,10 @@ public class ProductImportService {
                     result.valid() ? toJson(payload(result)) : null, now));
             Map<String, Object> changes = new LinkedHashMap<>();
             changes.put("state", batch.getState().name());
+            changes.put("fileName", batch.getFileName());
             changes.put("rowCount", batch.getRowCount());
+            changes.put("productCount", batch.getProductCount());
+            changes.put("variantCount", batch.getVariantCount());
             changes.put("errorCount", batch.getErrorCount());
             changes.put("fileSha256", sha256);
             audit.recordSuccess(new CatalogueAuditWriter.Entry(actorId, VALIDATE_ACTION, "import-batch",
@@ -209,10 +218,15 @@ public class ProductImportService {
             }
             batch.markImported(commandId, toJson(created), now);
             ProductImportBatch saved = batches.saveAndFlush(batch);
+            Map<String, Object> changes = new LinkedHashMap<>();
+            changes.put("state", saved.getState().name());
+            changes.put("fileName", saved.getFileName());
+            changes.put("rowCount", saved.getRowCount());
+            changes.put("productCount", saved.getProductCount());
+            changes.put("variantCount", saved.getVariantCount());
+            changes.put("productIds", created.stream().map(ProductImportDtos.Created::productId).toList());
             audit.recordSuccess(new CatalogueAuditWriter.Entry(actorId, CONFIRM_ACTION, "import-batch",
-                    saved.getId().toString(), saved.getVersion(), null, List.of("state"),
-                    Map.of("state", saved.getState().name(), "productIds",
-                            created.stream().map(ProductImportDtos.Created::productId).toList())));
+                    saved.getId().toString(), saved.getVersion(), null, List.of("state"), changes));
             return receiptResult(200, saved, created);
         };
     }
@@ -225,11 +239,44 @@ public class ProductImportService {
                     Instant now = CatalogueValues.toStoredInstant(Instant.now());
                     batch.markStale(errors.size(), toJson(errors), now);
                     ProductImportBatch saved = batches.saveAndFlush(batch);
+                    Map<String, Object> changes = new LinkedHashMap<>();
+                    changes.put("state", saved.getState().name());
+                    changes.put("reason", "IMPORT_PREVIEW_STALE");
+                    changes.put("fileName", saved.getFileName());
+                    changes.put("rowCount", saved.getRowCount());
+                    changes.put("productCount", saved.getProductCount());
+                    changes.put("variantCount", saved.getVariantCount());
+                    changes.put("errorCount", saved.getErrorCount());
                     audit.recordSuccess(new CatalogueAuditWriter.Entry(actorId, CONFIRM_ACTION, "import-batch",
-                            saved.getId().toString(), saved.getVersion(), null, List.of("state"),
-                            Map.of("state", saved.getState().name(), "reason", "IMPORT_PREVIEW_STALE",
-                                    "errorCount", saved.getErrorCount())));
+                            saved.getId().toString(), saved.getVersion(), null, List.of("state"), changes));
                 }));
+    }
+
+    /**
+     * FR-045: a file refused before any batch exists (wrong type, broken, macro, header, row limit) is audited on its
+     * own — actor, file name, byte count and error code; no cell value or file content is stored.
+     */
+    private void recordRejectedFile(String actorId, UUID commandId, String fileName, byte[] file,
+                                    CatalogueException rejected) {
+        Map<String, Object> changes = new LinkedHashMap<>();
+        changes.put("code", rejected.code().name());
+        changes.put("fileName", storedFileName(fileName));
+        changes.put("byteCount", file == null ? 0 : file.length);
+        try {
+            audit.recordRejection(new CatalogueAuditWriter.Entry(actorId, VALIDATE_ACTION, "import-file",
+                    commandId == null ? null : commandId.toString(), null, null, null, changes));
+        } catch (RuntimeException auditFailure) {
+            log.warn("Could not audit rejected import file code={}", rejected.code().name(), auditFailure);
+        }
+    }
+
+    /** File name as stored on the batch: trimmed, at most 255 code points; empty when the upload has none. */
+    private static String storedFileName(String fileName) {
+        String name = fileName == null ? "" : fileName.strip();
+        if (name.codePointCount(0, name.length()) > 255) {
+            name = name.substring(0, name.offsetByCodePoints(0, 255));
+        }
+        return name;
     }
 
     private static final class StalePreview extends RuntimeException {

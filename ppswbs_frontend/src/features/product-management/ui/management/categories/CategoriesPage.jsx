@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useT } from '../../../../../shared/i18n/I18nProvider';
 import { ConfirmDialog, ErrorNotice, Field, Loading, useResource } from '../../../../../shared/ui/components';
-import { useCatalogueCommand } from '../../../application/useCatalogueCommand';
-import { ACTIONS } from '../../../infrastructure/catalogueApi';
+import { ACTIONS, useCatalogueCommand } from '../../../application/useCatalogueCommand';
 import { useCatalogueApi } from '../../../application/useCatalogueApi';
 import { messages } from '../../messages';
 import { LIMITS, serverFieldErrors } from '../../../domain/productRules';
@@ -23,13 +22,16 @@ export default function CategoriesPage() {
   const categories = useResource(() => api.listCategories(page || undefined), [page]);
   const [notice, setNotice] = useState(null);
   const done = notice => { setNotice(notice); categories.reload(); };
+  // A new action replaces the previous outcome (Session 2026-11-04): clear it before the command runs, so a failure
+  // never shows next to the success notice of the action before it.
+  const clearNotice = () => setNotice(null);
   const data = categories.data;
 
   return (
     <NoticeContext.Provider value={notice}>
       <PageTop eyebrow={t('nav.section')} title={t('category.title')} />
       <PageNotice notice={notice} />
-      <CategoryForm api={api} onDone={name => done({ key: 'category.created', params: { name }, at: 'category-new' })} />
+      <CategoryForm api={api} onStart={clearNotice} onDone={name => done({ key: 'category.created', params: { name }, at: 'category-new' })} />
       <NoticeAt at="category-new" />
       {categories.loading && !data && <Loading />}
       {categories.error && <ErrorNotice error={categories.error} messages={messages} onRetry={categories.reload} />}
@@ -37,14 +39,14 @@ export default function CategoriesPage() {
         ? <div className="empty-state">{t('category.empty')}</div>
         : <section className="workspace-card">
           <h2>{t('category.list')}</h2>
-          {data.items.map(category => <CategoryRow key={category.id} category={category} api={api} onDone={done} reload={categories.reload} />)}
+          {data.items.map(category => <CategoryRow key={category.id} category={category} api={api} onStart={clearNotice} onDone={done} reload={categories.reload} />)}
           <Pager page={page} pageSize={data.pageSize} total={data.totalElements} onChange={next => setParams(next > 0 ? { page: String(next) } : {})} />
         </section>)}
     </NoticeContext.Provider>
   );
 }
 
-function CategoryForm({ api, category, onDone, onCancel, reload }) {
+function CategoryForm({ api, category, onStart = () => {}, onDone, onCancel, reload }) {
   const t = useT(messages);
   const [form, setForm] = useState({ name: category?.name || '', description: category?.description || '' });
   const [hint, setHint] = useState(null);
@@ -54,6 +56,7 @@ function CategoryForm({ api, category, onDone, onCancel, reload }) {
 
   const submit = async event => {
     event.preventDefault();
+    onStart();
     if (!form.name.trim()) { setHint('validation.required'); return; }
     setHint(null);
     const body = { name: form.name.trim(), description: form.description.trim() || null };
@@ -70,7 +73,7 @@ function CategoryForm({ api, category, onDone, onCancel, reload }) {
         <Field label={t('field.categoryName')} error={serverErrors.name || (hint && t(hint))}><input value={form.name} onChange={set('name')} maxLength={LIMITS.nameMax} /></Field>
         <Field label={t('field.categoryDescription')} error={serverErrors.description}><input value={form.description} onChange={set('description')} maxLength={LIMITS.descriptionMax} /></Field>
       </div>
-      <ErrorNotice error={command.error} messages={messages} onRetry={async () => { const outcome = await command.retry(); if (outcome?.ok) onDone(form.name.trim()); }} onReload={reload} />
+      <ErrorNotice error={command.error} messages={messages} onRetry={async () => { onStart(); const outcome = await command.retry(); if (outcome?.ok) onDone(form.name.trim()); }} onReload={reload} />
       <div className="actions">
         <button type="submit" className="button primary" disabled={command.pending}>{category ? t('save') : t('category.create')}</button>
         {onCancel && <button type="button" className="button outline" onClick={onCancel}>{t('cancel')}</button>}
@@ -79,7 +82,7 @@ function CategoryForm({ api, category, onDone, onCancel, reload }) {
   );
 }
 
-function CategoryRow({ category, api, onDone, reload }) {
+function CategoryRow({ category, api, onStart, onDone, reload }) {
   const t = useT(messages);
   const at = `category-${category.id}`;
   const [editing, setEditing] = useState(false);
@@ -96,14 +99,14 @@ function CategoryRow({ category, api, onDone, reload }) {
           <button type="button" className="button outline small" onClick={() => setImpactOpen(true)}>{category.active ? t('category.deactivate') : t('category.activate')}</button>
         </div>
       </div>
-      {editing && <CategoryForm api={api} category={category} reload={reload} onCancel={() => setEditing(false)} onDone={name => { setEditing(false); onDone({ key: 'category.saved', params: { name }, at }); }} />}
-      {impactOpen && <ImpactDialog category={category} api={api} onClose={() => setImpactOpen(false)} onDone={key => { setImpactOpen(false); onDone({ key, params: { name: category.name }, at }); }} />}
+      {editing && <CategoryForm api={api} category={category} reload={reload} onStart={onStart} onCancel={() => setEditing(false)} onDone={name => { setEditing(false); onDone({ key: 'category.saved', params: { name }, at }); }} />}
+      {impactOpen && <ImpactDialog category={category} api={api} onStart={onStart} onClose={() => setImpactOpen(false)} onDone={key => { setImpactOpen(false); onDone({ key, params: { name: category.name }, at }); }} />}
       <NoticeAt at={at} />
     </div>
   );
 }
 
-function ImpactDialog({ category, api, onClose, onDone }) {
+function ImpactDialog({ category, api, onStart = () => {}, onClose, onDone }) {
   const t = useT(messages);
   const [page, setPage] = useState(0);
   const impact = useResource(() => api.categoryImpact(category.id, page || undefined), [category.id, page]);
@@ -112,6 +115,7 @@ function ImpactDialog({ category, api, onClose, onDone }) {
   useEffect(() => { command.reset(); }, [impact.data?.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const confirm = async () => {
+    onStart();
     const outcome = await command.run(key => api.setCategoryActive(key, category.id, impact.data.version, target), ACTIONS.categoryActivation);
     if (outcome.ok) onDone(target ? 'category.activated' : 'category.deactivated');
   };
@@ -135,7 +139,7 @@ function ImpactDialog({ category, api, onClose, onDone }) {
           <Pager page={page} pageSize={affected.pageSize} total={affected.totalElements} onChange={setPage} />
         </>
       )}
-      <ErrorNotice error={command.error} messages={messages} onRetry={async () => { const outcome = await command.retry(); if (outcome?.ok) onDone(target ? 'category.activated' : 'category.deactivated'); }} onReload={impact.reload} />
+      <ErrorNotice error={command.error} messages={messages} onRetry={async () => { onStart(); const outcome = await command.retry(); if (outcome?.ok) onDone(target ? 'category.activated' : 'category.deactivated'); }} onReload={impact.reload} />
     </ConfirmDialog>
   );
 }
