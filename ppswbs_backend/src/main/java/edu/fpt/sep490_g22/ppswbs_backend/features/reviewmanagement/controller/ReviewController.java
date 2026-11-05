@@ -30,7 +30,11 @@ public class ReviewController {
     @PostMapping
     public ResponseEntity<ReviewDto> createReview(
             @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestHeader(value = "Guest-Eligibility-Handle", required = false) String guestHandleHeader,
             @Valid @RequestBody CreateReviewRequest request) {
+        if (request.getGuestEligibilityHandle() == null && guestHandleHeader != null && !guestHandleHeader.isBlank()) {
+            request.setGuestEligibilityHandle(guestHandleHeader.trim());
+        }
         var actor = ActorContext.getCurrentActor().orElse(null);
         Long memberAccountId = actor != null && actor.role() == ActorRole.MEMBER ? actor.accountId() : null;
         if (actor != null && actor.role() != ActorRole.MEMBER) {

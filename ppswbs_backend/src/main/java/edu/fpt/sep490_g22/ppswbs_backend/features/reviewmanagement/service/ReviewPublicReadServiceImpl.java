@@ -68,9 +68,12 @@ public class ReviewPublicReadServiceImpl implements ReviewPublicReadFacade {
                 .map(r -> applicationService.mapToReviewDto(r, replyMap.get(r.getId())))
                 .collect(Collectors.toList());
 
+        String nextCursor = page.hasNext() ? String.valueOf(page.getNumber() + 1) : null;
+
         return PublicReviewPageDto.builder()
                 .aggregate(aggregate)
                 .items(dtos)
+                .nextCursor(nextCursor)
                 .page(page.getNumber())
                 .size(page.getSize())
                 .totalElements(page.getTotalElements())

@@ -1,5 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.SourceType;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.TargetType;
 import lombok.AllArgsConstructor;
@@ -18,7 +20,11 @@ public class EligibleSourceDto {
     private String sourceReference;
     private TargetType targetType;
     private String targetReference;
+
+    @JsonProperty("label")
+    @JsonAlias({"label", "targetName"})
     private String targetName;
+
     private Instant completedAt;
     private boolean eligible;
     private boolean alreadyReviewed;

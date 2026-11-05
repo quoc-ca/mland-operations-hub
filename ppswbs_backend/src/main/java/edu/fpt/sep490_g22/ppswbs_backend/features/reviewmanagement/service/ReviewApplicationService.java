@@ -169,7 +169,7 @@ public class ReviewApplicationService {
             throw ReviewManagementException.conflict("REVIEW_ALREADY_EXISTS", "Trải nghiệm này đã được gửi đánh giá.");
         }
 
-        ReviewDto responseDto = mapToReviewDto(review, null);
+        ReviewDto responseDto = mapToReviewDto(review, null, true);
 
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             idempotencyService.recordSuccess(idempotencyKey, actorScope, responseDto);

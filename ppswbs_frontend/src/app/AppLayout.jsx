@@ -19,6 +19,8 @@ const appMessages = {
     otaReconciliation: 'Đối soát OTA',
     aiSupport: 'Trợ lý AI',
     designWorkspace: 'Thiết kế AI',
+    reviews: 'Đánh giá',
+    reviewModeration: 'Kiểm duyệt đánh giá',
     nav: 'Điều hướng chính',
   },
   en: {
@@ -36,6 +38,8 @@ const appMessages = {
     otaAddons: 'Shop add-ons',
     aiSupport: 'AI Support',
     designWorkspace: 'AI Design',
+    reviews: 'Reviews',
+    reviewModeration: 'Review Moderation',
     nav: 'Main navigation',
   },
 };
@@ -60,7 +64,8 @@ export default function AppLayout() {
           <Link to="/me/loyalty">{t('loyalty')}</Link>
           <Link to="/ai-support">{t('aiSupport')}</Link>
           <Link to="/design-requests/new">{t('designWorkspace')}</Link>
-          <Link to="/reviews">Reviews</Link>
+          <Link to="/reviews">{t('reviews')}</Link>
+          <Link to="/review-moderation">{t('reviewModeration')}</Link>
           <Link to="/catalogue-management/products">{t('management')}</Link>
           <Link to="/promotion-management/programs">{t('promotionManagement')}</Link>
           <Link to="/ota-connectivity/channels">{t('otaChannels')}</Link>

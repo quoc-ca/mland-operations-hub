@@ -14,6 +14,7 @@ import java.util.List;
 public class PublicReviewPageDto {
     private ReviewAggregateDto aggregate;
     private List<ReviewDto> items;
+    private String nextCursor;
     private int page;
     private int size;
     private long totalElements;
