@@ -20,6 +20,7 @@ public class AccountSummaryResponse {
     private AccountRole role;
     private AccountStatus status;
     private String loginEmail;
+    private String fullName;
     private RevocationStatus revocationStatus;
     private Instant createdAt;
     private Instant updatedAt;

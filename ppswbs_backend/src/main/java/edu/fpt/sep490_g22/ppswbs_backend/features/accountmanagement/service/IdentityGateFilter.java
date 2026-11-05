@@ -49,13 +49,22 @@ public class IdentityGateFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        if ("GET".equalsIgnoreCase(request.getMethod()) && request.getRequestURI().startsWith("/api/v1/addresses/")) {
+        String path = normalizedRequestPath(request);
+        if ("GET".equalsIgnoreCase(request.getMethod()) && path.startsWith("/api/v1/addresses/")) {
             return true;
         }
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;
         }
-        String path = request.getRequestURI();
+
+        // Package discovery is part of the public guest booking journey.  These
+        // two routes expose only branch/session availability; accepting a
+        // package or creating a booking remains protected by its own endpoint
+        // rules and is deliberately not covered by this bypass.
+        if ("GET".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-packages/[^/]+/(locations|sessions)")) {
+            return true;
+        }
 
         if ("GET".equalsIgnoreCase(request.getMethod())
                 && "/api/v1/integrations/payments/vnpay/events".equals(path)) {
@@ -95,6 +104,24 @@ public class IdentityGateFilter extends OncePerRequestFilter {
             return true;
         }
         return !path.startsWith("/api/");
+    }
+
+    /**
+     * Produces an application-relative path for route policy checks.  A filter
+     * sees the context path and may also see a trailing slash, whereas Spring
+     * MVC maps both shapes to the same public discovery controller method.
+     */
+    private String normalizedRequestPath(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        if (contextPath != null && !contextPath.isBlank() && path.startsWith(contextPath)) {
+            path = path.substring(contextPath.length());
+        }
+        int matrixParameterStart = path.indexOf(';');
+        if (matrixParameterStart >= 0) {
+            path = path.substring(0, matrixParameterStart);
+        }
+        return path.length() > 1 ? path.replaceFirst("/+$", "") : path;
     }
 
     @Override

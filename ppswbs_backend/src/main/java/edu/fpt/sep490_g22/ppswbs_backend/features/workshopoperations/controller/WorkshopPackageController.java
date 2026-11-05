@@ -4,6 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.Custome
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.PackageLifecycleTransitionRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.PackageRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.PackageResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAuthorizationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageDiscoveryService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageService;
@@ -98,5 +99,13 @@ public class WorkshopPackageController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return discoveryService.discoverSessions(packageId, locationId, from, to);
+    }
+
+    @GetMapping("/workshop-packages/{packageId}/locations")
+    public List<LocationResponse> discoverEligibleLocations(
+            @PathVariable Long packageId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return discoveryService.discoverEligibleLocations(packageId, from, to);
     }
 }

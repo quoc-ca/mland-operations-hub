@@ -1,7 +1,7 @@
 # Research: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -10,12 +10,12 @@
 This self-contained research translates confirmed 003.3 decisions into design
 constraints. It is not an API, database, migration, or implementation instruction.
 
-| Source | Inherited decision |
-| --- | --- |
-| 003.1 Booking | One direct booking buys one package; required sessions may be one or more. Package price and deposit evidence freeze at confirmation. |
-| 003.2 Operations | Owns sessions, capacity, ticket entitlement and attendance. 003.3 uses its facade only. For Wax Casting it also owns the date rule: exactly two Monday–Friday local dates strictly between the two chronological sessions; Saturday/Sunday are excluded. |
-| 003.3 `spec.md` | One final bill covers the whole booking/package, never a session, participant or legacy workshop item. |
-| FE-001 deferred decisions | Firebase proves identity only; Mland decides account status, role and scope. Vocabulary: `MEMBER`, `STAFF`, `MANAGER`, `ADMIN`. |
+| Source                    | Inherited decision                                                                                                                                                                                                                                       |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 003.1 Booking             | One direct booking buys one package; required sessions may be one or more. Package price and deposit evidence freeze at confirmation.                                                                                                                    |
+| 003.2 Operations          | Owns sessions, capacity, ticket entitlement and attendance. 003.3 uses its facade only. For Wax Casting it also owns the date rule: at least two Monday–Friday local dates strictly between the two chronological sessions; Saturday/Sunday are excluded. |
+| 003.3 `spec.md`           | One final bill covers the whole booking/package, never a session, participant or legacy workshop item.                                                                                                                                                   |
+| FE-001 deferred decisions | Firebase proves identity only; Mland decides account status, role and scope. Vocabulary: `MEMBER`, `STAFF`, `MANAGER`, `ADMIN`.                                                                                                                          |
 
 ## Confirmed decisions
 
@@ -48,7 +48,7 @@ There is no customer self-service reschedule. An authorized Manager requests one
 complete booking-level replacement set (one or both future sessions); 003.2 must
 validate capacity and entitlement and apply all changes or none. Persistent QR is
 kept. A multi-session result (currently Wax Casting) remains same-location,
-distinct and chronological. It must have exactly two Monday–Friday local dates
+distinct and chronological. It must have at least two Monday–Friday local dates
 strictly between the sessions, excluding Saturday/Sunday; it must not inherit
 the retired Silverclay same-day-slot rule.
 
@@ -70,15 +70,32 @@ case globally. Existing booking snapshots stay immutable. This is business
 authority, not a new role mapping. Booking-level handling matches course-booking
 patterns such as [Bookwhen cancellation guidance](https://support.bookwhen.com/en/articles/3790128-cancelling-an-event).
 
+## Owner decision — direct-booking open folio (2026-11-05)
+
+The canonical policy is
+[Direct Booking Open Folio and OTA Financial Separation](../direct-booking-open-folio-policy.md).
+
+Normal add-ons extend the OPEN folio and are settled at checkout. T040 only covers an exceptional post-finalized correction/remedy case.
+
+This supersedes the "Settlement and charges" text above where it differs:
+
+- The folio opens at 003.1 deposit confirmation (`MlandBookingConfirmedEvent`), not after the final session. Its base line is the frozen `postPromotionAmount`; the first verified collection is the 003.1 deposit `ceil(postPromotionAmount / 2)`, immutable after acceptance. A full-amount payment at booking time is not offered.
+- `totalAmount = base + accepted add-ons`, `paidAmount = Σ verified collections` (append-only), `balanceDue = totalAmount − paidAmount`. Checkout collects only when `balanceDue > 0`; finalization requires `balanceDue = 0`.
+- After `FINALIZED` no add-on may be added, changed or removed; there is no separate direct add-on bill after finalization.
+- Ordinary cancellation/no-show closes the folio at the verified collected amount: no refund, no VNPay QueryDR/refund, no artificial receivable. Operations owns eligibility/no-show facts; Settlement owns closure.
+- OTA: the OTA collects 100% of the ticket price; Mland shop add-ons are a separate Mland bill; free laser engraving is OTA-only and creates no bill.
+
+Research is not task-completion evidence.
+
 ## Ownership and audit
 
-| Concern | Owner | Rule |
-| --- | --- | --- |
-| Booking, package price, deposit | 003.1 | 003.3 consumes projection only. |
-| Sessions, capacity, ticket, attendance | 003.2 | Semantic facade only. |
-| Final bill, charge, settlement/refund/change case | 003.3 | Authoritative owner. |
-| Identity and authorization | FE-001 | Query at command time. |
-| Delivery | Feature 007 | 003.3 persists an immutable handoff with accepted Settlement state, then publishes a reference-only post-commit event. Feature 007 deduplicates and reads an immutable payload only through `WorkshopSettlementFacade`; delivery is not financial truth. |
+| Concern                                           | Owner       | Rule                                                                                                                                                                                                                                                     |
+| ------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Booking, package price, deposit                   | 003.1       | 003.3 consumes projection only.                                                                                                                                                                                                                          |
+| Sessions, capacity, ticket, attendance            | 003.2       | Semantic facade only.                                                                                                                                                                                                                                    |
+| Final bill, charge, settlement/refund/change case | 003.3       | Authoritative owner.                                                                                                                                                                                                                                     |
+| Identity and authorization                        | FE-001      | Query at command time.                                                                                                                                                                                                                                   |
+| Delivery                                          | Feature 007 | 003.3 persists an immutable handoff with accepted Settlement state, then publishes a reference-only post-commit event. Feature 007 deduplicates and reads an immutable payload only through `WorkshopSettlementFacade`; delivery is not financial truth. |
 
 Audit protected financial/change commands with actor reference when available,
 booking reference, applicable canonical location, action, outcome, required reason,

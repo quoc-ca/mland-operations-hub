@@ -4,6 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.Worksho
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopPackageRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.CustomerSessionAvailabilityResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilitySnapshot;
@@ -30,6 +31,7 @@ public class WorkshopPackageDiscoveryService {
     private final WorkshopLocationRepository locationRepository;
     private final WorkshopSessionRepository sessionRepository;
     private final WorkshopOperationsFacade operationsFacade;
+    private final WorkshopVisibleLocationPolicy visibleLocationPolicy;
 
     @Transactional(readOnly = true)
     public List<CustomerSessionAvailabilityResponse> discoverSessions(Long packageId, Long locationId,
@@ -37,6 +39,9 @@ public class WorkshopPackageDiscoveryService {
         packageRepository.findById(packageId)
                 .filter(workshopPackage -> workshopPackage.getState() == WorkshopPackageState.PUBLISHED)
                 .orElseThrow(() -> new WorkshopNotFoundException("Workshop Package not found"));
+        if (!isVisibleLocation(locationId)) {
+            throw new WorkshopNotFoundException("Workshop Location not found");
+        }
         locationRepository.findByIdAndActiveTrue(locationId)
                 .orElseThrow(() -> new WorkshopNotFoundException("Workshop Location not found"));
 
@@ -58,6 +63,35 @@ public class WorkshopPackageDiscoveryService {
                 .filter(entry -> entry.getValue() != null && entry.getValue().customerSelectable())
                 .map(entry -> toAvailability(entry.getKey(), entry.getValue()))
                 .toList();
+    }
+
+    /**
+     * Returns active locations that currently expose at least one selectable
+     * customer session for the published package and requested date window.
+     * This is intentionally narrower than the manager location list: public
+     * booking must not show inactive or irrelevant operational locations.
+     */
+    @Transactional(readOnly = true)
+    public List<LocationResponse> discoverEligibleLocations(Long packageId, LocalDate from, LocalDate to) {
+        packageRepository.findById(packageId)
+                .filter(workshopPackage -> workshopPackage.getState() == WorkshopPackageState.PUBLISHED)
+                .orElseThrow(() -> new WorkshopNotFoundException("Workshop Package not found"));
+
+        return locationRepository.findByActiveTrue().stream()
+                .filter(location -> isVisibleLocation(location.getId()))
+                .sorted(java.util.Comparator.comparing(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopLocation::getId))
+                .map(location -> LocationResponse.builder()
+                        .id(location.getId())
+                        .code(location.getCode())
+                        .name(location.getDisplayName())
+                        .address(location.getAddressSnapshot())
+                        .active(location.isActive())
+                        .build())
+                .toList();
+    }
+
+    private boolean isVisibleLocation(Long locationId) {
+        return visibleLocationPolicy == null || visibleLocationPolicy.allows(locationId);
     }
 
     private static CustomerSessionAvailabilityResponse toAvailability(

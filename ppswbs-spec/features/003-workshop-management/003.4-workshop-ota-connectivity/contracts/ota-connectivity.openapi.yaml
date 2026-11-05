@@ -523,12 +523,14 @@ components:
             amount: { $ref: '#/components/schemas/ZeroMoney' }
         - type: object
           additionalProperties: false
-          required: [addonType, itemCode, itemDescription, amount]
+          required: [addonType, catalogueAddOnReference]
+          description: >-
+            Owner decision D17 (2026-11-05): a paid option references an active
+            003.2 catalogue add-on for the booking's package/location; the
+            server derives description and price. No client amount is accepted.
           properties:
             addonType: { const: PAID_OPTION }
-            itemCode: { type: string, minLength: 1, maxLength: 100 }
-            itemDescription: { type: string, minLength: 1, maxLength: 500 }
-            amount: { $ref: '#/components/schemas/Money' }
+            catalogueAddOnReference: { type: string, minLength: 1, maxLength: 128 }
     AddonAcceptanceRequest:
       type: object
       additionalProperties: false
@@ -539,12 +541,12 @@ components:
     AddonQuote:
       type: object
       additionalProperties: false
-      required: [quoteId, channelBookingId, addonType, itemCode, amount, status]
+      required: [quoteId, channelBookingId, addonType, amount, status]
       properties:
         quoteId: { type: string, format: uuid }
         channelBookingId: { type: string, format: uuid }
         addonType: { type: string, enum: [LASER_ENGRAVING, PAID_OPTION] }
-        itemCode: { type: string, maxLength: 100 }
+        itemCode: { type: string, maxLength: 100, description: Present for PAID_OPTION (the catalogue add-on reference); absent for a LASER_ENGRAVING record. }
         amount: { $ref: '#/components/schemas/Money' }
         status: { type: string, enum: [RECORDED_FREE, QUOTED, ACCEPTED, BILLED, REJECTED] }
     DirectBillLink:

@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { newCommandId } from '../../../../../shared/api/http';
 import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { Field, useErrorText } from '../../../../../shared/ui/components';
-import { ACTIONS } from '../../../infrastructure/catalogueApi';
+import { ACTIONS } from '../../../application/useCatalogueCommand';
 import { messages } from '../../messages';
 import { NoticeAt } from '../notices';
 import { checkReason, effectiveProposal, isAmount, LIMITS } from '../../../domain/productRules';

@@ -569,6 +569,32 @@ describe('T079 category activation', () => {
     expect(await screen.findAllByText(/^Đã ngừng hoạt động danh mục "/)).toHaveLength(2);
     expect(calls.find(call => call.method === 'PUT').body).toEqual({ expectedVersion: 2, active: false });
   });
+
+  it('a new action clears the previous success notice, so a failure never shows next to it', async () => {
+    const user = userEvent.setup();
+    let creates = 0;
+    mockFetch({
+      [`GET ${M}/categories`]: json(200, categoryPage),
+      [`POST ${M}/categories`]: () => (++creates === 1
+        ? json(201, actionResult('9', 'category.create'))
+        : json(409, { code: 'DUPLICATE_CATEGORY_NAME', message: 'Duplicate.', correlationId: 'c-1' })),
+    });
+    open('/catalogue-management/categories');
+    const name = await screen.findByLabelText('Tên danh mục');
+    await user.type(name, 'Nhẫn mới');
+    await user.click(screen.getByRole('button', { name: 'Tạo danh mục' }));
+    expect(await screen.findAllByText('Đã tạo danh mục "Nhẫn mới".')).toHaveLength(2);
+
+    await user.type(name, 'NHẪN MỚI');
+    await user.click(screen.getByRole('button', { name: 'Tạo danh mục' }));
+    expect(await screen.findByText('Tên danh mục đã tồn tại.')).toBeInTheDocument();
+    expect(screen.queryByText('Đã tạo danh mục "Nhẫn mới".')).not.toBeInTheDocument();
+
+    await user.clear(name);
+    await user.click(screen.getByRole('button', { name: 'Tạo danh mục' }));
+    expect(creates).toBe(2);
+    expect(screen.queryByText(/^Đã tạo danh mục/)).not.toBeInTheDocument();
+  });
 });
 
 describe('T101 import', () => {

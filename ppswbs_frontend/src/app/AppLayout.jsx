@@ -6,7 +6,14 @@ import MainTopbar from '../shared/ui/MainTopbar';
 export default function AppLayout() {
   const location = useLocation();
 
-  if (['/sign-in', '/login', '/register', '/forgot-password'].includes(location.pathname)) {
+  const isAuthPage = ['/sign-in', '/login', '/register', '/forgot-password'].includes(location.pathname);
+  const isOperationsWorkspace =
+    location.pathname.startsWith('/operations') ||
+    location.pathname.startsWith('/ota-connectivity') ||
+    location.pathname.startsWith('/settlement') ||
+    location.pathname.startsWith('/workshop-packages');
+
+  if (isAuthPage || isOperationsWorkspace) {
     return <Outlet />;
   }
 

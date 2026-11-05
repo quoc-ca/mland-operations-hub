@@ -66,6 +66,12 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/addresses/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*/locations").permitAll()
+                // Public session discovery for guest/member booking flow (no PII or ticket data exposed)
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*/sessions").permitAll()
+                // Public package list and detail for booking discovery
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/ai-support/messages").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/booking-magic-links/exchanges").permitAll()

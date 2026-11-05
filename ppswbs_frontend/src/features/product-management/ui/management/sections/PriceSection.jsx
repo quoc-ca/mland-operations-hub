@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field } from '../../../../../shared/ui/components';
-import { ACTIONS } from '../../../infrastructure/catalogueApi';
+import { ACTIONS } from '../../../application/useCatalogueCommand';
 import { messages } from '../../messages';
 import { checkReason, effectiveProposal, isAmount, LIMITS, serverFieldErrors } from '../../../domain/productRules';
 import { MissingNote, sectionClass, useProductCommand } from '../ProductDetailPage';

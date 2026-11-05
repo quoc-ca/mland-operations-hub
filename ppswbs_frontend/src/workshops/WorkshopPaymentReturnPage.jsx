@@ -2,6 +2,26 @@ import React, { useEffect, useState } from 'react';
 import { lookupGuestBooking, lookupMemberBooking, WorkshopApiError } from '../api/workshops';
 import { useAuth } from '../shared/auth/AuthProvider';
 import { useHttp } from '../shared/api/useHttp';
+import './figmaPublicShell.css';
+
+export function classifyGuestPaymentOutcome({ responseCode, bookingStatus, error } = {}) {
+  if (bookingStatus === 'EXPIRED' || error?.code === 'HOLD_EXPIRED' || error?.code === 'BOOKING_EXPIRED') {
+    return { kind: 'EXPIRED', title: 'Payment window expired', message: 'The ten-minute hold has expired. Create a new booking to try again.' };
+  }
+  if (error && (error.code === 'NETWORK_ERROR' || error.code === 'NETWORK_TIMEOUT' || error.code === 'REQUEST_TIMEOUT' || Number(error.status || 0) === 0 || error.name === 'AbortError')) {
+    return { kind: 'NETWORK_TIMEOUT', title: 'Status check timed out', message: 'The payment result is not known yet. Do not create another payment; check the booking status again.' };
+  }
+  if (error) {
+    return { kind: 'LOOKUP_ERROR', title: 'Booking status unavailable', message: error.detail || error.message || 'MLAND could not verify this booking yet.' };
+  }
+  if (responseCode === '00') {
+    return { kind: 'PROVIDER_SUCCESS_PENDING_VERIFICATION', title: 'Provider reported success', message: 'VNPay reported success. MLAND will confirm the booking only after verified IPN evidence.' };
+  }
+  if (responseCode) {
+    return { kind: 'PROVIDER_ERROR', title: `Provider payment response ${responseCode}`, message: 'The provider did not complete this payment. No booking confirmation is inferred from the browser return.' };
+  }
+  return { kind: 'NO_PROVIDER_RESPONSE', title: 'No provider response received', message: 'No provider result was returned. Check the booking status with MLAND before trying again.' };
+}
 
 export function WorkshopPaymentReturnPage({ bookingCode }) {
   const { status: authStatus, getIdToken } = useAuth();
@@ -63,11 +83,11 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
     if (e) e.preventDefault();
     if (!bookingCode) return;
     if (lookupMode === null) {
-      setVerifyError('Unable to verify the signed-in account for this booking. Please sign in again.');
+      setVerifyError({ title: 'Member verification unavailable', message: 'Unable to verify the signed-in account for this booking. Please sign in again.' });
       return;
     }
     if (lookupMode === 'GUEST' && !contactProof.trim()) {
-      setVerifyError('Vui lòng nhập Email hoặc Số điện thoại người đặt để đồng bộ trạng thái đơn.');
+      setVerifyError({ title: 'Contact proof required', message: 'Enter the email or phone used for this Guest booking.' });
       return;
     }
 
@@ -90,9 +110,9 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
       setBookingData(result);
     } catch (err) {
       if (err instanceof WorkshopApiError) {
-        setVerifyError(err.detail || 'Không tìm thấy thông tin đặt chỗ phù hợp với thông tin liên hệ cung cấp.');
+        setVerifyError(classifyGuestPaymentOutcome({ error: err }));
       } else {
-        setVerifyError(err?.message || 'Có lỗi xảy ra khi kiểm tra trạng thái booking.');
+        setVerifyError(classifyGuestPaymentOutcome({ error: err }));
       }
     } finally {
       setIsVerifying(false);
@@ -100,9 +120,10 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
   };
 
   const isProviderSuccess = vnpResponseCode === '00';
+  const returnOutcome = classifyGuestPaymentOutcome({ responseCode: vnpResponseCode, bookingStatus: bookingData?.bookingStatus });
 
   return (
-    <main className="container public-page">
+    <main className="public-page figma-public-page">
       <p className="eyebrow">WORKSHOP BOOKING PAYMENT</p>
       <h1>Kết quả chuyển hướng thanh toán</h1>
 
@@ -112,11 +133,11 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
           <span className={isProviderSuccess ? 'status ok' : 'status'}>
             Mã phản hồi cổng: {vnpResponseCode || 'N/A'}
           </span>
-          <strong>{isProviderSuccess ? 'Cổng thanh toán phản hồi thành công' : 'Giao dịch chưa hoàn tất hoặc bị hủy'}</strong>
+          <strong>{returnOutcome.title}</strong>
         </div>
 
         <p className="prototype-note" style={{ margin: '14px 0 0', lineHeight: '1.6' }}>
-          <strong>Lưu ý quan trọng:</strong> Trình duyệt chuyển hướng (browser return) mang tính chất hiển thị.
+          <strong>{returnOutcome.message}</strong> Browser return is display-only.
           Theo nguyên tắc an toàn tài chính, booking <strong>chỉ được xác nhận chính thức</strong> sau khi hệ thống backend MLAND nhận và xác minh chữ ký IPN an toàn từ VNPay. Không có token hay dữ liệu bí mật nào được chuyển giao qua browser return.
         </p>
       </div>
@@ -129,7 +150,7 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
         </p>
 
         {!bookingData ? (
-          <form onSubmit={handleVerifyBackend} style={{ maxWidth: '520px' }}>
+          <form className="payment-form" onSubmit={handleVerifyBackend}>
             <p hidden={lookupMode !== 'GUEST'} style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '14px' }}>
               Vui lòng nhập Email hoặc Số điện thoại đã dùng khi đặt chỗ để đồng bộ kết quả xác thực backend:
             </p>
@@ -184,7 +205,7 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
             ) : null}
 
             {verifyError && (
-              <p style={{ color: '#b00', fontSize: '13px', marginTop: '8px' }}>{verifyError}</p>
+              <div role="alert" style={{ color: '#b00', fontSize: '13px', marginTop: '8px' }}><strong>{verifyError.title}</strong><p>{verifyError.message}</p></div>
             )}
           </form>
         ) : (
