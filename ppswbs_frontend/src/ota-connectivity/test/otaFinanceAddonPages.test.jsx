@@ -82,6 +82,99 @@ describe('OTA finance and shop add-on screens', () => {
     expect(await screen.findByText(/BILL-1/)).toBeInTheDocument();
   });
 
+  it('prefills the channel booking from the check-in Add-on link', async () => {
+    mockFetch({});
+    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons?channelBookingId=booking-from-checkin' });
+    expect(screen.getByPlaceholderText('UUID')).toHaveValue('booking-from-checkin');
+  });
+
+  describe('collecting the paid add-on through VNPay', () => {
+    async function billAPaidAddOn(user) {
+      await user.type(screen.getByPlaceholderText('UUID'), 'booking-pay');
+      await user.selectOptions(screen.getByLabelText('Add-on type'), 'PAID_OPTION');
+      await user.type(screen.getByLabelText('Catalogue add-on reference'), 'addon-ref-1');
+      await user.click(screen.getByRole('button', { name: 'Create quote' }));
+      await screen.findByText('QUOTED');
+      await user.type(screen.getByPlaceholderText('Signed at counter'), 'COUNTER-1');
+      await user.click(screen.getByRole('button', { name: 'Record acceptance' }));
+      await screen.findByText('ACCEPTED');
+      await user.click(screen.getByRole('button', { name: 'Create direct Mland bill' }));
+      await screen.findByText(/BILL-PAY/);
+    }
+
+    const handlers = (status, attemptBody) => ({
+      'POST /api/v1/ota-channel-bookings/booking-pay/add-on-quotes': json(201, {
+        quoteId: 'quote-pay', addonType: 'PAID_OPTION', itemCode: 'addon-ref-1', amount: { amount: '50000', currency: 'VND' }, status: 'QUOTED',
+      }),
+      'POST /api/v1/ota-addon-quotes/quote-pay/acceptance': json(200, {
+        quoteId: 'quote-pay', addonType: 'PAID_OPTION', itemCode: 'addon-ref-1', amount: { amount: '50000', currency: 'VND' }, status: 'ACCEPTED',
+      }),
+      'POST /api/v1/ota-addon-quotes/quote-pay/direct-bill': json(201, { quoteId: 'quote-pay', settlementBillReference: 'BILL-PAY', correlationId: 'corr-pay' }),
+      'GET /api/v1/ota-addon-bills/BILL-PAY': () => json(200, { billReference: 'BILL-PAY', lifecycleStatus: status.current, refunds: [] }),
+      'POST /api/v1/ota-addon-bills/BILL-PAY/payment-attempts': json(201, attemptBody),
+    });
+
+    it('creates one idempotent VNPay payment attempt and offers the payment link only while it is valid', async () => {
+      const status = { current: 'OPEN' };
+      const calls = mockFetch(handlers(status, {
+        attemptReference: 'OAA-1', billReference: 'BILL-PAY', amountVnd: 50000, currency: 'VND', status: 'PENDING',
+        paymentUrl: 'https://pay.example.invalid/OTA-1', expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      }));
+      const user = userEvent.setup();
+      renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
+      await billAPaidAddOn(user);
+      expect(screen.queryByRole('link', { name: 'Mở cổng thanh toán VNPay' })).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Thu tiền (VNPay)' }));
+
+      const link = await screen.findByRole('link', { name: 'Mở cổng thanh toán VNPay' });
+      expect(link).toHaveAttribute('href', 'https://pay.example.invalid/OTA-1');
+      const attemptCalls = calls.filter(call => call.path === '/api/v1/ota-addon-bills/BILL-PAY/payment-attempts');
+      expect(attemptCalls).toHaveLength(1);
+      expect(attemptCalls[0].method).toBe('POST');
+      expect(attemptCalls[0].headers['Idempotency-Key']).toBeTruthy();
+    });
+
+    it('never offers an expired payment link', async () => {
+      const status = { current: 'OPEN' };
+      mockFetch(handlers(status, {
+        attemptReference: 'OAA-2', billReference: 'BILL-PAY', amountVnd: 50000, currency: 'VND', status: 'PENDING',
+        paymentUrl: 'https://pay.example.invalid/OTA-2', expiresAt: new Date(Date.now() - 60 * 1000).toISOString(),
+      }));
+      const user = userEvent.setup();
+      renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
+      await billAPaidAddOn(user);
+
+      await user.click(screen.getByRole('button', { name: 'Thu tiền (VNPay)' }));
+
+      expect(await screen.findByText('Đã tạo liên kết thanh toán VNPay.')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Mở cổng thanh toán VNPay' })).not.toBeInTheDocument();
+    });
+
+    it('polls the bill until it is PAID, then hides the collect action and stops polling', async () => {
+      const status = { current: 'OPEN' };
+      const calls = mockFetch(handlers(status, {
+        attemptReference: 'OAA-3', billReference: 'BILL-PAY', amountVnd: 50000, currency: 'VND', status: 'PENDING',
+        paymentUrl: 'https://pay.example.invalid/OTA-3', expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      }));
+      const user = userEvent.setup();
+      renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
+      await billAPaidAddOn(user);
+      await user.click(screen.getByRole('button', { name: 'Thu tiền (VNPay)' }));
+      await screen.findByRole('link', { name: 'Mở cổng thanh toán VNPay' });
+
+      status.current = 'PAID'; // the verified VNPay evidence arrives
+
+      expect(await screen.findByText('Đã thanh toán (PAID)', {}, { timeout: 6000 })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Thu tiền (VNPay)' })).not.toBeInTheDocument();
+      expect(screen.getByText('Thanh toán add-on đã được hoàn tất và ghi nhận thành công.')).toBeInTheDocument();
+      const polledWhenPaid = calls.filter(call => call.path === '/api/v1/ota-addon-bills/BILL-PAY').length;
+      await new Promise(resolve => setTimeout(resolve, 3500));
+      const polledAfter = calls.filter(call => call.path === '/api/v1/ota-addon-bills/BILL-PAY').length;
+      expect(polledAfter - polledWhenPaid).toBeLessThanOrEqual(1);
+    }, 15000);
+  });
+
   it('records free laser engraving and never offers a direct bill action', async () => {
     const calls = mockFetch({
       'POST /api/v1/ota-channel-bookings/booking-free/add-on-quotes': json(201, {

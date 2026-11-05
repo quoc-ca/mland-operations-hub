@@ -23,7 +23,9 @@ class WorkshopSettlementEvidenceConsumerTest {
     private final SettlementFinalBillRepository bills = mock(SettlementFinalBillRepository.class);
     private final SettlementChargeRepository charges = mock(SettlementChargeRepository.class);
     private final WorkshopBookingSettlementAdapter booking = mock(WorkshopBookingSettlementAdapter.class);
-    private final FinalPaymentService finalPayments = new FinalPaymentService(evidence, bills, charges, booking);
+    private final FinalPaymentService finalPayments = new FinalPaymentService(evidence, bills, charges,
+            mock(SettlementFinalPaymentAttemptRepository.class), booking,
+            mock(SettlementAddonBillRepository.class), mock(SettlementAddonPaymentAttemptRepository.class));
     private final WorkshopSettlementFacadeImpl facade = new WorkshopSettlementFacadeImpl(cases, handoffs,
             new ObjectMapper(), finalPayments, mock(SettlementNotificationHandoffRepository.class));
 

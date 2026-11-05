@@ -96,7 +96,7 @@ public class PaymentIngressService {
         if (owner.getPaymentKind() == PaymentOwnerKind.DEPOSIT) {
             booking.applyVerifiedDepositPaymentEvidence(new ApplyVerifiedDepositPaymentEvidenceCommand(owner.getBookingReference(), evidence, merchant, amount, "VND", operation, correlation));
         } else {
-            if (owner.getPaymentKind() == PaymentOwnerKind.FINAL_PAYMENT
+            if ((owner.getPaymentKind() == PaymentOwnerKind.FINAL_PAYMENT || owner.getPaymentKind() == PaymentOwnerKind.SHOP_ADDON)
                     && (owner.getProviderCreateDate() == null || !owner.getProviderCreateDate().matches("[0-9]{14}"))) {
                 throw new IllegalStateException("FINAL_PAYMENT_ORIGINAL_CREATE_DATE_MISSING");
             }

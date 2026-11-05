@@ -11,6 +11,8 @@ import java.util.Optional;
 public interface OtaChannelBookingRepository extends JpaRepository<OtaChannelBooking, Long> {
     Optional<OtaChannelBooking> findByPublicReference(String publicReference);
 
+    Optional<OtaChannelBooking> findByMlandBookingReference(String mlandBookingReference);
+
     Optional<OtaChannelBooking> findByMappingIdAndExternalBookingReference(
             Long mappingId, String externalBookingReference);
 

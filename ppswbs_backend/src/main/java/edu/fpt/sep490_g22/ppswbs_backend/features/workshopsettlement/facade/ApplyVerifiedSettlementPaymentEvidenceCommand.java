@@ -23,14 +23,14 @@ public record ApplyVerifiedSettlementPaymentEvidenceCommand(
         require(merchantReference, "merchantReference");
         require(paymentKind, "paymentKind");
         require(currencyCode, "currencyCode");
-        if (!paymentKind.equals("FINAL_PAYMENT") && !paymentKind.equals("REFUND")) {
-            throw new IllegalArgumentException("paymentKind must be FINAL_PAYMENT or REFUND");
+        if (!paymentKind.equals("FINAL_PAYMENT") && !paymentKind.equals("SHOP_ADDON") && !paymentKind.equals("REFUND")) {
+            throw new IllegalArgumentException("paymentKind must be FINAL_PAYMENT, SHOP_ADDON or REFUND");
         }
         if (amountVnd == null || amountVnd <= 0) throw new IllegalArgumentException("amountVnd must be positive");
         if (!currencyCode.equals("VND")) throw new IllegalArgumentException("currencyCode must be VND");
         require(operationReference, "operationReference");
         require(correlationReference, "correlationReference");
-        if (paymentKind.equals("FINAL_PAYMENT")) {
+        if (paymentKind.equals("FINAL_PAYMENT") || paymentKind.equals("SHOP_ADDON")) {
             require(providerTransactionNumber, "providerTransactionNumber");
             require(originalProviderCreateDate, "originalProviderCreateDate");
             if (!originalProviderCreateDate.matches("[0-9]{14}"))

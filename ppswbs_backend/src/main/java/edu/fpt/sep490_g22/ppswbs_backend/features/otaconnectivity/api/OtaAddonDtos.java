@@ -42,4 +42,12 @@ public final class OtaAddonDtos {
             String settlementBillReference,
             String correlationId
     ) {}
+
+    public record OtaBookingLookupResponse(
+            String channelBookingId,
+            String providerCode,
+            String locationId,
+            String mlandBookingReference,
+            boolean canSellAddon
+    ) {}
 }
