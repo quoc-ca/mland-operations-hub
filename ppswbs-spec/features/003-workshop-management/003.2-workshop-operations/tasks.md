@@ -1,7 +1,7 @@
 # Tasks: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-03
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -286,6 +286,12 @@ audit: the Manager UI already sends `Idempotency-Key`, while package, add-on,
 location, slot and session write endpoints currently neither declare nor consume it.
 
 - [X] T087 Add one explicit `Idempotency-Key` contract to every state-changing Manager Operations REST endpoint used by `/operations/admin`, `/operations/packages`, and `/operations/package-add-ons`. Reuse the Operations-owned durable idempotency ledger rather than treating `X-Correlation-Id` as deduplication. Require the same key plus the same semantic command to replay the original response; reject the same key with changed payload/scope as `409`; return a typed safe response for an active in-progress claim; preserve one audit event and one business mutation only. Cover create/edit/transition for Package and package add-on, plus Location/Slot/Session write operations, with MySQL and HTTP tests. Evidence: `OperationsRestIdempotencyServiceTest` (4/4), `WorkshopAddOnControllerTest` (4/4), `WorkshopPackageContractIT` (6/6), and `WorkshopOperationsMySQLIT` (10/10) passed on 2026-11-04. The isolated MySQL schema `ppswbs_t087_mysql_20261104` applied Flyway migrations through V90 and verified the global unique `uq_fci_operation_reference` ledger index.
+
+## Phase 13: Direct-booking open-folio attendance outcome
+
+- [ ] T088 Implement FR-014: add `BookingAttendanceOutcomeQuery(bookingReference)` → `BookingAttendanceOutcome(terminal, outcome: ATTENDED | NO_SHOW | PARTIAL)` to `WorkshopOperationsFacade`, and publish a durable reference-only post-commit `BookingAttendanceFinalizedEvent(bookingReference, finalizedAt)` exactly once per booking when booking-wide attendance becomes terminal (every required session `ATTENDANCE_FINALIZED` and the 24-hour correction window closed). `NO_SHOW` only when every ticket on every required session is a final `NO_SHOW`. No ticket/participant/PII payload. Add facade/event tests for all-no-show, partial, all-attended, non-terminal (inside the correction window), correction inside the window changing the outcome, single publication at window close, and replay; consumed by 003.3 T087. Do not tick without test evidence.
+
+- [ ] T089 Realign the Wax Casting foundry-working-date rule to the owner-confirmed **at least two** Monday–Friday local dates strictly between the two sessions (2026-11-05; no maximum gap). T085 currently enforces strict `== 2` and T086 evidence rejects Monday-to-Friday; change the Operations validation used for reserve and complete replacement, keep Saturday/Sunday excluded and slot/time irrelevant, and update `WaxCastingScheduleValidationTest`, `WaxCastingBookingIntegrationIT`, `WaxCastingBookingAcceptanceIT` (003.1 T053) and the 003.3 T039 replacement coverage: Monday→Thursday and Friday→Wednesday stay valid, Monday→Wednesday and Friday→Tuesday stay invalid, Monday→Friday and longer gaps become valid. No partial hold/transfer on refusal. Do not tick without test evidence.
 
 ---
 

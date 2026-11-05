@@ -1,7 +1,7 @@
 # Implementation Plan: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-11-02
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -18,7 +18,7 @@ one Package, with no cart of unrelated Packages. The confirmed catalogue is in
 925, Silver Clay 5g and Silver Clay 7g select one session; Wax Casting selects
 two at one canonical Workshop Location. Operations, not Booking, authoritatively
 applies each Package's required-session and same-location rules. Wax Casting
-requires exactly two Monday–Friday local dates strictly between its two
+requires at least two Monday–Friday local dates strictly between its two
 sessions, skipping Saturday/Sunday; the legacy `minimumSameDaySlotGap` cannot
 represent it. Both reservations
 are committed or neither exists. Each participant consumes one place in every
@@ -85,8 +85,9 @@ refund consequence cannot leave the customer seeing an old schedule.
 and reschedule. It returns only an idempotent final-balance-resolved conclusion
 after the complete final balance has been verified as paid; Booking alone
 records `FULLY_PAID` from that conclusion and never receives raw final-payment
-evidence or calculates the final balance. 003.4 owns
-OTA completely. For internal booking support,
+evidence or calculates the final balance. 003.4 owns OTA channel
+integration; 003.1 only exposes the idempotent OTA create-or-return booking
+facade operation (`AcceptOtaBookingCommand`, T047) and never records OTA money. For internal booking support,
 Mland rechecks canonical active account facts and Booking's support-action rule
 against booking-location scope at
 action time. Staff may resend the confirmation only within their active
@@ -132,11 +133,14 @@ is never a 003.1 business controller. Check-in, cancellation/refund,
 reschedule, final payment, and OTA routes remain outside 003.1.
 
 Booking service states are `PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED`, and
-`CANCELLED`; financial states are `UNPAID` and `DEPOSIT_PAID` for deposit flow.
-`FULLY_PAID` is recorded by Booking exactly once only from 003.3's idempotent
-final-balance-resolved conclusion; 003.1 does not implement final settlement.
-`FAILED` belongs to a payment attempt. Refund, attendance and ticket-use states
-remain downstream-owned. A client Idempotency-Key protects create,
+`CANCELLED`, plus `COMPLETED`, post-confirmation `CANCELLED` and `NO_SHOW`
+recorded only from 003.3's `RecordBookingServiceOutcomeCommand` (D13);
+financial states are `UNPAID` and `DEPOSIT_PAID` for deposit flow, plus
+`FULLY_PAID` from 003.3's final-balance-resolved conclusion and
+`REFUND_PENDING`/`REFUNDED` from its `RecordBookingRefundStatusCommand` for a
+Mland remedy (D14). 003.1 does not implement final settlement, refund
+execution or attendance. `FAILED` belongs to a payment attempt; attendance and
+ticket-use states remain owned by 003.2. A client Idempotency-Key protects create,
 payment-start and release commands; provider event identity protects callbacks.
 
 Magic Link is a reusable bearer credential for the read-only booking/ticket
@@ -173,7 +177,7 @@ The model in [data-model.md](data-model.md) adds a booking-to-session commitment
 instead of a cart/item model. Its delivery projection represents one 003.2
 ticket per participant and its entitled sessions, allowing one multi-session
 QR to be checked independently in either session without storing a participant
-identity. Monetary snapshots are integer VND, with even `price_per_participant`.
+identity. Monetary snapshots are integer VND.
 
 No existing applied migration may be edited. Development/test reset is allowed
 only after preflight confirms no booking/customer data requires retention. Any
@@ -188,7 +192,7 @@ account/scope checks, pending synchronization into `spec-general.md` and
 ## Verification plan
 
 Use [quickstart.md](quickstart.md) to verify: each one-session catalogue offer;
-two-session Wax Casting with shared capacity and exactly two intervening
+two-session Wax Casting with shared capacity and at least two intervening
 Monday–Friday foundry-working dates; all-or-nothing failure; same-location and ordering rules; odd/even
 post-promotion amount with rounded-up deposit and
 exact remaining amount; valid/invalid/duplicate/late gateway
