@@ -1,7 +1,7 @@
 # Validation Report: Product Management
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-04 (T105–T109: sửa giá/số lượng nhiều size, áp dụng ngay sau khi duyệt, chỉ ra mục còn thiếu, thông báo kết quả; owner kiểm thử thực tế; trước đó: 2026-11-03 (rà soát spec–code–Figma: FR-003, FR-028, T103 xem ảnh quản trị, nhãn khu vực; trước đó: 2026-11-01 (T090 UI với API giả lập, tích hợp thật NOT RUN; T087 đồng bộ tài liệu; regression toàn hệ thống T086; chạy lại sau develop 365dcf3: T074, T085, T086; frontend React T088/T089 và màn hình 002; 2026-10-27: sau merge develop, T002/T007, REST API, T051, T073, T083, các task viết test; facade FE-08 phía 002)
+**Date updated**: 2026-11-05 (Convergence T110–T113, chạy lại toàn bộ luồng 002 trên màn thật, sửa thông báo cũ ở màn Danh mục; trước đó: 2026-11-04 (T105–T109: sửa giá/số lượng nhiều size, áp dụng ngay sau khi duyệt, chỉ ra mục còn thiếu, thông báo kết quả; owner kiểm thử thực tế; trước đó: 2026-11-03 (rà soát spec–code–Figma: FR-003, FR-028, T103 xem ảnh quản trị, nhãn khu vực; trước đó: 2026-11-01 (T090 UI với API giả lập, tích hợp thật NOT RUN; T087 đồng bộ tài liệu; regression toàn hệ thống T086; chạy lại sau develop 365dcf3: T074, T085, T086; frontend React T088/T089 và màn hình 002; 2026-10-27: sau merge develop, T002/T007, REST API, T051, T073, T083, các task viết test; facade FE-08 phía 002))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -336,3 +336,21 @@ Chỉ sửa frontend 002; không đổi API, contract, data model hay backend. S
   - 002-04, khối *Quyết định của Manager* (duyệt hồ sơ ban đầu) và khối duyệt một size: ô "Áp dụng giá ngay sau khi duyệt (bỏ chọn nếu muốn áp dụng vào lúc khác)" trên nút Duyệt; khối Duyệt hồ sơ đã duyệt có nút "Áp dụng giá đã duyệt cho N size".
   - 002-04, trạng thái *thiếu điều kiện khi gửi duyệt*: mục Ảnh/Nội dung/Đề xuất giá viền đỏ với dòng hướng dẫn đỏ dưới tiêu đề; khung đỏ "Chưa gửi duyệt được, còn thiếu:" kèm danh sách liên kết cạnh nút Gửi duyệt.
   - Mọi frame quản trị 002 có thao tác: thông báo thành công xanh ở đầu trang và một khung xanh cùng nội dung ngay dưới nút vừa bấm (dòng riêng); nút đang chạy ghi "Đang lưu…"; bảng nhiều size lỗi một phần: khung đỏ đầu trang "Đã xử lý x/y size…" và danh sách size lỗi dưới nút.
+
+## Convergence và kiểm thử lại trên màn thật (2026-11-05)
+
+Môi trường: nhánh `khuong` (`d39b841` + thay đổi chưa commit của T110–T113), backend và frontend chạy local, MySQL 8.4 database `ppswbs_dev`, Firebase thật, phiên manager@gmail.com (MANAGER) đăng nhập trong khung Browser của Claude. Ảnh thử được tạo bằng canvas và đưa vào ô chọn file; file Excel lấy từ `test-data/` (phục vụ tạm qua Vite rồi xóa).
+
+- **Tự động:** backend 002 + `ModulithArchitectureTests` (clean build) 371 test, 370 đạt; lỗi duy nhất `CatalogueSellingLocationIT` do MySQL "Too many connections" (`max_connections=151`), chạy riêng 3/3. Frontend toàn bộ 237/237, build đạt. Test mới: `CatalogueRejectionAuditIT` (2), `CatalogueImportBatchIT` (+2), `CatalogueCommandExecutorTests` (+4), `boundaries.test.js` (3).
+- **Hành trình trên màn thật (đều đạt), đối chiếu `catalogue_audit_events`:**
+  1. Danh mục: tạo (tên được trim), tạo trùng khác hoa/thường bị từ chối, audit `REJECTED` `DUPLICATE_CATEGORY_NAME`.
+  2. Tạo sản phẩm size 12–16 bằng chọn khoảng, giá chung và sửa riêng, size 14 số lượng 0 → SP000011, SKU `SP000011-S12…S16`. Gửi duyệt khi chưa có ảnh: mục Ảnh viền đỏ, khung "còn thiếu"; alt text trống bị chặn; thêm ảnh xong viền đỏ mất.
+  3. Gửi duyệt → Manager duyệt, chỉnh size 12 lên 460.000 ₫, bật áp dụng ngay → công khai. Audit duyệt và từng lần áp giá là bản ghi riêng. Trang công khai: khoảng giá 450.000–520.000 ₫, size 14 "Hết hàng" không chọn mua được, ảnh hiển thị, 2 chi nhánh.
+  4. Sửa giá nhiều size 12–13 ("Lưu và gửi duyệt") → duyệt không áp dụng (giá cũ vẫn bán) → áp dụng riêng (audit giá cũ/mới 460.000 → 480.000). Sửa số lượng nhiều size (size 14: 0 → 3), ngừng bán size 15, ẩn (API công khai 404) rồi công khai lại (giữ `firstPublishedAt`).
+  5. Import file lỗi: 7 lỗi theo dòng/cột, không tạo gì. Import `import-khoang-size.xlsx`: xem trước 2 sản phẩm/10 size → tạo SP000012 (7 SKU) và SP000013 (3 SKU); audit có `fileName`, `rowCount`, `productCount`, `variantCount`. Gắn ảnh hàng loạt: tự gắn theo Mã nhóm và gắn tay, cả hai lưu được, hồ sơ vẫn Nháp.
+  6. Hai tab cùng sửa nội dung: tab lưu sau nhận "Dữ liệu đã được người khác thay đổi", giữ dữ liệu đã nhập, audit `REJECTED` `STALE_VERSION`.
+  7. Xóa mềm SP000013: có hộp xác nhận, rời danh sách, thông báo ở đầu danh sách, dòng dữ liệu còn với `deleted_at`.
+- **Lỗi tìm thấy và đã sửa:** màn Danh mục giữ khung xanh "Đã tạo danh mục…" của thao tác trước khi thao tác sau lỗi (lệch Session 2026-11-04: thông báo chỉ giữ đến thao tác tiếp theo). `CategoriesPage.jsx` giờ xóa thông báo trước mỗi lệnh (tạo, sửa, kích hoạt/ngừng, thử lại, cả khi báo thiếu tên), như `ProductDetailPage`. Test mới trong `screens.test.jsx` thất bại khi tắt bản sửa và đạt khi bật; frontend 002 62/62, build đạt; kiểm lại trên màn thật: sau tên trùng chỉ còn khung lỗi.
+- **Ghi nhận, chưa sửa:** các nút "Ngừng bán size" trong bảng size không có nhãn riêng theo size cho trình đọc màn hình (không thuộc yêu cầu của spec).
+- **Chưa chạy trên màn thật:** phiên Staff (Staff duyệt bị 403 chỉ có test tự động), thêm vào giỏ bằng Member (FE-08), batch import quá 60 phút.
+- **Dữ liệu thử còn trong `ppswbs_dev`:** danh mục "Nhẫn kiểm thử 0511", "Nhẫn kiểm thử thông báo 0511"; SP000011 (đang công khai), SP000012 (nháp), SP000013 (đã xóa mềm).

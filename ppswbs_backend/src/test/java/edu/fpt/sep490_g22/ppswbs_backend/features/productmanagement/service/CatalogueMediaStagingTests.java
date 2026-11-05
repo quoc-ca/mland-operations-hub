@@ -89,7 +89,8 @@ class CatalogueMediaStagingTests {
             storage = mock(MediaStoragePort.class);
             var receipts = mock(edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.CatalogueCommandReceiptRepository.class);
             when(receipts.findByActorIdAndActionAndCommandId(anyString(), anyString(), any())).thenReturn(Optional.empty());
-            executor = new CatalogueCommandExecutor(receipts, new NoopTransactions(), new ObjectMapper());
+            executor = new CatalogueCommandExecutor(receipts, new NoopTransactions(), new ObjectMapper(),
+                    mock(CatalogueAuditWriter.class));
             service = new CatalogueMediaService(media, storage, executor, mock(CatalogueAuditWriter.class),
                     new NoopTransactions());
             when(storage.storageKeyFor(any())).thenAnswer(call -> "test/" + call.getArgument(0));

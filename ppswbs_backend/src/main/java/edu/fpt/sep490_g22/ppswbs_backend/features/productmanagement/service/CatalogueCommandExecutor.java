@@ -6,8 +6,11 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import edu.fpt.sep490_g22.ppswbs_backend.common.ErrorResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.CatalogueCommandReceiptRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.CatalogueCommandReceipt;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -20,6 +23,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -66,13 +72,20 @@ public class CatalogueCommandExecutor {
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
             .build();
 
+    /** Resource type of a rejected-command audit entry; its resource id is the command key. */
+    public static final String REJECTED_RESOURCE_TYPE = "command";
+
+    private static final Logger log = LoggerFactory.getLogger(CatalogueCommandExecutor.class);
+
     private final CatalogueCommandReceiptRepository receipts;
     private final TransactionTemplate transaction;
     private final ObjectMapper objectMapper;
+    private final CatalogueAuditWriter audit;
 
     public CatalogueCommandExecutor(CatalogueCommandReceiptRepository receipts,
                                     PlatformTransactionManager transactionManager,
-                                    ObjectMapper objectMapper) {
+                                    ObjectMapper objectMapper, CatalogueAuditWriter audit) {
+        this.audit = audit;
         this.receipts = receipts;
         this.transaction = new TransactionTemplate(transactionManager);
         // Commands serialize through pessimistic row locks. Under MySQL's default REPEATABLE READ, plain reads
@@ -97,6 +110,41 @@ public class CatalogueCommandExecutor {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("A catalogue command must own its transaction");
         }
+        try {
+            return run(key, work);
+        } catch (CatalogueException rejected) {
+            recordRejection(key, rejected);
+            throw rejected;
+        }
+    }
+
+    /**
+     * FR-027 / data-model {@code catalogue_audit_events}: a rejected business attempt is audited on its own, after the
+     * command's transaction has rolled back. Only 4xx business errors count; a dependency, lock or save failure (5xx)
+     * is not a business decision. The entry carries the actor, action, command key, error code and the names of the
+     * rejected fields — never the request, a value the user typed, a token or file content. A failure to write it is
+     * logged and never replaces the original error.
+     */
+    private void recordRejection(CommandKey key, CatalogueException rejected) {
+        if (!rejected.code().status().is4xxClientError()) {
+            return;
+        }
+        Map<String, Object> changes = new LinkedHashMap<>();
+        changes.put("code", rejected.code().name());
+        List<String> fields = rejected.fieldErrors().stream().map(ErrorResponse.FieldError::field).distinct().toList();
+        if (!fields.isEmpty()) {
+            changes.put("fields", fields);
+        }
+        try {
+            audit.recordRejection(new CatalogueAuditWriter.Entry(key.actorId(), key.action(), REJECTED_RESOURCE_TYPE,
+                    key.commandId().toString(), null, null, null, changes));
+        } catch (RuntimeException auditFailure) {
+            log.warn("Could not audit rejected catalogue command action={} code={}", key.action(),
+                    rejected.code().name(), auditFailure);
+        }
+    }
+
+    private Outcome run(CommandKey key, Supplier<CommandResult> work) {
         Optional<Outcome> committed = findCommitted(key);
         if (committed.isPresent()) {
             return committed.get();

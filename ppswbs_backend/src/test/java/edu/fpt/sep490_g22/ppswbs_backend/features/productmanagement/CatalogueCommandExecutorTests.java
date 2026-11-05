@@ -3,6 +3,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.CatalogueCommandReceiptRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.CatalogueCommandReceipt;
+import edu.fpt.sep490_g22.ppswbs_backend.common.ErrorResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueAuditWriter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueCommandExecutor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueCommandExecutor.CommandKey;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueCommandExecutor.CommandResult;
@@ -10,6 +12,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.Cata
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
@@ -18,6 +21,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,13 +43,15 @@ class CatalogueCommandExecutorTests {
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     private final RecordingTransactionManager transactions = new RecordingTransactionManager();
     private CatalogueCommandReceiptRepository receipts;
+    private CatalogueAuditWriter audit;
     private CatalogueCommandExecutor executor;
     private final UUID commandId = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
         receipts = mock(CatalogueCommandReceiptRepository.class);
-        executor = new CatalogueCommandExecutor(receipts, transactions, objectMapper);
+        audit = mock(CatalogueAuditWriter.class);
+        executor = new CatalogueCommandExecutor(receipts, transactions, objectMapper, audit);
     }
 
     @Test
@@ -115,6 +121,68 @@ class CatalogueCommandExecutorTests {
 
         assertThat(transactions.rollbacks).isEqualTo(1);
         verify(receipts, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void businessRejectionIsAuditedAfterTheRollbackWithoutRequestValues() {
+        when(receipts.findByActorIdAndActionAndCommandId(anyString(), anyString(), any())).thenReturn(Optional.empty());
+        AtomicInteger rollbacksWhenAudited = new AtomicInteger(-1);
+        when(audit.recordRejection(any())).thenAnswer(call -> {
+            rollbacksWhenAudited.set(transactions.rollbacks);
+            return null;
+        });
+
+        assertThatThrownBy(() -> executor.execute(key("d1"), () -> {
+            throw new CatalogueException(CatalogueErrorCode.VALIDATION_ERROR, List.of(
+                    new ErrorResponse.FieldError("name", "secret typed value"),
+                    new ErrorResponse.FieldError("name", "again"),
+                    new ErrorResponse.FieldError("variants[0].size", "out of range")));
+        })).isInstanceOfSatisfying(CatalogueException.class,
+                error -> assertThat(error.code()).isEqualTo(CatalogueErrorCode.VALIDATION_ERROR));
+
+        ArgumentCaptor<CatalogueAuditWriter.Entry> entry = ArgumentCaptor.forClass(CatalogueAuditWriter.Entry.class);
+        verify(audit).recordRejection(entry.capture());
+        assertThat(rollbacksWhenAudited).hasValue(1);
+        assertThat(entry.getValue().actorId()).isEqualTo("staff-1");
+        assertThat(entry.getValue().action()).isEqualTo("product.create");
+        assertThat(entry.getValue().resourceType()).isEqualTo(CatalogueCommandExecutor.REJECTED_RESOURCE_TYPE);
+        assertThat(entry.getValue().resourceId()).isEqualTo(commandId.toString());
+        assertThat(entry.getValue().safeChanges()).containsEntry("code", "VALIDATION_ERROR")
+                .containsEntry("fields", List.of("name", "variants[0].size"));
+        assertThat(entry.getValue().safeChanges().toString()).doesNotContain("secret typed value");
+        verify(audit, never()).recordSuccess(any());
+    }
+
+    @Test
+    void reusedKeyWithAnotherDigestIsAuditedAsRejected() {
+        when(receipts.findByActorIdAndActionAndCommandId("staff-1", "product.create", commandId))
+                .thenReturn(Optional.of(receipt("d1")));
+
+        assertThatThrownBy(() -> executor.execute(key("other"), () -> null))
+                .isInstanceOfSatisfying(CatalogueException.class,
+                        error -> assertThat(error.code()).isEqualTo(CatalogueErrorCode.IDEMPOTENCY_KEY_REUSED));
+        verify(audit).recordRejection(any());
+    }
+
+    @Test
+    void dependencyFailureIsNotABusinessRejection() {
+        when(receipts.findByActorIdAndActionAndCommandId(anyString(), anyString(), any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> executor.execute(key("d1"), () -> {
+            throw new CatalogueException(CatalogueErrorCode.AVAILABILITY_DEPENDENCY_UNAVAILABLE);
+        })).isInstanceOf(CatalogueException.class);
+        verify(audit, never()).recordRejection(any());
+    }
+
+    @Test
+    void auditFailureNeverReplacesTheOriginalRejection() {
+        when(receipts.findByActorIdAndActionAndCommandId(anyString(), anyString(), any())).thenReturn(Optional.empty());
+        when(audit.recordRejection(any())).thenThrow(new IllegalStateException("audit down"));
+
+        assertThatThrownBy(() -> executor.execute(key("d1"), () -> {
+            throw new CatalogueException(CatalogueErrorCode.STALE_VERSION);
+        })).isInstanceOfSatisfying(CatalogueException.class,
+                error -> assertThat(error.code()).isEqualTo(CatalogueErrorCode.STALE_VERSION));
     }
 
     @Test
