@@ -50,6 +50,8 @@ class CustomerBookingCancellationServiceTest {
     private final SettlementCaseRepository cases = mock(SettlementCaseRepository.class);
     private final SettlementCustomerCancellationSnapshotRepository snapshots = mock(SettlementCustomerCancellationSnapshotRepository.class);
     private final SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository bills =
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository.class);
     private final SettlementRefundAllocationRepository allocations = mock(SettlementRefundAllocationRepository.class);
     private final WorkshopRefundService refunds = mock(WorkshopRefundService.class);
     private final PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
@@ -85,7 +87,7 @@ class CustomerBookingCancellationServiceTest {
         when(booking.verifyCustomerAccess(eq("BK-1"), any(), any(), any()))
                 .thenReturn(new CustomerBookingAccessDecision(true));
         service = new CustomerBookingCancellationService(booking, operations, idempotency, cases, snapshots,
-                audits, transactionManager);
+                audits, bills, transactionManager);
     }
 
     @Test

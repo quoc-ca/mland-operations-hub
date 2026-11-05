@@ -4,15 +4,21 @@ import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationRe
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationsPort;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundReconciliationCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRefundStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementRefundAllocationRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementBusinessAudit;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCase;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBillLifecycleStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundAllocation;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -46,16 +52,21 @@ public class WorkshopRefundService {
     private final SettlementBusinessAuditRepository audits;
     private final WorkshopOperationsSettlementAdapter operations;
     private final WorkshopCancellationLoyaltyService cancellationLoyalty;
+    private final WorkshopBookingSettlementAdapter booking;
+    private final SettlementFinalBillRepository bills;
     private final TransactionTemplate transaction;
     private final String merchantApiIpAddress;
     private final String merchantApiCreatedBy;
 
+    @Autowired
     public WorkshopRefundService(VnpayMerchantOperationsPort provider,
             SettlementRefundAllocationRepository allocations,
             SettlementCaseRepository cases,
             SettlementBusinessAuditRepository audits,
             WorkshopOperationsSettlementAdapter operations,
             WorkshopCancellationLoyaltyService cancellationLoyalty,
+            WorkshopBookingSettlementAdapter booking,
+            SettlementFinalBillRepository bills,
             PlatformTransactionManager transactionManager,
             @Value("${vnpay.merchant-api-ip-address:}") String merchantApiIpAddress,
             @Value("${vnpay.merchant-api-created-by:}") String merchantApiCreatedBy) {
@@ -65,6 +76,8 @@ public class WorkshopRefundService {
         this.audits = audits;
         this.operations = operations;
         this.cancellationLoyalty = cancellationLoyalty;
+        this.booking = booking;
+        this.bills = bills;
         this.transaction = new TransactionTemplate(transactionManager);
         this.merchantApiIpAddress = trimToNull(merchantApiIpAddress);
         this.merchantApiCreatedBy = trimToNull(merchantApiCreatedBy);
@@ -102,6 +115,20 @@ public class WorkshopRefundService {
         if (allocation == null || !"PREPARED".equals(allocation.getLifecycleStatus())) return;
         SettlementCase settlementCase = cases.findByCaseReference(allocation.getCaseReference()).orElse(null);
         if (!isPendingRefundCase(settlementCase)) return;
+
+        if ("MLAND_CANCELLATION_REMEDY".equals(settlementCase.getCaseType())) {
+            try {
+                String opRef = "SETTLE-REFUND-PENDING-" + settlementCase.getCaseReference();
+                booking.recordBookingRefundStatus(settlementCase.getBookingReference(),
+                        BookingRefundStatus.REFUND_PENDING,
+                        settlementCase.getCaseReference(),
+                        opRef,
+                        settlementCase.getCorrelationReference());
+            } catch (RuntimeException failure) {
+                log.warn("Failed to notify booking of refund pending status; caseReference={} ({})",
+                        settlementCase.getCaseReference(), failure.getClass().getSimpleName());
+            }
+        }
 
         String expectedType = expectedRefundType(allocation);
         String orderInfo = "Workshop cancellation " + settlementCase.getCaseReference();
@@ -317,6 +344,38 @@ public class WorkshopRefundService {
                     latest.setUpdatedAt(Instant.now());
                     cases.save(latest);
                     saveAudit(latest, "CUSTOMER_CANCELLATION_REFUND_VERIFIED", null);
+
+                    bills.findByBookingReference(latest.getBookingReference()).ifPresent(bill -> {
+                        if (SettlementFinalBillLifecycleStatus.OPEN.name().equals(bill.getLifecycleStatus())) {
+                            bill.setLifecycleStatus(SettlementFinalBillLifecycleStatus.CLOSED.name());
+                            bills.saveAndFlush(bill);
+                            saveAudit(latest, "DIRECT_FOLIO_CLOSED_REFUNDED", bill.getBillReference());
+                        }
+                    });
+                    if ("MLAND_CANCELLATION_REMEDY".equals(latest.getCaseType())) {
+                        try {
+                            String refundOpRef = "SETTLE-REFUND-VERIFIED-" + latest.getCaseReference();
+                            booking.recordBookingRefundStatus(latest.getBookingReference(),
+                                    BookingRefundStatus.REFUNDED,
+                                    latest.getCaseReference(),
+                                    refundOpRef,
+                                    latest.getCorrelationReference());
+                        } catch (RuntimeException ex) {
+                            log.warn("Failed to notify booking of REFUNDED status; caseReference={} ({})",
+                                    latest.getCaseReference(), ex.getClass().getSimpleName());
+                        }
+                        try {
+                            String outcomeOpRef = "SETTLE-CANCEL-OUTCOME-" + latest.getCaseReference();
+                            booking.recordBookingServiceOutcome(latest.getBookingReference(),
+                                    BookingServiceOutcome.CANCELLED,
+                                    latest.getCaseReference(),
+                                    outcomeOpRef,
+                                    latest.getCorrelationReference());
+                        } catch (RuntimeException ex) {
+                            log.warn("Failed to notify booking of CANCELLED outcome; caseReference={} ({})",
+                                    latest.getCaseReference(), ex.getClass().getSimpleName());
+                        }
+                    }
                 });
             } else {
                 transaction.executeWithoutResult(status -> {

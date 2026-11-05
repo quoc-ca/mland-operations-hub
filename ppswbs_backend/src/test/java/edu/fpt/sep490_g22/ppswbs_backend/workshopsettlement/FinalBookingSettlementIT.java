@@ -3,6 +3,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcomeResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConfirmedBookingFinancialProjection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.CustomerBookingAccessDecision;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.FinalBalanceResolutionOutcome;
@@ -71,24 +73,25 @@ class FinalBookingSettlementIT {
     @MockitoBean private SettlementNotificationEventDispatcher notificationDispatcher;
 
     @Test
-    @DisplayName("Create final bill requires Operations readiness and location-scoped authority; replays idempotently")
+    @DisplayName("Create final bill requires pre-existing folio and location-scoped authority; replays idempotently")
     void createFinalBill_readinessAndLocationAuthority_idempotentReplay() {
         when(bookingAdapter.confirmedProjection(BOOKING_CODE)).thenReturn(
                 new ConfirmedBookingFinancialProjection("PKG-1", 100_000L, 80_000L, 40_000L, 40_000L, 1, List.of("SESSION-1"), LOCATION_ID));
 
-        // Readiness false -> conflict SETTLEMENT_NOT_READY
-        when(operationsAdapter.readiness(BOOKING_CODE)).thenReturn(new SettlementReadiness(false));
+        // When bill does not exist yet -> conflict FINAL_BILL_NOT_FOUND (D1: opened at confirmation)
         assertThatThrownBy(() -> apiService.create(BOOKING_CODE, "idem-create-001", "CORR-01", staffAuth(LOCATION_ID)))
                 .isInstanceOf(WorkshopSettlementConflictException.class)
-                .hasMessage("SETTLEMENT_NOT_READY");
+                .hasMessage("FINAL_BILL_NOT_FOUND");
+
+        // Seed existing open folio as created at confirmation
+        setupOpenBill(40_000L);
 
         // Staff out of location scope -> LOCATION_SCOPE_DENIED
-        when(operationsAdapter.readiness(BOOKING_CODE)).thenReturn(new SettlementReadiness(true));
         assertThatThrownBy(() -> apiService.create(BOOKING_CODE, "idem-create-001", "CORR-01", staffAuth(OTHER_LOCATION_ID)))
                 .isInstanceOf(WorkshopSettlementAuthorizationException.class)
                 .hasMessage("LOCATION_SCOPE_DENIED");
 
-        // Staff in location scope -> successfully created
+        // Staff in location scope -> successfully returns existing projection
         FinalBillProjectionDto projection = apiService.create(BOOKING_CODE, "idem-create-001", "CORR-01", staffAuth(LOCATION_ID));
         assertThat(projection.bookingCode()).isEqualTo(BOOKING_CODE);
         assertThat(projection.status()).isEqualTo("OPEN");
@@ -157,6 +160,8 @@ class FinalBookingSettlementIT {
         setupOpenBill(40_000L);
         when(bookingAdapter.recordFinalBalanceResolved(eq(BOOKING_CODE), anyString(), anyString(), anyString()))
                 .thenReturn(FinalBalanceResolutionOutcome.accepted());
+        when(bookingAdapter.recordBookingServiceOutcome(eq(BOOKING_CODE), eq(BookingServiceOutcome.COMPLETED), anyString(), anyString(), anyString()))
+                .thenReturn(BookingServiceOutcomeResult.accepted());
 
         // 1. Mismatched currency (USD instead of VND) is rejected at command boundary
         assertThatThrownBy(() -> new ApplyVerifiedSettlementPaymentEvidenceCommand(
@@ -296,7 +301,21 @@ class FinalBookingSettlementIT {
                 new ConfirmedBookingFinancialProjection("PKG-1", 100_000L, 80_000L, 40_000L, remainingAmount, 1, List.of("SESSION-1"), LOCATION_ID));
         when(operationsAdapter.readiness(BOOKING_CODE)).thenReturn(new SettlementReadiness(true));
 
-        apiService.create(BOOKING_CODE, "idem-setup-" + System.nanoTime(), "CORR-SETUP", staffAuth(LOCATION_ID));
+        billRepository.findByBookingReference(BOOKING_CODE).ifPresentOrElse(
+                b -> {
+                    b.setRemainingAmountVnd(remainingAmount);
+                    billRepository.saveAndFlush(b);
+                },
+                () -> billRepository.saveAndFlush(SettlementFinalBill.builder()
+                        .billReference("BILL-TEST-" + System.nanoTime())
+                        .bookingReference(BOOKING_CODE)
+                        .postPromotionAmountVnd(80_000L)
+                        .acceptedDepositAmountVnd(40_000L)
+                        .remainingAmountVnd(remainingAmount)
+                        .currencyCode("VND")
+                        .lifecycleStatus("OPEN")
+                        .build())
+        );
     }
 
     private static Authentication staffAuth(Long locationId) {
