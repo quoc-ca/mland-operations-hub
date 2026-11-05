@@ -97,6 +97,28 @@ public class OtaAuthorizationService {
         return actor;
     }
 
+    /**
+     * Add-on quote operations are allowed to in-scope Staff (location-scoped) or any active Manager (global),
+     * per owner decision D18 (2026-11-05).
+     */
+    public AccountSummary requireStaffOrManagerLocation(String authorization, Long locationId) {
+        AccountSummary actor = authenticate(authorization);
+        if (isManager(actor)) {
+            return actor;
+        }
+        if (isStaff(actor)) {
+            if (locationId == null) {
+                throw new OtaLocationScopeException("A canonical location is required for this action");
+            }
+            List<Long> locations = accountFacade.getLocationScope(actor.accountId());
+            if (locations == null || !locations.contains(locationId)) {
+                throw new OtaLocationScopeException("Location is outside the Staff member's active location scope");
+            }
+            return actor;
+        }
+        throw new OtaForbiddenException("Access requires an active Staff or Manager account");
+    }
+
     public boolean isManager(AccountSummary actor) {
         return actor != null && actor.role() == ActorRole.MANAGER;
     }

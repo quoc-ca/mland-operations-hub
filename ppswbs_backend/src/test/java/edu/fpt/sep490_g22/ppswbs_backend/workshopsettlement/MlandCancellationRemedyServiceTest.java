@@ -61,7 +61,8 @@ class MlandCancellationRemedyServiceTest {
         refunds = mock(WorkshopRefundService.class);
         service = new MlandCancellationRemedyService(cases, cancellationCases, customerSnapshots,
                 policySnapshots, remedySnapshots, allocations, evidence, audits, booking,
-                authorization, idempotency, refunds, new ObjectMapper());
+                authorization, idempotency, refunds, new ObjectMapper(),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository.class));
         manager = new CurrentAccountActor(7L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of());
         when(authorization.requireManager(manager)).thenReturn(manager);
         when(booking.confirmedProjection("BK-M1")).thenReturn(new ConfirmedBookingFinancialProjection(

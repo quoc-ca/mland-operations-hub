@@ -16,12 +16,15 @@ describe('Settlement rendered UI evidence', () => {
     renderRoutes(settlementRoutes, { path: '/settlement/cases?tab=cases' });
     expect(await screen.findByText('All settlement cases')).toBeInTheDocument();
     expect(screen.getByText('No settlement cases found.')).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Pending provider' })).toBeInTheDocument();
+    const statusFilter = screen.getByRole('combobox', { name: 'Status' });
+    const statusValues = Array.from(statusFilter.querySelectorAll('option')).map(option => option.value);
+    // FR-022b1 vocabulary only: no CANCELED, EXPIRED or deferred-payment state.
+    expect(statusValues).toEqual(['', 'OPEN', 'PENDING_PROVIDER', 'RESOLVED', 'REJECTED', 'FAILED']);
   });
 
   it('renders a pending-provider case without treating it as resolved', async () => {
     mockFetch({
-      'GET /api/v1/workshop-settlement-cases': json(200, { items: [{ caseReference: 'CASE-001', caseType: 'CUSTOMER_CANCELLATION', status: 'PENDING_PROVIDER', bookingCode: 'BK-001' }] }),
+      'GET /api/v1/workshop-settlement-cases': json(200, { items: [{ caseReference: 'CASE-001', caseType: 'MLAND_CANCELLATION_REMEDY', status: 'PENDING_PROVIDER', bookingCode: 'BK-001' }] }),
       'GET /api/v1/workshop-refund-policies': emptyPolicies,
     });
     renderRoutes(settlementRoutes, { path: '/settlement/cases?tab=cases' });

@@ -22,6 +22,8 @@ public interface WorkshopOperationsFacade {
 
     SettlementReadiness getSettlementReadiness(BookingSettlementReadinessQuery query);
 
+    BookingAttendanceOutcome getBookingAttendanceOutcome(BookingAttendanceOutcomeQuery query);
+
     /** Authoritative, PII-free session and attendance facts used by cancellation policy. */
     BookingCancellationEligibilitySnapshot getBookingCancellationEligibility(BookingCancellationEligibilityQuery query);
 

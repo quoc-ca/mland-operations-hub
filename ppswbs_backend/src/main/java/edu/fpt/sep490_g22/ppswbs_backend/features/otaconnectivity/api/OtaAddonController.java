@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api;
 
 import edu.fpt.sep490_g22.ppswbs_backend.common.CorrelationIdFilter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api.OtaAddonDtos.AddonAcceptanceRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api.OtaAddonDtos.AddonQuoteRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api.OtaAddonDtos.AddonQuoteResponse;
@@ -46,35 +47,50 @@ public class OtaAddonController {
         UUID.fromString(channelBookingId);
 
         Long locationId = addonService.getLocationIdForBooking(channelBookingId);
-        authorizationService.requireStaffLocation(authorization, locationId);
+        authorizationService.requireStaffOrManagerLocation(authorization, locationId);
 
-        if (!"VND".equalsIgnoreCase(request.amount().currency())) {
-            throw new OtaUnprocessableException("Only VND currency is supported for add-ons");
-        }
-
-        long amountMinor = OtaCurrencyMoney.toMinor(request.amount().amount(), request.amount().currency());
-
+        AddonQuoteResult quote;
         if (OtaAddonService.ADDON_TYPE_LASER_ENGRAVING.equalsIgnoreCase(request.addonType())) {
+            if (request.catalogueAddOnReference() != null) {
+                throw new IllegalArgumentException("catalogueAddOnReference is not permitted for LASER_ENGRAVING");
+            }
+            if (request.itemCode() != null) {
+                throw new IllegalArgumentException("itemCode is not permitted for LASER_ENGRAVING");
+            }
+            if (request.itemDescription() == null || request.itemDescription().isBlank()) {
+                throw new IllegalArgumentException("itemDescription is required for LASER_ENGRAVING");
+            }
+            if (request.amount() == null) {
+                throw new IllegalArgumentException("amount is required for LASER_ENGRAVING");
+            }
+            if (!"VND".equalsIgnoreCase(request.amount().currency())) {
+                throw new OtaUnprocessableException("Only VND currency is supported for add-ons");
+            }
+
+            long amountMinor = OtaCurrencyMoney.toMinor(request.amount().amount(), request.amount().currency());
             if (amountMinor != 0L) {
                 throw new OtaUnprocessableException("Laser engraving is free of charge and must have zero amount");
             }
-        } else if (OtaAddonService.ADDON_TYPE_PAID_OPTION.equalsIgnoreCase(request.addonType())) {
-            if (request.itemCode() == null || request.itemCode().isBlank()) {
-                throw new IllegalArgumentException("itemCode is required for PAID_OPTION");
-            }
-            if (amountMinor <= 0L) {
-                throw new OtaUnprocessableException("Paid option requires a positive amount");
-            }
-        }
 
-        AddonQuoteResult quote = addonService.createQuote(
-                channelBookingId,
-                request.addonType(),
-                request.itemCode(),
-                request.itemDescription(),
-                amountMinor,
-                request.amount().currency()
-        );
+            quote = addonService.createLaserEngravingQuote(channelBookingId, request.itemDescription());
+        } else if (OtaAddonService.ADDON_TYPE_PAID_OPTION.equalsIgnoreCase(request.addonType())) {
+            if (request.amount() != null) {
+                throw new IllegalArgumentException("Staff-entered amount is not permitted for PAID_OPTION");
+            }
+            if (request.itemCode() != null) {
+                throw new IllegalArgumentException("Staff-entered itemCode is not permitted for PAID_OPTION");
+            }
+            if (request.itemDescription() != null) {
+                throw new IllegalArgumentException("itemDescription is not permitted for PAID_OPTION");
+            }
+            if (request.catalogueAddOnReference() == null || request.catalogueAddOnReference().isBlank()) {
+                throw new IllegalArgumentException("catalogueAddOnReference is required for PAID_OPTION");
+            }
+
+            quote = addonService.createPaidOptionQuote(channelBookingId, request.catalogueAddOnReference());
+        } else {
+            throw new IllegalArgumentException("Unsupported add-on type: " + request.addonType());
+        }
 
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(quote));
     }
@@ -88,7 +104,7 @@ public class OtaAddonController {
         UUID.fromString(quoteId);
 
         Long locationId = addonService.getLocationIdForQuote(quoteId);
-        authorizationService.requireStaffLocation(authorization, locationId);
+        authorizationService.requireStaffOrManagerLocation(authorization, locationId);
 
         AddonQuoteResult quote = addonService.recordCustomerAcceptance(
                 quoteId,
@@ -108,9 +124,11 @@ public class OtaAddonController {
         UUID.fromString(quoteId);
 
         Long locationId = addonService.getLocationIdForQuote(quoteId);
-        AccountSummary actor = authorizationService.requireStaffLocation(authorization, locationId);
+        AccountSummary actor = authorizationService.requireStaffOrManagerLocation(authorization, locationId);
 
-        String staffActorReference = actor != null ? "STAFF-" + actor.accountId() : "STAFF";
+        String staffActorReference = actor != null
+                ? (actor.role() == ActorRole.MANAGER ? "MANAGER-" + actor.accountId() : "STAFF-" + actor.accountId())
+                : "STAFF";
 
         DirectBillResult billResult = addonService.createDirectBill(
                 quoteId,
@@ -145,4 +163,3 @@ public class OtaAddonController {
         );
     }
 }
-

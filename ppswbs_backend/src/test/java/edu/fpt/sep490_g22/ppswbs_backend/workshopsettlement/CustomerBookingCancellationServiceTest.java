@@ -50,6 +50,8 @@ class CustomerBookingCancellationServiceTest {
     private final SettlementCaseRepository cases = mock(SettlementCaseRepository.class);
     private final SettlementCustomerCancellationSnapshotRepository snapshots = mock(SettlementCustomerCancellationSnapshotRepository.class);
     private final SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository bills =
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository.class);
     private final SettlementRefundAllocationRepository allocations = mock(SettlementRefundAllocationRepository.class);
     private final WorkshopRefundService refunds = mock(WorkshopRefundService.class);
     private final PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
@@ -85,7 +87,7 @@ class CustomerBookingCancellationServiceTest {
         when(booking.verifyCustomerAccess(eq("BK-1"), any(), any(), any()))
                 .thenReturn(new CustomerBookingAccessDecision(true));
         service = new CustomerBookingCancellationService(booking, operations, idempotency, cases, snapshots,
-                audits, transactionManager);
+                audits, bills, transactionManager);
     }
 
     @Test
@@ -142,13 +144,13 @@ class CustomerBookingCancellationServiceTest {
     @Test
     void guestReadsSafeCaseOnlyAfterStoredContactProof() {
         savedCase.set(SettlementCase.builder().caseReference("CASE-1").bookingReference("BK-1")
-                .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("PENDING_PROVIDER")
+                .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("RESOLVED")
                 .correlationReference("CORR-1").build());
 
         var result = service.read("BK-1", "CASE-1", new GuestContactProofDto("guest@example.test", null), null);
 
         assertThat(result.caseReference()).isEqualTo("CASE-1");
-        assertThat(result.status()).isEqualTo("PENDING_PROVIDER");
+        assertThat(result.status()).isEqualTo("RESOLVED");
         assertThat(result.toString()).doesNotContain("guest@example.test");
         verify(booking).verifyCustomerAccess("BK-1", null, "guest@example.test", null);
     }
@@ -156,7 +158,7 @@ class CustomerBookingCancellationServiceTest {
     @Test
     void memberMustOwnBookingToReadCancellationCase() {
         savedCase.set(SettlementCase.builder().caseReference("CASE-1").bookingReference("BK-1")
-                .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("PENDING_PROVIDER")
+                .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("RESOLVED")
                 .correlationReference("CORR-1").build());
         when(booking.verifyCustomerAccess("BK-1", 42L, null, null))
                 .thenReturn(new CustomerBookingAccessDecision(false));

@@ -14,6 +14,10 @@ public class WorkshopOperationsSettlementAdapter {
         return operations.getSettlementReadiness(new BookingSettlementReadinessQuery(bookingReference));
     }
 
+    public BookingAttendanceOutcome attendanceOutcome(String bookingReference) {
+        return operations.getBookingAttendanceOutcome(new BookingAttendanceOutcomeQuery(bookingReference));
+    }
+
     public BookingCancellationEligibilitySnapshot cancellationEligibility(String bookingReference) {
         return operations.getBookingCancellationEligibility(new BookingCancellationEligibilityQuery(bookingReference));
     }

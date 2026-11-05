@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -41,6 +42,9 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @SpringBootTest
 @ActiveProfiles({"test", "workshopoperations-mysql-test"})
+// .env is loaded with environment-level precedence; keep a developer's local demo
+// location filter from hiding the locations this test creates.
+@TestPropertySource(properties = "workshop.operations.visible-location-ids=")
 class WorkshopPackageFacadeIT {
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");

@@ -4,13 +4,18 @@ import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationRe
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationsPort;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundReconciliationCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRefundStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.RefundConsequenceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementRefundAllocationRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCase;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundAllocation;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopRefundService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopCancellationLoyaltyService;
@@ -42,6 +47,8 @@ class WorkshopRefundServiceTest {
     private final SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
     private final WorkshopOperationsSettlementAdapter operations = mock(WorkshopOperationsSettlementAdapter.class);
     private final WorkshopCancellationLoyaltyService cancellationLoyalty = mock(WorkshopCancellationLoyaltyService.class);
+    private final WorkshopBookingSettlementAdapter booking = mock(WorkshopBookingSettlementAdapter.class);
+    private final SettlementFinalBillRepository bills = mock(SettlementFinalBillRepository.class);
     private final RecordingTransactionManager transactions = new RecordingTransactionManager();
     private final Map<String, SettlementRefundAllocation> allocationRows = new ConcurrentHashMap<>();
     private SettlementCase cancellationCase;
@@ -53,8 +60,8 @@ class WorkshopRefundServiceTest {
         cancellationCase = SettlementCase.builder().caseReference(CASE_REF).bookingReference(BOOKING_REF)
                 .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("PENDING_PROVIDER")
                 .correlationReference("CORR-1").createdAt(Instant.now()).updatedAt(Instant.now()).build();
-        service = new WorkshopRefundService(provider, allocations, cases, audits, operations, cancellationLoyalty, transactions,
-                "8.8.8.8", "sandbox-merchant");
+        service = new WorkshopRefundService(provider, allocations, cases, audits, operations, cancellationLoyalty,
+                booking, bills, transactions, "8.8.8.8", "sandbox-merchant");
         when(cases.findByCaseReference(CASE_REF)).thenReturn(Optional.of(cancellationCase));
         when(cases.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(allocations.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -99,6 +106,9 @@ class WorkshopRefundServiceTest {
                 result("REFUND", "ACCEPTED", "00", "03", "06", "70009", "PAY-MLAND", 25_000L, true));
         when(provider.queryRefund(any(VnpayRefundReconciliationCommand.class))).thenReturn(
                 result("REFUND_QUERYDR", "VERIFIED", "00", "03", "00", "70009", "PAY-MLAND", 25_000L, true));
+        SettlementFinalBill openFolio = SettlementFinalBill.builder().billReference("BILL-MLAND")
+                .bookingReference(BOOKING_REF).lifecycleStatus("OPEN").build();
+        when(bills.findByBookingReference(BOOKING_REF)).thenReturn(Optional.of(openFolio));
 
         service.dispatchCase(CASE_REF);
 
@@ -106,6 +116,11 @@ class WorkshopRefundServiceTest {
         assertThat(cancellationCase.getLifecycleStatus()).isEqualTo("RESOLVED");
         verify(provider).requestRefund(any(VnpayRefundCommand.class));
         verify(operations).applyRefund(eq(BOOKING_REF), anyString(), anyString(), eq("CORR-1"));
+        verify(booking).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUND_PENDING), eq(CASE_REF), anyString(), eq("CORR-1"));
+        verify(booking).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUNDED), eq(CASE_REF), anyString(), eq("CORR-1"));
+        verify(booking).recordBookingServiceOutcome(eq(BOOKING_REF), eq(BookingServiceOutcome.CANCELLED), eq(CASE_REF), anyString(), eq("CORR-1"));
+        assertThat(openFolio.getLifecycleStatus()).isEqualTo("CLOSED");
+        verify(bills).saveAndFlush(openFolio);
     }
 
     @Test

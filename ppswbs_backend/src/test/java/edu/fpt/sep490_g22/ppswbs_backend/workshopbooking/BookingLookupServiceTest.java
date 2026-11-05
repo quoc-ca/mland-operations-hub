@@ -166,6 +166,24 @@ class BookingLookupServiceTest {
         verify(operations, never()).getCurrentEntitlementProjection(anyString());
     }
 
+    @Test
+    void lookupAndMagicLinkProjectionExposeTerminalServiceAndRefundStatuses() {
+        WorkshopBooking booking = booking(BookingStatus.NO_SHOW, null);
+        booking.setPaymentStatus(PaymentStatus.REFUNDED);
+        UUID sessionRef = UUID.randomUUID();
+        Instant start = Instant.parse("2026-11-22T09:00:00Z");
+        when(commitments.findByBookingIdOrderByOrdinalAsc(booking.getId()))
+                .thenReturn(List.of(commitment(booking, sessionRef, 1)));
+        when(operations.getSaleEligibility(sessionRef)).thenReturn(new SaleEligibilitySnapshot(sessionRef,
+                false, "CLOSED", 31L, start, start.plusSeconds(3600), 0, null));
+
+        BookingSummaryResponse response = service.projectForMagicLink(booking);
+
+        assertThat(response.getBookingStatus()).isEqualTo("NO_SHOW");
+        assertThat(response.getPaymentStatus()).isEqualTo("REFUNDED");
+        assertThat(response.getTickets()).isEmpty();
+    }
+
     private static WorkshopBooking booking(BookingStatus status, Long memberId) {
         return WorkshopBooking.builder().id(15L).bookingCode("BK-LOOKUP-001").packageId(77L)
                 .packageNameSnapshot("Workshop package").contactEmail("guest@example.test")
