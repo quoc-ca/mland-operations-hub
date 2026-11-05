@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * - Friday -> Wednesday next week valid (2 working days: Mon, Tue; Sat & Sun excluded).
  * - Monday -> Wednesday rejected (1 working day; no partial hold).
  * - Friday -> Tuesday next week rejected (1 working day; no partial hold).
- * - Monday -> Friday rejected (3 working days; strict == 2).
+ * - Monday -> Friday accepted (3 working days; at least 2, no maximum gap; 003.2 T089).
  * - Location, distinctness, and chronological order requirements.
  * - Atomic booking replacement (replaceRequiredSessions) for Wax Casting.
  * - Zero partial hold and zero partial booking/ticket mutation on rejection.
@@ -85,7 +85,7 @@ class WaxCastingBookingIntegrationIT {
 
         waxCastingPackage = packageRepository.save(WorkshopPackage.builder()
                 .name("Wax Casting Workshop " + UUID.randomUUID())
-                .description("Two sessions with exactly two foundry working days between")
+                .description("Two sessions with at least two foundry working days between")
                 .publicPrice(1_500_000L)
                 .minParticipants(1)
                 .maxParticipants(6)
@@ -201,17 +201,16 @@ class WaxCastingBookingIntegrationIT {
     }
 
     @Test
-    @DisplayName("reserve rejects Monday to Friday (3 working days; strict == 2 required) with zero partial holds")
-    void reserveMondayToFridayIsRejectedStrictWorkingDays() {
+    @DisplayName("reserve accepts Monday to Friday (3 working days; at least 2 required, no maximum)")
+    void reserveMondayToFridayIsAcceptedAtLeastTwoWorkingDays() {
         WorkshopSession monSession = createSessionOn(locationA, baseMonday, LocalTime.of(16, 0), 10);
         WorkshopSession friSession = createSessionOn(locationA, friday, LocalTime.of(9, 30), 10);
-        String booking = bookingReference("WAX-MON-FRI-FAIL");
+        String booking = bookingReference("WAX-MON-FRI");
 
         CapacityHoldOutcome outcome = reserve(waxCastingPackage, List.of(monSession, friSession), 2, booking);
 
-        assertThat(outcome.status()).isEqualTo(OutcomeStatus.REJECTED);
-        assertThat(outcome.reason()).isEqualTo(RejectionReason.PACKAGE_SELECTION_INVALID);
-        assertThat(holdsFor(booking)).isZero();
+        assertThat(outcome.status()).isEqualTo(OutcomeStatus.ACCEPTED);
+        assertThat(holdsFor(booking)).isEqualTo(2);
     }
 
     @Test
