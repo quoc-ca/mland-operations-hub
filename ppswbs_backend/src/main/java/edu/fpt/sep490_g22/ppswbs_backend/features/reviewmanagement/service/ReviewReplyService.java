@@ -19,7 +19,6 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ReviewReplyService {
 
     private final ReviewRepository reviewRepository;
@@ -27,6 +26,19 @@ public class ReviewReplyService {
     private final ReviewModerationEventRepository moderationEventRepository;
     private final ReviewApplicationService applicationService;
     private final ReviewIdempotencyService idempotencyService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ReviewReplyService(ReviewRepository reviewRepository,
+                              ReviewReplyRepository replyRepository,
+                              ReviewModerationEventRepository moderationEventRepository,
+                              ReviewApplicationService applicationService,
+                              ReviewIdempotencyService idempotencyService) {
+        this.reviewRepository = reviewRepository;
+        this.replyRepository = replyRepository;
+        this.moderationEventRepository = moderationEventRepository;
+        this.applicationService = applicationService;
+        this.idempotencyService = idempotencyService;
+    }
 
     @Deprecated
     public ReviewReplyService(ReviewRepository reviewRepository,

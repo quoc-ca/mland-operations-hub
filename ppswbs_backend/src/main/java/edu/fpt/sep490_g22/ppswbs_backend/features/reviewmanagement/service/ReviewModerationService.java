@@ -21,7 +21,6 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ReviewModerationService {
 
     private final ReviewRepository reviewRepository;
@@ -29,6 +28,19 @@ public class ReviewModerationService {
     private final ReviewReplyRepository replyRepository;
     private final ReviewApplicationService applicationService;
     private final ReviewIdempotencyService idempotencyService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ReviewModerationService(ReviewRepository reviewRepository,
+                                   ReviewModerationEventRepository moderationEventRepository,
+                                   ReviewReplyRepository replyRepository,
+                                   ReviewApplicationService applicationService,
+                                   ReviewIdempotencyService idempotencyService) {
+        this.reviewRepository = reviewRepository;
+        this.moderationEventRepository = moderationEventRepository;
+        this.replyRepository = replyRepository;
+        this.applicationService = applicationService;
+        this.idempotencyService = idempotencyService;
+    }
 
     @Deprecated
     public ReviewModerationService(ReviewRepository reviewRepository,

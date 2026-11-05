@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ReviewEligibilityService {
 
     private final WorkshopAttendanceReviewPort workshopAttendancePort;
@@ -40,6 +39,23 @@ public class ReviewEligibilityService {
     private final ReviewIdempotencyService idempotencyService;
 
     private static final int HANDLE_TTL_MINUTES = 30;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ReviewEligibilityService(WorkshopAttendanceReviewPort workshopAttendancePort,
+                                    RetailFulfilmentReviewPort retailFulfilmentPort,
+                                    GuestEligibilityHandleRepository handleRepository,
+                                    ReviewRepository reviewRepository,
+                                    ReviewMaskingService maskingService,
+                                    ObjectMapper objectMapper,
+                                    ReviewIdempotencyService idempotencyService) {
+        this.workshopAttendancePort = workshopAttendancePort;
+        this.retailFulfilmentPort = retailFulfilmentPort;
+        this.handleRepository = handleRepository;
+        this.reviewRepository = reviewRepository;
+        this.maskingService = maskingService;
+        this.objectMapper = objectMapper;
+        this.idempotencyService = idempotencyService;
+    }
 
     @Deprecated
     public ReviewEligibilityService(WorkshopAttendanceReviewPort workshopAttendancePort,

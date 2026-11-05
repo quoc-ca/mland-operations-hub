@@ -22,7 +22,7 @@ public class DesignReviewController {
     private final HumanReviewService humanReviewService;
 
     @GetMapping
-    public ResponseEntity<List<DesignAnalysisService.DesignRequestViewDto>> getReviewQueue(
+    public ResponseEntity<DesignReviewDtos.ReviewQueueDto> getReviewQueue(
             Authentication authentication
     ) {
         String callerUid = SecurityIdentityExtractor.requireUid(authentication);
@@ -31,7 +31,7 @@ public class DesignReviewController {
                 authentication.getAuthorities()
         );
 
-        return ResponseEntity.ok(queue);
+        return ResponseEntity.ok(DesignReviewDtos.ReviewQueueDto.builder().items(queue).build());
     }
 
     @PostMapping("/{reviewRequestId}/decisions")
@@ -52,7 +52,7 @@ public class DesignReviewController {
         DesignAnalysisService.DesignRequestViewDto result = humanReviewService.recordDecision(
                 reviewRequestId,
                 decision,
-                body.getDesignVersion(),
+                body.getRequestVersion(),
                 body.getReason(),
                 callerUid,
                 authentication.getAuthorities()
