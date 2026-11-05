@@ -20,7 +20,24 @@ import { messages } from '../messages';
  *   WorkshopBookingQuoteResponse) is passed as { grossAmount, programDiscount, pointsUsed, pointDiscount,
  *   postPromotionAmount, depositAmount, remainingAmount, maxPoints, reasons }: the deposit and the remaining amount are
  *   both computed from the post-promotion amount, so the points are never deducted twice.
+ * - Either quote may also carry reasonDetails: [{ code, params }] (FE-06 BenefitPreview.reasonDetails, T081). Each
+ *   reason is then shown in the reader's language; a code this screen does not know, or a quote without
+ *   reasonDetails, falls back to the English text in reasons.
  */
+
+/** Reason texts for the quote: translated from reasonDetails when possible, otherwise the plain reasons. */
+function reasonTexts(quote, t, format) {
+  const details = Array.isArray(quote?.reasonDetails) ? quote.reasonDetails : [];
+  const plain = quote?.reasons || [];
+  if (details.length === 0) return plain;
+  return details.map((detail, index) => {
+    const key = `reason.${detail?.code}`;
+    const params = Object.fromEntries(Object.entries(detail?.params || {})
+      .map(([name, value]) => [name, /^-?[0-9]+$/.test(String(value)) ? format.number(value) : value]));
+    const text = t(key, params);
+    return text !== key ? text : (plain[index] ?? String(detail?.code ?? ''));
+  });
+}
 export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVouchers = [], acknowledged, onAcknowledge, onRecalculate, onConfirm, pending, context = 'retail' }) {
   const workshop = context === 'workshop';
   const t = useT(messages);
@@ -32,6 +49,7 @@ export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVou
   const eligible = workshop ? Boolean(quote) && !(quote.reasons?.length) : Boolean(quote?.eligible);
   const canConfirm = Boolean(quote && quoteMatches && eligible && acknowledged && !pending);
   const choices = workshop ? ['NONE', 'VOUCHER'] : ['NONE', 'AUTO', 'VOUCHER'];
+  const reasons = reasonTexts(quote, t, format);
 
   return (
     <section className="benefit-selector" aria-labelledby={`${id}-title`}>
@@ -94,9 +112,9 @@ export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVou
             </dl>
           )}
           {workshop && <p className="muted small">{t('checkout.remainingHint')}</p>}
-          {quote.reasons?.length > 0 && (
+          {reasons.length > 0 && (
             <ul className="reasons" aria-label={t('checkout.reasons')}>
-              {quote.reasons.map(reason => <li key={reason}>{reason}</li>)}
+              {reasons.map((reason, index) => <li key={`${index}-${reason}`}>{reason}</li>)}
             </ul>
           )}
           <label className="check-row">

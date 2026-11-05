@@ -307,6 +307,24 @@ describe('T070 public offers and voucher wallet', () => {
     expect(calls.filter(call => call.path.startsWith('/api/v1/products')).every(call => !call.headers.Authorization)).toBe(true);
   });
 
+  it('names workshop packages and branches without signing in; one that cannot be read shows "Gói #id" / "Chi nhánh #id"', async () => {
+    const calls = mockFetch({
+      'GET /api/v1/promotions': json(200, { items: [publicPromotion({ scope: 'WORKSHOP', targets: { packageIds: ['2', '7'], branchIds: ['1', '3'] } })], nextCursor: null }),
+      'GET /api/v1/workshop-packages/2': json(200, { packageId: 2, name: 'Workshop nhẫn bạc', state: 'PUBLISHED' }),
+      'GET /api/v1/workshop-packages/7': json(404, { code: 'PACKAGE_NOT_FOUND', message: 'Not found.' }),
+      'GET /api/v1/product-selling-locations': json(200, { items: [{ id: '1', name: 'Mland Hà Nội – Hoàn Kiếm', address: '12 Hàng Bạc' }] }),
+    });
+    open('/promotions', { session: fakeSession('signed-out') });
+    expect(await screen.findByText('Workshop nhẫn bạc; Gói #7')).toBeInTheDocument();
+    expect(await screen.findByText('Mland Hà Nội – Hoàn Kiếm; Chi nhánh #3')).toBeInTheDocument();
+    expect(screen.getByText('Gói workshop')).toBeInTheDocument();
+    expect(screen.getByText('Chi nhánh')).toBeInTheDocument();
+    expect(screen.queryByText('Mã gói workshop')).not.toBeInTheDocument();
+    const reads = calls.filter(call => call.path.startsWith('/api/v1/workshop-packages') || call.path === '/api/v1/product-selling-locations');
+    expect(reads).toHaveLength(3);
+    expect(reads.every(call => !call.headers.Authorization)).toBe(true);
+  });
+
   it('a Member saves a voucher with a key', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({
@@ -362,6 +380,23 @@ describe('T061 offer picker in the workshop context', () => {
       quote={quote} quoteMatches acknowledged onAcknowledge={() => {}} onRecalculate={() => {}} onConfirm={() => {}} /></I18nProvider>);
     expect(screen.getByText('Points must be between 10 and 1000.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Xác nhận' })).toBeDisabled();
+  });
+
+  it('T081: reasons with codes are shown in the reader language, unknown codes fall back to the text', () => {
+    const quote = { grossAmount: '1000000', programDiscount: '0', pointsUsed: '0', pointDiscount: '0', postPromotionAmount: '1000000', depositAmount: '500000', remainingAmount: '500000',
+      reasons: ['This promotion has ended.', 'Points must be between 10 and 1000.', 'Some new reason.'],
+      reasonDetails: [{ code: 'PROMOTION_ENDED', params: {} }, { code: 'POINTS_OUT_OF_RANGE', params: { min: '10', max: '1000' } }, { code: 'NEW_CODE', params: {} }] };
+    const props = { context: 'workshop', value: { choice: 'VOUCHER', voucherCode: 'WK', requestedPoints: '5' }, onChange: () => {}, quote, quoteMatches: true,
+      acknowledged: false, onAcknowledge: () => {}, onRecalculate: () => {}, onConfirm: () => {} };
+    const { unmount } = render(<I18nProvider initialLanguage="vi"><BenefitSelector {...props} /></I18nProvider>);
+    expect(screen.getByText('Chương trình ưu đãi đã kết thúc.')).toBeInTheDocument();
+    expect(screen.getByText('Số điểm phải từ 10 đến 1.000.')).toBeInTheDocument();
+    expect(screen.getByText('Some new reason.')).toBeInTheDocument();
+    expect(screen.queryByText('This promotion has ended.')).not.toBeInTheDocument();
+    unmount();
+    render(<I18nProvider initialLanguage="en"><BenefitSelector {...props} /></I18nProvider>);
+    expect(screen.getByText('This promotion has ended.')).toBeInTheDocument();
+    expect(screen.getByText('Points must be between 10 and 1,000.')).toBeInTheDocument();
   });
 });
 

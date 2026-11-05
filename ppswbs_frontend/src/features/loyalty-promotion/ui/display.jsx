@@ -29,6 +29,9 @@ export function DiscountText({ discount }) {
   return <>{t('discount.text', { value, max: format.money(discount.maxDiscountAmount) })}</>;
 }
 
+/** Workshop targets shown by name on cards and details (the create form still asks for their IDs). */
+const NAMED_TARGETS = ['packageIds', 'branchIds'];
+
 /** Conditions shown on cards and details: window, minimum, points, scope targets, limits. */
 /** Terms of a programme; `labels` ({ productIds: {id: name}, ... }) names targets where the page could read them. */
 export function Terms({ item, labels }) {
@@ -42,7 +45,12 @@ export function Terms({ item, labels }) {
     [t('field.allowPoints'), item.allowPoints ? t('yes') : t('no')],
   ];
   Object.entries(targets).forEach(([key, values]) => {
-    if (values?.length) rows.push([t(`target.${key}`), values.map(value => labels?.[key]?.[value] || value).join('; '), 'wide']);
+    if (!values?.length) return;
+    // Packages and branches show their names; one that cannot be read (draft package, inactive branch, read error)
+    // shows "Gói #2" / "Chi nhánh #1" rather than a bare number.
+    const named = NAMED_TARGETS.includes(key);
+    const text = value => labels?.[key]?.[value] || (named ? t(`targetUnknown.${key}`, { id: value }) : value);
+    rows.push([t(named ? `targetName.${key}` : `target.${key}`), values.map(text).join('; '), 'wide']);
   });
   if (item.totalLimit) rows.push([t('field.totalLimit'), format.number(item.totalLimit)]);
   if (item.perMemberLimit) rows.push([t('field.perMemberLimit'), format.number(item.perMemberLimit)]);

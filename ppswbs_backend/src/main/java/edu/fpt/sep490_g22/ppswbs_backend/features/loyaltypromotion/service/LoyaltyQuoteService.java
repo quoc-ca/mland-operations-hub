@@ -15,6 +15,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.Promot
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionRevision;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionTarget;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitPreview;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReason;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReasonCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
@@ -80,7 +82,7 @@ public class LoyaltyQuoteService {
                 result.pointsUsed(), result.pointDiscount(), result.earnBase(), result.earnBase(),
                 chosen == null ? null : chosen.programId(), chosen == null ? null : chosen.revisionNo(),
                 chosen == null ? null : chosen.normalizedCode(), policy.getRevisionNo(), result.pointsAllowed(),
-                result.reasons(), evaluation.termsDigest());
+                result.reasons(), evaluation.termsDigest(), result.reasonDetails());
     }
 
     /**
@@ -149,29 +151,29 @@ public class LoyaltyQuoteService {
                 unavailableReason(program, revision, context.memberId(), context.at(), expected));
     }
 
-    private String unavailableReason(PromotionProgram program, PromotionRevision revision, long memberId, Instant at,
-                                     TargetScope expected) {
+    private BenefitReason unavailableReason(PromotionProgram program, PromotionRevision revision, long memberId,
+                                            Instant at, TargetScope expected) {
         if (program.getScope() != expected) {
-            return expected == TargetScope.PRODUCT ? "This voucher is for workshop bookings, not for products."
-                    : "This voucher is for products, not for workshop bookings.";
+            return BenefitReason.of(expected == TargetScope.PRODUCT ? BenefitReasonCode.VOUCHER_FOR_WORKSHOP
+                    : BenefitReasonCode.VOUCHER_FOR_PRODUCT);
         }
         if (program.getStatus() == ProgramStatus.PAUSED) {
-            return "This promotion is paused.";
+            return BenefitReason.of(BenefitReasonCode.PROMOTION_PAUSED);
         }
         if (at.isBefore(revision.getStartAt())) {
-            return "This promotion has not started yet.";
+            return BenefitReason.of(BenefitReasonCode.PROMOTION_NOT_STARTED);
         }
         if (!at.isBefore(revision.getEndAt())) {
-            return "This promotion has ended.";
+            return BenefitReason.of(BenefitReasonCode.PROMOTION_ENDED);
         }
         if (program.getKind() == ProgramKind.VOUCHER) {
             if (program.availableTotal() < 1) {
-                return "This voucher has no uses left.";
+                return BenefitReason.of(BenefitReasonCode.VOUCHER_NO_USES_LEFT);
             }
             Optional<MemberProgram> counters = memberPrograms.findByProgramIdAndMemberId(program.getId(), memberId);
             long used = counters.map(c -> c.getHeldCount() + c.getConsumedCount()).orElse(0L);
             if (used >= program.getMemberLimit()) {
-                return "You have already used this voucher the maximum number of times.";
+                return BenefitReason.of(BenefitReasonCode.VOUCHER_MEMBER_LIMIT_REACHED);
             }
         }
         return null;
