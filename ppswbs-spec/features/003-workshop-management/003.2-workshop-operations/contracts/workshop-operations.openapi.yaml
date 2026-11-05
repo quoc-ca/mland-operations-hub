@@ -82,6 +82,17 @@ paths:
         '200': { $ref: '#/components/responses/CustomerSessionAvailabilityList' }
         '400': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}/locations:
+    parameters: [ { $ref: '#/components/parameters/PackageId' } ]
+    get:
+      summary: List all active locations for one published package
+      security: []
+      parameters:
+        - { name: from, in: query, required: false, schema: { type: string, format: date } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date } }
+      responses:
+        '200': { $ref: '#/components/responses/LocationList' }
+        '404': { $ref: '#/components/responses/Problem' }
   /workshop-packages/{packageId}/locations/{locationId}/add-ons:
     parameters:
       - { $ref: '#/components/parameters/PackageId' }

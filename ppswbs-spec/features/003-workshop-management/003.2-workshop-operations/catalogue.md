@@ -19,7 +19,7 @@ data plan.
 | Signature Workshop — Silver 925 | 900,000 VND per person/piece | Silver 925, maximum 4g; basic metalworking: torch heating, soldering and shaping; personalised ring | One 1–2 hour session | Customer takes the product home the same day |
 | Silver Clay Workshop — 5g package | 1,350,000 VND per person/piece | S999 Silver Clay, 5g included, standard ring design, up to five stones | One 2–3 hour session | Customer takes the product home the same day |
 | Silver Clay Workshop — 7g package | 1,950,000 VND per person/piece | S999 Silver Clay, 7g included, unlimited stones | One 2–3 hour session | Customer takes the product home the same day |
-| Wax Casting Workshop | 1,000,000 VND per person/piece | S999 / S925 / Gold; material cost is not included; session 1 is wax carving/shaping and session 2 is polishing/finishing | Two sessions; exactly two foundry-working dates must fall between them | Not same-day pickup |
+| Wax Casting Workshop | 1,000,000 VND per person/piece | S999 / S925 / Gold; material cost is not included; session 1 is wax carving/shaping and session 2 is polishing/finishing | Two sessions; at least two foundry-working dates must fall between them | Not same-day pickup |
 
 Global catalogue facts:
 
@@ -54,7 +54,7 @@ Global catalogue facts:
 
 1. The present `minimumSameDaySlotGap` only constrains sessions on the same
    local date. It cannot express the approved Wax Casting rule. Wax Casting
-   must use exactly two **foundry-working dates strictly between** the local
+   must use at least two **foundry-working dates strictly between** the local
    dates of its two sessions. A foundry-working date is Monday through Friday;
    Saturday and Sunday are skipped even though customer workshops may operate
    on those days. Slot/time does not affect the calculation: for example,
@@ -88,6 +88,6 @@ For a Wax Casting booking or session change, Operations must accept exactly two
 distinct sessions at the same location in chronological order. It counts only
 the local dates strictly between their local session dates. Monday–Friday count
 as foundry-working dates; Saturday and Sunday do not count. The count must be
-exactly `2`. This is a date rule, not a six-slot rule: session times and slot
+at least `2`; there is no maximum. This is a date rule, not a six-slot rule: session times and slot
 ordinals never change the count. The rule does not close normal workshops on a
 weekend; it only excludes weekends while calculating the foundry interval.

@@ -1,10 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getWorkshopPackage, listWorkshopSessions } from '../api/workshops';
-
-const AVAILABLE_LOCATIONS = [
-  { id: 1, name: 'MLAND Quận 1 — 123 Đồng Khởi, Bến Nghé, Quận 1, TP.HCM' },
-  { id: 2, name: 'MLAND Thủ Đức — 45 Võ Văn Ngân, Linh Chiểu, TP. Thủ Đức' },
-];
+import { getWorkshopPackage, listWorkshopLocations, listWorkshopSessions } from '../api/workshops';
 
 function formatDate(date) {
   const y = date.getFullYear();
@@ -41,7 +36,10 @@ export function WorkshopDetailPage({ packageId }) {
   const nextTwoWeeks = new Date();
   nextTwoWeeks.setDate(today.getDate() + 14);
 
-  const [locationId, setLocationId] = useState(1);
+  const [locationId, setLocationId] = useState(null);
+  const [locations, setLocations] = useState([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [locationsError, setLocationsError] = useState(null);
   const [from, setFrom] = useState(formatDate(today));
   const [to, setTo] = useState(formatDate(nextTwoWeeks));
 
@@ -66,6 +64,28 @@ export function WorkshopDetailPage({ packageId }) {
       });
   }, [packageId]);
 
+  useEffect(() => {
+    if (!packageId || !pkg) return undefined;
+    let active = true;
+    setLoadingLocations(true);
+    setLocationsError(null);
+    listWorkshopLocations(packageId, { from, to })
+      .then(data => {
+        if (!active) return;
+        const next = Array.isArray(data) ? data : [];
+        setLocations(next);
+        setLocationId(current => next.some(item => Number(item.id) === Number(current)) ? current : (next[0]?.id ?? null));
+      })
+      .catch(err => {
+        if (!active) return;
+        setLocations([]);
+        setLocationId(null);
+        setLocationsError(err?.detail || err?.message || 'Không thể tải danh sách chi nhánh.');
+      })
+      .finally(() => { if (active) setLoadingLocations(false); });
+    return () => { active = false; };
+  }, [packageId, pkg, from, to]);
+
   // Load sessions when packageId, locationId, from, to change
   const fetchSessions = () => {
     if (!packageId || !locationId) return;
@@ -84,8 +104,10 @@ export function WorkshopDetailPage({ packageId }) {
   };
 
   useEffect(() => {
-    if (pkg) {
+    if (pkg && locationId) {
       fetchSessions();
+    } else {
+      setSessions([]);
     }
   }, [pkg, locationId, from, to]);
 
@@ -154,7 +176,7 @@ export function WorkshopDetailPage({ packageId }) {
           </div>
 
           <div style={{ marginTop: '24px' }}>
-                <a className="button primary" style={{ width: '100%', textAlign: 'center', fontSize: '16px', padding: '14px 20px' }} href={`/workshops/${pkg.packageId}/book?locationId=${locationId}`}>
+                <a className="button primary" aria-disabled={!locationId} style={{ width: '100%', textAlign: 'center', fontSize: '16px', padding: '14px 20px', opacity: locationId ? 1 : 0.55 }} href={locationId ? `/workshops/${pkg.packageId}/book?locationId=${locationId}` : undefined} onClick={event => { if (!locationId) event.preventDefault(); }}>
               Đặt gói workshop này ngay →
             </a>
           </div>
@@ -174,12 +196,15 @@ export function WorkshopDetailPage({ packageId }) {
         <div className="filter-bar" style={{ marginTop: '16px' }}>
           <label style={{ flex: '2 1 280px' }}>
             Chi nhánh
-            <select value={locationId} onChange={e => setLocationId(Number(e.target.value))}>
-              {AVAILABLE_LOCATIONS.map(loc => (
+            <select value={locationId ?? ''} disabled={loadingLocations || locations.length === 0} onChange={e => setLocationId(Number(e.target.value))}>
+              <option value="" disabled>{loadingLocations ? 'Đang tải chi nhánh...' : 'Chọn chi nhánh'}</option>
+              {locations.map(loc => (
                 <option key={loc.id} value={loc.id}>{loc.name}</option>
               ))}
             </select>
           </label>
+
+          {locationsError && <p className="status" style={{ color: '#b00', borderColor: '#b00' }}>{locationsError}</p>}
 
           <label style={{ flex: '1 1 160px' }}>
             Từ ngày
@@ -264,7 +289,7 @@ export function WorkshopDetailPage({ packageId }) {
                         pointerEvents: s.customerSelectable && s.remainingCapacity > 0 ? 'auto' : 'none',
                         opacity: s.customerSelectable && s.remainingCapacity > 0 ? 1 : 0.5,
                       }}
-                      href={`/workshops/${pkg.packageId}/book?locationId=${locationId}`}
+                      href={locationId ? `/workshops/${pkg.packageId}/book?locationId=${locationId}` : undefined}
                     >
                       {s.customerSelectable && s.remainingCapacity > 0 ? 'Chọn lịch này để đặt' : 'Ca không khả dụng'}
                     </a>

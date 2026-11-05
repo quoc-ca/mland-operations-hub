@@ -21,7 +21,7 @@ public class FacadeCommandIdempotencyRecord {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "facade_action", nullable = false, length = 80)
+    @Column(name = "facade_action", nullable = false, length = 255)
     private String facadeAction;
 
     @Column(name = "operation_reference", nullable = false, length = 64)

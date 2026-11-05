@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router';
 import {
   accountManagementApiClient,
   RoleCatalogueEntry,
@@ -39,10 +40,32 @@ export const RoleCataloguePage: React.FC = () => {
 
   return (
     <div className="account-page-container">
+      {/* Back button matching Figma */}
+      <div>
+        <Link to="/admin/accounts" className="account-back-btn">
+          ← Quay lại
+        </Link>
+      </div>
+
+      {/* Admin Navigation Tabs (Figma F08-F11) */}
+      <nav className="admin-nav-tabs" aria-label="Admin Navigation">
+        <Link to="/admin/accounts" className="admin-nav-tab">
+          Tài khoản
+        </Link>
+        <Link to="/admin/roles" className="admin-nav-tab active">
+          Vai trò
+        </Link>
+      </nav>
+
       <header className="account-page-header">
-        <h1 className="account-page-title">Danh mục vai trò hệ thống (Fixed Roles)</h1>
-        <p className="account-page-description">
-          Hệ thống Mland vận hành với 4 vai trò cố định. Phân quyền tuân thủ kiến trúc phân tầng, không hỗ trợ chỉnh sửa quyền động.
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <h1 className="account-page-title" style={{ margin: 0 }}>Danh mục vai trò hệ thống (Fixed Roles)</h1>
+          <span className="account-badge account-badge-readonly">
+            Chỉ đọc · 4 vai trò cố định
+          </span>
+        </div>
+        <p className="account-page-description" style={{ marginTop: '0.5rem' }}>
+          Danh mục vai trò hệ thống (Fixed Roles). Tra cứu trách nhiệm và phạm vi. Không thể thêm, đổi tên hoặc xóa vai trò tại đây.
         </p>
       </header>
 
@@ -54,7 +77,7 @@ export const RoleCataloguePage: React.FC = () => {
 
       {loading ? (
         <div className="account-card">
-          <p>Đang tải danh mục vai trò…</p>
+          <p style={{ color: '#6b717f' }}>Đang tải danh mục vai trò…</p>
         </div>
       ) : (
         <div className="account-card">
@@ -69,7 +92,7 @@ export const RoleCataloguePage: React.FC = () => {
               {roles.map(r => (
                 <tr key={r.role}>
                   <td>
-                    <span className="account-badge account-badge-active" style={{ fontSize: '0.85rem' }}>
+                    <span className="account-badge account-badge-readonly" style={{ fontSize: '0.85rem' }}>
                       {r.role}
                     </span>
                   </td>
@@ -79,16 +102,19 @@ export const RoleCataloguePage: React.FC = () => {
             </tbody>
           </table>
 
-          <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem', color: '#374151' }}>
+          <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#f4f5f7', borderRadius: '4px', border: '1px solid #eceef1' }}>
+            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', fontWeight: 600, color: '#1a1a1a' }}>
               Quy tắc quản trị vai trò (Role Governance Rules):
-            </h3>
-            <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.875rem', color: '#4b5563' }}>
+            </p>
+            <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.85rem', color: '#6b717f', lineHeight: 1.6 }}>
               <li>Vai trò được gán trực tiếp cho từng tài khoản; không áp dụng đa vai trò đồng thời.</li>
               <li>MEMBER được tạo tự động thông qua đăng ký cá nhân tự phục vụ.</li>
               <li>STAFF và MANAGER được khởi tạo bởi Quản trị viên (Admin) và gắn với cơ sở làm việc.</li>
               <li>ADMIN là vai trò quản trị hệ thống cao nhất, không thể bị tạm khóa hoặc sửa đổi từ giao diện này.</li>
             </ul>
+            <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.85rem', color: '#1a1a1a', fontWeight: 500 }}>
+              💡 Để phân công vai trò STAFF hoặc MANAGER, mở chi tiết tài khoản và chọn địa điểm phù hợp.
+            </p>
           </div>
         </div>
       )}
@@ -97,4 +123,3 @@ export const RoleCataloguePage: React.FC = () => {
 };
 
 export default RoleCataloguePage;
-

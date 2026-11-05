@@ -7,6 +7,7 @@ import AdminAccountDetailPage from './components/AdminAccountDetailPage';
 import InternalAccountCreatePage from './components/InternalAccountCreatePage';
 import RoleCataloguePage from './components/RoleCataloguePage';
 import AddressBookPage from './components/AddressBookPage';
+import AdminRouteGuard from './components/AdminRouteGuard';
 
 export const accountManagementRoutes: RouteObject[] = [
   // Authentication routes
@@ -37,11 +38,16 @@ export const accountManagementRoutes: RouteObject[] = [
   { path: '/security/password', element: <ProfilePage initialMode="password" /> },
   { path: '/security/email', element: <ProfilePage initialMode="email" /> },
 
-  // Admin Account Management routes
-  { path: '/admin/accounts', element: <AdminAccountListPage /> },
-  { path: '/admin/accounts/new', element: <InternalAccountCreatePage /> },
-  { path: '/admin/accounts/:accountId', element: <AdminAccountDetailPage /> },
-  { path: '/admin/roles', element: <RoleCataloguePage /> },
+  // Admin Account Management routes (guarded by AdminRouteGuard)
+  {
+    element: <AdminRouteGuard />,
+    children: [
+      { path: '/admin/accounts', element: <AdminAccountListPage /> },
+      { path: '/admin/accounts/new', element: <InternalAccountCreatePage /> },
+      { path: '/admin/accounts/:accountId', element: <AdminAccountDetailPage /> },
+      { path: '/admin/roles', element: <RoleCataloguePage /> },
+    ],
+  },
 ];
 
 export default accountManagementRoutes;

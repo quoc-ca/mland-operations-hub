@@ -219,8 +219,8 @@ components:
       required: [bookingCode, bookingStatus, paymentStatus, packageId, packageName, participantCount, sessions]
       properties:
         bookingCode: {type: string}
-        bookingStatus: {type: string, enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED]}
-        paymentStatus: {type: string, enum: [UNPAID, DEPOSIT_PAID, FULLY_PAID]}
+        bookingStatus: {type: string, enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED, COMPLETED, NO_SHOW], description: "COMPLETED, NO_SHOW and post-confirmation CANCELLED are set only from 003.3 conclusions (D13)."}
+        paymentStatus: {type: string, enum: [UNPAID, DEPOSIT_PAID, FULLY_PAID, REFUND_PENDING, REFUNDED], description: "REFUND_PENDING and REFUNDED occur only during a Mland-caused remedy (D14)."}
         packageId: {type: integer, format: int64}
         packageName: {type: string}
         participantCount: {type: integer}

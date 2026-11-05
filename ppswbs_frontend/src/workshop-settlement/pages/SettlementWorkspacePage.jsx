@@ -3,6 +3,8 @@ import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
 import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
+import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
+import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { classifyPaymentCommandError, finalPaymentRecoveryState } from '../../shared/payment/paymentRecoveryState';
 import { createSettlementApi } from '../api/settlementApi';
 import '../../ota-connectivity/ota-connectivity.css';
@@ -33,12 +35,10 @@ export default function SettlementWorkspacePage() {
   if (status === 'loading') return <Loading />;
   if (status !== 'signed-in') {
     return (
-      <div className="ota-container">
-        <div className="empty-state">
-          <p>Authentication required to access settlement.</p>
-          <Link className="button primary" to="/login">Sign In</Link>
-        </div>
-      </div>
+      <OperationsAuthWorkspace
+        topline="MLAND / WORKSHOP SETTLEMENT"
+        message="Authentication required to access settlement."
+      />
     );
   }
 
@@ -96,14 +96,7 @@ export default function SettlementWorkspacePage() {
 
   return (
     <div className="ota-workspace">
-      <aside className="ota-sidebar">
-        <div className="ota-brand"><span>M</span><strong>MLAND</strong><small>operations hub</small></div>
-        <div className="ota-sidebar-label">WORKSHOP SETTLEMENT</div>
-        <Link className="active" to="/settlement">Final bills</Link>
-        <Link to="/settlement/cases?tab=cases">Settlement cases</Link>
-        <Link to="/operations/sessions">Operations</Link>
-        <Link to="/ota-connectivity/finance">OTA finance</Link>
-      </aside>
+      <OperationsSidebar />
       <main className="ota-main">
         <div className="ota-topline">MLAND / WORKSHOP SETTLEMENT <span>● Backend-authorized</span></div>
         <header className="ota-page-heading">

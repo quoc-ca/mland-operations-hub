@@ -23,6 +23,8 @@ import { messages } from '../messages';
  * - Either quote may also carry reasonDetails: [{ code, params }] (FE-06 BenefitPreview.reasonDetails, T081). Each
  *   reason is then shown in the reader's language; a code this screen does not know, or a quote without
  *   reasonDetails, falls back to the English text in reasons.
+ * - showConfirm (default true) / hideTitle (default false): an owner screen that has its own Confirm button or
+ *   heading can hide these (added by FE-03, fbc2f22).
  */
 
 /** Reason texts for the quote: translated from reasonDetails when possible, otherwise the plain reasons. */
@@ -38,7 +40,8 @@ function reasonTexts(quote, t, format) {
     return text !== key ? text : (plain[index] ?? String(detail?.code ?? ''));
   });
 }
-export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVouchers = [], acknowledged, onAcknowledge, onRecalculate, onConfirm, pending, context = 'retail' }) {
+
+export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVouchers = [], acknowledged, onAcknowledge, onRecalculate, onConfirm, pending, context = 'retail', showConfirm = true, hideTitle = false }) {
   const workshop = context === 'workshop';
   const t = useT(messages);
   const format = useFormat();
@@ -53,7 +56,7 @@ export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVou
 
   return (
     <section className="benefit-selector" aria-labelledby={`${id}-title`}>
-      <h2 id={`${id}-title`}>{t('checkout.title')}</h2>
+      {!hideTitle && <h2 id={`${id}-title`}>{t('checkout.title')}</h2>}
       <fieldset>
         <legend className="sr-only">{t('checkout.choice')}</legend>
         {choices.map(choice => (
@@ -122,7 +125,9 @@ export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVou
           </label>
         </div>
       )}
-      <button type="button" className="button primary" disabled={!canConfirm} onClick={onConfirm}>{t('checkout.confirm')}</button>
+      {showConfirm && (
+        <button type="button" className="button primary" disabled={!canConfirm} onClick={onConfirm}>{t('checkout.confirm')}</button>
+      )}
     </section>
   );
 }

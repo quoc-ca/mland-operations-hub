@@ -39,7 +39,7 @@
 |35|MSG35|Warning|The selected size is stopped from sale or out of stock (UC-11).|This size is not available for purchase.|
 |36|MSG36|Error|The branch source is unavailable on the product detail page (UC-11).|The branch list is temporarily unavailable. Please try again.|
 |37|MSG37|Error|Add to cart is selected without a size or branch (UC-11).|Please select a size and a branch before adding to the cart.|
-|38|MSG38|Success|A voucher or automatic discount is created (UC-45, UC-46).|Program {name} has been created{ with code {voucher code}}.|
+|38|MSG38|Success|A voucher or automatic discount is created (UC-45, UC-46).|Program {name} has been created [with code {voucher code}].|
 |39|MSG39|Error|A voucher code already exists after trimming and ignoring case (UC-46).|Voucher code {voucher code} already exists.|
 |40|MSG40|Error|The program scope is invalid (UC-45, UC-46).|The selected scope is invalid: {reason}.|
 |41|MSG41|Error|The Manager tries to change the code or scope of an existing program (UC-45, UC-46).|The code and scope cannot be changed after the program has been created.|

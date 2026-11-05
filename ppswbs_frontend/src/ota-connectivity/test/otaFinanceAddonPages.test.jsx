@@ -6,6 +6,37 @@ import { json, mockFetch, renderRoutes } from '../../test/render';
 import { otaConnectivityRoutes } from '../routes';
 
 describe('OTA finance and shop add-on screens', () => {
+  it('renders finance evidence states and an empty ledger explicitly', async () => {
+    mockFetch({
+      'GET /api/v1/ota-channel-bookings/booking-empty/financial-evidence': json(200, {
+        channelBookingId: 'booking-empty', customerPaymentState: 'PAID_ON_CHANNEL', payoutState: 'ACCRUED', entries: [],
+      }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/finance' });
+    await user.type(screen.getByPlaceholderText('UUID'), 'booking-empty');
+    await user.click(screen.getByRole('button', { name: 'Load evidence' }));
+    expect(await screen.findByText('Evidence ledger')).toBeInTheDocument();
+    expect(screen.getByText('0 entries')).toBeInTheDocument();
+    expect(screen.getByText('PAID_ON_CHANNEL')).toBeInTheDocument();
+    expect(screen.getByText('ACCRUED')).toBeInTheDocument();
+  });
+
+  it('renders finance provider/backend failure with correlation evidence', async () => {
+    mockFetch({
+      'GET /api/v1/ota-channel-bookings/booking-error/financial-evidence': json(503, {
+        code: 'OTA_FINANCE_UNAVAILABLE', message: 'Provider evidence is temporarily unavailable', correlationId: 'corr-ota-finance-1',
+      }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/finance' });
+    await user.type(screen.getByPlaceholderText('UUID'), 'booking-error');
+    await user.click(screen.getByRole('button', { name: 'Load evidence' }));
+    expect(await screen.findByText('Hệ thống tạm thời chưa xử lý được. Bấm Thử lại để gửi lại đúng thao tác này.')).toBeInTheDocument();
+    expect(screen.getByText(/corr-ota-finance-1/)).toBeInTheDocument();
+    expect(screen.queryByText('Evidence ledger')).not.toBeInTheDocument();
+  });
+
   it('loads separated finance evidence and records a stage', async () => {
     const calls = mockFetch({
       'GET /api/v1/ota-channel-bookings/booking-1/financial-evidence': json(200, { channelBookingId: 'booking-1', customerPaymentState: 'PAID_ON_CHANNEL', payoutState: 'ACCRUED', entries: [] }),

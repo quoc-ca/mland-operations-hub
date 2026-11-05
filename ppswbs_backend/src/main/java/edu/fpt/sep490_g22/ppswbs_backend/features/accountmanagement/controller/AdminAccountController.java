@@ -53,7 +53,7 @@ public class AdminAccountController {
         @RequestParam(value = "page", defaultValue = "0") int page,
         @RequestParam(value = "size", defaultValue = "20") int size
     ) {
-        verifyAdmin();
+        verifyAdminOrManager();
 
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
         Page<Account> accountPage = accountRepository.searchAccounts(q, role, status, pageRequest);
@@ -279,6 +279,14 @@ public class AdminAccountController {
         return actor;
     }
 
+    private CurrentAccountActor verifyAdminOrManager() {
+        CurrentAccountActor actor = ActorContext.requireCurrentActor();
+        if (actor.role() != ActorRole.ADMIN && actor.role() != ActorRole.MANAGER) {
+            throw new RoleAssignmentForbiddenException("User is not authorized for Admin or Manager operations");
+        }
+        return actor;
+    }
+
     private String resolveCorrelationId(String header, HttpServletRequest request) {
         if (header != null && !header.isBlank()) return header.trim();
         String reqHeader = request.getHeader("X-Correlation-Id");
@@ -287,11 +295,15 @@ public class AdminAccountController {
     }
 
     private AccountSummaryResponse toSummaryResponse(Account account) {
+        AccountProfile profile = profileRepository.findByAccountId(account.getId()).orElse(null);
+        String fullName = profile != null && profile.getFullName() != null && !profile.getFullName().isBlank()
+                ? profile.getFullName().trim() : null;
         return AccountSummaryResponse.builder()
             .accountId(account.getId())
             .role(account.getRole())
             .status(account.getStatus())
             .loginEmail(account.getLoginEmail())
+            .fullName(fullName)
             .revocationStatus(toRevocationStatus(account))
             .createdAt(account.getCreatedAt())
             .updatedAt(account.getUpdatedAt())

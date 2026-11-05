@@ -1,7 +1,7 @@
 # Hướng dẫn tích hợp: Workshop Booking (003.1) gọi LoyaltyFacade
 
 **Date created**: 2026-10-29
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-05
 **Author**: Đặng Thị Khương
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -24,10 +24,10 @@ Chỉ dùng type trong `edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromot
 | Member xem/tính lại báo giá | `previewBenefits(TrustedSourceContext, BenefitSelection)` | read-only, có hoặc không | Không giữ gì. Lưu `termsDigest` vào quote của booking. |
 | Member xác nhận (accept) | `reserveAcceptedTransaction(AcceptedSourceContext, BenefitSelection, commandKey)` | **MANDATORY**, chung transaction với giữ chỗ 003.2 và lưu booking | Trả `AcceptedBenefitRef.postPromotionAmount` để 003.1 tính cọc. |
 | Cọc đã xác minh | `settleAcceptedBenefits(outcome WORKSHOP_DEPOSIT_ACCEPTED)` | MANDATORY, chung transaction ghi nhận cọc | Chỉ consume voucher/điểm đang giữ, **không** cộng điểm. |
-| Hoàn thành mọi phiên **và** trả đủ | `grantEarnedPoints(outcome WORKSHOP_COMPLETED_AND_FULLY_PAID)` | MANDATORY | Cộng điểm một lần theo policy lúc accept, trên `postPromotionAmount`. Thu phần còn lại không giảm lại. |
+| Hoàn thành mọi phiên **và** trả đủ (attendance `ATTENDED` hoặc `PARTIAL`) | `grantEarnedPoints(outcome WORKSHOP_COMPLETED_AND_FULLY_PAID)` | MANDATORY | Cộng điểm một lần theo policy lúc accept, trên `postPromotionAmount`. Thu phần còn lại không giảm lại. Booking `PARTIAL` (có vé no-show nhưng không phải toàn bộ) vẫn được cộng điểm khi folio `FINALIZED` với số dư 0 (quyết định owner 003, 2026-11-05). |
 | Hết hạn cọc chưa trả (đã xác nhận) | `releaseHeldBenefits(UNPAID_EXPIRY_CONFIRMED)` rồi `finishIneligibleEarn(...)` | MANDATORY | Không suy hết hạn từ `originalDeadline`; chỉ gọi khi 003.1 đã phân xử. |
-| Hủy hợp lệ | `restoreCancelledWorkshopBenefits(VALID_WORKSHOP_CANCELLATION)` rồi `finishIneligibleEarn(...)` | MANDATORY | HELD → release, CONSUMED → hoàn điểm và lượt. |
-| No-show cuối | `finishIneligibleEarn(WORKSHOP_NO_SHOW_FINAL)` | MANDATORY | Không hoàn voucher/điểm đã dùng. |
+| Hủy hợp lệ (khách hủy hợp lệ, hoặc Mland hủy và remedy hoàn tiền đã xác minh — quyết định owner 003 D15, 2026-11-05) | `restoreCancelledWorkshopBenefits(VALID_WORKSHOP_CANCELLATION)` rồi `finishIneligibleEarn(...)` | MANDATORY | HELD → release, CONSUMED → hoàn điểm và lượt. Không cộng điểm. |
+| No-show cuối (toàn bộ vé ở mọi phiên bắt buộc đều `NO_SHOW`) | `finishIneligibleEarn(WORKSHOP_NO_SHOW_FINAL)` | MANDATORY | Không hoàn voucher/điểm đã dùng. Folio direct-booking chuyển `CLOSED`. |
 | Đối soát | `findBenefitResult(SourceKind.WORKSHOP, bookingRef)` | read-only | Trạng thái từng phần và earn. |
 
 Mọi lệnh ghi phải chạy trong transaction đang mở của 003.1 (cùng DataSource). Gọi ngoài transaction bị từ chối trước khi ghi.
@@ -111,12 +111,17 @@ new AuthoritativeOutcome(SourceKind.WORKSHOP, bookingRef, "workshopbooking",
   outcome hết hạn chỉ được phát sau QueryDR xác nhận chưa thanh toán.
 - `workshopsettlement` phát outcome hoàn tất, hủy hợp lệ hoặc no-show sau khi
   có kết luận authoritative cho toàn booking. Với nhiều phiên, phải chờ mọi vé/
-  phiên có attendance cuối; nếu có bất kỳ vé no-show nào thì không grant điểm.
+  phiên có attendance cuối. **Cập nhật 2026-11-05 (owner 003):** no-show của
+  booking nghĩa là toàn bộ vé ở mọi phiên bắt buộc đều `NO_SHOW` (outcome
+  `NO_SHOW` của `BookingAttendanceOutcomeQuery`); khi đó phát
+  `WORKSHOP_NO_SHOW_FINAL`. Booking `PARTIAL` (có một số vé no-show) không phải
+  no-show: vẫn checkout đủ giá và được grant điểm như `ATTENDED`. Thay thế quy
+  tắc cũ "có bất kỳ vé no-show nào thì không grant điểm".
   Attendance chỉ là terminal sau 24 giờ kể từ khi phiên bắt buộc cuối cùng được
   finalize; Operations tự đóng correction tại mốc này, không cần Manager seal.
-  Settlement polling xử lý lại bill `OPEN`/`FINALIZED`, phát no-show sau khi
-  correction window đóng kể cả bill còn mở, và chỉ grant completion khi bill
-  `FINALIZED` với số dư bằng 0.
+  Settlement xử lý folio `OPEN`/`FINALIZED`/`CLOSED`: phát no-show sau khi
+  correction window đóng (folio chuyển `CLOSED`), và chỉ grant completion khi
+  folio `FINALIZED` với số dư bằng 0; folio `CLOSED` không bao giờ grant điểm.
 - Guest không gọi các thao tác Loyalty outcome. Các luồng trên phải giữ cùng
   transaction với trạng thái nguồn và dùng source key/version ổn định, tăng đơn điệu.
 

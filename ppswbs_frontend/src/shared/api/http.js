@@ -46,7 +46,7 @@ async function errorFrom(response, method) {
   return new ApiError({
     status: response.status,
     code: payload.code || `HTTP_${response.status}`,
-    message: payload.message || '',
+    message: payload.message || payload.detail || '',
     correlationId: payload.correlationId || response.headers.get('X-Correlation-Id'),
     fieldErrors: Array.isArray(payload.fieldErrors) ? payload.fieldErrors : [],
     method,
