@@ -89,6 +89,15 @@ export async function getWorkshopPackage(packageId) {
   return request(`/api/v1/workshop-packages/${encodeURIComponent(packageId)}`);
 }
 
+export async function listWorkshopLocations(packageId, { from, to } = {}) {
+  if (packageId === undefined || packageId === null || packageId === '') {
+    throw new Error('WORKSHOP_PACKAGE_ID_REQUIRED');
+  }
+  return request(`/api/v1/workshop-packages/${encodeURIComponent(packageId)}/locations`, {
+    params: { from, to },
+  });
+}
+
 export async function listWorkshopSessions(packageId, { locationId, from, to } = {}) {
   if (packageId === undefined || packageId === null || packageId === '') {
     throw new Error('WORKSHOP_PACKAGE_ID_REQUIRED');
@@ -362,5 +371,35 @@ export async function requestConfirmationDelivery(bookingCode, { contactEmail, c
     method: 'POST',
     headers,
     body: Object.keys(body).length > 0 ? body : undefined,
+  });
+}
+
+/** Manager recovery actions for incidents that need an auditable booking decision. */
+export async function submitMagicLinkIncident(bookingCode, { action, reason, authorization, idempotencyKey, correlationId } = {}) {
+  if (!bookingCode?.trim()) throw new Error('BOOKING_CODE_REQUIRED');
+  if (!['REVOKE', 'ROTATE'].includes(action)) throw new Error('MAGIC_LINK_INCIDENT_ACTION_INVALID');
+  if (!reason?.trim()) throw new Error('INCIDENT_REASON_REQUIRED');
+  const key = idempotencyKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null);
+  if (!key) throw new Error('IDEMPOTENCY_KEY_REQUIRED');
+  const headers = { 'Idempotency-Key': key };
+  if (authorization) headers.Authorization = authorization;
+  if (correlationId) headers['X-Correlation-Id'] = correlationId;
+  return request(`/api/v1/workshop-bookings/${encodeURIComponent(bookingCode.trim())}/magic-link-incidents`, {
+    method: 'POST', headers, body: { action, reason: reason.trim() },
+  });
+}
+
+/** Manager recovery actions for late deposit/payment follow-up. */
+export async function submitLatePaymentFollowUp(bookingCode, { action, reason, authorization, idempotencyKey, correlationId } = {}) {
+  if (!bookingCode?.trim()) throw new Error('BOOKING_CODE_REQUIRED');
+  if (!['RECORD', 'ESCALATE'].includes(action)) throw new Error('LATE_PAYMENT_ACTION_INVALID');
+  if (!reason?.trim()) throw new Error('FOLLOW_UP_REASON_REQUIRED');
+  const key = idempotencyKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null);
+  if (!key) throw new Error('IDEMPOTENCY_KEY_REQUIRED');
+  const headers = { 'Idempotency-Key': key };
+  if (authorization) headers.Authorization = authorization;
+  if (correlationId) headers['X-Correlation-Id'] = correlationId;
+  return request(`/api/v1/workshop-bookings/${encodeURIComponent(bookingCode.trim())}/late-payment-follow-ups`, {
+    method: 'POST', headers, body: { action, reason: reason.trim() },
   });
 }

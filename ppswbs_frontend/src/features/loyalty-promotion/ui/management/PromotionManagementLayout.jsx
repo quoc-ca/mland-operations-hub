@@ -1,9 +1,8 @@
 import React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { useAuth } from '../../../../shared/auth/AuthProvider';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useT } from '../../../../shared/i18n/I18nProvider';
-import { sharedMessages } from '../../../../shared/ui/messages';
+import { OperationsSidebar } from '../../../../shared/ui/OperationsSidebar';
 import { messages } from '../messages';
 
 /**
@@ -12,8 +11,6 @@ import { messages } from '../messages';
  */
 export default function PromotionManagementLayout() {
   const t = useT(messages);
-  const tShared = useT(sharedMessages);
-  const { status, signOut } = useAuth();
   const { pathname } = useLocation();
   const links = [
     ['/promotion-management/programs', t('nav.programs')],
@@ -23,18 +20,10 @@ export default function PromotionManagementLayout() {
   const current = links.find(([to]) => to === pathname)?.[1]
     || (pathname.startsWith('/promotion-management/programs/') ? t('nav.programDetail') : t('nav.label'));
   const onDetail = !links.some(([to]) => to === pathname) && pathname.startsWith('/promotion-management/programs/');
-  const linkClass = to => ({ isActive }) => (isActive || (onDetail && to === links[0][0]) ? 'active' : undefined);
+
   return (
     <main className="app-shell lp-shell lp-theme">
-      <aside className="side-nav" aria-label={t('nav.label')}>
-        <div className="lp-brand">
-          <span className="lp-brand-mark" aria-hidden="true">M</span>
-          <span><strong>MLAND</strong><small>operations hub</small></span>
-        </div>
-        <p className="eyebrow">MANAGER</p>
-        {links.map(([to, label]) => <NavLink key={to} to={to} end className={linkClass(to)}>{label}</NavLink>)}
-        {status === 'signed-in' && <button type="button" className="side-signout" onClick={signOut}>{tShared('session.signOut')}</button>}
-      </aside>
+      <OperationsSidebar />
       <div className="lp-main">
         <nav className="lp-topbar" aria-label={t('nav.breadcrumb')}>
           <span>MLAND</span>
