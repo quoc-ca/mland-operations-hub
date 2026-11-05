@@ -1,5 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade;
 
+import java.util.Optional;
+
 /** Public producer boundary owned by Workshop Settlement. */
 public interface WorkshopSettlementFacade {
     CancellationHandoffOutcome openCancellationHandoff(OpenCancellationHandoffCommand command);
@@ -12,6 +14,8 @@ public interface WorkshopSettlementFacade {
             SettlementNotificationDeliveryPayloadQuery query);
 
     DirectShopAddonBillOutcome createDirectShopAddonBill(DirectShopAddonBillCommand command);
+
+    Optional<OtaAddonBillSummary> findOtaAddonBill(String billReference);
 
     record DirectShopAddonBillCommand(
             String channelBookingReference,
@@ -37,4 +41,17 @@ public interface WorkshopSettlementFacade {
             return new DirectShopAddonBillOutcome(false, null, null, code, message);
         }
     }
+
+    record OtaAddonBillSummary(
+            String billReference,
+            String channelBookingReference,
+            String quoteReference,
+            String itemCode,
+            String itemDescription,
+            long amountMinor,
+            String currencyCode,
+            String lifecycleStatus,
+            Long locationId,
+            String paymentUrlOrQr
+    ) {}
 }

@@ -7,12 +7,15 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api.OtaAddonDt
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api.OtaAddonDtos.AddonQuoteRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api.OtaAddonDtos.AddonQuoteResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api.OtaAddonDtos.DirectBillLinkResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api.OtaAddonDtos.OtaBookingLookupResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api.OtaChannelRequests.Money;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaAddonService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaAddonService.AddonQuoteResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaAddonService.DirectBillResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaAuthorizationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaCurrencyMoney;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaForbiddenException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaResourceNotFoundException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaUnprocessableException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -20,11 +23,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
@@ -37,6 +42,31 @@ public class OtaAddonController {
 
     private final OtaAuthorizationService authorizationService;
     private final OtaAddonService addonService;
+
+    /**
+     * Resolves an OTA booking from the Mland booking reference shown at check-in. A booking that does not exist and
+     * one outside the caller's location scope answer identically (404), so the endpoint cannot be used to probe which
+     * Mland bookings came through an OTA.
+     */
+    @GetMapping(value = "/api/v1/ota-channel-bookings/lookups")
+    public ResponseEntity<OtaBookingLookupResponse> lookupByMlandReference(
+            @RequestParam("mlandBookingReference") String mlandBookingReference,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        authorizationService.authenticate(authorization);
+        if (mlandBookingReference == null || mlandBookingReference.isBlank()) {
+            throw new IllegalArgumentException("mlandBookingReference is required");
+        }
+        var lookup = addonService.findByMlandReference(mlandBookingReference)
+                .orElseThrow(() -> new OtaResourceNotFoundException("OTA Channel Booking not found"));
+        try {
+            authorizationService.requireStaffOrManagerLocation(authorization, lookup.locationId());
+        } catch (OtaForbiddenException outOfScope) {
+            throw new OtaResourceNotFoundException("OTA Channel Booking not found");
+        }
+        return ResponseEntity.ok(new OtaBookingLookupResponse(lookup.channelBookingId(), lookup.providerCode(),
+                lookup.locationReference(), lookup.mlandBookingReference(), lookup.canSellAddon()));
+    }
 
     @PostMapping(value = "/api/v1/ota-channel-bookings/{channelBookingId}/add-on-quotes", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<AddonQuoteResponse> createOtaAddonQuote(

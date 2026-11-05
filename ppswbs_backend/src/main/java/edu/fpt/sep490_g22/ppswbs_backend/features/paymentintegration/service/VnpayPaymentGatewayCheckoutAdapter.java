@@ -31,6 +31,13 @@ public class VnpayPaymentGatewayCheckoutAdapter implements PaymentGatewayCheckou
                 "Workshop final payment ");
     }
 
+    @Override
+    public String createShopAddonUrl(String merchantReference, String bookingCode, long amountVnd,
+                                     Instant createdAt, Instant expiresAt, String clientIp) {
+        return createUrl(merchantReference, bookingCode, amountVnd, createdAt, expiresAt, clientIp,
+                "Workshop shop add-on payment ");
+    }
+
     private String createUrl(String merchantReference, String bookingCode, long amountVnd,
                              Instant createdAt, Instant expiresAt, String clientIp,
                              String orderInfoPrefix) {

@@ -66,7 +66,9 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         }
 
         WorkshopBooking booking = optBooking.get();
-        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
+        // A booking Settlement has concluded as COMPLETED keeps its frozen invoice for the Manager folio correction
+        // (003.3 T040); any other state (pending, cancelled, expired, no-show) has no folio to correct.
+        if (booking.getBookingStatus() != BookingStatus.CONFIRMED && booking.getBookingStatus() != BookingStatus.COMPLETED) {
             return null;
         }
 

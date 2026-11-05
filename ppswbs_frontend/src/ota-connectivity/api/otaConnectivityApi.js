@@ -200,6 +200,38 @@ export function createOtaConnectivityClient(httpClient) {
         method: 'POST', idempotencyKey: newCommandId(),
       });
     },
+
+    async lookupBookingByMlandReference(mlandBookingReference) {
+      if (!mlandBookingReference) throw new Error('Mland booking reference is required');
+      return await httpClient('/api/v1/ota-channel-bookings/lookups', {
+        query: { mlandBookingReference: mlandBookingReference.trim() },
+      });
+    },
+
+    async getAddonBillStatus(billReference) {
+      if (!billReference) throw new Error('Bill reference is required');
+      return await httpClient(`/api/v1/ota-addon-bills/${encodeURIComponent(billReference)}`);
+    },
+
+    async createAddonPaymentAttempt(billReference, idempotencyKey = newCommandId()) {
+      if (!billReference) throw new Error('Bill reference is required');
+      return await httpClient(`/api/v1/ota-addon-bills/${encodeURIComponent(billReference)}/payment-attempts`, {
+        method: 'POST',
+        idempotencyKey,
+      });
+    },
+
+    async createAddonRefund(billReference, { amountVnd, reason }, idempotencyKey = newCommandId()) {
+      if (!billReference) throw new Error('Bill reference is required');
+      return await httpClient(`/api/v1/ota-addon-bills/${encodeURIComponent(billReference)}/refunds`, {
+        method: 'POST',
+        idempotencyKey,
+        body: {
+          amountVnd: Number(amountVnd),
+          reason: reason?.trim(),
+        },
+      });
+    },
   };
 }
 

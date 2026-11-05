@@ -14,6 +14,8 @@ import java.util.Optional;
 public interface SettlementRefundAllocationRepository extends JpaRepository<SettlementRefundAllocation, Long> {
     Optional<SettlementRefundAllocation> findByAllocationReference(String allocationReference);
 
+    List<SettlementRefundAllocation> findAllByOriginalPaymentReference(String originalPaymentReference);
+
     List<SettlementRefundAllocation> findAllByCaseReferenceOrderByCreatedAtAsc(String caseReference);
 
     List<SettlementRefundAllocation> findTop100ByLifecycleStatusAndCreatedAtBeforeOrderByCreatedAtAsc(

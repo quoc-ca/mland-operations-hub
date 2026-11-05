@@ -2,10 +2,9 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingOutcomeStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.FinalBalanceResolutionOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementChargeRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalPaymentAttemptRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementAddonBill;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementAddonPaymentAttempt;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementEvidenceConclusion;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.ApplyVerifiedSettlementPaymentEvidenceCommand;
@@ -26,26 +25,24 @@ public class FinalPaymentService {
     private final SettlementChargeRepository charges;
     private final SettlementFinalPaymentAttemptRepository attempts;
     private final WorkshopBookingSettlementAdapter booking;
+    private final SettlementAddonBillRepository addonBills;
+    private final SettlementAddonPaymentAttemptRepository addonAttempts;
 
     @Autowired
     public FinalPaymentService(SettlementEvidenceConclusionRepository evidence,
             SettlementFinalBillRepository bills,
             SettlementChargeRepository charges,
             SettlementFinalPaymentAttemptRepository attempts,
-            WorkshopBookingSettlementAdapter booking) {
+            WorkshopBookingSettlementAdapter booking,
+            SettlementAddonBillRepository addonBills,
+            SettlementAddonPaymentAttemptRepository addonAttempts) {
         this.evidence = evidence;
         this.bills = bills;
         this.charges = charges;
         this.attempts = attempts;
         this.booking = booking;
-    }
-
-    /** Compatibility constructor for existing isolated evidence-consumer tests. */
-    public FinalPaymentService(SettlementEvidenceConclusionRepository evidence,
-            SettlementFinalBillRepository bills,
-            SettlementChargeRepository charges,
-            WorkshopBookingSettlementAdapter booking) {
-        this(evidence, bills, charges, null, booking);
+        this.addonBills = addonBills;
+        this.addonAttempts = addonAttempts;
     }
 
     @Transactional
@@ -54,6 +51,10 @@ public class FinalPaymentService {
         if (byOperation.isPresent()) return replay(byOperation.get(), command);
         var byEvidence = evidence.findByEvidenceReference(command.verifiedEvidenceReference().trim());
         if (byEvidence.isPresent()) return replay(byEvidence.get(), command);
+
+        if ("SHOP_ADDON".equals(command.paymentKind())) {
+            return applyShopAddon(command);
+        }
 
         SettlementFinalBill bill = bills.findByBookingReferenceForUpdate(command.bookingReference().trim()).orElse(null);
         if (bill == null) return SettlementPaymentEvidenceOutcome.rejected("FINAL_BILL_NOT_FOUND");
@@ -127,13 +128,63 @@ public class FinalPaymentService {
         return SettlementPaymentEvidenceOutcome.accepted();
     }
 
+    private SettlementPaymentEvidenceOutcome applyShopAddon(ApplyVerifiedSettlementPaymentEvidenceCommand command) {
+        SettlementAddonPaymentAttempt attempt = addonAttempts.findByMerchantReference(command.merchantReference().trim()).orElse(null);
+        if (attempt == null) {
+            return SettlementPaymentEvidenceOutcome.rejected("ATTEMPT_NOT_FOUND");
+        }
+        SettlementAddonBill bill = addonBills.findByBillReferenceForUpdate(attempt.getBillReference()).orElse(null);
+        if (bill == null) {
+            return SettlementPaymentEvidenceOutcome.rejected("ADDON_BILL_NOT_FOUND");
+        }
+        if (!"VND".equals(command.currencyCode()) || !bill.getCurrencyCode().equals(command.currencyCode())) {
+            return SettlementPaymentEvidenceOutcome.rejected("CURRENCY_MISMATCH");
+        }
+        // The provider must have collected exactly what this attempt asked for.
+        if (!Objects.equals(attempt.getAmountVnd(), command.amountVnd())) {
+            return SettlementPaymentEvidenceOutcome.rejected("AMOUNT_MISMATCH");
+        }
+        if ("VERIFIED_PAID".equals(attempt.getLifecycleStatus())) {
+            return SettlementPaymentEvidenceOutcome.accepted(); // the same verified payment delivered again
+        }
+        boolean alreadyPaid = "PAID".equals(bill.getLifecycleStatus());
+        if (!alreadyPaid && !"OPEN".equals(bill.getLifecycleStatus())) {
+            return SettlementPaymentEvidenceOutcome.rejected("BILL_NOT_OPEN");
+        }
+
+        // A verified payment for a bill that another attempt already settled is real money collected twice.
+        // It is recorded like any other SHOP_ADDON payment so a Manager can refund it; the bill stays PAID.
+        if (!alreadyPaid) {
+            bill.setLifecycleStatus("PAID");
+            addonBills.saveAndFlush(bill);
+        }
+
+        attempt.setLifecycleStatus("VERIFIED_PAID");
+        attempt.setPaymentUrlSnapshot(null);
+        addonAttempts.saveAndFlush(attempt);
+
+        evidence.saveAndFlush(SettlementEvidenceConclusion.builder()
+                .evidenceReference(command.verifiedEvidenceReference().trim())
+                .bookingReference(bill.getChannelBookingReference().trim())
+                .providerTransactionReference(command.merchantReference().trim())
+                .providerTransactionNumber(command.providerTransactionNumber())
+                .originalProviderCreateDate(command.originalProviderCreateDate())
+                .conclusion("SHOP_ADDON_VERIFIED")
+                .amountVnd(command.amountVnd())
+                .currencyCode(command.currencyCode())
+                .operationReference(command.operationReference().trim())
+                .createdAt(Instant.now()).build());
+
+        return SettlementPaymentEvidenceOutcome.accepted();
+    }
+
     private long total(String bookingReference, String conclusion) {
         return evidence.findByBookingReferenceAndConclusion(bookingReference, conclusion).stream()
                 .mapToLong(item -> item.getAmountVnd() == null ? 0L : item.getAmountVnd()).sum();
     }
 
     private SettlementPaymentEvidenceOutcome replay(SettlementEvidenceConclusion existing,
-                                                       ApplyVerifiedSettlementPaymentEvidenceCommand command) {
+                                                    ApplyVerifiedSettlementPaymentEvidenceCommand command) {
         boolean same = Objects.equals(existing.getBookingReference(), command.bookingReference())
                 && Objects.equals(existing.getEvidenceReference(), command.verifiedEvidenceReference())
                 && Objects.equals(existing.getProviderTransactionReference(), command.merchantReference())
