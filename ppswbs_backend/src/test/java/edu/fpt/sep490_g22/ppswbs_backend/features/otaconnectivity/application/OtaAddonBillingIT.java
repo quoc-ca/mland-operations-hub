@@ -2,6 +2,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaAddonService.AddonQuoteResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaAddonService.DirectBillResult;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaConflictException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaUnprocessableException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.facade.OtaAddonSettlementPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.facade.OtaAddonSettlementPort.DirectBillCreationOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaAddonBillLink;
@@ -13,15 +15,17 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.Ot
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaEnvironment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaMappingStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaProvider;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopAddOnPriceQuery;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopAddOnPriceSnapshot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import org.mockito.quality.Strictness;
 import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -35,17 +39,21 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("T045: OTA Add-on Billing Integration Tests")
+@DisplayName("T045/T055: OTA Add-on Billing Integration Tests")
 class OtaAddonBillingIT {
 
     @Mock private OtaChannelBookingRepository bookingRepository;
     @Mock private OtaAddonBillLinkRepository addonBillLinkRepository;
     @Mock private OtaAddonSettlementPort settlementPort;
+    @Mock private WorkshopOperationsFacade workshopOperationsFacade;
 
     private OtaAddonService addonService;
     private final Map<String, OtaAddonBillLink> linkStore = new HashMap<>();
 
     private OtaChannelBooking booking;
+
+    private static final String CATALOGUE_REF_PREMIUM_STONE = "abc00000-0000-4000-8000-000000000001";
+    private static final String CATALOGUE_REF_PLATINUM = "abc00000-0000-4000-8000-000000000002";
 
     @BeforeEach
     void setUp() {
@@ -62,7 +70,7 @@ class OtaAddonBillingIT {
             return Optional.ofNullable(linkStore.get(ref));
         });
 
-        addonService = new OtaAddonService(bookingRepository, addonBillLinkRepository, settlementPort);
+        addonService = new OtaAddonService(bookingRepository, addonBillLinkRepository, settlementPort, workshopOperationsFacade);
 
         OtaChannelMapping mapping = OtaChannelMapping.builder()
                 .id(1L)
@@ -101,60 +109,59 @@ class OtaAddonBillingIT {
     }
 
     @Test
-    @DisplayName("Free engraving: Zero charge succeeds as RECORDED_FREE; non-zero charge is strictly rejected")
-    void freeEngraving_zeroChargeSucceeds_nonZeroChargeRejected() {
+    @DisplayName("Free engraving: Zero charge succeeds as RECORDED_FREE and must never create a bill (D16)")
+    void freeEngraving_zeroChargeSucceeds_neverCreatesBill() {
         // 1. Zero-charge laser engraving succeeds and status is RECORDED_FREE
-        AddonQuoteResult freeQuote = addonService.createQuote(
+        AddonQuoteResult freeQuote = addonService.createLaserEngravingQuote(
                 booking.getPublicReference(),
-                OtaAddonService.ADDON_TYPE_LASER_ENGRAVING,
-                "ENGRAVE-STD",
-                "Complimentary Laser Engraving",
-                0L,
-                "VND"
+                "Complimentary Laser Engraving"
         );
 
         assertThat(freeQuote.status()).isEqualTo(OtaAddonService.STATUS_RECORDED_FREE);
         assertThat(freeQuote.amountMinor()).isEqualTo(0L);
         assertThat(freeQuote.addonType()).isEqualTo("LASER_ENGRAVING");
+        assertThat(freeQuote.itemCode()).isNull();
 
-        // 2. Attempting laser engraving with non-zero fee throws IllegalArgumentException
-        assertThatThrownBy(() -> addonService.createQuote(
-                booking.getPublicReference(),
-                OtaAddonService.ADDON_TYPE_LASER_ENGRAVING,
-                "ENGRAVE-STD",
-                "Complimentary Laser Engraving",
-                50_000L, // Non-zero fee invalid for free laser engraving
-                "VND"
-        )).isInstanceOf(IllegalArgumentException.class)
-          .hasMessageContaining("Laser engraving is free of charge and must have zero amount");
+        // 2. Direct bill creation for free laser engraving must strictly be rejected
+        assertThatThrownBy(() -> addonService.createDirectBill(
+                freeQuote.quoteReference(),
+                "consent-sig-guest",
+                "staff-uuid-01",
+                1001L
+        )).isInstanceOf(OtaUnprocessableException.class)
+          .hasMessageContaining("Laser engraving is free and does not generate a bill");
     }
 
     @Test
-    @DisplayName("Missing consent rejection: Direct bill creation without customer acceptance is rejected")
-    void missingConsent_directBillCreationRejected() {
-        // 1. Quote a paid add-on (e.g. premium stone setting)
-        AddonQuoteResult quote = addonService.createQuote(
+    @DisplayName("Paid option D17: Derives price/description from 003.2 catalogue; rejects bill before customer acceptance")
+    void paidOption_derivesFromCatalogue_requiresAcceptanceBeforeBill() {
+        // 1. Mock active 003.2 catalogue add-on for booking offer "offer-001" and location 1001L
+        when(workshopOperationsFacade.getWorkshopAddOnPrice(
+                new WorkshopAddOnPriceQuery("offer-001", 1001L, CATALOGUE_REF_PREMIUM_STONE)))
+                .thenReturn(new WorkshopAddOnPriceSnapshot(CATALOGUE_REF_PREMIUM_STONE, "Premium Stone Inlay", 200_000L, "VND"));
+
+        // 2. Quote the paid add-on using catalogue reference
+        AddonQuoteResult quote = addonService.createPaidOptionQuote(
                 booking.getPublicReference(),
-                OtaAddonService.ADDON_TYPE_PAID_OPTION,
-                "OPT-STONE-PREM",
-                "Premium Stone Inlay",
-                200_000L,
-                "VND"
+                CATALOGUE_REF_PREMIUM_STONE
         );
 
         assertThat(quote.status()).isEqualTo(OtaAddonService.STATUS_QUOTED);
+        assertThat(quote.amountMinor()).isEqualTo(200_000L);
+        assertThat(quote.currencyCode()).isEqualTo("VND");
+        assertThat(quote.itemCode()).isEqualTo(CATALOGUE_REF_PREMIUM_STONE);
         String quoteRef = quote.quoteReference();
 
-        // 2. Attempting to create direct bill before customer acceptance throws IllegalStateException
+        // 3. Attempting to create direct bill before customer acceptance throws OtaConflictException
         assertThatThrownBy(() -> addonService.createDirectBill(
                 quoteRef,
                 "consent-sig-guest",
                 "staff-uuid-01",
                 1001L
-        )).isInstanceOf(IllegalStateException.class)
+        )).isInstanceOf(OtaConflictException.class)
           .hasMessageContaining("Customer acceptance is required");
 
-        // 3. Record customer acceptance with consent proof
+        // 4. Record customer acceptance with consent proof
         AddonQuoteResult accepted = addonService.recordCustomerAcceptance(
                 quoteRef,
                 Instant.now(),
@@ -162,7 +169,7 @@ class OtaAddonBillingIT {
         );
         assertThat(accepted.status()).isEqualTo(OtaAddonService.STATUS_ACCEPTED);
 
-        // 4. Now creating direct bill succeeds
+        // 5. Now creating direct bill succeeds with Settlement facade
         when(settlementPort.createDirectBill(any())).thenReturn(
                 DirectBillCreationOutcome.success("bill-settle-009", "https://vnpay.mock/pay/009")
         );
@@ -179,6 +186,21 @@ class OtaAddonBillingIT {
     }
 
     @Test
+    @DisplayName("Paid option: Missing, inactive, or out-of-scope catalogue reference is strictly rejected")
+    void paidOption_missingOrInactiveCatalogueReference_rejected() {
+        // Mock facade returning null (inactive or out of scope for package/location)
+        when(workshopOperationsFacade.getWorkshopAddOnPrice(
+                new WorkshopAddOnPriceQuery("offer-001", 1001L, "missing-or-inactive-ref")))
+                .thenReturn(null);
+
+        assertThatThrownBy(() -> addonService.createPaidOptionQuote(
+                booking.getPublicReference(),
+                "missing-or-inactive-ref"
+        )).isInstanceOf(OtaUnprocessableException.class)
+          .hasMessageContaining("Catalogue add-on is missing, inactive, or not valid");
+    }
+
+    @Test
     @DisplayName("Paid add-on financial separation: OTA booking and channel payment facts remain unchanged")
     void paidAddon_preservesOtaChannelFinancialFacts() {
         // Given initial OTA booking facts
@@ -187,14 +209,14 @@ class OtaAddonBillingIT {
         long initialCommission = booking.getCommissionAmountMinor();
         long initialFee = booking.getFeeAmountMinor();
 
+        when(workshopOperationsFacade.getWorkshopAddOnPrice(
+                new WorkshopAddOnPriceQuery("offer-001", 1001L, CATALOGUE_REF_PLATINUM)))
+                .thenReturn(new WorkshopAddOnPriceSnapshot(CATALOGUE_REF_PLATINUM, "Platinum Plating", 300_000L, "VND"));
+
         // Quote, accept, and bill a 300,000 VND add-on
-        AddonQuoteResult quote = addonService.createQuote(
+        AddonQuoteResult quote = addonService.createPaidOptionQuote(
                 booking.getPublicReference(),
-                OtaAddonService.ADDON_TYPE_PAID_OPTION,
-                "OPT-PLATINUM",
-                "Platinum Plating",
-                300_000L,
-                "VND"
+                CATALOGUE_REF_PLATINUM
         );
         addonService.recordCustomerAcceptance(quote.quoteReference(), Instant.now(), "consent-ref-99");
 

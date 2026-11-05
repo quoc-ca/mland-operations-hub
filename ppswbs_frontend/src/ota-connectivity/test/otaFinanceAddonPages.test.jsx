@@ -52,20 +52,29 @@ describe('OTA finance and shop add-on screens', () => {
   });
 
   it('records a paid shop add-on, acceptance, and direct bill without OTA payment', async () => {
-    mockFetch({
-      'POST /api/v1/ota-channel-bookings/booking-1/add-on-quotes': json(201, { quoteId: 'quote-1', addonType: 'PAID_OPTION', amount: { amount: '50000', currency: 'VND' }, status: 'QUOTED' }),
-      'POST /api/v1/ota-addon-quotes/quote-1/acceptance': json(200, { quoteId: 'quote-1', addonType: 'PAID_OPTION', amount: { amount: '50000', currency: 'VND' }, status: 'ACCEPTED' }),
-      'POST /api/v1/ota-addon-quotes/quote-1/direct-bill': json(201, { quoteId: 'quote-1', settlementBillReference: 'BILL-1', correlationId: 'corr-1' }),
+    const calls = mockFetch({
+      'POST /api/v1/ota-channel-bookings/booking-1/add-on-quotes': json(201, {
+        quoteId: 'quote-1', addonType: 'PAID_OPTION', itemCode: 'addon-ref-1', amount: { amount: '50000', currency: 'VND' }, status: 'QUOTED',
+      }),
+      'POST /api/v1/ota-addon-quotes/quote-1/acceptance': json(200, {
+        quoteId: 'quote-1', addonType: 'PAID_OPTION', itemCode: 'addon-ref-1', amount: { amount: '50000', currency: 'VND' }, status: 'ACCEPTED',
+      }),
+      'POST /api/v1/ota-addon-quotes/quote-1/direct-bill': json(201, {
+        quoteId: 'quote-1', settlementBillReference: 'BILL-1', correlationId: 'corr-1',
+      }),
     });
     const user = userEvent.setup();
     renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
     await user.type(screen.getByPlaceholderText('UUID'), 'booking-1');
     await user.selectOptions(screen.getByLabelText('Add-on type'), 'PAID_OPTION');
-    await user.type(screen.getByLabelText('Item code'), 'BOX');
-    await user.type(screen.getByLabelText('Description'), 'Gift box');
-    await user.type(screen.getByLabelText('Amount (VND)'), '50000');
+    await user.type(screen.getByLabelText('Catalogue add-on reference'), 'addon-ref-1');
     await user.click(screen.getByRole('button', { name: 'Create quote' }));
     expect(await screen.findByText('QUOTED')).toBeInTheDocument();
+    const quoteCall = calls.find(call => call.path.includes('/add-on-quotes'));
+    expect(quoteCall.body).toEqual({
+      addonType: 'PAID_OPTION',
+      catalogueAddOnReference: 'addon-ref-1',
+    });
     await user.type(screen.getByPlaceholderText('Signed at counter'), 'COUNTER-1');
     await user.click(screen.getByRole('button', { name: 'Record acceptance' }));
     expect(await screen.findByText('ACCEPTED')).toBeInTheDocument();
@@ -74,12 +83,9 @@ describe('OTA finance and shop add-on screens', () => {
   });
 
   it('records free laser engraving and never offers a direct bill action', async () => {
-    mockFetch({
+    const calls = mockFetch({
       'POST /api/v1/ota-channel-bookings/booking-free/add-on-quotes': json(201, {
-        quoteId: 'quote-free', addonType: 'LASER_ENGRAVING', amount: { amount: '0', currency: 'VND' }, status: 'QUOTED',
-      }),
-      'POST /api/v1/ota-addon-quotes/quote-free/acceptance': json(200, {
-        quoteId: 'quote-free', addonType: 'LASER_ENGRAVING', amount: { amount: '0', currency: 'VND' }, status: 'ACCEPTED',
+        quoteId: 'quote-free', addonType: 'LASER_ENGRAVING', amount: { amount: '0', currency: 'VND' }, status: 'RECORDED_FREE',
       }),
     });
     const user = userEvent.setup();
@@ -88,27 +94,28 @@ describe('OTA finance and shop add-on screens', () => {
     await user.type(screen.getByLabelText('Description'), 'Engrave initials');
     await user.click(screen.getByRole('button', { name: 'Create quote' }));
     expect(await screen.findByText('Free for OTA customers. No direct bill is created.')).toBeInTheDocument();
-    await user.type(screen.getByPlaceholderText('Signed at counter'), 'COUNTER-FREE');
-    await user.click(screen.getByRole('button', { name: 'Record acceptance' }));
-    expect(await screen.findByText('ACCEPTED')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Create direct Mland bill' })).not.toBeInTheDocument();
+    const quoteCall = calls.find(call => call.path.includes('/add-on-quotes'));
+    expect(quoteCall.body).toEqual({
+      addonType: 'LASER_ENGRAVING',
+      itemDescription: 'Engrave initials',
+      amount: { amount: '0', currency: 'VND' },
+    });
   });
 
   it('renders backend validation errors without fabricating a quote', async () => {
     mockFetch({
       'POST /api/v1/ota-channel-bookings/booking-invalid/add-on-quotes': json(422, {
-        code: 'INVALID_ADDON_AMOUNT', message: 'Paid option amount must be positive', correlationId: 'corr-invalid',
+        code: 'UNPROCESSABLE', message: 'Catalogue add-on is missing, inactive, or not valid for this booking\'s package and location', correlationId: 'corr-invalid',
       }),
     });
     const user = userEvent.setup();
     renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
     await user.type(screen.getByPlaceholderText('UUID'), 'booking-invalid');
     await user.selectOptions(screen.getByLabelText('Add-on type'), 'PAID_OPTION');
-    await user.type(screen.getByLabelText('Item code'), 'BOX');
-    await user.type(screen.getByLabelText('Description'), 'Gift box');
-    await user.type(screen.getByLabelText('Amount (VND)'), '0');
+    await user.type(screen.getByLabelText('Catalogue add-on reference'), 'addon-invalid');
     await user.click(screen.getByRole('button', { name: 'Create quote' }));
-    expect(await screen.findByText('Paid option amount must be positive')).toBeInTheDocument();
+    expect(await screen.findByText('Catalogue add-on is missing, inactive, or not valid for this booking\'s package and location')).toBeInTheDocument();
     expect(screen.getByText('Create a quote to review the immutable amount and consent steps.')).toBeInTheDocument();
   });
 });
