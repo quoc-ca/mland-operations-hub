@@ -1,0 +1,13 @@
+import React, { useState } from 'react';
+import { useParams } from 'react-router';
+import { ErrorNotice, Field, Loading, SuccessNotice, useCommand, useResource } from '../../../shared/ui/components';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { useReviewManagementApi } from '../api/useReviewManagementApi';
+import { reviewManagementMessages } from '../messages';
+
+export default function ModerationDetailPage() { const t=useT(reviewManagementMessages); const {reviewId}=useParams(); const api=useReviewManagementApi(); const resource=useResource(()=>api.getReview(reviewId),[reviewId]); const command=useCommand(); const replyCommand=useCommand(); const [reason,setReason]=useState(''); const [reply,setReply]=useState(''); const [success,setSuccess]=useState('');
+  if(resource.loading)return <div className="review-container"><Loading/></div>; if(resource.error)return <div className="review-container"><ErrorNotice error={resource.error} messages={reviewManagementMessages} onReload={resource.reload}/></div>; const review=resource.data;
+  async function visibility(status){const result=await command.run(key=>api.changeVisibility(key,reviewId,{status,reason},review.version));if(result.ok)setSuccess(t('successModerated'));}
+  async function saveReply(e){e.preventDefault();const result=await replyCommand.run(key=>review.reply?api.editReply(key,reviewId,{bodyText:reply},review.reply.version):api.createReply(key,reviewId,{bodyText:reply}));if(result.ok)setSuccess(t('successReply'));}
+  return <div className="review-container"><header className="page-header"><h1>{t('moderationTitle')}</h1><p className="muted">{review.maskedDisplayName} · {review.status}</p></header><SuccessNotice>{success}</SuccessNotice><div className="review-panel"><p>{review.bodyText}</p><Field label={t('reason')}><textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder={t('reasonPlaceholder')} rows={3}/></Field><ErrorNotice error={command.error} messages={reviewManagementMessages} onRetry={command.retry}/><div className="actions"><button className="button outline" onClick={()=>visibility('HIDDEN')} disabled={command.pending}>{t('hide')}</button><button className="button danger" onClick={()=>visibility('REMOVED')} disabled={command.pending}>{t('remove')}</button></div></div><form className="review-panel" onSubmit={saveReply}><h2>{t('replyTitle')}</h2><textarea value={reply} onChange={e=>setReply(e.target.value)} placeholder={t('replyPlaceholder')} rows={5}/><ErrorNotice error={replyCommand.error} messages={reviewManagementMessages} onRetry={replyCommand.retry}/><button className="button primary" disabled={replyCommand.pending}>{t('saveReply')}</button></form></div>;
+}

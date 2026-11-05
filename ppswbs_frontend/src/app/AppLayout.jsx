@@ -60,6 +60,7 @@ export default function AppLayout() {
           <Link to="/me/loyalty">{t('loyalty')}</Link>
           <Link to="/ai-support">{t('aiSupport')}</Link>
           <Link to="/design-requests/new">{t('designWorkspace')}</Link>
+          <Link to="/reviews">Reviews</Link>
           <Link to="/catalogue-management/products">{t('management')}</Link>
           <Link to="/promotion-management/programs">{t('promotionManagement')}</Link>
           <Link to="/ota-connectivity/channels">{t('otaChannels')}</Link>

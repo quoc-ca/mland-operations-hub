@@ -144,3 +144,13 @@ The frontend handoff is complete only when the implementation can trace each scr
 to `spec.md`, the API contract, backend response fields and tests. The current
 implementation is a frontend delivery slice, not proof that live backend integration,
 OpenAPI synchronization or production provider integration has passed.
+
+## 9. Figma visual mapping (2026-11-05)
+
+The visual handoff is pending reviewer approval in Figma file
+`m5Cyk5rit6lKaX3TPprSow`. The created sections are `413:2` for Feature-004
+customer screens, `414:1083` for Staff operations and `414:2983` for Manager
+operations. The frames include desktop/mobile variants for AI chat, independent
+design workspace, consent, image upload, analysis/result, review decisions and
+Manager price proposal. Visual frames do not alter the independent flow or any
+backend authority rule.

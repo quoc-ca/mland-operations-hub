@@ -91,3 +91,14 @@ Customer screens are mobile-first. Moderation screens are desktop-first but coll
 tables/toolbars for smaller screens. Rating controls have accessible names and a
 keyboard path. Status uses text plus semantic color. Live regions announce completed
 commands and non-routine failures without exposing private source data.
+
+## 6. Figma frame mapping (2026-11-05)
+
+The visual handoff is in Figma file `m5Cyk5rit6lKaX3TPprSow`, section
+`F11 · Review Management` (`413:203`). Public list/detail use frames `413:204`
+and `416:24`; Guest lookup, Member sources, create and edit use `413:264`,
+`413:302`, `413:350` and `413:392`. Staff moderation is represented in section
+`414:1083`; Manager moderation/reply is represented in section `414:2983`.
+The branch label is not a review target, and these frames do not authorize any
+business action beyond the approved API contract. Reviewer approval revision and
+date remain required before treating this handoff as final.

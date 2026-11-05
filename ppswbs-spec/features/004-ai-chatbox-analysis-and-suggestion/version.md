@@ -669,3 +669,29 @@ Before implementation uses the new design, review must confirm:
 5. The design uses shared tokens/components and does not introduce an unapproved dependency or visual system.
 6. The approved Figma revision is recorded in the feature handoff before code changes begin.
 
+## 9. Figma MCP implementation record (2026-11-05)
+
+Figma MCP was used to create editable, bilingual, desktop/mobile design frames in
+file `m5Cyk5rit6lKaX3TPprSow`.
+
+- Public page sections: `F04 · AI Support & Independent Design Request` (`413:2`)
+  and `F11 · Review Management` (`413:203`).
+- Customer frames include `F04-AI-CHAT`, `F04-DESIGN-WORKSPACE`, `F04-CONSENT`,
+  `F04-IMAGE-UPLOAD`, `F04-ANALYSIS-STATUS`, `F04-RESULT`, `F11-PUBLIC-REVIEW-LIST`,
+  `F11-PUBLIC-REVIEW-DETAIL`, `F11-GUEST-LOOKUP`, `F11-ELIGIBLE-SOURCES`,
+  `F11-CREATE-REVIEW` and `F11-EDIT-REVIEW`.
+- Staff section: `F04 + F11 · Staff Operations` (`414:1083`) with desktop and
+  mobile review/moderation queue/detail frames.
+- Manager section: `F04 + F11 · Manager Operations` (`414:2983`) with price
+  proposal and Manager reply frames in desktop/mobile variants.
+
+The frames use editable text and vector layers and follow the existing Inter/
+Oswald visual baseline. The design has not been self-marked as approved; the
+responsible reviewer must record the approved revision/date before treating the
+frames as a final visual baseline. Figma does not change Feature-004 business,
+permission, API, AI, retention or pricing rules.
+
+Frontend implementation remains on the existing `designreview` slice. The
+Figma work is a visual handoff, not a replacement for backend/OpenAPI mismatch
+resolution or integration verification.
+

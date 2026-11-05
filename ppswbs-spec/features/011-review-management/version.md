@@ -301,3 +301,37 @@ OpenAPI/spec rather than the current backend mismatches.
 
 The frontend agent must stop at these contract mismatches and must not add a
 client-side compatibility layer without a separately approved versioned contract.
+
+## 8. Figma MCP and frontend implementation record (2026-11-05)
+
+Figma MCP created the editable visual handoff in file
+`m5Cyk5rit6lKaX3TPprSow`:
+
+- Public customer section: `F11 · Review Management` (`413:203`).
+- Public list/detail: `F11-PUBLIC-REVIEW-LIST` (`413:204`) and
+  `F11-PUBLIC-REVIEW-DETAIL` (`416:24`), both with mobile variants.
+- Guest lookup: `F11-GUEST-LOOKUP` (`413:264`).
+- Member sources: `F11-ELIGIBLE-SOURCES` (`413:302`).
+- Create/edit: `F11-CREATE-REVIEW` (`413:350`) and `F11-EDIT-REVIEW` (`413:392`).
+- Staff operations: `F04 + F11 · Staff Operations` (`414:1083`) with
+  `F11-MODERATION-QUEUE` (`414:1128`) and `F11-MODERATION-DETAIL` (`414:1153`)
+  desktop/mobile variants.
+- Manager operations: `F04 + F11 · Manager Operations` (`414:2983`) with
+  `F11-MODERATION-DETAIL · Manager Reply` (`414:3002`) desktop/mobile variants.
+
+The frames explicitly keep branch outside the review target and do not expose
+email, phone or transaction details in public projections. The visual revision
+still requires reviewer approval; no agent self-approval is recorded here.
+
+The React/Vite implementation now contains the Feature-011 route slice under
+`ppswbs_frontend/src/features/reviewmanagement/`, including the OpenAPI API
+adapter, public list/detail, guest lookup, Member eligible sources, create/edit
+review, Staff/Manager moderation and Manager reply UI. It uses shared HTTP,
+Firebase auth, i18n, `useResource`, `useCommand`, idempotency keys and optimistic
+version headers. Backend remains authoritative.
+
+Known integration blockers remain unchanged: the current backend does not fully
+match the approved OpenAPI contract for idempotency, Guest retail eligibility,
+ownership projections, Admin technical-only authority, DTO/status/header and
+migration verification. The frontend intentionally does not add a compatibility
+workaround for those mismatches.
