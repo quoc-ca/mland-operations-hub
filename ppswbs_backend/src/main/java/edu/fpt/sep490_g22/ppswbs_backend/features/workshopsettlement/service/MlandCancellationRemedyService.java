@@ -26,7 +26,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class MlandCancellationRemedyService {
     private static final String CASE_TYPE = "MLAND_CANCELLATION_REMEDY";
-    private static final String PENDING_PROVIDER = "PENDING_PROVIDER";
+    private static final String PENDING_PROVIDER = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseLifecycleStatus.PENDING_PROVIDER.name();
     private final SettlementCaseRepository cases;
     private final SettlementCancellationCaseRepository cancellationCases;
     private final SettlementCustomerCancellationSnapshotRepository customerCancellationSnapshots;

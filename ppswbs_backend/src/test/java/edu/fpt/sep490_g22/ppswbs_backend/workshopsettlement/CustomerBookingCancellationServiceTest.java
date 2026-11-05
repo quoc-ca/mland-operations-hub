@@ -142,13 +142,13 @@ class CustomerBookingCancellationServiceTest {
     @Test
     void guestReadsSafeCaseOnlyAfterStoredContactProof() {
         savedCase.set(SettlementCase.builder().caseReference("CASE-1").bookingReference("BK-1")
-                .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("PENDING_PROVIDER")
+                .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("RESOLVED")
                 .correlationReference("CORR-1").build());
 
         var result = service.read("BK-1", "CASE-1", new GuestContactProofDto("guest@example.test", null), null);
 
         assertThat(result.caseReference()).isEqualTo("CASE-1");
-        assertThat(result.status()).isEqualTo("PENDING_PROVIDER");
+        assertThat(result.status()).isEqualTo("RESOLVED");
         assertThat(result.toString()).doesNotContain("guest@example.test");
         verify(booking).verifyCustomerAccess("BK-1", null, "guest@example.test", null);
     }
@@ -156,7 +156,7 @@ class CustomerBookingCancellationServiceTest {
     @Test
     void memberMustOwnBookingToReadCancellationCase() {
         savedCase.set(SettlementCase.builder().caseReference("CASE-1").bookingReference("BK-1")
-                .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("PENDING_PROVIDER")
+                .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("RESOLVED")
                 .correlationReference("CORR-1").build());
         when(booking.verifyCustomerAccess("BK-1", 42L, null, null))
                 .thenReturn(new CustomerBookingAccessDecision(false));

@@ -33,9 +33,9 @@ import java.util.UUID;
 @Slf4j
 public class WorkshopRefundService {
     private static final String CASE_TYPE = "CUSTOMER_CANCELLATION";
-    private static final String CASE_PENDING = "PENDING_PROVIDER";
-    private static final String CASE_RESOLVED = "RESOLVED";
-    private static final String CASE_REJECTED = "REJECTED";
+    private static final String CASE_PENDING = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseLifecycleStatus.PENDING_PROVIDER.name();
+    private static final String CASE_RESOLVED = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseLifecycleStatus.RESOLVED.name();
+    private static final String CASE_REJECTED = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseLifecycleStatus.REJECTED.name();
     private static final String REASON_MANUAL_REMEDIATION = "REFUND_PARTIAL_MANUAL_REMEDIATION_REQUIRED";
     private static final Duration QUERY_INTERVAL = Duration.ofMinutes(5);
     private static final Duration QUERY_WINDOW = Duration.ofHours(24);
