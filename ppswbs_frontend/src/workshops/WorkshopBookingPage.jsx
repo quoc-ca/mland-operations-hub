@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getWorkshopPackage, listWorkshopLocations, listWorkshopSessions, previewWorkshopBookingQuote, createWorkshopBooking, WorkshopApiError } from '../api/workshops';
-import { BenefitSelector } from '../features/loyaltypromotion/checkout/BenefitSelector';
+import { BenefitSelector } from '../features/loyalty-promotion';
 import { useAuth } from '../shared/auth/AuthProvider';
 import { useHttp } from '../shared/api/useHttp';
 import { getEffectiveParticipantMax } from './bookingCapacity';
@@ -121,6 +121,25 @@ export function WorkshopBookingPage({ packageId }) {
 
     return () => { active = false; };
   }, [authStatus, http]);
+
+  // Kho Voucher for the benefit picker; a failed load leaves the picker empty (the code can still be typed).
+  const [savedVouchers, setSavedVouchers] = useState([]);
+  useEffect(() => {
+    if (bookingMode !== 'MEMBER') { setSavedVouchers([]); return undefined; }
+    let active = true;
+    http('/api/v1/members/me/saved-vouchers?limit=100')
+      .then(result => {
+        if (!active) return;
+        const items = result?.items || result || [];
+        setSavedVouchers(items.map(item => ({
+          code: item.promotion?.code || item.code,
+          name: item.promotion?.name || item.name || item.promotion?.code || item.code,
+          availability: item.availability,
+        })).filter(item => item.code));
+      })
+      .catch(() => { if (active) setSavedVouchers([]); });
+    return () => { active = false; };
+  }, [bookingMode, http]);
 
   const requiredSessions = Math.max(1, Number(pkg?.requiredSessionCount) || 1);
   const packageMinParticipants = Math.max(1, Number(pkg?.minParticipants) || 1);
@@ -970,7 +989,10 @@ export function WorkshopBookingPage({ packageId }) {
                   context="workshop"
                   value={benefitSelection}
                   onChange={handleBenefitChange}
-                  quote={memberQuote}
+                  quote={memberQuote && memberQuote.reasonDetails
+                    ? { ...memberQuote, reasons: memberQuote.reasonDetails.map(detail => detail.message) }
+                    : memberQuote}
+                  savedVouchers={savedVouchers}
                   quoteMatches={quoteMatches}
                   acknowledged={benefitsAcknowledged}
                   onAcknowledge={val => {

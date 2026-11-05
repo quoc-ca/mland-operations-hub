@@ -213,5 +213,53 @@ describe('OTA Connectivity API Client Contract Tests (T025)', () => {
     await client.createAddonDirectBill('quote-1');
     expect(mockHttpClient.mock.calls.at(-1)[0]).toBe('/api/v1/ota-addon-quotes/quote-1/direct-bill');
   });
+
+  describe('OTA shop add-on collection, refund and check-in lookup', () => {
+    it('lookupBookingByMlandReference trims the reference and refuses an empty one', async () => {
+      mockHttpClient.mockResolvedValueOnce({ channelBookingId: 'chan-1', providerCode: 'KLOOK', canSellAddon: true });
+
+      const result = await client.lookupBookingByMlandReference('  BK-1  ');
+
+      expect(mockHttpClient).toHaveBeenCalledWith('/api/v1/ota-channel-bookings/lookups', { query: { mlandBookingReference: 'BK-1' } });
+      expect(result.channelBookingId).toBe('chan-1');
+      await expect(client.lookupBookingByMlandReference('')).rejects.toThrow('Mland booking reference is required');
+    });
+
+    it('getAddonBillStatus encodes the bill reference', async () => {
+      mockHttpClient.mockResolvedValueOnce({ lifecycleStatus: 'OPEN' });
+
+      await client.getAddonBillStatus('BILL/1');
+
+      expect(mockHttpClient).toHaveBeenCalledWith('/api/v1/ota-addon-bills/BILL%2F1');
+      await expect(client.getAddonBillStatus('')).rejects.toThrow('Bill reference is required');
+    });
+
+    it('createAddonPaymentAttempt POSTs with the given Idempotency-Key and generates one otherwise', async () => {
+      mockHttpClient.mockResolvedValue({ attemptReference: 'OAA-1' });
+
+      await client.createAddonPaymentAttempt('BILL-1', 'key-fixed-0001');
+      expect(mockHttpClient).toHaveBeenLastCalledWith('/api/v1/ota-addon-bills/BILL-1/payment-attempts',
+        { method: 'POST', idempotencyKey: 'key-fixed-0001' });
+
+      await client.createAddonPaymentAttempt('BILL-1');
+      const generated = mockHttpClient.mock.calls.at(-1)[1].idempotencyKey;
+      expect(typeof generated).toBe('string');
+      expect(generated.length).toBeGreaterThanOrEqual(16);
+      await expect(client.createAddonPaymentAttempt('')).rejects.toThrow('Bill reference is required');
+    });
+
+    it('createAddonRefund sends a numeric amount and a trimmed reason with an Idempotency-Key', async () => {
+      mockHttpClient.mockResolvedValueOnce({ refundReference: 'REFUND-ADDON-1' });
+
+      await client.createAddonRefund('BILL-1', { amountVnd: '12000', reason: '  Customer returned the item  ' }, 'key-fixed-0002');
+
+      expect(mockHttpClient).toHaveBeenLastCalledWith('/api/v1/ota-addon-bills/BILL-1/refunds', {
+        method: 'POST',
+        idempotencyKey: 'key-fixed-0002',
+        body: { amountVnd: 12000, reason: 'Customer returned the item' },
+      });
+      await expect(client.createAddonRefund('', { amountVnd: 1, reason: 'x' })).rejects.toThrow('Bill reference is required');
+    });
+  });
 });
 

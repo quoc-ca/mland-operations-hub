@@ -12,6 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -110,6 +111,32 @@ class BookingSettlementConclusionFacadeTest {
         assertThat(booking.getPaymentStatus()).isEqualTo(PaymentStatus.DEPOSIT_PAID);
         verify(bookings, never()).save(any());
         verifyNoInteractions(audits);
+    }
+
+    /** 003.3 T040: the Manager folio correction runs after Settlement has concluded the booking as COMPLETED. */
+    @Test
+    void financialProjectionIsAvailableForConfirmedAndCompletedBookingsOnly() {
+        BookingInvoice invoice = BookingInvoice.builder().postPromotionAmount(100_001L).depositAmount(50_001L)
+                .remainingAmount(50_000L).packageTotal(100_001L).build();
+        for (BookingStatus status : BookingStatus.values()) {
+            WorkshopBooking booking = confirmed("BK-PROJ-" + status);
+            booking.setBookingStatus(status);
+            booking.setPackageId(1L);
+            booking.setParticipantCount(1);
+            when(bookings.findByBookingCode(booking.getBookingCode())).thenReturn(Optional.of(booking));
+            lenient().when(invoices.findByBookingId(1L)).thenReturn(Optional.of(invoice));
+            lenient().when(commitments.findByBookingIdOrderByOrdinalAsc(1L)).thenReturn(List.of());
+
+            var projection = facade.getConfirmedBookingFinancialProjection(
+                    new ConfirmedBookingFinancialProjectionQuery(booking.getBookingCode()));
+
+            if (status == BookingStatus.CONFIRMED || status == BookingStatus.COMPLETED) {
+                assertThat(projection).as(status.name()).isNotNull();
+                assertThat(projection.frozenPostPromotionAmount()).isEqualTo(100_001L);
+            } else {
+                assertThat(projection).as(status.name()).isNull();
+            }
+        }
     }
 
     private static WorkshopBooking confirmed(String code) {

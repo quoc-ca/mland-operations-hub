@@ -126,89 +126,50 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
-  /api/v1/workshop-bookings/{bookingCode}/direct-addon-bills:
+  /api/v1/workshop-bookings/{bookingCode}/folio-corrections:
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:
-      summary: Create a separate direct-Mland add-on bill after finalization
-      deprecated: true
+      summary: Open a Manager-only post-FINALIZED folio correction (FR-004c, D7-D10)
       description: >-
-        DEPRECATED by the 2026-11-05 open-folio policy: a FINALIZED direct folio
-        accepts no add-on, so this is not a normal add-on path. Owner decision
-        D10 (2026-11-05): the create and read operations are to be repurposed
-        by 003.3 T040 as the Manager-only post-FINALIZED folio-correction
-        resource (FR-004c: overcharge refund only, via VNPay partial refund;
-        an undercharge is absorbed by Mland and never collected); the
-        replacement route and schema are defined in T040. OTA shop add-ons are unaffected and use the 003.4
-        /ota-addon-quotes bill. Previous text:
-        Active Staff in booking-location scope or any active Manager may record
-        customer consent for a paid catalogue add-on on a direct Mland booking.
-        The original finalized bill is immutable. OTA bookings are rejected here;
-        OTA add-ons use the separate OTA connectivity contract. The operation is
-        idempotent for the same booking, catalogue item and consent reference.
+        Only an active Manager (global scope) may open a folio correction for an
+        overcharge on a FINALIZED direct folio, with a required reason. Staff, Member,
+        and Guest are rejected (403). Folio OPEN, CLOSED, or OTA bookings are rejected
+        (409/422). Overcharge amount is refunded via VNPay partial refund allocated
+        oldest verified payment first, capped by each payment's unrefunded amount.
+        Undercharge is never collected. Idempotent on Idempotency-Key.
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/DirectAddonBillCommand'}
+            schema: {$ref: '#/components/schemas/FolioCorrectionCommand'}
       responses:
-        '201': {$ref: '#/components/responses/DirectAddonBill'}
+        '201': {$ref: '#/components/responses/FolioCorrection'}
         '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
-  /api/v1/workshop-bookings/{bookingCode}/direct-addon-bills/{billReference}/payment-attempts:
+  /api/v1/workshop-bookings/{bookingCode}/folio-corrections/{correctionReference}:
     parameters:
       - $ref: '#/components/parameters/BookingCode'
-      - name: billReference
-        in: path
-        required: true
-        schema: {type: string}
-    post:
-      summary: Start payment for a direct-Mland add-on bill
-      deprecated: true
-      description: >-
-        DEPRECATED with the direct-addon-bills create operation (2026-11-05
-        open-folio policy). Owner decision D10: this operation is to be
-        removed by 003.3 T040, because no post-FINALIZED undercharge is
-        collected. Previous text: Creates an independent SHOP_ADDON payment attempt with a ten-minute
-        checkout URL. The bill becomes PENDING_PAYMENT and becomes PAID only
-        after verified signed IPN/QueryDR evidence. Replays with the same
-        Idempotency-Key return the existing attempt.
-      security: [{bearerAuth: []}]
-      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
-      responses:
-        '201': {$ref: '#/components/responses/FinalPaymentAttempt'}
-        '200': {$ref: '#/components/responses/FinalPaymentAttempt'}
-        '401': {$ref: '#/components/responses/Problem'}
-        '403': {$ref: '#/components/responses/Problem'}
-        '404': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
-        '422': {$ref: '#/components/responses/Problem'}
-  /api/v1/workshop-bookings/{bookingCode}/direct-addon-bills/{billReference}:
-    parameters:
-      - $ref: '#/components/parameters/BookingCode'
-      - name: billReference
+      - name: correctionReference
         in: path
         required: true
         schema: {type: string}
       - $ref: '#/components/parameters/GuestContactEmail'
       - $ref: '#/components/parameters/GuestContactPhone'
     get:
-      summary: Read a customer-safe direct-Mland add-on bill
-      deprecated: true
+      summary: Read a customer-safe folio correction projection
       description: >-
-        DEPRECATED with the direct-addon-bills create operation (2026-11-05
-        open-folio policy; to be repurposed as the folio-correction resource by 003.3 T040, decision D10). Previous text: An owning Member uses bearer authentication. A Guest supplies exactly one
-        stored contact email or phone. Staff/Manager may read only within the
-        booking location scope. No consent reference or provider credential is
-        exposed.
+        An owning Member uses bearer authentication. A Guest supplies exactly one
+        stored contact email or phone. Manager (global) or Staff in booking location
+        scope may read. No provider secret, VNPay payload, or internal PII is exposed.
       security: [{}, {bearerAuth: []}]
       responses:
-        '200': {$ref: '#/components/responses/DirectAddonBill'}
+        '200': {$ref: '#/components/responses/FolioCorrection'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
@@ -337,6 +298,69 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/ota-addon-bills/{billReference}:
+    parameters:
+      - name: billReference
+        in: path
+        required: true
+        schema: {type: string}
+    get:
+      summary: Read OTA add-on bill details and latest payment attempt
+      description: Requires in-scope Staff or any active Manager globally.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/OtaAddonBill'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/ota-addon-bills/{billReference}/payment-attempts:
+    parameters:
+      - name: billReference
+        in: path
+        required: true
+        schema: {type: string}
+    post:
+      summary: Create a short-lived VNPay payment checkout attempt for an OTA add-on bill (SHOP_ADDON)
+      description: >-
+        In-scope Staff or any active Manager may initiate checkout for an OPEN OTA add-on bill.
+        Exact bill amount only. Only one active pending attempt per bill. Idempotent on Idempotency-Key.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '201': {$ref: '#/components/responses/OtaAddonPaymentAttempt'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/ota-addon-bills/{billReference}/refunds:
+    parameters:
+      - name: billReference
+        in: path
+        required: true
+        schema: {type: string}
+    post:
+      summary: Manager-only overcharge refund for a paid OTA add-on bill (ADDON_REFUND)
+      description: >-
+        Only an active Manager (global scope) may open a refund for an overcharge on a PAID OTA add-on bill,
+        with a required reason. Refund amount must be <= unrefunded verified SHOP_ADDON collections.
+        Executed via VNPay partial refund adapter and completed upon signed QueryDR verification.
+        Idempotent on Idempotency-Key.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/OtaAddonRefundCommand'}
+      responses:
+        '201': {$ref: '#/components/responses/OtaAddonRefund'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: Firebase-ID-token}
@@ -383,25 +407,26 @@ components:
       type: object
       additionalProperties: false
       description: Empty command. Finalization has no unpaid-balance override.
-    DirectAddonBillCommand:
+    FolioCorrectionCommand:
       type: object
       additionalProperties: false
-      required: [catalogueAddOnReference, customerConsentReference]
+      required: [amountVnd, reason]
       properties:
-        catalogueAddOnReference: {type: string, minLength: 1}
-        customerConsentReference: {type: string, minLength: 1, maxLength: 255}
-    DirectAddonBillProjection:
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        reason: {type: string, minLength: 1, maxLength: 255}
+    FolioCorrectionProjection:
       type: object
-      required: [billReference, bookingReference, addOnReference, description, amountVnd, currency, lifecycleStatus, createdAt]
+      required: [correctionReference, bookingReference, billReference, amountVnd, currency, reason, lifecycleStatus, createdAt]
       properties:
-        billReference: {type: string}
+        correctionReference: {type: string}
         bookingReference: {type: string}
-        addOnReference: {type: string}
-        description: {type: string}
+        billReference: {type: string}
         amountVnd: {type: integer, format: int64, minimum: 1}
         currency: {type: string, enum: [VND]}
-        lifecycleStatus: {type: string, enum: [OPEN, PENDING_PAYMENT, PAID, EXPIRED, CANCELED]}
+        reason: {type: string}
+        lifecycleStatus: {type: string, enum: [OPEN, PENDING_PROVIDER, RESOLVED, REJECTED, FAILED]}
         createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
     MlandRemedyCommand:
       type: object
       required: [reason, replacementOutcome, cancellationHandoffReference]
@@ -487,9 +512,9 @@ components:
     FinalPaymentAttempt:
       description: Short-lived final-payment checkout attempt
       content: {application/json: {schema: {$ref: '#/components/schemas/FinalPaymentAttempt'}}}
-    DirectAddonBill:
-      description: Separate direct-Mland add-on bill
-      content: {application/json: {schema: {$ref: '#/components/schemas/DirectAddonBillProjection'}}}
+    FolioCorrection:
+      description: Customer-safe folio correction projection
+      content: {application/json: {schema: {$ref: '#/components/schemas/FolioCorrectionProjection'}}}
     SettlementCase:
       description: Safe settlement case projection
       content: {application/json: {schema: {$ref: '#/components/schemas/SettlementCaseProjection'}}}

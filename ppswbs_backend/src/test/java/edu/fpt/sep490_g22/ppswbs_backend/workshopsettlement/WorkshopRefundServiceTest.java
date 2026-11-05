@@ -12,12 +12,14 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.Settlem
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementRefundAllocationRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementBusinessAudit;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCase;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundAllocation;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopRefundService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementCustomerNotifier;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopCancellationLoyaltyService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,6 +51,7 @@ class WorkshopRefundServiceTest {
     private final WorkshopCancellationLoyaltyService cancellationLoyalty = mock(WorkshopCancellationLoyaltyService.class);
     private final WorkshopBookingSettlementAdapter booking = mock(WorkshopBookingSettlementAdapter.class);
     private final SettlementFinalBillRepository bills = mock(SettlementFinalBillRepository.class);
+    private final SettlementCustomerNotifier notifier = mock(SettlementCustomerNotifier.class);
     private final RecordingTransactionManager transactions = new RecordingTransactionManager();
     private final Map<String, SettlementRefundAllocation> allocationRows = new ConcurrentHashMap<>();
     private SettlementCase cancellationCase;
@@ -61,8 +64,9 @@ class WorkshopRefundServiceTest {
                 .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("PENDING_PROVIDER")
                 .correlationReference("CORR-1").createdAt(Instant.now()).updatedAt(Instant.now()).build();
         service = new WorkshopRefundService(provider, allocations, cases, audits, operations, cancellationLoyalty,
-                booking, bills, transactions, "8.8.8.8", "sandbox-merchant");
+                booking, bills, notifier, transactions, "8.8.8.8", "sandbox-merchant");
         when(cases.findByCaseReference(CASE_REF)).thenReturn(Optional.of(cancellationCase));
+        when(cases.findByCaseReferenceForUpdate(CASE_REF)).thenReturn(Optional.of(cancellationCase));
         when(cases.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(allocations.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(allocations.findByAllocationReference(anyString())).thenAnswer(invocation ->
@@ -116,6 +120,7 @@ class WorkshopRefundServiceTest {
         assertThat(cancellationCase.getLifecycleStatus()).isEqualTo("RESOLVED");
         verify(provider).requestRefund(any(VnpayRefundCommand.class));
         verify(operations).applyRefund(eq(BOOKING_REF), anyString(), anyString(), eq("CORR-1"));
+        verify(cancellationLoyalty).restoreVerifiedCancellation(eq(cancellationCase), anyString());
         verify(booking).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUND_PENDING), eq(CASE_REF), anyString(), eq("CORR-1"));
         verify(booking).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUNDED), eq(CASE_REF), anyString(), eq("CORR-1"));
         verify(booking).recordBookingServiceOutcome(eq(BOOKING_REF), eq(BookingServiceOutcome.CANCELLED), eq(CASE_REF), anyString(), eq("CORR-1"));
@@ -195,6 +200,79 @@ class WorkshopRefundServiceTest {
                 after.minus(Duration.ofMinutes(5)));
         verify(provider, never()).queryRefund(any(VnpayRefundReconciliationCommand.class));
         verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
+    }
+
+    @Test
+    void folioCorrectionCaseDoesNotMutateFolioOrBookingOrConsequencesWhenFullyRefunded() {
+        String corrCaseRef = "CASE-CORR-1";
+        SettlementCase corrCase = SettlementCase.builder().caseReference(corrCaseRef).bookingReference(BOOKING_REF)
+                .caseType("FOLIO_CORRECTION").lifecycleStatus("PENDING_PROVIDER")
+                .correlationReference("CORR-CORR-1").createdAt(Instant.now()).updatedAt(Instant.now()).build();
+        when(cases.findByCaseReference(corrCaseRef)).thenReturn(Optional.of(corrCase));
+        when(cases.findByCaseReferenceForUpdate(corrCaseRef)).thenReturn(Optional.of(corrCase));
+
+        SettlementRefundAllocation alloc = allocation("ALLOC-CORR", "PAY-1", 40_000, 20_000, "03");
+        alloc.setCaseReference(corrCaseRef);
+        when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(corrCaseRef)).thenReturn(List.of(alloc));
+        when(provider.requestRefund(any(VnpayRefundCommand.class))).thenReturn(
+                result("REFUND", "ACCEPTED", "00", "03", "06", "70005", "PAY-1", 20_000L, true));
+        when(provider.queryRefund(any(VnpayRefundReconciliationCommand.class))).thenReturn(
+                result("REFUND_QUERYDR", "VERIFIED", "00", "03", "00", "70005", "PAY-1", 20_000L, true));
+
+        service.dispatchCase(corrCaseRef);
+
+        assertThat(alloc.getLifecycleStatus()).isEqualTo("VERIFIED");
+        assertThat(corrCase.getLifecycleStatus()).isEqualTo("RESOLVED");
+
+        // Verify consequences were NEVER invoked
+        verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
+        verify(cancellationLoyalty, never()).restoreVerifiedCancellation(any(), anyString());
+        verify(booking, never()).recordBookingRefundStatus(anyString(), any(), anyString(), anyString(), anyString());
+        verify(booking, never()).recordBookingServiceOutcome(anyString(), any(), anyString(), anyString(), anyString());
+        verify(bills, never()).saveAndFlush(any());
+        verify(bills, never()).findByBookingReference(anyString());
+
+        var auditCaptor = org.mockito.ArgumentCaptor.forClass(SettlementBusinessAudit.class);
+        verify(audits, atLeastOnce()).save(auditCaptor.capture());
+        assertThat(auditCaptor.getAllValues()).anyMatch(a -> "FOLIO_CORRECTION_REFUND_VERIFIED".equals(a.getActionCode()));
+    }
+
+    @Test
+    void addonRefundCaseDoesNotMutateFolioOrBookingOrConsequencesWhenFullyRefunded() {
+        String addonCaseRef = "CASE-ADDON-1";
+        SettlementCase addonCase = SettlementCase.builder().caseReference(addonCaseRef).bookingReference("ext-booking-ref-42")
+                .caseType("ADDON_REFUND").lifecycleStatus("PENDING_PROVIDER")
+                .correlationReference("CORR-ADDON-1").createdAt(Instant.now()).updatedAt(Instant.now()).build();
+        when(cases.findByCaseReference(addonCaseRef)).thenReturn(Optional.of(addonCase));
+        when(cases.findByCaseReferenceForUpdate(addonCaseRef)).thenReturn(Optional.of(addonCase));
+
+        SettlementRefundAllocation alloc = allocation("ALLOC-ADDON", "PAY-ADDON-1", 50_000, 50_000, "02");
+        alloc.setCaseReference(addonCaseRef);
+        when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(addonCaseRef)).thenReturn(List.of(alloc));
+        when(provider.requestRefund(any(VnpayRefundCommand.class))).thenReturn(
+                result("REFUND", "ACCEPTED", "00", "02", "06", "70006", "PAY-ADDON-1", 50_000L, true));
+        when(provider.queryRefund(any(VnpayRefundReconciliationCommand.class))).thenReturn(
+                result("REFUND_QUERYDR", "VERIFIED", "00", "02", "00", "70006", "PAY-ADDON-1", 50_000L, true));
+
+        service.dispatchCase(addonCaseRef);
+
+        assertThat(alloc.getLifecycleStatus()).isEqualTo("VERIFIED");
+        assertThat(addonCase.getLifecycleStatus()).isEqualTo("RESOLVED");
+
+        // Verify orderInfo was "Workshop add-on refund CASE-ADDON-1"
+        verify(provider).requestRefund(argThat(cmd -> "Workshop add-on refund CASE-ADDON-1".equals(cmd.orderInfo())));
+
+        // Verify consequences were NEVER invoked
+        verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
+        verify(cancellationLoyalty, never()).restoreVerifiedCancellation(any(), anyString());
+        verify(booking, never()).recordBookingRefundStatus(anyString(), any(), anyString(), anyString(), anyString());
+        verify(booking, never()).recordBookingServiceOutcome(anyString(), any(), anyString(), anyString(), anyString());
+        verify(bills, never()).saveAndFlush(any());
+        verify(bills, never()).findByBookingReference(anyString());
+
+        var auditCaptor = org.mockito.ArgumentCaptor.forClass(SettlementBusinessAudit.class);
+        verify(audits, atLeastOnce()).save(auditCaptor.capture());
+        assertThat(auditCaptor.getAllValues()).anyMatch(a -> "ADDON_REFUND_VERIFIED".equals(a.getActionCode()));
     }
 
     private SettlementRefundAllocation allocation(String ref, String paymentRef, long original, long amount, String type) {

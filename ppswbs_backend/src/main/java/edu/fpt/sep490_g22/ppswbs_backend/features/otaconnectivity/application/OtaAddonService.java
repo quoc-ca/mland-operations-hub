@@ -131,6 +131,42 @@ public class OtaAddonService {
         return toResult(link);
     }
 
+    /** The OTA booking behind a Mland booking reference, as the check-in desk needs it. */
+    public record BookingLookup(
+            String channelBookingId,
+            String providerCode,
+            String locationReference,
+            Long locationId,
+            String mlandBookingReference,
+            boolean canSellAddon
+    ) {}
+
+    @Transactional(readOnly = true)
+    public Optional<BookingLookup> findByMlandReference(String mlandBookingReference) {
+        if (mlandBookingReference == null || mlandBookingReference.isBlank()) return Optional.empty();
+        return bookingRepository.findByMlandBookingReference(mlandBookingReference.trim()).map(booking -> {
+            var mapping = booking.getMapping();
+            String locationReference = mapping != null ? mapping.getLocationReference() : null;
+            Long locationId = null;
+            if (locationReference != null) {
+                try {
+                    locationId = Long.valueOf(locationReference);
+                } catch (NumberFormatException notNumeric) {
+                    locationId = null;
+                }
+            }
+            String providerCode = mapping != null && mapping.getConnection() != null
+                    && mapping.getConnection().getProviderCode() != null
+                    ? mapping.getConnection().getProviderCode().name() : "OTA";
+            String providerStatus = booking.getProviderStatus();
+            boolean canSell = !"CANCELLED".equalsIgnoreCase(providerStatus)
+                    && !"REFUNDED".equalsIgnoreCase(providerStatus)
+                    && !"CANCELLATION_REQUESTED".equalsIgnoreCase(providerStatus);
+            return new BookingLookup(booking.getPublicReference(), providerCode, locationReference, locationId,
+                    booking.getMlandBookingReference(), canSell);
+        });
+    }
+
     @Transactional
     public AddonQuoteResult createQuote(
             String channelBookingPublicRef,

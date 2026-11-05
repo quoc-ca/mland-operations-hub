@@ -66,7 +66,9 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         }
 
         WorkshopBooking booking = optBooking.get();
-        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
+        // A booking Settlement has concluded as COMPLETED keeps its frozen invoice for the Manager folio correction
+        // (003.3 T040); any other state (pending, cancelled, expired, no-show) has no folio to correct.
+        if (booking.getBookingStatus() != BookingStatus.CONFIRMED && booking.getBookingStatus() != BookingStatus.COMPLETED) {
             return null;
         }
 
@@ -148,6 +150,15 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         }
         return new WorkshopBookingLoyaltyOutcomeSource(true, quote.getQuoteRef(),
                 Math.addExact(booking.getVersion(), 1L), booking.getHoldExpiresAt());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String getSettlementNotificationRecipient(SettlementNotificationRecipientQuery query) {
+        if (query == null) return null;
+        String email = bookingRepository.findByBookingCode(query.bookingReference())
+                .map(WorkshopBooking::getContactEmail).orElse(null);
+        return email == null || email.isBlank() ? null : email.trim();
     }
 
     @Override

@@ -48,6 +48,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -716,6 +717,81 @@ class OtaAddonControllerIT {
             assertThat(booking.getRetailAmountMinor()).isEqualTo(initialRetail);
             assertThat(booking.getCommissionAmountMinor()).isEqualTo(initialCommission);
             assertThat(booking.getFeeAmountMinor()).isEqualTo(initialFee);
+        }
+    }
+
+    @Nested
+    @DisplayName("Endpoint 4: GET /api/v1/ota-channel-bookings/lookups")
+    class BookingLookupEndpointTests {
+
+        @Test
+        @DisplayName("Lookup with in-scope Staff succeeds 200 OK")
+        void lookup_inScopeStaff_succeeds200() throws Exception {
+            when(bookingRepository.findByMlandBookingReference("mland-bk-42")).thenReturn(Optional.of(booking));
+
+            mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "mland-bk-42")
+                            .header("Authorization", STAFF_AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.channelBookingId").value(bookingUuid))
+                    .andExpect(jsonPath("$.providerCode").value("KLOOK"))
+                    .andExpect(jsonPath("$.locationId").value(locationId.toString()))
+                    .andExpect(jsonPath("$.mlandBookingReference").value("mland-bk-42"))
+                    .andExpect(jsonPath("$.canSellAddon").value(true));
+        }
+
+        @Test
+        @DisplayName("Lookup with Manager succeeds 200 OK")
+        void lookup_manager_succeeds200() throws Exception {
+            when(bookingRepository.findByMlandBookingReference("mland-bk-42")).thenReturn(Optional.of(booking));
+
+            mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "mland-bk-42")
+                            .header("Authorization", MANAGER_AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.channelBookingId").value(bookingUuid))
+                    .andExpect(jsonPath("$.providerCode").value("KLOOK"))
+                    .andExpect(jsonPath("$.canSellAddon").value(true));
+        }
+
+        @Test
+        @DisplayName("Lookup with out-of-scope Staff answers exactly like a missing booking (404), never revealing it is OTA")
+        void lookup_outOfScopeStaff_isIndistinguishableFromMissing() throws Exception {
+            when(bookingRepository.findByMlandBookingReference("mland-bk-42")).thenReturn(Optional.of(booking));
+            when(bookingRepository.findByMlandBookingReference("mland-bk-missing")).thenReturn(Optional.empty());
+
+            String outOfScope = mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "mland-bk-42")
+                            .header("Authorization", OTHER_STAFF_AUTH))
+                    .andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
+            String missing = mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "mland-bk-missing")
+                            .header("Authorization", OTHER_STAFF_AUTH))
+                    .andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
+
+            org.assertj.core.api.Assertions.assertThat(outOfScope.replaceAll("\"correlationId\":\"[^\"]*\"", ""))
+                    .isEqualTo(missing.replaceAll("\"correlationId\":\"[^\"]*\"", ""))
+                    .doesNotContain("mland-bk-42");
+        }
+
+        @Test
+        @DisplayName("Lookup without a bearer token is rejected before any booking is looked up")
+        void lookup_unauthenticated_rejectedWithoutTouchingTheRepository() throws Exception {
+            mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "mland-bk-42"))
+                    .andExpect(status().isUnauthorized());
+            org.mockito.Mockito.verify(bookingRepository, org.mockito.Mockito.never()).findByMlandBookingReference(org.mockito.ArgumentMatchers.any());
+        }
+
+        @Test
+        @DisplayName("Lookup non-existent booking reference returns 404 Not Found")
+        void lookup_nonExistent_returns404() throws Exception {
+            when(bookingRepository.findByMlandBookingReference("non-existent")).thenReturn(Optional.empty());
+
+            mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "non-existent")
+                            .header("Authorization", STAFF_AUTH))
+                    .andExpect(status().isNotFound());
         }
     }
 }

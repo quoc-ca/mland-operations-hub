@@ -52,8 +52,13 @@ a collection). It holds the whole-VND refund amount, required Manager reason,
 approving Manager reference, per-original-payment refund allocations (oldest
 first, capped by each payment's unrefunded amount), their refund operations and
 verified QueryDR conclusions, idempotency and audit references. It never changes the
-folio's lines, totals or state. Physical schema and whether it reuses the
-existing direct add-on bill persistence are chosen during T040.
+folio's lines, totals or state.
+
+**Physical Schema & Decision (chosen 2026-11-05 during T040)**:
+- **Decision (a)**: Reuse `SettlementCase` with case type `FOLIO_CORRECTION` and the 5-state lifecycle (`OPEN`, `PENDING_PROVIDER`, `RESOLVED`, `REJECTED`, `FAILED`).
+- Dedicated snapshot table `settlement_folio_corrections` (`id`, `correction_reference`, `case_reference`, `booking_reference`, `bill_reference`, `amount_vnd`, `currency_code`, `reason`, `manager_actor_reference`, `created_at`, `updated_at`).
+- Per-original-payment refund allocations are persisted in `settlement_refund_allocations` linked by `case_reference`, dispatched and reconciled through `WorkshopRefundService` without applying cancellation consequences (folio remains `FINALIZED`, booking remains `COMPLETED`, Loyalty earn and tickets untouched).
+- Deprecated `settlement_direct_addon_bills` draft is retired and replaced by Flyway migration `V98__settlement_folio_corrections.sql`.
 
 ### Charge Evidence
 
