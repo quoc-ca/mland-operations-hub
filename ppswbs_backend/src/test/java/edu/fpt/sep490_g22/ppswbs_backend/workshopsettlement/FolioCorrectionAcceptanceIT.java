@@ -20,6 +20,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.Settlem
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementRefundAllocationRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementNotificationHandoffRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FolioCorrectionDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementEvidenceConclusion;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
@@ -80,6 +81,7 @@ class FolioCorrectionAcceptanceIT {
     @Autowired private SettlementEvidenceConclusionRepository evidence;
     @Autowired private SettlementCaseRepository cases;
     @Autowired private SettlementRefundAllocationRepository allocations;
+    @Autowired private SettlementNotificationHandoffRepository handoffs;
     @Autowired private FinalBookingBillService finalBills;
     @Autowired private FolioCorrectionService corrections;
 
@@ -151,6 +153,14 @@ class FolioCorrectionAcceptanceIT {
                 .containsExactly(DEPOSIT, 60_000L - DEPOSIT);
         assertThat(refunded).allSatisfy(a -> assertThat(a.getLifecycleStatus()).isEqualTo("VERIFIED"));
 
+        // T006: the resolved correction hands exactly one refund notice, to the booking's contact email, to Feature 007.
+        var notices = handoffs.findAll().stream()
+                .filter(h -> caseReference.getCaseReference().equals(h.getSettlementReference())).toList();
+        assertThat(notices).hasSize(1);
+        assertThat(notices.get(0).getNotificationKind()).isEqualTo("REFUND_VERIFIED");
+        assertThat(notices.get(0).getStoredRecipient()).isEqualTo("buyer@example.test");
+        assertThat(notices.get(0).getRenderedSettlementContent()).contains("60.000").doesNotContain("http");
+
         // Non-mutation invariant: the finalized folio, the booking, tickets and capacity do not change.
         SettlementFinalBill bill = bills.findByBookingReference(folio.bookingCode()).orElseThrow();
         assertThat(bill.getLifecycleStatus()).isEqualTo("FINALIZED");
@@ -176,6 +186,8 @@ class FolioCorrectionAcceptanceIT {
                 .filter(c -> folio.bookingCode().equals(c.getBookingReference()) && "FOLIO_CORRECTION".equals(c.getCaseType()))
                 .findFirst().orElseThrow();
         assertThat(pending.getLifecycleStatus()).isEqualTo("PENDING_PROVIDER");
+        // An unresolved refund (UNKNOWN to the customer) sends no notice yet.
+        assertThat(handoffs.findAll().stream().filter(h -> pending.getCaseReference().equals(h.getSettlementReference()))).isEmpty();
         assertThat(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(pending.getCaseReference()))
                 .extracting(SettlementRefundAllocation::getLifecycleStatus).containsExactly("ACCEPTED");
         assertThat(bills.findByBookingReference(folio.bookingCode()).orElseThrow().getLifecycleStatus()).isEqualTo("FINALIZED");
@@ -197,6 +209,11 @@ class FolioCorrectionAcceptanceIT {
         assertThat(replay.correctionReference()).isEqualTo(first.correctionReference());
         assertThat(cases.findAll().stream().filter(c -> folio.bookingCode().equals(c.getBookingReference())
                 && "FOLIO_CORRECTION".equals(c.getCaseType()))).hasSize(1);
+        assertThat(handoffs.findAll().stream().filter(h -> first.correctionReference() != null
+                && h.getSettlementReference().equals(cases.findAll().stream()
+                        .filter(c -> folio.bookingCode().equals(c.getBookingReference())
+                                && "FOLIO_CORRECTION".equals(c.getCaseType()))
+                        .findFirst().orElseThrow().getCaseReference()))).hasSize(1);
         // Count only this booking's refund: the refund recovery scheduler may dispatch other tests' leftovers.
         verify(provider, times(1)).requestRefund(argThat(command -> command != null
                 && command.merchantReference().equals(folio.depositReference())));

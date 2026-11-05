@@ -23,9 +23,12 @@ class WorkshopSettlementEvidenceConsumerTest {
     private final SettlementFinalBillRepository bills = mock(SettlementFinalBillRepository.class);
     private final SettlementChargeRepository charges = mock(SettlementChargeRepository.class);
     private final WorkshopBookingSettlementAdapter booking = mock(WorkshopBookingSettlementAdapter.class);
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementCustomerNotifier notifier =
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementCustomerNotifier.class);
     private final FinalPaymentService finalPayments = new FinalPaymentService(evidence, bills, charges,
             mock(SettlementFinalPaymentAttemptRepository.class), booking,
-            mock(SettlementAddonBillRepository.class), mock(SettlementAddonPaymentAttemptRepository.class));
+            mock(SettlementAddonBillRepository.class), mock(SettlementAddonPaymentAttemptRepository.class),
+            notifier);
     private final WorkshopSettlementFacadeImpl facade = new WorkshopSettlementFacadeImpl(cases, handoffs,
             new ObjectMapper(), finalPayments, mock(SettlementNotificationHandoffRepository.class));
 
@@ -45,6 +48,7 @@ class WorkshopSettlementEvidenceConsumerTest {
         verify(booking).recordFinalBalanceResolved("BK-1", "BILL-1", "OP-1", "CORR-1");
         verify(evidence).saveAndFlush(argThat(row -> row.getConclusion().equals("FINAL_PAYMENT_VERIFIED")
                 && row.getAmountVnd().equals(75_000L) && row.getCurrencyCode().equals("VND")));
+        verify(notifier).notifyVerified("BK-1", "FINAL_PAYMENT_VERIFIED", 75_000L, "BILL-1", "CORR-1");
     }
 
     @Test void rejectsMismatchWithoutPersistingEvidence() {
@@ -60,6 +64,7 @@ class WorkshopSettlementEvidenceConsumerTest {
         assertThat(result.reason()).isEqualTo("AMOUNT_MISMATCH");
         verifyNoInteractions(booking);
         verify(evidence, never()).saveAndFlush(any());
+        verifyNoInteractions(notifier);
     }
 
     @Test void doesNotRetainFinalPaymentWhenBookingRejectsFinalBalanceConclusion() {

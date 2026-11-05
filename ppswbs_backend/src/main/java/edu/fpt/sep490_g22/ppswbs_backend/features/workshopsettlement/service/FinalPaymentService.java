@@ -27,6 +27,7 @@ public class FinalPaymentService {
     private final WorkshopBookingSettlementAdapter booking;
     private final SettlementAddonBillRepository addonBills;
     private final SettlementAddonPaymentAttemptRepository addonAttempts;
+    private final SettlementCustomerNotifier notifier;
 
     @Autowired
     public FinalPaymentService(SettlementEvidenceConclusionRepository evidence,
@@ -35,7 +36,8 @@ public class FinalPaymentService {
             SettlementFinalPaymentAttemptRepository attempts,
             WorkshopBookingSettlementAdapter booking,
             SettlementAddonBillRepository addonBills,
-            SettlementAddonPaymentAttemptRepository addonAttempts) {
+            SettlementAddonPaymentAttemptRepository addonAttempts,
+            SettlementCustomerNotifier notifier) {
         this.evidence = evidence;
         this.bills = bills;
         this.charges = charges;
@@ -43,6 +45,7 @@ public class FinalPaymentService {
         this.booking = booking;
         this.addonBills = addonBills;
         this.addonAttempts = addonAttempts;
+        this.notifier = notifier;
     }
 
     @Transactional
@@ -124,6 +127,9 @@ public class FinalPaymentService {
                 attempt.setLifecycleStatus("VERIFIED_PAID");
                 attempt.setPaymentUrlSnapshot(null);
             });
+            // Customer notice for a verified direct-booking payment; refunds are announced when their case resolves.
+            notifier.notifyVerified(command.bookingReference().trim(), SettlementCustomerNotifier.FINAL_PAYMENT_VERIFIED,
+                    command.amountVnd(), bill.getBillReference(), command.correlationReference().trim());
         }
         return SettlementPaymentEvidenceOutcome.accepted();
     }

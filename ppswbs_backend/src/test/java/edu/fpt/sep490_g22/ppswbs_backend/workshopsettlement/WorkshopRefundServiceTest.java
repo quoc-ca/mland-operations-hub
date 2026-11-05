@@ -19,6 +19,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.Sett
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopRefundService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementCustomerNotifier;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopCancellationLoyaltyService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,7 @@ class WorkshopRefundServiceTest {
     private final WorkshopCancellationLoyaltyService cancellationLoyalty = mock(WorkshopCancellationLoyaltyService.class);
     private final WorkshopBookingSettlementAdapter booking = mock(WorkshopBookingSettlementAdapter.class);
     private final SettlementFinalBillRepository bills = mock(SettlementFinalBillRepository.class);
+    private final SettlementCustomerNotifier notifier = mock(SettlementCustomerNotifier.class);
     private final RecordingTransactionManager transactions = new RecordingTransactionManager();
     private final Map<String, SettlementRefundAllocation> allocationRows = new ConcurrentHashMap<>();
     private SettlementCase cancellationCase;
@@ -62,8 +64,9 @@ class WorkshopRefundServiceTest {
                 .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("PENDING_PROVIDER")
                 .correlationReference("CORR-1").createdAt(Instant.now()).updatedAt(Instant.now()).build();
         service = new WorkshopRefundService(provider, allocations, cases, audits, operations, cancellationLoyalty,
-                booking, bills, transactions, "8.8.8.8", "sandbox-merchant");
+                booking, bills, notifier, transactions, "8.8.8.8", "sandbox-merchant");
         when(cases.findByCaseReference(CASE_REF)).thenReturn(Optional.of(cancellationCase));
+        when(cases.findByCaseReferenceForUpdate(CASE_REF)).thenReturn(Optional.of(cancellationCase));
         when(cases.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(allocations.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(allocations.findByAllocationReference(anyString())).thenAnswer(invocation ->
@@ -206,6 +209,7 @@ class WorkshopRefundServiceTest {
                 .caseType("FOLIO_CORRECTION").lifecycleStatus("PENDING_PROVIDER")
                 .correlationReference("CORR-CORR-1").createdAt(Instant.now()).updatedAt(Instant.now()).build();
         when(cases.findByCaseReference(corrCaseRef)).thenReturn(Optional.of(corrCase));
+        when(cases.findByCaseReferenceForUpdate(corrCaseRef)).thenReturn(Optional.of(corrCase));
 
         SettlementRefundAllocation alloc = allocation("ALLOC-CORR", "PAY-1", 40_000, 20_000, "03");
         alloc.setCaseReference(corrCaseRef);
@@ -240,6 +244,7 @@ class WorkshopRefundServiceTest {
                 .caseType("ADDON_REFUND").lifecycleStatus("PENDING_PROVIDER")
                 .correlationReference("CORR-ADDON-1").createdAt(Instant.now()).updatedAt(Instant.now()).build();
         when(cases.findByCaseReference(addonCaseRef)).thenReturn(Optional.of(addonCase));
+        when(cases.findByCaseReferenceForUpdate(addonCaseRef)).thenReturn(Optional.of(addonCase));
 
         SettlementRefundAllocation alloc = allocation("ALLOC-ADDON", "PAY-ADDON-1", 50_000, 50_000, "02");
         alloc.setCaseReference(addonCaseRef);
