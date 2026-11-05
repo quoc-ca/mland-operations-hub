@@ -76,6 +76,24 @@ class WorkshopPackageServiceTest {
     }
 
     @Test
+    void adminIsDeniedBecausePackageManagementIsManagerOnly() {
+        when(authenticationService.authenticate("Bearer admin-token"))
+                .thenReturn(new AccountSummary(19L, ActorRole.ADMIN, ActorStatus.ACTIVE,
+                        "private@example.test", Instant.EPOCH, Instant.EPOCH));
+        assertThatThrownBy(() -> authorization.requireActiveManager("Bearer admin-token"))
+                .isInstanceOf(WorkshopForbiddenException.class);
+    }
+
+    @Test
+    void suspendedManagerIsDenied() {
+        when(authenticationService.authenticate("Bearer suspended-token"))
+                .thenReturn(new AccountSummary(20L, ActorRole.MANAGER, ActorStatus.SUSPENDED,
+                        "private@example.test", Instant.EPOCH, Instant.EPOCH));
+        assertThatThrownBy(() -> authorization.requireActiveManager("Bearer suspended-token"))
+                .isInstanceOf(WorkshopForbiddenException.class);
+    }
+
+    @Test
     void packageEditsAreProspectiveAndLifecycleChangesAreAudited() {
         WorkshopPackage workshopPackage = packageEntity(31L, WorkshopPackageState.DRAFT);
         when(packageRepository.findByIdWithLock(31L)).thenReturn(Optional.of(workshopPackage));
