@@ -1,7 +1,7 @@
-# Feature-011 Tasks
+﻿# Feature-011 Tasks
 
 Date created: 2026-11-03  
-Date updated: 2026-11-04  
+Date updated: 2026-11-05
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt
 
@@ -48,3 +48,19 @@ Last updated by: Ngô Tiến Đạt
 - [x] Guest handle expiry, source binding, replay and raw-source rejection tests.
 - [x] Realtime public aggregate excludes `HIDDEN` and `REMOVED` rows.
 - [ ] OpenAPI, architecture, `git diff --check` and manual acceptance review.
+
+## Phase 5 — Frontend implementation handoff
+
+- [ ] T050 Create `src/features/reviewmanagement/` using the React/Vite feature architecture.
+- [ ] T051 Register public, Guest, Member, Staff and Manager routes without adding business behavior to the router.
+- [ ] T052 Implement OpenAPI-based review API adapter with Firebase auth, `Idempotency-Key` and `If-Match-Version`.
+- [ ] T053 Implement Guest lookup and opaque-handle source selection.
+- [ ] T054 Implement Member eligible-source, create-review and edit-own-review screens.
+- [ ] T055 Implement public review list/detail and public-only aggregate display.
+- [ ] T056 Implement Staff/Manager moderation queue, detail, visibility actions and Manager reply editor.
+- [ ] T057 Implement loading, empty, validation, forbidden, duplicate, conflict, retry and privacy states.
+- [ ] T058 Add unit/component tests for API mapping, permission, ownership, validation and recovery.
+- [ ] T059 Run `npm test` and `npm run build` after the backend/OpenAPI blockers are resolved.
+
+Frontend tasks target the approved OpenAPI/spec. They must stop if the backend
+contract remains mismatched; no client-side compatibility workaround is authorized.

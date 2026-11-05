@@ -1,7 +1,7 @@
 # Feature-04 Entity Specification: Independent Design Analysis
 
 **Date created**: 2026-10-24  
-**Date updated**: 2026-10-28  
+**Date updated**: 2026-11-05
 **Author**: Ngô Tiến Đạt  
 **Last updated by**: Ngô Tiến Đạt  
 
@@ -28,15 +28,14 @@ opaque catalogue reference when approved.
 
 - `id`: UUID primary key.
 - `requestReference`: public-safe unique identifier.
-- `ownerAccountId`: Member account identity, required unless approved guest proof is used.
-- `guestProofHash`: optional one-way guest proof; only allowed after the ownership decision is approved.
-- `ownershipType`: `MEMBER` or approved `GUEST`.
+- `ownerAccountId`: Required Member account identity.
+- `ownershipType`: `MEMBER`.
 - `description`: optional normalized text.
 - `catalogueReference`: optional opaque reference, never a booking reference.
 - `requestVersion`: positive version number.
-- `requestStatus`: `ACTIVE`, `WITHDRAWN`, `COMPLETED` pending final transition approval.
+- `requestStatus`: `ACTIVE`, `WITHDRAWN`, `COMPLETED`; current frontend does not expose withdrawal or completion commands.
 - `analysisStatus`: `PENDING`, `PROCESSING`, `SUCCEEDED`, `FAILED`.
-- `reviewStatus`: `NOT_REQUIRED`, `NEED_REVIEW`, `ACCEPTED`, `REJECTED`, `CLARIFICATION_REQUIRED` pending review-policy approval.
+- `reviewStatus`: `NEED_REVIEW`, `ACCEPTED`, `REJECTED`, `CLARIFICATION_REQUIRED` when returned by the backend review projection.
 - `nextAction`, `createdAt`, `updatedAt`: server-derived projection and audit timestamps.
 
 Forbidden fields include `bookingId`, `bookingCode`, `bookingStatus`, `packageId`
@@ -53,8 +52,8 @@ timestamp. It must exist before image storage or provider processing.
 
 Stores request version, sanitized storage key, validated MIME/size metadata,
 processing status, deletion timestamp and deletion outcome. It never stores a
-permanent image archive. Retention duration is TBD; temporary processing and
-retry-safe deletion are mandatory.
+permanent image archive. Images are temporary processing data and must be deleted
+after processing on success and failure.
 
 ## `DesignAnalysisResult`
 

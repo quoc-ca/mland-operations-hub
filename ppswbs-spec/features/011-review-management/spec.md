@@ -1,7 +1,7 @@
-# Feature-011 — Review Management Specification
+﻿# Feature-011 — Review Management Specification
 
 Date created: 2026-11-03  
-Date updated: 2026-11-03  
+Date updated: 2026-11-05
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt
 
@@ -192,3 +192,52 @@ must not be disclosed in error responses.
 - Concurrent create commands for one source commit at most one review.
 - Realtime aggregate returns only `PUBLIC` rows and excludes `HIDDEN`/`REMOVED` rows.
 - Migration verification covers clean database, upgrade database, rerun and duplicate-version detection after the current `V88` repository baseline.
+
+## 13. Frontend boundary and implementation handoff
+
+The frontend consumes the approved Feature-011 OpenAPI contract. It does not infer
+eligibility, ownership, moderation authority or public privacy rules from client
+state. Backend responses are the only source for eligible sources, review status,
+masked identity, aggregate values and moderation permissions.
+
+### 13.1 Entry points
+
+- Public users enter through product/workshop detail or the public review list.
+- Guests use contact lookup and then an opaque eligibility handle.
+- Members use the authenticated eligible-source list.
+- Staff and Managers use the moderation queue.
+- Admin receives only a technical/audit projection when the backend exposes one.
+
+### 13.2 Frontend route baseline
+
+```text
+/reviews
+/reviews/:reviewId
+/reviews/guest/lookup
+/reviews/eligible-sources
+/reviews/new
+/reviews/:reviewId/edit
+/review-moderation
+/review-moderation/:reviewId
+```
+
+The exact embedding route for public reviews may be owned by Product or Workshop
+pages, but the data must come from the Feature-011 public projection. No route may
+display Google review write-back, branch review, image/video upload or notification
+center behavior.
+
+### 13.3 Required frontend states
+
+The UI must define loading, empty, validation, pending, success, forbidden,
+dependency failure, duplicate, stale-version conflict and retry-preserves-input
+states. Customer pages are mobile-first; moderation pages are desktop-first and
+responsive. Rating controls, status labels and reply forms must be keyboard
+accessible and bilingual.
+
+### 13.4 Contract implementation gate
+
+The frontend target is the approved OpenAPI/spec, not the current backend mismatch.
+Live integration is blocked until idempotency transport, Guest retail eligibility,
+owner-safe detail projection, Admin technical-only authority, DTO/status/header
+shapes and migration/API verification are synchronized. No compatibility workaround
+may be introduced by the frontend agent without a versioned contract decision.

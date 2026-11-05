@@ -1,165 +1,68 @@
-# FE-004 — Rebase Design thành chức năng độc lập
+# FE-004 — Independent Design Capability Handoff
 
-## Quyết định kiến trúc đã chốt
+**Date created**: 2026-10-24
+**Date updated**: 2026-11-05
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Ngô Tiến Đạt
 
-Design/AI Design Review là chức năng độc lập, không thuộc Workshop Booking.
+## 1. Confirmed boundary
 
-FE-004 không tạo, đọc, sửa hoặc phụ thuộc vào:
+Feature-004 is independent from Workshop Booking. It does not create, read, update
+or depend on booking code/status, package, location, session, capacity hold, ticket,
+check-in, payment, deposit, VNPay or settlement state. Feature-003 does not call
+Feature-004 as a booking precondition.
 
-- Workshop Booking;
-- booking code hoặc booking status;
-- `PENDING_PAYMENT` hoặc `CONFIRMED`;
-- payment, deposit hoặc VNPay;
-- workshop location hoặc session;
-- capacity hold;
-- ticket hoặc check-in;
-- eligibility của booking.
+## 2. Confirmed actor and request policy
 
-FE-003 không gọi FE-004 và không lưu `designApprovalReference`.
+- Guest may use Basic AI Support only.
+- Only an authenticated Member may create or upload an Independent Design Request.
+- A request may contain description only, image only, or both.
+- Image consent is required before image storage or provider processing.
+- Member ownership is derived from Firebase identity and verified server-side.
+- Member may view only the safe projection of the Member's own request.
+- Staff/Manager review and Manager price suggestion authority remain backend decisions.
+- AI never accepts/rejects a request, publishes a price or mutates booking/payment state.
 
-## Việc FE-004 cần làm
-
-### 1. Rebase phạm vi nghiệp vụ trong spec
-
-Sửa `spec.md` để Design Request là yêu cầu độc lập:
-
-```text
-Khách/Member tạo yêu cầu design
-→ gửi mô tả và/hoặc ảnh
-→ AI phân tích/gợi ý
-→ có thể Staff/Manager review
-→ APPROVED / REJECTED / NEEDS_REVISION / WITHDRAWN
-```
-
-Loại bỏ toàn bộ wording kiểu:
-
-- booking eligible for design;
-- Design Request thuộc booking;
-- chỉ booking đã thanh toán mới được design;
-- package/location/session/booking summary trước design;
-- design được tạo trước hoặc sau checkout.
-
-### 2. Chốt ownership và actor
-
-FE-004 cần chốt trong spec:
-
-- Ai được tạo Design Request: chỉ Member hay Guest cũng được.
-- Nếu Guest được dùng, họ chứng minh quyền truy cập thế nào mà không dùng booking.
-- Ai review: Staff, Manager hay cả hai.
-- Khi nào AI tự approve và khi nào chuyển human review.
-- Khách có được withdraw, gửi revision hoặc tạo request mới không.
-- Approval/rejection có thời hạn hay không.
-
-Các quyết định trên thuộc riêng FE-004, không đẩy sang FE-003.
-
-### 3. Rebase data model
-
-`DesignRequest` không có các trường hoặc foreign key sau:
+## 3. Frontend routes and screens
 
 ```text
-bookingId
-bookingCode
-sessionId
-locationId
-holdId
-ticketId
-paymentId
-depositId
+/ai-support
+/design-requests/new
+/design-requests/:designRequestId
+/design-review-requests
+/design-review-requests/:reviewRequestId
+/price-proposals/:proposalId/ai-suggestions
 ```
 
-Data model chỉ giữ dữ liệu thuộc design, ví dụ:
+The frontend uses React/Vite, shared HTTP/auth/i18n/UI modules and real router
+paths. It has no booking prerequisite and does not add a hidden booking context.
 
-```text
-designRequestReference
-ownerAccountId hoặc guest ownership proof phù hợp
-status
-design description
-uploaded asset reference
-AI analysis/result reference
-review decision
-reviewer account reference
-timestamps
-reason / revision note khi cần
-```
+## 4. Data and API boundary
 
-Nếu Design cần product/package để gợi ý phong cách hoặc vật liệu, chỉ lưu opaque catalogue/product reference và đọc qua `catalogue::facade`; không dùng Booking.
+Design Request data may include Member ownership, description, opaque catalogue
+reference, consent evidence, temporary image lifecycle, safe analysis result,
+review evidence and audit timestamps. It must not contain booking, session, location,
+payment, ticket, deposit or capacity fields.
 
-### 4. Rebase OpenAPI
+Current frontend compatibility fields and statuses are documented in `spec.md` and
+`design.md`. OpenAPI/controller synchronization remains a backend task; the
+frontend must not silently translate a mismatched payload.
 
-Loại bỏ khỏi request, response và path bất kỳ field nào liên quan:
+## 5. Required validation and recovery
 
-```text
-bookingCode
-bookingId
-bookingStatus
-sessionId
-locationId
-paymentStatus
-ticketCode
-```
+- Prompt maximum: 2,000 characters.
+- Description maximum: 4,000 characters.
+- Image maximum: 10 MB and 4096×4096; supported JPEG/PNG/WEBP.
+- Member image quota: three attempts per rolling five minutes; duplicate idempotent retry does not consume another slot.
+- Keep form values on recoverable validation/network/conflict failures.
+- Use one idempotency key per write action and reuse it on retry.
+- Show `401`, `403`, `409`, `429` and provider failure as typed UI states.
+- Never expose raw image/provider payload, credential, token or unauthorized price data.
 
-Các API FE-004 chỉ xoay quanh Design Request, asset upload/reference, AI analysis, review decision và safe projection. Không tạo API gọi sang FE-003 để kiểm tra booking.
+## 6. Implementation and verification gate
 
-### 5. Gỡ dependency legacy Booking
-
-Trong code/module declaration FE-004:
-
-- Bỏ dependency `workshopbooking::facade`.
-- Bỏ toàn bộ import từ `edu.fpt.sep490_g22.ppswbs_backend.workshopbooking.**`.
-- Bỏ gọi `getBookingEligibilityForDesign(...)`.
-- Xóa hoặc rebase test seed các legacy type `WorkshopBooking`, `BookingStatus`, `BookingPaymentStatus` và `WorkshopBookingRepository`.
-
-`DesignAnalysisService` đang là caller production chính của legacy facade; service này phải chạy độc lập, không cần booking.
-
-### 6. Chỉnh dependency Account
-
-Nếu FE-004 cần biết người tạo hoặc reviewer, chỉ dùng public Account Management facade:
-
-- Không import account entity/repository nội bộ.
-- Không dùng `members::facade` cũ nếu package đó không tồn tại.
-- Dùng canonical account identity (`accountId`) cùng role/status/scope semantic khi thực sự cần.
-
-### 7. Dependency hợp lệ sau rebase
-
-```text
-FE-004 → accountmanagement::facade
-FE-004 → catalogue::facade  (chỉ nếu Design thực sự cần product/package context)
-```
-
-Không có dependency:
-
-```text
-FE-004 → 003 Booking
-FE-004 → 003 Operations
-FE-004 → 003 Settlement
-```
-
-### 8. Rebase tasks và test
-
-Task cũ phụ thuộc Booking phải bị thay hoặc retire. Bổ sung test chứng minh:
-
-- Tạo/review/approve/reject Design Request không tạo booking.
-- Không gọi capacity hold, payment hoặc ticket.
-- Không thay đổi availability workshop.
-- Không có booking data trong response, log hoặc audit.
-- Owner khác không đọc/sửa request trái phép.
-- Staff/Manager review đúng quyền/scope đã chốt.
-- Module build được mà không còn import legacy `ppswbs_backend.workshopbooking.**`.
-
-### 9. Retire package legacy sau khi không còn caller
-
-Sau rebase, kiểm tra toàn repo xem còn code nào dùng `ppswbs_backend.workshopbooking.**` không. Nếu không còn caller hợp lệ, tech lead/owner được chỉ định có thể retire package legacy đó.
-
-Không được sửa tạm legacy bằng cách dựng lại `domain`/`infrastructure` cũ, vì FE-003 đã có module canonical `features/workshopbooking/**`.
-
-## Không yêu cầu từ FE-004
-
-- Không sửa FE-003.1, FE-003.2, FE-003.3 hoặc FE-003.4.
-- Không đưa Design Approval sang Booking.
-- Không tạo facade giữa FE-004 và FE-003.
-- Không thay đổi capacity hold TTL.
-- Không thay đổi VNPay.
-
-## Điều kiện hoàn tất
-
-FE-004 hoàn tất rebase khi Design Request chạy độc lập, không còn dependency/caller tới legacy Booking và build toàn backend không cần Maven exclude hoặc Flyway-ignore workaround.
+The implementation must prove that no Feature-004 route or API call mutates booking,
+payment, ticket, capacity or custom-manufacturing state. Frontend unit/component
+tests and `npm test`/`npm run build` are required for frontend handoff. Live backend,
+OpenAPI, migration, provider and E2E evidence must be recorded separately and is
+not implied by this document.

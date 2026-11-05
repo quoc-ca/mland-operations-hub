@@ -1,113 +1,146 @@
-# Feature-04 Design: Independent AI Design Workspace
+﻿# Feature-004 Frontend Design — Independent AI Design Workspace
 
-**Date created**: 2026-10-24  
-**Date updated**: 2026-10-28  
-**Author**: Ngô Tiến Đạt  
-**Last updated by**: Ngô Tiến Đạt  
+**Date created**: 2026-10-24
+**Date updated**: 2026-11-05
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Ngô Tiến Đạt
 
-**Feature**: `004-ai-chatbox-analysis-and-suggestion`  
-**Status**: Independent-flow design handoff; ownership decisions remain a gate  
-**Design baseline**: [`ppswbs-spec/DESIGN.md`](../../DESIGN.md)
+**Feature**: `004-ai-chatbox-analysis-and-suggestion`
+**Status**: Frontend behavior synchronized with the current React/Vite implementation; backend contract blockers remain documented
+**Design baseline**: [`ppswbs-spec/DESIGN.md`](../../DESIGN.md) and [`FRONTEND-ARCHITECTURE.md`](../../FRONTEND-ARCHITECTURE.md)
 
-## 1. Design objective and boundary
+## 1. Objective and boundary
 
-Feature-04 provides a standalone AI Design Workspace. It is not a step in the
-Workshop Booking flow and must not render package, branch, session, booking,
-summary or payment screens as prerequisites. Booking and payment may link to a
-completed design result later through their own contracts, but Feature-04 does not
-call or mutate those modules.
+Feature-004 exposes three independent capabilities:
 
-The three use cases are:
+1. Guest or Member Basic AI Support.
+2. Member-owned Independent Design Request with optional description and/or reference image.
+3. Manager advisory price suggestion for a new workshop package or retail product proposal.
 
-1. Guest/Member Basic AI Support for public information.
-2. Independent Design Request with optional description and/or reference image,
-   AI analysis and the approved human-review policy.
-3. Manager advisory price suggestion for a new catalogue proposal.
+The Design Request flow is independent from booking. It must not render or require
+package, location, session, booking, payment, deposit, ticket, capacity or settlement
+data. The frontend never decides authorization or business state; the backend remains
+the authority.
 
-## 2. Ownership gate
+## 2. Confirmed actor and input policy
 
-The handoff has not yet approved whether Guest can create a Design Request, how a
-Guest retrieves their own request, whether text-only requests are valid, or whether
-all requests require human review. Screens and API states must therefore show these
-as configurable policy gates rather than inventing booking-based eligibility.
+| Actor | Frontend capability |
+| --- | --- |
+| Guest | Basic AI Support only. The Design Request entry is protected by `RequireSession`. |
+| Member | Basic AI Support, create an own Design Request and view its own result. |
+| Staff | Open review queue/detail when backend grants review permission. |
+| Manager | Review requests and use the price-suggestion screen when backend grants authority. |
+| Admin | View only the technical/audit projection returned by the backend. |
 
-## 3. Screen inventory
+An Independent Design Request is valid when it contains a description, an image, or
+both. A description-only request does not show image consent. An image request must
+record the configured consent before submission. The frontend sends the current
+backend field names and does not convert them to a different OpenAPI shape.
 
-| ID | Screen | Actor | Required behavior |
-| --- | --- | --- | --- |
-| `F04-AI-CHAT` | Basic AI Chat | Guest/Member | Public-scope prompt, bilingual response, advisory label, rate/error/retry states. |
-| `F04-DESIGN-WORKSPACE` | Independent Design Workspace | Guest/Member after approved ownership gate | Start request, enter optional description, select optional opaque catalogue reference, upload optional image. No booking fields. |
-| `F04-CONSENT` | Image Consent | Approved image-request actor | Shows purpose, consent version, retention statement and affirmative action before storage. |
-| `F04-IMAGE-UPLOAD` | Reference Image Upload | Approved image-request actor | Validates MIME/signature, 10 MB, 4096×4096, metadata, malware policy and three-per-five-minute quota. |
-| `F04-ANALYSIS-STATUS` | Analysis Status | Request owner | Shows pending, processing, failed, awaiting review, clarification and retry/revision actions. |
-| `F04-RESULT` | Design Result | Request owner | Shows safe candidate features, image quality, confidence/uncertainty, human decision and next action. Never shows raw provider payload. |
-| `F04-REVIEW-QUEUE` | Review Queue | Staff/Manager | Scope-limited independent requests; no branch/session/package columns unless they are unrelated operational scope fields approved by the design. |
-| `F04-REVIEW-DETAIL` | Review Detail | Staff/Manager | Safe result, request version, owner-safe identity, decision controls, reason and stale/conflict states. |
-| `F04-PRICE-PROPOSAL` | Manager Price Proposal | Manager | New package/product proposal, advisory AI suggestion, manual fallback and Manager decision. Catalogue publication is a separate handoff. |
-| `F04-ADMIN-AUDIT` | Technical/Audit Evidence | Admin | Correlation, schema, provider failure and deletion evidence only; no commercial suggestion details by default. |
+## 3. Frontend structure
 
-## 4. Independent screen flow
+### 3.1 Current implementation
 
-```mermaid
-flowchart TD
-    A[Guest or Member opens F04-DESIGN-WORKSPACE] --> B{Ownership policy allows actor?}
-    B -- No --> C[Show access denied and no request mutation]
-    B -- Yes --> D[Enter optional description and opaque catalogue reference]
-    D --> E{Image supplied?}
-    E -- No --> F[Create text-only request if policy allows]
-    E -- Yes --> G[F04-CONSENT]
-    G --> H{Affirmative consent?}
-    H -- No --> I[Block storage/provider call]
-    H -- Yes --> J[F04-IMAGE-UPLOAD]
-    J --> K{Identity, ownership, file and rate checks pass?}
-    K -- No --> L[Show typed validation/security/rate error]
-    K -- Yes --> M[Temporary storage]
-    M --> N[Create independent versioned request]
-    F --> N
-    N --> O{AI analysis requested?}
-    O -- No --> P[Persist pending/request state]
-    O -- Yes --> Q[Call validated AI provider]
-    Q --> R{Output schema and policy valid?}
-    R -- No --> S[Delete image and record safe failure]
-    R -- Yes --> T[Delete image and persist safe result]
-    P --> U{Review policy requires human?}
-    T --> U
-    U -- No --> V[Owner sees safe result/state]
-    U -- Yes --> W[Staff/Manager review queue]
-    W --> X{Human decision}
-    X -- Accepted --> V
-    X -- Rejected --> Y[Owner sees rejection and approved next action]
-    X -- Clarification --> Z[Owner revises or withdraws]
-    Z --> AA[New request version]
-    AA --> D
+The current slice is:
+
+```text
+src/features/designreview/
+  api/designReviewApi.js
+  api/useDesignReviewApi.js
+  public/AiSupportPage.jsx
+  workspace/DesignWorkspacePage.jsx
+  workspace/DesignDetailPage.jsx
+  review/ReviewQueuePage.jsx
+  review/ReviewDetailPage.jsx
+  pricing/PriceProposalAiPage.jsx
+  rules.js
+  messages.js
+  designreview.css
+  test/
 ```
 
-No node in this flow calls booking, payment, capacity, ticket, location or session
-services.
+Routes are registered by `src/features/designreview/routes.jsx` and composed in
+`src/app/router.jsx`. Shared HTTP, Firebase session, i18n and UI primitives are
+used instead of feature-local replacements.
 
-## 5. API-to-screen mapping
+### 3.2 Normalization direction
 
-| API | Screens | Required state behavior |
+Future maintenance may map the current slice to the project architecture as:
+
+```text
+ui/             pages and feature components
+application/    use-case hooks and command/resource lifecycle
+domain/         pure validation and state rules
+infrastructure/ REST adapter and DTO mapping
+routes/         feature-owned route declarations
+tests/          feature tests
+```
+
+This is a maintenance direction, not a requirement to refactor the current
+prototype slice during documentation synchronization.
+
+## 4. Route and screen inventory
+
+| ID | Route | Actor | Required states |
+| --- | --- | --- | --- |
+| `F04-AI-CHAT` | `/ai-support` | Guest/Member | Empty, pending, validation, provider failure, retry, advisory scope label. |
+| `F04-DESIGN-WORKSPACE` | `/design-requests/new` | Member | Description-only, image-only, combined input, validation, consent, pending and recoverable failure. |
+| `F04-CONSENT` | Inline workspace state | Member | Purpose/version display, affirmative consent, consent-required error. |
+| `F04-IMAGE-UPLOAD` | Inline workspace state | Member | JPEG/PNG/WEBP, 10 MB, 4096×4096, rate-limit and file validation states. |
+| `F04-ANALYSIS-STATUS` | `/design-requests/:designRequestId` | Member owner | `PROCESSING`, `SUCCEEDED`, `FAILED`, retry and safe failure evidence. |
+| `F04-RESULT` | Same detail route | Member owner | Candidate features, image quality, confidence/uncertainty and review status; never raw provider payload. |
+| `F04-REVIEW-QUEUE` | `/design-review-requests` | Staff/Manager | Loading, empty, forbidden and API failure states. |
+| `F04-REVIEW-DETAIL` | `/design-review-requests/:reviewRequestId` | Staff/Manager | Decision form, reason validation, stale version and conflict recovery. |
+| `F04-PRICE-PROPOSAL` | `/price-proposals/:proposalId/ai-suggestions` | Manager/Admin projection | Advisory suggestion, manual fallback, decision and technical-audit view. |
+
+## 5. Screen and API mapping
+
+| API | Screen | Frontend behavior |
 | --- | --- | --- |
-| `POST /api/v1/ai-support/messages` | `F04-AI-CHAT` | Guest may call only public scope; invalid Bearer token is not downgraded to Guest. |
-| `POST /api/v1/design-requests` | Workspace, Consent, Upload | Independent description/image input; no booking fields; ownership policy is server-side. |
-| `GET /api/v1/design-requests/{id}` | Status, Result | Owner-safe projection; cross-owner access is denied without enumeration. |
-| `GET /api/v1/design-review-requests` | Review Queue | Staff/Manager scope only. |
-| `POST /api/v1/design-review-requests/{id}/decisions` | Review Detail | Version, authority, conflict and reason validation. |
-| Price suggestion endpoints | Manager Price Proposal, Admin Audit | Manager sees commercial advisory data; Admin sees technical projection; no automatic publication. |
+| `POST /api/v1/ai-support/messages` | `F04-AI-CHAT` | Guest uses public scope; Member may send Firebase identity. Invalid authenticated identity is not downgraded to Guest. |
+| `POST /api/v1/design-requests` | Workspace/Consent/Upload | Multipart `description`, `catalogueReference`, consent fields, `designVersion`, optional `image`, and one `Idempotency-Key`. |
+| `GET /api/v1/design-requests/{id}` | Status/Result | Owner-safe projection; cross-owner access is displayed as typed forbidden/not-found behavior. |
+| `GET /api/v1/design-review-requests` | Review Queue | Display the returned queue only; do not invent branch/session filters. |
+| `POST /api/v1/design-review-requests/{id}/decisions` | Review Detail | Send `designVersion`, decision and reason; preserve form state on recoverable error. |
+| Price suggestion endpoints | Price Proposal/Admin Audit | Manager sees commercial advisory data; Admin sees only the technical projection returned by the backend. |
 
-## 6. UI states and accessibility
+The current backend returns `message` for Basic AI Support, uses `designVersion`
+for review decisions, accepts raw price context with `targetType`, and currently
+returns `200` for price suggestion. These shapes are implementation compatibility
+facts; OpenAPI synchronization remains a backend task.
 
-Every screen must define loading, empty, validation, forbidden, rate-limited,
-provider-timeout, failure, stale-version, concurrent-conflict and retry states.
-Customer-facing screens are mobile-first; operational screens are desktop-first.
-All actions must have keyboard access, visible focus, bilingual labels, text status
-beside color and no raw image/provider payload exposure.
+## 6. Data and command lifecycle
 
-## 7. Traceability and implementation gate
+```text
+Route
+  → feature page
+  → application hook/command
+  → shared HTTP client
+  → Firebase token when required
+  → backend controller/service
+  → safe DTO
+  → local feature state
+  → loading/success/error UI
+```
 
-The implementation must trace independent Design Request requirements to `spec.md`,
-`data-model.md`, OpenAPI, tasks and tests. Do not start backend or frontend code
-until Guest ownership, text-only requests, review policy, withdrawal/revision and
-image-retention decisions are approved. The previous booking-dependent screens and
-flow are retired, not adapted as a hidden prerequisite.
+Every write action creates one idempotency key. A retry of the same command reuses
+the key. The client does not auto-retry commands or infer a successful mutation
+from a timeout.
+
+## 7. Required UI behavior
+
+- Customer screens are mobile-first; operational screens are desktop-first and responsive.
+- Use bilingual messages from the feature message catalog.
+- Keep recoverable input on validation, network, `409`, `429` and `503` errors.
+- Disable duplicate submission while a command is pending.
+- Treat `401` through the shared auth refresh path; show access denied for `403` without signing out.
+- Show text labels with semantic colors; color alone cannot communicate status.
+- Provide keyboard-accessible controls, visible focus, labels and live status for asynchronous changes.
+- Never render raw image payload, provider payload, Firebase token, private identity or internal price suggestion to an unauthorized actor.
+
+## 8. Acceptance traceability
+
+The frontend handoff is complete only when the implementation can trace each screen
+to `spec.md`, the API contract, backend response fields and tests. The current
+implementation is a frontend delivery slice, not proof that live backend integration,
+OpenAPI synchronization or production provider integration has passed.

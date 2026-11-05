@@ -1,10 +1,10 @@
-# Version 1.4 — Feature 004: AI Chatbox Analysis and Suggestion (Frontend Delivery & Testing)
+﻿# Version 1.4 — Feature 004: AI Chatbox Analysis and Suggestion (Frontend Delivery & Testing)
 
 - **Feature**: 004 — AI Chatbox Analysis and Suggestion
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-10-24
-- **Date updated**: 2026-11-01
+- **Date updated**: 2026-11-05
 - **Source of truth**: Feature-004 `spec.md`, `design.md`, OpenAPI contract and `FE-004-DESIGN-INDEPENDENT-HANDOFF.md`
 
 > This file is an implementation status index. Historical audit details are
@@ -35,7 +35,7 @@
 - Removed Feature-004 calls to `WorkshopBookingFacade` and `getBookingEligibilityForDesign(...)`.
 - Preserved the required validation and security rules: 2,000-character Basic AI prompt limit, current 4,000-character Design Request description limit, 10 MB/4096×4096 image limit, prompt-injection screening, structured provider validation, atomic three-attempts-in-five-minutes image rate limiting, idempotent retry and temporary image deletion.
 - Preserved the authorization boundary:
-  - Guest: Basic AI Support only until Guest ownership policy is approved;
+  - Guest: Basic AI Support only; Guest Design Request creation is denied;
   - Member: own Design Request data under the approved ownership policy;
   - Staff/Manager: review only within approved scope;
   - Manager: business price decision;
@@ -361,8 +361,8 @@ The current Feature-004 code stores the Manager decision in `PriceSuggestion`; a
 
 ## 6. Frontend implementation specification for the next agent
 
-**Status**: Frontend specification plan; implementation not started for Feature-004
-**Decision**: Do not use Figma MCP. Reuse the existing React/Vite foundation and conventions already used by Features 002 and 006.
+**Status**: Frontend React/Vite implementation exists; Figma MCP design handoff is the next design activity.
+**Decision**: Use Figma MCP to create/review the Feature-004 visual design. Figma is a design source and review artifact; it does not replace `spec.md`, API contracts, backend authorization or frontend tests.
 
 ### 6.1. Frontend baseline and rules
 
@@ -570,7 +570,7 @@ PriceProposalController
 
 ### 6.6. Frontend blockers and unresolved gaps
 
-1. Feature-004 has no approved frontend design pack (`architecture.md`, `workflows.md`, `ui-flow.md`).
+1. Feature-004 has no approved Figma design pack yet; the existing `design.md` is the behavior and implementation handoff.
 2. OpenAPI does not match current backend DTOs/statuses.
 3. No account bootstrap contract currently supplies role/status to the frontend; UI must remain fail-safe and rely on backend 401/403.
 4. Backend retains compatibility with `ROLE_OWNER` although the current business baseline uses Manager.
@@ -593,4 +593,79 @@ The following four conflicts were identified while preparing the `dat` branch fo
 4. **Version/audit document conflict** — `develop` contained stale migration wording and committed conflict markers, while `dat` contained Version 1.4 frontend evidence. Resolution: keep the Version 1.4 frontend delivery record, remove stale conflict markers, retain V62 as the Feature-004 migration and document the remaining live-backend, E2E and migration-history verification gaps.
 
 Verification after resolution: no conflict markers, no source-level duplicate Flyway versions, `git diff --check` clean. The frontend test/build suite must be rerun after the actual branch merge.
+
+## 7. Frontend specification synchronization (2026-11-05)
+
+The current React/Vite implementation is now reflected in the feature-specific
+frontend artifacts:
+
+- Guest is limited to Basic AI Support; `RequireSession` protects Design Request routes.
+- Member Design Requests accept description-only, image-only or combined input.
+- The Design Request flow remains independent from booking, payment, package, location and session.
+- Current routes are `/ai-support`, `/design-requests/new`, `/design-requests/:designRequestId`,
+  `/design-review-requests`, `/design-review-requests/:reviewRequestId` and
+  `/price-proposals/:proposalId/ai-suggestions`.
+- `design.md` records the implemented flat `designreview` slice and separately identifies
+  the future `ui/application/domain/infrastructure` normalization direction.
+- `spec.md`, `plan.md` and `tasks.md` distinguish completed frontend behavior from
+  unresolved backend/OpenAPI integration work.
+
+No root `ppswbs-spec/DESIGN.md` change was made. It remains the shared visual and
+accessibility baseline. The frontend documentation does not claim live backend,
+provider, migration or E2E verification that has not been rerun.
+
+## 8. Figma MCP design handoff (2026-11-05)
+
+### 8.1. Purpose and authority
+
+Figma MCP may be used to create and iterate the visual design for Feature-004.
+The Figma file is authoritative for visual composition, component variants,
+responsive frames and interaction presentation after explicit design approval.
+It is not authoritative for business rules, permission, API payloads, validation
+limits, retention, review decisions or backend state. Those remain in `spec.md`,
+`design.md`, the OpenAPI contract and the shared `DESIGN.md` baseline.
+
+### 8.2. Required Figma input before generation
+
+The Figma agent must receive or discover an approved handoff containing:
+
+- Figma file key/URL and target page or destination for the new design;
+- screen scope and route mapping from section 6.2;
+- actor and access boundary for every screen;
+- approved bilingual copy or a clearly marked copy placeholder;
+- desktop/mobile frame requirements and responsive priority;
+- reusable component and token references from the project design system;
+- required variants for loading, empty, validation, forbidden, rate-limit, conflict, failure, success and disabled states;
+- assets, icon policy and image-handling restrictions;
+- reviewer, approval revision and approval date.
+
+If any item changes observable product behavior, the Figma agent must stop and
+record the question instead of inventing a flow or permission.
+
+### 8.3. Required Figma output
+
+The design handoff must include:
+
+- a page/frame for each Feature-004 route and required state;
+- named frames using the IDs `F04-AI-CHAT`, `F04-DESIGN-WORKSPACE`,
+  `F04-CONSENT`, `F04-IMAGE-UPLOAD`, `F04-ANALYSIS-STATUS`, `F04-RESULT`,
+  `F04-REVIEW-QUEUE`, `F04-REVIEW-DETAIL` and `F04-PRICE-PROPOSAL`;
+- component and variant mapping to existing shared UI patterns;
+- responsive frames for customer mobile-first and operational desktop-first layouts;
+- accessible names, focus/disabled/error states and bilingual text placement;
+- a traceability note linking each frame to `spec.md`, API mapping and acceptance states.
+
+The agent must not add booking, package, location, session, payment, ticket,
+catalogue-publication or custom-manufacturing steps to the Figma flow.
+
+### 8.4. Figma-to-frontend verification
+
+Before implementation uses the new design, review must confirm:
+
+1. Every approved frame maps to an existing route or explicitly approved new route.
+2. Every visible action maps to a documented API command or a local presentation action.
+3. Permission-sensitive controls are shown only as UX affordances; server authorization remains required.
+4. All required error and recovery states are represented.
+5. The design uses shared tokens/components and does not introduce an unapproved dependency or visual system.
+6. The approved Figma revision is recorded in the feature handoff before code changes begin.
 

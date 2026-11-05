@@ -1,10 +1,10 @@
-# Version 1.0 — Feature-011: Review Management (Backend Implementation)
+﻿# Version 1.0 — Feature-011: Review Management (Backend Implementation)
 
 - **Feature**: 011 — Review Management
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-03
-- **Date updated**: 2026-11-04
+- **Date updated**: 2026-11-05
 - **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V91__review_management.sql`, OpenAPI contract and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
@@ -269,3 +269,35 @@ POST/PATCH /api/v1/reviews/{id}/reply
 
 The flows above describe the current code, including known contract gaps. They
 must not be treated as proof that the remaining blockers are approved behavior.
+
+## 7. Frontend specification synchronization (2026-11-05)
+
+Feature-011 now has a frontend implementation handoff aligned with the approved
+OpenAPI/spec rather than the current backend mismatches.
+
+### 7.1 Frontend target
+
+- React 19 + Vite 7 with real `react-router` routes.
+- Feature-owned `routes`, `ui`, `application`, `domain`, `infrastructure` and `tests` layers.
+- Shared HTTP, Firebase auth, i18n and UI primitives; no new state library or UI kit.
+- Backend authority for eligibility, ownership, permission, status, aggregate and privacy filtering.
+- One `Idempotency-Key` per write command; retries reuse the same key.
+- `If-Match-Version` for owner edit, moderation and reply edit where defined by OpenAPI.
+
+### 7.2 Frontend delivery phases
+
+1. Foundation: routes, API adapter, shared auth/i18n/UI integration.
+2. Customer flow: Guest lookup, Member eligible sources, create/edit review and public listing/detail.
+3. Operations flow: Staff hide, Manager hide/remove/reply/edit-reply and Admin technical projection.
+4. Verification: API mapping, permission, ownership, privacy, validation, conflict and recovery tests, then `npm test` and `npm run build`.
+
+### 7.3 Current blockers for live frontend integration
+
+- Backend idempotency transport does not yet match the approved header contract.
+- Guest retail-product eligibility/create is incomplete in the current implementation.
+- Review detail ownership and cross-user enumeration behavior require final audit.
+- Admin technical-only authority must be synchronized with backend security.
+- DTO names, status codes, headers and migration/API verification remain to be aligned.
+
+The frontend agent must stop at these contract mismatches and must not add a
+client-side compatibility layer without a separately approved versioned contract.

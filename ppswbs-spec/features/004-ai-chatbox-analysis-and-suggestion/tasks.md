@@ -1,25 +1,42 @@
-# Tasks: Independent Feature-04 Design Workspace
+﻿# Tasks: Feature-004 Frontend and Contract Synchronization
 
-Tasks are ordered by dependency. The implementation agent must not code past the
-ownership gate until the unresolved decisions in `spec.md` are approved.
+**Date created**: 2026-10-21
+**Date updated**: 2026-11-05
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Ngô Tiến Đạt
 
-- [x] T001 Read `AGENT.md` and `FE-004-DESIGN-INDEPENDENT-HANDOFF.md`.
-- [x] T002 Record the independent boundary and list unresolved ownership/review/retention decisions.
-- [x] T003 Approve Guest ownership proof, text-only request policy, human-review policy, withdrawal/revision and image retention.
-- [x] T004 Update `spec.md`, `design.md`, `data-model.md`, `entities.md`, `plan.md` and shared `APIs.md` after T003.
-- [x] T005 Rebase OpenAPI: remove booking/payment/location/session fields and define independent request/owner inputs and projections.
-- [x] T006 Remove booking fields and legacy booking dependencies from entities, services, controllers, facades and module declaration.
-- [x] T007 Implement canonical Account facade identity and independent Member/approved Guest ownership isolation.
-- [x] T008 Implement optional description/image command, consent-before-storage, image validation, atomic rate limiting and idempotency.
-- [x] T009 Implement independent AI analysis/result state, temporary deletion and retention policy.
-- [x] T010 Implement approved Staff/Manager review policy, revision/withdrawal transitions and audit constraints.
-- [x] T011 Preserve Manager-only price suggestion and Admin technical/audit projection without catalogue auto-publication.
-- [x] T012 Replace booking-dependent React screens with the standalone Design Workspace flow.
-- [x] T013 Add Flyway append-only migration for independent ownership/data model (`V62__independent_design_request.sql`); reserve V12 for Loyalty/Feature-006, V60 for settlement add-on bills and V61 for OTA add-on link details.
-- [x] T014 Add unit, controller, authorization, provider-contract, concurrency/idempotency and retention tests.
-- [x] T015 Add negative tests proving no booking/payment/capacity/ticket/custom-order mutation or dependency.
-- [x] T016 Run compile, Modulith, MySQL migration, OpenAPI and test verification; record exact results.
-- [x] T017 Update `version.md` with implementation commit, test commands, results and remaining blockers.
+Tasks below distinguish completed frontend delivery from remaining contract work.
 
-Dependencies: T003 blocks T004–T015. T004/T005/T006 block implementation. T007–T011
-block frontend integration. T013 and T014–T016 are release gates.
+## Phase A — Boundary and frontend baseline
+
+- [x] T001 Read `ppswbs-spec/AGENT.md` and frontend `AGENT.md`.
+- [x] T002 Confirm independent Design Request boundary.
+- [x] T003 Confirm Guest Basic AI only and Member-only Design Request creation.
+- [x] T004 Confirm description-only, image-only and combined request behavior.
+- [x] T005 Document React/Vite routes, shared modules and UI state rules.
+
+## Phase B — Frontend delivery
+
+- [x] T006 Register Feature-004 routes in the application router.
+- [x] T007 Implement Basic AI Support screen and bilingual messages.
+- [x] T008 Implement Member Design Workspace, image validation and consent.
+- [x] T009 Implement owner-safe status/result display.
+- [x] T010 Implement Staff/Manager review queue/detail screens.
+- [x] T011 Implement Manager price suggestion and Admin technical-audit projection.
+- [x] T012 Add frontend API and screen tests for current behavior.
+
+## Phase C — Contract and integration blockers
+
+- [ ] T013 Synchronize OpenAPI field names and status codes with the backend, or approve a versioned compatibility contract.
+- [ ] T014 Add account bootstrap role/status contract if frontend role-aware navigation is required.
+- [ ] T015 Harden backend consent-purpose validation and verify image deletion/retention.
+- [ ] T016 Verify live provider, backend integration, migration upgrade and E2E evidence.
+
+## Phase D — Optional architecture normalization
+
+- [ ] T017 Plan a separate refactor from the current flat `designreview` slice to `ui/application/domain/infrastructure`.
+- [ ] T018 Preserve route/API behavior and tests during any folder normalization.
+
+Implementation must not use the optional refactor to hide unresolved API or business
+contract mismatches. No booking, payment or catalogue publication behavior may be
+introduced by these tasks.
