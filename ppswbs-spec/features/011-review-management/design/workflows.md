@@ -9,9 +9,9 @@ Last updated by: Ngô Tiến Đạt
 
 1. Guest submits normalized email/phone to `POST /review-eligibility/lookup`.
 2. Controller validates format and calls `ReviewEligibilityService.lookupGuest`.
-3. The service calls source ports and returns only checked-in or fulfilled matching sources.
-4. Guest selects one source and submits rating/text to `POST /reviews` with `Idempotency-Key`.
-5. Service rechecks source eligibility and identity match, rejects target mismatch, then inserts review, first revision and audit atomically.
+3. The service calls source ports and returns only checked-in or fulfilled matching sources plus an opaque handle bound to that source set.
+4. Guest selects one source and submits rating/text plus the handle to `POST /reviews` with `Idempotency-Key`; a raw source ID without a valid handle is rejected.
+5. Service resolves the handle, rechecks source eligibility and identity match, rejects target mismatch, then inserts review, first revision and audit atomically.
 6. On duplicate source, return the existing idempotent result or `REVIEW_ALREADY_EXISTS`; do not create a second row.
 
 ## W2 — Member eligibility and creation
@@ -55,3 +55,26 @@ Last updated by: Ngô Tiến Đạt
 - Duplicate/concurrent create: database uniqueness and idempotency yield one committed review.
 - Stale edit/moderation/reply: return conflict and require reload; no partial audit.
 - Aggregate projection failure, if projections are selected: transaction must either fail safely or enqueue a repairable rebuild; never count hidden/removed rows as public.
+
+## Backend command contract details
+
+### W7 — Guest handle protection
+
+1. Normalize email/phone without retaining the raw value in logs.
+2. Call both eligibility ports and build a server-side source-set binding.
+3. Issue an opaque handle whose visible value cannot be decoded into contact or
+   source data.
+4. On create, resolve the handle, verify expiry/status/source binding and call
+   the relevant source port again before persistence.
+5. Reject expired, consumed, mismatched or malformed handles without revealing
+   whether a different source exists.
+
+### W8 — Idempotent create
+
+1. Canonicalize command fields and compute a request digest.
+2. Atomically claim `(actor-or-handle-scope, idempotency-key, command-type)`.
+3. Replay an identical completed command; reject a changed payload.
+4. Insert review, first revision and audit under the same transaction as the
+   idempotency outcome.
+5. Let the unique source constraint resolve concurrent commands that pass the
+   initial read at the same time.

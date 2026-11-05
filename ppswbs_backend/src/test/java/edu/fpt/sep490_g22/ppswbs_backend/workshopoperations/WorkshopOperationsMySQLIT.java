@@ -209,6 +209,26 @@ class WorkshopOperationsMySQLIT {
     }
 
     @Test
+    @DisplayName("T087-MySQL: durable REST operation references are globally unique")
+    void verifyGlobalRestOperationReferenceUniquenessOnMySQL() {
+        Integer v90Count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '90' AND success = 1",
+                Integer.class);
+        assertThat(v90Count).as("Flyway migration V90 must be applied successfully")
+                .isNotNull().isEqualTo(1);
+
+        Integer globalIndexCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.statistics " +
+                        "WHERE table_schema = DATABASE() " +
+                        "AND table_name = 'facade_command_idempotency_records' " +
+                        "AND index_name = 'uq_fci_operation_reference' " +
+                        "AND non_unique = 0",
+                Integer.class);
+        assertThat(globalIndexCount).as("REST operation_reference must have a global unique index")
+                .isNotNull().isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("T066-2: Sequential equivalent duplicate returns original outcome, single ledger record, single audit event")
     void shouldHandleSequentialDuplicate() {
         String opRef = "OP-SEQ-" + UUID.randomUUID();

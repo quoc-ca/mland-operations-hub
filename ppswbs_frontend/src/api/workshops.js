@@ -39,11 +39,20 @@ async function request(path, { params = {}, method = 'GET', headers = {}, body =
     requestHeaders['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(url, {
-    method,
-    headers: requestHeaders,
-    body: body !== null && body !== undefined ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers: requestHeaders,
+      body: body !== null && body !== undefined ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
+    });
+  } catch (error) {
+    throw new WorkshopApiError('Không nhận được phản hồi từ backend.', {
+      status: 0,
+      code: error?.name === 'AbortError' ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR',
+      detail: 'Không nhận được phản hồi từ backend.',
+    });
+  }
 
   if (!response.ok) {
     let errorBody = null;

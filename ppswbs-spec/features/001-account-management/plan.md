@@ -1,7 +1,7 @@
 # Implementation Plan: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-03
+**Date updated**: 2026-11-04
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -13,7 +13,7 @@
 
 ## Summary
 
-FE-001 delivers the Mland account lifecycle: email/password and optional social sign-in, profile/credential self-service, Admin provisioning and maintenance of internal Staff/Manager accounts, account suspension/restoration, a shared backend identity gate, a typed internal facade for Workshop consumers, and member shipping address book management (Shopee model) with GHTK-compatible administrative divisions and order snapshot facade for FE-008 Retail Order & Fulfillment. It also establishes system-wide timezone standardization to Vietnam local time (`Asia/Ho_Chi_Minh`, UTC+7) for MySQL persistence, JDBC connection, and API responses. Email verification is observed on entry to a capability that requires it: the frontend reloads Firebase user state, forces a fresh bearer, synchronizes the Account snapshot, and the backend still decides the command. No Firebase callback/webhook, custom action handler, or background verification job is part of V1. This plan reflects every clarification session through 2026-11-03.
+FE-001 delivers the Mland account lifecycle: email/password and Google redirect sign-in, in-place credential re-authentication, profile/credential self-service, Admin provisioning and maintenance of internal Staff/Manager accounts, account suspension/restoration, a shared backend identity gate, a typed internal facade for Workshop consumers, and member shipping address book management (Shopee model) with GHTK-compatible administrative divisions and order snapshot facade for FE-008 Retail Order & Fulfillment. It also establishes system-wide timezone standardization to Vietnam local time (`Asia/Ho_Chi_Minh`, UTC+7) for MySQL persistence, JDBC connection, and API responses. Email verification is observed on entry to a capability that requires it: the frontend reloads Firebase user state, forces a fresh bearer, synchronizes the Account snapshot, and the backend still decides the command. No Firebase callback/webhook, custom action handler, or background verification job is part of V1. This plan reflects every clarification session through 2026-11-04.
 
 **Technical approach**: React + Vite SPA (client-side); Java 21 / Spring Boot REST / Spring Modulith backend; Firebase Authentication for identity/credential management; MySQL + Flyway migrations; JPA/Spring Data persistence; FE-07 (Notification) and FE-003 (Workshop) as downstream consumers.
 

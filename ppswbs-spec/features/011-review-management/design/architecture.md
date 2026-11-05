@@ -59,4 +59,20 @@ Moderation and reply commands follow the same controller → authorization → s
 
 ## Existing/proposed status
 
+## Backend implementation boundary
+
+```text
+reviewmanagement.controller
+  → ReviewApplicationService / ReviewModerationService / ReviewReplyService
+  → domain validation and authorization
+  → ReviewRepository / RevisionRepository / ReplyRepository / AuditRepository
+  → WorkshopAttendanceReviewPort or RetailFulfilmentReviewPort
+  → owning Workshop Operations / Fulfilment facade
+```
+
+`GuestEligibilityHandlePort` sits between Guest lookup and create. It returns
+only an opaque proof and resolves it again inside the create transaction. The
+public-read facade performs the realtime `PUBLIC` aggregate query and strips
+contact/source transaction data before the controller response.
+
 All units in this file are `proposed`; no code or approved physical package mapping exists yet. React/Vite and Spring conventions are inherited only after confirmation from the corresponding implementation baseline.

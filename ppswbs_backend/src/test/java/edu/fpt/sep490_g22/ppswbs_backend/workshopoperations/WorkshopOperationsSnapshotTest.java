@@ -115,13 +115,14 @@ class WorkshopOperationsSnapshotTest {
         assertThat(result.hasNoShow()).isFalse();
         assertThat(Arrays.stream(BookingCancellationEligibilitySnapshot.class.getRecordComponents())
                 .map(java.lang.reflect.RecordComponent::getName))
-                .containsExactly("eligible", "reason", "earliestRequiredSessionStart", "hasCheckedInTicket", "hasNoShow");
+                .containsExactly("eligible", "reason", "earliestRequiredSessionReference", "earliestRequiredSessionStart", "hasCheckedInTicket", "hasNoShow");
     }
 
     @Test
     void cancellationEligibilityUsesOperationsCurrentSessionSetWithoutCallerSuppliedReferences() {
         UUID actual = UUID.randomUUID();
-        WorkshopSession session = WorkshopSession.builder().id(202L).reference(actual.toString()).build();
+        WorkshopSession session = WorkshopSession.builder().id(202L).reference(actual.toString())
+                .scheduledStartAt(Instant.parse("2026-11-10T02:00:00Z")).build();
         AttendanceTicket ticket = AttendanceTicket.builder().bookingReference("BK-CANCEL-MISMATCH")
                 .validityState(TicketValidityState.ACTIVE).build();
         TicketSessionEntitlement entitlement = TicketSessionEntitlement.builder().ticket(ticket).session(session)
@@ -194,7 +195,7 @@ class WorkshopOperationsSnapshotTest {
                 .map(java.lang.reflect.RecordComponent::getName))
                 .containsExactly("packageReference", "publicPerParticipantPrice", "minParticipants",
                         "maxParticipants", "requiredSessionCount", "sameLocationRequired",
-                        "minimumSameDaySlotGap", "packageName");
+                        "minimumSameDaySlotGap", "requiredFoundryWorkingDaysBetweenSessions", "packageName");
     }
 
     @Test
@@ -210,6 +211,7 @@ class WorkshopOperationsSnapshotTest {
                 .maxParticipants(4)
                 .sameLocationRequired(true)
                 .minimumSameDaySlotGap(1)
+                .requiredFoundryWorkingDaysBetweenSessions(0)
                 .build();
         when(snapshots.findByBookingReference("BK-SILVERCLAY")).thenReturn(Optional.of(silverclay));
         when(packages.findById(42L)).thenReturn(Optional.of(WorkshopPackage.builder().id(42L)
@@ -245,6 +247,50 @@ class WorkshopOperationsSnapshotTest {
         when(snapshots.findByBookingReference("BK-LEGACY")).thenReturn(Optional.empty());
 
         assertThat(policy.isValidReplacement("BK-LEGACY", List.of(), 1)).isFalse();
+    }
+
+    @Test
+    void bookingPolicySnapshotPreservesFoundryWorkingDaysAfterPackageMasterIsModified() {
+        var snapshots = mock(WorkshopBookingPackagePolicySnapshotRepository.class);
+        var slots = mock(WorkshopSlotRepository.class);
+        WorkshopPackageReservationPolicy policy = new WorkshopPackageReservationPolicy(packages, sessions, slots, snapshots);
+
+        // Wax Casting booking snapshot freezes requiredFoundryWorkingDaysBetweenSessions = 2
+        WorkshopBookingPackagePolicySnapshot waxCastingSnapshot = WorkshopBookingPackagePolicySnapshot.builder()
+                .bookingReference("BK-WAX-CASTING")
+                .packageReference("88")
+                .requiredSessionCount(2)
+                .minParticipants(1)
+                .maxParticipants(4)
+                .sameLocationRequired(true)
+                .minimumSameDaySlotGap(0)
+                .requiredFoundryWorkingDaysBetweenSessions(2)
+                .build();
+        when(snapshots.findByBookingReference("BK-WAX-CASTING")).thenReturn(Optional.of(waxCastingSnapshot));
+
+        // Package master is later modified or retired (e.g. requiredFoundryWorkingDaysBetweenSessions changed to 0, RETIRED)
+        when(packages.findById(88L)).thenReturn(Optional.of(WorkshopPackage.builder().id(88L)
+                .requiredSessionCount(2).sameLocationRequired(false).minimumSameDaySlotGap(0)
+                .requiredFoundryWorkingDaysBetweenSessions(0)
+                .state(WorkshopPackageState.RETIRED).build()));
+
+        WorkshopLocation location = WorkshopLocation.builder().id(25L).build();
+        when(slots.findByLocationId(25L)).thenReturn(List.of(slot(1L, LocalTime.of(9, 0))));
+
+        // Valid: Monday (Nov 9) to Thursday (Nov 12) -> Tue, Wed are 2 working days
+        WorkshopSession monSession = policySession(101L, location, slot(1L, LocalTime.of(9, 0)),
+                LocalDate.of(2026, 11, 9), Instant.parse("2026-11-09T02:00:00Z"));
+        WorkshopSession thuSession = policySession(102L, location, slot(1L, LocalTime.of(9, 0)),
+                LocalDate.of(2026, 11, 12), Instant.parse("2026-11-12T02:00:00Z"));
+
+        // Invalid: Monday (Nov 9) to Wednesday (Nov 11) -> only 1 working day (Tue)
+        WorkshopSession wedSession = policySession(103L, location, slot(1L, LocalTime.of(9, 0)),
+                LocalDate.of(2026, 11, 11), Instant.parse("2026-11-11T02:00:00Z"));
+
+        // Frozen booking snapshot rule (2 foundry working days) is enforced regardless of package master edit
+        assertThat(policy.isValidReplacement("BK-WAX-CASTING", List.of(monSession, thuSession), 2)).isTrue();
+        assertThat(policy.isValidReplacement("BK-WAX-CASTING", List.of(monSession, wedSession), 2)).isFalse();
+        verifyNoInteractions(packages);
     }
 
     private static WorkshopSlot slot(Long id, LocalTime start) {

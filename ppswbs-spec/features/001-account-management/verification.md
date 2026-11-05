@@ -33,6 +33,7 @@ Acceptance is split into two distinct tiers:
 | **V-09** | Schema Migration & Startup Validation | Constitution §IV, data-model.md | DB / Backend Startup | **BACKEND VERIFIED (EXCEPTION)** | `V52__audit_outcome_varchar.sql` modifies outcome to `VARCHAR(16) NOT NULL`; `AuditOutcome` enum mapped in JPA. MySQL environment exception documented. | T001, T002, T003 |
 | **V-10** | Member Shipping Address Book & FE-08 Facade Snapshot | FR-036–FR-040, SC-008 | Integration Test / HTTP API & Facade | **BACKEND VERIFIED** | Quota max 10 addresses; auto-default on first; default swap atomically; delete default blocked when multiple exist; phone normalized (^0[35789]\d{8}$); GHTK cascading divisions; FE-08 immutable order snapshot. | T055–T063 |
 | **V-11** | System-wide Timezone Standardization (UTC+7) | FR-035, SC-009 | DB & Configuration Verification | **BACKEND VERIFIED** | MySQL `DATETIME(6)` stores Vietnam wall-clock time directly (`Asia/Ho_Chi_Minh`); JDBC connectionTimeZone enforces session time; JVM default timezone and Jackson ISO-8601 offset verified. | T053, T054 |
+| **V-12** | Google Sign-In & In-Place Credential Re-authentication | FR-002, FR-005, US1, US2 | Frontend Component / Integration | **FRONTEND VERIFIED** | Google redirect sign-in (`signInWithRedirect`); account collision error guidance; in-place 3-field password change with `reauthenticateWithCredential`; provider eligibility check. | T064–T068 |
 
 ---
 
@@ -52,6 +53,7 @@ The following items have been statically validated across design artifacts (`spe
 | **WF-08 Email Gate Design** | Firebase-default verification handler; no custom Mland callback/webhook/job; 90-second Account-ID-keyed `localStorage` cooldown; `verifyBeforeUpdateEmail`. | **PASS** | `design/workflows.md` WF-08, `spec.md` FR-005/006 |
 | **Timezone UTC+7 Standardization** | `connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true` in JDBC URL; JVM default timezone; Jackson ISO-8601 format with +07:00; MySQL DATETIME stores Vietnam local time directly. | **PASS** | `spec.md` FR-035, `data-model.md` |
 | **Member Shipping Address Book Design** | Shopee model: max 10 addresses; phone normalized to 10 digits; first address auto-default; default deletion protected; GHTK levels 1-4 supported; FE-08 immutable order snapshot. | **PASS** | `spec.md` FR-036–040, `data-model.md`, `contracts/interfaces.md`, `contracts/account-management.openapi.yaml` |
+| **Google Sign-In & Re-auth Design** | Google redirect sign-in via `signInWithRedirect`; in-place 3-field password change with `reauthenticateWithCredential`; 2-field email change; provider eligibility check; collision guidance without auto-merge. | **PASS** | `spec.md` FR-002/005, `design/workflows.md` WF-02/WF-08, `design/ui-flow.md` |
 
 ---
 
@@ -79,11 +81,11 @@ The following items have been statically validated across design artifacts (`spe
 
 - [x] **V-01 (Bootstrap - US1)**:
   - Command: `mvnw.cmd test -Dtest=AccountAuthenticationIT`
-  - Result: **PASS** (4 tests run, 0 failures).
+  - Result: **PASS** (5 tests run, 0 failures).
   - `POST /api/v1/accounts/me` creates MEMBER/ACTIVE account + profile with local-part name; idempotent re-bootstrap preserves data.
 - [x] **V-02 & V-03 (Self-Service Profile & Email Gate - US2)**:
   - Command: `mvnw.cmd test -Dtest=AccountSelfServiceIT`
-  - Result: **PASS** (4 tests run, 0 failures).
+  - Result: **PASS** (5 tests run, 0 failures).
   - Profile validation (1-100 chars, no control chars, phone 7-30 chars) and bodyless `PUT /api/v1/accounts/me/email` sync from verified Firebase token verified.
 - [x] **V-04 (Admin Provisioning & Idempotency - US3)**:
   - Command: `mvnw.cmd test -Dtest=InternalAccountAdministrationIT`
@@ -116,11 +118,23 @@ The following items have been statically validated across design artifacts (`spe
 ### 4.3 Total Test Suite Verification
 - Combined test command:
   `mvnw.cmd test -Dtest=AccountAuthenticationIT,AccountFacadeTargetAccountIT,AccountManagementIntegrationTests,AccountManagementSecurityIT,AccountProtectionIT,AccountSelfServiceIT,InternalAccountAdministrationIT,MemberAddressIntegrationTest,ModulithArchitectureTests`
-- Total tests executed: **45**
+- Total tests executed: **46**
 - Failures: **0**, Errors: **0**, Skipped: **0**
 - Build Status: **BUILD SUCCESS**
 
-### 4.3 Polish & Accessibility (Phase 8)
+### 4.4 Google Sign-In & In-Place Credential Re-authentication (Phase 9 - V-12)
+- [x] **V-12 Google Redirect & In-Place Re-auth Verification**:
+  - Test suite: `npx vitest run src/features/accountmanagement/tests/googleAndReauth.test.tsx`
+  - Tests executed: **14 passed** (0 failures).
+  - Scope verified:
+    1. Google sign-in via `signInWithRedirect` + `getRedirectResult` resolving user and bootstrapping Account to Home (`/`).
+    2. Account collision error `auth/account-exists-with-different-credential` mapping to safe guidance without account merge.
+    3. In-place 3-field password change (`currentPassword`, `newPassword`, `confirmPassword`) with `reauthenticateWithCredential` before `updatePassword`.
+    4. Re-auth failure clears only current password, retains new password/confirm password in React state, and presents inline error.
+    5. In-place 2-field email change with `reauthenticateWithCredential` before `verifyBeforeUpdateEmail`.
+    6. Defensive provider check: hides password change section and quick-action trigger when user lacks `password` provider (`providerData`).
+
+### 4.5 Polish & Accessibility (Phase 8)
 - [ ] **T047 Accessibility Scan (WCAG 2.2 AA)**:
   - Tool used: Axe-core / Lighthouse
   - Browsers: Chrome (latest), Edge (latest), Firefox (latest)

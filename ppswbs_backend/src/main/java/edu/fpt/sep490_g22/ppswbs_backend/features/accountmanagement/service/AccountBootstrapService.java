@@ -1,9 +1,11 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountLocationAssignmentRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountProfileRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.InternalAccountProvisioningRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountProfile;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AuditOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.InternalAccountProvisioning;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
@@ -26,6 +28,7 @@ import java.util.Optional;
 public class AccountBootstrapService {
 
     private final AccountRepository accountRepository;
+    private final AccountProfileRepository profileRepository;
     private final InternalAccountProvisioningRepository provisioningRepository;
     private final AccountLocationAssignmentRepository locationAssignmentRepository;
     private final AuditService auditService;
@@ -79,14 +82,30 @@ public class AccountBootstrapService {
                 }
             }
 
+            // Ensure profile exists for existing account if it was missing
+            if (profileRepository.findByAccountId(account.getId()).isEmpty() && account.getLoginEmail() != null && account.getLoginEmail().contains("@")) {
+                String localPart = account.getLoginEmail().substring(0, account.getLoginEmail().indexOf('@')).trim();
+                profileRepository.save(AccountProfile.builder()
+                    .accountId(account.getId())
+                    .fullName(localPart.isEmpty() ? "Member" : localPart)
+                    .phone(null)
+                    .build());
+            }
+
             return account;
+        }
+
+        // FR-001: The system MUST NOT create an Account record if the identity provider presents no valid email claim.
+        if (identity.email() == null || identity.email().isBlank() || !identity.email().contains("@")) {
+            throw new InvalidTokenException("Identity must have a valid email claim to bootstrap an account");
         }
 
         // Create new Member account (idempotent bootstrap)
         try {
+            String email = identity.email().trim();
             Account newAccount = Account.builder()
                 .firebaseUid(uid)
-                .loginEmail(identity.email())
+                .loginEmail(email)
                 .emailVerifiedAt(identity.emailVerified() ? Instant.now() : null)
                 .role(AccountRole.MEMBER)
                 .status(AccountStatus.ACTIVE)
@@ -94,6 +113,15 @@ public class AccountBootstrapService {
                 .build();
 
             newAccount = accountRepository.save(newAccount);
+
+            // FR-007: Atomically create initial AccountProfile with full_name = email local part
+            String localPart = email.substring(0, email.indexOf('@')).trim();
+            AccountProfile profile = AccountProfile.builder()
+                .accountId(newAccount.getId())
+                .fullName(localPart.isEmpty() ? "Member" : localPart)
+                .phone(null)
+                .build();
+            profileRepository.save(profile);
 
             auditService.recordEvent(
                 newAccount.getId(),
@@ -108,8 +136,18 @@ public class AccountBootstrapService {
         } catch (DataIntegrityViolationException ex) {
             // Concurrent insert race condition: fetch the existing row created by parallel request
             log.info("Concurrent insert conflict on firebaseUid={}, retrieving created account", uid);
-            return accountRepository.findByFirebaseUid(uid)
+            Account existing = accountRepository.findByFirebaseUid(uid)
                 .orElseThrow(() -> new IllegalStateException("Account should exist after conflict", ex));
+
+            if (profileRepository.findByAccountId(existing.getId()).isEmpty() && existing.getLoginEmail() != null && existing.getLoginEmail().contains("@")) {
+                String localPart = existing.getLoginEmail().substring(0, existing.getLoginEmail().indexOf('@')).trim();
+                profileRepository.save(AccountProfile.builder()
+                    .accountId(existing.getId())
+                    .fullName(localPart.isEmpty() ? "Member" : localPart)
+                    .phone(null)
+                    .build());
+            }
+            return existing;
         }
     }
 }

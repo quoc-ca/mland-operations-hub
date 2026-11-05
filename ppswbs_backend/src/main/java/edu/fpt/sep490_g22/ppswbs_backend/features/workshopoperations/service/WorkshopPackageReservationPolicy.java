@@ -108,6 +108,20 @@ public class WorkshopPackageReservationPolicy {
             ordered.add(session);
         }
 
+        // Distinct session ID check:
+        if (ordered.stream().map(WorkshopSession::getId).distinct().count() != ordered.size()) {
+            return RejectionReason.PACKAGE_SELECTION_INVALID;
+        }
+
+        // Chronological order check: each session must start strictly after the previous one
+        for (int i = 1; i < ordered.size(); i++) {
+            if (ordered.get(i - 1).getScheduledStartAt() == null
+                    || ordered.get(i).getScheduledStartAt() == null
+                    || !ordered.get(i - 1).getScheduledStartAt().isBefore(ordered.get(i).getScheduledStartAt())) {
+                return RejectionReason.PACKAGE_SELECTION_INVALID;
+            }
+        }
+
         if (workshopPackage.isSameLocationRequired()) {
             long locationCount = ordered.stream().map(session -> session.getLocation().getId()).distinct().count();
             if (locationCount != 1) {
@@ -125,6 +139,11 @@ public class WorkshopPackageReservationPolicy {
                 workshopPackage.getMinimumSameDaySlotGap());
         if (gapRejection != null) {
             return gapRejection;
+        }
+        int requiredFoundryDays = workshopPackage.getRequiredFoundryWorkingDaysBetweenSessions() == null ? 0
+                : workshopPackage.getRequiredFoundryWorkingDaysBetweenSessions();
+        if (!validateFoundryWorkingDayGap(ordered, requiredFoundryDays)) {
+            return RejectionReason.PACKAGE_SELECTION_INVALID;
         }
         return null;
     }
@@ -147,6 +166,7 @@ public class WorkshopPackageReservationPolicy {
                 .maxParticipants(workshopPackage.getMaxParticipants())
                 .sameLocationRequired(workshopPackage.isSameLocationRequired())
                 .minimumSameDaySlotGap(workshopPackage.getMinimumSameDaySlotGap())
+                .requiredFoundryWorkingDaysBetweenSessions(workshopPackage.getRequiredFoundryWorkingDaysBetweenSessions())
                 .build();
     }
 
@@ -159,11 +179,23 @@ public class WorkshopPackageReservationPolicy {
                 || participantCount < snapshot.getMinParticipants()
                 || participantCount > snapshot.getMaxParticipants()) return false;
 
+        if (targets.stream().map(WorkshopSession::getId).distinct().count() != targets.size()) {
+            return false;
+        }
+
         for (int i = 1; i < targets.size(); i++) {
-            if (!targets.get(i - 1).getScheduledStartAt().isBefore(targets.get(i).getScheduledStartAt())) return false;
+            if (targets.get(i - 1).getScheduledStartAt() == null
+                    || targets.get(i).getScheduledStartAt() == null
+                    || !targets.get(i - 1).getScheduledStartAt().isBefore(targets.get(i).getScheduledStartAt())) return false;
         }
         if (snapshot.isSameLocationRequired()
                 && targets.stream().map(s -> s.getLocation().getId()).distinct().count() != 1) return false;
+
+        int requiredFoundryDays = snapshot.getRequiredFoundryWorkingDaysBetweenSessions() == null ? 0
+                : snapshot.getRequiredFoundryWorkingDaysBetweenSessions();
+        if (!validateFoundryWorkingDayGap(targets, requiredFoundryDays)) {
+            return false;
+        }
 
         int minimumGap = snapshot.getMinimumSameDaySlotGap();
         if (minimumGap <= 0) return true;
@@ -251,6 +283,42 @@ public class WorkshopPackageReservationPolicy {
         return null;
     }
 
+    public static boolean validateFoundryWorkingDayGap(List<WorkshopSession> sessions, int requiredDays) {
+        if (requiredDays <= 0) {
+            return true;
+        }
+        if (sessions == null || sessions.size() < 2) {
+            return false;
+        }
+        for (int i = 0; i < sessions.size() - 1; i++) {
+            WorkshopSession current = sessions.get(i);
+            WorkshopSession next = sessions.get(i + 1);
+            if (current == null || next == null
+                    || current.getWorkshopDate() == null || next.getWorkshopDate() == null) {
+                return false;
+            }
+            LocalDate first = current.getWorkshopDate();
+            LocalDate second = next.getWorkshopDate();
+            if (!first.isBefore(second)) {
+                return false;
+            }
+            long workingDays = countFoundryWorkingDaysBetween(first, second);
+            if (workingDays != requiredDays) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static long countFoundryWorkingDaysBetween(LocalDate firstDate, LocalDate secondDate) {
+        if (firstDate == null || secondDate == null || !firstDate.isBefore(secondDate)) {
+            return 0;
+        }
+        return firstDate.plusDays(1).datesUntil(secondDate)
+                .filter(date -> date.getDayOfWeek().getValue() <= 5)
+                .count();
+    }
+
     private static int slotIndex(List<WorkshopSlot> slots, Long slotId) {
         for (int index = 0; index < slots.size(); index++) {
             if (slots.get(index).getId().equals(slotId)) {
@@ -269,6 +337,7 @@ public class WorkshopPackageReservationPolicy {
                 workshopPackage.getRequiredSessionCount(),
                 workshopPackage.isSameLocationRequired(),
                 workshopPackage.getMinimumSameDaySlotGap(),
+                workshopPackage.getRequiredFoundryWorkingDaysBetweenSessions(),
                 workshopPackage.getName());
     }
 }

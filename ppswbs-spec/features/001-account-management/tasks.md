@@ -293,6 +293,32 @@
 
 ---
 
+## Phase 9: Google Sign-In & Credential Re-authentication (Priority: P1)
+
+**Goal**: Support Google OAuth sign-in via redirect (`signInWithRedirect`), in-place re-authentication for password change and email change, and defensive provider eligibility checks.
+
+- [x] T064 [US1] [FE] Implement Google redirect authentication in `ppswbs_frontend/src/features/accountmanagement/auth/FirebaseAuthClient.ts`:
+  - `signInWithGoogleRedirect()`: calls `signInWithRedirect(this.requireAuth(), new GoogleAuthProvider())`
+  - `getRedirectAuthResult()`: calls `getRedirectResult(this.requireAuth())` returning `User | null`
+  - `reauthenticateWithCredential(password)`: calls `reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password))`
+- [x] T065 [US1] [FE] Update `ppswbs_frontend/src/features/accountmanagement/components/AuthPage.tsx`:
+  - Add "Đăng nhập với Google" button with Google icon on both `signin` and `register` modes
+  - On component mount, call `firebaseAuthClient.getRedirectAuthResult()`; when authenticated user returned, bootstrap account via `accountManagementApiClient.bootstrapOwnAccount()` and navigate to `/`
+  - Error mapping: map `auth/account-exists-with-different-credential` to "Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc."
+- [x] T066 [US2] [FE] Update `ProfilePage.tsx` for In-Place Password Re-authentication:
+  - Form has 3 fields: `currentPassword`, `newPassword` ($\ge 6$ chars), `confirmPassword`
+  - On submit: call `firebaseAuthClient.reauthenticateWithCredential(currentPassword)` before `firebaseAuthClient.updatePassword(newPassword)`
+  - Provider check: hide password section and quick-action trigger if `!user.providerData.some(p => p.providerId === 'password')`
+  - Error handling: on re-auth failure (wrong current password), clear only `currentPassword`, show inline error, retain `newPassword`/`confirmPassword` in React state; clear all fields on success
+- [x] T067 [US2] [FE] Update `ProfilePage.tsx` for In-Place Email Change Re-authentication:
+  - Form has 2 fields: `currentPassword`, `newEmail`
+  - On submit: call `firebaseAuthClient.reauthenticateWithCredential(currentPassword)` before `firebaseAuthClient.verifyBeforeUpdateEmail(newEmail)`
+  - Error handling: on re-auth failure, clear only `currentPassword`, show inline error, retain `newEmail` in React state; clear on success
+- [x] T068 [US1/US2] [FE] Component and unit test coverage in `ppswbs_frontend/src/features/accountmanagement/tests/`:
+  - Verify Google redirect initiation, redirect result bootstrap, collision error handling, and 3-field password re-authentication
+
+---
+
 ## Phase 8: Polish & Cross-Cutting Concerns
 
 **Purpose**: Items that span multiple user stories or require all previous phases to be complete.
@@ -409,7 +435,7 @@ After Phase 2 completes:
 - Code refactoring prerequisite: code-level `activeLocationIds` must be renamed to canonical `activeWorkshopLocationIds` across entities, DTOs, and facade types during implementation.
 - OpenAPI contract: `contracts/account-management.openapi.yaml` has been regenerated to full OpenAPI 3.1.0 specification.
 
-**Total tasks**: 52
+**Total tasks**: 68 (including Phase 6 US6 shipping addresses and Phase 9 Google/re-auth tasks)
 **By story**: Setup 5 | Foundational 7 | US1 7 | US2 7 | US3 8 | US4 5 | US5 6 | Polish 7
 **Parallel opportunities**: 32 tasks marked [P]
 **MVP scope**: Phases 1–6 tasks (T001–T037) + Phase 8 required polish (T044–T046, T048–T050). Phase 7 US5 (T038–T043) and WCAG scan (T047) are deferred to full release.

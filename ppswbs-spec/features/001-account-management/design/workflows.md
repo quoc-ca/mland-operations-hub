@@ -1,7 +1,7 @@
 # Workflow Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-03
+**Date updated**: 2026-11-04
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -47,17 +47,18 @@
 - **Preconditions and authorization**: Identity is verified by WF-01. Profile actions require the owner’s own Account; verified-email-required functions check that condition independently.
 - **Related architecture flow**: Architecture §Data flows 2.
 
-1. `AccountBootstrapService.bootstrap` finds Account by verified Firebase UID. For an unknown UID with a valid identity email (verified or unverified), it creates exactly one `MEMBER`/`ACTIVE` Account and its Account Profile; the Profile full name is derived from the email local part. An unknown UID without a valid email creates neither record and receives safe alternative-method/recovery guidance.
+1. Authentication is performed via Firebase Web SDK using either Email/Password or Google (`signInWithRedirect`). For Google sign-in, the browser redirects to Google and on return `getRedirectResult` resolves the Firebase user. `AccountBootstrapService.bootstrap` finds Account by verified Firebase UID. For an unknown UID with a valid identity email (verified or unverified), it creates exactly one `MEMBER`/`ACTIVE` Account and its Account Profile; the Profile full name is derived from the email local part. An unknown UID without a valid email creates neither record and receives safe alternative-method/recovery guidance.
 2. If that UID owns a pending internal Account, it activates only when email is verified and effective Workshop scope meets the role rule; it never creates/replaces a Member Account.
 3. `ProfileService` reads/replaces full name and optional phone only; `EmailSyncService` accepts the current verified identity email, never a browser value.
-4. A committed Account mutation attempts a redacted `SUCCESS` audit event. Credential actions remain Firebase-owned; FE-001 never receives a password.
+4. A committed Account mutation attempts a redacted `SUCCESS` audit event. Credential actions remain Firebase-owned; FE-001 never receives a password. For password change: available only for accounts where `user.providerData` contains `password`; form requires `currentPassword`, `newPassword` ($\ge 6$ chars), and `confirmPassword`. The FE performs in-place re-authentication via `reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword))` before calling `updatePassword`, ensuring a fresh credential and avoiding `auth/requires-recent-login`.
 5. Controller returns the current DTO specified by OpenAPI; UI confirms success only after server response.
 
 ### Failure, recovery, and integrity
 
 1. Same-looking email with another UID does not merge/link/upgrade Accounts; return safe original-method/support guidance.
 2. Repeated bootstrap returns existing Account without role/status/history mutation. Own profile save is last-successful-commit wins; Admin changes use version conflict rules in WF-03/04.
-3. After authorization and domain entry, validation/business/dependency failure attempts a redacted `FAILURE` audit event. Malformed or unauthenticated input creates no Account audit event. If audit persistence fails, emit a correlation-safe operational signal and preserve the original business outcome; UI keeps non-secret input where safe and no password, raw token or action link is restored.
+3. Password re-authentication failure (wrong current password): clear only `currentPassword`, display an inline error, and retain `newPassword` in ephemeral React state; do not write passwords to browser storage. On successful update, clear all fields and display a success notification.
+4. After authorization and domain entry, validation/business/dependency failure attempts a redacted `FAILURE` audit event. Malformed or unauthenticated input creates no Account audit event. If audit persistence fails, emit a correlation-safe operational signal and preserve the original business outcome; UI keeps non-secret input where safe and no password, raw token or action link is restored.
 
 ## WF-03: Provision and activate an internal Account
 
@@ -163,7 +164,7 @@
 1. A still-unverified user sees verification/resend guidance; Firebase Web SDK sends a new verification email only after explicit owner action. After successful send, `localStorage` retains only `emailVerificationResendUntil.<accountId>` expiry timestamp for 90 seconds, including browser restart; it stores no email, provider UID, token, or action code. FE-07 does not deliver this identity-provider email.
 2. Firebase reload/token failure, `401`, `403`, or `503` during synchronization keeps Profile save unstarted. Missing/expired session discards Profile draft and directs to sign-in; other temporary failures retain safe input and offer explicit reload-icon retry. The UI never automatically retries Profile save.
 3. A verification completed on a different browser/device has no local Firebase session/action callback requirement. On the owner’s next sign-in and Profile entry, this workflow observes the verified identity and synchronizes it.
-4. Email change uses Firebase `verifyBeforeUpdateEmail` after reauthentication. Until the new address verifies, Firebase and Account retain the old address; no pending address is persisted in Mland. The owner can repeat the same identity-provider flow to resend/change the proposed address.
+4. Email change uses Firebase `verifyBeforeUpdateEmail` after in-place re-authentication via `reauthenticateWithCredential` using current password and identity email (form requires current password and proposed new email). Until the new address verifies, Firebase and Account retain the old address; no pending address is persisted in Mland. On re-authentication failure, only current password is cleared and new email is retained in ephemeral state. The owner can repeat the same identity-provider flow to resend/change the proposed address.
 5. Raw Firebase email action links/codes are not rendered, stored, logged, forwarded to the backend, or included in audit metadata. There is no concurrency-sensitive business mutation in the synchronization itself; repeated successful checks are idempotent snapshot writes.
 
 ## Open decisions and dependencies

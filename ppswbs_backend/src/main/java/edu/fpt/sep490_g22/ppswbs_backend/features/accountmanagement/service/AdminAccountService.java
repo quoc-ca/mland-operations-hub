@@ -44,6 +44,20 @@ public class AdminAccountService {
         List<Long> locationIds,
         String correlationId
     ) {
+        return createInternalAccount(adminId, idempotencyKey, role, null, fullName, phone, locationIds, correlationId);
+    }
+
+    @Transactional
+    public Account createInternalAccount(
+        Long adminId,
+        String idempotencyKey,
+        AccountRole role,
+        String email,
+        String fullName,
+        String phone,
+        List<Long> locationIds,
+        String correlationId
+    ) {
         if (role != AccountRole.STAFF && role != AccountRole.MANAGER) {
             throw new IllegalArgumentException("Only STAFF and MANAGER roles can be provisioned internally");
         }
@@ -79,6 +93,7 @@ public class AdminAccountService {
 
         Account account = Account.builder()
             .firebaseUid(firebaseUid)
+            .loginEmail(email != null && !email.isBlank() ? email.trim() : null)
             .role(role)
             .status(AccountStatus.PENDING_SETUP)
             .version(0L)

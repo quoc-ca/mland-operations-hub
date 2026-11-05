@@ -42,10 +42,49 @@ A response/projection boundary, not necessarily a persisted table: `source_type`
 
 ### Aggregate
 
-Either a query over `review` filtered by `status = PUBLIC` or a projection owned by this feature. If a projection is selected, updates must be transactional or repairable from the append-only review history. The realtime/projection choice is TBD for implementation planning.
+V1 uses a realtime query over `review` filtered by immutable target and `status = PUBLIC`. No aggregate projection table is required for this implementation slice.
 
 ## Cross-feature and migration rules
 
 Do not create direct foreign keys into Workshop or Retail tables until their physical ownership contracts are approved. Opaque references must be validated through the corresponding facade. A migration is only a proposal at this stage: first scan all Flyway versions and target `flyway_schema_history`, choose an unused append-only version, test clean and upgrade paths, and define recovery before implementation.
 
 No cascade delete may remove review, revision, reply or moderation history. Sensitive Guest lookup inputs are not stored as raw public fields; if a forensic hash is needed, its purpose and protection must be approved separately.
+
+## Backend implementation additions
+
+### `guest_eligibility_handle` (Ratified 2026-11-04)
+
+The handle is an opaque, non-reversible value issued after a successful Guest
+lookup. Logical fields are `handle_id`, protected handle digest, source-set
+binding, normalized-contact proof reference, issued time, expiry time, status,
+consumed/replay metadata and correlation ID. Raw email, phone and source IDs
+must not be encoded into the client-visible value or written to application
+logs. The handle is valid only for its bound source set and is resolved again
+at create time. Per user ratification on 2026-11-04: TTL is 30 minutes, stored in MySQL `guest_eligibility_handles`, and valid for all sources in that lookup session.
+Replay with the same Idempotency-Key returns the existing review idempotently.
+
+
+### `review_idempotency_record`
+
+Feature-owned idempotency boundary for create, owner edit, visibility and reply
+commands: actor/guest-proof scope, idempotency key, canonical request digest,
+command type, lifecycle, response reference, created/expiry timestamps and
+correlation ID. A key reused with a different canonical request is a conflict;
+an identical completed request replays the original result without another
+mutation.
+
+## Realtime aggregate query
+
+The V1 aggregate is calculated from `reviews` using the immutable target and
+`status = PUBLIC`. It must run in the same authorization/public projection
+boundary as public listing, and must not use `review_revisions` or hidden rows
+as an alternate source of truth.
+
+## Migration gate
+
+The merged repository contains `develop` migrations through `V90`, while the
+Feature-011 migration is allocated as `V91`. Before applying it, re-scan the
+repository and `flyway_schema_history`, verify that `V91` is unused, and test
+clean install, upgrade, rerun and recovery behavior. Do not use
+`baseline`, `outOfOrder`, ignore patterns or checksum repair to conceal a
+duplicate version.

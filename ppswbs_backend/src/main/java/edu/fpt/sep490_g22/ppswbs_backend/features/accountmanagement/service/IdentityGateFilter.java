@@ -81,6 +81,19 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 || ("POST".equalsIgnoreCase(request.getMethod())
                 && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill/charges"));
         if (customerBillRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) return true;
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/review-eligibility/lookup".equals(path)) {
+            return true;
+        }
+        if ("GET".equalsIgnoreCase(request.getMethod())
+                && path.startsWith("/api/v1/reviews")) {
+            return true;
+        }
+        boolean reviewWriteGuestRoute = ("POST".equalsIgnoreCase(request.getMethod()) && "/api/v1/reviews".equals(path))
+                || ("PATCH".equalsIgnoreCase(request.getMethod()) && path.matches("/api/v1/reviews/[^/]+"));
+        if (reviewWriteGuestRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
+            return true;
+        }
         return !path.startsWith("/api/");
     }
 

@@ -171,4 +171,10 @@ public class FacadeCommandIdempotencyManager {
             throw new StaleClaimantException("Stale claimant: claimVersion " + claimVersion + " is no longer valid for recordId " + recordId);
         }
     }
+
+    @Transactional
+    public void abandonClaim(Long recordId, Long claimVersion) {
+        repository.deleteByIdAndClaimVersionAndLifecycleStatus(
+                recordId, claimVersion, IdempotencyLifecycleStatus.IN_PROGRESS);
+    }
 }

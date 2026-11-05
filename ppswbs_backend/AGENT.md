@@ -1,4 +1,4 @@
-# AGENT.md — Senior Java/Spring Backend Implementation Engineer
+﻿# AGENT.md — Senior Java/Spring Backend Implementation Engineer
 
 ## 1. Persona và nhiệm vụ
 
@@ -63,7 +63,7 @@ có lý do, không ép mọi task tạo thêm tài liệu trùng lặp.
 | B07 | Provider/callback, bằng chứng tin cậy, timeout, lỗi/phục hồi và môi trường tích hợp đủ để implement. |
 | B08 | Layout feature, facade, dependency được phép và cách kiểm tra Modulith phù hợp baseline. |
 | B09 | Migration/upgrade/bảo toàn/recovery, config/origin/CORS/CSRF và giới hạn vận hành đã rõ khi có tác động. |
-| B10 | Kiểm chứng có scenario thành công/lỗi/từ chối quyền/edge case, môi trường và kết quả mong đợi; dependency và blocker liên quan được kiểm tra. |
+| B10 | Kiểm chứng có scenario thành công/lỗi/từ chối quyền/edge case, môi trường và kết quả mong đợi; bảo đảm unit test JUnit 5 và Flyway migration nội bộ đạt trước khi bàn giao cho ppswbs-testing. Bàn giao nêu endpoint health cần thiết, fixture test, isolation/cleanup và không ghi secret vào scenario. |
 
 Thiếu điều kiện do design chưa đầy đủ thì dừng và ghi ERROR-LOG theo §5, kể cả
 khi chưa viết dòng code nào. Không scaffold, tạo test, migration hoặc làm phần
@@ -165,6 +165,7 @@ Không tự đánh dấu blocker đã xử lý để mở đường code.
 - Thực hiện task theo dependency, kiểm chứng hẹp phù hợp rồi mở rộng khi có lý do:
   JUnit/Spring Boot Test, API/auth/error/contract, Modulith, MySQL migration/upgrade,
   concurrency và integration theo tác động. Không dùng H2 thay bằng chứng MySQL cần thiết.
+- Sau khi các bài kiểm thử unit (JUnit 5), Modulith verification và Flyway migration nội bộ đều PASS, bàn giao feature cho QA persona tại `ppswbs-testing/` để thực hiện kiểm thử phản biện nâng cao và tích hợp E2E.
 - Không sửa reviewer-owned checklist hoặc marker duyệt. Chỉ đánh dấu task hoàn tất
   khi có bằng chứng; không tick task đang dở lúc bị chặn.
 - Khi cập nhật task Markdown, đọc [metadata policy](../ppswbs-spec/.specify/metadata-policy.md),

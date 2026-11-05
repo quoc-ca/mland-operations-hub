@@ -1,7 +1,7 @@
 # Research: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-03
+**Date updated**: 2026-11-04
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -232,6 +232,23 @@ No REST endpoint, no generic Account directory, no cross-feature entity/DAO impo
 - Trust `emailVerified` or email supplied by the browser — rejected: stale/client-controlled data violates FR-001/FR-006 and Constitution Principle II.
 
 **Source**: User decision, 2026-11-03; FR-004–006; Firebase Web SDK `reload`, `getIdToken(true)`, and `sendEmailVerification` behavior.
+
+---
+
+### D-20: Google Redirect Sign-In and Credential Re-authentication Flow
+
+**Decision**:
+1. Google Sign-In is officially promoted to an in-scope requirement for FE-001, implemented using Firebase `signInWithRedirect` + `getRedirectResult`. Facebook sign-in remains deferred.
+2. In-place re-authentication: Password change uses a 3-field form (`currentPassword`, `newPassword`, `confirmPassword`); login-email change uses a 2-field form (`currentPassword`, `newEmail`). Both perform `reauthenticateWithCredential` before invoking the respective Firebase mutation, eliminating `auth/requires-recent-login` errors.
+3. Defensive provider eligibility: The password-change section is displayed only when `user.providerData` contains `password`.
+4. Account collision handling: When a Google redirect returns with an email already bound to a password account (`auth/account-exists-with-different-credential`), the system denies sign-in and displays safe guidance to use the password credential, strictly adhering to FR-001 and FR-022 without automatic account merging.
+
+**Rationale**:
+- `signInWithRedirect` provides a reliable, full-page OAuth experience across desktop and mobile browsers without popup-blocker interference.
+- In-place 3-field password change matches industry UX standards and ensures a fresh credential token at the exact moment of mutation.
+- Automatic account merging on matching emails introduces severe account hijacking risks when email ownership is contested; adhering to FR-022 ensures identity integrity.
+
+**Source**: Clarification Session 2026-11-04; FR-002, FR-005, FR-022; Firebase Web SDK.
 
 ---
 

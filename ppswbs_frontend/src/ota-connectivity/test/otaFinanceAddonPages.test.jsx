@@ -41,4 +41,43 @@ describe('OTA finance and shop add-on screens', () => {
     await user.click(screen.getByRole('button', { name: 'Create direct Mland bill' }));
     expect(await screen.findByText(/BILL-1/)).toBeInTheDocument();
   });
+
+  it('records free laser engraving and never offers a direct bill action', async () => {
+    mockFetch({
+      'POST /api/v1/ota-channel-bookings/booking-free/add-on-quotes': json(201, {
+        quoteId: 'quote-free', addonType: 'LASER_ENGRAVING', amount: { amount: '0', currency: 'VND' }, status: 'QUOTED',
+      }),
+      'POST /api/v1/ota-addon-quotes/quote-free/acceptance': json(200, {
+        quoteId: 'quote-free', addonType: 'LASER_ENGRAVING', amount: { amount: '0', currency: 'VND' }, status: 'ACCEPTED',
+      }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
+    await user.type(screen.getByPlaceholderText('UUID'), 'booking-free');
+    await user.type(screen.getByLabelText('Description'), 'Engrave initials');
+    await user.click(screen.getByRole('button', { name: 'Create quote' }));
+    expect(await screen.findByText('Free for OTA customers. No direct bill is created.')).toBeInTheDocument();
+    await user.type(screen.getByPlaceholderText('Signed at counter'), 'COUNTER-FREE');
+    await user.click(screen.getByRole('button', { name: 'Record acceptance' }));
+    expect(await screen.findByText('ACCEPTED')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Create direct Mland bill' })).not.toBeInTheDocument();
+  });
+
+  it('renders backend validation errors without fabricating a quote', async () => {
+    mockFetch({
+      'POST /api/v1/ota-channel-bookings/booking-invalid/add-on-quotes': json(422, {
+        code: 'INVALID_ADDON_AMOUNT', message: 'Paid option amount must be positive', correlationId: 'corr-invalid',
+      }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
+    await user.type(screen.getByPlaceholderText('UUID'), 'booking-invalid');
+    await user.selectOptions(screen.getByLabelText('Add-on type'), 'PAID_OPTION');
+    await user.type(screen.getByLabelText('Item code'), 'BOX');
+    await user.type(screen.getByLabelText('Description'), 'Gift box');
+    await user.type(screen.getByLabelText('Amount (VND)'), '0');
+    await user.click(screen.getByRole('button', { name: 'Create quote' }));
+    expect(await screen.findByText('Paid option amount must be positive')).toBeInTheDocument();
+    expect(screen.getByText('Create a quote to review the immutable amount and consent steps.')).toBeInTheDocument();
+  });
 });

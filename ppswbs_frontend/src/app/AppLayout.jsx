@@ -67,6 +67,7 @@ export default function AppLayout() {
           <Link to="/ota-connectivity/finance">{t('otaFinance')}</Link>
           <Link to="/ota-connectivity/add-ons">{t('otaAddons')}</Link>
           <Link to="/operations/sessions">Operations</Link>
+          <Link to="/operations/packages">Workshop packages</Link>
           <Link to="/settlement">Settlement</Link>
         </nav>
         <div className="header-tools">

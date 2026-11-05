@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { firebaseAuthClient } from '../auth/FirebaseAuthClient';
 import { accountManagementApiClient } from '../api/AccountManagementApiClient';
@@ -13,6 +13,8 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function mapFirebaseError(error: any): string {
   switch (error?.code) {
+    case 'auth/account-exists-with-different-credential':
+      return 'Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.';
     case 'auth/invalid-credential':
     case 'auth/user-not-found':
     case 'auth/wrong-password':
@@ -34,6 +36,15 @@ function mapFirebaseError(error: any): string {
   }
 }
 
+const GoogleIcon: React.FC = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z" />
+    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" />
+    <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" />
+    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z" />
+  </svg>
+);
+
 export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -47,6 +58,49 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
 
   const isForgot = mode === 'forgot';
   const isRegister = mode === 'register';
+
+  useEffect(() => {
+    let isMounted = true;
+    const processRedirectResult = async () => {
+      if (!firebaseAuthClient.isConfigured()) return;
+      try {
+        const user = await firebaseAuthClient.getRedirectAuthResult();
+        if (user && isMounted) {
+          setPending(true);
+          await accountManagementApiClient.bootstrapOwnAccount();
+          navigate('/');
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          if (err?.code === 'auth/account-exists-with-different-credential') {
+            setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
+          } else if (err instanceof ApiError) {
+            if (err.status === 401) {
+              setGeneralError('Thông tin đăng nhập không hợp lệ hoặc phiên đã hết hạn.');
+            } else if (err.status === 403) {
+              setGeneralError('Tài khoản của bạn hiện đang bị tạm khóa hoặc không đủ điều kiện.');
+            } else if (err.retryable) {
+              setGeneralError('Dịch vụ tài khoản tạm thời gián đoạn. Vui lòng bấm thử lại.');
+              setRetryableError(true);
+            } else {
+              setGeneralError(err.message || 'Lỗi khởi tạo tài khoản hệ thống.');
+            }
+          } else {
+            setGeneralError(mapFirebaseError(err));
+          }
+        }
+      } finally {
+        if (isMounted) {
+          setPending(false);
+        }
+      }
+    };
+
+    processRedirectResult();
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate]);
 
   const getTitle = () => {
     if (isForgot) return 'Khôi phục mật khẩu';
@@ -86,6 +140,23 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
 
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGeneralError(null);
+    setSuccessNotice(null);
+    setRetryableError(false);
+    setPending(true);
+    try {
+      await firebaseAuthClient.signInWithGoogleRedirect();
+    } catch (err: any) {
+      setPending(false);
+      if (err?.code === 'auth/account-exists-with-different-credential') {
+        setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
+      } else {
+        setGeneralError(mapFirebaseError(err));
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -201,6 +272,23 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
           </div>
         )}
 
+        {!isForgot && firebaseAuthClient.isConfigured() && (
+          <div style={{ marginBottom: '1.25rem' }}>
+            <button
+              type="button"
+              className="account-btn account-btn-secondary account-btn-google"
+              onClick={handleGoogleSignIn}
+              disabled={pending}
+            >
+              <GoogleIcon />
+              <span>Đăng nhập với Google</span>
+            </button>
+            <div className="account-divider">
+              <span>hoặc</span>
+            </div>
+          </div>
+        )}
+
         <form className="account-form" onSubmit={handleSubmit} noValidate>
           <div className="account-field">
             <label className="account-label account-label-required" htmlFor="auth-email">
@@ -307,4 +395,3 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
 };
 
 export default AuthPage;
-

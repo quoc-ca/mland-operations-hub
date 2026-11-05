@@ -145,6 +145,10 @@ components:
       required: [items]
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/EligibleSource' } }
+        eligibilityHandle:
+          type: string
+          nullable: true
+          description: Opaque Guest proof returned only by Guest lookup; never encode or expose contact/source data. Required for Guest create and absent for Member lookup.
     EligibleSource:
       type: object
       required: [sourceType, sourceReference, targetType, targetReference, eligible]
@@ -167,6 +171,10 @@ components:
         targetReference: { type: string, maxLength: 128 }
         rating: { type: integer, minimum: 1, maximum: 5 }
         bodyText: { type: string, maxLength: 2000, nullable: true }
+        guestEligibilityHandle:
+          type: string
+          nullable: true
+          description: Required when the caller is a Guest; Member requests use Firebase identity. Raw source IDs without a valid handle are rejected.
     EditReview:
       type: object
       required: [rating]
@@ -227,7 +235,9 @@ components:
       type: object
       required: [code, message, correlationId]
       properties:
-        code: { type: string }
+        code:
+          type: string
+          enum: [REVIEW_INPUT_INVALID, REVIEW_SOURCE_NOT_ELIGIBLE, REVIEW_GUEST_HANDLE_INVALID, REVIEW_GUEST_HANDLE_EXPIRED, REVIEW_NOT_AUTHORIZED, REVIEW_NOT_FOUND, REVIEW_ALREADY_EXISTS, REVIEW_TARGET_MISMATCH, REVIEW_IDEMPOTENCY_CONFLICT, REVIEW_STATE_CONFLICT, REVIEW_REPLY_CONFLICT]
         message: { type: string }
         correlationId: { type: string }
   responses:

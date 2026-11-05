@@ -19,10 +19,27 @@ paths:
         '200': { $ref: '#/components/responses/PackageList' }
     post:
       summary: Create a draft Workshop Package as an active Manager (global scope)
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageWrite' } } } }
       responses:
         '201': { $ref: '#/components/responses/Package' }
         '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /workshop-package-management/packages:
+    get:
+      summary: List Workshop Packages for the globally authorized Manager
+      description: >-
+        Returns draft, published and retired packages for the Manager package-management screen.
+        Without a state filter all lifecycle states are returned; the public discovery route above
+        remains limited to PUBLISHED packages.
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/WorkshopPackageState' }
+      responses:
+        '200': { $ref: '#/components/responses/PackageManagementList' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
   /workshop-packages/{packageId}:
     parameters: [ { $ref: '#/components/parameters/PackageId' } ]
@@ -34,6 +51,7 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
     patch:
       summary: Prospectively update a Workshop Package as an active Manager without changing lifecycle state
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageWrite' } } } }
       responses:
         '200': { $ref: '#/components/responses/Package' }
@@ -44,6 +62,7 @@ paths:
     parameters: [ { $ref: '#/components/parameters/PackageId' } ]
     post:
       summary: Publish or retire a Workshop Package as an active Manager
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageLifecycleTransitionRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/Package' }
@@ -75,10 +94,22 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
     post:
       summary: Create a draft fixed-price add-on as a globally authorized active Manager
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AddOnWrite' } } } }
       responses:
         '201': { $ref: '#/components/responses/AddOn' }
         '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /workshop-package-management/packages/{packageId}/locations/{locationId}/add-ons:
+    parameters:
+      - { $ref: '#/components/parameters/PackageId' }
+      - { $ref: '#/components/parameters/LocationId' }
+    get:
+      summary: List all fixed-price add-ons, including DRAFT and RETIRED, for a globally authorized active Manager
+      responses:
+        '200': { $ref: '#/components/responses/AddOnList' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
   /workshop-packages/{packageId}/locations/{locationId}/add-ons/{addOnReference}:
@@ -88,6 +119,7 @@ paths:
       - { $ref: '#/components/parameters/AddOnReference' }
     patch:
       summary: Prospectively update a draft or active add-on as a globally authorized active Manager
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AddOnWrite' } } } }
       responses:
         '200': { $ref: '#/components/responses/AddOn' }
@@ -101,6 +133,7 @@ paths:
       - { $ref: '#/components/parameters/AddOnReference' }
     post:
       summary: Activate a draft add-on or retire an active add-on as a globally authorized active Manager
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AddOnLifecycleTransitionRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/AddOn' }
@@ -115,6 +148,7 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
     post:
       summary: Create a workshop location
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LocationWrite' } } } }
       responses:
         '201': { $ref: '#/components/responses/Location' }
@@ -129,6 +163,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
     post:
       summary: Create a reusable non-overlapping slot
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SlotWrite' } } } }
       responses:
         '201': { $ref: '#/components/responses/Slot' }
@@ -138,6 +173,7 @@ paths:
     parameters: [ { $ref: '#/components/parameters/SlotId' } ]
     patch:
       summary: Edit a reusable slot or change its active flag
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SlotWrite' } } } }
       responses:
         '200': { $ref: '#/components/responses/Slot' }
@@ -156,6 +192,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
     post:
       summary: Create one future session in DRAFT by default
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SessionWrite' } } } }
       responses:
         '201': { $ref: '#/components/responses/Session' }
@@ -164,6 +201,7 @@ paths:
   /workshop-sessions/bulk:
     post:
       summary: Generate bounded future sessions and report duplicates skipped
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BulkSessionRequest' } } } }
       responses:
         '201': { $ref: '#/components/responses/BulkGenerationResult' }
@@ -179,6 +217,7 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
     patch:
       summary: Update allowed session fields and return any schedule warning
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SessionWrite' } } } }
       responses:
         '200': { $ref: '#/components/responses/Session' }
@@ -188,6 +227,7 @@ paths:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
       summary: Apply a non-cancellation authorized lifecycle transition; cancellation uses the reasoned cancellation endpoint
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StateTransitionRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/Session' }
@@ -198,6 +238,7 @@ paths:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     put:
       summary: Add or replace a Staff assignment
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StaffAssignmentRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/Session' }
@@ -205,7 +246,9 @@ paths:
         '409': { $ref: '#/components/responses/Problem' }
     delete:
       summary: Remove one Staff assignment when responsibility remains
-      parameters: [ { name: accountId, in: query, required: true, schema: { type: integer, format: int64 } } ]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: accountId, in: query, required: true, schema: { type: integer, format: int64 } }
       responses:
         '204': { description: Assignment removed }
         '409': { $ref: '#/components/responses/Problem' }
@@ -292,9 +335,11 @@ components:
     SlotId: { name: slotId, in: path, required: true, schema: { type: string, format: uuid } }
     SessionId: { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
     AddOnReference: { name: addOnReference, in: path, required: true, schema: { type: string, format: uuid } }
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 1, maxLength: 128 }, description: Reuse the exact key only for the same semantic command; changed payload or scope returns 409. }
   responses:
     Package: { description: Workshop Package, content: { application/json: { schema: { $ref: '#/components/schemas/Package' } } } }
     PackageList: { description: Published Workshop Packages, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Package' } } } } }
+    PackageManagementList: { description: Workshop Packages across lifecycle states for Manager package management, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Package' } } } } }
     AddOn: { description: Fixed workshop add-on, content: { application/json: { schema: { $ref: '#/components/schemas/AddOn' } } } }
     AddOnList: { description: Active fixed workshop add-ons, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AddOn' } } } } }
     CustomerSessionAvailabilityList: { description: Customer-selectable Package sessions; remaining capacity is a non-guaranteed selection snapshot, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/CustomerSessionAvailability' } } } } }
@@ -315,7 +360,7 @@ components:
       enum: [DRAFT, PUBLISHED, RETIRED]
     PackageWrite:
       type: object
-      required: [name, description, publicPrice, minParticipants, maxParticipants, requiredSessionCount, sameLocationRequired, minimumSameDaySlotGap]
+      required: [name, description, publicPrice, minParticipants, maxParticipants, requiredSessionCount, sameLocationRequired, minimumSameDaySlotGap, requiredFoundryWorkingDaysBetweenSessions]
       properties:
         name: { type: string }
         description: { type: string }
@@ -325,6 +370,7 @@ components:
         requiredSessionCount: { type: integer, minimum: 1 }
         sameLocationRequired: { type: boolean }
         minimumSameDaySlotGap: { type: integer, minimum: 0, description: Required number of configured slots between selected sessions on the same local date; 0 disables this rule. }
+        requiredFoundryWorkingDaysBetweenSessions: { type: integer, minimum: 0, description: Minimum number of Monday-Friday local dates strictly between chronological selected sessions; Saturday and Sunday are excluded. Use 0 when no foundry-working-date rule applies. }
     Package:
       allOf:
         - { $ref: '#/components/schemas/PackageWrite' }

@@ -10,6 +10,7 @@ import {
   previewWorkshopBookingQuote,
   createWorkshopBooking,
 } from '../api/workshops.js';
+import { getEffectiveParticipantMax } from './bookingCapacity.js';
 
 describe('003.1 T018 & T026: Workshop Flow & Client Selection Contract', () => {
   const originalFetch = globalThis.fetch;
@@ -19,6 +20,20 @@ describe('003.1 T018 & T026: Workshop Flow & Client Selection Contract', () => {
   });
 
   describe('T018: Package Listing & Detail Session Filter Flow', () => {
+    it('derives the ticket limit from the lowest remaining capacity of selected sessions', () => {
+      const pkg = { minParticipants: 1, maxParticipants: 8 };
+      const sessions = [
+        { sessionReference: 'session-a', remainingCapacity: 6 },
+        { sessionReference: 'session-b', remainingCapacity: 3 },
+        { sessionReference: 'session-c', remainingCapacity: 9 },
+      ];
+
+      assert.strictEqual(getEffectiveParticipantMax(pkg, sessions, []), 8);
+      assert.strictEqual(getEffectiveParticipantMax(pkg, sessions, ['session-a']), 6);
+      assert.strictEqual(getEffectiveParticipantMax(pkg, sessions, ['session-a', 'session-b']), 3);
+      assert.strictEqual(getEffectiveParticipantMax(pkg, sessions, ['session-b', 'session-c']), 3);
+    });
+
     it('filters sessions by locationId and date range correctly', async () => {
       let requestedUrl;
       globalThis.fetch = async (url) => {

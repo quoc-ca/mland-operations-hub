@@ -351,15 +351,7 @@ The current Feature-004 code stores the Manager decision in `PriceSuggestion`; a
 ### 5.8. Current implementation caveats
 
 - The Maven wrapper could not be started in the current environment, so this update does not claim fresh test execution.
-<<<<<<< HEAD
-<<<<<<< HEAD
-- Flyway still contains duplicate V6, V7 and V9 filenames; V12 cannot be considered release-ready until repository-wide migration ordering is resolved.
-=======
-- Flyway previously contained duplicate V6, V7 and V9 filenames; those collisions were renumbered in the shared migration history. The current collision was V12 between Loyalty and Feature-004 and has been resolved in source by assigning Feature-004 to V60.
->>>>>>> bc3369824d8e1266a3cf137376a5b43deb48f07a
-=======
 - Flyway previously contained duplicate V6, V7 and V9 filenames; those collisions were renumbered in the shared migration history. The later V12, V60 and V61 collisions are resolved by assigning Feature-004 to V62; V60 remains owned by settlement add-on bills and V61 by OTA add-on link details.
->>>>>>> 5fec1179a79de6e4f258f85501d39558ffcffc48
 - `V62__independent_design_request.sql` still modifies the legacy `image_consents` schema and requires clean-install/upgrade verification against the actual baseline.
 - `DesignAnalysisService` currently requires an active Member even though the entity contains Guest-proof fields.
 - `consentPurpose` is accepted by the controller but the current service does not independently validate it against `INDEPENDENT_DESIGN_IMAGE_ANALYSIS`.

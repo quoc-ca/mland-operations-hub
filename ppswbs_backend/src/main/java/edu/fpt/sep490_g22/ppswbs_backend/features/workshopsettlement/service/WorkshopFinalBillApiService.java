@@ -78,16 +78,15 @@ public class WorkshopFinalBillApiService {
         CurrentAccountActor actor = actor(authentication);
         String operation = operationReference("CHARGE", bookingCode, idempotencyKey);
         if (command.catalogueAddOnReference() != null && !command.catalogueAddOnReference().isBlank()) {
-            if (actor != null && actor.role() != ActorRole.MEMBER) throw new WorkshopSettlementAuthorizationException("CUSTOMER_ACCESS_REQUIRED");
-            Long memberId = actor != null && actor.role() == ActorRole.MEMBER ? actor.accountId() : null;
-            if (memberId == null && ((blank(command.contactEmail()) ? 0 : 1) + (blank(command.contactPhone()) ? 0 : 1) != 1)) {
-                throw new WorkshopSettlementNotFoundException();
-            }
-            var access = booking.verifyCustomerAccess(bookingCode, memberId, command.contactEmail(), command.contactPhone());
-            if (access == null || !access.authorized()) throw new WorkshopSettlementNotFoundException();
+            if (actor == null) throw new WorkshopSettlementAuthorizationException("ACTIVE_ACCOUNT_REQUIRED");
+            var confirmed = booking.confirmedProjection(bookingCode);
+            if (confirmed == null) throw new WorkshopSettlementValidationException("BOOKING_NOT_FOUND");
+            // Catalogue add-ons are selected and consented at the workshop by Staff/Manager.
+            // Member/Guest routes are read-only and must never mutate settlement charges.
+            authorization.requireManagerOrStaff(actor, confirmed.bookingLocationReference());
             String fingerprint = fingerprint("ADD_ON", bookingCode, command.catalogueAddOnReference());
             idempotency.execute(operation, fingerprint, () -> catalogueAddOnService.add(bookingCode,
-                    memberId, command.contactEmail(), command.contactPhone(), command.catalogueAddOnReference())
+                    command.catalogueAddOnReference())
                     .getChargeReference());
         } else {
             CurrentAccountActor currentActor = actor(authentication);

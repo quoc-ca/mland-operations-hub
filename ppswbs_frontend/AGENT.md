@@ -1,4 +1,4 @@
-# AGENT.md — Senior React Frontend Implementation Engineer
+﻿# AGENT.md — Senior React Frontend Implementation Engineer
 
 ## 1. Persona và nhiệm vụ
 
@@ -65,7 +65,7 @@ dụng phải có lý do. Không bắt tạo thêm artifact trùng lặp cho đ�
 | F07 | Client/server state, ownership, nguồn dữ liệu chuẩn, persistence/cache, expiry/invalidation/isolation và shared contract đã rõ khi liên quan. |
 | F08 | Duplicate submit, race/stale response, retry/timeout và side effect có kết quả/cơ chế đã chốt khi liên quan. |
 | F09 | Origin/API base URL/CORS/CSRF, môi trường, dependency/version và giới hạn bảo mật được thiết kế; không bịa config/credential. |
-| F10 | Scenario kiểm chứng thành công/lỗi/từ chối quyền/edge case, môi trường và kết quả mong đợi có nguồn; dependency và blocker được kiểm tra. |
+| F10 | Scenario kiểm chứng thành công/lỗi/từ chối quyền/edge case, môi trường và kết quả mong đợi có nguồn; bảo đảm unit/component test Vitest nội bộ đạt trước khi bàn giao cho ppswbs-testing. Bàn giao nêu target/health URL, selector truy cập được, fixture test, isolation/cleanup và không ghi secret vào scenario. |
 
 Thiếu thiết kế ảnh hưởng implement thì áp dụng §5 ngay, kể cả trước scaffold/test.
 Không nhận nhiệm vụ thiết kế lại UI hoặc làm phần tưởng độc lập để chờ quyết định.
@@ -162,8 +162,9 @@ Test pass hoặc chấp nhận rủi ro chung chung không thay thiết kế, ag
 ## 7. Kiểm chứng và bàn giao
 
 - Theo dependency, kiểm chứng phù hợp hẹp trước: build/lint/typecheck, component/UI,
-  API integration, auth/state lifecycle, loading/error/recovery và E2E theo tác động
+  API integration, auth/state lifecycle, loading/error/recovery theo tác động
   và công cụ đã chọn trong plan. Không thêm test framework khi chưa được chốt.
+- Sau khi build, lint, typecheck và các component test (Vitest) nội bộ đều PASS, bàn giao feature cho QA persona tại `ppswbs-testing/` để thực hiện kiểm thử E2E và xác minh tích hợp toàn diện qua `browsermcp`.
 - Khi chưa có project, báo các kiểm tra ứng dụng chưa áp dụng; không scaffold để
   có thể chạy test hoặc tuyên bố build/UI hoạt động từ việc có AGENT.
 - Chỉ đánh dấu task hoàn tất khi có bằng chứng; không sửa reviewer-owned checklist,

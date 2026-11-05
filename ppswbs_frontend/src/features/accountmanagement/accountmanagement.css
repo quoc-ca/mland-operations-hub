@@ -617,3 +617,37 @@
   }
 }
 
+
+/* Google Auth & Divider */
+.account-btn-google {
+  background-color: #ffffff;
+  color: #374151;
+  border-color: #d1d5db;
+  width: 100%;
+}
+
+.account-btn-google:hover:not(:disabled) {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.account-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 1.25rem 0;
+}
+
+.account-divider::before,
+.account-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.account-divider span {
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  text-transform: uppercase;
+}
