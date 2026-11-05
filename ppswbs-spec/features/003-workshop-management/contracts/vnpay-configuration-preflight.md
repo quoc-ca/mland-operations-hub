@@ -1,7 +1,7 @@
 # VNPay Paymentintegration Configuration Preflight
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -65,5 +65,6 @@ disabled until all applicable inputs/evidence are approved.
 
 `paymentintegration` owns inbound checksum verification, deduplication, and
 owner-qualified dispatch. 003.1 consumes only verified `DEPOSIT` evidence;
-003.3 consumes only verified `FINAL_PAYMENT`/`REFUND` evidence. Neither feature
+003.3 consumes only verified `FINAL_PAYMENT`/`REFUND` evidence, plus
+`SHOP_ADDON` for the separate Mland shop add-on bill of an OTA booking. Neither feature
 owns provider credentials or may expose a second callback endpoint.

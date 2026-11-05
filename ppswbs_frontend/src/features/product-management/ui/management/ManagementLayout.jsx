@@ -4,6 +4,7 @@ import { useAuth } from '../../../../shared/auth/AuthProvider';
 import { SignInLink } from '../../../../shared/auth/SignInLink';
 import { useT } from '../../../../shared/i18n/I18nProvider';
 import { Loading } from '../../../../shared/ui/components';
+import { OperationsSidebar } from '../../../../shared/ui/OperationsSidebar';
 import { sharedMessages } from '../../../../shared/ui/messages';
 import { messages } from '../messages';
 
@@ -14,7 +15,7 @@ import { messages } from '../messages';
 export default function ManagementLayout() {
   const t = useT(messages);
   const tShared = useT(sharedMessages);
-  const { status, signOut } = useAuth();
+  const { status } = useAuth();
   const { pathname } = useLocation();
   const links = [
     ['/catalogue-management/products', t('nav.products'), t('list.title')],
@@ -29,18 +30,10 @@ export default function ManagementLayout() {
   const trail = status !== 'signed-in' ? [t('nav.label')]
     : onDetail ? [t('nav.products'), crumb || t('nav.productDetail')]
       : [links.find(([to]) => to === pathname)?.[2] || t('nav.label')];
-  const linkClass = to => ({ isActive }) => (isActive || (onDetail && to === links[0][0]) ? 'active' : undefined);
+
   return (
     <main className="app-shell pm-shell pm-theme">
-      <aside className="side-nav" aria-label={t('nav.label')}>
-        <div className="pm-brand">
-          <span className="pm-brand-mark" aria-hidden="true">M</span>
-          <span><strong>MLAND</strong><small>operations hub</small></span>
-        </div>
-        <p className="eyebrow">{t('nav.group')}</p>
-        {links.map(([to, label]) => <NavLink key={to} to={to} end className={linkClass(to)}>{label}</NavLink>)}
-        {status === 'signed-in' && <button type="button" className="side-signout" onClick={signOut}>{tShared('session.signOut')}</button>}
-      </aside>
+      <OperationsSidebar />
       <div className="pm-main">
         <nav className="pm-topbar" aria-label={t('nav.breadcrumb')}>
           <span>MLAND</span>

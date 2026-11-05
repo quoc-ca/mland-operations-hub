@@ -14,14 +14,15 @@ public class WorkshopPackageAuthorizationService {
     private final WorkshopOperationsAuthorizationService authenticationService;
 
     /**
-     * Requires an active canonical Manager. Manager authority is global
+     * Requires an active canonical Manager or Admin. Manager authority is global
      * throughout Feature 003 and does not depend on location assignments.
      *
      * @return the canonical account ID for safe audit attribution
      */
     public Long requireActiveManager(String authorizationHeader) {
         AccountSummary authenticated = authenticationService.authenticate(authorizationHeader);
-        if (authenticated.role() != ActorRole.MANAGER || authenticated.status() != ActorStatus.ACTIVE) {
+        if ((authenticated.role() != ActorRole.MANAGER && authenticated.role() != ActorRole.ADMIN)
+                || authenticated.status() != ActorStatus.ACTIVE) {
             throw new WorkshopForbiddenException("Access requires an active Manager");
         }
         return authenticated.accountId();

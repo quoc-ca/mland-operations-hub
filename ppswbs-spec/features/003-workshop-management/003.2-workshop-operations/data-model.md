@@ -1,7 +1,7 @@
 # Data Model: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-02
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -187,6 +187,17 @@ ticket's entitlement from every replaced session to the complete resulting set;
 the persistent QR remains the same. Failure changes neither capacity nor
 entitlement. Individual attendance detail, ticket detail, Staff/audit and PII
 are never returned for this purpose.
+
+**Booking attendance outcome (FR-014, owner decisions D2/D3, 2026-11-05):**
+Operations also owns a booking-level attendance outcome
+(`terminal`, `outcome` = `ATTENDED`, `NO_SHOW` or `PARTIAL`) exposed by
+`BookingAttendanceOutcomeQuery`, and a durable reference-only post-commit
+`BookingAttendanceFinalizedEvent(bookingReference, finalizedAt)` published once
+per booking when the outcome becomes terminal: every required session
+`ATTENDANCE_FINALIZED` and the 24-hour correction window (below) closed.
+`NO_SHOW` only when every ticket on every required session is a final
+`NO_SHOW`. The publication is a durable Modulith event, not a new business
+aggregate; physical shape and the window-close trigger are chosen in 003.2 T088.
 
 ### Fixed workshop add-on catalogue
 

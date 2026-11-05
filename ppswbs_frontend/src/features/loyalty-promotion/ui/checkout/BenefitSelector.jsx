@@ -21,7 +21,7 @@ import { messages } from '../messages';
  *   postPromotionAmount, depositAmount, remainingAmount, maxPoints, reasons }: the deposit and the remaining amount are
  *   both computed from the post-promotion amount, so the points are never deducted twice.
  */
-export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVouchers = [], acknowledged, onAcknowledge, onRecalculate, onConfirm, pending, context = 'retail' }) {
+export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVouchers = [], acknowledged, onAcknowledge, onRecalculate, onConfirm, pending, context = 'retail', showConfirm = true, hideTitle = false }) {
   const workshop = context === 'workshop';
   const t = useT(messages);
   const format = useFormat();
@@ -35,7 +35,7 @@ export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVou
 
   return (
     <section className="benefit-selector" aria-labelledby={`${id}-title`}>
-      <h2 id={`${id}-title`}>{t('checkout.title')}</h2>
+      {!hideTitle && <h2 id={`${id}-title`}>{t('checkout.title')}</h2>}
       <fieldset>
         <legend className="sr-only">{t('checkout.choice')}</legend>
         {choices.map(choice => (
@@ -104,7 +104,9 @@ export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVou
           </label>
         </div>
       )}
-      <button type="button" className="button primary" disabled={!canConfirm} onClick={onConfirm}>{t('checkout.confirm')}</button>
+      {showConfirm && (
+        <button type="button" className="button primary" disabled={!canConfirm} onClick={onConfirm}>{t('checkout.confirm')}</button>
+      )}
     </section>
   );
 }

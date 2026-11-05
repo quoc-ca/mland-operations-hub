@@ -16,8 +16,10 @@ paths:
         HTTPS provider ingress only. Verify VNPAY checksum before lookup; then
         deduplicate provider delivery and resolve the immutable owner-qualified
         merchant reference. Dispatch redacted verified evidence to exactly one
-        owner: DEPOSIT to WorkshopBookingFacade, FINAL_PAYMENT or REFUND to
-        WorkshopSettlementFacade. Unknown, ambiguous, mismatched, invalid, or
+        owner: DEPOSIT to WorkshopBookingFacade, FINAL_PAYMENT, REFUND or
+        SHOP_ADDON to WorkshopSettlementFacade. SHOP_ADDON is used only for the
+        separate Mland shop add-on bill of an OTA booking (2026-11-05); it is
+        never used for a direct booking. Unknown, ambiguous, mismatched, invalid, or
         already-terminal references cause no business-state side effect. QueryDR
         and refund invocation are outbound server-to-server operations, not
         additional inbound routes. Browser Return URL never confirms payment.

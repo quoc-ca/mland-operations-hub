@@ -3,6 +3,8 @@ import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useOtaConnectivityApi } from '../api/useOtaConnectivityApi';
 import { ErrorNotice, Loading, SuccessNotice } from '../../shared/ui/components';
+import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
+import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import '../ota-connectivity.css';
 
 const EMPTY_FORM = { kind: 'PAYOUT', evidenceType: 'ELIGIBILITY', amount: '', reference: '', reason: '', occurredAt: '', payoutReference: '', allocationReference: '' };
@@ -45,10 +47,17 @@ export default function OtaFinanceReconciliationPage() {
   }
 
   if (status === 'loading') return <Loading />;
-  if (status !== 'signed-in') return <div className="ota-container"><div className="empty-state"><p>Authentication required to access finance reconciliation.</p><a className="button primary" href="/login">Sign In</a></div></div>;
+  if (status !== 'signed-in') {
+    return (
+      <OperationsAuthWorkspace
+        topline="MLAND / OTA CONNECTIVITY"
+        message="Authentication required to access finance reconciliation."
+      />
+    );
+  }
 
   return <div className="ota-workspace">
-    <aside className="ota-sidebar"><div className="ota-brand"><span>M</span><strong>MLAND</strong><small>operations hub</small></div><div className="ota-sidebar-label">MANAGER WORKSPACE</div><Link to="/ota-connectivity/channels">Channel mappings</Link><Link to="/ota-connectivity/reconciliation">Reconciliation</Link><Link className="active" to="/ota-connectivity/finance">Finance evidence</Link><Link to="/ota-connectivity/add-ons">Shop add-ons</Link></aside>
+    <OperationsSidebar />
     <main className="ota-main"><div className="ota-topline">MLAND / OTA CONNECTIVITY <span>● Backend-authorized</span></div>
       <header className="ota-page-heading"><div><p className="ota-eyebrow">FINANCE OPERATIONS</p><h1>Payout reconciliation</h1><p>Verify channel payment and payout evidence without exposing provider credentials.</p></div></header>
       <nav className="ota-nav-tabs" aria-label="OTA Navigation"><Link to="/ota-connectivity/channels">Channels</Link><Link to="/ota-connectivity/reconciliation">Queue</Link><Link className="active" to="/ota-connectivity/finance">Finance</Link><Link to="/ota-connectivity/add-ons">Add-ons</Link></nav>

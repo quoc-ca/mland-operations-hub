@@ -1,7 +1,7 @@
 # Data Model: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -49,16 +49,26 @@ PENDING_PAYMENT + UNPAID
   └─ customer release while active → CANCELLED + UNPAID
 
 CONFIRMED + DEPOSIT_PAID
-  └─ idempotent final-balance-resolved conclusion from 003.3 → financial status FULLY_PAID
+  ├─ idempotent final-balance-resolved conclusion from 003.3 → financial status FULLY_PAID
+  ├─ RecordBookingRefundStatusCommand(REFUND_PENDING) from 003.3 (Mland remedy) → REFUND_PENDING
+  └─ RecordBookingRefundStatusCommand(REFUNDED) from 003.3 → REFUNDED
+
+CONFIRMED (service status), on RecordBookingServiceOutcomeCommand from 003.3 (D13)
+  ├─ folio FINALIZED → COMPLETED
+  ├─ folio CLOSED by customer cancellation or Mland remedy → CANCELLED
+  └─ folio CLOSED by full no-show → NO_SHOW
 ```
 
-The final conclusion changes only Booking's financial status. Booking retains a
-safe correlation/reference and does not receive raw VNPay/final-payment detail
-or calculate final balance. It becomes `FULLY_PAID` only after 003.3 has verified
-the complete final balance; this feature has no deferred-payment exception.
+Each conclusion changes only the named Booking status, exactly once and
+idempotently. Booking retains a safe correlation/reference and does not receive
+raw VNPay/final-payment detail, calculate final balance, or decide attendance,
+cancellation or refund outcomes. It becomes `FULLY_PAID` only after 003.3 has
+verified the complete final balance; this feature has no deferred-payment
+exception. A post-`FINALIZED` overcharge correction changes no Booking status.
 
-Only the listed transitions belong to 003.1. Final payment, refund,
-reschedule, `CHECKED_IN`, `NO_SHOW`, and attendance finalization are outside it.
+Only the listed transitions belong to 003.1. Final payment, refund execution,
+reschedule, `CHECKED_IN`, no-show determination, and attendance finalization are
+outside it (owner decisions D13/D14, 2026-11-05).
 
 ## Validation and concurrency
 
@@ -92,7 +102,7 @@ reschedule, `CHECKED_IN`, `NO_SHOW`, and attendance finalization are outside it.
 - Booking preserves chronological display ordinals only after Operations accepts
   the selected set. Operations owns enforcement of the Package's distinctness,
   location, same-day slot-gap and foundry-working-date rules. Wax Casting
-  requires exactly two Monday–Friday local dates strictly between its sessions;
+  requires at least two Monday–Friday local dates strictly between its sessions;
   Saturday/Sunday are excluded and slot/time does not affect the calculation.
 - All packages consume the one shared capacity pool per session. A multi-session
   booking consumes N seats in every selected session.

@@ -46,7 +46,14 @@ export default function AppLayout() {
   const t = useT(appMessages);
   const tShared = useT(sharedMessages);
   const { status, signOut } = useAuth();
+  const isOperationsWorkspace =
+    location.pathname.startsWith('/operations') ||
+    location.pathname.startsWith('/ota-connectivity') ||
+    location.pathname.startsWith('/settlement') ||
+    location.pathname.startsWith('/workshop-packages');
+
   if (['/sign-in', '/login', '/register', '/forgot-password'].includes(location.pathname)) return <Outlet />;
+  if (isOperationsWorkspace) return <Outlet />;
   return (
     <>
       <header className="app-header">
@@ -70,27 +77,29 @@ export default function AppLayout() {
           <Link to="/operations/packages">Workshop packages</Link>
           <Link to="/settlement">Settlement</Link>
         </nav>
-        <div className="header-tools">
-          <LanguageSwitch />
-          {status === 'signed-in' ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Link
-                to="/profile"
-                className="button outline small"
-                style={{ textDecoration: 'none' }}
-              >
-                {t('profile')}
-              </Link>
-              <button type="button" className="button outline small" onClick={signOut}>
-                {tShared('session.signOut')}
-              </button>
-            </div>
-          ) : (
-            <a className="header-login" href="/login">
-              {tShared('session.signIn')}
-            </a>
-          )}
-        </div>
+        {!isOperationsWorkspace && (
+          <div className="header-tools">
+            <LanguageSwitch />
+            {status === 'signed-in' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Link
+                  to="/profile"
+                  className="button outline small"
+                  style={{ textDecoration: 'none' }}
+                >
+                  {t('profile')}
+                </Link>
+                <button type="button" className="button outline small" onClick={signOut}>
+                  {tShared('session.signOut')}
+                </button>
+              </div>
+            ) : (
+              <a className="header-login" href="/login">
+                {tShared('session.signIn')}
+              </a>
+            )}
+          </div>
+        )}
       </header>
       <Outlet />
       <footer><div className="container footer-inner"><strong>MLAND</strong><span>© MLAND</span></div></footer>

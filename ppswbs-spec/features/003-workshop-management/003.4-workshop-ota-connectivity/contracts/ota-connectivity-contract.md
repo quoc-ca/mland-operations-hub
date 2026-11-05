@@ -1,7 +1,7 @@
 # Contract Design: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -94,16 +94,16 @@ These paths are specified in the proposed OpenAPI contract. Responses expose saf
 | `POST /api/v1/ota-reconciliation-work-items/{id}/resolve` | Record a reviewed resolution; may queue re-sync. | Active Manager globally or Admin globally, subject to the action rule; immutable decision audit. |
 | `GET /api/v1/ota-channel-bookings/{channelBookingId}/financial-evidence` | Read separated channel-payment and payout evidence. | Active Manager globally. |
 | `POST /api/v1/ota-channel-bookings/{channelBookingId}/payout-reconciliation` | Append staged payout, variance, dispute, adjustment, or reversal evidence. A bank receipt needs a booking-specific allocation reference and the same payout reference as the accepted remittance; a correction links the original public ledger UUID. Only matched payout reference, net, and currency evidence advances to `PAID_OUT`. | Active Manager globally. |
-| `POST /api/v1/ota-channel-bookings/{channelBookingId}/add-on-quotes` | At the Mland shop, create a free engraving record or paid direct-Mland add-on quote outside OTA checkout. | Authorized Staff scope. |
-| `POST /api/v1/ota-addon-quotes/{quoteId}/acceptance` | Record acceptance for a paid quote. | Authorized Staff scope; no bill before acceptance. |
-| `POST /api/v1/ota-addon-quotes/{quoteId}/direct-bill` | Create the separate Settlement-owned direct-Mland bill. | Authorized Staff scope; quote must be accepted. |
+| `POST /api/v1/ota-channel-bookings/{channelBookingId}/add-on-quotes` | At the Mland shop, create a free engraving record or paid direct-Mland add-on quote outside OTA checkout. A paid quote references an active 003.2 catalogue add-on; the server derives its price (D17). | In-scope Staff or any active Manager (D18). |
+| `POST /api/v1/ota-addon-quotes/{quoteId}/acceptance` | Record acceptance for a paid quote. | In-scope Staff or any active Manager; no bill before acceptance. |
+| `POST /api/v1/ota-addon-quotes/{quoteId}/direct-bill` | Create the separate Settlement-owned direct-Mland bill. | In-scope Staff or any active Manager; quote must be accepted. |
 
 The provider callback entry point is intentionally excluded from the shared
 OpenAPI contract because its route, authentication, signature, body, response,
 and retry behavior are provider-specific onboarding facts. It is not a Mland
 user-session endpoint; each adapter publishes its approved contract separately.
 
-Account Management supplies canonical role/status/location facts; OTA Connectivity owns the exact action rules over its mappings and reconciliation resources. Every active Manager has global location scope for Manager-authorized OTA actions, including financial-evidence read and payout reconciliation; Manager authorization does not depend on `activeLocationIds`. Provider connection/credential operations and booking enablement remain Admin-only. Add-on quote operations remain Staff-only and location-scoped. The implementation must return standard safe errors without exposing mapping/booking existence to unauthorized actors, and must not authorize from a display role, Firebase claim or retired code.
+Account Management supplies canonical role/status/location facts; OTA Connectivity owns the exact action rules over its mappings and reconciliation resources. Every active Manager has global location scope for Manager-authorized OTA actions, including financial-evidence read and payout reconciliation; Manager authorization does not depend on `activeLocationIds`. Provider connection/credential operations and booking enablement remain Admin-only. Add-on quote operations are allowed to in-scope Staff (location-scoped) or any active Manager (global), per owner decision D18 (2026-11-05). The implementation must return standard safe errors without exposing mapping/booking existence to unauthorized actors, and must not authorize from a display role, Firebase claim or retired code.
 
 ## Callback, error, and replay rules
 
@@ -111,8 +111,8 @@ Account Management supplies canonical role/status/location facts; OTA Connectivi
 2. Persist a safe inbound-event receipt and deduplication key before invoking downstream effects. A duplicate gets the same semantic acknowledgement as the first completed event.
 3. Correlate every outbound delivery and inbound event with a safe opaque ID. Return an operator-safe message; detailed diagnostics belong in authorized reconciliation records.
 4. For an OTA-origin workshop base package, the customer owes the full accepted channel amount at OTA checkout. OTA MUST NOT confirm the Mland booking or trigger ticket issuance unless authenticated provider evidence matches that full amount and currency. Missing, partial, or mismatched payment evidence cannot confirm the booking or issue tickets and must create reconciliation evidence. If a provider cannot supply the required evidence, its mapping remains sales-closed and cannot pass readiness. Mland's later supplier payout is reconciled separately and cannot substitute for customer-payment evidence.
-4. If delivery retries are exhausted, close sale for the affected mapping and create reconciliation work. Do not claim that the OTA is synchronized.
-5. A late booking received while incident sales closure is active follows only the written provider rule approved at go-live. Until then the mapping cannot accept bookings.
+5. If delivery retries are exhausted, close sale for the affected mapping and create reconciliation work. Do not claim that the OTA is synchronized.
+6. A late booking received while incident sales closure is active follows only the written provider rule approved at go-live. Until then the mapping cannot accept bookings.
 
 ## Provider readiness record required before booking enablement
 
