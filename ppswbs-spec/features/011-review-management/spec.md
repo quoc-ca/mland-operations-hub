@@ -193,7 +193,7 @@ must not be disclosed in error responses.
 - Identical idempotent retry returns the original result; changed payload under the same key returns `409`.
 - Concurrent create commands for one source commit at most one review.
 - Realtime aggregate returns only `PUBLIC` rows and excludes `HIDDEN`/`REMOVED` rows.
-- Migration verification covers clean database, upgrade database, rerun and duplicate-version detection through the current repository baseline `V92`–`V96` and Feature-011 retention correction `V97`.
+- Migration verification covers clean database, upgrade database, rerun and duplicate-version detection through the current repository baseline `V92`–`V99` and Feature-011 retention correction `V100`.
 
 ## 13. Frontend boundary and implementation handoff
 

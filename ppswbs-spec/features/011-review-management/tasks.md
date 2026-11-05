@@ -40,7 +40,7 @@ Last updated by: Ngô Tiến Đạt
 - [x] Implement API and authorization boundaries (`ReviewEligibilityController`, `ReviewController`, `ReviewModerationController`, `ReviewManagementExceptionHandler`, Security routes).
 - [x] Align DTO limits to 2,000 characters and move command idempotency/version data to headers.
 - [x] Add Guest retail lookup/create, owner-safe public detail projection and Staff/Manager/Admin permission enforcement.
-- [x] Add append-only retention correction migration `V97__review_history_retention.sql`.
+- [x] Add append-only retention correction migration `V100__review_history_retention.sql`.
 - [ ] Implement public/operational UI.
 
 ## Phase 4 — Verification
@@ -48,7 +48,7 @@ Last updated by: Ngô Tiến Đạt
 - [ ] Unit and integration tests for eligibility, validation, lifecycle and permission rules after contract changes.
 - [ ] Concurrent duplicate-create and idempotency tests for every write command.
 - [x] Privacy tests for masking and source enumeration.
-- [ ] Migration clean/upgrade/re-run tests (`V91`–`V97`).
+- [ ] Migration clean/upgrade/re-run tests (`V91`–`V100`).
 - [x] Guest handle expiry, source binding, replay and raw-source rejection tests.
 - [x] Realtime public aggregate excludes `HIDDEN` and `REMOVED` rows.
 - [ ] OpenAPI, architecture, `git diff --check` and manual acceptance review.
