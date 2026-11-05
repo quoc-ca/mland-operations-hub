@@ -71,7 +71,7 @@ class ReviewControllerMockMvcTest {
                 .build();
 
         EligibleSourceListResponse resp = EligibleSourceListResponse.builder()
-                .guestHandle("handle123")
+                .guestEligibilityHandle("handle123")
                 .maskedContact("t***t@example.com")
                 .expiresAt(Instant.now())
                 .sources(List.of(
@@ -86,16 +86,17 @@ class ReviewControllerMockMvcTest {
                 ))
                 .build();
 
-        when(eligibilityService.lookupGuestEligibility(any(GuestEligibilityLookupRequest.class)))
+        when(eligibilityService.lookupGuestEligibility(any(GuestEligibilityLookupRequest.class), any(String.class)))
                 .thenReturn(resp);
 
         mockMvc.perform(post("/api/v1/review-eligibility/lookup")
+                        .header("Idempotency-Key", "lookup-idempotency-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.guestHandle").value("handle123"))
+                        .andExpect(jsonPath("$.eligibilityHandle").value("handle123"))
                 .andExpect(jsonPath("$.maskedContact").value("t***t@example.com"))
-                .andExpect(jsonPath("$.sources[0].sourceReference").value("TICK-1"));
+                .andExpect(jsonPath("$.items[0].sourceReference").value("TICK-1"));
     }
 
     @Test
@@ -105,7 +106,7 @@ class ReviewControllerMockMvcTest {
                 .aggregate(ReviewAggregateDto.builder()
                         .targetType(TargetType.WORKSHOP_SESSION)
                         .targetReference("SESS-1")
-                        .totalCount(5L)
+                        .count(5L)
                         .averageRating(4.8)
                         .build())
                 .items(Collections.emptyList())
@@ -123,7 +124,7 @@ class ReviewControllerMockMvcTest {
                         .param("targetType", "WORKSHOP_SESSION")
                         .param("targetReference", "SESS-1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.aggregate.totalCount").value(5))
+                .andExpect(jsonPath("$.aggregate.count").value(5))
                 .andExpect(jsonPath("$.aggregate.averageRating").value(4.8));
     }
 
@@ -139,6 +140,7 @@ class ReviewControllerMockMvcTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/reviews")
+                        .header("Idempotency-Key", "test-idempotency-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
@@ -154,12 +156,14 @@ class ReviewControllerMockMvcTest {
                 .targetType(TargetType.WORKSHOP_SESSION)
                 .targetReference("SESS-1")
                 .rating(5)
+                .guestEligibilityHandle("guest-handle")
                 .build();
 
-        when(applicationService.createReview(any(), any()))
+        when(applicationService.createReview(any(), any(), any(String.class)))
                 .thenThrow(ReviewManagementException.conflict("REVIEW_ALREADY_EXISTS", "Trải nghiệm này đã được gửi đánh giá"));
 
         mockMvc.perform(post("/api/v1/reviews")
+                        .header("Idempotency-Key", "test-idempotency-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isConflict())

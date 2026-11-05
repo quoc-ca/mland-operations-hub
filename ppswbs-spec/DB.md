@@ -2228,11 +2228,11 @@ Aggregates and public listings include `PUBLIC` rows only. Public projections
 must omit email, phone and transaction details. Physical foreign keys to
 Workshop/Retail tables, table names and additional indexes remain proposed until
 source ownership is checked. Feature-011 also requires a protected Guest
-eligibility-handle record and an idempotency record for write commands; neither
-is an applied schema change yet. The Flyway version must be selected only after
-checking repository and `flyway_schema_history` history; the current repository
-inspection reaches `V90` after merging `develop`; Feature-011 uses `V91`, which
-must still be verified against `flyway_schema_history` before application.
+eligibility-handle record and an idempotency record for write commands. Review
+tables are created by `V91__review_management.sql`; the retention correction is
+appended in `V93__review_history_retention.sql`, while `V92` remains owned by
+the workshop package migration. Both versions must be verified against
+`flyway_schema_history` before application.
 - Material, component placement and size compatibility must be checked against approved hard constraints; a numeric score alone cannot override an incompatible design.
 - A standalone shape price contribution is included only under an approved estimation rule and must not double-count component/labour prices.
 - Form/score/price changes do not rewrite frozen design versions. Disable an option for new selection rather than deleting referenced history.

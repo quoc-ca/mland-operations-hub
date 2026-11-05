@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @RestControllerAdvice(basePackages = "edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement")
@@ -32,6 +33,7 @@ public class ReviewManagementExceptionHandler {
                 .message(ex.getMessage())
                 .timestamp(Instant.now())
                 .path(request.getRequestURI())
+                .correlationId(UUID.randomUUID().toString())
                 .build();
         return new ResponseEntity<>(error, ex.getStatus());
     }
@@ -49,6 +51,7 @@ public class ReviewManagementExceptionHandler {
                 .message("Dữ liệu gửi lên không hợp lệ.")
                 .timestamp(Instant.now())
                 .path(request.getRequestURI())
+                .correlationId(UUID.randomUUID().toString())
                 .details(details)
                 .build();
 
@@ -64,6 +67,7 @@ public class ReviewManagementExceptionHandler {
                 .message("Xung đột phiên bản dữ liệu (Optimistic Lock). Vui lòng làm mới trang.")
                 .timestamp(Instant.now())
                 .path(request.getRequestURI())
+                .correlationId(UUID.randomUUID().toString())
                 .build();
 
         return new ResponseEntity<>(error, HttpStatus.CONFLICT);

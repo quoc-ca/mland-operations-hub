@@ -5,7 +5,7 @@
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-03
 - **Date updated**: 2026-11-05
-- **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V91__review_management.sql`, OpenAPI contract and synchronized project specifications
+- **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V91__review_management.sql`, `V93__review_history_retention.sql`, OpenAPI contract and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
 > the Feature-011 artifacts and source code. Phase labels are retained for
@@ -54,7 +54,7 @@
 - `ReviewReplyService` implements one current reply and audited reply edits.
 - `ReviewPublicReadServiceImpl` returns public reviews and realtime count/average data.
 - `ReviewMaskingService` masks Member display names and Guest contact values.
-- `ReviewIdempotencyService` implements SHA-256 request hashing and replay records for the create-review path.
+- `ReviewIdempotencyService` implements SHA-256 request hashing and replay records for lookup, create, edit, visibility and reply commands.
 
 ### Phase E — REST API and exception handling
 
@@ -114,8 +114,8 @@ Reported total: **21 test cases**. A fresh execution was not claimed in this upd
 ### Giai đoạn 3 — Persistence and migration safety
 
 - Review `ON DELETE CASCADE` on `review_revisions`, `review_replies` and `review_moderation_events`. The approved business-history policy requires audit/revision/reply history to survive normal review removal; migration behavior must be changed or explicitly approved before production.
-- Run Flyway validation against a clean MySQL database and an existing database containing migrations through `V88`.
-- Verify `V91` upgrade, rerun behavior, schema constraints, indexes and `flyway_schema_history`.
+- Run Flyway validation against a clean MySQL database and an existing database containing migrations through `V92`.
+- Verify `V91`/`V93` upgrade, rerun behavior, schema constraints, indexes and `flyway_schema_history`.
 - Add a recovery plan for partial migration failure; do not use checksum repair, `baseline` or `outOfOrder` to conceal version conflicts.
 
 ### Giai đoạn 4 — Verification and release readiness
@@ -142,11 +142,11 @@ Reported total: **21 test cases**. A fresh execution was not claimed in this upd
 ## 3. Active blockers and audit notes
 
 1. **Environment blocker:** Current Java runtime is 17.0.10; Maven project requires Java 21. Test execution cannot be treated as fresh evidence until JDK 21 is active.
-2. **Contract blocker:** DTOs currently use 4,000-character text limits and body-level idempotency fields, which differ from the approved backend contract.
-3. **Business-permission blocker:** Admin is currently accepted by some moderation/reply controller branches despite the approved technical/audit-only Admin boundary.
-4. **Eligibility blocker:** Guest retail review is not currently supported by `ReviewApplicationService`.
-5. **Privacy/ownership blocker:** Review detail access and public projection boundaries require a final audit to prevent source/owner metadata leakage.
-6. **Retention blocker:** Migration foreign keys currently cascade-delete revision, reply and moderation records; this conflicts with the business-history retention rule.
+2. **Contract verification pending:** Header-based idempotency/version inputs and 2,000-character limits are implemented but require JDK 21 test evidence.
+3. **Business-permission verification pending:** Admin denial and Staff/Manager boundaries require controller/integration tests.
+4. **Eligibility verification pending:** Guest retail review is implemented through the fulfilment adapter but requires database-backed contact matching tests.
+5. **Privacy verification pending:** Public/owner/moderation projections require response-shape tests.
+6. **Retention verification pending:** `V93` replaces the historical cascade constraints but requires clean/upgrade Flyway execution.
 7. **Evidence status:** The 21 test cases are present and previously reported, but no new pass result is claimed from the current Java 17 environment.
 8. **Migration status:** Feature-011 was renamed from `V89` to `V91` after merging `develop`, which already contains `V89` and `V90` migrations. Clean-install and existing-database validation remain outstanding.
 
@@ -240,7 +240,7 @@ GET /api/v1/reviews?targetType=...&targetReference=...
   → ReviewPublicReadFacade
   → ReviewPublicReadServiceImpl
   → query status = PUBLIC
-  → calculate totalCount and averageRating in realtime
+  → calculate count and averageRating in realtime
   → map masked ReviewDto and current reply
   → return PublicReviewPageDto
 ```
@@ -267,13 +267,14 @@ POST/PATCH /api/v1/reviews/{id}/reply
   → return ReplyDto
 ```
 
-The flows above describe the current code, including known contract gaps. They
-must not be treated as proof that the remaining blockers are approved behavior.
+The flows above describe the ratified contract and current implementation
+direction. Runtime execution and database verification are still required before
+they are treated as integration evidence.
 
 ## 7. Frontend specification synchronization (2026-11-05)
 
 Feature-011 now has a frontend implementation handoff aligned with the approved
-OpenAPI/spec rather than the current backend mismatches.
+OpenAPI/spec and the backend contract-alignment changes.
 
 ### 7.1 Frontend target
 
@@ -291,16 +292,16 @@ OpenAPI/spec rather than the current backend mismatches.
 3. Operations flow: Staff hide, Manager hide/remove/reply/edit-reply and Admin technical projection.
 4. Verification: API mapping, permission, ownership, privacy, validation, conflict and recovery tests, then `npm test` and `npm run build`.
 
-### 7.3 Current blockers for live frontend integration
+### 7.3 Current verification gate for live frontend integration
 
-- Backend idempotency transport does not yet match the approved header contract.
-- Guest retail-product eligibility/create is incomplete in the current implementation.
-- Review detail ownership and cross-user enumeration behavior require final audit.
-- Admin technical-only authority must be synchronized with backend security.
-- DTO names, status codes, headers and migration/API verification remain to be aligned.
+- Header-based idempotency, optimistic versions and deterministic conflicts require runtime tests.
+- Guest retail-product eligibility/create requires integration verification against fulfilment data.
+- Review detail ownership and cross-user enumeration behavior require security tests.
+- Admin technical-only authority requires authorization tests.
+- DTO names, status codes, headers and migration/API behavior require contract validation.
 
-The frontend agent must stop at these contract mismatches and must not add a
-client-side compatibility layer without a separately approved versioned contract.
+The frontend agent must not add a compatibility layer or infer a different
+payload without a separately approved versioned contract.
 
 ## 8. Figma MCP and frontend implementation record (2026-11-05)
 
@@ -330,8 +331,31 @@ review, Staff/Manager moderation and Manager reply UI. It uses shared HTTP,
 Firebase auth, i18n, `useResource`, `useCommand`, idempotency keys and optimistic
 version headers. Backend remains authoritative.
 
-Known integration blockers remain unchanged: the current backend does not fully
-match the approved OpenAPI contract for idempotency, Guest retail eligibility,
-ownership projections, Admin technical-only authority, DTO/status/header and
-migration verification. The frontend intentionally does not add a compatibility
-workaround for those mismatches.
+The backend contract-alignment implementation is now present for header-based
+idempotency/version inputs, Guest retail eligibility, owner-safe public detail,
+Admin denial, 2,000-character validation and `V93` history-retention repair.
+Fresh verification remains pending because Maven Wrapper execution is blocked in
+the current environment and JDK 21 is required.
+
+## 9. Backend contract ratification implementation log (2026-11-05)
+
+Completed in this update:
+
+1. Standardized `Idempotency-Key` on lookup, create, edit, visibility and reply commands.
+2. Required `If-Match-Version` for review edit, visibility change and reply edit.
+3. Added Guest retail eligibility through the fulfilment adapter using account contact matching; raw contact data remains outside public DTOs.
+4. Added source-type-aware Guest handle binding for workshop and retail sources with the existing 30-minute TTL.
+5. Restricted create/eligible-source operations to Member when Firebase identity is present; Staff/Manager/Admin cannot create Member reviews.
+6. Restricted Staff to hide, Manager to moderate/reply, and Admin from business moderation/reply endpoints.
+7. Added owner-safe/public projection behavior and removed technical owner identifiers from public replies.
+8. Added conflict-of-interest checks for moderation and Manager replies.
+9. Added `V93__review_history_retention.sql` to replace destructive history cascades with `RESTRICT`.
+10. Updated Feature-011 OpenAPI to version `1.0.0`, status `approved`, and synchronized `APIs.md`, `spec.md`, `data-model.md`, `plan.md`, `tasks.md`, `research.md` and `DB.md`.
+
+Remaining verification tasks:
+
+- Run backend compile and all Feature-011 tests under JDK 21.
+- Execute the updated unit/MockMvc tests for the header contract and Guest retail path.
+- Run OpenAPI validation against controller behavior.
+- Run Flyway clean-install, upgrade, rerun and `flyway validate()` checks through `V93`.
+- Confirm the live `flyway_schema_history` contains no conflicting `V91` or `V93` record before applying migrations.

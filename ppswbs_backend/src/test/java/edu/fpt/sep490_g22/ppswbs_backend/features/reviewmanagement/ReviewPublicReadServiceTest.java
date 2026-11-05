@@ -102,7 +102,7 @@ class ReviewPublicReadServiceTest {
 
         PublicReviewPageDto result = publicReadService.getPublicReviews(targetType, targetRef, pageable);
 
-        assertThat(result.getAggregate().getTotalCount()).isEqualTo(2L);
+        assertThat(result.getAggregate().getCount()).isEqualTo(2L);
         assertThat(result.getAggregate().getAverageRating()).isEqualTo(4.5);
         assertThat(result.getItems()).hasSize(2);
         assertThat(result.getTotalElements()).isEqualTo(2L);
@@ -119,7 +119,7 @@ class ReviewPublicReadServiceTest {
 
         ReviewAggregateDto agg = publicReadService.getRealtimeAggregate(targetType, targetRef);
 
-        assertThat(agg.getTotalCount()).isEqualTo(0L);
+        assertThat(agg.getCount()).isEqualTo(0L);
         assertThat(agg.getAverageRating()).isEqualTo(0.0);
     }
 }

@@ -100,14 +100,13 @@ For commands, one idempotency key belongs to one user action. A retry reuses the
 same key. A stale version or duplicate-source conflict triggers reload/reconciliation,
 not an automatic retry with a new key.
 
-## 6. Backend contract blockers
+## 6. Backend contract verification gate
 
-Frontend implementation must target the approved OpenAPI/spec, not silently follow
-the current backend mismatches. Before live integration, resolve or explicitly version:
+The backend implementation has been aligned with the approved OpenAPI/spec. Live
+integration still requires verification of:
 
-- idempotency transport currently differing between implementation and OpenAPI;
-- Guest retail-product eligibility/create path;
+- header-based idempotency and optimistic-version behavior;
+- Guest retail-product eligibility and source revalidation;
 - owner-safe detail projection and cross-user existence behavior;
 - Admin technical-only permission boundary;
-- DTO/status/header differences;
-- migration/history verification and API contract synchronization.
+- DTO, status-code, header and migration behavior against the contract.

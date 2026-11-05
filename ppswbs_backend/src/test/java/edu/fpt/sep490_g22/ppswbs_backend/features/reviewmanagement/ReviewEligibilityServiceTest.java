@@ -92,7 +92,7 @@ class ReviewEligibilityServiceTest {
 
         EligibleSourceListResponse response = eligibilityService.lookupGuestEligibility(req);
 
-        assertThat(response.getGuestHandle()).isNotBlank();
+        assertThat(response.getGuestEligibilityHandle()).isNotBlank();
         assertThat(response.getMaskedContact()).isEqualTo("c***r@example.com");
         assertThat(response.getSources()).hasSize(1);
         assertThat(response.getSources().get(0).getSourceReference()).isEqualTo("TICK-001");

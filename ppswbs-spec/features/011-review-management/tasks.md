@@ -31,20 +31,24 @@ Last updated by: Ngô Tiến Đạt
 - [x] Update `spec-general.md`, `DB.md`, `screen.md` and Report 3.
 - [x] Run cross-artifact analysis and resolve contradictions.
 - [x] Add Guest handle, error mapping, optimistic version and realtime aggregate details to OpenAPI.
+- [x] Ratify backend contract: header idempotency/version headers, Guest retail eligibility, safe projections, Admin denial and `400/401/403/404/409/422` mapping.
 
 ## Phase 3 — Implementation handoff
 
 - [x] Implement source ports/adapters (`WorkshopAttendanceReviewPort`, `RetailFulfilmentReviewPort`, `InternalWorkshopAttendanceAdapter`, `InternalRetailFulfilmentAdapter`) and review application services (`ReviewEligibilityService`, `ReviewApplicationService`, `ReviewModerationService`, `ReviewReplyService`, `ReviewPublicReadFacade`, `ReviewMaskingService`, `ReviewIdempotencyService`).
 - [x] Implement persistence, unique source constraint and audit history (`ReviewRepository`, `ReviewRevisionRepository`, `ReviewReplyRepository`, `ReviewModerationEventRepository`, `GuestEligibilityHandleRepository`, `ReviewIdempotencyRecordRepository`).
 - [x] Implement API and authorization boundaries (`ReviewEligibilityController`, `ReviewController`, `ReviewModerationController`, `ReviewManagementExceptionHandler`, Security routes).
+- [x] Align DTO limits to 2,000 characters and move command idempotency/version data to headers.
+- [x] Add Guest retail lookup/create, owner-safe public detail projection and Staff/Manager/Admin permission enforcement.
+- [x] Add append-only retention correction migration `V93__review_history_retention.sql`.
 - [ ] Implement public/operational UI.
 
 ## Phase 4 — Verification
 
-- [x] Unit and integration tests for eligibility, validation, lifecycle and permission rules (21/21 tests pass).
-- [x] Concurrent duplicate-create and idempotency tests.
+- [ ] Unit and integration tests for eligibility, validation, lifecycle and permission rules after contract changes.
+- [ ] Concurrent duplicate-create and idempotency tests for every write command.
 - [x] Privacy tests for masking and source enumeration.
-- [x] Migration clean/upgrade/re-run tests (`V91__review_management.sql`).
+- [ ] Migration clean/upgrade/re-run tests (`V91`, `V92`, `V93`).
 - [x] Guest handle expiry, source binding, replay and raw-source rejection tests.
 - [x] Realtime public aggregate excludes `HIDDEN` and `REMOVED` rows.
 - [ ] OpenAPI, architecture, `git diff --check` and manual acceptance review.

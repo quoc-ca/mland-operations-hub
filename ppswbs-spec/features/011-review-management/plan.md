@@ -29,9 +29,10 @@ Create validates input and source eligibility, then inserts review, first revisi
 - Source eligibility: Implemented via WorkshopAttendanceReviewPort (checking CHECKED_IN attendance tickets) and RetailFulfilmentReviewPort (checking PICKED_UP/DELIVERED retail order lines) with internal adapters.
 - Aggregate strategy: Realtime SQL query over reviews where status = 'PUBLIC'.
 - Staff global-hide permission: Confirmed Staff may hide any review globally.
-- Migration version: V91__review_management.sql after merging `develop`; `V89` and `V90` are already occupied by `develop` migrations.
+- Migration versions: `V91__review_management.sql` owns the review tables, `V92` remains owned by the workshop package migration, and `V93__review_history_retention.sql` removes destructive history cascades.
 - Guest handle: Persisted in guest_eligibility_handles table, 30-minute TTL, valid for sources in that lookup session. Direct source IDs without valid handle are rejected.
 - Guest no-OTP risk acknowledged for V1 per design decision.
+- Backend contract ratified: header-based `Idempotency-Key`, required `If-Match-Version` for edit/moderation/reply edit, Guest workshop and retail eligibility, safe public projection and Admin technical/audit-only boundary.
 
 ## Backend delivery slice
 
@@ -106,8 +107,8 @@ OpenAPI contract:
 - Test loading, empty, success, forbidden, conflict, retry and duplicate states.
 - Run `npm test` and `npm run build` after backend contract blockers are resolved.
 
-Frontend implementation must not target the current backend mismatch until the
-contract is synchronized or a versioned compatibility decision is approved.
+Frontend implementation may target the ratified header-based contract. Runtime
+integration remains gated on compile, contract and database verification.
 
 ## Transaction and concurrency design
 
@@ -118,7 +119,7 @@ Create validates input and source eligibility, then inserts review, first revisi
 - Source eligibility: Implemented via WorkshopAttendanceReviewPort (checking CHECKED_IN attendance tickets) and RetailFulfilmentReviewPort (checking PICKED_UP/DELIVERED retail order lines) with internal adapters.
 - Aggregate strategy: Realtime SQL query over reviews where status = 'PUBLIC'.
 - Staff global-hide permission: Confirmed Staff may hide any review globally.
-- Migration version: V91__review_management.sql after merging `develop`; `V89` and `V90` are already occupied by `develop` migrations.
+- Migration versions: `V91__review_management.sql` owns the review tables, `V92` remains owned by the workshop package migration, and `V93__review_history_retention.sql` removes destructive history cascades.
 - Guest handle: Persisted in guest_eligibility_handles table, 30-minute TTL, valid for sources in that lookup session. Direct source IDs without valid handle are rejected.
 - Guest no-OTP risk acknowledged for V1 per design decision.
 

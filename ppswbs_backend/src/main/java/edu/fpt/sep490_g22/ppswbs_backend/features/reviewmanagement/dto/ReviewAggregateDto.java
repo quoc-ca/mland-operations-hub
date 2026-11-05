@@ -13,7 +13,9 @@ import lombok.NoArgsConstructor;
 public class ReviewAggregateDto {
     private TargetType targetType;
     private String targetReference;
-    private Long totalCount;
+    private Long count;
+
     private Double averageRating;
+
 }
 

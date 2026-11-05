@@ -28,42 +28,68 @@ public class ReviewModerationService {
     private final ReviewModerationEventRepository moderationEventRepository;
     private final ReviewReplyRepository replyRepository;
     private final ReviewApplicationService applicationService;
+    private final ReviewIdempotencyService idempotencyService;
+
+    @Deprecated
+    public ReviewModerationService(ReviewRepository reviewRepository,
+                                   ReviewModerationEventRepository moderationEventRepository,
+                                   ReviewReplyRepository replyRepository,
+                                   ReviewApplicationService applicationService) {
+        this(reviewRepository, moderationEventRepository, replyRepository, applicationService, null);
+    }
 
     @Transactional
-    public ModerationItemDto changeVisibility(String reviewId, VisibilityCommandRequest request, Long actorId, String actorRole) {
+    public ModerationItemDto changeVisibility(String reviewId, VisibilityCommandRequest request, Long actorId,
+                                              String actorRole, Long expectedVersion, String idempotencyKey) {
         if (reviewId == null || reviewId.isBlank()) {
             throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "ID đánh giá không hợp lệ.");
         }
-        if (request == null || request.getAction() == null || request.getReason() == null || request.getReason().isBlank()) {
+        if (request == null || request.getStatus() == null
+                || request.getReason() == null || request.getReason().isBlank()) {
             throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "Hành động kiểm duyệt và lý do là bắt buộc.");
         }
 
         String role = actorRole != null ? actorRole.toUpperCase() : "UNKNOWN";
-        ModerationAction action = request.getAction();
+        ModerationAction action = request.getStatus() == ReviewStatus.HIDDEN
+                ? ModerationAction.HIDE
+                : request.getStatus() == ReviewStatus.REMOVED ? ModerationAction.REMOVE : ModerationAction.RESTORE;
 
         // Kiểm tra quyền hạn kiểm duyệt theo vai trò
         if ("STAFF".equals(role)) {
             if (action != ModerationAction.HIDE) {
                 throw ReviewManagementException.forbidden("REVIEW_MODERATION_ACTION_NOT_ALLOWED", "Nhân viên Staff chỉ có quyền ẩn đánh giá (HIDE). Không có quyền phục hồi hoặc gỡ bỏ.");
             }
-        } else if (!"MANAGER".equals(role) && !"ADMIN".equals(role)) {
+        } else if (!"MANAGER".equals(role)) {
             throw ReviewManagementException.forbidden("REVIEW_NOT_AUTHORIZED", "Chỉ Staff hoặc Manager mới có quyền kiểm duyệt đánh giá.");
         }
 
         Review review = reviewRepository.findById(reviewId.trim())
                 .orElseThrow(() -> ReviewManagementException.notFound("REVIEW_NOT_FOUND", "Không tìm thấy đánh giá với ID: " + reviewId));
 
+        if (review.getOwnerType() == OwnerType.MEMBER && actorId != null
+                && String.valueOf(actorId).equals(review.getOwnerReference())) {
+            throw ReviewManagementException.forbidden("REVIEW_NOT_AUTHORIZED", "Reviewer cannot moderate their own review.");
+        }
+
         ReviewStatus previousStatus = review.getStatus();
-        ReviewStatus targetStatus = switch (action) {
-            case HIDE -> ReviewStatus.HIDDEN;
-            case RESTORE -> ReviewStatus.PUBLIC;
-            case REMOVE -> ReviewStatus.REMOVED;
-            default -> throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "Hành động kiểm duyệt không hợp lệ.");
-        };
+        ReviewStatus targetStatus = request.getStatus();
+
+        if (expectedVersion == null || !review.getVersion().equals(expectedVersion)) {
+            throw ReviewManagementException.conflict("REVIEW_STATE_CONFLICT", "Review version does not match.");
+        }
+
+        String actorScope = "MODERATOR_" + actorId;
+        String requestHash = idempotencyService != null ? idempotencyService.computeHash(request) : null;
+        Optional<ModerationItemDto> cached = idempotencyService != null ? idempotencyService.findCompletedResponse(
+                idempotencyKey, actorScope, requestHash, ModerationItemDto.class) : Optional.empty();
+        if (cached.isPresent()) return cached.get();
+        if (idempotencyService != null) idempotencyService.recordPending(idempotencyKey, "REVIEW_VISIBILITY", actorScope, requestHash);
 
         if (previousStatus == targetStatus) {
             // No-op or already in state
-            return mapToModerationItemDto(review);
+            ModerationItemDto result = mapToModerationItemDto(review);
+            if (idempotencyService != null) idempotencyService.recordSuccess(idempotencyKey, actorScope, result);
+            return result;
         }
 
         review.setStatus(targetStatus);
@@ -78,14 +104,16 @@ public class ReviewModerationService {
                 .previousStatus(previousStatus)
                 .newStatus(targetStatus)
                 .reason(request.getReason().trim())
-                .idempotencyKey(request.getIdempotencyKey())
+                .idempotencyKey(idempotencyKey)
                 .createdAt(Instant.now())
                 .build();
 
         reviewRepository.save(review);
         moderationEventRepository.save(event);
 
-        return mapToModerationItemDto(review);
+        ModerationItemDto result = mapToModerationItemDto(review);
+        if (idempotencyService != null) idempotencyService.recordSuccess(idempotencyKey, actorScope, result);
+        return result;
     }
 
     @Transactional(readOnly = true)

@@ -1,6 +1,8 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dao.ReviewReplyRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dao.ReviewRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dao.ReviewRevisionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.*;
@@ -33,22 +35,24 @@ public class ReviewApplicationService {
     private final ReviewIdempotencyService idempotencyService;
 
     @Transactional
-    public ReviewDto createReview(CreateReviewRequest request, Long authenticatedMemberId) {
+    public ReviewDto createReview(CreateReviewRequest request, Long authenticatedMemberId, String idempotencyKey) {
         if (request == null) {
             throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "Dữ liệu tạo đánh giá không được để trống.");
         }
 
+        String guestHandle = request.getGuestEligibilityHandle();
         String actorScope = authenticatedMemberId != null
                 ? "MEMBER_" + authenticatedMemberId
-                : "GUEST_" + (request.getGuestHandle() != null ? eligibilityService.hashHandle(request.getGuestHandle()) : "ANON");
+                : "GUEST_" + (guestHandle != null ? eligibilityService.hashHandle(guestHandle) : "ANON");
 
         // Idempotency check
-        if (request.getIdempotencyKey() != null && !request.getIdempotencyKey().isBlank()) {
-            Optional<ReviewDto> existing = idempotencyService.findCompletedResponse(request.getIdempotencyKey(), actorScope, ReviewDto.class);
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            String requestHash = idempotencyService.computeHash(request);
+            Optional<ReviewDto> existing = idempotencyService.findCompletedResponse(
+                    idempotencyKey, actorScope, requestHash, ReviewDto.class);
             if (existing.isPresent()) {
                 return existing.get();
             }
-            idempotencyService.recordPending(request.getIdempotencyKey(), "CREATE_REVIEW", actorScope, idempotencyService.computeHash(request));
         }
 
         // Kiểm tra duplicate source
@@ -70,50 +74,53 @@ public class ReviewApplicationService {
                 Optional<EligibleSourceItem> itemOpt = workshopAttendancePort.verifySource(
                         request.getSourceReference(), authenticatedMemberId, null, null);
                 if (itemOpt.isEmpty()) {
-                    throw ReviewManagementException.forbidden("REVIEW_SOURCE_NOT_ELIGIBLE", "Vé tham gia workshop không hợp lệ hoặc chưa điểm danh.");
+                    throw ReviewManagementException.unprocessable("REVIEW_SOURCE_NOT_ELIGIBLE", "Vé tham gia workshop không hợp lệ hoặc chưa điểm danh.");
                 }
                 EligibleSourceItem item = itemOpt.get();
                 if (request.getTargetType() != TargetType.WORKSHOP_SESSION || !request.getTargetReference().equals(item.getTargetReference())) {
-                    throw ReviewManagementException.badRequest("REVIEW_TARGET_MISMATCH", "Target của đánh giá không khớp với buổi workshop đã tham dự.");
+                    throw ReviewManagementException.unprocessable("REVIEW_TARGET_MISMATCH", "Target của đánh giá không khớp với buổi workshop đã tham dự.");
                 }
             } else if (request.getSourceType() == SourceType.RETAIL_ORDER_LINE) {
                 Optional<EligibleSourceItem> itemOpt = retailFulfilmentPort.verifySource(
-                        request.getSourceReference(), authenticatedMemberId);
+                        request.getSourceReference(), authenticatedMemberId, null, null);
                 if (itemOpt.isEmpty()) {
-                    throw ReviewManagementException.forbidden("REVIEW_SOURCE_NOT_ELIGIBLE", "Mục đơn hàng bán lẻ không hợp lệ hoặc chưa được hoàn tất nhận hàng.");
+                    throw ReviewManagementException.unprocessable("REVIEW_SOURCE_NOT_ELIGIBLE", "Mục đơn hàng bán lẻ không hợp lệ hoặc chưa được hoàn tất nhận hàng.");
                 }
                 EligibleSourceItem item = itemOpt.get();
                 if (request.getTargetType() != TargetType.RETAIL_PRODUCT || !request.getTargetReference().equals(item.getTargetReference())) {
-                    throw ReviewManagementException.badRequest("REVIEW_TARGET_MISMATCH", "Target của đánh giá không khớp với sản phẩm bán lẻ trong đơn hàng.");
+                    throw ReviewManagementException.unprocessable("REVIEW_TARGET_MISMATCH", "Target của đánh giá không khớp với sản phẩm bán lẻ trong đơn hàng.");
                 }
             } else {
                 throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "Loại nguồn đánh giá không được hỗ trợ.");
             }
         } else {
             // Guest submission
-            if (request.getGuestHandle() == null || request.getGuestHandle().isBlank()) {
+            if (guestHandle == null || guestHandle.isBlank()) {
                 throw ReviewManagementException.unauthorized("REVIEW_NOT_AUTHORIZED", "Yêu cầu mã guestHandle hợp lệ khi chưa đăng nhập.");
             }
-            if (request.getSourceType() != SourceType.WORKSHOP_ATTENDANCE) {
-                throw ReviewManagementException.forbidden("REVIEW_SOURCE_NOT_ELIGIBLE", "Khách vãng lai chỉ được đánh giá vé tham gia workshop.");
-            }
-
-            GuestEligibilityHandle handle = eligibilityService.validateGuestHandle(request.getGuestHandle(), request.getSourceReference());
+            GuestEligibilityHandle handle = eligibilityService.validateGuestHandle(
+                    guestHandle, request.getSourceType(), request.getSourceReference());
             ownerType = OwnerType.GUEST;
             ownerReference = handle.getHandleHash();
             maskedDisplayName = handle.getContactValueMasked();
 
-            // Verify attendance ticket matching contact
-            Optional<EligibleSourceItem> itemOpt = workshopAttendancePort.verifySource(
-                    request.getSourceReference(), null, handle.getContactType(), null);
-            // Nếu adapter yêu cầu contactValue để verify, có thể dùng chính item trong handle
+            Optional<EligibleSourceItem> itemOpt;
+            if (request.getSourceType() == SourceType.WORKSHOP_ATTENDANCE) {
+                itemOpt = workshopAttendancePort.verifySource(request.getSourceReference());
+            } else if (request.getSourceType() == SourceType.RETAIL_ORDER_LINE) {
+                itemOpt = retailFulfilmentPort.verifySource(request.getSourceReference());
+            } else {
+                itemOpt = Optional.empty();
+            }
             if (itemOpt.isEmpty()) {
                 // Kiểm tra trực tiếp qua verifySource với contactType và null value (adapter hỗ trợ filter bằng reference)
-                throw ReviewManagementException.forbidden("REVIEW_SOURCE_NOT_ELIGIBLE", "Vé workshop không hợp lệ hoặc chưa điểm danh.");
+                throw ReviewManagementException.unprocessable("REVIEW_SOURCE_NOT_ELIGIBLE", "Source không hợp lệ hoặc chưa đủ điều kiện review.");
             }
             EligibleSourceItem item = itemOpt.get();
-            if (request.getTargetType() != TargetType.WORKSHOP_SESSION || !request.getTargetReference().equals(item.getTargetReference())) {
-                throw ReviewManagementException.badRequest("REVIEW_TARGET_MISMATCH", "Target của đánh giá không khớp với buổi workshop.");
+            TargetType expectedTarget = request.getSourceType() == SourceType.WORKSHOP_ATTENDANCE
+                    ? TargetType.WORKSHOP_SESSION : TargetType.RETAIL_PRODUCT;
+            if (request.getTargetType() != expectedTarget || !request.getTargetReference().equals(item.getTargetReference())) {
+                throw ReviewManagementException.unprocessable("REVIEW_TARGET_MISMATCH", "Target của đánh giá không khớp với source.");
             }
         }
 
@@ -149,6 +156,11 @@ public class ReviewApplicationService {
                 .reason("INITIAL_SUBMISSION")
                 .build();
 
+        if (idempotencyService != null) {
+            idempotencyService.recordPending(idempotencyKey, "CREATE_REVIEW", actorScope,
+                    idempotencyService.computeHash(request));
+        }
+
         try {
             reviewRepository.save(review);
             revisionRepository.save(revision);
@@ -159,15 +171,16 @@ public class ReviewApplicationService {
 
         ReviewDto responseDto = mapToReviewDto(review, null);
 
-        if (request.getIdempotencyKey() != null && !request.getIdempotencyKey().isBlank()) {
-            idempotencyService.recordSuccess(request.getIdempotencyKey(), actorScope, responseDto);
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            idempotencyService.recordSuccess(idempotencyKey, actorScope, responseDto);
         }
 
         return responseDto;
     }
 
     @Transactional
-    public ReviewDto editReview(String reviewId, EditReviewRequest request, Long authenticatedMemberId) {
+    public ReviewDto editReview(String reviewId, EditReviewRequest request, Long authenticatedMemberId,
+                                String guestHandle, Long expectedVersion, String idempotencyKey) {
         if (reviewId == null || reviewId.isBlank()) {
             throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "ID đánh giá không hợp lệ.");
         }
@@ -188,19 +201,29 @@ public class ReviewApplicationService {
                 throw ReviewManagementException.forbidden("REVIEW_NOT_AUTHORIZED", "Bạn không có quyền chỉnh sửa đánh giá này.");
             }
         } else if (review.getOwnerType() == OwnerType.GUEST) {
-            if (request.getGuestHandle() == null || request.getGuestHandle().isBlank()) {
+            if (guestHandle == null || guestHandle.isBlank()) {
                 throw ReviewManagementException.unauthorized("REVIEW_NOT_AUTHORIZED", "Yêu cầu mã guestHandle hợp lệ để chỉnh sửa đánh giá khách vãng lai.");
             }
-            GuestEligibilityHandle handle = eligibilityService.validateGuestHandle(request.getGuestHandle(), review.getSourceReference());
+            GuestEligibilityHandle handle = eligibilityService.validateGuestHandle(
+                    guestHandle, review.getSourceType(), review.getSourceReference());
             if (!handle.getHandleHash().equals(review.getOwnerReference())) {
                 throw ReviewManagementException.forbidden("REVIEW_NOT_AUTHORIZED", "Mã guestHandle không khớp với chủ sở hữu đánh giá.");
             }
         }
 
         // Optimistic locking
-        if (request.getExpectedVersion() == null || !review.getVersion().equals(request.getExpectedVersion())) {
+        if (expectedVersion == null || !review.getVersion().equals(expectedVersion)) {
             throw ReviewManagementException.conflict("REVIEW_STATE_CONFLICT", "Phiên bản dữ liệu không khớp (Optimistic Lock Conflict). Vui lòng tải lại trang.");
         }
+
+        String actorScope = authenticatedMemberId != null
+                ? "MEMBER_" + authenticatedMemberId
+                : "GUEST_" + (guestHandle != null ? eligibilityService.hashHandle(guestHandle) : "ANON");
+        String requestHash = idempotencyService != null ? idempotencyService.computeHash(request) : null;
+        Optional<ReviewDto> cached = idempotencyService != null ? idempotencyService.findCompletedResponse(
+                idempotencyKey, actorScope, requestHash, ReviewDto.class) : Optional.empty();
+        if (cached.isPresent()) return cached.get();
+        if (idempotencyService != null) idempotencyService.recordPending(idempotencyKey, "EDIT_REVIEW", actorScope, requestHash);
 
         Instant now = Instant.now();
         review.setRating(request.getRating());
@@ -227,29 +250,47 @@ public class ReviewApplicationService {
         revisionRepository.save(revision);
 
         ReplyDto replyDto = replyRepository.findByReviewId(reviewId).map(this::mapToReplyDto).orElse(null);
-        return mapToReviewDto(review, replyDto);
+        ReviewDto result = mapToReviewDto(review, replyDto, true);
+        if (idempotencyService != null) idempotencyService.recordSuccess(idempotencyKey, actorScope, result);
+        return result;
     }
 
     @Transactional(readOnly = true)
-    public ReviewDto getReviewDetail(String reviewId) {
+    public ReviewDto getReviewDetail(String reviewId, CurrentAccountActor actor) {
         if (reviewId == null || reviewId.isBlank()) {
             throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "ID đánh giá không hợp lệ.");
         }
         Review review = reviewRepository.findById(reviewId.trim())
                 .orElseThrow(() -> ReviewManagementException.notFound("REVIEW_NOT_FOUND", "Không tìm thấy đánh giá với ID: " + reviewId));
 
-        ReplyDto replyDto = replyRepository.findByReviewId(reviewId).map(this::mapToReplyDto).orElse(null);
-        return mapToReviewDto(review, replyDto);
+        boolean owner = actor != null && actor.role() == ActorRole.MEMBER
+                && review.getOwnerType() == OwnerType.MEMBER
+                && String.valueOf(actor.accountId()).equals(review.getOwnerReference());
+        if (review.getStatus() != ReviewStatus.PUBLIC && !owner) {
+            throw ReviewManagementException.notFound("REVIEW_NOT_FOUND", "Không tìm thấy review.");
+        }
+        ReplyDto replyDto = replyRepository.findByReviewId(reviewId)
+                .map(reply -> mapToReplyDto(reply, owner)).orElse(null);
+        return mapToReviewDto(review, replyDto, owner);
+    }
+
+    @Deprecated
+    public ReviewDto getReviewDetail(String reviewId) {
+        return getReviewDetail(reviewId, null);
     }
 
     public ReviewDto mapToReviewDto(Review review, ReplyDto reply) {
+        return mapToReviewDto(review, reply, false);
+    }
+
+    public ReviewDto mapToReviewDto(Review review, ReplyDto reply, boolean includeOwnerData) {
         return ReviewDto.builder()
                 .id(review.getId())
-                .sourceType(review.getSourceType())
-                .sourceReference(review.getSourceReference())
+                .sourceType(includeOwnerData ? review.getSourceType() : null)
+                .sourceReference(includeOwnerData ? review.getSourceReference() : null)
                 .targetType(review.getTargetType())
                 .targetReference(review.getTargetReference())
-                .ownerType(review.getOwnerType())
+                .ownerType(includeOwnerData ? review.getOwnerType() : null)
                 .maskedDisplayName(review.getMaskedDisplayName())
                 .rating(review.getRating())
                 .bodyText(review.getBodyText())
@@ -262,11 +303,15 @@ public class ReviewApplicationService {
     }
 
     public ReplyDto mapToReplyDto(ReviewReply reply) {
+        return mapToReplyDto(reply, true);
+    }
+
+    public ReplyDto mapToReplyDto(ReviewReply reply, boolean includeTechnicalOwner) {
         return ReplyDto.builder()
                 .id(reply.getId())
                 .reviewId(reply.getReviewId())
                 .bodyText(reply.getBodyText())
-                .createdByManagerId(reply.getCreatedByManagerId())
+                .createdByManagerId(includeTechnicalOwner ? reply.getCreatedByManagerId() : null)
                 .version(reply.getVersion())
                 .createdAt(reply.getCreatedAt())
                 .updatedAt(reply.getUpdatedAt())
