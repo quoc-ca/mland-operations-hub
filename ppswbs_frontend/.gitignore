@@ -1,0 +1,6 @@
+node_modules/
+dist/
+
+.env
+ERROR-LOG.md
+RUN-PROJ-DEV.md

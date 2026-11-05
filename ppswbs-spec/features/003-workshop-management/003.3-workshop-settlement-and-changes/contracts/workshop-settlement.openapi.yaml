@@ -1,0 +1,498 @@
+openapi: 3.0.3
+info:
+  title: Mland Workshop Settlement API
+  version: 1.0.0-draft
+  description: >-
+    Direct-Mland workshop settlement contract. Internal facades between 003.1,
+    003.2 and 003.3 are not HTTP APIs. Shared VNPay ingress is documented in
+    ../../contracts/vnpay-payment-ingress.openapi.yaml. Browser return URLs never
+    settle payment.
+paths:
+  /api/v1/workshop-settlement-cases:
+    get:
+      summary: List settlement cases for Manager operations
+      description: >-
+        Returns safe settlement-case projections ordered newest first. This
+        central operations view is Manager-only because settlement cases do not
+        carry a location scope. Optional filters are exact caseType/status;
+        limit defaults to 100 and is capped at 100.
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: caseType
+          in: query
+          required: false
+          schema: {type: string}
+        - name: status
+          in: query
+          required: false
+          schema: {type: string}
+        - name: limit
+          in: query
+          required: false
+          schema: {type: integer, minimum: 1, maximum: 100, default: 100}
+      responses:
+        '200':
+          description: Safe settlement-case projections
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/SettlementCaseProjection'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/final-bill:
+    parameters:
+      - $ref: '#/components/parameters/BookingCode'
+      - $ref: '#/components/parameters/GuestContactEmail'
+      - $ref: '#/components/parameters/GuestContactPhone'
+    get:
+      summary: Read the one customer-safe final bill for a booking
+      description: >-
+        An owning Member uses bearer authentication. A Guest supplies exactly one
+        stored contact email or phone in addition to the booking code.
+      security: [{}, {bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/FinalBill'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+    post:
+      summary: Return the booking's existing direct folio (no longer creates it)
+      description: >-
+        Requires active in-scope Staff authority and Idempotency-Key. Owner
+        decision D1 (2026-11-05): the direct-booking folio is created by
+        Settlement at deposit confirmation, so this command no longer creates a
+        bill; it returns the existing folio (OPEN, FINALIZED or CLOSED). The
+        201 response is retained for compatibility until 003.3 T087 realigns
+        the implementation; a booking without a folio is a 409.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '201': {$ref: '#/components/responses/FinalBill'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/final-bill/charges:
+    parameters: [{$ref: '#/components/parameters/BookingCode'}]
+    post:
+      summary: Record a Staff-confirmed catalogue add-on or variable charge
+      description: >-
+        Member/Guest routes are read-only and cannot create charges. An active
+        Staff member in booking-location scope or any active Manager records the
+        add-on after customer consent at the workshop. The server derives the
+        catalogue price. A direct booking appends the line only to its OPEN
+        folio; a FINALIZED direct folio rejects the add-on without mutation
+        (correction only through the exceptional T040 flow). An OTA shop add-on
+        is not recorded here: it uses the separate 003.4 /ota-addon-quotes bill
+        and never mutates OTA facts.
+        Variable charge uses description, amount and reason.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChargeCommand'
+      responses:
+        '200': {$ref: '#/components/responses/FinalBill'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/final-bill/payment-attempts:
+    parameters: [{$ref: '#/components/parameters/BookingCode'}]
+    post:
+      summary: Start or return the active final-balance payment attempt
+      description: >-
+        Active Staff in the booking location or any active Manager may start the
+        attempt. The server calculates the exact outstanding VND balance; the
+        caller supplies no amount or currency. The response contains a short-lived
+        VNPay URL/QR value for the customer to pay at settlement. The URL expires
+        10 minutes after creation. A pending or unknown attempt prevents another
+        attempt; after expiry, QueryDR must confirm the prior attempt did not
+        succeed before a new attempt may be created. The URL is not logged,
+        audited, placed in an event, or stored in a notification snapshot.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '200': {$ref: '#/components/responses/FinalPaymentAttempt'}
+        '201': {$ref: '#/components/responses/FinalPaymentAttempt'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/direct-addon-bills:
+    parameters: [{$ref: '#/components/parameters/BookingCode'}]
+    post:
+      summary: Create a separate direct-Mland add-on bill after finalization
+      deprecated: true
+      description: >-
+        DEPRECATED by the 2026-11-05 open-folio policy: a FINALIZED direct folio
+        accepts no add-on, so this is not a normal add-on path. Owner decision
+        D10 (2026-11-05): the create and read operations are to be repurposed
+        by 003.3 T040 as the Manager-only post-FINALIZED folio-correction
+        resource (FR-004c: overcharge refund only, via VNPay partial refund;
+        an undercharge is absorbed by Mland and never collected); the
+        replacement route and schema are defined in T040. OTA shop add-ons are unaffected and use the 003.4
+        /ota-addon-quotes bill. Previous text:
+        Active Staff in booking-location scope or any active Manager may record
+        customer consent for a paid catalogue add-on on a direct Mland booking.
+        The original finalized bill is immutable. OTA bookings are rejected here;
+        OTA add-ons use the separate OTA connectivity contract. The operation is
+        idempotent for the same booking, catalogue item and consent reference.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DirectAddonBillCommand'}
+      responses:
+        '201': {$ref: '#/components/responses/DirectAddonBill'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/direct-addon-bills/{billReference}/payment-attempts:
+    parameters:
+      - $ref: '#/components/parameters/BookingCode'
+      - name: billReference
+        in: path
+        required: true
+        schema: {type: string}
+    post:
+      summary: Start payment for a direct-Mland add-on bill
+      deprecated: true
+      description: >-
+        DEPRECATED with the direct-addon-bills create operation (2026-11-05
+        open-folio policy). Owner decision D10: this operation is to be
+        removed by 003.3 T040, because no post-FINALIZED undercharge is
+        collected. Previous text: Creates an independent SHOP_ADDON payment attempt with a ten-minute
+        checkout URL. The bill becomes PENDING_PAYMENT and becomes PAID only
+        after verified signed IPN/QueryDR evidence. Replays with the same
+        Idempotency-Key return the existing attempt.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '201': {$ref: '#/components/responses/FinalPaymentAttempt'}
+        '200': {$ref: '#/components/responses/FinalPaymentAttempt'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/direct-addon-bills/{billReference}:
+    parameters:
+      - $ref: '#/components/parameters/BookingCode'
+      - name: billReference
+        in: path
+        required: true
+        schema: {type: string}
+      - $ref: '#/components/parameters/GuestContactEmail'
+      - $ref: '#/components/parameters/GuestContactPhone'
+    get:
+      summary: Read a customer-safe direct-Mland add-on bill
+      deprecated: true
+      description: >-
+        DEPRECATED with the direct-addon-bills create operation (2026-11-05
+        open-folio policy; to be repurposed as the folio-correction resource by 003.3 T040, decision D10). Previous text: An owning Member uses bearer authentication. A Guest supplies exactly one
+        stored contact email or phone. Staff/Manager may read only within the
+        booking location scope. No consent reference or provider credential is
+        exposed.
+      security: [{}, {bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/DirectAddonBill'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/final-bill/finalizations:
+    parameters: [{$ref: '#/components/parameters/BookingCode'}]
+    post:
+      summary: Finalize an eligible final bill
+      description: >-
+        Finalization is allowed only after valid signed payment evidence confirms
+        the complete final balance. No role can waive or defer collection.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/FinalizationCommand'}
+      responses:
+        '200': {$ref: '#/components/responses/FinalBill'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/cancellation-cases:
+    parameters: [{$ref: '#/components/parameters/BookingCode'}]
+    post:
+      summary: Open a whole-booking customer cancellation case
+      description: >-
+        An owning Member sends no proof body. A Guest sends exactly one stored
+        contact email or phone. Magic Link alone is not cancellation authority.
+      security: [{}, {bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/GuestContactProof'}
+      responses:
+        '201': {$ref: '#/components/responses/SettlementCase'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/required-session-change-cases:
+    parameters: [{$ref: '#/components/parameters/BookingCode'}]
+    post:
+      summary: Open a Manager-mediated complete required-session change case
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RequiredSessionChangeCommand'}
+      responses:
+        '201': {$ref: '#/components/responses/SettlementCase'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases:
+    parameters: [{$ref: '#/components/parameters/BookingCode'}]
+    post:
+      summary: Open a Manager remedy for an Mland-caused cancellation
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/MlandRemedyCommand'}
+      responses:
+        '201': {$ref: '#/components/responses/SettlementCase'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/cancellation-cases/{caseReference}:
+    parameters: &settlementCaseReadParameters
+      - $ref: '#/components/parameters/BookingCode'
+      - $ref: '#/components/parameters/CaseReference'
+      - $ref: '#/components/parameters/GuestContactEmail'
+      - $ref: '#/components/parameters/GuestContactPhone'
+    get: &settlementCaseReadGet
+      summary: Read a customer-safe settlement case
+      security: [{}, {bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/SettlementCase'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/required-session-change-cases/{caseReference}:
+    parameters: *settlementCaseReadParameters
+    get: *settlementCaseReadGet
+  /api/v1/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases/{caseReference}:
+    parameters: *settlementCaseReadParameters
+    get: *settlementCaseReadGet
+  /api/v1/workshop-refund-policies:
+    get:
+      summary: Read central prospective refund-policy revision history
+      description: Requires any active Manager globally.
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Central policy revisions
+          content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/RefundPolicyRevision'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+    post:
+      summary: Create a prospective refund-policy revision
+      description: Requires any active Manager globally; only future-effective values are accepted.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/RefundPolicyRevisionCommand'}}}
+      responses:
+        '201':
+          description: Created policy revision
+          content: {application/json: {schema: {$ref: '#/components/schemas/RefundPolicyRevision'}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: Firebase-ID-token}
+  parameters:
+    BookingCode: {name: bookingCode, in: path, required: true, schema: {type: string}}
+    CaseReference: {name: caseReference, in: path, required: true, schema: {type: string}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string}}
+    GuestContactEmail: {name: contactEmail, in: query, required: false, schema: {type: string, format: email}, description: Guest reads provide exactly one of contactEmail or contactPhone.}
+    GuestContactPhone: {name: contactPhone, in: query, required: false, schema: {type: string}, description: Guest reads provide exactly one of contactEmail or contactPhone.}
+  schemas:
+    GuestContactProof:
+      type: object
+      oneOf:
+        - required: [contactEmail]
+        - required: [contactPhone]
+      properties:
+        contactEmail: {type: string, format: email}
+        contactPhone: {type: string}
+    ChargeCommand:
+      oneOf:
+        - type: object
+          required: [catalogueAddOnReference]
+          properties:
+            catalogueAddOnReference: {type: string}
+          description: >-
+            Fixed catalogue add-on recorded by in-scope Staff or any active
+            Manager after workshop consent (FR-004a/FR-004b). Member and Guest
+            cannot call this command; no customer contact proof is accepted.
+        - type: object
+          required: [description, amount, reason]
+          properties:
+            description: {type: string}
+            amount: {type: integer, format: int64, minimum: 1}
+            reason: {type: string}
+          description: Internal Staff/Manager variable charge only; currency is VND.
+    RequiredSessionChangeCommand:
+      type: object
+      required: [targetRequiredSessionReferences, reason]
+      properties:
+        targetRequiredSessionReferences: {type: array, minItems: 1, items: {type: string}}
+        reason: {type: string}
+        cancellationHandoffReference: {type: string, description: Required when this is an Mland-caused replacement.}
+    FinalizationCommand:
+      type: object
+      additionalProperties: false
+      description: Empty command. Finalization has no unpaid-balance override.
+    DirectAddonBillCommand:
+      type: object
+      additionalProperties: false
+      required: [catalogueAddOnReference, customerConsentReference]
+      properties:
+        catalogueAddOnReference: {type: string, minLength: 1}
+        customerConsentReference: {type: string, minLength: 1, maxLength: 255}
+    DirectAddonBillProjection:
+      type: object
+      required: [billReference, bookingReference, addOnReference, description, amountVnd, currency, lifecycleStatus, createdAt]
+      properties:
+        billReference: {type: string}
+        bookingReference: {type: string}
+        addOnReference: {type: string}
+        description: {type: string}
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        currency: {type: string, enum: [VND]}
+        lifecycleStatus: {type: string, enum: [OPEN, PENDING_PAYMENT, PAID, EXPIRED, CANCELED]}
+        createdAt: {type: string, format: date-time}
+    MlandRemedyCommand:
+      type: object
+      required: [reason, replacementOutcome, cancellationHandoffReference]
+      properties:
+        reason: {type: string}
+        replacementOutcome: {type: string, enum: [UNAVAILABLE, DECLINED]}
+        cancellationHandoffReference: {type: string}
+    FinalBillProjection:
+      type: object
+      required: [bookingCode, status, currency, outstandingAmount]
+      properties:
+        bookingCode: {type: string}
+        status:
+          type: string
+          description: >-
+            Direct folio state per owner decision D4 (2026-11-05): OPEN,
+            FINALIZED (checkout, zero balance) or CLOSED (ordinary
+            cancellation/full no-show at the verified collected amount, or a
+            verified Mland-caused remedy refund per D11).
+        currency: {type: string, enum: [VND]}
+        outstandingAmount: {type: integer, format: int64, minimum: 0}
+        paidAmount: {type: integer, format: int64, minimum: 0}
+        refundedAmount: {type: integer, format: int64, minimum: 0}
+        charges: {type: array, items: {$ref: '#/components/schemas/CustomerVisibleCharge'}}
+    FinalPaymentAttempt:
+      type: object
+      required: [attemptReference, merchantReference, amountVnd, currency, paymentUrl, expiresAt, status]
+      properties:
+        attemptReference: {type: string}
+        merchantReference: {type: string}
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        currency: {type: string, enum: [VND]}
+        paymentUrl: {type: string, format: uri, nullable: true, description: Null after expiry or reconciliation; never log or persist in notification payloads.}
+        expiresAt: {type: string, format: date-time}
+        status: {type: string, enum: [PENDING, UNKNOWN, EXPIRED, VERIFIED_PAID, VERIFIED_UNPAID]}
+    CustomerVisibleCharge:
+      type: object
+      required: [description, amount]
+      properties:
+        description: {type: string, nullable: true, description: Null only for a legacy charge created before descriptions were retained.}
+        amount: {type: integer, format: int64, minimum: 0}
+    SettlementCaseProjection:
+      type: object
+      required: [caseReference, caseType, status, bookingCode, correlationReference]
+      properties:
+        caseReference: {type: string}
+        caseType: {type: string}
+        status: {type: string, enum: [OPEN, PENDING_PROVIDER, RESOLVED, REJECTED, FAILED]}
+        bookingCode: {type: string}
+        correlationReference: {type: string}
+        policyOrAmountOutcome: {type: string, description: Present only when authorized for that outcome.}
+    RefundPolicyRevisionCommand:
+      type: object
+      required: [effectiveAt, wholeBookingRefundPercent]
+      properties:
+        effectiveAt: {type: string, format: date-time}
+        wholeBookingRefundPercent: {type: integer, minimum: 0, maximum: 100}
+    RefundPolicyRevision:
+      allOf:
+        - $ref: '#/components/schemas/RefundPolicyRevisionCommand'
+        - type: object
+          required: [policyReference]
+          properties: {policyReference: {type: string}}
+    Problem:
+      type: object
+      required: [code, correlationReference]
+      properties:
+        code: {type: string}
+        correlationReference: {type: string}
+        fieldErrors:
+          type: array
+          description: Safe validation metadata; never includes rejected values.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: {type: string}
+              message: {type: string}
+  responses:
+    FinalBill:
+      description: Customer-safe final bill projection
+      content: {application/json: {schema: {$ref: '#/components/schemas/FinalBillProjection'}}}
+    FinalPaymentAttempt:
+      description: Short-lived final-payment checkout attempt
+      content: {application/json: {schema: {$ref: '#/components/schemas/FinalPaymentAttempt'}}}
+    DirectAddonBill:
+      description: Separate direct-Mland add-on bill
+      content: {application/json: {schema: {$ref: '#/components/schemas/DirectAddonBillProjection'}}}
+    SettlementCase:
+      description: Safe settlement case projection
+      content: {application/json: {schema: {$ref: '#/components/schemas/SettlementCaseProjection'}}}
+    Problem:
+      description: Safe typed error
+      content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
