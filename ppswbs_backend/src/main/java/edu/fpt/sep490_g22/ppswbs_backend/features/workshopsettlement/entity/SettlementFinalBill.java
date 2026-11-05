@@ -17,6 +17,8 @@ public class SettlementFinalBill {
     @Column(name="currency_code", nullable=false, length=3) private String currencyCode;
     @Column(name="lifecycle_status", nullable=false, length=24) private String lifecycleStatus;
     @Column(name="frozen_at", nullable=false, updatable=false) private Instant frozenAt;
+    /** Set once the Member Loyalty outcome for this folio is decided (granted, finished, or not applicable). */
+    @Column(name="loyalty_processed_at") private Instant loyaltyProcessedAt;
     @Column(name="created_at", nullable=false, updatable=false) private Instant createdAt;
 
     @PrePersist

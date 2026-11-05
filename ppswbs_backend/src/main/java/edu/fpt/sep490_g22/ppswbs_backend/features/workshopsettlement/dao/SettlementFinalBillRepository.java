@@ -9,6 +9,9 @@ import java.util.Optional;
 public interface SettlementFinalBillRepository extends JpaRepository<SettlementFinalBill, Long> {
  Optional<SettlementFinalBill> findByBookingReference(String bookingReference);
  java.util.List<SettlementFinalBill> findByLifecycleStatusInOrderByIdAsc(java.util.Collection<String> lifecycleStatuses);
+ /** Folios whose Member Loyalty outcome is not decided yet; decided folios are never rescanned. */
+ java.util.List<SettlementFinalBill> findByLifecycleStatusInAndLoyaltyProcessedAtIsNullOrderByIdAsc(
+         java.util.Collection<String> lifecycleStatuses);
  @Lock(LockModeType.PESSIMISTIC_WRITE)
  @Query("select b from SettlementFinalBill b where b.bookingReference = :bookingReference")
  Optional<SettlementFinalBill> findByBookingReferenceForUpdate(@Param("bookingReference") String bookingReference);
