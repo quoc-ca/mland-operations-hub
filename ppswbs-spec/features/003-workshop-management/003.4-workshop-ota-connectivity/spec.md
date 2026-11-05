@@ -1,7 +1,7 @@
 # Feature Specification: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -105,7 +105,9 @@ are evidenced.
   arrives at the Mland shop, laser engraving is included free and creates only
   a zero-charge operational record. Any other paid option needs a prior quote
   and customer acceptance at the shop, then a separate direct Mland bill with
-  no OTA price, payout, commission, or refund effect.
+  no OTA price, payout, commission, or refund effect. The paid option's price
+  comes from the active 003.2 catalogue add-on (server-derived, D17), and
+  in-scope Staff or any active Manager may handle it (D18).
 
 ## User Scenarios & Testing
 
@@ -378,6 +380,10 @@ remains separate from OTA financial facts.
 - **FR-019**: For an OTA-origin booking, laser engraving requested at the Mland
   shop MUST be included free and recorded with zero charge. Other paid options
   MUST receive a prior shop quote and customer acceptance before billing.
+  **Updated 2026-11-05 (D17/D18):** a paid option MUST be an active 003.2
+  catalogue add-on for the booking's package/location; the server derives its
+  description and price, and the actor MUST NOT supply an amount. In-scope
+  Staff or any active Manager may create, accept and bill the quote.
 - **FR-020**: The system MUST record an accepted paid add-on sold at the Mland
   shop as a separate Mland counter bill with immutable
   item/price/currency/consent/actor/payment evidence, without changing OTA

@@ -1,4 +1,4 @@
-﻿# Feature-011 Implementation Plan
+# Feature-011 Implementation Plan
 
 Date created: 2026-11-03  
 Date updated: 2026-11-05
@@ -29,7 +29,7 @@ Create validates input and source eligibility, then inserts review, first revisi
 - Source eligibility: Implemented via WorkshopAttendanceReviewPort (checking CHECKED_IN attendance tickets) and RetailFulfilmentReviewPort (checking PICKED_UP/DELIVERED retail order lines) with internal adapters.
 - Aggregate strategy: Realtime SQL query over reviews where status = 'PUBLIC'.
 - Staff global-hide permission: Confirmed Staff may hide any review globally.
-- Migration versions: `V91__review_management.sql` owns the review tables, `V92` remains owned by the workshop package migration, and `V93__review_history_retention.sql` removes destructive history cascades.
+- Migration versions: `V91__review_management.sql` owns the review tables, `V92`–`V96` remain owned by their respective features, and `V97__review_history_retention.sql` removes destructive history cascades.
 - Guest handle: Persisted in guest_eligibility_handles table, 30-minute TTL, valid for sources in that lookup session. Direct source IDs without valid handle are rejected.
 - Guest no-OTP risk acknowledged for V1 per design decision.
 - Backend contract ratified: header-based `Idempotency-Key`, required `If-Match-Version` for edit/moderation/reply edit, Guest workshop and retail eligibility, safe public projection and Admin technical/audit-only boundary.
@@ -119,7 +119,7 @@ Create validates input and source eligibility, then inserts review, first revisi
 - Source eligibility: Implemented via WorkshopAttendanceReviewPort (checking CHECKED_IN attendance tickets) and RetailFulfilmentReviewPort (checking PICKED_UP/DELIVERED retail order lines) with internal adapters.
 - Aggregate strategy: Realtime SQL query over reviews where status = 'PUBLIC'.
 - Staff global-hide permission: Confirmed Staff may hide any review globally.
-- Migration versions: `V91__review_management.sql` owns the review tables, `V92` remains owned by the workshop package migration, and `V93__review_history_retention.sql` removes destructive history cascades.
+- Migration versions: `V91__review_management.sql` owns the review tables, `V92`–`V96` remain owned by their respective features, and `V97__review_history_retention.sql` removes destructive history cascades.
 - Guest handle: Persisted in guest_eligibility_handles table, 30-minute TTL, valid for sources in that lookup session. Direct source IDs without valid handle are rejected.
 - Guest no-OTP risk acknowledged for V1 per design decision.
 

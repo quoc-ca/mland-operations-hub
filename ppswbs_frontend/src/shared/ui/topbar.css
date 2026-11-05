@@ -1,0 +1,251 @@
+/* ==========================================================================
+   MAIN TOPBAR — ATELIER LIGHT THEME
+   Figma: Page 01 · Public (Node 402:2821 / 402:2980)
+   Shared across Landing Page & All App Features (AppLayout)
+   ========================================================================== */
+
+.main-topbar-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  background-color: var(--ml-canvas, #f4f5f7);
+  padding: 12px 16px 8px;
+  box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.main-topbar {
+  width: 100%;
+  max-width: 976px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  height: 64px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 50;
+}
+
+.main-topbar-brand {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  font-family: 'Inter', sans-serif;
+  flex-shrink: 0;
+}
+
+.main-topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.main-topbar-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  text-decoration: none;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+
+.main-topbar-link:hover,
+.main-topbar-link.active {
+  color: #1a1a1a;
+}
+
+.main-topbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.main-topbar-login-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 110px;
+  height: 36px;
+  background-color: #eedc35;
+  color: #1a1a1a;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 6px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 16px;
+  transition: background-color 0.15s ease;
+  white-space: nowrap;
+}
+
+.main-topbar-login-btn:hover {
+  background-color: #d6c526;
+}
+
+/* User Account Chip with Dropdown Toggle */
+.main-topbar-user-menu-container {
+  position: relative;
+}
+
+.main-topbar-user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #f4f5f7;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  white-space: nowrap;
+}
+
+.main-topbar-user-chip:hover,
+.main-topbar-user-chip[aria-expanded="true"] {
+  border-color: #cbd5e1;
+  background-color: #eef1f5;
+}
+
+.main-topbar-role-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #1a1a1a;
+  background-color: #eedc35;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.main-topbar-caret {
+  font-size: 10px;
+  color: #6b7280;
+  margin-left: 2px;
+  transition: transform 0.2s ease;
+}
+
+.main-topbar-user-chip[aria-expanded="true"] .main-topbar-caret {
+  transform: rotate(180deg);
+}
+
+/* Dropdown Menu */
+.main-topbar-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 250px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  padding: 8px 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-topbar-dropdown-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.main-topbar-dropdown-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a1a;
+  word-break: break-word;
+}
+
+.main-topbar-dropdown-email {
+  font-size: 12px;
+  color: #6b7280;
+  word-break: break-all;
+}
+
+.main-topbar-dropdown-section-title {
+  padding: 8px 16px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.main-topbar-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a1a;
+  text-decoration: none;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+  box-sizing: border-box;
+}
+
+.main-topbar-dropdown-item:hover {
+  background-color: #f4f5f7;
+  color: #1a1a1a;
+}
+
+.main-topbar-dropdown-divider {
+  height: 1px;
+  background-color: #e5e7eb;
+  margin: 6px 0;
+}
+
+.main-topbar-dropdown-signout {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.main-topbar-dropdown-signout:hover {
+  background-color: #fef2f2;
+  color: #b91c1c;
+}
+
+@media (max-width: 768px) {
+  .main-topbar-wrapper {
+    padding: 8px 12px 0;
+  }
+
+  .main-topbar {
+    padding: 0 12px;
+  }
+
+  .main-topbar-nav {
+    display: none;
+  }
+
+  .main-topbar-login-btn {
+    min-width: 90px;
+    height: 40px;
+  }
+
+  .main-topbar-user-chip {
+    height: 40px;
+    padding: 0 10px;
+  }
+}

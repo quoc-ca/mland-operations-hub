@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useT } from '../../../../../shared/i18n/I18nProvider';
 import { ConfirmDialog, ErrorNotice } from '../../../../../shared/ui/components';
-import { useCatalogueCommand } from '../../../application/useCatalogueCommand';
-import { ACTIONS } from '../../../infrastructure/catalogueApi';
+import { ACTIONS, useCatalogueCommand } from '../../../application/useCatalogueCommand';
 import { messages } from '../../messages';
 
 /**

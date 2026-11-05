@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api.OtaChannelRequests.Money;
 import jakarta.validation.Valid;
@@ -15,9 +16,10 @@ public final class OtaAddonDtos {
 
     public record AddonQuoteRequest(
             @NotBlank @Pattern(regexp = "LASER_ENGRAVING|PAID_OPTION") String addonType,
+            @Size(max = 128) String catalogueAddOnReference,
             @Size(max = 100) String itemCode,
-            @NotBlank @Size(max = 500) String itemDescription,
-            @NotNull @Valid Money amount
+            @Size(max = 500) String itemDescription,
+            @Valid Money amount
     ) implements OtaStrictRequest {}
 
     public record AddonAcceptanceRequest(
@@ -25,6 +27,7 @@ public final class OtaAddonDtos {
             @NotBlank @Size(max = 200) String acceptanceReference
     ) implements OtaStrictRequest {}
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record AddonQuoteResponse(
             String quoteId,
             String channelBookingId,
@@ -40,4 +43,3 @@ public final class OtaAddonDtos {
             String correlationId
     ) {}
 }
-

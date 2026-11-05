@@ -1,4 +1,4 @@
-﻿# Feature-011 — Review Management Specification
+# Feature-011 — Review Management Specification
 
 Date created: 2026-11-03  
 Date updated: 2026-11-05
@@ -193,7 +193,7 @@ must not be disclosed in error responses.
 - Identical idempotent retry returns the original result; changed payload under the same key returns `409`.
 - Concurrent create commands for one source commit at most one review.
 - Realtime aggregate returns only `PUBLIC` rows and excludes `HIDDEN`/`REMOVED` rows.
-- Migration verification covers clean database, upgrade database, rerun and duplicate-version detection through the current `V92` repository baseline and Feature-011 retention correction `V93`.
+- Migration verification covers clean database, upgrade database, rerun and duplicate-version detection through the current repository baseline `V92`–`V96` and Feature-011 retention correction `V97`.
 
 ## 13. Frontend boundary and implementation handoff
 

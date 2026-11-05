@@ -10,6 +10,7 @@ import {
 import { useAuth } from '../shared/auth/AuthProvider';
 import { useHttp } from '../shared/api/useHttp';
 import { classifyPaymentCommandError } from '../shared/payment/paymentRecoveryState';
+import './figmaPublicShell.css';
 
 export function WorkshopLookupPage() {
   const { status: authStatus, getIdToken } = useAuth();
@@ -41,7 +42,7 @@ export function WorkshopLookupPage() {
       .catch(error => {
         if (!active) return;
         setAccountProfile(null);
-        setProfileError(error?.message || 'KhÃ´ng thá»ƒ táº£i há»“ sÆ¡ Member.');
+        setProfileError(error?.message || 'Không thể tải hồ sơ Member.');
       })
       .finally(() => {
         if (active) setProfileLoading(false);
@@ -101,12 +102,12 @@ export function WorkshopLookupPage() {
     try {
       let result;
       if (lookupMode === null) {
-        setError('KhÃ´ng thá»ƒ xÃ¡c minh vai trÃ² tÃ i khoáº£n Ä‘á»ƒ tra cá»©u booking.');
+        setError('Không thể xác minh vai trò tài khoản để tra cứu booking.');
         return;
       }
       if (lookupMode === 'MEMBER') {
         const idToken = await getIdToken();
-        if (!idToken) throw new Error('PhiÃªn Ä‘Äƒng nháº­p Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i.');
+        if (!idToken) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
         result = await lookupMemberBooking(bookingCode.trim(), { authorization: `Bearer ${idToken}` });
       } else {
         const hasEmail = Boolean(contactEmail.trim());
@@ -236,25 +237,25 @@ export function WorkshopLookupPage() {
   };
 
   return (
-    <main className="container public-page">
+    <main className="public-page figma-public-page">
       <p className="eyebrow">TRA CỨU & QUẢN LÝ ĐẶT CHỖ</p>
       <h1>Tra cứu đơn đặt Workshop</h1>
 
       <div role="status" style={{ marginTop: '20px', marginBottom: '24px', padding: '12px 16px', border: '1px solid #dcdfe6', background: '#f8fafc', color: '#002967' }}>
         {authStatus === 'loading' || profileLoading
-          ? 'Äang xÃ¡c Ä‘á»‹nh thÃ´ng tin tÃ i khoáº£n...'
+          ? 'Đang xác định thông tin tài khoản...'
           : lookupMode === 'MEMBER'
-            ? 'Tra cá»©u theo booking thuá»™c tÃ i khoáº£n Member Ä‘ang Ä‘Äƒng nháº­p.'
+            ? 'Tra cứu theo booking thuộc tài khoản Member đang đăng nhập.'
             : lookupMode === 'GUEST'
-              ? 'Tra cá»©u Guest báº±ng mÃ£ Ä‘áº·t chá»— vÃ  má»™t thÃ´ng tin liÃªn há»‡.'
-              : 'KhÃ´ng thá»ƒ xÃ¡c minh vai trÃ² tÃ i khoáº£n.'}
+              ? 'Tra cứu Guest bằng mã đặt chỗ và một thông tin liên hệ.'
+              : 'Không thể xác minh vai trò tài khoản.'}
       </div>
       {lookupMode === null && authStatus === 'signed-in' && (
-        <p style={{ color: '#b00', marginBottom: '16px' }}>{profileError || 'TÃ i khoáº£n hiá»‡n táº¡i khÃ´ng cÃ³ vai trÃ² Member Ä‘á»ƒ tra cá»©u booking.'}</p>
+        <p style={{ color: '#b00', marginBottom: '16px' }}>{profileError || 'Tài khoản hiện tại không có vai trò Member để tra cứu booking.'}</p>
       )}
 
       {/* Lookup Form */}
-      <section className="workspace-card" style={{ maxWidth: '640px' }}>
+      <section className="workspace-card lookup-panel">
         <form onSubmit={handleLookup}>
           <fieldset disabled={authStatus === 'loading' || profileLoading || lookupMode === null} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
           <label style={{ display: 'block', marginBottom: '14px' }}>

@@ -43,6 +43,7 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final AttendanceTicketService attendanceTicketService;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.BookingAttendanceOutcomeService bookingAttendanceOutcomeService;
     private final WorkshopAddOnService addOnService;
 
     @Override
@@ -239,6 +240,13 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
         boolean correctionClosed = AttendanceCorrectionWindowPolicy.isClosed(finalizedAt, Instant.now());
         boolean hasNoShow = entitlements.stream().anyMatch(item -> item.getAttendanceState() == AttendanceState.NO_SHOW);
         return new SettlementReadiness(true, correctionClosed, hasNoShow, lastFinalizedAt);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BookingAttendanceOutcome getBookingAttendanceOutcome(BookingAttendanceOutcomeQuery query) {
+        if (query == null) return BookingAttendanceOutcome.pending();
+        return bookingAttendanceOutcomeService.evaluate(query.bookingReference(), Instant.now()).outcome();
     }
 
     @Override

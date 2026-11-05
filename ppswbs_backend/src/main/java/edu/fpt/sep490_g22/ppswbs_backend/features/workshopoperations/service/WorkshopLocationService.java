@@ -24,6 +24,7 @@ public class WorkshopLocationService {
     private final WorkshopLocationRepository locationRepository;
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final AccountFacade accountFacade;
+    private final WorkshopVisibleLocationPolicy visibleLocationPolicy;
 
     @Transactional(readOnly = true)
     public List<LocationResponse> listLocations(String authHeader) {
@@ -47,8 +48,13 @@ public class WorkshopLocationService {
         }
 
         return locations.stream()
+                .filter(location -> isVisibleLocation(location.getId()))
                 .map(this::toLocationResponse)
                 .toList();
+    }
+
+    private boolean isVisibleLocation(Long locationId) {
+        return visibleLocationPolicy == null || visibleLocationPolicy.allows(locationId);
     }
 
     @Transactional

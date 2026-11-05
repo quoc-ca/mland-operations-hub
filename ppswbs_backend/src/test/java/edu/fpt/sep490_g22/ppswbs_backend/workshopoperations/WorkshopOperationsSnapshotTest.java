@@ -49,6 +49,7 @@ class WorkshopOperationsSnapshotTest {
             mock(AttendanceTicketService.class),
             mock(WorkshopOtaSnapshotService.class),
             packagePolicy,
+            mock(BookingAttendanceOutcomeService.class),
             mock(WorkshopAddOnService.class));
 
     @Test

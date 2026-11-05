@@ -1,105 +1,32 @@
 import React from 'react';
-import { Link, Outlet, useLocation } from 'react-router';
-import { useAuth } from '../shared/auth/AuthProvider';
-import { useT } from '../shared/i18n/I18nProvider';
-import { LanguageSwitch } from '../shared/ui/components';
-import { sharedMessages } from '../shared/ui/messages';
-
-const appMessages = {
-  vi: {
-    home: 'Trang chủ',
-    products: 'Sản phẩm',
-    profile: 'Hồ sơ cá nhân',
-    workshops: 'Workshop',
-    promotions: 'Ưu đãi',
-    loyalty: 'Điểm của tôi',
-    management: 'Quản trị sản phẩm',
-    promotionManagement: 'Quản lý ưu đãi',
-    otaChannels: 'Kênh OTA',
-    otaReconciliation: 'Đối soát OTA',
-    aiSupport: 'Trợ lý AI',
-    designWorkspace: 'Thiết kế AI',
-    reviews: 'Đánh giá',
-    reviewModeration: 'Kiểm duyệt đánh giá',
-    nav: 'Điều hướng chính',
-  },
-  en: {
-    home: 'Home',
-    products: 'Products',
-    profile: 'Personal Profile',
-    workshops: 'Workshops',
-    promotions: 'Offers',
-    loyalty: 'My points',
-    management: 'Catalogue management',
-    promotionManagement: 'Offer management',
-    otaChannels: 'OTA Channels',
-    otaReconciliation: 'OTA Reconciliation',
-    otaFinance: 'OTA Finance',
-    otaAddons: 'Shop add-ons',
-    aiSupport: 'AI Support',
-    designWorkspace: 'AI Design',
-    reviews: 'Reviews',
-    reviewModeration: 'Review Moderation',
-    nav: 'Main navigation',
-  },
-};
+import { Outlet, useLocation } from 'react-router';
+import MainTopbar from '../shared/ui/MainTopbar';
 
 /** Header and footer for production-oriented feature routes. */
 export default function AppLayout() {
   const location = useLocation();
-  const t = useT(appMessages);
-  const tShared = useT(sharedMessages);
-  const { status, signOut } = useAuth();
-  if (['/sign-in', '/login', '/register', '/forgot-password'].includes(location.pathname)) return <Outlet />;
+
+  const isAuthPage = ['/sign-in', '/login', '/register', '/forgot-password'].includes(location.pathname);
+  const isOperationsWorkspace =
+    location.pathname.startsWith('/operations') ||
+    location.pathname.startsWith('/ota-connectivity') ||
+    location.pathname.startsWith('/settlement') ||
+    location.pathname.startsWith('/workshop-packages');
+
+  if (isAuthPage || isOperationsWorkspace) {
+    return <Outlet />;
+  }
+
   return (
     <>
-      <header className="app-header">
-        <a className="brand" href="/">MLAND</a>
-        <nav aria-label={t('nav')}>
-          <Link to="/products">{t('products')}</Link>
-          <Link to="/profile">{t('profile')}</Link>
-          <Link to="/member/cart">Giỏ hàng</Link>
-          <Link to="/workshops">{t('workshops')}</Link>
-          <Link to="/promotions">{t('promotions')}</Link>
-          <Link to="/me/loyalty">{t('loyalty')}</Link>
-          <Link to="/ai-support">{t('aiSupport')}</Link>
-          <Link to="/design-requests/new">{t('designWorkspace')}</Link>
-          <Link to="/reviews">{t('reviews')}</Link>
-          <Link to="/review-moderation">{t('reviewModeration')}</Link>
-          <Link to="/catalogue-management/products">{t('management')}</Link>
-          <Link to="/promotion-management/programs">{t('promotionManagement')}</Link>
-          <Link to="/ota-connectivity/channels">{t('otaChannels')}</Link>
-          <Link to="/ota-connectivity/reconciliation">{t('otaReconciliation')}</Link>
-          <Link to="/ota-connectivity/finance">{t('otaFinance')}</Link>
-          <Link to="/ota-connectivity/add-ons">{t('otaAddons')}</Link>
-          <Link to="/operations/sessions">Operations</Link>
-          <Link to="/operations/packages">Workshop packages</Link>
-          <Link to="/settlement">Settlement</Link>
-        </nav>
-        <div className="header-tools">
-          <LanguageSwitch />
-          {status === 'signed-in' ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Link
-                to="/profile"
-                className="button outline small"
-                style={{ textDecoration: 'none' }}
-              >
-                {t('profile')}
-              </Link>
-              <button type="button" className="button outline small" onClick={signOut}>
-                {tShared('session.signOut')}
-              </button>
-            </div>
-          ) : (
-            <a className="header-login" href="/login">
-              {tShared('session.signIn')}
-            </a>
-          )}
-        </div>
-      </header>
+      <MainTopbar />
       <Outlet />
-      <footer><div className="container footer-inner"><strong>MLAND</strong><span>© MLAND</span></div></footer>
+      <footer>
+        <div className="container footer-inner">
+          <strong>MLAND</strong>
+          <span>© MLAND Operations Hub</span>
+        </div>
+      </footer>
     </>
   );
 }

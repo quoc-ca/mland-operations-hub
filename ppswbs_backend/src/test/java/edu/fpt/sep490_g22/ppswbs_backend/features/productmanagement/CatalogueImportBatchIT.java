@@ -1,10 +1,12 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.CatalogueAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductImportBatchRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductReviewRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ProductImportDtos;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.CatalogueAuditEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Product;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductImportBatch;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
@@ -61,6 +63,51 @@ class CatalogueImportBatchIT {
     @Autowired private ProductVariantRepository variants;
     @Autowired private ProductReviewRepository reviews;
     @Autowired private TransactionTemplate transaction;
+    @Autowired private CatalogueAuditRepository audits;
+
+    @Test
+    void importAuditNamesTheFileAndCountsProductsAndSizes() {
+        String category = fixture.category(fixture.activeCategory()).getName();
+        byte[] file = xlsx(row("A", "Nhẫn A", "Mô tả A", category, 5, "150000", 2),
+                row("A", "Nhẫn A", "Mô tả A", category, 7, "160000", 0),
+                row("B", "Nhẫn B", "Mô tả B", category, 12, "200000", 1));
+        String batchId = imports.validate(STAFF, UUID.randomUUID(), "  lo-thang-11.xlsx ", file).resourceId();
+        long version = imports.get(STAFF, batchId).version();
+        imports.confirm(STAFF, UUID.randomUUID(), batchId, version);
+
+        List<CatalogueAuditEvent> events = transaction.execute(status -> audits
+                .findByResourceTypeAndResourceIdOrderByOccurredAtAscIdAsc("import-batch", batchId));
+        assertThat(events).extracting(CatalogueAuditEvent::getAction)
+                .containsExactly(ProductImportService.VALIDATE_ACTION, ProductImportService.CONFIRM_ACTION);
+        assertThat(events).allSatisfy(event -> {
+            assertThat(event.getOutcome()).isEqualTo(CatalogueAuditEvent.Outcome.SUCCESS);
+            assertThat(event.getSafeChanges()).containsEntry("fileName", "lo-thang-11.xlsx")
+                    .containsEntry("rowCount", 3).containsEntry("productCount", 2).containsEntry("variantCount", 3);
+            assertThat(event.getSafeChanges().toString()).doesNotContain("Nhẫn A", "150000");
+        });
+        assertThat(events.get(1).getSafeChanges()).containsKey("productIds");
+    }
+
+    @Test
+    void aFileRefusedBeforeAnyBatchIsAuditedAsRejected() {
+        UUID key = UUID.randomUUID();
+        long batchesBefore = transaction.execute(status -> batches.count());
+
+        assertCode(() -> imports.validate(STAFF, key, "bang-gia.xlsx", "not a workbook".getBytes()),
+                CatalogueErrorCode.IMPORT_FILE_INVALID);
+
+        List<CatalogueAuditEvent> events = transaction.execute(status -> audits
+                .findByResourceTypeAndResourceIdOrderByOccurredAtAscIdAsc("import-file", key.toString()));
+        assertThat(events).singleElement().satisfies(event -> {
+            assertThat(event.getOutcome()).isEqualTo(CatalogueAuditEvent.Outcome.REJECTED);
+            assertThat(event.getActorId()).isEqualTo(STAFF);
+            assertThat(event.getAction()).isEqualTo(ProductImportService.VALIDATE_ACTION);
+            assertThat(event.getSafeChanges()).containsEntry("code", "IMPORT_FILE_INVALID")
+                    .containsEntry("fileName", "bang-gia.xlsx").containsEntry("byteCount", 14);
+        });
+        Long batchesAfter = transaction.execute(status -> batches.count());
+        assertThat(batchesAfter).isEqualTo(batchesBefore);
+    }
 
     @Test
     void validThenConfirmedCreatesEveryGroupAsADraftInOneStep() {

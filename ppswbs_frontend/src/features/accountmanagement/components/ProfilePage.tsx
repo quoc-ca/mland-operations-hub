@@ -229,6 +229,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   return (
     <div className="account-page-container">
+      {/* Back button matching Figma */}
+      <div>
+        <Link to="/" className="account-back-btn">
+          ← Quay lại trang chủ
+        </Link>
+      </div>
+
       <header className="account-page-header">
         <h1 className="account-page-title">Hồ sơ cá nhân & Bảo mật</h1>
         <p className="account-page-description">

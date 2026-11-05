@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("T046: Authorization and Settlement-Facade Contract for OTA Add-on Bill")
+@DisplayName("T046/T055: Authorization and Settlement-Facade Contract for OTA Add-on Bill")
 class OtaAddonSettlementContractTest {
 
     @Mock private AccountFacade accountFacade;
@@ -40,7 +40,7 @@ class OtaAddonSettlementContractTest {
     }
 
     @Nested
-    @DisplayName("Authorization: Staff location-scoped authority")
+    @DisplayName("Authorization: Staff location-scoped authority and Manager global authority (D18)")
     class AuthorizationTests {
 
         @Test
@@ -50,7 +50,7 @@ class OtaAddonSettlementContractTest {
             when(accountFacade.resolveAccount("staff-1")).thenReturn(Optional.of(staff));
             when(accountFacade.getLocationScope(101L)).thenReturn(List.of(1001L, 1002L));
 
-            AccountSummary result = authorizationService.requireStaffLocation("Bearer test-uid:staff-1", 1001L);
+            AccountSummary result = authorizationService.requireStaffOrManagerLocation("Bearer test-uid:staff-1", 1001L);
 
             assertThat(result).isNotNull();
             assertThat(result.accountId()).isEqualTo(101L);
@@ -64,20 +64,33 @@ class OtaAddonSettlementContractTest {
             when(accountFacade.resolveAccount("staff-1")).thenReturn(Optional.of(staff));
             when(accountFacade.getLocationScope(101L)).thenReturn(List.of(1001L));
 
-            assertThatThrownBy(() -> authorizationService.requireStaffLocation("Bearer test-uid:staff-1", 9999L))
+            assertThatThrownBy(() -> authorizationService.requireStaffOrManagerLocation("Bearer test-uid:staff-1", 9999L))
                     .isInstanceOf(OtaLocationScopeException.class)
                     .hasMessageContaining("outside the Staff member's active location scope");
         }
 
         @Test
-        @DisplayName("Non-staff role (e.g. Member) is rejected with OtaForbiddenException")
-        void nonStaffRole_isForbidden() {
+        @DisplayName("Active Manager has global location authority and is authorized without location check (D18)")
+        void activeManager_hasGlobalScope_isAuthorized() {
+            AccountSummary manager = new AccountSummary(301L, ActorRole.MANAGER, ActorStatus.ACTIVE, "manager@mland.test", Instant.now(), Instant.now());
+            when(accountFacade.resolveAccount("manager-1")).thenReturn(Optional.of(manager));
+
+            AccountSummary result = authorizationService.requireStaffOrManagerLocation("Bearer test-uid:manager-1", 9999L);
+
+            assertThat(result).isNotNull();
+            assertThat(result.accountId()).isEqualTo(301L);
+            assertThat(result.role()).isEqualTo(ActorRole.MANAGER);
+        }
+
+        @Test
+        @DisplayName("Non-staff and non-manager role (e.g. Member) is rejected with OtaForbiddenException")
+        void nonStaffNonManagerRole_isForbidden() {
             AccountSummary member = new AccountSummary(202L, ActorRole.MEMBER, ActorStatus.ACTIVE, "member@mland.test", Instant.now(), Instant.now());
             when(accountFacade.resolveAccount("member-1")).thenReturn(Optional.of(member));
 
-            assertThatThrownBy(() -> authorizationService.requireStaffLocation("Bearer test-uid:member-1", 1001L))
+            assertThatThrownBy(() -> authorizationService.requireStaffOrManagerLocation("Bearer test-uid:member-1", 1001L))
                     .isInstanceOf(OtaForbiddenException.class)
-                    .hasMessageContaining("requires an active Staff account");
+                    .hasMessageContaining("requires an active Staff or Manager account");
         }
     }
 

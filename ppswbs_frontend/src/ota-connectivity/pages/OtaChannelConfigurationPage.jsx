@@ -3,6 +3,8 @@ import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useOtaConnectivityApi } from '../api/useOtaConnectivityApi';
 import { Loading, ErrorNotice, SuccessNotice } from '../../shared/ui/components';
+import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
+import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { MappingModal } from '../components/MappingModal';
 import { PriceTermsModal } from '../components/PriceTermsModal';
 import { BookingEnableModal } from '../components/BookingEnableModal';
@@ -125,18 +127,19 @@ export default function OtaChannelConfigurationPage() {
 
   if (authStatus !== 'signed-in') {
     return (
-      <div className="ota-container">
-        <div className="empty-state" role="status">
-          <p>Authentication required to access OTA Channel Configuration.</p>
-          <a className="button primary" href="/login">Sign In</a>
-        </div>
-      </div>
+      <OperationsAuthWorkspace
+        topline="MLAND / OTA CONNECTIVITY"
+        message="Authentication required to access OTA Channel Configuration."
+      />
     );
   }
 
   return (
-    <div className="ota-container">
-      <div className="ota-header">
+    <div className="ota-workspace">
+      <OperationsSidebar />
+      <main className="ota-main">
+        <div className="ota-topline">MLAND / OTA CONNECTIVITY <span>● Authoritative sync</span></div>
+        <div className="ota-header" style={{ marginTop: '24px' }}>
         <div>
           <h1>OTA Channel Configuration</h1>
           <p className="small muted">
@@ -309,6 +312,7 @@ export default function OtaChannelConfigurationPage() {
           onSave={handleBookingEnable}
         />
       )}
+      </main>
     </div>
   );
 }

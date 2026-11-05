@@ -71,7 +71,7 @@ export const AdminAccountDetailPage: React.FC = () => {
     return (
       <div className="account-page-container">
         <div className="account-card">
-          <p>Đang tải thông tin tài khoản #{accountId}…</p>
+          <p style={{ color: '#6b717f' }}>Đang tải thông tin tài khoản #{accountId}…</p>
         </div>
       </div>
     );
@@ -164,12 +164,12 @@ export const AdminAccountDetailPage: React.FC = () => {
   };
 
   const handleSuspendConfirm = async () => {
-    setSuspendError(null);
     if (!suspendReason.trim()) {
-      setSuspendError('Vui lòng nhập lý do tạm khóa.');
+      setSuspendError('Lý do tạm khóa là bắt buộc.');
       return;
     }
 
+    setSuspendError(null);
     setActionPending(true);
     try {
       const result = await suspendAccount(
@@ -178,12 +178,16 @@ export const AdminAccountDetailPage: React.FC = () => {
         selectedAccount.version
       );
       if (result) {
-        setStatusActionSuccess('Đã tạm khóa tài khoản. Quyền truy cập bị vô hiệu hóa ngay lập tức.');
         setShowSuspendModal(false);
         setSuspendReason('');
+        setStatusActionSuccess('Tài khoản đã được chuyển sang trạng thái tạm khóa (SUSPENDED).');
       }
     } catch (err: any) {
-      setSuspendError(err?.message || 'Không thể tạm khóa tài khoản.');
+      if (err instanceof ApiError && err.status === 409) {
+        setSuspendError('Xung đột phiên bản: thông tin tài khoản đã thay đổi. Vui lòng thử lại.');
+      } else {
+        setSuspendError(err?.message || 'Lỗi khi tạm khóa tài khoản.');
+      }
     } finally {
       setActionPending(false);
     }
@@ -193,9 +197,9 @@ export const AdminAccountDetailPage: React.FC = () => {
     setStatusActionSuccess(null);
     setActionPending(true);
     try {
-      const result = await restoreAccount(selectedAccount.accountId);
+      const result = await restoreAccount(selectedAccount.accountId, selectedAccount.version);
       if (result) {
-        setStatusActionSuccess('Đã khôi phục tài khoản thành công. Người dùng cần đăng nhập lại để tiếp tục.');
+        setStatusActionSuccess('Khôi phục tài khoản thành công. Người dùng cần đăng nhập lại.');
       }
     } catch (err: any) {
       if (err instanceof ApiError && err.status === 409) {
@@ -226,20 +230,31 @@ export const AdminAccountDetailPage: React.FC = () => {
 
   return (
     <div className="account-page-container">
-      <div style={{ marginBottom: '1rem' }}>
-        <Link to="/admin/accounts" style={{ color: '#2563eb', textDecoration: 'none', fontSize: '0.9rem' }}>
+      {/* Back button matching Figma */}
+      <div>
+        <Link to="/admin/accounts" className="account-back-btn">
           ← Quay lại danh sách tài khoản
         </Link>
       </div>
 
+      {/* Admin Navigation Tabs (Figma F08-F11) */}
+      <nav className="admin-nav-tabs" aria-label="Admin Navigation">
+        <Link to="/admin/accounts" className="admin-nav-tab active">
+          Tài khoản
+        </Link>
+        <Link to="/admin/roles" className="admin-nav-tab">
+          Vai trò
+        </Link>
+      </nav>
+
       <header className="account-page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 className="account-page-title">
-              Tài khoản #{selectedAccount.accountId}
+              {selectedAccount.profile?.fullName ? `${selectedAccount.profile.fullName} · ACC-${selectedAccount.accountId}` : `Tài khoản #ACC-${selectedAccount.accountId}`}
             </h1>
             <p className="account-page-description">
-              Định danh: <strong>{selectedAccount.loginEmail}</strong>
+              Định danh đăng nhập: <strong>{selectedAccount.loginEmail}</strong>
             </p>
           </div>
           <div>
@@ -252,7 +267,7 @@ export const AdminAccountDetailPage: React.FC = () => {
                   : 'account-badge-suspended'
               }`}
             >
-              {selectedAccount.status}
+              {selectedAccount.status === 'ACTIVE' ? 'ACTIVE · Đang hoạt động' : selectedAccount.status === 'PENDING_SETUP' ? 'PENDING_SETUP · Chờ kích hoạt' : 'SUSPENDED · Đã đình chỉ'}
             </span>
           </div>
         </div>
@@ -336,12 +351,12 @@ export const AdminAccountDetailPage: React.FC = () => {
               disabled={actionPending || isRevocationPending}
               title={isRevocationPending ? 'Chưa thể khôi phục trong khi Firebase đang xử lý thu hồi phiên' : undefined}
             >
-              Khôi phục tài khoản (Restore)
+              Khôi phục tài khoản
             </button>
           )}
 
           {isAdminAccount && (
-            <span style={{ fontSize: '0.85rem', color: '#6b7280', alignSelf: 'center' }}>
+            <span style={{ fontSize: '0.85rem', color: '#6b717f', alignSelf: 'center' }}>
               * Tài khoản ADMIN được bảo vệ, không thể tạm khóa hoặc chỉnh sửa trực tiếp.
             </span>
           )}
@@ -513,58 +528,52 @@ export const AdminAccountDetailPage: React.FC = () => {
           role="dialog"
           aria-modal="true"
           aria-labelledby="suspend-modal-title"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
+          className="account-modal-overlay"
         >
-          <div
-            style={{
-              backgroundColor: '#ffffff',
-              padding: '1.5rem',
-              borderRadius: '4px',
-              maxWidth: '480px',
-              width: '90%',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            }}
-          >
-            <h3 id="suspend-modal-title" style={{ marginTop: 0, color: '#dc2626' }}>
-              Xác nhận tạm khóa tài khoản
-            </h3>
-            <p style={{ fontSize: '0.9rem', color: '#4b5563' }}>
-              Tài khoản bị tạm khóa sẽ bị từ chối mọi yêu cầu bảo vệ ngay lập tức qua Identity Gate.
-              Phiên làm việc Firebase sẽ được thu hồi tuần tự.
-            </p>
-
-            {suspendError && (
-              <div className="account-alert account-alert-error" role="alert">
-                <span>{suspendError}</span>
-              </div>
-            )}
-
-            <div className="account-field" style={{ marginBottom: '1rem' }}>
-              <label className="account-label account-label-required" htmlFor="suspend-reason">
-                Lý do tạm khóa
-              </label>
-              <textarea
-                id="suspend-reason"
-                className="account-textarea"
-                rows={3}
-                value={suspendReason}
-                onChange={e => setSuspendReason(e.target.value)}
-                placeholder="Nhập lý do nghiệp vụ hoặc bảo mật…"
-              />
+          <div className="account-modal-container account-modal-sm">
+            <div className="account-modal-header">
+              <h3 id="suspend-modal-title" className="account-modal-title" style={{ color: '#dc2626' }}>
+                Xác nhận tạm khóa tài khoản
+              </h3>
+              <button
+                type="button"
+                className="account-modal-close-btn"
+                onClick={() => {
+                  setShowSuspendModal(false);
+                  setSuspendError(null);
+                }}
+              >
+                ✕
+              </button>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+            <div className="account-modal-body">
+              <p style={{ fontSize: '0.9rem', color: '#6b717f', marginTop: 0 }}>
+                Sau khi xác nhận, tài khoản chuyển sang SUSPENDED và bị thu hồi phiên đăng nhập. Người dùng sẽ không thể tiếp tục truy cập.
+              </p>
+
+              {suspendError && (
+                <div className="account-alert account-alert-error" role="alert">
+                  <span>{suspendError}</span>
+                </div>
+              )}
+
+              <div className="account-field" style={{ marginBottom: '1rem' }}>
+                <label className="account-label account-label-required" htmlFor="suspend-reason">
+                  Lý do tạm khóa
+                </label>
+                <textarea
+                  id="suspend-reason"
+                  className="account-textarea"
+                  rows={3}
+                  value={suspendReason}
+                  onChange={e => setSuspendReason(e.target.value)}
+                  placeholder="Nhập lý do nghiệp vụ hoặc bảo mật…"
+                />
+              </div>
+            </div>
+
+            <div className="account-modal-footer">
               <button
                 type="button"
                 className="account-btn account-btn-secondary"
@@ -593,4 +602,3 @@ export const AdminAccountDetailPage: React.FC = () => {
 };
 
 export default AdminAccountDetailPage;
-

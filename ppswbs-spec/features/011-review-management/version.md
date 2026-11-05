@@ -5,7 +5,7 @@
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-03
 - **Date updated**: 2026-11-06
-- **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V91__review_management.sql`, `V93__review_history_retention.sql`, OpenAPI contract (`review-management.openapi.yaml`) and synchronized project specifications
+- **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V91__review_management.sql`, `V97__review_history_retention.sql`, OpenAPI contract (`review-management.openapi.yaml`) and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
 > the Feature-011 artifacts and source code. Phase labels are retained for
@@ -231,7 +231,7 @@ Qua quá trình rà soát toàn diện mã nguồn Backend Feature 011 và đố
 
 - Review `ON DELETE CASCADE` on `review_revisions`, `review_replies` and `review_moderation_events`. The approved business-history policy requires audit/revision/reply history to survive normal review removal; migration behavior must be changed or explicitly approved before production.
 - Run Flyway validation against a clean MySQL database and an existing database containing migrations through `V92`.
-- Verify `V91`/`V93` upgrade, rerun behavior, schema constraints, indexes and `flyway_schema_history`.
+- Verify `V91`/`V97` upgrade, rerun behavior, schema constraints, indexes and `flyway_schema_history`.
 - Add a recovery plan for partial migration failure; do not use checksum repair, `baseline` or `outOfOrder` to conceal version conflicts.
 
 ### Giai đoạn 4 — Verification and release readiness
@@ -262,7 +262,7 @@ Qua quá trình rà soát toàn diện mã nguồn Backend Feature 011 và đố
 3. **Business-permission verification pending:** Admin denial and Staff/Manager boundaries require controller/integration tests.
 4. **Eligibility verification pending:** Guest retail review is implemented through the fulfilment adapter but requires database-backed contact matching tests.
 5. **Privacy verification pending:** Public/owner/moderation projections require response-shape tests.
-6. **Retention verification pending:** `V93` replaces the historical cascade constraints but requires clean/upgrade Flyway execution.
+6. **Retention verification pending:** `V97` replaces the historical cascade constraints but requires clean/upgrade Flyway execution.
 7. **Evidence status:** The 21 test cases are present and previously reported, but no new pass result is claimed from the current Java 17 environment.
 8. **Migration status:** Feature-011 was renamed from `V89` to `V91` after merging `develop`, which already contains `V89` and `V90` migrations. Clean-install and existing-database validation remain outstanding.
 
@@ -449,7 +449,7 @@ version headers. Backend remains authoritative.
 
 The backend contract-alignment implementation is now present for header-based
 idempotency/version inputs, Guest retail eligibility, owner-safe public detail,
-Admin denial, 2,000-character validation and `V93` history-retention repair.
+Admin denial, 2,000-character validation and `V97` history-retention repair.
 Fresh verification remains pending because Maven Wrapper execution is blocked in
 the current environment and JDK 21 is required.
 
@@ -465,7 +465,7 @@ Completed in this update:
 6. Restricted Staff to hide, Manager to moderate/reply, and Admin from business moderation/reply endpoints.
 7. Added owner-safe/public projection behavior and removed technical owner identifiers from public replies.
 8. Added conflict-of-interest checks for moderation and Manager replies.
-9. Added `V93__review_history_retention.sql` to replace destructive history cascades with `RESTRICT`.
+9. Added `V97__review_history_retention.sql` (renumbered from V93 to resolve sequence conflict with develop V93-V96) to replace destructive history cascades with `RESTRICT`.
 10. Updated Feature-011 OpenAPI to version `1.0.0`, status `approved`, and synchronized `APIs.md`, `spec.md`, `data-model.md`, `plan.md`, `tasks.md`, `research.md` and `DB.md`.
 
 Remaining verification tasks:
@@ -473,5 +473,5 @@ Remaining verification tasks:
 - Run backend compile and all Feature-011 tests under JDK 21.
 - Execute the updated unit/MockMvc tests for the header contract and Guest retail path.
 - Run OpenAPI validation against controller behavior.
-- Run Flyway clean-install, upgrade, rerun and `flyway validate()` checks through `V93`.
-- Confirm the live `flyway_schema_history` contains no conflicting `V91` or `V93` record before applying migrations.
+- Run Flyway clean-install, upgrade, rerun and `flyway validate()` checks through `V97`.
+- Confirm the live `flyway_schema_history` contains no conflicting `V91` or `V97` record before applying migrations.

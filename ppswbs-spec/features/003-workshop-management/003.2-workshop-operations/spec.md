@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-02
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -274,10 +274,13 @@ perform refunds or connect directly to external OTAs.
   `ATTENDANCE_FINALIZED`. It is false while any required session is not
   finalized, including when it is cancelled. The result includes no individual
   attendance, ticket, Staff, audit or PII detail; 003.3 must not infer it from
-  scheduled end time or calculate it from per-session states. It also reports
-  whether the 24-hour attendance-correction window has closed and whether any
-  required ticket is `NO_SHOW`; Settlement emits a terminal Loyalty outcome
-  only after the correction window closes.
+  scheduled end time or calculate it from per-session states. **Superseded
+  2026-11-05 (D2/D3/D6):** readiness carries only `ready`; the terminal
+  attendance outcome (24-hour correction window closed, `ATTENDED`/`NO_SHOW`/
+  `PARTIAL`) is exposed by `BookingAttendanceOutcomeQuery` (FR-014).
+  Settlement emits a terminal Loyalty outcome only after the correction window
+  closes; a `PARTIAL` booking (some tickets `NO_SHOW`) still earns points, and
+  only a full `NO_SHOW` blocks earn.
 - Q: May a Manager replace a booking's required session with a target session
   that is `SALES_PAUSED`? → A: No. Every replacement target must be future,
   `PUBLISHED`, customer-selectable and have capacity for the booking's complete
@@ -336,7 +339,7 @@ perform refunds or connect directly to external OTAs.
   “Silverclay” examples are superseded for new catalogue configuration.
 - Q: How does Operations enforce Wax Casting's two-session spacing? → A: The
   two distinct, chronological sessions must use the same location and have
-  exactly two foundry-working local dates strictly between their dates.
+  at least two foundry-working local dates strictly between their dates.
   Monday–Friday are foundry-working dates; Saturday and Sunday are skipped.
   Session time/slot is irrelevant, so Monday's final slot followed by Thursday's
   first slot is valid. This is not the legacy same-day slot-gap rule.
@@ -773,7 +776,7 @@ correction, with before/after audit evidence.
   `requiredFoundryWorkingDaysBetweenSessions` rules. The four Signature/Silver
   Clay catalogue offers use one selected session and a foundry-working-day value
   of `0`; Wax Casting uses two and a value of `2`. Operations must count
-  exactly two Monday–Friday local dates strictly between Wax Casting sessions,
+  at least two Monday–Friday local dates strictly between Wax Casting sessions,
   excluding Saturday/Sunday; `minimumSameDaySlotGap` never satisfies that rule.
   003.1 MUST NOT
   access Operations entities or repositories, mutate package
@@ -1133,6 +1136,20 @@ correction, with before/after audit evidence.
   inventory route is read-only and MUST NOT be used as a second create/update
   contract. Frontend code MUST NOT fabricate missing lifecycle states when the
   management API returns an empty result.
+- **FR-014**: For the direct-booking open folio (owner decisions D2/D3,
+  2026-11-05, see `../contracts/workshop-interfeature-facades.md`), this
+  feature MUST publish a reference-only post-commit
+  `BookingAttendanceFinalizedEvent(bookingReference, finalizedAt)` once per
+  booking when its booking-wide attendance becomes terminal, and MUST expose
+  `BookingAttendanceOutcomeQuery(bookingReference)` returning `terminal` and
+  `outcome` (`ATTENDED`, `NO_SHOW`, `PARTIAL`). `terminal` is true only when
+  every required session is `ATTENDANCE_FINALIZED` **and** the 24-hour Manager
+  attendance-correction window for the booking has closed; the event is
+  published at that point, not at each session finalization, so no later
+  correction can change the outcome. `NO_SHOW` only when every ticket on every
+  required session is a final `NO_SHOW`. The event and query carry no ticket,
+  participant or PII payload and never decide a financial outcome; Settlement
+  (003.3) owns folio closure.
 
 ## Success Criteria
 

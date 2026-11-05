@@ -83,7 +83,7 @@ as an alternate source of truth.
 ## Migration gate
 
 Feature-011 review tables are created by `V91__review_management.sql` and the
-retention correction is appended in `V93__review_history_retention.sql`; `V92`
+retention correction is appended in `V97__review_history_retention.sql`; `V92`–`V96` remain owned by their respective features.
 is owned by the workshop package migration. Before applying either migration,
 re-scan the repository and `flyway_schema_history`, verify the versions and
 checksums, and test clean install, upgrade, rerun and recovery behavior. Do not use

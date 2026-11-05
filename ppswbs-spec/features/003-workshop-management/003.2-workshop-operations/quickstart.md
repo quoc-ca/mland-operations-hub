@@ -1,7 +1,7 @@
 # Quickstart: Workshop Operations Verification
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-02
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -90,7 +90,7 @@ run is not sufficient proof of index, lock or migration behaviour.
    history remains readable. Verify the catalogue offers in
    [catalogue.md](./catalogue.md) work as generic rules rather than as a closed
    Package enum. The former Silverclay same-day-gap example is retired. Verify
-   Wax Casting with exactly two intervening foundry-working dates: Monday
+   Wax Casting with at least two intervening foundry-working dates: Monday
    16:00–19:00 to Thursday 09:30–12:00 is valid; Monday to Wednesday and
    Friday to Tuesday are invalid. Saturday/Sunday do not count, so Friday to
    Wednesday is valid (Monday and Tuesday are the two intervening dates).

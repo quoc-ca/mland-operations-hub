@@ -1,7 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-11-03
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -52,9 +52,12 @@ verification evidence exist.
 - Settlement emits workshop completion, cancellation, and final no-show
   outcomes only after it has authoritative evidence for the whole booking.
   Completion requires a fully paid final invoice and terminal attendance for
-  every required ticket/session. If any ticket is a final no-show, no earned
-  points are granted; no-show is final only after every required
-  ticket/session has terminal attendance. Eligible cancellation follows the
+  every required ticket/session. **Updated 2026-11-05 (owner):** a booking is a
+  final no-show only when every ticket on every required session is a final
+  `NO_SHOW`; then no earned points are granted. A `PARTIAL` booking (some but
+  not all tickets no-show) pays the full price and earns points like a fully
+  attended booking once its folio is `FINALIZED` with zero balance. No-show is
+  final only after every required ticket/session has terminal attendance. Eligible cancellation follows the
   003.3 cancellation/refund policy and its verified resolution.
 - All such calls apply only to Member quote bookings. Guest bookings do not
   reserve or settle Loyalty benefits. `quoteRef` is the `snapshotRef`; the
@@ -63,6 +66,35 @@ verification evidence exist.
   key and monotonic source version.
 - The outcome-specific code and verification remain tracked by T050–T051; this
   decision does not mark those tasks complete.
+
+## Direct-booking payment and folio policy (2026-11-05)
+
+The owner-approved policy is
+[Direct Booking Open Folio and OTA Financial Separation](../direct-booking-open-folio-policy.md).
+
+For direct Guest and Member bookings, the booking owns the deposit and its
+verified payment evidence:
+
+- At acceptance the Guest/Member pays only the deposit:
+  `ceil(postPromotionAmount / 2)` whole VND. Paying the full amount at booking
+  time is not offered (owner decision 2026-11-05).
+- The deposit amount and remaining amount are immutable after acceptance.
+- One OPEN folio exists from deposit confirmation until checkout or terminal
+  cancellation/no-show closure; an unpaid expired booking has no folio.
+- Workshop add-ons for a direct booking are appended to that same OPEN folio.
+- Add-ons cannot be added, changed, or removed after the folio is `FINALIZED`;
+  any later correction uses a separate exceptional flow.
+- Ordinary cancellation/no-show closes the folio at the verified collected
+  amount, without creating artificial receivables.
+- Direct deposits are non-refundable and ordinary closure does not call VNPay
+  QueryDR/refund.
+- Exceptional Mland-caused/provider refunds remain a separate audited flow.
+- OTA bookings: the OTA collects 100% of the ticket price; they do not use the
+  direct Mland folio or VNPay collection. Mland shop add-ons for an OTA booking
+  use a separate Mland bill. Free laser engraving is an OTA-only entitlement and
+  creates no bill.
+- Loyalty contract: a verified deposit continues to emit
+  `WORKSHOP_DEPOSIT_ACCEPTED` (the event is not renamed).
 
 ## Scope and source alignment
 
@@ -116,7 +148,7 @@ through an approved boundary.
   [003.2/catalogue.md](../003.2-workshop-operations/catalogue.md). Signature
   and Silver Clay offers currently select one session; Wax Casting selects two.
   Booking never hard-codes product names or interprets package rules itself.
-  Operations enforces Wax Casting's approved rule: exactly two Monday–Friday
+  Operations enforces Wax Casting's approved rule: at least two Monday–Friday
   local dates strictly between its chronological sessions, ignoring Saturday
   and Sunday.
 - Q: Which safe Package refusal reasons can Booking surface? → A: `PACKAGE_NOT_PUBLISHED` means the Package is no longer bookable; `PACKAGE_SELECTION_INVALID` means its participant/session/location/slot-gap rule fails. Capacity exhaustion remains `INSUFFICIENT_CAPACITY`.
@@ -172,7 +204,12 @@ without refund processing and no QR ticket is issued. Post-confirmation
 cancellation, refund, and internal operational cancellation are deferred to
 a later feature. The implemented state enum is therefore
 `PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED`, and `CANCELLED`; `CHECKED_IN`,
-`COMPLETED`, and `NO_SHOW` remain reserved states.
+`COMPLETED`, and `NO_SHOW` remain reserved states. **Superseded in part
+2026-11-05 (D13/D14):** Booking now also sets `COMPLETED`, post-confirmation
+`CANCELLED` and `NO_SHOW`, plus `REFUND_PENDING`/`REFUNDED`, but only on a
+003.3 Settlement conclusion (FR-020, FR-024); `CHECKED_IN` stays reserved. The
+later Q&A lines in this session that call these states reserved or deferred
+are read through this note.
 
 - Q: Booking should use which business and financial states? → A: Service status and financial payment status are separate. The agreed service statuses are `PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED`, `CHECKED_IN`, `COMPLETED`, `CANCELLED`, and `NO_SHOW`; booking financial statuses are `UNPAID`, `DEPOSIT_PAID`, `FULLY_PAID`, `REFUND_PENDING`, and `REFUNDED`. `FAILED` is reserved for `PaymentAttempt`.
 - Q: Is email confirmation required before payment? → A: No. The booking does not require email confirmation before payment; after successful payment, the system generates one QR ticket for each purchased participant seat and sends the confirmation notification.
@@ -203,7 +240,7 @@ a later feature. The implemented state enum is therefore
 - Q: How is a later Staff check-in performed when QR scan is unavailable? → A: QR is the primary ticket credential; an individual `ticket_code` is the manual fallback. A `booking_code` only retrieves the booking/ticket set and cannot itself check in an unspecified ticket. Any future override must select a remaining ticket and be audited.
 - Q: Who may perform a later ticket check-in or override? → A: Staff may perform normal QR/`ticket_code` check-in under `workshop.checkin`. Only Manager or specially authorized Staff with `workshop.checkin.override` may override a ticket exception; the override needs a reason and audit evidence. This is a later check-in feature, not a transition implemented by feature 002.
 - Q: When may a later ticket check-in occur? → A: Each session has a Manager-configurable check-in window. Normal Staff check-in is allowed only within that window; an outside-window check-in needs authorized override and audit evidence. This is configuration for a later check-in feature, not a transition implemented by feature 002.
-- Q: How are later no-shows recorded? → A: The system does not mark a ticket `NO_SHOW` automatically when the check-in window closes. Staff/Manager finalize attendance after the session; remaining unchecked tickets become `NO_SHOW` and the booking becomes `COMPLETED`. Any correction after finalization requires Manager-authorized audit. This is a later attendance feature, not a transition implemented by feature 002.
+- Q: How are later no-shows recorded? → A: The system does not mark a ticket `NO_SHOW` automatically when the check-in window closes. Staff/Manager finalize attendance after the session; remaining unchecked tickets become `NO_SHOW` (superseded 2026-11-05, D13: the booking becomes `COMPLETED` only when its folio is `FINALIZED`, or `NO_SHOW` when every ticket is a final no-show; 003.1 sets it on the 003.3 conclusion). Any correction after finalization requires Manager-authorized audit. This is a later attendance feature, not a transition implemented by feature 002.
 - Q: When does the QR Check-in ticket expire? → A: It remains valid until the associated workshop ends and may be revoked when required.
 - Q: What happens to the QR when a confirmation email is resent? → A: Reuse the same active ticket set; resending email does not create, revoke or rotate any ticket.
 - Q: Who may request a confirmation email resend? → A: Guest and Member use
@@ -261,7 +298,7 @@ seat and receives one independent ticket after valid payment confirmation.
 - Q: May the two selected Wax Casting sessions belong to different branches? →
   A: No. In V1, both selected sessions must belong to the same branch.
 - Q: What separation applies between the two selected Wax Casting sessions? →
-  A: They must have exactly two Monday–Friday local dates strictly between them;
+  A: They must have at least two Monday–Friday local dates strictly between them;
   Saturday and Sunday are ignored. This is independent of slot/time, so Monday
   16:00–19:00 to Thursday 09:30–12:00 is valid. Operations is authoritative;
   Booking only shows the rule and submits the selection.
@@ -283,7 +320,7 @@ seat and receives one independent ticket after valid payment confirmation.
   Price, voucher, and points may produce an odd post-promotion amount; no value
   is discarded or recalculated after confirmation.
 - Q: What maximum gap applies between two selected Wax Casting sessions? → A:
-  No independent maximum-gap rule exists. The pair must have exactly two
+  No independent maximum-gap rule exists. The pair must have at least two
   intervening foundry-working dates under the Operations-owned calendar rule.
 
 - Q: When is signed QueryDR used if a valid IPN has not been processed? → A:
@@ -547,6 +584,8 @@ required session.
 
 As a Guest or Member, I want to pay the required workshop deposit so that my
 booking is confirmed and I receive a booking reference and check-in ticket.
+Paying the full amount at booking time is not offered; the remaining amount and
+any add-ons are collected at checkout (003.3).
 
 **Why this priority**: Payment confirmation is the business transition from a
 temporary pending booking to a confirmed booking.
@@ -558,13 +597,14 @@ payment confirmation is received.
 **Acceptance Scenarios**:
 
 1. **Given** a pending booking with an active capacity hold, **When** the visitor
-   starts payment, **Then** the system requests the deposit equal to 50% of the
-   frozen total for the selected participant seats.
-2. **Given** a valid signed payment confirmation with the expected booking
-   reference and amount, **When** the system receives it within the allowed
-   window, **Then** it records one deposit transaction, sets payment status to
-   `DEPOSIT_PAID`, confirms the booking, and issues one independent QR ticket
-   for every purchased participant seat.
+   starts payment, **Then** the system requests exactly the frozen deposit
+   `ceil(postPromotionAmount / 2)` for the selected participant seats.
+2. **Given** a valid signed, non-duplicate payment confirmation for the frozen
+   deposit with the expected booking reference, **When** the system receives
+   it within the allowed window, **Then** it records one deposit transaction,
+   sets payment status to `DEPOSIT_PAID`, confirms the booking, issues one
+   independent QR ticket for every purchased participant seat, and emits
+   `WORKSHOP_DEPOSIT_ACCEPTED`.
 3. **Given** payment authorization fails or the visitor cancels at the payment
    gateway while the hold is active, **When** the visitor retries payment,
    **Then** the system keeps the booking `PENDING_PAYMENT` with financial status
@@ -632,7 +672,7 @@ appropriate booking summary without exposing another customer's booking.
 - A Wax Casting customer selects sessions from different branches: the system
   rejects the selection and creates neither a pending booking nor a partial
   capacity hold.
-- A Wax Casting customer selects a pair that does not have exactly two
+- A Wax Casting customer selects a pair that does not have at least two
   intervening Monday–Friday local dates: Operations rejects the selection and
   creates neither a pending booking nor a partial capacity hold. Booking and the
   frontend must surface the safe refusal rather than calculate an alternate
@@ -648,8 +688,9 @@ appropriate booking summary without exposing another customer's booking.
   capacity has been released.
 - Cancellation and refund are deferred to a later feature and are not performed
   by this booking lifecycle.
-- No-show processing is deferred to a later feature; this feature does not mark
-  a booking `NO_SHOW` or apply no-show financial policy.
+- No-show determination belongs to 003.2 and folio closure to 003.3; this
+  feature applies no no-show financial policy. It marks a booking `NO_SHOW` only
+  on the 003.3 service-outcome conclusion (FR-020, D13).
 - A payment notification has an invalid signature, wrong amount, wrong booking
   reference, or repeated event; it must not settle the invoice twice.
 - Confirmation notification delivery fails after payment; the booking remains
@@ -743,7 +784,7 @@ appropriate booking summary without exposing another customer's booking.
   may retain a chronological display ordinal only after Operations accepts the
   selection. `minimumSameDaySlotGap`, where configured, applies only to two
   selected sessions on the same local calendar day. Wax Casting instead uses
-  Operations' `requiredFoundryWorkingDaysBetweenSessions = 2` rule: exactly two
+  Operations' `requiredFoundryWorkingDaysBetweenSessions = 2` rule: at least two
   Monday–Friday local dates strictly between its selected sessions, with
   Saturday/Sunday excluded.
 - **FR-004**: Booking MUST send `packageReference`, the complete selected UUID
@@ -767,11 +808,35 @@ appropriate booking summary without exposing another customer's booking.
   multiplied by the selected package's price per participant; deposit and
   remaining amount follow FR-007a.
 - **FR-007a**: The system MUST freeze the post-promotion booking amount,
-  deposit, and remaining amount together. Deposit equals
-  `ceil(post_promotion_amount / 2)` whole VND; remaining amount equals
-  `post_promotion_amount − deposit`. It MUST preserve all three snapshots and
-  MUST NOT reject an otherwise valid booking merely because the post-promotion
+  deposit, and remaining amount together at acceptance:
+  `deposit = ceil(postPromotionAmount / 2)` whole VND and
+  `remainingAmount = postPromotionAmount − deposit`. The deposit is the only
+  payment collected at booking time; the system MUST NOT offer or accept a
+  full-amount payment at acceptance. The deposit and remaining amount MUST be
+  immutable after acceptance. The system MUST preserve these snapshots and MUST
+  NOT reject an otherwise valid booking merely because the post-promotion
   amount is odd VND.
+- **FR-007b**: A direct Guest/Member booking MUST have exactly one OPEN folio
+  from deposit confirmation until checkout or terminal cancellation/no-show
+  closure. Settlement (003.3) creates it when it consumes the post-commit
+  `MlandBookingConfirmedEvent`; 003.1 adds no folio operation.
+  Verified collections on the folio MUST be append-only;
+  `paidAmount` MUST equal the sum of verified collections and
+  `balanceDue = totalAmount − paidAmount`.
+- **FR-007c**: A workshop add-on for a direct booking MUST be appended to the
+  booking's OPEN folio and increases `totalAmount` and `balanceDue`. After the
+  folio is `FINALIZED`, add-ons MUST NOT be added, changed, or removed; any
+  later correction MUST use a separate exceptional flow.
+- **FR-007d**: Ordinary direct-booking cancellation or no-show MUST close the
+  folio at the verified collected amount. It MUST NOT refund a direct deposit,
+  call VNPay QueryDR or refund, or create an artificial receivable. Operations
+  (003.2) owns cancellation eligibility and no-show determination; Settlement
+  (003.3) owns folio closure and financial state. A booking is a no-show only
+  when every ticket on every required session has a final `NO_SHOW`; partial
+  attendance proceeds to normal checkout. OTA bookings are separate: the
+  OTA collects 100% of the ticket price, they do not use the direct Mland folio
+  or VNPay collection, Mland shop add-ons use a separate Mland bill, and free
+  laser engraving is an OTA-only entitlement that creates no bill.
 - **FR-008**: The system MUST hold the requested capacity temporarily in every
   required session for a pending booking, for no longer than 10 minutes.
 - **FR-009**: The system MUST release the temporary capacity hold when valid
@@ -818,8 +883,9 @@ appropriate booking summary without exposing another customer's booking.
   VNPay IPN HTTP route, raw callback payload, checksum verification, or routing
   of final-payment/refund evidence.
 - **FR-011**: The system MUST confirm a booking only after one valid, signed,
-  non-duplicate deposit payment confirmation is accepted, and MUST set its
-  financial status to `DEPOSIT_PAID`.
+  non-duplicate deposit payment confirmation matching the frozen deposit is
+  accepted, MUST set its financial status to `DEPOSIT_PAID`, and MUST emit
+  `WORKSHOP_DEPOSIT_ACCEPTED`.
 - **FR-012**: The system MUST NOT treat a browser return redirect alone as valid
   payment confirmation.
 - **FR-012a**: A failed or cancelled payment attempt MUST leave the booking in
@@ -1069,10 +1135,14 @@ appropriate booking summary without exposing another customer's booking.
   local state transition for non-critical notification or downstream handoff and
   MUST NOT decide capacity or booking-confirmation outcome.
 - **FR-020**: The system MUST represent service lifecycle status separately from
-  financial payment status and MUST support only the current feature's
-  transitions for pending payment, confirmation, expiry, and explicit release
-  of a pending hold. `CHECKED_IN`, `COMPLETED`, and `NO_SHOW` are reserved for
-  later features and MUST NOT be implemented here.
+  financial payment status and MUST support transitions for pending payment,
+  confirmation, expiry, and explicit release of a pending hold. **Updated
+  2026-11-05 (D13):** on an idempotent `RecordBookingServiceOutcomeCommand`
+  from 003.3, Booking MUST change a `CONFIRMED` booking exactly once to
+  `COMPLETED` (folio `FINALIZED`), `CANCELLED` (folio `CLOSED` by customer
+  cancellation or Mland remedy) or `NO_SHOW` (folio `CLOSED` by full no-show).
+  Booking does not decide these outcomes itself. `CHECKED_IN` remains reserved
+  and MUST NOT be implemented here.
 - **FR-021**: The system MUST restore the held participant capacity when a
   pending booking expires, exactly once.
 - **FR-022**: The system MUST preserve the financial-status vocabulary needed by
@@ -1086,7 +1156,11 @@ appropriate booking summary without exposing another customer's booking.
   creation or delivery of any payment link is never final settlement.
 - **FR-024**: The system MUST preserve the financial-status vocabulary needed by
   later cancellation/refund features without implementing refund processing in
-  this feature.
+  this feature. **Updated 2026-11-05 (D14):** on an idempotent
+  `RecordBookingRefundStatusCommand` from 003.3 for a Mland-caused remedy,
+  Booking MUST set `REFUND_PENDING` and later `REFUNDED`, monotonically and
+  exactly once each. It MUST NOT change financial status for a post-`FINALIZED`
+  overcharge correction or for an ordinary non-refundable cancellation.
 - **FR-025**: A 003.1 rollout MAY reset only a development/test environment that
   has no booking or customer data requiring retention, after environment
   preflight. Staging, production, or any environment holding such data MUST use
@@ -1105,7 +1179,7 @@ appropriate booking summary without exposing another customer's booking.
   participants. The package may have one or more required sessions; the booking
   has a lifecycle from pending payment to confirmed or expired.
 - **Package Invoice**: The financial record containing the package price and
-  required deposit state for a booking.
+  frozen deposit and remaining amount for a booking.
 - **Payment Transaction**: A record of a payment attempt or verified payment
   notification, including safe provider reference and idempotency evidence.
 - **Capacity Hold**: A temporary reservation of participant capacity associated
@@ -1127,7 +1201,8 @@ appropriate booking summary without exposing another customer's booking.
 - **SC-001**: At least 95% of valid customer booking attempts reach a clear
   pending-payment or confirmed outcome without manual operator intervention.
 - **SC-002**: 100% of confirmed bookings have exactly one accepted deposit
-  transaction, payment status `DEPOSIT_PAID`, a retrievable booking code, and
+  transaction matching the frozen deposit, payment status `DEPOSIT_PAID`, a
+  retrievable booking code, and
   exactly one active ticket for each purchased participant seat.
 - **SC-003**: 100% of invalid, duplicate, mismatched, or unsigned payment
   notifications leave the booking unconfirmed and do not settle the invoice.
@@ -1152,12 +1227,19 @@ appropriate booking summary without exposing another customer's booking.
 - The configured payment provider and notification gateway are dependencies;
   provider credentials and secrets are supplied only through deployment
   configuration and are never part of this feature's source artifacts.
-- The initial customer-facing UI must remain usable as a server-rendered form and
-  link flow when enhancement scripts are unavailable.
+- The customer-facing UI is the separate React + Vite client consuming the
+  versioned REST API (see the governing baseline above); this feature defines
+  no server-rendered UI. (Superseded legacy assumption: a server-rendered form
+  and link flow.)
 - Participant check-in consumes the generated booking code and QR ticket but is
   implemented by a later feature.
 - Post-confirmation cancellation/refund, check-in, no-show handling, workshop
   completion, final payment, and approved additional fees are deferred to later
   features.
+- Ordinary direct-booking cancellation/no-show does not refund; it closes the
+  folio at the verified collected amount.
+- Exceptional Mland-caused or provider-driven refunds are a separate audited
+  flow and are not part of ordinary cancellation/no-show.
+- OTA payment and provider facts are never mutated by the direct-booking flow.
 - The exact database baseline and provider-specific contract details are selected
   in the implementation plan, not invented in this specification.

@@ -12,6 +12,7 @@ import {
   GoogleAuthProvider,
   signInWithRedirect as fbSignInWithRedirect,
   getRedirectResult as fbGetRedirectResult,
+  signInWithPopup as fbSignInWithPopup,
   EmailAuthProvider,
   reauthenticateWithCredential as fbReauthenticateWithCredential,
   User,
@@ -29,6 +30,8 @@ import { firebaseConfig, hasFirebaseConfig } from '../../../shared/auth/firebase
  */
 class FirebaseAuthClient {
   private authInstance: Auth | null = null;
+  private redirectPromise: Promise<User | null> | null = null;
+  private lastRedirectError: any = null;
 
   private getAuth(): Auth | null {
     if (this.authInstance) return this.authInstance;
@@ -152,8 +155,18 @@ class FirebaseAuthClient {
     await fbUpdatePassword(user, newPassword);
   }
 
+
+  public async signInWithGooglePopup(): Promise<User> {
+    const auth = this.requireAuth();
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const cred = await fbSignInWithPopup(auth, provider);
+    return cred.user;
+  }
   public async signInWithGoogleRedirect(): Promise<void> {
     const auth = this.requireAuth();
+    this.redirectPromise = null;
+    this.lastRedirectError = null;
     const provider = new GoogleAuthProvider();
     await fbSignInWithRedirect(auth, provider);
   }
@@ -161,8 +174,23 @@ class FirebaseAuthClient {
   public async getRedirectAuthResult(): Promise<User | null> {
     const auth = this.getAuth();
     if (!auth) return null;
-    const cred = await fbGetRedirectResult(auth);
-    return cred ? cred.user : null;
+    if (this.lastRedirectError) {
+      throw this.lastRedirectError;
+    }
+    if (!this.redirectPromise) {
+      this.redirectPromise = fbGetRedirectResult(auth)
+        .then(cred => (cred ? cred.user : null))
+        .catch(err => {
+          this.lastRedirectError = err;
+          throw err;
+        });
+    }
+    return this.redirectPromise;
+  }
+
+  public clearRedirectResult(): void {
+    this.redirectPromise = null;
+    this.lastRedirectError = null;
   }
 
   public async reauthenticateWithCredential(password: string): Promise<void> {
