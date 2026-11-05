@@ -95,6 +95,7 @@ function AmountForm({ label, hint, initial, send, action, notice, reload, setNot
   if (amount === null) return <button type="button" className="button outline" onClick={() => setAmount(initial || '')}>{label}</button>;
   const submit = async event => {
     event.preventDefault();
+    setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     if (!isAmount(amount)) { setLocalError(t('validation.amount')); return; }
     setLocalError(null);
     const outcome = await command.run(key => send(key, amount), notice(amount), action);
@@ -134,6 +135,7 @@ function PriceDecision({ proposal, note, api, reload, setNotice }) {
 
   const submit = async event => {
     event.preventDefault();
+    setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     let body;
     if (mode === 'APPROVE') {
       if (!isAmount(approvedPrice)) { setLocalError(t('validation.amount')); return; }

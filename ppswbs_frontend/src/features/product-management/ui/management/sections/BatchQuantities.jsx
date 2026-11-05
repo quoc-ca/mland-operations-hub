@@ -56,6 +56,7 @@ export function BatchQuantities({ product, api, reload, setNotice }) {
   const close = () => { setOpen(false); setValues({}); setErrors({}); setSelected({}); setAmount(''); setAmountError(null); batch.clear(); };
 
   const save = async () => {
+    setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     const found = {};
     toSave.forEach(row => {
       const value = valueOf(row).trim();

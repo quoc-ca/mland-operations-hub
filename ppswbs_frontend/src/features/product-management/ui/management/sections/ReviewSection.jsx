@@ -23,6 +23,7 @@ export function ReviewSection({ product, api, reload, setNotice, deleted, missin
 
   // A known gap (no image, inactive category, a size without a price) is pointed at before anything is sent.
   const askSubmit = () => {
+    setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     if (Object.keys(missingRequirements(product)).length) { submitCommand.reset(); flagMissing(); return; }
     setConfirmSubmit(true);
   };
@@ -101,6 +102,7 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
 
   const decide = async event => {
     event.preventDefault();
+    setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     let body;
     const found = {};
     if (mode === 'APPROVE') {

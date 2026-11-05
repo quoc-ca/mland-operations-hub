@@ -529,6 +529,35 @@ describe('missing requirements on submit', () => {
     const prices = screen.getByRole('heading', { name: 'Đề xuất giá' }).closest('section');
     expect(prices).not.toHaveClass('missing');
   });
+
+  it('Session 2026-11-04: a refused submit replaces the "created" notice instead of showing next to it', async () => {
+    const user = userEvent.setup();
+    const draft = { reviews: [{ id: '301', revision: 1, contentVersion: 1, state: 'DRAFT', effective: true }] };
+    mockFetch({
+      [`GET ${M}/products/42`]: json(200, managementProduct({ ...draft, images: [] })),
+      [`GET ${M}/categories`]: json(200, categoryPage),
+    });
+    open({ pathname: '/catalogue-management/products/42', state: { notice: { key: 'create.success', params: { name: 'Nhẫn bạc' } } } });
+    expect(await screen.findByText(/Đã tạo sản phẩm "Nhẫn bạc"/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Gửi duyệt' }));
+    expect(screen.getByText('Chưa gửi duyệt được, còn thiếu:')).toBeInTheDocument();
+    expect(screen.queryByText(/Đã tạo sản phẩm "Nhẫn bạc"/)).not.toBeInTheDocument();
+  });
+
+  it('Session 2026-11-04: a field refused before sending also clears the previous notice', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      [`GET ${M}/products/42`]: json(200, managementProduct()),
+      [`GET ${M}/categories`]: json(200, categoryPage),
+    });
+    open({ pathname: '/catalogue-management/products/42', state: { notice: { key: 'create.success', params: { name: 'Nhẫn bạc' } } } });
+    const content = (await screen.findByRole('heading', { name: 'Nội dung' })).closest('section');
+    await user.click(within(content).getByRole('button', { name: 'Sửa' }));
+    await user.clear(within(content).getByLabelText('Tên sản phẩm'));
+    await user.click(within(content).getByRole('button', { name: 'Lưu' }));
+    expect(within(content).getByText('Bắt buộc nhập.')).toBeInTheDocument();
+    expect(screen.queryByText(/Đã tạo sản phẩm "Nhẫn bạc"/)).not.toBeInTheDocument();
+  });
 });
 
 describe('T064 delete', () => {

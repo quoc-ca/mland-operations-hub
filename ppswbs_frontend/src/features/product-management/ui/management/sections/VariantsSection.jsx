@@ -43,6 +43,7 @@ function VariantRow({ variant, api, reload, setNotice, deleted }) {
 
   const saveQuantity = async event => {
     event.preventDefault();
+    setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     if (!isQuantity(quantity)) { setHint('validation.quantity'); return; }
     setHint(null);
     const outcome = await quantityCommand.run(key => api.setQuantity(key, variant.id, variant.version, quantity),
