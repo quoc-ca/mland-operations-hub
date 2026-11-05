@@ -3,19 +3,24 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingOutcomeStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.VerifiedBookingPayment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingCancellationEligibilitySnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCustomerCancellationSnapshotRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.GuestContactProofDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.SettlementCaseProjectionDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementBusinessAudit;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCase;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCustomerCancellationSnapshot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBillLifecycleStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -41,14 +46,17 @@ public class CustomerBookingCancellationService {
     private final SettlementCaseRepository cases;
     private final SettlementCustomerCancellationSnapshotRepository snapshots;
     private final SettlementBusinessAuditRepository audits;
+    private final SettlementFinalBillRepository bills;
     private final TransactionTemplate transaction;
 
+    @Autowired
     public CustomerBookingCancellationService(WorkshopBookingSettlementAdapter booking,
             WorkshopOperationsSettlementAdapter operations,
             SettlementIdempotencyService idempotency,
             SettlementCaseRepository cases,
             SettlementCustomerCancellationSnapshotRepository snapshots,
             SettlementBusinessAuditRepository audits,
+            SettlementFinalBillRepository bills,
             PlatformTransactionManager transactionManager) {
         this.booking = booking;
         this.operations = operations;
@@ -56,6 +64,7 @@ public class CustomerBookingCancellationService {
         this.cases = cases;
         this.snapshots = snapshots;
         this.audits = audits;
+        this.bills = bills;
         this.transaction = new TransactionTemplate(transactionManager);
     }
 
@@ -160,7 +169,7 @@ public class CustomerBookingCancellationService {
 
         String earliestSessionReference = eligibility == null ? null : eligibility.earliestRequiredSessionReference();
         Instant earliestSessionStart = eligibility == null ? null : eligibility.earliestRequiredSessionStart();
-        // Direct Mland deposits are non-refundable.  A customer cancellation must
+        // Direct Mland deposits are non-refundable. A customer cancellation must
         // never create a VNPay refund/QueryDR operation; OTA refunds are handled by
         // the OTA owner outside this direct-booking flow.
         String rejectionReason;
@@ -211,6 +220,45 @@ public class CustomerBookingCancellationService {
                     .actionCode(auditAction).actorReference(actorReference)
                     .correlationReference(correlationReference).reasonReference(reason)
                     .createdAt(Instant.now()).build());
+
+            if ("RESOLVED".equals(status)) {
+                // Close direct folio as CLOSED on accepted ordinary cancellation (D4, D5)
+                bills.findByBookingReference(settlementCase.getBookingReference()).ifPresent(bill -> {
+                    if (SettlementFinalBillLifecycleStatus.OPEN.name().equals(bill.getLifecycleStatus())) {
+                        bill.setLifecycleStatus(SettlementFinalBillLifecycleStatus.CLOSED.name());
+                        bills.saveAndFlush(bill);
+                        audits.save(SettlementBusinessAudit.builder().auditReference("SETTLE-AUDIT-" + UUID.randomUUID())
+                                .aggregateType("SETTLEMENT_FINAL_BILL").aggregateReference(bill.getBillReference())
+                                .actionCode("DIRECT_FOLIO_CLOSED_CANCELLED")
+                                .actorReference(actorReference)
+                                .correlationReference(correlationReference)
+                                .reasonReference(caseReference)
+                                .createdAt(Instant.now()).build());
+                    }
+                });
+                // Send RecordBookingServiceOutcomeCommand(CANCELLED) (D13, FR-001a)
+                try {
+                    String opRef = "CANCEL-" + UUID.randomUUID();
+                    var serviceResult = booking.recordBookingServiceOutcome(settlementCase.getBookingReference(),
+                            BookingServiceOutcome.CANCELLED, caseReference,
+                            opRef, correlationReference);
+                    if (serviceResult != null && serviceResult.status() != BookingOutcomeStatus.ACCEPTED) {
+                        log.warn("Booking service outcome CANCELLED rejected for bookingReference={}: {}",
+                                settlementCase.getBookingReference(), serviceResult.reason());
+                        audits.save(SettlementBusinessAudit.builder().auditReference("SETTLE-AUDIT-" + UUID.randomUUID())
+                                .aggregateType("SETTLEMENT_CASE").aggregateReference(caseReference)
+                                .actionCode("BOOKING_SERVICE_OUTCOME_REJECTED")
+                                .actorReference(actorReference)
+                                .correlationReference(correlationReference)
+                                .reasonReference(serviceResult.reason() != null ? serviceResult.reason().name() : "REJECTED")
+                                .createdAt(Instant.now()).build());
+                    }
+                } catch (Exception ex) {
+                    log.warn("Failed to record booking service outcome CANCELLED for bookingReference={}: {}",
+                            settlementCase.getBookingReference(), ex.getMessage());
+                }
+            }
+
             return SettlementCaseProjectionDto.from(settlementCase);
         });
     }

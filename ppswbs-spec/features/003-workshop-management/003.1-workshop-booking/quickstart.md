@@ -1,7 +1,7 @@
 # Quickstart Validation: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-11-02
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -23,7 +23,7 @@ per-run evidence to this guide.
    [003.2/catalogue.md](../003.2-workshop-operations/catalogue.md) with valid
    VND per-person/piece prices. Include a promotion case whose post-promotion
    amount is odd VND. Wax Casting must be configured with its Operations-owned
-   foundry-working-date policy: exactly two Monday–Friday dates strictly
+   foundry-working-date policy: at least two Monday–Friday dates strictly
    between the two selected sessions, with Saturday/Sunday excluded.
 3. Create published common workshop sessions in one canonical workshop location with a shared
    capacity pool. Provide two non-adjacent same-day slots and two slots across

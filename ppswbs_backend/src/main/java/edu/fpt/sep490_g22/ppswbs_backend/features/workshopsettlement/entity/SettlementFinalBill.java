@@ -18,5 +18,22 @@ public class SettlementFinalBill {
     @Column(name="lifecycle_status", nullable=false, length=24) private String lifecycleStatus;
     @Column(name="frozen_at", nullable=false, updatable=false) private Instant frozenAt;
     @Column(name="created_at", nullable=false, updatable=false) private Instant createdAt;
-    @PrePersist void onCreate() { if (createdAt == null) createdAt=Instant.now(); if (frozenAt == null) frozenAt=createdAt; }
+
+    @PrePersist
+    void onCreate() {
+        requireKnownLifecycleStatus();
+        if (createdAt == null) createdAt = Instant.now();
+        if (frozenAt == null) frozenAt = createdAt;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        requireKnownLifecycleStatus();
+    }
+
+    void requireKnownLifecycleStatus() {
+        if (!SettlementFinalBillLifecycleStatus.isKnown(lifecycleStatus)) {
+            throw new IllegalStateException("SETTLEMENT_FINAL_BILL_STATUS_UNSUPPORTED");
+        }
+    }
 }

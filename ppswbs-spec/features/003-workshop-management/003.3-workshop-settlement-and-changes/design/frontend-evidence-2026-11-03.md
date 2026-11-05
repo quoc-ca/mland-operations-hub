@@ -74,3 +74,71 @@ the backend integration evidence is recorded in `quickstart-verification-evidenc
   final-bill/payment and case-list tests): **25/25 passed**, `BUILD SUCCESS`.
 - `git diff --check` for the changed Settlement files: **passed**. Git emitted only the
   existing LF-to-CRLF normalization warning for the modified JavaScript file.
+
+## Rendered UI state evidence (2026-11-04)
+
+| State | Route | Evidence |
+|---|---|---|
+| Empty case list with filters | `/settlement/cases?tab=cases` | Renders OPEN/PENDING_PROVIDER/RESOLVED/CANCELED filters and the empty state. *(2026-11-05 review: `CANCELED` is not a spec case state; spec uses `OPEN`, `PENDING_PROVIDER`, `RESOLVED`, `REJECTED`, `FAILED`. Realign under 003.3 T090.)* |
+| Provider verification pending | `/settlement/cases?tab=cases` | Renders `PENDING_PROVIDER` without presenting the case as resolved. |
+| Empty refund-policy history | `/settlement/cases?tab=policies` | Renders the policy surface without fabricated revisions. |
+| Backend error | `/settlement/cases?tab=cases` | Renders correlation/retry error state and no fake empty-success list. |
+
+```text
+npm test -- --run src/workshop-settlement/test/settlementUiEvidence.test.jsx
+Result: 1 test file passed, 4 tests passed, 0 failures.
+```
+
+The error-state test also fixed a UI defect: a failed case-list request no longer falls
+through to the successful empty-list presentation.
+
+Verification exception: screenshot capture was not completed because the configured browser
+access host was unavailable (`browsers: []` from the CUA state). No screenshot is claimed.
+
+## Direct Mland add-on billing evidence (2026-11-04)
+
+> **Superseded — 2026-11-05.** Under the
+> [open-folio policy](../../direct-booking-open-folio-policy.md) a `FINALIZED`
+> direct folio accepts no add-on, so the flow below no longer matches approved
+> behaviour. The evidence is kept as a historical record of the implemented UI;
+> `StaffWorkshopAddonPanel` and the `direct-addon-bills` calls must be realigned
+> under 003.3 T040/T087. OTA shop add-on evidence is unaffected.
+
+The Staff workshop add-on screen now follows T040's finalized-bill contract:
+
+- route: `/operations/sessions/:sessionId`;
+- component: `StaffWorkshopAddonPanel`;
+- create bill: `POST /api/v1/workshop-bookings/{bookingCode}/direct-addon-bills` with booking code, catalogue add-on reference, customer consent reference, and an idempotency key;
+- payment: `POST .../direct-addon-bills/{billReference}/payment-attempts`, creating a separate SHOP_ADDON attempt with a ten-minute checkout expiry;
+- the original final bill remains immutable;
+- the UI never accepts amount/currency from the browser and never treats browser return as payment evidence; it waits for signed IPN/QueryDR verification.
+
+Figma frame: `327:1083` (`STAFF · Workshop add-on · Direct Mland bill`) in `03 · Staff`.
+
+```text
+npm test -- --run src/workshop-operations/test/staffAddonPages.test.jsx
+Result: 1 test file passed, 4 tests passed, 0 failures.
+npm run build
+Result: passed; existing Vite chunk-size warning only.
+```
+
+## Guest/member payment state evidence (2026-11-04)
+
+| State | Route | Evidence |
+|---|---|---|
+| Provider success return | `/workshop-booking/:bookingCode/payment-return` | Signed provider return is displayed as informational until backend verification confirms the booking. |
+| Provider rejection | `/workshop-booking/:bookingCode/payment-return` | Response-code rejection is shown as a typed payment failure; no confirmation is fabricated. |
+| Network timeout | `/workshop-booking/:bookingCode/payment-return` | Lost response is rendered as retryable/unknown and does not create another payment attempt automatically. |
+| Expired hold/payment | `/workshop-booking/:bookingCode/payment-return` and `/settlement` | Expired state shows recovery guidance without treating the payment as verified. |
+
+```text
+npm test -- --run \
+  src/workshops/paymentReturnOutcome.test.js \
+  src/workshops/workshops-payment-and-recovery.test.js \
+  src/shared/payment/paymentRecoveryState.test.js \
+  src/workshop-settlement/test/settlementUiEvidence.test.jsx
+Result: 4 test files passed, 33 tests passed, 0 failures.
+```
+
+The browser automation host was unavailable during this run (`browsers: []`), so no
+screenshot is claimed for these routes; the table is backed by rendered UI tests.

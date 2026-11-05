@@ -192,9 +192,13 @@ class BookingConfirmationIT {
         return new SessionEntitlementProjection(sessionReference, locationId, start, start.plusSeconds(3600));
     }
 
+    /**
+     * Spring Modulith stores one publication per listener. Since 003.3 T087 the event has two
+     * Settlement listeners (refund-policy snapshot and folio opening), so count one of them.
+     */
     private int countMlandConfirmationPublications() {
-        return jdbc.queryForObject("SELECT COUNT(*) FROM event_publication WHERE event_type = ?",
-                Integer.class, MlandBookingConfirmedEvent.class.getName());
+        return jdbc.queryForObject("SELECT COUNT(*) FROM event_publication WHERE event_type = ? AND listener_id LIKE ?",
+                Integer.class, MlandBookingConfirmedEvent.class.getName(), "%.MlandBookingConfirmedEventConsumer.%");
     }
 
     @TestConfiguration

@@ -83,7 +83,7 @@ class WorkshopBookingFacadePaymentAttemptTest {
         when(paymentAttemptRepository.findByMerchantReference("DEP-BK-1-1")).thenReturn(Optional.of(attempt));
         when(paymentReceiptRepository.findByProviderEventId("VNPAY-1")).thenReturn(Optional.of(receipt));
         when(bookingLifecycleService.confirmBookingPaymentAndCommitHolds(
-                "BK-1", "VNPAY-1", "VERIFIED_EVIDENCE", 50_000L,
+                "BK-1", "VNPAY-1", "VNPAY", 50_000L,
                 "PAYLOAD_HASH_VNPAY-1", "VNPAY-1", "VNPAY-1")).thenReturn(booking);
 
         DepositPaymentEvidenceOutcome outcome = facade.applyVerifiedDepositPaymentEvidence(
@@ -94,7 +94,7 @@ class WorkshopBookingFacadePaymentAttemptTest {
         assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.SUCCESS);
         assertThat(receipt.getPaymentAttempt()).isSameAs(attempt);
         verify(bookingLifecycleService).confirmBookingPaymentAndCommitHolds(
-                "BK-1", "VNPAY-1", "VERIFIED_EVIDENCE", 50_000L,
+                "BK-1", "VNPAY-1", "VNPAY", 50_000L,
                 "PAYLOAD_HASH_VNPAY-1", "VNPAY-1", "VNPAY-1");
         verify(paymentReceiptRepository).save(receipt);
         verify(paymentAttemptRepository).save(attempt);

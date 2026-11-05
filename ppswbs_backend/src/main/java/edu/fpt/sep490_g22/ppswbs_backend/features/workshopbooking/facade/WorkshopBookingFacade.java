@@ -27,6 +27,12 @@ public interface WorkshopBookingFacade {
      */
     FinalBalanceResolutionOutcome recordFinalBalanceResolved(RecordFinalBalanceResolvedCommand command);
 
+    /** Records one terminal service outcome concluded by Settlement. */
+    BookingServiceOutcomeResult recordBookingServiceOutcome(RecordBookingServiceOutcomeCommand command);
+
+    /** Records the monotonic Mland-remedy refund status concluded by Settlement. */
+    BookingRefundStatusResult recordBookingRefundStatus(RecordBookingRefundStatusCommand command);
+
     /**
      * Apply verified deposit evidence dispatched by paymentintegration.
      */

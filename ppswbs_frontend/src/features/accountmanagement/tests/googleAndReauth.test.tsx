@@ -157,6 +157,35 @@ describe('T064–T068: Google Sign-In & Credential Re-authentication (FR-002, FR
       expect(bootstrapSpy).not.toHaveBeenCalled();
       expect(mockNavigate).not.toHaveBeenCalled();
     });
+
+    it("handles collision defense when user has password provider and signed in via Google redirect", async () => {
+      const googleCollisionUser = {
+        uid: "google-collided-uid",
+        email: "minikie456@gmail.com",
+        providerData: [{ providerId: "password" }, { providerId: "google.com" }],
+      };
+      sessionStorage.setItem("mland_google_redirect_pending", "true");
+      vi.spyOn(firebaseAuthClient, "isConfigured").mockReturnValue(true);
+      vi.spyOn(firebaseAuthClient, "getRedirectAuthResult").mockResolvedValue(googleCollisionUser as any);
+      const signOutSpy = vi.spyOn(firebaseAuthClient, "signOut").mockResolvedValue(undefined);
+      const bootstrapSpy = vi.spyOn(accountManagementApiClient, "bootstrapOwnAccount");
+
+      render(
+        <MemoryRouter>
+          <AuthPage mode="signin" />
+        </MemoryRouter>
+      );
+
+      expect(
+        await screen.findByText(
+          "Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc."
+        )
+      ).toBeInTheDocument();
+      expect(signOutSpy).toHaveBeenCalled();
+      expect(bootstrapSpy).not.toHaveBeenCalled();
+      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(sessionStorage.getItem("mland_google_redirect_pending")).toBeNull();
+    });
   });
 
   describe('T066: ProfilePage In-Place Password Re-authentication & Provider Check', () => {

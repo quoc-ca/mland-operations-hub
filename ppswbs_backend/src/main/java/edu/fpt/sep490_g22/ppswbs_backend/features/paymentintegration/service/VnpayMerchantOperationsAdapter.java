@@ -204,7 +204,8 @@ public class VnpayMerchantOperationsAdapter implements VnpayMerchantOperationsPo
     }
 
     private VnpayMerchantOperationResult completeUnknown(String operationReference, String kind, String code) {
-        VnpayMerchantOperation saved = journal.complete(operationReference, "UNKNOWN", code, null, null, null, null);
+        String safeCode = code != null && code.length() <= 2 ? code : null;
+        VnpayMerchantOperation saved = journal.complete(operationReference, "UNKNOWN", safeCode, null, null, null, null);
         return result(saved, kind, null);
     }
 

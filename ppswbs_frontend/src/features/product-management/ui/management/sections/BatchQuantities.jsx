@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useT } from '../../../../../shared/i18n/I18nProvider';
 import { Field } from '../../../../../shared/ui/components';
-import { ACTIONS } from '../../../infrastructure/catalogueApi';
+import { ACTIONS } from '../../../application/useCatalogueCommand';
 import { messages } from '../../messages';
 import { isQuantity, LIMITS } from '../../../domain/productRules';
 import { BatchResults, selectionOf, SelectCell, SIZES, useBatch } from './BatchPrices';

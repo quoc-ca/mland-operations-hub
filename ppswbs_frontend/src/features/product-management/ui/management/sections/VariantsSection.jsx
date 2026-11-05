@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { ErrorNotice } from '../../../../../shared/ui/components';
-import { ACTIONS } from '../../../infrastructure/catalogueApi';
+import { ACTIONS } from '../../../application/useCatalogueCommand';
 import { messages } from '../../messages';
 import { isQuantity, serverFieldErrors } from '../../../domain/productRules';
 import { useProductCommand } from '../ProductDetailPage';

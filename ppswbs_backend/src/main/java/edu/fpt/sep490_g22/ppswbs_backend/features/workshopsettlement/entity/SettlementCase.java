@@ -11,5 +11,11 @@ public class SettlementCase {
  @Column(name="correlation_reference",nullable=false,length=128) private String correlationReference;
  @Column(name="created_at",nullable=false,updatable=false) private Instant createdAt;
  @Column(name="updated_at",nullable=false) private Instant updatedAt;
- @PrePersist void onCreate(){Instant n=Instant.now();createdAt=n;updatedAt=n;} @PreUpdate void onUpdate(){updatedAt=Instant.now();}
+ @PrePersist void onCreate(){requireKnownLifecycleStatus();Instant n=Instant.now();createdAt=n;updatedAt=n;}
+ @PreUpdate void onUpdate(){requireKnownLifecycleStatus();updatedAt=Instant.now();}
+ /** FR-022b1: a case may only hold a {@link SettlementCaseLifecycleStatus} value. */
+ void requireKnownLifecycleStatus(){
+  if(!SettlementCaseLifecycleStatus.isKnown(lifecycleStatus))
+   throw new IllegalStateException("SETTLEMENT_CASE_STATUS_UNSUPPORTED");
+ }
 }
