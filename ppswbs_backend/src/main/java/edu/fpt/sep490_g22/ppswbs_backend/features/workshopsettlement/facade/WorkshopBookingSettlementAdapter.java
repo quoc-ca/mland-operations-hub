@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingCancellationOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRefundStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.SettlementNotificationRecipientQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRefundStatusResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcomeResult;
@@ -40,6 +41,15 @@ public class WorkshopBookingSettlementAdapter {
 
     public WorkshopBookingLoyaltyOutcomeSource loyaltyOutcomeSource(String bookingReference) {
         return booking.getLoyaltyOutcomeSource(new WorkshopBookingLoyaltyOutcomeSourceQuery(bookingReference));
+    }
+
+    /**
+     * Own transaction so that a Booking failure cannot mark the Settlement transaction rollback-only; the caller
+     * treats a failure or a missing email as "no notification".
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public String notificationRecipient(String bookingReference) {
+        return booking.getSettlementNotificationRecipient(new SettlementNotificationRecipientQuery(bookingReference));
     }
 
     public CustomerBookingAccessDecision verifyCustomerAccess(String bookingReference, Long memberAccountId,

@@ -154,6 +154,15 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
 
     @Override
     @Transactional(readOnly = true)
+    public String getSettlementNotificationRecipient(SettlementNotificationRecipientQuery query) {
+        if (query == null) return null;
+        String email = bookingRepository.findByBookingCode(query.bookingReference())
+                .map(WorkshopBooking::getContactEmail).orElse(null);
+        return email == null || email.isBlank() ? null : email.trim();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public CustomerBookingAccessDecision verifyCustomerBookingAccess(CustomerBookingAccessQuery query) {
         if (query == null || query.bookingReference() == null || query.bookingReference().isBlank()) {
             return new CustomerBookingAccessDecision(false);

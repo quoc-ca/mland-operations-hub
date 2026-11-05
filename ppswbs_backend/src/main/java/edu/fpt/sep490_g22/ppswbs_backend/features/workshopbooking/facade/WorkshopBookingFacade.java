@@ -55,4 +55,10 @@ public interface WorkshopBookingFacade {
     java.util.Optional<BookingEligibilitySnapshot> getBookingEligibilityForDesign(String bookingCode, Long memberAccountId);
 
     OtaBookingOutcome createOrReturnOtaBooking(OtaBookingCommand command);
+
+    /**
+     * The contact email stored on the booking, for Settlement's customer notifications; null when the booking is
+     * unknown or has no email. The value is for the caller's transaction only: never an event, audit or log field.
+     */
+    String getSettlementNotificationRecipient(SettlementNotificationRecipientQuery query);
 }

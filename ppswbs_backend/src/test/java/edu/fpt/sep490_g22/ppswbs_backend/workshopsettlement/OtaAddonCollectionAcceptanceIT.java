@@ -65,6 +65,7 @@ class OtaAddonCollectionAcceptanceIT {
     private static final long LOCATION = 777_001L;
     private static final long AMOUNT = 30_000L;
 
+    @Autowired private edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementNotificationHandoffRepository handoffs;
     @Autowired private WorkshopSettlementFacade settlement;
     @Autowired private OtaAddonPaymentService addonPayments;
     @Autowired private SettlementAddonBillRepository addonBills;
@@ -128,11 +129,15 @@ class OtaAddonCollectionAcceptanceIT {
                 .isEqualTo("VERIFIED_PAID");
         assertThat(evidence.findByBookingReferenceAndConclusion(bill.channelReference(), "SHOP_ADDON_VERIFIED")).hasSize(1);
         assertThat(folios.findByBookingReference(bill.channelReference())).isEmpty();
+        // T006 scope: the OTA add-on bill sends no Settlement notification.
+        assertThat(handoffs.findAll().stream().filter(h -> bill.reference().equals(h.getSettlementReference())
+                || bill.channelReference().equals(h.getSettlementReference()))).isEmpty();
         verify(bookingFacade, never()).recordBookingServiceOutcome(any());
         verify(bookingFacade, never()).recordBookingRefundStatus(any());
         verify(bookingFacade, never()).recordFinalBalanceResolved(any());
         verify(operations, never()).applyVerifiedRefundConsequence(any());
-        verifyNoInteractions(loyalty);
+        // Scoped to this bill: the shared test DB may hold other bookings the Loyalty scheduler legitimately processes.
+        verify(loyalty, never()).findBenefitResult(any(), org.mockito.ArgumentMatchers.eq(bill.channelReference()));
     }
 
     @Test
@@ -170,7 +175,8 @@ class OtaAddonCollectionAcceptanceIT {
         verify(bookingFacade, never()).recordBookingRefundStatus(any());
         verify(bookingFacade, never()).recordBookingServiceOutcome(any());
         verify(operations, never()).applyVerifiedRefundConsequence(any());
-        verifyNoInteractions(loyalty);
+        // Scoped to this bill: the shared test DB may hold other bookings the Loyalty scheduler legitimately processes.
+        verify(loyalty, never()).findBenefitResult(any(), org.mockito.ArgumentMatchers.eq(bill.channelReference()));
     }
 
     @Test
