@@ -43,4 +43,14 @@ public class PaymentOwnerRegistryImpl implements PaymentOwnerRegistry {
     }
     @Override @Transactional(readOnly = true)
     public Optional<PaymentOwnerRegistration> resolve(String merchantReference) { return repository.findByMerchantReference(merchantReference); }
+    @Override @Transactional
+    public Optional<PaymentOwnerRegistration> lockOwner(String merchantReference) {
+        return repository.findLockedByMerchantReference(merchantReference);
+    }
+    @Override @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Optional<LockedRetailPayment> lockRetailPayment(String merchantReference) {
+        return repository.findLockedByMerchantReference(merchantReference)
+                .filter(owner -> owner.getPaymentKind() == PaymentOwnerKind.RETAIL)
+                .map(owner -> new LockedRetailPayment(owner.getBookingReference(), owner.getAmountVnd(), owner.getCurrencyCode(), owner.getProviderCreateDate()));
+    }
 }

@@ -31,6 +31,18 @@ public class VnpayPaymentGatewayCheckoutAdapter implements PaymentGatewayCheckou
                 "Workshop final payment ");
     }
 
+    /** Builds a retail payment URL; registration and verified-result handling remain separate. */
+    @Override
+    public String createRetailPaymentUrl(String merchantReference, String checkoutReference, long amountVnd,
+                                         Instant createdAt, Instant expiresAt, String clientIp) {
+        if (merchantReference == null || merchantReference.isBlank()
+                || checkoutReference == null || checkoutReference.isBlank()) {
+            throw new IllegalArgumentException("INVALID_RETAIL_PAYMENT_REFERENCE");
+        }
+        return createUrl(merchantReference, checkoutReference, amountVnd, createdAt, expiresAt, clientIp,
+                "Retail checkout ");
+    }
+
     @Override
     public String createShopAddonUrl(String merchantReference, String bookingCode, long amountVnd,
                                      Instant createdAt, Instant expiresAt, String clientIp) {

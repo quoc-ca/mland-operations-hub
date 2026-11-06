@@ -5,5 +5,7 @@ import java.util.List;
 public interface RetailShippingQuotePort {
     RetailCheckoutPorts.ShippingQuote quote(Long memberAccountId, Long locationId, List<RetailCheckoutPorts.PricedLine> lines,
                                              RetailCheckoutPorts.RecipientAddress recipient);
-    RetailCheckoutPorts.ShippingQuote requireValidQuote(Long memberAccountId, Long locationId, String quoteId);
+    RetailCheckoutPorts.ShippingQuote requireValidQuote(Long memberAccountId, Long locationId, String quoteId,
+                                                         List<RetailCheckoutPorts.PricedLine> currentLines,
+                                                         RetailCheckoutPorts.RecipientAddress recipient);
 }

@@ -5,6 +5,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerRegistry;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailPaymentEvidenceFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailVerifiedPayment;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +20,7 @@ public class PaymentIngressService {
     private final PaymentIngressReceiptRepository receipts;
     private final WorkshopBookingFacade booking;
     private final WorkshopSettlementFacade settlement;
+    private final RetailPaymentEvidenceFacade retail;
 
     @Transactional
     public Outcome receive(Map<String,String> params) {
@@ -25,7 +28,9 @@ public class PaymentIngressService {
         if (!checksum.valid(params, hash)) return Outcome.reject("INVALID_SIGNATURE");
         String merchant = params.get("vnp_TxnRef");
         if (merchant == null || merchant.isBlank()) return Outcome.reject("UNKNOWN_REFERENCE");
-        var owner = registry.resolve(merchant).orElse(null);
+        // Lock before any ordinary read so MySQL's repeatable-read snapshot cannot
+        // hide a receipt committed by a concurrent callback for the same owner.
+        var owner = registry.lockOwner(merchant).orElse(null);
         if (owner == null) return Outcome.reject("UNKNOWN_REFERENCE");
         long amount = parseAmount(params.get("vnp_Amount"));
         // VNPay PAY/IPN callbacks do not include vnp_CurrCode; VND is the
@@ -41,6 +46,9 @@ public class PaymentIngressService {
         boolean terminal = !"01".equals(transactionStatus);
         boolean verifiedSuccess = "00".equals(responseCode) && "00".equals(transactionStatus);
         String providerTransaction = params.getOrDefault("vnp_TransactionNo", "");
+        if (owner.getPaymentKind() == PaymentOwnerKind.RETAIL && verifiedSuccess && providerTransaction.isBlank()) {
+            throw new IllegalStateException("RETAIL_PROVIDER_TRANSACTION_MISSING");
+        }
         String delivery = merchant + "|" + providerTransaction + "|" + responseCode + "|" + transactionStatus;
         if (receipts.existsByDeliveryReference(delivery)) {
             // A prior delivery may have committed the shared receipt before a
@@ -70,7 +78,10 @@ public class PaymentIngressService {
         String evidence = "VNPAY-" + providerTransaction;
         String operation = evidence;
         String correlation = evidence;
-        if (owner.getPaymentKind() == PaymentOwnerKind.DEPOSIT) {
+        if (owner.getPaymentKind() == PaymentOwnerKind.RETAIL) {
+            retail.applyVerifiedPayment(new RetailVerifiedPayment(owner.getBookingReference(), merchant,
+                    providerTransaction, amount, "VND"));
+        } else if (owner.getPaymentKind() == PaymentOwnerKind.DEPOSIT) {
             var outcome = booking.applyVerifiedDepositPaymentEvidence(new ApplyVerifiedDepositPaymentEvidenceCommand(
                     owner.getBookingReference(), evidence, merchant, amount, "VND", operation, correlation));
             if (outcome != null && outcome.status() == BookingOutcomeStatus.REJECTED

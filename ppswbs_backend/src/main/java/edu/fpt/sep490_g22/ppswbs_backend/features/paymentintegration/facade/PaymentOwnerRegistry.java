@@ -11,6 +11,7 @@ public interface PaymentOwnerRegistry extends PaymentOwnerRegistrationPort {
     PaymentOwnerRegistration register(String merchantReference, String bookingReference, PaymentOwnerKind kind,
                                       long amountVnd, String currencyCode, String providerCreateDate);
     Optional<PaymentOwnerRegistration> resolve(String merchantReference);
+    Optional<PaymentOwnerRegistration> lockOwner(String merchantReference);
 
     @Override
     default void registerOwner(String merchantReference, String bookingReference, String paymentKind,
