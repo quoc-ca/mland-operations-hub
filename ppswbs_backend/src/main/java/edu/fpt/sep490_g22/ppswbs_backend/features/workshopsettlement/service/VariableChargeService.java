@@ -15,9 +15,15 @@ public class VariableChargeService {
     private final SettlementFinalBillRepository bills;
     private final SettlementChargeRepository charges;
 
-    @Transactional
     public SettlementCharge add(String bookingReference, String description, Long amountVnd, String reason,
                                 String operationReference) {
+        return add(bookingReference, description, amountVnd, reason, operationReference, null);
+    }
+
+    /** With a recorder, the charge also carries the operator's system-generated "customer agreed" confirmation. */
+    @Transactional
+    public SettlementCharge add(String bookingReference, String description, Long amountVnd, String reason,
+                                String operationReference, Long consentRecordedByAccountId) {
         require(bookingReference, "bookingReference");
         require(description, "description");
         require(reason, "reason");
@@ -40,6 +46,9 @@ public class VariableChargeService {
                 .currencyCode("VND")
                 .lifecycleStatus("CONFIRMED")
                 .reasonReference(reason.trim())
+                .consentReference(consentRecordedByAccountId == null ? null : "CONSENT-" + UUID.randomUUID())
+                .consentRecordedBy(consentRecordedByAccountId)
+                .consentRecordedAt(consentRecordedByAccountId == null ? null : now)
                 .createdAt(now)
                 .build());
     }

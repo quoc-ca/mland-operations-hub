@@ -42,4 +42,12 @@ public interface RetailVariantHoldRepository extends JpaRepository<RetailVariant
     List<ExpiryCandidate> findUnstartedExpiryCandidates(@Param("holdStatus") RetailVariantHoldStatus holdStatus,
         @Param("paymentState") edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.PaymentState paymentState,
         @Param("now") Instant now, Pageable page);
+
+    @Query("select distinct hold.groupedCheckout.id as checkoutId, hold.groupedCheckout.memberAccountId as memberId "
+        + "from RetailVariantHold hold where hold.status = :holdStatus and hold.expiresAt <= :now "
+        + "and hold.groupedCheckout.paymentState = :paymentState and hold.groupedCheckout.paymentInitiatedAt is not null "
+        + "order by hold.groupedCheckout.id")
+    List<ExpiryCandidate> findStartedExpiryCandidates(@Param("holdStatus") RetailVariantHoldStatus holdStatus,
+        @Param("paymentState") edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.PaymentState paymentState,
+        @Param("now") Instant now, Pageable page);
 }

@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dao.ReviewReplyRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dao.ReviewRepository;
@@ -33,6 +34,11 @@ public class ReviewApplicationService {
     private final RetailFulfilmentReviewPort retailFulfilmentPort;
     private final ReviewMaskingService maskingService;
     private final ReviewIdempotencyService idempotencyService;
+    private final AccountFacade accountFacade;
+
+    private static boolean wantsAnonymous(CreateReviewRequest request) {
+        return Boolean.TRUE.equals(request.getAnonymous());
+    }
 
     @Transactional
     public ReviewDto createReview(CreateReviewRequest request, Long authenticatedMemberId, String idempotencyKey) {
@@ -63,11 +69,18 @@ public class ReviewApplicationService {
         OwnerType ownerType;
         String ownerReference;
         String maskedDisplayName;
+        // The package of the attended workshop, kept with the review so it can be shown and filtered by package.
+        Long packageId = null;
+        String packageName = null;
 
         if (authenticatedMemberId != null) {
             ownerType = OwnerType.MEMBER;
             ownerReference = String.valueOf(authenticatedMemberId);
-            maskedDisplayName = maskingService.maskMemberDisplayName(authenticatedMemberId, null);
+            // The reviewer's name on the account, partly masked; or anonymous when they chose so. Never the account number.
+            maskedDisplayName = wantsAnonymous(request)
+                    ? ReviewMaskingService.ANONYMOUS_DISPLAY_NAME
+                    : maskingService.maskMemberDisplayName(authenticatedMemberId,
+                            accountFacade == null ? null : accountFacade.findAccountFullName(authenticatedMemberId).orElse(null));
 
             // Verify eligibility
             if (request.getSourceType() == SourceType.WORKSHOP_ATTENDANCE) {
@@ -80,6 +93,8 @@ public class ReviewApplicationService {
                 if (request.getTargetType() != TargetType.WORKSHOP_SESSION || !request.getTargetReference().equals(item.getTargetReference())) {
                     throw ReviewManagementException.unprocessable("REVIEW_TARGET_MISMATCH", "Target của đánh giá không khớp với buổi workshop đã tham dự.");
                 }
+                packageId = item.getPackageId();
+                packageName = item.getTargetName();
             } else if (request.getSourceType() == SourceType.RETAIL_ORDER_LINE) {
                 Optional<EligibleSourceItem> itemOpt = retailFulfilmentPort.verifySource(
                         request.getSourceReference(), authenticatedMemberId, null, null);
@@ -102,7 +117,9 @@ public class ReviewApplicationService {
                     guestHandle, request.getSourceType(), request.getSourceReference());
             ownerType = OwnerType.GUEST;
             ownerReference = handle.getHandleHash();
-            maskedDisplayName = handle.getContactValueMasked();
+            maskedDisplayName = wantsAnonymous(request)
+                    ? ReviewMaskingService.ANONYMOUS_DISPLAY_NAME
+                    : handle.getContactValueMasked();
 
             Optional<EligibleSourceItem> itemOpt;
             if (request.getSourceType() == SourceType.WORKSHOP_ATTENDANCE) {
@@ -122,6 +139,10 @@ public class ReviewApplicationService {
             if (request.getTargetType() != expectedTarget || !request.getTargetReference().equals(item.getTargetReference())) {
                 throw ReviewManagementException.unprocessable("REVIEW_TARGET_MISMATCH", "Target của đánh giá không khớp với source.");
             }
+            if (request.getSourceType() == SourceType.WORKSHOP_ATTENDANCE) {
+                packageId = item.getPackageId();
+                packageName = item.getTargetName();
+            }
         }
 
         String reviewId = UUID.randomUUID().toString();
@@ -136,10 +157,13 @@ public class ReviewApplicationService {
                 .ownerType(ownerType)
                 .ownerReference(ownerReference)
                 .maskedDisplayName(maskedDisplayName)
+                .packageId(packageId)
+                .packageName(packageName)
                 .rating(request.getRating())
                 .bodyText(request.getBodyText() != null ? request.getBodyText().trim() : null)
                 .status(ReviewStatus.PUBLIC)
-                .version(0L)
+                // No version here: the id is assigned by us, so a non-null @Version would make Spring Data call merge()
+                // on a row that does not exist yet and fail with an optimistic-lock error. Hibernate sets version 0.
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -292,6 +316,8 @@ public class ReviewApplicationService {
                 .targetReference(review.getTargetReference())
                 .ownerType(includeOwnerData ? review.getOwnerType() : null)
                 .maskedDisplayName(review.getMaskedDisplayName())
+                .packageId(review.getPackageId())
+                .packageName(review.getPackageName())
                 .rating(review.getRating())
                 .bodyText(review.getBodyText())
                 .status(review.getStatus())

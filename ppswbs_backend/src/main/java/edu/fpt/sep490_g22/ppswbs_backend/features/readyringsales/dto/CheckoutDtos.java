@@ -39,10 +39,21 @@ public final class CheckoutDtos {
                 payableAmount, expiresAt, "0");
         }
     }
+    /**
+     * recipientName/recipientPhone are optional at the request-validation level because a GHTK fee quote
+     * only needs the address/province/district/ward; they are required in practice once a GHTK branch
+     * order is accepted, so the mock shipment carries a real recipient to show Staff.
+     */
     public record RecipientAddressInput(@NotBlank @Size(max = 255) String address,
                                         @NotBlank @Size(max = 128) String province,
                                         @NotBlank @Size(max = 128) String district,
-                                        @NotBlank @Size(max = 128) String ward) { }
+                                        @NotBlank @Size(max = 128) String ward,
+                                        @Size(max = 255) String recipientName,
+                                        @Size(max = 32) String recipientPhone) {
+        public RecipientAddressInput(String address, String province, String district, String ward) {
+            this(address, province, district, ward, null, null);
+        }
+    }
     public record ShippingQuoteRequest(@NotNull @Positive Long locationId, @Valid RecipientAddressInput recipient) {
         public ShippingQuoteRequest(Long locationId) { this(locationId, null); }
     }
@@ -54,7 +65,11 @@ public final class CheckoutDtos {
         }
     }
     public record BranchOrderCheckoutInput(@NotNull @Positive Long locationId, @NotBlank String method,
-                                           String shippingQuoteId) { }
+                                           String shippingQuoteId, @Valid RecipientAddressInput recipient) {
+        public BranchOrderCheckoutInput(Long locationId, String method, String shippingQuoteId) {
+            this(locationId, method, shippingQuoteId, null);
+        }
+    }
     public record CreateGroupedCheckoutRequest(@NotEmpty List<@Valid BranchOrderCheckoutInput> branchOrders,
                                                @NotBlank String benefitPreviewId, @NotNull @Valid BenefitSelection benefitSelection,
                                                @AssertTrue Boolean benefitTermsAccepted) { }

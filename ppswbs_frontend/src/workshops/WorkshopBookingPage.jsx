@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { getWorkshopPackage, listWorkshopLocations, listWorkshopSessions, previewWorkshopBookingQuote, createWorkshopBooking, WorkshopApiError } from '../api/workshops';
-import { BenefitSelector } from '../features/loyalty-promotion';
+import { WorkshopBenefitPanel } from './WorkshopBenefitPanel';
 import { useAuth } from '../shared/auth/AuthProvider';
 import { useHttp } from '../shared/api/useHttp';
 import { getEffectiveParticipantMax } from './bookingCapacity';
+import { Paginator, usePaged } from '../shared/ui/Paginator';
 import './figmaPublicShell.css';
 
 function formatDate(date) {
@@ -56,6 +57,8 @@ export function WorkshopBookingPage({ packageId }) {
   const [benefitSelection, setBenefitSelection] = useState({ choice: 'NONE', voucherCode: '', requestedPoints: '0' });
   const [memberQuote, setMemberQuote] = useState(null);
   const [quoteMatches, setQuoteMatches] = useState(false);
+  // The voucher the current quote was calculated for: the points limit is only valid for that voucher.
+  const [quotedVoucher, setQuotedVoucher] = useState(null);
   const [benefitsAcknowledged, setBenefitsAcknowledged] = useState(false);
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
 
@@ -64,16 +67,26 @@ export function WorkshopBookingPage({ packageId }) {
   const nextTwoWeeks = new Date();
   nextTwoWeeks.setDate(today.getDate() + 14);
 
-  const [locationId, setLocationId] = useState(null);
+  // A session card on the package page opens this page with the session, branch and dates already chosen.
+  const urlParams = useRef(new URLSearchParams(typeof window !== 'undefined' ? window.location.search : ''));
+  const pendingSessionRef = useRef(urlParams.current.get('session'));
+  const [locationId, setLocationId] = useState(Number(urlParams.current.get('locationId')) || null);
   const [locations, setLocations] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [locationsError, setLocationsError] = useState(null);
-  const [from, setFrom] = useState(formatDate(today));
-  const [to, setTo] = useState(formatDate(nextTwoWeeks));
+  const [from, setFrom] = useState(urlParams.current.get('from') || formatDate(today));
+  const [to, setTo] = useState(urlParams.current.get('to') || formatDate(nextTwoWeeks));
 
   const [sessions, setSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [sessionsError, setSessionsError] = useState(null);
+  // Eight sessions per page; what the customer ticked is kept while moving between pages.
+  const pagedSessions = usePaged(sessions, 8, sessions);
+  const pendingPageRef = useRef(null);
+  // Declared after usePaged so it runs after the reset-to-first-page that follows a list change.
+  useEffect(() => {
+    if (pendingPageRef.current != null) { pagedSessions.setPage(pendingPageRef.current); pendingPageRef.current = null; }
+  }, [sessions]);
 
   // Selected sessions: array of opaque UUID strings
   const [selectedSessionRefs, setSelectedSessionRefs] = useState([]);
@@ -138,6 +151,36 @@ export function WorkshopBookingPage({ packageId }) {
         })).filter(item => item.code));
       })
       .catch(() => { if (active) setSavedVouchers([]); });
+    return () => { active = false; };
+  }, [bookingMode, http]);
+
+  // Running workshop vouchers (public list), so the picker offers them even when the Member has not saved them.
+  const [workshopOffers, setWorkshopOffers] = useState([]);
+  useEffect(() => {
+    if (bookingMode !== 'MEMBER') { setWorkshopOffers([]); return undefined; }
+    let active = true;
+    http('/api/v1/promotions?scope=WORKSHOP&limit=50')
+      .then(result => {
+        if (!active) return;
+        const items = result?.items || [];
+        setWorkshopOffers(items
+          .filter(item => item.kind === 'VOUCHER' && item.code)
+          // A voucher limited to other packages is not offered here (branch and session limits are checked by the quote).
+          .filter(item => !(item.targets?.packageIds?.length) || item.targets.packageIds.map(String).includes(String(packageId)))
+          .map(item => ({ code: item.code, name: item.name || item.code, discount: item.discount })));
+      })
+      .catch(() => { if (active) setWorkshopOffers([]); });
+    return () => { active = false; };
+  }, [bookingMode, http, packageId]);
+
+  // The Member's points, shown before any choice: available (balance minus held), held, and the redeem policy.
+  const [loyaltyAccount, setLoyaltyAccount] = useState(null);
+  useEffect(() => {
+    if (bookingMode !== 'MEMBER') { setLoyaltyAccount(null); return undefined; }
+    let active = true;
+    http('/api/v1/members/me/loyalty-accounts/current')
+      .then(result => { if (active) setLoyaltyAccount(result || null); })
+      .catch(() => { if (active) setLoyaltyAccount(null); });
     return () => { active = false; };
   }, [bookingMode, http]);
 
@@ -225,7 +268,18 @@ export function WorkshopBookingPage({ packageId }) {
     setSessionsError(null);
     listWorkshopSessions(packageId, { locationId, from, to })
       .then(data => {
-        setSessions(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setSessions(list);
+        // Tick the session chosen on the package page (once), and show the page of the list that holds it.
+        const wanted = pendingSessionRef.current;
+        if (wanted) {
+          pendingSessionRef.current = null;
+          const index = list.findIndex(item => item.sessionReference === wanted);
+          if (index >= 0 && list[index].customerSelectable && list[index].remainingCapacity > 0) {
+            setSelectedSessionRefs([wanted]);
+            pendingPageRef.current = Math.floor(index / 8);
+          }
+        }
       })
       .catch(err => {
         setSessionsError(err?.detail || err?.message || 'Không thể tải lịch ca workshop. Vui lòng thử lại.');
@@ -343,6 +397,7 @@ export function WorkshopBookingPage({ packageId }) {
       }
 
       setMemberQuote(quote);
+      setQuotedVoucher(normalizedBenefitSelection.voucherCode || '');
       setQuoteMatches(true);
       setBenefitsAcknowledged(false);
       setServerError(null);
@@ -369,6 +424,19 @@ export function WorkshopBookingPage({ packageId }) {
     }
   };
 
+  // Automatic quote (replaces the old "recalculate" button): whenever the quote no longer matches the choices (voucher,
+  // points, sessions or ticket count) and the sessions are complete, ask for a new quote after a short pause. Each
+  // combination of inputs is asked for once, so a failed quote does not loop; "Thử tính lại" asks again by hand.
+  const autoQuoteKey = useRef(null);
+  useEffect(() => {
+    if (bookingMode !== 'MEMBER' || quoteMatches || isQuoteLoading || profileLoading) return undefined;
+    if (selectedSessionRefs.length < requiredSessions) return undefined;
+    const key = JSON.stringify([packageId, selectedSessionRefs, participantCount, benefitSelection]);
+    if (autoQuoteKey.current === key) return undefined;
+    const timer = setTimeout(() => { autoQuoteKey.current = key; recalculateMemberQuote(); }, 250);
+    return () => clearTimeout(timer);
+  });
+
   // Validate form before submission
   const validateForm = () => {
     const errors = {};
@@ -391,7 +459,7 @@ export function WorkshopBookingPage({ packageId }) {
     }
     if (bookingMode === 'MEMBER') {
       if (!memberQuote || !quoteMatches) {
-        errors.memberBenefits = 'Vui lòng bấm nút "Tính lại" ở mục 3. Ưu đãi & Điểm thưởng để tính giá trước khi giữ chỗ.';
+        errors.memberBenefits = 'Hệ thống đang tính ưu đãi ở mục 3. Ưu đãi & Điểm thưởng. Vui lòng đợi tính xong (hoặc bấm "Thử tính lại" nếu có lỗi) trước khi giữ chỗ.';
       } else if (!benefitsAcknowledged) {
         errors.memberBenefits = 'Vui lòng tích chọn ô "Tôi đã xem tổng tiền và ưu đãi ở trên" trước khi xác nhận.';
       }
@@ -823,8 +891,9 @@ export function WorkshopBookingPage({ packageId }) {
                 )}
 
                 {!loadingSessions && !sessionsError && sessions.length > 0 && (
+                  <>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {sessions.map(s => {
+                    {pagedSessions.pageItems.map(s => {
                       const isSelected = selectedSessionRefs.includes(s.sessionReference);
                       const isSelectable = s.customerSelectable && (
                         isSelected || s.remainingCapacity >= packageMinParticipants
@@ -880,6 +949,8 @@ export function WorkshopBookingPage({ packageId }) {
                       );
                     })}
                   </div>
+                  <Paginator page={pagedSessions.page} pageCount={pagedSessions.pageCount} onChange={pagedSessions.setPage} label="Phân trang các ca workshop" />
+                  </>
                 )}
 
                 <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #eee' }}>
@@ -973,9 +1044,9 @@ export function WorkshopBookingPage({ packageId }) {
                   </div>
                 )}
 
-                {(!memberQuote || !quoteMatches) && !isQuoteLoading && (
+                {bookingMode === 'MEMBER' && selectedSessionRefs.length < requiredSessions && (
                   <div style={{ padding: '10px 14px', background: '#eef4ff', borderLeft: '4px solid #002967', marginBottom: '16px', fontSize: '14px', color: '#002967' }}>
-                    <strong>Bước 1:</strong> Chọn hình thức ưu đãi (nếu có) và bấm nút <strong>&quot;Tính lại&quot;</strong> để hệ thống tính giá &amp; số tiền đặt cọc.
+                    Chọn đủ <strong>{requiredSessions} ca</strong> workshop, hệ thống sẽ tự tính giá, ưu đãi và số tiền đặt cọc. Sau đó bạn chỉ cần chọn voucher hoặc bật dùng điểm.
                   </div>
                 )}
 
@@ -985,14 +1056,16 @@ export function WorkshopBookingPage({ packageId }) {
                   </div>
                 )}
 
-                <BenefitSelector
-                  context="workshop"
-                  value={benefitSelection}
+                <WorkshopBenefitPanel
+                  selection={benefitSelection}
                   onChange={handleBenefitChange}
+                  savedVouchers={savedVouchers}
+                  account={loyaltyAccount}
+                  offers={workshopOffers}
+                  maxPoints={memberQuote && quotedVoucher === (benefitSelection.choice === 'VOUCHER' ? (benefitSelection.voucherCode || '').trim() : '') ? memberQuote.maxPoints : null}
                   quote={memberQuote && memberQuote.reasonDetails
                     ? { ...memberQuote, reasons: memberQuote.reasonDetails.map(detail => detail.message) }
                     : memberQuote}
-                  savedVouchers={savedVouchers}
                   quoteMatches={quoteMatches}
                   acknowledged={benefitsAcknowledged}
                   onAcknowledge={val => {
@@ -1006,10 +1079,7 @@ export function WorkshopBookingPage({ packageId }) {
                     }
                   }}
                   onRecalculate={recalculateMemberQuote}
-                  onConfirm={() => handleSubmit()}
                   pending={profileLoading || isSubmitting || isQuoteLoading}
-                  showConfirm={false}
-                  hideTitle={true}
                 />
               </section>
             )}
@@ -1057,7 +1127,7 @@ export function WorkshopBookingPage({ packageId }) {
 
             {bookingMode === 'MEMBER' && !hasMemberQuote && (
               <p className="muted" style={{ fontSize: '12px', margin: '8px 0 0', lineHeight: '1.4' }}>
-                * Giá tạm tính trước ưu đãi. Vui lòng bấm &quot;Tính lại&quot; ở mục 3 để áp dụng ưu đãi Member.
+                * Giá tạm tính trước ưu đãi. Ưu đãi Member sẽ được tính tự động ở mục 3 khi bạn chọn đủ ca.
               </p>
             )}
 

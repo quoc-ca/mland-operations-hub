@@ -139,6 +139,37 @@ class BookingSettlementConclusionFacadeTest {
         }
     }
 
+    @Test
+    void aMemberBookingKeepsItsLoyaltySourceAfterCompletionSoTheEarnCanBeGranted() {
+        for (BookingStatus status : List.of(BookingStatus.CONFIRMED, BookingStatus.COMPLETED, BookingStatus.NO_SHOW, BookingStatus.CANCELLED)) {
+            WorkshopBooking booking = confirmed("BK-LOYALTY-" + status);
+            booking.setBookingStatus(status);
+            booking.setMemberAccountId(36L);
+            booking.setVersion(3L);
+            MemberWorkshopBookingQuote quote = mock(MemberWorkshopBookingQuote.class);
+            when(quote.getMemberAccountId()).thenReturn(36L);
+            when(quote.getQuoteRef()).thenReturn("QUOTE-1");
+            when(bookings.findLockedByBookingCode(booking.getBookingCode())).thenReturn(Optional.of(booking));
+            when(memberQuotes.findByAcceptedBookingCode(booking.getBookingCode())).thenReturn(Optional.of(quote));
+
+            var source = facade.getLoyaltyOutcomeSource(new WorkshopBookingLoyaltyOutcomeSourceQuery(booking.getBookingCode()));
+
+            assertThat(source).as(status.name()).isNotNull();
+            assertThat(source.memberOrigin()).isTrue();
+        }
+    }
+
+    @Test
+    void aBookingThatNeverConfirmedHasNoLoyaltySource() {
+        WorkshopBooking booking = confirmed("BK-LOYALTY-PENDING");
+        booking.setBookingStatus(BookingStatus.PENDING_PAYMENT);
+        booking.setMemberAccountId(36L);
+        booking.setVersion(3L);
+        when(bookings.findLockedByBookingCode("BK-LOYALTY-PENDING")).thenReturn(Optional.of(booking));
+
+        assertThat(facade.getLoyaltyOutcomeSource(new WorkshopBookingLoyaltyOutcomeSourceQuery("BK-LOYALTY-PENDING"))).isNull();
+    }
+
     private static WorkshopBooking confirmed(String code) {
         return WorkshopBooking.builder().id(1L).bookingCode(code).bookingStatus(BookingStatus.CONFIRMED)
                 .paymentStatus(PaymentStatus.DEPOSIT_PAID).build();

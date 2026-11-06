@@ -79,9 +79,11 @@ Required invariants:
 
 Input is validated before eligibility and persistence: rating is an integer `1..5`; text is optional and at most 2,000 characters; no media fields are accepted. A valid create commits the review as `PUBLIC` and an audit/revision record atomically. A duplicate source returns a stable conflict response and does not create another review. An owner edit validates ownership and the same content limits, keeps `PUBLIC`, and appends a revision/audit record atomically.
 
+Display name (decision 2026-11-06): a Member's public review shows the account name partly masked (first letter of the family name and the last word, for example "H*** Quốc"), or an anonymous label when the reviewer ticks the anonymous option at creation. The internal account number is never shown, not even partly; a Member whose account has no name is shown as anonymous. The choice is stored as the display text, fixed at creation, and an edit does not change it. The same option applies to a Guest, whose masked contact is replaced by the anonymous label.
+
 ## 7. Public listing and aggregates
 
-Public listing supports target filtering, rating filtering and stable pagination. Homepage, Product Details and Workshop Details may feature the newest five-star reviews first, while the general list remains filterable. Aggregate average/count is calculated or projected from `PUBLIC` rows only. Hidden and removed reviews are excluded from public output and aggregates.
+Public listing supports target filtering, package filtering, rating filtering and stable pagination. A workshop review carries the package of the attended booking (id and the name at that time, decision 2026-11-06), so the list shows which package each review is about and a package page can show its reviews across all of that package's sessions; the review's target stays the session. A retail review has no package. Homepage, Product Details and Workshop Details may feature the newest five-star reviews first, while the general list remains filterable. Aggregate average/count is calculated or projected from `PUBLIC` rows only. Hidden and removed reviews are excluded from public output and aggregates.
 
 ## 8. Moderation and reply
 

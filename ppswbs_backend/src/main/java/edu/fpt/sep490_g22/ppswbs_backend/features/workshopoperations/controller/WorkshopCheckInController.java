@@ -50,6 +50,13 @@ public class WorkshopCheckInController {
         return ResponseEntity.ok(tickets);
     }
 
+    @GetMapping("/workshop-sessions/{sessionId}/attendance-roster")
+    public ResponseEntity<List<edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.AttendanceRosterEntry>> attendanceRoster(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable("sessionId") String sessionId) {
+        return ResponseEntity.ok(checkInService.attendanceRoster(authHeader, sessionId));
+    }
+
     /** T039: request delivery-safe ticket redelivery through Workshop Booking. */
     @PostMapping("/workshop-sessions/{sessionId}/ticket-resends")
     public ResponseEntity<Void> requestTicketResend(

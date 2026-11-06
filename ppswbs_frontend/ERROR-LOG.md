@@ -60,3 +60,16 @@
   - `SessionNavigationBoundary` and `RequireSession` enforce canonical route protection, draft cleanup, and safe Home navigation.
   - All 83 automated frontend tests in `src/features/accountmanagement/tests/` (including 28 router integration tests and 18 redirect/re-auth tests) pass cleanly.
   - Production Vite bundle builds with zero errors (`npm run build`).
+
+## FE-DESIGN-0003 — RESOLVED
+
+- Time: 2026-11-06.
+- Reporter: Claude. Scope: FE-08 retail checkout, payment result, Staff shipment management, and Manager payment reconciliation.
+- Facts: the Firebase session provider from FE-01 is now available (`useHttp`, `useAuth`, `FirebaseAuthClient`), so the earlier blocker on identity/session is closed for FE-08. Retail API calls go through `features/retail-order/infrastructure/retailApi.js` with the current ID token.
+- Delivered: Member cart, checkout, and order history (`/member/cart`, `/member/checkout`, `/member/orders`); Manager payment reconciliation (`/manager/retail-payment-reconciliations`); Staff GHTK shipment management (`/staff/retail-shipments`) with status transitions PREPARING → HANDED_TO_CARRIER → IN_TRANSIT → DELIVERED.
+- Navigation: the shared `MainTopbar` dropdown now exposes Cart, Staff GHTK shipments and Manager payment reconciliation, restricted by role. Before this change the merge with the shared-topbar refactor had left these pages reachable only by typing the URL.
+- Verification: `npm run build` passed after the merge (243 modules, 5.74 s). Chunk-size warning above 500 kB is pre-existing and unrelated to FE-08.
+
+### Cleanup — 2026-11-06
+
+- Removed the superseded `src/features/readyringsales/` tree. The remote branch had already renamed it to `src/features/retail-order/`; only `WorkshopBenefitPanel.jsx` still imported its stylesheet, now pointing at `features/retail-order/ui/readyringsales.css` (byte-identical file).

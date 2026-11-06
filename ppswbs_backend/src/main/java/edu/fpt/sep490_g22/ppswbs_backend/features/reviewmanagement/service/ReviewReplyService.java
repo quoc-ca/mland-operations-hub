@@ -86,7 +86,7 @@ public class ReviewReplyService {
                 .reviewId(reviewId.trim())
                 .bodyText(request.getBodyText().trim())
                 .createdByManagerId(managerId)
-                .version(0L)
+                // No version: see ReviewApplicationService.createReview (assigned id + non-null @Version breaks the insert).
                 .createdAt(now)
                 .updatedAt(now)
                 .build();

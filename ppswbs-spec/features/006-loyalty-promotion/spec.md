@@ -31,6 +31,7 @@ Nguồn chính là FE-06 hiện tại và quyết định trực tiếp trong h�
 
 - Q: Gói workshop có nhiều phiên (ví dụ Silverclay 2 phiên, một phí cho cả gói) thì voucher giới hạn chi nhánh/ngày/phiên kiểm tra phiên nào? → A: **Mọi phiên khách đã chọn phải khớp** các giới hạn chi nhánh, ngày tham gia và phiên của voucher (nếu có); chỉ cần một phiên nằm ngoài phạm vi thì voucher bị từ chối kèm lý do. Gói phải nằm trong phạm vi gói của voucher (nếu có). Trần giảm vẫn áp một lần cho cả booking.
 - Q: Phạm vi "phiên" của voucher dùng mã nào? → A: Dùng mã tham chiếu của phiên do Workshop Operations cấp (`workshop_sessions.reference`, UUID chữ thường), không dùng số thứ tự nội bộ. Gói và chi nhánh vẫn là ID số, ngày tham gia là `YYYY-MM-DD`.
+- Q: Voucher workshop có bắt buộc chọn gói không, và form có cần nhập ngày workshop không? → A: **Không bắt buộc (2026-11-06).** Gói, chi nhánh và phiên đều chọn từ danh sách có sẵn với lựa chọn "Tất cả" (không giới hạn) hoặc đúng một mục; không chọn gì nghĩa là voucher áp dụng cho mọi workshop. Form tạo không còn ô ngày workshop vì thời hạn đặt đã cấu hình bằng khoảng thời gian hiệu lực của chương trình; hợp đồng vẫn nhận `workshopDates` cho dữ liệu cũ.
 
 ### Session 2026-10-30
 

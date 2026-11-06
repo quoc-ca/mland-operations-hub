@@ -16,6 +16,7 @@ public class RetailPaymentService {
     private final RetailCheckoutService checkoutService;
     private final RetailPaymentPort paymentPort;
     private final ObjectProvider<RetailUnstartedExpiryService> expiryService;
+    private final RetailShipmentCreationService shipmentCreation;
 
     @Transactional
     public CheckoutDtos.PaymentRedirectView initiate(Long memberAccountId, String checkoutId) {
@@ -30,7 +31,10 @@ public class RetailPaymentService {
         if (expiry != null) expiry.requirePaymentBeforeDeadline(checkoutId);
         checkout.beginPayment();
         RetailCheckoutPorts.PaymentInitiation initiation = paymentPort.initiate(checkout.getId(), checkout.getPayableAmount());
-        if (initiation.locallyVerified()) checkout.markPaid();
+        if (initiation.locallyVerified()) {
+            checkout.markPaid();
+            shipmentCreation.createShipmentsForPaidCheckout(checkout);
+        }
         return new CheckoutDtos.PaymentRedirectView(checkout.getId(), initiation.paymentUrl(), initiation.expiresAt().toString(), checkout.getPaymentState().name());
     }
 }

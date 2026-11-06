@@ -3,14 +3,15 @@ import { createBrowserRouter } from 'react-router';
 import { SessionNavigationBoundary } from '../shared/auth/SessionNavigationBoundary';
 import { accountManagementRoutes } from '../features/accountmanagement';
 import { designReviewRoutes } from '../features/designreview/routes';
+import { readyRingSalesRoutes } from '../features/retail-order';
 import { reviewManagementRoutes } from '../features/reviewmanagement/routes';
-import { readyRingSalesRoutes } from '../features/readyringsales/routes';
 import { loyaltyPromotionRoutes } from '../features/loyalty-promotion';
 import { productManagementRoutes } from '../features/product-management';
 import { workshopRoutes } from '../workshops/routes';
 import { otaConnectivityRoutes } from '../ota-connectivity/routes';
 import { operationsRoutes } from '../workshop-operations/routes';
 import { settlementRoutes } from '../workshop-settlement/routes';
+import { operatorHomeRoutes } from '../features/operatorhome/routes';
 import HomePage from '../features/landing/HomePage';
 import AppLayout from './AppLayout';
 import NotImplementedPage from './NotImplementedPage';
@@ -30,6 +31,7 @@ export const routes = [
           ...otaConnectivityRoutes,
           ...operationsRoutes,
           ...settlementRoutes,
+          ...operatorHomeRoutes,
           ...designReviewRoutes,
           ...reviewManagementRoutes,
           ...productManagementRoutes,

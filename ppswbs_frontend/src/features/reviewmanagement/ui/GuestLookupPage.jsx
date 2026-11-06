@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Navigate, useNavigate } from 'react-router';
 import { useT } from '../../../shared/i18n/I18nProvider';
+import { useAuth } from '../../../shared/auth/AuthProvider';
+import { useRole } from '../../../shared/auth/useRole';
 import { ErrorNotice, Field, Loading, useCommand } from '../../../shared/ui/components';
 import { useReviewManagementApi } from '../api/useReviewManagementApi';
 import { reviewManagementMessages } from '../messages';
@@ -16,6 +18,11 @@ export default function GuestLookupPage() {
   const [contactValue, setContactValue] = useState('');
   const [clientError, setClientError] = useState('');
   const [sources, setSources] = useState(null);
+
+  // The email/phone lookup is for Guests. A signed-in Member already has their own list of reviewable sources.
+  const { status: authStatus } = useAuth();
+  const role = useRole();
+  if (authStatus === 'signed-in' && role === 'MEMBER') return <Navigate to="/reviews/eligible-sources" replace />;
 
   async function submit(event) {
     event.preventDefault();

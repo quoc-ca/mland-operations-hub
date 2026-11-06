@@ -15,6 +15,7 @@ import java.util.List;
 public class WorkshopSettlementAuthorizationService {
     private final AccountFacade accounts;
     private final SettlementBusinessAuditRepository auditRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter operations;
 
     public AccountSummary requireActive(String firebaseUid) {
         AccountSummary actor = accounts.resolveAccount(firebaseUid).orElse(null);
@@ -57,6 +58,20 @@ public class WorkshopSettlementAuthorizationService {
         if (actor.role() != ActorRole.STAFF || bookingLocationId == null
                 || actor.activeLocationIds() == null || !actor.activeLocationIds().contains(bookingLocationId)) {
             throw deny(actor.accountId().toString(), "LOCATION_SCOPE_DENIED");
+        }
+        return actor;
+    }
+
+    /**
+     * Manager is global. A Staff member needs the booking's location in scope AND an active assignment to one of the
+     * sessions the booking holds a ticket for (owner decision 2026-11-06).
+     */
+    public CurrentAccountActor requireManagerOrAssignedStaff(CurrentAccountActor actor, Long bookingLocationId, String bookingReference) {
+        requireManagerOrStaff(actor, bookingLocationId);
+        if (actor.role() == ActorRole.MANAGER) return actor;
+        if (bookingReference == null || bookingReference.isBlank()
+                || !operations.staffAssignedToBooking(actor.accountId(), bookingReference)) {
+            throw deny(actor.accountId().toString(), "SESSION_ASSIGNMENT_REQUIRED");
         }
         return actor;
     }

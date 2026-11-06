@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { lookupGuestBooking, lookupMemberBooking, WorkshopApiError } from '../api/workshops';
 import { useAuth } from '../shared/auth/AuthProvider';
 import { useHttp } from '../shared/api/useHttp';
@@ -43,6 +44,8 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
   const lookupMode = authStatus === 'signed-out' || authStatus === 'unconfigured'
     ? 'GUEST'
     : accountProfile?.role === 'MEMBER' ? 'MEMBER' : null;
+  // A Staff or Manager who started a payment for a customer (the final payment at the workshop) lands here too.
+  const operatorRole = ['STAFF', 'MANAGER', 'ADMIN'].includes(accountProfile?.role) ? accountProfile.role : null;
 
   // Countdown timer for active hold
   const [countdownSeconds, setCountdownSeconds] = useState(null);
@@ -149,7 +152,20 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
           Mã đặt chỗ: <strong>{bookingCode || 'Chưa xác định'}</strong>
         </p>
 
-        {!bookingData ? (
+        {!bookingData && operatorRole ? (
+          <div role="status" className="operator-payment-note" style={{ background: '#f8fafc', border: '1px solid #dcdfe6', padding: '16px 18px', lineHeight: '1.6' }}>
+            <strong>Bạn đang đăng nhập bằng tài khoản nhân viên ({operatorRole}).</strong>
+            <p style={{ margin: '8px 0 0' }}>
+              Trang này dành cho khách kiểm tra đơn của mình nên không xác minh bằng tài khoản nhân viên. Kết quả thanh toán đã được
+              VNPay báo về; hệ thống chỉ ghi nhận khi nhận IPN, thường sau vài giây.
+            </p>
+            <p style={{ margin: '8px 0 12px' }}>
+              Hãy quay lại <strong>Hóa đơn quyết toán</strong>, bấm <strong>Load folio</strong> để xem số tiền còn nợ đã được cập nhật,
+              rồi chốt hóa đơn khi còn nợ bằng 0.
+            </p>
+            <Link className="button primary" to="/settlement">Quay lại Hóa đơn quyết toán</Link>
+          </div>
+        ) : !bookingData ? (
           <form className="payment-form" onSubmit={handleVerifyBackend}>
             <p hidden={lookupMode !== 'GUEST'} style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '14px' }}>
               Vui lòng nhập Email hoặc Số điện thoại đã dùng khi đặt chỗ để đồng bộ kết quả xác thực backend:

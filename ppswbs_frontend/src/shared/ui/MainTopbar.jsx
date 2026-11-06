@@ -212,6 +212,9 @@ export default function MainTopbar() {
                   <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">
                     <span>📦</span> Đơn hàng của tôi
                   </Link>
+                  <Link to="/member/cart" className="main-topbar-dropdown-item" role="menuitem">
+                    <span>🛒</span> Giỏ hàng
+                  </Link>
                   <Link to="/me/loyalty" className="main-topbar-dropdown-item" role="menuitem">
                     <span>💎</span> Điểm thưởng tích lũy
                   </Link>
@@ -231,13 +234,22 @@ export default function MainTopbar() {
                         Cổng công việc
                       </span>
                       {userRole === 'STAFF' && (
-                        <Link
-                          to="/operations/sessions"
-                          className="main-topbar-dropdown-item"
-                          role="menuitem"
-                        >
-                          <span>🏢</span> Staff Vận hành
-                        </Link>
+                        <>
+                          <Link
+                            to="/operations/sessions"
+                            className="main-topbar-dropdown-item"
+                            role="menuitem"
+                          >
+                            <span>🏢</span> Staff Vận hành
+                          </Link>
+                          <Link
+                            to="/staff/retail-shipments"
+                            className="main-topbar-dropdown-item"
+                            role="menuitem"
+                          >
+                            <span>🚚</span> Vận đơn GHTK
+                          </Link>
+                        </>
                       )}
                       {(userRole === 'MANAGER' || userRole === 'ADMIN') && (
                         <>
@@ -255,6 +267,15 @@ export default function MainTopbar() {
                           >
                             <span>🏷️</span> Quản lý Ưu đãi
                           </Link>
+                          {userRole === 'MANAGER' && (
+                            <Link
+                              to="/manager/retail-payment-reconciliations"
+                              className="main-topbar-dropdown-item"
+                              role="menuitem"
+                            >
+                              <span>💳</span> Đối soát thanh toán
+                            </Link>
+                          )}
                         </>
                       )}
                       {(userRole === 'STAFF' || userRole === 'MANAGER' || userRole === 'ADMIN') && (

@@ -113,6 +113,23 @@ public class WorkshopAddOnService {
                 .orElse(null);
     }
 
+    /** Same eligibility as {@link #getEligibleSnapshot}: a published package, an active location, ACTIVE add-ons only. */
+    @Transactional(readOnly = true)
+    public java.util.List<edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopAddOnPriceSnapshot>
+    listEligibleSnapshots(String packageReference, Long locationReference) {
+        final Long packageId;
+        try { packageId = Long.valueOf(packageReference); }
+        catch (RuntimeException invalidReference) { return java.util.List.of(); }
+        if (locationReference == null || packages.findById(packageId)
+                .filter(p -> p.getState() == WorkshopPackageState.PUBLISHED).isEmpty()
+                || locations.findByIdAndActiveTrue(locationReference).isEmpty()) return java.util.List.of();
+        return addOns.findByPackageIdAndLocationIdAndStateOrderByDescriptionAsc(
+                        packageId, locationReference, WorkshopAddOnState.ACTIVE).stream()
+                .map(a -> new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopAddOnPriceSnapshot(
+                        a.getReference(), a.getDescription(), a.getPriceVnd(), "VND"))
+                .toList();
+    }
+
     private void requirePackageAndLocation(Long packageId, Long locationId) {
         if (packages.findById(packageId).isEmpty()) throw new WorkshopNotFoundException("Workshop Package not found");
         if (locations.findById(locationId).isEmpty()) throw new WorkshopNotFoundException("Workshop location not found");

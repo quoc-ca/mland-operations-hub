@@ -36,6 +36,7 @@ public class SimulatedRetailPaymentOutcomeService {
     private final AvailabilityGuardPort guard;
     private final LoyaltyFacade loyalty;
     private final RetailCheckoutService views;
+    private final RetailShipmentCreationService shipmentCreation;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public CheckoutDtos.GroupedCheckoutView simulateVerifiedPayment(Long memberId, String checkoutId,
@@ -69,6 +70,7 @@ public class SimulatedRetailPaymentOutcomeService {
                 lockedHolds.forEach(holds::settle);
                 checkout.markPaidWithProof(proof);
                 checkouts.saveAndFlush(checkout);
+                shipmentCreation.createShipmentsForPaidCheckout(checkout);
                 var outcome = new AuthoritativeOutcome(SourceKind.RETAIL, checkoutId, "readyringsales", "paid-" + proof,
                     checkout.getVersion(), OutcomeKind.RETAIL_FULLY_PAID, now, deadline, checkoutId, true, proof);
                 loyalty.settleAcceptedBenefits(outcome);

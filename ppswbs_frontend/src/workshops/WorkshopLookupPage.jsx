@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
+  listMemberBookings,
   lookupGuestBooking,
   lookupMemberBooking,
   initiateDepositPayment,
@@ -10,6 +12,10 @@ import {
 import { useAuth } from '../shared/auth/AuthProvider';
 import { useHttp } from '../shared/api/useHttp';
 import { classifyPaymentCommandError } from '../shared/payment/paymentRecoveryState';
+import { useReviewManagementApi } from '../features/reviewmanagement/api/useReviewManagementApi';
+import { MyBookingsList } from './MyBookingsList';
+import { ReviewCta } from './ReviewCta';
+import { attendanceStatusLabel, isNoShow, NO_SHOW_NOTE } from './attendanceDisplay';
 import './figmaPublicShell.css';
 
 export function WorkshopLookupPage() {
@@ -50,8 +56,57 @@ export function WorkshopLookupPage() {
     return () => { active = false; };
   }, [authStatus, http]);
 
+  // A Member's own bookings (with tickets) are listed at once; typing a booking code stays available below.
+  const [myBookings, setMyBookings] = useState(null);
+  const [myBookingsLoading, setMyBookingsLoading] = useState(false);
+  const [myBookingsError, setMyBookingsError] = useState(null);
+  const loadMyBookings = useRef(null);
+  loadMyBookings.current = async () => {
+    setMyBookingsLoading(true);
+    setMyBookingsError(null);
+    try {
+      const idToken = await getIdToken();
+      if (!idToken) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      setMyBookings(await listMemberBookings({ authorization: `Bearer ${idToken}` }));
+    } catch {
+      setMyBookings(null);
+      setMyBookingsError('Không tải được danh sách đặt chỗ của bạn.');
+    } finally {
+      setMyBookingsLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (lookupMode !== 'MEMBER') { setMyBookings(null); setMyBookingsError(null); return; }
+    loadMyBookings.current();
+  }, [lookupMode]);
+
+  // Which of the Member's workshop sessions can be reviewed comes only from Feature-011 (eligible sources); nothing is
+  // inferred here. A failure just means no review button: it is not the purpose of this page.
+  const reviewApi = useReviewManagementApi();
+  const navigate = useNavigate();
+  const [reviewSources, setReviewSources] = useState(null);
+  useEffect(() => {
+    if (lookupMode !== 'MEMBER') { setReviewSources(null); return undefined; }
+    let active = true;
+    reviewApi.listEligibleSources()
+      .then(result => { if (active) setReviewSources(Array.isArray(result?.items) ? result.items : []); })
+      .catch(() => { if (active) setReviewSources(null); });
+    return () => { active = false; };
+  }, [lookupMode, reviewApi]);
+  const startReview = source => navigate('/reviews/new', { state: { source } });
+
   // Loaded projection
   const [loading, setLoading] = useState(false);
+  const detailsRef = useRef(null);
+  const openFromList = booking => {
+    setError(null);
+    setResendSuccess(null);
+    setResendError(null);
+    setPayError(null);
+    setBookingCode(booking.bookingCode);
+    setBookingData(booking);
+    setTimeout(() => detailsRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 0);
+  };
   const [error, setError] = useState(null);
   const [bookingData, setBookingData] = useState(null);
 
@@ -254,6 +309,19 @@ export function WorkshopLookupPage() {
         <p style={{ color: '#b00', marginBottom: '16px' }}>{profileError || 'Tài khoản hiện tại không có vai trò Member để tra cứu booking.'}</p>
       )}
 
+      {lookupMode === 'MEMBER' && (
+        <MyBookingsList
+          bookings={myBookings}
+          loading={myBookingsLoading}
+          error={myBookingsError}
+          onRetry={() => loadMyBookings.current()}
+          onOpen={openFromList}
+          selectedCode={bookingData?.bookingCode}
+          reviewSources={reviewSources}
+          onReview={startReview}
+        />
+      )}
+
       {/* Lookup Form */}
       <section className="workspace-card lookup-panel">
         <form onSubmit={handleLookup}>
@@ -319,7 +387,7 @@ export function WorkshopLookupPage() {
 
       {/* Booking Details Card */}
       {bookingData && (
-        <section className="workspace-card" style={{ marginTop: '28px', borderTop: '4px solid #002967' }}>
+        <section ref={detailsRef} className="workspace-card" style={{ marginTop: '28px', borderTop: '4px solid #002967' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '16px' }}>
             <div>
               <span className="muted" style={{ fontSize: '13px' }}>Mã đặt chỗ</span>
@@ -327,9 +395,9 @@ export function WorkshopLookupPage() {
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <span className={`status ${bookingData.bookingStatus === 'CONFIRMED' ? 'ok' : ''}`} style={{ fontSize: '14px', fontWeight: 'bold' }}>
+              <span className={`status ${bookingData.bookingStatus === 'CONFIRMED' && !isNoShow(bookingData) ? 'ok' : ''}`} style={{ fontSize: '14px', fontWeight: 'bold' }}>
                 {bookingData.bookingStatus === 'PENDING_PAYMENT' && 'CHỜ THANH TOÁN CỌC'}
-                {bookingData.bookingStatus === 'CONFIRMED' && 'ĐÃ XÁC NHẬN'}
+                {bookingData.bookingStatus === 'CONFIRMED' && (attendanceStatusLabel(bookingData)?.toUpperCase() || 'ĐÃ XÁC NHẬN')}
                 {bookingData.bookingStatus === 'CANCELLED' && 'ĐÃ HỦY'}
                 {bookingData.bookingStatus === 'EXPIRED' && 'HẾT HẠN GIỮ CHỖ'}
               </span>
@@ -438,6 +506,16 @@ export function WorkshopLookupPage() {
           )}
 
           {/* STATE: CONFIRMED (Confirmed-ticket) */}
+          {lookupMode === 'MEMBER' && (
+            <div style={{ marginTop: '16px' }}>
+              <ReviewCta booking={bookingData} sources={reviewSources} onReview={startReview} />
+            </div>
+          )}
+          {isNoShow(bookingData) && (
+            <div role="note" style={{ marginTop: '20px', padding: '14px 18px', background: '#fff7e6', border: '1px solid #ffd591', color: '#874d00', lineHeight: '1.6' }}>
+              {NO_SHOW_NOTE}
+            </div>
+          )}
           {bookingData.bookingStatus === 'CONFIRMED' && (
             <div style={{ marginTop: '20px', padding: '20px', background: '#f0f9f4', border: '1px solid #b7eb8f' }}>
               <h3 style={{ margin: '0 0 12px', color: '#0b5c34' }}>Vé tham gia workshop đã được phát hành</h3>

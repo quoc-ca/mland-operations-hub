@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
+import { useRole } from '../auth/useRole';
 import { useLanguage } from '../i18n/I18nProvider';
 import { getFirebaseAuth } from '../auth/firebaseSession';
 import '../../ota-connectivity/ota-connectivity.css';
@@ -29,6 +30,13 @@ export function OperationsSidebar() {
       setIsSigningOut(false);
     }
   };
+
+  // Staff see their daily work; management areas appear for Manager and Admin only. The role is unknown until the
+  // profile arrives, and then only the daily work shows. Navigation only: the backend decides every permission.
+  const role = useRole();
+  const canManage = role === 'MANAGER' || role === 'ADMIN';
+  // Staff and Manager both manage products.
+  const canManageProducts = canManage || role === 'STAFF';
 
   const authInstance = typeof getFirebaseAuth === 'function' ? getFirebaseAuth() : null;
   const currentUser = authInstance?.currentUser;
@@ -80,6 +88,12 @@ export function OperationsSidebar() {
       </div>
 
       <div className="ota-sidebar-nav">
+        {/* Own home of the signed-in role (/home sends Staff and Manager to theirs) */}
+        <Link className={pathname === '/staff/home' || pathname === '/manager/home' ? 'active' : ''} to="/home">
+          {isVi ? 'Trang chủ' : 'Home'}
+        </Link>
+
+        {canManageProducts && (<>
         {/* PRODUCT MANAGEMENT */}
         <div className="ota-sidebar-label">
           {isVi ? 'QUẢN LÝ SẢN PHẨM' : 'PRODUCT MANAGEMENT'}
@@ -97,6 +111,9 @@ export function OperationsSidebar() {
           {isVi ? 'Import Excel' : 'Bulk import'}
         </Link>
 
+        </>)}
+
+        {canManage && (<>
         {/* PROMOTIONS & LOYALTY */}
         <div className="ota-sidebar-label">
           {isVi ? 'QUẢN LÝ ƯU ĐÃI' : 'PROMOTIONS & LOYALTY'}
@@ -111,13 +128,16 @@ export function OperationsSidebar() {
           {isVi ? 'Chính sách điểm' : 'Point policy'}
         </Link>
 
+        </>)}
+
         {/* WORKSHOP OPERATIONS */}
         <div className="ota-sidebar-label">
           {isVi ? 'VẬN HÀNH WORKSHOP' : 'WORKSHOP OPERATIONS'}
         </div>
         <Link className={isSessionBoardActive ? 'active' : ''} to="/operations/sessions">
-          {isVi ? 'Bảng điều phối ca' : 'Session board'}
+          {role === 'STAFF' ? (isVi ? 'Ca của tôi' : 'My sessions') : (isVi ? 'Bảng điều phối ca' : 'Session board')}
         </Link>
+        {canManage && (<>
         <Link className={isLocationsActive ? 'active' : ''} to="/operations/admin?tab=locations">
           {isVi ? 'Chi nhánh & khung giờ' : 'Locations & slots'}
         </Link>
@@ -127,11 +147,13 @@ export function OperationsSidebar() {
         <Link className={isPackageAddOnsActive ? 'active' : ''} to="/operations/package-add-ons">
           {isVi ? 'Add-on gói' : 'Package add-ons'}
         </Link>
+        </>)}
 
         {/* OTA CONNECTIVITY */}
         <div className="ota-sidebar-label">
           {isVi ? 'KẾT NỐI OTA' : 'OTA CONNECTIVITY'}
         </div>
+        {canManage && (<>
         <Link className={isChannelsActive ? 'active' : ''} to="/ota-connectivity/channels">
           {isVi ? 'Kênh đối tác (Channels)' : 'Channel mappings'}
         </Link>
@@ -141,6 +163,7 @@ export function OperationsSidebar() {
         <Link className={isFinanceActive ? 'active' : ''} to="/ota-connectivity/finance">
           {isVi ? 'Bằng chứng tài chính (Finance)' : 'Finance evidence'}
         </Link>
+        </>)}
         <Link className={isShopAddOnsActive ? 'active' : ''} to="/ota-connectivity/add-ons">
           {isVi ? 'Add-on tại xưởng (Shop)' : 'Shop add-ons'}
         </Link>
@@ -152,12 +175,14 @@ export function OperationsSidebar() {
         <Link className={isBillsActive ? 'active' : ''} to="/settlement">
           {isVi ? 'Hóa đơn quyết toán (Bills)' : 'Final bills'}
         </Link>
+        {canManage && (<>
         <Link className={isCasesActive ? 'active' : ''} to="/settlement/cases?tab=cases">
           {isVi ? 'Sự vụ & bồi hoàn (Cases)' : 'Settlement cases'}
         </Link>
         <Link className={isPoliciesActive ? 'active' : ''} to="/settlement/cases?tab=policies">
           {isVi ? 'Chính sách hoàn tiền' : 'Refund policies'}
         </Link>
+        </>)}
       </div>
 
       <div className="ota-sidebar-footer">

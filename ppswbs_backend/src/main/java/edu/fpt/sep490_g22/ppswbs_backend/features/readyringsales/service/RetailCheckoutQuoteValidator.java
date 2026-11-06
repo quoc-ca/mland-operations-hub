@@ -51,7 +51,9 @@ public class RetailCheckoutQuoteValidator {
         for (RetailCheckoutQuoteBranch branch : quote.getBranches()) {
             var choice = choices.remove(branch.getLocationId());
             if (choice == null || !Objects.equals(choice.method(), branch.getFulfilmentMethod())
-                || !Objects.equals(choice.shippingQuoteId(), branch.getShippingQuoteId())) throw stale();
+                || !Objects.equals(choice.shippingQuoteId(), branch.getShippingQuoteId())
+                || !branch.matchesRecipient(choice.recipient())) throw stale();
+            if ("GHTK".equals(branch.getFulfilmentMethod()) && !validRecipient(choice.recipient())) throw stale();
             for (var item : branch.getItems()) {
                 var key = new LineKey(branch.getLocationId(), item.getVariantId());
                 if (quotedLines.put(key, item.getQuantity()) != null) throw stale();
@@ -65,6 +67,14 @@ public class RetailCheckoutQuoteValidator {
             || !saleFacts.keySet().equals(quotedLines.keySet().stream().map(LineKey::variantId).collect(java.util.stream.Collectors.toSet()))) {
             throw stale();
         }
+    }
+
+    /** Optional at quote time; required when the Member accepts a GHTK branch order. */
+    private boolean validRecipient(CheckoutDtos.RecipientAddressInput recipient) {
+        return recipient != null
+            && recipient.recipientName() != null && recipient.recipientName().matches("(?s).{1,100}")
+            && recipient.recipientPhone() != null && recipient.recipientPhone().matches("^(?:0|\\+84)\\d{9}$")
+            && recipient.address() != null && recipient.address().matches("(?s).{10,500}");
     }
 
     private RetailConflictException stale() {

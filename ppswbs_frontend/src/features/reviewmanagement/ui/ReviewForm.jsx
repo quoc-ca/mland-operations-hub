@@ -10,6 +10,8 @@ export default function ReviewForm({ source, handle, existing, onSaved }) {
 
   const [rating, setRating] = useState(existing?.rating || 5);
   const [bodyText, setBodyText] = useState(existing?.bodyText || '');
+  // Anonymity is chosen when the review is created and cannot change afterwards, so the choice is offered only then.
+  const [anonymous, setAnonymous] = useState(false);
   const [clientError, setClientError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -47,6 +49,7 @@ export default function ReviewForm({ source, handle, existing, onSaved }) {
             bodyText: body,
             source,
             handle,
+            ...(anonymous ? { anonymous: true } : {}),
           })
         );
 
@@ -95,6 +98,21 @@ export default function ReviewForm({ source, handle, existing, onSaved }) {
           disabled={command.pending}
         />
       </Field>
+
+      {!existing && (
+        <div className="field">
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={anonymous}
+              onChange={e => setAnonymous(e.target.checked)}
+              disabled={command.pending}
+            />{' '}
+            {t('anonymousLabel')}
+          </label>
+          <span className="muted small">{t('anonymousHint')}</span>
+        </div>
+      )}
 
       <button
         type="submit"

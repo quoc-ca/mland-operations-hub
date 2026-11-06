@@ -37,6 +37,29 @@ class IdentityGateFilterTest {
         assertThat(filter.skips("POST", "/api/v1/workshop-packages/145/sessions")).isFalse();
     }
 
+    @Test
+    void guestCanOpenABookingFromItsMagicLinkWithoutBearerToken() {
+        assertThat(filter.skips("POST", "/api/v1/booking-magic-links/exchanges")).isTrue();
+    }
+
+    @Test
+    void onlyTheMagicLinkExchangeIsOpen() {
+        assertThat(filter.skips("GET", "/api/v1/booking-magic-links/exchanges")).isFalse();
+        assertThat(filter.skips("POST", "/api/v1/booking-magic-links/other")).isFalse();
+    }
+
+    @Test
+    void publicReviewReadsStayOpenWithoutBearerToken() {
+        assertThat(filter.skips("GET", "/api/v1/reviews")).isTrue();
+        assertThat(filter.skips("GET", "/api/v1/reviews/some-review-id")).isTrue();
+    }
+
+    @Test
+    void aMembersOwnReviewableSourcesNeedTheSignedInActor() {
+        // Regression: this route used to be skipped like the public reads, so a signed-in Member got 401 and was signed out.
+        assertThat(filter.skips("GET", "/api/v1/reviews/eligible-sources")).isFalse();
+    }
+
     private static final class ExposedIdentityGateFilter extends IdentityGateFilter {
         private ExposedIdentityGateFilter() {
             super(mock(TokenVerificationService.class), mock(AccountFacade.class), new ObjectMapper());

@@ -43,9 +43,11 @@ public class RetailCheckoutService {
         List<RetailCheckoutPorts.PricedLine> lines = pricingPort.price(cart.getLines());
         RetailCheckoutPorts.BenefitPreview preview = benefitPort.preview(memberAccountId, lines, toSelection(request.selection()));
         BigDecimal subtotal = subtotal(lines);
+        BigDecimal shipping = previewShipping(memberAccountId, request.branchOrders(), lines);
+        BigDecimal payable = subtotal.subtract(preview.discountAmount()).subtract(preview.pointsDiscountAmount()).add(shipping);
         return new CheckoutDtos.BenefitPreviewView(preview.previewId(), "VND", money(subtotal), true,
             money(preview.discountAmount()), money(preview.pointsDiscountAmount()),
-            money(subtotal.subtract(preview.discountAmount()).subtract(preview.pointsDiscountAmount())), preview.expiresAt().toString());
+            money(payable), preview.expiresAt().toString(), money(shipping));
     }
 
     @Transactional(readOnly = true)
@@ -82,7 +84,7 @@ public class RetailCheckoutService {
         RetailCheckoutPorts.BenefitPreview benefit = benefitPort.requireValidPreview(memberAccountId, request.benefitPreviewId(),
             toSelection(request.benefitSelection()), subtotal);
         BigDecimal discount = benefit.discountAmount().add(benefit.pointsDiscountAmount());
-        Map<Long, BigDecimal> shippingByLocation = shippingByLocation(memberAccountId, choices);
+        Map<Long, BigDecimal> shippingByLocation = shippingByLocation(memberAccountId, choices, priced);
         BigDecimal shipping = shippingByLocation.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
 
         GroupedCheckout checkout = new GroupedCheckout(memberAccountId, idempotencyKey, cart.getVersion() == null ? 0L : cart.getVersion(), subtotal, shipping, discount);
@@ -94,6 +96,11 @@ public class RetailCheckoutService {
             BigDecimal branchDiscount = index == 0 ? discount : BigDecimal.ZERO;
             RetailOrder order = new RetailOrder(checkout, locationId, choices.get(locationId).method().toUpperCase(), branchSubtotal,
                 shippingByLocation.get(locationId), branchDiscount);
+            var recipientInput = choices.get(locationId).recipient();
+            if ("GHTK".equalsIgnoreCase(choices.get(locationId).method()) && recipientInput != null) {
+                order.setRecipientSnapshot(recipientInput.recipientName(), recipientInput.recipientPhone(),
+                    recipientInput.address(), recipientInput.province(), recipientInput.district(), recipientInput.ward());
+            }
             branchLines.forEach(line -> order.addItem(new OrderItem(order, line.variantId(), line.quantity(), line.unitPrice())));
             checkout.addOrder(order);
         }
@@ -126,16 +133,31 @@ public class RetailCheckoutService {
         }
         return values;
     }
-    private Map<Long, BigDecimal> shippingByLocation(Long memberId, Map<Long, CheckoutDtos.BranchOrderCheckoutInput> choices) {
+    private Map<Long, BigDecimal> shippingByLocation(Long memberId, Map<Long, CheckoutDtos.BranchOrderCheckoutInput> choices,
+                                                      List<RetailCheckoutPorts.PricedLine> priced) {
         Map<Long, BigDecimal> result = new HashMap<>();
         choices.forEach((locationId, choice) -> {
             if ("PICKUP".equalsIgnoreCase(choice.method())) result.put(locationId, BigDecimal.ZERO);
             else {
                 if (choice.shippingQuoteId() == null || choice.shippingQuoteId().isBlank()) throw new RetailConflictException("GHTK requires a server-issued shipping quote");
-                result.put(locationId, shippingQuotePort.requireValidQuote(memberId, locationId, choice.shippingQuoteId()).charge());
+                var branchLines = priced.stream().filter(line -> locationId.equals(line.locationId())).toList();
+                var address = choice.recipient();
+                var recipient = address == null ? null : new RetailCheckoutPorts.RecipientAddress(
+                    address.address(), address.province(), address.district(), address.ward());
+                result.put(locationId, shippingQuotePort.requireValidQuote(memberId, locationId, choice.shippingQuoteId(), branchLines, recipient).charge());
             }
         });
         return result;
+    }
+    private BigDecimal previewShipping(Long memberId, List<CheckoutDtos.BranchOrderCheckoutInput> inputs,
+                                       List<RetailCheckoutPorts.PricedLine> priced) {
+        if (inputs == null || inputs.isEmpty()) return BigDecimal.ZERO;
+        Map<Long, CheckoutDtos.BranchOrderCheckoutInput> choices = choicesByLocation(inputs);
+        Set<Long> locations = priced.stream().map(RetailCheckoutPorts.PricedLine::locationId).collect(Collectors.toSet());
+        if (!locations.equals(choices.keySet())) {
+            throw new RetailConflictException("Fulfilment choices must match every cart location exactly once");
+        }
+        return shippingByLocation(memberId, choices, priced).values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
     }
     private RetailCheckoutPorts.BenefitSelection toSelection(CheckoutDtos.BenefitSelection selection) {
         try { return new RetailCheckoutPorts.BenefitSelection(selection.choice().toUpperCase(), selection.voucherCode(), new BigDecimal(selection.requestedPoints())); }

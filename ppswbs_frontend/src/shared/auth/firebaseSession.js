@@ -70,7 +70,8 @@ export function watchSession(listener) {
     listener({ status: 'unconfigured' });
     return () => {};
   }
-  return onAuthStateChanged(current, user => listener({ status: user ? 'signed-in' : 'signed-out' }));
+  // userId lets the app tell two accounts apart when one signs in after another in the same tab.
+  return onAuthStateChanged(current, user => listener({ status: user ? 'signed-in' : 'signed-out', userId: user ? user.uid : null }));
 }
 
 /** The current Firebase ID token, or null when nobody is signed in. forceRefresh asks Firebase for a new one. */

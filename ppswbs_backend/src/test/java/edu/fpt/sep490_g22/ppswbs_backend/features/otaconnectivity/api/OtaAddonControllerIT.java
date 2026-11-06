@@ -47,6 +47,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -98,6 +99,11 @@ class OtaAddonControllerIT {
         OtaAuthorizationService authorizationService = new OtaAuthorizationService(accountFacade);
         ReflectionTestUtils.setField(authorizationService, "allowTestTokens", true);
 
+        // Staff 101 is assigned to a session of the booking; Staff 999 is not (owner decision 2026-11-06).
+        lenient().when(workshopOperationsFacade.isStaffAssignedToBooking(any())).thenAnswer(invocation -> {
+            var query = (edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.StaffBookingAssignmentQuery) invocation.getArgument(0);
+            return Long.valueOf(101L).equals(query.staffAccountId());
+        });
         OtaAddonService addonService = new OtaAddonService(bookingRepository, addonBillLinkRepository, settlementPort, workshopOperationsFacade);
         OtaAddonController controller = new OtaAddonController(authorizationService, addonService);
 
@@ -162,6 +168,21 @@ class OtaAddonControllerIT {
     @Nested
     @DisplayName("Endpoint 1: POST /api/v1/ota-channel-bookings/{channelBookingId}/add-on-quotes")
     class CreateQuoteTests {
+
+        @Test
+        @DisplayName("Staff in the location scope but not assigned to a session of the booking is denied (2026-11-06)")
+        void staffNotAssignedToTheBooking_isForbidden() throws Exception {
+            org.mockito.Mockito.doReturn(false).when(workshopOperationsFacade).isStaffAssignedToBooking(any());
+            String requestJson = """
+                { "addonType": "LASER_ENGRAVING", "itemDescription": "Laser", "amount": { "amount": "0", "currency": "VND" } }
+                """;
+
+            mvc.perform(post("/api/v1/ota-channel-bookings/" + bookingUuid + "/add-on-quotes")
+                            .header("Authorization", STAFF_AUTH)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(requestJson))
+                    .andExpect(status().isForbidden());
+        }
 
         @Test
         @DisplayName("Free engraving: Zero charge succeeds with 201 Created and status RECORDED_FREE (itemCode absent)")

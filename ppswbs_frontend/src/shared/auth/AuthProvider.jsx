@@ -9,6 +9,7 @@ const firebaseSource = { watch: watchSession, getIdToken: currentIdToken, signOu
 
 export function AuthProvider({ children, source = firebaseSource }) {
   const [status, setStatus] = useState('loading');
+  const [userId, setUserId] = useState(null);
   const sessionLostReportedRef = useRef(false);
   const isUserSigningOutRef = useRef(false);
   const terminalOutcomeRef = useRef(false);
@@ -45,6 +46,7 @@ export function AuthProvider({ children, source = firebaseSource }) {
       const prev = prevStatusRef.current;
       prevStatusRef.current = next.status;
       setStatus(next.status);
+      setUserId(next.userId ?? null);
 
       if (next.status === 'signed-in') {
         sessionLostReportedRef.current = false;
@@ -72,6 +74,7 @@ export function AuthProvider({ children, source = firebaseSource }) {
     try {
       await source.signOut();
       setStatus('signed-out');
+      setUserId(null);
       prevStatusRef.current = 'signed-out';
       sessionLostReportedRef.current = false;
       emitOutcome({ type: 'USER_SIGN_OUT' });
@@ -90,6 +93,7 @@ export function AuthProvider({ children, source = firebaseSource }) {
     sessionLostReportedRef.current = true;
     terminalOutcomeRef.current = true;
     setStatus('signed-out');
+    setUserId(null);
     prevStatusRef.current = 'signed-out';
     emitOutcome({ type: 'SESSION_LOST' });
   };
@@ -101,13 +105,14 @@ export function AuthProvider({ children, source = firebaseSource }) {
 
   const value = useMemo(() => ({
     status,
+    userId,
     isTerminalSession: terminalOutcomeRef.current,
     getIdToken: source.getIdToken,
     signOut,
     reportSessionLost,
     reportAccessDenied,
     subscribeOutcome,
-  }), [status, source, subscribeOutcome]);
+  }), [status, userId, source, subscribeOutcome]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -16,8 +16,16 @@ public interface OtaAddonSettlementPort {
             String currencyCode,
             String customerConsentReference,
             String staffActorReference,
-            Long locationId
-    ) {}
+            Long locationId,
+            String mlandBookingReference
+    ) {
+        public CreateDirectBillCommand(String channelBookingReference, String quoteReference, String itemCode,
+                String itemDescription, long amountMinor, String currencyCode, String customerConsentReference,
+                String staffActorReference, Long locationId) {
+            this(channelBookingReference, quoteReference, itemCode, itemDescription, amountMinor, currencyCode,
+                    customerConsentReference, staffActorReference, locationId, null);
+        }
+    }
 
     record DirectBillCreationOutcome(
             boolean created,
