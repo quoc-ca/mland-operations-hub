@@ -142,6 +142,7 @@ const vi = {
 
   'publication.hint': 'Công khai cần hồ sơ ban đầu đã duyệt và giá đã áp dụng cho mọi size. Ẩn sản phẩm giữ nguyên size, giá và lịch sử.',
   'publication.notApplied': 'Chưa áp dụng', 'publication.publish': 'Công khai sản phẩm', 'publication.hide': 'Ẩn sản phẩm',
+  'publication.publishNow': 'Công khai ngay', 'list.actions': 'Thao tác', 'list.approvePublish': 'Duyệt & công khai', 'list.awaitingReview': 'Staff đã gửi duyệt', 'list.publish': 'Công khai', 'list.hide': 'Ẩn', 'list.details': 'Chi tiết', 'list.working': 'Đang xử lý…', 'list.actionFailed': 'Không thực hiện được. Mở chi tiết để xem còn thiếu gì.', 'publication.managerHint': 'Manager không cần duyệt: bấm “Công khai ngay” để duyệt hồ sơ, áp dụng giá đề xuất cho mọi size và công khai sản phẩm trong một lần.',
   'publication.published': 'Đã công khai sản phẩm. Khách đã xem được ở trang sản phẩm.', 'publication.hidden': 'Đã ẩn sản phẩm. Khách không còn thấy, size và giá được giữ nguyên.',
 
   'delete.title': 'Xóa sản phẩm', 'delete.action': 'Xóa sản phẩm',
@@ -358,6 +359,7 @@ const en = {
 
   'publication.hint': 'Publishing needs an approved initial review and an applied price for every size. Hiding keeps sizes, prices and history.',
   'publication.notApplied': 'Not applied', 'publication.publish': 'Publish product', 'publication.hide': 'Hide product',
+  'publication.publishNow': 'Publish now', 'list.actions': 'Actions', 'list.approvePublish': 'Approve & publish', 'list.awaitingReview': 'Submitted for review', 'list.publish': 'Publish', 'list.hide': 'Hide', 'list.details': 'Details', 'list.working': 'Working…', 'list.actionFailed': 'Could not do it. Open the details to see what is missing.', 'publication.managerHint': 'A Manager needs no review: “Publish now” approves the file, applies the proposed price of every size and publishes the product in one go.',
   'publication.published': 'Product published. Customers can now see it.', 'publication.hidden': 'Product hidden. Customers no longer see it; sizes and prices are kept.',
 
   'delete.title': 'Delete product', 'delete.action': 'Delete product',
