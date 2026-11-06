@@ -218,6 +218,21 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public BookingAttendanceSummary getBookingAttendanceSummary(BookingSettlementReadinessQuery query) {
+        if (query == null) return BookingAttendanceSummary.notFinalized();
+        List<TicketSessionEntitlement> active = entitlementRepository.findActiveByBookingReference(query.bookingReference());
+        if (active.isEmpty() || active.stream().anyMatch(item -> item.getSession() == null
+                || item.getSession().getState() != SessionState.ATTENDANCE_FINALIZED)) {
+            return BookingAttendanceSummary.notFinalized();
+        }
+        boolean hasNoShow = active.stream().anyMatch(item -> item.getAttendanceState() == AttendanceState.NO_SHOW);
+        List<Instant> finalizedAt = active.stream().map(item -> item.getSession().getAttendanceFinalizedAt()).toList();
+        boolean closed = AttendanceCorrectionWindowPolicy.isClosed(finalizedAt, Instant.now());
+        return new BookingAttendanceSummary(true, hasNoShow, closed);
+    }
+
+    @Override
     @Transactional
     public SettlementReadiness getSettlementReadiness(BookingSettlementReadinessQuery query) {
         List<TicketSessionEntitlement> initial = entitlementRepository.findActiveByBookingReference(query.bookingReference());

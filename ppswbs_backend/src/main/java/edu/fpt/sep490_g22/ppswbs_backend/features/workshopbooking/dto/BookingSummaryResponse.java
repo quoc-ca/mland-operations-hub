@@ -22,4 +22,10 @@ public class BookingSummaryResponse {
     private Instant holdExpiresAt;
     private List<BookedSessionDto> sessions;
     private List<BookingTicketDto> tickets;
+    /**
+     * What the customer may be told about attendance once the sessions are finalized, or null before that:
+     * ATTENDED, NO_SHOW_PENDING (recorded, still inside the 24-hour correction window) or NO_SHOW (final).
+     * Display only: the booking status itself still changes only when the outcome is final.
+     */
+    private String attendanceStatus;
 }

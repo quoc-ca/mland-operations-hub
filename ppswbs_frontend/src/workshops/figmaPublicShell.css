@@ -286,3 +286,21 @@
   .figma-public-page { padding: 48px 32px 64px !important; }
   .figma-booking-layout { grid-template-columns: minmax(0, 1fr) !important; }
 }
+
+/* Benefit panel (same look as the product checkout): the generic booking-form checkbox size must not shrink the points switch. */
+.figma-booking-layout .retail-benefits input.switch[type="checkbox"] {
+  width: 46px !important;
+  height: 26px !important;
+  min-width: 46px !important;
+  max-width: none !important;
+  flex: 0 0 46px !important;
+  border: 0;
+  border-radius: 14px;
+  background: #bbb;
+}
+.figma-booking-layout .retail-benefits input.switch[type="checkbox"]:checked { background: #002967; }
+.figma-booking-layout .retail-benefits input.switch[type="checkbox"]:disabled { opacity: .45; cursor: not-allowed; }
+.retail-benefits .point-balance { cursor: default; }
+.retail-benefits .point-balance-value { text-align: right; font-size: 14px; color: #0b5c34; }
+.retail-benefits .point-balance-value b { font-size: 16px; }
+.retail-benefits .point-balance-value small { display: block; margin-top: 2px; color: #64748b; font-size: 12px; }

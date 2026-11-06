@@ -285,6 +285,17 @@ export async function lookupGuestBooking({ bookingCode, contactEmail, contactPho
 }
 
 /**
+ * The signed-in Member's own bookings, newest first, each with its sessions and tickets (003.1 US4), so a Member sees
+ * their tickets without typing a booking code.
+ */
+export async function listMemberBookings({ authorization } = {}) {
+  const headers = {};
+  if (authorization) headers['Authorization'] = authorization;
+  const result = await request('/api/v1/members/me/workshop-bookings', { method: 'GET', headers });
+  return Array.isArray(result) ? result : [];
+}
+
+/**
  * Reads an owned Member booking projection using Bearer authorization (003.1 US4).
  */
 export async function lookupMemberBooking(bookingCode, { authorization } = {}) {

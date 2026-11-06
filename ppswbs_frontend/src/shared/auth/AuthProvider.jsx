@@ -9,15 +9,21 @@ const firebaseSource = { watch: watchSession, getIdToken: currentIdToken, signOu
 
 export function AuthProvider({ children, source = firebaseSource }) {
   const [status, setStatus] = useState('loading');
-  useEffect(() => source.watch(next => setStatus(next.status)), [source]);
+  const [userId, setUserId] = useState(null);
+  useEffect(() => source.watch(next => {
+    setStatus(next.status);
+    setUserId(next.userId ?? null);
+  }), [source]);
   const value = useMemo(() => ({
     status,
+    // Who is signed in (null when unknown): a screen that remembers something about the account must forget it when this changes.
+    userId,
     getIdToken: source.getIdToken,
     signOut: async () => {
       await source.signOut();
       setStatus(current => (current === 'unconfigured' ? current : 'signed-out'));
     },
-  }), [status, source]);
+  }), [status, userId, source]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
