@@ -58,7 +58,7 @@ public class OtaAddonPaymentService {
         return new TransactionTemplate(transactionManager).execute(status -> {
             SettlementAddonBill bill = addonBills.findByBillReferenceForUpdate(billRef)
                     .orElseThrow(WorkshopSettlementNotFoundException::new);
-            authorization.requireManagerOrStaff(actor, bill.getLocationId());
+            authorization.requireManagerOrAssignedStaff(actor, bill.getLocationId(), bill.getMlandBookingReference());
 
             if (!"OPEN".equals(bill.getLifecycleStatus())) {
                 throw new WorkshopSettlementConflictException("BILL_NOT_OPEN");
@@ -130,7 +130,7 @@ public class OtaAddonPaymentService {
         String billRef = required(billReference, "billReference");
         SettlementAddonBill bill = addonBills.findByBillReference(billRef)
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
-        authorization.requireManagerOrStaff(actor, bill.getLocationId());
+        authorization.requireManagerOrAssignedStaff(actor, bill.getLocationId(), bill.getMlandBookingReference());
 
         OtaAddonPaymentAttemptResponse latestAttempt = addonAttempts
                 .findFirstByBillReferenceOrderByCreatedAtDescIdDesc(bill.getBillReference())

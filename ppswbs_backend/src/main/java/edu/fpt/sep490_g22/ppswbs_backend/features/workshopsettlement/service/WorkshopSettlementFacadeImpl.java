@@ -77,6 +77,7 @@ public class WorkshopSettlementFacadeImpl implements WorkshopSettlementFacade {
                 .customerConsentReference(command.customerConsentReference().trim())
                 .staffActorReference(command.staffActorReference().trim())
                 .locationId(command.locationId())
+                .mlandBookingReference(blank(command.mlandBookingReference()) ? null : command.mlandBookingReference().trim())
                 .lifecycleStatus("OPEN")
                 .build();
         try {

@@ -125,6 +125,19 @@ public class CheckInService {
      * Returns generic not-found if no eligible tickets exist for this session (FR-003d).
      * Never automatically checks in a ticket.
      */
+    /** Who has checked in and who has not, for one session; the same authority as the booking lookup. */
+    @Transactional(readOnly = true)
+    public List<edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.AttendanceRosterEntry> attendanceRoster(
+            String authHeader, String sessionReference) {
+        WorkshopSession session = resolveSession(sessionReference);
+        authorizationService.requireStaffSessionAssignment(authHeader, session.getId());
+        return entitlementRepository.findActiveBySessionIdOrdered(session.getId()).stream()
+                .map(e -> new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.AttendanceRosterEntry(
+                        e.getTicket().getTicketCode(), e.getTicket().getBookingReference(), e.getTicket().getTicketSequence(),
+                        e.getAttendanceState(), e.getCheckedInAt()))
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public List<Ticket> lookupTicketsByBookingCode(String authHeader, String sessionReference, String bookingCode) {
         WorkshopSession session = resolveSession(sessionReference);

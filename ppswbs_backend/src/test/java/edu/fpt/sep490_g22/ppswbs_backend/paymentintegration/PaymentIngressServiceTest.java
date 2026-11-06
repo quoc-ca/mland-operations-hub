@@ -28,6 +28,7 @@ class PaymentIngressServiceTest {
         when(checksum.valid(anyMap(), any())).thenReturn(false);
         var outcome = service().receive(params("DEP-BK-1-1", "5000000", "00", "TX-1"));
         assertThat(outcome.message()).isEqualTo("INVALID_SIGNATURE");
+        assertThat(outcome.rspCode()).isEqualTo("97");
         verifyNoInteractions(registry, receipts, booking, settlement);
     }
 
@@ -36,6 +37,7 @@ class PaymentIngressServiceTest {
         when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.empty());
         var outcome = service().receive(params("DEP-BK-1-1", "5000000", "00", "TX-1"));
         assertThat(outcome.message()).isEqualTo("UNKNOWN_REFERENCE");
+        assertThat(outcome.rspCode()).isEqualTo("01");
         verifyNoInteractions(receipts, booking, settlement);
     }
 
@@ -44,6 +46,7 @@ class PaymentIngressServiceTest {
         when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
         var outcome = service().receive(params("DEP-BK-1-1", "5100000", "00", "TX-1"));
         assertThat(outcome.message()).isEqualTo("AMOUNT_CURRENCY_MISMATCH");
+        assertThat(outcome.rspCode()).isEqualTo("04");
         verifyNoInteractions(receipts, booking, settlement);
     }
 
@@ -54,6 +57,7 @@ class PaymentIngressServiceTest {
         callback.put("vnp_CurrCode", "USD");
         var outcome = service().receive(callback);
         assertThat(outcome.message()).isEqualTo("AMOUNT_CURRENCY_MISMATCH");
+        assertThat(outcome.rspCode()).isEqualTo("04");
         verifyNoInteractions(receipts, booking, settlement);
     }
 

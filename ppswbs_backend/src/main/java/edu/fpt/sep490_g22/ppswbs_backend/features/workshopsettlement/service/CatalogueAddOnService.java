@@ -22,7 +22,7 @@ public class CatalogueAddOnService {
     private final WorkshopOperationsSettlementAdapter operations;
 
     @Transactional
-    public SettlementCharge add(String bookingCode, String addOnReference) {
+    public SettlementCharge add(String bookingCode, String addOnReference, Long recordedByAccountId) {
         var bill = bills.findByBookingReference(bookingCode)
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
         if (!"OPEN".equals(bill.getLifecycleStatus())) throw new WorkshopSettlementConflictException("FINAL_BILL_NOT_OPEN");
@@ -30,6 +30,8 @@ public class CatalogueAddOnService {
         // Keep this service focused on snapshotting the eligible catalogue price into the open bill.
         var confirmed = booking.confirmedProjection(bookingCode);
         if (confirmed == null) throw new WorkshopSettlementNotFoundException();
+        // Owner decision 2026-11-06: an add-on is confirmed "at the workshop", so the booking's session must have started.
+        if (!operations.serviceStarted(bookingCode)) throw new WorkshopSettlementConflictException("SESSION_NOT_STARTED");
         var snapshot = operations.addOnPrice(confirmed.packageReference(), confirmed.bookingLocationReference(), addOnReference);
         if (snapshot == null) throw new WorkshopSettlementValidationException("ADD_ON_UNAVAILABLE");
         return charges.saveAndFlush(SettlementCharge.builder()
@@ -41,6 +43,9 @@ public class CatalogueAddOnService {
                 .currencyCode(snapshot.currencyCode())
                 .lifecycleStatus("CONFIRMED")
                 .reasonReference("CATALOGUE-ADDON:" + snapshot.addOnReference())
+                .consentReference("CONSENT-" + UUID.randomUUID())
+                .consentRecordedBy(recordedByAccountId)
+                .consentRecordedAt(Instant.now())
                 .createdAt(Instant.now())
                 .build());
     }

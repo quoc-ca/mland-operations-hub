@@ -274,7 +274,8 @@ public class OtaAddonService {
                 link.getCurrencyCode(),
                 consent,
                 staffActorReference,
-                locationId
+                locationId,
+                link.getChannelBooking().getMlandBookingReference()
         );
 
         DirectBillCreationOutcome outcome = settlementPort.createDirectBill(cmd);
@@ -321,6 +322,27 @@ public class OtaAddonService {
         OtaAddonBillLink link = findLink(quoteReference)
                 .orElseThrow(() -> new OtaResourceNotFoundException("Add-on quote not found: " + quoteReference));
         return getLocationIdForBooking(link.getChannelBooking().getPublicReference());
+    }
+
+    /** The Mland booking holding the tickets of an OTA channel booking; null when none is mapped yet. */
+    public String getMlandReferenceForBooking(String channelBookingReference) {
+        return bookingRepository.findByPublicReference(channelBookingReference)
+                .orElseThrow(() -> new OtaResourceNotFoundException("OTA Channel Booking not found: " + channelBookingReference))
+                .getMlandBookingReference();
+    }
+
+    public String getMlandReferenceForQuote(String quoteReference) {
+        OtaAddonBillLink link = findLink(quoteReference)
+                .orElseThrow(() -> new OtaResourceNotFoundException("Add-on quote not found: " + quoteReference));
+        return link.getChannelBooking().getMlandBookingReference();
+    }
+
+    /** A Staff member may act on an OTA booking only while assigned to a session its Mland booking holds tickets for. */
+    public boolean isStaffAssignedToBooking(Long staffAccountId, String mlandBookingReference) {
+        return mlandBookingReference != null && !mlandBookingReference.isBlank()
+                && workshopOperationsFacade.isStaffAssignedToBooking(
+                        new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.StaffBookingAssignmentQuery(
+                                staffAccountId, mlandBookingReference.trim()));
     }
 
     public OtaAddonBillLink findQuote(String quoteReference) {

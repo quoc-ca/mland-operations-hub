@@ -46,6 +46,7 @@ public class AttendanceFinalizationService {
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final SessionOperationalLeadRepository operationalLeadRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
 
     /**
      * Finalizes whole-session attendance atomically with default correlation ID.
@@ -207,6 +208,7 @@ public class AttendanceFinalizationService {
                 .capacity(session.getCapacity())
                 .state(session.getState())
                 .operationalLeadAccountId(operationalLeadId)
+                .assignedStaffAccountIds(staffAssignmentRepository.findBySessionIdAndActiveTrue(session.getId()).stream().map(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionStaffAssignment::getAccountId).sorted().toList())
                 .build();
     }
 }

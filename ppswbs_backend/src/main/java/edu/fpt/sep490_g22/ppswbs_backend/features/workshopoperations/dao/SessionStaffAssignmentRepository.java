@@ -15,4 +15,7 @@ public interface SessionStaffAssignmentRepository extends JpaRepository<SessionS
     Optional<SessionStaffAssignment> findBySessionIdAndAccountIdAndActiveTrue(Long sessionId, Long accountId);
 
     boolean existsBySessionIdAndAccountIdAndActiveTrue(Long sessionId, Long accountId);
+
+    /** The sessions a Staff member is currently assigned to. */
+    List<SessionStaffAssignment> findByAccountIdAndActiveTrue(Long accountId);
 }

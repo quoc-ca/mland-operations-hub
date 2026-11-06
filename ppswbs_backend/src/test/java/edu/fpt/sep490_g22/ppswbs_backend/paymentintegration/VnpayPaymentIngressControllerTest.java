@@ -35,4 +35,12 @@ class VnpayPaymentIngressControllerTest {
                 .andExpect(jsonPath("$.Message").value("OK"));
         verify(ingress).receive(anyMap());
     }
+
+    @Test void returnsTheVnpayRejectionCodeAsIs() throws Exception {
+        when(ingress.receive(anyMap())).thenReturn(new PaymentIngressService.Outcome("97", "INVALID_SIGNATURE"));
+        mvc.perform(get("/api/v1/integrations/payments/vnpay/events").queryParam("vnp_SecureHash", "bad"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.RspCode").value("97"))
+                .andExpect(jsonPath("$.Message").value("INVALID_SIGNATURE"));
+    }
 }

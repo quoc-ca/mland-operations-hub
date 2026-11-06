@@ -9,6 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 import java.time.Instant;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -17,12 +18,47 @@ import static org.mockito.Mockito.*;
 class WorkshopSettlementAuthorizationServiceTest {
     @Mock AccountFacade accounts;
     @Mock SettlementBusinessAuditRepository audits;
+    @Mock edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter operations;
+
+    private static edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor staff(java.util.List<Long> locations) {
+        return new edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor(
+                33L, ActorRole.STAFF, ActorStatus.ACTIVE, true, locations);
+    }
+
+    @Test void staffInScopeAndAssignedToTheBookingsSessionIsAllowed() {
+        when(operations.staffAssignedToBooking(33L, "BK-1")).thenReturn(true);
+        var service = new WorkshopSettlementAuthorizationService(accounts, audits, operations);
+        assertThat(service.requireManagerOrAssignedStaff(staff(java.util.List.of(4L)), 4L, "BK-1").accountId()).isEqualTo(33L);
+    }
+
+    @Test void staffInScopeButNotAssignedToTheBookingIsDeniedAndAudited() {
+        when(operations.staffAssignedToBooking(33L, "BK-1")).thenReturn(false);
+        var service = new WorkshopSettlementAuthorizationService(accounts, audits, operations);
+        assertThatThrownBy(() -> service.requireManagerOrAssignedStaff(staff(java.util.List.of(4L)), 4L, "BK-1"))
+                .hasMessage("SESSION_ASSIGNMENT_REQUIRED");
+        verify(audits).save(any());
+    }
+
+    @Test void staffOutsideTheLocationIsDeniedBeforeAssignmentIsConsulted() {
+        var service = new WorkshopSettlementAuthorizationService(accounts, audits, operations);
+        assertThatThrownBy(() -> service.requireManagerOrAssignedStaff(staff(java.util.List.of(9L)), 4L, "BK-1"))
+                .hasMessage("LOCATION_SCOPE_DENIED");
+        verifyNoInteractions(operations);
+    }
+
+    @Test void aManagerNeedsNoAssignment() {
+        var manager = new edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor(
+                10L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, java.util.List.of());
+        var service = new WorkshopSettlementAuthorizationService(accounts, audits, operations);
+        assertThat(service.requireManagerOrAssignedStaff(manager, 4L, "BK-1").accountId()).isEqualTo(10L);
+        verifyNoInteractions(operations);
+    }
 
     @Test void deniedRoleWritesSafeAuditAndThrows() {
         AccountSummary member = new AccountSummary(7L, ActorRole.MEMBER, ActorStatus.ACTIVE,
                 "member@example.test", Instant.now(), Instant.now());
         when(accounts.resolveAccount("uid")).thenReturn(Optional.of(member));
-        WorkshopSettlementAuthorizationService service = new WorkshopSettlementAuthorizationService(accounts, audits);
+        WorkshopSettlementAuthorizationService service = new WorkshopSettlementAuthorizationService(accounts, audits, operations);
         assertThatThrownBy(() -> service.requireManager("uid"))
                 .isInstanceOf(WorkshopSettlementAuthorizationException.class)
                 .hasMessage("MANAGER_REQUIRED");
@@ -32,7 +68,7 @@ class WorkshopSettlementAuthorizationServiceTest {
 
     @Test void unresolvedIdentityAuditsWithoutPersistingRawUid() {
         when(accounts.resolveAccount("raw-token-like-value")).thenReturn(Optional.empty());
-        WorkshopSettlementAuthorizationService service = new WorkshopSettlementAuthorizationService(accounts, audits);
+        WorkshopSettlementAuthorizationService service = new WorkshopSettlementAuthorizationService(accounts, audits, operations);
         assertThatThrownBy(() -> service.requireActive("raw-token-like-value"))
                 .isInstanceOf(WorkshopSettlementAuthorizationException.class)
                 .hasMessage("ACCOUNT_NOT_FOUND");
@@ -41,7 +77,7 @@ class WorkshopSettlementAuthorizationServiceTest {
     }
 
     @Test void canonicalManagerIsGlobalWhileStaffRemainsLocationScoped() {
-        WorkshopSettlementAuthorizationService service = new WorkshopSettlementAuthorizationService(accounts, audits);
+        WorkshopSettlementAuthorizationService service = new WorkshopSettlementAuthorizationService(accounts, audits, operations);
         CurrentAccountActor manager = new CurrentAccountActor(42L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, java.util.List.of());
         CurrentAccountActor staff = new CurrentAccountActor(43L, ActorRole.STAFF, ActorStatus.ACTIVE, true, java.util.List.of(9L));
 
