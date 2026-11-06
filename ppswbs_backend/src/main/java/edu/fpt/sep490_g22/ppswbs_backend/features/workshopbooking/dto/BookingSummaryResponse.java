@@ -28,4 +28,9 @@ public class BookingSummaryResponse {
      * Display only: the booking status itself still changes only when the outcome is final.
      */
     private String attendanceStatus;
+    /**
+     * Opaque references of the booking's tickets, only in the booking's own Member view (null for Guests and Magic Links).
+     * They let a screen match a review source (one ticket) to the right booking; they are never meant for display.
+     */
+    private List<String> ticketReferences;
 }

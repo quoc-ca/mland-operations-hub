@@ -4,6 +4,7 @@ import { WorkshopBenefitPanel } from './WorkshopBenefitPanel';
 import { useAuth } from '../shared/auth/AuthProvider';
 import { useHttp } from '../shared/api/useHttp';
 import { getEffectiveParticipantMax } from './bookingCapacity';
+import { Paginator, usePaged } from '../shared/ui/Paginator';
 import './figmaPublicShell.css';
 
 function formatDate(date) {
@@ -66,16 +67,26 @@ export function WorkshopBookingPage({ packageId }) {
   const nextTwoWeeks = new Date();
   nextTwoWeeks.setDate(today.getDate() + 14);
 
-  const [locationId, setLocationId] = useState(null);
+  // A session card on the package page opens this page with the session, branch and dates already chosen.
+  const urlParams = useRef(new URLSearchParams(typeof window !== 'undefined' ? window.location.search : ''));
+  const pendingSessionRef = useRef(urlParams.current.get('session'));
+  const [locationId, setLocationId] = useState(Number(urlParams.current.get('locationId')) || null);
   const [locations, setLocations] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [locationsError, setLocationsError] = useState(null);
-  const [from, setFrom] = useState(formatDate(today));
-  const [to, setTo] = useState(formatDate(nextTwoWeeks));
+  const [from, setFrom] = useState(urlParams.current.get('from') || formatDate(today));
+  const [to, setTo] = useState(urlParams.current.get('to') || formatDate(nextTwoWeeks));
 
   const [sessions, setSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [sessionsError, setSessionsError] = useState(null);
+  // Eight sessions per page; what the customer ticked is kept while moving between pages.
+  const pagedSessions = usePaged(sessions, 8, sessions);
+  const pendingPageRef = useRef(null);
+  // Declared after usePaged so it runs after the reset-to-first-page that follows a list change.
+  useEffect(() => {
+    if (pendingPageRef.current != null) { pagedSessions.setPage(pendingPageRef.current); pendingPageRef.current = null; }
+  }, [sessions]);
 
   // Selected sessions: array of opaque UUID strings
   const [selectedSessionRefs, setSelectedSessionRefs] = useState([]);
@@ -257,7 +268,18 @@ export function WorkshopBookingPage({ packageId }) {
     setSessionsError(null);
     listWorkshopSessions(packageId, { locationId, from, to })
       .then(data => {
-        setSessions(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setSessions(list);
+        // Tick the session chosen on the package page (once), and show the page of the list that holds it.
+        const wanted = pendingSessionRef.current;
+        if (wanted) {
+          pendingSessionRef.current = null;
+          const index = list.findIndex(item => item.sessionReference === wanted);
+          if (index >= 0 && list[index].customerSelectable && list[index].remainingCapacity > 0) {
+            setSelectedSessionRefs([wanted]);
+            pendingPageRef.current = Math.floor(index / 8);
+          }
+        }
       })
       .catch(err => {
         setSessionsError(err?.detail || err?.message || 'Không thể tải lịch ca workshop. Vui lòng thử lại.');
@@ -869,8 +891,9 @@ export function WorkshopBookingPage({ packageId }) {
                 )}
 
                 {!loadingSessions && !sessionsError && sessions.length > 0 && (
+                  <>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {sessions.map(s => {
+                    {pagedSessions.pageItems.map(s => {
                       const isSelected = selectedSessionRefs.includes(s.sessionReference);
                       const isSelectable = s.customerSelectable && (
                         isSelected || s.remainingCapacity >= packageMinParticipants
@@ -926,6 +949,8 @@ export function WorkshopBookingPage({ packageId }) {
                       );
                     })}
                   </div>
+                  <Paginator page={pagedSessions.page} pageCount={pagedSessions.pageCount} onChange={pagedSessions.setPage} label="Phân trang các ca workshop" />
+                  </>
                 )}
 
                 <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #eee' }}>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router';
 import { attendanceStatusLabel, isNoShow, NO_SHOW_NOTE } from './attendanceDisplay';
 import { ReviewCta } from './ReviewCta';
 
@@ -16,6 +17,19 @@ const when = value => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
 };
+
+/**
+ * A session that has already started can have reviews (only people who attended it can write one), so the package's
+ * reviews are offered for a booking once one of its sessions has been held.
+ */
+function hasHeldSession(booking) {
+  if (booking?.packageId == null) return false;
+  const now = Date.now();
+  return (booking.sessions || []).some(session => {
+    const start = new Date(session.scheduledStart).getTime();
+    return !Number.isNaN(start) && start <= now;
+  });
+}
 
 /**
  * "My bookings" of a signed-in Member: every booking with its status, session times and ticket codes, so the Member sees
@@ -72,6 +86,11 @@ export function MyBookingsList({ bookings, loading, error, onRetry, onOpen, sele
                     {booking.bookingStatus === 'CONFIRMED' ? 'Xem vé và chi tiết' : 'Xem chi tiết'}
                   </button>
                   {onReview && <ReviewCta booking={booking} sources={reviewSources} onReview={onReview} />}
+                  {hasHeldSession(booking) && (
+                    <Link className="button outline small" to={`/reviews?packageId=${encodeURIComponent(booking.packageId)}`}>
+                      Xem đánh giá của gói
+                    </Link>
+                  )}
                 </div>
               </li>
             );

@@ -3,16 +3,20 @@ import React from 'react';
 const norm = value => String(value ?? '').trim().toLowerCase();
 
 /**
- * The eligible review source (Feature-011) for one of the booking's sessions, or undefined. Eligibility comes only from
- * the backend list (GET /reviews/eligible-sources): a source matches when its WORKSHOP_SESSION target is a session of
- * this booking. Nothing is inferred from attendance, status or tickets.
+ * The eligible review source (Feature-011) for this booking, or undefined. Eligibility comes only from the backend list
+ * (GET /reviews/eligible-sources). A source is ONE ticket (its sourceReference) attending ONE session (its target), so it
+ * belongs to this booking only when both match: several bookings can hold tickets for the same session, and only the one
+ * whose ticket was checked in may be reviewed. Nothing is inferred from attendance or booking status.
  */
 export function reviewSourceFor(booking, sources) {
   if (!booking || !Array.isArray(sources) || sources.length === 0) return undefined;
   const sessions = new Set((booking.sessions || []).map(session => norm(session.sessionReference)).filter(Boolean));
-  if (sessions.size === 0) return undefined;
+  const tickets = new Set((booking.ticketReferences || []).map(norm).filter(Boolean));
+  if (sessions.size === 0 || tickets.size === 0) return undefined;
   return sources.find(source => source?.eligible !== false
-    && source?.targetType === 'WORKSHOP_SESSION' && sessions.has(norm(source.targetReference)));
+    && source?.targetType === 'WORKSHOP_SESSION'
+    && sessions.has(norm(source.targetReference))
+    && tickets.has(norm(source.sourceReference)));
 }
 
 /**

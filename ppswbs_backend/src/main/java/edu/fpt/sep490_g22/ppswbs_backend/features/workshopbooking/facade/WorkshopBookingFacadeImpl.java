@@ -140,7 +140,7 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
     @Transactional
     public WorkshopBookingLoyaltyOutcomeSource getLoyaltyOutcomeSource(WorkshopBookingLoyaltyOutcomeSourceQuery query) {
         WorkshopBooking booking = bookingRepository.findLockedByBookingCode(query.bookingReference()).orElse(null);
-        if (booking == null || booking.getBookingStatus() != BookingStatus.CONFIRMED
+        if (booking == null || !carriesLoyaltyOutcome(booking.getBookingStatus())
                 || booking.getMemberAccountId() == null) {
             return null;
         }
@@ -150,6 +150,16 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         }
         return new WorkshopBookingLoyaltyOutcomeSource(true, quote.getQuoteRef(),
                 Math.addExact(booking.getVersion(), 1L), booking.getHoldExpiresAt());
+    }
+
+    /**
+     * A Member booking keeps its Loyalty outcome source through every state it can reach once confirmed. The outcome is
+     * decided after the booking has moved on (completed or no-show by attendance, cancelled by Settlement), so asking only
+     * while it is still CONFIRMED made a completed Member booking look like a Guest one and its earn was never granted.
+     */
+    private static boolean carriesLoyaltyOutcome(BookingStatus status) {
+        return status == BookingStatus.CONFIRMED || status == BookingStatus.COMPLETED
+                || status == BookingStatus.NO_SHOW || status == BookingStatus.CANCELLED;
     }
 
     @Override

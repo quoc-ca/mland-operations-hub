@@ -128,3 +128,22 @@ describe('a customer whose ticket was recorded as a no-show', () => {
     expect(list.queryByText(/Vắng mặt/)).toBeNull();
   });
 });
+
+describe('the package reviews are offered once a session has been held', () => {
+  beforeEach(() => clearRoleCache());
+
+  it('links a booking with a past session to the reviews of its package, and not an upcoming one', async () => {
+    mockFetch({
+      [PROFILE]: json(200, { role: 'MEMBER' }),
+      [LIST]: json(200, [
+        { ...confirmed, bookingCode: 'BK-PAST', packageId: 145, sessions: [{ sessionReference: 'a', ordinal: 1, scheduledStart: '2020-01-01T13:00:00Z' }] },
+        { ...confirmed, bookingCode: 'BK-FUTURE', packageId: 146, sessions: [{ sessionReference: 'b', ordinal: 1, scheduledStart: '2099-01-01T13:00:00Z' }] },
+      ]),
+    });
+    renderPage();
+
+    const links = await screen.findAllByRole('link', { name: 'Xem đánh giá của gói' });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute('href', '/reviews?packageId=145');
+  });
+});
