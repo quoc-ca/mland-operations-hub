@@ -1,5 +1,6 @@
 import React from 'react';
 import { attendanceStatusLabel, isNoShow, NO_SHOW_NOTE } from './attendanceDisplay';
+import { ReviewCta } from './ReviewCta';
 
 const STATUS_LABEL = {
   PENDING_PAYMENT: 'Chờ thanh toán cọc',
@@ -20,7 +21,7 @@ const when = value => {
  * "My bookings" of a signed-in Member: every booking with its status, session times and ticket codes, so the Member sees
  * their tickets without typing a booking code. Choosing one opens the same detail view as a lookup by code.
  */
-export function MyBookingsList({ bookings, loading, error, onRetry, onOpen, selectedCode }) {
+export function MyBookingsList({ bookings, loading, error, onRetry, onOpen, selectedCode, reviewSources, onReview }) {
   return (
     <section className="workspace-card my-bookings" aria-label="Đặt chỗ của tôi" style={{ marginBottom: '24px' }}>
       <div className="card-head" style={{ marginBottom: '12px' }}>
@@ -66,10 +67,11 @@ export function MyBookingsList({ bookings, loading, error, onRetry, onOpen, sele
                     Mã vé: {tickets.map(ticket => <strong key={ticket.ticketCode} style={{ marginRight: '10px' }}>{ticket.ticketCode}</strong>)}
                   </p>
                 )}
-                <div style={{ marginTop: '10px' }}>
+                <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <button type="button" className="button outline small" onClick={() => onOpen(booking)} aria-label={`Xem chi tiết ${booking.bookingCode}`}>
                     {booking.bookingStatus === 'CONFIRMED' ? 'Xem vé và chi tiết' : 'Xem chi tiết'}
                   </button>
+                  {onReview && <ReviewCta booking={booking} sources={reviewSources} onReview={onReview} />}
                 </div>
               </li>
             );

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
   listMemberBookings,
   lookupGuestBooking,
@@ -11,7 +12,9 @@ import {
 import { useAuth } from '../shared/auth/AuthProvider';
 import { useHttp } from '../shared/api/useHttp';
 import { classifyPaymentCommandError } from '../shared/payment/paymentRecoveryState';
+import { useReviewManagementApi } from '../features/reviewmanagement/api/useReviewManagementApi';
 import { MyBookingsList } from './MyBookingsList';
+import { ReviewCta } from './ReviewCta';
 import { attendanceStatusLabel, isNoShow, NO_SHOW_NOTE } from './attendanceDisplay';
 import './figmaPublicShell.css';
 
@@ -76,6 +79,21 @@ export function WorkshopLookupPage() {
     if (lookupMode !== 'MEMBER') { setMyBookings(null); setMyBookingsError(null); return; }
     loadMyBookings.current();
   }, [lookupMode]);
+
+  // Which of the Member's workshop sessions can be reviewed comes only from Feature-011 (eligible sources); nothing is
+  // inferred here. A failure just means no review button: it is not the purpose of this page.
+  const reviewApi = useReviewManagementApi();
+  const navigate = useNavigate();
+  const [reviewSources, setReviewSources] = useState(null);
+  useEffect(() => {
+    if (lookupMode !== 'MEMBER') { setReviewSources(null); return undefined; }
+    let active = true;
+    reviewApi.listEligibleSources()
+      .then(result => { if (active) setReviewSources(Array.isArray(result?.items) ? result.items : []); })
+      .catch(() => { if (active) setReviewSources(null); });
+    return () => { active = false; };
+  }, [lookupMode, reviewApi]);
+  const startReview = source => navigate('/reviews/new', { state: { source } });
 
   // Loaded projection
   const [loading, setLoading] = useState(false);
@@ -299,6 +317,8 @@ export function WorkshopLookupPage() {
           onRetry={() => loadMyBookings.current()}
           onOpen={openFromList}
           selectedCode={bookingData?.bookingCode}
+          reviewSources={reviewSources}
+          onReview={startReview}
         />
       )}
 
@@ -486,6 +506,11 @@ export function WorkshopLookupPage() {
           )}
 
           {/* STATE: CONFIRMED (Confirmed-ticket) */}
+          {lookupMode === 'MEMBER' && (
+            <div style={{ marginTop: '16px' }}>
+              <ReviewCta booking={bookingData} sources={reviewSources} onReview={startReview} />
+            </div>
+          )}
           {isNoShow(bookingData) && (
             <div role="note" style={{ marginTop: '20px', padding: '14px 18px', background: '#fff7e6', border: '1px solid #ffd591', color: '#874d00', lineHeight: '1.6' }}>
               {NO_SHOW_NOTE}
