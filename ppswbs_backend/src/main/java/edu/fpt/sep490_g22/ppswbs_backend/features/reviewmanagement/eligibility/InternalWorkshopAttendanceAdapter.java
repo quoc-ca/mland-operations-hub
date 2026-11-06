@@ -124,5 +124,21 @@ public class InternalWorkshopAttendanceAdapter implements WorkshopAttendanceRevi
             return Optional.empty();
         }
     }
+
+    @Override
+    public Optional<EligibleSourceItem> verifySource(String sourceReference) {
+        if (sourceReference == null || sourceReference.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            List<EligibleSourceItem> list = jdbcTemplate.query(
+                    BASE_SELECT + "AND at.reference = :sourceReference",
+                    new MapSqlParameterSource("sourceReference", sourceReference.trim()), rowMapper);
+            return list.stream().findFirst();
+        } catch (DataAccessException ex) {
+            log.error("Failed to verify workshop source {}", sourceReference, ex);
+            return Optional.empty();
+        }
+    }
 }
 

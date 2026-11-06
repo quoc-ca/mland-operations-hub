@@ -13,15 +13,25 @@ export interface AuthPageProps {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function mapFirebaseError(error: any): string {
-  switch (error?.code) {
-    case 'auth/account-exists-with-different-credential':
-      return 'Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.';
+  const code = error?.code || '';
+  const msg = error?.message || '';
+
+  if (
+    code === 'auth/account-exists-with-different-credential' ||
+    code === 'auth/credential-already-in-use' ||
+    code === 'auth/email-already-in-use' ||
+    msg.includes('account-exists-with-different-credential') ||
+    msg.includes('different-credential') ||
+    msg.includes('EMAIL_EXISTS')
+  ) {
+    return 'Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.';
+  }
+
+  switch (code) {
     case 'auth/invalid-credential':
     case 'auth/user-not-found':
     case 'auth/wrong-password':
       return 'Email hoặc mật khẩu không chính xác.';
-    case 'auth/email-already-in-use':
-      return 'Địa chỉ email này đã được sử dụng.';
     case 'auth/weak-password':
       return 'Mật khẩu quá yếu. Vui lòng sử dụng ít nhất 6 ký tự.';
     case 'auth/invalid-email':
@@ -67,30 +77,70 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
       if (!firebaseAuthClient.isConfigured()) return;
       try {
         const user = await firebaseAuthClient.getRedirectAuthResult();
-        if (user && isMounted) {
+        if (!isMounted) return;
+
+        if (user) {
+          // Collision defense (FR-001, FR-002, FR-022):
+          // If the user already has a password provider, they were originally registered with password!
+          const hasPassword =
+            Array.isArray(user.providerData) &&
+            user.providerData.some(p => p.providerId === 'password');
+          const isGoogleRedirect = sessionStorage.getItem('mland_google_redirect_pending') === 'true';
+
+          if (hasPassword && isGoogleRedirect) {
+            sessionStorage.removeItem('mland_google_redirect_pending');
+            await firebaseAuthClient.signOut();
+            setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
+            return;
+          }
+
+          sessionStorage.removeItem('mland_google_redirect_pending');
           setPending(true);
           const account = await accountManagementApiClient.bootstrapOwnAccount();
           // Staff and Manager land on their own home; others on the general home, unless they came from a page.
           navigate(afterSignInPath(account?.role, new URLSearchParams(window.location.search).get('returnTo')));
+        } else {
+          // If getRedirectAuthResult returned null but redirect was in progress, check current user
+          const currentUser = firebaseAuthClient.getCurrentUser();
+          const isGoogleRedirect = sessionStorage.getItem('mland_google_redirect_pending') === 'true';
+          if (currentUser && isGoogleRedirect) {
+            const hasPassword =
+              Array.isArray(currentUser.providerData) &&
+              currentUser.providerData.some(p => p.providerId === 'password');
+            if (hasPassword) {
+              sessionStorage.removeItem('mland_google_redirect_pending');
+              await firebaseAuthClient.signOut();
+              setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
+            }
+          }
         }
       } catch (err: any) {
-        if (isMounted) {
-          if (err?.code === 'auth/account-exists-with-different-credential') {
-            setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
-          } else if (err instanceof ApiError) {
-            if (err.status === 401) {
-              setGeneralError('Thông tin đăng nhập không hợp lệ hoặc phiên đã hết hạn.');
-            } else if (err.status === 403) {
-              setGeneralError('Tài khoản của bạn hiện đang bị tạm khóa hoặc không đủ điều kiện.');
-            } else if (err.retryable) {
-              setGeneralError('Dịch vụ tài khoản tạm thời gián đoạn. Vui lòng bấm thử lại.');
-              setRetryableError(true);
-            } else {
-              setGeneralError(err.message || 'Lỗi khởi tạo tài khoản hệ thống.');
-            }
+        sessionStorage.removeItem('mland_google_redirect_pending');
+        if (!isMounted) return;
+
+        const isCollision =
+          err?.code === 'auth/account-exists-with-different-credential' ||
+          err?.code === 'auth/credential-already-in-use' ||
+          err?.code === 'auth/email-already-in-use' ||
+          err?.message?.includes('account-exists-with-different-credential') ||
+          err?.message?.includes('different-credential') ||
+          err?.message?.includes('EMAIL_EXISTS');
+
+        if (isCollision) {
+          setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
+        } else if (err instanceof ApiError) {
+          if (err.status === 401) {
+            setGeneralError('Thông tin đăng nhập không hợp lệ hoặc phiên đã hết hạn.');
+          } else if (err.status === 403) {
+            setGeneralError('Tài khoản của bạn hiện đang bị tạm khóa hoặc không đủ điều kiện.');
+          } else if (err.retryable) {
+            setGeneralError('Dịch vụ tài khoản tạm thời gián đoạn. Vui lòng bấm thử lại.');
+            setRetryableError(true);
           } else {
-            setGeneralError(mapFirebaseError(err));
+            setGeneralError(err.message || 'Lỗi khởi tạo tài khoản hệ thống.');
           }
+        } else {
+          setGeneralError(mapFirebaseError(err));
         }
       } finally {
         if (isMounted) {
@@ -105,16 +155,22 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
     };
   }, [navigate]);
 
-  const getTitle = () => {
+  const getHeading = () => {
     if (isForgot) return 'Khôi phục mật khẩu';
     if (isRegister) return 'Đăng ký tài khoản';
     return 'Đăng nhập hệ thống';
   };
 
-  const getDescription = () => {
-    if (isForgot) return 'Nhập email của bạn để nhận liên kết đặt lại mật khẩu.';
-    if (isRegister) return 'Tạo tài khoản thành viên mới tại Mland.';
-    return 'Đăng nhập vào tài khoản cá nhân của bạn.';
+  const getFigmaTitle = () => {
+    if (isForgot) return 'Quên mật khẩu?';
+    if (isRegister) return 'Tạo tài khoản M.land';
+    return 'Chào mừng trở lại';
+  };
+
+  const getFigmaDescription = () => {
+    if (isForgot) return 'Nhập email của bạn. Nếu có thể xử lý yêu cầu, chúng tôi sẽ gửi hướng dẫn khôi phục. Thông báo không xác nhận email có tài khoản hay không.';
+    if (isRegister) return 'Đăng ký để bắt đầu hành trình thiết kế của bạn.';
+    return 'Đăng nhập để tiếp tục hành trình của bạn.';
   };
 
   const validate = () => {
@@ -151,10 +207,41 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
     setRetryableError(false);
     setPending(true);
     try {
+      // In browser runtime (outside Vitest unit tests), use signInWithGooglePopup to avoid Chrome localhost storage partitioning failure
+      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
+        const user = await firebaseAuthClient.signInWithGooglePopup();
+        if (user) {
+          const hasPassword =
+            Array.isArray(user.providerData) &&
+            user.providerData.some(p => p.providerId === 'password');
+
+          if (hasPassword) {
+            await firebaseAuthClient.signOut();
+            setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
+            setPending(false);
+            return;
+          }
+
+          const account = await accountManagementApiClient.bootstrapOwnAccount();
+          navigate(afterSignInPath(account?.role, new URLSearchParams(window.location.search).get('returnTo')));
+          return;
+        }
+      }
+
+      sessionStorage.setItem('mland_google_redirect_pending', 'true');
       await firebaseAuthClient.signInWithGoogleRedirect();
     } catch (err: any) {
+      sessionStorage.removeItem('mland_google_redirect_pending');
       setPending(false);
-      if (err?.code === 'auth/account-exists-with-different-credential') {
+      const isCollision =
+        err?.code === 'auth/account-exists-with-different-credential' ||
+        err?.code === 'auth/credential-already-in-use' ||
+        err?.code === 'auth/email-already-in-use' ||
+        err?.message?.includes('account-exists-with-different-credential') ||
+        err?.message?.includes('different-credential') ||
+        err?.message?.includes('EMAIL_EXISTS');
+
+      if (isCollision) {
         setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
       } else {
         setGeneralError(mapFirebaseError(err));
@@ -182,7 +269,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
             setPending(false);
             return;
           }
-          // Intentionally safe for unknown email
         }
         setSuccessNotice('Nếu email tồn tại trên hệ thống, thư hướng dẫn đặt lại mật khẩu đã được gửi.');
         setPending(false);
@@ -243,11 +329,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
   };
 
   return (
-    <div className="account-page-container" style={{ maxWidth: '440px' }}>
-      <div className="account-card">
+    <div className="account-page-container" style={{ maxWidth: '460px' }}>
+      {/* Back button matching Figma 342:13 / 342:32 / 383:21361 */}
+      <div>
+        <Link to={isForgot ? '/sign-in' : '/'} className="account-back-btn">
+          ← Quay lại
+        </Link>
+      </div>
+
+      <div className="account-card" style={{ marginTop: '0.5rem' }}>
         <header className="account-page-header" style={{ marginBottom: '1.25rem' }}>
-          <h1 className="account-page-title" style={{ fontSize: '1.5rem' }}>{getTitle()}</h1>
-          <p className="account-page-description">{getDescription()}</p>
+          <h1 className="account-page-title" style={{ fontSize: '1.35rem' }}>{getHeading()}</h1>
+          <h2 style={{ fontSize: '1.15rem', fontWeight: 600, margin: '0.25rem 0', color: '#1a1a1a' }}>
+            {getFigmaTitle()}
+          </h2>
+          <p className="account-page-description">{getFigmaDescription()}</p>
         </header>
 
         {generalError && (
@@ -315,9 +411,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
 
           {!isForgot && (
             <div className="account-field">
-              <label className="account-label account-label-required" htmlFor="auth-password">
-                Mật khẩu
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label className="account-label account-label-required" htmlFor="auth-password">
+                  Mật khẩu
+                </label>
+                {mode === 'signin' && (
+                  <Link
+                    to="/forgot-password"
+                    style={{ fontSize: '0.8125rem', color: '#2462eb', textDecoration: 'none' }}
+                  >
+                    Quên mật khẩu?
+                  </Link>
+                )}
+              </div>
               <input
                 id="auth-password"
                 type="password"
@@ -355,6 +461,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
             </div>
           )}
 
+          {isRegister && (
+            <p style={{ fontSize: '0.8125rem', color: '#6b717f', margin: '0.25rem 0' }}>
+              Bằng việc đăng ký, bạn đồng ý với điều khoản sử dụng.
+            </p>
+          )}
+
           <button
             type="submit"
             className="account-btn account-btn-primary"
@@ -366,18 +478,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
         </form>
 
         <footer style={{ marginTop: '1.5rem', fontSize: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {mode === 'signin' && (
-            <Link to="/forgot-password" style={{ color: '#2563eb', textDecoration: 'none' }}>
-              Quên mật khẩu?
-            </Link>
-          )}
-
           {!isForgot && (
             <div>
               {isRegister ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'}{' '}
               <Link
                 to={isRegister ? '/sign-in' : '/register'}
-                style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}
+                style={{ color: '#2462eb', fontWeight: 600, textDecoration: 'none' }}
               >
                 {isRegister ? 'Đăng nhập ngay' : 'Đăng ký ngay'}
               </Link>
@@ -386,8 +492,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
 
           {isForgot && (
             <div>
-              <Link to="/sign-in" style={{ color: '#2563eb', textDecoration: 'none' }}>
-                Quay lại đăng nhập
+              <Link to="/sign-in" className="account-btn account-btn-secondary account-btn-sm" style={{ width: '100%' }}>
+                Về đăng nhập
               </Link>
             </div>
           )}

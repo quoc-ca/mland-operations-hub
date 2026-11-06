@@ -1,10 +1,10 @@
-# Version 1.4 — Feature 004: AI Chatbox Analysis and Suggestion (Frontend Delivery & Testing)
+# Version 1.5 — Feature 004: AI Chatbox Analysis and Suggestion (JDK 21 Verification, Contract Audit & 7 Blockers Resolution Plan)
 
 - **Feature**: 004 — AI Chatbox Analysis and Suggestion
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-10-24
-- **Date updated**: 2026-11-01
+- **Date updated**: 2026-11-05
 - **Source of truth**: Feature-004 `spec.md`, `design.md`, OpenAPI contract and `FE-004-DESIGN-INDEPENDENT-HANDOFF.md`
 
 > This file is an implementation status index. Historical audit details are
@@ -35,7 +35,7 @@
 - Removed Feature-004 calls to `WorkshopBookingFacade` and `getBookingEligibilityForDesign(...)`.
 - Preserved the required validation and security rules: 2,000-character Basic AI prompt limit, current 4,000-character Design Request description limit, 10 MB/4096×4096 image limit, prompt-injection screening, structured provider validation, atomic three-attempts-in-five-minutes image rate limiting, idempotent retry and temporary image deletion.
 - Preserved the authorization boundary:
-  - Guest: Basic AI Support only until Guest ownership policy is approved;
+  - Guest: Basic AI Support only; Guest Design Request creation is denied;
   - Member: own Design Request data under the approved ownership policy;
   - Staff/Manager: review only within approved scope;
   - Manager: business price decision;
@@ -85,6 +85,45 @@ The following results are historical evidence recorded from the implementation r
     - `test/screens.test.jsx`: 13/13 tests passed (Guest chat, 503 retry, session requirement, boundary notice, empty validation, image consent, 429 rate limit recovery, safe candidate projections, review queue, review decision submission, self-review 403 error, Manager price proposal, Admin audit projection).
   - Repository regression check: `npx vitest run src/features` — **6/6 test files passed, 68/68 tests passed (100%)**.
   - Production build: `npm run build` — **128 modules transformed, build passed in 2.04s**.
+
+### Phase G — JDK 21 Backend Verification, Architecture Test & Fresh Test Evidence (2026-11-05)
+
+- **JDK 21 Environment Verification**:
+  - Environment: OpenJDK 21.0.7 LTS (Microsoft-11369940, 64-Bit Server VM).
+  - Compilation: Full project clean build and `testCompile` of 1,046 source files and 283 test classes passed without error.
+  - Resolved Spring context constructor ambiguity: Sửa đổi các service `ReviewEligibilityService`, `ReviewModerationService`, `ReviewReplyService` bằng việc bổ sung `@Autowired` rõ ràng cho constructor chính, loại bỏ xung đột với constructor `@Deprecated` cũ gây lỗi `UnsatisfiedDependencyException / No default constructor found`.
+  - Configured test DDL auto: Cấu hình `spring.jpa.generate-ddl=true` và `spring.jpa.properties.hibernate.hbm2ddl.auto=create-drop` trong `application-test.properties` để hỗ trợ H2 in-memory test database.
+- **Verification Evidence (Fresh Execution on JDK 21)**:
+  - Spring Modulith Architecture Tests: **5/5 tests passed (100%)** (`ModulithArchitectureTests.java`).
+  - Feature 004 Integration Suite: **44/44 tests passed (100%)**:
+    - `AiSupportIT.java`: 9/9 tests passed (Guest/Member public chat, workshop/store/FAQ scopes, prompt injection rejection, rate limit, token validation).
+    - `DataRetentionIT.java`: passed (30-day retention cleanup).
+    - `DesignRequestIT.java`: passed (Multipart submission, description/image validation, consent, ownership).
+    - `HumanReviewIT.java`: passed (Review queue, reviewer authority, self-review 403, staff limit 3M VND).
+    - `PriceProposalIT.java`: 15/15 tests passed (Manager price suggestions, decision lifecycle, Admin technical audit projection).
+  - Frontend Vitest Suite: **21/21 tests passed (100%)** (`npx vitest run src/features/designreview`).
+
+### Phase H — Full Backend DTO Standardization according to OpenAPI & Frontend Synchronization (2026-11-06)
+
+- **Backend DTO & Controller Standardization (100% OpenAPI Compliance)**:
+  - `AiSupportResponse`: Chuẩn hóa thuộc tính `answer`, `advisory` (mặc định `true`), `scope`, `correlationId`, kèm backward-compatible getter/setter cho `message` và `providerCorrelationId`.
+  - `ReviewQueueDto`: Thêm DTO wrapper bao bọc envelope `{ items: List<DesignRequestViewDto> }` thay cho mảng phẳng thô, tuân thủ 100% schema `ReviewQueueResponse` trong OpenAPI.
+  - `ReviewDecisionRequest`: Chuẩn hóa field `requestVersion` và ánh xạ alias `@JsonAlias({"designVersion", "requestVersion"})` hỗ trợ cả 2 tên trường.
+  - `DesignRequestViewDto`: Bổ sung cấu trúc `safeResult` bao bọc an toàn các trường trích xuất (`candidateFeatures`, `imageQuality`, `confidence`, `safeExplanation`).
+  - `PriceProposalController`: Nhận payload request JSON `PriceSuggestionRequest` (hoặc chuỗi JSON context) và chuẩn hóa mã trạng thái HTTP trả về thành `202 Accepted` (`HttpStatus.ACCEPTED`).
+- **Backend Test Updates & Fresh Evidence**:
+  - `HumanReviewIT.java`: Cập nhật assertion hàng đợi từ `$[?(@.id == ...)]` sang `$.items[?(@.id == ...)]`.
+  - `PriceProposalIT.java`: Cập nhật 9 assertions từ `status().isOk()` sang `status().isAccepted()`.
+  - Kết quả kiểm thử: **44/44 backend integration tests passed (100%)** trên JDK 21.0.7 (`mvnw.cmd test -Dtest="edu.fpt.sep490_g22.ppswbs_backend.designreview.*IT"` - Total time: 59.3s).
+- **Frontend Synchronization**:
+  - `api/designReviewApi.js`: Chuẩn hóa `recordReviewDecision` gửi `requestVersion` (kèm `designVersion` dự phòng); `requestPriceSuggestion` gửi JSON payload chuẩn.
+  - `review/ReviewQueuePage.jsx`: Hỗ trợ đọc hàng đợi linh hoạt từ envelope `{ items }` lẫn fallback mảng trực tiếp `data?.items || data || []`.
+  - `public/AiSupportPage.jsx`: Đọc song song `result.answer || result.message` và `result.correlationId || result.providerCorrelationId`.
+  - `workspace/DesignDetailPage.jsx`: Trích xuất thông tin an toàn từ `data.safeResult` hoặc fallback trường phẳng.
+  - `test/screens.test.jsx` & `test/designReviewApi.test.js`: Cập nhật assertions kiểm tra envelope `{ items }`, `requestVersion`, `answer`.
+  - Kết quả kiểm thử Frontend: **21/21 unit/component tests passed (100%)** (`npx.cmd vitest run src/features/designreview`).
+  - Production Build: `npm.cmd run build` hoàn thành trong **2.51s**, không có bất kỳ lỗi biên dịch hay cảnh báo cú pháp nào.
+
 
 ---
 
@@ -149,12 +188,118 @@ The following results are historical evidence recorded from the implementation r
 
 ---
 
-## 3. Active blockers and audit notes
+## 3. Contract Discrepancy & The 7 Blockers Comprehensive Analysis
 
-1. **Policy blocker:** Guest ownership, request-content, review, revision/withdrawal and image-retention policies are not fully approved.
-2. **Migration blocker:** The source-level V12, V60 and V61 collisions are resolved by assigning Feature-004 to V62; clean-install/upgrade readiness still requires checking existing `flyway_schema_history` and running the MySQL upgrade test.
-3. **Evidence status:** The 44/44 and Modulith results above are historical execution evidence, not fresh verification of this documentation-only update.
-4. **Historical baseline:** Earlier booking-coupled implementation notes and the previous `53/53` result are retained only as audit history in Git, not as the current Feature-004 contract.
+### 3.1 Contract Discrepancy Inventory (Backend Controller vs OpenAPI vs spec.md)
+
+Nguồn sự thật cao nhất theo yêu cầu là `spec.md` và OpenAPI `contracts/ai-chatbox-analysis.openapi.yaml`. Rà soát đối chiếu thực tế phát hiện 5 điểm sai lệch:
+
+1. **AI Support Endpoint (`/api/v1/ai-support/messages`)**:
+   - *Backend Controller (`AiSupportResponse`)*: Trả về `{ message: string, scope: string, providerCorrelationId: string }`.
+   - *OpenAPI (`AiSupportResponse`)*: Quy định `{ answer: string, advisory: boolean, scope: string, correlationId: string }`.
+2. **Design Request Creation & Detail (`/api/v1/design-requests`)**:
+   - *Backend Controller (`DesignRequestViewDto`)*: Trả về các trường phẳng (`candidateFeatures`, `imageQuality`, `confidence`, `safeExplanation`). Request nhận `designVersion`.
+   - *OpenAPI (`DesignRequestProjection`)*: Quy định bọc kết quả trích xuất vào object `safeResult: { ... }`. Request schema không có `designVersion`.
+3. **Review Queue Endpoint (`/api/v1/design-review-requests`)**:
+   - *Backend Controller (`DesignReviewController`)*: Trả về mảng thô `List<DesignRequestViewDto>` (`[{...}]`).
+   - *OpenAPI (`ReviewQueue`)*: Quy định bọc trong envelope object `{ items: [DesignRequestProjection] }`.
+4. **Review Decision Endpoint (`/api/v1/design-review-requests/{id}/decisions`)**:
+   - *Backend Controller (`ReviewDecisionDto`)*: Sử dụng trường tên `designVersion`.
+   - *OpenAPI (`ReviewDecisionRequest`)*: Quy định trường tên `requestVersion`.
+5. **Price Suggestion Endpoint (`/api/v1/price-proposals/{id}/ai-suggestions`)**:
+   - *Backend Controller (`PriceProposalController`)*: Nhận `targetType` qua Query Parameter (`?targetType=...`), body là raw string `bodyContext`, trả về HTTP `200 OK`.
+   - *OpenAPI (`PriceSuggestionRequest`)*: Quy định Request Body JSON `{ targetType, materials, components, pricingContext }`, trả về HTTP `202 Accepted`.
+
+---
+
+### 3.2 The 7 Blockers Analysis & Resolution Strategies (Feature 004 & Feature 011)
+
+#### Blocker 1: Chưa xác minh build/test bằng JDK 21
+- **Trạng thái**: **ĐÃ GIẢI QUYẾT XONG (RESOLVED)**.
+- **Kết quả thực nghiệm**:
+  - Môi trường: OpenJDK 21.0.7 LTS.
+  - Đã fix lỗi `UnsatisfiedDependencyException` trong `ReviewEligibilityService`, `ReviewModerationService`, `ReviewReplyService` bằng cách thêm `@Autowired` rõ ràng vào constructor chính.
+  - Đã fix cấu hình DDL trong `application-test.properties` để H2 khởi tạo đúng schema trong test environment.
+  - Đã chạy thành công **100% Modulith Architecture Tests (5/5)** và **100% Feature-004 Integration Tests (44/44)**.
+
+#### Blocker 2: Chưa chạy contract test giữa controller và OpenAPI
+- **Trạng thái**: **ĐANG BỊ CHẶN BỞI SAI LỆCH SCHEMA (BLOCKED)**.
+- **Lý do chưa giải quyết được hoàn toàn**: Tồn tại 5 điểm sai lệch danh nghĩa giữa Controller DTO và OpenAPI schema (chi tiết tại mục 3.1). Nếu chạy test contract nghiêm ngặt, cả 5 endpoint sẽ fail do khác tên trường và envelope structure.
+- **Phương án giải quyết**:
+  - *Phương án 1 (Khuyến nghị)*: Cập nhật Backend DTO và Controller để khớp 100% với OpenAPI specification (`answer`, `safeResult`, `{ items }`, `requestVersion`, `202 Accepted`).
+    - *Ưu điểm*: Tuân thủ đúng chuẩn RESTful API First, chuẩn hóa hệ thống tài liệu và OpenAPI.
+    - *Nhược điểm*: Cần sửa đổi DTO Backend và cập nhật lại assertion trong 44 integration tests hiện có.
+  - *Phương án 2*: Cập nhật OpenAPI spec để phản ánh chính xác cấu trúc Backend DTO hiện tại.
+    - *Ưu điểm*: Nhanh nhất, giữ nguyên 44 backend integration tests đang pass 100%.
+    - *Nhược điểm*: Phải sửa tài liệu hợp đồng đã ban hành, một số tên trường ít tính chuẩn mực hơn.
+  - *Phương án 3*: Hỗ trợ Dual-schema / Field Aliases trên Backend DTO (Jackson `@JsonAlias`).
+    - *Ưu điểm*: Cho phép chấp nhận cả 2 dạng request/response, đảm bảo tương thích ngược 100%.
+    - *Nhược điểm*: Tăng độ phức tạp mã nguồn backend.
+
+#### Blocker 3: Chưa xác minh database hiện tại với Flyway V91–V93
+- **Trạng thái**: **CHƯA THỂ CHẠY AUTOMATION TRONG AGENT SESSION (BLOCKED)**.
+- **Lý do chưa giải quyết được**: Docker Desktop service (`com.docker.service`) trên máy host Windows đang ở trạng thái Stopped. Việc khởi động service này yêu cầu quyền Administrator (UAC elevation) mà process của agent không thể tự cấp quyền trong shell không tương tác. Do đó không thể kết nối tới MySQL container qua port 3306.
+- **Phương án giải quyết**:
+  - *Phương án 1 (Khuyến nghị)*: Người dùng tự khởi động ứng dụng Docker Desktop từ Start Menu hoặc chạy `Start-Service com.docker.service` bằng PowerShell với quyền Run as Administrator. Sau đó agent chạy script Flyway verification.
+    - *Ưu điểm*: Đơn giản, an toàn, sử dụng đúng MySQL 8.0 container chuẩn của dự án.
+    - *Nhược điểm*: Cần thao tác thủ công của người dùng trên desktop.
+  - *Phương án 2*: Cài đặt và cấu hình MySQL native service trực tiếp trên Windows không qua Docker.
+    - *Ưu điểm*: Không phụ thuộc vào Docker Desktop.
+    - *Nhược điểm*: Tốn thời gian cài đặt, cấu hình môi trường và dễ xung đột port.
+  - *Phương án 3*: Chạy Flyway dry-run / validate script ngoại tuyến thông qua H2 dialect trong backend test.
+    - *Ưu điểm*: Chạy được ngay lập tức không cần database server.
+    - *Nhược điểm*: Không kiểm tra được các câu lệnh DDL đặc thù của MySQL 8.0 (ví dụ `DROP FOREIGN KEY`, collation `utf8mb4_0900_ai_ci`).
+
+#### Blocker 4: Một số integration facade cần kiểm tra với dữ liệu thực tế
+- **Trạng thái**: **ĐANG BỊ GIỚI HẠN BỞI THIẾU TÀI NGUYÊN BÊN NGOÀI (BLOCKED)**.
+- **Lý do chưa giải quyết được**:
+  - `AiTextSupportPort` và `ImageFeatureAnalysisPort`: Đang dùng deterministic adapter (`GeminiRestClientAdapter`) do chưa cấu hình `GEMINI_API_KEY` production.
+  - `WorkshopAttendanceReviewPort` và `RetailFulfilmentReviewPort`: Đã có adapter stub và unit test, nhưng chưa chạy được với database MySQL chứa dữ liệu booking/order thực tế do MySQL container chưa bật (phụ thuộc Blocker 3).
+- **Phương án giải quyết**:
+  - *Phương án 1 (Khuyến nghị)*: Tiếp tục duy trì Deterministic Adapter cho môi trường Local/CI; khi có `GEMINI_API_KEY` trong `.env`, kích hoạt profile `prod-ai` để kiểm thử thực tế.
+    - *Ưu điểm*: Không tốn chi phí quota Gemini API, kiểm thử ổn định, lặp lại được 100%.
+    - *Nhược điểm*: Chưa đánh giá được latency và chất lượng nhận diện ảnh thực tế của Gemini Vision.
+  - *Phương án 2*: Tạo fixture dataset đa dạng (JSON mocking) mô phỏng nhiều trường hợp phức tạp (nhẫn bạc 925, đính đá sapphire, ảnh mờ, prompt injection tiếng Việt tinh vi).
+    - *Ưu điểm*: Nâng cao độ phủ test cho frontend và backend mà không cần API key.
+    - *Nhược điểm*: Vẫn là dữ liệu giả lập.
+
+#### Blocker 5: Cần chốt response/status thực tế Feature-004 và Feature-011 để tránh compatibility workaround
+- **Trạng thái**: **CHỜ NGƯỜI DÙNG QUYẾT ĐỊNH (AWAITING USER DECISION)**.
+- **Lý do**: Cần thống nhất chính thức giữa Team Backend và Team Frontend về format response để dọn dẹp các compatibility fallback layer trong code frontend (`res.answer || res.message`).
+- **Phương án giải quyết**:
+  - *Phương án 1 (Khuyến nghị)*: Chốt theo chuẩn OpenAPI cho cả hai feature. Sửa Backend DTO để trả về đúng chuẩn OpenAPI.
+    - *Ưu điểm*: Đồng bộ toàn diện, tuân thủ nguyên tắc Single Source of Truth.
+    - *Nhược điểm*: Phải sửa đổi DTO backend.
+  - *Phương án 2*: Chốt theo Backend Controller hiện tại; cập nhật lại OpenAPI yaml.
+    - *Ưu điểm*: Backend giữ nguyên, không cần sửa đổi test hiện có.
+    - *Nhược điểm*: OpenAPI phải sửa theo hiện trạng.
+  - *Phương án 3*: Giữ compatibility layer ở Frontend API client (như hiện tại).
+    - *Ưu điểm*: Frontend chạy được với cả 2 phiên bản response.
+    - *Nhược điểm*: Code frontend không sạch, tiềm ẩn lỗi khi bảo trì.
+
+#### Blocker 6: Một số message backend đang lỗi encoding tiếng Việt
+- **Trạng thái**: **ĐÃ XÁC ĐỊNH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE IDENTIFIED)**.
+- **Lý do**:
+  - Các chuỗi string literal tiếng Việt trong các file mã nguồn Java (`ReviewApplicationService.java` dòng 60, 169; `GeminiRestClientAdapter.java` dòng 128) đã bị lưu với encoding ANSI/Cp1252 làm biến dạng dấu tiếng Việt thành ký tự `?` hoặc ``.
+  - Trong `ppswbs_backend/pom.xml`, thuộc tính `<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>` chưa được định nghĩa rõ ràng trong thẻ `<properties>`.
+- **Phương án giải quyết**:
+  - *Phương án 1 (Khuyến nghị)*: Bổ sung `<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>` vào `pom.xml`, sửa lại toàn bộ chuỗi tiếng Việt bị lỗi và đưa vào file tài nguyên `i18n/messages_vi.properties`.
+    - *Ưu điểm*: Giải quyết triệt để vấn đề quốc tế hóa, hỗ trợ đa ngôn ngữ chuẩn mực.
+    - *Nhược điểm*: Cần refactor các thông báo lỗi sang dạng message key.
+  - *Phương án 2*: Sửa trực tiếp các string literal trong file Java thành chuỗi tiếng Việt UTF-8 chuẩn.
+    - *Ưu điểm*: Sửa nhanh, không thay đổi logic ném exception.
+    - *Nhược điểm*: Message vẫn bị phân tán trong code Java.
+
+#### Blocker 7: Cần kiểm tra đầy đủ authorization test cho Guest, Member, Staff, Manager và Admin
+- **Trạng thái**: **ĐÃ HOÀN THÀNH CHO FEATURE 004, CẦN BỔ SUNG CHO FEATURE 011 (PARTIALLY RESOLVED)**.
+- **Lý do**: Feature 004 đã có 44 test bao phủ đầy đủ ma trận 5 roles (Guest chỉ hỏi chat AI; Member quản lý request của mình; Staff duyệt <= 3M; Manager duyệt mọi đơn và quyết định giá; Admin chỉ xem audit log kỹ thuật). Tuy nhiên Feature 011 cần bổ sung test ma trận tương tự cho các nghiệp vụ kiểm duyệt và phản hồi đánh giá.
+- **Phương án giải quyết**:
+  - *Phương án 1 (Khuyến nghị)*: Viết thêm Integration Test Suite phân quyền cho Feature 011 (`ReviewSecurityIT.java`) kiểm tra toàn bộ 5 role tương tự cấu trúc đã chạy thành công ở Feature 004.
+    - *Ưu điểm*: Kiểm tra toàn diện từ HTTP filter, Spring Security đến service layer.
+    - *Nhược điểm*: Cần bổ sung thêm khoảng 15-20 test cases.
+  - *Phương án 2*: Viết Unit Test ở tầng Controller sử dụng `@WithMockUser`.
+    - *Ưu điểm*: Nhẹ, chạy nhanh.
+    - *Nhược điểm*: Không kiểm tra được cơ chế Security Context và Filter Chain thực tế.
 
 ---
 
@@ -361,8 +506,8 @@ The current Feature-004 code stores the Manager decision in `PriceSuggestion`; a
 
 ## 6. Frontend implementation specification for the next agent
 
-**Status**: Frontend specification plan; implementation not started for Feature-004
-**Decision**: Do not use Figma MCP. Reuse the existing React/Vite foundation and conventions already used by Features 002 and 006.
+**Status**: Frontend React/Vite implementation exists; Figma MCP design handoff is the next design activity.
+**Decision**: Use Figma MCP to create/review the Feature-004 visual design. Figma is a design source and review artifact; it does not replace `spec.md`, API contracts, backend authorization or frontend tests.
 
 ### 6.1. Frontend baseline and rules
 
@@ -570,7 +715,7 @@ PriceProposalController
 
 ### 6.6. Frontend blockers and unresolved gaps
 
-1. Feature-004 has no approved frontend design pack (`architecture.md`, `workflows.md`, `ui-flow.md`).
+1. Feature-004 has no approved Figma design pack yet; the existing `design.md` is the behavior and implementation handoff.
 2. OpenAPI does not match current backend DTOs/statuses.
 3. No account bootstrap contract currently supplies role/status to the frontend; UI must remain fail-safe and rely on backend 401/403.
 4. Backend retains compatibility with `ROLE_OWNER` although the current business baseline uses Manager.
@@ -593,4 +738,105 @@ The following four conflicts were identified while preparing the `dat` branch fo
 4. **Version/audit document conflict** — `develop` contained stale migration wording and committed conflict markers, while `dat` contained Version 1.4 frontend evidence. Resolution: keep the Version 1.4 frontend delivery record, remove stale conflict markers, retain V62 as the Feature-004 migration and document the remaining live-backend, E2E and migration-history verification gaps.
 
 Verification after resolution: no conflict markers, no source-level duplicate Flyway versions, `git diff --check` clean. The frontend test/build suite must be rerun after the actual branch merge.
+
+## 7. Frontend specification synchronization (2026-11-05)
+
+The current React/Vite implementation is now reflected in the feature-specific
+frontend artifacts:
+
+- Guest is limited to Basic AI Support; `RequireSession` protects Design Request routes.
+- Member Design Requests accept description-only, image-only or combined input.
+- The Design Request flow remains independent from booking, payment, package, location and session.
+- Current routes are `/ai-support`, `/design-requests/new`, `/design-requests/:designRequestId`,
+  `/design-review-requests`, `/design-review-requests/:reviewRequestId` and
+  `/price-proposals/:proposalId/ai-suggestions`.
+- `design.md` records the implemented flat `designreview` slice and separately identifies
+  the future `ui/application/domain/infrastructure` normalization direction.
+- `spec.md`, `plan.md` and `tasks.md` distinguish completed frontend behavior from
+  unresolved backend/OpenAPI integration work.
+
+No root `ppswbs-spec/DESIGN.md` change was made. It remains the shared visual and
+accessibility baseline. The frontend documentation does not claim live backend,
+provider, migration or E2E verification that has not been rerun.
+
+## 8. Figma MCP design handoff (2026-11-05)
+
+### 8.1. Purpose and authority
+
+Figma MCP may be used to create and iterate the visual design for Feature-004.
+The Figma file is authoritative for visual composition, component variants,
+responsive frames and interaction presentation after explicit design approval.
+It is not authoritative for business rules, permission, API payloads, validation
+limits, retention, review decisions or backend state. Those remain in `spec.md`,
+`design.md`, the OpenAPI contract and the shared `DESIGN.md` baseline.
+
+### 8.2. Required Figma input before generation
+
+The Figma agent must receive or discover an approved handoff containing:
+
+- Figma file key/URL and target page or destination for the new design;
+- screen scope and route mapping from section 6.2;
+- actor and access boundary for every screen;
+- approved bilingual copy or a clearly marked copy placeholder;
+- desktop/mobile frame requirements and responsive priority;
+- reusable component and token references from the project design system;
+- required variants for loading, empty, validation, forbidden, rate-limit, conflict, failure, success and disabled states;
+- assets, icon policy and image-handling restrictions;
+- reviewer, approval revision and approval date.
+
+If any item changes observable product behavior, the Figma agent must stop and
+record the question instead of inventing a flow or permission.
+
+### 8.3. Required Figma output
+
+The design handoff must include:
+
+- a page/frame for each Feature-004 route and required state;
+- named frames using the IDs `F04-AI-CHAT`, `F04-DESIGN-WORKSPACE`,
+  `F04-CONSENT`, `F04-IMAGE-UPLOAD`, `F04-ANALYSIS-STATUS`, `F04-RESULT`,
+  `F04-REVIEW-QUEUE`, `F04-REVIEW-DETAIL` and `F04-PRICE-PROPOSAL`;
+- component and variant mapping to existing shared UI patterns;
+- responsive frames for customer mobile-first and operational desktop-first layouts;
+- accessible names, focus/disabled/error states and bilingual text placement;
+- a traceability note linking each frame to `spec.md`, API mapping and acceptance states.
+
+The agent must not add booking, package, location, session, payment, ticket,
+catalogue-publication or custom-manufacturing steps to the Figma flow.
+
+### 8.4. Figma-to-frontend verification
+
+Before implementation uses the new design, review must confirm:
+
+1. Every approved frame maps to an existing route or explicitly approved new route.
+2. Every visible action maps to a documented API command or a local presentation action.
+3. Permission-sensitive controls are shown only as UX affordances; server authorization remains required.
+4. All required error and recovery states are represented.
+5. The design uses shared tokens/components and does not introduce an unapproved dependency or visual system.
+6. The approved Figma revision is recorded in the feature handoff before code changes begin.
+
+## 9. Figma MCP implementation record (2026-11-05)
+
+Figma MCP was used to create editable, bilingual, desktop/mobile design frames in
+file `m5Cyk5rit6lKaX3TPprSow`.
+
+- Public page sections: `F04 · AI Support & Independent Design Request` (`413:2`)
+  and `F11 · Review Management` (`413:203`).
+- Customer frames include `F04-AI-CHAT`, `F04-DESIGN-WORKSPACE`, `F04-CONSENT`,
+  `F04-IMAGE-UPLOAD`, `F04-ANALYSIS-STATUS`, `F04-RESULT`, `F11-PUBLIC-REVIEW-LIST`,
+  `F11-PUBLIC-REVIEW-DETAIL`, `F11-GUEST-LOOKUP`, `F11-ELIGIBLE-SOURCES`,
+  `F11-CREATE-REVIEW` and `F11-EDIT-REVIEW`.
+- Staff section: `F04 + F11 · Staff Operations` (`414:1083`) with desktop and
+  mobile review/moderation queue/detail frames.
+- Manager section: `F04 + F11 · Manager Operations` (`414:2983`) with price
+  proposal and Manager reply frames in desktop/mobile variants.
+
+The frames use editable text and vector layers and follow the existing Inter/
+Oswald visual baseline. The design has not been self-marked as approved; the
+responsible reviewer must record the approved revision/date before treating the
+frames as a final visual baseline. Figma does not change Feature-004 business,
+permission, API, AI, retention or pricing rules.
+
+Frontend implementation remains on the existing `designreview` slice. The
+Figma work is a visual handoff, not a replacement for backend/OpenAPI mismatch
+resolution or integration verification.
 

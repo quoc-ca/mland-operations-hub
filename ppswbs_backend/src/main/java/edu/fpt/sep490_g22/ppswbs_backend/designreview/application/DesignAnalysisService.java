@@ -73,6 +73,7 @@ public class DesignAnalysisService {
         private Map<String, Object> imageQuality;
         private Map<String, Object> confidence;
         private String safeExplanation;
+        private Map<String, Object> safeResult;
     }
 
     @Transactional
@@ -339,6 +340,15 @@ public class DesignAnalysisService {
             }
         }
 
+        Map<String, Object> safeResult = null;
+        if (candidateFeatures != null || imageQuality != null || confidence != null || explanation != null) {
+            safeResult = new LinkedHashMap<>();
+            if (candidateFeatures != null) safeResult.put("candidateFeatures", candidateFeatures);
+            if (imageQuality != null) safeResult.put("imageQuality", imageQuality);
+            if (confidence != null) safeResult.put("confidence", confidence);
+            if (explanation != null) safeResult.put("safeExplanation", explanation);
+        }
+
         return DesignRequestViewDto.builder()
                 .id(request.getId())
                 .requestReference(request.getRequestReference())
@@ -354,6 +364,7 @@ public class DesignAnalysisService {
                 .imageQuality(imageQuality)
                 .confidence(confidence)
                 .safeExplanation(explanation)
+                .safeResult(safeResult)
                 .build();
     }
 }

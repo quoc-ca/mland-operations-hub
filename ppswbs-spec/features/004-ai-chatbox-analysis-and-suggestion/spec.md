@@ -1,143 +1,130 @@
-# Feature Specification: AI Chatbox Analysis and Suggestion
+﻿# Feature Specification: AI Chatbox Analysis and Suggestion
 
-**Date created**: 2026-10-21  
-**Date updated**: 2026-10-28  
-**Author**: Ngô Tiến Đạt  
-**Last updated by**: Ngô Tiến Đạt  
+**Date created**: 2026-10-21
+**Date updated**: 2026-11-05
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Ngô Tiến Đạt
 
-**Feature**: `004-ai-chatbox-analysis-and-suggestion`  
-**Status**: Independent-design rebase; implementation blocked by the ownership decisions listed below  
-**Source alignment**: `FE-004-DESIGN-INDEPENDENT-HANDOFF.md`, Report 1 FE-04/FE-05, Report 3
+**Feature**: `004-ai-chatbox-analysis-and-suggestion`
+**Status**: Independent frontend behavior synchronized; backend/API integration gates remain open
+**Source alignment**: Feature-004 design, current React/Vite slice, Report 1 FE-04/FE-05 and Report 3
 
 ## 1. Scope and independent boundary
 
-Feature-04 owns three bounded capabilities:
+Feature-004 owns:
 
 1. Basic AI Support for approved public information.
-2. Independent Design Request creation, optional image analysis and human review.
-3. Manager-only advisory price suggestions for new workshop packages or retail products.
+2. Independent Design Request creation with optional description and/or reference image.
+3. AI image analysis and safe result display.
+4. Staff/Manager human review integration when the backend returns a review state.
+5. Manager-only advisory price suggestion for new workshop packages or retail products.
 
-An Independent Design Request is not a workshop booking-design request. It MUST NOT
-create, read, update or depend on workshop booking, booking code/status, package
-selection, location, session, payment, deposit, VNPay, capacity hold, ticket,
-check-in or booking eligibility. It may retain an opaque catalogue/product reference
-only when the catalogue facade is explicitly needed for analysis context.
+The Design Request is independent from Workshop Booking. It MUST NOT require or
+mutate package, location, session, booking, payment, deposit, ticket, capacity,
+settlement or custom-manufacturing state. An opaque catalogue reference may be sent
+only when the backend contract explicitly permits it.
 
-The owning booking, payment, catalogue, fulfilment and custom-manufacturing modules
-remain responsible for their own state. FE-003 MUST NOT call FE-004 as a booking
-precondition and MUST NOT store a design approval reference.
-
-## 2. Actors and unresolved ownership gate
+## 2. Actors and permissions
 
 | Actor | Allowed capability |
 | --- | --- |
-| Guest | Basic AI Support. Independent Design Request access is **TBD** because the handoff has not approved a secure guest ownership proof. |
-| Member | Basic AI Support and independent Design Request access for the Member's own data, subject to the final ownership decision. |
-| Staff | Review independent Design Requests within the approved delegated scope. |
-| Manager | Review requests requiring Manager authority and request/decide advisory price suggestions. |
-| Admin | Technical configuration and approved technical/audit evidence only; no business review or price decision. |
-| AI provider | Returns validated candidate features, image quality or advisory price suggestion; never mutates Mland state. |
-| Cloud storage | Temporary image storage and deletion only. |
+| Guest | Basic AI Support in public scope only. Cannot create or upload a Design Request. |
+| Member | Basic AI Support; create and view own Independent Design Requests. |
+| Staff | Review requests only within server-authorized scope. |
+| Manager | Review requests requiring Manager authority; request and decide advisory catalogue price suggestions. |
+| Admin | Technical configuration and approved technical/audit projection only; no business review or price decision. |
+| AI provider | Returns validated safe output only; cannot mutate Mland state. |
+| Cloud storage | Temporary image storage/deletion only. |
 
-The following decisions are not silently inferred from the previous booking flow and
-MUST be resolved before production implementation:
+The frontend route guard is a navigation aid. Firebase identity, Mland role/status,
+ownership, reviewer authority and resource scope are enforced by the backend.
+Client-provided role, owner, reviewer, price, status or decision is untrusted.
 
-- whether Guest may create an Independent Design Request;
-- the ownership proof and retrieval mechanism if Guest is allowed;
-- whether image-less text-only Design Requests are allowed;
-- whether every request requires human review or only requests with image analysis;
-- whether a Member may withdraw, revise or create a new request after rejection;
-- whether an approval expires.
+## 3. Independent Design Request behavior
 
-The current backend's Member-only booking assumption is therefore not an approved
-final contract after this rebase.
+The Member opens `/design-requests/new` and may submit:
 
-## 3. Permission rules
+- description only;
+- reference image only; or
+- description and reference image together.
 
-| Action | Guest | Member | Staff | Manager | Admin |
-| --- | --- | --- | --- | --- | --- |
-| Basic AI Support | Allow public scope | Allow public scope | Deny by default | Deny by default | Deny by default |
-| Create independent Design Request | TBD ownership proof | Allow own data | Deny | Deny | Deny |
-| Upload reference image | Same as Design Request decision | Allow with consent | Deny | Deny | Deny |
-| View own request/result | TBD ownership proof | Own data only | Deny | Deny | Deny |
-| View scoped request queue | Deny | Deny | Allow approved scope | Allow approved authority | Technical/audit only if approved |
-| Record human decision | Deny | Deny | Allow approved scope | Allow approved authority | Deny |
-| Request/view price suggestion | Deny | Deny | Deny | Allow proposal scope | Technical/audit projection only |
-| Final price decision/publication | Deny | Deny | Deny | Through catalogue workflow | Deny through FE-004 |
-| Booking/payment/custom-order mutation | Deny through FE-004 | Deny through FE-004 | Deny through FE-004 | Deny through FE-004 | Deny through FE-004 |
+Description is limited to 4,000 characters. An image requires purpose-specific
+consent before storage or provider processing. The image is validated for supported
+MIME/signature, size, dimensions, malware policy and the Member image rate limit.
+The request contains no booking fields.
 
-All authorization is server-side. Client-provided role, owner, reviewer, price,
-status, estimate or decision is untrusted. A reviewer cannot review a request they
-created or a request with a prohibited conflict of interest.
+When an image is supplied, the Member must submit the current consent version and
+purpose. When no image is supplied, image consent fields are omitted and no image
+storage/provider image call occurs.
 
-## 4. Independent Design Request flow
+## 4. Basic AI Support
 
 ```text
-Guest/Member identity and ownership proof
-→ Design workspace
-→ Optional design description and/or reference image
-→ Image consent when an image is supplied
-→ Validate owner, input, image, rate limit and idempotency
-→ Temporary storage only for an accepted image
-→ Create independent design request/version
-→ AI candidate analysis when requested
-→ Delete temporary image after processing
-→ Persist safe result/failure evidence
-→ Staff/Manager review when the approved review policy requires it
-→ Owner views safe result and may revise, withdraw or finish according to the resolved policy
+Guest/Member opens AI Chat
+→ validates non-empty prompt and 2,000-character limit
+→ screens scope and prompt-injection patterns
+→ sends allowlisted public context to the provider
+→ validates safe response
+→ displays advisory response and scope
 ```
 
-The flow has no booking step before or after it. A successful result does not confirm
-a booking, payment, final design, custom-manufacturing order or catalogue price.
+The assistant may answer catalogue, workshop package/session, store-information and
+approved FAQ questions. It cannot confirm booking/payment, publish a price, decide
+feasibility, accept/reject a custom order or expose private/operational data.
 
-## 5. Validation and security invariants
+## 5. Analysis and review states
 
-All requests use this order:
-
-```text
-Transport → Firebase identity → Mland role/status → ownership/scope
-→ rate limit/idempotency → input schema → independent business context
-→ prompt/image security screening → provider call
-→ provider output validation → persistence/state transition
-```
-
-- Basic AI prompt limit is 2,000 characters; provider timeout is 30 seconds.
-- Image limit is 10 MB and 4096×4096 pixels; MIME, signature, dimensions and malware policy are checked before provider processing.
-- A Member may submit at most three image attempts in a rolling five-minute window. The fourth attempt returns `429 IMAGE_RATE_LIMITED` and `Retry-After`; duplicate idempotent retries do not consume another slot.
-- Consent is purpose-specific, versioned and recorded before image storage or provider processing.
-- Provider input is normalized from an allowlisted command model; raw request bodies, tokens, credentials, payment data, private customer data and operational data are never forwarded.
-- Prompt injection and instruction-like text embedded in images are untrusted data. Detected injection returns `AI_PROMPT_INJECTION_DETECTED` without a provider call or business mutation.
-- Provider output is schema- and policy-validated. Final approval, price publication, booking mutation, payment mutation and custom-order decisions are rejected.
-- Booking-design retention rules do not apply. Independent Design Request image retention is **TBD** and must be explicitly decided; temporary processing storage remains the default until then.
-- Text interaction retention remains no more than 30 days.
-
-## 6. Data and state model
-
-The persisted Design Request owns independent design data only:
-
-- request identifier and version;
-- owner account reference or approved guest ownership proof;
-- optional opaque catalogue/product reference;
-- description and optional image reference;
-- consent evidence when an image is supplied;
-- analysis status/result schema version;
-- review status/decision and reviewer audit evidence;
-- revision, withdrawal, reason and timestamps.
-
-It MUST NOT contain `bookingId`, `bookingCode`, `bookingStatus`, `sessionId`,
-`locationId`, `holdId`, `ticketId`, `paymentId` or `depositId`.
-
-Technical analysis state and business review state remain separate:
+Technical analysis and business review are separate:
 
 ```text
 analysis: PENDING → PROCESSING → SUCCEEDED / FAILED
 review:   NEED_REVIEW → ACCEPTED / REJECTED / CLARIFICATION_REQUIRED
-request:  ACTIVE → WITHDRAWN / COMPLETED (exact transitions require ownership decision)
 ```
 
-## 7. API contract baseline
+The frontend displays the actual backend state returned by the response. It does not
+assume polling, asynchronous processing or automatic acceptance. Safe results may
+contain candidate features, image quality, confidence/uncertainty and explanation;
+raw provider payload and raw temporary image data are never displayed.
 
-The independent API surface is:
+Every valid image request follows the backend review policy. AI cannot create a
+terminal review decision. A stale version or conflict requires reload/reconciliation;
+the frontend must not retry with a new command key automatically.
+
+## 6. Price suggestion
+
+Only Manager-authorized users may view commercial price suggestions and record a
+decision. Admin may receive a technical/audit projection without commercial detail.
+Guest, Member and Staff do not see internal price suggestions.
+
+The suggestion is advisory and applies only to a new workshop package or retail
+product proposal. It cannot automatically update or publish a catalogue price,
+change a payment amount, price an individual Member quotation or price a
+custom-manufacturing order.
+
+## 7. Security, validation and retention invariants
+
+- Validate transport, Firebase identity, Mland role/status, ownership/scope, rate limit/idempotency and input schema before provider calls.
+- Prompt input is untrusted data; system policy and user content are separated.
+- Reject prompt injection before provider invocation with `AI_PROMPT_INJECTION_DETECTED`.
+- Do not send tokens, credentials, payment data, raw operational data, unnecessary PII or unnormalized request bodies to the provider.
+- Member image submissions are limited to three attempts in a rolling five-minute window. The fourth attempt returns `429 IMAGE_RATE_LIMITED` and `Retry-After`.
+- Duplicate retries with the same idempotency key do not consume another image quota slot.
+- Temporary images are deleted after processing on success and failure. The current frontend never caches raw image data beyond the active form interaction.
+- Text prompt/response retention is at most 30 days according to the shared retention policy.
+- Frontend must preserve recoverable form data on validation, network, `409`, `429` and `503` failures.
+
+## 8. Frontend routes and API baseline
+
+```text
+/ai-support
+/design-requests/new
+/design-requests/:designRequestId
+/design-review-requests
+/design-review-requests/:reviewRequestId
+/price-proposals/:proposalId/ai-suggestions
+```
+
+The current backend compatibility shape is:
 
 ```text
 POST /api/v1/ai-support/messages
@@ -150,26 +137,28 @@ GET  /api/v1/price-proposals/{id}/ai-suggestions
 POST /api/v1/price-proposals/{id}/ai-suggestions/decisions
 ```
 
-`POST /design-requests` accepts an independent description and/or image plus
-consent/idempotency data when applicable. It does not accept booking or payment
-fields. Exact Guest ownership, image-only/text-only and review-policy fields remain
-blocked until the ownership gate is resolved.
+The current implementation returns `message` rather than the drafted `answer`,
+uses `designVersion` for review commands, accepts price `bodyContext` as raw body
+with `targetType` query parameter, and returns `200` for price suggestion. These
+are documented compatibility facts; they must be synchronized with OpenAPI before
+the integration contract is called final.
 
-## 8. Non-goals
+## 9. Non-goals
 
-- Workshop booking creation, lookup, eligibility, capacity, location/session and ticketing.
-- Payment, deposit, VNPay, invoice and settlement.
-- Configured ring-design choices owned by another contract.
-- Custom-manufacturing acceptance or final custom-order pricing.
+- Workshop booking, package/location/session selection, payment, ticketing or settlement.
 - Catalogue price publication from an AI response.
-- Permanent storage of reference images without an approved retention decision.
+- Final design, feasibility, custom-manufacturing acceptance or final custom-order price.
+- Guest Design Request creation or Guest image upload.
+- Raw provider/image exposure.
+- New global frontend state, UI kit or form library.
 
-## 9. Acceptance criteria for the independent rebase
+## 10. Acceptance criteria
 
-- No Feature-004 production class imports `edu.fpt.sep490_g22.ppswbs_backend.workshopbooking` or a workshop booking facade.
-- No Feature-004 request, response, database table or audit record contains booking/payment/location/session fields.
-- Creating, analyzing, reviewing, revising or withdrawing a Design Request does not create or mutate booking, capacity, payment, ticket or custom-order state.
-- Cross-owner reads and mutations are denied without revealing whether another owner's request exists.
-- Prompt/image validation, consent, rate limiting, provider-boundary and retention policies are tested.
-- The OpenAPI contract, data model, design flow, tasks and backend implementation use the same independent boundary.
-- All unresolved ownership/review decisions are resolved before the implementation gate is marked complete.
+- Guest can use Basic AI Support but receives no Design Request mutation path.
+- Member can submit description-only, image-only or combined requests.
+- Image consent and validation happen before image submission.
+- Invalid image, prompt injection, rate limit and forbidden responses do not call the provider or mutate business state.
+- Owner result screens display only safe backend projections.
+- Staff/Manager/Admin screens respect backend authorization and projection boundaries.
+- No frontend route or API call introduces booking/payment prerequisites.
+- UI tests cover loading, empty, validation, success, forbidden, failure, retry, rate-limit and conflict states.

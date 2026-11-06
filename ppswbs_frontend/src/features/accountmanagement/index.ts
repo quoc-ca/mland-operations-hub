@@ -22,6 +22,7 @@ export { InternalAccountCreatePage } from './components/InternalAccountCreatePag
 export { AdminAccountDetailPage } from './components/AdminAccountDetailPage';
 export { AdminAccountListPage } from './components/AdminAccountListPage';
 export { RoleCataloguePage } from './components/RoleCataloguePage';
+export { AdminRouteGuard } from './components/AdminRouteGuard';
 export type {
   AccountResponse,
   ProfileResponse,

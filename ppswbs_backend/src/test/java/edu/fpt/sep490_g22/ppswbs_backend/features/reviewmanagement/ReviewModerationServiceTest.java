@@ -67,7 +67,7 @@ class ReviewModerationServiceTest {
                 .build();
 
         VisibilityCommandRequest req = VisibilityCommandRequest.builder()
-                .action(ModerationAction.HIDE)
+                .status(ReviewStatus.HIDDEN)
                 .reason("Nội dung chứa từ ngữ nhạy cảm cần ẩn tạm thời")
                 .build();
 
@@ -76,7 +76,7 @@ class ReviewModerationServiceTest {
         when(moderationEventRepository.findByReviewIdOrderByCreatedAtDesc(eq(reviewId), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(Collections.emptyList()));
 
-        ModerationItemDto result = moderationService.changeVisibility(reviewId, req, 777L, "STAFF");
+        ModerationItemDto result = moderationService.changeVisibility(reviewId, req, 777L, "STAFF", 0L, "moderate-hide-0001");
 
         assertThat(review.getStatus()).isEqualTo(ReviewStatus.HIDDEN);
 
@@ -95,20 +95,20 @@ class ReviewModerationServiceTest {
     @DisplayName("Staff is forbidden from restoring or removing reviews")
     void changeVisibility_StaffRestoreOrRemove_Forbidden() {
         VisibilityCommandRequest reqRestore = VisibilityCommandRequest.builder()
-                .action(ModerationAction.RESTORE)
+                .status(ReviewStatus.PUBLIC)
                 .reason("Muốn phục hồi lại")
                 .build();
 
-        assertThatThrownBy(() -> moderationService.changeVisibility("REV-01", reqRestore, 777L, "STAFF"))
+        assertThatThrownBy(() -> moderationService.changeVisibility("REV-01", reqRestore, 777L, "STAFF", 0L, "moderate-restore-0001"))
                 .isInstanceOf(ReviewManagementException.class)
                 .hasMessageContaining("Nhân viên Staff chỉ có quyền ẩn đánh giá (HIDE)");
 
         VisibilityCommandRequest reqRemove = VisibilityCommandRequest.builder()
-                .action(ModerationAction.REMOVE)
+                .status(ReviewStatus.REMOVED)
                 .reason("Muốn xóa bỏ")
                 .build();
 
-        assertThatThrownBy(() -> moderationService.changeVisibility("REV-01", reqRemove, 777L, "STAFF"))
+        assertThatThrownBy(() -> moderationService.changeVisibility("REV-01", reqRemove, 777L, "STAFF", 0L, "moderate-remove-0001"))
                 .isInstanceOf(ReviewManagementException.class)
                 .hasMessageContaining("Nhân viên Staff chỉ có quyền ẩn đánh giá (HIDE)");
     }
@@ -124,7 +124,7 @@ class ReviewModerationServiceTest {
                 .build();
 
         VisibilityCommandRequest req = VisibilityCommandRequest.builder()
-                .action(ModerationAction.REMOVE)
+                .status(ReviewStatus.REMOVED)
                 .reason("Đánh giá spam và bôi nhọ vô căn cứ")
                 .build();
 
@@ -133,7 +133,7 @@ class ReviewModerationServiceTest {
         when(moderationEventRepository.findByReviewIdOrderByCreatedAtDesc(eq(reviewId), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(Collections.emptyList()));
 
-        ModerationItemDto result = moderationService.changeVisibility(reviewId, req, 888L, "MANAGER");
+        ModerationItemDto result = moderationService.changeVisibility(reviewId, req, 888L, "MANAGER", 0L, "moderate-manager-0001");
 
         assertThat(review.getStatus()).isEqualTo(ReviewStatus.REMOVED);
 

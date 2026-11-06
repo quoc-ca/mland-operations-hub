@@ -39,8 +39,9 @@ function safeJson(body) {
   try { return JSON.parse(body); } catch { return body; }
 }
 
-export function renderRoutes(routes, { path, session = fakeSession(), language = 'vi' } = {}) {
-  const router = createMemoryRouter(routes, { initialEntries: [path] });
+export function renderRoutes(routes, { path, state, session = fakeSession(), language = 'vi' } = {}) {
+  const entry = state ? { pathname: path, state } : path;
+  const router = createMemoryRouter(routes, { initialEntries: [entry] });
   const utils = render(
     <I18nProvider initialLanguage={language}>
       <AuthProvider source={session}>

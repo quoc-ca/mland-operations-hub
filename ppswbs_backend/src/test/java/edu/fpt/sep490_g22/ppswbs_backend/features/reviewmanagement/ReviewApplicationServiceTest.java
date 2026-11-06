@@ -98,7 +98,7 @@ class ReviewApplicationServiceTest {
         when(workshopAttendancePort.verifySource("TICK-100", memberId, null, null))
                 .thenReturn(Optional.of(item));
 
-        ReviewDto result = applicationService.createReview(req, memberId);
+        ReviewDto result = applicationService.createReview(req, memberId, "create-member-000001");
 
         assertThat(result.getId()).isNotBlank();
         assertThat(result.getRating()).isEqualTo(5);
@@ -125,7 +125,7 @@ class ReviewApplicationServiceTest {
         when(reviewRepository.existsBySourceTypeAndSourceReference(SourceType.WORKSHOP_ATTENDANCE, "TICK-100"))
                 .thenReturn(true);
 
-        assertThatThrownBy(() -> applicationService.createReview(req, 12345L))
+        assertThatThrownBy(() -> applicationService.createReview(req, 12345L, "create-duplicate-0001"))
                 .isInstanceOf(ReviewManagementException.class)
                 .hasMessageContaining("đã được gửi đánh giá trước đó");
     }
@@ -146,7 +146,7 @@ class ReviewApplicationServiceTest {
         when(workshopAttendancePort.verifySource("TICK-UNATTENDED", 12345L, null, null))
                 .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> applicationService.createReview(req, 12345L))
+        assertThatThrownBy(() -> applicationService.createReview(req, 12345L, "create-invalid-0001"))
                 .isInstanceOf(ReviewManagementException.class)
                 .hasMessageContaining("Vé tham gia workshop không hợp lệ hoặc chưa điểm danh");
     }
@@ -175,7 +175,6 @@ class ReviewApplicationServiceTest {
         EditReviewRequest editReq = EditReviewRequest.builder()
                 .rating(5)
                 .bodyText("Cập nhật lại thành 5 sao tuyệt vời!")
-                .expectedVersion(0L)
                 .reason("Cập nhật cảm nhận")
                 .build();
 
@@ -183,7 +182,7 @@ class ReviewApplicationServiceTest {
         when(revisionRepository.findTopByReviewIdOrderByRevisionNumberDesc(reviewId))
                 .thenReturn(Optional.of(ReviewRevision.builder().revisionNumber(1).build()));
 
-        ReviewDto updated = applicationService.editReview(reviewId, editReq, 12345L);
+        ReviewDto updated = applicationService.editReview(reviewId, editReq, 12345L, null, 0L, "edit-review-000001");
 
         assertThat(updated.getRating()).isEqualTo(5);
         assertThat(updated.getBodyText()).isEqualTo("Cập nhật lại thành 5 sao tuyệt vời!");
@@ -208,12 +207,11 @@ class ReviewApplicationServiceTest {
 
         EditReviewRequest editReq = EditReviewRequest.builder()
                 .rating(5)
-                .expectedVersion(1L) // Stale version!
                 .build();
 
         when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(review));
 
-        assertThatThrownBy(() -> applicationService.editReview(reviewId, editReq, 12345L))
+        assertThatThrownBy(() -> applicationService.editReview(reviewId, editReq, 12345L, null, 1L, "edit-stale-000001"))
                 .isInstanceOf(ReviewManagementException.class)
                 .hasMessageContaining("Optimistic Lock Conflict");
     }
@@ -232,12 +230,11 @@ class ReviewApplicationServiceTest {
 
         EditReviewRequest editReq = EditReviewRequest.builder()
                 .rating(5)
-                .expectedVersion(0L)
                 .build();
 
         when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(review));
 
-        assertThatThrownBy(() -> applicationService.editReview(reviewId, editReq, 99999L)) // Wrong member
+        assertThatThrownBy(() -> applicationService.editReview(reviewId, editReq, 99999L, null, 0L, "edit-owner-000001")) // Wrong member
                 .isInstanceOf(ReviewManagementException.class)
                 .hasMessageContaining("không có quyền chỉnh sửa đánh giá này");
     }

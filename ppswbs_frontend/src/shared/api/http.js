@@ -88,10 +88,10 @@ export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionEx
   }
 
   return async function request(path, {
-    method = 'GET', query, body, form, idempotencyKey, auth = true, responseType = 'json', signal,
+    method = 'GET', query, body, form, idempotencyKey, auth = true, responseType = 'json', signal, headers: customHeaders,
   } = {}) {
     const url = buildUrl(baseUrl, path, query);
-    const headers = {};
+    const headers = { ...(customHeaders || {}) };
     let payload;
     if (form) payload = form;
     else if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }

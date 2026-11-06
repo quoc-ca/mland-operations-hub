@@ -12,5 +12,7 @@ public interface WorkshopAttendanceReviewPort {
     List<EligibleSourceItem> findEligibleByContact(ContactType contactType, String contactValue);
 
     Optional<EligibleSourceItem> verifySource(String sourceReference, Long memberAccountId, ContactType contactType, String contactValue);
+
+    Optional<EligibleSourceItem> verifySource(String sourceReference);
 }
 

@@ -19,6 +19,7 @@ export const InternalAccountCreatePage: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [selectedLocations, setSelectedLocations] = useState<number[]>([1]);
+  const [sendNotification, setSendNotification] = useState<boolean>(true);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [createdSummary, setCreatedSummary] = useState<any | null>(null);
 
@@ -99,10 +100,27 @@ export const InternalAccountCreatePage: React.FC = () => {
 
   return (
     <div className="account-page-container">
+      {/* Back button matching Figma */}
+      <div>
+        <Link to="/admin/accounts" className="account-back-btn">
+          ← Quay lại
+        </Link>
+      </div>
+
+      {/* Admin Navigation Tabs (Figma F08-F11) */}
+      <nav className="admin-nav-tabs" aria-label="Admin Navigation">
+        <Link to="/admin/accounts" className="admin-nav-tab active">
+          Tài khoản
+        </Link>
+        <Link to="/admin/roles" className="admin-nav-tab">
+          Vai trò
+        </Link>
+      </nav>
+
       <header className="account-page-header">
-        <h1 className="account-page-title">Khởi tạo tài khoản nội bộ</h1>
+        <h1 className="account-page-title">Cấp tài khoản nhân sự</h1>
         <p className="account-page-description">
-          Khởi tạo tài khoản cho Nhân viên (Staff) hoặc Quản lý (Manager) cơ sở.
+          Chỉ tạo STAFF hoặc MANAGER. Nhân sự tự thiết lập mật khẩu qua thư mời.
         </p>
       </header>
 
@@ -133,7 +151,7 @@ export const InternalAccountCreatePage: React.FC = () => {
               <tr>
                 <th>Vai trò:</th>
                 <td>
-                  <span className="account-badge account-badge-active">{createdSummary.role}</span>
+                  <span className="account-badge account-badge-readonly">{createdSummary.role}</span>
                 </td>
               </tr>
               <tr>
@@ -151,7 +169,7 @@ export const InternalAccountCreatePage: React.FC = () => {
             </tbody>
           </table>
 
-          <div style={{ display: 'flex', gap: '1rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
             <Link
               to={`/admin/accounts/${createdSummary.accountId}`}
               className="account-btn account-btn-primary"
@@ -179,6 +197,54 @@ export const InternalAccountCreatePage: React.FC = () => {
           )}
 
           <form className="account-form" onSubmit={handleSubmit} noValidate>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, margin: '0 0 0.5rem 0', color: '#1a1a1a', borderBottom: '1px solid #eceef1', paddingBottom: '0.5rem' }}>
+              Thông tin cá nhân
+            </h3>
+
+            <div className="account-field">
+              <label className="account-label account-label-required" htmlFor="internal-name">
+                Họ và tên
+              </label>
+              <input
+                id="internal-name"
+                type="text"
+                className="account-input"
+                placeholder="Nhập họ và tên nhân sự…"
+                value={fullName}
+                onChange={e => setFullName(e.target.value)}
+                maxLength={100}
+                aria-invalid={Boolean(fieldErrors.fullName)}
+                disabled={loading}
+              />
+              {fieldErrors.fullName && (
+                <span className="account-field-error" role="alert">{fieldErrors.fullName}</span>
+              )}
+            </div>
+
+            <div className="account-field">
+              <label className="account-label" htmlFor="internal-phone">
+                Số điện thoại liên hệ
+              </label>
+              <input
+                id="internal-phone"
+                type="tel"
+                className="account-input"
+                placeholder="Ví dụ: 0901234567"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                maxLength={30}
+                aria-invalid={Boolean(fieldErrors.phone)}
+                disabled={loading}
+              />
+              {fieldErrors.phone && (
+                <span className="account-field-error" role="alert">{fieldErrors.phone}</span>
+              )}
+            </div>
+
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, margin: '1rem 0 0.5rem 0', color: '#1a1a1a', borderBottom: '1px solid #eceef1', paddingBottom: '0.5rem' }}>
+              Vai trò & phạm vi
+            </h3>
+
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="internal-role">
                 Vai trò nội bộ
@@ -205,45 +271,7 @@ export const InternalAccountCreatePage: React.FC = () => {
             </div>
 
             <div className="account-field">
-              <label className="account-label account-label-required" htmlFor="internal-name">
-                Họ và tên
-              </label>
-              <input
-                id="internal-name"
-                type="text"
-                className="account-input"
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
-                maxLength={100}
-                aria-invalid={Boolean(fieldErrors.fullName)}
-                disabled={loading}
-              />
-              {fieldErrors.fullName && (
-                <span className="account-field-error" role="alert">{fieldErrors.fullName}</span>
-              )}
-            </div>
-
-            <div className="account-field">
-              <label className="account-label" htmlFor="internal-phone">
-                Số điện thoại liên hệ
-              </label>
-              <input
-                id="internal-phone"
-                type="tel"
-                className="account-input"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                maxLength={30}
-                aria-invalid={Boolean(fieldErrors.phone)}
-                disabled={loading}
-              />
-              {fieldErrors.phone && (
-                <span className="account-field-error" role="alert">{fieldErrors.phone}</span>
-              )}
-            </div>
-
-            <div className="account-field">
-              <span className="account-label account-label-required">Cơ sở làm việc</span>
+              <span className="account-label account-label-required">Địa điểm được phân công</span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
                 {AVAILABLE_LOCATIONS.map(loc => {
                   const isChecked = selectedLocations.includes(loc.id);
@@ -275,6 +303,17 @@ export const InternalAccountCreatePage: React.FC = () => {
               )}
             </div>
 
+            <div className="account-field" style={{ marginTop: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer', color: '#1a1a1a' }}>
+                <input
+                  type="checkbox"
+                  checked={sendNotification}
+                  onChange={e => setSendNotification(e.target.checked)}
+                />
+                <span>Gửi thông báo hướng dẫn thiết lập tài khoản đến email công việc</span>
+              </label>
+            </div>
+
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
               <button
                 type="submit"
@@ -295,4 +334,3 @@ export const InternalAccountCreatePage: React.FC = () => {
 };
 
 export default InternalAccountCreatePage;
-

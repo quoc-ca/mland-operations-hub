@@ -70,7 +70,7 @@ class ReviewReplyServiceTest {
         when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(review));
         when(replyRepository.findByReviewId(reviewId)).thenReturn(Optional.empty());
 
-        ReplyDto reply = replyService.createReply(reviewId, req, 999L);
+        ReplyDto reply = replyService.createReply(reviewId, req, 999L, "reply-create-000001");
 
         assertThat(reply.getBodyText()).isEqualTo("Cảm ơn bạn đã trải nghiệm workshop tại Mland!");
         assertThat(reply.getCreatedByManagerId()).isEqualTo(999L);
@@ -96,7 +96,7 @@ class ReviewReplyServiceTest {
         when(replyRepository.findByReviewId(reviewId))
                 .thenReturn(Optional.of(ReviewReply.builder().id("REP-01").build()));
 
-        assertThatThrownBy(() -> replyService.createReply(reviewId, req, 999L))
+        assertThatThrownBy(() -> replyService.createReply(reviewId, req, 999L, "reply-duplicate-0001"))
                 .isInstanceOf(ReviewManagementException.class)
                 .hasMessageContaining("đã có phản hồi chính thức từ quản lý");
     }
@@ -117,12 +117,11 @@ class ReviewReplyServiceTest {
 
         ReplyCommandRequest req = ReplyCommandRequest.builder()
                 .bodyText("Phản hồi mới đã được hiệu chỉnh")
-                .expectedVersion(1L)
                 .build();
 
         when(replyRepository.findByReviewId(reviewId)).thenReturn(Optional.of(existing));
 
-        ReplyDto updated = replyService.editReply(reviewId, req, 999L);
+        ReplyDto updated = replyService.editReply(reviewId, req, 999L, 1L, "reply-edit-000001");
 
         assertThat(updated.getBodyText()).isEqualTo("Phản hồi mới đã được hiệu chỉnh");
         verify(replyRepository).save(existing);
