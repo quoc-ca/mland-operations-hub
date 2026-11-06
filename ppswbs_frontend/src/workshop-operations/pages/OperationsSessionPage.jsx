@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
+import { useRole } from '../../shared/auth/useRole';
 import { useHttp } from '../../shared/api/useHttp';
 import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
 import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
@@ -34,6 +35,14 @@ const RECOVERY_REASONS = [
   { code: 'CUSTOMER_REQUESTED_NEW_LINK', label: 'CUSTOMER_REQUESTED_NEW_LINK — Khách hàng yêu cầu đổi / cấp lại link truy cập mới' },
   { code: 'DISPUTE_ESCALATION_FINANCE', label: 'DISPUTE_ESCALATION_FINANCE — Khiếu nại thanh toán / chuyển kế toán đối soát' },
   { code: 'OTHER_REQUIRES_NOTE', label: 'OTHER_REQUIRES_NOTE — Lý do khác (yêu cầu điền chi tiết ở ô ghi chú)' },
+];
+
+const ROSTER_LABELS = { CHECKED_IN: 'Đã check-in', NOT_CHECKED_IN: 'Chưa check-in', NO_SHOW: 'Vắng mặt' };
+const ROSTER_FILTERS = [
+  { key: 'ALL', label: 'Tất cả' },
+  { key: 'CHECKED_IN', label: 'Đã check-in' },
+  { key: 'NOT_CHECKED_IN', label: 'Chưa check-in' },
+  { key: 'NO_SHOW', label: 'Vắng mặt' },
 ];
 
 const DEFAULT_STAFF_OPTIONS = [
@@ -87,6 +96,12 @@ export default function OperationsSessionPage() {
   const api = createOperationsApi(http);
   const otaApi = useOtaConnectivityApi();
   const resource = useResource(() => api.getSession(sessionId), [sessionId]);
+  const roster = useResource(() => api.attendanceRoster(sessionId), [sessionId]);
+  // Staff assignment, booking recovery, session cancellation and folio correction are Manager actions (the backend
+  // refuses a Staff there); the role is unknown until the profile arrives, so they appear only once it is known.
+  const role = useRole();
+  const isManager = role === 'MANAGER' || role === 'ADMIN';
+  const [rosterFilter, setRosterFilter] = useState('ALL');
   const command = useCommand();
   const [message, setMessage] = useState('');
   const [ticketCode, setTicketCode] = useState('');
@@ -145,11 +160,26 @@ export default function OperationsSessionPage() {
   if (resource.error) return <div className="ota-container"><ErrorNotice error={resource.error} onRetry={resource.reload} /></div>;
   const session = resource.data;
   const authorization = user?.token || user?.accessToken;
+  const rosterRows = Array.isArray(roster.data) ? roster.data : [];
+  const checkedInCount = rosterRows.filter(row => row.attendanceState === 'CHECKED_IN').length;
+  const rosterCounts = {
+    ALL: rosterRows.length,
+    CHECKED_IN: checkedInCount,
+    NOT_CHECKED_IN: rosterRows.filter(row => row.attendanceState === 'NOT_CHECKED_IN').length,
+    NO_SHOW: rosterRows.filter(row => row.attendanceState === 'NO_SHOW').length,
+  };
+  const visibleRosterRows = rosterFilter === 'ALL' ? rosterRows : rosterRows.filter(row => row.attendanceState === rosterFilter);
+  const assignedStaff = (session.assignedStaffAccountIds || []).map(accountId => {
+    const staff = staffOptions.find(option => Number(option.accountId) === Number(accountId));
+    return { accountId, label: staff ? (staff.fullName || staff.loginEmail || `ID ${accountId}`) : `ID ${accountId}` };
+  });
+  // A session can have several Staff, so the fact shows the count; the Staff assignment panel lists each one.
+  const assignedStaffLabel = assignedStaff.length ? `${assignedStaff.length} Staff` : 'Unassigned';
 
   async function run(action, success) {
     setMessage('');
     const result = await command.run(key => action(key));
-    if (result.ok) { setMessage(success); resource.reload(); }
+    if (result.ok) { setMessage(success); resource.reload(); roster.reload(); }
   }
 
   async function runBookingAction(action) {
@@ -167,10 +197,16 @@ export default function OperationsSessionPage() {
 
   return <div className="ota-workspace"><OperationsSidebar /><main className="ota-main">
     <div className="ota-topline">MLAND / SESSION DETAIL <span>· Backend-authorized</span></div>
-    <header className="ota-page-heading"><div><p className="ota-eyebrow">SESSION CONTROL</p><h1>{session.slotId || session.id}</h1><p>{session.workshopDate || 'Date not set'} · Location {session.locationId || '—'}</p></div><span className="ops-status large">{session.state}</span></header>
+    <header className="ota-page-heading session-hero">
+      <div>
+        <p className="ota-eyebrow">SESSION CONTROL</p>
+        <h1>{session.workshopDate ? `Buổi workshop ngày ${session.workshopDate}` : (session.slotId || session.id)}</h1>
+        <p>Location {session.locationId || '—'} · <code>{session.id}</code></p>
+      </div>
+      <span className={`ops-status large session-state session-state-${String(session.state).toLowerCase()}`}>{session.state}</span>
+    </header>
     <SuccessNotice>{message}</SuccessNotice><ErrorNotice error={command.error} onRetry={command.retry} onReload={resource.reload} />
     <section className="ops-detail-grid">
-      <article className="ota-panel"><div className="ota-panel-head"><h2>Session facts</h2></div><dl className="ops-facts"><div><dt>Capacity</dt><dd>{session.capacity}</dd></div><div><dt>Check-in opens</dt><dd>{session.checkInOpensAt ? new Date(session.checkInOpensAt).toLocaleString() : '—'}</dd></div><div><dt>Operational lead</dt><dd>{session.operationalLeadAccountId || 'Unassigned'}</dd></div></dl><div className="ops-actions">{/* ATTENDANCE_FINALIZED is not a plain state change: only "Finalize attendance" marks no-shows and records the finalization time. */['PUBLISHED','SALES_PAUSED','IN_PROGRESS'].map(state => <button key={state} className="button outline" disabled={session.state === state || command.pending} onClick={() => run(key => api.transition(sessionId, state, key), `Session moved to ${state}.`)}>{state.replaceAll('_', ' ')}</button>)}<button className="button primary" disabled={command.pending || session.state !== 'IN_PROGRESS'} title={session.state !== 'IN_PROGRESS' ? 'Attendance can be finalized only while the session is IN PROGRESS.' : undefined} onClick={() => run(key => api.finalizeAttendance(sessionId, key), 'Attendance finalized.')}>Finalize attendance</button></div></article>
       <article className="ota-panel">
         <div className="ota-panel-head"><h2>Check-in desk</h2></div>
         <form
@@ -299,41 +335,68 @@ export default function OperationsSessionPage() {
           )}
         </div>
       </article>
-      <article className="ota-panel">
-        <div className="ota-panel-head"><h2>Check-in corrections</h2></div>
-        <p className="muted" style={{ margin: '0 0 12px', fontSize: '13px' }}>
-          Ghi đè check-in đặc cách (khách đến sớm, sự cố thiết bị) hoặc điều chỉnh điểm danh.
-        </p>
-        <ReasonFields {...{ ticketCode, setTicketCode, reasonCode, setReasonCode, reasonNote, setReasonNote, evidenceReference, setEvidenceReference }} />
-        <div className="ops-actions">
-          <button className="button primary" disabled={command.pending || !ticketCode.trim() || !reasonCode.trim()} onClick={() => run(key => api.overrideCheckIn(sessionId, { ticketCode: ticketCode.trim(), ...reasonPayload() }, key), 'Check-in override recorded.')}>Override check-in</button>
-          <button className="button outline" disabled={command.pending || !ticketCode.trim() || !reasonCode.trim()} onClick={() => run(key => api.correctAttendance(sessionId, { ticketCode: ticketCode.trim(), correctedAttendanceState: 'CHECKED_IN', ...reasonPayload() }, key), 'Attendance correction recorded.')}>Mark checked-in</button>
-          <button className="button danger" disabled={command.pending || !ticketCode.trim() || !reasonCode.trim()} onClick={() => run(key => api.reverseCheckIn(sessionId, { ticketCode: ticketCode.trim(), ...reasonPayload() }, key), 'Check-in reversal recorded.')}>Reverse check-in</button>
+      <article className="ota-panel roster-panel" aria-label="Attendance roster">
+        <div className="ota-panel-head">
+          <h2>Attendance roster</h2>
+          <span className="muted">{rosterRows.length ? `${checkedInCount}/${rosterRows.length} đã check-in` : ''}</span>
         </div>
+        {rosterRows.length > 0 && (
+          <>
+            <div className="roster-progress" role="progressbar" aria-label="Tiến độ check-in" aria-valuemin={0}
+              aria-valuemax={rosterRows.length} aria-valuenow={checkedInCount}>
+              <span style={{ width: `${Math.round((checkedInCount / rosterRows.length) * 100)}%` }} />
+            </div>
+            <div className="roster-tabs" role="group" aria-label="Lọc theo trạng thái">
+              {ROSTER_FILTERS.map(filter => (
+                <button key={filter.key} type="button" aria-pressed={rosterFilter === filter.key}
+                  className={`roster-tab ${rosterFilter === filter.key ? 'active' : ''}`} onClick={() => setRosterFilter(filter.key)}>
+                  {filter.label} ({rosterCounts[filter.key]})
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {roster.error ? <p className="muted" role="status">Không tải được danh sách vé của buổi này ({roster.error.status || roster.error.code || 'lỗi'}). <button type="button" className="button outline small" onClick={roster.reload}>Thử lại</button></p>
+          : rosterRows.length === 0 ? <p className="muted">{roster.loading ? 'Đang tải…' : 'Buổi này chưa có vé hợp lệ.'}</p>
+            : visibleRosterRows.length === 0 ? <p className="muted">Không có vé nào ở trạng thái này.</p> : (
+              <div className="ota-ledger roster-list">
+                <div className="ota-ledger-row roster-row roster-head" aria-hidden="true">
+                  <span>Mã vé</span><span>Mã đặt chỗ</span><span>Trạng thái</span><span>Giờ check-in</span>
+                </div>
+                {visibleRosterRows.map(row => (
+                  <div className="ota-ledger-row roster-row" key={`${row.ticketCode}`}>
+                    <strong>{row.ticketCode}</strong>
+                    <code>{row.bookingReference}</code>
+                    <span className={`roster-state roster-${String(row.attendanceState).toLowerCase()}`}>{ROSTER_LABELS[row.attendanceState] || row.attendanceState}</span>
+                    <time>{row.checkedInAt ? new Date(row.checkedInAt).toLocaleString() : '—'}</time>
+                  </div>
+                ))}
+              </div>
+            )}
       </article>
-      <article className="ota-panel">
-        <div className="ota-panel-head"><h2>Ticket delivery</h2></div>
-        <p className="muted">Gửi lại toàn bộ vé điện tử qua email/kênh đăng ký của đơn đặt chỗ. Hệ thống áp dụng giới hạn tần suất gửi.</p>
-        <div className="ota-inline-form">
-          <input
-            value={resendBookingCode}
-            onChange={e => setResendBookingCode(e.target.value)}
-            placeholder="BK-... (Mã đặt chỗ)"
-          />
-          <button
-            className="button outline"
-            disabled={command.pending || !resendBookingCode.trim()}
-            onClick={() => run(key => api.resendTickets(sessionId, resendBookingCode.trim(), key), 'Ticket resend requested.')}
-          >
-            Resend ticket
-          </button>
-        </div>
-      </article>
+      <article className="ota-panel"><div className="ota-panel-head"><h2>Session facts</h2></div><dl className="ops-facts"><div><dt>Capacity</dt><dd>{session.capacity}</dd></div><div><dt>Check-in opens</dt><dd>{session.checkInOpensAt ? new Date(session.checkInOpensAt).toLocaleString() : '—'}</dd></div><div><dt>Assigned Staff</dt><dd>{assignedStaffLabel}</dd></div></dl><div className="ops-actions">{/* ATTENDANCE_FINALIZED is not a plain state change: only "Finalize attendance" marks no-shows and records the finalization time. */['PUBLISHED','SALES_PAUSED','IN_PROGRESS'].map(state => <button key={state} className="button outline" disabled={session.state === state || command.pending} onClick={() => run(key => api.transition(sessionId, state, key), `Session moved to ${state}.`)}>{state.replaceAll('_', ' ')}</button>)}<button className="button primary" disabled={command.pending || session.state !== 'IN_PROGRESS'} title={session.state !== 'IN_PROGRESS' ? 'Attendance can be finalized only while the session is IN PROGRESS.' : undefined} onClick={() => run(key => api.finalizeAttendance(sessionId, key), 'Attendance finalized.')}>Finalize attendance</button></div></article>
+      {isManager && (<>
       <article className="ota-panel">
         <div className="ota-panel-head"><h2>Staff assignment</h2></div>
         <p className="muted">
           Phân công nhân viên (Staff) phụ trách ca workshop hoặc rút quyền phụ trách. Nhân viên phải thuộc chi nhánh của ca.
         </p>
+        <section aria-label="Staff đang phụ trách" className="settlement-current-staff">
+          <strong>Đang phụ trách ({assignedStaff.length}):</strong>
+          {assignedStaff.length === 0 ? <p className="muted">Chưa phân công</p> : (
+            <ul className="session-assigned-staff">
+              {assignedStaff.map(item => (
+                <li key={item.accountId}>
+                  <span>{item.label} <small className="muted">(ID {item.accountId})</small></span>
+                  <button type="button" className="button outline small" disabled={command.pending}
+                    onClick={() => run(key => api.removeStaff(sessionId, item.accountId, key), 'Staff assignment removed.')}>
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
         <div className="ota-form-grid" style={{ marginBottom: '16px' }}>
           <label className="full-width">
             Chọn nhân viên (Staff) *
@@ -388,6 +451,41 @@ export default function OperationsSessionPage() {
           </button>
         </div>
       </article>
+      </>)}
+      <details className="ops-exceptions">
+        <summary>Xử lý ngoại lệ <small>điều chỉnh check-in, gửi lại vé, khôi phục đặt chỗ, hủy ca, điều chỉnh folio</small></summary>
+        <div className="ops-detail-grid">
+      <article className="ota-panel">
+        <div className="ota-panel-head"><h2>Check-in corrections</h2></div>
+        <p className="muted" style={{ margin: '0 0 12px', fontSize: '13px' }}>
+          Ghi đè check-in đặc cách (khách đến sớm, sự cố thiết bị) hoặc điều chỉnh điểm danh.
+        </p>
+        <ReasonFields {...{ ticketCode, setTicketCode, reasonCode, setReasonCode, reasonNote, setReasonNote, evidenceReference, setEvidenceReference }} />
+        <div className="ops-actions">
+          <button className="button primary" disabled={command.pending || !ticketCode.trim() || !reasonCode.trim()} onClick={() => run(key => api.overrideCheckIn(sessionId, { ticketCode: ticketCode.trim(), ...reasonPayload() }, key), 'Check-in override recorded.')}>Override check-in</button>
+          <button className="button outline" disabled={command.pending || !ticketCode.trim() || !reasonCode.trim()} onClick={() => run(key => api.correctAttendance(sessionId, { ticketCode: ticketCode.trim(), correctedAttendanceState: 'CHECKED_IN', ...reasonPayload() }, key), 'Attendance correction recorded.')}>Mark checked-in</button>
+          <button className="button danger" disabled={command.pending || !ticketCode.trim() || !reasonCode.trim()} onClick={() => run(key => api.reverseCheckIn(sessionId, { ticketCode: ticketCode.trim(), ...reasonPayload() }, key), 'Check-in reversal recorded.')}>Reverse check-in</button>
+        </div>
+      </article>
+      <article className="ota-panel">
+        <div className="ota-panel-head"><h2>Ticket delivery</h2></div>
+        <p className="muted">Gửi lại toàn bộ vé điện tử qua email/kênh đăng ký của đơn đặt chỗ. Hệ thống áp dụng giới hạn tần suất gửi.</p>
+        <div className="ota-inline-form">
+          <input
+            value={resendBookingCode}
+            onChange={e => setResendBookingCode(e.target.value)}
+            placeholder="BK-... (Mã đặt chỗ)"
+          />
+          <button
+            className="button outline"
+            disabled={command.pending || !resendBookingCode.trim()}
+            onClick={() => run(key => api.resendTickets(sessionId, resendBookingCode.trim(), key), 'Ticket resend requested.')}
+          >
+            Resend ticket
+          </button>
+        </div>
+      </article>
+      {isManager && (<>
       <article className="ota-panel">
         <div className="ota-panel-head"><h2>Manager booking recovery</h2></div>
         <p className="muted">Quy trình can thiệp sự cố đặc biệt của Manager (thu hồi/đổi magic link truy cập, ghi nhận thanh toán tiền về trễ từ ngân hàng).</p>
@@ -484,5 +582,8 @@ export default function OperationsSessionPage() {
         </button>
       </article>
       <StaffWorkshopAddonPanel http={http} />
+      </>)}
+        </div>
+      </details>
     </section></main></div>;
 }
