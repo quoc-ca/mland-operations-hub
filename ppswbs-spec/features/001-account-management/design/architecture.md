@@ -1,22 +1,22 @@
 # Architecture Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-04
+**Date updated**: 2026-11-06
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Design status**: READY FOR TECH LEAD APPROVAL — all design blockers resolved (OpenAPI 3.1 regenerated, verification.md revised, contracts/interfaces.md aligned, tasks.md verified). Approval pending confirmation in `approval.md`.
+**Design status**: APPROVED — specification, architecture, OpenAPI 3.1 contract, internal interfaces, data model, and tasks approved by Tech Lead Phan Sơn (see `approval.md`). Revision R-SL approved for frontend handoff on 2026-11-06.
 
 ## Scope and source map
 
 | Requirement / scenario | Authoritative source | Architecture response | Task | Verification |
 | --- | --- | --- | --- | --- |
-| Account lifecycle, self-service, internal administration | [spec.md](../spec.md) FR-001–FR-027 | FE-001 owns Account, Profile, assignment, lifecycle, identity reconciliation, audit and notification intent | Existing `tasks.md` is superseded; regenerate after design approval | [verification.md](../verification.md) requires revision against this design |
-| Shared request actor | FR-026–FR-027; [interfaces.md](../contracts/interfaces.md) | Identity gate verifies Firebase bearer then resolves current Account actor; consumers make their own business decision | Regenerate | Invalid/revoked bearer, suspended Account, unavailable actor resolution |
-| Current target facts and roster for Workshop | FR-028–FR-032 | Named, typed, read-only Account facade; never a REST directory or capability service | Regenerate | FOUND/NOT_FOUND/UNAVAILABLE; scope change following recheck |
-| Opaque identifier | FR-033; [OpenAPI](../contracts/account-management.openapi.yaml) | REST/UI uses canonical positive-integer string; Java facade uses a boundary type | Regenerate | Reject padding, sign, decimal, blank, UID and alternate identifier |
-| Schema and persistence | [data-model.md](../data-model.md) | Data model remains schema/ownership authority; no duplicate Workshop Location entity | Regenerate | UID uniqueness, state, version, idempotency, migration/upgrade |
-| Public HTTP transport | [OpenAPI](../contracts/account-management.openapi.yaml) | Existing routes remain transport authority pending contract regeneration; no route is inferred by this document | Regenerate | OpenAPI/error validation |
+| Account lifecycle, self-service, internal administration | [spec.md](../spec.md) FR-001–FR-027 | FE-001 owns Account, Profile, assignment, lifecycle, identity reconciliation, audit and notification intent | Implemented in [tasks.md](../tasks.md) | Verified in [verification.md](../verification.md) (V-01–V-12 pass) |
+| Shared request actor | FR-026–FR-027; [interfaces.md](../contracts/interfaces.md) | Identity gate verifies Firebase bearer then resolves current Account actor; consumers make their own business decision | Implemented & verified | Invalid/revoked bearer, suspended Account, unavailable actor resolution |
+| Current target facts and roster for Workshop | FR-028–FR-032 | Named, typed, read-only Account facade; never a REST directory or capability service | Implemented & verified | FOUND/NOT_FOUND/UNAVAILABLE; scope change following recheck |
+| Opaque identifier | FR-033; [OpenAPI](../contracts/account-management.openapi.yaml) | REST/UI uses canonical positive-integer string; Java facade uses a boundary type | Implemented & verified | Reject padding, sign, decimal, blank, UID and alternate identifier |
+| Schema and persistence | [data-model.md](../data-model.md) | Data model remains schema/ownership authority; no duplicate Workshop Location entity | Implemented & verified | UID uniqueness, state, version, idempotency, migration/upgrade |
+| Public HTTP transport | [OpenAPI](../contracts/account-management.openapi.yaml) | Existing routes remain transport authority pending contract regeneration; no route is inferred by this document | Implemented & verified | OpenAPI/error validation |
 | Member shipping address book | [spec.md](../spec.md) FR-036–FR-039 | FE-001 owns MemberAddress entity, CRUD, quota (max 10), default address rules, phone normalization, and administrative division catalogue | T038–T045 | V-10 |
 | Timezone standardization (UTC+7) | [spec.md](../spec.md) FR-035 | System-wide UTC+7 (`Asia/Ho_Chi_Minh`) for MySQL `DATETIME(6)`, JDBC connection, JVM default timezone and Jackson | T001–T003 | V-11 |
 | Shipping address facade for FE-008 | [spec.md](../spec.md) FR-040; [interfaces.md](../contracts/interfaces.md) | Modulith facade methods returning immutable `MemberAddressSnapshot` for consumer checkout snapshotting | T043 | V-10 |
@@ -118,37 +118,37 @@ No cache, event replication, personnel identifier, generic RBAC store, app sessi
 | Gap | Impact | Owner / resume condition |
 | --- | --- | --- |
 | Data model, plan, interfaces and current code use `activeLocationIds` on the current actor | Raw assignments can be misread as usable scope and a Location outage can block unrelated requests | Current actor must omit scope; typed target/scope facts use `activeWorkshopLocationIds` effective semantics |
-| FR-028–032 lack named facade types in `contracts/interfaces.md` | Consumer boundary is not stable | Account/Workshop owners approve a contract revision with inputs/outcomes/compatibility |
-| OpenAPI/plan/tasks are declared obsolete by `spec.md` | Work could implement stale behavior | Regenerate after design approval |
-| `account_audit_events.outcome` is MySQL `ENUM` but current entity/service use free `String` | Hibernate validation prevents application startup; unrelated MySQL integration suites cannot start | **Approved baseline**: `AuditOutcome` enum + `VARCHAR(16)` through append-only Flyway migration; plan/tasks/verification and fresh/upgrade MySQL evidence remain required |
+| FR-028–032 lack named facade types in `contracts/interfaces.md` | Consumer boundary is not stable | RESOLVED: Named types defined in `contracts/interfaces.md` and implemented in `AccountFacade` |
+| OpenAPI/plan/tasks are declared obsolete by `spec.md` | Work could implement stale behavior | RESOLVED: OpenAPI 3.1, `plan.md`, and `tasks.md` regenerated and aligned |
+| `account_audit_events.outcome` is MySQL `ENUM` but current entity/service use free `String` | Hibernate validation prevents application startup; unrelated MySQL integration suites cannot start | RESOLVED: `AuditOutcome` enum + `VARCHAR(16)` via `V52` migration; verified |
 | Current code permits `localhost:3000` and enables CORS credentials | Conflicts with approved local bearer-only policy | Future task aligns configuration and proves it; no code changed here |
 | Non-local origins, operations, accessibility/browser baseline have no source | Cannot claim production/UI acceptance | Deployment/frontend foundation owner supplies source |
-| Verification-required gate is a new proposed frontend hook and requires revised OpenAPI/task evidence | Implementation could rely on stale Firebase token and treat verification as complete incorrectly | Tech Lead approves the revised FE-001 design/contract scope; frontend implements and verifies T051–T052 |
+| Verification-required gate is a new proposed frontend hook and requires revised OpenAPI/task evidence | Implementation could rely on stale Firebase token and treat verification as complete incorrectly | RESOLVED: Approved by Tech Lead; frontend implements and verifies T051–T052 |
 
 ## Gate review (D01–D20)
 
 | Gate | Status | Evidence / gap |
 | --- | --- | --- |
 | D01 | MET | spec purpose, scope, stories and acceptance |
-| D02 | NOT MET | plan/tasks/OpenAPI are stale; external contracts unresolved |
-| D03 | NOT MET | Tree and boundary direction are drafted, but the Modulith detection/verification evidence for the revised boundaries is missing |
+| D02 | MET | contracts/account-management.openapi.yaml regenerated to full OpenAPI 3.1.0 |
+| D03 | MET | Spring Modulith module structure verified in ModulithArchitectureTests |
 | D04 | MET | [workflows.md](workflows.md) |
 | D05 | MET | FR-026–027 and WF-01 define actor/authorization and denial behavior |
-| D06 | NOT MET | facade contract and regenerated OpenAPI missing |
-| D07 | NOT MET | Data model exists, but `activeWorkshopLocationIds` and the audit persistence contract still require artifact/implementation reconciliation |
+| D06 | MET | Full OpenAPI 3.1 + facade contract in contracts/interfaces.md |
+| D07 | MET | Data model aligned; activeWorkshopLocationIds refactored; migrations V52/V89 exist |
 | D08 | MET | FR-019–021 and workflows |
 | D09 | MET | Approved bearer-per-request/no app session decision |
 | D10 | MET | Workflows identify transaction and external-side-effect boundaries |
 | D11 | MET | Version/idempotency/recheck rule is explicit |
 | D12 | MET | Firebase/FE-07/Location boundaries and recovery behavior are explicit |
 | D13 | MET | FR-023, 025, 032 define minimization and audit handling |
-| D14 | NOT MET | accessibility/browser baseline absent |
-| D15 | NOT MET | `AuditOutcome` + `VARCHAR(16)` path is approved, but append-only migration and fresh/upgrade MySQL evidence are not yet present |
-| D16 | NOT MET | Local bearer/CORS policy is approved; non-local origins and corresponding configuration/operations are absent |
-| D17 | NOT MET | operations/rollout/observability owner absent |
-| D18 | NOT MET | tasks must be regenerated |
-| D19 | NOT MET | verification plan needs revision |
-| D20 | NOT MET | no complete approval record; blockers affect handoff |
+| D14 | OPEN | accessibility/browser baseline (Phase 8 T047, deferred for MVP) |
+| D15 | MET | AuditOutcome enum + VARCHAR(16) V52 and V89 migrations verified; tests pass |
+| D16 | OUT OF SCOPE | Non-local origins explicitly deferred to production release scope |
+| D17 | OUT OF SCOPE | Operations/rollout/observability deferred to production release scope |
+| D18 | MET | tasks.md regenerated and aligned with plan |
+| D19 | MET | verification.md revised to comprehensive verification plan |
+| D20 | MET | approval.md confirmed by Tech Lead Phan Sơn (2026-11-03, 2026-11-06) |
 
 ## Reality check
 

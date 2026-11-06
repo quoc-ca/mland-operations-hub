@@ -12,7 +12,7 @@ health_urls:
   - http://localhost:8080
 test_data:
   fixture: member-auth-signin
-  account_ref: minikie456@gmail.com
+  account_ref: E2E_MEMBER_004
   isolation_key: E2E-001-004-20261105
 cleanup:
   required: false
@@ -31,7 +31,7 @@ cleanup:
 - [x] Môi trường Frontend Vite đang chạy tại `http://localhost:5173`.
 - [x] Môi trường Backend Spring Boot đang chạy tại `http://localhost:8080`.
 - [x] Công cụ `browsermcp` đã được nạp và kích hoạt trong phiên làm việc.
-- [x] Tài khoản người dùng thực tế: `minikie456@gmail.com` / `123123123`.
+- [ ] Tài khoản Member test chuyên dụng: định danh và mật khẩu lấy từ secret store; không ghi credential vào case/evidence.
 
 ## 2. Đánh giá đa chiều qua 2 góc nhìn (2 POVs Evaluation)
 
@@ -41,7 +41,7 @@ cleanup:
 - **POV 2 — Kỹ thuật viên (Technical Verification):**
   - Form gửi thông tin email & password qua Firebase Auth Client thành công; backend `/api/v1/accounts/me` bootstrap trả về tài khoản `MEMBER` với trạng thái `ACTIVE`.
   - Tuân thủ nghiêm ngặt yêu cầu `spec.md#FR-003`: Sau khi đăng nhập thành công, hệ thống **bắt buộc điều hướng về Trang chủ (`/`)**, không ép buộc vào role dashboard hay policy acceptance.
-  - Header của `AppLayout` hiển thị nút navigation `/profile`; hook `useVerifiedEmailGate` và `useProfile` chỉ nạp dữ liệu một lần duy nhất, tuyệt đối không rơi vào vòng lặp re-render/reload vô tận (`infinite checkGate loop`); hiển thị đúng email `minikie456@gmail.com` và mã tài khoản.
+  - Header của `AppLayout` hiển thị nút navigation `/profile`; hook `useVerifiedEmailGate` và `useProfile` chỉ nạp dữ liệu một lần duy nhất, tuyệt đối không rơi vào vòng lặp re-render/reload vô tận (`infinite checkGate loop`); hiển thị đúng email của fixture và mã tài khoản an toàn.
 
 ## 3. Các bước kiểm thử trên trình duyệt (Browser Action Steps)
 
@@ -49,8 +49,8 @@ cleanup:
 ```browser
 goto http://localhost:5173/login
 wait getByRole('heading', { name: 'Đăng nhập hệ thống' })
-fill getByLabel('Địa chỉ email *') "minikie456@gmail.com"
-fill getByLabel('Mật khẩu *') "123123123"
+fill getByLabel('Địa chỉ email *') "<member-email-from-secret-store>"
+fill getByLabel('Mật khẩu *') "<member-password-from-secret-store>"
 ```
 
 ### Step 2 — Bấm Đăng nhập và xác minh điều hướng về Trang chủ (FR-003)
@@ -72,7 +72,7 @@ get url
 ### Step 4 — Quan sát trang Hồ sơ cá nhân và xác minh tính ổn định (không chớp nháy)
 ```browser
 wait getByRole('heading', { name: 'Hồ sơ cá nhân & Bảo mật' })
-find "minikie456@gmail.com"
+find "<member-email-from-secret-store>"
 wait 3000
 # Verify page remains stable without visual flickering or continuous reloads
 ```
@@ -84,7 +84,7 @@ get url
 # Expected: http://localhost:5173/profile
 find "Hồ sơ cá nhân & Bảo mật"
 # Expected: one or more matches
-find "minikie456@gmail.com"
+find "<member-email-from-secret-store>"
 # Expected: one or more matches
 find "MEMBER"
 # Expected: one or more matches
@@ -96,22 +96,34 @@ find "MEMBER"
 - Ảnh chụp màn hình hồ sơ ổn định: `screenshots/E2E-001-004--profile-stable.jpg`
 - Lệnh lưu: `screenshot --path "ppswbs-spec/features/001-account-management/test-results/screenshots/E2E-001-004--profile-stable.jpg"`
 
-## 6. Kết quả thực thi (Execution History)
+## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
 
 <!-- EXECUTION:START -->
-- Latest status: PASS
+- Historical status: PASS
 - Executed at: 2026-11-05 12:34:46
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
 - Failure step: None
 - Actual result:
-  - Đăng nhập thành công với tài khoản minikie456@gmail.com / 123123123.
+  - Đăng nhập thành công với tài khoản test chuyên dụng; định danh và mật khẩu đã được redaction.
   - Tuân thủ FR-003: Hệ thống điều hướng chuẩn xác về Trang chủ (http://localhost:5173/).
   - Trên màn hình trang chủ xuất hiện liên kết "Personal Profile" (/profile). Bấm vào điều hướng chính xác tới trang http://localhost:5173/profile.
-  - Trang Profile tải dữ liệu mượt mà, hiển thị đúng họ tên 'Phan Nguyễn Trường Sơn' và email 'minikie456@gmail.com'.
+  - Trang Profile tải dữ liệu mượt mà, hiển thị đúng họ tên và email của fixture đã được redaction.
   - Xác nhận trang hoạt động tĩnh tại, ổn định, tuyệt đối không bị chớp nháy hoặc reload lặp vô tận.
 - Evidence screenshot:
   - Form đăng nhập: screenshots/E2E-001-004--auth-signin.jpg
   - Màn hình Profile ổn định: screenshots/E2E-001-004--profile-stable.jpg
 - Bug reference: NONE
+<!-- EXECUTION:END -->
+
+## 7. Revision expected results (2026-11-06 — must re-run)
+
+- **After Step 1:** URL is `/login`; password is not echoed in DOM text, logs, URL or screenshot annotation.
+- **After Step 2:** successful sign-in uses `replace` to exact URL `/`, not a role dashboard or pre-login private route; Home must render before Profile navigation is attempted.
+- **After Steps 3–4:** Profile link uses canonical `/profile`; while its guard/profile load resolves, no stale Profile PII or flash from a previous session is rendered. Profile remains accessible only with the current signed-in session.
+- Browser Back after Step 2 must not return to `/login` as an authenticated screen if the implementation uses replace; record the observed URL/DOM in evidence.
+
+<!-- EXECUTION:START -->
+- Latest status: NOT_RUN
+- Previous status: PASS on 2026-11-04; lifecycle/history assertions added.
 <!-- EXECUTION:END -->

@@ -52,3 +52,11 @@
 - The existing `RetailCheckoutWorkspace` is a local-data prototype. `src/api/retail.js` deliberately requires a caller-provided Firebase ID token, but no approved Firebase session provider/token lifecycle/API-origin recovery flow exists in the rendered application.
 - No frontend source was changed. Calling the protected endpoint with a browser-invented token or a debug account header would violate the Member authorization contract.
 - To resume this narrow integration: provide the existing FE-01 auth/session hook or provider that yields the current Firebase ID token for the Member checkout route, and confirm the API-origin/error-recovery contract. The existing GHTK recipient form can then call `createRetailClient(getIdToken).quoteShipping(...)` without exposing the provider token.
+
+### Resolution update — 2026-11-06T17:30:00+07:00
+
+- Revision R-SL (Shared session lifecycle & Google redirect-only handoff) is fully implemented under FE-001:
+  - `AuthProvider` and `useHttp` provide the shared Firebase ID token lifecycle, terminal session-loss reporting (`SESSION_LOST`), access denial (`ACCESS_DENIED`), and authenticated client creation.
+  - `SessionNavigationBoundary` and `RequireSession` enforce canonical route protection, draft cleanup, and safe Home navigation.
+  - All 83 automated frontend tests in `src/features/accountmanagement/tests/` (including 28 router integration tests and 18 redirect/re-auth tests) pass cleanly.
+  - Production Vite bundle builds with zero errors (`npm run build`).

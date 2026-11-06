@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router';
+import { registerPrivateStateCleanup } from '../../../shared/auth/privateStateCleanup';
 import type { User } from 'firebase/auth';
 import { useProfile } from '../hooks/useProfile';
 import { useVerifiedEmailGate } from '../hooks/useVerifiedEmailGate';
@@ -39,20 +40,22 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const initialAuthCheckedRef = useRef(false);
 
   useEffect(() => {
+    return registerPrivateStateCleanup(() => {
+      resetForm();
+    });
+  }, [resetForm]);
+
+  useEffect(() => {
     const unsub = firebaseAuthClient.onAuthStateChanged(u => {
       setCurrentUser(u);
       if (!initialAuthCheckedRef.current) {
         initialAuthCheckedRef.current = true;
-        return;
-      }
-      if (!u) {
-        navigate('/');
       }
     });
     return () => {
       unsub();
     };
-  }, [navigate]);
+  }, []);
 
   const activeUser = currentUser || firebaseAuthClient.getCurrentUser();
   // Defensive provider check: hide password section and quick-action trigger if !user.providerData.some(p => p.providerId === 'password')
@@ -65,8 +68,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   const handleSessionExpired = React.useCallback(() => {
     resetForm();
-    navigate('/sign-in');
-  }, [resetForm, navigate]);
+  }, [resetForm]);
 
   const {
     gateState,

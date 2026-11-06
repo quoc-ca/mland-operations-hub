@@ -12,7 +12,7 @@ health_urls:
   - http://localhost:8080
 test_data:
   fixture: member-email-verification-gate
-  account_ref: minikie456@gmail.com
+  account_ref: E2E_MEMBER_012
   isolation_key: E2E-001-012-20261105
 cleanup:
   required: false
@@ -93,10 +93,10 @@ console --errors
 - Ảnh chụp màn hình Gate box và trạng thái kiểm tra: `screenshots/E2E-001-012--email-gate-cooldown.jpg`
 - Lệnh lưu bằng chứng: `screenshot --full --path "ppswbs-spec/features/001-account-management/test-results/screenshots/E2E-001-012--email-gate-cooldown.jpg"`
 
-## 6. Kết quả thực thi (Execution History)
+## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
 
 <!-- EXECUTION:START -->
-- Latest status: PASS
+- Historical status: PASS
 - Executed at: 2026-11-05 17:21:21
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
@@ -107,5 +107,17 @@ console --errors
 - Evidence screenshot:
   - Gate Box kiểm tra xác thực: screenshots/E2E-001-012--email-gate-cooldown.jpg
 - Bug reference: NONE
+<!-- EXECUTION:END -->
+
+## 7. Revision expected results (2026-11-06 — must re-run)
+
+- **Steps 1–2:** profile remains `/profile`; checking state is neutral and does not reveal token/UID; unverified result keeps save disabled and presents Firebase resend guidance without navigation.
+- **Step 3:** repeated reload click while pending creates one active check; button/indicator makes pending observable and re-enables after a safe error or completed check.
+- **Steps 4–5:** the only persisted cooldown value is an expiry timestamp under `emailVerificationResendUntil.<opaqueAccountId>`; it must not contain email, Firebase UID, token, action code or password. Refresh honors 90 seconds; expiry re-enables resend.
+- Missing Firebase user/session expiry is not accepted as a gate error: discard Profile draft and follow Home session-loss flow; a non-session `503` preserves safe input for explicit retry.
+
+<!-- EXECUTION:START -->
+- Latest status: NOT_RUN
+- Previous status: PASS on 2026-11-04; persistence/session assertions added.
 <!-- EXECUTION:END -->
 

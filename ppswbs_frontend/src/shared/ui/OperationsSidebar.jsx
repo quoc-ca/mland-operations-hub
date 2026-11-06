@@ -1,12 +1,11 @@
-import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { useLanguage } from '../i18n/I18nProvider';
 import { getFirebaseAuth } from '../auth/firebaseSession';
 import '../../ota-connectivity/ota-connectivity.css';
 
 export function OperationsSidebar() {
-  const navigate = useNavigate();
   const location = useLocation();
   const { pathname, search } = location;
   const searchParams = new URLSearchParams(search);
@@ -14,6 +13,22 @@ export function OperationsSidebar() {
 
   const { status, signOut } = useAuth();
   const { language, setLanguage } = useLanguage();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState(null);
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    setSignOutError(null);
+    try {
+      await signOut();
+      // Navigation to Home with transient flash notice is handled solely by SessionNavigationBoundary
+    } catch (err) {
+      setSignOutError('Đăng xuất thất bại');
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
 
   const authInstance = typeof getFirebaseAuth === 'function' ? getFirebaseAuth() : null;
   const currentUser = authInstance?.currentUser;
@@ -188,22 +203,28 @@ export function OperationsSidebar() {
           </div>
 
           {status === 'signed-in' ? (
-            <button
-              type="button"
-              className="ota-signout-btn"
-              onClick={async () => {
-                await signOut();
-                navigate('/');
-              }}
-              title={isVi ? 'Đăng xuất khỏi hệ thống' : 'Sign out'}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-              <span>{isVi ? 'Đăng xuất' : 'Sign out'}</span>
-            </button>
+            <div>
+              <button
+                type="button"
+                className="ota-signout-btn"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                aria-busy={isSigningOut}
+                title={isVi ? 'Đăng xuất khỏi hệ thống' : 'Sign out'}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                <span>{isSigningOut ? (isVi ? 'Đang đăng xuất…' : 'Signing out…') : (isVi ? 'Đăng xuất' : 'Sign out')}</span>
+              </button>
+              {signOutError && (
+                <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.25rem', padding: '0 0.5rem' }} role="alert">
+                  {signOutError}
+                </div>
+              )}
+            </div>
           ) : (
             <Link
               to="/login"

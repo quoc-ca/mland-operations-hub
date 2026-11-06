@@ -1,17 +1,17 @@
 # UI Flow Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-04
+**Date updated**: 2026-11-06
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Design status**: DRAFT/PROPOSED. This records observable UI behavior, not visual design or frontend implementation approval.
+**Design status**: APPROVED — records observable UI behavior approved in spec.md, plan.md, and approval.md.
 
 ## Actors, routes and authorization
 
 | Actor | Entry / route | Server-side rule | Status / source |
 | --- | --- | --- | --- |
-| Anonymous visitor | `/sign-in`, `/register`, `/forgot-password` | Only explicitly public operations support identity-provider flows. Browser routing does not authorize API. | proposed routes from plan; public-route contract must be regenerated |
+| Anonymous visitor | `/sign-in`, `/register`, `/forgot-password` | Only explicitly public operations support identity-provider flows. Browser routing does not authorize API. | proposed routes from plan; governed by OpenAPI 3.1 |
 | Signed-in Account owner | `/`, `/profile`, `/profile/addresses`, `/security/password`, `/security/email` | WF-01 supplies current actor; server limits actions to owner and checks verification where required. | proposed; FR-003–008, FR-036–039 |
 | Admin | `/admin/accounts`, `/admin/accounts/new`, `/admin/accounts/:accountId`, `/admin/roles` | Server checks current `ADMIN`, target and current resource constraints for every action. | proposed; FR-010–025 |
 | Workshop-feature actor | FE-003 screen, not an FE-001 route | FE-003 authorizes actor/resource before roster/facts facade reads and before mutation. | approved behavior FR-028–032; UI owned by FE-003 |
@@ -23,14 +23,14 @@ The frontend may hide navigation as a usability affordance, but cannot decide ro
 | Screen / flow | Entry and actor | Workflow | Component/hook/API client | Contract reference | Loading / empty / validation / success / error / partial states | Recovery |
 | --- | --- | --- | --- | --- | --- | --- |
 | Sign-in / registration | Anonymous | WF-02, WF-06 | proposed `AuthPage` / `FirebaseAuthClient` | FR-002–006; Firebase client boundary | Email/password form plus prominent "Đăng nhập với Google" button (via `signInWithRedirect`). On mount: resolves `getRedirectResult`, bootstraps account, navigates Home. Duplicate-submit pending state. Do not expose Account existence. Provider collision (`account-exists-with-different-credential`) displays guidance to use password credential without merge. | Explicit retry/alternative method; preserve no secret beyond active secure control. |
-| Bootstrap / landing | New authenticated user | WF-01, WF-02, WF-11 | proposed `useCurrentAccount` | `/accounts/me` contract must be regenerated | Neutral loading while Account resolves. Active account goes Home; unverified account gets non-blocking reminder. No Account detail on failed resolution. | `401` follows shared session loss to Home; `403` keeps session and gives safe Home notice; `503` explicit retry; never infer old role/scope. |
+| Bootstrap / landing | New authenticated user | WF-01, WF-02, WF-11 | proposed `useCurrentAccount` | governed by OpenAPI 3.1 (`/api/v1/accounts/me`) | Neutral loading while Account resolves. Active account goes Home; unverified account gets non-blocking reminder. No Account detail on failed resolution. | `401` follows shared session loss to Home; `403` keeps session and gives safe Home notice; `503` explicit retry; never infer old role/scope. |
 | Profile verification gate | Signed-in Account owner opening Profile | WF-08, WF-11 | proposed `useVerifiedEmailGate`, `FirebaseAuthClient`, `AccountManagementApiClient` | FR-004–006, FR-041; `PUT /api/v1/accounts/me/email` | On Profile entry: neutral checking state; reload Firebase user; unverified state offers resend; verified state synchronizes before enabling save. A labelled/tooltip reload icon repeats the check. No custom email-action page/callback/polling state. | `401` discards draft through the shared boundary and returns Home; unverified stays blocked; `403` retains session/safe Home notice; `503` preserves safe input and offers explicit icon retry. |
 | Profile / security | Current Account owner | WF-02, WF-08, WF-06, WF-11 | proposed `ProfilePage`, `useProfile`, `useVerifiedEmailGate` | FR-004–008, FR-041; OpenAPI profile/email endpoints | Field validation inline; save stays disabled until the Profile gate succeeds. Password change form has 3 fields (Current Password, New Password, Confirm Password) with in-place reauthentication before `updatePassword`; section hidden if no `password` in `user.providerData`. Email change form has 2 fields (Current Password, New Email) with in-place reauthentication before `verifyBeforeUpdateEmail`. Member resend uses Firebase SDK with 90s `localStorage` cooldown. | On wrong current password: clear only current password, show inline error, retain new password/email in ephemeral React state (never in storage). On success: clear all fields, show success notice. `401` discards draft and follows shared Home recovery; `403` retains session with safe Home notice; `409` reconciles current values. |
-| Admin list/detail | Admin | WF-01, WF-03, WF-04 | proposed `AdminAccountListPage`, `AdminAccountDetailPage`, `useAdminAccounts` | FR-016–025; OpenAPI requires regeneration | Loading progress; explicit empty result; restricted detail data; success only after commit. | `409` reload before reapply; `503` keep safe form data for explicit retry. |
+| Admin list/detail | Admin | WF-01, WF-03, WF-04 | proposed `AdminAccountListPage`, `AdminAccountDetailPage`, `useAdminAccounts` | FR-016–025; governed by OpenAPI 3.1 | Loading progress; explicit empty result; restricted detail data; success only after commit. | `409` reload before reapply; `503` keep safe form data for explicit retry. |
 | Create/resend internal Account | Admin | WF-03 | proposed `InternalAccountCreatePage`, `useAdminAccounts` | FR-011–015, 023–025 | Validate role/location before submit. Pending setup is not active access. Repeat click/retry preserves one intended provisioning request. Never display raw action link. | Provider/notification failure gives safe recovery; resend/reconciliation does not create a second account. |
 | Role/location/status action | Admin | WF-03, WF-04 | proposed detail page/hook | FR-017–021 | Explain impact, show current committed role/status/effective scope. Location deactivation does not claim role/lifecycle change. | Version conflict reloads; denied access returns to allowed safe view. |
 | Fixed role catalogue | Admin | WF-01 | proposed `RoleCataloguePage` | FR-009–010 | Loading/error state; display read-only fixed role descriptions. No permission/role editing controls. | `401/403` account recovery; `503` retry. |
-| Workshop target picker | Authorized FE-003 actor | WF-05 | FE-003-owned component; proposed FE-001 facade client at module boundary | FR-029–031; internal interface contract missing | Load candidates by canonical location/role. Empty means no eligible candidate, not directory failure. Show current display name and optional opaque Account ID only. | `503` preserves safe FE-003 input; `409 TARGET_NOT_ELIGIBLE` requires new selection without lifecycle disclosure. |
+| Workshop target picker | Authorized FE-003 actor | WF-05 | FE-003-owned component; proposed FE-001 facade client at module boundary | FR-029–031; defined in contracts/interfaces.md | Load candidates by canonical location/role. Empty means no eligible candidate, not directory failure. Show current display name and optional opaque Account ID only. | `503` preserves safe FE-003 input; `409 TARGET_NOT_ELIGIBLE` requires new selection without lifecycle disclosure. |
 | Member shipping address book | Signed-in Member | WF-09 | proposed `AddressBookPage`, `AddressModal`, `useMemberAddresses`, `AddressApiClient` | FR-036–039; OpenAPI addresses endpoints | List up to 10 addresses with badge for default and type (HOME/OFFICE). Adding 1st address pre-fills name and phone from profile. Cascading dropdown for Province -> District -> Ward (-> Hamlet). Add disabled if 10 reached. Delete default blocked if multiple addresses exist. | `400` validation error; `409 ADDRESS_LIMIT_EXCEEDED` shows quota message; `409` default deletion blocked guidance; `503` explicit retry. |
 
 ## Session, data handling and accessibility
@@ -89,11 +89,11 @@ The approved shared envelope is `code`, `message`, `correlationId`, `timestamp`,
 | Decision / dependency | Impact on UI | Owner / condition to close |
 | --- | --- | --- |
 | Staging/preview/production origins and deployment recovery | Frontend cannot claim those environments are enabled | Deployment owner supplies explicit origin/operations source |
-| `activeWorkshopLocationIds` interface/data-model revision | Consumer must not present raw Account assignments as effective scope | Contract/data-model owner reconciles source and code |
-| FE-003 facade interface revision | Workshop picker cannot be built against a stable boundary | Account/Workshop owners approve `interfaces.md` revision |
+| `activeWorkshopLocationIds` interface/data-model revision | Consumer must not present raw Account assignments as effective scope | RESOLVED: `activeWorkshopLocationIds` refactored across entities, DTOs, and facade |
+| FE-003 facade interface revision | Workshop picker cannot be built against a stable boundary | RESOLVED: `interfaces.md` approved |
 | Accessibility/browser baseline | Acceptance cannot be measured consistently | Frontend foundation owner approves source |
-| Regenerated OpenAPI/routes | API client implementation cannot rely on obsolete contract | Contract owner regenerates after design approval |
-| Verification-required gate design | `useVerifiedEmailGate` and its error/retry behavior are proposed until the revised design/contract is approved | Tech Lead approves revised FE-001 design scope |
+| Regenerated OpenAPI/routes | API client implementation cannot rely on obsolete contract | RESOLVED: OpenAPI 3.1 regenerated |
+| Verification-required gate design | `useVerifiedEmailGate` and its error/retry behavior are proposed until the revised design/contract is approved | RESOLVED: Approved by Tech Lead; frontend implements T051–T052 |
 
 ---
 

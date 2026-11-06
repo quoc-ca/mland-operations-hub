@@ -29,11 +29,6 @@ function mapFirebaseError(error: any): string {
   }
 
   switch (code) {
-    case 'auth/popup-closed-by-user':
-    case 'auth/cancelled-popup-request':
-      return 'Cửa sổ đăng nhập Google đã bị đóng trước khi hoàn tất xác thực. Vui lòng thử lại.';
-    case 'auth/popup-blocked':
-      return 'Trình duyệt đã chặn cửa sổ đăng nhập (popup). Vui lòng cấp quyền cho phép mở popup trên trình duyệt.';
     case 'auth/invalid-credential':
     case 'auth/user-not-found':
     case 'auth/wrong-password':
@@ -49,7 +44,7 @@ function mapFirebaseError(error: any): string {
     case 'CONFIGURATION_REQUIRED':
       return 'Cấu hình xác thực hệ thống chưa sẵn sàng.';
     default:
-      return 'Không thể hoàn tất xác thực. Vui lòng thử lại sau.';
+      return 'Không thể hoàn tất xác thực. Vui lòng thử lại hoặc đăng nhập bằng Email và Mật khẩu.';
   }
 }
 
@@ -102,7 +97,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
           sessionStorage.removeItem('mland_google_redirect_pending');
           setPending(true);
           await accountManagementApiClient.bootstrapOwnAccount();
-          navigate('/');
+          navigate('/', { replace: true });
         } else {
           // If getRedirectAuthResult returned null but redirect was in progress, check current user
           const currentUser = firebaseAuthClient.getCurrentUser();
@@ -213,33 +208,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
     setRetryableError(false);
     setPending(true);
     try {
-      // Ensure any leftover residual session is cleared so signInWithGooglePopup acts as a clean sign-in
       if (firebaseAuthClient.getCurrentUser()) {
         try {
           await firebaseAuthClient.signOut();
         } catch {
           // ignore
-        }
-      }
-
-      // In browser runtime (outside Vitest unit tests), use signInWithGooglePopup to avoid Chrome localhost storage partitioning failure
-      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
-        const user = await firebaseAuthClient.signInWithGooglePopup();
-        if (user) {
-          const hasPassword =
-            Array.isArray(user.providerData) &&
-            user.providerData.some(p => p.providerId === 'password');
-
-          if (hasPassword) {
-            await firebaseAuthClient.signOut();
-            setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
-            setPending(false);
-            return;
-          }
-
-          await accountManagementApiClient.bootstrapOwnAccount();
-          navigate('/');
-          return;
         }
       }
 
@@ -317,7 +290,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
 
       // Bootstrap Mland Account record
       await accountManagementApiClient.bootstrapOwnAccount();
-      navigate('/');
+      navigate('/', { replace: true });
     } catch (err: any) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
@@ -344,7 +317,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
     setRetryableError(false);
     try {
       await accountManagementApiClient.bootstrapOwnAccount();
-      navigate('/');
+      navigate('/', { replace: true });
     } catch (err: any) {
       if (err instanceof ApiError && err.retryable) {
         setGeneralError('Dịch vụ tài khoản vẫn chưa phản hồi. Vui lòng thử lại.');

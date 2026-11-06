@@ -130,7 +130,7 @@ describe('T064–T068: Google Sign-In & Credential Re-authentication (FR-002, FR
 
       await waitFor(() => {
         expect(bootstrapSpy).toHaveBeenCalledTimes(1);
-        expect(mockNavigate).toHaveBeenCalledWith('/');
+        expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
       });
     });
 
@@ -187,11 +187,11 @@ describe('T064–T068: Google Sign-In & Credential Re-authentication (FR-002, FR
       expect(sessionStorage.getItem("mland_google_redirect_pending")).toBeNull();
     });
 
-    it('handles popup-closed-by-user error gracefully with friendly message', async () => {
+    it('handles generic redirect error gracefully offering retry or email/password alternative', async () => {
       vi.spyOn(firebaseAuthClient, 'isConfigured').mockReturnValue(true);
       vi.spyOn(firebaseAuthClient, 'getRedirectAuthResult').mockResolvedValue(null);
       vi.spyOn(firebaseAuthClient, 'signInWithGoogleRedirect').mockRejectedValue({
-        code: 'auth/popup-closed-by-user',
+        code: 'auth/internal-error',
       });
 
       render(
@@ -205,16 +205,16 @@ describe('T064–T068: Google Sign-In & Credential Re-authentication (FR-002, FR
 
       expect(
         await screen.findByText(
-          'Cửa sổ đăng nhập Google đã bị đóng trước khi hoàn tất xác thực. Vui lòng thử lại.'
+          'Không thể hoàn tất xác thực. Vui lòng thử lại hoặc đăng nhập bằng Email và Mật khẩu.'
         )
       ).toBeInTheDocument();
     });
 
-    it('handles popup-blocked error gracefully with friendly message', async () => {
+    it('handles network error during redirect initiation gracefully with friendly message', async () => {
       vi.spyOn(firebaseAuthClient, 'isConfigured').mockReturnValue(true);
       vi.spyOn(firebaseAuthClient, 'getRedirectAuthResult').mockResolvedValue(null);
       vi.spyOn(firebaseAuthClient, 'signInWithGoogleRedirect').mockRejectedValue({
-        code: 'auth/popup-blocked',
+        code: 'auth/network-request-failed',
       });
 
       render(
@@ -228,7 +228,7 @@ describe('T064–T068: Google Sign-In & Credential Re-authentication (FR-002, FR
 
       expect(
         await screen.findByText(
-          'Trình duyệt đã chặn cửa sổ đăng nhập (popup). Vui lòng cấp quyền cho phép mở popup trên trình duyệt.'
+          'Lỗi mạng khi kết nối đến dịch vụ xác thực. Vui lòng thử lại.'
         )
       ).toBeInTheDocument();
     });

@@ -41,7 +41,11 @@ function safeJson(body) {
 
 export function renderRoutes(routes, { path, state, session = fakeSession(), language = 'vi' } = {}) {
   const entry = state ? { pathname: path, state } : path;
-  const router = createMemoryRouter(routes, { initialEntries: [entry] });
+  const hasLogin = routes.some(r => r.path === '/login' || r.path === '*');
+  const resolvedRoutes = hasLogin
+    ? routes
+    : [...routes, { path: '/login', element: <div className="empty-state" role="status"><p>Bạn cần đăng nhập để tiếp tục.</p></div> }];
+  const router = createMemoryRouter(resolvedRoutes, { initialEntries: [entry] });
   const utils = render(
     <I18nProvider initialLanguage={language}>
       <AuthProvider source={session}>

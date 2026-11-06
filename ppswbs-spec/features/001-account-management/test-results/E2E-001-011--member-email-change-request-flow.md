@@ -12,8 +12,8 @@ health_urls:
   - http://localhost:8080
 test_data:
   fixture: member-email-change-request
-  account_ref: minikie456@gmail.com
-  target_new_email: 9k2019.2020@gmail.com
+  account_ref: E2E_MEMBER_011
+  target_new_email: <target-email-fixture-from-secret-store>
   isolation_key: E2E-001-011-20261105
 cleanup:
   required: false
@@ -32,7 +32,7 @@ cleanup:
 - [ ] Môi trường Frontend Vite đang chạy tại `http://localhost:5173`.
 - [ ] Môi trường Backend Spring Boot đang chạy tại `http://localhost:8080`.
 - [ ] Công cụ `browsermcp` đã được nạp và kích hoạt trong phiên làm việc.
-- [ ] Tài khoản Member `minikie456@gmail.com` đang đăng nhập với mật khẩu `123123123`.
+- [ ] Fixture Member chuyên dụng đang signed-in; credential lấy từ secret store và không ghi vào case/evidence.
 - [ ] Đang mở trang `http://localhost:5173/profile`.
 
 ## 2. Phân tích rủi ro đối nghịch (Adversarial Risk Analysis)
@@ -54,7 +54,7 @@ wait getByRole('heading', { name: 'Thay đổi địa chỉ email' })
 
 ### Step 2 — Nhập email không hợp lệ (không chứa ký tự @)
 ```browser
-fill getByLabel('Mật khẩu hiện tại') "123123123"
+fill getByLabel('Mật khẩu hiện tại') "<current-password-from-secret-store>"
 fill getByLabel('Địa chỉ email mới *') "not-an-email"
 click getByRole('button', { name: 'Yêu cầu đổi email' })
 wait getByText('Vui lòng nhập email hợp lệ.')
@@ -70,17 +70,17 @@ wait getByText('Mật khẩu hiện tại không chính xác.')
 
 ### Step 4 — Nhập đúng mật khẩu và gửi yêu cầu thay đổi email hợp lệ
 ```browser
-fill getByLabel('Mật khẩu hiện tại') "123123123"
-fill getByLabel('Địa chỉ email mới *') "9k2019.2020@gmail.com"
+fill getByLabel('Mật khẩu hiện tại') "<current-password-from-secret-store>"
+fill getByLabel('Địa chỉ email mới *') "<target-email-fixture-from-secret-store>"
 click getByRole('button', { name: 'Yêu cầu đổi email' })
-wait getByText('Thư xác nhận đã được gửi đến 9k2019.2020@gmail.com.')
+wait getByText('Thư xác nhận đã được gửi đến')
 ```
 
 ### Step 5 — Kiểm tra tính bất biến của email gốc (FR-006)
 ```browser
 # Cuộn lên Profile Overview
-# Assertion: Email hiển thị trên thẻ hồ sơ vẫn giữ nguyên "minikie456@gmail.com"
-# Assertion: Ô "Địa chỉ đăng nhập" trong form chỉnh sửa hồ sơ vẫn là "minikie456@gmail.com"
+# Assertion: Email hiện tại vẫn là giá trị fixture cũ; không đưa email thật vào case/evidence.
+# Assertion: Ô Địa chỉ đăng nhập cũng giữ giá trị fixture cũ cho đến khi provider verification hoàn tất.
 ```
 
 ## 4. Kết quả kỳ vọng (Expected Assertions)
@@ -90,9 +90,9 @@ find "Vui lòng nhập email hợp lệ."
 # Expected: one match at Step 2
 find "Mật khẩu hiện tại không chính xác."
 # Expected: one match at Step 3
-find "Thư xác nhận đã được gửi đến 9k2019.2020@gmail.com. Email hiện tại của bạn sẽ được giữ nguyên cho đến khi xác minh hoàn tất."
+find "Email hiện tại của bạn sẽ được giữ nguyên cho đến khi xác minh hoàn tất."
 # Expected: one or more matches
-find "minikie456@gmail.com"
+find "<member-email-from-secret-store>"
 # Expected: one or more matches
 console --errors
 # Expected: no uncaught client errors
@@ -104,22 +104,33 @@ console --errors
 - Ảnh chụp màn hình gửi thành công: `screenshots/E2E-001-011--email-change-success.jpg`
 - Lệnh lưu bằng chứng: `screenshot --full --path "ppswbs-spec/features/001-account-management/test-results/screenshots/E2E-001-011--email-change-success.jpg"`
 
-## 6. Kết quả thực thi (Execution History)
+## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
 
 <!-- EXECUTION:START -->
-- Latest status: PASS
+- Historical status: PASS
 - Executed at: 2026-11-05 17:17:36
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
 - Failure step: None
 - Actual result:
   - Nhập sai mật khẩu hiện tại ('wrong_password_999') -> Firebase Auth Client từ chối re-auth, giao diện hiển thị chính xác alert error: 'Mật khẩu hiện tại không chính xác.'. Form xóa sạch ô mật khẩu cũ và bảo toàn email mới trong ô input.
-  - Nhập đúng mật khẩu hiện tại ('123123123') và email đích '9k2019.2020@gmail.com' -> In-place re-auth thành công và gọi verifyBeforeUpdateEmail thành công.
-  - Giao diện hiển thị thông báo alert success rõ ràng: 'Thư xác nhận đã được gửi đến 9k2019.2020@gmail.com. Email hiện tại của bạn sẽ được giữ nguyên cho đến khi xác minh hoàn tất.'
-  - Tuân thủ triệt để FR-006 & WF-08: Thẻ Profile Overview và ô input Địa chỉ đăng nhập vẫn duy trì bất biến email gốc 'minikie456@gmail.com' cho đến khi người dùng kích hoạt link xác nhận từ hòm thư mới.
+  - Historical run dùng credential và email đích fixture; mọi giá trị định danh/credential đã redaction.
+  - Historical run hiển thị alert success xác nhận gửi thư; địa chỉ fixture đã redaction và email hiện tại được giữ đến khi xác minh hoàn tất.
+  - Profile Overview và input Địa chỉ đăng nhập giữ email fixture cũ cho đến khi người dùng hoàn tất xác minh từ provider.
 - Evidence screenshot:
   - Lỗi re-auth: screenshots/E2E-001-011--email-change-reauth-fail.jpg
   - Gửi email thành công: screenshots/E2E-001-011--email-change-success.jpg
 - Bug reference: NONE
+<!-- EXECUTION:END -->
+
+## 7. Revision expected results (2026-11-06 — must re-run)
+
+- **Steps 1–3:** canonical URL remains `/profile`; invalid new email and wrong current password produce field-scoped safe errors, do not mutate displayed current email, and do not persist either password/new email to storage.
+- A wrong-current-password re-auth failure clears only current-password input and retains proposed email in ephemeral form state for retry.
+- **Steps 4–5:** after Firebase accepts `verifyBeforeUpdateEmail`, UI confirms request without displaying action URL/code; old email remains in Profile/Header and Mland Account until provider verification plus the normal fresh-identity sync. A session `401` discards draft/Home; `403` retains session/Home safe notice.
+
+<!-- EXECUTION:START -->
+- Latest status: NOT_RUN
+- Previous status: PASS on 2026-11-04; identity/session assertions added.
 <!-- EXECUTION:END -->
 

@@ -12,7 +12,7 @@ health_urls:
   - http://localhost:8080
 test_data:
   fixture: member-unauthorized-roles-access
-  account_ref: minikie456@gmail.com
+  account_ref: E2E_MEMBER_007
   isolation_key: E2E-001-007-20261105
 cleanup:
   required: false
@@ -31,7 +31,7 @@ cleanup:
 - [x] Môi trường Frontend Vite đang chạy tại `http://localhost:5173`.
 - [x] Môi trường Backend Spring Boot đang chạy tại `http://localhost:8080`.
 - [x] Công cụ `browsermcp` đã được nạp và kích hoạt trong phiên làm việc.
-- [x] Tài khoản đăng nhập hiện tại là `minikie456@gmail.com` với vai trò `MEMBER`.
+- [ ] Tài khoản test Member chuyên dụng đang signed-in; định danh lấy từ secret store.
 
 ## 2. Đánh giá đa chiều qua 2 góc nhìn (2 POVs Evaluation)
 
@@ -76,20 +76,31 @@ find "Danh mục vai trò"
 - Ảnh chụp màn hình kiểm soát vai trò: `screenshots/E2E-001-007--admin-roles-guard.jpg`
 - Lệnh lưu: `screenshot --path "ppswbs-spec/features/001-account-management/test-results/screenshots/E2E-001-007--admin-roles-guard.jpg"`
 
-## 6. Kết quả thực thi (Execution History)
+## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
 
 <!-- EXECUTION:START -->
-- Latest status: PASS
+- Historical status: PASS
 - Executed at: 2026-11-05 13:36:03
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
 - Failure step: None
 - Actual result:
   - ĐẠT (PASS) SAU KHI SỬA LỖI: Component AdminRouteGuard phát huy hiệu lực bảo vệ hoàn hảo.
-  - Khi tài khoản Member (minikie456@gmail.com) truy cập trực tiếp vào http://localhost:5173/admin/roles, hệ thống CHẶN HOÀN TOÀN không render bất kỳ phần tử nào của giao diện quản trị vai trò nội bộ (không có tiêu đề Danh mục vai trò, không có Admin Tabs, không có bảng vai trò).
+  - Khi fixture Member truy cập trực tiếp vào `/admin/roles`, historical run đã ghi nhận không render phần tử giao diện quản trị; định danh đã redaction.
   - Giao diện hiển thị màn hình chuẩn bảo mật 403 Forbidden với thông báo giải thích quyền hạn rõ ràng và nút bấm 'Về trang chủ' giúp thoát an toàn.
   - Bảo vệ tuyệt đối Hiến chương Constitution §FR-010, không lộ cấu trúc vai trò nội bộ cho Member.
 - Evidence screenshot:
   - Màn hình 403 Forbidden chặn giao diện Admin Roles: screenshots/E2E-001-007--admin-roles-guard-resolved.jpg
 - Bug reference: [BUG-E2E-0001](../../../ppswbs-testing/BUG-LOG.md#bug-e2e-0001--closed) (Đã đóng - CLOSED)
+<!-- EXECUTION:END -->
+
+## 7. Revision expected results (2026-11-06 — superseded 403 presentation)
+
+- Member direct access to `/admin/roles` that produces `403` must `replace` to `/` with only safe generic access-denied notice; role catalogue/card text and protected response data must not appear at any point.
+- Session remains valid: opening `/profile` after recovery succeeds without login. Guest behavior is `/login`, not this `403` path.
+- Notice must not disclose whether denial derives from role, status, lifecycle or Workshop scope; no token/UID/error payload appears in DOM or console.
+
+<!-- EXECUTION:START -->
+- Latest status: NOT_RUN
+- Previous status: PASS on 2026-11-04; expected navigation changed by FR-041.
 <!-- EXECUTION:END -->

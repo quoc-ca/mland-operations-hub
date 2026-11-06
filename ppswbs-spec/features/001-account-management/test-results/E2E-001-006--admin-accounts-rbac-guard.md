@@ -12,7 +12,7 @@ health_urls:
   - http://localhost:8080
 test_data:
   fixture: member-unauthorized-admin-access
-  account_ref: minikie456@gmail.com
+  account_ref: E2E_MEMBER_006
   isolation_key: E2E-001-006-20261105
 cleanup:
   required: false
@@ -31,7 +31,7 @@ cleanup:
 - [x] Môi trường Frontend Vite đang chạy tại `http://localhost:5173`.
 - [x] Môi trường Backend Spring Boot đang chạy tại `http://localhost:8080`.
 - [x] Công cụ `browsermcp` đã được nạp và kích hoạt trong phiên làm việc.
-- [x] Tài khoản đăng nhập hiện tại là `minikie456@gmail.com` với vai trò `MEMBER` (không có quyền Admin).
+- [ ] Tài khoản test Member chuyên dụng đang signed-in (không có quyền Admin); định danh lấy từ secret store.
 
 ## 2. Đánh giá đa chiều qua 2 góc nhìn (2 POVs Evaluation)
 
@@ -78,17 +78,17 @@ find "Không thể tải danh sách tài khoản"
 - Ảnh chụp màn hình chặn truy cập: `screenshots/E2E-001-006--admin-accounts-guard.jpg`
 - Lệnh lưu: `screenshot --path "ppswbs-spec/features/001-account-management/test-results/screenshots/E2E-001-006--admin-accounts-guard.jpg"`
 
-## 6. Kết quả thực thi (Execution History)
+## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
 
 <!-- EXECUTION:START -->
-- Latest status: PASS
+- Historical status: PASS
 - Executed at: 2026-11-05 13:35:39
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
 - Failure step: None
 - Actual result:
   - ĐẠT (PASS) SAU KHI SỬA LỖI: Component AdminRouteGuard phát huy hiệu lực bảo vệ hoàn hảo.
-  - Khi tài khoản Member (minikie456@gmail.com) truy cập trực tiếp vào http://localhost:5173/admin/accounts, hệ thống CHẶN HOÀN TOÀN không render bất kỳ phần tử nào của giao diện Admin (không hiển thị Header Admin, không có Tabs điều hướng, không có nút tạo tài khoản nội bộ, không có bộ lọc hay bảng dữ liệu).
+  - Khi fixture Member truy cập trực tiếp vào `/admin/accounts`, historical run đã ghi nhận không render phần tử giao diện Admin; định danh đã redaction.
   - Giao diện hiển thị màn hình chuẩn bảo mật:
     + Tiêu đề: 'Từ chối quyền truy cập (403 Forbidden)'
     + Cảnh báo: 'Bạn không có quyền truy cập vào khu vực quản trị nội bộ này. Trang này chỉ dành riêng cho tài khoản Quản trị viên hệ thống (ADMIN).'
@@ -96,4 +96,15 @@ find "Không thể tải danh sách tài khoản"
 - Evidence screenshot:
   - Màn hình 403 Forbidden chặn giao diện Admin: screenshots/E2E-001-006--admin-accounts-guard-resolved.jpg
 - Bug reference: [BUG-E2E-0001](../../../ppswbs-testing/BUG-LOG.md#bug-e2e-0001--closed) (Đã đóng - CLOSED)
+<!-- EXECUTION:END -->
+
+## 7. Revision expected results (2026-11-06 — superseded 403 presentation)
+
+- The prior access-denied-page expectation is superseded by E2E-001-016.
+- A signed-in Member receiving `403` from `/admin/accounts` must end at exact URL `/` with one safe generic notice; the admin table, account emails/IDs, role/status/location detail and backend error payload must not render.
+- The same Member must still reach canonical `/profile` without re-login, proving `403` retained the session. A Guest is a different case and must go `/login` through E2E-001-013.
+
+<!-- EXECUTION:START -->
+- Latest status: NOT_RUN
+- Previous status: PASS on 2026-11-04; expected navigation changed by FR-041.
 <!-- EXECUTION:END -->

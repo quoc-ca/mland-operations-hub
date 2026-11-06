@@ -12,7 +12,7 @@ health_urls:
   - http://localhost:8080
 test_data:
   fixture: member-profile-update
-  account_ref: minikie456@gmail.com
+  account_ref: E2E_MEMBER_009
   isolation_key: E2E-001-009-20261105
 cleanup:
   required: true
@@ -31,8 +31,8 @@ cleanup:
 - [ ] Môi trường Frontend Vite đang chạy tại `http://localhost:5173`.
 - [ ] Môi trường Backend Spring Boot đang chạy tại `http://localhost:8080`.
 - [ ] Công cụ `browsermcp` đã được nạp và kích hoạt trong phiên làm việc.
-- [ ] Phiên đăng nhập hợp lệ của tài khoản Member `minikie456@gmail.com` đang hoạt động tại trang `http://localhost:5173/profile`.
-- [ ] Dữ liệu ban đầu của tài khoản: Họ tên: "Phan Nguyễn Trường Sơn", Email: "minikie456@gmail.com".
+- [ ] Phiên đăng nhập hợp lệ của fixture Member chuyên dụng đang hoạt động tại `http://localhost:5173/profile`.
+- [ ] Giá trị name/email baseline được lấy từ fixture an toàn, không ghi PII thật trong case/evidence.
 
 ## 2. Phân tích rủi ro đối nghịch (Adversarial Risk Analysis)
 
@@ -110,10 +110,10 @@ console --errors
 - Ảnh chụp màn hình cập nhật thành công: `screenshots/E2E-001-009--profile-update-success.jpg`
 - Lệnh lưu bằng chứng: `screenshot --full --path "ppswbs-spec/features/001-account-management/test-results/screenshots/E2E-001-009--profile-update-success.jpg"`
 
-## 6. Kết quả thực thi (Execution History)
+## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
 
 <!-- EXECUTION:START -->
-- Latest status: PASS
+- Historical status: PASS
 - Executed at: 2026-11-05 17:20:36
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
@@ -126,5 +126,17 @@ console --errors
 - Evidence screenshot:
   - Cập nhật thành công: screenshots/E2E-001-009--profile-update-success.jpg
 - Bug reference: NONE
+<!-- EXECUTION:END -->
+
+## 7. Revision expected results (2026-11-06 — must re-run)
+
+- **Steps 1–2:** page is canonical `/profile`; Email is display-only/disabled and no current identity email may be changed through profile save.
+- **Steps 3–4:** validation keeps URL `/profile`, leaves non-secret safe fields for correction, sends no save request, and does not silently trim/control-character-correct invalid name without a visible result.
+- **Step 5:** Restore returns fields to last server-confirmed values, not a prior unsaved state from another session; it cannot restore a draft after logout/session loss.
+- **Steps 6–7:** success UI appears only after server response; overview and edit form show the returned saved name/phone. A `401` instead discards draft and follows E2E-001-015; a `403` retains session/safe Home notice.
+
+<!-- EXECUTION:START -->
+- Latest status: NOT_RUN
+- Previous status: PASS on 2026-11-04; route/error assertions added.
 <!-- EXECUTION:END -->
 

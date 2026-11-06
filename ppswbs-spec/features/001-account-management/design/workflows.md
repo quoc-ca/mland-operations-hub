@@ -1,24 +1,24 @@
 # Workflow Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-04
+**Date updated**: 2026-11-06
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Design status**: DRAFT/PROPOSED. Workflow behavior is designed; it does not approve code or replace the missing interface/transport revisions.
+**Design status**: APPROVED — workflows aligned with approved specification, data model, interfaces, and OpenAPI 3.1.0 contract (see `approval.md`).
 
 ## Workflow index
 
 | ID | Workflow | Trigger and actor | Source requirements | Architecture flow | Status |
 | --- | --- | --- | --- | --- | --- |
-| WF-01 | Bearer admission and current actor | Every protected request | FR-026–027 | Architecture §Data flows 1 | Designed; actor field contract needs reconciliation |
-| WF-02 | Bootstrap and self-service | Verified identity / Account owner | FR-001–008, 022, 025 | Flow 2 | Designed; OpenAPI regeneration pending |
+| WF-01 | Bearer admission and current actor | Every protected request | FR-026–027 | Architecture §Data flows 1 | Designed & implemented; minimal CurrentAccountActor |
+| WF-02 | Bootstrap and self-service | Verified identity / Account owner | FR-001–008, 022, 025 | Flow 2 | Designed & implemented; governed by OpenAPI 3.1 |
 | WF-03 | Provision and activate internal Account | Admin / intended internal identity | FR-011–018, 023–025 | Flow 4 | Designed; FE-07/Location contracts are dependencies |
 | WF-04 | Suspend and restore | Admin / affected Account | FR-019–021, 023–027 | Flow 5 | Designed; provider reconciliation evidence pending |
-| WF-05 | Target facts and roster | Authorized FE-003 actor/service | FR-028–033 | Flow 6 | BLOCKED for implementation by missing facade contract |
+| WF-05 | Target facts and roster | Authorized FE-003 actor/service | FR-028–033 | Flow 6 | Designed & implemented; contract defined in interfaces.md |
 | WF-08 | Profile verification gate | Owner opens Profile / activates reload icon | FR-004–006 | Flow 3 | proposed |
 | WF-06 | Browser transport and typed errors | Browser/API caller | FR-025, 027 | Flows 1–4 | Local policy approved; non-local operations open |
-| WF-07 | Schema/configuration startup | Service runtime/operator | Constitution; data-model | Persistence/config boundary | Designed; runtime verification pending |
+| WF-07 | Schema/configuration startup | Service runtime/operator | Constitution; data-model | Persistence/config boundary | Designed & implemented; V52 and V89 migrations verified |
 | WF-09 | Member shipping address book | Authenticated Member | FR-036–039 | Flow 7 | Designed |
 | WF-10 | Shipping address snapshot for FE-008 | FE-008 checkout process | FR-040 | Flow 8 | Designed |
 
@@ -113,7 +113,7 @@
 1. `NOT_FOUND` and `FOUND` failing consumer role/status/scope rule map to `409 TARGET_NOT_ELIGIBLE`, without lifecycle disclosure.
 2. `UNAVAILABLE` means Account or Location scope cannot be verified; FE-003 returns `503`, preserves safe input, starts/commits no mutation and performs no background retry/cache/fallback.
 3. There is intentionally no cross-module transaction/lock: a command whose recheck preceded an Account change commit may finish; every later command must use changed facts.
-4. Implementation is blocked until `contracts/interfaces.md` names the types, inputs, outcomes and compatibility rules.
+4. The typed contract is defined in `contracts/interfaces.md` (`TargetFactsOutcome`, `RosterOutcome`) and implemented in `AccountFacadeImpl`.
 
 ## WF-06: Browser transport and typed errors
 
@@ -171,7 +171,7 @@
 
 | Item | Impact | Owner / resume condition |
 | --- | --- | --- |
-| Named target-facts/roster facade contract | WF-05 cannot be implemented compatibly | Revise `contracts/interfaces.md` from FR-028–032 |
+| Named target-facts/roster facade contract | WF-05 cannot be implemented compatibly | RESOLVED: Defined in `contracts/interfaces.md` and implemented |
 | `activeWorkshopLocationIds` reconciliation | Current actor/data-model/code use another name/semantics | Current actor omits scope; target/scope facade exposes effective `activeWorkshopLocationIds` before location-dependent work |
 | Audit outcome schema/mapping | Implementation and MySQL evidence remain pending | Approved `AuditOutcome`/`VARCHAR(16)` baseline; implement append-only migration and retain fresh/upgrade validation evidence |
 | FE-07 and Workshop Location contracts | Integration details cannot be invented | Link approved owning contracts |

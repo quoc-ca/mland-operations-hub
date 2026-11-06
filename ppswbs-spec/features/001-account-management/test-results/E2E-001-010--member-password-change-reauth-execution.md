@@ -12,7 +12,7 @@ health_urls:
   - http://localhost:8080
 test_data:
   fixture: member-password-change-execution
-  account_ref: minikie456@gmail.com
+  account_ref: E2E_MEMBER_010
   isolation_key: E2E-001-010-20261105
 cleanup:
   required: true
@@ -31,7 +31,7 @@ cleanup:
 - [ ] Môi trường Frontend Vite đang chạy tại `http://localhost:5173`.
 - [ ] Môi trường Backend Spring Boot đang chạy tại `http://localhost:8080`.
 - [ ] Công cụ `browsermcp` đã được nạp và kích hoạt trong phiên làm việc.
-- [ ] Tài khoản Member `minikie456@gmail.com` đang đăng nhập với mật khẩu hiện tại là `123123123`.
+- [ ] Tài khoản Member fixture chuyên dụng đang đăng nhập; current/new password chỉ lấy từ secret store và không ghi vào case.
 - [ ] Đang ở giao diện `http://localhost:5173/profile`.
 
 ## 2. Phân tích rủi ro đối nghịch (Adversarial Risk Analysis)
@@ -54,8 +54,8 @@ wait getByRole('heading', { name: 'Đổi mật khẩu' })
 ### Step 2 — Ca bất thường (Abnormal): Nhập sai mật khẩu hiện tại
 ```browser
 fill getByLabel('Mật khẩu hiện tại *') "mat_khau_sai_hoan_toan_999"
-fill getByLabel('Mật khẩu mới *') "MatKhauMoi@2026"
-fill getByLabel('Xác nhận mật khẩu mới *') "MatKhauMoi@2026"
+fill getByLabel('Mật khẩu mới *') "<rotated-password-from-secret-store>"
+fill getByLabel('Xác nhận mật khẩu mới *') "<rotated-password-from-secret-store>"
 click getByRole('button', { name: 'Cập nhật mật khẩu' })
 wait getByText('Mật khẩu hiện tại không chính xác.')
 ```
@@ -63,13 +63,12 @@ wait getByText('Mật khẩu hiện tại không chính xác.')
 ### Step 3 — Xác minh bảo toàn mật khẩu mới sau khi re-auth thất bại
 ```browser
 # Assertion: Ô "Mật khẩu hiện tại" bị xóa trắng (empty)
-# Assertion: Ô "Mật khẩu mới" vẫn giữ nguyên "MatKhauMoi@2026"
-# Assertion: Ô "Xác nhận mật khẩu mới" vẫn giữ nguyên "MatKhauMoi@2026"
+# Assertion: Ô mật khẩu mới/xác nhận vẫn giữ giá trị fixture trong state tạm thời, không ghi giá trị ra evidence.
 ```
 
 ### Step 4 — Ca thành công (Normal): Nhập đúng mật khẩu hiện tại và thực thi
 ```browser
-fill getByLabel('Mật khẩu hiện tại *') "123123123"
+fill getByLabel('Mật khẩu hiện tại *') "<current-password-from-secret-store>"
 click getByRole('button', { name: 'Cập nhật mật khẩu' })
 wait getByText('Đổi mật khẩu thành công.')
 ```
@@ -82,8 +81,8 @@ wait getByText('Đổi mật khẩu thành công.')
 ### Step 6 — Kiểm chứng vòng khép kín: Đăng xuất và Đăng nhập lại với mật khẩu mới
 ```browser
 goto http://localhost:5173/login
-fill getByLabel('Địa chỉ email *') "minikie456@gmail.com"
-fill getByLabel('Mật khẩu *') "MatKhauMoi@2026"
+fill getByLabel('Địa chỉ email *') "<member-email-from-secret-store>"
+fill getByLabel('Mật khẩu *') "<rotated-password-from-secret-store>"
 click getByRole('button', { name: 'Đăng nhập' })
 wait 3000
 get url
@@ -109,21 +108,30 @@ console --errors
 - Ảnh chụp màn hình đổi thành công: `screenshots/E2E-001-010--change-password-success.jpg`
 - Lệnh lưu bằng chứng: `screenshot --full --path "ppswbs-spec/features/001-account-management/test-results/screenshots/E2E-001-010--change-password-success.jpg"`
 
-## 6. Kết quả thực thi (Execution History)
+## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
 
 <!-- EXECUTION:START -->
-- Latest status: PASS
+- Historical status: PASS
 - Executed at: 2026-11-05 17:22:31
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
 - Failure step: None
 - Actual result:
-  - Ca bất thường (Abnormal): Nhập sai mật khẩu hiện tại ('mat_khau_sai_hoan_toan_999') -> Firebase từ chối re-auth, UI hiển thị lỗi inline 'Mật khẩu hiện tại không chính xác.'. Ô Mật khẩu hiện tại bị xóa trắng, trong khi 2 ô Mật khẩu mới và Xác nhận mật khẩu mới ('MatKhauMoi@2026') được bảo toàn nguyên vẹn trong component state.
-  - Ca chuẩn (Normal): Nhập đúng mật khẩu hiện tại ('123123123') -> Re-auth thành công, cập nhật mật khẩu mới hoàn tất và hiển thị thông báo alert 'Đổi mật khẩu thành công.'.
-  - Đã thực hiện cleanup đổi mật khẩu về lại '123123123' để đảm bảo tính nhất quán môi trường thử nghiệm.
+  - Historical abnormal/normal run đã dùng fixture credential chuyên dụng; mọi password và cleanup value đã redaction.
 - Evidence screenshot:
   - Lỗi re-auth: screenshots/E2E-001-010--change-password-reauth-fail.jpg
   - Đổi thành công: screenshots/E2E-001-010--change-password-success.jpg
 - Bug reference: NONE
+<!-- EXECUTION:END -->
+
+## 7. Revision expected results (2026-11-06 — must re-run)
+
+- **Steps 1–5:** only password-provider account sees this form; wrong-current-password clears only current-password control, keeps new/confirm values only in current component state, and exposes neither value in DOM text, URL, storage, log or evidence.
+- Successful update clears all three controls only after Firebase confirms success and keeps URL `/profile`; no password is ever sent to the Mland backend contract.
+- **Step 6:** logout must use E2E-001-014 behavior: pending/one request, success `replace` to `/` with “Đã đăng xuất”, then login with the rotated dedicated test credential reaches `/`. Cleanup rotates/restores only via the approved test-account procedure.
+
+<!-- EXECUTION:START -->
+- Latest status: NOT_RUN
+- Previous status: PASS on 2026-11-04; logout lifecycle assertions added.
 <!-- EXECUTION:END -->
 

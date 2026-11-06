@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
 import { useFormat } from '../../shared/i18n/I18nProvider';
@@ -155,6 +155,9 @@ const CUSTOMER_REVIEWS = [
 ];
 
 export default function HomePage() {
+  const location = useLocation();
+  const [dismissedNotice, setDismissedNotice] = useState(false);
+  const sessionNotice = (!dismissedNotice && location.state?.sessionNotice) || null;
   const { status } = useAuth();
   const http = useHttp();
   const format = useFormat();
@@ -271,6 +274,43 @@ export default function HomePage() {
       <MainTopbar />
 
       <div className="landing-container" style={{ marginTop: '16px' }}>
+        {sessionNotice && (
+          <div
+            className="landing-session-notice"
+            role="status"
+            aria-live="polite"
+            style={{
+              padding: '0.875rem 1.25rem',
+              backgroundColor: '#fef3c7',
+              border: '1px solid #f59e0b',
+              borderRadius: '8px',
+              color: '#92400e',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              fontWeight: 500,
+            }}
+          >
+            <span>{sessionNotice}</span>
+            <button
+              type="button"
+              onClick={() => setDismissedNotice(true)}
+              aria-label="Đóng thông báo"
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '1.25rem',
+                cursor: 'pointer',
+                color: '#92400e',
+                lineHeight: 1,
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
         {/* ================================================================
             KHỐI 0: MEMBER QUICK-ACTION BAR (KHI ĐÃ ĐĂNG NHẬP)
             ================================================================ */}

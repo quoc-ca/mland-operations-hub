@@ -1,11 +1,11 @@
 # General Spec
 
 **Date created**: 2026-09-29
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-06
 **Author**: Phan Son
 **Last updated by**: Phan Sơn
 
-**Version**: 0.6
+**Version**: 0.7
 **Status**: Working Agreement
 
 > This working agreement summarizes product context and shared design constraints. [Report 2 scope](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/01-scope-purpose.md), [constraints](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/02-assumptions-constraints.md), and [decision evidence](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/07-evidences.md) govern business scope; Report 3 governs detailed requirements. The [constitution](.specify/memory/constitution.md) governs architecture. This update records the group's confirmed technical decisions; it does not reconcile unrelated business-source conflicts or approve feature designs.
@@ -219,7 +219,7 @@ Firebase Authentication ──verified ID token──► Mland account, status a
 * **Decided on 2026-10-24:** separate React + Vite frontend, Java 21/Spring Boot backend, no application SSR, feature-oriented layers, retained Modulith, and hybrid state direction. These are not architecture TBDs; mechanism details belong to the owning feature/shared contract.
 * **Shared identity baseline synchronized on 2026-10-26:** Firebase proves identity only; Account Management is authoritative for Mland account status, fixed role (`MEMBER`, `STAFF`, `MANAGER`, `ADMIN`), and Workshop Location scope. The backend uses one bearer/revocation identity gate and exposes only `CurrentAccountActor` to consuming features; each feature owns its action-capability mapping. The codes `OWNER` and `ADMIN_TECHNICAL` are retired and resolved; no further TBD mapping is open.
 * **Canonical Workshop Location synchronized on 2026-10-27:** `workshopLocationId` is the single shared workshop site/scope identifier. “Branch” is a display label only, not a second entity, identifier, or mapping. This group decision was approved by Hồ Hoàng Quốc (PM); Phan Sơn updated this working agreement.
-* **Deferred synchronization:** existing feature specs/plans/tasks/contracts, APIs.md, design kit, and code may retain old SSR, package, or persona assumptions. Review the affected material before implementation; do not silently rewrite or mark it ready in this update. The [account-management artifacts](features/001-account-management/) are a current design source, not proof of compliance with the amended baseline.
+* **Feature 001 synchronization confirmed on 2026-11-06:** Feature 001 [account-management artifacts](features/001-account-management/) have completed full redesign and baseline synchronization (approved on 2026-11-03 and 2026-11-06 for Revision R-SL session lifecycle). Other downstream feature artifacts, APIs.md, and design kit remain subject to individual feature readiness reviews.
 * **MFA is not required in V1:** Post-V1 MFA design (enforcement, recovery, auditing) is deferred and must not be inferred from this agreement.
 * Which Firebase project hierarchy, billing owner, access roles, secret-management process, and provider approvals will be used for development/staging/production?
 * Will Firebase Auth Emulator or a separate non-production Firebase project be used for authentication integration tests? The production project must not be used for tests.

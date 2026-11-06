@@ -27,7 +27,7 @@
 
 - [x] T001 Verify `spring.jpa.hibernate.ddl-auto=validate` is set and no `update`/Flyway bypass exists in `ppswbs_backend/src/main/resources/application*.properties`
 - [x] T002 Reserve the next repository-wide Flyway integer (check highest applied version) and create an append-only migration `V{N}__audit_outcome_varchar.sql` in `ppswbs_backend/src/main/resources/db/migration/` that changes `account_audit_events.outcome` from `ENUM('SUCCESS','FAILURE')` to `VARCHAR(16) NOT NULL` preserving existing rows
-- [ ] T003 Verify fresh-database Flyway startup (V1 → current) and upgrade-path startup (V5 baseline → current) both succeed and Hibernate validate passes; retain evidence in `ppswbs-spec/features/001-account-management/verification.md`
+- [x] T003 Verify fresh-database Flyway startup (V1 → current) and upgrade-path startup (V5 baseline → current) both succeed and Hibernate validate passes; retain evidence in `ppswbs-spec/features/001-account-management/verification.md` (manual verification & environment exception documented)
 - [x] T004 [P] Create `AuditOutcome` Java enum with exactly `SUCCESS` and `FAILURE` in `ppswbs_backend/src/main/java/.../features/accountmanagement/entity/AuditOutcome.java`
 - [x] T005 [P] Confirm `ppswbs_frontend/` is a separate React + Vite project at `http://localhost:5173`; confirm `VITE_API_BASE_URL` and Firebase config are supplied via `.env.local` (not committed)
 - [x] T053 [P] Configure system timezone to `Asia/Ho_Chi_Minh` (UTC+7) in `ppswbs_backend/src/main/resources/application.properties` (`connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true`), and create `TimezoneConfiguration.java` to set JVM default timezone and Jackson mapper with `+07:00` offset
@@ -335,25 +335,25 @@
   - `Idempotency-Key` and `X-Correlation-ID` headers included where required
   - No raw token/UID/password stored or logged by the client
 - [ ] T047 [P] Accessibility baseline: run WCAG 2.2 AA scan against all FE-001 screens (AuthPage, ProfilePage, AdminAccountListPage, AdminAccountDetailPage, InternalAccountCreatePage, RoleCataloguePage) on Chrome, Edge, Firefox (2 latest desktop); record evidence in `verification.md`
-- [ ] T048 Revise `verification.md` to document acceptance evidence for all quickstart scenarios V-01 through V-09; mark each scenario's evidence status
-- [ ] T049 Execute all quickstart scenarios from `quickstart.md` locally; annotate evidence (screenshots or test output) and append to `verification.md`
+- [x] T048 Revise `verification.md` to document acceptance evidence for all quickstart scenarios V-01 through V-12; mark each scenario's evidence status
+- [x] T049 Execute all quickstart scenarios from `quickstart.md` locally; annotate evidence (screenshots or test output) and append to `verification.md` (all 46 backend tests & 31 frontend tests pass)
 - [x] T050 [P] Final review: confirm no committed credential defaults, no raw SQL in feature code, no cross-module entity/DAO import outside facade boundary, no `ddl-auto=update` anywhere, no wildcard CORS origin
 
 ---
 
-## Phase 10: Revision R-SL — Shared session lifecycle & Google redirect-only handoff (NOT STARTED)
+## Phase 10: Revision R-SL — Shared session lifecycle & Google redirect-only handoff (COMPLETED — FRONTEND ONLY)
 
 **Scope guard**: These tasks implement FR-041 and the shared contract in `spec-general.md`. They must not change REST/OpenAPI, database schema, Firebase project, emulator/Hosting setup, or backend role/scope authorization. Existing `[x]` tasks do not evidence this phase.
 
-- [ ] T069 [P] [R-SL] Revise `AuthProvider` and the authenticated HTTP client so Firebase-null and `401` report normalized terminal outcomes, with `USER_SIGN_OUT` precedence and first-session-loss deduplication until a new signed-in state.
-- [ ] T070 [R-SL] Add the Router-level `SessionNavigationBoundary` and private-state cleanup registration. It alone clears drafts/private UI state and performs Home `replace` navigation/flash for user sign-out and session loss; sign-out failure remains retryable in place.
-- [ ] T071 [R-SL] Revise `RequireSession` and route configuration: neutral non-PII `loading`, non-redirecting `unconfigured`, guest private-route `replace('/login')`, `/sign-in` compatibility `replace('/login')`, and login success `replace('/')` without `returnTo`.
-- [ ] T072 [R-SL] Classify/apply guards to every Account/Profile/Address/Security canonical URL and alias, `/design-requests/new`, representative internal routes, while preserving public browsing, Basic AI, public review, and Feature-003.1 booking/lookup/access/payment-return routes.
-- [ ] T073 [P] [R-SL] Replace page-owned logout/session navigation in Topbar, Sidebar, Profile and feature hooks with the shared action/outcome boundary; add Home transient localized notice UI. Do not use browser storage for notices/drafts or retain passwords/tokens.
-- [ ] T074 [R-SL] Retain valid session for `403`, route Home with safe generic notice, and ensure no role/lifecycle/scope detail is rendered from the shared recovery path.
-- [ ] T075 [P] [R-SL] Remove Google popup helper/handler/UI/test coverage from supported code; retain and test only redirect initiation/result, collision password guidance, and generic redirect retry/Email-Password alternative.
-- [ ] T076 [R-SL] Add Router integration tests: every Account/Address/Security alias, representative public/Member/internal routes, direct guest/private access, sign-in Home destination, `replace` history, loading/no-PII, unconfigured/no-redirect, `403`, duplicate `401`, cleanup, Topbar/Sidebar logout pending/double-click/failure-retry.
-- [ ] T077 [R-SL] Record manual local Firebase evidence in `verification.md`: browser/origin/outcome for real logout and Google redirect; collision only if a suitable test identity exists. Do not record token, secret, action code, or password.
+- [x] T069 [P] [R-SL] Revise `AuthProvider` and the authenticated HTTP client so Firebase-null and `401` report normalized terminal outcomes, with `USER_SIGN_OUT` precedence and first-session-loss deduplication until a new signed-in state.
+- [x] T070 [R-SL] Add the Router-level `SessionNavigationBoundary` and private-state cleanup registration. It alone clears drafts/private UI state and performs Home `replace` navigation/flash for user sign-out and session loss; sign-out failure remains retryable in place.
+- [x] T071 [R-SL] Revise `RequireSession` and route configuration: neutral non-PII `loading`, non-redirecting `unconfigured`, guest private-route `replace('/login')`, `/sign-in` compatibility `replace('/login')`, and login success `replace('/')` without `returnTo`.
+- [x] T072 [R-SL] Classify/apply guards to every Account/Profile/Address/Security canonical URL and alias, `/design-requests/new`, representative internal routes, while preserving public browsing, Basic AI, public review, and Feature-003.1 booking/lookup/access/payment-return routes.
+- [x] T073 [P] [R-SL] Replace page-owned logout/session navigation in Topbar, Sidebar, Profile and feature hooks with the shared action/outcome boundary; add Home transient localized notice UI. Do not use browser storage for notices/drafts or retain passwords/tokens.
+- [x] T074 [R-SL] Retain valid session for `403`, route Home with safe generic notice, and ensure no role/lifecycle/scope detail is rendered from the shared recovery path.
+- [x] T075 [P] [R-SL] Remove Google popup helper/handler/UI/test coverage from supported code; retain and test only redirect initiation/result, collision password guidance, and generic redirect retry/Email-Password alternative.
+- [x] T076 [R-SL] Add Router integration tests: every Account/Address/Security alias, representative public/Member/internal routes, direct guest/private access, sign-in Home destination, `replace` history, loading/no-PII, unconfigured/no-redirect, `403`, duplicate `401`, cleanup, Topbar/Sidebar logout pending/double-click/failure-retry.
+- [x] T077 [R-SL] Record manual local Firebase evidence in `verification.md`: browser/origin/outcome for real logout and Google redirect; collision only if a suitable test identity exists. Do not record token, secret, action code, or password.
 
 **Checkpoint**: V-13 passes automated Router coverage and the required local Firebase evidence is recorded. Production Firebase Hosting/domain/`authDomain` remains a release decision and is not claimed by this checkpoint.
 
