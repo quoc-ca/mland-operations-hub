@@ -41,7 +41,9 @@ public final class OtaMigrationTestSupport implements AutoCloseable {
         if (blank(url) && blank(user) && blank(password)) {
             return Optional.empty();
         }
-        if (blank(url) || blank(user) || password == null) {
+        // Windows drops an empty environment variable, so a missing password means an empty one when URL and user are set.
+        if (password == null) password = "";
+        if (blank(url) || blank(user)) {
             throw new IllegalStateException("Set WORKSHOP_OTA_TEST_JDBC_URL, WORKSHOP_OTA_TEST_JDBC_USER and "
                     + "WORKSHOP_OTA_TEST_JDBC_PASSWORD together");
         }

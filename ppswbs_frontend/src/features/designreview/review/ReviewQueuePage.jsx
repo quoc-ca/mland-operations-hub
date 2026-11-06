@@ -14,6 +14,8 @@ export default function ReviewQueuePage() {
     []
   );
 
+  const items = Array.isArray(data) ? data : (data?.items || []);
+
   return (
     <div className="design-container">
       <header className="page-header">
@@ -24,13 +26,13 @@ export default function ReviewQueuePage() {
       {loading && <Loading />}
       <ErrorNotice error={error} messages={designReviewMessages} onReload={reload} />
 
-      {!loading && !error && (!data || data.length === 0) && (
+      {!loading && !error && items.length === 0 && (
         <div className="empty-state" role="status">
           <p>{t('queue.empty')}</p>
         </div>
       )}
 
-      {!loading && !error && data && data.length > 0 && (
+      {!loading && !error && items.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
           <table className="table-queue">
             <thead>
@@ -44,7 +46,7 @@ export default function ReviewQueuePage() {
               </tr>
             </thead>
             <tbody>
-              {data.map(item => (
+              {items.map(item => (
                 <tr key={item.id}>
                   <td><code>{item.id}</code></td>
                   <td>{item.requestReference || '—'}</td>

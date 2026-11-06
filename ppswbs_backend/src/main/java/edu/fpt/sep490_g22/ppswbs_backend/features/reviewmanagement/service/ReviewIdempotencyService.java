@@ -45,6 +45,11 @@ public class ReviewIdempotencyService {
     }
 
     public <T> Optional<T> findCompletedResponse(String idempotencyKey, String actorScope, Class<T> responseClass) {
+        return findCompletedResponse(idempotencyKey, actorScope, null, responseClass);
+    }
+
+    public <T> Optional<T> findCompletedResponse(String idempotencyKey, String actorScope,
+                                                 String requestHash, Class<T> responseClass) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             return Optional.empty();
         }
@@ -53,6 +58,10 @@ public class ReviewIdempotencyService {
             ReviewIdempotencyRecord record = opt.get();
             if (record.isExpired()) {
                 return Optional.empty();
+            }
+            if (requestHash != null && !requestHash.equals(record.getRequestHash())) {
+                throw ReviewManagementException.conflict("REVIEW_IDEMPOTENCY_CONFLICT",
+                        "Idempotency-Key đã được dùng cho payload khác.");
             }
             if (STATUS_IN_PROGRESS.equalsIgnoreCase(record.getStatus())) {
                 throw ReviewManagementException.conflict("REVIEW_IDEMPOTENCY_CONFLICT", "Yêu cầu với Idempotency Key này đang được xử lý đồng thời.");
@@ -83,7 +92,12 @@ public class ReviewIdempotencyService {
                 .createdAt(Instant.now())
                 .expiresAt(Instant.now().plus(24, ChronoUnit.HOURS))
                 .build();
-        repository.save(record);
+        try {
+            repository.save(record);
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            throw ReviewManagementException.conflict("REVIEW_IDEMPOTENCY_CONFLICT",
+                    "Yêu cầu cùng Idempotency-Key đang được xử lý.");
+        }
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

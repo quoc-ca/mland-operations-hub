@@ -5,8 +5,8 @@ This is a verification inventory. It is not evidence that the feature is impleme
 | ID | Scenario | Expected result |
 | --- | --- | --- |
 | QS-01 | Guest asks a public Basic AI question | Safe response; no business mutation. |
-| QS-02 | Guest submits an independent Design Request before Guest policy is approved | Typed policy response; no request or image is stored. |
-| QS-03 | Approved Member submits a description-only request when text-only is enabled | Independent versioned request; no booking data. |
+| QS-02 | Guest attempts an independent Design Request | Access denied; no request or image is stored. |
+| QS-03 | Member submits a description-only request | Independent versioned request; no booking data. |
 | QS-04 | Member submits an image without consent | `CONSENT_REQUIRED`; no storage/provider call. |
 | QS-05 | Member submits an invalid image | Typed image error; no provider call; no permanent retention. |
 | QS-06 | Fourth image attempt within five minutes | `429 IMAGE_RATE_LIMITED`, `Retry-After`; no storage/provider/request creation. |
@@ -15,8 +15,8 @@ This is a verification inventory. It is not evidence that the feature is impleme
 | QS-09 | Request owner reads own result | Safe projection only; no raw payload or image. |
 | QS-10 | Other owner reads or mutates request | Denied without resource enumeration. |
 | QS-11 | Staff/Manager reviews according to approved policy | Decision and reason recorded atomically. |
-| QS-12 | Material revision is submitted | New request version; previous decision is not reused. |
-| QS-13 | Owner withdraws when policy allows | Request becomes withdrawn; no booking/payment mutation. |
+| QS-12 | Backend returns a clarification or stale-version state | Safe state is shown; the frontend preserves input and does not invent a revision endpoint. |
+| QS-13 | Member attempts a cross-owner read or mutation | Denied without resource enumeration. |
 | QS-14 | Manager requests price suggestion | Advisory result only; catalogue price remains unchanged until separate workflow. |
 | QS-15 | Admin views technical evidence | No commercial price/explanation unless explicitly authorized. |
 | QS-16 | Feature-04 action is traced for booking side effects | No booking, capacity, payment, ticket or custom-order call/state change. |

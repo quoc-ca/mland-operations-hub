@@ -55,8 +55,11 @@ public class WorkshopBookingQuoteService {
         BigInteger gross = BigInteger.valueOf(pkg.publicPerParticipantPrice())
                 .multiply(BigInteger.valueOf(request.participantCount()));
         var selected = request.benefitSelection();
+        String voucherCode = selected.choice() == WorkshopBookingQuoteRequest.BenefitSelectionRequest.Choice.VOUCHER
+                ? (selected.voucherCode() == null || selected.voucherCode().isBlank() ? null : selected.voucherCode().trim())
+                : null;
         BenefitSelection selection = new BenefitSelection(
-                SelectionChoice.valueOf(selected.choice().name()), selected.voucherCode(), new BigInteger(selected.requestedPoints()));
+                SelectionChoice.valueOf(selected.choice().name()), voucherCode, new BigInteger(selected.requestedPoints()));
         WorkshopFact facts = new WorkshopFact(request.packageId(), request.participantCount(), gross, sessionFacts);
         BenefitPreview preview = loyalty.previewBenefits(
                 new TrustedSourceContext(SourceKind.WORKSHOP, member.accountId(), Instant.now(), List.of(), facts, BigInteger.ZERO),
@@ -77,7 +80,8 @@ public class WorkshopBookingQuoteService {
         long deposit = Math.floorDiv(post, 2) + (post % 2);
         return new WorkshopBookingQuoteResponse(quoteRef, quote.getExpiresAt(), str(quote.getGrossAmount()), str(quote.getProgramDiscount()),
                 str(quote.getPointsUsed()), str(exact(preview.maxPoints())), str(quote.getPointDiscount()), str(post), str(deposit), str(post - deposit),
-                str(quote.getEarnBase()), quote.getTermsDigest(), preview.reasons());
+                str(quote.getEarnBase()), quote.getTermsDigest(), preview.reasons(),
+                QuoteReasonTranslator.translate(preview.reasons()));
     }
 
     private String write(Object value) {

@@ -7,6 +7,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailI
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailNotFoundException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailUnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -17,6 +19,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.UUID;
 
+/**
+ * Feature-scoped advice for readyringsales.
+ *
+ * <p>{@code AccountExceptionHandler} is a catch-all advice registered for the whole application and it
+ * handles {@link Exception}, so it would otherwise swallow retail failures and turn a typed conflict into
+ * a generic 500. The explicit {@link Order} keeps the more specific retail advice ahead of it; the
+ * {@code basePackages} restriction keeps every other feature on its own handler.
+ */
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackages = "edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales")
 public class RetailExceptionHandler {
 

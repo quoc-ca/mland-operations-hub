@@ -263,28 +263,35 @@ OpenAPI contract (or an integration contract for a non-HTTP boundary). That
 contract must define exact schemas, validation, authorization, success/error
 statuses, audit impact, and relevant idempotency/concurrency behaviour.
 
-## 7. Review Management (`reviewmanagement`) — proposed Feature-011
+## 7. Review Management (`reviewmanagement`) — approved Feature-011 contract
 
 Feature-011 owns review content and audit. It verifies source eligibility through
 `workshopbooking` and `readyringsales` facades; it must not access their
 repositories directly. The draft contract is
-`features/011-review-management/contracts/review-management.openapi.yaml`.
+`features/011-review-management/contracts/review-management.openapi.yaml`. The
+contract is version `1.0.0`; `Idempotency-Key` is required on every write
+command, and `If-Match-Version` is required on review edit, visibility change
+and reply edit.
 
 | Boundary | Method and route | Access | Purpose | Maturity |
 | --- | --- | --- | --- | --- |
-| `reviewmanagement` | `POST /api/v1/review-eligibility/lookup` | Guest email/phone match | Normalize contact, verify eligible sources through Workshop Operations/Fulfilment facades, and return sources plus an opaque eligibility handle. | Draft |
-| `reviewmanagement` | `GET /api/v1/reviews/eligible-sources` | Authenticated Member | Return the Member’s own eligible sources. | Draft |
-| `reviewmanagement` | `POST /api/v1/reviews` | Matched Guest with valid handle or owning Member with Firebase identity | Revalidate source/target ownership, then create one `PUBLIC` review with idempotency and source uniqueness. | Draft |
-| `reviewmanagement` | `GET /api/v1/reviews`, `GET /api/v1/reviews/{id}` | Public/authorized owner | Read public review projection and public-only aggregate. | Draft |
-| `reviewmanagement` | `PATCH /api/v1/reviews/{id}` | Review owner | Edit rating/text while retaining `PUBLIC`; append revision/audit. | Draft |
-| `reviewmanagement` | `PATCH /api/v1/reviews/{id}/visibility` | Staff/Manager | Staff hides; Manager hides/removes according to permission and audit rules. | Draft |
-| `reviewmanagement` | `GET /api/v1/review-moderation` | Staff/Manager | Read moderation projection within the feature’s permission boundary. | Draft |
-| `reviewmanagement` | `POST/PATCH /api/v1/reviews/{id}/reply` | Manager | Create/edit the single current reply; audit edits. | Draft |
+| `reviewmanagement` | `POST /api/v1/review-eligibility/lookup` | Guest email/phone match | Normalize contact, verify eligible workshop and retail sources through facades, and return sources plus a 30-minute opaque handle. | Approved |
+| `reviewmanagement` | `GET /api/v1/reviews/eligible-sources` | Authenticated Member | Return the Member’s own eligible sources. | Approved |
+| `reviewmanagement` | `POST /api/v1/reviews` | Matched Guest with valid handle or owning Member with Firebase identity | Revalidate source/target ownership, then create one `PUBLIC` review with idempotency and source uniqueness. | Approved |
+| `reviewmanagement` | `GET /api/v1/reviews`, `GET /api/v1/reviews/{id}` | Public/authorized Member owner | Read safe public projection; an authenticated owner may receive the owner projection. | Approved |
+| `reviewmanagement` | `PATCH /api/v1/reviews/{id}` | Review owner | Edit rating/text while retaining `PUBLIC`; append revision/audit. | Approved |
+| `reviewmanagement` | `PATCH /api/v1/reviews/{id}/visibility` | Staff/Manager | Staff may only hide; Manager may hide, restore or remove according to transition and audit rules. | Approved |
+| `reviewmanagement` | `GET /api/v1/review-moderation` | Staff/Manager | Read moderation projection within the feature’s permission boundary. | Approved |
+| `reviewmanagement` | `POST/PATCH /api/v1/reviews/{id}/reply` | Manager | Create/edit the single current reply; audit edits. | Approved |
 
 Admin has technical/audit access only and no business moderation authority. No
 endpoint imports or writes Google Places reviews. Guest create requires the
 opaque handle returned by lookup; a raw source identifier is insufficient.
-Exact fields, errors and statuses remain subject to contract ratification.
+Public responses exclude source identifiers, owner references, contact data and
+transaction data. Admin has no business moderation or reply endpoint; technical
+audit access is provided only through the platform audit boundary when enabled.
+Business eligibility failures use `422`, authorization failures use `401/403`,
+duplicate or stale commands use `409`, and field/schema failures use `400`.
 
 ### 7.1 Internal dependency contracts
 

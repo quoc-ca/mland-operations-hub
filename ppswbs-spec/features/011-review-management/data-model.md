@@ -1,7 +1,7 @@
 # Feature-011 Data Model
 
 Date created: 2026-11-03  
-Date updated: 2026-11-03  
+Date updated: 2026-11-05
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt
 
@@ -82,9 +82,10 @@ as an alternate source of truth.
 
 ## Migration gate
 
-The merged repository contains `develop` migrations through `V90`, while the
-Feature-011 migration is allocated as `V91`. Before applying it, re-scan the
-repository and `flyway_schema_history`, verify that `V91` is unused, and test
-clean install, upgrade, rerun and recovery behavior. Do not use
+Feature-011 review tables are created by `V91__review_management.sql` and the
+retention correction is appended in `V100__review_history_retention.sql`; `V92`–`V99` remain owned by their respective features.
+is owned by the workshop package migration. Before applying either migration,
+re-scan the repository and `flyway_schema_history`, verify the versions and
+checksums, and test clean install, upgrade, rerun and recovery behavior. Do not use
 `baseline`, `outOfOrder`, ignore patterns or checksum repair to conceal a
 duplicate version.

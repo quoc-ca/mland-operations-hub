@@ -10,6 +10,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.Sett
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementNotificationHandoff;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementNotificationHandoffRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementAddonBillRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementAddonPaymentAttemptRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementAddonBill;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.CancellationHandoffOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.OpenCancellationHandoffCommand;
@@ -42,6 +43,7 @@ public class WorkshopSettlementFacadeImpl implements WorkshopSettlementFacade {
     private final FinalPaymentService finalPaymentService;
     private final SettlementNotificationHandoffRepository notificationHandoffs;
     @Autowired private SettlementAddonBillRepository addonBills;
+    @Autowired(required = false) private SettlementAddonPaymentAttemptRepository addonAttempts;
 
     @Override
     @Transactional
@@ -75,6 +77,7 @@ public class WorkshopSettlementFacadeImpl implements WorkshopSettlementFacade {
                 .customerConsentReference(command.customerConsentReference().trim())
                 .staffActorReference(command.staffActorReference().trim())
                 .locationId(command.locationId())
+                .mlandBookingReference(blank(command.mlandBookingReference()) ? null : command.mlandBookingReference().trim())
                 .lifecycleStatus("OPEN")
                 .build();
         try {
@@ -85,6 +88,31 @@ public class WorkshopSettlementFacadeImpl implements WorkshopSettlementFacade {
                     .map(value -> DirectShopAddonBillOutcome.success(value.getBillReference()))
                     .orElseGet(() -> DirectShopAddonBillOutcome.rejected("CONCURRENT_CREATE", "retry with the same quote"));
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<OtaAddonBillSummary> findOtaAddonBill(String billReference) {
+        if (blank(billReference) || addonBills == null) return java.util.Optional.empty();
+        return addonBills.findByBillReference(billReference.trim()).map(bill -> {
+            var latestAttempt = addonAttempts != null
+                    ? addonAttempts.findFirstByBillReferenceOrderByCreatedAtDescIdDesc(bill.getBillReference()).orElse(null)
+                    : null;
+            String paymentUrl = (latestAttempt != null && "PENDING".equals(latestAttempt.getLifecycleStatus())
+                    && latestAttempt.getExpiresAt().isAfter(Instant.now()))
+                    ? latestAttempt.getPaymentUrlSnapshot() : null;
+            return new OtaAddonBillSummary(
+                    bill.getBillReference(),
+                    bill.getChannelBookingReference(),
+                    bill.getQuoteReference(),
+                    bill.getItemCode(),
+                    bill.getItemDescription(),
+                    bill.getAmountMinor(),
+                    bill.getCurrencyCode(),
+                    bill.getLifecycleStatus(),
+                    bill.getLocationId(),
+                    paymentUrl);
+        });
     }
 
     private static boolean blank(String value) { return value == null || value.isBlank(); }

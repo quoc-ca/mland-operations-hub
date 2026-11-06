@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Review Management API
-  version: 0.1.0-draft
-  description: Proposed contract for Feature-011. It becomes an implementation baseline only after synchronization with ppswbs-spec/APIs.md.
-  x-status: draft
+  version: 1.0.0
+  description: Approved backend contract for Feature-011, synchronized with ppswbs-spec/APIs.md.
+  x-status: approved
 servers:
   - url: /api/v1
 security:
@@ -38,7 +38,7 @@ paths:
   /reviews:
     post:
       summary: Create one public review for an eligible source
-      description: Member calls with Firebase identity. Guest calls only with a server-issued eligibility proof from the lookup flow; the proof field, lifetime and replay policy are TBD and must be ratified before implementation.
+      description: Member calls with Firebase identity. Guest calls with the opaque eligibility handle returned by lookup. The handle is valid for 30 minutes, is bound to its source set and is revalidated at create time.
       security: [{}]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -60,6 +60,7 @@ paths:
       parameters:
         - { name: targetType, in: query, schema: { $ref: '#/components/schemas/TargetType' } }
         - { name: targetReference, in: query, schema: { type: string, maxLength: 128 } }
+        - { name: packageId, in: query, description: Only the reviews of this workshop package (every session of it), schema: { type: integer, format: int64 } }
         - { name: rating, in: query, schema: { type: integer, minimum: 1, maximum: 5 } }
         - { name: cursor, in: query, schema: { type: string } }
       responses:
@@ -68,7 +69,7 @@ paths:
           content: { application/json: { schema: { $ref: '#/components/schemas/PublicReviewPage' } } }
   /reviews/{reviewId}:
     get:
-      summary: Get a public review or an authorized owner view
+      summary: Get a public review or an authorized Member-owner projection
       security: []
       parameters: [{ $ref: '#/components/parameters/ReviewId' }]
       responses:
@@ -76,19 +77,23 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       summary: Edit the authenticated owner review while keeping PUBLIC
+      security: [{}]
       parameters:
         - $ref: '#/components/parameters/ReviewId'
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/IfMatchVersion'
+        - $ref: '#/components/parameters/GuestEligibilityHandle'
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/EditReview' } } }
       responses:
         '200': { description: Updated public review, content: { application/json: { schema: { $ref: '#/components/schemas/Review' } } } }
         '400': { $ref: '#/components/responses/InputInvalid' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/SourceNotEligible' }
   /reviews/{reviewId}/visibility:
     patch:
       summary: Staff/Manager moderation visibility action
@@ -101,7 +106,10 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/VisibilityCommand' } } }
       responses:
         '200': { description: Updated review, content: { application/json: { schema: { $ref: '#/components/schemas/Review' } } } }
+        '400': { $ref: '#/components/responses/InputInvalid' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
   /review-moderation:
     get:
@@ -116,7 +124,10 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReplyCommand' } } } }
       responses:
         '201': { description: Reply created, content: { application/json: { schema: { $ref: '#/components/schemas/Reply' } } } }
+        '400': { $ref: '#/components/responses/InputInvalid' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
     patch:
       summary: Manager edits the current reply
@@ -124,7 +135,10 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReplyCommand' } } } }
       responses:
         '200': { description: Reply updated, content: { application/json: { schema: { $ref: '#/components/schemas/Reply' } } } }
+        '400': { $ref: '#/components/responses/InputInvalid' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 components:
   securitySchemes:
@@ -132,7 +146,8 @@ components:
   parameters:
     ReviewId: { name: reviewId, in: path, required: true, schema: { type: string, minLength: 1 } }
     IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 16, maxLength: 128 } }
-    IfMatchVersion: { name: If-Match-Version, in: header, required: false, schema: { type: integer, minimum: 0 } }
+    IfMatchVersion: { name: If-Match-Version, in: header, required: true, schema: { type: integer, minimum: 0 } }
+    GuestEligibilityHandle: { name: Guest-Eligibility-Handle, in: header, required: false, schema: { type: string, minLength: 32, maxLength: 128 } }
   schemas:
     GuestEligibilityLookup:
       type: object
@@ -171,6 +186,11 @@ components:
         targetReference: { type: string, maxLength: 128 }
         rating: { type: integer, minimum: 1, maximum: 5 }
         bodyText: { type: string, maxLength: 2000, nullable: true }
+        anonymous:
+          type: boolean
+          nullable: true
+          default: false
+          description: When true the review is shown publicly as anonymous instead of by the partly masked account name. Chosen at creation and not changed by an edit. The account number is never shown.
         guestEligibilityHandle:
           type: string
           nullable: true
@@ -192,6 +212,8 @@ components:
         bodyText: { type: string, nullable: true }
         status: { type: string, enum: [PUBLIC, HIDDEN, REMOVED] }
         maskedDisplayName: { type: string }
+        packageId: { type: integer, format: int64, nullable: true, description: Workshop package of the attended booking (null for a retail review). }
+        packageName: { type: string, nullable: true, description: Name of that package when the review was written; shown so a review says which package it is about. }
         reply: { $ref: '#/components/schemas/Reply' }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -237,7 +259,7 @@ components:
       properties:
         code:
           type: string
-          enum: [REVIEW_INPUT_INVALID, REVIEW_SOURCE_NOT_ELIGIBLE, REVIEW_GUEST_HANDLE_INVALID, REVIEW_GUEST_HANDLE_EXPIRED, REVIEW_NOT_AUTHORIZED, REVIEW_NOT_FOUND, REVIEW_ALREADY_EXISTS, REVIEW_TARGET_MISMATCH, REVIEW_IDEMPOTENCY_CONFLICT, REVIEW_STATE_CONFLICT, REVIEW_REPLY_CONFLICT]
+          enum: [REVIEW_INPUT_INVALID, REVIEW_SOURCE_NOT_ELIGIBLE, REVIEW_GUEST_HANDLE_INVALID, REVIEW_GUEST_HANDLE_EXPIRED, REVIEW_NOT_AUTHORIZED, REVIEW_NOT_FOUND, REVIEW_ALREADY_EXISTS, REVIEW_TARGET_MISMATCH, REVIEW_IDEMPOTENCY_CONFLICT, REVIEW_STATE_CONFLICT, REVIEW_REPLY_CONFLICT, REVIEW_REPLY_ALREADY_EXISTS, REVIEW_MODERATION_ACTION_NOT_ALLOWED]
         message: { type: string }
         correlationId: { type: string }
   responses:

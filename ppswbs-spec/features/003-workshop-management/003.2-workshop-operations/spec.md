@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-02
+**Date updated**: 2026-11-06
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -29,9 +29,10 @@ where they conflict with the following V1 decisions:
   consumes canonical role, account status and active location IDs; it does not
   call a capability decision method and does not use
   `workshop.checkin.override`.
-- An active `STAFF` may operate any session whose canonical `locationId` is in
-  the actor's `activeLocationIds`. A session-level Staff assignment is not an
-  authorization prerequisite.
+- An active `STAFF` may operate a session whose canonical `locationId` is in
+  the actor's `activeLocationIds`. *(Superseded 2026-11-06: a Staff member must
+  also be actively assigned to the session; see "Staff session-assignment
+  access" below.)*
 - An active `MANAGER` has global Workshop Operations authority across all
   locations and sessions. No location-scope, session-assignment or
   operational-lead check is required for Manager authority.
@@ -61,6 +62,44 @@ Any older paragraph, example or scenario that requires a Staff assignment,
 Manager operational lead, capability key or manual scheduled start is legacy
 wording and must be read through this amendment until the affected section is
 rewritten.
+
+## Staff session-assignment access (owner decision, 2026-11-06)
+
+This amendment supersedes the 2026-10-28 rule that a session-level Staff
+assignment is not an authorization prerequisite, and every older statement of
+the form "an active Staff whose location scope contains the session location
+may …" (check-in, booking lookup, ticket resend, check-in override, attendance
+finalization, state transition, session read). Read each of them as "an active
+Staff whose location scope contains the session location **and who is actively
+assigned to that session** may …".
+
+- **Visibility**: the session list returned to a Staff member contains only the
+  sessions they are actively assigned to. Opening a session, its attendance
+  roster or any session operation for an unassigned session is refused with
+  `403` (`Staff member is not assigned to this workshop session`). Manager and
+  Admin remain global and see and operate every session in scope.
+- **Both checks are made at command time**: active account status, the session
+  location inside the actor's `activeLocationIds`, and an active assignment
+  (`session_staff_assignments.active = true`). Revoking an assignment removes
+  the Staff member's access immediately; assignment history remains.
+- **Only a Manager assigns or revokes Staff** for a session. Several Staff may
+  be assigned to one session; the session response carries
+  `assignedStaffAccountIds`.
+- **Publication and start do not require an assignment** (FR-010b is
+  unchanged). A session without an assigned Staff is visible and operable by
+  Managers only until a Manager assigns someone.
+- **Attendance roster**: `GET /workshop-sessions/{sessionId}/attendance-roster`
+  lists the session's valid tickets with their check-in state
+  (`NOT_CHECKED_IN`, `CHECKED_IN`, `NO_SHOW`), the booking reference and the
+  check-in time, and no customer contact data. Same authority as booking
+  lookup.
+- **Attendance finalization** is only the dedicated
+  `attendance-finalizations` action; a plain state transition to
+  `ATTENDANCE_FINALIZED` is refused because it would skip marking unchecked
+  tickets `NO_SHOW` and recording the finalization time.
+- **Downstream**: Settlement (003.3) and the OTA shop add-on (003.4) apply the
+  same rule through the booking: a Staff member may act on a booking only while
+  assigned to a session the booking holds a valid ticket for.
 
 ## Scope
 
@@ -274,10 +313,13 @@ perform refunds or connect directly to external OTAs.
   `ATTENDANCE_FINALIZED`. It is false while any required session is not
   finalized, including when it is cancelled. The result includes no individual
   attendance, ticket, Staff, audit or PII detail; 003.3 must not infer it from
-  scheduled end time or calculate it from per-session states. It also reports
-  whether the 24-hour attendance-correction window has closed and whether any
-  required ticket is `NO_SHOW`; Settlement emits a terminal Loyalty outcome
-  only after the correction window closes.
+  scheduled end time or calculate it from per-session states. **Superseded
+  2026-11-05 (D2/D3/D6):** readiness carries only `ready`; the terminal
+  attendance outcome (24-hour correction window closed, `ATTENDED`/`NO_SHOW`/
+  `PARTIAL`) is exposed by `BookingAttendanceOutcomeQuery` (FR-014).
+  Settlement emits a terminal Loyalty outcome only after the correction window
+  closes; a `PARTIAL` booking (some tickets `NO_SHOW`) still earns points, and
+  only a full `NO_SHOW` blocks earn.
 - Q: May a Manager replace a booking's required session with a target session
   that is `SALES_PAUSED`? → A: No. Every replacement target must be future,
   `PUBLISHED`, customer-selectable and have capacity for the booking's complete
@@ -336,7 +378,7 @@ perform refunds or connect directly to external OTAs.
   “Silverclay” examples are superseded for new catalogue configuration.
 - Q: How does Operations enforce Wax Casting's two-session spacing? → A: The
   two distinct, chronological sessions must use the same location and have
-  exactly two foundry-working local dates strictly between their dates.
+  at least two foundry-working local dates strictly between their dates.
   Monday–Friday are foundry-working dates; Saturday and Sunday are skipped.
   Session time/slot is irrelevant, so Monday's final slot followed by Thursday's
   first slot is valid. This is not the legacy same-day slot-gap rule.
@@ -773,7 +815,7 @@ correction, with before/after audit evidence.
   `requiredFoundryWorkingDaysBetweenSessions` rules. The four Signature/Silver
   Clay catalogue offers use one selected session and a foundry-working-day value
   of `0`; Wax Casting uses two and a value of `2`. Operations must count
-  exactly two Monday–Friday local dates strictly between Wax Casting sessions,
+  at least two Monday–Friday local dates strictly between Wax Casting sessions,
   excluding Saturday/Sunday; `minimumSameDaySlotGap` never satisfies that rule.
   003.1 MUST NOT
   access Operations entities or repositories, mutate package
@@ -1133,6 +1175,20 @@ correction, with before/after audit evidence.
   inventory route is read-only and MUST NOT be used as a second create/update
   contract. Frontend code MUST NOT fabricate missing lifecycle states when the
   management API returns an empty result.
+- **FR-014**: For the direct-booking open folio (owner decisions D2/D3,
+  2026-11-05, see `../contracts/workshop-interfeature-facades.md`), this
+  feature MUST publish a reference-only post-commit
+  `BookingAttendanceFinalizedEvent(bookingReference, finalizedAt)` once per
+  booking when its booking-wide attendance becomes terminal, and MUST expose
+  `BookingAttendanceOutcomeQuery(bookingReference)` returning `terminal` and
+  `outcome` (`ATTENDED`, `NO_SHOW`, `PARTIAL`). `terminal` is true only when
+  every required session is `ATTENDANCE_FINALIZED` **and** the 24-hour Manager
+  attendance-correction window for the booking has closed; the event is
+  published at that point, not at each session finalization, so no later
+  correction can change the outcome. `NO_SHOW` only when every ticket on every
+  required session is a final `NO_SHOW`. The event and query carry no ticket,
+  participant or PII payload and never decide a financial outcome; Settlement
+  (003.3) owns folio closure.
 
 ## Success Criteria
 

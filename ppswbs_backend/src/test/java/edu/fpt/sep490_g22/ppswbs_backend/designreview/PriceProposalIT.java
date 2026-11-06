@@ -85,7 +85,7 @@ public class PriceProposalIT {
                                   "rawMaterialCost": 350000
                                 }
                                 """))
-                .andExpect(status().isOk())
+                .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.proposalId").value(proposalId))
                 .andExpect(jsonPath("$.advisory").value(true))
                 .andExpect(jsonPath("$.suggestionStatus").value("SUCCEEDED"))
@@ -150,7 +150,7 @@ public class PriceProposalIT {
         mockMvc.perform(post("/api/v1/price-proposals/" + proposalId + "/ai-suggestions")
                         .param("targetType", "WORKSHOP_PACKAGE")
                         .header("Authorization", "Bearer token-manager-pricing"))
-                .andExpect(status().isOk());
+                .andExpect(status().isAccepted());
 
         // 2. View suggestion as Manager
         mockMvc.perform(get("/api/v1/price-proposals/" + proposalId + "/ai-suggestions")
@@ -170,7 +170,7 @@ public class PriceProposalIT {
         mockMvc.perform(post("/api/v1/price-proposals/" + proposalId + "/ai-suggestions")
                         .param("targetType", "WORKSHOP_PACKAGE")
                         .header("Authorization", "Bearer token-manager-pricing"))
-                .andExpect(status().isOk());
+                .andExpect(status().isAccepted());
 
         // 2. Admin views suggestion (Technical/Audit evidence only: no prices or commercial explanations)
         mockMvc.perform(get("/api/v1/price-proposals/" + proposalId + "/ai-suggestions")
@@ -194,7 +194,7 @@ public class PriceProposalIT {
         mockMvc.perform(post("/api/v1/price-proposals/" + proposalId + "/ai-suggestions")
                         .param("targetType", "WORKSHOP_PACKAGE")
                         .header("Authorization", "Bearer token-manager-pricing"))
-                .andExpect(status().isOk());
+                .andExpect(status().isAccepted());
 
         mockMvc.perform(get("/api/v1/price-proposals/" + proposalId + "/ai-suggestions")
                         .header("Authorization", "Bearer token-staff-pricing"))
@@ -208,7 +208,7 @@ public class PriceProposalIT {
         mockMvc.perform(post("/api/v1/price-proposals/" + proposalId + "/ai-suggestions")
                         .param("targetType", "WORKSHOP_PACKAGE")
                         .header("Authorization", "Bearer token-manager-pricing"))
-                .andExpect(status().isOk());
+                .andExpect(status().isAccepted());
 
         mockMvc.perform(get("/api/v1/price-proposals/" + proposalId + "/ai-suggestions")
                         .header("Authorization", "Bearer token-member-pricing"))
@@ -231,7 +231,7 @@ public class PriceProposalIT {
         mockMvc.perform(post("/api/v1/price-proposals/" + proposalId + "/ai-suggestions")
                         .param("targetType", "WORKSHOP_PACKAGE")
                         .header("Authorization", "Bearer token-manager-pricing"))
-                .andExpect(status().isOk());
+                .andExpect(status().isAccepted());
 
         // 2. Manager accepts suggestion
         mockMvc.perform(post("/api/v1/price-proposals/" + proposalId + "/ai-suggestions/decisions")
@@ -257,7 +257,7 @@ public class PriceProposalIT {
         mockMvc.perform(post("/api/v1/price-proposals/" + proposalId + "/ai-suggestions")
                         .param("targetType", "WORKSHOP_PACKAGE")
                         .header("Authorization", "Bearer token-manager-pricing"))
-                .andExpect(status().isOk());
+                .andExpect(status().isAccepted());
 
         // 2. Manager adjusts price to 950000
         mockMvc.perform(post("/api/v1/price-proposals/" + proposalId + "/ai-suggestions/decisions")
@@ -283,7 +283,7 @@ public class PriceProposalIT {
         mockMvc.perform(post("/api/v1/price-proposals/" + proposalId + "/ai-suggestions")
                         .param("targetType", "WORKSHOP_PACKAGE")
                         .header("Authorization", "Bearer token-manager-pricing"))
-                .andExpect(status().isOk());
+                .andExpect(status().isAccepted());
 
         // 2. Manager rejects suggestion
         mockMvc.perform(post("/api/v1/price-proposals/" + proposalId + "/ai-suggestions/decisions")
@@ -307,7 +307,7 @@ public class PriceProposalIT {
         mockMvc.perform(post("/api/v1/price-proposals/" + proposalId + "/ai-suggestions")
                         .param("targetType", "WORKSHOP_PACKAGE")
                         .header("Authorization", "Bearer token-manager-pricing"))
-                .andExpect(status().isOk());
+                .andExpect(status().isAccepted());
 
         // Admin attempts decision
         mockMvc.perform(post("/api/v1/price-proposals/" + proposalId + "/ai-suggestions/decisions")

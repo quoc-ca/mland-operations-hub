@@ -20,7 +20,9 @@ class RetailCheckoutQuotePreviewServiceTest {
     private final RetailCheckoutQuoteRepository quotes = mock(RetailCheckoutQuoteRepository.class);
     private final CatalogueSalesFacade catalogue = mock(CatalogueSalesFacade.class);
     private final LoyaltyFacade loyalty = mock(LoyaltyFacade.class);
-    private final RetailCheckoutQuotePreviewService service = new RetailCheckoutQuotePreviewService(carts, quotes, catalogue, loyalty);
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailShippingQuotePort shippingQuotes =
+        mock(edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailShippingQuotePort.class);
+    private final RetailCheckoutQuotePreviewService service = new RetailCheckoutQuotePreviewService(carts, quotes, catalogue, loyalty, shippingQuotes);
 
     @Test
     void persistsServerPricedPickupQuoteWithoutReservingBenefits() {
@@ -49,11 +51,63 @@ class RetailCheckoutQuotePreviewServiceTest {
     }
 
     @Test
-    void ghtkFailsClosedBeforeAQuoteIsCreated() {
+    void ghtkWithoutShippingQuoteAndRecipientIsRejectedBeforeCreatingPreview() {
         when(carts.findByMemberAccountId(1L)).thenReturn(Optional.of(cart()));
         assertThatThrownBy(() -> service.preview(1L, request("GHTK")))
-            .isInstanceOf(RetailIntegrationUnavailableException.class);
-        verifyNoInteractions(quotes, catalogue, loyalty);
+            .isInstanceOf(RetailConflictException.class)
+            .hasMessage("GHTK requires a server-issued shipping quote and recipient details");
+        verifyNoInteractions(quotes, catalogue, loyalty, shippingQuotes);
+    }
+
+    @Test
+    void validGhtkQuoteAddsShippingWithoutDiscountingItAndSnapshotsRecipient() {
+        mockCatalogue();
+        var recipient = new CheckoutDtos.RecipientAddressInput("123 Duong Hoang Quoc Viet", "Ha Noi",
+            "Cau Giay", "Nghia Do", "Nguyen Van A", "0901234567");
+        var expiry = java.time.Instant.now().plusSeconds(600);
+        when(shippingQuotes.requireValidQuote(any(), any(), any(), any(), any())).thenReturn(
+            new edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailCheckoutPorts.ShippingQuote(
+                "shipping-1", 10L, new java.math.BigDecimal("30000"), expiry));
+        when(loyalty.previewBenefits(any(), any())).thenReturn(new BenefitPreview(
+            BigInteger.valueOf(200), BigInteger.valueOf(200), BigInteger.TEN, BigInteger.valueOf(190),
+            BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO,
+            BigInteger.valueOf(190), BigInteger.valueOf(190), null, null, null, 1L, true, List.of(), "digest"));
+        when(quotes.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var request = new CheckoutDtos.BenefitPreviewRequest(new CheckoutDtos.BenefitSelection("NONE", null, "0"),
+            List.of(new CheckoutDtos.BranchOrderCheckoutInput(10L, "GHTK", "shipping-1", recipient)));
+
+        var result = service.preview(1L, request);
+
+        assertThat(result.shippingTotal()).isEqualTo("30000");
+        assertThat(result.merchandiseSubtotal()).isEqualTo("200");
+        assertThat(result.discountAmount()).isEqualTo("10");
+        assertThat(result.payableAmount()).isEqualTo("30190");
+        assertThat(result.expiresAt()).isEqualTo(expiry.toString());
+        var captor = org.mockito.ArgumentCaptor.forClass(RetailCheckoutQuote.class);
+        verify(quotes).saveAndFlush(captor.capture());
+        var branch = captor.getValue().getBranches().getFirst();
+        assertThat(branch.getFulfilmentMethod()).isEqualTo("GHTK");
+        assertThat(branch.getShippingQuoteId()).isEqualTo("shipping-1");
+        assertThat(branch.getShippingCharge()).isEqualTo(BigInteger.valueOf(30000));
+        assertThat(branch.getRecipientName()).isEqualTo("Nguyen Van A");
+        assertThat(branch.getRecipientPhone()).isEqualTo("0901234567");
+        assertThat(branch.getRecipientAddress()).isEqualTo(recipient.address());
+        verify(loyalty, never()).reserveAcceptedTransaction(any(), any(), any());
+    }
+
+    @Test
+    void rejectedShippingQuoteDoesNotIssueBenefitPreviewOrPersistCheckoutQuote() {
+        mockCatalogue();
+        var recipient = new CheckoutDtos.RecipientAddressInput("123 Duong Hoang Quoc Viet", "Ha Noi",
+            "Cau Giay", "Nghia Do", "Nguyen Van A", "0901234567");
+        when(shippingQuotes.requireValidQuote(any(), any(), any(), any(), any()))
+            .thenThrow(new RetailConflictException("Shipping quote is no longer valid for this branch"));
+        var request = new CheckoutDtos.BenefitPreviewRequest(new CheckoutDtos.BenefitSelection("NONE", null, "0"),
+            List.of(new CheckoutDtos.BranchOrderCheckoutInput(10L, "GHTK", "expired-quote", recipient)));
+        assertThatThrownBy(() -> service.preview(1L, request))
+            .isInstanceOf(RetailConflictException.class)
+            .hasMessage("Shipping quote is no longer valid for this branch");
+        verifyNoInteractions(quotes, loyalty);
     }
 
     @Test

@@ -8,7 +8,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.MemberWork
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.WorkshopBookingRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.WorkshopBookingLoyaltyOutcomeService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SettlementReadiness;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCase;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
@@ -43,6 +44,7 @@ class LoyaltyWorkshopSourceIntegrationIT {
     @Autowired private WorkshopBookingRepository bookings;
     @Autowired private MemberWorkshopBookingQuoteRepository quotes;
     @Autowired private SettlementFinalBillRepository bills;
+    @Autowired private SettlementCaseRepository cases;
     @Autowired private WorkshopBookingLoyaltyOutcomeService bookingOutcomes;
     @Autowired private WorkshopCancellationLoyaltyService cancellationOutcomes;
     @Autowired private WorkshopLoyaltyOutcomeProcessor finalOutcomes;
@@ -61,8 +63,8 @@ class LoyaltyWorkshopSourceIntegrationIT {
                 .bookingReference(fixture.booking().getBookingCode()).postPromotionAmountVnd(900L)
                 .acceptedDepositAmountVnd(450L).remainingAmountVnd(0L).currencyCode("VND")
                 .lifecycleStatus("FINALIZED").build());
-        when(operations.readiness(fixture.booking().getBookingCode()))
-                .thenReturn(new SettlementReadiness(true, true, false, Instant.now()));
+        when(operations.attendanceOutcome(fixture.booking().getBookingCode()))
+                .thenReturn(new BookingAttendanceOutcome(true, BookingAttendanceOutcome.Outcome.PARTIAL));
         finalOutcomes.process(fixture.booking().getBookingCode());
         finalOutcomes.process(fixture.booking().getBookingCode());
 
@@ -100,12 +102,85 @@ class LoyaltyWorkshopSourceIntegrationIT {
                 .bookingReference(noShow.booking().getBookingCode()).postPromotionAmountVnd(900L)
                 .acceptedDepositAmountVnd(450L).remainingAmountVnd(450L).currencyCode("VND")
                 .lifecycleStatus("OPEN").build());
-        when(operations.readiness(noShow.booking().getBookingCode()))
-                .thenReturn(new SettlementReadiness(true, true, true, Instant.now()));
+        when(operations.attendanceOutcome(noShow.booking().getBookingCode()))
+                .thenReturn(new BookingAttendanceOutcome(true, BookingAttendanceOutcome.Outcome.NO_SHOW));
         finalOutcomes.process(noShow.booking().getBookingCode());
         BenefitResult forfeited = loyalty.findBenefitResult(SourceKind.WORKSHOP, noShow.booking().getBookingCode());
         assertThat(forfeited.pointsState()).isEqualTo(ComponentState.CONSUMED);
         assertThat(forfeited.earnState()).isEqualTo(EarnState.INELIGIBLE);
+    }
+
+    /** 003.3 T089 (D6): a CLOSED no-show folio still finishes the earn once, and never grants points. */
+    @Test
+    void fullNoShowOnAClosedFolioFinishesTheEarnOnceAndIsNeverRescanned() {
+        Fixture noShow = acceptedMemberBooking(BookingStatus.CONFIRMED);
+        String ref = noShow.booking().getBookingCode();
+        transaction.executeWithoutResult(status -> bookingOutcomes.settleVerifiedDeposit(noShow.booking(), "deposit-" + ref));
+        bills.saveAndFlush(SettlementFinalBill.builder().billReference("BILL-" + ref).bookingReference(ref)
+                .postPromotionAmountVnd(900L).acceptedDepositAmountVnd(450L).remainingAmountVnd(450L)
+                .currencyCode("VND").lifecycleStatus("CLOSED").build());
+        when(operations.attendanceOutcome(ref))
+                .thenReturn(new BookingAttendanceOutcome(true, BookingAttendanceOutcome.Outcome.NO_SHOW));
+
+        finalOutcomes.process(ref);
+        finalOutcomes.process(ref);
+
+        BenefitResult result = loyalty.findBenefitResult(SourceKind.WORKSHOP, ref);
+        assertThat(result.pointsState()).isEqualTo(ComponentState.CONSUMED);
+        assertThat(result.earnState()).isEqualTo(EarnState.INELIGIBLE);
+        assertThat(wallets.findById(noShow.memberId()).orElseThrow().getBalancePoints()).isEqualTo(BigInteger.valueOf(900));
+        assertThat(bills.findByBookingReference(ref).orElseThrow().getLoyaltyProcessedAt()).isNotNull();
+        assertThat(bills.findByLifecycleStatusInAndLoyaltyProcessedAtIsNullOrderByIdAsc(List.of("OPEN", "FINALIZED", "CLOSED")))
+                .noneMatch(bill -> ref.equals(bill.getBookingReference()));
+    }
+
+    /** D6: PARTIAL attendance is not a no-show; the earn waits for FINALIZED with zero balance. */
+    @Test
+    void partialAttendanceOnAnOpenFolioWaitsAndThenEarnsOnceWhenFinalized() {
+        Fixture partial = acceptedMemberBooking(BookingStatus.CONFIRMED);
+        String ref = partial.booking().getBookingCode();
+        transaction.executeWithoutResult(status -> bookingOutcomes.settleVerifiedDeposit(partial.booking(), "deposit-" + ref));
+        SettlementFinalBill bill = bills.saveAndFlush(SettlementFinalBill.builder().billReference("BILL-" + ref)
+                .bookingReference(ref).postPromotionAmountVnd(900L).acceptedDepositAmountVnd(450L)
+                .remainingAmountVnd(0L).currencyCode("VND").lifecycleStatus("OPEN").build());
+        when(operations.attendanceOutcome(ref))
+                .thenReturn(new BookingAttendanceOutcome(true, BookingAttendanceOutcome.Outcome.PARTIAL));
+
+        finalOutcomes.process(ref);
+        assertThat(loyalty.findBenefitResult(SourceKind.WORKSHOP, ref).earnState()).isEqualTo(EarnState.PENDING);
+        assertThat(bills.findByBookingReference(ref).orElseThrow().getLoyaltyProcessedAt()).isNull();
+
+        bill.setLifecycleStatus("FINALIZED");
+        bills.saveAndFlush(bill);
+        finalOutcomes.process(ref);
+        finalOutcomes.process(ref);
+
+        assertThat(loyalty.findBenefitResult(SourceKind.WORKSHOP, ref).earnState()).isEqualTo(EarnState.GRANTED);
+        assertThat(wallets.findById(partial.memberId()).orElseThrow().getBalancePoints()).isEqualTo(BigInteger.valueOf(999));
+    }
+
+    /** D15: an accepted customer cancellation or a Mland remedy closes the folio and restores the Member's benefits. */
+    @Test
+    void closedFolioFromCancellationOrMlandRemedyRestoresBenefitsThroughTheProcessor() {
+        for (String caseType : List.of("CUSTOMER_CANCELLATION", "MLAND_CANCELLATION_REMEDY")) {
+            Fixture cancelled = acceptedMemberBooking(BookingStatus.CONFIRMED);
+            String ref = cancelled.booking().getBookingCode();
+            transaction.executeWithoutResult(status -> bookingOutcomes.settleVerifiedDeposit(cancelled.booking(), "deposit-" + ref));
+            bills.saveAndFlush(SettlementFinalBill.builder().billReference("BILL-" + ref).bookingReference(ref)
+                    .postPromotionAmountVnd(900L).acceptedDepositAmountVnd(450L).remainingAmountVnd(450L)
+                    .currencyCode("VND").lifecycleStatus("CLOSED").build());
+            cases.saveAndFlush(SettlementCase.builder().caseReference("CASE-" + UUID.randomUUID()).bookingReference(ref)
+                    .caseType(caseType).lifecycleStatus("RESOLVED").correlationReference("corr-" + UUID.randomUUID()).build());
+            when(operations.attendanceOutcome(ref)).thenReturn(new BookingAttendanceOutcome(false, null));
+
+            finalOutcomes.process(ref);
+            finalOutcomes.process(ref);
+
+            BenefitResult restored = loyalty.findBenefitResult(SourceKind.WORKSHOP, ref);
+            assertThat(restored.pointsState()).as(caseType).isEqualTo(ComponentState.RESTORED);
+            assertThat(restored.earnState()).as(caseType).isEqualTo(EarnState.INELIGIBLE);
+            assertThat(bills.findByBookingReference(ref).orElseThrow().getLoyaltyProcessedAt()).as(caseType).isNotNull();
+        }
     }
 
     @Test

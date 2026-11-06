@@ -4,7 +4,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.TargetAccountSnapshot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopPackageRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
@@ -31,6 +34,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -52,6 +56,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+// A local .env demo filter (WORKSHOP_OPERATIONS_VISIBLE_LOCATION_IDS) must not hide test locations.
+@TestPropertySource(properties = "workshop.operations.visible-location-ids=")
 class WorkshopPackageIT {
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -68,6 +74,8 @@ class WorkshopPackageIT {
 
     @MockitoBean private AccountFacade accountFacade;
     @MockitoBean private WorkshopOperationsAuthorizationService authenticationService;
+    /** IdentityGateFilter verifies the Firebase token before any workshop controller runs. */
+    @MockitoBean private TokenVerificationService tokenVerificationService;
 
     @BeforeEach
     void requireRealMySql() throws Exception {
@@ -120,6 +128,10 @@ class WorkshopPackageIT {
     @Test
     void managerCanReloadEveryPackageLifecycleStateAndFilterByState() throws Exception {
         Long managerId = 73003L;
+        when(tokenVerificationService.verify("package-manager")).thenReturn(
+                new VerifiedIdentity("package-manager", "package-manager@example.invalid", true, Instant.now()));
+        when(accountFacade.resolveActor("package-manager", true)).thenReturn(Optional.of(
+                new CurrentAccountActor(managerId, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of())));
         when(authenticationService.authenticate("Bearer package-manager"))
                 .thenReturn(new AccountSummary(managerId, ActorRole.MANAGER, ActorStatus.ACTIVE,
                         "package-manager@example.invalid", Instant.EPOCH, Instant.EPOCH));
@@ -130,15 +142,15 @@ class WorkshopPackageIT {
         mockMvc.perform(get("/api/v1/workshop-package-management/packages")
                         .header("Authorization", "Bearer package-manager"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.packageId == " + draft.getId() + ")].state").value(List.of("DRAFT")))
-                .andExpect(jsonPath("$[?(@.packageId == " + published.getId() + ")].state").value(List.of("PUBLISHED")))
-                .andExpect(jsonPath("$[?(@.packageId == " + retired.getId() + ")].state").value(List.of("RETIRED")));
+                .andExpect(jsonPath("$[?(@.packageId == " + draft.getId() + ")].state").value(org.hamcrest.Matchers.contains("DRAFT")))
+                .andExpect(jsonPath("$[?(@.packageId == " + published.getId() + ")].state").value(org.hamcrest.Matchers.contains("PUBLISHED")))
+                .andExpect(jsonPath("$[?(@.packageId == " + retired.getId() + ")].state").value(org.hamcrest.Matchers.contains("RETIRED")));
 
         mockMvc.perform(get("/api/v1/workshop-package-management/packages")
                         .queryParam("state", "DRAFT")
                         .header("Authorization", "Bearer package-manager"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.packageId == " + draft.getId() + ")].state").value(List.of("DRAFT")))
+                .andExpect(jsonPath("$[?(@.packageId == " + draft.getId() + ")].state").value(org.hamcrest.Matchers.contains("DRAFT")))
                 .andExpect(jsonPath("$[?(@.packageId == " + published.getId() + ")]").doesNotExist())
                 .andExpect(jsonPath("$[?(@.packageId == " + retired.getId() + ")]").doesNotExist());
     }

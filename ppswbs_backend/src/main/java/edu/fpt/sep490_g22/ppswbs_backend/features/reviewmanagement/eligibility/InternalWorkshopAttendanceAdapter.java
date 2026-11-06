@@ -30,6 +30,7 @@ public class InternalWorkshopAttendanceAdapter implements WorkshopAttendanceRevi
             "SELECT at.reference AS ticket_ref, " +
             "       ws.reference AS session_ref, " +
             "       wb.package_name_snapshot AS target_name, " +
+            "       wb.package_id AS package_id, " +
             "       tse.checked_in_at AS checked_in_at, " +
             "       wb.member_account_id AS member_account_id, " +
             "       wb.contact_email AS contact_email, " +
@@ -53,6 +54,7 @@ public class InternalWorkshopAttendanceAdapter implements WorkshopAttendanceRevi
                     .targetType(TargetType.WORKSHOP_SESSION)
                     .targetReference(rs.getString("session_ref"))
                     .targetName(rs.getString("target_name"))
+                    .packageId(rs.getObject("package_id") != null ? rs.getLong("package_id") : null)
                     .completedAt(completedAt)
                     .eligible(true)
                     .memberAccountId(memberId)
@@ -121,6 +123,22 @@ public class InternalWorkshopAttendanceAdapter implements WorkshopAttendanceRevi
             return Optional.empty();
         } catch (DataAccessException ex) {
             log.error("Failed to verify workshop attendance source {}", sourceReference, ex);
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public Optional<EligibleSourceItem> verifySource(String sourceReference) {
+        if (sourceReference == null || sourceReference.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            List<EligibleSourceItem> list = jdbcTemplate.query(
+                    BASE_SELECT + "AND at.reference = :sourceReference",
+                    new MapSqlParameterSource("sourceReference", sourceReference.trim()), rowMapper);
+            return list.stream().findFirst();
+        } catch (DataAccessException ex) {
+            log.error("Failed to verify workshop source {}", sourceReference, ex);
             return Optional.empty();
         }
     }

@@ -24,7 +24,9 @@ class SettlementDtoValidationTest {
 
     @Test void finalBillCommandsEnforceCustomerAndManagerShapes() {
         assertThat(validator.validate(new ChargeCommandDto("addon-ref", null, null, null, null, null))).isEmpty();
-        assertThat(validator.validate(new ChargeCommandDto("addon-ref", "guest@example.test", null, null, null, null))).isEmpty();
+        // FR-004a/FR-004b: only Staff/Manager record catalogue add-ons; no customer contact proof is accepted.
+        assertThat(validator.validate(new ChargeCommandDto("addon-ref", "guest@example.test", null, null, null, null))).isNotEmpty();
+        assertThat(validator.validate(new ChargeCommandDto("addon-ref", null, "0123", null, null, null))).isNotEmpty();
         assertThat(validator.validate(new ChargeCommandDto("addon-ref", "guest@example.test", "0123", null, null, null))).isNotEmpty();
         assertThat(validator.validate(new ChargeCommandDto(null, null, null, "Extra", 100L, "Reason"))).isEmpty();
         assertThat(validator.validate(new ChargeCommandDto(null, null, null, "", 100L, "Reason"))).isNotEmpty();

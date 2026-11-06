@@ -16,6 +16,7 @@ public class WorkshopPackageAuthorizationService {
     /**
      * Requires an active canonical Manager. Manager authority is global
      * throughout Feature 003 and does not depend on location assignments.
+     * Admin is not a package-management role (owner decision 2026-11-05: spec stays Manager-only).
      *
      * @return the canonical account ID for safe audit attribution
      */

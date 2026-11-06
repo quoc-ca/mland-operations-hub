@@ -55,6 +55,9 @@ public class CapacityHoldIT {
     private WorkshopSessionRepository sessionRepository;
 
     @Autowired
+    private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopPackageRepository packageRepository;
+
+    @Autowired
     private CapacityHoldRepository capacityHoldRepository;
 
     @Autowired
@@ -154,7 +157,7 @@ public class CapacityHoldIT {
     @DisplayName("T028-1: Sequential duplicate reserve, commit and release return original outcome or reject mismatch")
     void sequentialDuplicate_returnsOriginalOutcome_andRejectsMismatch() {
         String opRef = "op-seq-reserve-01";
-        ReserveBookingCapacityCommand reserveCmd = new ReserveBookingCapacityCommand(
+        ReserveBookingCapacityCommand reserveCmd = reserveCommand(
                 "BKG-SEQ-001",
                 List.of(UUID.fromString(session1.getReference())),
                 2,
@@ -175,7 +178,7 @@ public class CapacityHoldIT {
         assertThat(outcome2.expiresAt()).isEqualTo(outcome1.expiresAt());
 
         // Reused opRef with different fingerprint (participantCount = 4)
-        ReserveBookingCapacityCommand mismatchCmd = new ReserveBookingCapacityCommand(
+        ReserveBookingCapacityCommand mismatchCmd = reserveCommand(
                 "BKG-SEQ-001",
                 List.of(UUID.fromString(session1.getReference())),
                 4,
@@ -245,7 +248,7 @@ public class CapacityHoldIT {
             futures.add(executor.submit(() -> {
                 try {
                     startLatch.await();
-                    ReserveBookingCapacityCommand cmd = new ReserveBookingCapacityCommand(
+                    ReserveBookingCapacityCommand cmd = reserveCommand(
                             "BKG-CONCURRENT-" + index,
                             List.of(UUID.fromString(session1.getReference())),
                             requestedSeats,
@@ -303,7 +306,7 @@ public class CapacityHoldIT {
         // Request 2 seats across [session1, session2]
         // Session 1 has 10 >= 2, but Session 2 has only 1 remaining < 2
         String bookingRef = "BKG-ALL-OR-NOTHING-01";
-        ReserveBookingCapacityCommand cmd = new ReserveBookingCapacityCommand(
+        ReserveBookingCapacityCommand cmd = reserveCommand(
                 bookingRef,
                 List.of(UUID.fromString(session1.getReference()), UUID.fromString(session2.getReference())),
                 2,
@@ -332,7 +335,7 @@ public class CapacityHoldIT {
     void pauseAfterHold_allowsCommit_butRejectsNewHold() {
         // 1. Session is PUBLISHED: reserve 2 seats
         String bookingRef = "BKG-PAUSE-TEST-01";
-        ReserveBookingCapacityCommand reserveCmd = new ReserveBookingCapacityCommand(
+        ReserveBookingCapacityCommand reserveCmd = reserveCommand(
                 bookingRef,
                 List.of(UUID.fromString(session1.getReference())),
                 2,
@@ -349,7 +352,7 @@ public class CapacityHoldIT {
         sessionRepository.save(session1);
 
         // 3. New reservation on SALES_PAUSED session must be rejected with SALE_NOT_ELIGIBLE
-        ReserveBookingCapacityCommand rejectedCmd = new ReserveBookingCapacityCommand(
+        ReserveBookingCapacityCommand rejectedCmd = reserveCommand(
                 "BKG-PAUSE-NEW-01",
                 List.of(UUID.fromString(session1.getReference())),
                 1,
@@ -426,7 +429,7 @@ public class CapacityHoldIT {
     @DisplayName("T028-6: Release of active hold succeeds; duplicate or late release is idempotent")
     void duplicateRelease_isIdempotent() {
         String bookingRef = "BKG-RELEASE-01";
-        ReserveBookingCapacityCommand reserveCmd = new ReserveBookingCapacityCommand(
+        ReserveBookingCapacityCommand reserveCmd = reserveCommand(
                 bookingRef,
                 List.of(UUID.fromString(session1.getReference())),
                 4,
@@ -522,7 +525,7 @@ public class CapacityHoldIT {
     void sequentialReserve_exactBoundaryCheck() {
         // Session capacity is 10
         // Reserve 6 seats -> remaining 4
-        ReserveBookingCapacityCommand cmd1 = new ReserveBookingCapacityCommand(
+        ReserveBookingCapacityCommand cmd1 = reserveCommand(
                 "BKG-OVER-01",
                 List.of(UUID.fromString(session1.getReference())),
                 6,
@@ -534,7 +537,7 @@ public class CapacityHoldIT {
         assertThat(capacityHoldService.getRemainingCapacity(session1.getId())).isEqualTo(4);
 
         // Reserve 4 seats -> remaining 0
-        ReserveBookingCapacityCommand cmd2 = new ReserveBookingCapacityCommand(
+        ReserveBookingCapacityCommand cmd2 = reserveCommand(
                 "BKG-OVER-02",
                 List.of(UUID.fromString(session1.getReference())),
                 4,
@@ -546,7 +549,7 @@ public class CapacityHoldIT {
         assertThat(capacityHoldService.getRemainingCapacity(session1.getId())).isZero();
 
         // Reserve 1 seat when remaining is 0 -> REJECTED with INSUFFICIENT_CAPACITY
-        ReserveBookingCapacityCommand cmd3 = new ReserveBookingCapacityCommand(
+        ReserveBookingCapacityCommand cmd3 = reserveCommand(
                 "BKG-OVER-03",
                 List.of(UUID.fromString(session1.getReference())),
                 1,
@@ -556,5 +559,18 @@ public class CapacityHoldIT {
         CapacityHoldOutcome res3 = operationsFacade.reserveBookingCapacity(cmd3);
         assertThat(res3.status()).isEqualTo(OutcomeStatus.REJECTED);
         assertThat(res3.reason()).isEqualTo(RejectionReason.INSUFFICIENT_CAPACITY);
+    }
+
+    /** Capacity reservation requires a published package selection; every scenario here books one session. */
+    private ReserveBookingCapacityCommand reserveCommand(String bookingReference, List<UUID> sessionReferences, int participants,
+                                                          String operationReference, String correlationReference) {
+        Long packageId = packageRepository.save(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackage.builder()
+                .name("Capacity test package").description("Synthetic fixture").publicPrice(1000L)
+                .minParticipants(1).maxParticipants(100).requiredSessionCount(sessionReferences.size())
+                .sameLocationRequired(false).minimumSameDaySlotGap(0)
+                .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState.PUBLISHED)
+                .build()).getId();
+        return new ReserveBookingCapacityCommand(bookingReference, String.valueOf(packageId), sessionReferences, participants,
+                operationReference, correlationReference);
     }
 }

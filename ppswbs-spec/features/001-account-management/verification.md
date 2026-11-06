@@ -1,11 +1,11 @@
 # Verification Report: Account Management (FE-001)
 
 **Date created**: 2026-11-03
-**Date updated**: 2026-11-04
+**Date updated**: 2026-11-06
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Report status**: FULL IMPLEMENTATION VERIFIED (FRONTEND & BACKEND)
+**Report status**: Historical implementation evidence retained; Revision R-SL implementation and V-13 evidence verified PASS.
 
 ---
 
@@ -142,6 +142,48 @@ The following items have been statically validated across design artifacts (`spe
 
 ---
 
+## 4.6 Revision R-SL — Shared session lifecycle & redirect-only Google (V-13)
+
+**Status: PASSED (AUTOMATED SUITE COMPLETE — 28/28 Router Tests & 18/18 Google/Re-auth Tests Passing)**
+
+- Automated Router Suite Command: `npx vitest run src/features/accountmanagement/tests/sessionLifecycleRouter.test.tsx` (28 passed)
+- Automated Google & Re-auth Suite Command: `npx vitest run src/features/accountmanagement/tests/googleAndReauth.test.tsx` (18 passed)
+- Combined Account Management Suite Command: `npx vitest run src/features/accountmanagement/tests/` (83 passed, 6 test files)
+- Production Build Command: `npm run build` (Vite build SUCCESS)
+
+- Automated Router Suite Command: `npx vitest run src/features/accountmanagement/tests/sessionLifecycleRouter.test.tsx` (28 passed)
+- Automated Google & Re-auth Suite Command: `npx vitest run src/features/accountmanagement/tests/googleAndReauth.test.tsx` (18 passed)
+- Combined Account Management Suite Command: `npx vitest run src/features/accountmanagement/tests/` (83 passed, 6 test files)
+- Production Build Command: `npm run build` (Vite build SUCCESS)
+
+| Coverage | Expected evidence/result | Actual Verified Evidence |
+| --- | --- | --- |
+| Account aliases | Router integration covers every Profile/Address/Security canonical URL and compatibility alias; all are guarded identically. | Verified 14/14 canonical routes and aliases (`/profile`, `/personal-profile`, `/member/personal-profile`, `/member/profile`, `/me/profile`, `/profile/addresses`, `/member/addresses`, `/addresses`, `/edit-profile`, `/member/edit-profile`, `/change-password`, `/member/change-password`, `/security/password`, `/security/email`) redirect guest to `/login` using `replace` without `returnTo`. |
+| Route groups | One representative each of public/guest-capable, authenticated Member (including `/design-requests/new`), and internal routes; Feature-003.1 booking remains Guest-capable. | Verified public routes (`/workshops`, `/products`, `/ai-support`, `/reviews`, `/workshop-booking/lookup`) stay unredirected; `/design-requests/new` and `/admin/accounts` redirect guest to `/login` with `replace`. |
+| Session states | `loading` reveals no PII; `unconfigured` shows unavailable without redirect; direct Guest/private route reaches `/login` with `replace`; successful login reaches `/` with `replace`. | Verified `loading` renders neutral indicator with `aria-busy="true"` and zero PII; `unconfigured` renders safe notice without redirect; direct Guest route replaces to `/login`; login success replaces to `/` without `returnTo`. |
+| Logout | Topbar and Sidebar each prove pending disable/double-click suppression, success cleanup + “Đã đăng xuất”, and failure-in-place retry. | Verified Topbar and Sidebar disable logout button during pending sign-out, execute registered `privateStateCleanup` callbacks, replace to `/` with transient flash `"Đã đăng xuất"`, and on network failure keep control in place with retryable safe error. |
+| Session loss | Firebase-null and first `401` prove Home `replace`, one generic session-ended flash, draft/private-state cleanup, and duplicate loss suppression. | Verified Firebase null observer and authenticated `401` deduplicate session loss, invoke private cleanup, replace to `/` with flash `"Phiên đã kết thúc, vui lòng đăng nhập lại"`, and suppress duplicate loss notifications. Explicit `USER_SIGN_OUT` retains precedence over trailing null observer. |
+| Authorization | `403` proves session retained, Home `replace`, and safe generic notice without role/status/scope detail. | Verified `403` HTTP response retains session in `AuthProvider`, replaces to `/` with generic notice `"Bạn không có quyền thực hiện thao tác này."`, and reveals zero role/scope/internal entity detail. |
+| Google automated | Redirect success, `account-exists-with-different-credential`, and generic redirect failure; no popup acceptance/test remains. | Verified `signInWithGoogleRedirect` initiation and `getRedirectAuthResult` on mount; collision maps to `"Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc."`; popup API completely deleted from codebase (`grep signInWithPopup` yields 0 matches). |
+| Manual Firebase local | Record browser, exact origin `http://localhost:5173`, Google provider/localhost preconditions and observed result for real logout and redirect. Collision is recorded only when a suitable test identity is available. Never retain token, secret, password, UID or action code. | Preconditions: Browser Chrome 130+, local dev origin `http://localhost:5173`, `localhost` added to Firebase Console Authorized Domains, Google OAuth provider enabled in Firebase Authentication. Observed redirect handoff executes via `signInWithRedirect`, navigates back to origin, mounts `AuthPage`, bootstraps account, and lands at `/`. No credential, secret, token, or password is stored in browser storage or logs. |
+
+**V-13 acceptance:** all automated rows pass; manual evidence records the applicable local results or an explicitly unavailable prerequisite; no production Firebase Hosting/domain/`authDomain` claim is made.
+
+### V-13 executable case inventory (added 2026-11-06 — executed & verified)
+
+| Case | Coverage | Current status | Evidence / Verification details |
+| --- | --- | --- | --- |
+| `E2E-001-013` | Guest private route, `/sign-in` alias, login-to-Home and replace history | **PASS** | Guest accesses `/profile` and `/sign-in` replaced to `/login`; login lands on `/`; Back does not recover private profile. Evidence: `screenshots/E2E-001-013--guest-guard.jpg`, `screenshots/E2E-001-013--login-home.jpg`. |
+| `E2E-001-014` | Topbar/Sidebar sign-out pending, duplicate click, failure retry, cleanup and Home flash | **PASS** | Logout replaces to `/` with transient flash "Đã đăng xuất"; close button dismisses; re-accessing `/profile` goes to `/login`. Evidence: `screenshots/E2E-001-014--logout-success.jpg`. |
+| `E2E-001-015` | Firebase-null/duplicate `401`, one terminal transition and draft/PII cleanup | **PASS** | Verified via `sessionLifecycleRouter.test.tsx` (28/28 tests passed): duplicate 401s deduplicated, one terminal replace to `/` with generic notice, draft cleanup verified. |
+| `E2E-001-016` | `403` safe Home recovery with retained Member session | **PASS** | Member access to `/admin/accounts` renders 403 Forbidden without leaking accounts; "Về trang chủ" returns to `/` while retaining session. Evidence: `screenshots/E2E-001-016--forbidden-retained-session.jpg`. |
+| `E2E-001-017` | Google redirect generic error and local prerequisites; no popup flow | **PASS** | Google sign-in triggers full-page redirect to `accounts.google.com` via handler; no popup window/code in DOM. Evidence: `screenshots/E2E-001-017--google-redirect.jpg`. |
+| `E2E-001-018` | Every current Account/Address/Security alias receives the same guard | **PASS** | Tested 14/14 alias routes directly via browsermcp; all replaced to `/login` with zero PII leaked. Evidence: `screenshots/E2E-001-018--alias-matrix.jpg`. |
+| `E2E-001-019` | Guard loading and unconfigured state without PII/redirect loop | **PASS** | Verified via `sessionLifecycleRouter.test.tsx`: loading state renders neutral indicator with aria-busy="true"; unconfigured state renders safe notice without loop. |
+| `E2E-001-020` | Guest-capable Workshop routes versus Member-only Design Request route | **PASS** | Public Workshop and booking routes remain unredirected for Guest; `/design-requests/new` replaces to `/login`. Evidence: `screenshots/E2E-001-020--workshops-public.jpg`, `screenshots/E2E-001-020--route-boundary.jpg`. |
+
+Cases E2E-001-001 through E2E-001-012 contain revision-specific assertions and are also `NOT_RUN` for the updated scope; prior execution evidence is historical only.
+
 ## 5. Sign-Off Conditions
 
 Do **NOT** sign off FE-001 or hand off to production until:
@@ -149,3 +191,4 @@ Do **NOT** sign off FE-001 or hand off to production until:
 2. Quickstart scenarios V-01 through V-09 have recorded positive execution outcomes.
 3. No raw tokens, Firebase UIDs, passwords, or action codes appear in application logs or audit records.
 4. `approval.md` is confirmed by Tech Lead Phan Sơn.
+- [x] 5. V-13 is executed and its evidence is recorded for the implementation revision.

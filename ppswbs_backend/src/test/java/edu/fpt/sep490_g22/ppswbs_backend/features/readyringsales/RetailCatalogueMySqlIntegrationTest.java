@@ -93,7 +93,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = "retail.unstarted-expiry.enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {"retail.unstarted-expiry.enabled=false", "vnpay.enabled=false", "vnpay.hash-secret=test-retail-callback-secret"})
 @ActiveProfiles({CatalogueTestSupport.MYSQL_PROFILE, "retail-payment-sim"})
 @Import(CatalogueFlowFixture.class)
 class RetailCatalogueMySqlIntegrationTest {
@@ -126,6 +126,236 @@ class RetailCatalogueMySqlIntegrationTest {
     @Autowired RetailPaymentService paymentService;
     @Autowired RetailVariantHoldRepository holdRepository;
     @Autowired LoyaltyFacade loyalty;
+    @Autowired edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerRegistry paymentOwners;
+    @Autowired edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.service.PaymentIngressService paymentIngress;
+    @Autowired edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.service.VnpayChecksumService paymentChecksum;
+    @Autowired edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailPaymentReconciliationRepository paymentReconciliation;
+    @Autowired edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailConfirmedUnpaidExpiryService confirmedExpiry;
+    @Autowired edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentIngressOutcomeQueryPort paymentOutcomes;
+    @Autowired edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.dao.VnpayMerchantOperationRepository merchantOperations;
+    @Autowired edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailPaymentEvidenceFacade paymentEvidence;
+
+    @Test
+    void verifiedQueryDrFailureReleasesStartedCheckoutWithRealMySqlState() {
+        var order = retailCallbackFixture(true, true);
+        Instant deadline = holdRepository.findByGroupedCheckoutId(order.checkout()).getFirst().getExpiresAt();
+        var merchant = mock(edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationsPort.class);
+        when(merchant.queryTransaction(any())).thenAnswer(invocation -> {
+            var command = (edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayQueryDrCommand) invocation.getArgument(0);
+            merchantOperations.saveAndFlush(edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.VnpayMerchantOperation.builder()
+                    .operationReference(command.operationReference()).requestFingerprint("a".repeat(64))
+                    .operationKind("QUERYDR").providerRequestId(UUID.randomUUID().toString().replace("-", ""))
+                    .merchantReference(order.merchant()).operationStatus("RECONCILED").providerResponseCode("00")
+                    .providerTransactionStatus("02").amountVnd(150000L).build());
+            return new edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationResult(command.operationReference(),
+                    "QUERYDR", "RECONCILED", "00", "01", "02", null, order.merchant(), 150000L, true);
+        });
+        var service = new edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailQueryReconciliationService(
+                paymentOwners, paymentOutcomes, merchant, checkouts, holdRepository, paymentReconciliation,
+                confirmedExpiry, paymentEvidence, transactionManager, "127.0.0.1", true);
+        service.reconcile(order.member(), order.checkout(), deadline.plusSeconds(301));
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.EXPIRED);
+        assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, order.checkout()).orElseThrow().getEarnState()).isEqualTo(EarnState.INELIGIBLE);
+        assertThat(variants.findById(order.variant()).orElseThrow().getRemainingUnsold()).isEqualTo(BigInteger.valueOf(3));
+    }
+
+    @Test
+    void lateCallbackDuringQueryDrFailureDoesNotReleaseBenefits() throws Exception {
+        var order = retailCallbackFixture(true, true);
+        Instant deadline = holdRepository.findByGroupedCheckoutId(order.checkout()).getFirst().getExpiresAt();
+        var started = new CountDownLatch(1);
+        var finishQuery = new CountDownLatch(1);
+        var merchant = mock(edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationsPort.class);
+        when(merchant.queryTransaction(any())).thenAnswer(invocation -> {
+            var command = (edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayQueryDrCommand) invocation.getArgument(0);
+            started.countDown();
+            if (!finishQuery.await(30, TimeUnit.SECONDS)) throw new IllegalStateException("callback timeout");
+            merchantOperations.saveAndFlush(edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.VnpayMerchantOperation.builder()
+                    .operationReference(command.operationReference()).requestFingerprint("b".repeat(64))
+                    .operationKind("QUERYDR").providerRequestId(UUID.randomUUID().toString().replace("-", ""))
+                    .merchantReference(order.merchant()).operationStatus("RECONCILED").providerResponseCode("00")
+                    .providerTransactionStatus("02").amountVnd(150000L).build());
+            return new edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationResult(command.operationReference(),
+                    "QUERYDR", "RECONCILED", "00", "01", "02", null, order.merchant(), 150000L, true);
+        });
+        var service = new edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailQueryReconciliationService(
+                paymentOwners, paymentOutcomes, merchant, checkouts, holdRepository, paymentReconciliation,
+                confirmedExpiry, paymentEvidence, transactionManager, "127.0.0.1", true);
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var future = executor.submit(() -> service.reconcile(order.member(), order.checkout(), deadline.plusSeconds(301)));
+            assertThat(started.await(30, TimeUnit.SECONDS)).isTrue();
+            try {
+                assertThat(paymentIngress.receive(signedRetailCallback(order.merchant(), "15000000", randomProviderTransaction())).message()).isEqualTo("OK");
+            } finally { finishQuery.countDown(); }
+            future.get(30, TimeUnit.SECONDS);
+        }
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.PAYMENT_INITIATED);
+        assertThat(paymentReconciliation.findByMerchantReference(order.merchant())).isPresent();
+        assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, order.checkout()).orElseThrow().getEarnState()).isNotEqualTo(EarnState.INELIGIBLE);
+        assertThat(variants.findById(order.variant()).orElseThrow().getRemainingUnsold()).isEqualTo(BigInteger.valueOf(3));
+    }
+
+    @Test
+    void startedExpiryRequiresVerifiedFailureBeforeReleasing() {
+        var order = retailCallbackFixture(true);
+        assertThat(confirmedExpiry.expire(order.member(), order.checkout(), order.merchant())).isFalse();
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.PAYMENT_INITIATED);
+        var failure = signedRetailCallback(order.merchant(), "15000000", randomProviderTransaction());
+        failure.remove("vnp_SecureHash");
+        failure.put("vnp_ResponseCode", "24");
+        failure.put("vnp_TransactionStatus", "02");
+        failure.put("vnp_SecureHash", paymentChecksum.sign(failure));
+        assertThat(paymentIngress.receive(failure).message()).isEqualTo("OK");
+        assertThat(confirmedExpiry.expire(order.member(), order.checkout(), order.merchant())).isTrue();
+        assertThat(confirmedExpiry.expire(order.member(), order.checkout(), order.merchant())).isFalse();
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.EXPIRED);
+        assertThat(variants.findById(order.variant()).orElseThrow().getRemainingUnsold()).isEqualTo(BigInteger.valueOf(3));
+        BigInteger held = transaction.execute(status -> guard.readSnapshots(List.of(order.variant()), Instant.now()).get(order.variant()).heldQuantity());
+        assertThat(held).isZero();
+        assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, order.checkout()).orElseThrow().getEarnState()).isEqualTo(EarnState.INELIGIBLE);
+    }
+
+    @Test
+    void startedExpiryRacingLateSuccessRetainsEvidenceAndNeverMarksPaid() throws Exception {
+        var order = retailCallbackFixture(true);
+        var failure = signedRetailCallback(order.merchant(), "15000000", randomProviderTransaction());
+        failure.remove("vnp_SecureHash");
+        failure.put("vnp_ResponseCode", "24");
+        failure.put("vnp_TransactionStatus", "02");
+        failure.put("vnp_SecureHash", paymentChecksum.sign(failure));
+        assertThat(paymentIngress.receive(failure).message()).isEqualTo("OK");
+        var late = signedRetailCallback(order.merchant(), "15000000", randomProviderTransaction());
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var payment = executor.submit(() -> { start.await(); return paymentIngress.receive(late); });
+            var expired = executor.submit(() -> { start.await(); return confirmedExpiry.expire(order.member(), order.checkout(), order.merchant()); });
+            start.countDown();
+            assertThat(payment.get(30, TimeUnit.SECONDS).message()).isEqualTo("OK");
+            expired.get(30, TimeUnit.SECONDS);
+        }
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isNotEqualTo(PaymentState.PAID);
+        assertThat(variants.findById(order.variant()).orElseThrow().getRemainingUnsold()).isEqualTo(BigInteger.valueOf(3));
+        assertThat(paymentReconciliation.findByMerchantReference(order.merchant())).isPresent();
+    }
+
+    @Test
+    void verifiedRetailCallbackSettlesOnceAndRejectsWrongAmount() {
+        var order = retailCallbackFixture(false);
+        var invalid = signedRetailCallback(order.merchant(), "14999900", "1234567891");
+        assertThat(paymentIngress.receive(invalid).message()).isEqualTo("AMOUNT_CURRENCY_MISMATCH");
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.PAYMENT_INITIATED);
+        var valid = signedRetailCallback(order.merchant(), "15000000", "1234567891");
+        assertThat(paymentIngress.receive(valid).message()).isEqualTo("OK");
+        assertThat(paymentIngress.receive(valid).message()).isEqualTo("Already received");
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.PAID);
+        assertThat(variants.findById(order.variant()).orElseThrow().getRemainingUnsold()).isEqualTo(BigInteger.valueOf(2));
+        assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, order.checkout()).orElseThrow().getEarnState()).isEqualTo(EarnState.GRANTED);
+        assertThat(paymentReconciliation.findByMerchantReference(order.merchant())).isEmpty();
+    }
+
+    @Test
+    void verifiedLateRetailCallbackRecordsOneReconciliationWithoutSettling() {
+        var order = retailCallbackFixture(true);
+        var valid = signedRetailCallback(order.merchant(), "15000000", randomProviderTransaction());
+        assertThat(paymentIngress.receive(valid).message()).isEqualTo("OK");
+        assertThat(paymentIngress.receive(valid).message()).isEqualTo("Already received");
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.PAYMENT_INITIATED);
+        assertThat(variants.findById(order.variant()).orElseThrow().getRemainingUnsold()).isEqualTo(BigInteger.valueOf(3));
+        assertThat(paymentReconciliation.findByMerchantReference(order.merchant())).isPresent();
+        assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, order.checkout()).orElseThrow().getEarnState()).isNotEqualTo(EarnState.GRANTED);
+    }
+
+    @Test
+    void callbackRollbackLeavesPaymentStockAndIngressUnchangedAndCanRetry() {
+        var order = retailCallbackFixture(false);
+        String transactionNo = randomProviderTransaction();
+        var callback = signedRetailCallback(order.merchant(), "15000000", transactionNo);
+        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
+            assertThat(paymentIngress.receive(callback).message()).isEqualTo("OK");
+            throw new IllegalStateException("simulated failure before commit");
+        })).hasMessage("simulated failure before commit");
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.PAYMENT_INITIATED);
+        assertThat(variants.findById(order.variant()).orElseThrow().getRemainingUnsold()).isEqualTo(BigInteger.valueOf(3));
+        assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, order.checkout()).orElseThrow().getEarnState()).isNotEqualTo(EarnState.GRANTED);
+        assertThat(jdbc.queryForObject("select count(*) from payment_ingress_receipts where merchant_reference = ?", Long.class, order.merchant())).isZero();
+        assertThat(paymentIngress.receive(callback).message()).isEqualTo("OK");
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.PAID);
+    }
+
+    @Test
+    void concurrentRetailCallbacksCannotSellTwice() throws Exception {
+        var order = retailCallbackFixture(false);
+        var callback = signedRetailCallback(order.merchant(), "15000000", randomProviderTransaction());
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var one = executor.submit(() -> { start.await(); return paymentIngress.receive(callback); });
+            var two = executor.submit(() -> { start.await(); return paymentIngress.receive(callback); });
+            start.countDown();
+            one.get(30, TimeUnit.SECONDS);
+            two.get(30, TimeUnit.SECONDS);
+        }
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.PAID);
+        assertThat(variants.findById(order.variant()).orElseThrow().getRemainingUnsold()).isEqualTo(BigInteger.valueOf(2));
+        assertThat(jdbc.queryForObject("select count(*) from payment_ingress_receipts where merchant_reference = ?", Long.class, order.merchant())).isEqualTo(1L);
+    }
+
+    @Test
+    void initiatedPaymentIsNotExpiredByUnstartedExpiryDuringCallback() throws Exception {
+        var order = retailCallbackFixture(false);
+        var callback = signedRetailCallback(order.merchant(), "15000000", randomProviderTransaction());
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var payment = executor.submit(() -> { start.await(); return paymentIngress.receive(callback); });
+            var expiryAttempt = executor.submit(() -> { start.await(); return expiry.expire(order.member(), order.checkout()); });
+            start.countDown();
+            assertThat(payment.get(30, TimeUnit.SECONDS).message()).isEqualTo("OK");
+            assertThat(expiryAttempt.get(30, TimeUnit.SECONDS)).isFalse();
+        }
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.PAID);
+        assertThat(variants.findById(order.variant()).orElseThrow().getRemainingUnsold()).isEqualTo(BigInteger.valueOf(2));
+        assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, order.checkout()).orElseThrow().getEarnState()).isEqualTo(EarnState.GRANTED);
+    }
+
+    private String randomProviderTransaction() {
+        return Long.toString(java.util.concurrent.ThreadLocalRandom.current().nextLong(100_000_000_000_000L, 1_000_000_000_000_000L));
+    }
+
+    private record CallbackFixture(String checkout, String merchant, long variant, long member) { }
+
+    private CallbackFixture retailCallbackFixture(boolean expired) {
+        return retailCallbackFixture(expired, false);
+    }
+
+    private CallbackFixture retailCallbackFixture(boolean expired, boolean deterministicMerchant) {
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("callback-" + random)
+                .loginEmail("callback-" + random + "@example.test").build()).getId();
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
+        var checkout = acceptance.accept(member, "callback-" + random,
+                new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
+        transaction.executeWithoutResult(status -> checkouts.lockOwned(checkout.id(), member).orElseThrow().beginPayment());
+        if (expired) jdbc.update("update retail_variant_holds set expires_at = ? where grouped_checkout_id = ?",
+                java.sql.Timestamp.valueOf("2020-01-01 00:00:00"), checkout.id());
+        String merchant = deterministicMerchant ? "RETAIL-" + checkout.id() : "retail-" + random;
+        paymentOwners.register(merchant, checkout.id(), edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerKind.RETAIL, 150000L, "VND", "20261104170000");
+        return new CallbackFixture(checkout.id(), merchant, variant, member);
+    }
+
+    private java.util.Map<String, String> signedRetailCallback(String merchant, String amount, String transactionNo) {
+        var params = new java.util.HashMap<String, String>();
+        params.put("vnp_TxnRef", merchant);
+        params.put("vnp_Amount", amount);
+        params.put("vnp_ResponseCode", "00");
+        params.put("vnp_TransactionStatus", "00");
+        params.put("vnp_TransactionNo", transactionNo);
+        params.put("vnp_SecureHash", paymentChecksum.sign(params));
+        return params;
+    }
 
     @Test
     void expiryAndMemberCancellationRaceReleaseBenefitsOnlyOnce() throws Exception {
@@ -224,6 +454,38 @@ class RetailCatalogueMySqlIntegrationTest {
     private record ExpiredOrder(long member, long variant, String checkout) { }
 
     @Test
+    void startedExpiryJobReleasesHeldVoucherAndPointsAfterVerifiedFailure() {
+        var order = expiredVoucherOrder();
+        var checkout = checkouts.findById(order.checkout()).orElseThrow();
+        long amount = checkout.getPayableAmount().longValueExact();
+        String reference = "RETAIL-" + order.checkout();
+        transaction.executeWithoutResult(status -> checkouts.lockOwned(order.checkout(), order.member()).orElseThrow().beginPayment());
+        paymentOwners.register(reference, order.checkout(), edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerKind.RETAIL, amount, "VND");
+        var failure = signedRetailCallback(reference, Long.toString(amount * 100), randomProviderTransaction());
+        failure.remove("vnp_SecureHash");
+        failure.put("vnp_ResponseCode", "24");
+        failure.put("vnp_TransactionStatus", "02");
+        failure.put("vnp_SecureHash", paymentChecksum.sign(failure));
+        assertThat(paymentIngress.receive(failure).message()).isEqualTo("OK");
+
+        var source = mock(RetailVariantHoldRepository.class);
+        var candidate = mock(RetailVariantHoldRepository.ExpiryCandidate.class);
+        when(candidate.getMemberId()).thenReturn(order.member());
+        when(candidate.getCheckoutId()).thenReturn(order.checkout());
+        when(source.findStartedExpiryCandidates(any(), any(), any(), any())).thenReturn(List.of(candidate));
+        var merchant = mock(edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationsPort.class);
+        var reconciliation = new edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailQueryReconciliationService(
+            paymentOwners, paymentOutcomes, merchant, checkouts, holdRepository, paymentReconciliation,
+            confirmedExpiry, paymentEvidence, transactionManager, "127.0.0.1", true);
+        var job = new edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailConfirmedUnpaidExpiryJob(source, reconciliation);
+        job.process();
+        job.process();
+        assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.EXPIRED);
+        assertReleasedOnce(order);
+        org.mockito.Mockito.verifyNoInteractions(merchant);
+    }
+
+    @Test
     void expiredUnstartedCheckoutReleasesRealBenefitsAndCannotStartPayment() throws Exception {
         long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
         long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
@@ -308,6 +570,37 @@ class RetailCatalogueMySqlIntegrationTest {
     }
 
     @Test
+    void testCheckoutEndpointUsesRealAcceptanceAndReplaysSameRequest() throws Exception {
+        long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
+        String random = UUID.randomUUID().toString();
+        long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-http-" + random)
+            .loginEmail("fe08-http-" + random + "@example.test").build()).getId();
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
+        var actor = mock(RetailActorResolver.class);
+        when(actor.requireActiveMember(any(HttpServletRequest.class))).thenReturn(new RetailMemberActor(member));
+        @SuppressWarnings("unchecked") ObjectProvider<RetailCheckoutAcceptanceService> acceptanceProvider = mock(ObjectProvider.class);
+        when(acceptanceProvider.getIfAvailable()).thenReturn(acceptance);
+        @SuppressWarnings("unchecked") ObjectProvider<RetailCheckoutQuotePreviewService> previewProvider = mock(ObjectProvider.class);
+        var controller = new CheckoutController(actor, mock(RetailCheckoutService.class), mock(RetailPaymentService.class), previewProvider, acceptanceProvider);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "testAcceptanceEnabled", true);
+        var mvc = MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(new RetailExceptionHandler()).build();
+        String body = "{\"branchOrders\":[{\"locationId\":1,\"method\":\"PICKUP\"}],\"benefitPreviewId\":\""
+            + preview.previewId() + "\",\"benefitSelection\":{\"choice\":\"NONE\",\"requestedPoints\":\"0\"},\"benefitTermsAccepted\":true}";
+        String key = "http-" + random;
+        String first = mvc.perform(post("/api/v1/ready-ring-orders").header("Idempotency-Key", key)
+            .contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated())
+            .andExpect(jsonPath("$.paymentState").value("ACCEPTED_UNPAID")).andReturn().getResponse().getContentAsString();
+        String second = mvc.perform(post("/api/v1/ready-ring-orders").header("Idempotency-Key", key)
+            .contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        assertThat(second).isEqualTo(first);
+        assertThat(checkouts.findByMemberAccountIdAndIdempotencyKey(member, key)).isPresent();
+    }
+
+    @Test
     void previewApiReturnsRealLoyaltyReasonsAndOnlyIssuesValidQuotes() throws Exception {
         CatalogueTestSupport.requireMySql84(dataSource);
         long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
@@ -321,7 +614,7 @@ class RetailCatalogueMySqlIntegrationTest {
         @SuppressWarnings("unchecked") ObjectProvider<RetailCheckoutQuotePreviewService> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(quotePreview);
         var mvc = MockMvcBuilders.standaloneSetup(new CheckoutController(actor, mock(RetailCheckoutService.class),
-            mock(RetailPaymentService.class), provider)).setControllerAdvice(new RetailExceptionHandler()).build();
+            mock(RetailPaymentService.class), provider, mock(ObjectProvider.class))).setControllerAdvice(new RetailExceptionHandler()).build();
         String route = "/api/v1/ready-ring-benefit-previews";
         String branch = ",\"branchOrders\":[{\"locationId\":1,\"method\":\"PICKUP\"}]}";
         String missingCode = "MISSING" + random.replace("-", "");

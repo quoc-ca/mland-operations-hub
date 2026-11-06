@@ -37,7 +37,7 @@ public class SecurityConfiguration {
 
     public SecurityConfiguration(
         @Qualifier("identityGateFilter") ObjectProvider<Filter> identityGateFilterProvider,
-        @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}") String allowedOriginsStr
+        @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOriginsStr
     ) {
         this.identityGateFilterProvider = identityGateFilterProvider;
         this.allowedOrigins = Arrays.stream(allowedOriginsStr.split(","))
@@ -66,6 +66,12 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/addresses/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*/locations").permitAll()
+                // Public session discovery for guest/member booking flow (no PII or ticket data exposed)
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*/sessions").permitAll()
+                // Public package list and detail for booking discovery
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/ai-support/messages").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/booking-magic-links/exchanges").permitAll()
@@ -80,6 +86,8 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/payment/vnpay/return").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/payment-attempts").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/final-bill").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/final-bill/add-ons").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/final-bill/operator").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/required-session-change-cases/*").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/mland-cancellation-remedy-cases/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/final-bill/charges").permitAll()

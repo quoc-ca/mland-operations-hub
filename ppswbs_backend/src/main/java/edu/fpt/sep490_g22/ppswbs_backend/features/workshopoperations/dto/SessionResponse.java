@@ -39,4 +39,7 @@ public class SessionResponse {
 
     private CheckInOpeningSource checkInOpeningSource;
     private Long operationalLeadAccountId;
+
+    /** Accounts of the Staff currently assigned to this session (empty when none). */
+    private java.util.List<Long> assignedStaffAccountIds;
 }

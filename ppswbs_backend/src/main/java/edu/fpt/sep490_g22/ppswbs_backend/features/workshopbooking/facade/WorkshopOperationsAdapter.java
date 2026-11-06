@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ApplyVerifiedRefundConsequenceCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingSettlementReadinessQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingTicketProjectionQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.CapacityCommitOutcome;
@@ -126,6 +127,11 @@ public class WorkshopOperationsAdapter {
     public DeliverySafeTicketSet getCurrentEntitlementProjection(String bookingReference) {
         log.debug("WorkshopOperationsAdapter.getCurrentEntitlementProjection: bookingRef={}", bookingReference);
         return workshopOperationsFacade.getBookingTicketProjection(new BookingTicketProjectionQuery(bookingReference));
+    }
+
+    public BookingAttendanceSummary getBookingAttendanceSummary(String bookingReference) {
+        log.debug("WorkshopOperationsAdapter.getBookingAttendanceSummary: bookingRef={}", bookingReference);
+        return workshopOperationsFacade.getBookingAttendanceSummary(new BookingSettlementReadinessQuery(bookingReference));
     }
 
     public SettlementReadiness getSettlementReadiness(String bookingReference) {

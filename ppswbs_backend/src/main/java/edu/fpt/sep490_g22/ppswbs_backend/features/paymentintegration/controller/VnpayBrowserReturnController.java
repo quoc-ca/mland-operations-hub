@@ -24,6 +24,8 @@ import java.util.Map;
 public class VnpayBrowserReturnController {
     private static final String DEPOSIT_PREFIX = "Workshop deposit ";
     private static final String FINAL_PREFIX = "Workshop final payment ";
+    private static final String RETAIL_PREFIX = "Retail checkout ";
+    private static final String SHOP_ADDON_PREFIX = "Workshop shop add-on payment ";
 
     private final String frontendBaseUrl;
 
@@ -37,7 +39,11 @@ public class VnpayBrowserReturnController {
             @RequestParam MultiValueMap<String, String> params) {
         String bookingCode = extractBookingCode(params.getFirst("vnp_OrderInfo"));
         UriComponentsBuilder target = UriComponentsBuilder.fromUriString(frontendBaseUrl);
-        if (bookingCode != null) {
+        String orderInfo = params.getFirst("vnp_OrderInfo");
+        if (orderInfo != null && orderInfo.startsWith(RETAIL_PREFIX)
+                && suffix(orderInfo, RETAIL_PREFIX) != null) {
+            target.path("/member/orders");
+        } else if (bookingCode != null) {
             target.pathSegment("workshop-booking", bookingCode, "payment-return");
         } else {
             target.path("/workshop-booking/lookup");
@@ -68,6 +74,7 @@ public class VnpayBrowserReturnController {
         if (orderInfo == null || orderInfo.isBlank()) return null;
         if (orderInfo.startsWith(DEPOSIT_PREFIX)) return suffix(orderInfo, DEPOSIT_PREFIX);
         if (orderInfo.startsWith(FINAL_PREFIX)) return suffix(orderInfo, FINAL_PREFIX);
+        if (orderInfo.startsWith(SHOP_ADDON_PREFIX)) return suffix(orderInfo, SHOP_ADDON_PREFIX);
         return null;
     }
 

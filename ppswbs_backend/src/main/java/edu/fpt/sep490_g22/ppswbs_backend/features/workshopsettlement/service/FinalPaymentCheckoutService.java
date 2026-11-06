@@ -93,7 +93,7 @@ public class FinalPaymentCheckoutService {
         }
         var confirmed = booking.confirmedProjection(bookingCode);
         if (confirmed == null) throw new WorkshopSettlementNotFoundException();
-        authorization.requireManagerOrStaff(actor, confirmed.bookingLocationReference());
+        authorization.requireManagerOrAssignedStaff(actor, confirmed.bookingLocationReference(), bookingCode);
 
         String operationReference = operationReference(bookingCode, idempotencyKey);
         String fingerprint = digest("START_FINAL_PAYMENT|" + bookingCode);

@@ -1,7 +1,7 @@
 # VNPay Paymentintegration Configuration Preflight
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -50,7 +50,7 @@ Before enabling a real VNPay environment, retain only redacted evidence that:
 - a valid signed sandbox callback is acknowledged with the required safe JSON
   response and reaches exactly its merchant-reference owner;
 - a duplicate callback has no second business effect;
-- an invalid checksum, unknown reference, mismatched amount/currency, and
+- an invalid checksum (`RspCode` 97), unknown reference (01), mismatched amount/currency (04), and
   late-after-hold-expiry success have no Booking/Settlement side effect;
 - QueryDR is outbound-only and result handling follows the same verification,
   routing, and idempotency boundary; and
@@ -65,5 +65,6 @@ disabled until all applicable inputs/evidence are approved.
 
 `paymentintegration` owns inbound checksum verification, deduplication, and
 owner-qualified dispatch. 003.1 consumes only verified `DEPOSIT` evidence;
-003.3 consumes only verified `FINAL_PAYMENT`/`REFUND` evidence. Neither feature
+003.3 consumes only verified `FINAL_PAYMENT`/`REFUND` evidence, plus
+`SHOP_ADDON` for the separate Mland shop add-on bill of an OTA booking. Neither feature
 owns provider credentials or may expose a second callback endpoint.

@@ -222,6 +222,27 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /ota-channel-bookings/lookups:
+    get:
+      operationId: lookupOtaChannelBookingByMlandReference
+      summary: At the check-in desk, resolve the OTA channel booking behind a Mland booking reference so the shop add-on flow can start from the ticket.
+      description: >-
+        Read-only; for in-scope Staff or an active Manager. A reference that is not an OTA booking and one outside the
+        caller's location scope both answer 404 with the same body, so the endpoint cannot be used to learn which Mland
+        bookings came through an OTA. It lives in OTA Connectivity so Workshop Operations never calls OTA; the check-in
+        screen joins the two answers.
+      parameters:
+        - { name: mlandBookingReference, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 128 } }
+      responses:
+        '200':
+          description: The OTA booking behind the Mland booking reference.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OtaBookingLookup' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /ota-channel-bookings/{channelBookingId}/add-on-quotes:
     parameters:
       - $ref: '#/components/parameters/ChannelBookingId'
@@ -523,12 +544,24 @@ components:
             amount: { $ref: '#/components/schemas/ZeroMoney' }
         - type: object
           additionalProperties: false
-          required: [addonType, itemCode, itemDescription, amount]
+          required: [addonType, catalogueAddOnReference]
+          description: >-
+            Owner decision D17 (2026-11-05): a paid option references an active
+            003.2 catalogue add-on for the booking's package/location; the
+            server derives description and price. No client amount is accepted.
           properties:
             addonType: { const: PAID_OPTION }
-            itemCode: { type: string, minLength: 1, maxLength: 100 }
-            itemDescription: { type: string, minLength: 1, maxLength: 500 }
-            amount: { $ref: '#/components/schemas/Money' }
+            catalogueAddOnReference: { type: string, minLength: 1, maxLength: 128 }
+    OtaBookingLookup:
+      type: object
+      additionalProperties: false
+      required: [channelBookingId, providerCode, mlandBookingReference, canSellAddon]
+      properties:
+        channelBookingId: { type: string }
+        providerCode: { type: string }
+        locationId: { type: string, nullable: true }
+        mlandBookingReference: { type: string }
+        canSellAddon: { type: boolean, description: False once the provider booking is cancelled, refunded or cancellation-requested. }
     AddonAcceptanceRequest:
       type: object
       additionalProperties: false
@@ -539,12 +572,12 @@ components:
     AddonQuote:
       type: object
       additionalProperties: false
-      required: [quoteId, channelBookingId, addonType, itemCode, amount, status]
+      required: [quoteId, channelBookingId, addonType, amount, status]
       properties:
         quoteId: { type: string, format: uuid }
         channelBookingId: { type: string, format: uuid }
         addonType: { type: string, enum: [LASER_ENGRAVING, PAID_OPTION] }
-        itemCode: { type: string, maxLength: 100 }
+        itemCode: { type: string, maxLength: 100, description: Present for PAID_OPTION (the catalogue add-on reference); absent for a LASER_ENGRAVING record. }
         amount: { $ref: '#/components/schemas/Money' }
         status: { type: string, enum: [RECORDED_FREE, QUOTED, ACCEPTED, BILLED, REJECTED] }
     DirectBillLink:

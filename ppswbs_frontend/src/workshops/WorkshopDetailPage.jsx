@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { getWorkshopPackage, listWorkshopSessions } from '../api/workshops';
+import React, { useEffect, useRef, useState } from 'react';
+import { getWorkshopPackage, listWorkshopLocations, listWorkshopSessions } from '../api/workshops';
+import PackageReviewSummary from '../features/reviewmanagement/ui/PackageReviewSummary';
 
-const AVAILABLE_LOCATIONS = [
-  { id: 1, name: 'MLAND Quận 1 — 123 Đồng Khởi, Bến Nghé, Quận 1, TP.HCM' },
-  { id: 2, name: 'MLAND Thủ Đức — 45 Võ Văn Ngân, Linh Chiểu, TP. Thủ Đức' },
-];
+/** Sessions shown per page: two rows of three on a wide screen, so the page stays short. */
+const SESSIONS_PER_PAGE = 6;
 
 function formatDate(date) {
   const y = date.getFullYear();
@@ -41,13 +40,26 @@ export function WorkshopDetailPage({ packageId }) {
   const nextTwoWeeks = new Date();
   nextTwoWeeks.setDate(today.getDate() + 14);
 
-  const [locationId, setLocationId] = useState(1);
+  const [locationId, setLocationId] = useState(null);
+  const [locations, setLocations] = useState([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [locationsError, setLocationsError] = useState(null);
   const [from, setFrom] = useState(formatDate(today));
   const [to, setTo] = useState(formatDate(nextTwoWeeks));
 
   const [sessions, setSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [sessionsError, setSessionsError] = useState(null);
+
+  // The session list is paged on the screen (the server returns every session of the chosen days).
+  const [sessionPage, setSessionPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(sessions.length / SESSIONS_PER_PAGE));
+  const currentPage = Math.min(sessionPage, pageCount - 1);
+  const pagedSessions = sessions.slice(currentPage * SESSIONS_PER_PAGE, (currentPage + 1) * SESSIONS_PER_PAGE);
+  useEffect(() => { setSessionPage(0); }, [sessions]);
+
+  // The package's reviews are always shown at the bottom of this page; the button only scrolls down to them.
+  const reviewRef = useRef(null);
 
   // Load package
   useEffect(() => {
@@ -65,6 +77,28 @@ export function WorkshopDetailPage({ packageId }) {
         setLoadingPkg(false);
       });
   }, [packageId]);
+
+  useEffect(() => {
+    if (!packageId || !pkg) return undefined;
+    let active = true;
+    setLoadingLocations(true);
+    setLocationsError(null);
+    listWorkshopLocations(packageId, { from, to })
+      .then(data => {
+        if (!active) return;
+        const next = Array.isArray(data) ? data : [];
+        setLocations(next);
+        setLocationId(current => next.some(item => Number(item.id) === Number(current)) ? current : (next[0]?.id ?? null));
+      })
+      .catch(err => {
+        if (!active) return;
+        setLocations([]);
+        setLocationId(null);
+        setLocationsError(err?.detail || err?.message || 'Không thể tải danh sách chi nhánh.');
+      })
+      .finally(() => { if (active) setLoadingLocations(false); });
+    return () => { active = false; };
+  }, [packageId, pkg, from, to]);
 
   // Load sessions when packageId, locationId, from, to change
   const fetchSessions = () => {
@@ -84,8 +118,10 @@ export function WorkshopDetailPage({ packageId }) {
   };
 
   useEffect(() => {
-    if (pkg) {
+    if (pkg && locationId) {
       fetchSessions();
+    } else {
+      setSessions([]);
     }
   }, [pkg, locationId, from, to]);
 
@@ -140,6 +176,18 @@ export function WorkshopDetailPage({ packageId }) {
             {pkg.description}
           </p>
 
+          {/* Reviews are written by people who attended a session, so a session still open for booking has none. What helps
+              someone choosing a package is the reviews of the package, gathered from the sessions already held. */}
+          <p style={{ margin: '0 0 20px' }}>
+            <button
+              type="button"
+              className="button outline"
+              onClick={() => reviewRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })}
+            >
+              Xem đánh giá của gói này ↓
+            </button>
+          </p>
+
           <div className="workspace-card" style={{ padding: '18px', backgroundColor: '#fafafa' }}>
             <h3 style={{ margin: '0 0 12px', fontSize: '16px' }}>Quy định của gói workshop</h3>
             <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.8', fontSize: '14px', color: '#333' }}>
@@ -154,7 +202,7 @@ export function WorkshopDetailPage({ packageId }) {
           </div>
 
           <div style={{ marginTop: '24px' }}>
-                <a className="button primary" style={{ width: '100%', textAlign: 'center', fontSize: '16px', padding: '14px 20px' }} href={`/workshops/${pkg.packageId}/book?locationId=${locationId}`}>
+                <a className="button primary" aria-disabled={!locationId} style={{ width: '100%', textAlign: 'center', fontSize: '16px', padding: '14px 20px', opacity: locationId ? 1 : 0.55 }} href={locationId ? `/workshops/${pkg.packageId}/book?locationId=${locationId}` : undefined} onClick={event => { if (!locationId) event.preventDefault(); }}>
               Đặt gói workshop này ngay →
             </a>
           </div>
@@ -174,12 +222,15 @@ export function WorkshopDetailPage({ packageId }) {
         <div className="filter-bar" style={{ marginTop: '16px' }}>
           <label style={{ flex: '2 1 280px' }}>
             Chi nhánh
-            <select value={locationId} onChange={e => setLocationId(Number(e.target.value))}>
-              {AVAILABLE_LOCATIONS.map(loc => (
+            <select value={locationId ?? ''} disabled={loadingLocations || locations.length === 0} onChange={e => setLocationId(Number(e.target.value))}>
+              <option value="" disabled>{loadingLocations ? 'Đang tải chi nhánh...' : 'Chọn chi nhánh'}</option>
+              {locations.map(loc => (
                 <option key={loc.id} value={loc.id}>{loc.name}</option>
               ))}
             </select>
           </label>
+
+          {locationsError && <p className="status" style={{ color: '#b00', borderColor: '#b00' }}>{locationsError}</p>}
 
           <label style={{ flex: '1 1 160px' }}>
             Từ ngày
@@ -223,7 +274,7 @@ export function WorkshopDetailPage({ packageId }) {
               * Lưu ý: Số chỗ khả dụng là thông tin tham khảo (snapshot); việc giữ chỗ thực tế được đảm bảo khi hoàn tất bước đặt chỗ.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '16px' }}>
-              {sessions.map(s => (
+              {pagedSessions.map(s => (
                 <article
                   key={s.sessionReference}
                   className="workspace-card"
@@ -264,7 +315,7 @@ export function WorkshopDetailPage({ packageId }) {
                         pointerEvents: s.customerSelectable && s.remainingCapacity > 0 ? 'auto' : 'none',
                         opacity: s.customerSelectable && s.remainingCapacity > 0 ? 1 : 0.5,
                       }}
-                      href={`/workshops/${pkg.packageId}/book?locationId=${locationId}`}
+                      href={locationId ? `/workshops/${pkg.packageId}/book?locationId=${locationId}&session=${encodeURIComponent(s.sessionReference)}&from=${from}&to=${to}` : undefined}
                     >
                       {s.customerSelectable && s.remainingCapacity > 0 ? 'Chọn lịch này để đặt' : 'Ca không khả dụng'}
                     </a>
@@ -272,9 +323,33 @@ export function WorkshopDetailPage({ packageId }) {
                 </article>
               ))}
             </div>
+
+            {pageCount > 1 && (
+              <nav aria-label="Phân trang các ca workshop" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
+                <button type="button" className="button outline small" disabled={currentPage === 0} onClick={() => setSessionPage(currentPage - 1)}>
+                  ‹ Trước
+                </button>
+                <span style={{ display: 'inline-flex', flexDirection: 'row', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', margin: 0 }}>
+                  Trang
+                  <select value={currentPage} onChange={e => setSessionPage(Number(e.target.value))} aria-label="Chọn trang" style={{ width: 'auto', minWidth: '64px', margin: 0 }}>
+                    {Array.from({ length: pageCount }, (_, index) => (
+                      <option key={index} value={index}>{index + 1}</option>
+                    ))}
+                  </select>
+                  / {pageCount}
+                </span>
+                <button type="button" className="button outline small" disabled={currentPage >= pageCount - 1} onClick={() => setSessionPage(currentPage + 1)}>
+                  Sau ›
+                </button>
+              </nav>
+            )}
           </div>
         )}
       </section>
+
+      <div ref={reviewRef} style={{ scrollMarginTop: '24px' }}>
+        <PackageReviewSummary packageId={pkg.packageId ?? packageId} packageName={pkg.name} />
+      </div>
     </main>
   );
 }

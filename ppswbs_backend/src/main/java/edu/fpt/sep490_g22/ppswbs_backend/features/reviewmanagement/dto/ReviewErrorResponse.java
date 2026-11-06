@@ -17,6 +17,7 @@ public class ReviewErrorResponse {
     private String message;
     private Instant timestamp;
     private String path;
+    private String correlationId;
     private List<String> details;
 }
 

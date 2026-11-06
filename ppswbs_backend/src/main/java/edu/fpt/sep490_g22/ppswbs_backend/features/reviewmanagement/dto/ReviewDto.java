@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.Instant;
 
@@ -15,6 +16,7 @@ import java.time.Instant;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ReviewDto {
     private String id;
     private SourceType sourceType;
@@ -23,6 +25,9 @@ public class ReviewDto {
     private String targetReference;
     private OwnerType ownerType;
     private String maskedDisplayName;
+    /** The workshop package the reviewed session belongs to (null for a retail review); shown so a review says which package. */
+    private Long packageId;
+    private String packageName;
     private Integer rating;
     private String bodyText;
     private ReviewStatus status;

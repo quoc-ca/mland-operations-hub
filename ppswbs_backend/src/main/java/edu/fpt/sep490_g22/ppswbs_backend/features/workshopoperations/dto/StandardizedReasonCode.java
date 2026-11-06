@@ -19,6 +19,11 @@ public enum StandardizedReasonCode {
     CUSTOMER_DEVICE_UNAVAILABLE(false, false),
 
     /**
+     * Customer arrived early before the check-in window opens and admitted early by authorized Staff.
+     */
+    EARLY_CHECKIN(false, false),
+
+    /**
      * Customer presented physical booking voucher or printed confirmation verified by Staff.
      */
     PHYSICAL_VOUCHER_VERIFIED(false, false),

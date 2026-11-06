@@ -1,7 +1,7 @@
 # UI Flow Design: 003.3 Workshop Settlement and Changes
 
 **Date created**: 2026-11-02
-**Date updated**: 2026-11-03
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -23,9 +23,9 @@
 
 | Screen / flow | Workflow/API reference | Required states and recovery |
 | --- | --- | --- |
-| Final bill workspace | `GET/POST /api/v1/workshop-bookings/{bookingCode}/final-bill` | Loading; no bill yet; immutable/snapshot lines; mismatch or finalized state is read-only. |
+| Final bill workspace | `GET/POST /api/v1/workshop-bookings/{bookingCode}/final-bill` | Loading; folio not available (booking not deposit-confirmed, or legacy booking before backfill); immutable/snapshot lines; `FINALIZED` or `CLOSED` folio is read-only. |
 | Add-on catalogue (read-only) | Booking detail / settlement workspace | Show eligible package/location add-ons and prices; no customer selection or checkout. For direct Mland bookings, Staff/Manager may confirm any active priced add-on, including laser engraving; the OTA-only free rule is not applied here. |
-| Charge/add-on line | `/final-bill/charges` | Staff/Manager records workshop consent; server derives catalogue price; direct OPEN bill appends, finalized direct booking uses a separate bill, OTA uses separate direct-Mland bill; reject stale/duplicate charge. |
+| Charge/add-on line | `/final-bill/charges` | Staff/Manager records workshop consent; server derives catalogue price; a direct booking appends only to its OPEN folio and a `FINALIZED` folio rejects the add-on read-only (correction only via the exceptional T040 flow); OTA uses the separate direct-Mland shop add-on bill (003.4) and free OTA laser engraving creates no bill; reject stale/duplicate charge. |
 | Final payment | `/final-bill/payment-attempts`, `/final-bill/finalizations` | Separate `FINAL_PAYMENT` attempt; server-derived outstanding VND balance; payment attempt expires after 10 minutes; only verified IPN/QueryDR can settle. No deferred-credit path. |
 | Direct customer cancellation | `/cancellation-cases` | Whole-booking request with reason; show non-refundable result; release/cancel through Operations handoff; never show a VNPay refund action. One case per booking. |
 | Required-session change | `/required-session-change-cases` | Show eligible replacement options and stale-capacity conflict; no silent partial change; recover by reloading current sessions. |
@@ -53,14 +53,16 @@ recovery path.
 ## Invariants captured for regeneration
 
 1. Direct customer cancellation after a confirmed direct booking is non-refundable; it does not create `PENDING_PROVIDER`, QueryDR, or VNPay refund.
-2. VNPay refund remains only for an approved Mland-caused direct-payment remedy, not for ordinary customer cancellation and not for OTA-collected base-package money.
+2. VNPay refund remains only for an approved Mland-caused direct-payment remedy or a Manager post-FINALIZED overcharge correction (FR-004c), not for ordinary customer cancellation and not for OTA-collected base-package money.
 3. Final-payment checkout is separate from the deposit attempt and expires after 10 minutes.
 4. A provider response is not verified completion; the case changes only after verified evidence.
 5. No credit/deferred-payment workflow is exposed.
 6. Customer add-on selection is not a booking step. Staff/Manager confirmation is
-   required at the workshop; direct OPEN bills may append, finalized direct
-   bookings and all OTA bookings use separate direct-Mland add-on bills. OTA
-   base-package financial facts remain isolated.
+   required at the workshop; a direct booking appends only to its OPEN folio,
+   and a `FINALIZED` direct folio accepts no add-on (the UI shows it read-only;
+   correction uses only the exceptional T040 flow). All OTA bookings use the
+   separate direct-Mland shop add-on bill; OTA base-package financial facts
+   remain isolated.
 
 ## Session, data handling, and accessibility
 

@@ -1,7 +1,7 @@
 # Data Model: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -29,6 +29,37 @@ status; verified payment/refund conclusion; and redacted audit/correlation
 references. It is not split by workshop session, participant, ticket or legacy
 item and never recalculates voucher/point/deposit effects.
 
+**Open-folio policy (2026-11-05)**: this record is the direct booking's one
+OPEN folio. Required conceptual facts: immutable base line (frozen
+post-promotion amount), accepted add-on/charge lines, append-only verified
+collections starting with the 003.1 deposit, derived `paidAmount` and
+`balanceDue = totalAmount − paidAmount`, and a lifecycle `OPEN` → `FINALIZED`
+(checkout, `balanceDue = 0`) or `OPEN` → `CLOSED` at the verified collected
+amount on ordinary cancellation/full no-show (no refund, no receivable), or
+after every Mland-caused remedy refund allocation is verified (D11). Lines
+and totals are immutable once `FINALIZED` or `CLOSED`. Per owner decisions
+D1/D4/D5 (2026-11-05) the folio is created idempotently when Settlement
+consumes `MlandBookingConfirmedEvent`, at most one exists per booking, and an
+append-only Flyway backfill creates OPEN folios for existing confirmed direct
+bookings. Physical columns, constraints and Flyway version are chosen during
+003.3 T087.
+
+### Folio Correction (T040, owner decisions D7–D10, 2026-11-05)
+
+A separate immutable record linked to one `FINALIZED` direct folio. It covers
+only an overcharge (an undercharge is absorbed by Mland and never recorded as
+a collection). It holds the whole-VND refund amount, required Manager reason,
+approving Manager reference, per-original-payment refund allocations (oldest
+first, capped by each payment's unrefunded amount), their refund operations and
+verified QueryDR conclusions, idempotency and audit references. It never changes the
+folio's lines, totals or state.
+
+**Physical Schema & Decision (chosen 2026-11-05 during T040)**:
+- **Decision (a)**: Reuse `SettlementCase` with case type `FOLIO_CORRECTION` and the 5-state lifecycle (`OPEN`, `PENDING_PROVIDER`, `RESOLVED`, `REJECTED`, `FAILED`).
+- Dedicated snapshot table `settlement_folio_corrections` (`id`, `correction_reference`, `case_reference`, `booking_reference`, `bill_reference`, `amount_vnd`, `currency_code`, `reason`, `manager_actor_reference`, `created_at`, `updated_at`).
+- Per-original-payment refund allocations are persisted in `settlement_refund_allocations` linked by `case_reference`, dispatched and reconciled through `WorkshopRefundService` without applying cancellation consequences (folio remains `FINALIZED`, booking remains `COMPLETED`, Loyalty earn and tickets untouched).
+- Deprecated `settlement_direct_addon_bills` draft is retired and replaced by Flyway migration `V98__settlement_folio_corrections.sql`.
+
 ### Charge Evidence
 
 An immutable accepted charge records its final-bill context, source category,
@@ -39,7 +70,8 @@ package and active canonical location; Settlement retains the selected
 description, whole-VND amount and currency as immutable charge evidence. A
 variable material/service charge has internal description, amount, reason and
 Staff/Manager confirmation. A correction is an audited void/adjustment record,
-never an overwrite. Legacy charges created before description retention may
+never an overwrite, and is allowed only while the folio is `OPEN`; after
+`FINALIZED` only a Folio Correction (overcharge refund) applies. Legacy charges created before description retention may
 have no customer-visible description.
 
 ### Settlement Case
@@ -197,21 +229,27 @@ transaction/reference.
 2. Frozen financial amounts from 003.1 are never recalculated by 003.3.
 3. Customers do not create charge lines. A Staff/Manager-confirmed catalogue
    add-on never supplies its own price: the server snapshots the eligible
-   package/location price. It appends only to an OPEN direct bill; finalized
-   direct and all OTA add-ons use a separate direct-Mland bill.
+   package/location price. A direct add-on appends only to the OPEN direct
+   folio; a `FINALIZED` folio rejects add-on add/change/remove (correction only
+   through the exceptional T040 flow). Every OTA shop add-on uses a separate
+   direct-Mland bill isolated from OTA facts; free OTA laser engraving creates
+   no bill.
 4. A charge creates no participant, ticket, capacity seat or booking.
 5. Valid matched VNPay evidence resolves a final bill/refund exactly once.
 6. Operations replacement is complete-set and all-or-none; 003.3 persists no
    partial capacity/entitlement outcome.
-7. Cancellation scope remains the whole booking/package. A policy may produce
-   a partial monetary refund; that aggregate is calculated once and allocated
-   oldest original payment first, capped by each original payment. No
-   ticket/participant/session-scoped cancellation is introduced. A customer
-   request whose computed refund is zero is rejected and leaves booking,
-  ticket and capacity state unchanged. The workshop product is handed over only
-  after its workshop session; requiring every required session to remain
-  unstarted already prevents cancellation after product handover, so no second
-  output-release state is needed in the cancellation snapshot.
+7. Cancellation scope remains the whole booking/package. A Mland-caused remedy
+   policy may produce a partial monetary refund; that aggregate is calculated
+   once and allocated oldest original payment first, capped by each original
+   payment. No ticket/participant/session-scoped cancellation is introduced.
+   An eligible direct customer cancellation always has a zero-refund snapshot
+   and is resolved as `DIRECT_DEPOSIT_FORFEITED` after Operations accepts; it is
+   not rejected for having a zero refund. Only an ineligible or
+   Operations-rejected request is `REJECTED` and leaves booking, ticket and
+   capacity state unchanged. The workshop product is handed over only after its
+   workshop session; requiring every required session to remain unstarted
+   already prevents cancellation after product handover, so no second
+   output-release state is needed in the cancellation snapshot.
 8. A Mland-caused remedy is traceable to the same cancellation handoff as its
    replacement attempt.
 9. Policy revisions are prospective and cannot rewrite a confirmed booking's
