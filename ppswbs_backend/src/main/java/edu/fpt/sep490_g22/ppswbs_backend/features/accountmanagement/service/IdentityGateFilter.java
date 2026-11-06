@@ -79,6 +79,12 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
             return true;
         }
+        // Opening a booking from the Magic Link in its email: the link's secret token is the credential, so the
+        // exchange needs no sign-in (a guest has no account). The service checks the token, its state and expiry.
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/booking-magic-links/exchanges".equals(path)) {
+            return true;
+        }
         // Guest booking lookup is explicitly public and uses booking code plus
         // one contact proof (email or phone) instead of a Bearer token.
         if ("POST".equalsIgnoreCase(request.getMethod())
