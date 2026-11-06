@@ -35,6 +35,7 @@ public class BookingLookupService {
 
     /** A Member's list shows their latest bookings; older ones are still found by booking code. */
     static final int MEMBER_LIST_LIMIT = 30;
+    private static final java.time.Duration EXPIRED_VISIBLE_FOR = java.time.Duration.ofHours(24);
 
     private final WorkshopBookingRepository bookings;
     private final BookingSessionCommitmentRepository commitments;
@@ -74,7 +75,7 @@ public class BookingLookupService {
 
     /**
      * The signed-in Member's own bookings, newest first, each with its sessions and tickets, so they can see their tickets
-     * without typing a booking code. Bookings whose hold expired without payment are left out. One booking whose current
+     * without typing a booking code. A booking whose hold expired without payment is shown for 24 hours, then left out. One booking whose current
      * projection cannot be built is skipped rather than failing the whole list.
      */
     @Transactional(readOnly = true)
@@ -82,10 +83,11 @@ public class BookingLookupService {
         AccountSummary member = authorization.requireMemberOwnership(authorizationHeader, null);
         List<WorkshopBooking> mine = new ArrayList<>(bookings.findByMemberAccountId(member.accountId()));
         mine.sort(Comparator.comparing(WorkshopBooking::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        Instant now = Instant.now();
         List<BookingSummaryResponse> result = new ArrayList<>();
         for (WorkshopBooking booking : mine) {
             if (result.size() >= MEMBER_LIST_LIMIT) break;
-            if (booking.getBookingStatus() == BookingStatus.EXPIRED) continue;
+            if (booking.getBookingStatus() == BookingStatus.EXPIRED && !expiredRecently(booking, now)) continue;
             try {
                 result.add(projectForMember(booking));
             } catch (RuntimeException failure) {
@@ -93,6 +95,12 @@ public class BookingLookupService {
             }
         }
         return result;
+    }
+
+    /** An unpaid hold that just ran out stays visible for a day so the customer sees what happened; after that it is noise. */
+    private static boolean expiredRecently(WorkshopBooking booking, Instant now) {
+        Instant expiredAt = booking.getHoldExpiresAt();
+        return expiredAt != null && expiredAt.isAfter(now.minus(EXPIRED_VISIBLE_FOR));
     }
 
     private WorkshopBooking findBooking(String bookingCode) {
