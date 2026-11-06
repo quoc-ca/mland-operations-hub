@@ -8,6 +8,7 @@ import { useDateTime } from '../display';
 import { checkCreate, createBody, defaultWindow, generateVoucherCode, LIMITS, serverFieldErrors, toInstant } from '../../domain/promotionRules';
 import { DateTimeField } from './DateTimeField';
 import { ProductTargetPicker } from './ProductTargetPicker';
+import { WorkshopTargetPicker } from './WorkshopTargetPicker';
 import { PageTop } from './PromotionManagementLayout';
 
 const MAX_CODE_DRAWS = 3;
@@ -29,7 +30,7 @@ const emptyForm = () => ({
   ...defaultWindow(), code: generateVoucherCode(),
   kind: 'VOUCHER', scope: 'PRODUCT', name: '', discountKind: 'PERCENT', percentage: '', amount: '',
   maxDiscountAmount: '', minimumEligibleAmount: '0', allowPoints: true, totalLimit: '', perMemberLimit: '1',
-  productIds: '', variantIds: '', packageIds: '', branchIds: '', workshopDates: '', sessionIds: '',
+  productIds: '', variantIds: '', packageIds: '', branchIds: '', sessionIds: '',
 });
 
 /**
@@ -65,6 +66,7 @@ export default function ProgramCreatePage() {
       return next;
     });
   };
+  const setField = (name, value) => setForm(current => ({ ...current, [name]: value }));
   const voucher = form.kind === 'VOUCHER';
   const inWords = local => (toInstant(local) ? t('create.timeInWords', { at: dateTime(toInstant(local)) }) : null);
 
@@ -168,18 +170,14 @@ export default function ProgramCreatePage() {
         )}
 
         <h2 className="section-title">{t('create.targets')}</h2>
-        <p className="muted small">{t(form.scope === 'PRODUCT' ? 'create.productTargetsHint' : 'create.targetsHint')}</p>
+        <p className="muted small">{t(form.scope === 'PRODUCT' ? 'create.productTargetsHint' : 'create.workshopTargetsHint')}</p>
         {errorOf('targets') && <p className="field-error">{errorOf('targets')}</p>}
         {form.scope === 'PRODUCT' ? (
           <ProductTargetPicker api={api} value={picked} onChange={pick}
             errors={{ productIds: errorOf('targets.productIds'), variantIds: errorOf('targets.variantIds') }} />
         ) : (
-          <div className="form-grid">
-            <Field label={t('target.packageIds')} error={errorOf('targets.packageIds')}><input value={form.packageIds} onChange={set('packageIds')} /></Field>
-            <Field label={t('target.branchIds')} error={errorOf('targets.branchIds')}><input value={form.branchIds} onChange={set('branchIds')} /></Field>
-            <Field label={t('target.workshopDates')} error={errorOf('targets.workshopDates')} hint="YYYY-MM-DD"><input value={form.workshopDates} onChange={set('workshopDates')} /></Field>
-            <Field label={t('target.sessionIds')} error={errorOf('targets.sessionIds')}><input value={form.sessionIds} onChange={set('sessionIds')} /></Field>
-          </div>
+          <WorkshopTargetPicker api={api} form={form} setField={setField}
+            errors={{ packageIds: errorOf('targets.packageIds'), branchIds: errorOf('targets.branchIds'), sessionIds: errorOf('targets.sessionIds') }} />
         )}
 
         <ErrorNotice error={command.error} messages={messages} onRetry={async () => open(await command.retry())} />
