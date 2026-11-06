@@ -50,7 +50,10 @@ export default function AppLayout() {
     location.pathname.startsWith('/operations') ||
     location.pathname.startsWith('/ota-connectivity') ||
     location.pathname.startsWith('/settlement') ||
-    location.pathname.startsWith('/workshop-packages');
+    location.pathname.startsWith('/workshop-packages') ||
+    location.pathname.startsWith('/staff/') ||
+    location.pathname.startsWith('/manager/') ||
+    location.pathname === '/home';
 
   if (['/sign-in', '/login', '/register', '/forgot-password'].includes(location.pathname)) return <Outlet />;
   if (isOperationsWorkspace) return <Outlet />;

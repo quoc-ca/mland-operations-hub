@@ -9,6 +9,7 @@ import { workshopRoutes } from '../workshops/routes';
 import { otaConnectivityRoutes } from '../ota-connectivity/routes';
 import { operationsRoutes } from '../workshop-operations/routes';
 import { settlementRoutes } from '../workshop-settlement/routes';
+import { operatorHomeRoutes } from '../features/operatorhome/routes';
 import AppLayout from './AppLayout';
 import NotImplementedPage from './NotImplementedPage';
 
@@ -22,6 +23,7 @@ export const routes = [
       ...otaConnectivityRoutes,
       ...operationsRoutes,
       ...settlementRoutes,
+      ...operatorHomeRoutes,
       ...designReviewRoutes,
       { path: '*', element: <NotImplementedPage /> },
     ],

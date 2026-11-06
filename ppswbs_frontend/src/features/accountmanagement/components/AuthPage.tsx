@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
+import { afterSignInPath } from '../../../shared/auth/roleHome';
 import { firebaseAuthClient } from '../auth/FirebaseAuthClient';
 import { accountManagementApiClient } from '../api/AccountManagementApiClient';
 import { ApiError } from '../../../shared/api/http';
@@ -47,6 +48,7 @@ const GoogleIcon: React.FC = () => (
 
 export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -67,8 +69,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
         const user = await firebaseAuthClient.getRedirectAuthResult();
         if (user && isMounted) {
           setPending(true);
-          await accountManagementApiClient.bootstrapOwnAccount();
-          navigate('/');
+          const account = await accountManagementApiClient.bootstrapOwnAccount();
+          // Staff and Manager land on their own home; others on the general home, unless they came from a page.
+          navigate(afterSignInPath(account?.role, new URLSearchParams(window.location.search).get('returnTo')));
         }
       } catch (err: any) {
         if (isMounted) {
@@ -198,8 +201,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
       }
 
       // Bootstrap Mland Account record
-      await accountManagementApiClient.bootstrapOwnAccount();
-      navigate('/');
+      const account = await accountManagementApiClient.bootstrapOwnAccount();
+      navigate(afterSignInPath(account?.role, searchParams.get('returnTo')));
     } catch (err: any) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
@@ -225,8 +228,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
     setGeneralError(null);
     setRetryableError(false);
     try {
-      await accountManagementApiClient.bootstrapOwnAccount();
-      navigate('/');
+      const account = await accountManagementApiClient.bootstrapOwnAccount();
+      navigate(afterSignInPath(account?.role, searchParams.get('returnTo')));
     } catch (err: any) {
       if (err instanceof ApiError && err.retryable) {
         setGeneralError('Dịch vụ tài khoản vẫn chưa phản hồi. Vui lòng thử lại.');
