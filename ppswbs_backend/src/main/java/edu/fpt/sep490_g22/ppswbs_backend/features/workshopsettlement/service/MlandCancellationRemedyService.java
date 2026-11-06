@@ -4,13 +4,16 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingOutcomeStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.VerifiedBookingPayment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.MlandRemedyCommandDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.SettlementCaseProjectionDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -23,10 +26,10 @@ import java.time.Instant;
 import java.util.*;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
 public class MlandCancellationRemedyService {
     private static final String CASE_TYPE = "MLAND_CANCELLATION_REMEDY";
-    private static final String PENDING_PROVIDER = "PENDING_PROVIDER";
+    private static final String PENDING_PROVIDER = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseLifecycleStatus.PENDING_PROVIDER.name();
     private final SettlementCaseRepository cases;
     private final SettlementCancellationCaseRepository cancellationCases;
     private final SettlementCustomerCancellationSnapshotRepository customerCancellationSnapshots;
@@ -40,6 +43,38 @@ public class MlandCancellationRemedyService {
     private final SettlementIdempotencyService idempotency;
     private final WorkshopRefundService refunds;
     private final ObjectMapper objectMapper;
+    private final SettlementFinalBillRepository bills;
+
+    @Autowired
+    public MlandCancellationRemedyService(SettlementCaseRepository cases,
+            SettlementCancellationCaseRepository cancellationCases,
+            SettlementCustomerCancellationSnapshotRepository customerCancellationSnapshots,
+            SettlementBookingMlandRefundPolicySnapshotRepository bookingPolicySnapshots,
+            SettlementMlandRemedySnapshotRepository remedySnapshots,
+            SettlementRefundAllocationRepository allocations,
+            SettlementEvidenceConclusionRepository evidence,
+            SettlementBusinessAuditRepository audits,
+            WorkshopBookingSettlementAdapter booking,
+            WorkshopSettlementAuthorizationService authorization,
+            SettlementIdempotencyService idempotency,
+            WorkshopRefundService refunds,
+            ObjectMapper objectMapper,
+            SettlementFinalBillRepository bills) {
+        this.cases = cases;
+        this.cancellationCases = cancellationCases;
+        this.customerCancellationSnapshots = customerCancellationSnapshots;
+        this.bookingPolicySnapshots = bookingPolicySnapshots;
+        this.remedySnapshots = remedySnapshots;
+        this.allocations = allocations;
+        this.evidence = evidence;
+        this.audits = audits;
+        this.booking = booking;
+        this.authorization = authorization;
+        this.idempotency = idempotency;
+        this.refunds = refunds;
+        this.objectMapper = objectMapper;
+        this.bills = bills;
+    }
 
     @Transactional(readOnly = true)
     public SettlementCaseProjectionDto read(String bookingReference, String caseReference,
@@ -144,7 +179,34 @@ public class MlandCancellationRemedyService {
                 .replacementOutcome(replacementOutcome).refundPercent(policy.getRefundPercent())
                 .confirmedAt(policy.getConfirmedAt()).collectedAmountVnd(collectedAmount)
                 .refundableAmountVnd(refundAmount).currencyCode("VND").capturedAt(now).build());
-        if (refundRequired) allocate(caseReference, payments, refundAmount, now);
+        if (refundRequired) {
+            allocate(caseReference, payments, refundAmount, now);
+        } else {
+            // No refund required (0% snapshot): close folio as CLOSED and send CANCELLED (D4, D11, D13)
+            bills.findByBookingReference(bookingReference).ifPresent(bill -> {
+                if (SettlementFinalBillLifecycleStatus.OPEN.name().equals(bill.getLifecycleStatus())) {
+                    bill.setLifecycleStatus(SettlementFinalBillLifecycleStatus.CLOSED.name());
+                    bills.saveAndFlush(bill);
+                    audits.save(SettlementBusinessAudit.builder()
+                            .auditReference("SETTLE-AUDIT-" + UUID.randomUUID()).aggregateType("SETTLEMENT_FINAL_BILL")
+                            .aggregateReference(bill.getBillReference()).actionCode("DIRECT_FOLIO_CLOSED_REMEDY")
+                            .correlationReference(correlation).reasonReference(caseReference)
+                            .createdAt(now).build());
+                }
+            });
+            try {
+                var outcomeResult = booking.recordBookingServiceOutcome(bookingReference,
+                        BookingServiceOutcome.CANCELLED, caseReference,
+                        "MLAND-REMEDY-ZERO-" + UUID.randomUUID(), correlation);
+                if (outcomeResult != null && outcomeResult.status() != BookingOutcomeStatus.ACCEPTED) {
+                    log.warn("Booking service outcome CANCELLED rejected for bookingReference={}: {}",
+                            bookingReference, outcomeResult.reason());
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to notify CANCELLED on zero-refund remedy for bookingReference={}: {}",
+                        bookingReference, ex.getMessage());
+            }
+        }
         audits.save(SettlementBusinessAudit.builder()
                 .auditReference("SETTLE-AUDIT-" + UUID.randomUUID()).aggregateType("SETTLEMENT_CASE")
                 .aggregateReference(caseReference).actionCode(refundRequired

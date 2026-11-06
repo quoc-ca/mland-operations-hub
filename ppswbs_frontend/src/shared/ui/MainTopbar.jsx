@@ -145,6 +145,12 @@ export default function MainTopbar() {
           >
             Trợ lý AI
           </Link>
+          <Link
+            to="/reviews"
+            className={`main-topbar-link ${location.pathname.startsWith('/reviews') ? 'active' : ''}`}
+          >
+            Đánh giá
+          </Link>
         </nav>
 
         <div className="main-topbar-tools">
@@ -233,6 +239,15 @@ export default function MainTopbar() {
                             <span>🏷️</span> Quản lý Ưu đãi
                           </Link>
                         </>
+                      )}
+                      {(userRole === 'STAFF' || userRole === 'MANAGER' || userRole === 'ADMIN') && (
+                        <Link
+                          to="/review-moderation"
+                          className="main-topbar-dropdown-item"
+                          role="menuitem"
+                        >
+                          <span>⭐</span> Kiểm duyệt Đánh giá
+                        </Link>
                       )}
                       {userRole === 'ADMIN' && (
                         <Link

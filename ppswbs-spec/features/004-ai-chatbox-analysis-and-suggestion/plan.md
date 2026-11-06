@@ -1,78 +1,48 @@
-# Implementation Plan: Independent Feature-04 Design Workspace
+﻿# Implementation Plan: Feature-004 Independent AI Design Workspace
 
-**Date created**: 2026-10-21  
-**Date updated**: 2026-10-28  
-**Author**: Ngô Tiến Đạt  
-**Last updated by**: Ngô Tiến Đạt  
+**Date created**: 2026-10-21
+**Date updated**: 2026-11-05
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Ngô Tiến Đạt
 
 ## Summary
 
-Rebase Feature-04 from booking-dependent design analysis to an independent Design
-Request capability. Basic AI Support and Manager price suggestion remain separate
-use cases. Feature-04 may use Account Management and, only when explicitly needed,
-an approved Catalogue facade. It has no Workshop Booking dependency.
+Feature-004 is an independent React/Vite frontend and Spring backend capability.
+The current frontend baseline is implemented under `src/features/designreview/`.
+It does not depend on Workshop Booking or Payment.
 
-## Blocking decisions before code
+## Confirmed frontend baseline
 
-1. Guest Design Request access and secure ownership proof.
-2. Whether a text-only Design Request is valid.
-3. Whether all requests or only AI-image requests require Staff/Manager review.
-4. Withdraw/revision behavior and approval expiry.
-5. Independent image-retention duration after processing.
-
-These are product, authorization and data decisions, not implementation defaults.
-
-## Required code rework
-
-The current backend must be reworked, not patched around, because it currently:
-
-- accepts `bookingCode` and `designVersion` in a booking context and calls booking eligibility;
-- stores booking-specific fields and consent purpose;
-- imports the legacy booking facade/package;
-- routes review by booking/branch/value assumptions;
-- uses booking-dependent request idempotency and test fixtures;
-- exposes booking-based screen/API semantics.
-
-The agent must remove these dependencies after the decisions above are approved.
-
-## Module boundary
-
-```text
-designreview → accountmanagement::facade
-designreview → catalogue::facade (optional opaque context only)
-```
-
-No import, facade call, entity or repository from Workshop Booking, Workshop
-Operations, Settlement, Payment or Ticketing is allowed.
+- React 19, Vite 7 and `react-router` 7.
+- Shared HTTP, Firebase session, i18n and UI primitives.
+- Real routes; no hash-route prototype fallback.
+- Local feature state; no new state library, UI kit or form library.
+- Backend is authoritative for permission, ownership, review and pricing state.
+- Guest uses Basic AI Support only; Member owns Design Requests.
+- Description-only, image-only and combined Design Requests are supported.
 
 ## Delivery slices
 
-1. Approve ownership/review/retention decisions and update spec/design/contract.
-2. Replace booking-dependent DesignRequest schema with independent owner/version model.
-3. Rework identity and ownership extraction for Member and approved Guest proof.
-4. Rework image consent, temporary storage, validation, rate limit and idempotency.
-5. Rework AI analysis and result state without booking eligibility or booking snapshots.
-6. Rework human review scope, decision lifecycle, revision, withdrawal and audit.
-7. Keep price suggestion isolated and enforce Manager/Admin visibility.
-8. Update migration append-only, tests, OpenAPI and frontend screens.
-9. Run Modulith, MySQL migration, contract, security, concurrency and E2E verification.
+1. Keep the independent routes and remove booking assumptions from frontend behavior.
+2. Maintain Basic AI Support with prompt validation, advisory scope and recovery states.
+3. Maintain Member Design Workspace with image consent, validation and idempotent multipart submission.
+4. Maintain owner-safe result/status display and Staff/Manager review operations.
+5. Maintain Manager price suggestion and Admin technical-audit projection without auto-publication.
+6. Normalize the feature folder toward `ui/application/domain/infrastructure` only in a separately scoped refactor.
 
-## Provider boundaries
+## Backend dependencies and blockers
 
-- `AiTextSupportPort`: normalized public prompt in, safe text result out.
-- `ImageFeatureAnalysisPort`: validated temporary image plus allowlisted independent context in, candidate result out.
-- `AiPriceSuggestionPort`: validated catalogue proposal snapshot in, advisory result out.
-- `ReferenceImageStoragePort`: temporary put/get/delete with observable retry-safe cleanup.
+- OpenAPI and current backend DTO/status/body shapes are not fully synchronized.
+- No frontend role bootstrap contract exists; route guards are navigation aids only.
+- Backend currently keeps compatibility with `ROLE_OWNER` for Manager behavior.
+- Image analysis is synchronous in the current request; the frontend must use the returned state and must not invent polling.
+- Provider adapter is deterministic/mock-like rather than verified live Gemini integration.
+- `consentPurpose` requires backend validation hardening.
+- Fresh backend integration and migration evidence remain separate release gates.
 
-All provider calls use correlation IDs, a 30-second timeout, safe error mapping and
-no raw payload logging. Prompt max is 2,000 characters; image max is 10 MB and
-4096×4096. AI never changes business state.
+## Verification
 
-## Verification gates
-
-- No booking field/import/facade remains in Feature-04.
-- No Design Request action mutates booking, payment, capacity, ticket or custom-order state.
-- Ownership isolation and approved Guest proof are tested.
-- Image consent precedes storage/provider call; rate limiting is atomic.
-- OpenAPI, data model, design, tasks and code agree on independent flow.
-- Flyway clean-install and upgrade tests pass without version-collision workaround.
+The frontend scope requires feature tests for API mapping, auth transport, multipart
+payload, idempotency, loading, empty, validation, forbidden, rate-limit, timeout,
+stale-version and retry-preserves-input states, followed by `npm test` and
+`npm run build` from `ppswbs_frontend`.

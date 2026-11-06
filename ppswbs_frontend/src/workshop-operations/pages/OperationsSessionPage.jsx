@@ -6,6 +6,7 @@ import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '..
 import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { createOperationsApi } from '../api/operationsApi';
+import { useOtaConnectivityApi } from '../../ota-connectivity/api/useOtaConnectivityApi';
 import { submitLatePaymentFollowUp, submitMagicLinkIncident } from '../../api/workshops';
 import StaffWorkshopAddonPanel from '../components/StaffWorkshopAddonPanel';
 import '../../ota-connectivity/ota-connectivity.css';
@@ -84,6 +85,7 @@ export default function OperationsSessionPage() {
   const { status, user } = useAuth();
   const http = useHttp();
   const api = createOperationsApi(http);
+  const otaApi = useOtaConnectivityApi();
   const resource = useResource(() => api.getSession(sessionId), [sessionId]);
   const command = useCommand();
   const [message, setMessage] = useState('');
@@ -92,6 +94,7 @@ export default function OperationsSessionPage() {
   const [lookupBookingCode, setLookupBookingCode] = useState('');
   const [resendBookingCode, setResendBookingCode] = useState('');
   const [lookup, setLookup] = useState(null);
+  const [otaBooking, setOtaBooking] = useState(null);
   const [lookupError, setLookupError] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [reasonCode, setReasonCode] = useState('EARLY_CHECKIN');
@@ -215,9 +218,16 @@ export default function OperationsSessionPage() {
               setLookupLoading(true);
               setLookupError('');
               setLookup(null);
+              setOtaBooking(null);
               try {
                 const res = await api.lookupBooking(sessionId, lookupBookingCode.trim());
                 setLookup(res);
+                try {
+                  const otaRes = await otaApi.lookupBookingByMlandReference(lookupBookingCode.trim());
+                  setOtaBooking(otaRes);
+                } catch {
+                  // Not an OTA booking
+                }
               } catch (err) {
                 setLookupError(err?.message || 'Không tìm thấy vé hợp lệ cho mã đặt chỗ này trong ca hiện tại.');
               } finally {
@@ -243,8 +253,24 @@ export default function OperationsSessionPage() {
 
           {lookup && Array.isArray(lookup) && (
             <div style={{ marginTop: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px', background: '#f9fafb' }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: '#374151' }}>
-                Tìm thấy {lookup.length} vé cho đơn {lookupBookingCode}:
+              <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>
+                  Tìm thấy {lookup.length} vé cho đơn {lookupBookingCode}:
+                  {otaBooking && (
+                    <span style={{ marginLeft: '8px', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, background: '#e0f2fe', color: '#0369a1' }}>
+                      OTA · {otaBooking.providerCode}
+                    </span>
+                  )}
+                </span>
+                {otaBooking && (
+                  <Link
+                    to={`/ota-connectivity/add-ons?channelBookingId=${encodeURIComponent(otaBooking.channelBookingId)}`}
+                    className="button primary"
+                    style={{ padding: '3px 8px', fontSize: '11px', textDecoration: 'none' }}
+                  >
+                    Add-on
+                  </Link>
+                )}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {lookup.map((t, idx) => (

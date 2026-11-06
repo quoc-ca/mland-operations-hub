@@ -134,7 +134,7 @@ export default function SettlementWorkspacePage() {
                 <div><span>Refunded</span><strong>{amountOf(bill.refundedAmount)} VND</strong></div>
               </div>
               <div className="ops-actions">
-                <button className="button outline" disabled={command.pending} onClick={() => run(key => api.createFinalBill(activeCode, {}, key), 'Final bill created.')}>Create / refresh bill</button>
+                <button className="button outline" disabled={command.pending} onClick={() => run(key => api.createFinalBill(activeCode, {}, key), 'Folio loaded.')}>Load folio</button>
                 <button className="button primary" disabled={command.pending} onClick={() => run(key => api.finalize(activeCode, key), 'Bill finalized.')}>Finalize bill</button>
                 <button className="button primary" disabled={!canActOnPayment} onClick={runPaymentRecovery}>
                   {paymentCommand.pending ? 'Checking payment status...' : paymentState.actionLabel}

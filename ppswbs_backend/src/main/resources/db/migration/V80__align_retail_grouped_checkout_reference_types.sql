@@ -1,3 +1,6 @@
+ALTER TABLE retail_checkout_holds
+    DROP FOREIGN KEY fk_retail_checkout_holds_checkout;
+
 ALTER TABLE retail_checkout_quotes
     DROP FOREIGN KEY fk_retail_quote_checkout;
 

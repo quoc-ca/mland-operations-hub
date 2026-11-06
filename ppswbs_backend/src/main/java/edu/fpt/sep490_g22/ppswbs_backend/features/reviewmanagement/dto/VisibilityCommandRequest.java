@@ -1,6 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.ModerationAction;
+import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.ReviewStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -15,13 +15,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class VisibilityCommandRequest {
 
-    @NotNull(message = "action is required")
-    private ModerationAction action;
+    @NotNull(message = "status is required")
+    private ReviewStatus status;
 
     @NotBlank(message = "reason is required")
     @Size(min = 3, max = 1000, message = "reason must be between 3 and 1000 characters")
     private String reason;
 
-    private String idempotencyKey;
 }
 

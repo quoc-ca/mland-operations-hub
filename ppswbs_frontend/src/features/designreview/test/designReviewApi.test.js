@@ -62,7 +62,7 @@ describe('Feature-004 REST operations', () => {
     ]);
   });
 
-  it('recordReviewDecision posts human decision with optimistic designVersion', async () => {
+  it('recordReviewDecision posts human decision with optimistic designVersion and requestVersion', async () => {
     await api.recordReviewDecision('req-789', {
       decision: 'ACCEPTED',
       designVersion: 2,
@@ -74,6 +74,7 @@ describe('Feature-004 REST operations', () => {
         method: 'POST',
         body: {
           decision: 'ACCEPTED',
+          requestVersion: 2,
           designVersion: 2,
           reason: 'Thiết kế đạt tiêu chuẩn sản xuất.',
         },

@@ -105,4 +105,21 @@ describe('Workshop settlement API client', () => {
       expect(call[1].idempotencyKey.length).toBeGreaterThan(0);
     }
   });
+
+  it('covers folio correction creation and customer-safe read endpoints', async () => {
+    const http = vi.fn().mockResolvedValue({});
+    const api = createSettlementApi(http);
+
+    await api.createFolioCorrection('BK-001', { amountVnd: 50000, reason: 'Staff typo' }, 'corr-key-1');
+    await api.getFolioCorrection('BK-001', 'CORR-123', { proof: 'contact' });
+
+    expect(http).toHaveBeenNthCalledWith(1, '/api/v1/workshop-bookings/BK-001/folio-corrections', {
+      method: 'POST',
+      body: { amountVnd: 50000, reason: 'Staff typo' },
+      idempotencyKey: 'corr-key-1',
+    });
+    expect(http).toHaveBeenNthCalledWith(2, '/api/v1/workshop-bookings/BK-001/folio-corrections/CORR-123', {
+      query: { proof: 'contact' },
+    });
+  });
 });

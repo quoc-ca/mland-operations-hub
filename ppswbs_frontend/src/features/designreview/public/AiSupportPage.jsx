@@ -39,9 +39,9 @@ export default function AiSupportPage() {
       const result = await api.askAiSupport({ message: trimmed, auth: isMember });
       const assistantEntry = {
         sender: 'assistant',
-        text: result.message,
+        text: result.answer || result.message,
         scope: result.scope,
-        correlationId: result.providerCorrelationId,
+        correlationId: result.correlationId || result.providerCorrelationId,
         timestamp: new Date().toISOString(),
       };
       setMessages(prev => [...prev, assistantEntry]);

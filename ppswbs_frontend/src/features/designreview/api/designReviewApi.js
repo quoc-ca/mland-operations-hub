@@ -68,12 +68,13 @@ export function designReviewApi(request) {
 
     /**
      * Record human review decision (F04-REVIEW-DETAIL).
-     * Uses designVersion for optimistic concurrency control.
+     * Uses requestVersion/designVersion for optimistic concurrency control.
      */
-    recordReviewDecision(reviewRequestId, { decision, designVersion, reason }) {
+    recordReviewDecision(reviewRequestId, { decision, designVersion, requestVersion, reason }) {
+      const ver = requestVersion ?? designVersion;
       return request(`/api/v1/design-review-requests/${encodeURIComponent(reviewRequestId)}/decisions`, {
         method: 'POST',
-        body: { decision, designVersion, reason },
+        body: { decision, requestVersion: ver, designVersion: ver, reason },
         auth: true,
       });
     },
@@ -82,11 +83,12 @@ export function designReviewApi(request) {
      * Request AI price suggestion for a workshop package or retail product proposal (F04-PRICE-PROPOSAL).
      * Manager / Owner only.
      */
-    requestPriceSuggestion(proposalId, { targetType = 'WORKSHOP_PACKAGE', bodyContext } = {}) {
+    requestPriceSuggestion(proposalId, { targetType = 'WORKSHOP_PACKAGE', materials = [], components = [], pricingContext = {}, bodyContext } = {}) {
+      const body = bodyContext !== undefined ? bodyContext : { targetType, materials, components, pricingContext };
       return request(`/api/v1/price-proposals/${encodeURIComponent(proposalId)}/ai-suggestions`, {
         method: 'POST',
         query: { targetType },
-        body: bodyContext !== undefined ? bodyContext : '',
+        body,
         auth: true,
       });
     },
@@ -118,4 +120,3 @@ export function designReviewApi(request) {
     },
   };
 }
-

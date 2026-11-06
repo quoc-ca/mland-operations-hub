@@ -66,7 +66,9 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         }
 
         WorkshopBooking booking = optBooking.get();
-        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
+        // A booking Settlement has concluded as COMPLETED keeps its frozen invoice for the Manager folio correction
+        // (003.3 T040); any other state (pending, cancelled, expired, no-show) has no folio to correct.
+        if (booking.getBookingStatus() != BookingStatus.CONFIRMED && booking.getBookingStatus() != BookingStatus.COMPLETED) {
             return null;
         }
 
@@ -102,7 +104,8 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         if (booking == null) return new VerifiedBookingDepositPaymentsProjection(List.of());
         java.util.Map<String, VerifiedBookingPayment> facts = new java.util.TreeMap<>();
         for (BookingPaymentReceipt receipt : paymentReceiptRepository.findByBookingId(booking.getId())) {
-            if (!"VNPAY".equals(receipt.getProviderName()) || receipt.getPaymentAttempt() == null
+            // "VERIFIED_EVIDENCE" is how receipts written before 2026-11-05 recorded the same VNPay evidence.
+            if (!VERIFIED_VNPAY_RECEIPT_PROVIDERS.contains(receipt.getProviderName()) || receipt.getPaymentAttempt() == null
                     || receipt.getAmountReceived() == null || receipt.getAmountReceived() <= 0) continue;
             BookingPaymentAttempt attempt = receipt.getPaymentAttempt();
             String txn = providerTransactionNumber(receipt.getProviderEventId());
@@ -123,9 +126,14 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         return new VerifiedBookingDepositPaymentsProjection(ordered);
     }
 
-    private static String providerTransactionNumber(String eventReference) {
-        if (eventReference == null || !eventReference.startsWith("VNPAY-")) return null;
-        return eventReference.substring("VNPAY-".length());
+    private static final java.util.Set<String> VERIFIED_VNPAY_RECEIPT_PROVIDERS = java.util.Set.of("VNPAY", "VERIFIED_EVIDENCE");
+
+    /** IPN evidence is {@code VNPAY-<txn>}; QueryDR recovery evidence is {@code VNPAY-QDR-<txn>}. */
+    static String providerTransactionNumber(String eventReference) {
+        if (eventReference == null) return null;
+        if (eventReference.startsWith("VNPAY-QDR-")) return eventReference.substring("VNPAY-QDR-".length());
+        if (eventReference.startsWith("VNPAY-")) return eventReference.substring("VNPAY-".length());
+        return null;
     }
 
     @Override
@@ -142,6 +150,15 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         }
         return new WorkshopBookingLoyaltyOutcomeSource(true, quote.getQuoteRef(),
                 Math.addExact(booking.getVersion(), 1L), booking.getHoldExpiresAt());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String getSettlementNotificationRecipient(SettlementNotificationRecipientQuery query) {
+        if (query == null) return null;
+        String email = bookingRepository.findByBookingCode(query.bookingReference())
+                .map(WorkshopBooking::getContactEmail).orElse(null);
+        return email == null || email.isBlank() ? null : email.trim();
     }
 
     @Override
@@ -201,6 +218,50 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         auditEvidenceRepository.save(audit);
 
         return FinalBalanceResolutionOutcome.accepted();
+    }
+
+    @Override
+    @Transactional
+    public BookingServiceOutcomeResult recordBookingServiceOutcome(RecordBookingServiceOutcomeCommand command) {
+        WorkshopBooking booking = bookingRepository.findLockedByBookingCode(command.bookingReference().trim()).orElse(null);
+        if (booking == null) return BookingServiceOutcomeResult.rejected(BookingRejectionReason.NOT_READY);
+
+        BookingStatus target = BookingStatus.valueOf(command.outcome().name());
+        if (booking.getBookingStatus() == target) return BookingServiceOutcomeResult.accepted();
+        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
+            return BookingServiceOutcomeResult.rejected(BookingRejectionReason.INVALID_STATE);
+        }
+
+        booking.setBookingStatus(target);
+        bookingRepository.save(booking);
+        recordSettlementAudit(booking, "BOOKING_SERVICE_" + target.name(), command.correlationReference());
+        return BookingServiceOutcomeResult.accepted();
+    }
+
+    @Override
+    @Transactional
+    public BookingRefundStatusResult recordBookingRefundStatus(RecordBookingRefundStatusCommand command) {
+        WorkshopBooking booking = bookingRepository.findLockedByBookingCode(command.bookingReference().trim()).orElse(null);
+        if (booking == null) return BookingRefundStatusResult.rejected(BookingRejectionReason.NOT_READY);
+
+        PaymentStatus target = PaymentStatus.valueOf(command.status().name());
+        if (booking.getPaymentStatus() == target) return BookingRefundStatusResult.accepted();
+        boolean legal = (target == PaymentStatus.REFUND_PENDING && booking.getPaymentStatus() == PaymentStatus.DEPOSIT_PAID)
+                || (target == PaymentStatus.REFUNDED && booking.getPaymentStatus() == PaymentStatus.REFUND_PENDING);
+        if (!legal) return BookingRefundStatusResult.rejected(BookingRejectionReason.INVALID_STATE);
+
+        booking.setPaymentStatus(target);
+        bookingRepository.save(booking);
+        recordSettlementAudit(booking, "BOOKING_REFUND_" + target.name(), command.correlationReference());
+        return BookingRefundStatusResult.accepted();
+    }
+
+    private void recordSettlementAudit(WorkshopBooking booking, String action, String correlationReference) {
+        auditEvidenceRepository.save(BookingAuditEvidence.builder()
+                .bookingCode(booking.getBookingCode()).locationId(1L).actorType("SETTLEMENT")
+                .action(action).outcome("ACCEPTED")
+                .correlationReference(correlationReference == null ? "SETTLEMENT-CONCLUSION" : correlationReference)
+                .occurredAt(Instant.now()).build());
     }
 
     @Override
@@ -266,7 +327,8 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
             bookingLifecycleService.confirmBookingPaymentAndCommitHolds(
                     booking.getBookingCode(),
                     command.verifiedEvidenceReference(),
-                    "VERIFIED_EVIDENCE",
+                    // Callers pass only signed VNPay evidence (IPN or QueryDR).
+                    "VNPAY",
                     command.amountVnd(),
                     "PAYLOAD_HASH_" + command.verifiedEvidenceReference(),
                     command.operationReference(),

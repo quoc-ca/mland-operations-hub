@@ -2,6 +2,7 @@ import React from 'react';
 import { createBrowserRouter } from 'react-router';
 import { accountManagementRoutes } from '../features/accountmanagement';
 import { designReviewRoutes } from '../features/designreview/routes';
+import { reviewManagementRoutes } from '../features/reviewmanagement/routes';
 import { readyRingSalesRoutes } from '../features/readyringsales/routes';
 import { loyaltyPromotionRoutes } from '../features/loyalty-promotion';
 import { productManagementRoutes } from '../features/product-management';
@@ -26,6 +27,7 @@ export const routes = [
       ...operationsRoutes,
       ...settlementRoutes,
       ...designReviewRoutes,
+      ...reviewManagementRoutes,
       ...productManagementRoutes,
       ...loyaltyPromotionRoutes,
       { path: '*', element: <NotImplementedPage /> },

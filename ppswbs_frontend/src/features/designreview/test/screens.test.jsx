@@ -204,17 +204,19 @@ describe('F04-ANALYSIS-STATUS & F04-RESULT Screen (/design-requests/:id)', () =>
 });
 
 describe('F04-REVIEW-QUEUE Screen (/design-review-requests)', () => {
-  it('renders queue items and handles empty queue', async () => {
+  it('renders queue items from envelope { items } and handles empty queue', async () => {
     mockFetch({
-      'GET /api/v1/design-review-requests': json(200, [
-        {
-          id: 'rev-01',
-          requestReference: 'DR-001',
-          requestVersion: 1,
-          reviewStatus: 'NEED_REVIEW',
-          catalogueReference: 'CAT-01',
-        },
-      ]),
+      'GET /api/v1/design-review-requests': json(200, {
+        items: [
+          {
+            id: 'rev-01',
+            requestReference: 'DR-001',
+            requestVersion: 1,
+            reviewStatus: 'NEED_REVIEW',
+            catalogueReference: 'CAT-01',
+          },
+        ],
+      }),
     });
 
     open('/design-review-requests', { session: fakeSession('signed-in') });
@@ -280,6 +282,7 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
     expect(decisionCall).toBeDefined();
     expect(decisionCall.body).toEqual({
       decision: 'ACCEPTED',
+      requestVersion: 1,
       designVersion: 1,
       reason: 'Mẫu hoa mai tinh xảo, đủ điều kiện gia công.',
     });

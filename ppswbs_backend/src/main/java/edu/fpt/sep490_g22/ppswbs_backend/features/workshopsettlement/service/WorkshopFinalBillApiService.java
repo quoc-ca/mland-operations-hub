@@ -68,7 +68,7 @@ public class WorkshopFinalBillApiService {
         SettlementIdempotencyResult result = idempotency.execute(op, fingerprint, () ->
                 billService.create(bookingCode, op, correlationOrGenerated(correlation)).getBillReference());
         return projection(bills.findByBookingReference(bookingCode)
-                .orElseThrow(() -> new WorkshopSettlementValidationException("FINAL_BILL_NOT_FOUND")));
+                .orElseThrow(() -> new WorkshopSettlementConflictException("FINAL_BILL_NOT_FOUND")));
     }
 
     @Transactional
@@ -117,7 +117,7 @@ public class WorkshopFinalBillApiService {
         String fingerprint = fingerprint("FINALIZE", bookingCode);
         idempotency.execute(operation, fingerprint, () -> {
             long currentOutstanding = outstanding(requireBill(bookingCode));
-            var bill = billService.finalizeAuthorized(bookingCode, currentOutstanding);
+            var bill = billService.finalizeAuthorized(bookingCode, currentOutstanding, operation, correlationOrGenerated(correlation));
             return bill.getBillReference();
         });
         return projection(requireBill(bookingCode));

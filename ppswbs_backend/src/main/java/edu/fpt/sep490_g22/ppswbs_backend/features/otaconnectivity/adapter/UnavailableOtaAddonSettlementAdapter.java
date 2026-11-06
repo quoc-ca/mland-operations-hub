@@ -2,6 +2,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.adapter;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.facade.OtaAddonSettlementPort;
 
+import java.util.Optional;
+
 /**
  * Safe default until Settlement exposes the approved OTA add-on billing facade.
  *
@@ -15,5 +17,10 @@ public final class UnavailableOtaAddonSettlementAdapter implements OtaAddonSettl
         return DirectBillCreationOutcome.rejected(
                 "SETTLEMENT_ADDON_BILLING_UNAVAILABLE",
                 "Settlement has not exposed the approved OTA add-on billing facade yet");
+    }
+
+    @Override
+    public Optional<OtaAddonBillStatus> getBillStatus(String billReference) {
+        return Optional.empty();
     }
 }

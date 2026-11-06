@@ -1,6 +1,6 @@
 # Quality Checklist: Independent Feature-04
 
-- [ ] Ownership/review/retention decisions are approved and not hidden in code.
+- [ ] Member-only ownership, review-state handling and temporary-image policy are explicit and not hidden in code.
 - [ ] Independent flow has no booking prerequisite or booking side effect.
 - [ ] Account facade and ownership proof are the only identity boundary.
 - [ ] OpenAPI routes and fields match the independent data model.

@@ -4,15 +4,21 @@ import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationRe
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationsPort;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundReconciliationCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRefundStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementRefundAllocationRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementBusinessAudit;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCase;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBillLifecycleStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundAllocation;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -33,9 +39,9 @@ import java.util.UUID;
 @Slf4j
 public class WorkshopRefundService {
     private static final String CASE_TYPE = "CUSTOMER_CANCELLATION";
-    private static final String CASE_PENDING = "PENDING_PROVIDER";
-    private static final String CASE_RESOLVED = "RESOLVED";
-    private static final String CASE_REJECTED = "REJECTED";
+    private static final String CASE_PENDING = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseLifecycleStatus.PENDING_PROVIDER.name();
+    private static final String CASE_RESOLVED = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseLifecycleStatus.RESOLVED.name();
+    private static final String CASE_REJECTED = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseLifecycleStatus.REJECTED.name();
     private static final String REASON_MANUAL_REMEDIATION = "REFUND_PARTIAL_MANUAL_REMEDIATION_REQUIRED";
     private static final Duration QUERY_INTERVAL = Duration.ofMinutes(5);
     private static final Duration QUERY_WINDOW = Duration.ofHours(24);
@@ -46,16 +52,23 @@ public class WorkshopRefundService {
     private final SettlementBusinessAuditRepository audits;
     private final WorkshopOperationsSettlementAdapter operations;
     private final WorkshopCancellationLoyaltyService cancellationLoyalty;
+    private final WorkshopBookingSettlementAdapter booking;
+    private final SettlementFinalBillRepository bills;
+    private final SettlementCustomerNotifier notifier;
     private final TransactionTemplate transaction;
     private final String merchantApiIpAddress;
     private final String merchantApiCreatedBy;
 
+    @Autowired
     public WorkshopRefundService(VnpayMerchantOperationsPort provider,
             SettlementRefundAllocationRepository allocations,
             SettlementCaseRepository cases,
             SettlementBusinessAuditRepository audits,
             WorkshopOperationsSettlementAdapter operations,
             WorkshopCancellationLoyaltyService cancellationLoyalty,
+            WorkshopBookingSettlementAdapter booking,
+            SettlementFinalBillRepository bills,
+            SettlementCustomerNotifier notifier,
             PlatformTransactionManager transactionManager,
             @Value("${vnpay.merchant-api-ip-address:}") String merchantApiIpAddress,
             @Value("${vnpay.merchant-api-created-by:}") String merchantApiCreatedBy) {
@@ -65,6 +78,9 @@ public class WorkshopRefundService {
         this.audits = audits;
         this.operations = operations;
         this.cancellationLoyalty = cancellationLoyalty;
+        this.booking = booking;
+        this.bills = bills;
+        this.notifier = notifier;
         this.transaction = new TransactionTemplate(transactionManager);
         this.merchantApiIpAddress = trimToNull(merchantApiIpAddress);
         this.merchantApiCreatedBy = trimToNull(merchantApiCreatedBy);
@@ -103,8 +119,26 @@ public class WorkshopRefundService {
         SettlementCase settlementCase = cases.findByCaseReference(allocation.getCaseReference()).orElse(null);
         if (!isPendingRefundCase(settlementCase)) return;
 
+        if ("MLAND_CANCELLATION_REMEDY".equals(settlementCase.getCaseType())) {
+            try {
+                String opRef = "SETTLE-REFUND-PENDING-" + settlementCase.getCaseReference();
+                booking.recordBookingRefundStatus(settlementCase.getBookingReference(),
+                        BookingRefundStatus.REFUND_PENDING,
+                        settlementCase.getCaseReference(),
+                        opRef,
+                        settlementCase.getCorrelationReference());
+            } catch (RuntimeException failure) {
+                log.warn("Failed to notify booking of refund pending status; caseReference={} ({})",
+                        settlementCase.getCaseReference(), failure.getClass().getSimpleName());
+            }
+        }
+
         String expectedType = expectedRefundType(allocation);
-        String orderInfo = "Workshop cancellation " + settlementCase.getCaseReference();
+        String orderInfo = "FOLIO_CORRECTION".equals(settlementCase.getCaseType())
+                ? "Workshop folio correction " + settlementCase.getCaseReference()
+                : "ADDON_REFUND".equals(settlementCase.getCaseType())
+                ? "Workshop add-on refund " + settlementCase.getCaseReference()
+                : "Workshop cancellation " + settlementCase.getCaseReference();
         VnpayMerchantOperationResult result;
         try {
             result = provider.requestRefund(new VnpayRefundCommand(
@@ -169,7 +203,11 @@ public class WorkshopRefundService {
                 || !isProviderTransactionNumber(allocation.getProviderRefundTransactionNumber())) return;
         SettlementCase settlementCase = cases.findByCaseReference(allocation.getCaseReference()).orElse(null);
         if (!isPendingRefundCase(settlementCase)) return;
-        String orderInfo = "Workshop cancellation " + settlementCase.getCaseReference();
+        String orderInfo = "FOLIO_CORRECTION".equals(settlementCase.getCaseType())
+                ? "Workshop folio correction " + settlementCase.getCaseReference()
+                : "ADDON_REFUND".equals(settlementCase.getCaseType())
+                ? "Workshop add-on refund " + settlementCase.getCaseReference()
+                : "Workshop cancellation " + settlementCase.getCaseReference();
         String queryReference = "VNPAY-REFUND-QUERY-" + UUID.randomUUID().toString().replace("-", "");
         VnpayMerchantOperationResult result;
         try {
@@ -240,7 +278,7 @@ public class WorkshopRefundService {
         }
         try {
             for (SettlementCase settlementCase : cases.findTop100ByCaseTypeInAndLifecycleStatusOrderByCreatedAtAsc(
-                    List.of(CASE_TYPE, "MLAND_CANCELLATION_REMEDY"), CASE_PENDING)) {
+                    List.of(CASE_TYPE, "MLAND_CANCELLATION_REMEDY", "FOLIO_CORRECTION", "ADDON_REFUND"), CASE_PENDING)) {
                 List<SettlementRefundAllocation> caseAllocations = allocations
                         .findAllByCaseReferenceOrderByCreatedAtAsc(settlementCase.getCaseReference());
                 if (!caseAllocations.isEmpty()
@@ -288,6 +326,22 @@ public class WorkshopRefundService {
         boolean anyVerified = caseAllocations.stream().anyMatch(a -> "VERIFIED".equals(a.getLifecycleStatus()));
         SettlementCase settlementCase = cases.findByCaseReference(rejected.getCaseReference()).orElse(null);
         if (!isPendingRefundCase(settlementCase)) return;
+        if ("FOLIO_CORRECTION".equals(settlementCase.getCaseType())) {
+            if (anyVerified) {
+                updateCase(settlementCase, CASE_PENDING, REASON_MANUAL_REMEDIATION);
+            } else {
+                updateCase(settlementCase, CASE_REJECTED, "FOLIO_CORRECTION_REFUND_REJECTED");
+            }
+            return;
+        }
+        if ("ADDON_REFUND".equals(settlementCase.getCaseType())) {
+            if (anyVerified) {
+                updateCase(settlementCase, CASE_PENDING, REASON_MANUAL_REMEDIATION);
+            } else {
+                updateCase(settlementCase, CASE_REJECTED, "ADDON_REFUND_REJECTED");
+            }
+            return;
+        }
         if (anyVerified) {
             updateCase(settlementCase, CASE_PENDING, REASON_MANUAL_REMEDIATION);
         } else {
@@ -301,6 +355,31 @@ public class WorkshopRefundService {
         List<SettlementRefundAllocation> caseAllocations = allocations.findAllByCaseReferenceOrderByCreatedAtAsc(caseReference);
         if (caseAllocations.isEmpty() || caseAllocations.stream().anyMatch(a -> !"VERIFIED".equals(a.getLifecycleStatus())))
             return;
+        if ("FOLIO_CORRECTION".equals(settlementCase.getCaseType())) {
+            transaction.executeWithoutResult(status -> {
+                SettlementCase latest = cases.findByCaseReferenceForUpdate(caseReference).orElse(null);
+                if (!isPendingRefundCase(latest)) return;
+                latest.setLifecycleStatus(CASE_RESOLVED);
+                latest.setReasonReference(null);
+                latest.setUpdatedAt(Instant.now());
+                cases.save(latest);
+                saveAudit(latest, "FOLIO_CORRECTION_REFUND_VERIFIED", null);
+                notifyRefund(latest, caseAllocations);
+            });
+            return;
+        }
+        if ("ADDON_REFUND".equals(settlementCase.getCaseType())) {
+            transaction.executeWithoutResult(status -> {
+                SettlementCase latest = cases.findByCaseReferenceForUpdate(caseReference).orElse(null);
+                if (!isPendingRefundCase(latest)) return;
+                latest.setLifecycleStatus(CASE_RESOLVED);
+                latest.setReasonReference(null);
+                latest.setUpdatedAt(Instant.now());
+                cases.save(latest);
+                saveAudit(latest, "ADDON_REFUND_VERIFIED", null);
+            });
+            return;
+        }
         String evidenceReference = "VERIFIED-CANCEL-REFUND-" + digest(caseReference).substring(0, 32);
         String operationReference = "OPS-REFUND-CONSEQUENCE-" + digest(caseReference).substring(0, 32);
         try {
@@ -309,7 +388,7 @@ public class WorkshopRefundService {
             if (outcome == null || outcome.status() == OutcomeStatus.IN_PROGRESS) return;
             if (outcome.status() == OutcomeStatus.ACCEPTED) {
                 transaction.executeWithoutResult(status -> {
-                    SettlementCase latest = cases.findByCaseReference(caseReference).orElse(null);
+                    SettlementCase latest = cases.findByCaseReferenceForUpdate(caseReference).orElse(null);
                     if (!isPendingRefundCase(latest)) return;
                     cancellationLoyalty.restoreVerifiedCancellation(latest, evidenceReference);
                     latest.setLifecycleStatus(CASE_RESOLVED);
@@ -317,6 +396,39 @@ public class WorkshopRefundService {
                     latest.setUpdatedAt(Instant.now());
                     cases.save(latest);
                     saveAudit(latest, "CUSTOMER_CANCELLATION_REFUND_VERIFIED", null);
+                    notifyRefund(latest, caseAllocations);
+
+                    bills.findByBookingReference(latest.getBookingReference()).ifPresent(bill -> {
+                        if (SettlementFinalBillLifecycleStatus.OPEN.name().equals(bill.getLifecycleStatus())) {
+                            bill.setLifecycleStatus(SettlementFinalBillLifecycleStatus.CLOSED.name());
+                            bills.saveAndFlush(bill);
+                            saveAudit(latest, "DIRECT_FOLIO_CLOSED_REFUNDED", bill.getBillReference());
+                        }
+                    });
+                    if ("MLAND_CANCELLATION_REMEDY".equals(latest.getCaseType())) {
+                        try {
+                            String refundOpRef = "SETTLE-REFUND-VERIFIED-" + latest.getCaseReference();
+                            booking.recordBookingRefundStatus(latest.getBookingReference(),
+                                    BookingRefundStatus.REFUNDED,
+                                    latest.getCaseReference(),
+                                    refundOpRef,
+                                    latest.getCorrelationReference());
+                        } catch (RuntimeException ex) {
+                            log.warn("Failed to notify booking of REFUNDED status; caseReference={} ({})",
+                                    latest.getCaseReference(), ex.getClass().getSimpleName());
+                        }
+                        try {
+                            String outcomeOpRef = "SETTLE-CANCEL-OUTCOME-" + latest.getCaseReference();
+                            booking.recordBookingServiceOutcome(latest.getBookingReference(),
+                                    BookingServiceOutcome.CANCELLED,
+                                    latest.getCaseReference(),
+                                    outcomeOpRef,
+                                    latest.getCorrelationReference());
+                        } catch (RuntimeException ex) {
+                            log.warn("Failed to notify booking of CANCELLED outcome; caseReference={} ({})",
+                                    latest.getCaseReference(), ex.getClass().getSimpleName());
+                        }
+                    }
                 });
             } else {
                 transaction.executeWithoutResult(status -> {
@@ -329,6 +441,13 @@ public class WorkshopRefundService {
             log.warn("Verified refund consequence is pending retry; caseReference={} exceptionType={}",
                     caseReference, failure.getClass().getSimpleName());
         }
+    }
+
+    /** Customer-facing refund notice for a direct booking; ADDON_REFUND (OTA bill) deliberately sends none. */
+    private void notifyRefund(SettlementCase resolved, List<SettlementRefundAllocation> verified) {
+        long amount = verified.stream().mapToLong(a -> a.getAllocatedAmountVnd() == null ? 0L : a.getAllocatedAmountVnd()).sum();
+        notifier.notifyVerified(resolved.getBookingReference(), SettlementCustomerNotifier.REFUND_VERIFIED, amount,
+                resolved.getCaseReference(), resolved.getCorrelationReference());
     }
 
     private SettlementRefundAllocation updateAllocation(String allocationReference,
@@ -401,7 +520,7 @@ public class WorkshopRefundService {
     }
 
     private static boolean isPendingRefundCase(SettlementCase value) {
-        return value != null && List.of(CASE_TYPE, "MLAND_CANCELLATION_REMEDY").contains(value.getCaseType())
+        return value != null && List.of(CASE_TYPE, "MLAND_CANCELLATION_REMEDY", "FOLIO_CORRECTION", "ADDON_REFUND").contains(value.getCaseType())
                 && CASE_PENDING.equals(value.getLifecycleStatus());
     }
 

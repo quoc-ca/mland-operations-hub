@@ -28,6 +28,13 @@ public interface TicketSessionEntitlementRepository extends JpaRepository<Ticket
     @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.ticket.bookingReference = :bookingReference AND tse.ticket.validityState = 'ACTIVE'")
     List<TicketSessionEntitlement> findActiveByBookingReference(@Param("bookingReference") String bookingReference);
 
+    /** Bookings with active tickets whose attendance-finalization publication is not yet recorded. */
+    @Query("SELECT DISTINCT tse.ticket.bookingReference FROM TicketSessionEntitlement tse "
+            + "WHERE tse.ticket.validityState = 'ACTIVE' AND NOT EXISTS ("
+            + "SELECT 1 FROM BookingAttendanceFinalizationOutboxEvent o "
+            + "WHERE o.bookingReference = tse.ticket.bookingReference)")
+    List<String> findDistinctActiveBookingReferences();
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.ticket.bookingReference = :bookingReference AND tse.ticket.validityState = 'ACTIVE' ORDER BY tse.id")
     List<TicketSessionEntitlement> findActiveByBookingReferenceWithLock(@Param("bookingReference") String bookingReference);

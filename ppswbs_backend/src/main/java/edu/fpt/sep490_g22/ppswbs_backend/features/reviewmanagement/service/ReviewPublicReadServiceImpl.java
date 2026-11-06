@@ -61,16 +61,19 @@ public class ReviewPublicReadServiceImpl implements ReviewPublicReadFacade {
         List<String> reviewIds = page.getContent().stream().map(Review::getId).toList();
         List<ReviewReply> replies = replyRepository.findByReviewIdIn(reviewIds);
         Map<String, ReplyDto> replyMap = replies.stream()
-                .map(applicationService::mapToReplyDto)
+                .map(reply -> applicationService.mapToReplyDto(reply, false))
                 .collect(Collectors.toMap(ReplyDto::getReviewId, Function.identity(), (a, b) -> a));
 
         List<ReviewDto> dtos = page.getContent().stream()
                 .map(r -> applicationService.mapToReviewDto(r, replyMap.get(r.getId())))
                 .collect(Collectors.toList());
 
+        String nextCursor = page.hasNext() ? String.valueOf(page.getNumber() + 1) : null;
+
         return PublicReviewPageDto.builder()
                 .aggregate(aggregate)
                 .items(dtos)
+                .nextCursor(nextCursor)
                 .page(page.getNumber())
                 .size(page.getSize())
                 .totalElements(page.getTotalElements())
@@ -86,7 +89,7 @@ public class ReviewPublicReadServiceImpl implements ReviewPublicReadFacade {
             return ReviewAggregateDto.builder()
                     .targetType(targetType)
                     .targetReference(targetReference)
-                    .totalCount(0L)
+                    .count(0L)
                     .averageRating(0.0)
                     .build();
         }
@@ -103,7 +106,7 @@ public class ReviewPublicReadServiceImpl implements ReviewPublicReadFacade {
         return ReviewAggregateDto.builder()
                 .targetType(targetType)
                 .targetReference(targetReference.trim())
-                .totalCount(count)
+                .count(count)
                 .averageRating(avg)
                 .build();
     }

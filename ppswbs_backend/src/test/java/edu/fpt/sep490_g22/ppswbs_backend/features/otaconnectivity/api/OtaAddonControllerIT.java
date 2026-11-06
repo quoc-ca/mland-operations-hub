@@ -20,6 +20,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.Ot
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaEnvironment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaMappingStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaProvider;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopAddOnPriceQuery;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopAddOnPriceSnapshot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -45,19 +48,21 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("003.4 T049: OTA Add-on REST Controller Integration Tests")
+@DisplayName("003.4 T049/T055: OTA Add-on REST Controller Integration Tests")
 class OtaAddonControllerIT {
 
     @Mock private AccountFacade accountFacade;
     @Mock private OtaChannelBookingRepository bookingRepository;
     @Mock private OtaAddonBillLinkRepository addonBillLinkRepository;
     @Mock private OtaAddonSettlementPort settlementPort;
+    @Mock private WorkshopOperationsFacade workshopOperationsFacade;
 
     private MockMvc mvc;
     private final ObjectMapper json = new ObjectMapper().findAndRegisterModules()
@@ -70,7 +75,10 @@ class OtaAddonControllerIT {
 
     private static final String STAFF_AUTH = "Bearer test-uid:staff-101";
     private static final String OTHER_STAFF_AUTH = "Bearer test-uid:staff-999";
+    private static final String MANAGER_AUTH = "Bearer test-uid:manager-301";
     private static final String MEMBER_AUTH = "Bearer test-uid:member-202";
+
+    private static final String CATALOGUE_REF_RUBY = "abc00000-0000-4000-8000-000000000001";
 
     @BeforeEach
     void setUp() {
@@ -90,7 +98,7 @@ class OtaAddonControllerIT {
         OtaAuthorizationService authorizationService = new OtaAuthorizationService(accountFacade);
         ReflectionTestUtils.setField(authorizationService, "allowTestTokens", true);
 
-        OtaAddonService addonService = new OtaAddonService(bookingRepository, addonBillLinkRepository, settlementPort);
+        OtaAddonService addonService = new OtaAddonService(bookingRepository, addonBillLinkRepository, settlementPort, workshopOperationsFacade);
         OtaAddonController controller = new OtaAddonController(authorizationService, addonService);
 
         mvc = MockMvcBuilders.standaloneSetup(controller)
@@ -99,7 +107,7 @@ class OtaAddonControllerIT {
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(json))
                 .build();
 
-        // Setup Accounts: Staff 101 with location scope [1001], Staff 999 with [9999], Member 202
+        // Setup Accounts: Staff 101 with location scope [1001], Staff 999 with [9999], Manager 301, Member 202
         AccountSummary staff101 = new AccountSummary(101L, ActorRole.STAFF, ActorStatus.ACTIVE, "staff@mland.test", Instant.now(), Instant.now());
         when(accountFacade.resolveAccount("staff-101")).thenReturn(Optional.of(staff101));
         when(accountFacade.getLocationScope(101L)).thenReturn(List.of(locationId));
@@ -107,6 +115,9 @@ class OtaAddonControllerIT {
         AccountSummary staff999 = new AccountSummary(999L, ActorRole.STAFF, ActorStatus.ACTIVE, "other@mland.test", Instant.now(), Instant.now());
         when(accountFacade.resolveAccount("staff-999")).thenReturn(Optional.of(staff999));
         when(accountFacade.getLocationScope(999L)).thenReturn(List.of(9999L));
+
+        AccountSummary manager301 = new AccountSummary(301L, ActorRole.MANAGER, ActorStatus.ACTIVE, "manager@mland.test", Instant.now(), Instant.now());
+        when(accountFacade.resolveAccount("manager-301")).thenReturn(Optional.of(manager301));
 
         AccountSummary member202 = new AccountSummary(202L, ActorRole.MEMBER, ActorStatus.ACTIVE, "member@mland.test", Instant.now(), Instant.now());
         when(accountFacade.resolveAccount("member-202")).thenReturn(Optional.of(member202));
@@ -153,7 +164,7 @@ class OtaAddonControllerIT {
     class CreateQuoteTests {
 
         @Test
-        @DisplayName("Free engraving: Zero charge succeeds with 201 Created and status RECORDED_FREE")
+        @DisplayName("Free engraving: Zero charge succeeds with 201 Created and status RECORDED_FREE (itemCode absent)")
         void freeLaserEngraving_zeroCharge_succeeds201() throws Exception {
             String requestJson = """
                 {
@@ -176,7 +187,8 @@ class OtaAddonControllerIT {
                     .andExpect(jsonPath("$.addonType").value("LASER_ENGRAVING"))
                     .andExpect(jsonPath("$.amount.amount").value("0"))
                     .andExpect(jsonPath("$.amount.currency").value("VND"))
-                    .andExpect(jsonPath("$.status").value("RECORDED_FREE"));
+                    .andExpect(jsonPath("$.status").value("RECORDED_FREE"))
+                    .andExpect(jsonPath("$.itemCode").doesNotExist());
         }
 
         @Test
@@ -203,19 +215,18 @@ class OtaAddonControllerIT {
         }
 
         @Test
-        @DisplayName("Paid option: Positive amount and itemCode succeeds with 201 Created and status QUOTED")
-        void paidOption_validPositiveAmount_succeeds201() throws Exception {
+        @DisplayName("Paid option D17: Takes catalogueAddOnReference, server derives description/price, succeeds 201 with QUOTED")
+        void paidOption_validCatalogueReference_succeeds201() throws Exception {
+            when(workshopOperationsFacade.getWorkshopAddOnPrice(
+                    new WorkshopAddOnPriceQuery("offer-ring-basic", locationId, CATALOGUE_REF_RUBY)))
+                    .thenReturn(new WorkshopAddOnPriceSnapshot(CATALOGUE_REF_RUBY, "Natural Ruby Accent Inlay", 250_000L, "VND"));
+
             String requestJson = """
                 {
                     "addonType": "PAID_OPTION",
-                    "itemCode": "STONE-GEM-RUBY",
-                    "itemDescription": "Natural Ruby Accent Inlay",
-                    "amount": {
-                        "amount": "250000",
-                        "currency": "VND"
-                    }
+                    "catalogueAddOnReference": "%s"
                 }
-                """;
+                """.formatted(CATALOGUE_REF_RUBY);
 
             mvc.perform(post("/api/v1/ota-channel-bookings/" + bookingUuid + "/add-on-quotes")
                             .header("Authorization", STAFF_AUTH)
@@ -225,23 +236,59 @@ class OtaAddonControllerIT {
                     .andExpect(jsonPath("$.quoteId").isNotEmpty())
                     .andExpect(jsonPath("$.channelBookingId").value(bookingUuid))
                     .andExpect(jsonPath("$.addonType").value("PAID_OPTION"))
-                    .andExpect(jsonPath("$.itemCode").value("STONE-GEM-RUBY"))
+                    .andExpect(jsonPath("$.itemCode").value(CATALOGUE_REF_RUBY))
                     .andExpect(jsonPath("$.amount.amount").value("250000"))
                     .andExpect(jsonPath("$.amount.currency").value("VND"))
                     .andExpect(jsonPath("$.status").value("QUOTED"));
         }
 
         @Test
-        @DisplayName("Paid option: Missing itemCode is rejected with 400 Bad Request")
-        void paidOption_missingItemCode_rejected400() throws Exception {
+        @DisplayName("Paid option: Staff-entered amount is rejected with 400 Bad Request")
+        void paidOption_clientEnteredAmount_rejected400() throws Exception {
             String requestJson = """
                 {
                     "addonType": "PAID_OPTION",
-                    "itemDescription": "Option missing code",
+                    "catalogueAddOnReference": "%s",
                     "amount": {
                         "amount": "250000",
                         "currency": "VND"
                     }
+                }
+                """.formatted(CATALOGUE_REF_RUBY);
+
+            mvc.perform(post("/api/v1/ota-channel-bookings/" + bookingUuid + "/add-on-quotes")
+                            .header("Authorization", STAFF_AUTH)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(requestJson))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        }
+
+        @Test
+        @DisplayName("Paid option: Staff-entered itemCode is rejected with 400 Bad Request")
+        void paidOption_clientEnteredItemCode_rejected400() throws Exception {
+            String requestJson = """
+                {
+                    "addonType": "PAID_OPTION",
+                    "catalogueAddOnReference": "%s",
+                    "itemCode": "CUSTOM-CODE"
+                }
+                """.formatted(CATALOGUE_REF_RUBY);
+
+            mvc.perform(post("/api/v1/ota-channel-bookings/" + bookingUuid + "/add-on-quotes")
+                            .header("Authorization", STAFF_AUTH)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(requestJson))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        }
+
+        @Test
+        @DisplayName("Paid option: Missing catalogueAddOnReference is rejected with 400 Bad Request")
+        void paidOption_missingCatalogueAddOnReference_rejected400() throws Exception {
+            String requestJson = """
+                {
+                    "addonType": "PAID_OPTION"
                 }
                 """;
 
@@ -254,17 +301,16 @@ class OtaAddonControllerIT {
         }
 
         @Test
-        @DisplayName("Paid option: Zero or negative amount is rejected with 422 Unprocessable")
-        void paidOption_zeroAmount_rejected422() throws Exception {
+        @DisplayName("Paid option: Missing/inactive/out-of-scope catalogue reference is rejected with 422 Unprocessable")
+        void paidOption_invalidCatalogueReference_rejected422() throws Exception {
+            when(workshopOperationsFacade.getWorkshopAddOnPrice(
+                    new WorkshopAddOnPriceQuery("offer-ring-basic", locationId, "non-existent-ref")))
+                    .thenReturn(null);
+
             String requestJson = """
                 {
                     "addonType": "PAID_OPTION",
-                    "itemCode": "OPT-TEST",
-                    "itemDescription": "Free paid option",
-                    "amount": {
-                        "amount": "0",
-                        "currency": "VND"
-                    }
+                    "catalogueAddOnReference": "non-existent-ref"
                 }
                 """;
 
@@ -274,31 +320,29 @@ class OtaAddonControllerIT {
                             .content(requestJson))
                     .andExpect(status().isUnprocessableEntity())
                     .andExpect(jsonPath("$.code").value("UNPROCESSABLE"))
-                    .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("positive amount")));
+                    .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Catalogue add-on is missing, inactive, or not valid")));
         }
 
         @Test
-        @DisplayName("Currency: Non-VND currency is rejected with 422 Unprocessable")
-        void nonVndCurrency_rejected422() throws Exception {
+        @DisplayName("Authorization D18: Active Manager globally authorized to create add-on quotes")
+        void activeManager_authorizedToCreateQuote() throws Exception {
+            when(workshopOperationsFacade.getWorkshopAddOnPrice(
+                    new WorkshopAddOnPriceQuery("offer-ring-basic", locationId, CATALOGUE_REF_RUBY)))
+                    .thenReturn(new WorkshopAddOnPriceSnapshot(CATALOGUE_REF_RUBY, "Natural Ruby Accent Inlay", 250_000L, "VND"));
+
             String requestJson = """
                 {
                     "addonType": "PAID_OPTION",
-                    "itemCode": "OPT-USD",
-                    "itemDescription": "Foreign currency option",
-                    "amount": {
-                        "amount": "20",
-                        "currency": "USD"
-                    }
+                    "catalogueAddOnReference": "%s"
                 }
-                """;
+                """.formatted(CATALOGUE_REF_RUBY);
 
             mvc.perform(post("/api/v1/ota-channel-bookings/" + bookingUuid + "/add-on-quotes")
-                            .header("Authorization", STAFF_AUTH)
+                            .header("Authorization", MANAGER_AUTH)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestJson))
-                    .andExpect(status().isUnprocessableEntity())
-                    .andExpect(jsonPath("$.code").value("UNPROCESSABLE"))
-                    .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Only VND currency")));
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.status").value("QUOTED"));
         }
 
         @Test
@@ -320,8 +364,8 @@ class OtaAddonControllerIT {
         }
 
         @Test
-        @DisplayName("Authorization: Non-staff role returns 403 Forbidden")
-        void nonStaffRole_returns403() throws Exception {
+        @DisplayName("Authorization: Non-staff/non-manager role returns 403 Forbidden")
+        void nonStaffNonManagerRole_returns403() throws Exception {
             String requestJson = """
                 {
                     "addonType": "LASER_ENGRAVING",
@@ -391,7 +435,7 @@ class OtaAddonControllerIT {
                     .settlementQuoteReference(UUID.randomUUID().toString())
                     .addonType("PAID_OPTION")
                     .itemCode("OPT-PLATINUM")
-                    .itemDescription("Platinum Inlay")
+                    .itemDescription("Platinum Plating")
                     .amountMinor(300_000L)
                     .currencyCode("VND")
                     .status("QUOTED")
@@ -419,6 +463,24 @@ class OtaAddonControllerIT {
                     .andExpect(jsonPath("$.status").value("ACCEPTED"))
                     .andExpect(jsonPath("$.itemCode").value("OPT-PLATINUM"))
                     .andExpect(jsonPath("$.amount.amount").value("300000"));
+        }
+
+        @Test
+        @DisplayName("Authorization D18: Active Manager globally authorized to accept quotes")
+        void activeManager_authorizedToAcceptQuote() throws Exception {
+            String requestJson = """
+                {
+                    "acceptedAt": "2026-11-01T12:00:00Z",
+                    "acceptanceReference": "consent-sign-manager-001"
+                }
+                """;
+
+            mvc.perform(post("/api/v1/ota-addon-quotes/" + paidQuoteId + "/acceptance")
+                            .header("Authorization", MANAGER_AUTH)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(requestJson))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value("ACCEPTED"));
         }
 
         @Test
@@ -487,7 +549,8 @@ class OtaAddonControllerIT {
                     .channelBooking(booking)
                     .settlementQuoteReference(UUID.randomUUID().toString())
                     .addonType("LASER_ENGRAVING")
-                    .itemCode("FREE-ENGRAVE")
+                    .itemCode(null)
+                    .itemDescription("Complimentary Engraving")
                     .amountMinor(0L)
                     .currencyCode("VND")
                     .status("RECORDED_FREE")
@@ -557,6 +620,19 @@ class OtaAddonControllerIT {
         }
 
         @Test
+        @DisplayName("Authorization D18: Active Manager globally authorized to create direct bills")
+        void activeManager_authorizedToCreateDirectBill() throws Exception {
+            when(settlementPort.createDirectBill(any())).thenReturn(
+                    DirectBillCreationOutcome.success("SETTLE-ADDON-BILL-778", "https://vnpay.mock/pay/778")
+            );
+
+            mvc.perform(post("/api/v1/ota-addon-quotes/" + acceptedQuoteId + "/direct-bill")
+                            .header("Authorization", MANAGER_AUTH))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.settlementBillReference").value("SETTLE-ADDON-BILL-778"));
+        }
+
+        @Test
         @DisplayName("Idempotent replay: Direct bill creation on already billed quote returns 201 with existing bill")
         void alreadyBilled_replayReturnsExistingBill() throws Exception {
             when(settlementPort.createDirectBill(any())).thenReturn(
@@ -605,7 +681,8 @@ class OtaAddonControllerIT {
                     .channelBooking(booking)
                     .settlementQuoteReference(UUID.randomUUID().toString())
                     .addonType("LASER_ENGRAVING")
-                    .itemCode("FREE-ENGRAVE")
+                    .itemCode(null)
+                    .itemDescription("Free engraving")
                     .amountMinor(0L)
                     .currencyCode("VND")
                     .status("RECORDED_FREE")
@@ -640,6 +717,81 @@ class OtaAddonControllerIT {
             assertThat(booking.getRetailAmountMinor()).isEqualTo(initialRetail);
             assertThat(booking.getCommissionAmountMinor()).isEqualTo(initialCommission);
             assertThat(booking.getFeeAmountMinor()).isEqualTo(initialFee);
+        }
+    }
+
+    @Nested
+    @DisplayName("Endpoint 4: GET /api/v1/ota-channel-bookings/lookups")
+    class BookingLookupEndpointTests {
+
+        @Test
+        @DisplayName("Lookup with in-scope Staff succeeds 200 OK")
+        void lookup_inScopeStaff_succeeds200() throws Exception {
+            when(bookingRepository.findByMlandBookingReference("mland-bk-42")).thenReturn(Optional.of(booking));
+
+            mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "mland-bk-42")
+                            .header("Authorization", STAFF_AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.channelBookingId").value(bookingUuid))
+                    .andExpect(jsonPath("$.providerCode").value("KLOOK"))
+                    .andExpect(jsonPath("$.locationId").value(locationId.toString()))
+                    .andExpect(jsonPath("$.mlandBookingReference").value("mland-bk-42"))
+                    .andExpect(jsonPath("$.canSellAddon").value(true));
+        }
+
+        @Test
+        @DisplayName("Lookup with Manager succeeds 200 OK")
+        void lookup_manager_succeeds200() throws Exception {
+            when(bookingRepository.findByMlandBookingReference("mland-bk-42")).thenReturn(Optional.of(booking));
+
+            mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "mland-bk-42")
+                            .header("Authorization", MANAGER_AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.channelBookingId").value(bookingUuid))
+                    .andExpect(jsonPath("$.providerCode").value("KLOOK"))
+                    .andExpect(jsonPath("$.canSellAddon").value(true));
+        }
+
+        @Test
+        @DisplayName("Lookup with out-of-scope Staff answers exactly like a missing booking (404), never revealing it is OTA")
+        void lookup_outOfScopeStaff_isIndistinguishableFromMissing() throws Exception {
+            when(bookingRepository.findByMlandBookingReference("mland-bk-42")).thenReturn(Optional.of(booking));
+            when(bookingRepository.findByMlandBookingReference("mland-bk-missing")).thenReturn(Optional.empty());
+
+            String outOfScope = mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "mland-bk-42")
+                            .header("Authorization", OTHER_STAFF_AUTH))
+                    .andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
+            String missing = mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "mland-bk-missing")
+                            .header("Authorization", OTHER_STAFF_AUTH))
+                    .andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
+
+            org.assertj.core.api.Assertions.assertThat(outOfScope.replaceAll("\"correlationId\":\"[^\"]*\"", ""))
+                    .isEqualTo(missing.replaceAll("\"correlationId\":\"[^\"]*\"", ""))
+                    .doesNotContain("mland-bk-42");
+        }
+
+        @Test
+        @DisplayName("Lookup without a bearer token is rejected before any booking is looked up")
+        void lookup_unauthenticated_rejectedWithoutTouchingTheRepository() throws Exception {
+            mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "mland-bk-42"))
+                    .andExpect(status().isUnauthorized());
+            org.mockito.Mockito.verify(bookingRepository, org.mockito.Mockito.never()).findByMlandBookingReference(org.mockito.ArgumentMatchers.any());
+        }
+
+        @Test
+        @DisplayName("Lookup non-existent booking reference returns 404 Not Found")
+        void lookup_nonExistent_returns404() throws Exception {
+            when(bookingRepository.findByMlandBookingReference("non-existent")).thenReturn(Optional.empty());
+
+            mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "non-existent")
+                            .header("Authorization", STAFF_AUTH))
+                    .andExpect(status().isNotFound());
         }
     }
 }

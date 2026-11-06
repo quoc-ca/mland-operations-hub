@@ -1,7 +1,7 @@
 # Feature-04 Data Model: Independent Design Request
 
 **Date created**: 2026-10-21  
-**Date updated**: 2026-10-28  
+**Date updated**: 2026-11-05
 **Author**: Ngô Tiến Đạt  
 **Last updated by**: Ngô Tiến Đạt  
 
@@ -12,9 +12,10 @@ runtime dependency on Workshop Booking, workshop sessions, locations, payments,
 capacity holds, tickets or check-in. If a design needs catalogue context, it stores
 an opaque reference and reads approved data through `catalogue::facade` only.
 
-Guest ownership proof, image-less requests, review requirements, withdrawal and
-approval expiry are unresolved decisions from `FE-004-DESIGN-INDEPENDENT-HANDOFF.md`.
-The schema must not be finalized until those decisions are approved.
+The current implementation baseline is Member-only ownership. Guest Design Request
+creation is out of scope; Guest uses Basic AI Support only. Description-only,
+image-only and combined requests are valid. Withdrawal/revision endpoints and
+approval expiry are not exposed by the current frontend contract.
 
 ## 2. Logical aggregates
 
@@ -24,15 +25,14 @@ The schema must not be finalized until those decisions are approved.
 | --- | --- |
 | `id` | UUID primary key. |
 | `request_reference` | Public-safe unique reference; never exposes internal IDs. |
-| `owner_account_id` | Nullable only if approved guest ownership exists; otherwise required for Member. References the Account facade identity, not an entity from another module. |
-| `guest_proof_hash` | Nullable, one-way proof only if Guest ownership is approved. Never store a raw access token. |
-| `ownership_type` | `MEMBER` or approved `GUEST` variant. |
-| `description` | Optional normalized design description; exact maximum is a contract decision and must be configured. |
+| `owner_account_id` | Required Member identity from the Account facade; never a foreign entity. |
+| `ownership_type` | `MEMBER`. |
+| `description` | Optional normalized design description, maximum 4,000 characters. |
 | `catalogue_reference` | Nullable opaque package/product/model reference; no booking reference. |
 | `request_version` | Positive integer, starts at 1 and increments for material revisions. |
-| `request_status` | `ACTIVE`, `WITHDRAWN`, `COMPLETED`; exact transition policy is TBD. |
+| `request_status` | Current frontend displays backend state; withdrawal/completion commands are not exposed. |
 | `analysis_status` | `PENDING`, `PROCESSING`, `SUCCEEDED`, `FAILED`. |
-| `review_status` | `NOT_REQUIRED`, `NEED_REVIEW`, `ACCEPTED`, `REJECTED`, `CLARIFICATION_REQUIRED`. Final enum depends on the approved review policy. |
+| `review_status` | `NEED_REVIEW`, `ACCEPTED`, `REJECTED`, `CLARIFICATION_REQUIRED` when supplied by backend. |
 | `next_action` | Server-derived action; never trusted from client input. |
 | `created_at`, `updated_at` | Audit timestamps. |
 
@@ -70,9 +70,8 @@ Stores only the lifecycle of a temporary image object.
 | `deleted_at`, `deletion_outcome` | Cleanup audit evidence. |
 | `created_at` | Creation timestamp. |
 
-Retention duration for independent design images is TBD. Until approved, the
-implementation must use temporary storage and retry-safe deletion rather than a
-permanent archive.
+Independent design images are temporary processing data and must be deleted after
+processing on success and failure. The frontend does not cache raw image content.
 
 ### 2.4 `design_analysis_results`
 
