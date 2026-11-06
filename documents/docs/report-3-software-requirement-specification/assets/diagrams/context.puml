@@ -1,0 +1,27 @@
+@startuml
+!pragma charset UTF-8
+title Personalized Product Sales and Workshop Booking System — Context
+left to right direction
+skinparam shadowing false
+actor Guest
+actor Member
+actor Staff
+actor Owner
+actor "AI API" as AI
+actor "Email Sender" as Email
+actor "Payment Gateway" as Gateway
+actor "Admin Technical" as Admin
+rectangle "Personalized Product Sales and Workshop Booking System" as System
+Guest --> System : booking / lookup / deposit
+Member --> System : booking / account / retail
+Staff --> System : operations / custody / adjustments
+Owner --> System : catalogue / rules / override review
+System --> AI : consented image feature request
+System --> Email : notification request
+System --> Gateway : payment request / verified event
+Admin --> System : technical configuration / monitoring
+note bottom of Gateway
+Redirect is not payment confirmation.
+Provider and webhook/IPN contract: TBD.
+end note
+@enduml

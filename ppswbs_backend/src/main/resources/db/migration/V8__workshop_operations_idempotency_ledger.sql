@@ -1,0 +1,21 @@
+CREATE TABLE facade_command_idempotency_records (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    facade_action VARCHAR(80) NOT NULL,
+    operation_reference VARCHAR(64) NOT NULL,
+    correlation_reference VARCHAR(64) NOT NULL,
+    semantic_fingerprint VARCHAR(255) NOT NULL,
+    lifecycle_status ENUM('IN_PROGRESS', 'COMPLETED') NOT NULL DEFAULT 'IN_PROGRESS',
+    claim_version BIGINT UNSIGNED NOT NULL DEFAULT 1,
+    lease_expires_at DATETIME(6) NOT NULL,
+    claimed_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    completed_at DATETIME(6) NULL DEFAULT NULL,
+    outcome_status ENUM('ACCEPTED', 'REJECTED') NULL DEFAULT NULL,
+    rejection_reason VARCHAR(64) NULL DEFAULT NULL,
+    response_payload JSON NULL DEFAULT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_fci_action_op_ref (facade_action, operation_reference),
+    KEY idx_fci_cleanup (lifecycle_status, completed_at),
+    KEY idx_fci_lease (lifecycle_status, lease_expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

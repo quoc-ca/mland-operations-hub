@@ -1,0 +1,2 @@
+ALTER TABLE retail_cart_lines
+    MODIFY COLUMN id VARCHAR(36) NOT NULL;

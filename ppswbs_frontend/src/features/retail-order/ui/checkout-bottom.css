@@ -1,0 +1,19 @@
+.retail-shopping .retail-checkout-layout{display:flex;flex-direction:column;align-items:stretch;gap:20px}
+.retail-address-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}.retail-address-heading a{font-size:13px;font-weight:600}.retail-address-card p{margin:12px 0 0;font-size:14px}.retail-address-default{display:inline-block;margin-left:8px;padding:3px 7px;border:1px solid #b4a500;color:#746700;font-size:11px}
+.retail-address-select{width:100%;margin-top:14px;padding:11px 12px;border:1px solid #d9d9d9;border-radius:7px;background:#fff;color:#1a1a1a;font:inherit}
+.retail-fulfilment-options{display:grid;gap:8px;margin-top:14px}.retail-fulfilment-options label{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;cursor:pointer}.retail-fulfilment-options label.selected{border-color:#b4a500;background:#fffef0}.retail-fulfilment-options input{accent-color:#b4a500}.retail-fulfilment-options span{font-size:12px;color:#606771;text-align:right}.retail-shipping-status{margin-top:10px;padding:10px 12px;background:#f4f8ff;border-left:3px solid #002967;color:#31415d;font-size:12px}.retail-shipping-status .text-link{margin-left:6px;border:0;background:transparent;padding:0;color:#002967;font:inherit;font-weight:700;cursor:pointer}
+.retail-checkout-layout > section,.retail-checkout-layout > .retail-payment-section{width:100%;min-width:0}
+.retail-shopping .retail-payment-section{position:static;padding:0;gap:0;overflow:hidden}
+.retail-shopping .retail-payment-section > .retail-payment-method{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px;border-bottom:1px solid #e5e7eb;color:#1a1a1a}
+.retail-payment-method strong{font-size:14px}
+.retail-shopping .retail-payment-section > .retail-payment-details{display:flex;flex-direction:column;gap:16px;padding:24px;background:#fffef9;color:#1a1a1a}
+.retail-payment-details h2{margin:0 0 6px!important}
+.retail-payment-details > div{display:flex;justify-content:space-between;gap:24px;align-self:flex-end;width:min(100%,390px);font-size:13px;color:#606771}
+.retail-payment-details > div strong{color:#1a1a1a}
+.retail-payment-details .retail-total{padding-top:16px;border-top:1px solid #e5e7eb;color:#1a1a1a}
+.retail-payment-details .retail-total strong{font-size:20px}
+.retail-shopping .retail-payment-section > .retail-payment-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:12px;padding:20px 24px;border-top:1px solid #e5e7eb}
+.retail-shopping .retail-payment-actions .button{width:auto;min-width:160px}
+.retail-payment-section > .notice,.retail-payment-section > a,.retail-payment-section > button{margin:12px 24px}
+.retail-shopping .retail-payment-section > button.button{width:calc(100% - 48px)}
+@media(max-width:760px){.retail-shopping .retail-payment-section > .retail-payment-method,.retail-shopping .retail-payment-section > .retail-payment-details{padding:18px}.retail-shopping .retail-payment-section > .retail-payment-actions{padding:18px}.retail-shopping .retail-payment-actions .button{flex:1;min-width:130px}}

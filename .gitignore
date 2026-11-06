@@ -1,2 +1,19 @@
 __pycache__/
 *.py[cod]
+
+/local-notes
+logs/
+ppswbs_backend/logs/
+
+# Generated Browser MCP evidence; keep E2E case files in test-results tracked.
+ppswbs-spec/features/**/test-results/screenshots/
+
+node_modules/
+
+# Local Docker and database initialization artifacts; do not commit machine-local setup.
+/docker-compose.yml
+/docker/
+/ppswbs_backend/docker-compose.yml
+/ppswbs_backend/docker/
+/scripts/start-mysql.ps1
+/scripts/stop-mysql.ps1
