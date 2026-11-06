@@ -171,7 +171,15 @@ public class VnpayMerchantOperationsAdapter implements VnpayMerchantOperationsPo
         try {
             Map<String, String> response = transport.post(properties.getRefundUrl(), signer.signRefund(request));
             String expectedType = command.amountVnd() == owner.getAmountVnd() ? "02" : "03";
-            if (!signer.verifyRefundResponse(response) || !matches(response, command.merchantReference(), command.amountVnd())
+            boolean signatureVerified = signer.verifyRefundResponse(response);
+            if (signatureVerified) {
+                log.info("VNPay refund response signatureVerified=true responseCode={} message={}",
+                        safeLogValue(response.get("vnp_ResponseCode"), 16),
+                        safeLogValue(response.get("vnp_Message"), 160));
+            } else {
+                log.warn("VNPay refund response signature verification failed");
+            }
+            if (!signatureVerified || !matches(response, command.merchantReference(), command.amountVnd())
                     || !expectedType.equals(response.get("vnp_TransactionType")))
                 return completeUnknown(command.operationReference(), "REFUND", "RESPONSE_UNVERIFIED");
             String responseCode = response.get("vnp_ResponseCode");
@@ -204,7 +212,8 @@ public class VnpayMerchantOperationsAdapter implements VnpayMerchantOperationsPo
     }
 
     private VnpayMerchantOperationResult completeUnknown(String operationReference, String kind, String code) {
-        VnpayMerchantOperation saved = journal.complete(operationReference, "UNKNOWN", code, null, null, null, null);
+        String safeCode = code != null && code.length() <= 2 ? code : null;
+        VnpayMerchantOperation saved = journal.complete(operationReference, "UNKNOWN", safeCode, null, null, null, null);
         return result(saved, kind, null);
     }
 

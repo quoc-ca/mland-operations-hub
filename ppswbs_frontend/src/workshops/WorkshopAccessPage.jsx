@@ -1,21 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { exchangeMagicLinkToken, WorkshopApiError } from '../api/workshops';
+import { parseMagicLinkToken } from './magicLinkToken';
 
 export function WorkshopAccessPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [bookingData, setBookingData] = useState(null);
+  // The token and its one exchange are kept for the life of the page: the address is cleaned right away, so a second
+  // run of this effect (React StrictMode in development) must not read the address again or exchange the token twice.
+  const tokenRef = useRef(null);
+  const exchangeRef = useRef(null);
 
   useEffect(() => {
-    // Extract token strictly from fragment (hash) only
-    const hash = window.location.hash || '';
-    let extractedToken = null;
-
-    // Support formats like #/workshop-booking/access#token=XYZ or #token=XYZ or #/workshop-booking/access?token=XYZ (fragment)
-    const tokenMatch = hash.match(/(?:#|&|\?)token=([^&]+)/);
-    if (tokenMatch) {
-      extractedToken = decodeURIComponent(tokenMatch[1]);
+    // Extract token strictly from the fragment (the part after "#"), never from the path or query.
+    if (tokenRef.current === null) {
+      tokenRef.current = parseMagicLinkToken(window.location.hash) || '';
     }
+    const extractedToken = tokenRef.current;
 
     // Sanitize browser history immediately: clear token from URL so it is never persisted or shared
     if (window.history && window.history.replaceState) {
@@ -29,12 +30,15 @@ export function WorkshopAccessPage() {
       return;
     }
 
-    // Exchange token with backend in memory-only state
-    exchangeMagicLinkToken(extractedToken)
+    // Exchange token with backend in memory-only state (once, even if this effect runs again)
+    if (!exchangeRef.current) exchangeRef.current = exchangeMagicLinkToken(extractedToken);
+    let active = true;
+    exchangeRef.current
       .then(data => {
-        setBookingData(data);
+        if (active) setBookingData(data);
       })
       .catch(err => {
+        if (!active) return;
         if (err instanceof WorkshopApiError) {
           if (err.status === 404 || err.code === 'MAGIC_LINK_NOT_FOUND' || err.code === 'TOKEN_NOT_FOUND') {
             setError('Liên kết truy cập Magic Link không tồn tại hoặc đã hết hạn.');
@@ -48,8 +52,9 @@ export function WorkshopAccessPage() {
         }
       })
       .finally(() => {
-        setLoading(false);
+        if (active) setLoading(false);
       });
+    return () => { active = false; };
   }, []);
 
   return (

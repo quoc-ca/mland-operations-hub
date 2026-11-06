@@ -26,9 +26,11 @@ export default function DesignDetailPage() {
   }
   if (!data) return null;
 
-  const candidateFeatures = data.candidateFeatures || {};
-  const imageQuality = data.imageQuality || {};
-  const confidence = data.confidence || {};
+  const safeResult = data.safeResult || {};
+  const candidateFeatures = data.candidateFeatures || safeResult.candidateFeatures || {};
+  const imageQuality = data.imageQuality || safeResult.imageQuality || {};
+  const confidence = data.confidence || safeResult.confidence || {};
+  const safeExplanation = data.safeExplanation || safeResult.safeExplanation || safeResult.explanation || '';
 
   return (
     <div className="design-container">
@@ -130,10 +132,10 @@ export default function DesignDetailPage() {
         </div>
       )}
 
-      {data.safeExplanation && (
+      {safeExplanation && (
         <section className="card" style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
           <h4>{t('detail.explanationTitle')}</h4>
-          <p className="muted">{data.safeExplanation}</p>
+          <p className="muted">{safeExplanation}</p>
         </section>
       )}
 

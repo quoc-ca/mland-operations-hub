@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -18,7 +18,10 @@ explicitly Admin-only actions remain unchanged. There is no central Manager tier
 booking/package, accepted additional charges, a short-lived final-payment
 checkout attempt, verified final payment before package-output handover,
 non-refundable customer cancellation decision, Manager-mediated required-session change, and
-Mland-caused cancellation remedy. Direct customer cancellation records a
+Mland-caused cancellation remedy. It also owns the separate Mland shop add-on
+bill of an OTA booking (D12) and reports folio outcomes to 003.1 so Booking can
+set `COMPLETED`/`CANCELLED`/`NO_SHOW` and remedy `REFUND_PENDING`/`REFUNDED`
+(D13/D14). Direct customer cancellation records a
 non-refundable deposit decision and does not invoke VNPay refund/QueryDR. It is
 not an item/session finance system, cart,
 OTA payment system, capacity owner, or normal check-in system.
@@ -48,7 +51,7 @@ OTA payment system, capacity owner, or normal check-in system.
 ## Ownership and Internal Boundaries
 
 ```text
-paymentintegration ─ verified final-payment/refund evidence ─► 003.3
+paymentintegration ─ verified final-payment/refund/OTA shop add-on (SHOP_ADDON) evidence ─► 003.3
 003.1 Booking ─ confirmed financial projection / FULLY_PAID conclusion ─► 003.3
 003.2 Operations ─ readiness / atomic replacement / verified-refund effect ─► 003.3
 FE-001 Account ─ current authorization, ownership and location scope ─► 003.3
@@ -86,6 +89,25 @@ frozen post-promotion amount, accepted deposit and frozen remaining amount from
 amount due is the frozen remaining amount plus accepted charges, less verified
 final-payment/refund consequences as applicable.
 
+**Open-folio policy (2026-11-05)**: per
+[direct-booking-open-folio-policy.md](../direct-booking-open-folio-policy.md),
+the "final bill" above is the direct booking's one OPEN folio. Policy requires
+it to exist from 003.1 deposit confirmation (deposit as first verified
+collection) until checkout or terminal closure; `balanceDue = totalAmount −
+paidAmount`. Ordinary cancellation/no-show closes it as `CLOSED` at the
+verified collected amount with no refund or VNPay QueryDR/refund; a verified
+Mland-caused remedy refund also closes it as `CLOSED` (D11); a post-`FINALIZED`
+overcharge uses the Manager folio correction (D7–D10, FR-004c). Owner decisions D1–D5
+(2026-11-05, see `../contracts/workshop-interfeature-facades.md` "Direct-booking
+open-folio lifecycle") supersede the paragraph below: Settlement opens the
+folio on `MlandBookingConfirmedEvent` with the verified deposit as first
+collection; `POST /final-bill` returns the existing folio; `ATTENDANCE_FINALIZED`
+readiness gates only finalization; Operations' `BookingAttendanceFinalizedEvent`
+plus `BookingAttendanceOutcomeQuery` drive `CLOSED` on a full no-show; accepted
+customer cancellation sets `CLOSED`; an append-only Flyway backfill opens
+folios for existing confirmed bookings. Physical schema and Flyway version are
+chosen during 003.3 T087.
+
 The final bill is available only after 003.2 reports every required session as
 `ATTENDANCE_FINALIZED`. On verified final-balance resolution, 003.3 invokes
 `WorkshopBookingFacade`; 003.1 alone changes booking state to `FULLY_PAID`.
@@ -96,9 +118,11 @@ Customers may view eligible fixed-price catalogue add-ons for the booking
 package/location, but cannot select or create a charge. At the workshop, an
 active Staff member scoped to the booking location or a global Manager records
 customer consent and the server derives the immutable price from the catalogue
-snapshot. A direct booking appends to an OPEN final bill; after finalization it
-uses a separate direct-Mland add-on bill. An OTA booking always uses a separate
-direct-Mland add-on bill and never mutates OTA payment or payout facts.
+snapshot. A direct booking appends only to its OPEN folio; after `FINALIZED` no
+add-on may be added, changed, or removed, and only the exceptional correction
+flow (T040) applies. An OTA booking always uses a separate direct-Mland shop
+add-on bill (003.4 `/ota-addon-quotes` flow) and never mutates OTA payment or
+payout facts; free laser engraving is an OTA-only entitlement with no bill.
 
 Staff in the booking location or any active Manager may create/confirm variable material or service
 charges. The command has description, VND amount and reason and produces audit
@@ -139,7 +163,8 @@ The shared `paymentintegration` boundary owns VNPay IPN `GET
 /api/v1/integrations/payments/vnpay/events`, validates signature, resolves the
 immutable owner-qualified merchant reference, deduplicates provider delivery,
 and dispatches redacted evidence to exactly one owner facade. 003.3 receives
-only final-payment/refund evidence and checks bill/refund reference, amount and
+only final-payment, refund, and (for an OTA booking's separate shop add-on
+bill) `SHOP_ADDON` evidence and checks bill/refund reference, amount and
 currency before its local idempotent outcome. QueryDR is outbound Mland-to-VNPay
 reconciliation only. Browser Return URL has no settlement route and never
 confirms a bill.

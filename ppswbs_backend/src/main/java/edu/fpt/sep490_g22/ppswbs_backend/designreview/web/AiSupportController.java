@@ -40,9 +40,10 @@ public class AiSupportController {
         AiSupportService.SupportResponseDto response = aiSupportService.askSupport(request.getMessage(), memberId, correlationId);
 
         return ResponseEntity.ok(DesignReviewDtos.AiSupportResponse.builder()
-                .message(response.message())
+                .answer(response.message())
+                .advisory(true)
                 .scope(response.scope())
-                .providerCorrelationId(response.providerCorrelationId())
+                .correlationId(response.providerCorrelationId())
                 .build());
     }
 }

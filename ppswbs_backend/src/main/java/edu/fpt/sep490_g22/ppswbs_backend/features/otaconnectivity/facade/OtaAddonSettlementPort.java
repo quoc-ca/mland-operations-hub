@@ -1,7 +1,9 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.facade;
 
+import java.util.Optional;
+
 /**
- * Settlement facade contract boundary for OTA direct add-on bill creation.
+ * Settlement facade contract boundary for OTA direct add-on bill creation and queries.
  */
 public interface OtaAddonSettlementPort {
 
@@ -14,8 +16,16 @@ public interface OtaAddonSettlementPort {
             String currencyCode,
             String customerConsentReference,
             String staffActorReference,
-            Long locationId
-    ) {}
+            Long locationId,
+            String mlandBookingReference
+    ) {
+        public CreateDirectBillCommand(String channelBookingReference, String quoteReference, String itemCode,
+                String itemDescription, long amountMinor, String currencyCode, String customerConsentReference,
+                String staffActorReference, Long locationId) {
+            this(channelBookingReference, quoteReference, itemCode, itemDescription, amountMinor, currencyCode,
+                    customerConsentReference, staffActorReference, locationId, null);
+        }
+    }
 
     record DirectBillCreationOutcome(
             boolean created,
@@ -33,6 +43,22 @@ public interface OtaAddonSettlementPort {
         }
     }
 
-    DirectBillCreationOutcome createDirectBill(CreateDirectBillCommand command);
-}
+    record OtaAddonBillStatus(
+            String billReference,
+            String channelBookingReference,
+            String quoteReference,
+            String itemCode,
+            String itemDescription,
+            long amountMinor,
+            String currencyCode,
+            String lifecycleStatus,
+            Long locationId,
+            String paymentUrlOrQr
+    ) {}
 
+    DirectBillCreationOutcome createDirectBill(CreateDirectBillCommand command);
+
+    default Optional<OtaAddonBillStatus> getBillStatus(String billReference) {
+        return Optional.empty();
+    }
+}

@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-02
+**Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -70,7 +70,7 @@ concrete dated-session attachment. It defines non-negative
 `minimumSameDaySlotGap` and `requiredFoundryWorkingDaysBetweenSessions`: the confirmed catalogue is in
 [catalogue.md](./catalogue.md). Signature Brass, Signature Silver 925 and both
 Silver Clay offers select one session; Wax Casting selects two. Wax Casting
-requires exactly two Monday–Friday local dates strictly between the selected
+requires at least two Monday–Friday local dates strictly between the selected
 sessions, skipping Saturday and Sunday. This date rule is separate from the
 same-local-date slot-gap field and must be persisted, snapshotted and enforced
 by Operations before Wax Casting can be published.
@@ -193,6 +193,13 @@ every required session is `ATTENDANCE_FINALIZED`; any unfinished or cancelled
 required session yields false. It exposes no attendance, ticket, Staff, audit or
 PII detail, and Settlement must not infer readiness from schedule time or
 per-session records.
+
+For the direct-booking open folio (FR-014, D2/D3, 2026-11-05), Operations also
+exposes `BookingAttendanceOutcomeQuery` (`terminal`, `ATTENDED`/`NO_SHOW`/
+`PARTIAL`) and publishes the reference-only `BookingAttendanceFinalizedEvent`
+once per booking when the 24-hour correction window after the last required
+session's finalization closes. Readiness keeps gating only finalization;
+Settlement decides folio closure from the outcome query (003.2 T088).
 
 For a Manager-mediated customer change, 003.3 supplies the complete resulting
 required-session set. Operations accepts a source only while future and outside

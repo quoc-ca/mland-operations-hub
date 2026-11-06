@@ -107,7 +107,8 @@ class VnpayMerchantOperationsAdapterTest {
 
         assertThat(result.status()).isEqualTo("UNKNOWN");
         assertThat(result.responseSignatureVerified()).isFalse();
-        verify(journal).complete("query-tampered", "UNKNOWN", "RESPONSE_UNVERIFIED", null, null, null, null);
+        // provider_response_code is CHAR(2): a non-provider reason such as RESPONSE_UNVERIFIED is not persisted there.
+        verify(journal).complete("query-tampered", "UNKNOWN", null, null, null, null, null);
     }
 
     @Test

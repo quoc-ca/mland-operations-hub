@@ -10,6 +10,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.Ot
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaAddonBillLinkRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaChannelBooking;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaChannelBookingRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopAddOnPriceQuery;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopAddOnPriceSnapshot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ public class OtaAddonService {
     private final OtaChannelBookingRepository bookingRepository;
     private final OtaAddonBillLinkRepository addonBillLinkRepository;
     private final OtaAddonSettlementPort settlementPort;
+    private final WorkshopOperationsFacade workshopOperationsFacade;
 
     public record AddonQuoteResult(
             String quoteReference,
@@ -54,59 +58,129 @@ public class OtaAddonService {
     ) {}
 
     @Transactional
-    public AddonQuoteResult createQuote(
+    public AddonQuoteResult createLaserEngravingQuote(
             String channelBookingPublicRef,
-            String addonType,
-            String itemCode,
-            String itemDescription,
-            long amountMinor,
-            String currencyCode
+            String itemDescription
     ) {
         OtaChannelBooking booking = bookingRepository.findByPublicReference(channelBookingPublicRef)
                 .orElseThrow(() -> new OtaResourceNotFoundException("OTA Channel Booking not found: " + channelBookingPublicRef));
 
-        if (!"VND".equalsIgnoreCase(currencyCode)) {
-            throw new IllegalArgumentException("Only VND currency is supported for add-ons");
-        }
-
-        String status;
-        String resolvedItemCode = itemCode;
-        if (ADDON_TYPE_LASER_ENGRAVING.equalsIgnoreCase(addonType)) {
-            if (amountMinor != 0L) {
-                throw new IllegalArgumentException("Laser engraving is free of charge and must have zero amount");
-            }
-            status = STATUS_RECORDED_FREE;
-            if (resolvedItemCode == null || resolvedItemCode.isBlank()) {
-                resolvedItemCode = "FREE-ENGRAVE";
-            }
-        } else if (ADDON_TYPE_PAID_OPTION.equalsIgnoreCase(addonType)) {
-            if (amountMinor <= 0L) {
-                throw new IllegalArgumentException("Paid option requires a positive amount");
-            }
-            if (resolvedItemCode == null || resolvedItemCode.isBlank()) {
-                throw new IllegalArgumentException("Paid option requires an itemCode");
-            }
-            status = STATUS_QUOTED;
-        } else {
-            throw new IllegalArgumentException("Unsupported add-on type: " + addonType);
-        }
-
         String quoteReference = UUID.randomUUID().toString();
+        String desc = (itemDescription != null && !itemDescription.isBlank()) ? itemDescription.trim() : "Laser Engraving";
 
         OtaAddonBillLink link = OtaAddonBillLink.builder()
                 .channelBooking(booking)
                 .settlementQuoteReference(quoteReference)
-                .addonType(addonType.toUpperCase())
-                .itemCode(resolvedItemCode)
-                .itemDescription(itemDescription != null && !itemDescription.isBlank() ? itemDescription : (status.equals(STATUS_RECORDED_FREE) ? "Laser Engraving" : "Workshop Add-on"))
-                .amountMinor(amountMinor)
-                .currencyCode(currencyCode.toUpperCase())
-                .status(status)
+                .addonType(ADDON_TYPE_LASER_ENGRAVING)
+                .itemCode(null)
+                .itemDescription(desc)
+                .amountMinor(0L)
+                .currencyCode("VND")
+                .status(STATUS_RECORDED_FREE)
                 .build();
 
         addonBillLinkRepository.save(link);
-
         return toResult(link);
+    }
+
+    @Transactional
+    public AddonQuoteResult createPaidOptionQuote(
+            String channelBookingPublicRef,
+            String catalogueAddOnReference
+    ) {
+        if (catalogueAddOnReference == null || catalogueAddOnReference.isBlank()) {
+            throw new IllegalArgumentException("catalogueAddOnReference is required for PAID_OPTION");
+        }
+
+        OtaChannelBooking booking = bookingRepository.findByPublicReference(channelBookingPublicRef)
+                .orElseThrow(() -> new OtaResourceNotFoundException("OTA Channel Booking not found: " + channelBookingPublicRef));
+
+        String offerReference = booking.getMapping() != null ? booking.getMapping().getOfferReference() : null;
+        String locationRef = booking.getMapping() != null ? booking.getMapping().getLocationReference() : null;
+        Long locationId = null;
+        if (locationRef != null) {
+            try {
+                locationId = Long.valueOf(locationRef);
+            } catch (NumberFormatException ignored) {}
+        }
+
+        WorkshopAddOnPriceSnapshot snapshot = workshopOperationsFacade.getWorkshopAddOnPrice(
+                new WorkshopAddOnPriceQuery(offerReference, locationId, catalogueAddOnReference.trim()));
+
+        if (snapshot == null) {
+            throw new OtaUnprocessableException("Catalogue add-on is missing, inactive, or not valid for this booking's package and location");
+        }
+
+        if (snapshot.amountVnd() == null || snapshot.amountVnd() <= 0L) {
+            throw new OtaUnprocessableException("Catalogue add-on price must be positive");
+        }
+
+        String quoteReference = UUID.randomUUID().toString();
+        OtaAddonBillLink link = OtaAddonBillLink.builder()
+                .channelBooking(booking)
+                .settlementQuoteReference(quoteReference)
+                .addonType(ADDON_TYPE_PAID_OPTION)
+                .itemCode(snapshot.addOnReference())
+                .itemDescription(snapshot.description() != null && !snapshot.description().isBlank() ? snapshot.description() : "Workshop Add-on")
+                .amountMinor(snapshot.amountVnd())
+                .currencyCode(snapshot.currencyCode() != null && !snapshot.currencyCode().isBlank() ? snapshot.currencyCode() : "VND")
+                .status(STATUS_QUOTED)
+                .build();
+
+        addonBillLinkRepository.save(link);
+        return toResult(link);
+    }
+
+    /** The OTA booking behind a Mland booking reference, as the check-in desk needs it. */
+    public record BookingLookup(
+            String channelBookingId,
+            String providerCode,
+            String locationReference,
+            Long locationId,
+            String mlandBookingReference,
+            boolean canSellAddon
+    ) {}
+
+    @Transactional(readOnly = true)
+    public Optional<BookingLookup> findByMlandReference(String mlandBookingReference) {
+        if (mlandBookingReference == null || mlandBookingReference.isBlank()) return Optional.empty();
+        return bookingRepository.findByMlandBookingReference(mlandBookingReference.trim()).map(booking -> {
+            var mapping = booking.getMapping();
+            String locationReference = mapping != null ? mapping.getLocationReference() : null;
+            Long locationId = null;
+            if (locationReference != null) {
+                try {
+                    locationId = Long.valueOf(locationReference);
+                } catch (NumberFormatException notNumeric) {
+                    locationId = null;
+                }
+            }
+            String providerCode = mapping != null && mapping.getConnection() != null
+                    && mapping.getConnection().getProviderCode() != null
+                    ? mapping.getConnection().getProviderCode().name() : "OTA";
+            String providerStatus = booking.getProviderStatus();
+            boolean canSell = !"CANCELLED".equalsIgnoreCase(providerStatus)
+                    && !"REFUNDED".equalsIgnoreCase(providerStatus)
+                    && !"CANCELLATION_REQUESTED".equalsIgnoreCase(providerStatus);
+            return new BookingLookup(booking.getPublicReference(), providerCode, locationReference, locationId,
+                    booking.getMlandBookingReference(), canSell);
+        });
+    }
+
+    @Transactional
+    public AddonQuoteResult createQuote(
+            String channelBookingPublicRef,
+            String addonType,
+            String catalogueAddOnReference,
+            String itemDescription
+    ) {
+        if (ADDON_TYPE_LASER_ENGRAVING.equalsIgnoreCase(addonType)) {
+            return createLaserEngravingQuote(channelBookingPublicRef, itemDescription);
+        } else if (ADDON_TYPE_PAID_OPTION.equalsIgnoreCase(addonType)) {
+            return createPaidOptionQuote(channelBookingPublicRef, catalogueAddOnReference);
+        } else {
+            throw new IllegalArgumentException("Unsupported add-on type: " + addonType);
+        }
     }
 
     @Transactional
@@ -200,7 +274,8 @@ public class OtaAddonService {
                 link.getCurrencyCode(),
                 consent,
                 staffActorReference,
-                locationId
+                locationId,
+                link.getChannelBooking().getMlandBookingReference()
         );
 
         DirectBillCreationOutcome outcome = settlementPort.createDirectBill(cmd);
@@ -249,6 +324,27 @@ public class OtaAddonService {
         return getLocationIdForBooking(link.getChannelBooking().getPublicReference());
     }
 
+    /** The Mland booking holding the tickets of an OTA channel booking; null when none is mapped yet. */
+    public String getMlandReferenceForBooking(String channelBookingReference) {
+        return bookingRepository.findByPublicReference(channelBookingReference)
+                .orElseThrow(() -> new OtaResourceNotFoundException("OTA Channel Booking not found: " + channelBookingReference))
+                .getMlandBookingReference();
+    }
+
+    public String getMlandReferenceForQuote(String quoteReference) {
+        OtaAddonBillLink link = findLink(quoteReference)
+                .orElseThrow(() -> new OtaResourceNotFoundException("Add-on quote not found: " + quoteReference));
+        return link.getChannelBooking().getMlandBookingReference();
+    }
+
+    /** A Staff member may act on an OTA booking only while assigned to a session its Mland booking holds tickets for. */
+    public boolean isStaffAssignedToBooking(Long staffAccountId, String mlandBookingReference) {
+        return mlandBookingReference != null && !mlandBookingReference.isBlank()
+                && workshopOperationsFacade.isStaffAssignedToBooking(
+                        new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.StaffBookingAssignmentQuery(
+                                staffAccountId, mlandBookingReference.trim()));
+    }
+
     public OtaAddonBillLink findQuote(String quoteReference) {
         return findLink(quoteReference)
                 .orElseThrow(() -> new OtaResourceNotFoundException("Add-on quote not found: " + quoteReference));
@@ -270,7 +366,7 @@ public class OtaAddonService {
                 link.getSettlementQuoteReference(),
                 link.getChannelBooking().getPublicReference(),
                 link.getAddonType() != null ? link.getAddonType() : (link.getAmountMinor() == 0 ? ADDON_TYPE_LASER_ENGRAVING : ADDON_TYPE_PAID_OPTION),
-                link.getItemCode() != null ? link.getItemCode() : (link.getAmountMinor() == 0 ? "FREE-ENGRAVE" : "PAID-OPTION"),
+                link.getItemCode(),
                 link.getAmountMinor(),
                 link.getCurrencyCode(),
                 link.getStatus()

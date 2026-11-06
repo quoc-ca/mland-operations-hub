@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
+  listMemberBookings,
   lookupGuestBooking,
   lookupMemberBooking,
   initiateDepositPayment,
@@ -10,6 +12,11 @@ import {
 import { useAuth } from '../shared/auth/AuthProvider';
 import { useHttp } from '../shared/api/useHttp';
 import { classifyPaymentCommandError } from '../shared/payment/paymentRecoveryState';
+import { useReviewManagementApi } from '../features/reviewmanagement/api/useReviewManagementApi';
+import { MyBookingsList } from './MyBookingsList';
+import { ReviewCta } from './ReviewCta';
+import { attendanceStatusLabel, isNoShow, NO_SHOW_NOTE } from './attendanceDisplay';
+import './figmaPublicShell.css';
 
 export function WorkshopLookupPage() {
   const { status: authStatus, getIdToken } = useAuth();
@@ -41,7 +48,7 @@ export function WorkshopLookupPage() {
       .catch(error => {
         if (!active) return;
         setAccountProfile(null);
-        setProfileError(error?.message || 'KhÃ´ng thá»ƒ táº£i há»“ sÆ¡ Member.');
+        setProfileError(error?.message || 'Không thể tải hồ sơ Member.');
       })
       .finally(() => {
         if (active) setProfileLoading(false);
@@ -49,8 +56,57 @@ export function WorkshopLookupPage() {
     return () => { active = false; };
   }, [authStatus, http]);
 
+  // A Member's own bookings (with tickets) are listed at once; typing a booking code stays available below.
+  const [myBookings, setMyBookings] = useState(null);
+  const [myBookingsLoading, setMyBookingsLoading] = useState(false);
+  const [myBookingsError, setMyBookingsError] = useState(null);
+  const loadMyBookings = useRef(null);
+  loadMyBookings.current = async () => {
+    setMyBookingsLoading(true);
+    setMyBookingsError(null);
+    try {
+      const idToken = await getIdToken();
+      if (!idToken) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      setMyBookings(await listMemberBookings({ authorization: `Bearer ${idToken}` }));
+    } catch {
+      setMyBookings(null);
+      setMyBookingsError('Không tải được danh sách đặt chỗ của bạn.');
+    } finally {
+      setMyBookingsLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (lookupMode !== 'MEMBER') { setMyBookings(null); setMyBookingsError(null); return; }
+    loadMyBookings.current();
+  }, [lookupMode]);
+
+  // Which of the Member's workshop sessions can be reviewed comes only from Feature-011 (eligible sources); nothing is
+  // inferred here. A failure just means no review button: it is not the purpose of this page.
+  const reviewApi = useReviewManagementApi();
+  const navigate = useNavigate();
+  const [reviewSources, setReviewSources] = useState(null);
+  useEffect(() => {
+    if (lookupMode !== 'MEMBER') { setReviewSources(null); return undefined; }
+    let active = true;
+    reviewApi.listEligibleSources()
+      .then(result => { if (active) setReviewSources(Array.isArray(result?.items) ? result.items : []); })
+      .catch(() => { if (active) setReviewSources(null); });
+    return () => { active = false; };
+  }, [lookupMode, reviewApi]);
+  const startReview = source => navigate('/reviews/new', { state: { source } });
+
   // Loaded projection
   const [loading, setLoading] = useState(false);
+  const detailsRef = useRef(null);
+  const openFromList = booking => {
+    setError(null);
+    setResendSuccess(null);
+    setResendError(null);
+    setPayError(null);
+    setBookingCode(booking.bookingCode);
+    setBookingData(booking);
+    setTimeout(() => detailsRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 0);
+  };
   const [error, setError] = useState(null);
   const [bookingData, setBookingData] = useState(null);
 
@@ -101,12 +157,12 @@ export function WorkshopLookupPage() {
     try {
       let result;
       if (lookupMode === null) {
-        setError('KhÃ´ng thá»ƒ xÃ¡c minh vai trÃ² tÃ i khoáº£n Ä‘á»ƒ tra cá»©u booking.');
+        setError('Không thể xác minh vai trò tài khoản để tra cứu booking.');
         return;
       }
       if (lookupMode === 'MEMBER') {
         const idToken = await getIdToken();
-        if (!idToken) throw new Error('PhiÃªn Ä‘Äƒng nháº­p Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i.');
+        if (!idToken) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
         result = await lookupMemberBooking(bookingCode.trim(), { authorization: `Bearer ${idToken}` });
       } else {
         const hasEmail = Boolean(contactEmail.trim());
@@ -236,25 +292,38 @@ export function WorkshopLookupPage() {
   };
 
   return (
-    <main className="container public-page">
+    <main className="public-page figma-public-page">
       <p className="eyebrow">TRA CỨU & QUẢN LÝ ĐẶT CHỖ</p>
       <h1>Tra cứu đơn đặt Workshop</h1>
 
       <div role="status" style={{ marginTop: '20px', marginBottom: '24px', padding: '12px 16px', border: '1px solid #dcdfe6', background: '#f8fafc', color: '#002967' }}>
         {authStatus === 'loading' || profileLoading
-          ? 'Äang xÃ¡c Ä‘á»‹nh thÃ´ng tin tÃ i khoáº£n...'
+          ? 'Đang xác định thông tin tài khoản...'
           : lookupMode === 'MEMBER'
-            ? 'Tra cá»©u theo booking thuá»™c tÃ i khoáº£n Member Ä‘ang Ä‘Äƒng nháº­p.'
+            ? 'Tra cứu theo booking thuộc tài khoản Member đang đăng nhập.'
             : lookupMode === 'GUEST'
-              ? 'Tra cá»©u Guest báº±ng mÃ£ Ä‘áº·t chá»— vÃ  má»™t thÃ´ng tin liÃªn há»‡.'
-              : 'KhÃ´ng thá»ƒ xÃ¡c minh vai trÃ² tÃ i khoáº£n.'}
+              ? 'Tra cứu Guest bằng mã đặt chỗ và một thông tin liên hệ.'
+              : 'Không thể xác minh vai trò tài khoản.'}
       </div>
       {lookupMode === null && authStatus === 'signed-in' && (
-        <p style={{ color: '#b00', marginBottom: '16px' }}>{profileError || 'TÃ i khoáº£n hiá»‡n táº¡i khÃ´ng cÃ³ vai trÃ² Member Ä‘á»ƒ tra cá»©u booking.'}</p>
+        <p style={{ color: '#b00', marginBottom: '16px' }}>{profileError || 'Tài khoản hiện tại không có vai trò Member để tra cứu booking.'}</p>
+      )}
+
+      {lookupMode === 'MEMBER' && (
+        <MyBookingsList
+          bookings={myBookings}
+          loading={myBookingsLoading}
+          error={myBookingsError}
+          onRetry={() => loadMyBookings.current()}
+          onOpen={openFromList}
+          selectedCode={bookingData?.bookingCode}
+          reviewSources={reviewSources}
+          onReview={startReview}
+        />
       )}
 
       {/* Lookup Form */}
-      <section className="workspace-card" style={{ maxWidth: '640px' }}>
+      <section className="workspace-card lookup-panel">
         <form onSubmit={handleLookup}>
           <fieldset disabled={authStatus === 'loading' || profileLoading || lookupMode === null} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
           <label style={{ display: 'block', marginBottom: '14px' }}>
@@ -318,7 +387,7 @@ export function WorkshopLookupPage() {
 
       {/* Booking Details Card */}
       {bookingData && (
-        <section className="workspace-card" style={{ marginTop: '28px', borderTop: '4px solid #002967' }}>
+        <section ref={detailsRef} className="workspace-card" style={{ marginTop: '28px', borderTop: '4px solid #002967' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '16px' }}>
             <div>
               <span className="muted" style={{ fontSize: '13px' }}>Mã đặt chỗ</span>
@@ -326,9 +395,9 @@ export function WorkshopLookupPage() {
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <span className={`status ${bookingData.bookingStatus === 'CONFIRMED' ? 'ok' : ''}`} style={{ fontSize: '14px', fontWeight: 'bold' }}>
+              <span className={`status ${bookingData.bookingStatus === 'CONFIRMED' && !isNoShow(bookingData) ? 'ok' : ''}`} style={{ fontSize: '14px', fontWeight: 'bold' }}>
                 {bookingData.bookingStatus === 'PENDING_PAYMENT' && 'CHỜ THANH TOÁN CỌC'}
-                {bookingData.bookingStatus === 'CONFIRMED' && 'ĐÃ XÁC NHẬN'}
+                {bookingData.bookingStatus === 'CONFIRMED' && (attendanceStatusLabel(bookingData)?.toUpperCase() || 'ĐÃ XÁC NHẬN')}
                 {bookingData.bookingStatus === 'CANCELLED' && 'ĐÃ HỦY'}
                 {bookingData.bookingStatus === 'EXPIRED' && 'HẾT HẠN GIỮ CHỖ'}
               </span>
@@ -437,6 +506,16 @@ export function WorkshopLookupPage() {
           )}
 
           {/* STATE: CONFIRMED (Confirmed-ticket) */}
+          {lookupMode === 'MEMBER' && (
+            <div style={{ marginTop: '16px' }}>
+              <ReviewCta booking={bookingData} sources={reviewSources} onReview={startReview} />
+            </div>
+          )}
+          {isNoShow(bookingData) && (
+            <div role="note" style={{ marginTop: '20px', padding: '14px 18px', background: '#fff7e6', border: '1px solid #ffd591', color: '#874d00', lineHeight: '1.6' }}>
+              {NO_SHOW_NOTE}
+            </div>
+          )}
           {bookingData.bookingStatus === 'CONFIRMED' && (
             <div style={{ marginTop: '20px', padding: '20px', background: '#f0f9f4', border: '1px solid #b7eb8f' }}>
               <h3 style={{ margin: '0 0 12px', color: '#0b5c34' }}>Vé tham gia workshop đã được phát hành</h3>

@@ -215,6 +215,18 @@ class PromotionCreateContractIT {
                 .contains("targets.packageIds[999999999999]", "targets.sessionIds[" + unknownSession + "]");
     }
 
+    @Test
+    void workshopVoucherWithoutAnyTargetCoversAllWorkshops() throws Exception {
+        String body = """
+                {"kind":"VOUCHER","scope":"WORKSHOP","name":"Workshop all","code":"%s",
+                 "startAt":"2026-11-01T00:00:00Z","endAt":"2026-12-01T00:00:00Z",
+                 "discount":{"kind":"FIXED","amount":"100000","maxDiscountAmount":"100000"},
+                 "minimumEligibleAmount":"0","allowPoints":true,
+                 "targets":{},
+                 "totalLimit":"10","perMemberLimit":"1"}""".formatted(code());
+        assertThat(create(manager, UUID.randomUUID(), body).getResponse().getStatus()).isEqualTo(201);
+    }
+
     // ----- validation -----
 
     @Test

@@ -14,7 +14,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.Booking
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.DepositPaymentEvidenceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopOperationsAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.WorkshopBookingAuthorizationService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SettlementReadiness;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCase;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
@@ -96,15 +96,25 @@ class LoyaltyWorkshopSourceConcurrencyIT {
     }
 
     @Test
-    void aCancellationRacingTheCompletionEitherRestoresOrEarnsNeverBoth() {
+    void aCancellationRacingTheCompletionEitherRestoresOrEarnsNeverBoth() throws InterruptedException {
         for (int round = 0; round < ROUNDS; round++) {
             Booked booked = accepted();
             assertThat(workshop.payDeposit(booked.booking()).status()).isEqualTo(BookingOutcomeStatus.ACCEPTED);
             String ref = booked.booking().getBookingCode();
-            bills.saveAndFlush(SettlementFinalBill.builder().billReference("BILL-" + UUID.randomUUID()).bookingReference(ref)
-                    .postPromotionAmountVnd(810_000L).acceptedDepositAmountVnd(405_000L).remainingAmountVnd(0L)
-                    .currencyCode("VND").lifecycleStatus("FINALIZED").build());
-            when(settlementOperations.readiness(ref)).thenReturn(new SettlementReadiness(true, true, false, Instant.now()));
+            // Since 003.3 T087 the confirmed deposit opens the single folio asynchronously; set that folio rather than insert a second.
+            SettlementFinalBill folio = null;
+            for (int attempt = 0; attempt < 50 && folio == null; attempt++) {
+                folio = bills.findByBookingReference(ref).orElse(null);
+                if (folio == null) Thread.sleep(100);
+            }
+            if (folio == null) {
+                folio = SettlementFinalBill.builder().billReference("BILL-" + UUID.randomUUID()).bookingReference(ref)
+                        .postPromotionAmountVnd(810_000L).acceptedDepositAmountVnd(405_000L).currencyCode("VND").build();
+            }
+            folio.setRemainingAmountVnd(0L);
+            folio.setLifecycleStatus("FINALIZED");
+            bills.saveAndFlush(folio);
+            when(settlementOperations.attendanceOutcome(ref)).thenReturn(new BookingAttendanceOutcome(true, BookingAttendanceOutcome.Outcome.ATTENDED));
             SettlementCase cancellation = SettlementCase.builder().caseReference("CASE-" + UUID.randomUUID()).bookingReference(ref)
                     .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("COMPLETED").correlationReference("corr").build();
 

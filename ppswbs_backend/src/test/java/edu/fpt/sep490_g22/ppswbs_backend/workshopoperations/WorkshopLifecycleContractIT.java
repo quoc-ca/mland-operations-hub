@@ -220,7 +220,9 @@ public class WorkshopLifecycleContractIT {
         Map<String, Object> deleteOp = (Map<String, Object>) pathItem.get("delete");
         List<Map<String, Object>> deleteParams = (List<Map<String, Object>>) deleteOp.get("parameters");
         assertThat(deleteParams).isNotEmpty();
-        Map<String, Object> accountIdParam = deleteParams.get(0);
+        // The Idempotency-Key $ref comes first; the accountId query parameter is the inline one.
+        Map<String, Object> accountIdParam = deleteParams.stream()
+                .filter(param -> "accountId".equals(param.get("name"))).findFirst().orElseThrow();
         assertThat(accountIdParam.get("name")).isEqualTo("accountId");
         assertThat(accountIdParam.get("in")).isEqualTo("query");
         assertThat(accountIdParam.get("required")).isEqualTo(true);
@@ -268,84 +270,19 @@ public class WorkshopLifecycleContractIT {
     }
 
     // =========================================================================
-    // 4. Operational Lead Endpoint and DTO Contract
+    // 4. Operational Lead is retired (003.2 amendment: no lead role, no handover)
     // =========================================================================
 
     @Test
-    @DisplayName("T021-4: Operational lead endpoint (PUT) and OperationalLeadRequest schema/DTO validation contract")
+    @DisplayName("T021-4: The operational-lead endpoint is retired from the OpenAPI contract")
     @SuppressWarnings("unchecked")
-    void verifyOperationalLeadContractInOpenApiAndDto() {
+    void verifyOperationalLeadEndpointIsRetiredFromOpenApi() {
         Map<String, Object> paths = (Map<String, Object>) openApiSpec.get("paths");
-        assertThat(paths).containsKey("/workshop-sessions/{sessionId}/operational-lead");
+        assertThat(paths).doesNotContainKey("/workshop-sessions/{sessionId}/operational-lead");
 
-        Map<String, Object> pathItem = (Map<String, Object>) paths.get("/workshop-sessions/{sessionId}/operational-lead");
-        assertThat(pathItem).containsKey("put");
-
-        Map<String, Object> putOp = (Map<String, Object>) pathItem.get("put");
-        Map<String, Object> requestBody = (Map<String, Object>) putOp.get("requestBody");
-        Map<String, Object> content = (Map<String, Object>) requestBody.get("content");
-        Map<String, Object> jsonContent = (Map<String, Object>) content.get("application/json");
-        Map<String, Object> schemaRef = (Map<String, Object>) jsonContent.get("schema");
-        assertThat(schemaRef.get("$ref")).isEqualTo("#/components/schemas/OperationalLeadRequest");
-
-        Map<String, Object> putResponses = (Map<String, Object>) putOp.get("responses");
-        assertThat(putResponses).containsKeys("200", "403", "409");
-
-        // Components: OperationalLeadRequest schema
         Map<String, Object> components = (Map<String, Object>) openApiSpec.get("components");
         Map<String, Object> schemas = (Map<String, Object>) components.get("schemas");
-        Map<String, Object> opLeadSchema = (Map<String, Object>) schemas.get("OperationalLeadRequest");
-
-        List<String> requiredFields = (List<String>) opLeadSchema.get("required");
-        assertThat(requiredFields).containsExactlyInAnyOrder("managerAccountId", "reasonCode");
-
-        Map<String, Object> properties = (Map<String, Object>) opLeadSchema.get("properties");
-        assertThat(properties).containsKeys("managerAccountId", "reasonCode", "reasonNote", "evidenceReference");
-        assertThat(properties).doesNotContainKey("managerPersonnelId");
-        assertThat(properties).doesNotContainKey("branchId");
-
-        Map<String, Object> mgrAccountProp = (Map<String, Object>) properties.get("managerAccountId");
-        assertThat(mgrAccountProp.get("type")).isEqualTo("integer");
-        assertThat(mgrAccountProp.get("format")).isEqualTo("int64");
-
-        // DTO Validation: valid with required fields
-        OperationalLeadRequest validReq = OperationalLeadRequest.builder()
-                .managerAccountId(10L)
-                .reasonCode("ONSITE_EMERGENCY_LEAD")
-                .reasonNote("Staff absent, Manager taking over lead")
-                .evidenceReference("EV-INCIDENT-8921")
-                .build();
-        assertThat(validator.validate(validReq)).isEmpty();
-
-        // DTO Validation: valid with only mandatory fields
-        OperationalLeadRequest minimalReq = OperationalLeadRequest.builder()
-                .managerAccountId(10L)
-                .reasonCode("ROUTINE_LEAD_ASSIGNMENT")
-                .build();
-        assertThat(validator.validate(minimalReq)).isEmpty();
-
-        // DTO Validation: missing managerAccountId
-        OperationalLeadRequest noMgrReq = OperationalLeadRequest.builder()
-                .reasonCode("ROUTINE_LEAD_ASSIGNMENT")
-                .build();
-        Set<ConstraintViolation<OperationalLeadRequest>> noMgrViolations = validator.validate(noMgrReq);
-        assertThat(noMgrViolations).hasSize(1);
-        assertThat(noMgrViolations.iterator().next().getMessage()).contains("managerAccountId is required");
-
-        // DTO Validation: missing reasonCode
-        OperationalLeadRequest noReasonReq = OperationalLeadRequest.builder()
-                .managerAccountId(10L)
-                .build();
-        Set<ConstraintViolation<OperationalLeadRequest>> noReasonViolations = validator.validate(noReasonReq);
-        assertThat(noReasonViolations).hasSize(1);
-        assertThat(noReasonViolations.iterator().next().getMessage()).contains("reasonCode is required");
-
-        // DTO Reflection check: no legacy managerPersonnelId or branchId fields
-        List<String> fieldNames = java.util.Arrays.stream(OperationalLeadRequest.class.getDeclaredFields())
-                .map(java.lang.reflect.Field::getName)
-                .toList();
-        assertThat(fieldNames).contains("managerAccountId", "reasonCode");
-        assertThat(fieldNames).doesNotContain("managerPersonnelId", "branchId");
+        assertThat(schemas).doesNotContainKey("OperationalLeadRequest");
     }
 
     // =========================================================================
@@ -359,7 +296,7 @@ public class WorkshopLifecycleContractIT {
         Map<String, Object> components = (Map<String, Object>) openApiSpec.get("components");
         Map<String, Object> schemas = (Map<String, Object>) components.get("schemas");
 
-        // Session schema: uses locationId (int64) and operationalLeadAccountId (int64), rejects branchId / personnelId
+        // Session schema: uses locationId (int64); the retired operational lead and branchId / personnelId are absent
         Map<String, Object> sessionSchema = (Map<String, Object>) schemas.get("Session");
         assertThat(sessionSchema).isNotNull();
 
@@ -373,7 +310,7 @@ public class WorkshopLifecycleContractIT {
         List<Map<String, Object>> allOf = (List<Map<String, Object>>) sessionSchema.get("allOf");
         Map<String, Object> sessionInlineObject = allOf.get(1);
         Map<String, Object> sessionInlineProps = (Map<String, Object>) sessionInlineObject.get("properties");
-        assertThat(sessionInlineProps).containsKey("operationalLeadAccountId");
+        assertThat(sessionInlineProps).doesNotContainKey("operationalLeadAccountId");
         assertThat(sessionInlineProps).doesNotContainKey("operationalLeadPersonnelId");
         assertThat(sessionInlineProps).doesNotContainKey("branchId");
 
@@ -419,8 +356,7 @@ public class WorkshopLifecycleContractIT {
         Map<String, Object> staffAssignItem = (Map<String, Object>) paths.get("/workshop-sessions/{sessionId}/staff-assignments");
         assertThat(staffAssignItem).isNotNull();
 
-        Map<String, Object> opLeadItem = (Map<String, Object>) paths.get("/workshop-sessions/{sessionId}/operational-lead");
-        assertThat(opLeadItem).isNotNull();
+        assertThat(paths).doesNotContainKey("/workshop-sessions/{sessionId}/operational-lead");
 
         // 3. Components schemas check
         Map<String, Object> components = (Map<String, Object>) openApiSpec.get("components");
@@ -430,11 +366,11 @@ public class WorkshopLifecycleContractIT {
         assertThat(schemas).doesNotContainKey("BranchWrite");
         assertThat(schemas).doesNotContainKey("WorkshopBranch");
 
-        // 4. SessionResponse DTO uses locationId and operationalLeadAccountId
+        // 4. SessionResponse DTO uses locationId and never branch/personnel identifiers
         List<String> sessionRespFields = java.util.Arrays.stream(SessionResponse.class.getDeclaredFields())
                 .map(java.lang.reflect.Field::getName)
                 .toList();
-        assertThat(sessionRespFields).contains("locationId", "operationalLeadAccountId");
+        assertThat(sessionRespFields).contains("locationId");
         assertThat(sessionRespFields).doesNotContain("branchId", "operationalLeadPersonnelId");
     }
 
@@ -448,10 +384,9 @@ public class WorkshopLifecycleContractIT {
         // Document all US2 endpoints defined in OpenAPI contract:
         Map<String, List<String>> us2Endpoints = Map.of(
                 "/api/v1/workshop-sessions/{sessionId}/state-transitions", List.of("POST"),
-                "/api/v1/workshop-sessions/{sessionId}/staff-assignments", List.of("PUT", "DELETE"),
-                "/api/v1/workshop-sessions/{sessionId}/operational-lead", List.of("PUT")
+                "/api/v1/workshop-sessions/{sessionId}/staff-assignments", List.of("PUT", "DELETE")
         );
-        assertThat(us2Endpoints).hasSize(3);
+        assertThat(us2Endpoints).hasSize(2);
 
         // Verify that DTO classes exist and can be instantiated
         assertThat(StateTransitionRequest.class).isNotNull();

@@ -16,19 +16,20 @@ class WorkshopLoyaltyOutcomeSchedulerTest {
     private final WorkshopLoyaltyOutcomeScheduler scheduler = new WorkshopLoyaltyOutcomeScheduler(bills, processor);
 
     @Test
-    void scansOpenAndFinalizedBillsAndProcessesEachBooking() {
-        when(bills.findByLifecycleStatusInOrderByIdAsc(List.of("OPEN", "FINALIZED")))
-                .thenReturn(List.of(bill("BK-1", "OPEN"), bill("BK-2", "FINALIZED")));
+    void scansOnlyFoliosWhoseLoyaltyOutcomeIsUndecidedAndProcessesEachBooking() {
+        when(bills.findByLifecycleStatusInAndLoyaltyProcessedAtIsNullOrderByIdAsc(List.of("OPEN", "FINALIZED", "CLOSED")))
+                .thenReturn(List.of(bill("BK-1", "OPEN"), bill("BK-2", "FINALIZED"), bill("BK-3", "CLOSED")));
 
         scheduler.processEligibleWorkshopOutcomes();
 
         verify(processor).process("BK-1");
         verify(processor).process("BK-2");
+        verify(processor).process("BK-3");
     }
 
     @Test
     void failureForOneBookingDoesNotPreventTheNextCandidateFromBeingProcessed() {
-        when(bills.findByLifecycleStatusInOrderByIdAsc(List.of("OPEN", "FINALIZED")))
+        when(bills.findByLifecycleStatusInAndLoyaltyProcessedAtIsNullOrderByIdAsc(List.of("OPEN", "FINALIZED", "CLOSED")))
                 .thenReturn(List.of(bill("BK-1", "OPEN"), bill("BK-2", "FINALIZED")));
         doThrow(new IllegalStateException("internal details")).when(processor).process("BK-1");
 

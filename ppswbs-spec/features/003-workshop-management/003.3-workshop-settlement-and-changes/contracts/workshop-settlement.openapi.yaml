@@ -58,8 +58,14 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
     post:
-      summary: Create the booking-scoped final bill when settlement is ready
-      description: Requires active in-scope Staff authority and Idempotency-Key.
+      summary: Return the booking's existing direct folio (no longer creates it)
+      description: >-
+        Requires active in-scope Staff authority and Idempotency-Key. Owner
+        decision D1 (2026-11-05): the direct-booking folio is created by
+        Settlement at deposit confirmation, so this command no longer creates a
+        bill; it returns the existing folio (OPEN, FINALIZED or CLOSED). The
+        201 response is retained for compatibility until 003.3 T087 realigns
+        the implementation; a booking without a folio is a 409.
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       responses:
@@ -76,11 +82,13 @@ paths:
         Member/Guest routes are read-only and cannot create charges. An active
         Staff member in booking-location scope or any active Manager records the
         add-on after customer consent at the workshop. The server derives the
-        catalogue price. A direct OPEN bill may append the line; a finalized
-        direct booking requires a separate direct-Mland add-on bill, while an
-        OTA booking always uses that separate bill and never mutates OTA facts.
+        catalogue price. A direct booking appends the line only to its OPEN
+        folio; a FINALIZED direct folio rejects the add-on without mutation
+        (correction only through the exceptional T040 flow). An OTA shop add-on
+        is not recorded here: it uses the separate 003.4 /ota-addon-quotes bill
+        and never mutates OTA facts.
         Variable charge uses description, amount and reason.
-      security: [{}, {bearerAuth: []}]
+      security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -118,6 +126,53 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/folio-corrections:
+    parameters: [{$ref: '#/components/parameters/BookingCode'}]
+    post:
+      summary: Open a Manager-only post-FINALIZED folio correction (FR-004c, D7-D10)
+      description: >-
+        Only an active Manager (global scope) may open a folio correction for an
+        overcharge on a FINALIZED direct folio, with a required reason. Staff, Member,
+        and Guest are rejected (403). Folio OPEN, CLOSED, or OTA bookings are rejected
+        (409/422). Overcharge amount is refunded via VNPay partial refund allocated
+        oldest verified payment first, capped by each payment's unrefunded amount.
+        Undercharge is never collected. Idempotent on Idempotency-Key.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/FolioCorrectionCommand'}
+      responses:
+        '201': {$ref: '#/components/responses/FolioCorrection'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/folio-corrections/{correctionReference}:
+    parameters:
+      - $ref: '#/components/parameters/BookingCode'
+      - name: correctionReference
+        in: path
+        required: true
+        schema: {type: string}
+      - $ref: '#/components/parameters/GuestContactEmail'
+      - $ref: '#/components/parameters/GuestContactPhone'
+    get:
+      summary: Read a customer-safe folio correction projection
+      description: >-
+        An owning Member uses bearer authentication. A Guest supplies exactly one
+        stored contact email or phone. Manager (global) or Staff in booking location
+        scope may read. No provider secret, VNPay payload, or internal PII is exposed.
+      security: [{}, {bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/FolioCorrection'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/final-bill/finalizations:
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:
@@ -196,11 +251,25 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/cancellation-cases/{caseReference}:
-    $ref: '#/components/pathItems/SettlementCaseRead'
+    parameters: &settlementCaseReadParameters
+      - $ref: '#/components/parameters/BookingCode'
+      - $ref: '#/components/parameters/CaseReference'
+      - $ref: '#/components/parameters/GuestContactEmail'
+      - $ref: '#/components/parameters/GuestContactPhone'
+    get: &settlementCaseReadGet
+      summary: Read a customer-safe settlement case
+      security: [{}, {bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/SettlementCase'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/required-session-change-cases/{caseReference}:
-    $ref: '#/components/pathItems/SettlementCaseRead'
+    parameters: *settlementCaseReadParameters
+    get: *settlementCaseReadGet
   /api/v1/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases/{caseReference}:
-    $ref: '#/components/pathItems/SettlementCaseRead'
+    parameters: *settlementCaseReadParameters
+    get: *settlementCaseReadGet
   /api/v1/workshop-refund-policies:
     get:
       summary: Read central prospective refund-policy revision history
@@ -229,6 +298,69 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/ota-addon-bills/{billReference}:
+    parameters:
+      - name: billReference
+        in: path
+        required: true
+        schema: {type: string}
+    get:
+      summary: Read OTA add-on bill details and latest payment attempt
+      description: Requires in-scope Staff or any active Manager globally.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/OtaAddonBill'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/ota-addon-bills/{billReference}/payment-attempts:
+    parameters:
+      - name: billReference
+        in: path
+        required: true
+        schema: {type: string}
+    post:
+      summary: Create a short-lived VNPay payment checkout attempt for an OTA add-on bill (SHOP_ADDON)
+      description: >-
+        In-scope Staff or any active Manager may initiate checkout for an OPEN OTA add-on bill.
+        Exact bill amount only. Only one active pending attempt per bill. Idempotent on Idempotency-Key.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '201': {$ref: '#/components/responses/OtaAddonPaymentAttempt'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/ota-addon-bills/{billReference}/refunds:
+    parameters:
+      - name: billReference
+        in: path
+        required: true
+        schema: {type: string}
+    post:
+      summary: Manager-only overcharge refund for a paid OTA add-on bill (ADDON_REFUND)
+      description: >-
+        Only an active Manager (global scope) may open a refund for an overcharge on a PAID OTA add-on bill,
+        with a required reason. Refund amount must be <= unrefunded verified SHOP_ADDON collections.
+        Executed via VNPay partial refund adapter and completed upon signed QueryDR verification.
+        Idempotent on Idempotency-Key.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/OtaAddonRefundCommand'}
+      responses:
+        '201': {$ref: '#/components/responses/OtaAddonRefund'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: Firebase-ID-token}
@@ -238,21 +370,6 @@ components:
     IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string}}
     GuestContactEmail: {name: contactEmail, in: query, required: false, schema: {type: string, format: email}, description: Guest reads provide exactly one of contactEmail or contactPhone.}
     GuestContactPhone: {name: contactPhone, in: query, required: false, schema: {type: string}, description: Guest reads provide exactly one of contactEmail or contactPhone.}
-  pathItems:
-    SettlementCaseRead:
-      parameters:
-        - $ref: '#/components/parameters/BookingCode'
-        - $ref: '#/components/parameters/CaseReference'
-        - $ref: '#/components/parameters/GuestContactEmail'
-        - $ref: '#/components/parameters/GuestContactPhone'
-      get:
-        summary: Read a customer-safe settlement case
-        security: [{}, {bearerAuth: []}]
-        responses:
-          '200': {$ref: '#/components/responses/SettlementCase'}
-          '401': {$ref: '#/components/responses/Problem'}
-          '403': {$ref: '#/components/responses/Problem'}
-          '404': {$ref: '#/components/responses/Problem'}
   schemas:
     GuestContactProof:
       type: object
@@ -268,9 +385,10 @@ components:
           required: [catalogueAddOnReference]
           properties:
             catalogueAddOnReference: {type: string}
-            contactEmail: {type: string, format: email}
-            contactPhone: {type: string}
-          description: Guest supplies exactly one contact proof; Member omits both.
+          description: >-
+            Fixed catalogue add-on recorded by in-scope Staff or any active
+            Manager after workshop consent (FR-004a/FR-004b). Member and Guest
+            cannot call this command; no customer contact proof is accepted.
         - type: object
           required: [description, amount, reason]
           properties:
@@ -289,6 +407,26 @@ components:
       type: object
       additionalProperties: false
       description: Empty command. Finalization has no unpaid-balance override.
+    FolioCorrectionCommand:
+      type: object
+      additionalProperties: false
+      required: [amountVnd, reason]
+      properties:
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        reason: {type: string, minLength: 1, maxLength: 255}
+    FolioCorrectionProjection:
+      type: object
+      required: [correctionReference, bookingReference, billReference, amountVnd, currency, reason, lifecycleStatus, createdAt]
+      properties:
+        correctionReference: {type: string}
+        bookingReference: {type: string}
+        billReference: {type: string}
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        currency: {type: string, enum: [VND]}
+        reason: {type: string}
+        lifecycleStatus: {type: string, enum: [OPEN, PENDING_PROVIDER, RESOLVED, REJECTED, FAILED]}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
     MlandRemedyCommand:
       type: object
       required: [reason, replacementOutcome, cancellationHandoffReference]
@@ -301,7 +439,13 @@ components:
       required: [bookingCode, status, currency, outstandingAmount]
       properties:
         bookingCode: {type: string}
-        status: {type: string}
+        status:
+          type: string
+          description: >-
+            Direct folio state per owner decision D4 (2026-11-05): OPEN,
+            FINALIZED (checkout, zero balance) or CLOSED (ordinary
+            cancellation/full no-show at the verified collected amount, or a
+            verified Mland-caused remedy refund per D11).
         currency: {type: string, enum: [VND]}
         outstandingAmount: {type: integer, format: int64, minimum: 0}
         paidAmount: {type: integer, format: int64, minimum: 0}
@@ -330,7 +474,7 @@ components:
       properties:
         caseReference: {type: string}
         caseType: {type: string}
-        status: {type: string, enum: [OPEN, PENDING_PROVIDER, RESOLVED, REJECTED, FAILED, EXPIRED]}
+        status: {type: string, enum: [OPEN, PENDING_PROVIDER, RESOLVED, REJECTED, FAILED]}
         bookingCode: {type: string}
         correlationReference: {type: string}
         policyOrAmountOutcome: {type: string, description: Present only when authorized for that outcome.}
@@ -368,6 +512,9 @@ components:
     FinalPaymentAttempt:
       description: Short-lived final-payment checkout attempt
       content: {application/json: {schema: {$ref: '#/components/schemas/FinalPaymentAttempt'}}}
+    FolioCorrection:
+      description: Customer-safe folio correction projection
+      content: {application/json: {schema: {$ref: '#/components/schemas/FolioCorrectionProjection'}}}
     SettlementCase:
       description: Safe settlement case projection
       content: {application/json: {schema: {$ref: '#/components/schemas/SettlementCaseProjection'}}}

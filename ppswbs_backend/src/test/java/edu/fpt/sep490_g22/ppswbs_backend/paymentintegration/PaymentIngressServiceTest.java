@@ -74,6 +74,7 @@ class PaymentIngressServiceTest {
         callback.put("vnp_CurrCode", "USD");
         var outcome = service().receive(callback);
         assertThat(outcome.message()).isEqualTo("AMOUNT_CURRENCY_MISMATCH");
+        assertThat(outcome.rspCode()).isEqualTo("04");
         verifyNoInteractions(receipts, booking, settlement);
     }
 

@@ -17,7 +17,8 @@ export function useErrorText(featureMessages) {
     const sharedText = tShared(key);
     if (sharedText !== key) return sharedText;
     if (error.retryable) return tShared('error.retryable');
-    if (error.status === 409) return tShared('error.stale');
+    if (error.code === 'STALE_VERSION' || error.code === 'OPTIMISTIC_LOCK_CONFLICT') return tShared('error.stale');
+    if (error.status === 409 && (!error.message || error.message === 'Conflict')) return tShared('error.stale');
     if (error.status === 403) return tShared('error.forbidden');
     return error.message || tShared('error.generic');
   }, [tFeature, tShared]);

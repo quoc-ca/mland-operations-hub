@@ -1,0 +1,306 @@
+.figma-public-page {
+  --figma-ink: #17181b;
+  --figma-muted: #686b73;
+  --figma-yellow: #eedc35;
+  --figma-bg: #f4f5f7;
+  --figma-panel: #ffffff;
+  max-width: none !important;
+  width: 100%;
+  min-height: calc(100vh - 68px);
+  box-sizing: border-box;
+  margin: 0 !important;
+  /* The shell header is a fixed 68px band. Keep page content below it. */
+  padding: 48px 56px 72px !important;
+  background: var(--figma-bg);
+  color: var(--figma-ink);
+  position: relative;
+}
+
+.figma-public-page::before {
+  content: "MLAND\A\A GUEST WORKSPACE\A\A  Dashboard\A  Catalogue\A  Workshops\A  Orders\A  Reviews\A  Settings";
+  white-space: pre;
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 248px;
+  padding: 24px 22px;
+  box-sizing: border-box;
+  background: #121316;
+  color: #f7f7f7;
+  font-size: 12px;
+  line-height: 2.5;
+  letter-spacing: .03em;
+  z-index: 0;
+  display: none;
+}
+
+.figma-public-page::after {
+  content: "MLAND  /  BOOKING JOURNEY                                      Updated just now";
+  white-space: pre;
+  position: fixed;
+  inset: 0 0 auto 248px;
+  height: 68px;
+  padding: 24px 34px;
+  box-sizing: border-box;
+  background: #fff;
+  color: #7a7d84;
+  font-size: 11px;
+  z-index: 0;
+  border-bottom: 1px solid #e4e5e8;
+  display: none;
+}
+
+.figma-public-page > * { position: relative; z-index: 1; }
+.figma-public-page h1 {
+  max-width: 100%;
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  line-height: 1.06;
+  margin: 8px 0 18px;
+  overflow-wrap: anywhere;
+}
+.figma-public-page h2 { color: var(--figma-ink); }
+.figma-public-page .eyebrow { color: #7c7000; font-weight: 700; letter-spacing: .14em; }
+.figma-public-page .lead { color: var(--figma-muted); max-width: 760px; }
+.figma-booking-steps { display: flex; flex-wrap: wrap; gap: 26px; margin: 26px 0 30px; color: #858890; font-size: 12px; font-weight: 600; }
+.figma-booking-steps span { padding-bottom: 8px; border-bottom: 2px solid transparent; }
+.figma-booking-steps .active { color: #17181b; border-color: var(--figma-yellow); }
+.figma-public-page .workspace-card,
+.figma-public-page .empty-state { background: var(--figma-panel); border: 1px solid #e0e2e6; box-shadow: none; }
+.figma-public-page .button.primary { background: #002967; border-color: #002967; }
+.figma-public-page .button.primary:hover { background: #001d49; }
+.figma-public-page .form-grid input,
+.figma-public-page .form-grid select,
+.figma-public-page input,
+.figma-public-page select { border-color: #c9cbd1; border-radius: 0; }
+.figma-booking-layout { width: 100%; max-width: 1200px; margin-inline: auto; }
+.figma-booking-layout > * { min-width: 0; }
+.figma-booking-layout .workspace-card { min-width: 0; overflow: hidden; }
+.figma-booking-layout input:not([type="radio"]):not([type="checkbox"]),
+.figma-booking-layout select,
+.figma-booking-layout textarea { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+
+.figma-booking-layout input[type="radio"],
+.figma-booking-layout input[type="checkbox"] {
+  width: 18px !important;
+  height: 18px !important;
+  max-width: none !important;
+  min-width: 18px !important;
+  flex: 0 0 18px !important;
+  margin: 0 !important;
+  cursor: pointer;
+  accent-color: #002967;
+}
+
+.figma-booking-layout .check-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  margin: 4px 0;
+}
+
+/* Benefit & Points Section Styling */
+#member-benefits-section .benefit-selector {
+  border: none;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+#member-benefits-section .benefit-selector > h2 {
+  display: none;
+}
+
+#member-benefits-section .benefit-selector fieldset {
+  border: none;
+  padding: 0;
+  margin: 0 0 8px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+#member-benefits-section .benefit-selector fieldset .check-row {
+  padding: 8px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+#member-benefits-section .benefit-selector fieldset .check-row:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+#member-benefits-section .benefit-selector .form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 320px);
+  gap: 12px;
+  margin: 4px 0 8px;
+}
+
+#member-benefits-section .benefit-selector .form-grid .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#member-benefits-section .benefit-selector .form-grid label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+#member-benefits-section .benefit-selector .points-field {
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#member-benefits-section .benefit-selector .points-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+#member-benefits-section .benefit-selector .points-field input {
+  height: 42px;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid #c9cbd1;
+  border-radius: 4px;
+}
+
+#member-benefits-section .benefit-selector .points-field .muted.small {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+#member-benefits-section .benefit-selector button.button.outline {
+  align-self: flex-start;
+  min-height: 38px;
+  padding: 8px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #002967;
+  border: 1.5px solid #002967;
+  background: #ffffff;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#member-benefits-section .benefit-selector button.button.outline:hover:not(:disabled) {
+  background: #002967;
+  color: #ffffff;
+}
+
+#member-benefits-section .benefit-selector .breakdown {
+  margin-top: 16px;
+  padding: 20px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+#member-benefits-section .benefit-selector .breakdown dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#member-benefits-section .benefit-selector .breakdown dl div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #e2e8f0;
+  font-size: 14px;
+}
+
+#member-benefits-section .benefit-selector .breakdown dl div dt {
+  color: #64748b;
+  margin: 0;
+  font-weight: normal;
+}
+
+#member-benefits-section .benefit-selector .breakdown dl div dd {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+#member-benefits-section .benefit-selector .breakdown dl div.total {
+  border-bottom: 2px solid #002967;
+  border-top: 1px solid #002967;
+  padding: 12px 0;
+  margin-top: 4px;
+}
+
+#member-benefits-section .benefit-selector .breakdown dl div.total dt {
+  font-size: 15px;
+  font-weight: bold;
+  color: #002967;
+}
+
+#member-benefits-section .benefit-selector .breakdown dl div.total dd {
+  font-size: 17px;
+  font-weight: bold;
+  color: #002967;
+}
+
+#member-benefits-section .benefit-selector .breakdown .check-row {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #eef4ff;
+  border: 1.5px solid #2f54eb;
+  border-radius: 6px;
+  font-weight: 600;
+  color: #002967;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.figma-public-page .lookup-panel,
+.figma-public-page .payment-form { width: 100%; max-width: none !important; box-sizing: border-box; }
+.figma-public-page .lookup-panel { margin-inline: auto; }
+
+@media (max-width: 900px) {
+  .figma-public-page { padding: 32px 20px 56px !important; }
+  .figma-public-page::before { display: none; }
+  .figma-public-page::after { display: none; }
+  .figma-booking-layout { grid-template-columns: minmax(0, 1fr) !important; gap: 20px !important; }
+  .figma-public-page .form-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+@media (min-width: 901px) and (max-width: 1200px) {
+  .figma-public-page { padding: 48px 32px 64px !important; }
+  .figma-booking-layout { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* Benefit panel (same look as the product checkout): the generic booking-form checkbox size must not shrink the points switch. */
+.figma-booking-layout .retail-benefits input.switch[type="checkbox"] {
+  width: 46px !important;
+  height: 26px !important;
+  min-width: 46px !important;
+  max-width: none !important;
+  flex: 0 0 46px !important;
+  border: 0;
+  border-radius: 14px;
+  background: #bbb;
+}
+.figma-booking-layout .retail-benefits input.switch[type="checkbox"]:checked { background: #002967; }
+.figma-booking-layout .retail-benefits input.switch[type="checkbox"]:disabled { opacity: .45; cursor: not-allowed; }
+.retail-benefits .point-balance { cursor: default; }
+.retail-benefits .point-balance-value { text-align: right; font-size: 14px; color: #0b5c34; }
+.retail-benefits .point-balance-value b { font-size: 16px; }
+.retail-benefits .point-balance-value small { display: block; margin-top: 2px; color: #64748b; font-size: 12px; }

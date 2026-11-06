@@ -98,6 +98,14 @@ public class WorkshopOperationsAuthorizationService {
         return account;
     }
 
+    /** A Staff member may act on a session only while actively assigned to it. */
+    public void requireAssignment(AccountSummary staff, Long sessionId) {
+        if (!staffAssignmentRepository.existsBySessionIdAndAccountIdAndActiveTrue(sessionId, staff.accountId())) {
+            log.warn("Staff accountId={} is not assigned to sessionId={}", staff.accountId(), sessionId);
+            throw new WorkshopForbiddenException("Access denied: Staff member is not assigned to this workshop session");
+        }
+    }
+
     public AccountSummary requireStaffSessionAssignment(String authHeader, Long sessionId) {
         AccountSummary account = authenticate(authHeader);
 
@@ -106,9 +114,9 @@ public class WorkshopOperationsAuthorizationService {
 
         Long locationId = session.getLocation().getId();
 
-        // Workshop Operations V1 does not require a per-session roster assignment.
-        // Active Manager/Admin actors are global; Staff are authorized by active
-        // account status plus direct membership in the session location scope.
+        // Active Manager/Admin actors are global. Staff are authorized by active account status, membership in the
+        // session location scope AND an active assignment to this session (owner decision 2026-11-06: a Staff
+        // sees and operates only the sessions they are assigned to).
         if (isGlobalWorkshopActor(account)) {
             return account;
         }
@@ -120,6 +128,7 @@ public class WorkshopOperationsAuthorizationService {
                     account.accountId(), locationId, locationScope);
                 throw new WorkshopLocationScopeException("Location ID " + locationId + " is outside Staff member's active location scope");
             }
+            requireAssignment(account, sessionId);
 
             return account;
         }

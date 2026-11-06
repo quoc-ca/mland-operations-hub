@@ -2,6 +2,9 @@ import { useCallback, useRef, useState } from 'react';
 import { newCommandId } from '../../../shared/api/http';
 import { useCatalogueApi } from './useCatalogueApi';
 
+/** Backend action names of 002 writes (receipt lookup, FR-028); the UI reads them here, not from infrastructure. */
+export { ACTIONS } from '../infrastructure/catalogueApi';
+
 /**
  * The shared useCommand plus FR-028 for 002 writes. When a write got no answer (status 0) it may still have been saved,
  * so Retry first asks for the receipt of that key (GET command-receipts/{key}?action=…): a receipt is the outcome and

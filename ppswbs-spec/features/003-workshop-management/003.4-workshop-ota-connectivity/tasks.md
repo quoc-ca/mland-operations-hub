@@ -1,9 +1,9 @@
 # Tasks: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01
-**Author**: Hồ Hoàng Quốc
-**Last updated by**: Hồ Hoàng Quốc
+**Date updated**: 2026-11-05
+**Author**: Há»“ HoÃ ng Quá»‘c
+**Last updated by**: Há»“ HoÃ ng Quá»‘c
 
 **Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md), [data-model.md](./data-model.md), [ota-connectivity-contract.md](./contracts/ota-connectivity-contract.md), [ota-connectivity.openapi.yaml](./contracts/ota-connectivity.openapi.yaml), and [quickstart.md](./quickstart.md)
 
@@ -35,14 +35,14 @@
 
 **Purpose**: Build the shared boundary, durable state, authorization, and observability that block every user story.
 
-**⚠️ CRITICAL**: Complete this phase before enabling any story behavior. Do not create a provider-specific adapter that bypasses the neutral port or another feature's facade.
+**âš ï¸ CRITICAL**: Complete this phase before enabling any story behavior. Do not create a provider-specific adapter that bypasses the neutral port or another feature's facade.
 
 - [X] T006 Inspect deployed Flyway history, select the next append-only migration identifier, then create the OTA migration in `ppswbs_backend/src/main/resources/db/migration/` for channel connection, mapping, price snapshot, outbound change, delivery attempt, inbound event, channel booking, booking-ticket link, customer-payment evidence, payout position/ledger entry, add-on bill link, and reconciliation work item; preserve `data-model.md` integrity rules, including provider-scoped uniqueness for external/event references and source-version change keys.
 - [X] T007 [P] Create JPA entities, enums, repositories, and migration test support for foundational mapping/change/event/reconciliation records in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/persistence/` and `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/persistence/`.
 - [X] T008 [P] After 003.1 T047, 003.2 T076, and 003.3 T036 publish their compatible public facade operations, verify facade compatibility and opaque identifier conversion against the upstream-facade section of `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity-contract.md`, then define the OTA public facade and adapter-neutral boundary types in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/{facade,adapter}/`; do not access another feature's entity, repository, or service. Verified on 2026-11-01: OTA provider booking now calls `WorkshopBookingFacade` (which delegates atomic acceptance through `WorkshopOperationsFacade`), Settlement add-ons use `OtaAddonSettlementPort`, and all identifiers remain opaque at the cross-feature boundary. `OtaBookingIT` (6/6), `OtaBookingFacadeIT` (2/2), `OtaAddonSettlementContractTest` (5/5), and `OtaConnectivityModuleTest` passed.
 - [X] T009 Implement server-side canonical active-account authorization for each contract route in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaAuthorizationService.java` and safe typed/correlation-linked error mapping in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/api/OtaExceptionHandler.java`: Manager globally for business mapping, price, sync, sales-close, reconciliation, financial-evidence and payout actions; Admin-only for provider connection/credentials and booking enablement; Staff location-scoped for add-on actions.
 - [X] T010 [P] Implement redacted integration audit logging and safe correlation generation in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/integration/OtaAuditCorrelationService.java`; exclude credentials, access tokens, signing secrets, raw sensitive bodies, payment cards, and avoidable customer data.
-- [X] T011 **DEPENDS ON 003.2 T053–T054**: Consume the persistent internal Spring Modulith OTA-observable publication from 003.2 in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/integration/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaSyncDeliveryService.java`; accept at-least-once replay idempotently, materialize one durable outbound change before any provider call, retain append-only delivery attempts, move only the affected mapping to sales-closed with reconciliation after retry exhaustion, and use no broker or provider call inside the Operations transaction. T055 consumer-failure/replay/gap acceptance is verified after this consumer exists and is not a prerequisite for implementing T011.
+- [X] T011 **DEPENDS ON 003.2 T053â€“T054**: Consume the persistent internal Spring Modulith OTA-observable publication from 003.2 in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/integration/` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaSyncDeliveryService.java`; accept at-least-once replay idempotently, materialize one durable outbound change before any provider call, retain append-only delivery attempts, move only the affected mapping to sales-closed with reconciliation after retry exhaustion, and use no broker or provider call inside the Operations transaction. T055 consumer-failure/replay/gap acceptance is verified after this consumer exists and is not a prerequisite for implementing T011.
 - [X] T012 Implement authenticated inbound-event receipt, provider-scoped deduplication, safe payload fingerprinting, and replay outcome storage in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/integration/OtaInboundEventService.java`.
 - [X] T013 Add module-boundary verification in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/OtaConnectivityModuleTest.java` and verify that other features can access OTA only through `facade/` boundary types.
 - [X] T014 [P] Add empty-database and supported-upgrade migration coverage for the append-only OTA migration selected after Flyway history inspection in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/persistence/OtaConnectivityMigrationIT.java`.
@@ -52,7 +52,7 @@
 
 ---
 
-## Phase 3: User Story 2 — Manager publishes eligible channel inventory (Priority: P1)
+## Phase 3: User Story 2 â€” Manager publishes eligible channel inventory (Priority: P1)
 
 **Goal**: An authorized Manager can prepare and synchronize Mland-owned inventory safely, while commercial/ticket gates and delivery failure keep OTA sales closed.
 
@@ -78,7 +78,7 @@
 
 ---
 
-## Phase 4: User Story 1 — OTA guest secures workshop places (Priority: P1)
+## Phase 4: User Story 1 â€” OTA guest secures workshop places (Priority: P1)
 
 **Goal**: A provider-approved booking creates one Mland booking, reserves capacity, and issues exactly one active Mland ticket per participant exactly once.
 
@@ -102,7 +102,7 @@
 
 ---
 
-## Phase 5: User Story 3 — OTA cancellation/refund protects inventory (Priority: P1)
+## Phase 5: User Story 3 â€” OTA cancellation/refund protects inventory (Priority: P1)
 
 **Goal**: Authenticated cancellation/refund events record requests separately from confirmed outcomes, releasing eligible inventory exactly once only after confirmation.
 
@@ -123,7 +123,7 @@
 
 ---
 
-## Phase 6: User Story 4 — Finance reconciles channel revenue (Priority: P2)
+## Phase 6: User Story 4 â€” Finance reconciles channel revenue (Priority: P2)
 
 **Goal**: Finance sees channel guest payment evidence, Mland receivable, actual payout, and adjustments as separate immutable histories.
 
@@ -141,11 +141,11 @@
 - [X] T043 [US4] Implement payout transition, statement matching, adjustment/reversal, and dispute workflows in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/application/OtaPayoutReconciliationService.java`; corrections append linked evidence and never overwrite history.
 - [X] T044 [US4] Implement authorized finance/reconciliation DTOs and REST endpoints exactly to `contracts/ota-connectivity.openapi.yaml` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/otaconnectivity/api/`; after the approved React/Vite baseline exists, implement the corresponding state view in `ppswbs_frontend/src/ota-connectivity/pages/OtaFinanceReconciliationPage.tsx`; redact sensitive integration/customer data. Backend REST portion verified on 2026-11-01 by `OtaFinancialEvidenceControllerIT` (21/21 passed), `OtaFinancialEvidenceIT`, `OtaPayoutReconciliationIT`, and `OtaConnectivityModuleTest` (2/2 passed): Manager global access enforced, unauthorized/staff rejected, sensitive customer/provider PII and secrets redacted, stage transitions (ACCRUED, INVOICED, PAYOUT_PENDING, PAID_OUT) verified, amount/reference discrepancies open PAYOUT_DISPUTE work items, linked adjustments/reversals validated, and strict requests reject extra JSON properties. Frontend state view and Figma traceability are verified in `provider-readiness/ui-evidence-2026-11-03.md`; focused frontend tests and Vite build passed on 2026-11-03.
 
-**Checkpoint**: Finance can explain guest payment, receivable, payout, and direct counter sale without one ambiguous “paid” field.
+**Checkpoint**: Finance can explain guest payment, receivable, payout, and direct counter sale without one ambiguous â€œpaidâ€ field.
 
 ---
 
-## Phase 7: User Story 5 — Staff records a shop add-on transparently (Priority: P2)
+## Phase 7: User Story 5 â€” Staff records a shop add-on transparently (Priority: P2)
 
 **Goal**: After an OTA booking, Staff can record free engraving or a consented paid option at the Mland shop without mutating OTA commercial or payout facts. These add-ons are outside OTA checkout.
 
@@ -171,9 +171,11 @@
 **Purpose**: Verify the integrated module and prevent a successful demo from being mistaken for a provider production approval.
 
 - [X] T050 [P] Execute persistent-publication replay/restart, preparation-sync, retry-exhaustion, confirmed-resync, and authorization scenarios from `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/quickstart.md` and attach safe evidence references to `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/provider-readiness/<provider>.md`. Verified on 2026-11-01 using isolated generated MySQL schemas: `OtaInventorySyncIT` (1/1), `OtaSyncDeliveryPersistenceIT` (9/9), `OtaSyncDeliveryServiceTest` (7/7), and `OtaAuthorizationIT` (6/6), total 23/23 passed; no destructive operation was performed on the shared test schema. Evidence is recorded in `provider-readiness/verification-log.md`.
-- [ ] T051 [P] **BLOCKED — provider readiness/onboarding** Execute provider-sandbox booking, individual ticket/QR delivery, and scan evidence for each provider requested for enablement, recording results in `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/provider-readiness/<provider>.md`; do not enable a provider when the evidence is incomplete.
+- [ ] T051 [P] **BLOCKED â€” provider readiness/onboarding** Execute provider-sandbox booking, individual ticket/QR delivery, and scan evidence for each provider requested for enablement, recording results in `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/provider-readiness/<provider>.md`; do not enable a provider when the evidence is incomplete.
 - [X] T052 Run `ApplicationModules.verify()` and the OTA module, migration, contract, authorization, callback, replay, outage, cancellation, and finance test suites from `ppswbs_backend/`; record any failed/inapplicable check and manual alternative in `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/provider-readiness/verification-log.md`. Verified on 2026-11-01 (52/52 tests passed): Spring Modulith module architecture (`OtaConnectivityModuleTest`), authorization (`OtaAuthorizationIT`), ticket delivery gate (`OtaTicketDeliveryGateTest`), adapter contract (`OtaInventoryAdapterContractTest`), provider callback transport (`OtaProviderEventControllerIT`), booking idempotency (`OtaBookingIT`), cancellation lifecycle (`OtaCancellationIT`), callback security (`OtaCancellationCallbackSecurityIT`), financial evidence separation (`OtaFinancialEvidenceIT`), and add-on billing (`OtaAddonBillingIT`, `OtaAddonSettlementContractTest`) recorded in `provider-readiness/verification-log.md`.
 - [X] T053 Verify generated/published REST documentation and backend API behavior against `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/contracts/ota-connectivity.openapi.yaml`; verify frontend integration only if its approved baseline exists, without exposing secrets, raw provider data, or JPA entities. Verified on 2026-11-01 by `OtaConnectivityOpenApiIT` (9/9 passed) and integrated REST test suites (67/67 passed across `OtaFinancialEvidenceControllerIT`, `OtaAddonControllerIT`, `OtaReconciliationApiTest`, `OtaProviderEventControllerIT`, and `OtaVoucherFallbackServiceTest`): OpenAPI 3.1.0 metadata, all 14 operational REST paths and HTTP methods match Spring controllers under `/api/v1`; response status codes (200, 201, 202) and typed ApiError responses (400, 401, 403, 404, 409, 422) verified; all schemas enforce `additionalProperties: false`; 100% enum fidelity verified; and zero exposure of secrets, credentials, provider tokens, or customer PII in contracts or runtime responses.
+- [X] T055 [US5] Apply owner decisions D17/D18 (2026-11-05): a `PAID_OPTION` shop add-on quote takes a `catalogueAddOnReference` and the server derives description/price from the active 003.2 catalogue add-on for the booking's package/location (no Staff-entered `itemCode`/`amount`); allow in-scope Staff or any active Manager to create, accept and bill OTA shop add-on quotes. Update `OtaAddonPage.jsx`, the backend quote service/controller, and contract/authorization tests (`otaFinanceAddonPages.test.jsx`, `OtaAddonBillingIT`, `OtaAddonSettlementContractTest`) before ticking. Laser engraving stays a zero-charge record with no bill (D16). Verified on 2026-11-05 by `OtaAddonBillingIT` (4/4 passed), `OtaAddonSettlementContractTest` (6/6 passed), `OtaAddonControllerIT` (23/23 passed), `OtaConnectivityOpenApiIT` (9/9 passed), `OtaConnectivityModuleTest` (2/2 passed), and `otaFinanceAddonPages.test.jsx` (6/6 passed): PAID_OPTION references active 003.2 catalogue add-on via WorkshopOperationsFacade, rejects client amount/itemCode, rejects invalid catalogue references (422), active Manager globally authorized, and frontend form updated.
+- [x] T056 [US5] Expose OTA booking lookup by Mland booking reference (`GET /api/v1/ota-channel-bookings/lookups?mlandBookingReference=...`) for in-scope Staff or active Manager without creating an Operations->OTA module cycle; update `OtaChannelBookingRepository` with `findByMlandBookingReference`; link check-in booking lookup in `OperationsSessionPage.jsx` to show "OTA" badge and "Add-on" button navigating to `OtaAddonPage.jsx` with pre-filled `channelBookingId`. **Done 2026-11-06.** Implemented `OtaChannelBookingRepository.findByMlandBookingReference` and `GET /api/v1/ota-channel-bookings/lookups?mlandBookingReference=...` in `OtaAddonController`. Scope enforcement verifies in-scope Staff or active Manager. Operations and OTA modules remain isolated with no module cycle. Frontend check-in lookup in `OperationsSessionPage.jsx` queries the lookup endpoint, renders "OTA · {providerCode}" badge and an "Add-on" button linking to `/ota-connectivity/add-ons?channelBookingId=...`. Evidence: `OtaAddonControllerIT$BookingLookupEndpointTests` 4/4 (in-scope Staff 200, Manager 200, out-of-scope Staff 403, missing booking 404), frontend vitest suite 292/292 passed. **Re-verified 2026-11-06. Review fixes: the lookup logic moved from the controller into `OtaAddonService.findByMlandReference` and the controller no longer has a constructor that accepts a `null` repository; the endpoint authenticates first and answers an out-of-scope Staff exactly like a missing booking (404, identical body), so it cannot reveal which Mland bookings are OTA; the route is declared in `ota-connectivity.openapi.yaml` (`OtaConnectivityOpenApiIT` 9/9, 15 routes). Evidence: `OtaAddonControllerIT` 28/28 (in-scope Staff and Manager 200, out-of-scope and missing indistinguishable, unauthenticated 401 without touching the repository); frontend `checkInOtaLookup.test.jsx` 3/3 (OTA badge and an Add-on link to `/ota-connectivity/add-ons?channelBookingId=...`, nothing for a direct booking, check-in still usable when the OTA lookup fails).**
 - [ ] T054 Perform an authorized go-live review per provider using `ppswbs-spec/features/003-workshop-management/003.4-workshop-ota-connectivity/provider-readiness/<provider>.md`; keep the mapping sales-closed if commercial, callback, ticket/scan, cancellation/refund, payout, or late-booking/capacity evidence is missing.
 
 ---
@@ -183,7 +185,7 @@
 ### Phase dependencies
 
 - **Phase 1** can start immediately. T004 is a hard gate for a real provider's booking enablement, but it does not block simulator-backed preparation synchronization.
-- **Phase 2** depends on T001 and blocks all story implementation. T008 depends on 003.1 T047, 003.2 T076, and 003.3 T036 and must verify the upstream facade contract before any booking, cancellation consequence, or direct-bill integration. T011 follows 003.2 T053–T054, which provide the already-approved persistent internal Spring Modulith publication and resync boundary; 003.2 T055 consumer-side acceptance runs after T011/T018 implement the consumer and is not a gate for starting T011.
+- **Phase 2** depends on T001 and blocks all story implementation. T008 depends on 003.1 T047, 003.2 T076, and 003.3 T036 and must verify the upstream facade contract before any booking, cancellation consequence, or direct-bill integration. T011 follows 003.2 T053â€“T054, which provide the already-approved persistent internal Spring Modulith publication and resync boundary; 003.2 T055 consumer-side acceptance runs after T011/T018 implement the consumer and is not a gate for starting T011.
 - **US2 (Phase 3)** depends on Phase 2 and is the dependency for US1 because it establishes mapping/readiness/sales-closed behavior.
 - **US1 (Phase 4)** depends on Phase 2, US2 lifecycle/readiness work, and T004 for the specific provider that will accept bookings.
 - **US3 (Phase 5)** depends on US1 channel-booking/event correlation.
@@ -193,14 +195,14 @@
 
 ### User-story completion order
 
-`Foundation → US2 preparation sync → US1 booking (per-provider gate) → {US3 cancellation, US4 finance, US5 add-ons} → cross-cutting verification/go-live review`.
+`Foundation â†’ US2 preparation sync â†’ US1 booking (per-provider gate) â†’ {US3 cancellation, US4 finance, US5 add-ons} â†’ cross-cutting verification/go-live review`.
 
 ## Parallel opportunities
 
 - T002, T003, and T005 can run in parallel after T001.
-- T007, T008, T009, and T010 can run in parallel after T006's migration design is agreed; T011/T012 then consume that foundation, with T011 following 003.2 T053–T054. Complete the consumer-dependent portion of 003.2 T055 after T011/T018.
-- Within US2, T016–T018 and T019 can run in parallel; T020–T025 follow the lifecycle boundary.
-- Within US1, T026–T029 can run in parallel; T030–T033 follow readiness/persistence work.
+- T007, T008, T009, and T010 can run in parallel after T006's migration design is agreed; T011/T012 then consume that foundation, with T011 following 003.2 T053â€“T054. Complete the consumer-dependent portion of 003.2 T055 after T011/T018.
+- Within US2, T016â€“T018 and T019 can run in parallel; T020â€“T025 follow the lifecycle boundary.
+- Within US1, T026â€“T029 can run in parallel; T030â€“T033 follow readiness/persistence work.
 - US3, US4, and US5 can be staffed in parallel after their stated prerequisites, with ownership coordination for shared controller/dto files.
 
 ## Parallel example: preparation synchronization
@@ -233,11 +235,11 @@ Task: T019 mapping and price snapshot persistence in .../persistence/
 
 | Requirement area | Primary tasks | Verification |
 | --- | --- | --- |
-| Mapping/gates/sync and authorization (FR-001–005, FR-017, FR-021–022) | T006–T025 | T013–T018, T050, T052 |
-| Persistent Operations handoff/version/resync (FR-004a1–004g) | T011, T018, T022 | T018, T050, T052 |
-| Booking, ticket proof, idempotency, and callback safety (FR-006–010) | T026–T033 | T026–T028, T051–T052 |
-| Cancellation/refund effects (FR-011) | T034–T038 | T034–T035, T052 |
-| Payment/payout and immutable reconciliation (FR-012–016) | T039–T044 | T039–T040, T052 |
-| Data minimization and add-ons (FR-018–020) | T010, T045–T049 | T015, T045–T046, T052 |
+| Mapping/gates/sync and authorization (FR-001â€“005, FR-017, FR-021â€“022) | T006â€“T025 | T013â€“T018, T050, T052 |
+| Persistent Operations handoff/version/resync (FR-004a1â€“004g) | T011, T018, T022 | T018, T050, T052 |
+| Booking, ticket proof, idempotency, and callback safety (FR-006â€“010) | T026â€“T033 | T026â€“T028, T051â€“T052 |
+| Cancellation/refund effects (FR-011) | T034â€“T038 | T034â€“T035, T052 |
+| Payment/payout and immutable reconciliation (FR-012â€“016) | T039â€“T044 | T039â€“T040, T052 |
+| Data minimization and add-ons (FR-018â€“020) | T010, T045â€“T049 | T015, T045â€“T046, T052 |
 
 **Critical review**: The unsafe shortcut is to treat a provider adapter or a green sandbox request as production readiness. It ignores stale inventory, replayed callbacks, individual ticket scan proof, and contractual late-booking liability. This task list therefore makes sales-closed preparation synchronization the MVP, and makes provider evidence a required, auditable input to booking enablement rather than a checkbox an implementer can infer.

@@ -9,3 +9,11 @@ ppswbs_backend/logs/
 ppswbs-spec/features/**/test-results/screenshots/
 
 node_modules/
+
+# Local Docker and database initialization artifacts; do not commit machine-local setup.
+/docker-compose.yml
+/docker/
+/ppswbs_backend/docker-compose.yml
+/ppswbs_backend/docker/
+/scripts/start-mysql.ps1
+/scripts/stop-mysql.ps1

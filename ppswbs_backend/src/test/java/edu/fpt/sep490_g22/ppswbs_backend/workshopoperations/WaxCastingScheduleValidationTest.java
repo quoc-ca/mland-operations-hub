@@ -26,7 +26,8 @@ import static org.mockito.Mockito.*;
  * 003.2 T085 — Comprehensive Wax Casting calendar validation tests:
  * - Exactly two distinct chronological sessions.
  * - Same location enforced.
- * - Exactly 2 Monday-Friday foundry working days strictly between session dates (count == 2, not >= 2).
+ * - At least 2 Monday-Friday foundry working days strictly between session dates (count >= 2, no maximum;
+ *   owner decision 2026-11-05, 003.2 T089).
  * - Saturday and Sunday are excluded from the working day count.
  * - Slot / time ordinals never substitute for calendar date gap.
  * - Rejections return safe typed PACKAGE_SELECTION_INVALID.
@@ -65,7 +66,7 @@ class WaxCastingScheduleValidationTest {
         waxCastingPackage = WorkshopPackage.builder()
                 .id(88L)
                 .name("Wax Casting Workshop")
-                .description("Two sessions with exactly two foundry working days between")
+                .description("Two sessions with at least two foundry working days between")
                 .publicPrice(1_000_000L)
                 .minParticipants(1)
                 .maxParticipants(6)
@@ -114,7 +115,7 @@ class WaxCastingScheduleValidationTest {
     }
 
     @Test
-    @DisplayName("Working day count: Monday to Friday has 3 working days (strictly == 2 required)")
+    @DisplayName("Working day count: Monday to Friday has 3 working days")
     void countWorkingDaysMondayToFriday() {
         LocalDate mon = LocalDate.of(2026, 11, 9);
         LocalDate fri = LocalDate.of(2026, 11, 13);
@@ -165,7 +166,7 @@ class WaxCastingScheduleValidationTest {
     // =========================================================================
 
     @Test
-    @DisplayName("Foundry gap validation: exactly 2 working days required")
+    @DisplayName("Foundry gap validation: at least 2 working days required, no maximum")
     void validateFoundryWorkingDayGapCases() {
         WorkshopSession monSession = session(1L, UUID.randomUUID(), locationA, slotEvening, LocalDate.of(2026, 11, 9));
         WorkshopSession wedSession = session(2L, UUID.randomUUID(), locationA, slotMorning, LocalDate.of(2026, 11, 11));
@@ -186,8 +187,11 @@ class WaxCastingScheduleValidationTest {
         // Friday -> Tuesday next week is invalid (only 1 day: Mon)
         assertThat(WorkshopPackageReservationPolicy.validateFoundryWorkingDayGap(List.of(friSession, nextTueSession), 2)).isFalse();
 
-        // Monday -> Friday is invalid (3 days: Tue, Wed, Thu; strict == 2, not >= 2)
-        assertThat(WorkshopPackageReservationPolicy.validateFoundryWorkingDayGap(List.of(monSession, friSession), 2)).isFalse();
+        // Monday -> Friday is valid (3 days: Tue, Wed, Thu; at least 2)
+        assertThat(WorkshopPackageReservationPolicy.validateFoundryWorkingDayGap(List.of(monSession, friSession), 2)).isTrue();
+
+        // Monday -> Wednesday next week is valid (6 days; no maximum gap)
+        assertThat(WorkshopPackageReservationPolicy.validateFoundryWorkingDayGap(List.of(monSession, nextWedSession), 2)).isTrue();
 
         // Reverse chronological order is invalid
         assertThat(WorkshopPackageReservationPolicy.validateFoundryWorkingDayGap(List.of(thuSession, monSession), 2)).isFalse();
@@ -280,8 +284,8 @@ class WaxCastingScheduleValidationTest {
     }
 
     @Test
-    @DisplayName("validate rejects invalid Wax Casting: Monday to Friday (3 working days, proves strict == 2)")
-    void validateRejectsMondayToFridayThreeWorkingDays() {
+    @DisplayName("validate accepts Wax Casting: Monday to Friday (3 working days, at least 2)")
+    void validateAcceptsMondayToFridayThreeWorkingDays() {
         UUID ref1 = UUID.randomUUID();
         UUID ref2 = UUID.randomUUID();
         WorkshopSession s1 = session(18L, ref1, locationA, slotMorning, LocalDate.of(2026, 11, 9));
@@ -294,7 +298,7 @@ class WaxCastingScheduleValidationTest {
                 "BK-WAX-005", "88", List.of(ref1, ref2), 2, "op-5", "corr-5");
 
         RejectionReason rejection = policy.validate(command);
-        assertThat(rejection).isEqualTo(RejectionReason.PACKAGE_SELECTION_INVALID);
+        assertThat(rejection).isNull();
     }
 
     @Test

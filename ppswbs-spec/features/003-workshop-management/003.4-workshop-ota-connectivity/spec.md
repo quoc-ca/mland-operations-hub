@@ -1,7 +1,7 @@
 # Feature Specification: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-06
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -11,6 +11,22 @@
 
 **Input**: Migrate approved OTA decisions from the retiring shared research
 document. Supporting evidence is retained locally in [research.md](research.md).
+
+## Staff booking-assignment access (owner decision, 2026-11-06)
+
+This amendment narrows decision D18. Wherever this document lets an in-scope
+Staff member look up an OTA booking at the shop, create or accept a paid-option
+quote, or create its direct bill, the Staff member must also be actively
+assigned to a session that the OTA booking's Mland booking
+(`mlandBookingReference`) holds a valid ticket for (003.2 "Staff
+session-assignment access"). An unassigned Staff member is refused (`403`); the
+booking lookup answers as if the booking did not exist. A Manager remains
+global.
+
+Payment and refund of the resulting add-on bill (003.3) follow the same rule
+through the Mland booking reference recorded on the bill; a bill without that
+reference is Manager-only for Staff. The free laser-engraving record, OTA
+checkout and channel settlement are unchanged.
 
 ## Scope
 
@@ -105,7 +121,12 @@ are evidenced.
   arrives at the Mland shop, laser engraving is included free and creates only
   a zero-charge operational record. Any other paid option needs a prior quote
   and customer acceptance at the shop, then a separate direct Mland bill with
-  no OTA price, payout, commission, or refund effect.
+  no OTA price, payout, commission, or refund effect. The paid option's price
+  comes from the active 003.2 catalogue add-on (server-derived, D17), and
+  in-scope Staff or any active Manager may handle it (D18). *(Amended
+  2026-11-06: an in-scope Staff member may handle it only while actively
+  assigned to a session the OTA booking's Mland booking holds a valid ticket
+  for; see "Staff booking-assignment access" below.)*
 
 ## User Scenarios & Testing
 
@@ -378,6 +399,10 @@ remains separate from OTA financial facts.
 - **FR-019**: For an OTA-origin booking, laser engraving requested at the Mland
   shop MUST be included free and recorded with zero charge. Other paid options
   MUST receive a prior shop quote and customer acceptance before billing.
+  **Updated 2026-11-05 (D17/D18):** a paid option MUST be an active 003.2
+  catalogue add-on for the booking's package/location; the server derives its
+  description and price, and the actor MUST NOT supply an amount. In-scope
+  Staff or any active Manager may create, accept and bill the quote.
 - **FR-020**: The system MUST record an accepted paid add-on sold at the Mland
   shop as a separate Mland counter bill with immutable
   item/price/currency/consent/actor/payment evidence, without changing OTA

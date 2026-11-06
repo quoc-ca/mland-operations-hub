@@ -3,16 +3,21 @@ import { createBrowserRouter } from 'react-router';
 import { accountManagementRoutes } from '../features/accountmanagement';
 import { designReviewRoutes } from '../features/designreview/routes';
 import { readyRingSalesRoutes } from '../features/retail-order';
+import { reviewManagementRoutes } from '../features/reviewmanagement/routes';
 import { loyaltyPromotionRoutes } from '../features/loyalty-promotion';
 import { productManagementRoutes } from '../features/product-management';
 import { workshopRoutes } from '../workshops/routes';
 import { otaConnectivityRoutes } from '../ota-connectivity/routes';
 import { operationsRoutes } from '../workshop-operations/routes';
 import { settlementRoutes } from '../workshop-settlement/routes';
+import { operatorHomeRoutes } from '../features/operatorhome/routes';
+import HomePage from '../features/landing/HomePage';
 import AppLayout from './AppLayout';
 import NotImplementedPage from './NotImplementedPage';
 
 export const routes = [
+  // 01 · Public Landing Page (Figma Page 01 · Public: 402:2821 / 402:2980) có layout Atelier Light hoàn chỉnh với MainTopbar
+  { path: '/', element: <HomePage /> },
   {
     element: <AppLayout />,
     children: [
@@ -22,14 +27,14 @@ export const routes = [
       ...otaConnectivityRoutes,
       ...operationsRoutes,
       ...settlementRoutes,
+      ...operatorHomeRoutes,
       ...designReviewRoutes,
+      ...reviewManagementRoutes,
+      ...productManagementRoutes,
+      ...loyaltyPromotionRoutes,
       { path: '*', element: <NotImplementedPage /> },
     ],
   },
-  // 002/006 screens follow Figma page "002-006" (2026-11-03): full-page layouts of their own, without the shared
-  // header and footer, so they sit outside AppLayout.
-  ...productManagementRoutes,
-  ...loyaltyPromotionRoutes,
 ];
 
 export const router = createBrowserRouter(routes);

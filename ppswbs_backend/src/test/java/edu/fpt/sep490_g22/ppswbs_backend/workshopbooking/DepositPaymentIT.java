@@ -79,7 +79,9 @@ class DepositPaymentIT {
         var mismatchResult = ingress.receive(mismatch);
 
         assertThat(invalidResult.message()).isEqualTo("INVALID_SIGNATURE");
+        assertThat(invalidResult.rspCode()).isEqualTo("97");
         assertThat(mismatchResult.message()).isEqualTo("AMOUNT_CURRENCY_MISMATCH");
+        assertThat(mismatchResult.rspCode()).isEqualTo("04");
         assertThat(ingressReceipts.findAll()).noneMatch(receipt ->
                 receipt.getMerchantReference().equals(fixture.merchantReference()));
         assertThat(bookings.findByBookingCode(fixture.bookingCode()).orElseThrow().getBookingStatus())

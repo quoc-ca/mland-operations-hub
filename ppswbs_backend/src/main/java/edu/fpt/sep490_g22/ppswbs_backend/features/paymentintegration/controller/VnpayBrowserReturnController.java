@@ -25,6 +25,7 @@ public class VnpayBrowserReturnController {
     private static final String DEPOSIT_PREFIX = "Workshop deposit ";
     private static final String FINAL_PREFIX = "Workshop final payment ";
     private static final String RETAIL_PREFIX = "Retail checkout ";
+    private static final String SHOP_ADDON_PREFIX = "Workshop shop add-on payment ";
 
     private final String frontendBaseUrl;
 
@@ -73,6 +74,7 @@ public class VnpayBrowserReturnController {
         if (orderInfo == null || orderInfo.isBlank()) return null;
         if (orderInfo.startsWith(DEPOSIT_PREFIX)) return suffix(orderInfo, DEPOSIT_PREFIX);
         if (orderInfo.startsWith(FINAL_PREFIX)) return suffix(orderInfo, FINAL_PREFIX);
+        if (orderInfo.startsWith(SHOP_ADDON_PREFIX)) return suffix(orderInfo, SHOP_ADDON_PREFIX);
         return null;
     }
 

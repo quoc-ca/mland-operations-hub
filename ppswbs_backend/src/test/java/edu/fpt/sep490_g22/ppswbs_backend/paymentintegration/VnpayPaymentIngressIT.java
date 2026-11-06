@@ -44,6 +44,7 @@ class VnpayPaymentIngressIT {
         PaymentIngressService.Outcome outcome = ingress.receive(params(merchant, "5000000", "00", "TX-INVALID"));
 
         assertThat(outcome.message()).isEqualTo("INVALID_SIGNATURE");
+        assertThat(outcome.rspCode()).isEqualTo("97");
         assertThat(receipts.existsByDeliveryReference(merchant + "|TX-INVALID")).isFalse();
         verifyNoInteractions(booking, settlement);
     }
@@ -83,6 +84,7 @@ class VnpayPaymentIngressIT {
         PaymentIngressService.Outcome outcome = ingress.receive(params(merchant, "5000000", "00", "TX-U-1"));
 
         assertThat(outcome.message()).isEqualTo("UNKNOWN_REFERENCE");
+        assertThat(outcome.rspCode()).isEqualTo("01");
         assertThat(receipts.existsByDeliveryReference(merchant + "|TX-U-1")).isFalse();
         verifyNoInteractions(booking, settlement);
     }

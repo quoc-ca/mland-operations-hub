@@ -14,6 +14,7 @@ Read `spec.md` → `research.md` → `data-model.md` → `plan.md` → `contract
 - Confirm the source facades can prove `CHECKED_IN`, `PICKED_UP` and `DELIVERED`.
 - Confirm the API names and error codes in `APIs.md`.
 - Confirm a free Flyway version and database-history upgrade path.
+- Confirm realtime aggregate queries filter `status = PUBLIC` and require no projection table.
 - Confirm Staff global hide and Manager remove/reply permissions.
 - Confirm all public DTOs mask display identity and exclude transaction/contact data.
 

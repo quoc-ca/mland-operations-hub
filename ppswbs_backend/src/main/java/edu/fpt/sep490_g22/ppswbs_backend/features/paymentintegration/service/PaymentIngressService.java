@@ -107,7 +107,7 @@ public class PaymentIngressService {
         if (owner.getPaymentKind() == PaymentOwnerKind.DEPOSIT) {
             booking.applyVerifiedDepositPaymentEvidence(new ApplyVerifiedDepositPaymentEvidenceCommand(owner.getBookingReference(), evidence, merchant, amount, "VND", operation, correlation));
         } else {
-            if (owner.getPaymentKind() == PaymentOwnerKind.FINAL_PAYMENT
+            if ((owner.getPaymentKind() == PaymentOwnerKind.FINAL_PAYMENT || owner.getPaymentKind() == PaymentOwnerKind.SHOP_ADDON)
                     && (owner.getProviderCreateDate() == null || !owner.getProviderCreateDate().matches("[0-9]{14}"))) {
                 throw new IllegalStateException("FINAL_PAYMENT_ORIGINAL_CREATE_DATE_MISSING");
             }
@@ -123,8 +123,11 @@ public class PaymentIngressService {
     private long parseAmount(String raw) { try { long value=Long.parseLong(raw); if(value<=0 || value%100!=0) return -1; return value/100; } catch(Exception e){return -1;} }
     private boolean isProviderCode(String value) { return value != null && value.matches("[0-9]{2}"); }
     public record Outcome(String rspCode, String message) {
-        static Outcome accept() { return new Outcome("00", "OK"); }
-        static Outcome duplicate() { return new Outcome("02", "Already received"); }
+        static Outcome accept(){return new Outcome("00","OK");} static Outcome duplicate(){return new Outcome("00","Already received");}
+        /**
+         * VNPay's documented IPN response codes: 97 invalid checksum, 01 order (merchant reference) not found,
+         * 04 invalid amount, 99 any other unverifiable callback. The message keeps the stable internal reason.
+         */
         static Outcome reject(String reason) {
             String code = switch (reason) {
                 case "INVALID_SIGNATURE" -> "97";

@@ -1,57 +1,92 @@
-# Feature-011 Workflows
+﻿# Feature-011 Workflows
 
-Date created: 2026-11-03  
-Date updated: 2026-11-03  
-Author: Ngô Tiến Đạt  
-Last updated by: Ngô Tiến Đạt
+**Date created**: 2026-11-03
+**Date updated**: 2026-11-05
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Ngô Tiến Đạt
 
 ## W1 — Guest eligibility and creation
 
 1. Guest submits normalized email/phone to `POST /review-eligibility/lookup`.
-2. Controller validates format and calls `ReviewEligibilityService.lookupGuest`.
-3. The service calls source ports and returns only checked-in or fulfilled matching sources.
-4. Guest selects one source and submits rating/text to `POST /reviews` with `Idempotency-Key`.
-5. Service rechecks source eligibility and identity match, rejects target mismatch, then inserts review, first revision and audit atomically.
-6. On duplicate source, return the existing idempotent result or `REVIEW_ALREADY_EXISTS`; do not create a second row.
+2. The API adapter sends the lookup command without Firebase identity.
+3. The backend returns only eligible sources and an opaque handle.
+4. Guest selects one source and submits rating/text plus the handle to `POST /reviews` with `Idempotency-Key`.
+5. The backend resolves the handle, revalidates source/target ownership and creates `PUBLIC` review data atomically.
+6. Duplicate source or changed idempotent payload is shown as a safe conflict; no second review is created.
 
 ## W2 — Member eligibility and creation
 
-1. Authenticated Member opens `GET /reviews/eligible-sources`.
-2. Backend derives Member identity from Firebase/session claims and ignores client-supplied owner identity.
-3. Member selects an own eligible source and submits the same create command.
-4. Source validation and transaction behavior are identical to W1.
+1. Member opens `GET /reviews/eligible-sources` with Firebase identity.
+2. Backend derives Member identity and ignores client-supplied owner identity.
+3. Member selects an own source and submits rating/text with `Idempotency-Key`.
+4. The API adapter maps the safe response to the published review screen.
 
 ## W3 — Owner edit
 
-1. Owner opens an own review and submits rating/text with `If-Match-Version` and idempotency key.
-2. Service checks owner, immutable source/target, input limits and current version.
-3. On success, update current projection and append revision/audit in one transaction; status remains `PUBLIC`.
-4. On stale version, return `REVIEW_STATE_CONFLICT` and leave persisted content unchanged.
+1. Owner opens an own review and edits rating/text.
+2. Application command sends `PATCH /reviews/{reviewId}` with `Idempotency-Key` and `If-Match-Version`.
+3. Success keeps status `PUBLIC` and refreshes the projection.
+4. `409 REVIEW_STATE_CONFLICT` keeps local input and requires reload/reconciliation.
 
 ## W4 — Public listing
 
-1. Public client calls `GET /reviews` with target/rating/cursor filters.
-2. Public read facade applies `status = PUBLIC` before pagination and aggregate calculation/projection.
-3. Response contains masked display name and optional Manager reply only; no contact or source transaction data.
+1. Public route calls `GET /reviews` with target/rating/cursor filters.
+2. The backend filters `PUBLIC` before pagination and aggregate calculation.
+3. UI displays masked name, rating, text, approved current reply and aggregate only.
 
 ## W5 — Staff moderation
 
 1. Staff opens `GET /review-moderation`.
-2. Backend verifies Staff status and the Feature-011 global-hide permission.
-3. Staff submits `HIDDEN` with reason and version.
-4. Service rejects remove/reply commands from Staff, then atomically changes visibility and writes moderation audit.
+2. Staff selects a review and submits `HIDDEN` with reason, version and idempotency key.
+3. Staff remove/reply controls are not rendered as available business actions.
+4. On success, queue/detail reloads; on `403` the page remains signed in but denied.
 
 ## W6 — Manager moderation and reply
 
-1. Manager opens queue/detail and submits `HIDDEN` or `REMOVED` with reason.
-2. Service verifies Manager authority, conflict-of-interest rule and current version.
-3. Manager creates one reply through `POST /reviews/{id}/reply` or edits it through `PATCH`.
-4. Reply operation and audit are atomic; a second current reply is rejected.
+1. Manager opens queue/detail and submits `HIDDEN` or `REMOVED` with reason/version.
+2. Manager creates one reply with `POST /reviews/{id}/reply` or edits it with `PATCH`.
+3. Commands use idempotency and optimistic version headers according to OpenAPI.
+4. `409` requires latest-data reload; no new-key automatic retry is allowed.
+
+## W7 — Frontend data-flow boundary
+
+```text
+Route
+  → page
+  → application resource/command hook
+  → reviewApi adapter
+  → shared HTTP client
+  → Firebase token when required
+  → Feature-011 controller/service
+  → safe DTO projection
+  → local feature state
+  → UI state
+```
+
+The UI never calls source repositories, creates eligibility evidence locally,
+calculates authorization, or exposes contact/transaction data. A retry of a write
+reuses the original `Idempotency-Key`.
+
+## W8 — Backend guest handle protection
+
+1. Normalize contact without retaining raw value in logs.
+2. Build a server-side source-set binding and issue an opaque handle.
+3. Resolve expiry, status, source binding and ownership again during create.
+4. Reject malformed, expired, replayed or mismatched handles without revealing source existence.
+
+## W9 — Backend idempotent create
+
+1. Canonicalize command fields and compute the request digest.
+2. Atomically claim the actor/handle scope and idempotency key.
+3. Replay an identical completed command; reject changed payload.
+4. Insert review, first revision and audit transactionally.
+5. Let the unique source constraint resolve concurrent creates.
 
 ## Failure and recovery
 
-- Invalid input: no source call requiring mutation and no review row.
-- Source unavailable: return a dependency error; do not guess eligibility.
-- Duplicate/concurrent create: database uniqueness and idempotency yield one committed review.
-- Stale edit/moderation/reply: return conflict and require reload; no partial audit.
-- Aggregate projection failure, if projections are selected: transaction must either fail safely or enqueue a repairable rebuild; never count hidden/removed rows as public.
+- Invalid input: no review row and no mutation.
+- Source unavailable: typed dependency error; frontend preserves input and offers explicit retry.
+- Duplicate/concurrent create: one committed review and safe conflict/result.
+- Stale edit/moderation/reply: `REVIEW_STATE_CONFLICT`; reload without partial audit.
+- `401`: shared token-refresh path; `403`: access denied without sign-out.
+- Backend/OpenAPI mismatch: integration remains blocked; frontend does not invent a compatibility shape.

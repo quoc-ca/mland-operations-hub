@@ -67,6 +67,7 @@ class SettlementPaymentEvidenceIT {
         var outcome = ingress.receive(parameters("FINAL-REF-2", "5000000", "00", "00", "TX-2"));
 
         assertThat(outcome.message()).isEqualTo("INVALID_SIGNATURE");
+        assertThat(outcome.rspCode()).isEqualTo("97");
         verifyNoInteractions(owners, receipts, booking, settlement);
     }
 
@@ -79,6 +80,7 @@ class SettlementPaymentEvidenceIT {
         var outcome = ingress.receive(parameters(merchant, "4999900", "00", "00", "TX-3"));
 
         assertThat(outcome.message()).isEqualTo("AMOUNT_CURRENCY_MISMATCH");
+        assertThat(outcome.rspCode()).isEqualTo("04");
         verifyNoInteractions(receipts, booking, settlement);
     }
 

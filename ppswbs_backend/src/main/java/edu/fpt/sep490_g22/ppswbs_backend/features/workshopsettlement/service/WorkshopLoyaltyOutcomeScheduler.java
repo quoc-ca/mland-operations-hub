@@ -15,7 +15,8 @@ public class WorkshopLoyaltyOutcomeScheduler {
 
     @Scheduled(fixedDelayString = "${workshop.settlement.loyalty-outcome-delay-ms:60000}")
     public void processEligibleWorkshopOutcomes() {
-        for (var bill : bills.findByLifecycleStatusInOrderByIdAsc(java.util.List.of("OPEN", "FINALIZED"))) {
+        for (var bill : bills.findByLifecycleStatusInAndLoyaltyProcessedAtIsNullOrderByIdAsc(
+                java.util.List.of("OPEN", "FINALIZED", "CLOSED"))) {
             try {
                 processor.process(bill.getBookingReference());
             } catch (RuntimeException exception) {

@@ -2,10 +2,12 @@ package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementAddonBillRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementAddonPaymentAttemptRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCancellationCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementHandoffIdempotencyRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementNotificationHandoffRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementAddonBill;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementAddonPaymentAttempt;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementFacadeImpl;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FinalPaymentService;
@@ -16,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,6 +31,7 @@ class OtaAddonBillFacadeIT {
     @Mock SettlementHandoffIdempotencyRepository idempotency;
     @Mock SettlementNotificationHandoffRepository notifications;
     @Mock SettlementAddonBillRepository addonBills;
+    @Mock SettlementAddonPaymentAttemptRepository addonAttempts;
     @Mock FinalPaymentService finalPayment;
     private WorkshopSettlementFacade facade;
 
@@ -36,6 +40,7 @@ class OtaAddonBillFacadeIT {
         WorkshopSettlementFacadeImpl implementation = new WorkshopSettlementFacadeImpl(
                 cases, idempotency, new ObjectMapper(), finalPayment, notifications);
         ReflectionTestUtils.setField(implementation, "addonBills", addonBills);
+        ReflectionTestUtils.setField(implementation, "addonAttempts", addonAttempts);
         facade = implementation;
     }
 
@@ -112,5 +117,81 @@ class OtaAddonBillFacadeIT {
         assertThat(missingConsent.errorCode()).isEqualTo("VALIDATION_ERROR");
         assertThat(wrongCurrency.errorCode()).isEqualTo("INVALID_AMOUNT_OR_CURRENCY");
         verifyNoInteractions(addonBills);
+    }
+
+    @Test
+    void findOtaAddonBill_returnsSummaryWithActivePaymentUrl() {
+        SettlementAddonBill bill = SettlementAddonBill.builder()
+                .billReference("SETTLE-ADDON-BILL-100")
+                .channelBookingReference("OTA-BK-100")
+                .quoteReference("QUOTE-100")
+                .itemCode("ADDON-PHOTO")
+                .itemDescription("Instant Photo Print")
+                .amountMinor(50_000L)
+                .currencyCode("VND")
+                .lifecycleStatus("OPEN")
+                .locationId(1001L)
+                .build();
+        when(addonBills.findByBillReference("SETTLE-ADDON-BILL-100")).thenReturn(Optional.of(bill));
+
+        SettlementAddonPaymentAttempt attempt = SettlementAddonPaymentAttempt.builder()
+                .billReference("SETTLE-ADDON-BILL-100")
+                .attemptReference("ATTEMPT-100")
+                .operationReference("OP-100")
+                .merchantReference("MERCH-100")
+                .channelBookingReference("OTA-BK-100")
+                .amountVnd(50_000L)
+                .currencyCode("VND")
+                .providerCreateDate("20261105120000")
+                .lifecycleStatus("PENDING")
+                .paymentUrlSnapshot("https://vnpay.mock/pay/100")
+                .expiresAt(Instant.now().plusSeconds(900))
+                .build();
+        when(addonAttempts.findFirstByBillReferenceOrderByCreatedAtDescIdDesc("SETTLE-ADDON-BILL-100"))
+                .thenReturn(Optional.of(attempt));
+
+        var summaryOpt = facade.findOtaAddonBill("SETTLE-ADDON-BILL-100");
+        assertThat(summaryOpt).isPresent();
+        var summary = summaryOpt.get();
+        assertThat(summary.billReference()).isEqualTo("SETTLE-ADDON-BILL-100");
+        assertThat(summary.lifecycleStatus()).isEqualTo("OPEN");
+        assertThat(summary.amountMinor()).isEqualTo(50_000L);
+        assertThat(summary.paymentUrlOrQr()).isEqualTo("https://vnpay.mock/pay/100");
+    }
+
+    @Test
+    void findOtaAddonBill_expiredPaymentUrlIsNotReturned() {
+        SettlementAddonBill bill = SettlementAddonBill.builder()
+                .billReference("SETTLE-ADDON-BILL-101")
+                .channelBookingReference("OTA-BK-101")
+                .quoteReference("QUOTE-101")
+                .itemCode("ADDON-PHOTO")
+                .itemDescription("Instant Photo Print")
+                .amountMinor(50_000L)
+                .currencyCode("VND")
+                .lifecycleStatus("OPEN")
+                .locationId(1001L)
+                .build();
+        when(addonBills.findByBillReference("SETTLE-ADDON-BILL-101")).thenReturn(Optional.of(bill));
+
+        SettlementAddonPaymentAttempt expiredAttempt = SettlementAddonPaymentAttempt.builder()
+                .billReference("SETTLE-ADDON-BILL-101")
+                .attemptReference("ATTEMPT-101")
+                .operationReference("OP-101")
+                .merchantReference("MERCH-101")
+                .channelBookingReference("OTA-BK-101")
+                .amountVnd(50_000L)
+                .currencyCode("VND")
+                .providerCreateDate("20261105120000")
+                .lifecycleStatus("PENDING")
+                .paymentUrlSnapshot("https://vnpay.mock/pay/101")
+                .expiresAt(Instant.now().minusSeconds(10))
+                .build();
+        when(addonAttempts.findFirstByBillReferenceOrderByCreatedAtDescIdDesc("SETTLE-ADDON-BILL-101"))
+                .thenReturn(Optional.of(expiredAttempt));
+
+        var summaryOpt = facade.findOtaAddonBill("SETTLE-ADDON-BILL-101");
+        assertThat(summaryOpt).isPresent();
+        assertThat(summaryOpt.get().paymentUrlOrQr()).isNull();
     }
 }

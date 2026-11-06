@@ -120,8 +120,8 @@ public class HumanReviewIT {
         mockMvc.perform(get("/api/v1/design-review-requests")
                         .header("Authorization", "Bearer token-staff-01"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == '" + lowValueRequestId + "')]").exists())
-                .andExpect(jsonPath("$[?(@.id == '" + highValueRequestId + "')]").doesNotExist());
+                .andExpect(jsonPath("$.items[?(@.id == '" + lowValueRequestId + "')]").exists())
+                .andExpect(jsonPath("$.items[?(@.id == '" + highValueRequestId + "')]").doesNotExist());
     }
 
     @Test
@@ -129,8 +129,8 @@ public class HumanReviewIT {
         mockMvc.perform(get("/api/v1/design-review-requests")
                         .header("Authorization", "Bearer token-manager-01"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == '" + lowValueRequestId + "')]").exists())
-                .andExpect(jsonPath("$[?(@.id == '" + highValueRequestId + "')]").exists());
+                .andExpect(jsonPath("$.items[?(@.id == '" + lowValueRequestId + "')]").exists())
+                .andExpect(jsonPath("$.items[?(@.id == '" + highValueRequestId + "')]").exists());
     }
 
     @Test
