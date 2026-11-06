@@ -60,7 +60,7 @@ public class OtaAddonController {
         var lookup = addonService.findByMlandReference(mlandBookingReference)
                 .orElseThrow(() -> new OtaResourceNotFoundException("OTA Channel Booking not found"));
         try {
-            authorizationService.requireStaffOrManagerLocation(authorization, lookup.locationId());
+            requireAssignedStaff(authorizationService.requireStaffOrManagerLocation(authorization, lookup.locationId()), mlandBookingReference);
         } catch (OtaForbiddenException outOfScope) {
             throw new OtaResourceNotFoundException("OTA Channel Booking not found");
         }
@@ -77,7 +77,8 @@ public class OtaAddonController {
         UUID.fromString(channelBookingId);
 
         Long locationId = addonService.getLocationIdForBooking(channelBookingId);
-        authorizationService.requireStaffOrManagerLocation(authorization, locationId);
+        requireAssignedStaff(authorizationService.requireStaffOrManagerLocation(authorization, locationId),
+                addonService.getMlandReferenceForBooking(channelBookingId));
 
         AddonQuoteResult quote;
         if (OtaAddonService.ADDON_TYPE_LASER_ENGRAVING.equalsIgnoreCase(request.addonType())) {
@@ -134,7 +135,8 @@ public class OtaAddonController {
         UUID.fromString(quoteId);
 
         Long locationId = addonService.getLocationIdForQuote(quoteId);
-        authorizationService.requireStaffOrManagerLocation(authorization, locationId);
+        requireAssignedStaff(authorizationService.requireStaffOrManagerLocation(authorization, locationId),
+                addonService.getMlandReferenceForQuote(quoteId));
 
         AddonQuoteResult quote = addonService.recordCustomerAcceptance(
                 quoteId,
@@ -155,6 +157,7 @@ public class OtaAddonController {
 
         Long locationId = addonService.getLocationIdForQuote(quoteId);
         AccountSummary actor = authorizationService.requireStaffOrManagerLocation(authorization, locationId);
+        requireAssignedStaff(actor, addonService.getMlandReferenceForQuote(quoteId));
 
         String staffActorReference = actor != null
                 ? (actor.role() == ActorRole.MANAGER ? "MANAGER-" + actor.accountId() : "STAFF-" + actor.accountId())
@@ -191,5 +194,16 @@ public class OtaAddonController {
                 money,
                 quote.status()
         );
+    }
+
+    /**
+     * Owner decision 2026-11-06: a Staff member acts on an OTA add-on only while assigned to a session the booking holds
+     * tickets for; a Manager is global.
+     */
+    private void requireAssignedStaff(AccountSummary actor, String mlandBookingReference) {
+        if (authorizationService.isManager(actor)) return;
+        if (!addonService.isStaffAssignedToBooking(actor.accountId(), mlandBookingReference)) {
+            throw new OtaForbiddenException("Staff member is not assigned to a session of this booking");
+        }
     }
 }

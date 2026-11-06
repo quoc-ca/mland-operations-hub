@@ -107,6 +107,34 @@ class WorkshopAddOnServiceTest {
     }
 
     @Test
+    void settlementListShowsOnlyActiveAddOnsOfAPublishedPackageAtAnActiveLocation() {
+        when(packages.findById(10L)).thenReturn(Optional.of(workshopPackage(10L, WorkshopPackageState.PUBLISHED)));
+        when(locations.findByIdAndActiveTrue(20L)).thenReturn(Optional.of(location(20L)));
+        when(addOns.findByPackageIdAndLocationIdAndStateOrderByDescriptionAsc(10L, 20L, WorkshopAddOnState.ACTIVE))
+                .thenReturn(java.util.List.of(addOn(91L, "abc00000-0000-4000-8000-000000000001", 10L, 20L,
+                        "Clay kit", 15_000L, WorkshopAddOnState.ACTIVE)));
+
+        var options = service().listEligibleSnapshots("10", 20L);
+
+        assertThat(options).singleElement().satisfies(option -> {
+            assertThat(option.addOnReference()).isEqualTo("abc00000-0000-4000-8000-000000000001");
+            assertThat(option.description()).isEqualTo("Clay kit");
+            assertThat(option.amountVnd()).isEqualTo(15_000L);
+        });
+    }
+
+    @Test
+    void settlementListIsEmptyForAnUnpublishedPackageOrAnInvalidReference() {
+        when(packages.findById(10L)).thenReturn(Optional.of(workshopPackage(10L, WorkshopPackageState.DRAFT)));
+
+        assertThat(service().listEligibleSnapshots("not-a-package-id", 20L)).isEmpty();
+        assertThat(service().listEligibleSnapshots("10", 20L)).isEmpty();
+        assertThat(service().listEligibleSnapshots("10", null)).isEmpty();
+
+        verifyNoInteractions(addOns);
+    }
+
+    @Test
     void createsDraftWithOpaqueReferenceAndAuditsProspectivePrice() {
         when(packages.findById(10L)).thenReturn(Optional.of(workshopPackage(10L, WorkshopPackageState.DRAFT)));
         when(locations.findById(20L)).thenReturn(Optional.of(location(20L)));

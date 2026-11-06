@@ -72,7 +72,7 @@ describe('Workshop settlement API client', () => {
     await api.finalize('BK/001', 'finalize-1');
     await api.startPayment('BK/001', 'payment-attempt-1');
 
-    expect(http).toHaveBeenNthCalledWith(1, '/api/v1/workshop-bookings/BK%2F001/final-bill');
+    expect(http).toHaveBeenNthCalledWith(1, '/api/v1/workshop-bookings/BK%2F001/final-bill/operator');
     expect(http).toHaveBeenNthCalledWith(2, '/api/v1/workshop-bookings/BK%2F001/final-bill', {
       method: 'POST',
       body: { currency: 'VND' },

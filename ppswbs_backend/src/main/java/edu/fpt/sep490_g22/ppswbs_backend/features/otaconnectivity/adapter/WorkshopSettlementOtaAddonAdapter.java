@@ -21,7 +21,8 @@ public final class WorkshopSettlementOtaAddonAdapter implements OtaAddonSettleme
                 new WorkshopSettlementFacade.DirectShopAddonBillCommand(
                         command.channelBookingReference(), command.quoteReference(), command.itemCode(),
                         command.itemDescription(), command.amountMinor(), command.currencyCode(),
-                        command.customerConsentReference(), command.staffActorReference(), command.locationId()));
+                        command.customerConsentReference(), command.staffActorReference(), command.locationId(),
+                        command.mlandBookingReference()));
         return outcome.created()
                 ? DirectBillCreationOutcome.success(outcome.billReference(), outcome.paymentUrlOrQr())
                 : DirectBillCreationOutcome.rejected(outcome.errorCode(), outcome.errorMessage());

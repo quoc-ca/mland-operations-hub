@@ -50,6 +50,7 @@ public class CancellationHandoffService {
     private final CancellationHandoffRepository cancellationHandoffRepository;
     private final OperationsAuditEventRepository auditEventRepository;
     private final SessionOperationalLeadRepository operationalLeadRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final CancellationHandoffOutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
@@ -368,6 +369,7 @@ public class CancellationHandoffService {
                 .capacity(session.getCapacity())
                 .state(session.getState())
                 .operationalLeadAccountId(operationalLeadId)
+                .assignedStaffAccountIds(staffAssignmentRepository.findBySessionIdAndActiveTrue(session.getId()).stream().map(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionStaffAssignment::getAccountId).sorted().toList())
                 .build();
     }
 }

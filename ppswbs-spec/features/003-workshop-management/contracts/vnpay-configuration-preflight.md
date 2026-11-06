@@ -50,7 +50,7 @@ Before enabling a real VNPay environment, retain only redacted evidence that:
 - a valid signed sandbox callback is acknowledged with the required safe JSON
   response and reaches exactly its merchant-reference owner;
 - a duplicate callback has no second business effect;
-- an invalid checksum, unknown reference, mismatched amount/currency, and
+- an invalid checksum (`RspCode` 97), unknown reference (01), mismatched amount/currency (04), and
   late-after-hold-expiry success have no Booking/Settlement side effect;
 - QueryDR is outbound-only and result handling follows the same verification,
   routing, and idempotency boundary; and

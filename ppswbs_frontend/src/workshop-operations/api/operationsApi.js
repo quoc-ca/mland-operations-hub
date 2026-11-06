@@ -10,6 +10,7 @@ export function createOperationsApi(http) {
     checkIn: (id, body, key) => command(`/api/v1/workshop-sessions/${id}/check-ins`, body, key),
     overrideCheckIn: (id, body, key) => command(`/api/v1/workshop-sessions/${id}/check-in-overrides`, body, key),
     lookupBooking: (id, bookingCode) => http(`/api/v1/workshop-sessions/${id}/booking-lookups/${encodeURIComponent(bookingCode)}`),
+    attendanceRoster: id => http(`/api/v1/workshop-sessions/${id}/attendance-roster`),
     resendTickets: (id, bookingCode, key) => command(`/api/v1/workshop-sessions/${id}/ticket-resends`, { bookingCode }, key),
     correctAttendance: (id, body, key) => command(`/api/v1/workshop-sessions/${id}/attendance-corrections`, body, key),
     reverseCheckIn: (id, body, key) => command(`/api/v1/workshop-sessions/${id}/check-in-reversals`, body, key),

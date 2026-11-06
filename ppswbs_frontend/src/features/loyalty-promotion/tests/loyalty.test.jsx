@@ -56,7 +56,8 @@ describe('T030 programmes', () => {
     });
     open('/promotion-management/programs?status=ENABLED');
     expect(await screen.findByRole('link', { name: 'Giảm 10%' })).toHaveAttribute('href', '/promotion-management/programs/5');
-    expect(calls[0].query).toEqual({ status: 'ENABLED' });
+    // The sidebar reads the profile for the role, so find the list call instead of taking the first call.
+    expect(calls.find(call => call.path === P).query).toEqual({ status: 'ENABLED' });
     await user.click(screen.getByRole('button', { name: 'Xem thêm' }));
     expect(await screen.findByRole('link', { name: 'Trang 2' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Giảm 10%' })).toBeInTheDocument();

@@ -38,6 +38,7 @@ public class WorkshopSessionService {
     private final CapacityHoldService capacityHoldService;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopVisibleLocationPolicy visibleLocationPolicy;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
 
     @Transactional
     public SessionResponse createSession(String authHeader, SessionRequest request) {
@@ -215,8 +216,15 @@ public class WorkshopSessionService {
             }
         }
 
+        // A Staff member sees only the sessions they are assigned to; Manager and Admin see all in scope.
+        java.util.Set<Long> assignedSessionIds = authorizationService.isGlobalWorkshopActor(actor) ? null
+                : staffAssignmentRepository.findByAccountIdAndActiveTrue(actor.accountId()).stream()
+                        .map(assignment -> assignment.getSession().getId())
+                        .collect(java.util.stream.Collectors.toSet());
+
         List<WorkshopSession> sessions = sessionRepository.findAll();
         return sessions.stream()
+                .filter(session -> assignedSessionIds == null || assignedSessionIds.contains(session.getId()))
                 .filter(session -> isVisibleLocation(session.getLocation().getId()))
                 .filter(s -> allowedLocationIds == null || allowedLocationIds.contains(s.getLocation().getId()))
                 .filter(s -> from == null || !s.getWorkshopDate().isBefore(from))
@@ -279,6 +287,11 @@ public class WorkshopSessionService {
                 .orElseThrow(() -> new WorkshopNotFoundException("Workshop session not found with reference " + sessionReference));
 
         locationService.requireLocationEntityInScope(authHeader, session.getLocation().getId());
+        // A Staff member may open a session only while assigned to it.
+        AccountSummary actor = authorizationService.authenticate(authHeader);
+        if (!authorizationService.isGlobalWorkshopActor(actor)) {
+            authorizationService.requireAssignment(actor, session.getId());
+        }
         return session;
     }
 
@@ -350,6 +363,7 @@ public class WorkshopSessionService {
                 .capacity(session.getCapacity())
                 .state(session.getState())
                 .operationalLeadAccountId(null)
+                .assignedStaffAccountIds(staffAssignmentRepository.findBySessionIdAndActiveTrue(session.getId()).stream().map(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionStaffAssignment::getAccountId).sorted().toList())
                 .build();
     }
 }

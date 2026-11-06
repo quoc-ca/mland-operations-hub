@@ -86,6 +86,8 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/payment/vnpay/return").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/payment-attempts").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/final-bill").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/final-bill/add-ons").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/final-bill/operator").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/required-session-change-cases/*").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/mland-cancellation-remedy-cases/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/final-bill/charges").permitAll()

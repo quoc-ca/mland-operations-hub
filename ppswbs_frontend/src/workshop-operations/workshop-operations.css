@@ -8,3 +8,43 @@
 .ota-form-grid input:focus,.ota-form-grid select:focus,.ota-form-grid textarea:focus{outline:none;border-color:#002967;box-shadow:0 0 0 3px rgba(0,41,103,.1)}
 .ota-form-grid textarea{min-height:80px;resize:vertical;margin-bottom:0}
 @media(max-width:600px){.ota-form-grid{grid-template-columns:1fr}.ota-form-grid .full-width{grid-column:span 1}}
+.session-assigned-staff{list-style:none;margin:8px 0 16px;padding:0;display:grid;gap:8px}
+.session-assigned-staff li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff}
+
+/* ---- Session page ---- */
+.session-hero{align-items:center;padding:32px 0 18px}
+.session-hero h1{margin:4px 0 8px}
+.session-hero code{font-size:11px;color:#6b7280;background:#f3f4f6;padding:2px 6px;border-radius:4px}
+.session-state{padding:8px 16px;font-size:12px;background:#f3f4f6;color:#374151}
+.session-state-published{background:#dbeafe;color:#1e40af}
+.session-state-sales_paused{background:#fef3c7;color:#92400e}
+.session-state-in_progress{background:#dcfce7;color:#166534}
+.session-state-attendance_finalized{background:#e5e7eb;color:#111827}
+.session-state-cancellation_requested,.session-state-cancelled{background:#fee2e2;color:#991b1b}
+.ops-detail-grid{align-items:start}
+.ops-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.ops-facts dd{font-size:15px;font-weight:700;margin:6px 0 0}
+.roster-panel{min-width:0}
+.roster-progress{height:8px;border-radius:999px;background:#e5e7eb;overflow:hidden;margin:2px 0 14px}
+.roster-progress span{display:block;height:100%;background:#16a34a;border-radius:999px;transition:width .25s}
+.roster-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.roster-tab{border:1px solid #d5d7dc;background:#fff;color:#374151;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer}
+.roster-tab:hover{border-color:#111827}
+.roster-tab.active{background:#111827;border-color:#111827;color:#fff}
+.roster-list{max-height:420px;overflow:auto}
+.roster-row{grid-template-columns:minmax(110px,1fr) minmax(150px,1.3fr) 120px minmax(150px,1fr);padding:10px 4px}
+.roster-head{position:sticky;top:0;background:#fff;color:#6b7280;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.roster-row code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.roster-state{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;width:fit-content}
+.roster-checked_in{background:#dcfce7;color:#166534}
+.roster-not_checked_in{background:#f3f4f6;color:#4b5563}
+.roster-no_show{background:#fee2e2;color:#991b1b}
+.session-assigned-staff{margin:10px 0 18px}
+.ops-exceptions{grid-column:1/-1;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:0 20px}
+.ops-exceptions>summary{cursor:pointer;padding:16px 0;font-weight:700;font-size:15px;list-style:none}
+.ops-exceptions>summary::-webkit-details-marker{display:none}
+.ops-exceptions>summary::before{content:'\25B8';display:inline-block;margin-right:8px;transition:transform .15s}
+.ops-exceptions[open]>summary::before{transform:rotate(90deg)}
+.ops-exceptions>summary small{display:block;margin:4px 0 0 20px;color:#6b7280;font-weight:400;font-size:12px}
+.ops-exceptions[open]{padding-bottom:8px}
+@media(max-width:1100px){.ops-detail-grid{grid-template-columns:1fr}.ops-detail-grid .ota-panel:last-child{grid-column:auto}.roster-row{grid-template-columns:1fr 1fr}.ops-facts{grid-template-columns:1fr}}

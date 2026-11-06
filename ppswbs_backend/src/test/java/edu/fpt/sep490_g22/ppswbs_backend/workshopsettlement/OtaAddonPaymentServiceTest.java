@@ -71,9 +71,9 @@ class OtaAddonPaymentServiceTest {
         when(authorization.requireManager(manager)).thenReturn(manager);
         when(authorization.requireManager(staffInScope))
                 .thenThrow(new WorkshopSettlementAuthorizationException("MANAGER_REQUIRED"));
-        when(authorization.requireManagerOrStaff(manager, 1L)).thenReturn(manager);
-        when(authorization.requireManagerOrStaff(staffInScope, 1L)).thenReturn(staffInScope);
-        when(authorization.requireManagerOrStaff(staffOutScope, 1L))
+        when(authorization.requireManagerOrAssignedStaff(manager, 1L, null)).thenReturn(manager);
+        when(authorization.requireManagerOrAssignedStaff(staffInScope, 1L, null)).thenReturn(staffInScope);
+        when(authorization.requireManagerOrAssignedStaff(staffOutScope, 1L, null))
                 .thenThrow(new WorkshopSettlementAuthorizationException("LOCATION_SCOPE_DENIED"));
 
         openBill = SettlementAddonBill.builder()

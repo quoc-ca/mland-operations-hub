@@ -300,6 +300,8 @@ public class WorkshopResponsibilityService {
                 .capacity(session.getCapacity())
                 .state(session.getState())
                 .operationalLeadAccountId(operationalLeadAccountId)
+                .assignedStaffAccountIds(staffAssignmentRepository.findBySessionIdAndActiveTrue(session.getId()).stream()
+                        .map(SessionStaffAssignment::getAccountId).sorted().toList())
                 .build();
     }
 }
