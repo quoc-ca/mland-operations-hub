@@ -47,7 +47,7 @@ class ReviewReplyServiceTest {
     @BeforeEach
     void setUp() {
         applicationService = new ReviewApplicationService(
-                reviewRepository, null, replyRepository, null, null, null, null, null
+                reviewRepository, null, replyRepository, null, null, null, null, null, null
         );
         replyService = new ReviewReplyService(
                 reviewRepository,
@@ -75,7 +75,10 @@ class ReviewReplyServiceTest {
         assertThat(reply.getBodyText()).isEqualTo("Cảm ơn bạn đã trải nghiệm workshop tại Mland!");
         assertThat(reply.getCreatedByManagerId()).isEqualTo(999L);
 
-        verify(replyRepository).save(any(ReviewReply.class));
+        // Regression: a new reply has an assigned id, so it must be saved with no version (see createReview).
+        ArgumentCaptor<ReviewReply> savedReply = ArgumentCaptor.forClass(ReviewReply.class);
+        verify(replyRepository).save(savedReply.capture());
+        assertThat(savedReply.getValue().getVersion()).isNull();
         ArgumentCaptor<ReviewModerationEvent> captor = ArgumentCaptor.forClass(ReviewModerationEvent.class);
         verify(moderationEventRepository).save(captor.capture());
         assertThat(captor.getValue().getAction()).isEqualTo(ModerationAction.CREATE_REPLY);

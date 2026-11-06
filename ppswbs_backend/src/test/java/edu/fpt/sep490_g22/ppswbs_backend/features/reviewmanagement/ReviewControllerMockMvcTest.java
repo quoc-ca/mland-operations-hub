@@ -117,7 +117,7 @@ class ReviewControllerMockMvcTest {
                 .hasNext(false)
                 .build();
 
-        when(publicReadFacade.getPublicReviews(eq(TargetType.WORKSHOP_SESSION), eq("SESS-1"), any()))
+        when(publicReadFacade.getPublicReviews(new PublicReviewQuery(TargetType.WORKSHOP_SESSION, "SESS-1", null, null, null)))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/reviews")
@@ -126,6 +126,45 @@ class ReviewControllerMockMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.aggregate.count").value(5))
                 .andExpect(jsonPath("$.aggregate.averageRating").value(4.8));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/reviews with no parameters lists all public reviews (every filter is optional)")
+    void getPublicReviews_NoParameters_IsAllowed() throws Exception {
+        PublicReviewPageDto page = PublicReviewPageDto.builder()
+                .aggregate(ReviewAggregateDto.builder().count(0L).averageRating(0.0).build())
+                .items(Collections.emptyList()).size(10).build();
+        when(publicReadFacade.getPublicReviews(new PublicReviewQuery(null, null, null, null, null))).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/reviews"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.aggregate.count").value(0));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/reviews passes the package filter to the read service")
+    void getPublicReviews_PassesPackageId() throws Exception {
+        PublicReviewPageDto page = PublicReviewPageDto.builder()
+                .aggregate(ReviewAggregateDto.builder().count(2L).averageRating(4.5).build())
+                .items(Collections.emptyList()).size(10).build();
+        when(publicReadFacade.getPublicReviews(new PublicReviewQuery(null, null, 145L, null, null, null))).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/reviews").param("packageId", "145"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.aggregate.count").value(2));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/reviews passes rating, cursor and limit to the read service")
+    void getPublicReviews_PassesRatingCursorAndLimit() throws Exception {
+        PublicReviewPageDto page = PublicReviewPageDto.builder()
+                .aggregate(ReviewAggregateDto.builder().count(1L).averageRating(5.0).build())
+                .items(Collections.emptyList()).size(5).nextCursor("abc").hasNext(true).build();
+        when(publicReadFacade.getPublicReviews(new PublicReviewQuery(null, null, 5, "cur-1", 5))).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/reviews").param("rating", "5").param("cursor", "cur-1").param("limit", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nextCursor").value("abc"));
     }
 
     @Test

@@ -100,8 +100,12 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 && "/api/v1/review-eligibility/lookup".equals(path)) {
             return true;
         }
+        // Public review reads stay open, EXCEPT the Member's own list of reviewable sources: it needs the signed-in actor.
+        // Skipping the identity step for it left the request with no actor, so it answered 401 even for a signed-in
+        // Member, and the app then signed that Member out.
         if ("GET".equalsIgnoreCase(request.getMethod())
-                && path.startsWith("/api/v1/reviews")) {
+                && path.startsWith("/api/v1/reviews")
+                && !"/api/v1/reviews/eligible-sources".equals(path)) {
             return true;
         }
         boolean reviewWriteGuestRoute = ("POST".equalsIgnoreCase(request.getMethod()) && "/api/v1/reviews".equals(path))

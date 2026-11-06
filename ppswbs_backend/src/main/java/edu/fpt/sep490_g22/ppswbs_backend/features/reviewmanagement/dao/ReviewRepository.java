@@ -42,5 +42,19 @@ public interface ReviewRepository extends JpaRepository<Review, String>, JpaSpec
             @Param("targetReference") String targetReference,
             @Param("status") ReviewStatus status
     );
+
+    /** Count and average of the reviews in a status; each target or package filter is optional (null means any). */
+    @Query("SELECT COUNT(r) as totalCount, AVG(r.rating) as averageRating " +
+            "FROM Review r " +
+            "WHERE r.status = :status " +
+            "AND (:targetType IS NULL OR r.targetType = :targetType) " +
+            "AND (:targetReference IS NULL OR r.targetReference = :targetReference) " +
+            "AND (:packageId IS NULL OR r.packageId = :packageId)")
+    ReviewAggregateProjection getAggregateByOptionalTarget(
+            @Param("targetType") TargetType targetType,
+            @Param("targetReference") String targetReference,
+            @Param("packageId") Long packageId,
+            @Param("status") ReviewStatus status
+    );
 }
 

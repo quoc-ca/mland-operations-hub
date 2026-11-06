@@ -6,6 +6,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class ReviewMaskingService {
 
+    /** Shown when the reviewer chose to be anonymous. */
+    public static final String ANONYMOUS_DISPLAY_NAME = "Khách hàng ẩn danh";
+    /** Shown for a Member whose account has no name. */
+    public static final String MEMBER_ANONYMOUS_DISPLAY_NAME = "Hội viên ẩn danh";
+
     public String maskContact(ContactType contactType, String contactValue) {
         if (contactValue == null || contactValue.isBlank()) {
             return "Khách hàng ẩn danh";
@@ -25,14 +30,8 @@ public class ReviewMaskingService {
             }
             return maskFullName(rawNameOrEmail.trim());
         }
-        if (memberAccountId != null) {
-            String idStr = String.valueOf(memberAccountId);
-            if (idStr.length() > 3) {
-                return "Hội viên #" + idStr.substring(0, 1) + "***" + idStr.substring(idStr.length() - 2);
-            }
-            return "Hội viên #" + idStr;
-        }
-        return "Hội viên ẩn danh";
+        // No name on the account: stay anonymous. The internal account number is never shown, not even in part.
+        return MEMBER_ANONYMOUS_DISPLAY_NAME;
     }
 
     public String maskEmail(String email) {

@@ -44,6 +44,13 @@ public class Review {
     @Column(name = "masked_display_name", length = 128, nullable = false)
     private String maskedDisplayName;
 
+    /** Package of the attended workshop booking (V104); null for retail reviews. Stored with the review, never changed. */
+    @Column(name = "package_id")
+    private Long packageId;
+
+    @Column(name = "package_name", length = 255)
+    private String packageName;
+
     @Column(name = "rating", nullable = false)
     private Integer rating;
 

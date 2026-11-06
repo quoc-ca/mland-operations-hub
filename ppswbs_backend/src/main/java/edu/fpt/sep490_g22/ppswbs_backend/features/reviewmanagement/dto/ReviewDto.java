@@ -25,6 +25,9 @@ public class ReviewDto {
     private String targetReference;
     private OwnerType ownerType;
     private String maskedDisplayName;
+    /** The workshop package the reviewed session belongs to (null for a retail review); shown so a review says which package. */
+    private Long packageId;
+    private String packageName;
     private Integer rating;
     private String bodyText;
     private ReviewStatus status;
