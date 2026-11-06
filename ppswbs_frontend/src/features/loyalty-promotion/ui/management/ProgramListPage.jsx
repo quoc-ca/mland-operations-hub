@@ -7,6 +7,7 @@ import { DiscountText, ScopeBadge, useDateTime } from '../display';
 import { messages } from '../messages';
 import { PageTop } from './PromotionManagementLayout';
 import { useCursorList } from '../../application/useCursorList';
+import { Paginator, usePaged } from '../../../../shared/ui/Paginator';
 
 /** T030: programme list with scope/status filters (in the URL) and cursor paging. */
 export default function ProgramListPage() {
@@ -19,6 +20,7 @@ export default function ProgramListPage() {
   const status = params.get('status') || '';
   const list = useCursorList(cursor => api.listPrograms({ scope: scope || undefined, status: status || undefined, cursor }), [scope, status]);
   const notice = location.state?.notice || null;
+  const paged = usePaged(list.items, 10, `${scope}|${status}`);
 
   const setFilter = name => event => {
     const next = new URLSearchParams(params);
@@ -59,7 +61,7 @@ export default function ProgramListPage() {
               <span role="columnheader">{t('field.discount')}</span><span role="columnheader">{t('field.window')}</span>
               <span role="columnheader">{t('field.status')}</span>
             </div>
-            {list.items.map(program => (
+            {paged.pageItems.map(program => (
               <div className="data-row programs" role="row" key={program.id}>
                 <span role="cell"><Link className="text-link" to={`/promotion-management/programs/${encodeURIComponent(program.id)}`}>{program.name}</Link>{program.code && <span className="mono"> · {program.code}</span>}</span>
                 <span role="cell">{t(`kind.${program.kind}`)} <ScopeBadge scope={program.scope} /></span>
@@ -69,6 +71,7 @@ export default function ProgramListPage() {
               </div>
             ))}
           </div>
+          <Paginator page={paged.page} pageCount={paged.pageCount} onChange={paged.setPage} label={t('programs.title')} />
           {list.nextCursor && <div className="pager"><button type="button" className="button outline" disabled={list.loading} onClick={list.more}>{t('more')}</button></div>}
         </section>
       )}

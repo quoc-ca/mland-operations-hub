@@ -24,7 +24,7 @@ const vi = {
   'cart.signInToAdd': 'Đăng nhập để thêm vào giỏ', 'cart.noBuyableSize': 'Hiện không có size nào mua được.', 'cart.noBranch': 'Hiện chưa có chi nhánh bán.',
   'cart.reference': 'Mã tra cứu: {id}',
   'error.LOCATION_DEPENDENCY_UNAVAILABLE': 'Chưa tải được danh sách chi nhánh. Bấm Thử lại.',
-  'pager.label': 'Phân trang', 'pager.previous': 'Trang trước', 'pager.next': 'Trang sau', 'pager.page': 'Trang {page}/{pages}',
+  'pager.label': 'Phân trang', 'pager.previous': 'Trang trước', 'pager.next': 'Trang sau', 'pager.page': 'Trang {page}/{pages}', 'pager.pageWord': 'Trang', 'pager.choose': 'Chọn trang',
 
   'list.title': 'Danh sách sản phẩm', 'list.publication': 'Công khai', 'list.all': 'Tất cả', 'list.sizes': 'Size',
   'list.state': 'Trạng thái', 'list.empty': 'Chưa có sản phẩm nào khớp với bộ lọc.',
@@ -240,7 +240,7 @@ const en = {
   'cart.signInToAdd': 'Sign in to add to cart', 'cart.noBuyableSize': 'No size can be bought right now.', 'cart.noBranch': 'No branch is selling right now.',
   'cart.reference': 'Reference: {id}',
   'error.LOCATION_DEPENDENCY_UNAVAILABLE': 'The branch list could not be loaded. Try again.',
-  'pager.label': 'Pagination', 'pager.previous': 'Previous', 'pager.next': 'Next', 'pager.page': 'Page {page}/{pages}',
+  'pager.label': 'Pagination', 'pager.previous': 'Previous', 'pager.next': 'Next', 'pager.page': 'Page {page}/{pages}', 'pager.pageWord': 'Page', 'pager.choose': 'Choose page',
 
   'list.title': 'Products', 'list.publication': 'Publication', 'list.all': 'All', 'list.sizes': 'Sizes',
   'list.state': 'State', 'list.empty': 'No product matches the filters.',
