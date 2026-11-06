@@ -77,6 +77,8 @@ class FinalBookingSettlementIT {
     void createFinalBill_readinessAndLocationAuthority_idempotentReplay() {
         when(bookingAdapter.confirmedProjection(BOOKING_CODE)).thenReturn(
                 new ConfirmedBookingFinancialProjection("PKG-1", 100_000L, 80_000L, 40_000L, 40_000L, 1, List.of("SESSION-1"), LOCATION_ID));
+        // The Staff members in these tests are assigned to a session of the booking (owner decision 2026-11-06).
+        when(operationsAdapter.staffAssignedToBooking(anyLong(), eq(BOOKING_CODE))).thenReturn(true);
 
         // When bill does not exist yet -> conflict FINAL_BILL_NOT_FOUND (D1: opened at confirmation)
         assertThatThrownBy(() -> apiService.create(BOOKING_CODE, "idem-create-001", "CORR-01", staffAuth(LOCATION_ID)))
@@ -104,6 +106,21 @@ class FinalBookingSettlementIT {
         assertThat(replay.bookingCode()).isEqualTo(BOOKING_CODE);
         assertThat(replay.outstandingAmount()).isEqualTo(40_000L);
         assertThat(billRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Staff in the location scope but not assigned to a session of the booking cannot read or change its bill")
+    void staffNotAssignedToTheBooking_isDeniedEverywhere() {
+        setupOpenBill(40_000L);
+        when(operationsAdapter.staffAssignedToBooking(anyLong(), eq(BOOKING_CODE))).thenReturn(false);
+
+        assertThatThrownBy(() -> apiService.readAsOperator(BOOKING_CODE, staffAuth(LOCATION_ID)))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class).hasMessage("SESSION_ASSIGNMENT_REQUIRED");
+        assertThatThrownBy(() -> apiService.addCharge(BOOKING_CODE, "idem-unassigned", "CORR-09",
+                new ChargeCommandDto(null, null, null, "Extra", 5_000L, "Reason", true), staffAuth(LOCATION_ID)))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class).hasMessage("SESSION_ASSIGNMENT_REQUIRED");
+        assertThatThrownBy(() -> apiService.finalizeBill(BOOKING_CODE, "idem-unassigned-fin", "CORR-09", new FinalizationCommandDto(), staffAuth(LOCATION_ID)))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class).hasMessage("SESSION_ASSIGNMENT_REQUIRED");
     }
 
     @Test
@@ -330,6 +347,7 @@ class FinalBookingSettlementIT {
     }
 
     private void setupOpenBill(long remainingAmount) {
+        when(operationsAdapter.staffAssignedToBooking(anyLong(), eq(BOOKING_CODE))).thenReturn(true);
         when(bookingAdapter.confirmedProjection(BOOKING_CODE)).thenReturn(
                 new ConfirmedBookingFinancialProjection("PKG-1", 100_000L, 80_000L, 40_000L, remainingAmount, 1, List.of("SESSION-1"), LOCATION_ID));
         when(operationsAdapter.readiness(BOOKING_CODE)).thenReturn(new SettlementReadiness(true));

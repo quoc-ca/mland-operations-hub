@@ -106,6 +106,9 @@ public class AttendanceTicketContractIT {
     private WorkshopSessionRepository sessionRepository;
 
     @Autowired(required = false)
+    private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopPackageRepository packageRepository;
+
+    @Autowired(required = false)
     private JdbcTemplate jdbcTemplate;
 
     @MockBean
@@ -677,9 +680,17 @@ public class AttendanceTicketContractIT {
 
         // 3. Reserve 2 seats across both sessions (N = 2 participants)
         List<UUID> sessionRefs = List.of(UUID.fromString(session1.getReference()), UUID.fromString(session2.getReference()));
+        // Capacity reservation requires a published package selection matching the two required sessions.
+        Long packageId = packageRepository.save(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackage.builder()
+                .name("Contract test package").description("Synthetic fixture").publicPrice(1000L)
+                .minParticipants(1).maxParticipants(10).requiredSessionCount(2)
+                .sameLocationRequired(true).minimumSameDaySlotGap(0)
+                .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState.PUBLISHED)
+                .build()).getId();
         CapacityHoldOutcome holdOutcome = operationsFacade.reserveBookingCapacity(
-                new ReserveBookingCapacityCommand(bookingRef, sessionRefs, 2, "op-ctr-hold-" + UUID.randomUUID(), "corr-ctr-hold"));
-        assertThat(holdOutcome.status()).isEqualTo(OutcomeStatus.ACCEPTED);
+                new ReserveBookingCapacityCommand(bookingRef, String.valueOf(packageId), sessionRefs, 2,
+                        "op-ctr-hold-" + UUID.randomUUID(), "corr-ctr-hold"));
+        assertThat(holdOutcome.status()).as("hold rejected: " + holdOutcome.reason()).isEqualTo(OutcomeStatus.ACCEPTED);
         List<UUID> holdRefs = holdOutcome.holdReferences();
         assertThat(holdRefs).hasSize(2);
 

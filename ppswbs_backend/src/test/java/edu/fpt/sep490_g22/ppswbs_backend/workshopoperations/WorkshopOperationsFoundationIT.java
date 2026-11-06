@@ -394,11 +394,26 @@ public class WorkshopOperationsFoundationIT {
         }
 
         @Test
-        @DisplayName("Staff in active location scope does not require session assignment")
-        void unassignedStaffInLocationScopeShouldBeAllowed() {
+        @DisplayName("Staff in active location scope but not assigned to the session is denied (owner decision 2026-11-06)")
+        void unassignedStaffInLocationScopeShouldBeDenied() {
             when(accountFacade.resolveAccount("staff-uid-2")).thenReturn(Optional.of(
                     new AccountSummary(21L, ActorRole.STAFF, ActorStatus.ACTIVE, "staff2@fpt.edu.vn", Instant.now(), Instant.now())));
             when(accountFacade.getLocationScope(21L)).thenReturn(List.of(testLocation.getId()));
+
+            assertThatThrownBy(() -> authorizationService.requireStaffSessionAssignment(
+                    "Bearer test-uid:staff-uid-2", testSession.getId()))
+                    .isInstanceOf(WorkshopForbiddenException.class)
+                    .hasMessageContaining("not assigned");
+        }
+
+        @Test
+        @DisplayName("Staff in active location scope and assigned to the session is allowed")
+        void assignedStaffInLocationScopeShouldBeAllowed() {
+            when(accountFacade.resolveAccount("staff-uid-2")).thenReturn(Optional.of(
+                    new AccountSummary(21L, ActorRole.STAFF, ActorStatus.ACTIVE, "staff2@fpt.edu.vn", Instant.now(), Instant.now())));
+            when(accountFacade.getLocationScope(21L)).thenReturn(List.of(testLocation.getId()));
+            staffAssignmentRepository.save(SessionStaffAssignment.builder()
+                    .session(testSession).accountId(21L).assignedById(10L).active(true).assignedAt(Instant.now()).build());
 
             AccountSummary summary = authorizationService.requireStaffSessionAssignment(
                     "Bearer test-uid:staff-uid-2", testSession.getId());

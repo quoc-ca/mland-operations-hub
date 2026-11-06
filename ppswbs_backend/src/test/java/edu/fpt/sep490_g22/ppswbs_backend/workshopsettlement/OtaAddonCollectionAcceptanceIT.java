@@ -10,6 +10,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Actor
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.StaffBookingAssignmentQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementAddonBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementAddonPaymentAttemptRepository;
@@ -89,6 +90,9 @@ class OtaAddonCollectionAcceptanceIT {
     @BeforeEach
     void setUp() {
         refundQueryStatus = "00";
+        // Staff 20 is assigned to a session of the booking; the out-of-scope Staff fails on the location first.
+        when(operations.isStaffAssignedToBooking(any())).thenAnswer(invocation ->
+                Long.valueOf(20L).equals(((StaffBookingAssignmentQuery) invocation.getArgument(0)).staffAccountId()));
         when(checkout.createShopAddonUrl(any(), any(), anyLong(), any(), any(), any()))
                 .thenAnswer(invocation -> "https://pay.example.invalid/" + invocation.getArgument(0));
         when(provider.requestRefund(any())).thenAnswer(invocation -> {
@@ -269,7 +273,7 @@ class OtaAddonCollectionAcceptanceIT {
         String channelReference = "CH-" + UUID.randomUUID();
         var outcome = settlement.createDirectShopAddonBill(new WorkshopSettlementFacade.DirectShopAddonBillCommand(
                 channelReference, "QUOTE-" + UUID.randomUUID(), "ADDON-ITEM", "Add-on item", AMOUNT, "VND",
-                "CONSENT-" + UUID.randomUUID(), "STAFF-20", LOCATION));
+                "CONSENT-" + UUID.randomUUID(), "STAFF-20", LOCATION, "MLAND-" + channelReference));
         assertThat(outcome.created()).isTrue();
         return new Bill(outcome.billReference(), channelReference, null);
     }
