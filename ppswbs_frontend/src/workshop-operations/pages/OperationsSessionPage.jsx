@@ -38,6 +38,17 @@ const RECOVERY_REASONS = [
 ];
 
 const ROSTER_LABELS = { CHECKED_IN: 'Đã check-in', NOT_CHECKED_IN: 'Chưa check-in', NO_SHOW: 'Vắng mặt' };
+
+// While a session is IN_PROGRESS it can only go on to finalization or cancellation (spec 003.2): it never returns to a
+// sales state. The scheduler (or an explicit early start) moves it to IN_PROGRESS; states it cannot reach are greyed out.
+const SALES_STATES = ['PUBLISHED', 'SALES_PAUSED', 'IN_PROGRESS'];
+const TRANSITION_FROM = { PUBLISHED: ['SALES_PAUSED', 'IN_PROGRESS'], SALES_PAUSED: ['PUBLISHED', 'IN_PROGRESS'] };
+const transitionBlockedReason = (current, target) => {
+  if (current === target) return 'Ca đang ở trạng thái này.';
+  if ((TRANSITION_FROM[current] || []).includes(target)) return undefined;
+  if (current === 'IN_PROGRESS') return 'Ca đã bắt đầu (IN PROGRESS) nên không quay lại trạng thái bán. Chỉ có thể chốt điểm danh hoặc hủy ca.';
+  return 'Không thể chuyển ca từ trạng thái hiện tại sang trạng thái này.';
+};
 const ROSTER_FILTERS = [
   { key: 'ALL', label: 'Tất cả' },
   { key: 'CHECKED_IN', label: 'Đã check-in' },
@@ -374,7 +385,7 @@ export default function OperationsSessionPage() {
               </div>
             )}
       </article>
-      <article className="ota-panel"><div className="ota-panel-head"><h2>Session facts</h2></div><dl className="ops-facts"><div><dt>Capacity</dt><dd>{session.capacity}</dd></div><div><dt>Check-in opens</dt><dd>{session.checkInOpensAt ? new Date(session.checkInOpensAt).toLocaleString() : '—'}</dd></div><div><dt>Assigned Staff</dt><dd>{assignedStaffLabel}</dd></div></dl><div className="ops-actions">{/* ATTENDANCE_FINALIZED is not a plain state change: only "Finalize attendance" marks no-shows and records the finalization time. */['PUBLISHED','SALES_PAUSED','IN_PROGRESS'].map(state => <button key={state} className="button outline" disabled={session.state === state || command.pending} onClick={() => run(key => api.transition(sessionId, state, key), `Session moved to ${state}.`)}>{state.replaceAll('_', ' ')}</button>)}<button className="button primary" disabled={command.pending || session.state !== 'IN_PROGRESS'} title={session.state !== 'IN_PROGRESS' ? 'Attendance can be finalized only while the session is IN PROGRESS.' : undefined} onClick={() => run(key => api.finalizeAttendance(sessionId, key), 'Attendance finalized.')}>Finalize attendance</button></div></article>
+      <article className="ota-panel"><div className="ota-panel-head"><h2>Session facts</h2></div><dl className="ops-facts"><div><dt>Capacity</dt><dd>{session.capacity}</dd></div><div><dt>Check-in opens</dt><dd>{session.checkInOpensAt ? new Date(session.checkInOpensAt).toLocaleString() : '—'}</dd></div><div><dt>Assigned Staff</dt><dd>{assignedStaffLabel}</dd></div></dl><div className="ops-actions">{/* ATTENDANCE_FINALIZED is not a plain state change: only "Finalize attendance" marks no-shows and records the finalization time. */SALES_STATES.map(state => <button key={state} className="button outline" disabled={Boolean(transitionBlockedReason(session.state, state)) || command.pending} title={transitionBlockedReason(session.state, state)} onClick={() => run(key => api.transition(sessionId, state, key), `Session moved to ${state}.`)}>{state.replaceAll('_', ' ')}</button>)}<button className="button primary" disabled={command.pending || session.state !== 'IN_PROGRESS'} title={session.state !== 'IN_PROGRESS' ? 'Attendance can be finalized only while the session is IN PROGRESS.' : undefined} onClick={() => run(key => api.finalizeAttendance(sessionId, key), 'Attendance finalized.')}>Finalize attendance</button></div></article>
       {isManager && (<>
       <article className="ota-panel">
         <div className="ota-panel-head"><h2>Staff assignment</h2></div>
