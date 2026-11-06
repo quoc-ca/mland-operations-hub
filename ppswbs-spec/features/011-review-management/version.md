@@ -475,3 +475,46 @@ Remaining verification tasks:
 - Run OpenAPI validation against controller behavior.
 - Run Flyway clean-install, upgrade, rerun and `flyway validate()` checks through `V100`.
 - Confirm the live `flyway_schema_history` contains no conflicting `V91` or `V100` record before applying migrations.
+
+## 10. Post-merge Flyway and booking review integration log (2026-11-06)
+
+### Flyway inventory
+
+- Parsed all migration filenames from `V4` through `V100` after the merge.
+- No duplicate numeric version or duplicate migration description was found in the repository.
+- `V91__review_management.sql` remains the owner of the Feature-011 tables.
+- `V92`–`V99` remain owned by workshop, booking, settlement and other existing features.
+- `V100__review_history_retention.sql` remains the Feature-011 retention correction.
+- No applied migration was edited or renamed.
+
+### Flyway verification pending
+
+- Database history still requires a read-only check for duplicate `V91`/`V100`, checksum drift and failed rows.
+- Fresh-install, upgrade, rerun and `flyway validate()` evidence requires JDK 21 and a reachable MySQL database.
+- No `baseline`, `outOfOrder`, `ignoreMigrationPatterns` or checksum repair was used.
+
+### Figma booking review update
+
+Updated Figma file `m5Cyk5rit6lKaX3TPprSow` with editable workshop-review sections:
+
+- `200:21` — `F11 · Workshop Review · Booking Confirmation`.
+- `72:731` — `F11 · Workshop Review · My Bookings`.
+- `72:645` — `F11 · Workshop Review · Booking Discovery`.
+- `73:150` — mobile booking discovery variant.
+- `73:213` — mobile My bookings variant.
+
+The sections include public workshop-session review content, aggregate state,
+empty/loading/error state labels and a disabled pre-attendance CTA. Branch is
+shown only as context and is not used as a review target.
+
+### Frontend implementation
+
+- Added `WorkshopReviewSummary` under Feature-011.
+- Integrated session-specific public review lookup into `WorkshopDetailPage`.
+- The review API is called only after the user selects a concrete
+  `WORKSHOP_SESSION` reference.
+- Review CTA remains disabled because the discovery page has no attendance proof.
+- Existing Member booking confirmation and My bookings screens have no React
+  route implementation in the current frontend; their Figma updates are kept
+  as design handoff until those routes expose session and eligibility context.
+- Added responsive styles and no new API or compatibility payload.

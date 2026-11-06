@@ -2230,8 +2230,8 @@ Workshop/Retail tables, table names and additional indexes remain proposed until
 source ownership is checked. Feature-011 also requires a protected Guest
 eligibility-handle record and an idempotency record for write commands. Review
 tables are created by `V91__review_management.sql`; the retention correction is
-appended in `V93__review_history_retention.sql`, while `V92` remains owned by
-the workshop package migration. Both versions must be verified against
+appended in `V100__review_history_retention.sql`, while `V92`–`V99` remain owned
+by their respective feature migrations. These versions must be verified against
 `flyway_schema_history` before application.
 - Material, component placement and size compatibility must be checked against approved hard constraints; a numeric score alone cannot override an incompatible design.
 - A standalone shape price contribution is included only under an approved estimation rule and must not double-count component/labour prices.

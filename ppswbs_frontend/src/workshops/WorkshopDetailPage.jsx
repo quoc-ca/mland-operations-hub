@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getWorkshopPackage, listWorkshopLocations, listWorkshopSessions } from '../api/workshops';
+import WorkshopReviewSummary from '../features/reviewmanagement/ui/WorkshopReviewSummary';
 
 function formatDate(date) {
   const y = date.getFullYear();
@@ -44,6 +45,7 @@ export function WorkshopDetailPage({ packageId }) {
   const [to, setTo] = useState(formatDate(nextTwoWeeks));
 
   const [sessions, setSessions] = useState([]);
+  const [reviewSessionReference, setReviewSessionReference] = useState(null);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [sessionsError, setSessionsError] = useState(null);
 
@@ -110,6 +112,10 @@ export function WorkshopDetailPage({ packageId }) {
       setSessions([]);
     }
   }, [pkg, locationId, from, to]);
+
+  useEffect(() => {
+    setReviewSessionReference(null);
+  }, [packageId, locationId, from, to]);
 
   if (loadingPkg) {
     return (
@@ -281,6 +287,14 @@ export function WorkshopDetailPage({ packageId }) {
                   </div>
 
                   <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #eee' }}>
+                    <button
+                      type="button"
+                      className="button outline"
+                      style={{ width: '100%', marginBottom: '8px' }}
+                      onClick={() => setReviewSessionReference(s.sessionReference)}
+                    >
+                      Xem review workshop
+                    </button>
                     <a
                       className="button outline"
                       style={{
@@ -300,6 +314,10 @@ export function WorkshopDetailPage({ packageId }) {
           </div>
         )}
       </section>
+
+      {reviewSessionReference && (
+        <WorkshopReviewSummary targetReference={reviewSessionReference} />
+      )}
     </main>
   );
 }
