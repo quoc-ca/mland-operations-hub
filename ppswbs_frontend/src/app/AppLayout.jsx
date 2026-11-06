@@ -55,6 +55,7 @@ export default function AppLayout() {
           <Link to="/products">{t('products')}</Link>
           <Link to="/profile">{t('profile')}</Link>
           <Link to="/member/cart">Giỏ hàng</Link>
+          <Link to="/manager/retail-payment-reconciliations">Đối soát thanh toán</Link>
           <Link to="/workshops">{t('workshops')}</Link>
           <Link to="/promotions">{t('promotions')}</Link>
           <Link to="/me/loyalty">{t('loyalty')}</Link>

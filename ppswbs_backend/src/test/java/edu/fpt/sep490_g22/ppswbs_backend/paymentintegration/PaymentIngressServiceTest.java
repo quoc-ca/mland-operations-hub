@@ -7,12 +7,14 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.service.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementPaymentEvidenceOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailPaymentEvidenceFacade;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -23,33 +25,51 @@ class PaymentIngressServiceTest {
     @Mock PaymentIngressReceiptRepository receipts;
     @Mock WorkshopBookingFacade booking;
     @Mock WorkshopSettlementFacade settlement;
+    @Mock RetailPaymentEvidenceFacade retail;
 
     @Test void rejectsInvalidSignatureWithoutResolvingOwner() {
         when(checksum.valid(anyMap(), any())).thenReturn(false);
         var outcome = service().receive(params("DEP-BK-1-1", "5000000", "00", "TX-1"));
         assertThat(outcome.message()).isEqualTo("INVALID_SIGNATURE");
+        assertThat(outcome.rspCode()).isEqualTo("97");
         verifyNoInteractions(registry, receipts, booking, settlement);
     }
 
     @Test void rejectsUnknownReference() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
-        when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.empty());
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.empty());
         var outcome = service().receive(params("DEP-BK-1-1", "5000000", "00", "TX-1"));
         assertThat(outcome.message()).isEqualTo("UNKNOWN_REFERENCE");
+        assertThat(outcome.rspCode()).isEqualTo("01");
         verifyNoInteractions(receipts, booking, settlement);
+    }
+
+    @Test void retailCallbackIsSentOnlyToRetailReceiver() {
+        when(checksum.valid(anyMap(), any())).thenReturn(true);
+        var retailOwner = PaymentOwnerRegistration.builder().merchantReference("RETAIL-1")
+                .bookingReference("CHECKOUT-1").paymentKind(PaymentOwnerKind.RETAIL)
+                .amountVnd(300_000L).currencyCode("VND").build();
+        when(registry.lockOwner("RETAIL-1")).thenReturn(Optional.of(retailOwner));
+        when(registry.lockOwner("RETAIL-1")).thenReturn(Optional.of(retailOwner));
+
+        when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        assertThat(service().receive(params("RETAIL-1", "30000000", "00", "TX-1")).message()).isEqualTo("OK");
+        verify(retail).applyVerifiedPayment(any());
+        verifyNoInteractions(booking, settlement);
     }
 
     @Test void rejectsAmountMismatchBeforeDispatch() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
-        when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
         var outcome = service().receive(params("DEP-BK-1-1", "5100000", "00", "TX-1"));
         assertThat(outcome.message()).isEqualTo("AMOUNT_CURRENCY_MISMATCH");
+        assertThat(outcome.rspCode()).isEqualTo("04");
         verifyNoInteractions(receipts, booking, settlement);
     }
 
     @Test void rejectsCurrencyMismatchBeforeDispatch() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
-        when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
         var callback = params("DEP-BK-1-1", "5000000", "00", "TX-1");
         callback.put("vnp_CurrCode", "USD");
         var outcome = service().receive(callback);
@@ -59,7 +79,7 @@ class PaymentIngressServiceTest {
 
     @Test void acceptsVnPayCallbackWhenCurrencyFieldIsOmitted() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
-        when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
         when(receipts.existsByDeliveryReference("DEP-BK-1-1|TX-1|00|00")).thenReturn(false);
         when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var callback = params("DEP-BK-1-1", "5000000", "00", "TX-1");
@@ -73,10 +93,11 @@ class PaymentIngressServiceTest {
 
     @Test void deduplicatesSuccessfulDeliveryWhileAllowingConsumerProjectionRepair() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
-        when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
         when(receipts.existsByDeliveryReference("DEP-BK-1-1|TX-1|00|00")).thenReturn(true);
         var outcome = service().receive(params("DEP-BK-1-1", "5000000", "00", "TX-1"));
         assertThat(outcome.message()).isEqualTo("Already received");
+        assertThat(outcome.rspCode()).isEqualTo("02");
         verify(receipts, never()).saveAndFlush(any());
         verify(booking).applyVerifiedDepositPaymentEvidence(any());
         verifyNoInteractions(settlement);
@@ -84,7 +105,7 @@ class PaymentIngressServiceTest {
 
     @Test void dispatchesValidDepositExactlyOnce() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
-        when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
         when(receipts.existsByDeliveryReference("DEP-BK-1-1|TX-1|00|00")).thenReturn(false);
         when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var outcome = service().receive(params("DEP-BK-1-1", "5000000", "00", "TX-1"));
@@ -103,7 +124,7 @@ class PaymentIngressServiceTest {
                 .currencyCode("VND")
                 .providerCreateDate("20261030181359")
                 .build();
-        when(registry.resolve("FINAL-BK-1-1")).thenReturn(Optional.of(settlementOwner));
+        when(registry.lockOwner("FINAL-BK-1-1")).thenReturn(Optional.of(settlementOwner));
         when(receipts.existsByDeliveryReference("FINAL-BK-1-1|TX-1|00|00")).thenReturn(false);
         when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(settlement.applyVerifiedSettlementPaymentEvidence(any())).thenReturn(SettlementPaymentEvidenceOutcome.accepted());
@@ -115,7 +136,7 @@ class PaymentIngressServiceTest {
 
     @Test void acknowledgesFailedProviderResponseWithoutDispatch() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
-        when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
         when(receipts.existsByDeliveryReference(anyString())).thenReturn(false);
         when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var callback = params("DEP-BK-1-1", "5000000", "24", "TX-1");
@@ -130,7 +151,7 @@ class PaymentIngressServiceTest {
 
     @Test void acknowledgesStatus01AsNonterminalWithoutDispatch() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
-        when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
         when(receipts.existsByDeliveryReference(anyString())).thenReturn(false);
         when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var callback = params("DEP-BK-1-1", "5000000", "00", "TX-1");
@@ -147,7 +168,7 @@ class PaymentIngressServiceTest {
 
     @Test void doesNotConfirmWhenResponseCodeIsSuccessButTransactionStatusIsTerminalFailure() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
-        when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
         when(receipts.existsByDeliveryReference(anyString())).thenReturn(false);
         when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var callback = params("DEP-BK-1-1", "5000000", "00", "TX-1");
@@ -164,7 +185,7 @@ class PaymentIngressServiceTest {
 
     @Test void allowsLaterSuccessAfterSameTransactionWasPreviouslyReportedAsStatus01() {
         when(checksum.valid(anyMap(), any())).thenReturn(true);
-        when(registry.resolve("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
         when(receipts.existsByDeliveryReference(anyString())).thenReturn(false);
         when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var pending = params("DEP-BK-1-1", "5000000", "00", "TX-1");
@@ -177,7 +198,7 @@ class PaymentIngressServiceTest {
         verify(booking).applyVerifiedDepositPaymentEvidence(any());
     }
 
-    private PaymentIngressService service() { return new PaymentIngressService(checksum, registry, receipts, booking, settlement); }
+    private PaymentIngressService service() { return new PaymentIngressService(checksum, registry, receipts, booking, settlement, retail); }
     private PaymentOwnerRegistration owner(long amount) { return PaymentOwnerRegistration.builder().merchantReference("DEP-BK-1-1").bookingReference("BK-1").paymentKind(PaymentOwnerKind.DEPOSIT).amountVnd(amount).currencyCode("VND").build(); }
     private Map<String,String> params(String ref, String amount, String response, String txn) {
         return new HashMap<>(Map.of("vnp_TxnRef", ref, "vnp_Amount", amount, "vnp_CurrCode", "VND", "vnp_ResponseCode", response, "vnp_TransactionStatus", "00", "vnp_TransactionNo", txn, "vnp_SecureHash", "hash"));

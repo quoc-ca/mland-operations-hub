@@ -21,4 +21,8 @@ public interface GroupedCheckoutRepository extends JpaRepository<GroupedCheckout
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select checkout from GroupedCheckout checkout where checkout.id = :id and checkout.memberAccountId = :memberId")
     Optional<GroupedCheckout> lockOwned(@Param("id") String id, @Param("memberId") Long memberId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select checkout from GroupedCheckout checkout where checkout.id = :id")
+    Optional<GroupedCheckout> lockById(@Param("id") String id);
 }

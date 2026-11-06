@@ -8,4 +8,7 @@ public interface PaymentGatewayCheckoutPort {
 
     String createFinalPaymentUrl(String merchantReference, String bookingCode, long amountVnd,
                                  Instant createdAt, Instant expiresAt, String clientIp);
+
+    String createRetailPaymentUrl(String merchantReference, String checkoutReference, long amountVnd,
+                                  Instant createdAt, Instant expiresAt, String clientIp);
 }

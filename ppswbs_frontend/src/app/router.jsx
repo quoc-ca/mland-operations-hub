@@ -2,7 +2,7 @@ import React from 'react';
 import { createBrowserRouter } from 'react-router';
 import { accountManagementRoutes } from '../features/accountmanagement';
 import { designReviewRoutes } from '../features/designreview/routes';
-import { readyRingSalesRoutes } from '../features/readyringsales/routes';
+import { readyRingSalesRoutes } from '../features/retail-order';
 import { loyaltyPromotionRoutes } from '../features/loyalty-promotion';
 import { productManagementRoutes } from '../features/product-management';
 import { workshopRoutes } from '../workshops/routes';

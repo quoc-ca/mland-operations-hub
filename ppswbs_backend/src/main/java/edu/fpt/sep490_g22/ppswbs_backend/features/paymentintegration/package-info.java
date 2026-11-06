@@ -3,7 +3,8 @@
         displayName = "Payment Integration",
         allowedDependencies = {
                 "workshopbooking :: facade",
-                "workshopsettlement :: facade"
+                "workshopsettlement :: facade",
+                "readyringsales :: facade"
         }
 )
 package edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration;

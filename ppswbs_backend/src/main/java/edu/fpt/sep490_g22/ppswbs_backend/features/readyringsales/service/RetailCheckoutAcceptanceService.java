@@ -33,6 +33,7 @@ public class RetailCheckoutAcceptanceService {
     private final LoyaltyFacade loyalty;
     private final RetailCheckoutQuoteValidator validator;
     private final RetailCheckoutService views;
+    private final RetailShipmentCreationService shipmentCreation;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public CheckoutDtos.GroupedCheckoutView accept(Long memberId, String idempotencyKey,
@@ -53,9 +54,6 @@ public class RetailCheckoutAcceptanceService {
             return views.toView(existing.get());
         }
         if (!"OPEN".equals(quote.getStatus())) throw new RetailConflictException("Checkout quote is already accepted");
-        if (quote.getBranches().stream().anyMatch(branch -> !"PICKUP".equals(branch.getFulfilmentMethod()))) {
-            throw new RetailIntegrationUnavailableException("Shipping checkout is not configured");
-        }
         List<Long> variantIds = quote.getBranches().stream().flatMap(branch -> branch.getItems().stream())
             .map(RetailCheckoutQuoteItem::getVariantId).distinct().sorted().toList();
         if (variantIds.isEmpty()) throw new RetailConflictException("Checkout quote is empty");
@@ -90,6 +88,10 @@ public class RetailCheckoutAcceptanceService {
             remainingDiscount = remainingDiscount.subtract(branchDiscount);
             var order = new RetailOrder(checkout, branch.getLocationId(), branch.getFulfilmentMethod(), decimal(branch.getSubtotal()),
                 decimal(branch.getShippingCharge()), decimal(branchDiscount));
+            if (branch.getRecipientName() != null) {
+                order.setRecipientSnapshot(branch.getRecipientName(), branch.getRecipientPhone(), branch.getRecipientAddress(),
+                    branch.getRecipientProvince(), branch.getRecipientDistrict(), branch.getRecipientWard());
+            }
             for (var item : branch.getItems()) {
                 var saved = new OrderItem(order, item.getVariantId(), item.getQuantity(), decimal(item.getUnitPrice()));
                 order.addItem(saved);
@@ -131,6 +133,7 @@ public class RetailCheckoutAcceptanceService {
                 createdHolds.forEach(holds::settle);
                 checkout.markPaid();
                 checkouts.saveAndFlush(checkout);
+                shipmentCreation.createShipmentsForPaidCheckout(checkout);
                 var outcome = new AuthoritativeOutcome(SourceKind.RETAIL, checkout.getId(), "readyringsales",
                     "zero-" + checkout.getId(), checkout.getVersion(), OutcomeKind.RETAIL_ZERO_ACCEPTED,
                     now, deadline, quote.getId(), true, "zero-total:" + checkout.getId());
@@ -165,7 +168,8 @@ public class RetailCheckoutAcceptanceService {
         for (var branch : quote.getBranches()) {
             var choice = choices.remove(branch.getLocationId());
             if (choice == null || !Objects.equals(choice.method(), branch.getFulfilmentMethod())
-                || !Objects.equals(choice.shippingQuoteId(), branch.getShippingQuoteId())) return false;
+                || !Objects.equals(choice.shippingQuoteId(), branch.getShippingQuoteId())
+                || !branch.matchesRecipient(choice.recipient())) return false;
         }
         return choices.isEmpty();
     }

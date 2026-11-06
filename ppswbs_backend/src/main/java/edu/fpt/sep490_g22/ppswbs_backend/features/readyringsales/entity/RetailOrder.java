@@ -35,6 +35,13 @@ public class RetailOrder {
     @Column(nullable = false, precision = 19, scale = 2) private BigDecimal subtotal;
     @Column(name = "shipping_charge", nullable = false, precision = 19, scale = 2) private BigDecimal shippingCharge;
     @Column(name = "payable_amount", nullable = false, precision = 19, scale = 2) private BigDecimal payableAmount;
+    /** GHTK recipient snapshot at acceptance time; null for PICKUP. Later profile address edits do not change it. */
+    @Column(name = "recipient_name", length = 255) private String recipientName;
+    @Column(name = "recipient_phone", length = 32) private String recipientPhone;
+    @Column(name = "recipient_address", length = 512) private String recipientAddress;
+    @Column(name = "recipient_province", length = 128) private String recipientProvince;
+    @Column(name = "recipient_district", length = 128) private String recipientDistrict;
+    @Column(name = "recipient_ward", length = 128) private String recipientWard;
     @OneToMany(mappedBy = "retailOrder", cascade = CascadeType.ALL, orphanRemoval = true) private final List<OrderItem> items = new ArrayList<>();
 
     public RetailOrder(GroupedCheckout groupedCheckout, Long locationId, String fulfilmentMethod,
@@ -46,9 +53,29 @@ public class RetailOrder {
     }
     @PrePersist void assignId() { if (id == null) id = UUID.randomUUID().toString(); }
     public void addItem(OrderItem item) { items.add(item); }
+    public void setRecipientSnapshot(String name, String phone, String address, String province, String district, String ward) {
+        this.recipientName = name; this.recipientPhone = phone; this.recipientAddress = address;
+        this.recipientProvince = province; this.recipientDistrict = district; this.recipientWard = ward;
+    }
     public void markPaid() { paymentState = PaymentState.PAID; }
     public void markPickupReady() { fulfilmentState = "READY_FOR_PICKUP"; pickupReadyConfirmed = true; }
     public void markPickedUp() { fulfilmentState = "PICKED_UP"; }
+    /**
+     * Mirrors the fictional GHTK shipment status onto this branch order's fulfilment state.
+     * Called by Staff shipment transitions; only meaningful for GHTK branch orders and a no-op for PICKUP.
+     * Keeps the shipment-lifecycle vocabulary off arbitrary strings by binding to the enum directly.
+     */
+    public void syncShipmentFulfilmentState(RetailShipmentStatus shipmentStatus) {
+        if (!"GHTK".equalsIgnoreCase(fulfilmentMethod) || shipmentStatus == null) {
+            return;
+        }
+        switch (shipmentStatus) {
+            case PREPARING -> fulfilmentState = "SHIPMENT_PENDING";
+            case HANDED_TO_CARRIER -> fulfilmentState = "HANDED_TO_CARRIER";
+            case IN_TRANSIT -> fulfilmentState = "IN_TRANSIT";
+            case DELIVERED -> fulfilmentState = "DELIVERED";
+        }
+    }
     public void cancel() { paymentState = PaymentState.CANCELLED; }
     public void expireLocalDemo() { paymentState = PaymentState.EXPIRED; }
     public void expireUnpaid() { paymentState = PaymentState.EXPIRED; }
