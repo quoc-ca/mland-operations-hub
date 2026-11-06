@@ -55,6 +55,13 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
 
     @Override
     @Transactional(readOnly = true)
+    public java.util.List<WorkshopAddOnPriceSnapshot> listWorkshopAddOns(WorkshopAddOnListQuery query) {
+        if (query == null) return java.util.List.of();
+        return addOnService.listEligibleSnapshots(query.packageReference(), query.locationReference());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public SaleEligibilitySnapshot getSaleEligibility(SaleEligibilityQuery query) {
         String sessionRef = query.sessionReference().toString();
         Optional<WorkshopSession> sessionOpt = sessionRepository.findByReference(sessionRef);
@@ -240,6 +247,15 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
         boolean correctionClosed = AttendanceCorrectionWindowPolicy.isClosed(finalizedAt, Instant.now());
         boolean hasNoShow = entitlements.stream().anyMatch(item -> item.getAttendanceState() == AttendanceState.NO_SHOW);
         return new SettlementReadiness(true, correctionClosed, hasNoShow, lastFinalizedAt);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasBookingServiceStarted(BookingSettlementReadinessQuery query) {
+        if (query == null) return false;
+        return entitlementRepository.findActiveByBookingReference(query.bookingReference()).stream()
+                .map(item -> item.getSession().getState())
+                .anyMatch(state -> state == SessionState.IN_PROGRESS || state == SessionState.ATTENDANCE_FINALIZED);
     }
 
     @Override

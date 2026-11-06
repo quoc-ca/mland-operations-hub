@@ -112,21 +112,54 @@ class FinalBookingSettlementIT {
         setupOpenBill(40_000L);
 
         // 1. Staff adds variable charge of 10,000 VND
-        ChargeCommandDto varCmd = new ChargeCommandDto(null, null, null, "Extra clay and glaze", 10_000L, "Student consumed additional materials");
+        // Variable charges follow the add-on rules: the session has started and the operator confirmed customer consent.
+        when(operationsAdapter.serviceStarted(BOOKING_CODE)).thenReturn(true);
+        ChargeCommandDto varCmd = new ChargeCommandDto(null, null, null, "Extra clay and glaze", 10_000L, "Student consumed additional materials", true);
         FinalBillProjectionDto afterVar = apiService.addCharge(BOOKING_CODE, "idem-charge-var", "CORR-02", varCmd, staffAuth(LOCATION_ID));
         assertThat(afterVar.outstandingAmount()).isEqualTo(50_000L);
         assertThat(afterVar.charges()).hasSize(1);
         assertThat(afterVar.charges().get(0).description()).isEqualTo("Extra clay and glaze");
         assertThat(afterVar.charges().get(0).amount()).isEqualTo(10_000L);
+        var variableRow = chargeRepository.findAll().stream()
+                .filter(c -> "VARIABLE_INTERNAL".equals(c.getSourceCategory())).findFirst().orElseThrow();
+        assertThat(variableRow.getConsentReference()).startsWith("CONSENT-");
+        assertThat(variableRow.getConsentRecordedBy()).isNotNull();
+        // Without the customer-agreed confirmation, or before the session has started, a variable charge is refused.
+        assertThatThrownBy(() -> apiService.addCharge(BOOKING_CODE, "idem-charge-var-noconsent", "CORR-02",
+                new ChargeCommandDto(null, null, null, "Extra", 5_000L, "Reason", false), staffAuth(LOCATION_ID)))
+                .hasMessage("CUSTOMER_CONSENT_REQUIRED");
+        when(operationsAdapter.serviceStarted(BOOKING_CODE)).thenReturn(false);
+        assertThatThrownBy(() -> apiService.addCharge(BOOKING_CODE, "idem-charge-var-early", "CORR-02",
+                new ChargeCommandDto(null, null, null, "Extra", 5_000L, "Reason", true), staffAuth(LOCATION_ID)))
+                .hasMessage("SESSION_NOT_STARTED");
+        when(operationsAdapter.serviceStarted(BOOKING_CODE)).thenReturn(true);
 
         // 2. Staff confirms a catalogue add-on at the workshop.
         when(operationsAdapter.addOnPrice("PKG-1", LOCATION_ID, "ADDON-GIFT-BOX"))
                 .thenReturn(new WorkshopAddOnPriceSnapshot("ADDON-GIFT-BOX", "Premium gift wrap box", 15_000L, "VND"));
 
-        ChargeCommandDto catCmd = new ChargeCommandDto("ADDON-GIFT-BOX", null, null, null, null, null);
+        // Owner decisions 2026-11-06: the booking's session must have started, and the operator must confirm that
+        // the customer agreed (the system then generates the consent reference).
+        ChargeCommandDto catCmd = new ChargeCommandDto("ADDON-GIFT-BOX", null, null, null, null, null, true);
+        when(operationsAdapter.serviceStarted(BOOKING_CODE)).thenReturn(false);
+        assertThatThrownBy(() -> apiService.addCharge(BOOKING_CODE, "idem-charge-early", "CORR-03", catCmd, staffAuth(LOCATION_ID)))
+                .hasMessage("SESSION_NOT_STARTED");
+        when(operationsAdapter.serviceStarted(BOOKING_CODE)).thenReturn(true);
+        assertThatThrownBy(() -> apiService.addCharge(BOOKING_CODE, "idem-charge-noconsent", "CORR-03",
+                new ChargeCommandDto("ADDON-GIFT-BOX", null, null, null, null, null, false), staffAuth(LOCATION_ID)))
+                .hasMessage("CUSTOMER_CONSENT_REQUIRED");
+
         FinalBillProjectionDto afterCat = apiService.addCharge(BOOKING_CODE, "idem-charge-cat", "CORR-03", catCmd, staffAuth(LOCATION_ID));
         assertThat(afterCat.outstandingAmount()).isEqualTo(65_000L);
         assertThat(afterCat.charges()).hasSize(2);
+        var addOnRow = chargeRepository.findAll().stream()
+                .filter(c -> "CATALOGUE_ADD_ON".equals(c.getSourceCategory())).findFirst().orElseThrow();
+        assertThat(addOnRow.getConsentReference()).startsWith("CONSENT-");
+        assertThat(addOnRow.getConsentRecordedBy()).isNotNull();
+        assertThat(addOnRow.getConsentRecordedAt()).isNotNull();
+        // Replaying the same command neither adds a second charge nor a second consent.
+        apiService.addCharge(BOOKING_CODE, "idem-charge-cat", "CORR-03", catCmd, staffAuth(LOCATION_ID));
+        assertThat(chargeRepository.findAll().stream().filter(c -> "CATALOGUE_ADD_ON".equals(c.getSourceCategory()))).hasSize(1);
 
         // Customer identities cannot mutate settlement charges.
         assertThatThrownBy(() -> apiService.addCharge(BOOKING_CODE, "idem-charge-cat-member", "CORR-04", catCmd, memberAuth(MEMBER_ID)))

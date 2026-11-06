@@ -14,12 +14,20 @@ public class WorkshopOperationsSettlementAdapter {
         return operations.getSettlementReadiness(new BookingSettlementReadinessQuery(bookingReference));
     }
 
+    public boolean serviceStarted(String bookingReference) {
+        return operations.hasBookingServiceStarted(new BookingSettlementReadinessQuery(bookingReference));
+    }
+
     public BookingAttendanceOutcome attendanceOutcome(String bookingReference) {
         return operations.getBookingAttendanceOutcome(new BookingAttendanceOutcomeQuery(bookingReference));
     }
 
     public BookingCancellationEligibilitySnapshot cancellationEligibility(String bookingReference) {
         return operations.getBookingCancellationEligibility(new BookingCancellationEligibilityQuery(bookingReference));
+    }
+
+    public java.util.List<WorkshopAddOnPriceSnapshot> listAddOns(String packageReference, Long locationReference) {
+        return operations.listWorkshopAddOns(new WorkshopAddOnListQuery(packageReference, locationReference));
     }
 
     public WorkshopAddOnPriceSnapshot addOnPrice(String packageReference, Long locationReference, String addOnReference) {

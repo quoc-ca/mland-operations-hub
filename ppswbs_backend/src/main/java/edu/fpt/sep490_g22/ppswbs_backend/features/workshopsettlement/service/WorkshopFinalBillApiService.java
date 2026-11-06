@@ -55,6 +55,20 @@ public class WorkshopFinalBillApiService {
         return projection(requireBill(bookingCode));
     }
 
+    /**
+     * The operator's own read of the bill: Staff within the booking's location scope, or a Manager. The customer route
+     * above stays Member/Guest only, so an operator can never reach it through customer proof.
+     */
+    @Transactional(readOnly = true)
+    public FinalBillProjectionDto readAsOperator(String bookingCode, Authentication authentication) {
+        CurrentAccountActor actor = actor(authentication);
+        if (actor == null) throw new WorkshopSettlementAuthorizationException("ACTIVE_ACCOUNT_REQUIRED");
+        var confirmed = booking.confirmedProjection(bookingCode);
+        if (confirmed == null) throw new WorkshopSettlementNotFoundException();
+        authorization.requireManagerOrStaff(actor, confirmed.bookingLocationReference());
+        return projection(requireBill(bookingCode));
+    }
+
     @Transactional
     public FinalBillProjectionDto create(String bookingCode, String idempotencyKey, String correlation,
                                          Authentication authentication) {
@@ -71,6 +85,21 @@ public class WorkshopFinalBillApiService {
                 .orElseThrow(() -> new WorkshopSettlementConflictException("FINAL_BILL_NOT_FOUND")));
     }
 
+    /** Fixed-price catalogue add-ons the operator may add to this booking's folio; scope-checked like every operator action. */
+    @Transactional(readOnly = true)
+    public java.util.List<edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.AddOnOptionDto> listAddOns(
+            String bookingCode, Authentication authentication) {
+        CurrentAccountActor actor = actor(authentication);
+        if (actor == null) throw new WorkshopSettlementAuthorizationException("ACTIVE_ACCOUNT_REQUIRED");
+        var confirmed = booking.confirmedProjection(bookingCode);
+        if (confirmed == null) throw new WorkshopSettlementNotFoundException();
+        authorization.requireManagerOrStaff(actor, confirmed.bookingLocationReference());
+        return operations.listAddOns(confirmed.packageReference(), confirmed.bookingLocationReference()).stream()
+                .map(a -> new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.AddOnOptionDto(
+                        a.addOnReference(), a.description(), a.amountVnd()))
+                .toList();
+    }
+
     @Transactional
     public FinalBillProjectionDto addCharge(String bookingCode, String idempotencyKey, String correlation,
                                             ChargeCommandDto command, Authentication authentication) {
@@ -84,9 +113,12 @@ public class WorkshopFinalBillApiService {
             // Catalogue add-ons are selected and consented at the workshop by Staff/Manager.
             // Member/Guest routes are read-only and must never mutate settlement charges.
             authorization.requireManagerOrStaff(actor, confirmed.bookingLocationReference());
+            // The operator must state that the customer agreed; the backend then generates and stores the consent
+            // reference with who and when. It evidences the operator's confirmation, not the customer's own consent.
+            if (!command.consentConfirmed()) throw new WorkshopSettlementValidationException("CUSTOMER_CONSENT_REQUIRED");
             String fingerprint = fingerprint("ADD_ON", bookingCode, command.catalogueAddOnReference());
             idempotency.execute(operation, fingerprint, () -> catalogueAddOnService.add(bookingCode,
-                    command.catalogueAddOnReference())
+                    command.catalogueAddOnReference(), actor.accountId())
                     .getChargeReference());
         } else {
             CurrentAccountActor currentActor = actor(authentication);
@@ -94,9 +126,15 @@ public class WorkshopFinalBillApiService {
             var confirmed = booking.confirmedProjection(bookingCode);
             if (confirmed == null) throw new WorkshopSettlementValidationException("BOOKING_NOT_FOUND");
             authorization.requireManagerOrStaff(currentActor, confirmed.bookingLocationReference());
+            // Same rules as a catalogue add-on (owner decision 2026-11-06): the operator confirms that the customer
+            // agreed, and the booking's session must have started.
+            if (!command.consentConfirmed()) throw new WorkshopSettlementValidationException("CUSTOMER_CONSENT_REQUIRED");
             String fingerprint = fingerprint("VARIABLE", bookingCode, command.description().trim(), command.amount().toString(), command.reason().trim());
-            idempotency.execute(operation, fingerprint, () -> variableChargeService.add(
-                    bookingCode, command.description(), command.amount(), command.reason(), operation).getChargeReference());
+            idempotency.execute(operation, fingerprint, () -> {
+                if (!operations.serviceStarted(bookingCode)) throw new WorkshopSettlementConflictException("SESSION_NOT_STARTED");
+                return variableChargeService.add(bookingCode, command.description(), command.amount(), command.reason(),
+                        operation, currentActor.accountId()).getChargeReference();
+            });
         }
         return projection(requireBill(bookingCode));
     }
