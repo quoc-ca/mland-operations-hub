@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import './workshopList.css';
 import { listWorkshopPackages } from '../api/workshops';
+import { Paginator, usePaged } from '../shared/ui/Paginator';
+import PackageReviewSummary from '../features/reviewmanagement/ui/PackageReviewSummary';
 
 export function WorkshopListPage() {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const paged = usePaged(packages, 9, packages);
 
   const fetchPackages = async () => {
     setLoading(true);
@@ -57,39 +61,38 @@ export function WorkshopListPage() {
       )}
 
       {!loading && !error && packages.length > 0 && (
-        <div className="catalogue-grid" style={{ marginTop: '32px' }}>
-          {packages.map((pkg, idx) => (
-            <article className="ring-card" key={pkg.packageId} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
+        <div className="wk-grid">
+          {paged.pageItems.map((pkg, idx) => {
+            const sessionCount = pkg.requiredSessionCount || 1;
+            return (
+              <article className="wk-card" key={pkg.packageId}>
                 <div className={`ring-visual ${idx % 2 === 0 ? 'gold' : 'pair'}`} aria-label="Minh họa workshop">
                   <span />
                 </div>
-                <strong style={{ fontSize: '20px', marginTop: '12px', display: 'block' }}>{pkg.name}</strong>
-                <p className="muted" style={{ minHeight: '44px', margin: '8px 0' }}>{pkg.description}</p>
-                <p className="price" style={{ margin: '8px 0' }}>
-                  {Number(pkg.publicPrice || 0).toLocaleString('vi-VN')} ₫ <small style={{ fontSize: '14px', fontWeight: 'normal', color: '#595959' }}>/ người</small>
-                </p>
-                <div style={{ fontSize: '13px', color: '#595959', display: 'flex', flexDirection: 'column', gap: '4px', margin: '12px 0' }}>
-                  <span>⏱ Số buổi yêu cầu: <strong>{pkg.requiredSessionCount || 1} buổi</strong></span>
-                  <span>👥 Quy định số vé / booking: <strong>{pkg.minParticipants} - {pkg.maxParticipants}</strong></span>
-                  <span>📍 Quy định địa điểm: <strong>{pkg.sameLocationRequired ? 'Chọn cùng một chi nhánh' : 'Có thể linh hoạt'}</strong></span>
-                  {pkg.minimumSameDaySlotGap > 0 && (
-                    <span>⏳ Cách tối thiểu: <strong>{pkg.minimumSameDaySlotGap} ca trong ngày</strong></span>
-                  )}
+                <div className="wk-body">
+                  <h2 className="wk-name">{pkg.name}</h2>
+                  <p className="wk-desc">{pkg.description}</p>
+                  <div className="wk-chips">
+                    <span className="wk-chip">⏱ {sessionCount} buổi</span>
+                    <span className="wk-chip">👥 {pkg.minParticipants === pkg.maxParticipants ? `${pkg.maxParticipants} vé` : `${pkg.minParticipants}–${pkg.maxParticipants} vé`}</span>
+                    {/* Only worth saying on the card when the package spans several sessions; the package page has the full rules. */}
+                    {sessionCount > 1 && pkg.sameLocationRequired && <span className="wk-chip">📍 Cùng một chi nhánh</span>}
+                  </div>
+                  <p className="wk-price">
+                    {Number(pkg.publicPrice || 0).toLocaleString('vi-VN')} ₫ <small>/ người</small>
+                  </p>
+                  <div className="wk-actions">
+                    <a className="button outline" href={`/workshops/${pkg.packageId}`}>Xem lịch ca</a>
+                    <a className="button primary" href={`/workshops/${pkg.packageId}/book`}>Đặt ngay</a>
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-                <a className="button outline" style={{ flex: 1, textAlign: 'center' }} href={`/workshops/${pkg.packageId}`}>
-                  Xem lịch ca
-                </a>
-                <a className="button primary" style={{ flex: 1, textAlign: 'center' }} href={`/workshops/${pkg.packageId}/book`}>
-                  Đặt ngay
-                </a>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       )}
+      {!loading && !error && <Paginator page={paged.page} pageCount={paged.pageCount} onChange={paged.setPage} label="Phân trang gói workshop" />}
+      <PackageReviewSummary allPackages />
     </main>
   );
 }

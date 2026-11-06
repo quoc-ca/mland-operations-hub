@@ -19,6 +19,8 @@ public class EligibleSourceItem {
     private TargetType targetType;
     private String targetReference;
     private String targetName;
+    /** Workshop package of the attended booking (null for retail). */
+    private Long packageId;
     private Instant completedAt;
     private boolean eligible;
     private String reasonCode;

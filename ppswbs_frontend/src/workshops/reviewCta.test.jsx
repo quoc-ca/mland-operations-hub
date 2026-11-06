@@ -17,7 +17,7 @@ const SESSION = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
 const booking = (code, extra = {}) => ({
   bookingCode: code, bookingStatus: 'CONFIRMED', paymentStatus: 'DEPOSIT_PAID', packageName: 'Silver', participantCount: 1,
-  sessions: [{ sessionReference: SESSION, ordinal: 1, scheduledStart: '2026-12-01T13:00:00Z' }], tickets: [], ...extra,
+  sessions: [{ sessionReference: SESSION, ordinal: 1, scheduledStart: '2026-12-01T13:00:00Z' }], tickets: [], ticketReferences: ['internal-ticket-ref'], ...extra,
 });
 const source = { sourceType: 'WORKSHOP_ATTENDANCE', sourceReference: 'INTERNAL-TICKET-REF', targetType: 'WORKSHOP_SESSION', targetReference: SESSION.toUpperCase(), eligible: true };
 
@@ -50,6 +50,10 @@ describe('review button in "Đặt chỗ của tôi" (Feature-011 eligibility on
     expect(reviewSourceFor(booking('BK-1'), [{ ...source, targetType: 'RETAIL_PRODUCT' }])).toBeUndefined();
     expect(reviewSourceFor(booking('BK-1'), [{ ...source, eligible: false }])).toBeUndefined();
     expect(reviewSourceFor(booking('BK-1', { sessions: [] }), [source])).toBeUndefined();
+    // The same session but another booking's ticket (a no-show of the same workshop) is not this booking's source.
+    expect(reviewSourceFor(booking('BK-1', { ticketReferences: ['other-ticket'] }), [source])).toBeUndefined();
+    expect(reviewSourceFor(booking('BK-1', { ticketReferences: [] }), [source])).toBeUndefined();
+    expect(reviewSourceFor(booking('BK-1', { ticketReferences: undefined }), [source])).toBeUndefined();
     expect(reviewSourceFor(booking('BK-1'), null)).toBeUndefined();
   });
 
@@ -115,5 +119,27 @@ describe('review button in "Đặt chỗ của tôi" (Feature-011 eligibility on
     await screen.findByText('BK-ATTENDED');
     expect(screen.queryByRole('button', { name: /Viết đánh giá/ })).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('several bookings of the same session', () => {
+  beforeEach(() => clearRoleCache());
+
+  it('offers the review only on the booking whose own ticket is the eligible source', async () => {
+    mockFetch({
+      [PROFILE]: json(200, { role: 'MEMBER' }),
+      [LIST]: json(200, [
+        booking('BK-NOSHOW-A', { attendanceStatus: 'NO_SHOW_PENDING', ticketReferences: ['ticket-a'] }),
+        booking('BK-ATTENDED', { attendanceStatus: 'ATTENDED', ticketReferences: ['internal-ticket-ref'] }),
+        booking('BK-NOSHOW-B', { attendanceStatus: 'NO_SHOW_PENDING', ticketReferences: ['ticket-b'] }),
+      ]),
+      [SOURCES]: json(200, { items: [source] }), // one source: the attended ticket, for the shared session
+    });
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: 'Viết đánh giá cho BK-ATTENDED' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Viết đánh giá cho BK-NOSHOW-A' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Viết đánh giá cho BK-NOSHOW-B' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /Viết đánh giá/ })).toHaveLength(1);
   });
 });

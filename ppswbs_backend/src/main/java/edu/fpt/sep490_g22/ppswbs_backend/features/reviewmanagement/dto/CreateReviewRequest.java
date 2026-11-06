@@ -39,5 +39,11 @@ public class CreateReviewRequest {
     private String bodyText;
 
     private String guestEligibilityHandle;
+
+    /**
+     * Optional. When true the reviewer is shown publicly as anonymous instead of by a masked name. The choice is fixed at
+     * creation: the stored display name is the anonymous label, and editing the review does not change it.
+     */
+    private Boolean anonymous;
 }
 

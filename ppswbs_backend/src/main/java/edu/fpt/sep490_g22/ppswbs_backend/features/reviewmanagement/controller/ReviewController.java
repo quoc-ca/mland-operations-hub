@@ -7,14 +7,12 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.Target
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.CreateReviewRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.EditReviewRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.PublicReviewPageDto;
+import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.PublicReviewQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.ReviewDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewApplicationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewPublicReadFacade;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -45,12 +43,17 @@ public class ReviewController {
         return ResponseEntity.status(HttpStatus.CREATED).body(dto);
     }
 
+    /** Public reviews, newest first. Every filter is optional (contract GET /reviews); no filter lists them all. */
     @GetMapping
     public ResponseEntity<PublicReviewPageDto> getPublicReviews(
-            @RequestParam TargetType targetType,
-            @RequestParam String targetReference,
-            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        PublicReviewPageDto page = publicReadFacade.getPublicReviews(targetType, targetReference, pageable);
+            @RequestParam(required = false) TargetType targetType,
+            @RequestParam(required = false) String targetReference,
+            @RequestParam(required = false) Long packageId,
+            @RequestParam(required = false) Integer rating,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer limit) {
+        PublicReviewPageDto page = publicReadFacade.getPublicReviews(
+                new PublicReviewQuery(targetType, targetReference, packageId, rating, cursor, limit));
         return ResponseEntity.ok(page);
     }
 

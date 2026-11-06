@@ -42,6 +42,12 @@ export default function ReviewCard({ review, onOpen }) {
         </div>
       )}
 
+      {review.packageName && (
+        <div className="review-package">
+          {t('packageLabel')}: <strong>{review.packageName}</strong>
+        </div>
+      )}
+
       <div className="review-meta">
         <span className="badge-tag badge-verified">
           {review.targetType === 'WORKSHOP_SESSION'

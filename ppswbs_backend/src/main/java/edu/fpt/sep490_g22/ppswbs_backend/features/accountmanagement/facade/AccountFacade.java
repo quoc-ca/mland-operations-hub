@@ -11,6 +11,12 @@ public interface AccountFacade {
 
     Optional<ActorStatus> getAccountStatus(Long accountId);
 
+    /**
+     * The full name on the account's profile, trimmed, or empty when none is set. Contract for features that show a name
+     * (for example Feature-011 reviews): the caller decides how much of it to reveal; it must not be exposed as is.
+     */
+    Optional<String> findAccountFullName(Long accountId);
+
     List<Long> getLocationScope(Long accountId);
 
     Optional<CurrentAccountActor> resolveActor(String firebaseUid, boolean emailVerified);

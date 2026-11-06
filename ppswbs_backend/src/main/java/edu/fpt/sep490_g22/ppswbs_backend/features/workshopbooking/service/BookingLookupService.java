@@ -69,7 +69,7 @@ public class BookingLookupService {
         CustomerBookingAccessDecision decision = bookingFacade.verifyCustomerBookingAccess(
                 new CustomerBookingAccessQuery(booking.getBookingCode(), member.accountId(), null, null));
         if (decision == null || !decision.authorized()) throw new BookingNotFoundException("Booking not found");
-        return project(booking);
+        return projectForMember(booking);
     }
 
     /**
@@ -87,7 +87,7 @@ public class BookingLookupService {
             if (result.size() >= MEMBER_LIST_LIMIT) break;
             if (booking.getBookingStatus() == BookingStatus.EXPIRED) continue;
             try {
-                result.add(project(booking));
+                result.add(projectForMember(booking));
             } catch (RuntimeException failure) {
                 log.warn("Skipping booking {} in a Member's list: {}", booking.getBookingCode(), failure.getClass().getSimpleName());
             }
@@ -103,6 +103,35 @@ public class BookingLookupService {
 
     public BookingSummaryResponse projectForMagicLink(WorkshopBooking booking) {
         return project(booking);
+    }
+
+    /**
+     * The projection for the booking's own Member. It also names the booking's tickets (opaque references), so a screen can
+     * tell which of the Member's review sources belong to THIS booking: several bookings can share one session, and a review
+     * source is one ticket. Guests and Magic Link holders do not get these references.
+     */
+    private BookingSummaryResponse projectForMember(WorkshopBooking booking) {
+        BookingSummaryResponse response = project(booking);
+        response.setTicketReferences(ticketReferences(booking));
+        return response;
+    }
+
+    private List<String> ticketReferences(WorkshopBooking booking) {
+        BookingStatus status = booking.getBookingStatus();
+        if (status != BookingStatus.CONFIRMED && status != BookingStatus.COMPLETED && status != BookingStatus.NO_SHOW) {
+            return List.of();
+        }
+        try {
+            DeliverySafeTicketSet current = operations.getCurrentEntitlementProjection(booking.getBookingCode());
+            if (current == null || current.tickets() == null) return List.of();
+            return current.tickets().stream()
+                    .filter(ticket -> ticket != null && ticket.ticketReference() != null)
+                    .map(ticket -> ticket.ticketReference().toString())
+                    .toList();
+        } catch (RuntimeException failure) {
+            log.warn("Ticket references unavailable for booking {}: {}", booking.getBookingCode(), failure.getClass().getSimpleName());
+            return List.of();
+        }
     }
 
     private BookingSummaryResponse project(WorkshopBooking booking) {
