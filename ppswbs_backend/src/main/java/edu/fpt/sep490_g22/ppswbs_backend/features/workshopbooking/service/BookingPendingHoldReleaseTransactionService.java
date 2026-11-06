@@ -3,6 +3,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingLatePaymentEvidenceRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingPaymentAttemptRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingSessionCommitmentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.WorkshopBookingRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.ProblemDetailResponse;
@@ -33,6 +35,9 @@ public class BookingPendingHoldReleaseTransactionService {
     private final WorkshopBookingAuthorizationService authorization;
     private final BookingHoldReleaseService holdRelease;
     private final BookingIdempotencyService idempotency;
+    private final BookingPaymentAttemptRepository paymentAttempts;
+    private final BookingLatePaymentEvidenceRepository latePayments;
+    private final WorkshopBookingLoyaltyOutcomeService loyalty;
     private final ObjectMapper mapper;
 
     @Transactional
@@ -78,8 +83,13 @@ public class BookingPendingHoldReleaseTransactionService {
         }
 
         String operationReference = "REL-CUSTOMER-" + claim.recordId();
+        boolean noPaymentStarted = paymentAttempts.findByBookingIdOrderByCreatedAtDesc(booking.getId()).isEmpty()
+                && !latePayments.existsByBookingCode(bookingCode);
         holdRelease.releasePendingHold(bookingCode, operationReference, correlationReference,
                 actorType, expectedActorId, reason);
+        // Cancelling an unpaid hold gives back what the Member's quote had held (points, voucher), as an unpaid expiry does.
+        // When a payment was already started, the verified payment outcome decides instead, so nothing is released here.
+        if (noPaymentStarted) loyalty.finishConfirmedUnpaidExpiry(booking, "customer-release-" + claim.recordId());
         return complete(claim, 204, "");
     }
 

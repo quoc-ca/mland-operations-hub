@@ -135,10 +135,11 @@ public class BookingIdempotencyService {
      * Enforces claim-version fencing.
      */
     public void completeClaim(Long recordId, Long expectedVersion, int statusCode, String responsePayload) {
+        String storedPayload = jsonColumnValue(responsePayload);
         requiresNewTemplate.executeWithoutResult(status -> {
             Instant now = Instant.now();
             int updated = repository.completeClaim(recordId, expectedVersion,
-                    BookingIdempotencyLifecycleStatus.COMPLETED, now, statusCode, responsePayload, now);
+                    BookingIdempotencyLifecycleStatus.COMPLETED, now, statusCode, storedPayload, now);
             if (updated == 0) {
                 log.error("Fencing check failed for claimId={}, version={}. Another claimant may have reclaimed lease",
                         recordId, expectedVersion);
@@ -152,9 +153,17 @@ public class BookingIdempotencyService {
     public void completeClaimWithinTransaction(Long recordId, Long expectedVersion, int statusCode, String responsePayload) {
         Instant now = Instant.now();
         int updated = repository.completeClaim(recordId, expectedVersion,
-                BookingIdempotencyLifecycleStatus.COMPLETED, now, statusCode, responsePayload, now);
+                BookingIdempotencyLifecycleStatus.COMPLETED, now, statusCode, jsonColumnValue(responsePayload), now);
         if (updated == 0) {
             throw new IllegalStateException("Booking idempotency claim was superseded before completion");
         }
+    }
+
+    /**
+     * response_payload is a JSON column, which MySQL rejects for an empty string. A response without a body (for example
+     * 204 on releasing a pending hold) is stored as NULL; readers already treat a 204 as having no representation.
+     */
+    public static String jsonColumnValue(String responsePayload) {
+        return responsePayload == null || responsePayload.isBlank() ? null : responsePayload;
     }
 }
