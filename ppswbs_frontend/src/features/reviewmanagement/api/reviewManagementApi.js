@@ -21,9 +21,9 @@ export function reviewManagementApi(request) {
     createReview(key, body, auth = false) {
       return request('/api/v1/reviews', { method: 'POST', body, idempotencyKey: key, auth });
     },
-    listPublicReviews({ targetType, targetReference, rating, cursor } = {}) {
+    listPublicReviews({ targetType, targetReference, packageId, rating, cursor, limit } = {}) {
       return request('/api/v1/reviews', {
-        method: 'GET', query: { targetType, targetReference, rating, cursor }, auth: false,
+        method: 'GET', query: { targetType, targetReference, packageId, rating, cursor, limit }, auth: false,
       });
     },
     getReview(reviewId, auth = false) {

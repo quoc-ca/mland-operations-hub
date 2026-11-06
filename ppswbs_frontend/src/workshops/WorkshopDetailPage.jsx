@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { getWorkshopPackage, listWorkshopLocations, listWorkshopSessions } from '../api/workshops';
-import WorkshopReviewSummary from '../features/reviewmanagement/ui/WorkshopReviewSummary';
+import PackageReviewSummary from '../features/reviewmanagement/ui/PackageReviewSummary';
+
+/** Sessions shown per page: two rows of three on a wide screen, so the page stays short. */
+const SESSIONS_PER_PAGE = 6;
 
 function formatDate(date) {
   const y = date.getFullYear();
@@ -45,9 +48,18 @@ export function WorkshopDetailPage({ packageId }) {
   const [to, setTo] = useState(formatDate(nextTwoWeeks));
 
   const [sessions, setSessions] = useState([]);
-  const [reviewSessionReference, setReviewSessionReference] = useState(null);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [sessionsError, setSessionsError] = useState(null);
+
+  // The session list is paged on the screen (the server returns every session of the chosen days).
+  const [sessionPage, setSessionPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(sessions.length / SESSIONS_PER_PAGE));
+  const currentPage = Math.min(sessionPage, pageCount - 1);
+  const pagedSessions = sessions.slice(currentPage * SESSIONS_PER_PAGE, (currentPage + 1) * SESSIONS_PER_PAGE);
+  useEffect(() => { setSessionPage(0); }, [sessions]);
+
+  // The package's reviews are always shown at the bottom of this page; the button only scrolls down to them.
+  const reviewRef = useRef(null);
 
   // Load package
   useEffect(() => {
@@ -113,10 +125,6 @@ export function WorkshopDetailPage({ packageId }) {
     }
   }, [pkg, locationId, from, to]);
 
-  useEffect(() => {
-    setReviewSessionReference(null);
-  }, [packageId, locationId, from, to]);
-
   if (loadingPkg) {
     return (
       <main className="container public-page">
@@ -166,6 +174,18 @@ export function WorkshopDetailPage({ packageId }) {
           </p>
           <p className="lead" style={{ fontSize: '16px', lineHeight: '1.6', marginBottom: '20px' }}>
             {pkg.description}
+          </p>
+
+          {/* Reviews are written by people who attended a session, so a session still open for booking has none. What helps
+              someone choosing a package is the reviews of the package, gathered from the sessions already held. */}
+          <p style={{ margin: '0 0 20px' }}>
+            <button
+              type="button"
+              className="button outline"
+              onClick={() => reviewRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })}
+            >
+              Xem đánh giá của gói này ↓
+            </button>
           </p>
 
           <div className="workspace-card" style={{ padding: '18px', backgroundColor: '#fafafa' }}>
@@ -254,7 +274,7 @@ export function WorkshopDetailPage({ packageId }) {
               * Lưu ý: Số chỗ khả dụng là thông tin tham khảo (snapshot); việc giữ chỗ thực tế được đảm bảo khi hoàn tất bước đặt chỗ.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '16px' }}>
-              {sessions.map(s => (
+              {pagedSessions.map(s => (
                 <article
                   key={s.sessionReference}
                   className="workspace-card"
@@ -287,14 +307,6 @@ export function WorkshopDetailPage({ packageId }) {
                   </div>
 
                   <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #eee' }}>
-                    <button
-                      type="button"
-                      className="button outline"
-                      style={{ width: '100%', marginBottom: '8px' }}
-                      onClick={() => setReviewSessionReference(s.sessionReference)}
-                    >
-                      Xem review workshop
-                    </button>
                     <a
                       className="button outline"
                       style={{
@@ -303,7 +315,7 @@ export function WorkshopDetailPage({ packageId }) {
                         pointerEvents: s.customerSelectable && s.remainingCapacity > 0 ? 'auto' : 'none',
                         opacity: s.customerSelectable && s.remainingCapacity > 0 ? 1 : 0.5,
                       }}
-                      href={locationId ? `/workshops/${pkg.packageId}/book?locationId=${locationId}` : undefined}
+                      href={locationId ? `/workshops/${pkg.packageId}/book?locationId=${locationId}&session=${encodeURIComponent(s.sessionReference)}&from=${from}&to=${to}` : undefined}
                     >
                       {s.customerSelectable && s.remainingCapacity > 0 ? 'Chọn lịch này để đặt' : 'Ca không khả dụng'}
                     </a>
@@ -311,13 +323,33 @@ export function WorkshopDetailPage({ packageId }) {
                 </article>
               ))}
             </div>
+
+            {pageCount > 1 && (
+              <nav aria-label="Phân trang các ca workshop" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
+                <button type="button" className="button outline small" disabled={currentPage === 0} onClick={() => setSessionPage(currentPage - 1)}>
+                  ‹ Trước
+                </button>
+                <span style={{ display: 'inline-flex', flexDirection: 'row', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', margin: 0 }}>
+                  Trang
+                  <select value={currentPage} onChange={e => setSessionPage(Number(e.target.value))} aria-label="Chọn trang" style={{ width: 'auto', minWidth: '64px', margin: 0 }}>
+                    {Array.from({ length: pageCount }, (_, index) => (
+                      <option key={index} value={index}>{index + 1}</option>
+                    ))}
+                  </select>
+                  / {pageCount}
+                </span>
+                <button type="button" className="button outline small" disabled={currentPage >= pageCount - 1} onClick={() => setSessionPage(currentPage + 1)}>
+                  Sau ›
+                </button>
+              </nav>
+            )}
           </div>
         )}
       </section>
 
-      {reviewSessionReference && (
-        <WorkshopReviewSummary targetReference={reviewSessionReference} />
-      )}
+      <div ref={reviewRef} style={{ scrollMarginTop: '24px' }}>
+        <PackageReviewSummary packageId={pkg.packageId ?? packageId} packageName={pkg.name} />
+      </div>
     </main>
   );
 }
