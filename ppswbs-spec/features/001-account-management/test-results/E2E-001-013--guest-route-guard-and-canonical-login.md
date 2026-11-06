@@ -88,12 +88,14 @@ get url
 ## 5. Kết quả thực thi
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-06 20:12:00
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Guest truy cập /profile và /sign-in chuyển hướng ngay lập tức về /login bằng replace (không lưu /profile trong history). Đăng nhập với tài khoản hợp lệ điều hướng chuẩn xác về Trang chủ (http://localhost:5173/) với replace, không quay về /profile. Lệnh Back không khôi phục trang /profile private.
+- Evidence screenshot:
+  - Guest guard /login: screenshots/E2E-001-013--guest-guard.jpg
+  - Đăng nhập về Home: screenshots/E2E-001-013--login-home.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->

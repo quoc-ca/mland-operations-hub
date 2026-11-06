@@ -67,12 +67,12 @@ get url
 ## 4. Kết quả thực thi
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-06 20:08:33
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Kiểm thử toàn diện 14/14 alias routes của Account, Address Book và Security (/profile, /personal-profile, /member/personal-profile, /member/profile, /me/profile, /profile/addresses, /member/addresses, /addresses, /edit-profile, /member/edit-profile, /change-password, /member/change-password, /security/password, /security/email) khi ở trạng thái Guest đều lập tức được Route Guard chuyển hướng thay thế (replace) về /login. Tuyệt đối không để lộ bất kỳ thông tin Profile, địa chỉ hay form đổi mật khẩu nào.
+- Evidence screenshot: screenshots/E2E-001-018--alias-matrix.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->

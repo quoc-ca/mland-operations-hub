@@ -136,7 +136,13 @@ console --errors
 - **Steps 6–7:** success UI appears only after server response; overview and edit form show the returned saved name/phone. A `401` instead discards draft and follows E2E-001-015; a `403` retains session/safe Home notice.
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Previous status: PASS on 2026-11-04; route/error assertions added.
+- Latest status: PASS
+- Executed at: 2026-11-06 20:15:08
+- Executed by: Senior QA & System Verification Engineer
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result: Email đăng nhập bị disabled hoàn toàn. Validation client chặn khi Họ tên để trống ('Họ và tên là bắt buộc') và Số điện thoại sai độ dài ('Số điện thoại phải từ 7 đến 30 ký tự'). Nút 'Khôi phục' hoàn nguyên chính xác dữ liệu về snapshot từ server. Cập nhật thành công hiển thị toast 'Thông tin hồ sơ đã được cập nhật thành công' và phản ánh ngay lên overview.
+- Evidence screenshot: screenshots/E2E-001-009--profile-update-success.jpg
+- Bug reference: NONE
 <!-- EXECUTION:END -->
 

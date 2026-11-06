@@ -64,12 +64,12 @@ get url
 ## 4. Kết quả thực thi
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-06 20:12:32
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Khi tài khoản vai trò MEMBER truy cập route quản trị /admin/accounts, Route Guard kích hoạt màn hình 'Từ chối quyền truy cập (403 Forbidden)' an toàn, không rò rỉ danh sách tài khoản nội bộ hay quyền hạn nhạy cảm. Phiên đăng nhập được bảo toàn hoàn hảo (header vẫn hiển thị thông tin thành viên), bấm 'Về trang chủ' điều hướng an toàn về Trang chủ mà không làm mất phiên hoặc ép đăng nhập lại.
+- Evidence screenshot: screenshots/E2E-001-016--forbidden-retained-session.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->

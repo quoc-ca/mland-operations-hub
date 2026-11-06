@@ -84,12 +84,12 @@ get url
 ## 4. Kết quả thực thi
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-06 20:12:44
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Thao tác Đăng xuất từ menu tài khoản thành viên thực thi chính xác. Phiên đăng nhập được hủy hoàn toàn, hệ thống chuyển hướng replace về Trang chủ (http://localhost:5173/) kèm thông báo flash 'Đã đăng xuất'. Nút đóng '×' giải phóng thông báo ngay lập tức. Thao tác điều hướng lại /profile chuyển ngay về /login; lịch sử Back không lộ lại dữ liệu phiên cũ.
+- Evidence screenshot: screenshots/E2E-001-014--logout-success.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->

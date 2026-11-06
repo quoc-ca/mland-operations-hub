@@ -101,6 +101,12 @@ find "Danh mục vai trò"
 - Notice must not disclose whether denial derives from role, status, lifecycle or Workshop scope; no token/UID/error payload appears in DOM or console.
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Previous status: PASS on 2026-11-04; expected navigation changed by FR-041.
+- Latest status: PASS
+- Executed at: 2026-11-06 20:16:06
+- Executed by: Senior QA & System Verification Engineer
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result: Khi tài khoản Member truy cập trực tiếp /admin/roles, hệ thống kích hoạt màn hình chặn phân quyền 403 Forbidden an toàn, không render catalogue vai trò hoặc dữ liệu nội bộ. Nút 'Về trang chủ' đưa người dùng về Home với phiên làm việc được bảo toàn.
+- Evidence screenshot: screenshots/E2E-001-007--admin-roles-guard-resolved.jpg
+- Bug reference: NONE
 <!-- EXECUTION:END -->

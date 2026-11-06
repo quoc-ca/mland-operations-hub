@@ -124,6 +124,14 @@ find "MEMBER"
 - Browser Back after Step 2 must not return to `/login` as an authenticated screen if the implementation uses replace; record the observed URL/DOM in evidence.
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Previous status: PASS on 2026-11-04; lifecycle/history assertions added.
+- Latest status: PASS
+- Executed at: 2026-11-06 20:14:19
+- Executed by: Senior QA & System Verification Engineer
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result: Đăng nhập thành công với tài khoản Member; sau khi đăng nhập điều hướng ngay về Trang chủ (http://localhost:5173/) với replace. Điều hướng tới /profile tải dữ liệu nhanh chóng, ổn định tuyệt đối (zero flicker / no reload loop). Back không làm mất phiên hoặc hiển thị trạng thái hỏng.
+- Evidence screenshot:
+  - Form đăng nhập: screenshots/E2E-001-004--auth-signin.jpg
+  - Màn hình Profile ổn định: screenshots/E2E-001-004--profile-stable.jpg
+- Bug reference: NONE
 <!-- EXECUTION:END -->

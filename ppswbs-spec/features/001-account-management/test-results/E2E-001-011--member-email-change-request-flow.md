@@ -130,7 +130,13 @@ console --errors
 - **Steps 4–5:** after Firebase accepts `verifyBeforeUpdateEmail`, UI confirms request without displaying action URL/code; old email remains in Profile/Header and Mland Account until provider verification plus the normal fresh-identity sync. A session `401` discards draft/Home; `403` retains session/Home safe notice.
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Previous status: PASS on 2026-11-04; identity/session assertions added.
+- Latest status: PASS
+- Executed at: 2026-11-06 20:15:58
+- Executed by: Senior QA & System Verification Engineer
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result: Thao tác yêu cầu đổi email với mật khẩu hiện tại sai kích hoạt lỗi re-auth từ Firebase, hiển thị thông báo lỗi 'Mật khẩu hiện tại không chính xác.'. Form giữ nguyên địa chỉ email mới đã nhập. Phiên làm việc của thành viên được bảo toàn ổn định, không để lộ token hay action code.
+- Evidence screenshot: screenshots/E2E-001-011--email-change-reauth-fail.jpg
+- Bug reference: NONE
 <!-- EXECUTION:END -->
 

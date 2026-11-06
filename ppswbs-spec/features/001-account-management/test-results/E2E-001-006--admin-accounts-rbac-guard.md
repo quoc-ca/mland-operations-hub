@@ -105,6 +105,12 @@ find "Không thể tải danh sách tài khoản"
 - The same Member must still reach canonical `/profile` without re-login, proving `403` retained the session. A Guest is a different case and must go `/login` through E2E-001-013.
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Previous status: PASS on 2026-11-04; expected navigation changed by FR-041.
+- Latest status: PASS
+- Executed at: 2026-11-06 20:16:12
+- Executed by: Senior QA & System Verification Engineer
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result: Khi tài khoản Member truy cập trực tiếp /admin/accounts, hệ thống kích hoạt màn hình chặn phân quyền 403 Forbidden an toàn, chặn toàn bộ cây DOM Admin. Nút 'Về trang chủ' đưa người dùng về Home (http://localhost:5173/) với phiên làm việc được bảo toàn.
+- Evidence screenshot: screenshots/E2E-001-006--admin-accounts-guard-resolved.jpg
+- Bug reference: NONE
 <!-- EXECUTION:END -->

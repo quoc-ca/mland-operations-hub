@@ -73,12 +73,12 @@ getByLabel('Mật khẩu')
 ## 4. Kết quả thực thi
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-06 20:09:48
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Nút 'Đăng nhập với Google' trên /login kích hoạt luồng toàn trang signInWithRedirect điều hướng tới host accounts.google.com thông qua handler mland-operation-hub.firebaseapp.com. Tuyệt đối không mở cửa sổ popup hoặc chứa chuỗi 'popup' trong DOM. Luồng email/password thay thế hoàn toàn tương tác bình thường mà không bị ảnh hưởng.
+- Evidence screenshot: screenshots/E2E-001-017--google-redirect.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->

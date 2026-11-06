@@ -73,12 +73,14 @@ get url
 ## 4. Kết quả thực thi
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-06 20:09:04
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Các route công khai của Workshop (/workshops, /workshop-booking/lookup, /workshop-booking/access) giữ nguyên trạng thái cho Guest truy cập tự do, không bị ép chuyển hướng đăng nhập. Ngược lại, route tạo Custom Design Request (/design-requests/new) được bảo vệ bằng Route Guard, lập tức chuyển hướng replace về /login.
+- Evidence screenshot:
+  - Workshop public: screenshots/E2E-001-020--workshops-public.jpg
+  - Design request guard /login: screenshots/E2E-001-020--route-boundary.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->

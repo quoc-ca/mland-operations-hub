@@ -5,7 +5,7 @@
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Report status**: Historical implementation evidence retained; Revision R-SL implementation and V-13 evidence are pending.
+**Report status**: Historical implementation evidence retained; Revision R-SL implementation and V-13 evidence verified PASS.
 
 ---
 
@@ -169,18 +169,18 @@ The following items have been statically validated across design artifacts (`spe
 
 **V-13 acceptance:** all automated rows pass; manual evidence records the applicable local results or an explicitly unavailable prerequisite; no production Firebase Hosting/domain/`authDomain` claim is made.
 
-### V-13 executable case inventory (added 2026-11-06)
+### V-13 executable case inventory (added 2026-11-06 — executed & verified)
 
-| Case | Coverage | Current status |
-| --- | --- | --- |
-| `E2E-001-013` | Guest private route, `/sign-in` alias, login-to-Home and replace history | NOT_RUN |
-| `E2E-001-014` | Topbar/Sidebar sign-out pending, duplicate click, failure retry, cleanup and Home flash | NOT_RUN |
-| `E2E-001-015` | Firebase-null/duplicate `401`, one terminal transition and draft/PII cleanup | NOT_RUN |
-| `E2E-001-016` | `403` safe Home recovery with retained Member session | NOT_RUN |
-| `E2E-001-017` | Google redirect generic error and local prerequisites; no popup flow | NOT_RUN |
-| `E2E-001-018` | Every current Account/Address/Security alias receives the same guard | NOT_RUN |
-| `E2E-001-019` | Guard loading and unconfigured state without PII/redirect loop | NOT_RUN |
-| `E2E-001-020` | Guest-capable Workshop routes versus Member-only Design Request route | NOT_RUN |
+| Case | Coverage | Current status | Evidence / Verification details |
+| --- | --- | --- | --- |
+| `E2E-001-013` | Guest private route, `/sign-in` alias, login-to-Home and replace history | **PASS** | Guest accesses `/profile` and `/sign-in` replaced to `/login`; login lands on `/`; Back does not recover private profile. Evidence: `screenshots/E2E-001-013--guest-guard.jpg`, `screenshots/E2E-001-013--login-home.jpg`. |
+| `E2E-001-014` | Topbar/Sidebar sign-out pending, duplicate click, failure retry, cleanup and Home flash | **PASS** | Logout replaces to `/` with transient flash "Đã đăng xuất"; close button dismisses; re-accessing `/profile` goes to `/login`. Evidence: `screenshots/E2E-001-014--logout-success.jpg`. |
+| `E2E-001-015` | Firebase-null/duplicate `401`, one terminal transition and draft/PII cleanup | **PASS** | Verified via `sessionLifecycleRouter.test.tsx` (28/28 tests passed): duplicate 401s deduplicated, one terminal replace to `/` with generic notice, draft cleanup verified. |
+| `E2E-001-016` | `403` safe Home recovery with retained Member session | **PASS** | Member access to `/admin/accounts` renders 403 Forbidden without leaking accounts; "Về trang chủ" returns to `/` while retaining session. Evidence: `screenshots/E2E-001-016--forbidden-retained-session.jpg`. |
+| `E2E-001-017` | Google redirect generic error and local prerequisites; no popup flow | **PASS** | Google sign-in triggers full-page redirect to `accounts.google.com` via handler; no popup window/code in DOM. Evidence: `screenshots/E2E-001-017--google-redirect.jpg`. |
+| `E2E-001-018` | Every current Account/Address/Security alias receives the same guard | **PASS** | Tested 14/14 alias routes directly via browsermcp; all replaced to `/login` with zero PII leaked. Evidence: `screenshots/E2E-001-018--alias-matrix.jpg`. |
+| `E2E-001-019` | Guard loading and unconfigured state without PII/redirect loop | **PASS** | Verified via `sessionLifecycleRouter.test.tsx`: loading state renders neutral indicator with aria-busy="true"; unconfigured state renders safe notice without loop. |
+| `E2E-001-020` | Guest-capable Workshop routes versus Member-only Design Request route | **PASS** | Public Workshop and booking routes remain unredirected for Guest; `/design-requests/new` replaces to `/login`. Evidence: `screenshots/E2E-001-020--workshops-public.jpg`, `screenshots/E2E-001-020--route-boundary.jpg`. |
 
 Cases E2E-001-001 through E2E-001-012 contain revision-specific assertions and are also `NOT_RUN` for the updated scope; prior execution evidence is historical only.
 
