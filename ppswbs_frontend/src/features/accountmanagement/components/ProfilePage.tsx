@@ -36,15 +36,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const emailSectionRef = useRef<HTMLDivElement>(null);
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => firebaseAuthClient.getCurrentUser());
+  const initialAuthCheckedRef = useRef(false);
 
   useEffect(() => {
     const unsub = firebaseAuthClient.onAuthStateChanged(u => {
       setCurrentUser(u);
+      if (!initialAuthCheckedRef.current) {
+        initialAuthCheckedRef.current = true;
+        return;
+      }
+      if (!u) {
+        navigate('/');
+      }
     });
     return () => {
       unsub();
     };
-  }, []);
+  }, [navigate]);
 
   const activeUser = currentUser || firebaseAuthClient.getCurrentUser();
   // Defensive provider check: hide password section and quick-action trigger if !user.providerData.some(p => p.providerId === 'password')

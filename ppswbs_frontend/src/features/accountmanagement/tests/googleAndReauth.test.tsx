@@ -186,6 +186,75 @@ describe('T064–T068: Google Sign-In & Credential Re-authentication (FR-002, FR
       expect(mockNavigate).not.toHaveBeenCalled();
       expect(sessionStorage.getItem("mland_google_redirect_pending")).toBeNull();
     });
+
+    it('handles popup-closed-by-user error gracefully with friendly message', async () => {
+      vi.spyOn(firebaseAuthClient, 'isConfigured').mockReturnValue(true);
+      vi.spyOn(firebaseAuthClient, 'getRedirectAuthResult').mockResolvedValue(null);
+      vi.spyOn(firebaseAuthClient, 'signInWithGoogleRedirect').mockRejectedValue({
+        code: 'auth/popup-closed-by-user',
+      });
+
+      render(
+        <MemoryRouter>
+          <AuthPage mode="signin" />
+        </MemoryRouter>
+      );
+
+      const googleBtn = screen.getByRole('button', { name: /đăng nhập với google/i });
+      fireEvent.click(googleBtn);
+
+      expect(
+        await screen.findByText(
+          'Cửa sổ đăng nhập Google đã bị đóng trước khi hoàn tất xác thực. Vui lòng thử lại.'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('handles popup-blocked error gracefully with friendly message', async () => {
+      vi.spyOn(firebaseAuthClient, 'isConfigured').mockReturnValue(true);
+      vi.spyOn(firebaseAuthClient, 'getRedirectAuthResult').mockResolvedValue(null);
+      vi.spyOn(firebaseAuthClient, 'signInWithGoogleRedirect').mockRejectedValue({
+        code: 'auth/popup-blocked',
+      });
+
+      render(
+        <MemoryRouter>
+          <AuthPage mode="signin" />
+        </MemoryRouter>
+      );
+
+      const googleBtn = screen.getByRole('button', { name: /đăng nhập với google/i });
+      fireEvent.click(googleBtn);
+
+      expect(
+        await screen.findByText(
+          'Trình duyệt đã chặn cửa sổ đăng nhập (popup). Vui lòng cấp quyền cho phép mở popup trên trình duyệt.'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('handles auth/provider-already-linked collision error with guidance to use password credential', async () => {
+      vi.spyOn(firebaseAuthClient, 'isConfigured').mockReturnValue(true);
+      vi.spyOn(firebaseAuthClient, 'getRedirectAuthResult').mockResolvedValue(null);
+      vi.spyOn(firebaseAuthClient, 'signInWithGoogleRedirect').mockRejectedValue({
+        code: 'auth/provider-already-linked',
+      });
+
+      render(
+        <MemoryRouter>
+          <AuthPage mode="signin" />
+        </MemoryRouter>
+      );
+
+      const googleBtn = screen.getByRole('button', { name: /đăng nhập với google/i });
+      fireEvent.click(googleBtn);
+
+      expect(
+        await screen.findByText(
+          'Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.'
+        )
+      ).toBeInTheDocument();
+    });
   });
 
   describe('T066: ProfilePage In-Place Password Re-authentication & Provider Check', () => {

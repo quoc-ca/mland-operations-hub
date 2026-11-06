@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { useHttp } from '../api/useHttp';
 import { useCurrentAccount } from '../../features/accountmanagement/hooks/useCurrentAccount';
@@ -13,6 +13,7 @@ import './topbar.css';
  * Reusable across Landing Page and all application feature pages.
  */
 export default function MainTopbar() {
+  const navigate = useNavigate();
   const { status, signOut } = useAuth();
   const http = useHttp();
   const location = useLocation();
@@ -268,6 +269,7 @@ export default function MainTopbar() {
                     onClick={async () => {
                       setIsDropdownOpen(false);
                       await signOut();
+                      navigate('/');
                     }}
                     role="menuitem"
                   >

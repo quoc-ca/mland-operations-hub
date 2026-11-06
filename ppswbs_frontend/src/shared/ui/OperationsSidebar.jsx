@@ -1,11 +1,12 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { useLanguage } from '../i18n/I18nProvider';
 import { getFirebaseAuth } from '../auth/firebaseSession';
 import '../../ota-connectivity/ota-connectivity.css';
 
 export function OperationsSidebar() {
+  const navigate = useNavigate();
   const location = useLocation();
   const { pathname, search } = location;
   const searchParams = new URLSearchParams(search);
@@ -190,7 +191,10 @@ export function OperationsSidebar() {
             <button
               type="button"
               className="ota-signout-btn"
-              onClick={signOut}
+              onClick={async () => {
+                await signOut();
+                navigate('/');
+              }}
               title={isVi ? 'Đăng xuất khỏi hệ thống' : 'Sign out'}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

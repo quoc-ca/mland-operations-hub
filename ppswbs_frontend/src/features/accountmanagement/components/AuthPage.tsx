@@ -19,14 +19,21 @@ function mapFirebaseError(error: any): string {
     code === 'auth/account-exists-with-different-credential' ||
     code === 'auth/credential-already-in-use' ||
     code === 'auth/email-already-in-use' ||
+    code === 'auth/provider-already-linked' ||
     msg.includes('account-exists-with-different-credential') ||
     msg.includes('different-credential') ||
+    msg.includes('provider-already-linked') ||
     msg.includes('EMAIL_EXISTS')
   ) {
     return 'Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.';
   }
 
   switch (code) {
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return 'Cửa sổ đăng nhập Google đã bị đóng trước khi hoàn tất xác thực. Vui lòng thử lại.';
+    case 'auth/popup-blocked':
+      return 'Trình duyệt đã chặn cửa sổ đăng nhập (popup). Vui lòng cấp quyền cho phép mở popup trên trình duyệt.';
     case 'auth/invalid-credential':
     case 'auth/user-not-found':
     case 'auth/wrong-password':
@@ -119,8 +126,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
           err?.code === 'auth/account-exists-with-different-credential' ||
           err?.code === 'auth/credential-already-in-use' ||
           err?.code === 'auth/email-already-in-use' ||
+          err?.code === 'auth/provider-already-linked' ||
           err?.message?.includes('account-exists-with-different-credential') ||
           err?.message?.includes('different-credential') ||
+          err?.message?.includes('provider-already-linked') ||
           err?.message?.includes('EMAIL_EXISTS');
 
         if (isCollision) {
@@ -204,6 +213,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
     setRetryableError(false);
     setPending(true);
     try {
+      // Ensure any leftover residual session is cleared so signInWithGooglePopup acts as a clean sign-in
+      if (firebaseAuthClient.getCurrentUser()) {
+        try {
+          await firebaseAuthClient.signOut();
+        } catch {
+          // ignore
+        }
+      }
+
       // In browser runtime (outside Vitest unit tests), use signInWithGooglePopup to avoid Chrome localhost storage partitioning failure
       if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
         const user = await firebaseAuthClient.signInWithGooglePopup();
@@ -228,18 +246,32 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
       sessionStorage.setItem('mland_google_redirect_pending', 'true');
       await firebaseAuthClient.signInWithGoogleRedirect();
     } catch (err: any) {
+      console.error('[GoogleSignIn] error caught:', err);
       sessionStorage.removeItem('mland_google_redirect_pending');
       setPending(false);
       const isCollision =
         err?.code === 'auth/account-exists-with-different-credential' ||
         err?.code === 'auth/credential-already-in-use' ||
         err?.code === 'auth/email-already-in-use' ||
+        err?.code === 'auth/provider-already-linked' ||
         err?.message?.includes('account-exists-with-different-credential') ||
         err?.message?.includes('different-credential') ||
+        err?.message?.includes('provider-already-linked') ||
         err?.message?.includes('EMAIL_EXISTS');
 
       if (isCollision) {
         setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
+      } else if (err instanceof ApiError) {
+        if (err.status === 401) {
+          setGeneralError('Thông tin đăng nhập không hợp lệ hoặc phiên đã hết hạn.');
+        } else if (err.status === 403) {
+          setGeneralError('Tài khoản của bạn hiện đang bị tạm khóa hoặc không đủ điều kiện.');
+        } else if (err.retryable) {
+          setGeneralError('Dịch vụ tài khoản tạm thời gián đoạn. Vui lòng bấm thử lại.');
+          setRetryableError(true);
+        } else {
+          setGeneralError(err.message || 'Lỗi khởi tạo tài khoản hệ thống.');
+        }
       } else {
         setGeneralError(mapFirebaseError(err));
       }
