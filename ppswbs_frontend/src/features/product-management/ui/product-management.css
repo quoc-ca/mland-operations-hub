@@ -252,3 +252,6 @@
 .batch-results{margin:6px 0 0;padding-left:18px}
 /* An outcome notice under the button it belongs to: always on its own line, also inside a wrapping row of buttons. */
 .pm-theme .notice-at{flex:0 0 100%;width:100%;box-sizing:border-box;margin:12px 0 0}
+
+.pm-theme .data-row.products.with-actions{grid-template-columns:340fr 190fr 190fr 170fr 260fr}
+.pm-theme .row-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
