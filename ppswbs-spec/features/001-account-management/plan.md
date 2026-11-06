@@ -13,7 +13,7 @@
 
 ## Summary
 
-FE-001 delivers the Mland account lifecycle: email/password and Google redirect sign-in, in-place credential re-authentication, profile/credential self-service, Admin provisioning and maintenance of internal Staff/Manager accounts, account suspension/restoration, a shared backend identity gate, a typed internal facade for Workshop consumers, and member shipping address book management (Shopee model) with GHTK-compatible administrative divisions and order snapshot facade for FE-008 Retail Order & Fulfillment. It also establishes system-wide timezone standardization to Vietnam local time (`Asia/Ho_Chi_Minh`, UTC+7) for MySQL persistence, JDBC connection, and API responses. Email verification is observed on entry to a capability that requires it: the frontend reloads Firebase user state, forces a fresh bearer, synchronizes the Account snapshot, and the backend still decides the command. No Firebase callback/webhook, custom action handler, or background verification job is part of V1. This plan reflects every clarification session through 2026-11-04.
+FE-001 delivers the Mland account lifecycle: email/password and Google redirect sign-in, in-place credential re-authentication, profile/credential self-service, Admin provisioning and maintenance of internal Staff/Manager accounts, account suspension/restoration, a shared backend identity gate, a typed internal facade for Workshop consumers, and member shipping address book management (Shopee model) with GHTK-compatible administrative divisions and order snapshot facade for FE-008 Retail Order & Fulfillment. It also establishes system-wide timezone standardization to Vietnam local time (`Asia/Ho_Chi_Minh`, UTC+7) for MySQL persistence, JDBC connection, and API responses. Email verification is observed on entry to a capability that requires it: the frontend reloads Firebase user state, forces a fresh bearer, synchronizes the Account snapshot, and the backend still decides the command. No Firebase callback/webhook, custom action handler, or background verification job is part of V1. This plan reflects every clarification session through 2026-11-06, including the R-SL browser-session revision.
 
 **Technical approach**: React + Vite SPA (client-side); Java 21 / Spring Boot REST / Spring Modulith backend; Firebase Authentication for identity/credential management; MySQL + Flyway migrations; JPA/Spring Data persistence; FE-07 (Notification) and FE-003 (Workshop) as downstream consumers.
 
@@ -283,3 +283,22 @@ No cache, event replication, personnel identifier, generic RBAC store, app sessi
 | D20 | READY | `approval.md` drafted for Tech Lead Phan Sơn sign-off |
 
 **Implementation resume condition**: OpenAPI 3.1 regenerated ✅; verification.md revised ✅; tasks.md aligned ✅; Tech Lead approval record confirmed.
+
+---
+
+## Revision 2026-11-06 — shared browser-session implementation handoff
+
+This revision adds the frontend-only shared lifecycle required by FR-041 and `spec-general.md`; it creates no REST route, OpenAPI change, database change, Firebase project, emulator, Hosting configuration, or backend authorization change.
+
+| Proposed frontend unit | Responsibility and public use | Boundary/invariant |
+| --- | --- | --- |
+| `shared/auth/AuthProvider` (revised) | Publishes the authoritative Firebase session state (`loading`, `unconfigured`, `signed-out`, `signed-in`) and emits an explicit terminal outcome for user sign-out or session loss. | Does not navigate or own account/role data. A user-sign-out outcome wins its matching Firebase-null observation. |
+| `shared/auth/SessionNavigationBoundary` (new) | Consumes the provider outcome once; clears registered private UI/draft state; invokes Router navigation and Home flash state. | The only client unit permitted to execute terminal session navigation. First `SESSION_LOST` wins until a new signed-in session. |
+| `shared/auth/RequireSession` (revised) | Guards declared authenticated routes after `AuthProvider` resolves. | `loading` renders neutral non-PII UI; `unconfigured` renders unavailable with no redirect; signed-out uses `/login` with `replace`. |
+| Router route configuration (revised) | Declares public/Member/internal route categories, canonical login and Account URLs, compatibility aliases. | `/sign-in` replaces to `/login`; aliases keep the same guard; public Feature-003.1 booking routes remain public. |
+| `Home` session notice presentation (new/revised) | Reads transient `location.state` session notice, renders localized safe notice, lets user dismiss it. | No browser storage; clear on dismiss/leave; never render token/provider detail. |
+| `FirebaseAuthClient` / `AuthPage` (revised) | Supports Google `signInWithRedirect` and `getRedirectResult`; maps redirect errors. | Popup APIs, popup handlers and popup acceptance are removed from supported scope. Collision directs to Email/Password; other errors offer safe retry/alternative method. |
+
+**Data flow:** UI sign-out / Firebase observer / authenticated HTTP client → `AuthProvider` outcome → `SessionNavigationBoundary` → registered private-state cleanup → `navigate('/', { replace: true, state: { sessionNotice } })` → Home notice. A guest route resolution flows `Router → RequireSession → navigate('/login', { replace: true })`; successful authentication flows `AuthPage → navigate('/', { replace: true })`. A `403` is an authorization outcome sent to the same boundary as a non-terminal safe-home notice and does not call Firebase sign-out.
+
+**Revision-specific gate:** implementation starts only after the approval revision in `approval.md` is present. Completion requires the new unstarted tasks and V-13 verification evidence; historical task checkmarks and V-12 evidence do not prove FR-041 or redirect-only scope.

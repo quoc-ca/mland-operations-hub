@@ -126,7 +126,7 @@
 
 ### Failure, recovery, and integrity
 
-1. `401`: obtain usable sign-in; retain only safe navigation/form context. `403`: do not auto-retry. `409`: reload/reconcile. `503`: explicit retry with safe input retained.
+1. `401`: report shared session loss, discard private draft/state and return Home; do not retain navigation/form context for restoration. `403`: retain session, safe Home notice, and do not auto-retry. `409`: reload/reconcile. `503`: explicit retry with safe input retained.
 2. No response contains stack trace, raw token, Firebase UID or unauthorized target detail.
 3. Preview/staging/production origin and operational behavior are not defined by this local decision and remain blocked.
 
@@ -162,7 +162,7 @@
 ### Failure, recovery, and integrity
 
 1. A still-unverified user sees verification/resend guidance; Firebase Web SDK sends a new verification email only after explicit owner action. After successful send, `localStorage` retains only `emailVerificationResendUntil.<accountId>` expiry timestamp for 90 seconds, including browser restart; it stores no email, provider UID, token, or action code. FE-07 does not deliver this identity-provider email.
-2. Firebase reload/token failure, `401`, `403`, or `503` during synchronization keeps Profile save unstarted. Missing/expired session discards Profile draft and directs to sign-in; other temporary failures retain safe input and offer explicit reload-icon retry. The UI never automatically retries Profile save.
+2. Firebase reload/token failure, `401`, `403`, or `503` during synchronization keeps Profile save unstarted. Missing/expired session discards Profile draft and follows WF-11 to Home; `403` retains the session and uses the safe Home notice; other temporary failures retain safe input and offer explicit reload-icon retry. The UI never automatically retries Profile save.
 3. A verification completed on a different browser/device has no local Firebase session/action callback requirement. On the owner’s next sign-in and Profile entry, this workflow observes the verified identity and synchronizes it.
 4. Email change uses Firebase `verifyBeforeUpdateEmail` after in-place re-authentication via `reauthenticateWithCredential` using current password and identity email (form requires current password and proposed new email). Until the new address verifies, Firebase and Account retain the old address; no pending address is persisted in Mland. On re-authentication failure, only current password is cleared and new email is retained in ephemeral state. The owner can repeat the same identity-provider flow to resend/change the proposed address.
 5. Raw Firebase email action links/codes are not rendered, stored, logged, forwarded to the backend, or included in audit metadata. There is no concurrency-sensitive business mutation in the synchronization itself; repeated successful checks are idempotent snapshot writes.
@@ -214,3 +214,20 @@
 2. Facade queries `member_addresses` for the given account ID and returns `Optional<MemberAddressSnapshot>`.
 3. FE-008 clones all snapshot fields (`recipientName`, `phoneNumber`, `provinceId`, `provinceName`, `districtId`, `districtName`, `wardId`, `wardName`, `hamletId`, `hamletName`, `detailAddress`, `addressType`) directly into its order persistence.
 4. Subsequent modifications or deletions of the address in FE-001 have zero side effects on existing FE-008 orders.
+
+---
+
+## WF-11: Shared browser session lifecycle and route recovery
+
+- **Trigger and actor**: Any browser user; triggers are explicit sign-out, Firebase observer null after initialization, first protected-request `401`, protected-route resolution, `403`, `loading`, or `unconfigured` state.
+- **Preconditions and authorization**: `AuthProvider` is the sole session source. Backend remains the authority for every protected request and feature-specific role/scope decision.
+
+1. `AuthProvider` exposes `loading`, `unconfigured`, `signed-out`, or `signed-in`; `RequireSession` renders no PII during `loading` and safe unavailable UI during `unconfigured` without navigation.
+2. For a resolved `signed-out` user attempting a Member/internal route, `RequireSession` performs `replace('/login')`. `/sign-in` independently performs `replace('/login')`. A successful email/password or Google redirect sign-in always `replace`s to `/`; no `returnTo` state is carried.
+3. Explicit sign-out disables the initiating entry point. On Firebase success it emits `USER_SIGN_OUT`. `SessionNavigationBoundary` consumes it once, clears registered private state/drafts, and `replace`s to `/` with transient “Đã đăng xuất” notice. A Firebase-null observer callback caused by that call is ignored for navigation.
+4. Firebase-null after initial resolution or the first authenticated `401` emits `SESSION_LOST`. The boundary consumes the first such outcome only until a later signed-in snapshot, discards private state/drafts, and `replace`s to `/` with generic “Phiên đã kết thúc, vui lòng đăng nhập lại” notice.
+5. A sign-out failure emits no terminal outcome: the current page remains interactive, the pending control re-enables, and a safe retry error is shown.
+6. A `403` is not a sign-out. The boundary retains session/private input, `replace`s to `/`, and passes only a generic access-denied notice. It reveals no role, lifecycle, or Workshop-scope detail.
+7. Home displays the navigation-state notice until dismissal or leaving Home. It never writes the notice to storage. Cleanup and recovery never store/restore passwords, ID tokens, refresh credentials, or private drafts.
+
+**Google branch:** AuthPage starts only `signInWithRedirect`; on return it calls `getRedirectResult`, bootstraps the account, then follows step 2. `auth/account-exists-with-different-credential` directs to Email/Password with no merge/link. Any other redirect error is safe generic retry/alternative-method guidance. No popup branch exists.

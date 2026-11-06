@@ -1,11 +1,11 @@
 # Verification Report: Account Management (FE-001)
 
 **Date created**: 2026-11-03
-**Date updated**: 2026-11-04
+**Date updated**: 2026-11-06
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Report status**: FULL IMPLEMENTATION VERIFIED (FRONTEND & BACKEND)
+**Report status**: Historical implementation evidence retained; Revision R-SL implementation and V-13 evidence are pending.
 
 ---
 
@@ -142,6 +142,23 @@ The following items have been statically validated across design artifacts (`spe
 
 ---
 
+## 4.6 Revision R-SL — Shared session lifecycle & redirect-only Google (V-13)
+
+**Status: IMPLEMENTATION PENDING — no execution result is claimed by this design revision.** Historical V-12/popup-era assertions do not satisfy this revision.
+
+| Coverage | Expected evidence/result |
+| --- | --- |
+| Account aliases | Router integration covers every Profile/Address/Security canonical URL and compatibility alias; all are guarded identically. |
+| Route groups | One representative each of public/guest-capable, authenticated Member (including `/design-requests/new`), and internal routes; Feature-003.1 booking remains Guest-capable. |
+| Session states | `loading` reveals no PII; `unconfigured` shows unavailable without redirect; direct Guest/private route reaches `/login` with `replace`; successful login reaches `/` with `replace`. |
+| Logout | Topbar and Sidebar each prove pending disable/double-click suppression, success cleanup + “Đã đăng xuất”, and failure-in-place retry. |
+| Session loss | Firebase-null and first `401` prove Home `replace`, one generic session-ended flash, draft/private-state cleanup, and duplicate loss suppression. |
+| Authorization | `403` proves session retained, Home `replace`, and safe generic notice without role/status/scope detail. |
+| Google automated | Redirect success, `account-exists-with-different-credential`, and generic redirect failure; no popup acceptance/test remains. |
+| Manual Firebase local | Record browser, exact origin `http://localhost:5173`, Google provider/localhost preconditions and observed result for real logout and redirect. Collision is recorded only when a suitable test identity is available. Never retain token, secret, password, UID or action code. |
+
+**V-13 acceptance:** all automated rows pass; manual evidence records the applicable local results or an explicitly unavailable prerequisite; no production Firebase Hosting/domain/`authDomain` claim is made.
+
 ## 5. Sign-Off Conditions
 
 Do **NOT** sign off FE-001 or hand off to production until:
@@ -149,3 +166,4 @@ Do **NOT** sign off FE-001 or hand off to production until:
 2. Quickstart scenarios V-01 through V-09 have recorded positive execution outcomes.
 3. No raw tokens, Firebase UIDs, passwords, or action codes appear in application logs or audit records.
 4. `approval.md` is confirmed by Tech Lead Phan Sơn.
+5. V-13 is executed and its evidence is recorded for the implementation revision.

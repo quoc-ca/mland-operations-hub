@@ -100,7 +100,7 @@
 - [x] T017 [US1] Implement `useCurrentAccount.ts` in `ppswbs_frontend/src/features/accountmanagement/hooks/useCurrentAccount.ts`:
   - On Firebase auth state change: calls `POST /accounts/me` with current bearer
   - Active account → navigate to Home
-  - Error states: `401` → sign-in; `403` → eligibility guidance; `503` → explicit retry; never infer old role/scope
+  - Historical error-state note superseded for shared recovery by R-SL: `401` → shared Home session-loss flow; `403` → retain session and safe Home notice; `503` → explicit retry; never infer old role/scope
 - [x] T018 [US1] Implement `AuthPage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/AuthPage.tsx`:
   - Email/password registration and sign-in forms; show configured provider buttons only when available
   - Duplicate-submit pending state; do not expose Account existence in error messages
@@ -341,6 +341,22 @@
 
 ---
 
+## Phase 10: Revision R-SL — Shared session lifecycle & Google redirect-only handoff (NOT STARTED)
+
+**Scope guard**: These tasks implement FR-041 and the shared contract in `spec-general.md`. They must not change REST/OpenAPI, database schema, Firebase project, emulator/Hosting setup, or backend role/scope authorization. Existing `[x]` tasks do not evidence this phase.
+
+- [ ] T069 [P] [R-SL] Revise `AuthProvider` and the authenticated HTTP client so Firebase-null and `401` report normalized terminal outcomes, with `USER_SIGN_OUT` precedence and first-session-loss deduplication until a new signed-in state.
+- [ ] T070 [R-SL] Add the Router-level `SessionNavigationBoundary` and private-state cleanup registration. It alone clears drafts/private UI state and performs Home `replace` navigation/flash for user sign-out and session loss; sign-out failure remains retryable in place.
+- [ ] T071 [R-SL] Revise `RequireSession` and route configuration: neutral non-PII `loading`, non-redirecting `unconfigured`, guest private-route `replace('/login')`, `/sign-in` compatibility `replace('/login')`, and login success `replace('/')` without `returnTo`.
+- [ ] T072 [R-SL] Classify/apply guards to every Account/Profile/Address/Security canonical URL and alias, `/design-requests/new`, representative internal routes, while preserving public browsing, Basic AI, public review, and Feature-003.1 booking/lookup/access/payment-return routes.
+- [ ] T073 [P] [R-SL] Replace page-owned logout/session navigation in Topbar, Sidebar, Profile and feature hooks with the shared action/outcome boundary; add Home transient localized notice UI. Do not use browser storage for notices/drafts or retain passwords/tokens.
+- [ ] T074 [R-SL] Retain valid session for `403`, route Home with safe generic notice, and ensure no role/lifecycle/scope detail is rendered from the shared recovery path.
+- [ ] T075 [P] [R-SL] Remove Google popup helper/handler/UI/test coverage from supported code; retain and test only redirect initiation/result, collision password guidance, and generic redirect retry/Email-Password alternative.
+- [ ] T076 [R-SL] Add Router integration tests: every Account/Address/Security alias, representative public/Member/internal routes, direct guest/private access, sign-in Home destination, `replace` history, loading/no-PII, unconfigured/no-redirect, `403`, duplicate `401`, cleanup, Topbar/Sidebar logout pending/double-click/failure-retry.
+- [ ] T077 [R-SL] Record manual local Firebase evidence in `verification.md`: browser/origin/outcome for real logout and Google redirect; collision only if a suitable test identity exists. Do not record token, secret, action code, or password.
+
+**Checkpoint**: V-13 passes automated Router coverage and the required local Firebase evidence is recorded. Production Firebase Hosting/domain/`authDomain` remains a release decision and is not claimed by this checkpoint.
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -435,8 +451,8 @@ After Phase 2 completes:
 - Code refactoring prerequisite: code-level `activeLocationIds` must be renamed to canonical `activeWorkshopLocationIds` across entities, DTOs, and facade types during implementation.
 - OpenAPI contract: `contracts/account-management.openapi.yaml` has been regenerated to full OpenAPI 3.1.0 specification.
 
-**Total tasks**: 68 (including Phase 6 US6 shipping addresses and Phase 9 Google/re-auth tasks)
+**Total tasks**: 77 (including Phase 6 US6 shipping addresses, Phase 9 Google/re-auth tasks, and unstarted Revision R-SL T069–T077)
 **By story**: Setup 5 | Foundational 7 | US1 7 | US2 7 | US3 8 | US4 5 | US5 6 | Polish 7
 **Parallel opportunities**: 32 tasks marked [P]
-**MVP scope**: Phases 1–6 tasks (T001–T037) + Phase 8 required polish (T044–T046, T048–T050). Phase 7 US5 (T038–T043) and WCAG scan (T047) are deferred to full release.
+**MVP scope**: Historical phases retain their original scope. Revision R-SL is a separate approved frontend handoff: T069–T077 and V-13 must be completed before this session/navigation revision is accepted. Phase 7 US5 (T038–T043) and WCAG scan (T047) remain deferred to full release.
 **Suggested MVP**: Complete US1 (Phase 3) alone first → validate independently → proceed to US2, US3, US4

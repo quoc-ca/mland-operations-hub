@@ -153,3 +153,18 @@ No cache, event replication, personnel identifier, generic RBAC store, app sessi
 ## Reality check
 
 Existing backend paths and completed task markers only show that code exists. They do not prove revised effective-scope semantics, the FE-003 facade contract, local CORS policy, error ownership, or that MySQL audit schema matches JPA validation. The minimum credible next path is contract/data-model reconciliation (including the explicit audit-outcome choice), plan/tasks/verification regeneration, then a scoped Tech Lead approval record. Adding a cache, event copy, new identity type, cross-module lock, `ddl-auto=update`, or a Flyway bypass would add complexity or hide failure without closing these gaps.
+
+---
+
+## Revision R-SL: shared session-navigation boundary (proposed units; approved design scope)
+
+| Unit | Status | Public responsibility | Allowed dependencies |
+| --- | --- | --- | --- |
+| `shared/auth/AuthProvider` | existing, revision required | Firebase session snapshot and terminal outcome emission | Firebase client only; no Router navigation, account data or role decision |
+| `shared/auth/SessionNavigationBoundary` | proposed | one-time cleanup, flash construction and `replace` navigation for `USER_SIGN_OUT`, `SESSION_LOST`, or safe `403` recovery | Router, AuthProvider, registered private-state cleanup interface |
+| `shared/auth/RequireSession` | existing, revision required | resolved guest guard and neutral/unavailable states | AuthProvider, Router only |
+| Router route registry | existing, revision required | applies public/Member/internal inventory, canonical URLs and aliases | RequireSession; feature route declarations |
+| Home notice component | proposed | renders/dismisses transient navigation-state flash | Router location state and shared i18n; no storage |
+| `FirebaseAuthClient` / `AuthPage` | existing, revision required | redirect Google initiation/result/error mapping | Firebase Web SDK redirect API only |
+
+The session source has one direction: `Firebase observer or HTTP outcome → AuthProvider → SessionNavigationBoundary → cleanup/navigation → Router/Home`. `useCurrentAccount` is downstream of a signed-in snapshot and cannot emit terminal navigation. Server responses remain authoritative: `401` reports session loss; `403` reports authorization denial and retains the session. No module stores a password, token, refresh credential, notice, or discarded private draft.
