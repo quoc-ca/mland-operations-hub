@@ -1,11 +1,11 @@
 # General Spec
 
 **Date created**: 2026-09-29
-**Date updated**: 2026-10-31
+**Date updated**: 2026-11-06
 **Author**: Phan Son
 **Last updated by**: Phan Sơn
 
-**Version**: 0.6
+**Version**: 0.7
 **Status**: Working Agreement
 
 > This working agreement summarizes product context and shared design constraints. [Report 2 scope](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/01-scope-purpose.md), [constraints](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/02-assumptions-constraints.md), and [decision evidence](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/07-evidences.md) govern business scope; Report 3 governs detailed requirements. The [constitution](.specify/memory/constitution.md) governs architecture. This update records the group's confirmed technical decisions; it does not reconcile unrelated business-source conflicts or approve feature designs.
@@ -53,6 +53,28 @@
 **MFA:** V1 does not require MFA, Firebase Identity Platform, or a forced fixed/eight-hour session re-login. Idle expiry is handled by Firebase token lifetime alone. Firebase reauthentication remains limited to Firebase-sensitive credential changes (e.g. email or password update via Firebase); protected Mland commands recheck current account authorization at execution time.
 
 **Post-authentication routing:** After a successful sign-in, every role is routed to `/`. Feature dashboards are outside FE-001 scope. Unverified users see a non-blocking email-verification reminder; per-feature access controls enforce their own verified-email requirement.
+
+### Shared browser session and navigation lifecycle (approved revision 2026-11-06)
+
+This is the canonical client-side session/navigation contract for the React application. It standardizes browser behavior only: it does not change the Firebase project, REST/OpenAPI contracts, MySQL schema, backend authorization, or feature-owned RBAC/scope decisions. `AuthProvider` is the sole browser-session source of truth. HTTP and Firebase integrations report outcomes to it/the Router boundary; pages and feature hooks do not independently redirect on sign-out or loss of session.
+
+| Trigger / observed state | Shared source and one-time handling | Cleanup | Destination and history | User-visible recovery |
+| --- | --- | --- | --- | --- |
+| `USER_SIGN_OUT` succeeds | Explicit action reports the terminal outcome to the Router-level session boundary. It wins a following Firebase-null callback from the same action. | Clear in-memory private UI state and all drafts; do not persist credentials, tokens, or drafts. | `/` with `replace` | Home receives flash: “Đã đăng xuất”. |
+| Explicit sign-out fails | The action remains non-terminal; the boundary does not navigate. | Preserve only the current safe page input needed to retry; never persist password/token values. | Stay on the current page | Safe error and an enabled retry. Entry point is disabled while pending to prevent duplicate calls. |
+| Firebase reports no user after initialization, or the first authenticated request returns `401` | Report `SESSION_LOST`. The first loss outcome wins; duplicate `401`/Firebase callbacks are ignored until a new authenticated session is established. | Clear private UI state and drafts as above. | `/` with `replace` | Home receives flash: “Phiên đã kết thúc, vui lòng đăng nhập lại”. |
+| Guest opens a protected route directly | Route guard reads `AuthProvider` after it resolves signed-out. | No private content or state is rendered. | `/login` with `replace` | Successful sign-in always goes to `/`; there is no `returnTo` behavior. |
+| A valid request receives `403` | This is feature/backend authorization denial, not session loss. Session is retained. | Do not clear session or drafts solely because of `403`. | `/` with `replace` | Safe generic access-denied notice; do not expose role, lifecycle, or scope detail. |
+| `AuthProvider` is `loading` | Guard waits for the Firebase observation. | No PII/private route content is rendered. | No redirect yet | Neutral non-PII loading state. |
+| Firebase is `unconfigured` | Guard shows a configuration-unavailable state. | No protected data is rendered. | No redirect | Safe unavailable state; this is not a sign-out and must not loop to `/login` or `/`. |
+
+The Router-level session boundary is the only client component allowed to perform the terminal cleanup, flash creation, and navigation above. It must use `replace` so Back cannot re-open the prior protected route. `useCurrentAccount` may load account/role data only after authentication; it is not a second session source or navigation authority. A protected backend remains authoritative: the browser transition following `401` or `403` never grants fallback access.
+
+Flash notices are navigation state delivered to Home, localized through the shared UI/i18n mechanism, and are shown until the user dismisses them or leaves Home. They are not stored in `localStorage`, `sessionStorage`, cookies, URLs, or logs. No password, Firebase token, refresh credential, or private draft may be persisted as part of recovery.
+
+**Route inventory for this shared boundary:** public/guest-capable routes include public browsing, Basic AI, the public/guest review flow, and Feature-003.1 Workshop Booking/lookup/access/payment-return routes under that feature's approved contact-proof or Magic-Link rules. Authenticated Member routes include Account/Profile/Address/Security (including compatibility aliases), Member retail/history, and Design Request; `/design-requests/new` is Member-only and a Guest is sent to `/login` as above. Internal routes require the same session boundary; their role and Workshop-scope checks remain owned by the relevant feature and backend. `/sign-in` is a compatibility route that redirects with `replace` to canonical `/login`. New UI links use canonical Account URLs `/profile`, `/profile/addresses`, `/security/password`, and `/security/email`; the aliases remain supported and receive the same guard.
+
+**Google local scope:** Google uses Firebase redirect only (`signInWithRedirect` then `getRedirectResult`); popup is not a supported flow. Local evidence requires the existing Firebase configuration, Google provider enabled, `localhost` authorized in Firebase, and origin `http://localhost:5173`. `auth/account-exists-with-different-credential` directs the person to Email/Password without linking accounts. Other redirect failures use a safe generic message and offer retry or Email/Password. Firebase Hosting, production domain, and `authDomain` decisions remain release/infra work outside this revision.
 
 ## 3. Functional Requirements
 
@@ -156,6 +178,7 @@ Physical schemas remain owned by feature plans, migrations, and the evolving [DB
 * [ ] The feature package structure preserves distinct Modulith modules and facade-only dependencies; applicable module verification is planned and later evidenced.
 * [ ] The shared identity gate has an explicit public-route allowlist and deny-by-default fallback; a consuming feature receives only the documented `CurrentAccountActor` boundary type and independently checks its own business actions.
 * [ ] Each affected feature documents applicable stateless/stateful behavior, lifecycle, isolation, recovery, security, UI states, and verification; shared auth/state contracts are consistent. Design completeness does not itself prove implementation.
+* [ ] The shared browser session boundary passes its route/lifecycle verification: no PII during loading, no redirect while unconfigured, Guest/private routes replace to `/login`, successful login replaces to Home, sign-out/session loss replace to Home with transient safe notice and draft cleanup, and `403` retains a valid session without leaking authorization detail.
 * [ ] A Guest can browse public catalogue/workshop/store information and create a workshop booking only through the package-first flow; a booking is confirmed only after the verified 50% VNPay deposit.
 * [ ] A verified Firebase UID provisions at most one Member; repeated sign-in retains business history, and provider/email claims cannot grant Mland roles or merge different UIDs.
 * [ ] An authorized independent Design Request can be analyzed and reviewed by the policy-appropriate human role, and its owner can view the outcome; the request has no booking, payment, capacity, or session side effect, and the separate custom-manufacturing path is never decided by AI.
@@ -196,7 +219,7 @@ Firebase Authentication ──verified ID token──► Mland account, status a
 * **Decided on 2026-10-24:** separate React + Vite frontend, Java 21/Spring Boot backend, no application SSR, feature-oriented layers, retained Modulith, and hybrid state direction. These are not architecture TBDs; mechanism details belong to the owning feature/shared contract.
 * **Shared identity baseline synchronized on 2026-10-26:** Firebase proves identity only; Account Management is authoritative for Mland account status, fixed role (`MEMBER`, `STAFF`, `MANAGER`, `ADMIN`), and Workshop Location scope. The backend uses one bearer/revocation identity gate and exposes only `CurrentAccountActor` to consuming features; each feature owns its action-capability mapping. The codes `OWNER` and `ADMIN_TECHNICAL` are retired and resolved; no further TBD mapping is open.
 * **Canonical Workshop Location synchronized on 2026-10-27:** `workshopLocationId` is the single shared workshop site/scope identifier. “Branch” is a display label only, not a second entity, identifier, or mapping. This group decision was approved by Hồ Hoàng Quốc (PM); Phan Sơn updated this working agreement.
-* **Deferred synchronization:** existing feature specs/plans/tasks/contracts, APIs.md, design kit, and code may retain old SSR, package, or persona assumptions. Review the affected material before implementation; do not silently rewrite or mark it ready in this update. The [account-management artifacts](features/001-account-management/) are a current design source, not proof of compliance with the amended baseline.
+* **Feature 001 synchronization confirmed on 2026-11-06:** Feature 001 [account-management artifacts](features/001-account-management/) have completed full redesign and baseline synchronization (approved on 2026-11-03 and 2026-11-06 for Revision R-SL session lifecycle). Other downstream feature artifacts, APIs.md, and design kit remain subject to individual feature readiness reviews.
 * **MFA is not required in V1:** Post-V1 MFA design (enforcement, recovery, auditing) is deferred and must not be inferred from this agreement.
 * Which Firebase project hierarchy, billing owner, access roles, secret-management process, and provider approvals will be used for development/staging/production?
 * Will Firebase Auth Emulator or a separate non-production Firebase project be used for authentication integration tests? The production project must not be used for tests.

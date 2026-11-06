@@ -52,3 +52,24 @@
 - The existing `RetailCheckoutWorkspace` is a local-data prototype. `src/api/retail.js` deliberately requires a caller-provided Firebase ID token, but no approved Firebase session provider/token lifecycle/API-origin recovery flow exists in the rendered application.
 - No frontend source was changed. Calling the protected endpoint with a browser-invented token or a debug account header would violate the Member authorization contract.
 - To resume this narrow integration: provide the existing FE-01 auth/session hook or provider that yields the current Firebase ID token for the Member checkout route, and confirm the API-origin/error-recovery contract. The existing GHTK recipient form can then call `createRetailClient(getIdToken).quoteShipping(...)` without exposing the provider token.
+
+### Resolution update — 2026-11-06T17:30:00+07:00
+
+- Revision R-SL (Shared session lifecycle & Google redirect-only handoff) is fully implemented under FE-001:
+  - `AuthProvider` and `useHttp` provide the shared Firebase ID token lifecycle, terminal session-loss reporting (`SESSION_LOST`), access denial (`ACCESS_DENIED`), and authenticated client creation.
+  - `SessionNavigationBoundary` and `RequireSession` enforce canonical route protection, draft cleanup, and safe Home navigation.
+  - All 83 automated frontend tests in `src/features/accountmanagement/tests/` (including 28 router integration tests and 18 redirect/re-auth tests) pass cleanly.
+  - Production Vite bundle builds with zero errors (`npm run build`).
+
+## FE-DESIGN-0003 — RESOLVED
+
+- Time: 2026-11-06.
+- Reporter: Claude. Scope: FE-08 retail checkout, payment result, Staff shipment management, and Manager payment reconciliation.
+- Facts: the Firebase session provider from FE-01 is now available (`useHttp`, `useAuth`, `FirebaseAuthClient`), so the earlier blocker on identity/session is closed for FE-08. Retail API calls go through `features/retail-order/infrastructure/retailApi.js` with the current ID token.
+- Delivered: Member cart, checkout, and order history (`/member/cart`, `/member/checkout`, `/member/orders`); Manager payment reconciliation (`/manager/retail-payment-reconciliations`); Staff GHTK shipment management (`/staff/retail-shipments`) with status transitions PREPARING → HANDED_TO_CARRIER → IN_TRANSIT → DELIVERED.
+- Navigation: the shared `MainTopbar` dropdown now exposes Cart, Staff GHTK shipments and Manager payment reconciliation, restricted by role. Before this change the merge with the shared-topbar refactor had left these pages reachable only by typing the URL.
+- Verification: `npm run build` passed after the merge (243 modules, 5.74 s). Chunk-size warning above 500 kB is pre-existing and unrelated to FE-08.
+
+### Cleanup — 2026-11-06
+
+- Removed the superseded `src/features/readyringsales/` tree. The remote branch had already renamed it to `src/features/retail-order/`; only `WorkshopBenefitPanel.jsx` still imported its stylesheet, now pointing at `features/retail-order/ui/readyringsales.css` (byte-identical file).

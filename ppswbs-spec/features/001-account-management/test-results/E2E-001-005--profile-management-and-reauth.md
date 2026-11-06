@@ -12,7 +12,7 @@ health_urls:
   - http://localhost:8080
 test_data:
   fixture: member-password-reauth
-  account_ref: minikie456@gmail.com
+  account_ref: E2E_MEMBER_005
   isolation_key: E2E-001-005-20261105
 cleanup:
   required: false
@@ -31,7 +31,7 @@ cleanup:
 - [x] Môi trường Frontend Vite đang chạy tại `http://localhost:5173`.
 - [x] Môi trường Backend Spring Boot đang chạy tại `http://localhost:8080`.
 - [x] Công cụ `browsermcp` đã được nạp và kích hoạt trong phiên làm việc.
-- [x] Phiên đăng nhập hợp lệ của tài khoản `minikie456@gmail.com` đang hoạt động tại trang `http://localhost:5173/profile` từ kịch bản E2E-001-004.
+- [ ] Phiên đăng nhập hợp lệ của fixture Member chuyên dụng đang hoạt động tại `http://localhost:5173/profile`; credential lấy từ secret store.
 
 ## 2. Đánh giá đa chiều qua 2 góc nhìn (2 POVs Evaluation)
 
@@ -65,7 +65,7 @@ wait getByText('Vui lòng nhập mật khẩu hiện tại.')
 
 ### Step 3 — Nhập mật khẩu hiện tại và kiểm tra lỗi mật khẩu mới dưới 6 ký tự
 ```browser
-fill getByLabel('Mật khẩu hiện tại *') "123123123"
+fill getByLabel('Mật khẩu hiện tại *') "<current-password-from-secret-store>"
 fill getByLabel('Mật khẩu mới *') "123"
 fill getByLabel('Xác nhận mật khẩu mới *') "123"
 click getByRole('button', { name: 'Cập nhật mật khẩu' })
@@ -74,12 +74,12 @@ wait getByText('Mật khẩu phải chứa ít nhất 6 ký tự.')
 
 ### Step 4 — Kiểm tra lỗi mật khẩu xác nhận không khớp và bảo toàn mật khẩu mới
 ```browser
-fill getByLabel('Mật khẩu mới *') "newpassword123"
+fill getByLabel('Mật khẩu mới *') "<new-password-fixture>"
 fill getByLabel('Xác nhận mật khẩu mới *') "wrongpassword456"
 click getByRole('button', { name: 'Cập nhật mật khẩu' })
 wait getByText('Mật khẩu xác nhận không khớp.')
 get value getByLabel('Mật khẩu mới *')
-# Expected: "newpassword123"
+# Expected: value remains the new-password fixture in the current control only
 ```
 
 ## 4. Kết quả kỳ vọng (Expected Assertions)
@@ -90,7 +90,7 @@ find "Đổi mật khẩu"
 find "Mật khẩu xác nhận không khớp."
 # Expected: one or more matches
 get value getByLabel('Mật khẩu mới *')
-# Expected: "newpassword123"
+# Expected: value remains the new-password fixture in the current control only
 ```
 
 ## 5. Bằng chứng kiểm thử (Evidence)
@@ -98,22 +98,33 @@ get value getByLabel('Mật khẩu mới *')
 - Ảnh chụp màn hình form validation: `screenshots/E2E-001-005--change-password-validation.jpg`
 - Lệnh lưu: `screenshot --path "ppswbs-spec/features/001-account-management/test-results/screenshots/E2E-001-005--change-password-validation.jpg"`
 
-## 6. Kết quả thực thi (Execution History)
+## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
 
 <!-- EXECUTION:START -->
-- Latest status: PASS
+- Historical status: PASS
 - Executed at: 2026-11-05 12:35:26
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
 - Failure step: None
 - Actual result:
-  - Tiếp nối đúng session đã đăng nhập của Member minikie456@gmail.com trên trang Profile.
+  - Tiếp nối session lịch sử của Member test chuyên dụng trên trang Profile; định danh đã redaction.
   - Nút "Đổi mật khẩu" hiển thị trong thanh tác vụ, bấm vào kích hoạt cuộn mượt xuống section Đổi mật khẩu.
   - Khi các ô nhập trống, nút "Cập nhật mật khẩu" bị vô hiệu hóa (disabled) để ngăn submit rỗng.
   - Khi nhập mật khẩu mới < 6 ký tự ("123"), hệ thống chặn và hiển thị thông báo inline: 'Mật khẩu mới phải chứa ít nhất 6 ký tự.'
   - Khi nhập mật khẩu xác nhận không khớp, hệ thống chặn và báo lỗi: 'Mật khẩu xác nhận không khớp.'
-  - Bảo toàn giá trị: Ô nhập Mật khẩu mới vẫn giữ nguyên giá trị 'newpassword123' trong component state, không bị xóa trắng.
+  - Bảo toàn giá trị: Ô nhập Mật khẩu mới vẫn giữ nguyên giá trị fixture trong component state, không bị xóa trắng.
 - Evidence screenshot:
   - Validation form đổi mật khẩu: screenshots/E2E-001-005--change-password-validation.jpg
 - Bug reference: NONE
+<!-- EXECUTION:END -->
+
+## 7. Revision expected results (2026-11-06 — must re-run)
+
+- **Step 1:** URL must be canonical `/profile`; only a current signed-in Member with `password` provider sees the password action/form. OAuth-only account must not see it.
+- **Steps 2–4:** each client validation/re-auth failure remains on `/profile`; error is inline and safe; current-password handling follows FR-005 (clear only when re-auth fails), while new/confirm values stay only in component memory and never browser storage.
+- No session-loss/401 result is accepted as a Profile-only error: it must follow Home session-loss recovery and discard the draft (E2E-001-015).
+
+<!-- EXECUTION:START -->
+- Latest status: NOT_RUN
+- Previous status: PASS on 2026-11-04; provider/session recovery assertions added.
 <!-- EXECUTION:END -->

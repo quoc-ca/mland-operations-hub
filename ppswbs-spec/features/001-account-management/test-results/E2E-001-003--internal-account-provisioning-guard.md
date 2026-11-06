@@ -5,7 +5,7 @@ test_level: e2e
 test_case_type: B
 source_ref: spec.md#FR-011
 target_url: http://localhost:5173/admin/accounts/new
-actor_role: Staff
+actor_role: Admin
 browser_tool: browsermcp
 health_urls:
   - http://localhost:5173
@@ -86,10 +86,10 @@ get value getByLabel('Họ và tên *')
 - Kịch bản chạy thực tế qua Chrome bằng `browsermcp`.
 - DOM snapshots và network logs được ghi nhận chính xác trong phiên kiểm thử.
 
-## 6. Kết quả thực thi (Execution History)
+## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
 
 <!-- EXECUTION:START -->
-- Latest status: PASS
+- Historical status: PASS
 - Executed at: 2026-11-04 04:25:25
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
@@ -97,5 +97,18 @@ get value getByLabel('Họ và tên *')
 - Actual result: Logic phân quyền giao diện tuân thủ chặt chẽ đặc tả WF-03 (Staff 1 location radio, Manager multi-location checkbox). Form giữ dữ liệu an toàn khi có sự cố mạng.
 - Evidence screenshot: DOM snapshot verified
 - Bug reference: NONE
+<!-- EXECUTION:END -->
+
+## 7. Revision expected results (2026-11-06 — must re-run)
+
+- This case requires an authenticated **Admin**, not Staff; a Staff direct visit is a separate authorization denial case.
+- **After Step 1:** canonical URL remains `/admin/accounts/new`; page must not render before session/role resolution, and must not expose an invitation/action link.
+- **After Steps 2–3:** Staff permits exactly one active location; Manager permits one or more. Switching roles clears or revalidates incompatible selection rather than silently submitting stale assignments.
+- **After Step 4:** URL is unchanged, field error is specific, no provisioning request is sent.
+- **After Step 5:** a controlled 5xx/network failure leaves name, selected role and locations visible, displays safe retry guidance, creates no second request/account; raw Firebase error/link never appears.
+
+<!-- EXECUTION:START -->
+- Latest status: NOT_RUN
+- Previous status: PASS on 2026-11-04; actor/preconditions and assertions revised.
 <!-- EXECUTION:END -->
 

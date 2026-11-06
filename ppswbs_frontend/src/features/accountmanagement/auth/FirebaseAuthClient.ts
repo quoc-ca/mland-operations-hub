@@ -12,7 +12,6 @@ import {
   GoogleAuthProvider,
   signInWithRedirect as fbSignInWithRedirect,
   getRedirectResult as fbGetRedirectResult,
-  signInWithPopup as fbSignInWithPopup,
   EmailAuthProvider,
   reauthenticateWithCredential as fbReauthenticateWithCredential,
   User,
@@ -156,13 +155,6 @@ class FirebaseAuthClient {
   }
 
 
-  public async signInWithGooglePopup(): Promise<User> {
-    const auth = this.requireAuth();
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    const cred = await fbSignInWithPopup(auth, provider);
-    return cred.user;
-  }
   public async signInWithGoogleRedirect(): Promise<void> {
     const auth = this.requireAuth();
     this.redirectPromise = null;

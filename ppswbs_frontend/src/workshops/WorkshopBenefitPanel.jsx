@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useFormat } from '../shared/i18n/I18nProvider';
-import '../features/readyringsales/readyringsales.css';
+import '../features/retail-order/ui/readyringsales.css';
 
 const isWhole = value => /^(0|[1-9][0-9]*)$/.test(String(value ?? ''));
 

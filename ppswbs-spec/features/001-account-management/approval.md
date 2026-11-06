@@ -1,5 +1,34 @@
 # Tech Lead Approval Record: Account Management (FE-001)
 
+## Revision R-SL — Shared Session Lifecycle & Google Redirect
+
+**Revision date**: 2026-11-06
+**Approved by (Tech Lead)**: **Phan Sơn**
+**Authority/evidence**: explicit user approval in this specification session on 2026-11-06.
+**Decision**: **APPROVED FOR THE SCOPED FRONTEND IMPLEMENTATION HANDOFF ONLY**.
+
+This approval is a new, traceable revision for the following artifact paths and scope:
+
+| Artifact | Approved revision scope |
+| --- | --- |
+| `ppswbs-spec/spec-general.md` | Canonical shared browser session/navigation lifecycle matrix, route inventory, flash/data rules, and local Google redirect boundary. |
+| `ppswbs-spec/features/001-account-management/spec.md` | FR-041 plus session clarifications and the revised Profile session-loss recovery. |
+| `ppswbs-spec/features/001-account-management/plan.md` | R-SL frontend units, boundaries, data flow and handoff gate. |
+| `ppswbs-spec/features/001-account-management/research.md` | D-21/D-22 decisions and production Firebase open item. |
+| `ppswbs-spec/features/001-account-management/design/{architecture,workflows,ui-flow}.md` | Shared boundary architecture, WF-11, route/UI state inventory. |
+| `ppswbs-spec/features/001-account-management/tasks.md` | Unstarted T069–T077 implementation tasks. |
+| `ppswbs-spec/features/001-account-management/verification.md` | V-13 automated/manual evidence requirements. |
+
+**Included behavior**: user sign-out and session loss/`401` use Home `replace`; direct Guest/private access uses `/login` `replace`; login always Home; `403` retains session and safely returns Home; loading/unconfigured behavior, alias compatibility, transient flash, draft cleanup, race precedence, and Google redirect-only handling are exactly as stated in `spec-general.md`.
+
+**Explicit exclusions**: REST/OpenAPI, database/migrations, backend authorization/RBAC, Firebase project/emulator/Hosting configuration, production domain and `authDomain` decisions. Feature-003.1 keeps ownership of booking contact-proof/Magic-Link mechanics. A `403` notice does not create a cross-feature authorization rule.
+
+**Implementation condition**: A frontend implementation persona may execute only T069–T077 within this scope and must add V-13 evidence. This approval does not assert that code/tests have already been changed, nor does it supersede outstanding production/release gates.
+
+---
+
+## Historical approval record (2026-11-03)
+
 **Dự án**: PPSWBS / Mland
 **Feature**: FE-001 Account Management
 **Branch**: `son`

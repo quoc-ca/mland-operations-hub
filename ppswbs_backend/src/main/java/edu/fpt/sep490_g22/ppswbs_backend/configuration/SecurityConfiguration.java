@@ -37,7 +37,7 @@ public class SecurityConfiguration {
 
     public SecurityConfiguration(
         @Qualifier("identityGateFilter") ObjectProvider<Filter> identityGateFilterProvider,
-        @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}") String allowedOriginsStr
+        @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOriginsStr
     ) {
         this.identityGateFilterProvider = identityGateFilterProvider;
         this.allowedOrigins = Arrays.stream(allowedOriginsStr.split(","))

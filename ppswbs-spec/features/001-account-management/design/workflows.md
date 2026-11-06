@@ -1,24 +1,24 @@
 # Workflow Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-04
+**Date updated**: 2026-11-06
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Design status**: DRAFT/PROPOSED. Workflow behavior is designed; it does not approve code or replace the missing interface/transport revisions.
+**Design status**: APPROVED — workflows aligned with approved specification, data model, interfaces, and OpenAPI 3.1.0 contract (see `approval.md`).
 
 ## Workflow index
 
 | ID | Workflow | Trigger and actor | Source requirements | Architecture flow | Status |
 | --- | --- | --- | --- | --- | --- |
-| WF-01 | Bearer admission and current actor | Every protected request | FR-026–027 | Architecture §Data flows 1 | Designed; actor field contract needs reconciliation |
-| WF-02 | Bootstrap and self-service | Verified identity / Account owner | FR-001–008, 022, 025 | Flow 2 | Designed; OpenAPI regeneration pending |
+| WF-01 | Bearer admission and current actor | Every protected request | FR-026–027 | Architecture §Data flows 1 | Designed & implemented; minimal CurrentAccountActor |
+| WF-02 | Bootstrap and self-service | Verified identity / Account owner | FR-001–008, 022, 025 | Flow 2 | Designed & implemented; governed by OpenAPI 3.1 |
 | WF-03 | Provision and activate internal Account | Admin / intended internal identity | FR-011–018, 023–025 | Flow 4 | Designed; FE-07/Location contracts are dependencies |
 | WF-04 | Suspend and restore | Admin / affected Account | FR-019–021, 023–027 | Flow 5 | Designed; provider reconciliation evidence pending |
-| WF-05 | Target facts and roster | Authorized FE-003 actor/service | FR-028–033 | Flow 6 | BLOCKED for implementation by missing facade contract |
+| WF-05 | Target facts and roster | Authorized FE-003 actor/service | FR-028–033 | Flow 6 | Designed & implemented; contract defined in interfaces.md |
 | WF-08 | Profile verification gate | Owner opens Profile / activates reload icon | FR-004–006 | Flow 3 | proposed |
 | WF-06 | Browser transport and typed errors | Browser/API caller | FR-025, 027 | Flows 1–4 | Local policy approved; non-local operations open |
-| WF-07 | Schema/configuration startup | Service runtime/operator | Constitution; data-model | Persistence/config boundary | Designed; runtime verification pending |
+| WF-07 | Schema/configuration startup | Service runtime/operator | Constitution; data-model | Persistence/config boundary | Designed & implemented; V52 and V89 migrations verified |
 | WF-09 | Member shipping address book | Authenticated Member | FR-036–039 | Flow 7 | Designed |
 | WF-10 | Shipping address snapshot for FE-008 | FE-008 checkout process | FR-040 | Flow 8 | Designed |
 
@@ -113,7 +113,7 @@
 1. `NOT_FOUND` and `FOUND` failing consumer role/status/scope rule map to `409 TARGET_NOT_ELIGIBLE`, without lifecycle disclosure.
 2. `UNAVAILABLE` means Account or Location scope cannot be verified; FE-003 returns `503`, preserves safe input, starts/commits no mutation and performs no background retry/cache/fallback.
 3. There is intentionally no cross-module transaction/lock: a command whose recheck preceded an Account change commit may finish; every later command must use changed facts.
-4. Implementation is blocked until `contracts/interfaces.md` names the types, inputs, outcomes and compatibility rules.
+4. The typed contract is defined in `contracts/interfaces.md` (`TargetFactsOutcome`, `RosterOutcome`) and implemented in `AccountFacadeImpl`.
 
 ## WF-06: Browser transport and typed errors
 
@@ -126,7 +126,7 @@
 
 ### Failure, recovery, and integrity
 
-1. `401`: obtain usable sign-in; retain only safe navigation/form context. `403`: do not auto-retry. `409`: reload/reconcile. `503`: explicit retry with safe input retained.
+1. `401`: report shared session loss, discard private draft/state and return Home; do not retain navigation/form context for restoration. `403`: retain session, safe Home notice, and do not auto-retry. `409`: reload/reconcile. `503`: explicit retry with safe input retained.
 2. No response contains stack trace, raw token, Firebase UID or unauthorized target detail.
 3. Preview/staging/production origin and operational behavior are not defined by this local decision and remain blocked.
 
@@ -162,7 +162,7 @@
 ### Failure, recovery, and integrity
 
 1. A still-unverified user sees verification/resend guidance; Firebase Web SDK sends a new verification email only after explicit owner action. After successful send, `localStorage` retains only `emailVerificationResendUntil.<accountId>` expiry timestamp for 90 seconds, including browser restart; it stores no email, provider UID, token, or action code. FE-07 does not deliver this identity-provider email.
-2. Firebase reload/token failure, `401`, `403`, or `503` during synchronization keeps Profile save unstarted. Missing/expired session discards Profile draft and directs to sign-in; other temporary failures retain safe input and offer explicit reload-icon retry. The UI never automatically retries Profile save.
+2. Firebase reload/token failure, `401`, `403`, or `503` during synchronization keeps Profile save unstarted. Missing/expired session discards Profile draft and follows WF-11 to Home; `403` retains the session and uses the safe Home notice; other temporary failures retain safe input and offer explicit reload-icon retry. The UI never automatically retries Profile save.
 3. A verification completed on a different browser/device has no local Firebase session/action callback requirement. On the owner’s next sign-in and Profile entry, this workflow observes the verified identity and synchronizes it.
 4. Email change uses Firebase `verifyBeforeUpdateEmail` after in-place re-authentication via `reauthenticateWithCredential` using current password and identity email (form requires current password and proposed new email). Until the new address verifies, Firebase and Account retain the old address; no pending address is persisted in Mland. On re-authentication failure, only current password is cleared and new email is retained in ephemeral state. The owner can repeat the same identity-provider flow to resend/change the proposed address.
 5. Raw Firebase email action links/codes are not rendered, stored, logged, forwarded to the backend, or included in audit metadata. There is no concurrency-sensitive business mutation in the synchronization itself; repeated successful checks are idempotent snapshot writes.
@@ -171,7 +171,7 @@
 
 | Item | Impact | Owner / resume condition |
 | --- | --- | --- |
-| Named target-facts/roster facade contract | WF-05 cannot be implemented compatibly | Revise `contracts/interfaces.md` from FR-028–032 |
+| Named target-facts/roster facade contract | WF-05 cannot be implemented compatibly | RESOLVED: Defined in `contracts/interfaces.md` and implemented |
 | `activeWorkshopLocationIds` reconciliation | Current actor/data-model/code use another name/semantics | Current actor omits scope; target/scope facade exposes effective `activeWorkshopLocationIds` before location-dependent work |
 | Audit outcome schema/mapping | Implementation and MySQL evidence remain pending | Approved `AuditOutcome`/`VARCHAR(16)` baseline; implement append-only migration and retain fresh/upgrade validation evidence |
 | FE-07 and Workshop Location contracts | Integration details cannot be invented | Link approved owning contracts |
@@ -214,3 +214,20 @@
 2. Facade queries `member_addresses` for the given account ID and returns `Optional<MemberAddressSnapshot>`.
 3. FE-008 clones all snapshot fields (`recipientName`, `phoneNumber`, `provinceId`, `provinceName`, `districtId`, `districtName`, `wardId`, `wardName`, `hamletId`, `hamletName`, `detailAddress`, `addressType`) directly into its order persistence.
 4. Subsequent modifications or deletions of the address in FE-001 have zero side effects on existing FE-008 orders.
+
+---
+
+## WF-11: Shared browser session lifecycle and route recovery
+
+- **Trigger and actor**: Any browser user; triggers are explicit sign-out, Firebase observer null after initialization, first protected-request `401`, protected-route resolution, `403`, `loading`, or `unconfigured` state.
+- **Preconditions and authorization**: `AuthProvider` is the sole session source. Backend remains the authority for every protected request and feature-specific role/scope decision.
+
+1. `AuthProvider` exposes `loading`, `unconfigured`, `signed-out`, or `signed-in`; `RequireSession` renders no PII during `loading` and safe unavailable UI during `unconfigured` without navigation.
+2. For a resolved `signed-out` user attempting a Member/internal route, `RequireSession` performs `replace('/login')`. `/sign-in` independently performs `replace('/login')`. A successful email/password or Google redirect sign-in always `replace`s to `/`; no `returnTo` state is carried.
+3. Explicit sign-out disables the initiating entry point. On Firebase success it emits `USER_SIGN_OUT`. `SessionNavigationBoundary` consumes it once, clears registered private state/drafts, and `replace`s to `/` with transient “Đã đăng xuất” notice. A Firebase-null observer callback caused by that call is ignored for navigation.
+4. Firebase-null after initial resolution or the first authenticated `401` emits `SESSION_LOST`. The boundary consumes the first such outcome only until a later signed-in snapshot, discards private state/drafts, and `replace`s to `/` with generic “Phiên đã kết thúc, vui lòng đăng nhập lại” notice.
+5. A sign-out failure emits no terminal outcome: the current page remains interactive, the pending control re-enables, and a safe retry error is shown.
+6. A `403` is not a sign-out. The boundary retains session/private input, `replace`s to `/`, and passes only a generic access-denied notice. It reveals no role, lifecycle, or Workshop-scope detail.
+7. Home displays the navigation-state notice until dismissal or leaving Home. It never writes the notice to storage. Cleanup and recovery never store/restore passwords, ID tokens, refresh credentials, or private drafts.
+
+**Google branch:** AuthPage starts only `signInWithRedirect`; on return it calls `getRedirectResult`, bootstraps the account, then follows step 2. `auth/account-exists-with-different-credential` directs to Email/Password with no merge/link. Any other redirect error is safe generic retry/alternative-method guidance. No popup branch exists.

@@ -20,8 +20,10 @@ function mapFirebaseError(error: any): string {
     code === 'auth/account-exists-with-different-credential' ||
     code === 'auth/credential-already-in-use' ||
     code === 'auth/email-already-in-use' ||
+    code === 'auth/provider-already-linked' ||
     msg.includes('account-exists-with-different-credential') ||
     msg.includes('different-credential') ||
+    msg.includes('provider-already-linked') ||
     msg.includes('EMAIL_EXISTS')
   ) {
     return 'Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.';
@@ -43,7 +45,7 @@ function mapFirebaseError(error: any): string {
     case 'CONFIGURATION_REQUIRED':
       return 'Cấu hình xác thực hệ thống chưa sẵn sàng.';
     default:
-      return 'Không thể hoàn tất xác thực. Vui lòng thử lại sau.';
+      return 'Không thể hoàn tất xác thực. Vui lòng thử lại hoặc đăng nhập bằng Email và Mật khẩu.';
   }
 }
 
@@ -97,8 +99,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
           sessionStorage.removeItem('mland_google_redirect_pending');
           setPending(true);
           const account = await accountManagementApiClient.bootstrapOwnAccount();
-          // Staff and Manager land on their own home; others on the general home, unless they came from a page.
-          navigate(afterSignInPath(account?.role, new URLSearchParams(window.location.search).get('returnTo')));
+          const target = afterSignInPath(account?.role, searchParams.get('returnTo') || new URLSearchParams(window.location.search).get('returnTo'));
+          navigate(target, { replace: true });
         } else {
           // If getRedirectAuthResult returned null but redirect was in progress, check current user
           const currentUser = firebaseAuthClient.getCurrentUser();
@@ -122,8 +124,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
           err?.code === 'auth/account-exists-with-different-credential' ||
           err?.code === 'auth/credential-already-in-use' ||
           err?.code === 'auth/email-already-in-use' ||
+          err?.code === 'auth/provider-already-linked' ||
           err?.message?.includes('account-exists-with-different-credential') ||
           err?.message?.includes('different-credential') ||
+          err?.message?.includes('provider-already-linked') ||
           err?.message?.includes('EMAIL_EXISTS');
 
         if (isCollision) {
@@ -207,42 +211,43 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
     setRetryableError(false);
     setPending(true);
     try {
-      // In browser runtime (outside Vitest unit tests), use signInWithGooglePopup to avoid Chrome localhost storage partitioning failure
-      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
-        const user = await firebaseAuthClient.signInWithGooglePopup();
-        if (user) {
-          const hasPassword =
-            Array.isArray(user.providerData) &&
-            user.providerData.some(p => p.providerId === 'password');
-
-          if (hasPassword) {
-            await firebaseAuthClient.signOut();
-            setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
-            setPending(false);
-            return;
-          }
-
-          const account = await accountManagementApiClient.bootstrapOwnAccount();
-          navigate(afterSignInPath(account?.role, new URLSearchParams(window.location.search).get('returnTo')));
-          return;
+      if (firebaseAuthClient.getCurrentUser()) {
+        try {
+          await firebaseAuthClient.signOut();
+        } catch {
+          // ignore
         }
       }
 
       sessionStorage.setItem('mland_google_redirect_pending', 'true');
       await firebaseAuthClient.signInWithGoogleRedirect();
     } catch (err: any) {
+      console.error('[GoogleSignIn] error caught:', err);
       sessionStorage.removeItem('mland_google_redirect_pending');
       setPending(false);
       const isCollision =
         err?.code === 'auth/account-exists-with-different-credential' ||
         err?.code === 'auth/credential-already-in-use' ||
         err?.code === 'auth/email-already-in-use' ||
+        err?.code === 'auth/provider-already-linked' ||
         err?.message?.includes('account-exists-with-different-credential') ||
         err?.message?.includes('different-credential') ||
+        err?.message?.includes('provider-already-linked') ||
         err?.message?.includes('EMAIL_EXISTS');
 
       if (isCollision) {
         setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
+      } else if (err instanceof ApiError) {
+        if (err.status === 401) {
+          setGeneralError('Thông tin đăng nhập không hợp lệ hoặc phiên đã hết hạn.');
+        } else if (err.status === 403) {
+          setGeneralError('Tài khoản của bạn hiện đang bị tạm khóa hoặc không đủ điều kiện.');
+        } else if (err.retryable) {
+          setGeneralError('Dịch vụ tài khoản tạm thời gián đoạn. Vui lòng bấm thử lại.');
+          setRetryableError(true);
+        } else {
+          setGeneralError(err.message || 'Lỗi khởi tạo tài khoản hệ thống.');
+        }
       } else {
         setGeneralError(mapFirebaseError(err));
       }
@@ -288,7 +293,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
 
       // Bootstrap Mland Account record
       const account = await accountManagementApiClient.bootstrapOwnAccount();
-      navigate(afterSignInPath(account?.role, searchParams.get('returnTo')));
+      navigate(afterSignInPath(account?.role, searchParams.get('returnTo')), { replace: true });
     } catch (err: any) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
@@ -315,7 +320,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
     setRetryableError(false);
     try {
       const account = await accountManagementApiClient.bootstrapOwnAccount();
-      navigate(afterSignInPath(account?.role, searchParams.get('returnTo')));
+      navigate(afterSignInPath(account?.role, searchParams.get('returnTo')), { replace: true });
     } catch (err: any) {
       if (err instanceof ApiError && err.retryable) {
         setGeneralError('Dịch vụ tài khoản vẫn chưa phản hồi. Vui lòng thử lại.');

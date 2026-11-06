@@ -22,7 +22,24 @@ export default function MainTopbar() {
   const [profileData, setProfileData] = useState(null);
   const [loyaltyPoints, setLoyaltyPoints] = useState(null);
   const [fbUser, setFbUser] = useState(() => firebaseAuthClient.getCurrentUser());
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState(null);
   const dropdownRef = useRef(null);
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    setSignOutError(null);
+    try {
+      await signOut();
+      setIsDropdownOpen(false);
+      // Navigation to Home with transient flash notice is handled solely by SessionNavigationBoundary
+    } catch (err) {
+      setSignOutError('Đăng xuất thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
 
   const isAuthenticated = status === 'signed-in';
 
@@ -286,14 +303,18 @@ export default function MainTopbar() {
                   <button
                     type="button"
                     className="main-topbar-dropdown-item main-topbar-dropdown-signout"
-                    onClick={async () => {
-                      setIsDropdownOpen(false);
-                      await signOut();
-                    }}
+                    onClick={handleSignOut}
+                    disabled={isSigningOut}
+                    aria-busy={isSigningOut}
                     role="menuitem"
                   >
-                    <span>🚪</span> Đăng xuất
+                    <span>🚪</span> {isSigningOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
                   </button>
+                  {signOutError && (
+                    <div style={{ color: '#dc2626', fontSize: '0.75rem', padding: '0.25rem 1rem' }} role="alert">
+                      {signOutError}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

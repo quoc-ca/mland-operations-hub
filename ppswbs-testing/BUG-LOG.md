@@ -30,6 +30,17 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
   - Screenshot: ![Lỗi](../ppswbs-spec/features/003-workshop-management/test-results/screenshots/E2E-003-001--slot-disabled.jpg)
 -->
 
+## BUG-QA-0003 — RESOLVED
+
+- Ngày phát hiện/khắc phục: 2026-11-06
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Feature: 001-account-management
+- Phân loại / Gán cho: Test artifact / QA
+- Mô tả: Các E2E artifact lịch sử ghi credential/định danh fixture trực tiếp và giữ trạng thái PASS dù shared session/route contract đã đổi.
+- Tác động: Có nguy cơ lộ secret test và tạo acceptance sai cho revision R-SL.
+- Khắc phục: Redact fixture/credential, đánh dấu evidence cũ là historical, đặt case revision thành `NOT_RUN`, và thêm E2E-001-013 đến E2E-001-020.
+- Bằng chứng: Static scan không còn fixture credential hoặc current `PASS` trong `ppswbs-spec/features/001-account-management/test-results/`.
+
 ## BUG-E2E-0002 — CLOSED
 
 - Ngày mở: 2026-11-05
