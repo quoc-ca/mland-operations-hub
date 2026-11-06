@@ -65,7 +65,7 @@ public class WorkshopFinalBillApiService {
         if (actor == null) throw new WorkshopSettlementAuthorizationException("ACTIVE_ACCOUNT_REQUIRED");
         var confirmed = booking.confirmedProjection(bookingCode);
         if (confirmed == null) throw new WorkshopSettlementNotFoundException();
-        authorization.requireManagerOrStaff(actor, confirmed.bookingLocationReference());
+        authorization.requireManagerOrAssignedStaff(actor, confirmed.bookingLocationReference(), bookingCode);
         return projection(requireBill(bookingCode));
     }
 
@@ -76,7 +76,7 @@ public class WorkshopFinalBillApiService {
         if (actor == null) throw new WorkshopSettlementAuthorizationException("ACTIVE_ACCOUNT_REQUIRED");
         var confirmed = booking.confirmedProjection(bookingCode);
         if (confirmed == null) throw new WorkshopSettlementValidationException("BOOKING_NOT_FOUND");
-        authorization.requireManagerOrStaff(actor, confirmed.bookingLocationReference());
+        authorization.requireManagerOrAssignedStaff(actor, confirmed.bookingLocationReference(), bookingCode);
         String op = operationReference("FINAL-BILL", bookingCode, idempotencyKey);
         String fingerprint = fingerprint("CREATE", bookingCode);
         SettlementIdempotencyResult result = idempotency.execute(op, fingerprint, () ->
@@ -93,7 +93,7 @@ public class WorkshopFinalBillApiService {
         if (actor == null) throw new WorkshopSettlementAuthorizationException("ACTIVE_ACCOUNT_REQUIRED");
         var confirmed = booking.confirmedProjection(bookingCode);
         if (confirmed == null) throw new WorkshopSettlementNotFoundException();
-        authorization.requireManagerOrStaff(actor, confirmed.bookingLocationReference());
+        authorization.requireManagerOrAssignedStaff(actor, confirmed.bookingLocationReference(), bookingCode);
         return operations.listAddOns(confirmed.packageReference(), confirmed.bookingLocationReference()).stream()
                 .map(a -> new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.AddOnOptionDto(
                         a.addOnReference(), a.description(), a.amountVnd()))
@@ -112,7 +112,7 @@ public class WorkshopFinalBillApiService {
             if (confirmed == null) throw new WorkshopSettlementValidationException("BOOKING_NOT_FOUND");
             // Catalogue add-ons are selected and consented at the workshop by Staff/Manager.
             // Member/Guest routes are read-only and must never mutate settlement charges.
-            authorization.requireManagerOrStaff(actor, confirmed.bookingLocationReference());
+            authorization.requireManagerOrAssignedStaff(actor, confirmed.bookingLocationReference(), bookingCode);
             // The operator must state that the customer agreed; the backend then generates and stores the consent
             // reference with who and when. It evidences the operator's confirmation, not the customer's own consent.
             if (!command.consentConfirmed()) throw new WorkshopSettlementValidationException("CUSTOMER_CONSENT_REQUIRED");
@@ -125,7 +125,7 @@ public class WorkshopFinalBillApiService {
             if (currentActor == null) throw new WorkshopSettlementAuthorizationException("ACTIVE_ACCOUNT_REQUIRED");
             var confirmed = booking.confirmedProjection(bookingCode);
             if (confirmed == null) throw new WorkshopSettlementValidationException("BOOKING_NOT_FOUND");
-            authorization.requireManagerOrStaff(currentActor, confirmed.bookingLocationReference());
+            authorization.requireManagerOrAssignedStaff(currentActor, confirmed.bookingLocationReference(), bookingCode);
             // Same rules as a catalogue add-on (owner decision 2026-11-06): the operator confirms that the customer
             // agreed, and the booking's session must have started.
             if (!command.consentConfirmed()) throw new WorkshopSettlementValidationException("CUSTOMER_CONSENT_REQUIRED");
@@ -146,7 +146,7 @@ public class WorkshopFinalBillApiService {
         if (currentActor == null) throw new WorkshopSettlementAuthorizationException("ACTIVE_ACCOUNT_REQUIRED");
         var confirmed = booking.confirmedProjection(bookingCode);
         if (confirmed == null) throw new WorkshopSettlementValidationException("BOOKING_NOT_FOUND");
-        authorization.requireManagerOrStaff(currentActor, confirmed.bookingLocationReference());
+        authorization.requireManagerOrAssignedStaff(currentActor, confirmed.bookingLocationReference(), bookingCode);
         SettlementFinalBill openBill = requireBill(bookingCode);
         if (outstanding(openBill) != 0L) {
             throw new WorkshopSettlementConflictException("OUTSTANDING_BALANCE");

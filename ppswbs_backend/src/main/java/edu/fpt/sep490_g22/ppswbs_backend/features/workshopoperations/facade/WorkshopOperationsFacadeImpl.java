@@ -45,6 +45,7 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.BookingAttendanceOutcomeService bookingAttendanceOutcomeService;
     private final WorkshopAddOnService addOnService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -247,6 +248,15 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
         boolean correctionClosed = AttendanceCorrectionWindowPolicy.isClosed(finalizedAt, Instant.now());
         boolean hasNoShow = entitlements.stream().anyMatch(item -> item.getAttendanceState() == AttendanceState.NO_SHOW);
         return new SettlementReadiness(true, correctionClosed, hasNoShow, lastFinalizedAt);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isStaffAssignedToBooking(StaffBookingAssignmentQuery query) {
+        if (query == null || query.staffAccountId() == null || query.bookingReference() == null) return false;
+        return entitlementRepository.findActiveByBookingReference(query.bookingReference()).stream()
+                .map(item -> item.getSession().getId()).distinct()
+                .anyMatch(sessionId -> staffAssignmentRepository.existsBySessionIdAndAccountIdAndActiveTrue(sessionId, query.staffAccountId()));
     }
 
     @Override

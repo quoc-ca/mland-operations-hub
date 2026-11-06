@@ -14,6 +14,11 @@ public class WorkshopOperationsSettlementAdapter {
         return operations.getSettlementReadiness(new BookingSettlementReadinessQuery(bookingReference));
     }
 
+    /** Whether the Staff member is actively assigned to a session this booking holds a valid ticket for. */
+    public boolean staffAssignedToBooking(Long staffAccountId, String bookingReference) {
+        return operations.isStaffAssignedToBooking(new StaffBookingAssignmentQuery(staffAccountId, bookingReference));
+    }
+
     public boolean serviceStarted(String bookingReference) {
         return operations.hasBookingServiceStarted(new BookingSettlementReadinessQuery(bookingReference));
     }

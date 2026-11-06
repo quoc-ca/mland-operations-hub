@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-06
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -21,6 +21,43 @@ authorization does not depend on `activeLocationIds`; Staff actions remain
 location-scoped, Member ownership and booking-specific safeguards remain in
 force, and explicitly Admin-only technical actions remain Admin-only. There is
 no Central Manager tier.
+
+## Staff booking-assignment access and folio add-on rules (owner decision, 2026-11-06)
+
+This amendment supersedes every statement in this document that lets an active
+Staff member act on a final bill, charge, add-on or final payment by booking
+location scope alone ("Staff in the booking location scope", "in-scope Staff",
+FR-002a and the add-on acceptance rule). Read each of them as "an active Staff
+member whose location scope contains the booking location **and who is actively
+assigned to a session the booking holds a valid ticket for** (003.2 "Staff
+session-assignment access")". A Manager remains global.
+
+- **Access**: reading the operator view of the bill, creating or loading the
+  folio, listing catalogue add-ons, adding a charge or add-on, finalizing, and
+  starting the final payment follow the rule above. An unassigned Staff member
+  is refused (`SESSION_ASSIGNMENT_REQUIRED`) and the refusal is audited.
+  Customer routes (Member ownership, Guest proof) are unchanged, and an operator
+  can never use them.
+- **Operator read**: `GET /workshop-bookings/{bookingCode}/final-bill/operator`
+  returns the bill for the operator; `GET .../final-bill` stays the customer
+  route.
+- **Catalogue add-on** (`catalogueAddOnReference`): the price is resolved by the
+  backend from the 003.2 catalogue; `GET .../final-bill/add-ons` lists the
+  add-ons sellable for the booking's package and location.
+- **Session started**: an add-on or a variable charge may be recorded only once
+  at least one session of the booking is `IN_PROGRESS` or `ATTENDANCE_FINALIZED`
+  (`SESSION_NOT_STARTED` otherwise) and only while the folio is OPEN.
+- **Customer-agreed confirmation**: both need the operator to state that the
+  customer agreed (`customerConsentConfirmed = true`, else
+  `CUSTOMER_CONSENT_REQUIRED`). The backend generates `CONSENT-<id>` and stores
+  it with the acting account and time on the charge. It evidences the
+  operator's confirmation only, not the customer's own consent.
+- **OTA shop add-on bill** (003.4): the settlement bill also records the Mland
+  booking reference, and payment and refund follow the same assignment rule.
+  Legacy bills without that reference stay Manager-only for Staff.
+- Cancellation cases, remedies, required-session changes and folio corrections
+  keep their previous authority (Manager, or Staff by location where already
+  allowed); this amendment does not change them.
 
 ## Direct-booking open-folio policy (2026-11-05)
 

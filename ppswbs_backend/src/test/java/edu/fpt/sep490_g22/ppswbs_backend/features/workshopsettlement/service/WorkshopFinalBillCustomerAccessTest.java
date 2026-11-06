@@ -84,7 +84,7 @@ class WorkshopFinalBillCustomerAccessTest {
 
         // The scope check ran and the customer-proof path was never consulted; with no bill the answer is not-found.
         assertThrows(WorkshopSettlementNotFoundException.class, () -> service.readAsOperator("BK-4", authentication));
-        verify(authorization).requireManagerOrStaff(actor, 1L);
+        verify(authorization).requireManagerOrAssignedStaff(actor, 1L, "BK-4");
         verify(booking, never()).verifyCustomerAccess(any(), any(), any(), any());
     }
 
@@ -103,7 +103,7 @@ class WorkshopFinalBillCustomerAccessTest {
 
         var options = service.listAddOns("BK-6", authentication);
 
-        verify(authorization).requireManagerOrStaff(actor, 1L);
+        verify(authorization).requireManagerOrAssignedStaff(actor, 1L, "BK-6");
         assertEquals(1, options.size());
         assertEquals("ADD-1", options.get(0).addOnReference());
         assertEquals(120000L, options.get(0).amountVnd());
@@ -120,7 +120,7 @@ class WorkshopFinalBillCustomerAccessTest {
         when(confirmed.bookingLocationReference()).thenReturn(1L);
         when(booking.confirmedProjection("BK-7")).thenReturn(confirmed);
         doThrow(new WorkshopSettlementAuthorizationException("LOCATION_SCOPE_DENIED"))
-                .when(authorization).requireManagerOrStaff(actor, 1L);
+                .when(authorization).requireManagerOrAssignedStaff(actor, 1L, "BK-7");
 
         assertThrows(WorkshopSettlementAuthorizationException.class, () -> service.listAddOns("BK-7", authentication));
         verify(operations, never()).listAddOns(any(), any());
@@ -135,7 +135,7 @@ class WorkshopFinalBillCustomerAccessTest {
         when(confirmed.bookingLocationReference()).thenReturn(1L);
         when(booking.confirmedProjection("BK-5")).thenReturn(confirmed);
         doThrow(new WorkshopSettlementAuthorizationException("LOCATION_SCOPE_DENIED"))
-                .when(authorization).requireManagerOrStaff(actor, 1L);
+                .when(authorization).requireManagerOrAssignedStaff(actor, 1L, "BK-5");
 
         assertThrows(WorkshopSettlementAuthorizationException.class, () -> service.readAsOperator("BK-5", authentication));
         verifyNoInteractions(bills, charges, evidence);

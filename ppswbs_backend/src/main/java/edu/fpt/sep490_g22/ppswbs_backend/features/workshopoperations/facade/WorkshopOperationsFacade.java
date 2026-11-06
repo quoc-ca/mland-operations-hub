@@ -28,6 +28,9 @@ public interface WorkshopOperationsFacade {
     /** True once at least one of the booking's active sessions is running or its attendance is finalized (the customer is at the workshop). */
     boolean hasBookingServiceStarted(BookingSettlementReadinessQuery query);
 
+    /** True when the Staff member is actively assigned to at least one session the booking holds a valid ticket for. */
+    boolean isStaffAssignedToBooking(StaffBookingAssignmentQuery query);
+
     BookingAttendanceOutcome getBookingAttendanceOutcome(BookingAttendanceOutcomeQuery query);
 
     /** Authoritative, PII-free session and attendance facts used by cancellation policy. */

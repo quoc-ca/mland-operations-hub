@@ -72,6 +72,8 @@ public class WorkshopLifecycleService {
                         actor.accountId(), sessionReference, sessionLocationId);
                 throw new WorkshopLocationScopeException("Location ID " + sessionLocationId + " is outside actor's active location scope");
             }
+            // A Staff member may move only a session they are assigned to.
+            authorizationService.requireAssignment(actor, session.getId());
         }
 
         SessionState currentState = session.getState();

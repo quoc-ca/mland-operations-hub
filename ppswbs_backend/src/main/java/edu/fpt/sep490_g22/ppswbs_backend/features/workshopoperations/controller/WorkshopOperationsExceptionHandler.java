@@ -97,6 +97,16 @@ public class WorkshopOperationsExceptionHandler {
         return buildResponse(HttpStatus.TOO_MANY_REQUESTS, "REDELIVERY_THROTTLED", "Ticket Redelivery Throttled", ex.getMessage(), correlationId);
     }
 
+    /** A missing required header is the caller's mistake (400), never a server error. */
+    @ExceptionHandler(org.springframework.web.bind.MissingRequestHeaderException.class)
+    public ResponseEntity<ProblemDetailResponse> handleMissingHeader(
+            org.springframework.web.bind.MissingRequestHeaderException ex, HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        boolean idempotency = "Idempotency-Key".equalsIgnoreCase(ex.getHeaderName());
+        return buildResponse(HttpStatus.BAD_REQUEST, idempotency ? "IDEMPOTENCY_KEY_REQUIRED" : "VALIDATION_ERROR",
+                "Missing Request Header", "Required request header '" + ex.getHeaderName() + "' is missing", correlationId);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ProblemDetailResponse> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex, HttpServletRequest request) {

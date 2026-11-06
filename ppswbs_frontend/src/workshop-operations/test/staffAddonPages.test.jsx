@@ -1,9 +1,14 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
+import { clearRoleCache } from '../../shared/auth/useRole';
 import { operationsRoutes } from '../routes';
+
+// The folio correction panel is a Manager panel: it appears once the profile says the viewer is a Manager.
+const asManager = handlers => mockFetch({ 'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }), ...handlers });
+beforeEach(() => clearRoleCache());
 
 const session = id => json(200, { id, state: 'IN_PROGRESS', locationId: 4, capacity: 10 });
 
@@ -17,7 +22,7 @@ async function fillForm(user, bookingCode, amountVnd, reason = null) {
 
 describe('Manager folio correction operations screen', () => {
   it('creates a folio correction for finalized direct booking', async () => {
-    const calls = mockFetch({
+    const calls = asManager({
       'GET /api/v1/workshop-sessions/session-1': session('session-1'),
       'POST /api/v1/workshop-bookings/BK-100/folio-corrections': json(201, {
         correctionReference: 'CORR-1', amountVnd: 50000, currencyCode: 'VND',
@@ -39,7 +44,7 @@ describe('Manager folio correction operations screen', () => {
   });
 
   it('does not fabricate success when backend rejects the command', async () => {
-    mockFetch({
+    asManager({
       'GET /api/v1/workshop-sessions/session-2': session('session-2'),
       'POST /api/v1/workshop-bookings/BK-200/folio-corrections': json(409, {
         code: 'FINAL_BILL_NOT_FINALIZED', message: 'Final bill is not finalized',
@@ -55,7 +60,7 @@ describe('Manager folio correction operations screen', () => {
   });
 
   it('requires reason before enabling the folio correction command', async () => {
-    const calls = mockFetch({ 'GET /api/v1/workshop-sessions/session-3': session('session-3') });
+    const calls = asManager({ 'GET /api/v1/workshop-sessions/session-3': session('session-3') });
     const user = userEvent.setup();
     renderRoutes(operationsRoutes, { path: '/operations/sessions/session-3' });
     await screen.findByRole('heading', { name: 'Manager folio correction' });
@@ -66,7 +71,7 @@ describe('Manager folio correction operations screen', () => {
   });
 
   it('shows an error when the folio correction command times out', async () => {
-    mockFetch({
+    asManager({
       'GET /api/v1/workshop-sessions/session-4': session('session-4'),
       'POST /api/v1/workshop-bookings/BK-400/folio-corrections': () => Promise.reject(new TypeError('Failed to fetch')),
     });
