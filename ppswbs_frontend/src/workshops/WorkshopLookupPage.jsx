@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import {
   listMemberBookings,
   lookupGuestBooking,
@@ -98,6 +98,10 @@ export function WorkshopLookupPage() {
   // Loaded projection
   const [loading, setLoading] = useState(false);
   const detailsRef = useRef(null);
+  // /workshop-booking/lookup?code=BK-... (from the home page) opens that booking of the Member straight away.
+  const [searchParams] = useSearchParams();
+  const requestedCode = searchParams.get('code');
+  const openedRequestedCode = useRef(false);
   const openFromList = booking => {
     setError(null);
     setResendSuccess(null);
@@ -109,6 +113,12 @@ export function WorkshopLookupPage() {
   };
   const [error, setError] = useState(null);
   const [bookingData, setBookingData] = useState(null);
+  useEffect(() => {
+    if (!requestedCode || openedRequestedCode.current || !Array.isArray(myBookings)) return;
+    const match = myBookings.find(item => item.bookingCode === requestedCode);
+    openedRequestedCode.current = true;
+    if (match) openFromList(match);
+  }, [requestedCode, myBookings]);
 
   // Pending resume & release state
   const [isPaying, setIsPaying] = useState(false);
@@ -140,6 +150,37 @@ export function WorkshopLookupPage() {
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [bookingData?.holdExpiresAt, bookingData?.bookingStatus]);
+
+  // The server closes an unpaid hold shortly after its 10 minutes (it polls every 15 s). When the countdown ends, refresh the
+  // booking until it reports the new state, so the page never keeps offering payment for a hold that is already gone.
+  const holdEnded = countdownSeconds === 0 && bookingData?.bookingStatus === 'PENDING_PAYMENT';
+  useEffect(() => {
+    if (!holdEnded || !bookingData?.bookingCode) return undefined;
+    let active = true;
+    let attempts = 0;
+    const code = bookingData.bookingCode;
+    const refresh = async () => {
+      attempts += 1;
+      try {
+        let fresh;
+        if (lookupMode === 'MEMBER') {
+          const idToken = await getIdToken();
+          fresh = await lookupMemberBooking(code, { authorization: `Bearer ${idToken}` });
+        } else {
+          const hasEmail = Boolean(contactEmail.trim());
+          fresh = await lookupGuestBooking({ bookingCode: code, contactEmail: hasEmail ? contactEmail.trim() : undefined, contactPhone: hasEmail ? undefined : contactPhone.trim() });
+        }
+        if (active && fresh && fresh.bookingStatus !== 'PENDING_PAYMENT') {
+          setBookingData(fresh);
+          if (lookupMode === 'MEMBER') loadMyBookings.current();
+          return;
+        }
+      } catch { /* try again below */ }
+      if (active && attempts < 8) timer = setTimeout(refresh, 4000);
+    };
+    let timer = setTimeout(refresh, 1500);
+    return () => { active = false; clearTimeout(timer); };
+  }, [holdEnded, bookingData?.bookingCode]);
 
   const handleLookup = async (e) => {
     e.preventDefault();
@@ -322,9 +363,9 @@ export function WorkshopLookupPage() {
         />
       )}
 
-      {/* Lookup Form */}
-      <section className="workspace-card lookup-panel">
-        <form onSubmit={handleLookup}>
+      {/* Lookup form: a signed-in Member picks a booking from "Đặt chỗ của tôi" above, so only Guests (and the unknown-role state) type a code. */}
+      <section className="workspace-card lookup-panel" style={lookupMode === 'MEMBER' && !error ? { display: 'none' } : undefined}>
+        {lookupMode !== 'MEMBER' && <form onSubmit={handleLookup}>
           <fieldset disabled={authStatus === 'loading' || profileLoading || lookupMode === null} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
           <label style={{ display: 'block', marginBottom: '14px' }}>
             Mã đặt chỗ (Booking Code) *
@@ -378,7 +419,7 @@ export function WorkshopLookupPage() {
             {loading ? 'Đang tra cứu...' : 'Tra cứu đơn đặt chỗ'}
           </button>
           </fieldset>
-        </form>
+        </form>}
 
         {error && (
           <p style={{ color: '#b00', marginTop: '14px', fontSize: '14px' }}>{error}</p>
@@ -433,6 +474,9 @@ export function WorkshopLookupPage() {
                 <p style={{ margin: '0 0 14px', fontSize: '15px' }}>
                   Thời hạn còn lại: <strong style={{ color: countdownSeconds < 120 ? '#b00' : '#002967' }}>{Math.floor(countdownSeconds / 60)} phút {countdownSeconds % 60} giây</strong>
                 </p>
+              )}
+              {countdownSeconds === 0 && (
+                <p role="status" style={{ margin: '0 0 14px', color: '#b00' }}>Đã hết thời hạn giữ chỗ. Hệ thống đang tự động hủy giữ chỗ và cập nhật trạng thái đơn…</p>
               )}
 
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>

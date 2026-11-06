@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getWorkshopPackage, listWorkshopLocations, listWorkshopSessions, previewWorkshopBookingQuote, createWorkshopBooking, WorkshopApiError } from '../api/workshops';
 import { WorkshopBenefitPanel } from './WorkshopBenefitPanel';
+import { HoldPaymentPanel } from './HoldPaymentPanel';
 import { useAuth } from '../shared/auth/AuthProvider';
 import { useHttp } from '../shared/api/useHttp';
 import { getEffectiveParticipantMax } from './bookingCapacity';
@@ -629,15 +630,6 @@ export function WorkshopBookingPage({ packageId }) {
             <p>
               Số vé: <strong>{bookingOutcome.participantCount}</strong>
             </p>
-            {bookingOutcome.holdExpiresAt && (
-              <p style={{ color: '#b00', fontWeight: '500' }}>
-                ⏳ Thời hạn giữ chỗ: <strong>{new Date(bookingOutcome.holdExpiresAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ({new Date(bookingOutcome.holdExpiresAt).toLocaleDateString('vi-VN')})</strong>
-                <small style={{ display: 'block', color: '#595959', fontWeight: 'normal', fontSize: '13px' }}>
-                  * Chỗ của bạn sẽ được giữ trong tối đa 10 phút. Vui lòng thanh toán đặt cọc 50% để xác nhận chính thức.
-                </small>
-              </p>
-            )}
-
             {Array.isArray(bookingOutcome.sessions) && bookingOutcome.sessions.length > 0 && (
               <div style={{ marginTop: '16px', background: '#f9f9f9', padding: '16px', border: '1px solid #eee' }}>
                 <h4 style={{ margin: '0 0 10px', fontSize: '15px' }}>Các ca workshop đã giữ chỗ:</h4>
@@ -652,13 +644,13 @@ export function WorkshopBookingPage({ packageId }) {
             )}
           </div>
 
-          <div className="actions" style={{ marginTop: '28px' }}>
-            <a className="button primary" href="/workshop-booking/lookup">
-              Tra cứu thông tin đặt chỗ
-            </a>
-            <a className="button outline" href="/">
-              Về trang chủ
-            </a>
+          {bookingOutcome.bookingStatus === 'PENDING_PAYMENT' && (
+            <HoldPaymentPanel bookingCode={bookingOutcome.bookingCode} holdExpiresAt={bookingOutcome.holdExpiresAt} />
+          )}
+
+          <div className="actions" style={{ marginTop: '20px' }}>
+            <a className="button outline" href="/workshop-booking/lookup">Xem đặt chỗ của tôi</a>
+            <a className="button outline" href="/">Về trang chủ</a>
           </div>
         </div>
       </main>
@@ -694,12 +686,32 @@ export function WorkshopBookingPage({ packageId }) {
         Hoàn tất thông tin liên hệ và chọn {requiredSessions} ca workshop phù hợp để giữ chỗ.
       </p>
 
-      <nav className="figma-booking-steps" aria-label="Booking progress">
-        <span className="active">1 Choose package</span>
-        <span>2 Choose schedule</span>
-        <span>3 Contact details</span>
-        <span>4 Confirm</span>
-      </nav>
+      {(() => {
+        // The progress bar follows the form: the first section still to be completed is the current step.
+        const isMember = bookingMode === 'MEMBER';
+        const steps = [
+          { label: 'Thông tin người đặt', target: 'contact-info-section', done: Boolean(contactEmail.trim() && contactPhone.trim()) },
+          { label: `Chọn ${requiredSessions} ca`, target: 'workshop-sessions-section', done: hasCompleteSessionSelection },
+          ...(isMember ? [{ label: 'Ưu đãi & điểm', target: 'member-benefits-section', done: benefitsAcknowledged }] : []),
+          { label: 'Xác nhận đặt chỗ', target: 'booking-summary', done: false },
+        ];
+        const currentIndex = steps.findIndex(step => !step.done);
+        return (
+          <nav className="figma-booking-steps" aria-label="Tiến trình đặt chỗ">
+            {steps.map((step, index) => (
+              <button
+                type="button"
+                key={step.target}
+                className={`${index === currentIndex ? 'active' : ''} ${step.done ? 'done' : ''}`.trim()}
+                aria-current={index === currentIndex ? 'step' : undefined}
+                onClick={() => document.getElementById(step.target)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              >
+                {step.done ? '✓' : index + 1} {step.label}
+              </button>
+            ))}
+          </nav>
+        );
+      })()}
 
       <div
         role="status"
@@ -966,32 +978,40 @@ export function WorkshopBookingPage({ packageId }) {
                       Vui lòng chọn ca khác.
                     </p>
                   )}
-                  {canChooseParticipantCount && <label>
-                    Số vé / số người tham gia *
-                    <input
-                      type="number"
-                      min={packageMinParticipants}
-                      max={inputMaxParticipants}
-                      value={participantCount}
-                      onChange={e => {
-                        const nextValue = Number(e.target.value);
-                        if (!Number.isFinite(nextValue) || !hasCompleteSessionSelection) return;
-                        setParticipantCount(Math.min(
-                          Math.max(packageMinParticipants, nextValue),
-                          inputMaxParticipants,
-                        ));
-                        if (bookingMode === 'MEMBER') invalidateMemberQuote();
-                      }}
-                      disabled={isSubmitting || !hasCompleteSessionSelection}
-                    />
-                    <small style={{ display: 'block', color: '#595959' }}>
-                      Tối đa theo các ca đã chọn: {effectiveMaxParticipants} vé.
-                      {' '}Hệ thống sẽ kiểm tra lại khi giữ chỗ.
-                    </small>
-                    {formValidationErrors.participantCount && (
-                      <small style={{ color: '#b00' }}>{formValidationErrors.participantCount}</small>
-                    )}
-                  </label>}
+                  {canChooseParticipantCount && (() => {
+                    const stepDisabled = isSubmitting || !hasCompleteSessionSelection;
+                    const setCount = nextValue => {
+                      if (!Number.isFinite(nextValue) || !hasCompleteSessionSelection) return;
+                      setParticipantCount(Math.min(Math.max(packageMinParticipants, nextValue), inputMaxParticipants));
+                      if (bookingMode === 'MEMBER') invalidateMemberQuote();
+                    };
+                    return (
+                      <div className="participant-field">
+                        <span className="participant-label" id="participant-label">Số vé / số người tham gia *</span>
+                        <div className="participant-stepper" role="group" aria-labelledby="participant-label">
+                          <button type="button" aria-label="Giảm số vé" disabled={stepDisabled || participantCount <= packageMinParticipants} onClick={() => setCount(Number(participantCount) - 1)}>−</button>
+                          <input
+                            type="number"
+                            min={packageMinParticipants}
+                            max={inputMaxParticipants}
+                            value={participantCount}
+                            aria-labelledby="participant-label"
+                            onChange={e => setCount(Number(e.target.value))}
+                            disabled={stepDisabled}
+                          />
+                          <button type="button" aria-label="Tăng số vé" disabled={stepDisabled || participantCount >= inputMaxParticipants} onClick={() => setCount(Number(participantCount) + 1)}>+</button>
+                        </div>
+                        <small className="participant-hint">
+                          {hasCompleteSessionSelection
+                            ? `Tối đa ${effectiveMaxParticipants} vé theo các ca đã chọn. Hệ thống sẽ kiểm tra lại khi giữ chỗ.`
+                            : 'Chọn đủ ca workshop để chọn số vé.'}
+                        </small>
+                        {formValidationErrors.participantCount && (
+                          <small style={{ color: '#b00' }}>{formValidationErrors.participantCount}</small>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </section>
 
@@ -1052,7 +1072,7 @@ export function WorkshopBookingPage({ packageId }) {
 
                 {quoteMatches && !benefitsAcknowledged && !isQuoteLoading && (
                   <div style={{ padding: '10px 14px', background: '#fffbe6', borderLeft: '4px solid #faad14', marginBottom: '16px', fontSize: '14px', color: '#874d00' }}>
-                    <strong>Bước 2:</strong> Vui lòng xem bảng phân bổ tiền bên dưới và tích chọn ô <strong>&quot;Tôi đã xem tổng tiền và ưu đãi ở trên&quot;</strong> để hoàn tất điều kiện giữ chỗ.
+                    <strong>Lưu ý:</strong> Vui lòng xem bảng phân bổ tiền bên dưới và tích chọn ô <strong>&quot;Tôi đã xem tổng tiền và ưu đãi ở trên&quot;</strong> để hoàn tất điều kiện giữ chỗ.
                   </div>
                 )}
 
@@ -1087,7 +1107,7 @@ export function WorkshopBookingPage({ packageId }) {
 
           {/* Right Column: Order Summary & Confirmation CTA */}
           <aside className="workspace-card" style={{ position: 'sticky', top: '24px' }}>
-            <h2>Tóm tắt đặt chỗ</h2>
+            <h2 id="booking-summary" style={{ scrollMarginTop: '32px' }}>Tóm tắt đặt chỗ</h2>
 
             <div style={{ borderBottom: '1px solid #eee', paddingBottom: '16px', marginBottom: '16px', lineHeight: '1.8' }}>
               <p style={{ margin: 0 }}>Gói: <strong>{pkg.name}</strong></p>
