@@ -151,16 +151,10 @@ public class WorkshopLifecycleService {
     }
 
     private void handleFinalizeTransition(AccountSummary actor, WorkshopSession session, SessionState currentState) {
-        // Attendance can only be finalized from IN_PROGRESS
-        if (currentState != SessionState.IN_PROGRESS) {
-            throw new WorkshopLifecycleException("Cannot finalize attendance from state " + currentState + "; session must be IN_PROGRESS");
-        }
-
-        // Role check: any active Staff in location scope or any active Manager.
-        if (!authorizationService.isGlobalWorkshopActor(actor)
-                && !authorizationService.isStaff(actor)) {
-            throw new WorkshopForbiddenException("Access denied: Actor role " + actor.role() + " cannot finalize session attendance");
-        }
+        // A plain state change would skip what finalization really does: marking every unchecked ticket NO_SHOW and
+        // recording the finalization time that settlement readiness needs. Only the dedicated action does that.
+        throw new WorkshopLifecycleException("Attendance is finalized only through POST /workshop-sessions/{id}/attendance-finalizations; "
+                + "a plain state transition to ATTENDANCE_FINALIZED is not supported");
     }
 
     private WorkshopSession requireSessionEntity(String sessionReference) {
