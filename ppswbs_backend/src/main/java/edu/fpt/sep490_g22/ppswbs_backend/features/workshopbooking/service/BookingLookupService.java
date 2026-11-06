@@ -13,12 +13,14 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.Custome
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.CustomerBookingAccessQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopOperationsAdapter;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicket;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicketSet;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilitySnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SessionEntitlementProjection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +30,11 @@ import java.util.*;
 /** Builds a privacy-safe customer projection only after Booking-owned proof succeeds. */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BookingLookupService {
+
+    /** A Member's list shows their latest bookings; older ones are still found by booking code. */
+    static final int MEMBER_LIST_LIMIT = 30;
 
     private final WorkshopBookingRepository bookings;
     private final BookingSessionCommitmentRepository commitments;
@@ -66,6 +72,29 @@ public class BookingLookupService {
         return project(booking);
     }
 
+    /**
+     * The signed-in Member's own bookings, newest first, each with its sessions and tickets, so they can see their tickets
+     * without typing a booking code. Bookings whose hold expired without payment are left out. One booking whose current
+     * projection cannot be built is skipped rather than failing the whole list.
+     */
+    @Transactional(readOnly = true)
+    public List<BookingSummaryResponse> listMemberBookings(String authorizationHeader) {
+        AccountSummary member = authorization.requireMemberOwnership(authorizationHeader, null);
+        List<WorkshopBooking> mine = new ArrayList<>(bookings.findByMemberAccountId(member.accountId()));
+        mine.sort(Comparator.comparing(WorkshopBooking::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        List<BookingSummaryResponse> result = new ArrayList<>();
+        for (WorkshopBooking booking : mine) {
+            if (result.size() >= MEMBER_LIST_LIMIT) break;
+            if (booking.getBookingStatus() == BookingStatus.EXPIRED) continue;
+            try {
+                result.add(project(booking));
+            } catch (RuntimeException failure) {
+                log.warn("Skipping booking {} in a Member's list: {}", booking.getBookingCode(), failure.getClass().getSimpleName());
+            }
+        }
+        return result;
+    }
+
     private WorkshopBooking findBooking(String bookingCode) {
         if (bookingCode == null || bookingCode.isBlank()) throw new BookingNotFoundException("Booking not found");
         return bookings.findByBookingCode(bookingCode.trim())
@@ -101,7 +130,24 @@ public class BookingLookupService {
                 .holdExpiresAt(booking.getHoldExpiresAt())
                 .sessions(sessions)
                 .tickets(tickets)
+                .attendanceStatus(booking.getBookingStatus() == BookingStatus.CONFIRMED ? attendanceStatus(booking) : null)
                 .build();
+    }
+
+    /**
+     * Attendance as the customer may see it. A booking stays CONFIRMED during the 24-hour correction window, so this tells a
+     * customer whose ticket was recorded as a no-show what is going on, without changing the booking status.
+     */
+    private String attendanceStatus(WorkshopBooking booking) {
+        try {
+            BookingAttendanceSummary summary = operations.getBookingAttendanceSummary(booking.getBookingCode());
+            if (summary == null || !summary.sessionsFinalized()) return null;
+            if (!summary.hasNoShow()) return "ATTENDED";
+            return summary.correctionWindowClosed() ? "NO_SHOW" : "NO_SHOW_PENDING";
+        } catch (RuntimeException failure) {
+            log.warn("Attendance summary unavailable for booking {}: {}", booking.getBookingCode(), failure.getClass().getSimpleName());
+            return null;
+        }
     }
 
     private List<BookedSessionDto> currentPendingSessions(WorkshopBooking booking) {

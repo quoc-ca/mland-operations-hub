@@ -25,6 +25,9 @@ public interface WorkshopOperationsFacade {
 
     SettlementReadiness getSettlementReadiness(BookingSettlementReadinessQuery query);
 
+    /** Attendance of the booking for display to the customer; reads only, takes no lock. */
+    BookingAttendanceSummary getBookingAttendanceSummary(BookingSettlementReadinessQuery query);
+
     /** True once at least one of the booking's active sessions is running or its attendance is finalized (the customer is at the workshop). */
     boolean hasBookingServiceStarted(BookingSettlementReadinessQuery query);
 
