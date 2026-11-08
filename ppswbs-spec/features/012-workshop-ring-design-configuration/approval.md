@@ -7,7 +7,7 @@ Last updated by: Ngô Tiến Đạt
 
 ## Status
 
-`NOT APPROVED — DRAFT PREPARATION ONLY`
+`NOT APPROVED — SPEC/DESIGN READY FOR REVIEW ONLY`
 
 This file is intentionally not an approval. It is a gate record prepared for a
 future review. No code or migration may be generated from this package until a
@@ -36,8 +36,11 @@ Tech Lead approves the exact revision and scope below.
 
 ## Conditions before implementation
 
-1. Approve physical mapping of configured-design versions.
-2. Approve Guest session storage and cleanup.
-3. Approve option/rule catalogue and estimate formula.
-4. Approve Workshop Booking attachment facade and transaction boundary.
-5. Verify Flyway version/history and choose a new append-only migration.
+1. Approve physical mapping of configured-design versions and P2.9 snapshot
+   persistence.
+2. Approve the Feature-012-owned Guest session table and cleanup/replay rules.
+3. Approve the Manager-owned option/rule facade and its versioned evaluation
+   input/output contract.
+4. Approve the Workshop Booking attachment facade and transaction boundary.
+5. Verify Flyway version/history; any future migration must be greater than
+   `V102` and must not rewrite an applied migration.

@@ -6,7 +6,7 @@ Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt  
 
 **Feature:** 012 — Workshop Ring Design Configuration  
-**Status:** SPEC DRAFT — DATA MODEL/API PENDING  
+**Status:** SPEC/DESIGN READY FOR REVIEW — IMPLEMENTATION BLOCKED BY APPROVAL
 **Parent business scope:** FE-05 Personalized Design and Quote Workflow  
 **Source priority:** This feature contract, approved Feature-003 contracts,
 `spec-general.md`, `DB.md`, and approved Report 3 requirements. Existing code or
@@ -288,8 +288,22 @@ new key for the same user action. Versioned commands use `If-Match-Version`.
 12. Given Feature-004 returns candidate features, no automatic Feature-012 design
     or booking mutation occurs.
 
-## 14. Readiness
+## 14. Blocker closure addendum
 
-This document is a draft behavioral baseline. Implementation remains blocked by
-the physical version mapping, Guest-session storage contract, option/rule
-catalogue, booking facade contract, migration version and formal approval.
+The logical decisions below are now fixed for design review:
+
+1. Each design version is one immutable `ring_designs` row; `source_design_id`
+   records lineage and no separate version table is required in V1.
+2. Guest sessions are Feature-012-owned MySQL records with opaque reference or
+   digest, `ACTIVE/EXPIRED/REVOKED` state and 20-minute inactivity expiry.
+3. Booking uses synchronous `attachAndLockDesignForBooking(...)`; the design
+   locks only when the booking transaction commits and rollback leaves it
+   retryable.
+4. Evaluation is delegated to a Manager-owned catalogue/rule facade. Feature-012
+   stores safe input/output snapshots and `rules_version`, but no hard-coded
+   numerical pricing or difficulty formula.
+5. Member design history is retained for three years; archive is soft-delete.
+
+Implementation remains blocked only by physical schema/migration approval,
+session-store implementation, rule-facade implementation, booking-facade
+implementation and formal Tech Lead approval.

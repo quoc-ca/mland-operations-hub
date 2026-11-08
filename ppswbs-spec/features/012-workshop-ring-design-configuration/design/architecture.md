@@ -138,3 +138,9 @@ estimate, difficulty, version and lock state.
 - Manager-owned rule/catalogue data must expose a stable read facade.
 - Booking must expose an approved attach/snapshot boundary.
 - Module verification must confirm no repository cycle.
+
+The logical design is ready for review. Implementation remains gated by the
+physical `ring_designs` mapping, the Feature-012-owned Guest session table, the
+Manager rule facade, the approved WorkshopRingDesignFacade and formal approval.
+The repository migration baseline is `V102`; no migration is created by this
+design package.
