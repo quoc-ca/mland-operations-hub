@@ -7,7 +7,7 @@ Last updated by: Ngô Tiến Đạt
 
 ## 1. Current status
 
-`RESEARCH COMPLETE — SPEC DRAFT — DATA MODEL/API PENDING`
+`SPEC/DESIGN READY FOR REVIEW — IMPLEMENTATION BLOCKED BY APPROVAL`
 
 No production code, migration or runtime configuration is included in this
 preparation package.
@@ -65,7 +65,7 @@ preparation package.
 - Letting the client calculate compatibility or price: rejected because backend
   is the authority and catalogue/rule data is dynamic.
 
-## 6. Proposed contract decisions pending approval
+## 6. Contract decisions recorded for review
 
 The following are implementation proposals, not yet approved baselines:
 
@@ -74,26 +74,34 @@ The following are implementation proposals, not yet approved baselines:
   updates.
 - Expose package-scoped options through a public read endpoint.
 - Expose booking attachment through a one-way `WorkshopRingDesignFacade`.
-- Store Guest session state in an approved feature/session boundary; do not create
-  a new global session policy silently.
+- Store Guest session state in the Feature-012-owned MySQL logical table
+  `guest_design_sessions`; use an opaque reference/digest, inactivity expiry and
+  replay protection. This is not a new global identity/session system.
 
-## 7. Open blockers
+## 7. Remaining implementation gates
 
-1. Approve physical mapping of logical design versions to `ring_designs`.
-2. Approve Guest server-session storage, invalidation and cleanup mechanics.
-3. Approve ring-size, placement, quantity and engraving rule data.
-4. Approve exact estimate/difficulty formula and rounding behavior.
-5. Approve Feature-003 attachment/snapshot facade and transaction boundary.
-6. Scan repository/database Flyway history before selecting a migration version.
-7. Register Feature-012 in the feature registry after scope approval.
-8. Create an approval record with revision and Tech Lead before implementation.
+1. Approve physical schema and migration design after verifying the current
+   repository/database baseline (`V102` is the current repository baseline).
+2. Implement and verify the Guest session store, cleanup and replay mechanics.
+3. Provide the Manager-owned catalogue/rule facade and configured option data.
+4. Approve and implement the Feature-003 attachment/snapshot facade.
+5. Obtain formal Tech Lead approval with revision, scope and date.
 
 ## 8. Change log
 
-### 2026-11-08 — Initial preparation
+### 2026-11-08 — Initial preparation and blocker closure
 
 - Created research and draft specification.
 - Recorded Guest/Member workshop-only configuration scope.
 - Recorded package-first entry and branch revalidation.
 - Recorded version, archive, session and booking attachment decisions.
-- Marked data model, API, design and physical persistence as pending approval.
+- Confirmed row-per-version `ring_designs` with `source_design_id` lineage and
+  no separate version table in V1.
+- Confirmed Feature-012-owned MySQL Guest sessions with 20-minute inactivity
+  expiry and three-year Member history retention.
+- Confirmed synchronous `attachAndLockDesignForBooking(...)` transaction
+  boundary and immutable booking snapshot ownership.
+- Confirmed Manager-owned rule facade and config-driven evaluation; no fixed
+  numerical formula is owned by Feature-012.
+- Updated cross-feature ownership and flow documentation. No code, tests or
+  migration was created.

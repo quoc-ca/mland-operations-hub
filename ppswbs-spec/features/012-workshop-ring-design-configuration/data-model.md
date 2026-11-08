@@ -5,8 +5,8 @@ Date updated: 2026-11-08
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt  
 
-**Status:** Proposed logical model; physical mapping and migration are pending
-approval.
+**Status:** SPEC/DESIGN READY FOR REVIEW; physical mapping and migration remain
+implementation gates.
 
 ## 1. Ownership boundary
 
@@ -193,17 +193,33 @@ be reconciled with repository Flyway history before migration.
 
 - Guest session and unsubmitted draft data follows the 20-minute inactivity
   expiry plus approved cleanup process.
-- Member history follows business-history retention; exact duration is still
-  required before implementation.
+- Member design history is retained for three years.
 - Archived design content is not hard-deleted by normal feature operations.
 - Booking snapshots remain under the Booking/business-record retention policy.
 - No raw image or AI provider payload is owned by this feature.
 
-## 6. Data-model blockers
+## 6. Resolved logical model and remaining gates
 
-- Decide whether existing `ring_designs` rows represent aggregate versions or
-  whether a separate physical version table is required.
-- Approve the Guest session store and cleanup mechanism.
-- Approve controlled values for ring size, placement, quantity and engraving.
-- Approve direct-FK versus opaque-facade references for booking attachment.
-- Check Flyway history before creating any migration.
+The V1 logical model uses one immutable `ring_designs` row per design version.
+`source_design_id` preserves lineage between model-derived versions. A separate
+version table is not required. `design_version` is a logical sequence whose
+physical representation still requires schema approval.
+
+`guest_design_sessions` is owned by Feature-012 and stores only an opaque
+reference/digest, bound design reference, `last_activity_at`, `expires_at` and
+`ACTIVE/EXPIRED/REVOKED` state. It must not store raw identity in the client;
+cleanup and replay protection are implementation gates.
+
+The booking boundary is `attachAndLockDesignForBooking(...)`. Feature-012
+returns an immutable snapshot; Feature-003 owns booking-side persistence. The
+operation is synchronous in the booking transaction and does not create payment,
+capacity or ticket side effects.
+
+Evaluation reads catalogue data through the Manager-owned rule facade. It stores
+safe input/output, currency, timestamp and `rules_version`; Feature-012 does not
+own a fixed numerical formula. P2.9 snapshot envelope and decimal-string money
+representation remain mandatory.
+
+Remaining gates are physical schema/migration approval after checking versions
+through `V102`, session-store implementation, rule-facade implementation,
+booking-facade implementation and formal approval.

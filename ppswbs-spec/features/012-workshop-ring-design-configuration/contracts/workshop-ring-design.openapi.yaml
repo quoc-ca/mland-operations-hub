@@ -6,10 +6,11 @@
 openapi: 3.1.0
 info:
   title: Feature-012 Workshop Ring Design Configuration API
-  version: 0.1.0-draft
+  version: 0.2.0-review
   description: >-
     Proposed contract for Guest and Member workshop ring configuration. This is
-    a draft and does not approve a physical schema or migration.
+    a review baseline. It exposes logical opaque references only and does not
+    approve a physical schema or migration.
 servers:
   - url: /api/v1
 tags:
@@ -288,9 +289,15 @@ components:
       type: object
       required: [rulesVersion]
       properties:
-        estimatedPrice: { type: number, minimum: 0, nullable: true }
+        estimatedPrice:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)(\\.[0-9]+)?$'
+          nullable: true
         currency: { type: string, minLength: 3, maxLength: 3, nullable: true }
-        difficultyScore: { type: number, minimum: 0, nullable: true }
+        difficultyScore:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)(\\.[0-9]+)?$'
+          nullable: true
         rulesVersion: { type: string, minLength: 1, maxLength: 64 }
         advisory: { type: boolean, const: true }
     AttachDesignRequest:

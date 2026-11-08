@@ -101,3 +101,15 @@ partial attach.
 - Late or duplicate attach commands return the existing safe result where the
   approved idempotency scope matches.
 - Feature-004 responses never bypass these validation or ownership checks.
+
+## W9 — Booking attachment boundary
+
+The approved logical operation is `attachAndLockDesignForBooking(...)` with
+`ConfiguredDesignBookingCommand`, `ConfiguredDesignBookingSnapshot` and
+`ConfiguredDesignBookingOutcome` boundary types. It revalidates Guest session
+or Member ownership, package/branch compatibility and `VALIDATED` design state.
+It returns a server-built immutable snapshot to Feature-003 and locks the
+design only when the surrounding booking transaction commits. Payment,
+capacity-hold and ticket creation remain outside this operation. A rollback
+leaves the design available for retry; a repeated `operationReference` returns
+the prior outcome, while changed payload with the same reference is a conflict.

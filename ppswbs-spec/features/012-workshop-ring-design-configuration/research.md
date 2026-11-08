@@ -27,7 +27,7 @@ Design and Quote Workflow.
 | Report 3 workshop booking use case | Package-first booking, optional design path, branch/session validation and no partial booking on failure. |
 | Feature-003 booking artifacts | Booking owns booking/session/capacity/payment and consumes cross-feature facts through a facade. |
 | Feature-004 artifacts | Independent AI Design Request is Member-only and must not be converted automatically into a configured design. |
-| `ppswbs-spec/features/README.md` | Feature registry; Feature-012 is not registered yet. |
+| `ppswbs-spec/features/README.md` | Feature registry; Feature-012 is now registered as draft/spec-design-ready. |
 
 ## 3. Confirmed facts
 
@@ -155,23 +155,38 @@ Guest/Member selects package
 | R-04 | Guest server-session mechanism is not present as a shared contract. | A new global session policy must not be invented silently. | Define an opaque feature boundary and record the storage mechanism as a technical gate. |
 | R-05 | Ring-size taxonomy, placement, quantity, engraving limits and numeric rules are explicitly TBD in `DB.md`. | Validation cannot be fully implemented from current docs. | Manager must approve catalogue/rule data before implementation. |
 | R-06 | Booking facade attachment contract is not yet defined. | Booking cannot safely snapshot or lock a configured design. | Add a one-way facade contract and integration tests before code. |
-| R-07 | Feature-012 is not registered in `features/README.md`. | No official feature registry/approval evidence exists. | Register only after the owner approves the feature scope and revision. |
+| R-07 | Feature-012 had not been registered in `features/README.md` during the initial research. | Registry evidence was incomplete. | The feature is now registered as draft/spec-design-ready; implementation approval is still required. |
 
-## 8. Remaining blockers before implementation
+## 8. Remaining implementation gates
 
 - Approve the physical mapping for configured-design versions.
-- Approve the server-session storage/cleanup implementation while preserving the
+- Implement and verify the server-session storage/cleanup while preserving the
   fixed 20-minute inactivity behavior.
-- Provide the active size, placement, quantity and engraving rule catalogue.
-- Approve the Feature-003 attach/snapshot facade.
-- Inventory Flyway versions and `flyway_schema_history` before selecting a
-  migration version.
-- Create `approval.md` with revision, scope, date and Tech Lead after review.
+- Implement the Manager-owned option/rule facade and provide active catalogue
+  data for size, placement, quantity and engraving.
+- Implement the approved Feature-003 attach/snapshot facade.
+- Verify `flyway_schema_history` before selecting a future migration greater
+  than `V102`.
+- Obtain formal approval in `approval.md` with revision, scope, date and Tech
+  Lead.
 
 ## 9. Research conclusion
 
 The feature is suitable for a separate SPEC/DESIGN package. The business
-boundary and primary customer flow are sufficiently clear for a draft
-specification. The data model and API contract must remain proposed until the
-physical version mapping, Guest session mechanism, option-rule catalogue and
-booking facade are approved.
+boundary, logical data model and API boundary are sufficiently clear for review.
+Physical schema, session implementation, rule-facade implementation, booking
+facade implementation and formal approval remain implementation gates.
+
+## 10. Blocker closure decisions — 2026-11-08
+
+| Area | Decision | Consequence |
+| --- | --- | --- |
+| Version persistence | One immutable `ring_designs` row is one design version; `source_design_id` preserves lineage. | No separate version table in V1; physical sequence mapping still requires approval. |
+| Guest persistence | Feature-012-owned MySQL `guest_design_sessions` with opaque reference/digest. | 20-minute inactivity expiry, explicit lifecycle state, cleanup and replay protection. |
+| Booking integration | Synchronous `attachAndLockDesignForBooking(...)` in the Booking transaction. | Commit locks the design and stores an immutable snapshot; rollback preserves retryability. |
+| Evaluation authority | Manager-owned catalogue/rule facade. | No duplicate catalogue tables or hard-coded numerical formula in Feature-012. |
+| Retention | Member design history is retained for three years. | Archive is soft-delete; history is not hard-deleted. |
+| Migration | Current repository baseline is `V102`. | Any future migration must be append-only and greater than `V102` after DB-history verification. |
+
+These decisions move the package to `SPEC/DESIGN READY FOR REVIEW`; they do not
+constitute implementation approval.

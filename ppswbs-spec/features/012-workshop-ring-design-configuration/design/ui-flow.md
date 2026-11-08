@@ -91,3 +91,11 @@ create booking/payment UI side effects.
 Figma sections and exact node IDs must be created and approved before frontend
 implementation. The Figma revision must be recorded in `version.md` and must not
 override the API/spec behavior.
+
+## 7. Review readiness
+
+The screen flow is ready for design review. It must use opaque design/session
+references, server-returned option data and advisory evaluation labels. It must
+not display internal IDs, raw session values, private Member data or estimate as
+payable price. Frontend implementation waits for the approved API contract and
+Figma revision; no new UI business rule is introduced here.

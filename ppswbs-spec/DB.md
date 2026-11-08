@@ -2236,3 +2236,27 @@ by their respective feature migrations. These versions must be verified against
 - Material, component placement and size compatibility must be checked against approved hard constraints; a numeric score alone cannot override an incompatible design.
 - A standalone shape price contribution is included only under an approved estimation rule and must not double-count component/labour prices.
 - Form/score/price changes do not rewrite frozen design versions. Disable an option for new selection rather than deleting referenced history.
+
+## Feature-012 logical ownership — workshop ring design configuration
+
+Feature-012 owns the configured-design lifecycle. One immutable `ring_designs`
+row represents one design version; `source_design_id` records lineage between
+versions and no separate version table is required in V1. `design_version` is a
+logical sequence whose physical representation requires approval.
+
+The feature also owns logical `guest_design_sessions` with an opaque
+reference/digest, bound design reference, `last_activity_at`, `expires_at` and
+`ACTIVE/EXPIRED/REVOKED` state. Guest sessions expire after 20 minutes of
+inactivity. Member history is retained for three years. Archive is soft-delete;
+history and audit are not hard-deleted.
+
+Evaluation reads catalogue tables through a Manager-owned rule facade. No
+duplicate catalogue tables or hard-coded numerical formula is created in
+Feature-012. Evaluation snapshots follow the P2.9 envelope and decimal-string
+money representation. Booking receives an immutable snapshot through
+`attachAndLockDesignForBooking(...)`; Feature-003 does not query these tables
+directly.
+
+No migration is created in this documentation step. The repository migration
+baseline is `V102`; any future Feature-012 migration must be append-only and
+greater than `V102` after repository and `flyway_schema_history` verification.
