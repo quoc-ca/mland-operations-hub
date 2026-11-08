@@ -18,7 +18,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.Booking
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.DepositPaymentEvidenceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopOperationsAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.WorkshopBookingAuthorizationService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SettlementReadiness;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCase;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
@@ -82,7 +82,7 @@ class LoyaltyRecoverySourceIntegrationIT {
     }
 
     @Test
-    void aValidCancellationAfterTheDepositRestoresPointsAndTheUseOnceAndTheReportReturnsToZero() {
+    void aValidCancellationAfterTheDepositRestoresPointsAndTheUseOnceAndTheReportReturnsToZero() throws InterruptedException {
         Booked booked = bookAndPayDeposit();
         assertThat(report(booked.code()).consumedCount()).isEqualTo("1");
         assertThat(report(booked.code()).committedDiscountAmount()).isEqualTo("100000");
@@ -112,7 +112,7 @@ class LoyaltyRecoverySourceIntegrationIT {
 
         // A later completion of the same booking earns nothing.
         finalBill(booked.bookingCode(), "FINALIZED", 0L);
-        when(settlementOperations.readiness(booked.bookingCode())).thenReturn(new SettlementReadiness(true, true, false, Instant.now()));
+        when(settlementOperations.attendanceOutcome(booked.bookingCode())).thenReturn(new BookingAttendanceOutcome(true, BookingAttendanceOutcome.Outcome.ATTENDED));
         finalOutcomes.process(booked.bookingCode());
         assertThat(result(booked.bookingCode()).earnState()).isEqualTo(EarnState.INELIGIBLE);
         assertThat(workshop.wallet(booked.member()).getBalancePoints()).isEqualTo(BigInteger.valueOf(2_000));
@@ -130,10 +130,10 @@ class LoyaltyRecoverySourceIntegrationIT {
     }
 
     @Test
-    void aFinalNoShowNeitherRestoresNorEarns() {
+    void aFinalNoShowNeitherRestoresNorEarns() throws InterruptedException {
         Booked booked = bookAndPayDeposit();
         finalBill(booked.bookingCode(), "OPEN", 405_000L);
-        when(settlementOperations.readiness(booked.bookingCode())).thenReturn(new SettlementReadiness(true, true, true, Instant.now()));
+        when(settlementOperations.attendanceOutcome(booked.bookingCode())).thenReturn(new BookingAttendanceOutcome(true, BookingAttendanceOutcome.Outcome.NO_SHOW));
         finalOutcomes.process(booked.bookingCode());
         finalOutcomes.process(booked.bookingCode());
 
@@ -144,14 +144,14 @@ class LoyaltyRecoverySourceIntegrationIT {
     }
 
     @Test
-    void anUnpaidRemainderOrAnOpenAttendanceWindowNeverEarns() {
+    void anUnpaidRemainderOrAnOpenAttendanceWindowNeverEarns() throws InterruptedException {
         Booked booked = bookAndPayDeposit();
         finalBill(booked.bookingCode(), "FINALIZED", 405_000L);
-        when(settlementOperations.readiness(booked.bookingCode())).thenReturn(new SettlementReadiness(true, true, false, Instant.now()));
+        when(settlementOperations.attendanceOutcome(booked.bookingCode())).thenReturn(new BookingAttendanceOutcome(true, BookingAttendanceOutcome.Outcome.ATTENDED));
         finalOutcomes.process(booked.bookingCode());
         assertThat(result(booked.bookingCode()).earnState()).as("remainder still unpaid").isEqualTo(EarnState.PENDING);
 
-        when(settlementOperations.readiness(booked.bookingCode())).thenReturn(new SettlementReadiness(true, false, false, Instant.now()));
+        when(settlementOperations.attendanceOutcome(booked.bookingCode())).thenReturn(new BookingAttendanceOutcome(false, null));
         finalOutcomes.process(booked.bookingCode());
         assertThat(result(booked.bookingCode()).earnState()).as("correction window open").isEqualTo(EarnState.PENDING);
         assertThat(workshop.wallet(booked.member()).getBalancePoints()).isEqualTo(BigInteger.valueOf(1_100));
@@ -206,9 +206,22 @@ class LoyaltyRecoverySourceIntegrationIT {
                 .caseType(caseType).lifecycleStatus("COMPLETED").correlationReference("corr-" + UUID.randomUUID()).build();
     }
 
-    private void finalBill(String bookingCode, String status, long remaining) {
-        bills.saveAndFlush(SettlementFinalBill.builder().billReference("BILL-" + UUID.randomUUID()).bookingReference(bookingCode)
-                .postPromotionAmountVnd(810_000L).acceptedDepositAmountVnd(405_000L).remainingAmountVnd(remaining)
-                .currencyCode("VND").lifecycleStatus(status).build());
+    /**
+     * Since 003.3 T087 a confirmed deposit opens the booking's single folio asynchronously (Modulith listener),
+     * so the test sets the folio to the state it needs instead of inserting a second one.
+     */
+    private void finalBill(String bookingCode, String status, long remaining) throws InterruptedException {
+        SettlementFinalBill folio = null;
+        for (int i = 0; i < 50 && folio == null; i++) {
+            folio = bills.findByBookingReference(bookingCode).orElse(null);
+            if (folio == null) Thread.sleep(100);
+        }
+        if (folio == null) {
+            folio = SettlementFinalBill.builder().billReference("BILL-" + UUID.randomUUID()).bookingReference(bookingCode)
+                    .postPromotionAmountVnd(810_000L).acceptedDepositAmountVnd(405_000L).currencyCode("VND").build();
+        }
+        folio.setRemainingAmountVnd(remaining);
+        folio.setLifecycleStatus(status);
+        bills.saveAndFlush(folio);
     }
 }

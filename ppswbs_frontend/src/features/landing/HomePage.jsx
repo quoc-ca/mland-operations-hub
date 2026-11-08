@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
 import { useFormat } from '../../shared/i18n/I18nProvider';
 import { useCurrentAccount } from '../accountmanagement/hooks/useCurrentAccount';
 import { firebaseAuthClient } from '../accountmanagement/auth/FirebaseAuthClient';
-import { listWorkshopPackages } from '../../api/workshops';
+import { listWorkshopPackages, listMemberBookings } from '../../api/workshops';
 import { listPublicProducts, publicMediaUrl } from '../../api/catalogue';
 import MainTopbar from '../../shared/ui/MainTopbar';
 import './landing.css';
@@ -155,7 +155,10 @@ const CUSTOMER_REVIEWS = [
 ];
 
 export default function HomePage() {
-  const { status } = useAuth();
+  const location = useLocation();
+  const [dismissedNotice, setDismissedNotice] = useState(false);
+  const sessionNotice = (!dismissedNotice && location.state?.sessionNotice) || null;
+  const { status, getIdToken } = useAuth();
   const http = useHttp();
   const format = useFormat();
   const { account } = useCurrentAccount();
@@ -167,6 +170,10 @@ export default function HomePage() {
   const [liveFullName, setLiveFullName] = useState('');
 
   const isAuthenticated = status === 'signed-in';
+
+  // The Member's next confirmed workshop ticket (real data from their bookings), for the quick bar.
+  const [nextTicket, setNextTicket] = useState(null);
+  const [ticketLookupDone, setTicketLookupDone] = useState(false);
   const currentUser = firebaseAuthClient.getCurrentUser();
 
   // Tên hiển thị người dùng thực tế
@@ -179,6 +186,34 @@ export default function HomePage() {
     'Thành viên';
 
   const userRole = account?.role || 'MEMBER';
+
+  useEffect(() => {
+    if (!isAuthenticated || (account?.role && account.role !== 'MEMBER')) { setNextTicket(null); setTicketLookupDone(false); return undefined; }
+    let active = true;
+    (async () => {
+      try {
+        const token = await getIdToken();
+        if (!token) return;
+        const bookings = await listMemberBookings({ authorization: `Bearer ${token}` });
+        const now = Date.now();
+        const upcoming = [];
+        for (const booking of bookings) {
+          if (booking.bookingStatus !== 'CONFIRMED') continue;
+          for (const session of booking.sessions || []) {
+            const start = new Date(session.scheduledStart).getTime();
+            if (!Number.isNaN(start) && start >= now) upcoming.push({ bookingCode: booking.bookingCode, start });
+          }
+        }
+        upcoming.sort((left, right) => left.start - right.start);
+        if (active) setNextTicket(upcoming[0] || null);
+      } catch {
+        if (active) setNextTicket(null);
+      } finally {
+        if (active) setTicketLookupDone(true);
+      }
+    })();
+    return () => { active = false; };
+  }, [isAuthenticated, account?.role, getIdToken]);
 
   // ==========================================================================
   // 1. Tích hợp dữ liệu công khai: Gói Workshop (Feature 003) & Ready Rings (Feature 002)
@@ -271,6 +306,43 @@ export default function HomePage() {
       <MainTopbar />
 
       <div className="landing-container" style={{ marginTop: '16px' }}>
+        {sessionNotice && (
+          <div
+            className="landing-session-notice"
+            role="status"
+            aria-live="polite"
+            style={{
+              padding: '0.875rem 1.25rem',
+              backgroundColor: '#fef3c7',
+              border: '1px solid #f59e0b',
+              borderRadius: '8px',
+              color: '#92400e',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              fontWeight: 500,
+            }}
+          >
+            <span>{sessionNotice}</span>
+            <button
+              type="button"
+              onClick={() => setDismissedNotice(true)}
+              aria-label="Đóng thông báo"
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '1.25rem',
+                cursor: 'pointer',
+                color: '#92400e',
+                lineHeight: 1,
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
         {/* ================================================================
             KHỐI 0: MEMBER QUICK-ACTION BAR (KHI ĐÃ ĐĂNG NHẬP)
             ================================================================ */}
@@ -282,17 +354,24 @@ export default function HomePage() {
             <div className="landing-member-info">
               <span className="landing-member-badge">ACTIVE · MEMBER</span>
               <p className="landing-member-greeting">
-                Xin chào, {memberDisplayName}! Vé Workshop gần nhất:{' '}
-                <strong>Thứ 7 (14:00 tại HN)</strong>
+                Xin chào, {memberDisplayName}!
+                {nextTicket ? (
+                  <>
+                    {' '}Buổi workshop sắp tới:{' '}
+                    <strong>{new Date(nextTicket.start).toLocaleString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</strong>
+                  </>
+                ) : (ticketLookupDone ? ' Bạn chưa có buổi workshop nào sắp tới.' : '')}
               </p>
             </div>
             <div className="landing-member-actions">
-              <Link
-                to="/workshop-booking/lookup"
-                className="landing-quick-btn"
-              >
-                🎟️ Xem mã QR
-              </Link>
+              {nextTicket && (
+                <Link
+                  to={`/workshop-booking/lookup?code=${encodeURIComponent(nextTicket.bookingCode)}`}
+                  className="landing-quick-btn"
+                >
+                  🎟️ Xem vé &amp; mã QR
+                </Link>
+              )}
               <Link to="/member/orders" className="landing-quick-btn">
                 📦 Đơn hàng ({orderCount})
               </Link>

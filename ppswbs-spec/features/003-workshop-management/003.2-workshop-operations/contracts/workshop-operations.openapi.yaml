@@ -292,6 +292,21 @@ paths:
         '200': { $ref: '#/components/responses/TicketList' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/attendance-roster:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    get:
+      summary: List the valid tickets of the session with their check-in state (Staff assigned to the session, or a Manager)
+      responses:
+        '200':
+          description: Valid tickets of the session, grouped by booking; no customer contact data
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AttendanceRosterEntry' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/ticket-resends:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
@@ -471,6 +486,19 @@ components:
             scheduledStartAt: { type: string, format: date-time }
             scheduledEndAt: { type: string, format: date-time }
             checkInOpeningSource: { type: string, enum: [DEFAULT, MANAGER_SET] }
+            assignedStaffAccountIds:
+              type: array
+              description: Accounts of the Staff currently assigned to the session; empty when none.
+              items: { type: integer, format: int64 }
+    AttendanceRosterEntry:
+      type: object
+      required: [ticketCode, bookingReference, attendanceState]
+      properties:
+        ticketCode: { type: string }
+        bookingReference: { type: string }
+        ticketSequence: { type: integer }
+        attendanceState: { type: string, enum: [NOT_CHECKED_IN, CHECKED_IN, NO_SHOW] }
+        checkedInAt: { type: string, format: date-time, nullable: true }
     BulkSessionRequest:
       type: object
       required: [locationId, slotIds, from, to, weekdays]

@@ -35,11 +35,15 @@ public class CreateReviewRequest {
     @Max(value = 5, message = "rating must be at most 5")
     private Integer rating;
 
-    @Size(max = 4000, message = "bodyText cannot exceed 4000 characters")
+    @Size(max = 2000, message = "bodyText cannot exceed 2000 characters")
     private String bodyText;
 
-    private String guestHandle;
+    private String guestEligibilityHandle;
 
-    private String idempotencyKey;
+    /**
+     * Optional. When true the reviewer is shown publicly as anonymous instead of by a masked name. The choice is fixed at
+     * creation: the stored display name is the anonymous label, and editing the review does not change it.
+     */
+    private Boolean anonymous;
 }
 

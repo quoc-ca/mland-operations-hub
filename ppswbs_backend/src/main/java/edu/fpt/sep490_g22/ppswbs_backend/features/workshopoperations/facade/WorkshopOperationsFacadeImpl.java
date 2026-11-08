@@ -43,13 +43,22 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final AttendanceTicketService attendanceTicketService;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.BookingAttendanceOutcomeService bookingAttendanceOutcomeService;
     private final WorkshopAddOnService addOnService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
 
     @Override
     @Transactional(readOnly = true)
     public WorkshopAddOnPriceSnapshot getWorkshopAddOnPrice(WorkshopAddOnPriceQuery query) {
         if (query == null) return null;
         return addOnService.getEligibleSnapshot(query.packageReference(), query.locationReference(), query.addOnReference());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<WorkshopAddOnPriceSnapshot> listWorkshopAddOns(WorkshopAddOnListQuery query) {
+        if (query == null) return java.util.List.of();
+        return addOnService.listEligibleSnapshots(query.packageReference(), query.locationReference());
     }
 
     @Override
@@ -209,6 +218,21 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public BookingAttendanceSummary getBookingAttendanceSummary(BookingSettlementReadinessQuery query) {
+        if (query == null) return BookingAttendanceSummary.notFinalized();
+        List<TicketSessionEntitlement> active = entitlementRepository.findActiveByBookingReference(query.bookingReference());
+        if (active.isEmpty() || active.stream().anyMatch(item -> item.getSession() == null
+                || item.getSession().getState() != SessionState.ATTENDANCE_FINALIZED)) {
+            return BookingAttendanceSummary.notFinalized();
+        }
+        boolean hasNoShow = active.stream().anyMatch(item -> item.getAttendanceState() == AttendanceState.NO_SHOW);
+        List<Instant> finalizedAt = active.stream().map(item -> item.getSession().getAttendanceFinalizedAt()).toList();
+        boolean closed = AttendanceCorrectionWindowPolicy.isClosed(finalizedAt, Instant.now());
+        return new BookingAttendanceSummary(true, hasNoShow, closed);
+    }
+
+    @Override
     @Transactional
     public SettlementReadiness getSettlementReadiness(BookingSettlementReadinessQuery query) {
         List<TicketSessionEntitlement> initial = entitlementRepository.findActiveByBookingReference(query.bookingReference());
@@ -239,6 +263,31 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
         boolean correctionClosed = AttendanceCorrectionWindowPolicy.isClosed(finalizedAt, Instant.now());
         boolean hasNoShow = entitlements.stream().anyMatch(item -> item.getAttendanceState() == AttendanceState.NO_SHOW);
         return new SettlementReadiness(true, correctionClosed, hasNoShow, lastFinalizedAt);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isStaffAssignedToBooking(StaffBookingAssignmentQuery query) {
+        if (query == null || query.staffAccountId() == null || query.bookingReference() == null) return false;
+        return entitlementRepository.findActiveByBookingReference(query.bookingReference()).stream()
+                .map(item -> item.getSession().getId()).distinct()
+                .anyMatch(sessionId -> staffAssignmentRepository.existsBySessionIdAndAccountIdAndActiveTrue(sessionId, query.staffAccountId()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasBookingServiceStarted(BookingSettlementReadinessQuery query) {
+        if (query == null) return false;
+        return entitlementRepository.findActiveByBookingReference(query.bookingReference()).stream()
+                .map(item -> item.getSession().getState())
+                .anyMatch(state -> state == SessionState.IN_PROGRESS || state == SessionState.ATTENDANCE_FINALIZED);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BookingAttendanceOutcome getBookingAttendanceOutcome(BookingAttendanceOutcomeQuery query) {
+        if (query == null) return BookingAttendanceOutcome.pending();
+        return bookingAttendanceOutcomeService.evaluate(query.bookingReference(), Instant.now()).outcome();
     }
 
     @Override

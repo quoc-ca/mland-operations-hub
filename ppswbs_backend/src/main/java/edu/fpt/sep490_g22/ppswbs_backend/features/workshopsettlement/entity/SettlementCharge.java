@@ -11,6 +11,10 @@ public class SettlementCharge {
  @Column(name="currency_code",nullable=false,length=3) private String currencyCode;
  @Column(name="lifecycle_status",nullable=false,length=24) private String lifecycleStatus;
  @Column(name="reason_reference",length=255) private String reasonReference;
+ /** Catalogue add-ons only: system-generated reference of the operator's "customer agreed" confirmation, who and when. */
+ @Column(name="consent_reference",length=64,unique=true) private String consentReference;
+ @Column(name="consent_recorded_by") private Long consentRecordedBy;
+ @Column(name="consent_recorded_at") private Instant consentRecordedAt;
  @Column(name="created_at",nullable=false,updatable=false) private Instant createdAt;
  @PrePersist void onCreate(){if(createdAt==null)createdAt=Instant.now();}
 }

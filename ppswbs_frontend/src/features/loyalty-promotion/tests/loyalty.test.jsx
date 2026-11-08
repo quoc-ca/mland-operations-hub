@@ -56,7 +56,8 @@ describe('T030 programmes', () => {
     });
     open('/promotion-management/programs?status=ENABLED');
     expect(await screen.findByRole('link', { name: 'Giảm 10%' })).toHaveAttribute('href', '/promotion-management/programs/5');
-    expect(calls[0].query).toEqual({ status: 'ENABLED' });
+    // The sidebar reads the profile for the role, so find the list call instead of taking the first call.
+    expect(calls.find(call => call.path === P).query).toEqual({ status: 'ENABLED' });
     await user.click(screen.getByRole('button', { name: 'Xem thêm' }));
     expect(await screen.findByRole('link', { name: 'Trang 2' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Giảm 10%' })).toBeInTheDocument();
@@ -588,4 +589,55 @@ describe('create whose answer was lost (FR-007, US1.8)', () => {
     expect(sessionStorage.getItem('lp.pendingCreate')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Gửi lại đúng yêu cầu đó' })).toBeNull();
   });
+});
+
+describe('workshop target picker', () => {
+  const PKG = '/api/v1/workshop-package-management/packages';
+  const LOC = '/api/v1/workshop-locations';
+  const SES = '/api/v1/workshop-sessions';
+  const workshopLists = {
+    [`GET ${PKG}`]: json(200, [{ packageId: 7, name: 'Silverclay 2 phiên' }, { packageId: 8, name: 'Ring Basic' }]),
+    [`GET ${LOC}`]: json(200, [{ id: 1, name: 'Chi nhánh Hà Nội' }, { id: 2, name: 'Chi nhánh Đà Nẵng' }]),
+    [`GET ${SES}`]: json(200, [
+      { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', locationId: 1, slotId: 'Sáng', workshopDate: '2026-12-01' },
+      { id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', locationId: 2, slotId: 'Chiều', workshopDate: '2026-12-02' },
+    ]),
+  };
+  const fillBasics = async user => {
+    await user.type(await screen.findByLabelText('Tên chương trình'), 'Workshop 10%');
+    await user.type(screen.getByLabelText('Phần trăm giảm (%)'), '10');
+    await user.type(screen.getByLabelText('Giảm tối đa (₫)'), '50000');
+    await user.type(screen.getByLabelText('Tổng số lượt'), '100');
+    await user.selectOptions(screen.getByLabelText('Phạm vi'), 'WORKSHOP');
+  };
+
+  it('offers names instead of IDs and sends no target when everything is "All"', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({ ...workshopLists, [`POST ${P}`]: json(201, program({ id: '9' })), [`GET ${P}/9`]: json(200, program({ id: '9' })), [`GET ${P}/9/usage`]: json(200, voucherUsage) });
+    open('/promotion-management/programs/new');
+    await fillBasics(user);
+    expect(await screen.findByRole('option', { name: 'Silverclay 2 phiên' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Ngày workshop')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
+    expect(await screen.findByText('Đã tạo chương trình.')).toBeInTheDocument();
+    expect(calls.find(call => call.method === 'POST').body.targets).toEqual({});
+  }, 20000);
+
+  it('sends the chosen package, branch and session, and narrows sessions to the branch', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({ ...workshopLists, [`POST ${P}`]: json(201, program({ id: '9' })), [`GET ${P}/9`]: json(200, program({ id: '9' })), [`GET ${P}/9/usage`]: json(200, voucherUsage) });
+    open('/promotion-management/programs/new');
+    await fillBasics(user);
+    await screen.findByRole('option', { name: 'Ring Basic' });
+    await user.selectOptions(screen.getByLabelText('Gói workshop'), '8');
+    await user.selectOptions(screen.getByLabelText('Chi nhánh'), '2');
+    expect(screen.queryByRole('option', { name: /Hà Nội/ })).not.toBeNull(); // branch option itself
+    expect(screen.queryByRole('option', { name: '2026-12-01 · Sáng · Chi nhánh Hà Nội' })).toBeNull();
+    await user.selectOptions(screen.getByLabelText('Phiên workshop'), 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+    await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
+    expect(await screen.findByText('Đã tạo chương trình.')).toBeInTheDocument();
+    expect(calls.find(call => call.method === 'POST').body.targets).toEqual({
+      packageIds: ['8'], branchIds: ['2'], sessionIds: ['bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'],
+    });
+  }, 20000);
 });

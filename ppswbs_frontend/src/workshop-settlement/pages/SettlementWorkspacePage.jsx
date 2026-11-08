@@ -19,6 +19,9 @@ export default function SettlementWorkspacePage() {
   const [activeCode, setActiveCode] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
+  const [selectedAddOn, setSelectedAddOn] = useState('');
+  const [customerAgreed, setCustomerAgreed] = useState(false);
+  const [variableAgreed, setVariableAgreed] = useState(false);
   const [contactEmail, setContactEmail] = useState('');
   const [remedyReason, setRemedyReason] = useState('');
   const [remedyOutcome, setRemedyOutcome] = useState('UNAVAILABLE');
@@ -31,6 +34,13 @@ export default function SettlementWorkspacePage() {
     () => activeCode ? api.getFinalBill(activeCode) : Promise.resolve(null),
     [activeCode],
   );
+  // Fixed-price catalogue add-ons are offered only while the folio is OPEN (a finalized folio accepts none).
+  const billOpen = resource.data?.status === 'OPEN';
+  const addOnResource = useResource(
+    () => activeCode && billOpen ? api.listAddOns(activeCode) : Promise.resolve([]),
+    [activeCode, billOpen],
+  );
+  const addOnOptions = addOnResource.data || [];
 
   if (status === 'loading') return <Loading />;
   if (status !== 'signed-in') {
@@ -134,7 +144,7 @@ export default function SettlementWorkspacePage() {
                 <div><span>Refunded</span><strong>{amountOf(bill.refundedAmount)} VND</strong></div>
               </div>
               <div className="ops-actions">
-                <button className="button outline" disabled={command.pending} onClick={() => run(key => api.createFinalBill(activeCode, {}, key), 'Final bill created.')}>Create / refresh bill</button>
+                <button className="button outline" disabled={command.pending} onClick={() => run(key => api.createFinalBill(activeCode, {}, key), 'Folio loaded.')}>Load folio</button>
                 <button className="button primary" disabled={command.pending} onClick={() => run(key => api.finalize(activeCode, key), 'Bill finalized.')}>Finalize bill</button>
                 <button className="button primary" disabled={!canActOnPayment} onClick={runPaymentRecovery}>
                   {paymentCommand.pending ? 'Checking payment status...' : paymentState.actionLabel}
@@ -186,17 +196,56 @@ export default function SettlementWorkspacePage() {
                   ))}
                 </div>
               )}
-              <form className="ota-form settlement-form" onSubmit={event => {
+              {bill.status === 'OPEN' && (
+                <form className="ota-form settlement-form" aria-label="Catalogue add-on" onSubmit={event => {
+                  event.preventDefault();
+                  run(key => api.addCharge(activeCode, { catalogueAddOnReference: selectedAddOn, customerConsentConfirmed: true }, key),
+                    'Add-on added.', () => { setSelectedAddOn(''); setCustomerAgreed(false); });
+                }}>
+                  <h3>Add-on from catalogue</h3>
+                  {addOnResource.loading ? <p className="muted">Loading add-ons…</p>
+                    : addOnResource.error ? <p className="muted" role="status">Could not load the add-on catalogue for this booking.</p>
+                    : addOnOptions.length === 0 ? <p className="muted">No add-on is available for this package at this location.</p>
+                      : (
+                        <fieldset className="settlement-addon-options">
+                          <legend className="muted">Tick the add-on the customer agreed to at the workshop.</legend>
+                          {addOnOptions.map(option => (
+                            <label key={option.addOnReference} className="settlement-addon-option">
+                              <input type="radio" name="catalogue-add-on" value={option.addOnReference}
+                                checked={selectedAddOn === option.addOnReference}
+                                onChange={() => setSelectedAddOn(option.addOnReference)} />
+                              <span>{option.description}</span>
+                              <strong>{option.amountVnd} VND</strong>
+                            </label>
+                          ))}
+                        </fieldset>
+                      )}
+                  <label className="settlement-addon-consent">
+                    <input type="checkbox" checked={customerAgreed} onChange={event => setCustomerAgreed(event.target.checked)} />
+                    <span>Khách đã đồng ý (customer agreed)</span>
+                  </label>
+                  <p className="muted small">The system records who confirmed this and when. It evidences your confirmation only, not the customer&apos;s own consent.</p>
+                  <button className="button primary" type="submit" disabled={command.pending || !selectedAddOn || !customerAgreed}>Add selected add-on</button>
+                </form>
+              )}
+              <form className="ota-form settlement-form" aria-label="Variable charge" onSubmit={event => {
                 event.preventDefault();
                 run(key => api.addCharge(activeCode, {
                   description,
-                  amount: { amount: String(amount), currency: 'VND' },
+                  amount: Number(amount),
                   reason: 'WORKSHOP_FINAL_BILL',
-                }, key), 'Charge added.');
+                  customerConsentConfirmed: true,
+                }, key), 'Charge added.', () => setVariableAgreed(false));
               }}>
+                <h3>Variable charge</h3>
+                <p className="muted small">Free-form charge confirmed by Staff/Manager, not a catalogue add-on.</p>
                 <label>Description<input value={description} onChange={event => setDescription(event.target.value)} /></label>
                 <label>Amount (VND)<input inputMode="decimal" value={amount} onChange={event => setAmount(event.target.value)} /></label>
-                <button className="button outline" type="submit" disabled={command.pending || !description.trim() || !amount}>Add charge</button>
+                <label className="settlement-addon-consent">
+                  <input type="checkbox" checked={variableAgreed} onChange={event => setVariableAgreed(event.target.checked)} />
+                  <span>Khách đã đồng ý (customer agreed)</span>
+                </label>
+                <button className="button outline" type="submit" disabled={command.pending || !description.trim() || !amount || !variableAgreed}>Add charge</button>
               </form>
             </article>
 

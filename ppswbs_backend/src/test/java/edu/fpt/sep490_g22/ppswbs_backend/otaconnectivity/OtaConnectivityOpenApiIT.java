@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * Verifies:
  * 1. OpenAPI 3.1.0 specification metadata, title, and base server URL (/api/v1).
- * 2. Complete 14-route operational inventory and HTTP methods.
+ * 2. Complete 15-route operational inventory and HTTP methods.
  * 3. Exact alignment between Spring controllers and OpenAPI paths.
  * 4. Response status codes (200, 201, 202) and typed error responses (400, 401, 403, 404, 409, 422).
  * 5. Schema completeness, property constraints, and additionalProperties: false enforcement.
@@ -82,11 +82,11 @@ public class OtaConnectivityOpenApiIT {
     }
 
     // =========================================================================
-    // 2. Comprehensive Route / Path Inventory Verification (All 14 Endpoints)
+    // 2. Comprehensive Route / Path Inventory Verification (All 15 Endpoints)
     // =========================================================================
 
     @Test
-    @DisplayName("T053-2: Verify all 14 operational REST paths exist in OpenAPI contract")
+    @DisplayName("T053-2: Verify all 15 operational REST paths exist in OpenAPI contract")
     @SuppressWarnings("unchecked")
     void verifyAllOperationalPathsExist() {
         Map<String, Object> paths = (Map<String, Object>) openApiSpec.get("paths");
@@ -111,6 +111,7 @@ public class OtaConnectivityOpenApiIT {
                 "/ota-channel-bookings/{channelBookingId}/payout-reconciliation",
 
                 // Shop Add-ons outside OTA checkout
+                "/ota-channel-bookings/lookups",
                 "/ota-channel-bookings/{channelBookingId}/add-on-quotes",
                 "/ota-addon-quotes/{quoteId}/acceptance",
                 "/ota-addon-quotes/{quoteId}/direct-bill"

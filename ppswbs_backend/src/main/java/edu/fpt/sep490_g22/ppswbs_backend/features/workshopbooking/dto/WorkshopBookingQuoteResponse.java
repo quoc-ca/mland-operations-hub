@@ -16,5 +16,6 @@ public record WorkshopBookingQuoteResponse(
         String remainingAmount,
         String earnBase,
         String termsDigest,
-        List<String> reasons) {
+        List<String> reasons,
+        List<QuoteReasonDetail> reasonDetails) {
 }

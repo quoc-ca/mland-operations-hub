@@ -1,7 +1,7 @@
 # Feature-011 — Review Management Specification
 
 Date created: 2026-11-03  
-Date updated: 2026-11-03  
+Date updated: 2026-11-05
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt
 
@@ -79,9 +79,11 @@ Required invariants:
 
 Input is validated before eligibility and persistence: rating is an integer `1..5`; text is optional and at most 2,000 characters; no media fields are accepted. A valid create commits the review as `PUBLIC` and an audit/revision record atomically. A duplicate source returns a stable conflict response and does not create another review. An owner edit validates ownership and the same content limits, keeps `PUBLIC`, and appends a revision/audit record atomically.
 
+Display name (decision 2026-11-06): a Member's public review shows the account name partly masked (first letter of the family name and the last word, for example "H*** Quốc"), or an anonymous label when the reviewer ticks the anonymous option at creation. The internal account number is never shown, not even partly; a Member whose account has no name is shown as anonymous. The choice is stored as the display text, fixed at creation, and an edit does not change it. The same option applies to a Guest, whose masked contact is replaced by the anonymous label.
+
 ## 7. Public listing and aggregates
 
-Public listing supports target filtering, rating filtering and stable pagination. Homepage, Product Details and Workshop Details may feature the newest five-star reviews first, while the general list remains filterable. Aggregate average/count is calculated or projected from `PUBLIC` rows only. Hidden and removed reviews are excluded from public output and aggregates.
+Public listing supports target filtering, package filtering, rating filtering and stable pagination. A workshop review carries the package of the attended booking (id and the name at that time, decision 2026-11-06), so the list shows which package each review is about and a package page can show its reviews across all of that package's sessions; the review's target stays the session. A retail review has no package. Homepage, Product Details and Workshop Details may feature the newest five-star reviews first, while the general list remains filterable. Aggregate average/count is calculated or projected from `PUBLIC` rows only. Hidden and removed reviews are excluded from public output and aggregates.
 
 ## 8. Moderation and reply
 
@@ -93,7 +95,7 @@ Guest contact input is used only for eligibility matching and must be normalized
 
 ## 10. Proposed error behavior
 
-`REVIEW_INPUT_INVALID` → 400/422; `REVIEW_SOURCE_NOT_ELIGIBLE` → 422; `REVIEW_NOT_AUTHORIZED` → 403; `REVIEW_NOT_FOUND` → 404; `REVIEW_ALREADY_EXISTS` → 409; `REVIEW_STATE_CONFLICT` → 409; `REVIEW_TARGET_MISMATCH` → 422; `REVIEW_REPLY_NOT_AUTHORIZED` → 403; `REVIEW_IDEMPOTENCY_CONFLICT` → 409. The final codes become baseline only after API synchronization.
+`REVIEW_INPUT_INVALID` → 400; `REVIEW_SOURCE_NOT_ELIGIBLE` → 422; `REVIEW_GUEST_HANDLE_INVALID` → 401/422; `REVIEW_GUEST_HANDLE_EXPIRED` → 401; `REVIEW_NOT_AUTHORIZED` → 403; `REVIEW_MODERATION_ACTION_NOT_ALLOWED` → 403; `REVIEW_NOT_FOUND` → 404; `REVIEW_ALREADY_EXISTS` → 409; `REVIEW_STATE_CONFLICT` → 409; `REVIEW_TARGET_MISMATCH` → 422; `REVIEW_REPLY_NOT_AUTHORIZED` → 403; `REVIEW_IDEMPOTENCY_CONFLICT` → 409. This mapping is the approved Feature-011 API baseline.
 
 ## 11. Backend implementation contract
 
@@ -136,10 +138,12 @@ email/phone lookup
 ```
 
 The handle must not encode raw contact data or source identifiers, must be
-bound to the returned source set, expire according to the shared security
-baseline, and never be logged in raw form. A create command using a raw or
-unbound source identifier is rejected. Replay is controlled by the handle
-lifecycle and `Idempotency-Key` (TTL 30 min in MySQL `guest_eligibility_handles`, ratified 2026-11-04).
+bound to the returned workshop and retail source set, expire after 30 minutes,
+and never be logged in raw form. A create command using a raw or unbound source
+identifier is rejected. Replay is controlled by the handle lifecycle and
+`Idempotency-Key`; one handle may be used for different eligible sources in its
+source set, while the same command is replay-safe and a source can still be
+reviewed only once.
 
 
 ### 11.4 Create transaction and concurrency
@@ -191,4 +195,52 @@ must not be disclosed in error responses.
 - Identical idempotent retry returns the original result; changed payload under the same key returns `409`.
 - Concurrent create commands for one source commit at most one review.
 - Realtime aggregate returns only `PUBLIC` rows and excludes `HIDDEN`/`REMOVED` rows.
-- Migration verification covers clean database, upgrade database, rerun and duplicate-version detection after the current `V88` repository baseline.
+- Migration verification covers clean database, upgrade database, rerun and duplicate-version detection through the current repository baseline `V92`–`V99` and Feature-011 retention correction `V100`.
+
+## 13. Frontend boundary and implementation handoff
+
+The frontend consumes the approved Feature-011 OpenAPI contract. It does not infer
+eligibility, ownership, moderation authority or public privacy rules from client
+state. Backend responses are the only source for eligible sources, review status,
+masked identity, aggregate values and moderation permissions.
+
+### 13.1 Entry points
+
+- Public users enter through product/workshop detail or the public review list.
+- Guests use contact lookup and then an opaque eligibility handle.
+- Members use the authenticated eligible-source list.
+- Staff and Managers use the moderation queue.
+- Admin receives only a technical/audit projection when the backend exposes one.
+
+### 13.2 Frontend route baseline
+
+```text
+/reviews
+/reviews/:reviewId
+/reviews/guest/lookup
+/reviews/eligible-sources
+/reviews/new
+/reviews/:reviewId/edit
+/review-moderation
+/review-moderation/:reviewId
+```
+
+The exact embedding route for public reviews may be owned by Product or Workshop
+pages, but the data must come from the Feature-011 public projection. No route may
+display Google review write-back, branch review, image/video upload or notification
+center behavior.
+
+### 13.3 Required frontend states
+
+The UI must define loading, empty, validation, pending, success, forbidden,
+dependency failure, duplicate, stale-version conflict and retry-preserves-input
+states. Customer pages are mobile-first; moderation pages are desktop-first and
+responsive. Rating controls, status labels and reply forms must be keyboard
+accessible and bilingual.
+
+### 13.4 Contract implementation gate
+
+The frontend target is the approved OpenAPI/spec. Backend integration must use
+header-based idempotency/version concurrency, Guest workshop and retail
+eligibility, owner-safe detail projection, Admin technical-only authority and
+the DTO/status/header shapes defined by the contract.

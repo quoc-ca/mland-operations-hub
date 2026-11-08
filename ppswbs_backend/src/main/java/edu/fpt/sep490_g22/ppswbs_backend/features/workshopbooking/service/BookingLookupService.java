@@ -13,12 +13,14 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.Custome
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.CustomerBookingAccessQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopOperationsAdapter;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicket;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicketSet;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilitySnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SessionEntitlementProjection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +30,12 @@ import java.util.*;
 /** Builds a privacy-safe customer projection only after Booking-owned proof succeeds. */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BookingLookupService {
+
+    /** A Member's list shows their latest bookings; older ones are still found by booking code. */
+    static final int MEMBER_LIST_LIMIT = 30;
+    private static final java.time.Duration EXPIRED_VISIBLE_FOR = java.time.Duration.ofHours(24);
 
     private final WorkshopBookingRepository bookings;
     private final BookingSessionCommitmentRepository commitments;
@@ -63,7 +70,37 @@ public class BookingLookupService {
         CustomerBookingAccessDecision decision = bookingFacade.verifyCustomerBookingAccess(
                 new CustomerBookingAccessQuery(booking.getBookingCode(), member.accountId(), null, null));
         if (decision == null || !decision.authorized()) throw new BookingNotFoundException("Booking not found");
-        return project(booking);
+        return projectForMember(booking);
+    }
+
+    /**
+     * The signed-in Member's own bookings, newest first, each with its sessions and tickets, so they can see their tickets
+     * without typing a booking code. A booking whose hold expired without payment is shown for 24 hours, then left out. One booking whose current
+     * projection cannot be built is skipped rather than failing the whole list.
+     */
+    @Transactional(readOnly = true)
+    public List<BookingSummaryResponse> listMemberBookings(String authorizationHeader) {
+        AccountSummary member = authorization.requireMemberOwnership(authorizationHeader, null);
+        List<WorkshopBooking> mine = new ArrayList<>(bookings.findByMemberAccountId(member.accountId()));
+        mine.sort(Comparator.comparing(WorkshopBooking::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        Instant now = Instant.now();
+        List<BookingSummaryResponse> result = new ArrayList<>();
+        for (WorkshopBooking booking : mine) {
+            if (result.size() >= MEMBER_LIST_LIMIT) break;
+            if (booking.getBookingStatus() == BookingStatus.EXPIRED && !expiredRecently(booking, now)) continue;
+            try {
+                result.add(projectForMember(booking));
+            } catch (RuntimeException failure) {
+                log.warn("Skipping booking {} in a Member's list: {}", booking.getBookingCode(), failure.getClass().getSimpleName());
+            }
+        }
+        return result;
+    }
+
+    /** An unpaid hold that just ran out stays visible for a day so the customer sees what happened; after that it is noise. */
+    private static boolean expiredRecently(WorkshopBooking booking, Instant now) {
+        Instant expiredAt = booking.getHoldExpiresAt();
+        return expiredAt != null && expiredAt.isAfter(now.minus(EXPIRED_VISIBLE_FOR));
     }
 
     private WorkshopBooking findBooking(String bookingCode) {
@@ -74,6 +111,35 @@ public class BookingLookupService {
 
     public BookingSummaryResponse projectForMagicLink(WorkshopBooking booking) {
         return project(booking);
+    }
+
+    /**
+     * The projection for the booking's own Member. It also names the booking's tickets (opaque references), so a screen can
+     * tell which of the Member's review sources belong to THIS booking: several bookings can share one session, and a review
+     * source is one ticket. Guests and Magic Link holders do not get these references.
+     */
+    private BookingSummaryResponse projectForMember(WorkshopBooking booking) {
+        BookingSummaryResponse response = project(booking);
+        response.setTicketReferences(ticketReferences(booking));
+        return response;
+    }
+
+    private List<String> ticketReferences(WorkshopBooking booking) {
+        BookingStatus status = booking.getBookingStatus();
+        if (status != BookingStatus.CONFIRMED && status != BookingStatus.COMPLETED && status != BookingStatus.NO_SHOW) {
+            return List.of();
+        }
+        try {
+            DeliverySafeTicketSet current = operations.getCurrentEntitlementProjection(booking.getBookingCode());
+            if (current == null || current.tickets() == null) return List.of();
+            return current.tickets().stream()
+                    .filter(ticket -> ticket != null && ticket.ticketReference() != null)
+                    .map(ticket -> ticket.ticketReference().toString())
+                    .toList();
+        } catch (RuntimeException failure) {
+            log.warn("Ticket references unavailable for booking {}: {}", booking.getBookingCode(), failure.getClass().getSimpleName());
+            return List.of();
+        }
     }
 
     private BookingSummaryResponse project(WorkshopBooking booking) {
@@ -101,7 +167,24 @@ public class BookingLookupService {
                 .holdExpiresAt(booking.getHoldExpiresAt())
                 .sessions(sessions)
                 .tickets(tickets)
+                .attendanceStatus(booking.getBookingStatus() == BookingStatus.CONFIRMED ? attendanceStatus(booking) : null)
                 .build();
+    }
+
+    /**
+     * Attendance as the customer may see it. A booking stays CONFIRMED during the 24-hour correction window, so this tells a
+     * customer whose ticket was recorded as a no-show what is going on, without changing the booking status.
+     */
+    private String attendanceStatus(WorkshopBooking booking) {
+        try {
+            BookingAttendanceSummary summary = operations.getBookingAttendanceSummary(booking.getBookingCode());
+            if (summary == null || !summary.sessionsFinalized()) return null;
+            if (!summary.hasNoShow()) return "ATTENDED";
+            return summary.correctionWindowClosed() ? "NO_SHOW" : "NO_SHOW_PENDING";
+        } catch (RuntimeException failure) {
+            log.warn("Attendance summary unavailable for booking {}: {}", booking.getBookingCode(), failure.getClass().getSimpleName());
+            return null;
+        }
     }
 
     private List<BookedSessionDto> currentPendingSessions(WorkshopBooking booking) {

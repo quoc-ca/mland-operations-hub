@@ -1,0 +1,348 @@
+# Date created: 2026-11-08
+# Date updated: 2026-11-08
+# Author: Ngô Tiến Đạt
+# Last updated by: Ngô Tiến Đạt
+
+openapi: 3.1.0
+info:
+  title: Feature-012 Workshop Ring Design Configuration API
+  version: 0.2.0-review
+  description: >-
+    Proposed contract for Guest and Member workshop ring configuration. This is
+    a review baseline. It exposes logical opaque references only and does not
+    approve a physical schema or migration.
+servers:
+  - url: /api/v1
+tags:
+  - name: Workshop Ring Design
+paths:
+  /workshop-design-options:
+    get:
+      tags: [Workshop Ring Design]
+      summary: Get package-scoped design options
+      operationId: getWorkshopDesignOptions
+      parameters:
+        - $ref: '#/components/parameters/PackageReference'
+        - $ref: '#/components/parameters/BranchReference'
+      responses:
+        '200':
+          description: Active package-scoped options and rule metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesignOptionsResponse'
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/BusinessInvalid' }
+        '503': { $ref: '#/components/responses/RulesUnavailable' }
+  /workshop-designs:
+    post:
+      tags: [Workshop Ring Design]
+      summary: Create a workshop configured-design draft
+      operationId: createWorkshopDesign
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/GuestDesignSession'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDesignRequest'
+      responses:
+        '201':
+          description: Draft created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DesignResponse' }
+        '400': { $ref: '#/components/responses/InvalidInput' }
+        '401': { $ref: '#/components/responses/SessionExpired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/BusinessInvalid' }
+  /workshop-designs/{designId}:
+    get:
+      tags: [Workshop Ring Design]
+      summary: Get an owner-safe design projection
+      operationId: getWorkshopDesign
+      parameters:
+        - $ref: '#/components/parameters/DesignId'
+        - $ref: '#/components/parameters/GuestDesignSession'
+      responses:
+        '200':
+          description: Design projection
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DesignResponse' }
+        '401': { $ref: '#/components/responses/SessionExpired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /workshop-designs/{designId}/versions:
+    post:
+      tags: [Workshop Ring Design]
+      summary: Save and evaluate a new design version
+      operationId: saveWorkshopDesignVersion
+      parameters:
+        - $ref: '#/components/parameters/DesignId'
+        - $ref: '#/components/parameters/GuestDesignSession'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveDesignVersionRequest' }
+      responses:
+        '200':
+          description: New validated or draft version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DesignResponse' }
+        '400': { $ref: '#/components/responses/InvalidInput' }
+        '401': { $ref: '#/components/responses/SessionExpired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/BusinessInvalid' }
+        '503': { $ref: '#/components/responses/RulesUnavailable' }
+  /workshop-designs/{designId}/evaluate:
+    post:
+      tags: [Workshop Ring Design]
+      summary: Explicitly evaluate the current design version
+      operationId: evaluateWorkshopDesign
+      parameters:
+        - $ref: '#/components/parameters/DesignId'
+        - $ref: '#/components/parameters/GuestDesignSession'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveDesignVersionRequest' }
+      responses:
+        '200':
+          description: Server-derived evaluation and design version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DesignResponse' }
+        '400': { $ref: '#/components/responses/InvalidInput' }
+        '401': { $ref: '#/components/responses/SessionExpired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/BusinessInvalid' }
+        '503': { $ref: '#/components/responses/RulesUnavailable' }
+  /workshop-designs/{designId}/archive:
+    post:
+      tags: [Workshop Ring Design]
+      summary: Archive an unsubmitted design
+      operationId: archiveWorkshopDesign
+      parameters:
+        - $ref: '#/components/parameters/DesignId'
+        - $ref: '#/components/parameters/GuestDesignSession'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchVersion'
+      responses:
+        '200':
+          description: Archived owner-safe projection
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DesignResponse' }
+        '401': { $ref: '#/components/responses/SessionExpired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /workshop-designs/{designId}/attach-to-booking:
+    post:
+      tags: [Workshop Ring Design]
+      summary: Return a validated snapshot for Workshop Booking
+      operationId: attachWorkshopDesignToBooking
+      description: >-
+        This is a facade-backed integration command. Feature-012 does not create
+        the booking, hold, invoice, payment or ticket.
+      parameters:
+        - $ref: '#/components/parameters/DesignId'
+        - $ref: '#/components/parameters/GuestDesignSession'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AttachDesignRequest' }
+      responses:
+        '200':
+          description: Immutable booking-safe design snapshot
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookingDesignSnapshot' }
+        '401': { $ref: '#/components/responses/SessionExpired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/BusinessInvalid' }
+components:
+  parameters:
+    PackageReference:
+      name: packageReference
+      in: query
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 128 }
+    BranchReference:
+      name: branchReference
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 128 }
+    DesignId:
+      name: designId
+      in: path
+      required: true
+      schema: { type: string, minLength: 16, maxLength: 128 }
+      description: Opaque public design reference, not a database identifier.
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 16, maxLength: 128 }
+    IfMatchVersion:
+      name: If-Match-Version
+      in: header
+      required: true
+      schema: { type: integer, minimum: 1 }
+    GuestDesignSession:
+      name: X-Guest-Design-Session
+      in: header
+      required: false
+      schema: { type: string, minLength: 16, maxLength: 128 }
+      description: Opaque Guest session reference; never a raw identity or database ID.
+  schemas:
+    CreateDesignRequest:
+      type: object
+      additionalProperties: false
+      required: [packageReference, startMode]
+      properties:
+        packageReference: { type: string, minLength: 1, maxLength: 128 }
+        sourceModelReference: { type: string, minLength: 1, maxLength: 128, nullable: true }
+        startMode: { type: string, enum: [PUBLISHED_MODEL, BLANK] }
+    SaveDesignVersionRequest:
+      type: object
+      additionalProperties: false
+      required: [packageReference, materialReference, shapeReference, ringSize, components, attachments, engraving]
+      properties:
+        packageReference: { type: string, minLength: 1, maxLength: 128 }
+        materialReference: { type: string, minLength: 1, maxLength: 128 }
+        shapeReference: { type: string, minLength: 1, maxLength: 128 }
+        ringSize: { type: string, minLength: 1, maxLength: 64 }
+        components:
+          type: array
+          maxItems: 64
+          items: { $ref: '#/components/schemas/ComponentSelection' }
+        attachments:
+          type: array
+          maxItems: 64
+          items: { $ref: '#/components/schemas/AttachmentSelection' }
+        engraving: { $ref: '#/components/schemas/EngravingInput' }
+    ComponentSelection:
+      type: object
+      additionalProperties: false
+      required: [reference, quantity]
+      properties:
+        reference: { type: string, minLength: 1, maxLength: 128 }
+        quantity: { type: integer, minimum: 1, maximum: 64 }
+        variant: { type: string, maxLength: 64, nullable: true }
+        placement: { type: string, maxLength: 100, nullable: true }
+    AttachmentSelection:
+      type: object
+      additionalProperties: false
+      required: [reference, quantity]
+      properties:
+        reference: { type: string, minLength: 1, maxLength: 128 }
+        quantity: { type: integer, minimum: 1, maximum: 64 }
+        variant: { type: string, maxLength: 64, nullable: true }
+        placement: { type: string, maxLength: 100, nullable: true }
+    EngravingInput:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+        text: { type: string, maxLength: 200, nullable: true }
+        placement: { type: string, maxLength: 100, nullable: true }
+    DesignResponse:
+      type: object
+      required: [designId, packageReference, designVersion, status, validation, evaluation]
+      properties:
+        designId: { type: string }
+        packageReference: { type: string }
+        designVersion: { type: integer, minimum: 1 }
+        status: { type: string, enum: [DRAFT, VALIDATED, ATTACHED_TO_BOOKING, LOCKED, ARCHIVED] }
+        validation: { $ref: '#/components/schemas/ValidationResult' }
+        evaluation: { $ref: '#/components/schemas/EvaluationResult' }
+        componentSnapshot: { type: object, additionalProperties: true }
+    ValidationResult:
+      type: object
+      required: [valid, reasons]
+      properties:
+        valid: { type: boolean }
+        reasons:
+          type: array
+          items: { type: string }
+    EvaluationResult:
+      type: object
+      required: [rulesVersion]
+      properties:
+        estimatedPrice:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)(\\.[0-9]+)?$'
+          nullable: true
+        currency: { type: string, minLength: 3, maxLength: 3, nullable: true }
+        difficultyScore:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)(\\.[0-9]+)?$'
+          nullable: true
+        rulesVersion: { type: string, minLength: 1, maxLength: 64 }
+        advisory: { type: boolean, const: true }
+    AttachDesignRequest:
+      type: object
+      additionalProperties: false
+      required: [bookingReference, packageReference, branchReference]
+      properties:
+        bookingReference: { type: string, minLength: 1, maxLength: 128 }
+        packageReference: { type: string, minLength: 1, maxLength: 128 }
+        branchReference: { type: string, minLength: 1, maxLength: 128 }
+    BookingDesignSnapshot:
+      type: object
+      required: [designReference, designVersion, packageReference, snapshot]
+      properties:
+        designReference: { type: string }
+        designVersion: { type: integer, minimum: 1 }
+        packageReference: { type: string }
+        snapshot: { type: object, additionalProperties: true }
+    Error:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        correlationId: { type: string }
+        details: { type: array, items: { type: string } }
+  responses:
+    InvalidInput:
+      description: Invalid transport or field input
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    SessionExpired:
+      description: Missing or expired Guest session/identity
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    AccessDenied:
+      description: Ownership or permission denied
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: Safe not-found response
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: Stale, duplicate or idempotency conflict
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    BusinessInvalid:
+      description: Package, branch or option business validation failure
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    RulesUnavailable:
+      description: Rules/catalogue dependency unavailable
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

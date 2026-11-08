@@ -96,10 +96,10 @@ find "Đã lưu 0 trên 10 địa chỉ"
 - Kịch bản chạy thực tế qua Chrome bằng `browsermcp`.
 - Các giá trị DOM và trạng thái Accessibility được ghi nhận đầy đủ trong snapshot phiên làm việc.
 
-## 6. Kết quả thực thi (Execution History)
+## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
 
 <!-- EXECUTION:START -->
-- Latest status: PASS
+- Historical status: PASS
 - Executed at: 2026-11-04 04:24:50
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
@@ -107,5 +107,18 @@ find "Đã lưu 0 trên 10 địa chỉ"
 - Actual result: Modal Sổ địa chỉ thực thi xuất sắc toàn bộ quy tắc: tự động khóa mặc định cho địa chỉ đầu tiên, dropdown cascading chặn chọn sai cấp, và bộ chuẩn hóa số điện thoại theo chuẩn di động Việt Nam FR-038.
 - Evidence screenshot: DOM snapshot verified
 - Bug reference: NONE
+<!-- EXECUTION:END -->
+
+## 7. Revision expected results (2026-11-06 — must re-run)
+
+- Precondition is an authenticated **Member**; Guest direct access must be covered by E2E-001-013 and must never expose the address modal/list.
+- **After Step 1:** URL remains `/profile/addresses`; modal has dialog semantics, focus is inside it, and no other Member's address/phone is visible.
+- **After Step 2:** first-address default is checked and disabled; District/Ward controls are disabled with no selected value before their parent selection.
+- **After Steps 3–5:** each invalid submit leaves modal open and preserves safe non-secret inputs; success normalization is asserted only after all required divisions/detail fields are valid and server response succeeds—no claim that clicking with incomplete fields saved an address.
+- **After Step 6:** modal is absent from DOM, URL remains `/profile/addresses`, and count/list is unchanged unless an explicitly successful create step was executed.
+
+<!-- EXECUTION:START -->
+- Latest status: NOT_RUN
+- Previous status: PASS on 2026-11-04; evidence predates this revision.
 <!-- EXECUTION:END -->
 

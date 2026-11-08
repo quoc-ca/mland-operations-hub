@@ -130,7 +130,7 @@ describe('T064–T068: Google Sign-In & Credential Re-authentication (FR-002, FR
 
       await waitFor(() => {
         expect(bootstrapSpy).toHaveBeenCalledTimes(1);
-        expect(mockNavigate).toHaveBeenCalledWith('/');
+        expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
       });
     });
 
@@ -185,6 +185,75 @@ describe('T064–T068: Google Sign-In & Credential Re-authentication (FR-002, FR
       expect(bootstrapSpy).not.toHaveBeenCalled();
       expect(mockNavigate).not.toHaveBeenCalled();
       expect(sessionStorage.getItem("mland_google_redirect_pending")).toBeNull();
+    });
+
+    it('handles generic redirect error gracefully offering retry or email/password alternative', async () => {
+      vi.spyOn(firebaseAuthClient, 'isConfigured').mockReturnValue(true);
+      vi.spyOn(firebaseAuthClient, 'getRedirectAuthResult').mockResolvedValue(null);
+      vi.spyOn(firebaseAuthClient, 'signInWithGoogleRedirect').mockRejectedValue({
+        code: 'auth/internal-error',
+      });
+
+      render(
+        <MemoryRouter>
+          <AuthPage mode="signin" />
+        </MemoryRouter>
+      );
+
+      const googleBtn = screen.getByRole('button', { name: /đăng nhập với google/i });
+      fireEvent.click(googleBtn);
+
+      expect(
+        await screen.findByText(
+          'Không thể hoàn tất xác thực. Vui lòng thử lại hoặc đăng nhập bằng Email và Mật khẩu.'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('handles network error during redirect initiation gracefully with friendly message', async () => {
+      vi.spyOn(firebaseAuthClient, 'isConfigured').mockReturnValue(true);
+      vi.spyOn(firebaseAuthClient, 'getRedirectAuthResult').mockResolvedValue(null);
+      vi.spyOn(firebaseAuthClient, 'signInWithGoogleRedirect').mockRejectedValue({
+        code: 'auth/network-request-failed',
+      });
+
+      render(
+        <MemoryRouter>
+          <AuthPage mode="signin" />
+        </MemoryRouter>
+      );
+
+      const googleBtn = screen.getByRole('button', { name: /đăng nhập với google/i });
+      fireEvent.click(googleBtn);
+
+      expect(
+        await screen.findByText(
+          'Lỗi mạng khi kết nối đến dịch vụ xác thực. Vui lòng thử lại.'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('handles auth/provider-already-linked collision error with guidance to use password credential', async () => {
+      vi.spyOn(firebaseAuthClient, 'isConfigured').mockReturnValue(true);
+      vi.spyOn(firebaseAuthClient, 'getRedirectAuthResult').mockResolvedValue(null);
+      vi.spyOn(firebaseAuthClient, 'signInWithGoogleRedirect').mockRejectedValue({
+        code: 'auth/provider-already-linked',
+      });
+
+      render(
+        <MemoryRouter>
+          <AuthPage mode="signin" />
+        </MemoryRouter>
+      );
+
+      const googleBtn = screen.getByRole('button', { name: /đăng nhập với google/i });
+      fireEvent.click(googleBtn);
+
+      expect(
+        await screen.findByText(
+          'Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.'
+        )
+      ).toBeInTheDocument();
     });
   });
 

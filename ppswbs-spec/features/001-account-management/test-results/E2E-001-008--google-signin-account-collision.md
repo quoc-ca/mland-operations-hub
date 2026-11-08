@@ -12,7 +12,7 @@ health_urls:
   - http://localhost:8080
 test_data:
   fixture: google-account-collision
-  account_ref: minikie456@gmail.com
+  account_ref: E2E_MEMBER_008
   isolation_key: E2E-001-008-20261105
 cleanup:
   required: false
@@ -31,7 +31,7 @@ cleanup:
 - [x] Môi trường Frontend Vite đang chạy tại `http://localhost:5173`.
 - [x] Môi trường Backend Spring Boot đang chạy tại `http://localhost:8080`.
 - [x] Công cụ `browsermcp` đã được nạp và kích hoạt trong phiên làm việc.
-- [x] Tài khoản `minikie456@gmail.com` đã tồn tại trong hệ thống dưới dạng `password` provider.
+- [ ] Fixture Email/Password chuyên dụng đã tồn tại trong hệ thống; định danh lấy từ secret store.
 - [x] Người dùng đang ở trạng thái chưa đăng nhập (Guest) tại trang `/login`.
 
 ## 2. Đánh giá đa chiều qua 2 góc nhìn (2 POVs Evaluation)
@@ -58,7 +58,7 @@ wait getByRole('button', { name: 'Đăng nhập với Google' })
 ```browser
 click getByRole('button', { name: 'Đăng nhập với Google' })
 # Trình duyệt chuyển hướng sang accounts.google.com
-# Người dùng hỗ trợ click chọn tài khoản minikie456@gmail.com
+# Người dùng chọn test identity được cấp riêng ngoài case này.
 ```
 
 ### Step 3 — Chờ chuyển hướng quay lại và kiểm tra thông báo lỗi xung đột trong vòng 5 giây
@@ -84,16 +84,16 @@ find "Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng 
 - Ảnh chụp màn hình thực tế (lỗi im lặng / thiếu thông báo): `screenshots/E2E-001-008--google-collision-silent-fail.jpg`
 - Lệnh lưu: `screenshot --path "ppswbs-spec/features/001-account-management/test-results/screenshots/E2E-001-008--google-collision-silent-fail.jpg"`
 
-## 6. Kết quả thực thi (Execution History)
+## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
 
 <!-- EXECUTION:START -->
-- Latest status: PASS
+- Historical status: PASS
 - Executed at: 2026-11-05 13:58:00
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
 - Failure step: None
 - Actual result:
-  - THÀNH CÔNG (PASS): Đã tiến hành re-test thành công luồng Google Sign-In với tài khoản tồn tại bằng mật khẩu `minikie456@gmail.com`.
+  - Historical run ghi nhận collision với fixture Email/Password chuyên dụng; định danh đã redaction.
   - Sau khi chọn tài khoản Google trên OAuth popup/redirect, hệ thống ngay lập tức phát hiện xung đột và hiển thị thông báo cảnh báo tiếng Việt rõ ràng trong vòng < 2 giây (đáp ứng nghiêm ngặt yêu cầu <= 5 giây):
     `Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.`
   - URL duy trì chính xác tại `http://localhost:5173/login`, không bị điều hướng vào trang chủ hay rò rỉ dữ liệu phiên.
@@ -102,5 +102,17 @@ find "Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng 
 - Evidence screenshot:
   - Màn hình thông báo lỗi xung đột hợp lệ: screenshots/E2E-001-008--google-collision.jpg
 - Bug reference: [BUG-E2E-0002](../../../ppswbs-testing/BUG-LOG.md#bug-e2e-0002--closed)
+<!-- EXECUTION:END -->
+
+## 7. Revision expected results (2026-11-06 — must re-run)
+
+- Preconditions must record enabled Google provider, Firebase-authorized `localhost`, and actual origin `http://localhost:5173`; absence means `BLOCKED`, never a fabricated PASS.
+- **After Step 1:** button appears on canonical `/login`; test does not accept popup behavior or a popup helper as alternative implementation.
+- **After Step 2:** browser leaves application through redirect; evidence records host only, never OAuth query, token or account secret.
+- **After Step 3:** return URL is `/login`; exact collision guidance directs to Email/Password, does not expose a different account's data, does not merge/link/bootstrap a second Account, and Email/Password controls remain enabled.
+
+<!-- EXECUTION:START -->
+- Latest status: NOT_RUN
+- Previous status: PASS on 2026-11-04; redirect-only/local-precondition assertions added.
 <!-- EXECUTION:END -->
 

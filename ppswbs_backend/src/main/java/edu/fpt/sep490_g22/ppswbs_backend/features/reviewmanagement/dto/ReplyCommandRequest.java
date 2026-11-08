@@ -14,11 +14,8 @@ import lombok.NoArgsConstructor;
 public class ReplyCommandRequest {
 
     @NotBlank(message = "bodyText is required")
-    @Size(max = 4000, message = "bodyText cannot exceed 4000 characters")
+    @Size(max = 2000, message = "bodyText cannot exceed 2000 characters")
     private String bodyText;
 
-    private Long expectedVersion;
-
-    private String idempotencyKey;
 }
 

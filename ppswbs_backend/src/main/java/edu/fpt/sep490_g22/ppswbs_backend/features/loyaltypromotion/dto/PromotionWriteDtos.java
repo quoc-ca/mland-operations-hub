@@ -231,9 +231,8 @@ public final class PromotionWriteDtos {
 
     private static List<TargetRef> workshopTargets(JsonNode targets) {
         onlyFields(targets, Set.of("packageIds", "branchIds", "workshopDates", "sessionIds"), "targets.");
-        if (!targets.has("packageIds")) {
-            throw LoyaltyException.invalidField("targets.packageIds", "At least one package is required.");
-        }
+        // Every dimension is optional (decision 2026-11-06): a voucher without packageIds covers all packages, and
+        // likewise for branches and sessions. WorkshopBenefitEvaluator already reads an empty set as "not restricted".
         List<TargetRef> refs = new ArrayList<>();
         refs.addAll(ids(targets, "packageIds", TargetDimension.PACKAGE));
         refs.addAll(ids(targets, "branchIds", TargetDimension.BRANCH));

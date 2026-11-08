@@ -14,8 +14,25 @@ public class WorkshopOperationsSettlementAdapter {
         return operations.getSettlementReadiness(new BookingSettlementReadinessQuery(bookingReference));
     }
 
+    /** Whether the Staff member is actively assigned to a session this booking holds a valid ticket for. */
+    public boolean staffAssignedToBooking(Long staffAccountId, String bookingReference) {
+        return operations.isStaffAssignedToBooking(new StaffBookingAssignmentQuery(staffAccountId, bookingReference));
+    }
+
+    public boolean serviceStarted(String bookingReference) {
+        return operations.hasBookingServiceStarted(new BookingSettlementReadinessQuery(bookingReference));
+    }
+
+    public BookingAttendanceOutcome attendanceOutcome(String bookingReference) {
+        return operations.getBookingAttendanceOutcome(new BookingAttendanceOutcomeQuery(bookingReference));
+    }
+
     public BookingCancellationEligibilitySnapshot cancellationEligibility(String bookingReference) {
         return operations.getBookingCancellationEligibility(new BookingCancellationEligibilityQuery(bookingReference));
+    }
+
+    public java.util.List<WorkshopAddOnPriceSnapshot> listAddOns(String packageReference, Long locationReference) {
+        return operations.listWorkshopAddOns(new WorkshopAddOnListQuery(packageReference, locationReference));
     }
 
     public WorkshopAddOnPriceSnapshot addOnPrice(String packageReference, Long locationReference, String addOnReference) {

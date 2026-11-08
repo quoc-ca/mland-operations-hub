@@ -3,7 +3,6 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -11,10 +10,10 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
 import java.net.http.HttpClient;
+import java.net.URI;
 
-/** Local-only, read-only GHTK fee transport. It never calls any shipment mutation endpoint. */
+/** Read-only GHTK fee transport available in every profile. It never calls any shipment mutation endpoint. */
 @Component
-@Profile("local")
 @RequiredArgsConstructor
 class RestClientGhtkFeeTransport implements GhtkFeeTransport {
     private final GhtkQuoteProperties properties;
@@ -28,7 +27,7 @@ class RestClientGhtkFeeTransport implements GhtkFeeTransport {
                 .build();
             JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
             factory.setReadTimeout(java.time.Duration.ofSeconds(properties.getTimeoutSeconds()));
-            String endpoint = UriComponentsBuilder.fromUriString(properties.getBaseUrl())
+            var endpointBuilder = UriComponentsBuilder.fromUriString(properties.getBaseUrl())
                 .path("/services/shipment/fee")
                 .queryParam("pick_address", request.pickupAddress())
                 .queryParam("pick_province", request.pickupProvince())
@@ -37,14 +36,16 @@ class RestClientGhtkFeeTransport implements GhtkFeeTransport {
                 .queryParam("address", request.address())
                 .queryParam("province", request.province())
                 .queryParam("district", request.district())
-                .queryParam("ward", request.ward())
                 .queryParam("weight", request.weightGrams())
                 .queryParam("value", request.declaredValue().toPlainString())
-                .queryParam("transport", "road")
-                .build()
+                .queryParam("transport", "road");
+            if (request.ward() != null && !request.ward().isBlank()) {
+                endpointBuilder.queryParam("ward", request.ward());
+            }
+            String endpoint = endpointBuilder.build()
                 .encode()
                 .toUriString();
-            var requestSpec = RestClient.builder().requestFactory(factory).build().get().uri(endpoint)
+            var requestSpec = RestClient.builder().requestFactory(factory).build().get().uri(URI.create(endpoint))
                 .header("Token", properties.getToken());
             if (properties.getClientSource() != null && !properties.getClientSource().isBlank()) {
                 requestSpec.header("X-Client-Source", properties.getClientSource());
@@ -53,12 +54,20 @@ class RestClientGhtkFeeTransport implements GhtkFeeTransport {
             JsonNode root = objectMapper.readTree(body);
             boolean success = root.path("success").asBoolean(false);
             String message = root.path("message").asText("");
-            if (!success) return new FeeResponse(false, false, null, message);
+            if (!success) {
+                return new FeeResponse(false, false, null,
+                    message.isBlank() ? "GHTK could not calculate the shipping fee" : message);
+            }
             JsonNode fee = root.path("fee");
-            if (!fee.hasNonNull("fee")) return new FeeResponse(false, false, null, "GHTK returned no delivery fee");
-            return new FeeResponse(true, fee.path("delivery").asBoolean(false), fee.path("fee").decimalValue(), message);
+            if (!fee.hasNonNull("fee") || !fee.path("fee").isNumber()) return new FeeResponse(false, false, null, "GHTK returned no delivery fee");
+            BigDecimal charge = fee.path("fee").decimalValue();
+            if (charge.signum() < 0 || charge.stripTrailingZeros().scale() > 0 || charge.precision() - charge.scale() > 19) {
+                return new FeeResponse(false, false, null, "GHTK returned an invalid delivery fee");
+            }
+            return new FeeResponse(true, fee.path("delivery").asBoolean(false), charge, message);
         } catch (Exception exception) {
-            throw new RetailIntegrationUnavailableException("GHTK shipping quote is temporarily unavailable");
+            throw new RetailIntegrationUnavailableException(
+                "GHTK shipping quote is temporarily unavailable: " + exception.getMessage());
         }
     }
 }

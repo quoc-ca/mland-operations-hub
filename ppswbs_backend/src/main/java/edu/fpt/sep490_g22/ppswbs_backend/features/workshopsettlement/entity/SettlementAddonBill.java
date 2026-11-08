@@ -36,6 +36,9 @@ public class SettlementAddonBill {
     private String staffActorReference;
     @Column(name = "location_id")
     private Long locationId;
+    /** The Mland booking holding the tickets of an OTA booking; null on legacy bills. */
+    @Column(name = "mland_booking_reference", length = 128)
+    private String mlandBookingReference;
     @Column(name = "lifecycle_status", nullable = false, length = 24)
     private String lifecycleStatus;
     @Column(name = "created_at", nullable = false, updatable = false)

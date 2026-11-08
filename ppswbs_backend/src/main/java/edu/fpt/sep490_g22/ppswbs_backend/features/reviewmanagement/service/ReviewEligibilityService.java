@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ReviewEligibilityService {
 
     private final WorkshopAttendanceReviewPort workshopAttendancePort;
@@ -37,11 +36,45 @@ public class ReviewEligibilityService {
     private final ReviewRepository reviewRepository;
     private final ReviewMaskingService maskingService;
     private final ObjectMapper objectMapper;
+    private final ReviewIdempotencyService idempotencyService;
 
     private static final int HANDLE_TTL_MINUTES = 30;
 
-    @Transactional
+    @org.springframework.beans.factory.annotation.Autowired
+    public ReviewEligibilityService(WorkshopAttendanceReviewPort workshopAttendancePort,
+                                    RetailFulfilmentReviewPort retailFulfilmentPort,
+                                    GuestEligibilityHandleRepository handleRepository,
+                                    ReviewRepository reviewRepository,
+                                    ReviewMaskingService maskingService,
+                                    ObjectMapper objectMapper,
+                                    ReviewIdempotencyService idempotencyService) {
+        this.workshopAttendancePort = workshopAttendancePort;
+        this.retailFulfilmentPort = retailFulfilmentPort;
+        this.handleRepository = handleRepository;
+        this.reviewRepository = reviewRepository;
+        this.maskingService = maskingService;
+        this.objectMapper = objectMapper;
+        this.idempotencyService = idempotencyService;
+    }
+
+    @Deprecated
+    public ReviewEligibilityService(WorkshopAttendanceReviewPort workshopAttendancePort,
+                                    RetailFulfilmentReviewPort retailFulfilmentPort,
+                                    GuestEligibilityHandleRepository handleRepository,
+                                    ReviewRepository reviewRepository,
+                                    ReviewMaskingService maskingService,
+                                    ObjectMapper objectMapper) {
+        this(workshopAttendancePort, retailFulfilmentPort, handleRepository, reviewRepository,
+                maskingService, objectMapper, null);
+    }
+
+    @Deprecated
     public EligibleSourceListResponse lookupGuestEligibility(GuestEligibilityLookupRequest request) {
+        return lookupGuestEligibility(request, null);
+    }
+
+    @Transactional
+    public EligibleSourceListResponse lookupGuestEligibility(GuestEligibilityLookupRequest request, String idempotencyKey) {
         if (request == null || request.getContactType() == null || request.getContactValue() == null || request.getContactValue().isBlank()) {
             throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "Thông tin liên hệ không được để trống.");
         }
@@ -49,28 +82,46 @@ public class ReviewEligibilityService {
         ContactType contactType = request.getContactType();
         String contactValue = request.getContactValue().trim();
 
-        List<EligibleSourceItem> items = workshopAttendancePort.findEligibleByContact(contactType, contactValue);
+        String actorScope = "GUEST_LOOKUP_" + contactType.name() + "_" + hashHandle(contactValue.toLowerCase());
+        String requestHash = idempotencyService != null ? idempotencyService.computeHash(request) : null;
+        Optional<EligibleSourceListResponse> existing = idempotencyService != null
+                ? idempotencyService.findCompletedResponse(idempotencyKey, actorScope, requestHash, EligibleSourceListResponse.class)
+                : Optional.empty();
+        if (existing.isPresent()) return existing.get();
+        if (idempotencyService != null) idempotencyService.recordPending(idempotencyKey, "GUEST_ELIGIBILITY_LOOKUP", actorScope, requestHash);
+
+        List<EligibleSourceItem> items = new ArrayList<>();
+        items.addAll(workshopAttendancePort.findEligibleByContact(contactType, contactValue));
+        items.addAll(retailFulfilmentPort.findEligibleByContact(contactType, contactValue));
         if (items.isEmpty()) {
-            return EligibleSourceListResponse.builder()
-                    .guestHandle(null)
+            EligibleSourceListResponse response = EligibleSourceListResponse.builder()
+                    .guestEligibilityHandle(null)
                     .expiresAt(null)
                     .maskedContact(maskingService.maskContact(contactType, contactValue))
                     .sources(Collections.emptyList())
                     .build();
+            if (idempotencyService != null) idempotencyService.recordSuccess(idempotencyKey, actorScope, response);
+            return response;
         }
 
         // Kiểm tra các item đã được review chưa
-        List<String> refs = items.stream().map(EligibleSourceItem::getSourceReference).toList();
-        List<Review> existingReviews = reviewRepository.findBySourceTypeAndSourceReferenceIn(SourceType.WORKSHOP_ATTENDANCE, refs);
-        Set<String> reviewedSet = existingReviews.stream().map(Review::getSourceReference).collect(Collectors.toSet());
+        Set<String> reviewedSet = new HashSet<>();
+        for (SourceType sourceType : SourceType.values()) {
+            List<String> refs = items.stream().filter(item -> item.getSourceType() == sourceType)
+                    .map(EligibleSourceItem::getSourceReference).toList();
+            if (!refs.isEmpty()) {
+                reviewedSet.addAll(reviewRepository.findBySourceTypeAndSourceReferenceIn(sourceType, refs)
+                        .stream().map(review -> sourceKey(sourceType, review.getSourceReference())).collect(Collectors.toSet()));
+            }
+        }
 
         List<EligibleSourceDto> dtos = new ArrayList<>();
         List<String> unreviewedRefs = new ArrayList<>();
 
         for (EligibleSourceItem item : items) {
-            boolean alreadyReviewed = reviewedSet.contains(item.getSourceReference());
+            boolean alreadyReviewed = reviewedSet.contains(sourceKey(item.getSourceType(), item.getSourceReference()));
             if (!alreadyReviewed) {
-                unreviewedRefs.add(item.getSourceReference());
+                unreviewedRefs.add(sourceKey(item.getSourceType(), item.getSourceReference()));
             }
             dtos.add(EligibleSourceDto.builder()
                     .sourceType(item.getSourceType())
@@ -107,12 +158,14 @@ public class ReviewEligibilityService {
             throw new RuntimeException("Lỗi lưu trữ guest handle", ex);
         }
 
-        return EligibleSourceListResponse.builder()
-                .guestHandle(rawHandle)
+        EligibleSourceListResponse response = EligibleSourceListResponse.builder()
+                .guestEligibilityHandle(rawHandle)
                 .expiresAt(expiresAt)
                 .maskedContact(maskedContact)
                 .sources(dtos)
                 .build();
+        if (idempotencyService != null) idempotencyService.recordSuccess(idempotencyKey, actorScope, response);
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -130,7 +183,7 @@ public class ReviewEligibilityService {
 
         if (allItems.isEmpty()) {
             return EligibleSourceListResponse.builder()
-                    .guestHandle(null)
+                    .guestEligibilityHandle(null)
                     .expiresAt(null)
                     .maskedContact(maskingService.maskMemberDisplayName(memberAccountId, null))
                     .sources(Collections.emptyList())
@@ -169,14 +222,14 @@ public class ReviewEligibilityService {
         }
 
         return EligibleSourceListResponse.builder()
-                .guestHandle(null)
+                .guestEligibilityHandle(null)
                 .expiresAt(null)
                 .maskedContact(maskingService.maskMemberDisplayName(memberAccountId, null))
                 .sources(dtos)
                 .build();
     }
 
-    public GuestEligibilityHandle validateGuestHandle(String guestHandle, String expectedSourceReference) {
+    public GuestEligibilityHandle validateGuestHandle(String guestHandle, SourceType expectedSourceType, String expectedSourceReference) {
         if (guestHandle == null || guestHandle.isBlank()) {
             throw ReviewManagementException.badRequest("REVIEW_GUEST_HANDLE_INVALID", "Mã handle của khách vãng lai không hợp lệ.");
         }
@@ -191,8 +244,9 @@ public class ReviewEligibilityService {
         if (expectedSourceReference != null && !expectedSourceReference.isBlank()) {
             try {
                 List<String> validRefs = objectMapper.readValue(handle.getSourceReferencesJson(), new TypeReference<List<String>>() {});
-                if (!validRefs.contains(expectedSourceReference.trim())) {
-                    throw ReviewManagementException.forbidden("REVIEW_SOURCE_NOT_ELIGIBLE", "Mã tham chiếu không thuộc phiên tra cứu hợp lệ.");
+                String expectedKey = sourceKey(expectedSourceType, expectedSourceReference.trim());
+                if (!validRefs.contains(expectedKey)) {
+                    throw ReviewManagementException.unprocessable("REVIEW_SOURCE_NOT_ELIGIBLE", "Mã tham chiếu không thuộc phiên tra cứu hợp lệ.");
                 }
             } catch (ReviewManagementException rme) {
                 throw rme;
@@ -203,6 +257,14 @@ public class ReviewEligibilityService {
         }
 
         return handle;
+    }
+
+    public GuestEligibilityHandle validateGuestHandle(String guestHandle, String expectedSourceReference) {
+        return validateGuestHandle(guestHandle, SourceType.WORKSHOP_ATTENDANCE, expectedSourceReference);
+    }
+
+    private String sourceKey(SourceType sourceType, String sourceReference) {
+        return (sourceType != null ? sourceType.name() : "UNKNOWN") + ":" + sourceReference;
     }
 
     public String hashHandle(String rawHandle) {

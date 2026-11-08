@@ -73,6 +73,75 @@ class WorkshopFinalBillCustomerAccessTest {
     }
 
     @Test
+    void operatorReadsThroughItsOwnRouteByLocationScope() {
+        Authentication authentication = mock(Authentication.class);
+        CurrentAccountActor actor = new CurrentAccountActor(7L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(1L));
+        when(authentication.getPrincipal()).thenReturn(actor);
+        var confirmed = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConfirmedBookingFinancialProjection.class);
+        when(confirmed.bookingLocationReference()).thenReturn(1L);
+        when(booking.confirmedProjection("BK-4")).thenReturn(confirmed);
+        when(bills.findByBookingReference("BK-4")).thenReturn(java.util.Optional.empty());
+
+        // The scope check ran and the customer-proof path was never consulted; with no bill the answer is not-found.
+        assertThrows(WorkshopSettlementNotFoundException.class, () -> service.readAsOperator("BK-4", authentication));
+        verify(authorization).requireManagerOrAssignedStaff(actor, 1L, "BK-4");
+        verify(booking, never()).verifyCustomerAccess(any(), any(), any(), any());
+    }
+
+    @Test
+    void operatorListsTheCatalogueAddOnsOfTheBookingsPackageAndLocation() {
+        Authentication authentication = mock(Authentication.class);
+        CurrentAccountActor actor = new CurrentAccountActor(7L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(1L));
+        when(authentication.getPrincipal()).thenReturn(actor);
+        var confirmed = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConfirmedBookingFinancialProjection.class);
+        when(confirmed.bookingLocationReference()).thenReturn(1L);
+        when(confirmed.packageReference()).thenReturn("12");
+        when(booking.confirmedProjection("BK-6")).thenReturn(confirmed);
+        when(operations.listAddOns("12", 1L)).thenReturn(List.of(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopAddOnPriceSnapshot(
+                        "ADD-1", "Silver ring box", 120000L, "VND")));
+
+        var options = service.listAddOns("BK-6", authentication);
+
+        verify(authorization).requireManagerOrAssignedStaff(actor, 1L, "BK-6");
+        assertEquals(1, options.size());
+        assertEquals("ADD-1", options.get(0).addOnReference());
+        assertEquals(120000L, options.get(0).amountVnd());
+    }
+
+    @Test
+    void addOnListIsRefusedWithoutAnOperatorOrOutsideTheScope() {
+        assertThrows(WorkshopSettlementAuthorizationException.class, () -> service.listAddOns("BK-7", null));
+
+        Authentication authentication = mock(Authentication.class);
+        CurrentAccountActor actor = new CurrentAccountActor(7L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(9L));
+        when(authentication.getPrincipal()).thenReturn(actor);
+        var confirmed = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConfirmedBookingFinancialProjection.class);
+        when(confirmed.bookingLocationReference()).thenReturn(1L);
+        when(booking.confirmedProjection("BK-7")).thenReturn(confirmed);
+        doThrow(new WorkshopSettlementAuthorizationException("LOCATION_SCOPE_DENIED"))
+                .when(authorization).requireManagerOrAssignedStaff(actor, 1L, "BK-7");
+
+        assertThrows(WorkshopSettlementAuthorizationException.class, () -> service.listAddOns("BK-7", authentication));
+        verify(operations, never()).listAddOns(any(), any());
+    }
+
+    @Test
+    void operatorOutsideTheLocationScopeIsRefused() {
+        Authentication authentication = mock(Authentication.class);
+        CurrentAccountActor actor = new CurrentAccountActor(7L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(9L));
+        when(authentication.getPrincipal()).thenReturn(actor);
+        var confirmed = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConfirmedBookingFinancialProjection.class);
+        when(confirmed.bookingLocationReference()).thenReturn(1L);
+        when(booking.confirmedProjection("BK-5")).thenReturn(confirmed);
+        doThrow(new WorkshopSettlementAuthorizationException("LOCATION_SCOPE_DENIED"))
+                .when(authorization).requireManagerOrAssignedStaff(actor, 1L, "BK-5");
+
+        assertThrows(WorkshopSettlementAuthorizationException.class, () -> service.readAsOperator("BK-5", authentication));
+        verifyNoInteractions(bills, charges, evidence);
+    }
+
+    @Test
     void authenticatedStaffCannotFallBackToGuestContactProof() {
         Authentication authentication = mock(Authentication.class);
         CurrentAccountActor actor = new CurrentAccountActor(7L, ActorRole.STAFF, ActorStatus.ACTIVE,

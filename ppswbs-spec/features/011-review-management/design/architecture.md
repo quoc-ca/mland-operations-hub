@@ -1,78 +1,112 @@
-# Feature-011 Architecture Design
+﻿# Feature-011 Frontend Architecture Design — Review Management
 
-Date created: 2026-11-03  
-Date updated: 2026-11-03  
-Author: Ngô Tiến Đạt  
-Last updated by: Ngô Tiến Đạt
+**Date created**: 2026-11-03
+**Date updated**: 2026-11-05
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Ngô Tiến Đạt
 
-## Boundary
+## 1. Boundary and source of truth
 
-`reviewmanagement` is the feature owner. The following are proposed logical units and must be mapped to the project’s actual Spring/React conventions before code:
+Feature-011 owns review presentation and review commands. Its frontend follows
+React/Vite project conventions and consumes the approved OpenAPI contract. The
+backend remains authoritative for eligibility, ownership, status, moderation
+authority, optimistic version and privacy filtering.
 
-```text
-Backend (proposed)
-  reviewmanagement/
-    ReviewController
-    ReviewEligibilityController
-    ReviewModerationController
-    ReviewApplicationService
-    ReviewEligibilityService
-    ReviewModerationService
-    ReviewPublicReadFacade
-    ReviewEligibilityPort
-    WorkshopAttendanceReviewPort
-    RetailOrderReviewPort
-    ReviewRepository
-    ReviewRevisionRepository
-    ReviewReplyRepository
-    ReviewAuditRepository
-    ReviewDto / PublicReviewDto / EligibilityDto
+The frontend must not access Workshop or Retail repositories. Cross-feature facts
+arrive through Feature-011 API projections backed by the approved eligibility ports.
 
-Frontend (proposed)
-  features/reviewmanagement/
-    api/reviewClient
-    pages/EligibleReviewSources
-    pages/CreateReview
-    pages/EditReview
-    pages/PublicReviewList
-    pages/StaffReviewModeration
-    pages/ManagerReviewModeration
-    components/ReviewCard / RatingInput / ReplyEditor
-```
-
-The controller calls application services; services call feature-owned repositories and source ports; source ports call Workshop/Retail facades. No Review unit imports another feature’s repository. Public DTOs are projections, not persistence entities.
-
-## Data flow
+## 2. Proposed frontend structure
 
 ```text
-Guest contact or Member session
-  → eligibility endpoint
-  → source facade verifies attendance/fulfilment and ownership
-  → eligible source projection
-  → create command with Idempotency-Key
-  → input/ownership/source/unique validation
-  → review + revision + audit transaction
-  → PUBLIC projection/list response
+src/features/reviewmanagement/
+  routes/
+    reviewManagementRoutes.jsx
+  ui/
+    public/PublicReviewListPage.jsx
+    public/PublicReviewDetailPage.jsx
+    customer/EligibleReviewSourcesPage.jsx
+    customer/GuestReviewLookupPage.jsx
+    customer/CreateReviewPage.jsx
+    customer/EditReviewPage.jsx
+    moderation/ModerationQueuePage.jsx
+    moderation/ModerationDetailPage.jsx
+    moderation/ReplyEditor.jsx
+    components/ReviewCard.jsx
+    components/RatingInput.jsx
+  application/
+    useReviewApi.js
+    useReviewResources.js
+    useReviewCommands.js
+  domain/
+    reviewRules.js
+    reviewState.js
+  infrastructure/
+    reviewApi.js
+  tests/
 ```
 
-Moderation and reply commands follow the same controller → authorization → service → optimistic version → transaction → audit path. The aggregate reader filters `PUBLIC` before returning data.
+This is the target structure for the Feature-011 frontend implementation. It does
+not require creating placeholder layers before the implementation task is started.
+No new state library, UI kit or form library is permitted.
 
-## Existing/proposed status
-
-## Backend implementation boundary
+## 3. Dependency direction
 
 ```text
-reviewmanagement.controller
-  → ReviewApplicationService / ReviewModerationService / ReviewReplyService
-  → domain validation and authorization
-  → ReviewRepository / RevisionRepository / ReplyRepository / AuditRepository
-  → WorkshopAttendanceReviewPort or RetailFulfilmentReviewPort
-  → owning Workshop Operations / Fulfilment facade
+app/router
+  → reviewmanagement/routes
+    → reviewmanagement/ui
+      → reviewmanagement/application
+        → reviewmanagement/domain
+        → reviewmanagement/infrastructure
+          → shared/api/http
+          → shared/auth
+          → shared/i18n
 ```
 
-`GuestEligibilityHandlePort` sits between Guest lookup and create. It returns
-only an opaque proof and resolves it again inside the create transaction. The
-public-read facade performs the realtime `PUBLIC` aggregate query and strips
-contact/source transaction data before the controller response.
+UI pages do not call `fetch`, Firebase or backend repositories directly. Domain
+rules do not import React, router or browser APIs. The API adapter maps OpenAPI DTOs
+to view data and never exposes persistence entities.
 
-All units in this file are `proposed`; no code or approved physical package mapping exists yet. React/Vite and Spring conventions are inherited only after confirmation from the corresponding implementation baseline.
+## 4. API and auth boundary
+
+The client uses:
+
+- public calls without Firebase identity for public listing/detail;
+- Guest lookup and create according to the approved opaque eligibility-handle contract;
+- Firebase Bearer identity for Member, Staff and Manager operations;
+- `Idempotency-Key` for every write command;
+- `If-Match-Version` for owner edit, moderation and reply edit where required.
+
+The route guard may show a sign-in requirement, but it cannot grant a role. A `401`
+uses the shared session recovery path; a `403` shows access denied without signing
+the user out. Raw contact, transaction source references and private audit evidence
+must not enter public UI state.
+
+## 5. Data flow
+
+```text
+Route
+  → page
+  → application resource/command hook
+  → reviewApi adapter
+  → shared HTTP client and Firebase token
+  → Feature-011 controller/service
+  → safe DTO projection
+  → application state
+  → UI state
+```
+
+For commands, one idempotency key belongs to one user action. A retry reuses the
+same key. A stale version or duplicate-source conflict triggers reload/reconciliation,
+not an automatic retry with a new key.
+
+## 6. Backend contract verification gate
+
+The backend implementation has been aligned with the approved OpenAPI/spec. Live
+integration still requires verification of:
+
+- header-based idempotency and optimistic-version behavior;
+- Guest retail-product eligibility and source revalidation;
+- owner-safe detail projection and cross-user existence behavior;
+- Admin technical-only permission boundary;
+- DTO, status-code, header and migration behavior against the contract.

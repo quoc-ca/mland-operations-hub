@@ -25,6 +25,11 @@ export function loyaltyApi(request) {
     resumeProgram: (key, programId, expectedVersion) => write('POST', `/api/v1/promotion-programs/${id(programId)}/resumptions`, key, { expectedVersion }),
     getUsage: programId => request(`/api/v1/promotion-programs/${id(programId)}/usage`),
 
+    // Workshop targets for the Manager picker: read-only use of 003 reads (packages, branches, sessions).
+    listWorkshopPackages: () => request('/api/v1/workshop-package-management/packages'),
+    listWorkshopBranches: () => request('/api/v1/workshop-locations'),
+    listWorkshopSessions: ({ from } = {}) => request('/api/v1/workshop-sessions', { query: { from } }),
+
     // Product targets for the Manager picker: read-only use of 002 management reads (productmanagement REST).
     searchCatalogueProducts: ({ q, page } = {}) => request('/api/v1/catalogue-management/products', { query: { q, page } }),
     getCatalogueProduct: productId => request(`/api/v1/catalogue-management/products/${id(productId)}`),

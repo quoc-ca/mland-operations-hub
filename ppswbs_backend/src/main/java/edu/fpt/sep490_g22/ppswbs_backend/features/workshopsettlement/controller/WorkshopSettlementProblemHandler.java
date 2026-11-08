@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.List;
 
+/** Highest precedence like the other feature handlers, or the application-wide catch-all turns these into 500s. */
+@org.springframework.core.annotation.Order(org.springframework.core.Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackageClasses = WorkshopSettlementProblemHandler.class)
 public class WorkshopSettlementProblemHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)

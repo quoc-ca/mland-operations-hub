@@ -20,15 +20,12 @@ public class EditReviewRequest {
     @Max(value = 5, message = "rating must be at most 5")
     private Integer rating;
 
-    @Size(max = 4000, message = "bodyText cannot exceed 4000 characters")
+    @Size(max = 2000, message = "bodyText cannot exceed 2000 characters")
     private String bodyText;
 
     @Size(max = 1000, message = "reason cannot exceed 1000 characters")
     private String reason;
 
-    @NotNull(message = "expectedVersion is required")
-    private Long expectedVersion;
-
-    private String guestHandle;
+    private String guestEligibilityHandle;
 }
 

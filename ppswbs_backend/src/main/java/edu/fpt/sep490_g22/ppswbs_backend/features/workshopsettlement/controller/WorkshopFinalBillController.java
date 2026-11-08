@@ -37,6 +37,17 @@ public class WorkshopFinalBillController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(bookingCode, idempotencyKey, correlation, authentication));
     }
 
+    @GetMapping("/operator")
+    public FinalBillProjectionDto readAsOperator(@PathVariable String bookingCode, Authentication authentication) {
+        return service.readAsOperator(bookingCode, authentication);
+    }
+
+    @GetMapping("/add-ons")
+    public java.util.List<edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.AddOnOptionDto> addOns(
+            @PathVariable String bookingCode, Authentication authentication) {
+        return service.listAddOns(bookingCode, authentication);
+    }
+
     @PostMapping("/charges")
     public FinalBillProjectionDto charge(@PathVariable String bookingCode,
             @RequestHeader("Idempotency-Key") String idempotencyKey,

@@ -268,6 +268,7 @@ public class WorkshopLifecycleIT {
 
         // Manager B may operate a session outside its historical location list.
         mockMvc.perform(post("/api/v1/workshop-sessions/" + sessionA.getReference() + "/state-transitions")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_B_TOKEN)
                         .header("X-Correlation-Id", "corr-scope-denied")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -291,6 +292,7 @@ public class WorkshopLifecycleIT {
                 .build();
 
         mockMvc.perform(post("/api/v1/workshop-sessions/" + sessionA.getReference() + "/state-transitions")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", INACTIVE_TOKEN)
                         .header("X-Correlation-Id", "corr-inactive-actor")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -325,6 +327,7 @@ public class WorkshopLifecycleIT {
         // 3a. Target does not exist -> 409 INVALID_STATE
         StaffAssignmentRequest reqNotFound = StaffAssignmentRequest.builder().accountId(999L).build();
         mockMvc.perform(put("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reqNotFound)))
@@ -334,6 +337,7 @@ public class WorkshopLifecycleIT {
         // 3b. Target wrong role -> 409 INVALID_STATE
         StaffAssignmentRequest reqWrongRole = StaffAssignmentRequest.builder().accountId(201L).build();
         mockMvc.perform(put("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reqWrongRole)))
@@ -343,6 +347,7 @@ public class WorkshopLifecycleIT {
         // 3c. Target not ACTIVE -> 409 INVALID_STATE
         StaffAssignmentRequest reqSuspended = StaffAssignmentRequest.builder().accountId(202L).build();
         mockMvc.perform(put("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reqSuspended)))
@@ -352,6 +357,7 @@ public class WorkshopLifecycleIT {
         // 3d. Target outside location scope -> 403 LOCATION_SCOPE_DENIED
         StaffAssignmentRequest reqOutsideScope = StaffAssignmentRequest.builder().accountId(203L).build();
         mockMvc.perform(put("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reqOutsideScope)))
@@ -375,6 +381,7 @@ public class WorkshopLifecycleIT {
                 .build();
 
         mockMvc.perform(post("/api/v1/workshop-sessions/" + sessionA.getReference() + "/state-transitions")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .header("X-Correlation-Id", "corr-pub-no-staff")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -391,7 +398,20 @@ public class WorkshopLifecycleIT {
     // =========================================================================
 
     @Test
-    @DisplayName("T025-5: Staff in session location may start without assignment")
+    @DisplayName("A state transition without the required Idempotency-Key is a client error (400), not a server error")
+    void missingIdempotencyKeyIsAClientError() throws Exception {
+        StateTransitionRequest startReq = StateTransitionRequest.builder().targetState(SessionState.IN_PROGRESS).build();
+
+        mockMvc.perform(post("/api/v1/workshop-sessions/" + sessionA.getReference() + "/state-transitions")
+                        .header("Authorization", STAFF_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(startReq)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REQUIRED"));
+    }
+
+    @Test
+    @DisplayName("T025-5: Staff in the session location may start only while assigned to it (owner decision 2026-11-06)")
     void shouldEnforceResponsibilityOnStart() throws Exception {
         // Set session to PUBLISHED
         sessionA.setState(SessionState.PUBLISHED);
@@ -405,8 +425,19 @@ public class WorkshopLifecycleIT {
         when(accountFacade.getTargetAccount(101L)).thenReturn(Optional.of(
                 new TargetAccountSnapshot(101L, ActorRole.STAFF, ActorStatus.ACTIVE, List.of(locationA.getId()))));
 
-        // Staff A is in the session location and does not need a session assignment.
+        // Staff A is in the session location but not assigned to the session: refused.
         mockMvc.perform(post("/api/v1/workshop-sessions/" + sessionA.getReference() + "/state-transitions")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", STAFF_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(startReq)))
+                .andExpect(status().isForbidden());
+
+        // Once assigned, the same Staff member may start it.
+        staffAssignmentRepository.save(SessionStaffAssignment.builder()
+                .session(sessionA).accountId(101L).assignedById(10L).assignedAt(Instant.now()).active(true).build());
+        mockMvc.perform(post("/api/v1/workshop-sessions/" + sessionA.getReference() + "/state-transitions")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", STAFF_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(startReq)))
@@ -481,6 +512,7 @@ public class WorkshopLifecycleIT {
                 .build();
 
         mockMvc.perform(post("/api/v1/workshop-sessions/" + sessionA.getReference() + "/state-transitions")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .header("X-Correlation-Id", "corr-pause-sales")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -523,6 +555,7 @@ public class WorkshopLifecycleIT {
     @DisplayName("T025-7: Retired operational-lead endpoint is not exposed")
     void shouldExecuteAtomicOperationalLeadHandover() throws Exception {
         mockMvc.perform(put("/api/v1/workshop-sessions/" + sessionA.getReference() + "/operational-lead")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
@@ -555,6 +588,7 @@ public class WorkshopLifecycleIT {
         // the session is IN_PROGRESS; this is a responsibility invariant,
         // not a per-request assignment authorization check.
         mockMvc.perform(delete("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .param("accountId", "101"))
                 .andExpect(status().isConflict())
@@ -578,6 +612,7 @@ public class WorkshopLifecycleIT {
                 .build();
 
         mockMvc.perform(post("/api/v1/workshop-sessions/" + sessionA.getReference() + "/state-transitions")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .header("X-Correlation-Id", corrId)
                         .contentType(MediaType.APPLICATION_JSON)

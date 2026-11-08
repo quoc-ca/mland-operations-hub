@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-06
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -29,9 +29,10 @@ where they conflict with the following V1 decisions:
   consumes canonical role, account status and active location IDs; it does not
   call a capability decision method and does not use
   `workshop.checkin.override`.
-- An active `STAFF` may operate any session whose canonical `locationId` is in
-  the actor's `activeLocationIds`. A session-level Staff assignment is not an
-  authorization prerequisite.
+- An active `STAFF` may operate a session whose canonical `locationId` is in
+  the actor's `activeLocationIds`. *(Superseded 2026-11-06: a Staff member must
+  also be actively assigned to the session; see "Staff session-assignment
+  access" below.)*
 - An active `MANAGER` has global Workshop Operations authority across all
   locations and sessions. No location-scope, session-assignment or
   operational-lead check is required for Manager authority.
@@ -61,6 +62,44 @@ Any older paragraph, example or scenario that requires a Staff assignment,
 Manager operational lead, capability key or manual scheduled start is legacy
 wording and must be read through this amendment until the affected section is
 rewritten.
+
+## Staff session-assignment access (owner decision, 2026-11-06)
+
+This amendment supersedes the 2026-10-28 rule that a session-level Staff
+assignment is not an authorization prerequisite, and every older statement of
+the form "an active Staff whose location scope contains the session location
+may …" (check-in, booking lookup, ticket resend, check-in override, attendance
+finalization, state transition, session read). Read each of them as "an active
+Staff whose location scope contains the session location **and who is actively
+assigned to that session** may …".
+
+- **Visibility**: the session list returned to a Staff member contains only the
+  sessions they are actively assigned to. Opening a session, its attendance
+  roster or any session operation for an unassigned session is refused with
+  `403` (`Staff member is not assigned to this workshop session`). Manager and
+  Admin remain global and see and operate every session in scope.
+- **Both checks are made at command time**: active account status, the session
+  location inside the actor's `activeLocationIds`, and an active assignment
+  (`session_staff_assignments.active = true`). Revoking an assignment removes
+  the Staff member's access immediately; assignment history remains.
+- **Only a Manager assigns or revokes Staff** for a session. Several Staff may
+  be assigned to one session; the session response carries
+  `assignedStaffAccountIds`.
+- **Publication and start do not require an assignment** (FR-010b is
+  unchanged). A session without an assigned Staff is visible and operable by
+  Managers only until a Manager assigns someone.
+- **Attendance roster**: `GET /workshop-sessions/{sessionId}/attendance-roster`
+  lists the session's valid tickets with their check-in state
+  (`NOT_CHECKED_IN`, `CHECKED_IN`, `NO_SHOW`), the booking reference and the
+  check-in time, and no customer contact data. Same authority as booking
+  lookup.
+- **Attendance finalization** is only the dedicated
+  `attendance-finalizations` action; a plain state transition to
+  `ATTENDANCE_FINALIZED` is refused because it would skip marking unchecked
+  tickets `NO_SHOW` and recording the finalization time.
+- **Downstream**: Settlement (003.3) and the OTA shop add-on (003.4) apply the
+  same rule through the booking: a Staff member may act on a booking only while
+  assigned to a session the booking holds a valid ticket for.
 
 ## Scope
 

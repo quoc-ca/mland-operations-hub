@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 
-/** Applies a verified customer cancellation in the same transaction that resolves its case. */
+/** Applies a verified customer cancellation or Mland-caused remedy in the same transaction that resolves its case. */
 @Service
 @RequiredArgsConstructor
 public class WorkshopCancellationLoyaltyService {
@@ -16,9 +16,13 @@ public class WorkshopCancellationLoyaltyService {
     private final LoyaltyFacade loyalty;
 
     public void restoreVerifiedCancellation(SettlementCase settlementCase, String proofReference) {
-        if (!"CUSTOMER_CANCELLATION".equals(settlementCase.getCaseType())) return;
+        if (settlementCase == null) return;
+        if (!"CUSTOMER_CANCELLATION".equals(settlementCase.getCaseType())
+                && !"MLAND_CANCELLATION_REMEDY".equals(settlementCase.getCaseType())) return;
         var source = booking.loyaltyOutcomeSource(settlementCase.getBookingReference());
-        if (source == null || !source.memberOrigin()) return;
+        if (source == null || !source.memberOrigin() || source.snapshotRef() == null || source.snapshotRef().isBlank()) return;
+        var existing = loyalty.findBenefitResult(SourceKind.WORKSHOP, settlementCase.getBookingReference());
+        if (existing == null || existing.earnState() != EarnState.PENDING) return;
         Instant now = Instant.now();
         String key = "valid-cancellation-" + settlementCase.getCaseReference();
         loyalty.restoreCancelledWorkshopBenefits(new AuthoritativeOutcome(SourceKind.WORKSHOP,

@@ -49,7 +49,9 @@ class WorkshopOperationsSnapshotTest {
             mock(AttendanceTicketService.class),
             mock(WorkshopOtaSnapshotService.class),
             packagePolicy,
-            mock(WorkshopAddOnService.class));
+            mock(BookingAttendanceOutcomeService.class),
+            mock(WorkshopAddOnService.class),
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository.class));
 
     @Test
     void saleSnapshotReturnsUuidAndWorkshopFactsWithoutNumericSessionId() {

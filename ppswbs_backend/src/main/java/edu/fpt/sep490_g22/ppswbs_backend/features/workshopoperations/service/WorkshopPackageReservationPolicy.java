@@ -303,7 +303,9 @@ public class WorkshopPackageReservationPolicy {
                 return false;
             }
             long workingDays = countFoundryWorkingDaysBetween(first, second);
-            if (workingDays != requiredDays) {
+            // Owner rule (2026-11-05, 003.2 T089): at least `requiredDays` Monday-Friday
+            // local dates strictly between the sessions; there is no maximum gap.
+            if (workingDays < requiredDays) {
                 return false;
             }
         }

@@ -71,9 +71,10 @@ function fileNameOf(disposition) {
 
 /**
  * @param getIdToken (forceRefresh) => Promise<string|null>, from the session
- * @param onSessionExpired called once a refreshed token is still refused (401): the app signs out
+ * @param onSessionExpired called once a refreshed token is still refused (401): session lost
+ * @param onAccessDenied called on 403 authorization refusal: safe home routing
  */
-export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionExpired, fetchImpl } = {}) {
+export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionExpired, onAccessDenied, fetchImpl } = {}) {
   const doFetch = (...args) => (fetchImpl || globalThis.fetch)(...args);
 
   async function send(url, { method, headers, body, signal }, token) {
@@ -88,10 +89,10 @@ export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionEx
   }
 
   return async function request(path, {
-    method = 'GET', query, body, form, idempotencyKey, auth = true, responseType = 'json', signal,
+    method = 'GET', query, body, form, idempotencyKey, auth = true, responseType = 'json', signal, headers: customHeaders,
   } = {}) {
     const url = buildUrl(baseUrl, path, query);
-    const headers = {};
+    const headers = { ...(customHeaders || {}) };
     let payload;
     if (form) payload = form;
     else if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
@@ -113,7 +114,12 @@ export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionEx
         throw error;
       }
     }
-    if (!response.ok) throw await errorFrom(response, method);
+    if (!response.ok) {
+      if (response.status === 403) {
+        onAccessDenied?.();
+      }
+      throw await errorFrom(response, method);
+    }
     return readBody(response, responseType);
   };
 }

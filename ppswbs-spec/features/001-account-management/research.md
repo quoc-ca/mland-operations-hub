@@ -1,7 +1,7 @@
 # Research: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-04
+**Date updated**: 2026-11-06
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -252,6 +252,27 @@ No REST endpoint, no generic Account directory, no cross-feature entity/DAO impo
 
 ---
 
+### D-21: Shared browser session lifecycle and Router authority
+
+**Decision**: `AuthProvider` is the sole client session source. Firebase observation and authenticated HTTP transport only report outcomes; a Router-level `SessionNavigationBoundary` performs terminal cleanup, flash construction and `replace` navigation exactly once. `USER_SIGN_OUT` wins its consequent Firebase-null callback. The first session-loss signal wins duplicate `401`/Firebase-null events until a later signed-in observation. `401` is session loss; `403` retains the session and is a safe authorization recovery to Home.
+
+**Rationale**: Page-owned navigation allows competing redirects, duplicate cleanup, history leakage and inconsistent draft recovery. Separating source, signal and boundary preserves the existing backend authority while making browser recovery deterministic.
+
+**Alternatives considered**:
+- Page/Profile-owned listener and Topbar/Sidebar-owned navigation — rejected: duplicate terminal flows and aliases bypass a common policy.
+- `useCurrentAccount` as a second session authority — rejected: account/role loading can lag Firebase and cannot authoritatively interpret session loss.
+- Persisting flash/drafts in browser storage — rejected: stale notices/private data survive logout and expand sensitive-data exposure.
+
+**Source**: User decisions, 2026-11-06; `spec-general.md` Shared browser session and navigation lifecycle; FR-041.
+
+### D-22: Local Google redirect-only support
+
+**Decision**: FE-001 supports Google through `signInWithRedirect` plus `getRedirectResult` only. Existing Firebase configuration/project remains in use; no emulator, new project or Firebase Hosting change is introduced. Local evidence requires Google provider enabled, Firebase-authorized `localhost`, and `http://localhost:5173`. The known different-credential collision directs to Email/Password; other redirect failures are generic safe retry/alternative-method errors. Popup helpers, handlers and popup tests are not supported by this revision.
+
+**Rationale**: One redirect contract avoids divergent popup behavior and gives a testable local precondition without treating local success as production hosting approval.
+
+**Source**: User decisions, 2026-11-06; [Firebase redirect best practices](https://firebase.google.com/docs/auth/web/redirect-best-practices?hl=en); [Firebase Auth FAQ](https://firebase.google.com/docs/auth/faq-and-troubleshooting?authuser=3&hl=en); FR-002 and FR-041.
+
 ## Open Research Items
 
 | Item | Impact | Owner / condition to close |
@@ -261,3 +282,4 @@ No REST endpoint, no generic Account directory, no cross-feature entity/DAO impo
 | Non-local origins / deployment | Cannot claim staging/production acceptance | Deployment/infra owner provides approved source |
 | Accessibility/browser baseline | WCAG 2.2 AA; Chrome/Edge/Firefox 2 latest desktop | Frontend foundation owner confirms toolchain and test approach |
 | OpenAPI regeneration | REST transport contract is currently declared obsolete | Contract owner regenerates from approved routes in plan.md |
+| Production Firebase hosting/domain/`authDomain` | Local redirect success does not establish production redirect viability | Release/infra owner provides approved domain, hosting and Firebase configuration decision |

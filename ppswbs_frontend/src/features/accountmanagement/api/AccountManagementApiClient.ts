@@ -101,6 +101,8 @@ export interface RoleCatalogueResponse {
 export class AccountManagementApiClient {
   private baseUrl: string;
   private getToken: () => Promise<string | null>;
+  public onSessionExpired?: () => void;
+  public onAccessDenied?: () => void;
 
   constructor(
     baseUrl: string = apiBaseUrl,
@@ -186,6 +188,11 @@ export class AccountManagementApiClient {
     }
 
     if (!response.ok) {
+      if (response.status === 401) {
+        this.onSessionExpired?.();
+      } else if (response.status === 403) {
+        this.onAccessDenied?.();
+      }
       const payload = await response.json().catch(() => ({}));
       throw new ApiError({
         status: response.status,

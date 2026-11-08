@@ -182,6 +182,7 @@ public class WorkshopSessionManagementIT {
                 .build();
 
         mockMvc.perform(post("/api/v1/workshop-locations/" + locationB.getId() + "/slots")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(newSlot)))
@@ -205,6 +206,7 @@ public class WorkshopSessionManagementIT {
                 .build();
 
         mockMvc.perform(post("/api/v1/workshop-locations/" + locationA.getId() + "/slots")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(overlapping)))
@@ -225,6 +227,7 @@ public class WorkshopSessionManagementIT {
                 .build();
 
         mockMvc.perform(post("/api/v1/workshop-locations/" + locationA.getId() + "/slots")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(overlapInactive)))
@@ -241,6 +244,7 @@ public class WorkshopSessionManagementIT {
                 .build();
 
         mockMvc.perform(post("/api/v1/workshop-locations/" + locationA.getId() + "/slots")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(nonOverlapping)))
@@ -265,6 +269,7 @@ public class WorkshopSessionManagementIT {
                 .build();
 
         mockMvc.perform(post("/api/v1/workshop-sessions")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -285,6 +290,7 @@ public class WorkshopSessionManagementIT {
                 .build();
 
         mockMvc.perform(post("/api/v1/workshop-sessions")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -313,6 +319,7 @@ public class WorkshopSessionManagementIT {
 
         // Run 1: Creates new sessions
         String run1Result = mockMvc.perform(post("/api/v1/workshop-sessions/bulk")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(bulkRequest)))
@@ -325,6 +332,7 @@ public class WorkshopSessionManagementIT {
 
         // Run 2: Exact same request skips existing duplicates
         mockMvc.perform(post("/api/v1/workshop-sessions/bulk")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(bulkRequest)))
@@ -354,6 +362,7 @@ public class WorkshopSessionManagementIT {
                 .build();
 
         String sessionResponseStr = mockMvc.perform(post("/api/v1/workshop-sessions")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(sessionReq)))
@@ -375,6 +384,7 @@ public class WorkshopSessionManagementIT {
                 .build();
 
         mockMvc.perform(patch("/api/v1/workshop-slots/" + slotMorning.getReference())
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(slotUpdate)))
@@ -414,6 +424,7 @@ public class WorkshopSessionManagementIT {
                 .build();
 
         mockMvc.perform(post("/api/v1/workshop-sessions")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))

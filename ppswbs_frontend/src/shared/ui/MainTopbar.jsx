@@ -22,7 +22,24 @@ export default function MainTopbar() {
   const [profileData, setProfileData] = useState(null);
   const [loyaltyPoints, setLoyaltyPoints] = useState(null);
   const [fbUser, setFbUser] = useState(() => firebaseAuthClient.getCurrentUser());
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState(null);
   const dropdownRef = useRef(null);
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    setSignOutError(null);
+    try {
+      await signOut();
+      setIsDropdownOpen(false);
+      // Navigation to Home with transient flash notice is handled solely by SessionNavigationBoundary
+    } catch (err) {
+      setSignOutError('Đăng xuất thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
 
   const isAuthenticated = status === 'signed-in';
 
@@ -145,6 +162,12 @@ export default function MainTopbar() {
           >
             Trợ lý AI
           </Link>
+          <Link
+            to="/reviews"
+            className={`main-topbar-link ${location.pathname.startsWith('/reviews') ? 'active' : ''}`}
+          >
+            Đánh giá
+          </Link>
         </nav>
 
         <div className="main-topbar-tools">
@@ -189,6 +212,9 @@ export default function MainTopbar() {
                   <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">
                     <span>📦</span> Đơn hàng của tôi
                   </Link>
+                  <Link to="/member/cart" className="main-topbar-dropdown-item" role="menuitem">
+                    <span>🛒</span> Giỏ hàng
+                  </Link>
                   <Link to="/me/loyalty" className="main-topbar-dropdown-item" role="menuitem">
                     <span>💎</span> Điểm thưởng tích lũy
                   </Link>
@@ -208,13 +234,22 @@ export default function MainTopbar() {
                         Cổng công việc
                       </span>
                       {userRole === 'STAFF' && (
-                        <Link
-                          to="/operations/sessions"
-                          className="main-topbar-dropdown-item"
-                          role="menuitem"
-                        >
-                          <span>🏢</span> Staff Vận hành
-                        </Link>
+                        <>
+                          <Link
+                            to="/operations/sessions"
+                            className="main-topbar-dropdown-item"
+                            role="menuitem"
+                          >
+                            <span>🏢</span> Staff Vận hành
+                          </Link>
+                          <Link
+                            to="/staff/retail-shipments"
+                            className="main-topbar-dropdown-item"
+                            role="menuitem"
+                          >
+                            <span>🚚</span> Vận đơn GHTK
+                          </Link>
+                        </>
                       )}
                       {(userRole === 'MANAGER' || userRole === 'ADMIN') && (
                         <>
@@ -232,7 +267,25 @@ export default function MainTopbar() {
                           >
                             <span>🏷️</span> Quản lý Ưu đãi
                           </Link>
+                          {userRole === 'MANAGER' && (
+                            <Link
+                              to="/manager/retail-payment-reconciliations"
+                              className="main-topbar-dropdown-item"
+                              role="menuitem"
+                            >
+                              <span>💳</span> Đối soát thanh toán
+                            </Link>
+                          )}
                         </>
+                      )}
+                      {(userRole === 'STAFF' || userRole === 'MANAGER' || userRole === 'ADMIN') && (
+                        <Link
+                          to="/review-moderation"
+                          className="main-topbar-dropdown-item"
+                          role="menuitem"
+                        >
+                          <span>⭐</span> Kiểm duyệt Đánh giá
+                        </Link>
                       )}
                       {userRole === 'ADMIN' && (
                         <Link
@@ -250,14 +303,18 @@ export default function MainTopbar() {
                   <button
                     type="button"
                     className="main-topbar-dropdown-item main-topbar-dropdown-signout"
-                    onClick={async () => {
-                      setIsDropdownOpen(false);
-                      await signOut();
-                    }}
+                    onClick={handleSignOut}
+                    disabled={isSigningOut}
+                    aria-busy={isSigningOut}
                     role="menuitem"
                   >
-                    <span>🚪</span> Đăng xuất
+                    <span>🚪</span> {isSigningOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
                   </button>
+                  {signOutError && (
+                    <div style={{ color: '#dc2626', fontSize: '0.75rem', padding: '0.25rem 1rem' }} role="alert">
+                      {signOutError}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

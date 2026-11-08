@@ -6,7 +6,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailC
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailMemberActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailPaymentService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutQuotePreviewService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutAcceptanceService;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,9 @@ public class CheckoutController {
     private final RetailCheckoutService checkoutService;
     private final RetailPaymentService paymentService;
     private final ObjectProvider<RetailCheckoutQuotePreviewService> quotePreview;
+    private final ObjectProvider<RetailCheckoutAcceptanceService> acceptance;
+    @Value("${retail.checkout.test-acceptance-enabled:false}")
+    private boolean testAcceptanceEnabled;
 
     @PostMapping("/api/v1/ready-ring-benefit-previews")
     public CheckoutDtos.BenefitPreviewView previewBenefits(HttpServletRequest request, @Valid @RequestBody CheckoutDtos.BenefitPreviewRequest body) {
@@ -38,7 +43,9 @@ public class CheckoutController {
     @PostMapping("/api/v1/ready-ring-shipping-quotes")
     public CheckoutDtos.ShippingQuoteView quoteShipping(HttpServletRequest request, @Valid @RequestBody CheckoutDtos.ShippingQuoteRequest body) {
         RetailMemberActor actor = actorResolver.requireActiveMember(request);
-        return checkoutService.quoteShipping(actor.accountId(), body);
+        var realPreview = quotePreview.getIfAvailable();
+        return realPreview == null ? checkoutService.quoteShipping(actor.accountId(), body)
+            : realPreview.quoteShipping(actor.accountId(), body);
     }
 
     @PostMapping("/api/v1/ready-ring-orders")
@@ -47,6 +54,11 @@ public class CheckoutController {
                                                             @RequestHeader("Idempotency-Key") String idempotencyKey,
                                                             @Valid @RequestBody CheckoutDtos.CreateGroupedCheckoutRequest body) {
         RetailMemberActor actor = actorResolver.requireActiveMember(request);
+        if (testAcceptanceEnabled) {
+            var testAcceptance = acceptance.getIfAvailable();
+            if (testAcceptance == null) throw new edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailIntegrationUnavailableException("Test checkout acceptance is unavailable");
+            return testAcceptance.accept(actor.accountId(), idempotencyKey, body);
+        }
         return checkoutService.createCheckout(actor.accountId(), idempotencyKey, body);
     }
 

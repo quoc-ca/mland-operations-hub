@@ -29,13 +29,14 @@ class SettlementPaymentEvidenceIT {
     private final WorkshopBookingFacade booking = mock(WorkshopBookingFacade.class);
     private final WorkshopSettlementFacade settlement = mock(WorkshopSettlementFacade.class);
     private final PaymentIngressService ingress = new PaymentIngressService(
-            checksum, owners, receipts, booking, settlement);
+            checksum, owners, receipts, booking, settlement,
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailPaymentEvidenceFacade.class));
 
     @Test
     void verifiedFinalPaymentDispatchesOnlyRedactedEvidenceToSettlementOwner() {
         String merchant = "FINAL-REF-1";
         when(checksum.valid(anyMap(), any())).thenReturn(true);
-        when(owners.resolve(merchant)).thenReturn(Optional.of(owner(merchant, "BK-1")));
+        when(owners.lockOwner(merchant)).thenReturn(Optional.of(owner(merchant, "BK-1")));
         when(receipts.existsByDeliveryReference(any())).thenReturn(false);
         when(settlement.applyVerifiedSettlementPaymentEvidence(any()))
                 .thenReturn(SettlementPaymentEvidenceOutcome.accepted());
@@ -66,6 +67,7 @@ class SettlementPaymentEvidenceIT {
         var outcome = ingress.receive(parameters("FINAL-REF-2", "5000000", "00", "00", "TX-2"));
 
         assertThat(outcome.message()).isEqualTo("INVALID_SIGNATURE");
+        assertThat(outcome.rspCode()).isEqualTo("97");
         verifyNoInteractions(owners, receipts, booking, settlement);
     }
 
@@ -73,11 +75,12 @@ class SettlementPaymentEvidenceIT {
     void amountMismatchNeverDispatchesSettlementEvidence() {
         String merchant = "FINAL-REF-3";
         when(checksum.valid(anyMap(), any())).thenReturn(true);
-        when(owners.resolve(merchant)).thenReturn(Optional.of(owner(merchant, "BK-3")));
+        when(owners.lockOwner(merchant)).thenReturn(Optional.of(owner(merchant, "BK-3")));
 
         var outcome = ingress.receive(parameters(merchant, "4999900", "00", "00", "TX-3"));
 
         assertThat(outcome.message()).isEqualTo("AMOUNT_CURRENCY_MISMATCH");
+        assertThat(outcome.rspCode()).isEqualTo("04");
         verifyNoInteractions(receipts, booking, settlement);
     }
 

@@ -520,7 +520,21 @@ public class CheckInIT {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isUnauthorized());
 
-        // 2. Staff in the session location may check in without a session assignment.
+        // 2. Staff in the session location but not assigned to it is refused (owner decision 2026-11-06), then may
+        //    check in once assigned.
+        mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/check-ins", session.getReference())
+                        .header("Authorization", STAFF_UNASSIGNED_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isForbidden());
+
+        staffAssignmentRepository.save(SessionStaffAssignment.builder()
+                .session(session)
+                .accountId(102L)
+                .assignedById(10L)
+                .assignedAt(Instant.now())
+                .active(true)
+                .build());
         mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/check-ins", session.getReference())
                         .header("Authorization", STAFF_UNASSIGNED_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)

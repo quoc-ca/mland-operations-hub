@@ -4,6 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.BookingSum
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.GuestLookupRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingLookupService;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,6 +24,12 @@ public class BookingLookupController {
     @PostMapping("/api/v1/booking-lookups")
     public BookingSummaryResponse lookupGuest(@Valid @RequestBody GuestLookupRequest request) {
         return lookupService.lookupGuest(request);
+    }
+
+    @GetMapping("/api/v1/members/me/workshop-bookings")
+    public List<BookingSummaryResponse> listMemberBookings(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return lookupService.listMemberBookings(authorization);
     }
 
     @GetMapping("/api/v1/members/me/workshop-bookings/{bookingCode}")

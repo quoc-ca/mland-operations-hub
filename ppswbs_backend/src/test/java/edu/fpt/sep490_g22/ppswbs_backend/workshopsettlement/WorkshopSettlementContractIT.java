@@ -19,6 +19,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.WorkshopFinalBillController;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.WorkshopRefundPolicyController;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.SettlementCaseListController;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.FolioCorrectionController;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.OtaAddonPaymentController;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -67,7 +69,12 @@ class WorkshopSettlementContractIT {
                 "GET /api/v1/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases/{caseReference}",
                 "GET /api/v1/workshop-settlement-cases",
                 "GET /api/v1/workshop-refund-policies",
-                "POST /api/v1/workshop-refund-policies"));
+                "POST /api/v1/workshop-refund-policies",
+                "POST /api/v1/workshop-bookings/{bookingCode}/folio-corrections",
+                "GET /api/v1/workshop-bookings/{bookingCode}/folio-corrections/{correctionReference}",
+                "GET /api/v1/ota-addon-bills/{billReference}",
+                "POST /api/v1/ota-addon-bills/{billReference}/payment-attempts",
+                "POST /api/v1/ota-addon-bills/{billReference}/refunds"));
 
         actual.forEach((operation, method) -> {
             if (operation.startsWith("POST ")) {
@@ -122,7 +129,8 @@ class WorkshopSettlementContractIT {
         List<Class<?>> controllers = List.of(WorkshopFinalBillController.class,
                 CustomerBookingCancellationController.class, RequiredSessionChangeController.class,
                 MlandCancellationRemedyController.class, WorkshopRefundPolicyController.class,
-                SettlementCaseListController.class);
+                SettlementCaseListController.class, FolioCorrectionController.class,
+                OtaAddonPaymentController.class);
         return controllers.stream()
                 .flatMap(controller -> {
                     String basePath = controller.getAnnotation(RequestMapping.class).value()[0];

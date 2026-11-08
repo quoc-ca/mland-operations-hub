@@ -671,6 +671,27 @@ flowchart LR
 - Logout là hành động trong account menu của cả bốn Dashboard, kết thúc phiên và về Home/Login. Không cần một trang Logout riêng.
 - Dữ liệu recipient và media hiển thị theo chính sách retention; không lộ lại dữ liệu đã đến hạn retire qua màn details hoặc technical support.
 
+## Feature-012 workshop booking flow
+
+The customer flow is:
+
+```text
+Package Selection
+→ Workshop Ring Design Configuration
+→ Branch Selection
+→ Session Selection
+→ Booking Information
+→ Booking Summary
+→ Deposit Payment
+```
+
+There is one design per booking. Branch selection triggers server-side
+revalidation of material/component compatibility. Evaluation is advisory and
+does not alter package price, deposit or payment. After the booking transaction
+commits, the attached design version is locked and Booking owns the immutable
+snapshot; a failed submission leaves the design retryable. Feature-004 image
+analysis is not part of the default configurator flow.
+
 ## 8. Căn cứ và điểm cần đồng bộ
 
 - Phân quyền số tiền cuối theo xác nhận mới của người dùng: **Staff lập đề xuất → gửi Manager → Manager duyệt lần cuối → chốt balance/gửi payment request → Member thanh toán**. Nội dung cũ trong Report 2 và UC63 ghi Staff hoặc Manager ghi final amount cần được đồng bộ riêng; sơ đồ này không còn cho Staff tự chốt.

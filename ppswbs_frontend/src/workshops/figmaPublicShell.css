@@ -286,3 +286,40 @@
   .figma-public-page { padding: 48px 32px 64px !important; }
   .figma-booking-layout { grid-template-columns: minmax(0, 1fr) !important; }
 }
+
+/* Benefit panel (same look as the product checkout): the generic booking-form checkbox size must not shrink the points switch. */
+.figma-booking-layout .retail-benefits input.switch[type="checkbox"] {
+  width: 46px !important;
+  height: 26px !important;
+  min-width: 46px !important;
+  max-width: none !important;
+  flex: 0 0 46px !important;
+  border: 0;
+  border-radius: 14px;
+  background: #bbb;
+}
+.figma-booking-layout .retail-benefits input.switch[type="checkbox"]:checked { background: #002967; }
+.figma-booking-layout .retail-benefits input.switch[type="checkbox"]:disabled { opacity: .45; cursor: not-allowed; }
+.retail-benefits .point-balance { cursor: default; }
+.retail-benefits .point-balance-value { text-align: right; font-size: 14px; color: #0b5c34; }
+.retail-benefits .point-balance-value b { font-size: 16px; }
+.retail-benefits .point-balance-value small { display: block; margin-top: 2px; color: #64748b; font-size: 12px; }
+.figma-booking-steps button { padding: 0 0 8px; border: 0; border-bottom: 2px solid transparent; background: none; color: inherit; font: inherit; cursor: pointer; }
+.figma-booking-steps button:hover { color: #17181b; }
+.figma-booking-steps .done { color: #0b5c34; }
+.figma-booking-steps button.active { color: #17181b; border-color: var(--figma-yellow); }
+.participant-field { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.participant-label { font-weight: 700; font-size: 14px; }
+.participant-stepper { display: inline-flex; align-items: stretch; width: max-content; border: 1px solid #c9ccd2; border-radius: 10px; background: #fff; overflow: hidden; }
+.participant-stepper button { width: 44px; border: 0; background: #f3f4f6; color: #002967; font-size: 20px; font-weight: 700; cursor: pointer; }
+.participant-stepper button:hover:not(:disabled) { background: #e5e9f2; }
+.participant-stepper button:disabled { color: #b4b8c0; cursor: not-allowed; }
+.participant-stepper input { width: 72px; min-width: 0; height: 44px; padding: 0; border: 0; border-left: 1px solid #e0e2e6; border-right: 1px solid #e0e2e6; border-radius: 0; text-align: center; font-size: 18px; font-weight: 700; background: #fff; -moz-appearance: textfield; }
+.participant-stepper input::-webkit-outer-spin-button, .participant-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.participant-stepper input:disabled { background: #f7f7f8; color: #9aa0a8; }
+.participant-hint { color: #6b7280; font-size: 13px; line-height: 1.4; }
+.hold-pay { margin-top: 22px; padding: 20px 22px; border: 1px solid #ffe58f; border-radius: 12px; background: #fffbe6; display: flex; flex-direction: column; gap: 10px; }
+.hold-pay-timer { margin: 0; font-size: 16px; color: #002967; }
+.hold-pay-timer.urgent { color: #b00; }
+.hold-pay-button { width: 100%; min-height: 52px; font-size: 16px; }
+.hold-pay-note { margin: 0; font-size: 13px; }

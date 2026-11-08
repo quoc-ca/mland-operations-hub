@@ -71,7 +71,7 @@ class ReviewControllerMockMvcTest {
                 .build();
 
         EligibleSourceListResponse resp = EligibleSourceListResponse.builder()
-                .guestHandle("handle123")
+                .guestEligibilityHandle("handle123")
                 .maskedContact("t***t@example.com")
                 .expiresAt(Instant.now())
                 .sources(List.of(
@@ -86,16 +86,17 @@ class ReviewControllerMockMvcTest {
                 ))
                 .build();
 
-        when(eligibilityService.lookupGuestEligibility(any(GuestEligibilityLookupRequest.class)))
+        when(eligibilityService.lookupGuestEligibility(any(GuestEligibilityLookupRequest.class), any(String.class)))
                 .thenReturn(resp);
 
         mockMvc.perform(post("/api/v1/review-eligibility/lookup")
+                        .header("Idempotency-Key", "lookup-idempotency-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.guestHandle").value("handle123"))
+                        .andExpect(jsonPath("$.eligibilityHandle").value("handle123"))
                 .andExpect(jsonPath("$.maskedContact").value("t***t@example.com"))
-                .andExpect(jsonPath("$.sources[0].sourceReference").value("TICK-1"));
+                .andExpect(jsonPath("$.items[0].sourceReference").value("TICK-1"));
     }
 
     @Test
@@ -105,7 +106,7 @@ class ReviewControllerMockMvcTest {
                 .aggregate(ReviewAggregateDto.builder()
                         .targetType(TargetType.WORKSHOP_SESSION)
                         .targetReference("SESS-1")
-                        .totalCount(5L)
+                        .count(5L)
                         .averageRating(4.8)
                         .build())
                 .items(Collections.emptyList())
@@ -116,15 +117,54 @@ class ReviewControllerMockMvcTest {
                 .hasNext(false)
                 .build();
 
-        when(publicReadFacade.getPublicReviews(eq(TargetType.WORKSHOP_SESSION), eq("SESS-1"), any()))
+        when(publicReadFacade.getPublicReviews(new PublicReviewQuery(TargetType.WORKSHOP_SESSION, "SESS-1", null, null, null)))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/reviews")
                         .param("targetType", "WORKSHOP_SESSION")
                         .param("targetReference", "SESS-1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.aggregate.totalCount").value(5))
+                .andExpect(jsonPath("$.aggregate.count").value(5))
                 .andExpect(jsonPath("$.aggregate.averageRating").value(4.8));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/reviews with no parameters lists all public reviews (every filter is optional)")
+    void getPublicReviews_NoParameters_IsAllowed() throws Exception {
+        PublicReviewPageDto page = PublicReviewPageDto.builder()
+                .aggregate(ReviewAggregateDto.builder().count(0L).averageRating(0.0).build())
+                .items(Collections.emptyList()).size(10).build();
+        when(publicReadFacade.getPublicReviews(new PublicReviewQuery(null, null, null, null, null))).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/reviews"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.aggregate.count").value(0));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/reviews passes the package filter to the read service")
+    void getPublicReviews_PassesPackageId() throws Exception {
+        PublicReviewPageDto page = PublicReviewPageDto.builder()
+                .aggregate(ReviewAggregateDto.builder().count(2L).averageRating(4.5).build())
+                .items(Collections.emptyList()).size(10).build();
+        when(publicReadFacade.getPublicReviews(new PublicReviewQuery(null, null, 145L, null, null, null))).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/reviews").param("packageId", "145"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.aggregate.count").value(2));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/reviews passes rating, cursor and limit to the read service")
+    void getPublicReviews_PassesRatingCursorAndLimit() throws Exception {
+        PublicReviewPageDto page = PublicReviewPageDto.builder()
+                .aggregate(ReviewAggregateDto.builder().count(1L).averageRating(5.0).build())
+                .items(Collections.emptyList()).size(5).nextCursor("abc").hasNext(true).build();
+        when(publicReadFacade.getPublicReviews(new PublicReviewQuery(null, null, 5, "cur-1", 5))).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/reviews").param("rating", "5").param("cursor", "cur-1").param("limit", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nextCursor").value("abc"));
     }
 
     @Test
@@ -139,6 +179,7 @@ class ReviewControllerMockMvcTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/reviews")
+                        .header("Idempotency-Key", "test-idempotency-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
@@ -154,12 +195,14 @@ class ReviewControllerMockMvcTest {
                 .targetType(TargetType.WORKSHOP_SESSION)
                 .targetReference("SESS-1")
                 .rating(5)
+                .guestEligibilityHandle("guest-handle")
                 .build();
 
-        when(applicationService.createReview(any(), any()))
+        when(applicationService.createReview(any(), any(), any(String.class)))
                 .thenThrow(ReviewManagementException.conflict("REVIEW_ALREADY_EXISTS", "Trải nghiệm này đã được gửi đánh giá"));
 
         mockMvc.perform(post("/api/v1/reviews")
+                        .header("Idempotency-Key", "test-idempotency-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isConflict())

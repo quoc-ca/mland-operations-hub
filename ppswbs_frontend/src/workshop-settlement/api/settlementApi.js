@@ -3,12 +3,12 @@ export function createSettlementApi(http) {
   const write = (path, body, key) => http(path, { method: 'POST', body, idempotencyKey: key || newCommandId() });
   return {
     listCases: (query = {}) => http('/api/v1/workshop-settlement-cases', { query }),
-    getFinalBill: code => http(`/api/v1/workshop-bookings/${encodeURIComponent(code)}/final-bill`),
+    getFinalBill: code => http(`/api/v1/workshop-bookings/${encodeURIComponent(code)}/final-bill/operator`),
     createFinalBill: (code, body = {}, key) => write(`/api/v1/workshop-bookings/${encodeURIComponent(code)}/final-bill`, body, key),
     addCharge: (code, body, key) => write(`/api/v1/workshop-bookings/${encodeURIComponent(code)}/final-bill/charges`, body, key),
-    createDirectAddonBill: (code, body, key) => write(`/api/v1/workshop-bookings/${encodeURIComponent(code)}/direct-addon-bills`, body, key),
-    startDirectAddonPayment: (code, billReference, key) => write(`/api/v1/workshop-bookings/${encodeURIComponent(code)}/direct-addon-bills/${encodeURIComponent(billReference)}/payment-attempts`, {}, key),
-    getDirectAddonBill: (code, billReference, query) => http(`/api/v1/workshop-bookings/${encodeURIComponent(code)}/direct-addon-bills/${encodeURIComponent(billReference)}`, { query }),
+    listAddOns: code => http(`/api/v1/workshop-bookings/${encodeURIComponent(code)}/final-bill/add-ons`),
+    createFolioCorrection: (code, body, key) => write(`/api/v1/workshop-bookings/${encodeURIComponent(code)}/folio-corrections`, body, key),
+    getFolioCorrection: (code, ref, query) => http(`/api/v1/workshop-bookings/${encodeURIComponent(code)}/folio-corrections/${encodeURIComponent(ref)}`, { query }),
     finalize: (code, key) => write(`/api/v1/workshop-bookings/${encodeURIComponent(code)}/final-bill/finalizations`, {}, key),
     startPayment: (code, key) => write(`/api/v1/workshop-bookings/${encodeURIComponent(code)}/final-bill/payment-attempts`, {}, key),
     openCancellation: (code, body, key) => write(`/api/v1/workshop-bookings/${encodeURIComponent(code)}/cancellation-cases`, body, key),

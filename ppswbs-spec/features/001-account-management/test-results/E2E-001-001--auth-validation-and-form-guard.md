@@ -91,10 +91,10 @@ find "Vui lòng nhập địa chỉ email."
 - Đường dẫn ảnh chụp màn hình: `screenshots/login-page.jpg`
 - Lệnh lưu bằng chứng: `screenshot --path "ppswbs-spec/features/001-account-management/test-results/screenshots/login-page.jpg"`
 
-## 6. Kết quả thực thi (Execution History)
+## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
 
 <!-- EXECUTION:START -->
-- Latest status: PASS
+- Historical status: PASS
 - Executed at: 2026-11-04 04:24:00
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
@@ -102,5 +102,18 @@ find "Vui lòng nhập địa chỉ email."
 - Actual result: Form validation hoạt động hoàn toàn chính xác theo đặc tả; bắt đúng lỗi rỗng, mật khẩu không khớp, độ dài < 6 ký tự và hiển thị tiếng Việt thân thiện.
 - Evidence screenshot: screenshots/login-page.jpg
 - Bug reference: NONE
+<!-- EXECUTION:END -->
+
+## 7. Revision expected results (2026-11-06 — must re-run)
+
+Historical PASS does not cover these assertions; status is superseded until rerun.
+
+- **After Step 1:** URL remains exactly `/login`; the email-required message is adjacent to/associated with the Email control, focus stays in the form, no Home/Profile content appears, and no authentication request is sent.
+- **After Step 2–3:** URL remains exactly `/register`; only the relevant validation messages appear; the registration action does not navigate or create a Firebase/Account request while client validation fails.
+- **After Step 4:** URL remains exactly `/forgot-password`; response text is generic and does not reveal whether the typed email exists; no reset/action code is rendered or written to the URL.
+
+<!-- EXECUTION:START -->
+- Latest status: NOT_RUN
+- Previous status: PASS on 2026-11-04; evidence predates this revision.
 <!-- EXECUTION:END -->
 

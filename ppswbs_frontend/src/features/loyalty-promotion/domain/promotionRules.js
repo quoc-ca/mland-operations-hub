@@ -86,7 +86,7 @@ export function createBody(form) {
   }
   const lists = form.scope === 'PRODUCT'
     ? { productIds: form.productIds, variantIds: form.variantIds }
-    : { packageIds: form.packageIds, branchIds: form.branchIds, workshopDates: form.workshopDates, sessionIds: form.sessionIds };
+    : { packageIds: form.packageIds, branchIds: form.branchIds, sessionIds: form.sessionIds };
   Object.entries(lists).forEach(([key, text]) => { const items = splitList(text); if (items.length) body.targets[key] = items; });
   return body;
 }
@@ -109,7 +109,6 @@ export function checkCreate(form) {
     if (!isPositive(form.perMemberLimit.trim())) errors.perMemberLimit = 'validation.positive';
   }
   if (form.scope === 'PRODUCT' && !splitList(form.productIds).length && !splitList(form.variantIds).length) errors.targets = 'validation.productTarget';
-  if (form.scope === 'WORKSHOP' && !splitList(form.packageIds).length) errors['targets.packageIds'] = 'validation.packageTarget';
   return errors;
 }
 

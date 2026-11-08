@@ -3,81 +3,61 @@ import { ErrorNotice, SuccessNotice, useCommand } from '../../shared/ui/componen
 import { createSettlementApi } from '../../workshop-settlement/api/settlementApi';
 
 /**
- * Staff-only counter action for a direct Mland booking.
- * The server derives the price from the active package/location catalogue;
- * the browser never submits an amount or customer PII.
+ * Manager-only post-FINALIZED folio correction for direct Mland bookings.
+ * Overcharge refund only; executed via VNPay partial refund & QueryDR.
+ * Folio totals, line items, Loyalty earn, and booking status remain unchanged.
  */
 export default function StaffWorkshopAddonPanel({ http }) {
   const [bookingCode, setBookingCode] = useState('');
-  const [addOnReference, setAddOnReference] = useState('');
-  const [consentReference, setConsentReference] = useState('');
-  const [bill, setBill] = useState(null);
-  const [payment, setPayment] = useState(null);
+  const [amountVnd, setAmountVnd] = useState('');
+  const [reason, setReason] = useState('');
+  const [correction, setCorrection] = useState(null);
   const createCommand = useCommand();
-  const paymentCommand = useCommand();
   const settlementApi = createSettlementApi(http);
 
   async function submit(event) {
     event.preventDefault();
-    setBill(null);
-    setPayment(null);
-    if (!bookingCode.trim() || !addOnReference.trim() || !consentReference.trim()) return;
-    const outcome = await createCommand.run(key => settlementApi.createDirectAddonBill(
+    setCorrection(null);
+    const parsedAmount = Number(amountVnd);
+    if (!bookingCode.trim() || !parsedAmount || parsedAmount <= 0 || !reason.trim()) return;
+    const outcome = await createCommand.run(key => settlementApi.createFolioCorrection(
       bookingCode.trim(),
-      { catalogueAddOnReference: addOnReference.trim(), customerConsentReference: consentReference.trim() },
+      { amountVnd: parsedAmount, reason: reason.trim() },
       key,
     ));
-    if (outcome.ok) setBill(outcome.result);
+    if (outcome.ok) setCorrection(outcome.result);
   }
 
-  async function startPayment() {
-    if (!bill || !bookingCode.trim()) return;
-    const outcome = await paymentCommand.run(key => settlementApi.startDirectAddonPayment(bookingCode.trim(), bill.billReference, key));
-    if (outcome.ok) setPayment(outcome.result);
-  }
+  const isValid = bookingCode.trim() && Number(amountVnd) > 0 && reason.trim();
 
-  return <article className="ota-panel staff-addon-panel">
+  return <article className="ota-panel staff-addon-panel folio-correction-panel">
     <div className="ota-panel-head">
       <div>
-        <p className="ota-eyebrow">STAFF / DIRECT MLAND ADD-ON</p>
-        <h2>Create separate add-on bill</h2>
-        <p className="muted small">Use at the workshop counter after customer consent. The original finalized bill stays immutable; the backend resolves the catalogue price and enforces location scope.</p>
+        <p className="ota-eyebrow">MANAGER / FOLIO CORRECTION</p>
+        <h2>Manager folio correction</h2>
+        <p className="muted small">Overcharge refund for finalized direct bookings. The original finalized bill, Loyalty points, tickets, and capacity remain immutable.</p>
       </div>
     </div>
-    <SuccessNotice>{bill ? `Separate add-on bill ${bill.billReference} created (${bill.lifecycleStatus || 'PENDING_PAYMENT'}).` : ''}</SuccessNotice>
-    <ErrorNotice error={createCommand.error || paymentCommand.error} onRetry={createCommand.error ? createCommand.retry : paymentCommand.retry} />
-    {!consentReference.trim() && bookingCode.trim() && addOnReference.trim() && (
-      <p role="status" className="muted small">A customer consent reference is required before creating the bill.</p>
+    <SuccessNotice>{correction ? `Folio correction ${correction.correctionReference} created (${correction.lifecycleStatus || 'PENDING_PROVIDER'}). Refund ${correction.amountVnd} VND allocated oldest payment first.` : ''}</SuccessNotice>
+    <ErrorNotice error={createCommand.error} onRetry={createCommand.retry} />
+    {!reason.trim() && bookingCode.trim() && Number(amountVnd) > 0 && (
+      <p role="status" className="muted small">A manager correction reason is required before submitting.</p>
     )}
-    {createCommand.pending && <p role="status" aria-live="polite" className="muted small">Creating separate add-on bill...</p>}
-    {paymentCommand.pending && <p role="status" aria-live="polite" className="muted small">Starting payment checkout...</p>}
+    {createCommand.pending && <p role="status" aria-live="polite" className="muted small">Submitting folio correction...</p>}
     <form className="ota-form" onSubmit={submit}>
       <label>Booking code<input value={bookingCode} onChange={event => setBookingCode(event.target.value)} placeholder="BK-..." autoComplete="off" /></label>
-      <label>Catalogue add-on reference<input value={addOnReference} onChange={event => setAddOnReference(event.target.value)} placeholder="ADD-..." autoComplete="off" /></label>
-      <label>Customer consent reference<input value={consentReference} onChange={event => setConsentReference(event.target.value)} placeholder="CONSENT-..." autoComplete="off" /></label>
-      <button className="button primary" type="submit" disabled={createCommand.pending || !!bill || !bookingCode.trim() || !addOnReference.trim() || !consentReference.trim()}>{createCommand.pending ? 'Creating...' : 'Create separate add-on bill'}</button>
+      <label>Overcharge refund amount (VND)<input type="number" min="1" value={amountVnd} onChange={event => setAmountVnd(event.target.value)} placeholder="50000" autoComplete="off" /></label>
+      <label>Correction reason<input value={reason} onChange={event => setReason(event.target.value)} placeholder="Staff overcharge at counter..." autoComplete="off" maxLength={255} /></label>
+      <button className="button primary" type="submit" disabled={createCommand.pending || !!correction || !isValid}>{createCommand.pending ? 'Submitting...' : 'Submit folio correction'}</button>
     </form>
-    {bill && <div className="staff-addon-result">
-      <p><strong>{bill.description || bill.addOnReference}</strong></p>
-      <p>{bill.amountVnd} {bill.currency} · {bill.lifecycleStatus}</p>
-      {!payment && <button type="button" className="button primary" onClick={startPayment} disabled={paymentCommand.pending}>Start add-on payment</button>}
-      {payment && <div role="status">
-        <p>Payment attempt {payment.attemptReference} is {payment.status || 'PENDING'}.</p>
-        <p className="muted small">Awaiting verified IPN/QueryDR evidence; do not mark paid from browser return alone.</p>
-        {payment.expiresAt && <p className="muted small">Checkout expires at {payment.expiresAt}.</p>}
-        {payment.paymentUrl && (
-          <a
-            className="button primary"
-            style={{ marginTop: '10px', display: 'inline-flex' }}
-            href={payment.paymentUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Open payment checkout
-          </a>
-        )}
-      </div>}
+    {correction && <div className="staff-addon-result folio-correction-result">
+      <p><strong>Correction: {correction.correctionReference}</strong></p>
+      <p>{correction.amountVnd} {correction.currencyCode || 'VND'} · Case {correction.caseReference} ({correction.lifecycleStatus})</p>
+      <p className="muted small">Reason: {correction.reason}</p>
+      <p className="muted small">Awaiting verified QueryDR reconciliation; undercharge is never collected.</p>
     </div>}
-    <p className="muted small staff-addon-policy">No amount, currency, email or phone is accepted from this screen. Replay uses the same idempotency command; changed commands are rejected by the backend.</p>
+    <p className="muted small staff-addon-policy">Manager-only overcharge correction on finalized folios. Never alters original invoice lines, Loyalty earn, tickets, or capacity.</p>
   </article>;
 }
+
+export { StaffWorkshopAddonPanel as FolioCorrectionPanel };

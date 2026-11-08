@@ -10,6 +10,9 @@ public interface WorkshopOperationsFacade {
     /** Returns null unless this UUID add-on is active for the published package and active location. */
     WorkshopAddOnPriceSnapshot getWorkshopAddOnPrice(WorkshopAddOnPriceQuery query);
 
+    /** The fixed-price add-ons currently sellable for a package at a location (empty when none or not sellable). */
+    java.util.List<WorkshopAddOnPriceSnapshot> listWorkshopAddOns(WorkshopAddOnListQuery query);
+
     CapacityHoldOutcome reserveBookingCapacity(ReserveBookingCapacityCommand command);
 
     CapacityCommitOutcome commitBookingHolds(CommitBookingHoldsCommand command);
@@ -21,6 +24,17 @@ public interface WorkshopOperationsFacade {
     DeliverySafeTicketSet getBookingTicketProjection(BookingTicketProjectionQuery query);
 
     SettlementReadiness getSettlementReadiness(BookingSettlementReadinessQuery query);
+
+    /** Attendance of the booking for display to the customer; reads only, takes no lock. */
+    BookingAttendanceSummary getBookingAttendanceSummary(BookingSettlementReadinessQuery query);
+
+    /** True once at least one of the booking's active sessions is running or its attendance is finalized (the customer is at the workshop). */
+    boolean hasBookingServiceStarted(BookingSettlementReadinessQuery query);
+
+    /** True when the Staff member is actively assigned to at least one session the booking holds a valid ticket for. */
+    boolean isStaffAssignedToBooking(StaffBookingAssignmentQuery query);
+
+    BookingAttendanceOutcome getBookingAttendanceOutcome(BookingAttendanceOutcomeQuery query);
 
     /** Authoritative, PII-free session and attendance facts used by cancellation policy. */
     BookingCancellationEligibilitySnapshot getBookingCancellationEligibility(BookingCancellationEligibilityQuery query);

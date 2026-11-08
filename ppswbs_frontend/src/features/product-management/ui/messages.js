@@ -24,7 +24,7 @@ const vi = {
   'cart.signInToAdd': 'Đăng nhập để thêm vào giỏ', 'cart.noBuyableSize': 'Hiện không có size nào mua được.', 'cart.noBranch': 'Hiện chưa có chi nhánh bán.',
   'cart.reference': 'Mã tra cứu: {id}',
   'error.LOCATION_DEPENDENCY_UNAVAILABLE': 'Chưa tải được danh sách chi nhánh. Bấm Thử lại.',
-  'pager.label': 'Phân trang', 'pager.previous': 'Trang trước', 'pager.next': 'Trang sau', 'pager.page': 'Trang {page}/{pages}',
+  'pager.label': 'Phân trang', 'pager.previous': 'Trang trước', 'pager.next': 'Trang sau', 'pager.page': 'Trang {page}/{pages}', 'pager.pageWord': 'Trang', 'pager.choose': 'Chọn trang',
 
   'list.title': 'Danh sách sản phẩm', 'list.publication': 'Công khai', 'list.all': 'Tất cả', 'list.sizes': 'Size',
   'list.state': 'Trạng thái', 'list.empty': 'Chưa có sản phẩm nào khớp với bộ lọc.',
@@ -142,6 +142,7 @@ const vi = {
 
   'publication.hint': 'Công khai cần hồ sơ ban đầu đã duyệt và giá đã áp dụng cho mọi size. Ẩn sản phẩm giữ nguyên size, giá và lịch sử.',
   'publication.notApplied': 'Chưa áp dụng', 'publication.publish': 'Công khai sản phẩm', 'publication.hide': 'Ẩn sản phẩm',
+  'publication.publishNow': 'Công khai ngay', 'list.actions': 'Thao tác', 'list.approvePublish': 'Duyệt & công khai', 'list.awaitingReview': 'Staff đã gửi duyệt', 'list.publish': 'Công khai', 'list.hide': 'Ẩn', 'list.details': 'Chi tiết', 'list.working': 'Đang xử lý…', 'list.actionFailed': 'Không thực hiện được. Mở chi tiết để xem còn thiếu gì.', 'publication.managerHint': 'Manager không cần duyệt: bấm “Công khai ngay” để duyệt hồ sơ, áp dụng giá đề xuất cho mọi size và công khai sản phẩm trong một lần.',
   'publication.published': 'Đã công khai sản phẩm. Khách đã xem được ở trang sản phẩm.', 'publication.hidden': 'Đã ẩn sản phẩm. Khách không còn thấy, size và giá được giữ nguyên.',
 
   'delete.title': 'Xóa sản phẩm', 'delete.action': 'Xóa sản phẩm',
@@ -240,7 +241,7 @@ const en = {
   'cart.signInToAdd': 'Sign in to add to cart', 'cart.noBuyableSize': 'No size can be bought right now.', 'cart.noBranch': 'No branch is selling right now.',
   'cart.reference': 'Reference: {id}',
   'error.LOCATION_DEPENDENCY_UNAVAILABLE': 'The branch list could not be loaded. Try again.',
-  'pager.label': 'Pagination', 'pager.previous': 'Previous', 'pager.next': 'Next', 'pager.page': 'Page {page}/{pages}',
+  'pager.label': 'Pagination', 'pager.previous': 'Previous', 'pager.next': 'Next', 'pager.page': 'Page {page}/{pages}', 'pager.pageWord': 'Page', 'pager.choose': 'Choose page',
 
   'list.title': 'Products', 'list.publication': 'Publication', 'list.all': 'All', 'list.sizes': 'Sizes',
   'list.state': 'State', 'list.empty': 'No product matches the filters.',
@@ -358,6 +359,7 @@ const en = {
 
   'publication.hint': 'Publishing needs an approved initial review and an applied price for every size. Hiding keeps sizes, prices and history.',
   'publication.notApplied': 'Not applied', 'publication.publish': 'Publish product', 'publication.hide': 'Hide product',
+  'publication.publishNow': 'Publish now', 'list.actions': 'Actions', 'list.approvePublish': 'Approve & publish', 'list.awaitingReview': 'Submitted for review', 'list.publish': 'Publish', 'list.hide': 'Hide', 'list.details': 'Details', 'list.working': 'Working…', 'list.actionFailed': 'Could not do it. Open the details to see what is missing.', 'publication.managerHint': 'A Manager needs no review: “Publish now” approves the file, applies the proposed price of every size and publishes the product in one go.',
   'publication.published': 'Product published. Customers can now see it.', 'publication.hidden': 'Product hidden. Customers no longer see it; sizes and prices are kept.',
 
   'delete.title': 'Delete product', 'delete.action': 'Delete product',

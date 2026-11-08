@@ -1210,10 +1210,7 @@
             "uniqueItems": true
           }
         },
-        "required": [
-          "packageIds"
-        ],
-        "description": "Optional dimensions narrow package scope; booking window separate from workshop dates."
+        "description": "Every dimension is optional; an omitted dimension is not restricted, so an empty object covers all workshops (decision 2026-11-06). Booking window separate from workshop dates."
       },
       "ProductVoucherCreate": {
         "type": "object",

@@ -39,7 +39,7 @@ Guest email/phone lookup without OTP or rate limiting reduces friction but incre
 4. Migration version must be selected after checking every Flyway version in the repository and the target database history.
 5. The API names in the contract are proposed until `ppswbs-spec/APIs.md` is reviewed and synchronized.
 6. The current Report 3 review-list screen is not proof that Feature-011 is approved; it is a related baseline to update.
-7. Guest lookup-to-create binding is not yet specified. A server-issued opaque eligibility proof is the recommended direction, but its field, lifetime, replay policy and storage are still TBD; direct client-submitted source IDs are not sufficient ownership proof.
+7. Guest lookup-to-create binding is ratified as a server-issued opaque eligibility handle. It is stored in `guest_eligibility_handles`, expires after 30 minutes, binds both workshop and retail source references returned by the lookup, and is revalidated at create/edit time. `Idempotency-Key` controls command replay; raw source IDs are never sufficient ownership proof.
 
 ## Research conclusion
 

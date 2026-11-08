@@ -1,7 +1,7 @@
 # Feature-011 Tasks
 
 Date created: 2026-11-03  
-Date updated: 2026-11-04  
+Date updated: 2026-11-05
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt
 
@@ -31,20 +31,40 @@ Last updated by: Ngô Tiến Đạt
 - [x] Update `spec-general.md`, `DB.md`, `screen.md` and Report 3.
 - [x] Run cross-artifact analysis and resolve contradictions.
 - [x] Add Guest handle, error mapping, optimistic version and realtime aggregate details to OpenAPI.
+- [x] Ratify backend contract: header idempotency/version headers, Guest retail eligibility, safe projections, Admin denial and `400/401/403/404/409/422` mapping.
 
 ## Phase 3 — Implementation handoff
 
 - [x] Implement source ports/adapters (`WorkshopAttendanceReviewPort`, `RetailFulfilmentReviewPort`, `InternalWorkshopAttendanceAdapter`, `InternalRetailFulfilmentAdapter`) and review application services (`ReviewEligibilityService`, `ReviewApplicationService`, `ReviewModerationService`, `ReviewReplyService`, `ReviewPublicReadFacade`, `ReviewMaskingService`, `ReviewIdempotencyService`).
 - [x] Implement persistence, unique source constraint and audit history (`ReviewRepository`, `ReviewRevisionRepository`, `ReviewReplyRepository`, `ReviewModerationEventRepository`, `GuestEligibilityHandleRepository`, `ReviewIdempotencyRecordRepository`).
 - [x] Implement API and authorization boundaries (`ReviewEligibilityController`, `ReviewController`, `ReviewModerationController`, `ReviewManagementExceptionHandler`, Security routes).
+- [x] Align DTO limits to 2,000 characters and move command idempotency/version data to headers.
+- [x] Add Guest retail lookup/create, owner-safe public detail projection and Staff/Manager/Admin permission enforcement.
+- [x] Add append-only retention correction migration `V100__review_history_retention.sql`.
 - [ ] Implement public/operational UI.
 
 ## Phase 4 — Verification
 
-- [x] Unit and integration tests for eligibility, validation, lifecycle and permission rules (21/21 tests pass).
-- [x] Concurrent duplicate-create and idempotency tests.
+- [ ] Unit and integration tests for eligibility, validation, lifecycle and permission rules after contract changes.
+- [ ] Concurrent duplicate-create and idempotency tests for every write command.
 - [x] Privacy tests for masking and source enumeration.
-- [x] Migration clean/upgrade/re-run tests (`V91__review_management.sql`).
+- [ ] Migration clean/upgrade/re-run tests (`V91`–`V100`).
 - [x] Guest handle expiry, source binding, replay and raw-source rejection tests.
 - [x] Realtime public aggregate excludes `HIDDEN` and `REMOVED` rows.
 - [ ] OpenAPI, architecture, `git diff --check` and manual acceptance review.
+
+## Phase 5 — Frontend implementation handoff
+
+- [ ] T050 Create `src/features/reviewmanagement/` using the React/Vite feature architecture.
+- [ ] T051 Register public, Guest, Member, Staff and Manager routes without adding business behavior to the router.
+- [ ] T052 Implement OpenAPI-based review API adapter with Firebase auth, `Idempotency-Key` and `If-Match-Version`.
+- [ ] T053 Implement Guest lookup and opaque-handle source selection.
+- [ ] T054 Implement Member eligible-source, create-review and edit-own-review screens.
+- [ ] T055 Implement public review list/detail and public-only aggregate display.
+- [ ] T056 Implement Staff/Manager moderation queue, detail, visibility actions and Manager reply editor.
+- [ ] T057 Implement loading, empty, validation, forbidden, duplicate, conflict, retry and privacy states.
+- [ ] T058 Add unit/component tests for API mapping, permission, ownership, validation and recovery.
+- [ ] T059 Run `npm test` and `npm run build` after the backend/OpenAPI blockers are resolved.
+
+Frontend tasks target the approved OpenAPI/spec. They must stop if the backend
+contract remains mismatched; no client-side compatibility workaround is authorized.
