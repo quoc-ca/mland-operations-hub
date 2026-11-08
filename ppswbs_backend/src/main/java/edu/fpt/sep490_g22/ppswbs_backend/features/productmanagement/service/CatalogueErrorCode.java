@@ -19,6 +19,12 @@ public enum CatalogueErrorCode {
     INVALID_CREDENTIAL(HttpStatus.UNAUTHORIZED, "The credential is invalid or expired."),
 
     CATALOGUE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "You do not have permission for this action."),
+    BRANCH_OUT_OF_SCOPE(HttpStatus.FORBIDDEN, "This branch is not assigned to your account."),
+    BRANCH_SCOPE_EMPTY(HttpStatus.FORBIDDEN, "No branch is assigned to your account yet."),
+    BRANCH_NOT_FOUND(HttpStatus.NOT_FOUND, "The branch was not found or is not active."),
+    BRANCH_STOCK_NOT_FOUND(HttpStatus.NOT_FOUND, "The product is not sold at this branch."),
+    BRANCH_ALREADY_ADDED(HttpStatus.CONFLICT, "The product is already sold at this branch."),
+    BRANCH_REQUIRED(HttpStatus.CONFLICT, "This product is sold at several branches: choose the branch to change."),
 
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "The product was not found."),
     VARIANT_NOT_FOUND(HttpStatus.NOT_FOUND, "The size was not found."),

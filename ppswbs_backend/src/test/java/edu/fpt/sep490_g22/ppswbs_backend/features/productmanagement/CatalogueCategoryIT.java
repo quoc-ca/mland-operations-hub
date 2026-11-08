@@ -89,9 +89,9 @@ class CatalogueCategoryIT {
     void impactIsPagedByTwenty() {
         long categoryId = fixture.activeCategory();
         for (int i = 0; i < 21; i++) {
-            createProducts.create(STAFF, UUID.randomUUID(), new CreateProductService.CreateProductCommand(
+            createProducts.create(STAFF, UUID.randomUUID(), fixture.atTestBranch(new CreateProductService.CreateProductCommand(
                     "Ảnh hưởng " + i + " " + UUID.randomUUID(), "Mô tả", Long.toString(categoryId),
-                    List.of(new CreateProductService.VariantInput(6, "100000", "1")), List.of()));
+                    List.of(new CreateProductService.VariantInput(6, "100000", "1")), List.of())));
         }
 
         var first = categories.impact(Long.toString(categoryId), 0);

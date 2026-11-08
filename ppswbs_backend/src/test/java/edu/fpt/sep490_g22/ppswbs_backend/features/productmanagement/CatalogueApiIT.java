@@ -63,6 +63,7 @@ class CatalogueApiIT {
 
     @MockitoBean private TokenVerificationService tokens;
     @MockitoBean private AccountFacade accounts;
+    private long branchId;
     @Autowired private MockMvc mvc;
     @Autowired private ObjectMapper json;
     @Autowired private CatalogueFlowFixture fixture;
@@ -73,6 +74,9 @@ class CatalogueApiIT {
                 true, Instant.now()));
         when(accounts.resolveActor(anyString(), anyBoolean()))
                 .thenAnswer(call -> Optional.ofNullable(ACTORS.get((String) call.getArgument(0))));
+        // US10: Staff act at the test branch; products are created there.
+        branchId = fixture.testBranch();
+        when(accounts.getLocationScope(org.mockito.ArgumentMatchers.any())).thenReturn(List.of(branchId));
     }
 
     @Test
@@ -256,7 +260,8 @@ class CatalogueApiIT {
     private String productJson(String name, long categoryId) throws Exception {
         return json.writeValueAsString(Map.of("name", name, "description", "Mô tả", "categoryId",
                 Long.toString(categoryId), "variants", List.of(Map.of("size", 7, "proposedPrice", "120000",
-                        "quantity", "2"))));
+                        "quantity", "2")), "branches", List.of(Map.of("locationId", Long.toString(branchId),
+                        "quantities", List.of(Map.of("size", 7, "quantity", "2"))))));
     }
 
     private static CurrentAccountActor actor(long id, ActorRole role, ActorStatus status) {

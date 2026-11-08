@@ -1,7 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
-import { ConfirmDialog, ErrorNotice, useCommand } from '../../../../../shared/ui/components';
+import { ConfirmDialog, ErrorNotice, useCommand, useResource } from '../../../../../shared/ui/components';
 import { useCatalogueApi } from '../../../application/useCatalogueApi';
 import { messages } from '../../messages';
 import { compactSizes, LIMITS } from '../../../domain/productRules';
@@ -39,6 +39,17 @@ export default function ImportPage() {
   const validation = useCommand();
   const confirmation = useCommand();
   const refresh = useCommand();
+  // US10 Q-B2: branches of the file, in column order; the same choice is used for the template and the upload.
+  const branchList = useResource(() => api.listBranches(), []);
+  const availableBranches = (Array.isArray(branchList.data) ? branchList.data : []).filter(branch => branch.active !== false);
+  const [branchIds, setBranchIds] = useState([]);
+  const onlyBranch = availableBranches.length === 1 ? String(availableBranches[0].id) : null;
+  useEffect(() => { if (onlyBranch) setBranchIds(current => (current.length ? current : [onlyBranch])); }, [onlyBranch]);
+  const toggleBranch = value => {
+    setBranchIds(current => (current.includes(value) ? current.filter(item => item !== value) : [...current, value]));
+    setBatch(null); validation.reset(); confirmation.reset();
+  };
+  const branchName = value => availableBranches.find(branch => String(branch.id) === value)?.name || value;
   // Names by group key, kept from the preview: the imported batch lists only group keys and product IDs.
   const names = useRef({});
   if (batch?.preview) names.current = Object.fromEntries(batch.preview.map(item => [item.groupKey, item.name]));
@@ -55,7 +66,8 @@ export default function ImportPage() {
   };
 
   const validate = async () => {
-    const outcome = await validation.run(key => api.validateImport(key, file));
+    if (!branchIds.length) { setHint('branch.required'); return; }
+    const outcome = await validation.run(key => api.validateImport(key, file, branchIds));
     if (outcome.ok) setBatch(outcome.result);
   };
   const retryValidate = async () => {
@@ -88,11 +100,33 @@ export default function ImportPage() {
     <>
       <PageTop eyebrow={t('nav.section')} title={t('import.title')} />
       <section className="workspace-card">
+        <h2>{t('import.branchStep')}</h2>
+        <p className="muted small">{t('import.branchHint')}</p>
+        {branchList.loading && <p className="muted small">{t('branch.loading')}</p>}
+        {branchList.error && <ErrorNotice error={branchList.error} messages={messages} onRetry={branchList.reload} />}
+        {!branchList.loading && !branchList.error && availableBranches.length === 0 && <p className="notice error">{t('branch.noneAssigned')}</p>}
+        {availableBranches.length > 0 && (
+          <div className="branch-choice" role="group" aria-label={t('branch.title')}>
+            {availableBranches.map(branch => (
+              <label key={branch.id} className={branchIds.includes(String(branch.id)) ? 'branch-option on' : 'branch-option'}>
+                <input type="checkbox" checked={branchIds.includes(String(branch.id))} disabled={validation.pending}
+                  onChange={() => { toggleBranch(String(branch.id)); setHint(null); }} />
+                <span><strong>{branch.name}</strong></span>
+              </label>
+            ))}
+          </div>
+        )}
+        {branchIds.length > 0 && (
+          <p className="muted small">{t('import.branchColumns', { columns: branchIds.map(value => `"Số lượng ${branchName(value)}"`).join(', ') })}</p>
+        )}
+      </section>
+
+      <section className="workspace-card">
         <h2>{t('import.step1')}</h2>
         <p className="muted small">{t('import.templateHint')}</p>
         <p className="muted small">{t('import.sizeFormatHint')}</p>
-        <button type="button" className="button outline" disabled={template.pending}
-          onClick={async () => { const outcome = await template.run(() => api.downloadImportTemplate()); if (outcome.ok) save(outcome.result, 'mau-import-san-pham.xlsx'); }}>
+        <button type="button" className="button outline" disabled={template.pending || !branchIds.length}
+          onClick={async () => { const outcome = await template.run(() => api.downloadImportTemplate(branchIds)); if (outcome.ok) save(outcome.result, 'mau-import-san-pham.xlsx'); }}>
           {t('import.downloadTemplate')}
         </button>
         <ErrorNotice error={template.error} messages={messages} onRetry={async () => { const outcome = await template.retry(); if (outcome?.ok) save(outcome.result, 'mau-import-san-pham.xlsx'); }} />

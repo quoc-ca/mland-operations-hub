@@ -3,6 +3,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.CatalogueRequests;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueAuthorization;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueBranchScope;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueAuthorization.Capability;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.PriceApplicationService;
@@ -41,10 +42,12 @@ class ManagementPriceApiController {
     private final VariantSaleStatusService saleStatus;
     private final PriceProposalService proposals;
     private final PriceApplicationService applications;
+    private final CatalogueBranchScope branchScope;
 
     ManagementPriceApiController(CatalogueAuthorization authorization, VariantQuantityService quantities,
                                  VariantSaleStatusService saleStatus, PriceProposalService proposals,
-                                 PriceApplicationService applications) {
+                                 PriceApplicationService applications, CatalogueBranchScope branchScope) {
+        this.branchScope = branchScope;
         this.authorization = authorization;
         this.quantities = quantities;
         this.saleStatus = saleStatus;
@@ -64,6 +67,7 @@ class ManagementPriceApiController {
     ResponseEntity<JsonNode> setSaleStatus(@PathVariable String variantId, @RequestHeader(KEY) UUID key,
                                            @RequestBody CatalogueRequests.SaleStatusRequest body) {
         String actor = authorization.require(Capability.VARIANT_SALE_STATUS);
+        branchScope.requireProductOfVariant(variantId);
         return committed(saleStatus.setSaleEnabled(actor, key, variantId, version(body.expectedVersion()),
                 flag("saleEnabled", body.saleEnabled())));
     }
@@ -72,6 +76,7 @@ class ManagementPriceApiController {
     ResponseEntity<JsonNode> propose(@PathVariable String variantId, @RequestHeader(KEY) UUID key,
                                      @RequestBody CatalogueRequests.PriceRequest body) {
         String actor = authorization.require(Capability.PRICE_PROPOSE);
+        branchScope.requireProductOfVariant(variantId);
         return committed(proposals.create(actor, key, variantId, version(body.expectedVersion()),
                 required("proposedPrice", body.proposedPrice())));
     }
@@ -80,6 +85,7 @@ class ManagementPriceApiController {
     ResponseEntity<JsonNode> revise(@PathVariable String proposalId, @RequestHeader(KEY) UUID key,
                                     @RequestBody CatalogueRequests.PriceRequest body) {
         String actor = authorization.require(Capability.PRICE_PROPOSE);
+        branchScope.requireProductOfProposal(proposalId);
         return committed(proposals.revise(actor, key, proposalId, version(body.expectedVersion()),
                 required("proposedPrice", body.proposedPrice())));
     }
@@ -88,6 +94,7 @@ class ManagementPriceApiController {
     ResponseEntity<JsonNode> submit(@PathVariable String proposalId, @RequestHeader(KEY) UUID key,
                                     @RequestBody CatalogueRequests.VersionRequest body) {
         String actor = authorization.require(Capability.PRICE_PROPOSE);
+        branchScope.requireProductOfProposal(proposalId);
         return committed(proposals.submit(actor, key, proposalId, version(body.expectedVersion())));
     }
 
@@ -108,6 +115,7 @@ class ManagementPriceApiController {
     ResponseEntity<JsonNode> apply(@PathVariable String proposalId, @RequestHeader(KEY) UUID key,
                                    @RequestBody CatalogueRequests.VersionRequest body) {
         String actor = authorization.require(Capability.PRICE_APPLY);
+        branchScope.requireProductOfProposal(proposalId);
         return committed(applications.apply(actor, key, proposalId, version(body.expectedVersion())));
     }
 }

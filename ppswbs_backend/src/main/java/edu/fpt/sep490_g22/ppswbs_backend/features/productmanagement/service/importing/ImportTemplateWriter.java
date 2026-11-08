@@ -25,12 +25,18 @@ public final class ImportTemplateWriter {
     }
 
     public static byte[] write(List<ProductCategory> activeCategories) {
+        return write(activeCategories, List.of());
+    }
+
+    /** {@code branchHeaders} (US10, Q-B2): one quantity column per chosen branch replaces "Số lượng". */
+    public static byte[] write(List<ProductCategory> activeCategories, List<String> branchHeaders) {
+        List<String> headers = ProductImportParser.headers(branchHeaders);
         try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet data = workbook.createSheet(DATA_SHEET);
             Row header = data.createRow(0);
-            for (ImportColumn column : ImportColumn.ORDER) {
-                header.createCell(column.ordinal()).setCellValue(column.header());
-                data.setColumnWidth(column.ordinal(), 22 * 256);
+            for (int column = 0; column < headers.size(); column++) {
+                header.createCell(column).setCellValue(headers.get(column));
+                data.setColumnWidth(column, 22 * 256);
             }
             data.createFreezePane(0, 1);
 
@@ -41,7 +47,8 @@ public final class ImportTemplateWriter {
                     "Tên sản phẩm: 1–200 ký tự. Mô tả: 1–5.000 ký tự. Danh mục: đúng tên một danh mục đang hoạt động.",
                     "Size: số nguyên từ 5 đến 29; hoặc khoảng 12-20; hoặc danh sách 12,14,16; hoặc kết hợp 5-9,12.",
                     "Mọi size trong một dòng dùng chung Giá đề xuất và Số lượng của dòng đó; size cần giá riêng thì viết thành dòng khác cùng Mã nhóm.",
-                    "Giá đề xuất: số nguyên VND lớn hơn 0. Số lượng: số nguyên từ 0.",
+                    branchHeaders.isEmpty() ? "Giá đề xuất: số nguyên VND lớn hơn 0. Số lượng: số nguyên từ 0."
+                            : "Giá đề xuất: số nguyên VND lớn hơn 0. Mỗi cột \"Số lượng …\" là số lượng tại chi nhánh đó: số nguyên từ 0, để trống nghĩa là 0.",
                     "Không dùng công thức, ô gộp, hyperlink, dấu phân cách hàng nghìn hay số thập phân.",
                     "Không thêm, xóa hay đổi thứ tự cột. Tối đa 500 dòng dữ liệu; file tối đa 5.000.000 byte.",
                     "File không chứa ảnh: sau khi import, thêm ảnh cho từng sản phẩm trước khi gửi duyệt.",
@@ -57,13 +64,18 @@ public final class ImportTemplateWriter {
                     {"NHAN-02", "Nhẫn bạc khắc", "Nhẫn bạc 925 có khắc", "Nhẫn bạc", "12", "420000", "2"}
             };
             Row exampleHeader = guide.createRow(lines.length);
-            for (ImportColumn column : ImportColumn.ORDER) {
-                exampleHeader.createCell(column.ordinal()).setCellValue(column.header());
+            for (int column = 0; column < headers.size(); column++) {
+                exampleHeader.createCell(column).setCellValue(headers.get(column));
             }
+            int quantityColumn = ImportColumn.QUANTITY.ordinal();
             for (int i = 0; i < example.length; i++) {
                 Row row = guide.createRow(lines.length + 1 + i);
-                for (int column = 0; column < example[i].length; column++) {
+                for (int column = 0; column < quantityColumn; column++) {
                     row.createCell(column).setCellValue(example[i][column]);
+                }
+                // One quantity per column: the example quantity at the first branch, 0 at the others.
+                for (int column = quantityColumn; column < headers.size(); column++) {
+                    row.createCell(column).setCellValue(column == quantityColumn ? example[i][quantityColumn] : "0");
                 }
             }
 

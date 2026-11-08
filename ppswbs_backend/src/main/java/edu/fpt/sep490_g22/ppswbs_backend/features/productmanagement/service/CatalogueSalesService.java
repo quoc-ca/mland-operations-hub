@@ -84,12 +84,15 @@ public class CatalogueSalesService implements CatalogueSalesFacade {
     private final MediaReferenceService mediaReferences;
     private final CatalogueCommandReceiptRepository receipts;
     private final CatalogueAuditWriter audit;
+    private final ProductBranchStockService branchStock;
 
     public CatalogueSalesService(CatalogueLockCoordinator locks, ProductRepository products,
                                  ProductVariantRepository variants, ProductImageRepository images,
                                  CatalogueMediaRepository media, PublicCatalogueQueryRepository publicQueries,
                                  CatalogueAvailabilityService availability, MediaReferenceService mediaReferences,
-                                 CatalogueCommandReceiptRepository receipts, CatalogueAuditWriter audit) {
+                                 CatalogueCommandReceiptRepository receipts, CatalogueAuditWriter audit,
+                                 ProductBranchStockService branchStock) {
+        this.branchStock = branchStock;
         this.locks = locks;
         this.products = products;
         this.variants = variants;
@@ -300,8 +303,13 @@ public class CatalogueSalesService implements CatalogueSalesFacade {
         BigInteger before = size.getRemainingUnsold();
         BigInteger after = size.recordAcceptedSale(quantity, held.heldQuantity());
         ProductVariant saved = variants.saveAndFlush(size);
+        // US10 interim (FR-053 pending): FE-08 does not send the branch yet, keep the branch rows summing to the total.
+        List<String> branches = branchStock.deductSaleWithoutBranch(variantId, quantity);
 
         Map<String, Object> changes = new LinkedHashMap<>();
+        if (!branches.isEmpty()) {
+            changes.put("branchesWithoutKnownSaleBranch", branches);
+        }
         changes.put("operationRef", operationRef.toString());
         changes.put("sku", saved.getSku());
         changes.put("quantity", quantity.toString());
