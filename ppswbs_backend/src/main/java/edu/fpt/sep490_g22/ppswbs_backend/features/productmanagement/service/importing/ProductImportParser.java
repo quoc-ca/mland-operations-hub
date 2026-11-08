@@ -78,6 +78,15 @@ public final class ProductImportParser {
     }
 
     public static List<RawRow> parse(String fileName, byte[] file) {
+        return parse(fileName, file, List.of());
+    }
+
+    /**
+     * {@code branchHeaders} (US10, Q-B2): headers of the branch quantity columns that replace "Số lượng", in order;
+     * empty = the original seven columns. With exactly one branch the original "Số lượng" header is accepted too, so
+     * a file made from the old template still imports into that branch.
+     */
+    public static List<RawRow> parse(String fileName, byte[] file, List<String> branchHeaders) {
         if (file == null || file.length == 0) {
             throw new CatalogueException(CatalogueErrorCode.IMPORT_FILE_INVALID);
         }
@@ -96,7 +105,7 @@ public final class ProductImportParser {
             if (!sheets.hasNext()) {
                 throw new CatalogueException(CatalogueErrorCode.IMPORT_FILE_INVALID);
             }
-            SheetHandler handler = new SheetHandler(strings);
+            SheetHandler handler = new SheetHandler(strings, headers(branchHeaders), branchHeaders.size() == 1);
             try (InputStream firstSheet = sheets.next()) {
                 XMLReader xml = XMLHelper.newXMLReader();
                 xml.setContentHandler(handler);
@@ -111,6 +120,22 @@ public final class ProductImportParser {
             // Corrupt package, zip bomb or unreadable XML: reject the file without echoing any content.
             throw new CatalogueException(CatalogueErrorCode.IMPORT_FILE_INVALID);
         }
+    }
+
+    /** The six fixed headers, then "Số lượng" or the branch quantity headers. */
+    static List<String> headers(List<String> branchHeaders) {
+        List<String> headers = new ArrayList<>();
+        for (ImportColumn column : ImportColumn.ORDER) {
+            if (column != ImportColumn.QUANTITY) {
+                headers.add(column.header());
+            }
+        }
+        if (branchHeaders.isEmpty()) {
+            headers.add(ImportColumn.QUANTITY.header());
+        } else {
+            headers.addAll(branchHeaders);
+        }
+        return List.copyOf(headers);
     }
 
     /** ZIP/OOXML signature, required parts and no macro project, read from the central directory only. */
@@ -154,7 +179,12 @@ public final class ProductImportParser {
         private boolean inInlineText;
         private final StringBuilder value = new StringBuilder();
 
-        SheetHandler(SharedStrings strings) {
+        private final List<String> headers;
+        private final boolean acceptOldQuantityHeader;
+
+        SheetHandler(SharedStrings strings, List<String> headers, boolean acceptOldQuantityHeader) {
+            this.headers = headers;
+            this.acceptOldQuantityHeader = acceptOldQuantityHeader;
             this.strings = strings;
         }
 
@@ -228,21 +258,29 @@ public final class ProductImportParser {
             };
         }
 
+        private boolean headerMatches(int column, String text) {
+            if (text.equals(headers.get(column))) {
+                return true;
+            }
+            return acceptOldQuantityHeader && column == ImportColumn.QUANTITY.ordinal()
+                    && text.equals(ImportColumn.QUANTITY.header());
+        }
+
         List<RawRow> toDataRows() {
             Set<Long> merged = coordinates(mergedRanges);
             Set<Long> linked = coordinates(hyperlinkRefs);
 
             TreeMap<Integer, RawCell> header = rows.getOrDefault(1, new TreeMap<>());
-            for (int column = 0; column < ImportColumn.ORDER.size(); column++) {
+            for (int column = 0; column < headers.size(); column++) {
                 RawCell cell = header.getOrDefault(column, RawCell.EMPTY);
                 if (cell.kind() != CellKind.TEXT || cell.text() == null
-                        || !cell.text().strip().equals(ImportColumn.ORDER.get(column).header())) {
+                        || !headerMatches(column, cell.text().strip())) {
                     throw new CatalogueException(CatalogueErrorCode.IMPORT_FILE_INVALID);
                 }
             }
             for (TreeMap<Integer, RawCell> row : rows.values()) {
                 for (var entry : row.entrySet()) {
-                    if (entry.getKey() >= ImportColumn.ORDER.size() && !entry.getValue().isBlank()) {
+                    if (entry.getKey() >= headers.size() && !entry.getValue().isBlank()) {
                         throw new CatalogueException(CatalogueErrorCode.IMPORT_FILE_INVALID);
                     }
                 }
@@ -267,8 +305,8 @@ public final class ProductImportParser {
             List<RawRow> result = new ArrayList<>();
             for (int rowNumber = 2; rowNumber <= lastDataRow; rowNumber++) {
                 TreeMap<Integer, RawCell> row = rows.getOrDefault(rowNumber, new TreeMap<>());
-                List<RawCell> cells = new ArrayList<>(ImportColumn.ORDER.size());
-                for (int column = 0; column < ImportColumn.ORDER.size(); column++) {
+                List<RawCell> cells = new ArrayList<>(headers.size());
+                for (int column = 0; column < headers.size(); column++) {
                     RawCell cell = row.getOrDefault(column, RawCell.EMPTY);
                     long key = ((long) rowNumber << 32) | column;
                     boolean isMerged = merged.contains(key);
@@ -283,7 +321,7 @@ public final class ProductImportParser {
         }
 
         /** Expands "A2:C3"-style references to (row << 32 | column), 1-based rows. Bounded by the row limit. */
-        private static Set<Long> coordinates(List<String> refs) {
+        private Set<Long> coordinates(List<String> refs) {
             Set<Long> result = new HashSet<>();
             for (String ref : refs) {
                 if (ref == null) {
@@ -293,7 +331,7 @@ public final class ProductImportParser {
                 CellReference first = new CellReference(parts[0]);
                 CellReference last = parts.length > 1 ? new CellReference(parts[1]) : first;
                 int lastRow = Math.min(last.getRow() + 1, HARD_ROW_SCAN_LIMIT);
-                int lastColumn = Math.min(last.getCol(), ImportColumn.ORDER.size());
+                int lastColumn = Math.min(last.getCol(), headers.size());
                 for (int row = first.getRow() + 1; row <= lastRow; row++) {
                     for (int column = first.getCol(); column <= lastColumn; column++) {
                         result.add(((long) row << 32) | column);

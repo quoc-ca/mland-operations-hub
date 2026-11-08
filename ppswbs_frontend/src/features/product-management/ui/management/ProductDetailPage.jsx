@@ -5,7 +5,8 @@ import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/compone
 import { useCatalogueCommand } from '../../application/useCatalogueCommand';
 import { useCatalogueApi } from '../../application/useCatalogueApi';
 import { messages } from '../messages';
-import { missingRequirements, REQUIREMENT_SECTIONS } from '../../domain/productRules';
+import { currentReview, missingRequirements, REQUIREMENT_SECTIONS } from '../../domain/productRules';
+import { useRole } from '../../../../shared/auth/useRole';
 import { ContentSection } from './sections/ContentSection';
 import { DeleteSection } from './sections/DeleteSection';
 import { ImagesSection } from './sections/ImagesSection';
@@ -32,6 +33,7 @@ export default function ProductDetailPage() {
   // Set once a submit or publish was refused for missing requirements: from then on each lacking section is marked
   // red, and the mark goes away by itself as soon as the reloaded product has what was missing.
   const [checkMissing, setCheckMissing] = useState(false);
+  const isManager = useRole() === 'MANAGER';
   const setCrumb = useOutletContext()?.setCrumb;
   const name = product.data?.name;
   useEffect(() => {
@@ -84,7 +86,8 @@ export default function ProductDetailPage() {
       <ImagesSection {...context} />
       <VariantsSection {...context} />
       <PriceSection {...context} />
-      {!data.firstPublishedAt && <ReviewSection {...context} />}
+      {/* A Manager skips the review round (Publication applies directly); they only decide what a Staff submitted. */}
+      {!data.firstPublishedAt && (!isManager || currentReview(data)?.state === 'PENDING') && <ReviewSection {...context} />}
       <PublicationSection {...context} />
       <DeleteSection {...context} />
     </NoticeContext.Provider>

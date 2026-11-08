@@ -8,6 +8,7 @@ import { MissingNote, sectionClass, useProductCommand } from '../ProductDetailPa
 import { newCommandId } from '../../../../../shared/api/http';
 import { ApplyNowToggle, BatchPrices } from './BatchPrices';
 import { NoticeAt } from '../notices';
+import { useRole } from '../../../../../shared/auth/useRole';
 
 /**
  * T057 price proposals per size: proposed, approved and applied amounts are shown apart with the revision
@@ -17,11 +18,12 @@ import { NoticeAt } from '../notices';
  */
 export function PriceSection({ product, missing = {}, ...context }) {
   const t = useT(messages);
+  const isManager = useRole() === 'MANAGER';
   return (
     <section className={sectionClass(missing.prices)} aria-labelledby="price-title">
       <h2 id="price-title">{t('section.prices')}</h2>
       <MissingNote messageKey={missing.prices} />
-      {!product.firstPublishedAt && <p className="muted small">{t('price.initialHint')}</p>}
+      {!product.firstPublishedAt && <p className="muted small">{t(isManager ? 'price.initialHintManager' : 'price.initialHint')}</p>}
       {!context.deleted && <BatchPrices product={product} {...context} />}
       {(product.variants || []).map(variant => <VariantPrices key={variant.id} product={product} variant={variant} {...context} />)}
     </section>

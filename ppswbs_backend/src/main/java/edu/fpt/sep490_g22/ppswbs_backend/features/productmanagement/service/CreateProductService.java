@@ -55,11 +55,23 @@ public class CreateProductService {
     public record ImageInput(UUID mediaId, String altText, Integer position) {
     }
 
+    /**
+     * {@code branches} (US10, FR-048): where the product is sold and the quantity of each size there; required for a
+     * manual create. When present, the size totals come from it and {@code variants[].quantity} is ignored. The Excel
+     * import does not send branches yet (T125): its products start without a branch, like data from before US10.
+     */
     public record CreateProductCommand(String name, String description, String categoryId,
-                                       List<VariantInput> variants, List<ImageInput> images) {
+                                       List<VariantInput> variants, List<ImageInput> images,
+                                       List<ProductBranchStockService.BranchInput> branches) {
         public CreateProductCommand {
             variants = variants == null ? List.of() : List.copyOf(variants);
             images = images == null ? List.of() : List.copyOf(images);
+            branches = branches == null ? List.of() : List.copyOf(branches);
+        }
+
+        public CreateProductCommand(String name, String description, String categoryId,
+                                    List<VariantInput> variants, List<ImageInput> images) {
+            this(name, description, categoryId, variants, images, List.of());
         }
     }
 
@@ -73,12 +85,15 @@ public class CreateProductService {
     private final CatalogueAuditWriter audit;
     private final CatalogueCommandExecutor executor;
     private final ManagementProductQueryService query;
+    private final ProductBranchStockService branchStock;
 
     public CreateProductService(ProductRepository products, ProductVariantRepository variants,
                                 ProductReviewRepository reviews, PriceProposalRepository proposals,
                                 ProductImageRepository images, CatalogueLockCoordinator locks,
                                 MediaReferenceService mediaReferences, CatalogueAuditWriter audit,
-                                CatalogueCommandExecutor executor, ManagementProductQueryService query) {
+                                CatalogueCommandExecutor executor, ManagementProductQueryService query,
+                                ProductBranchStockService branchStock) {
+        this.branchStock = branchStock;
         this.products = products;
         this.variants = variants;
         this.reviews = reviews;
@@ -116,6 +131,18 @@ public class CreateProductService {
         long categoryId = CatalogueValues.parseId("categoryId", command.categoryId());
         List<ValidVariant> validVariants = validateVariants(command.variants());
         List<ImageInput> validImages = validateImages(command.images());
+        List<ProductBranchStockService.ValidBranch> branches = List.of();
+        if (source == Source.MANUAL || !command.branches().isEmpty()) {
+            Set<Integer> sizes = new HashSet<>();
+            validVariants.forEach(variant -> sizes.add(variant.size()));
+            branches = branchStock.validate(command.branches(), sizes);
+            if (!branches.isEmpty()) {
+                Map<Integer, BigInteger> totals = ProductBranchStockService.totals(branches);
+                validVariants = validVariants.stream()
+                        .map(v -> new ValidVariant(v.size(), v.proposedPrice(), totals.getOrDefault(v.size(), BigInteger.ZERO)))
+                        .toList();
+            }
+        }
         Product product = Product.draft(command.name(), command.description(), categoryId);
 
         ProductCategory category = locks.lock(new CatalogueLockCoordinator.LockRequest(
@@ -131,6 +158,9 @@ public class CreateProductService {
         List<ProductVariant> savedVariants = variants.saveAllAndFlush(validVariants.stream()
                 .map(input -> ProductVariant.create(productId, input.size(), input.quantity()))
                 .toList());
+        if (!branches.isEmpty()) {
+            branchStock.createRows(savedVariants, branches);
+        }
 
         ProductReview review = reviews.saveAndFlush(ProductReview.draft(productId, 1, saved.getContentVersion()));
 
@@ -156,6 +186,7 @@ public class CreateProductService {
         safeChanges.put("categoryId", Long.toString(categoryId));
         safeChanges.put("sizes", savedVariants.stream().map(ProductVariant::getRingSize).toList());
         safeChanges.put("imageCount", validImages.size());
+        safeChanges.put("branches", branches.stream().map(branch -> Long.toString(branch.locationId())).toList());
         audit.recordSuccess(new CatalogueAuditWriter.Entry(actorId, CREATE_ACTION, "product",
                 Long.toString(productId), saved.getVersion(), (long) review.getRevision(),
                 List.of("name", "description", "categoryId", "variants", "images"), safeChanges));

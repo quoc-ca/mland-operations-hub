@@ -10,12 +10,12 @@ export function approvedUnapplied(product) {
 }
 
 /**
- * A Manager publishing a product that was never published, without a separate review round: submit it if it is still a
- * draft, approve the proposed prices, apply them, then publish. Every step is its own command (own record and audit), and
- * each step re-reads the product so the next one carries the current version. Whatever is already done is skipped, so
- * running it again after a failure carries on from where it stopped.
+ * A Manager's product skips the review round: submit it if it is still a draft, approve the proposed prices and apply
+ * them. Every step is its own command (own record and audit), and each step re-reads the product so the next one carries
+ * the current version. Whatever is already done is skipped, so running it again after a failure carries on from where it
+ * stopped. Returns the product as it is afterwards (not published by this step).
  */
-export async function publishWithoutReview(api, product) {
+export async function applyWithoutReview(api, product) {
   let current = product;
   let review = currentReview(current);
   if (review?.state === 'DRAFT') {
@@ -34,6 +34,11 @@ export async function publishWithoutReview(api, product) {
   for (const { proposal } of approvedUnapplied(current)) {
     await api.applyPrice(newCommandId(), proposal.id, proposal.version);
   }
-  current = await api.getProduct(current.id);
+  return api.getProduct(current.id);
+}
+
+/** applyWithoutReview, then publish. */
+export async function publishWithoutReview(api, product) {
+  const current = await applyWithoutReview(api, product);
   return api.setPublication(newCommandId(), current.id, current.version, true);
 }

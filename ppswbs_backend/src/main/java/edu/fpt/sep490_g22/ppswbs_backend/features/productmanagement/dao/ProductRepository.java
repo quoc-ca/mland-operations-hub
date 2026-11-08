@@ -51,6 +51,39 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
                                    @Param("sku") String sku,
                                    Pageable pageable);
 
+    /** {@link #searchManagementIds} limited to products sold at one branch (US10, FR-051). */
+    @Query(value = """
+            select p.id from Product p
+            where p.deletedAt is null
+              and p.id in (select v.productId from ProductVariant v, VariantBranchStock s
+                           where s.variantId = v.id and s.locationId = :locationId)
+              and (:categoryId is null or p.categoryId = :categoryId)
+              and (:published is null or p.published = :published)
+              and (:anyKeyword = true
+                   or lower(p.name) like :namePattern escape '!'
+                   or p.id = :productNumber
+                   or p.id in (select v.productId from ProductVariant v where v.sku = :sku))
+            order by p.createdAt desc, p.id desc""",
+            countQuery = """
+            select count(p) from Product p
+            where p.deletedAt is null
+              and p.id in (select v.productId from ProductVariant v, VariantBranchStock s
+                           where s.variantId = v.id and s.locationId = :locationId)
+              and (:categoryId is null or p.categoryId = :categoryId)
+              and (:published is null or p.published = :published)
+              and (:anyKeyword = true
+                   or lower(p.name) like :namePattern escape '!'
+                   or p.id = :productNumber
+                   or p.id in (select v.productId from ProductVariant v where v.sku = :sku))""")
+    Page<Long> searchManagementIdsAtBranch(@Param("locationId") Long locationId,
+                                           @Param("categoryId") Long categoryId,
+                                           @Param("published") Boolean published,
+                                           @Param("anyKeyword") boolean anyKeyword,
+                                           @Param("namePattern") String namePattern,
+                                           @Param("productNumber") Long productNumber,
+                                           @Param("sku") String sku,
+                                           Pageable pageable);
+
     /** Category of a product without loading the entity, so the following lock reads fresh state. */
     @Query("select p.categoryId from Product p where p.id = :id")
     Optional<Long> findCategoryIdById(@Param("id") Long id);

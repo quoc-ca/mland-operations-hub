@@ -39,10 +39,12 @@ public class VariantQuantityService {
     private final CatalogueAvailabilityService availability;
     private final CatalogueAuditWriter audit;
     private final CatalogueCommandExecutor executor;
+    private final ProductBranchStockService branchStock;
 
     public VariantQuantityService(CatalogueLockCoordinator locks, ProductVariantRepository variants,
                                   CatalogueAvailabilityService availability, CatalogueAuditWriter audit,
-                                  CatalogueCommandExecutor executor) {
+                                  CatalogueCommandExecutor executor, ProductBranchStockService branchStock) {
+        this.branchStock = branchStock;
         this.locks = locks;
         this.variants = variants;
         this.availability = availability;
@@ -85,6 +87,8 @@ public class VariantQuantityService {
                                                           BigInteger value, BigInteger validHeld) {
         BigInteger old = variant.getRemainingUnsold();
         variant.updateRemainingUnsold(value, validHeld);
+        // US10: a size sold at one branch changes that branch; several branches need the branch command.
+        branchStock.legacyQuantityTouchesBranch(variant, value);
         ProductVariant saved = variants.saveAndFlush(variant);
         Map<String, Object> changes = new LinkedHashMap<>();
         changes.put("sku", saved.getSku());

@@ -24,6 +24,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.math.BigInteger;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
@@ -323,6 +324,68 @@ class CatalogueImportTests {
                 names.add(categories.getRow(i).getCell(0).getStringCellValue());
             }
             assertThat(names).containsExactly("Nhẫn bạc", "Nhẫn cưới");
+        }
+    }
+
+    // ---------- US10 / Q-B2: one quantity column per chosen branch ----------
+
+    private static final List<String> TWO_BRANCHES = List.of("Số lượng Hoàn Kiếm", "Số lượng Tây Hồ");
+    private static final String[] BRANCH_HEADER = {"Mã nhóm", "Tên sản phẩm", "Mô tả", "Danh mục", "Size",
+            "Giá đề xuất (VND)", "Số lượng Hoàn Kiếm", "Số lượng Tây Hồ"};
+
+    @Test
+    void branchColumnsGiveAQuantityPerBranchAndABlankCellIsZero() {
+        byte[] file = xlsx(BRANCH_HEADER,
+                row("G1", "Nhẫn", "Mô tả", "Nhẫn bạc", "12-13", 100000, 3, 2),
+                row("G1", "Nhẫn", "Mô tả", "Nhẫn bạc", 14, 120000, null, 4));
+
+        var result = ProductImportValidator.validate(ProductImportParser.parse("san-pham.xlsx", file, TWO_BRANCHES),
+                CATEGORIES, TWO_BRANCHES);
+
+        assertThat(result.errors()).isEmpty();
+        var variants = result.products().getFirst().variants();
+        assertThat(variants).extracting(ProductImportValidator.PreviewVariant::size).containsExactly(12, 13, 14);
+        assertThat(variants.getFirst().branchQuantities()).containsExactly(BigInteger.valueOf(3), BigInteger.valueOf(2));
+        assertThat(variants.get(2).branchQuantities()).containsExactly(BigInteger.ZERO, BigInteger.valueOf(4));
+        assertThat(variants.get(2).quantity()).isEqualTo(BigInteger.valueOf(4));
+    }
+
+    @Test
+    void aBadBranchQuantityNamesItsBranchColumn() {
+        byte[] file = xlsx(BRANCH_HEADER, row("G1", "Nhẫn", "Mô tả", "Nhẫn bạc", 12, 100000, 1, "-2"));
+        var result = ProductImportValidator.validate(ProductImportParser.parse("san-pham.xlsx", file, TWO_BRANCHES),
+                CATEGORIES, TWO_BRANCHES);
+        assertThat(result.errors()).singleElement().satisfies(error -> {
+            assertThat(error.column()).isEqualTo("Số lượng Tây Hồ");
+            assertThat(error.row()).isEqualTo(2);
+        });
+    }
+
+    @Test
+    void branchHeadersMustMatchTheChoiceButTheOldTemplateFitsOneBranch() {
+        byte[] oldTemplate = xlsx(HEADER, row("G1", "Nhẫn", "Mô tả", "Nhẫn bạc", 12, 100000, 5));
+        assertThatCode(() -> ProductImportParser.parse("san-pham.xlsx", oldTemplate, TWO_BRANCHES),
+                CatalogueErrorCode.IMPORT_FILE_INVALID);
+        var one = ProductImportValidator.validate(ProductImportParser.parse("san-pham.xlsx", oldTemplate,
+                List.of("Số lượng Hoàn Kiếm")), CATEGORIES, List.of("Số lượng Hoàn Kiếm"));
+        assertThat(one.errors()).isEmpty();
+        assertThat(one.products().getFirst().variants().getFirst().branchQuantities()).containsExactly(BigInteger.valueOf(5));
+
+        byte[] swapped = xlsx(new String[]{"Mã nhóm", "Tên sản phẩm", "Mô tả", "Danh mục", "Size", "Giá đề xuất (VND)",
+                "Số lượng Tây Hồ", "Số lượng Hoàn Kiếm"});
+        assertThatCode(() -> ProductImportParser.parse("san-pham.xlsx", swapped, TWO_BRANCHES),
+                CatalogueErrorCode.IMPORT_FILE_INVALID);
+    }
+
+    @Test
+    void theBranchTemplateHasOneQuantityColumnPerBranchAndReadsBackEmpty() throws Exception {
+        byte[] template = ImportTemplateWriter.write(CATEGORIES, TWO_BRANCHES);
+        assertThat(ProductImportParser.parse("mau.xlsx", template, TWO_BRANCHES)).isEmpty();
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(template))) {
+            Row header = workbook.getSheet("Sản phẩm").getRow(0);
+            assertThat(header.getLastCellNum()).isEqualTo((short) 8);
+            assertThat(header.getCell(6).getStringCellValue()).isEqualTo("Số lượng Hoàn Kiếm");
+            assertThat(header.getCell(7).getStringCellValue()).isEqualTo("Số lượng Tây Hồ");
         }
     }
 

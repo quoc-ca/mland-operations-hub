@@ -6,6 +6,8 @@ import { productManagementRoutes } from '../routes/productManagementRoutes';
 import { actionResult, categoryPage, managementProduct, publicProduct } from './fixtures';
 
 const M = '/api/v1/catalogue-management';
+// US10: one branch in the account's list is chosen by default on the create form.
+const BRANCHES = { 'GET /api/v1/workshop-locations': json(200, [{ id: 1, code: 'HN-HOANKIEM', name: 'Hoàn Kiếm', address: 'Hà Nội', active: true }]) };
 const open = (path, options) => renderRoutes(productManagementRoutes, { path, ...options });
 
 describe('management shell', () => {
@@ -44,7 +46,7 @@ describe('T028 product list and create', () => {
 
   it('keeps the typed data and puts server field errors on their field', async () => {
     const user = userEvent.setup();
-    const calls = mockFetch({
+    const calls = mockFetch({ ...BRANCHES,
       [`GET ${M}/categories`]: json(200, categoryPage),
       [`POST ${M}/products`]: json(400, { code: 'VALIDATION_ERROR', message: 'Invalid.', correlationId: 'corr-1', fieldErrors: [{ field: 'variants[0].proposedPrice', message: 'Must be a positive amount.' }] }),
     });
@@ -62,7 +64,8 @@ describe('T028 product list and create', () => {
     expect(screen.getByLabelText('Tên sản phẩm')).toHaveValue('Nhẫn mới');
     const create = calls.find(call => call.method === 'POST');
     expect(create.headers['Idempotency-Key']).toMatch(/^[0-9a-f-]{36}$/);
-    expect(create.body).toEqual({ name: 'Nhẫn mới', description: 'Mô tả', categoryId: '7', variants: [{ size: 12, proposedPrice: '1250000', quantity: '0' }], images: [] });
+    expect(create.body).toEqual({ name: 'Nhẫn mới', description: 'Mô tả', categoryId: '7', variants: [{ size: 12, proposedPrice: '1250000', quantity: '0' }], images: [],
+      branches: [{ locationId: '1', quantities: [{ size: 12, quantity: '0' }] }] });
   });
 
   it('checks the input before sending anything', async () => {
@@ -77,7 +80,7 @@ describe('T028 product list and create', () => {
 
   it('sizes are chosen as chips or a range, one price and quantity apply to all, rows stay editable', async () => {
     const user = userEvent.setup();
-    const calls = mockFetch({ [`GET ${M}/categories`]: json(200, categoryPage), [`POST ${M}/products`]: json(400, { code: 'VALIDATION_ERROR', message: 'x' }) });
+    const calls = mockFetch({ ...BRANCHES, [`GET ${M}/categories`]: json(200, categoryPage), [`POST ${M}/products`]: json(400, { code: 'VALIDATION_ERROR', message: 'x' }) });
     open('/catalogue-management/products/new');
     const chips = await screen.findByRole('group', { name: 'Chọn size' });
     expect(within(chips).getAllByRole('button')).toHaveLength(25);
@@ -86,9 +89,9 @@ describe('T028 product list and create', () => {
     await user.click(screen.getByRole('button', { name: 'Chọn khoảng' }));
     await user.click(within(chips).getByRole('button', { name: '20' }));
     expect(within(chips).getByRole('button', { name: '13' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText('Áp dụng cho 4 size đã chọn:')).toBeInTheDocument();
+    expect(screen.getByText(/Áp dụng cho 4 size đã chọn/)).toBeInTheDocument();
 
-    const bulk = screen.getByText('Áp dụng cho 4 size đã chọn:').parentElement;
+    const bulk = screen.getByText(/Áp dụng cho 4 size đã chọn/).parentElement;
     await user.type(within(bulk).getByLabelText('Giá đề xuất (₫)'), '350000');
     await user.type(within(bulk).getByLabelText('Số lượng'), '5');
     await user.click(within(bulk).getByRole('button', { name: 'Áp dụng' }));
@@ -108,12 +111,14 @@ describe('T028 product list and create', () => {
       { size: 14, proposedPrice: '370000', quantity: '5' },
       { size: 20, proposedPrice: '350000', quantity: '5' },
     ]);
+    expect(calls.find(call => call.method === 'POST').body.branches).toEqual([{ locationId: '1', quantities: [
+      { size: 12, quantity: '5' }, { size: 14, quantity: '5' }, { size: 20, quantity: '5' }] }]);
   }, 20000);
 
   it('a 503 is retried with the same key and then opens the product', async () => {
     const user = userEvent.setup();
     let attempts = 0;
-    const calls = mockFetch({
+    const calls = mockFetch({ ...BRANCHES,
       [`GET ${M}/categories`]: json(200, categoryPage),
       [`POST ${M}/products`]: () => (++attempts === 1 ? json(503, { code: 'CATALOGUE_BUSY', message: 'Busy.' }) : json(201, actionResult('42', 'product.create'))),
       [`GET ${M}/products/42`]: json(200, managementProduct()),
@@ -629,7 +634,7 @@ describe('T079 category activation', () => {
 describe('T101 import', () => {
   it('shows row errors of a rejected file', async () => {
     const user = userEvent.setup();
-    mockFetch({
+    mockFetch({ ...BRANCHES,
       [`POST ${M}/product-imports`]: json(201, {
         batchId: 'b1', fileName: 'a.xlsx', state: 'REJECTED', version: 0, rowCount: 2, productCount: 0, variantCount: 0, errorCount: 1,
         errors: [{ row: 3, column: 'Size', value: '40', code: 'OUT_OF_RANGE', message: 'Out of range.' }], expiresAt: '2026-11-01T10:00:00Z',
@@ -645,7 +650,7 @@ describe('T101 import', () => {
 
   it('explains the Size column and shows each previewed product with its sizes folded into ranges', async () => {
     const user = userEvent.setup();
-    mockFetch({
+    mockFetch({ ...BRANCHES,
       [`POST ${M}/product-imports`]: json(201, {
         batchId: 'b2', fileName: 'a.xlsx', state: 'VALIDATED', version: 0, rowCount: 2, productCount: 1, variantCount: 7, errorCount: 0,
         expiresAt: '2026-11-01T10:00:00Z', preview: [{ groupKey: 'R1', name: 'Nhẫn khoảng size', sizes: [5, 6, 7, 8, 9, 14, 12] }],
@@ -667,7 +672,7 @@ describe('T101 import', () => {
       expiresAt: '2026-11-01T10:00:00Z',
       ...(state === 'VALIDATED' ? { preview } : { created: [{ groupKey: 'SONG-NUOC', productId: '51', skus: ['SP000051-S10'] }, { groupKey: 'DINH-DA', productId: '52', skus: ['SP000052-S11'] }] }),
     });
-    const calls = mockFetch({
+    const calls = mockFetch({ ...BRANCHES,
       [`POST ${M}/product-imports`]: json(201, batch('VALIDATED')),
       [`POST ${M}/product-imports/b1/confirmations`]: json(200, batch('IMPORTED')),
       [`POST ${M}/media-uploads`]: () => json(201, { mediaId: `0000000${++uploads}-0000-0000-0000-000000000000`, state: 'READY', contentType: 'image/png', byteCount: 3 }),

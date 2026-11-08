@@ -98,9 +98,9 @@ class CatalogueConcurrencyIT {
     void theSameCommandKeySentTwiceAtOnceCreatesOneProductAndOneReceipt() {
         UUID key = UUID.randomUUID();
         String name = "Gửi lặp " + UUID.randomUUID();
-        var command = new CreateProductService.CreateProductCommand(name, "Mô tả",
+        var command = fixture.atTestBranch(new CreateProductService.CreateProductCommand(name, "Mô tả",
                 Long.toString(fixture.activeCategory()),
-                List.of(new CreateProductService.VariantInput(6, "120000", "1")), List.of());
+                List.of(new CreateProductService.VariantInput(6, "120000", "1")), List.of()));
 
         List<Concurrently.Outcome<CatalogueCommandExecutor.Outcome>> outcomes = Concurrently.run(
                 () -> createProducts.create(STAFF, key, command),

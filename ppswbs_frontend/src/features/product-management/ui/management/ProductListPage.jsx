@@ -19,13 +19,18 @@ export default function ProductListPage() {
   const api = useCatalogueApi();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
-  const criteria = { q: params.get('q') || '', categoryId: params.get('categoryId') || '', published: params.get('published') || '' };
+  const criteria = {
+    q: params.get('q') || '', categoryId: params.get('categoryId') || '', published: params.get('published') || '',
+    locationId: params.get('locationId') || '',
+  };
   const page = Number(params.get('page') || 0);
   const [draft, setDraft] = useState(criteria);
   useEffect(() => { setDraft(criteria); }, [params.toString()]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const products = useResource(() => api.listProducts({ ...criteria, page: page || undefined }), [params.toString()]);
   const categories = useResource(() => api.listCategories(), []);
+  // US10 FR-051: filter by branch. Every active branch is offered (Staff see the products of every branch too).
+  const branches = useResource(() => api.listSellingLocations(), []);
 
   // A Manager changes the state of a product right from the list: publish (a never-published product is approved on the way)
   // or hide. Staff keep the details page. A failure is shown on the row, with the details one click away.
@@ -79,6 +84,12 @@ export default function ProductListPage() {
             <option value="">{t('list.all')}</option>
             <option value="true">{t('status.published')}</option>
             <option value="false">{t('status.unpublished')}</option>
+          </select>
+        </label>
+        <label>{t('branch.choose')}
+          <select value={draft.locationId} onChange={set('locationId')}>
+            <option value="">{t('branch.all')}</option>
+            {(branches.data?.items || []).map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
           </select>
         </label>
         <button className="button primary" type="submit">{t('public.apply')}</button>

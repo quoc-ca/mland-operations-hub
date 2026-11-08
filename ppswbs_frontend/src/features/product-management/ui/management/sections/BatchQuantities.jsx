@@ -5,6 +5,7 @@ import { ACTIONS } from '../../../application/useCatalogueCommand';
 import { messages } from '../../messages';
 import { isQuantity, LIMITS } from '../../../domain/productRules';
 import { BatchResults, selectionOf, SelectCell, SIZES, useBatch } from './BatchPrices';
+import { QuantityStepper } from '../QuantityStepper';
 
 /**
  * Quantities of several sizes at once, next to the per-size edit: choose sizes (or a size range), then either set
@@ -13,7 +14,7 @@ import { BatchResults, selectionOf, SelectCell, SIZES, useBatch } from './BatchP
  * failed size never stops the others. A number below what is held is refused here before anything is sent; the
  * backend checks it again (QUANTITY_BELOW_HELD). Quantities can exceed Number range, so they are compared as BigInt.
  */
-export function BatchQuantities({ product, api, reload, setNotice }) {
+export function BatchQuantities({ product, api, reload, setNotice, branch = null }) {
   const t = useT(messages);
   const batch = useBatch({ api, reload, setNotice });
   const [open, setOpen] = useState(false);
@@ -34,8 +35,13 @@ export function BatchQuantities({ product, api, reload, setNotice }) {
     return <div className="batch-prices"><button type="button" className="button outline" onClick={() => setOpen(true)}>{t('qty.open')}</button></div>;
   }
 
-  const valueOf = ({ variant }) => values[variant.id] ?? String(variant.remainingUnsold);
-  const changed = row => valueOf(row).trim() !== String(row.variant.remainingUnsold);
+  // US10: with a branch, the rows show and change the quantity at that branch (each size its own branch command).
+  const stockOf = variant => (variant.branchStocks || []).find(item => item.locationId === branch);
+  const remainingOf = variant => (branch ? (stockOf(variant)?.remainingUnsold ?? "0") : variant.remainingUnsold);
+  const valueOf = ({ variant }) => values[variant.id] ?? String(remainingOf(variant));
+  const changed = row => valueOf(row).trim() !== String(remainingOf(row.variant));
+  // Holds are still per size (FE-08), so the size total after the change must stay at least the held quantity.
+  const newTotalOf = (row, value) => BigInt(row.variant.remainingUnsold) - BigInt(remainingOf(row.variant)) + BigInt(value);
   const chosen = selectionOf(selected, rows);
   const toSave = chosen.filter(changed);
   const setAll = checked => setSelected(Object.fromEntries(rows.map(row => [row.variant.id, checked])));
@@ -50,7 +56,7 @@ export function BatchQuantities({ product, api, reload, setNotice }) {
     setAmountError(null);
     setValues(current => ({
       ...current,
-      ...Object.fromEntries(chosen.map(row => [row.variant.id, mode === 'add' ? String(BigInt(row.variant.remainingUnsold) + BigInt(typed)) : typed])),
+      ...Object.fromEntries(chosen.map(row => [row.variant.id, mode === 'add' ? String(BigInt(remainingOf(row.variant)) + BigInt(typed)) : typed])),
     }));
   };
   const close = () => { setOpen(false); setValues({}); setErrors({}); setSelected({}); setAmount(''); setAmountError(null); batch.clear(); };
@@ -61,14 +67,16 @@ export function BatchQuantities({ product, api, reload, setNotice }) {
     toSave.forEach(row => {
       const value = valueOf(row).trim();
       if (!isQuantity(value)) found[row.variant.id] = t('validation.quantity');
-      else if (BigInt(value) < BigInt(row.variant.validHeldQuantity || '0')) found[row.variant.id] = t('qty.belowHeld', { held: row.variant.validHeldQuantity });
+      else if (newTotalOf(row, value) < BigInt(row.variant.validHeldQuantity || '0')) found[row.variant.id] = t('qty.belowHeld', { held: row.variant.validHeldQuantity });
     });
     setErrors(found);
     if (Object.keys(found).length) return;
     const results = await batch.run(toSave.map(row => ({
       id: row.variant.id, size: row.variant.size,
-      send: key => api.setQuantity(key, row.variant.id, row.variant.version, valueOf(row).trim()),
-    })), ACTIONS.quantity, { key: 'qty.savedN', at: 'qty-batch', section: 'section.variants' });
+      send: key => (branch
+        ? api.setBranchQuantity(key, row.variant.id, branch, stockOf(row.variant)?.version ?? 0, valueOf(row).trim())
+        : api.setQuantity(key, row.variant.id, row.variant.version, valueOf(row).trim())),
+    })), branch ? ACTIONS.branchQuantity : ACTIONS.quantity, { key: 'qty.savedN', at: 'qty-batch', section: 'section.variants' });
     // All saved: stay open with a success line under the button; the rows now show the saved numbers, so nothing is
     // left to save. Some failed: keep only those chosen, with what was typed.
     if (results.every(result => result.ok)) {
@@ -100,7 +108,7 @@ export function BatchQuantities({ product, api, reload, setNotice }) {
             <option value="set">{t('qty.modeSet')}</option>
           </select>
         </label>
-        <Field label={t('qty.amount')} error={amountError}><input inputMode="numeric" value={amount} onChange={event => setAmount(event.target.value)} /></Field>
+        <Field label={t('qty.amount')} error={amountError}><QuantityStepper label={t('qty.amount')} value={amount} invalid={Boolean(amountError)} onChange={setAmount} /></Field>
         <button type="button" className="button outline" disabled={!chosen.length || !amount.trim()} onClick={apply}>{t('bulk.applyTo', { count: chosen.length })}</button>
         <button type="button" className="button outline" onClick={() => { setValues({}); setErrors({}); }}>{t('qty.reset')}</button>
       </div>
@@ -116,15 +124,14 @@ export function BatchQuantities({ product, api, reload, setNotice }) {
             <SelectCell checked={selected[row.variant.id] !== false} label={t('bulk.selectSize', { size: row.variant.size })}
               onChange={checked => setSelected(current => ({ ...current, [row.variant.id]: checked }))} />
             <span role="cell"><strong>{t('size', { size: row.variant.size })}</strong></span>
-            <span role="cell">{row.variant.remainingUnsold}</span>
+            <span role="cell">{remainingOf(row.variant)}</span>
             <span role="cell">{row.variant.validHeldQuantity}</span>
             <span role="cell">
-              <input inputMode="numeric" aria-label={t('qty.newFor', { size: row.variant.size })} value={valueOf(row)}
-                aria-invalid={errors[row.variant.id] ? true : undefined}
-                onChange={event => { const { value } = event.target; setValues(current => ({ ...current, [row.variant.id]: value })); }} />
+              <QuantityStepper label={t('qty.newFor', { size: row.variant.size })} value={valueOf(row)} invalid={Boolean(errors[row.variant.id])}
+                onChange={value => setValues(current => ({ ...current, [row.variant.id]: value }))} />
               {errors[row.variant.id] && <span className="field-error">{errors[row.variant.id]}</span>}
             </span>
-            <span role="cell"><QuantityGap from={row.variant.remainingUnsold} to={valueOf(row).trim()} /></span>
+            <span role="cell"><QuantityGap from={remainingOf(row.variant)} to={valueOf(row).trim()} /></span>
           </div>
         ))}
       </div>
