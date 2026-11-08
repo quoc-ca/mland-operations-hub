@@ -1,6 +1,6 @@
 ## 1. Software Architecture
 
-(Software architecture diagram — source: `images/software-architecture.drawio`, export: `images/software-architecture.png`)
+{{r4-software-rchitecture width=100% align=center}}
 
 ### Architecture component descriptions
 
