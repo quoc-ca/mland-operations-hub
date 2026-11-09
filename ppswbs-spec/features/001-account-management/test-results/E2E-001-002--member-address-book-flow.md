@@ -118,7 +118,15 @@ find "Đã lưu 0 trên 10 địa chỉ"
 - **After Step 6:** modal is absent from DOM, URL remains `/profile/addresses`, and count/list is unchanged unless an explicitly successful create step was executed.
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Previous status: PASS on 2026-11-04; evidence predates this revision.
+- Latest status: PASS
+- Executed at: 2026-11-09 16:34:51
+- Executed by: Senior QA & System Verification Engineer
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result: Sổ địa chỉ thực thi chuẩn xác theo đặc tả FR-036–FR-040: Modal mở an toàn khi authenticated Member truy cập, địa chỉ đầu tiên tự động khóa mặc định (checked & disabled), phân cấp hành chính (Quận/Huyện, Phường/Xã) bị disabled khi chưa chọn Tỉnh/Thành, validation chặn số điện thoại cố định 0241234567, tự động chuẩn hóa định dạng +84 912 345 678, modal đóng hoàn toàn khi bấm Đóng và bảo toàn URL /profile/addresses.
+- Evidence screenshot:
+  - Address modal validation: screenshots/E2E-001-002--address-modal-validation.jpg
+  - Address list: screenshots/E2E-001-002--address-list.jpg
+- Bug reference: NONE
 <!-- EXECUTION:END -->
 

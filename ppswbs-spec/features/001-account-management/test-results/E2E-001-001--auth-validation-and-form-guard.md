@@ -113,7 +113,17 @@ Historical PASS does not cover these assertions; status is superseded until reru
 - **After Step 4:** URL remains exactly `/forgot-password`; response text is generic and does not reveal whether the typed email exists; no reset/action code is rendered or written to the URL.
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Previous status: PASS on 2026-11-04; evidence predates this revision.
+- Latest status: PASS
+- Executed at: 2026-11-09 16:31:20
+- Executed by: Senior QA & System Verification Engineer
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result: Form validation trên /login, /register, /forgot-password được tái kiểm thử và hoạt động chuẩn xác theo đặc tả đối nghịch: bắt đúng lỗi rỗng, mật khẩu không khớp, mật khẩu < 6 ký tự; URL giữ nguyên không chuyển hướng; không gửi request trái phép khi client validation thất bại.
+- Evidence screenshot:
+  - Login validation: screenshots/E2E-001-001--login-validation.jpg
+  - Register mismatch: screenshots/E2E-001-001--register-mismatch.jpg
+  - Register length: screenshots/E2E-001-001--register-length.jpg
+  - Forgot validation: screenshots/E2E-001-001--forgot-validation.jpg
+- Bug reference: NONE
 <!-- EXECUTION:END -->
 
