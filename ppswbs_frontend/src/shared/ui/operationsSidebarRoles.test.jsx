@@ -29,7 +29,8 @@ describe('Operations sidebar by role', () => {
     // Staff and Manager both manage products; promotions and the rest stay with the Manager.
     expect(sidebar().getByRole('link', { name: 'Danh sách sản phẩm' })).toBeInTheDocument();
     for (const hidden of ['Chương trình ưu đãi', 'Gói workshop', 'Add-on gói', 'Chi nhánh & khung giờ',
-      'Kênh đối tác (Channels)', 'Sự vụ & bồi hoàn (Cases)', 'Chính sách hoàn tiền']) {
+      'Kênh đối tác (Channels)', 'Sự vụ & bồi hoàn (Cases)', 'Chính sách hoàn tiền',
+      'Mẫu thông báo email', 'Nhật ký gửi thư']) {
       expect(sidebar().queryByRole('link', { name: hidden })).not.toBeInTheDocument();
     }
   });
@@ -39,7 +40,8 @@ describe('Operations sidebar by role', () => {
 
     expect(await sidebar().findByRole('link', { name: 'Gói workshop' })).toBeInTheDocument();
     for (const shown of ['Bảng điều phối ca', 'Danh sách sản phẩm', 'Chương trình ưu đãi', 'Add-on gói', 'Chi nhánh & khung giờ',
-      'Kênh đối tác (Channels)', 'Sự vụ & bồi hoàn (Cases)', 'Chính sách hoàn tiền']) {
+      'Kênh đối tác (Channels)', 'Sự vụ & bồi hoàn (Cases)', 'Chính sách hoàn tiền',
+      'Mẫu thông báo email', 'Nhật ký gửi thư']) {
       expect(sidebar().getByRole('link', { name: shown })).toBeInTheDocument();
     }
   });

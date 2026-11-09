@@ -75,6 +75,8 @@ export function OperationsSidebar() {
   const isBillsActive = pathname === '/settlement';
   const isCasesActive = pathname === '/settlement/cases' && tab !== 'policies';
   const isPoliciesActive = pathname === '/settlement/cases' && tab === 'policies';
+  const isNotificationTemplatesActive = pathname.startsWith('/admin/notifications/templates');
+  const isNotificationRequestsActive = pathname.startsWith('/admin/notifications/requests');
   const isProfileActive = pathname === '/profile';
 
   const isVi = language === 'vi';
@@ -181,6 +183,19 @@ export function OperationsSidebar() {
         </Link>
         <Link className={isPoliciesActive ? 'active' : ''} to="/settlement/cases?tab=policies">
           {isVi ? 'Chính sách hoàn tiền' : 'Refund policies'}
+        </Link>
+        </>)}
+
+        {canManage && (<>
+        {/* NOTIFICATION MANAGEMENT */}
+        <div className="ota-sidebar-label">
+          {isVi ? 'QUẢN LÝ THÔNG BÁO' : 'NOTIFICATION MANAGEMENT'}
+        </div>
+        <Link className={isNotificationTemplatesActive ? 'active' : ''} to="/admin/notifications/templates">
+          {isVi ? 'Mẫu thông báo email' : 'Email templates'}
+        </Link>
+        <Link className={isNotificationRequestsActive ? 'active' : ''} to="/admin/notifications/requests">
+          {isVi ? 'Nhật ký gửi thư' : 'Delivery logs'}
         </Link>
         </>)}
       </div>

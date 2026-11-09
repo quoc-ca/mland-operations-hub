@@ -12,6 +12,7 @@ import { otaConnectivityRoutes } from '../ota-connectivity/routes';
 import { operationsRoutes } from '../workshop-operations/routes';
 import { settlementRoutes } from '../workshop-settlement/routes';
 import { operatorHomeRoutes } from '../features/operatorhome/routes';
+import { notificationRoutes } from '../features/notification-management';
 import HomePage from '../features/landing/HomePage';
 import AppLayout from './AppLayout';
 import NotImplementedPage from './NotImplementedPage';
@@ -36,6 +37,7 @@ export const routes = [
           ...reviewManagementRoutes,
           ...productManagementRoutes,
           ...loyaltyPromotionRoutes,
+          ...notificationRoutes,
           { path: '*', element: <NotImplementedPage /> },
         ],
       },
