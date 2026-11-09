@@ -81,6 +81,8 @@ class CatalogueImportApiIT {
                 true, Instant.now()));
         when(accounts.resolveActor(anyString(), anyBoolean()))
                 .thenAnswer(call -> Optional.ofNullable(ACTORS.get((String) call.getArgument(0))));
+        // US10: Staff act at the test branch where the fixture creates products.
+        when(accounts.getLocationScope(org.mockito.ArgumentMatchers.any())).thenReturn(List.of(fixture.testBranch()));
         when(storage.storageKeyFor(any())).thenAnswer(call -> "it/" + call.getArgument(0));
         when(storage.putIfAbsent(anyString(), any())).thenAnswer(call ->
                 new MediaStoragePort.StoredObject(call.getArgument(0), "asset", "1", "png"));

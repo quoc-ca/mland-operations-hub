@@ -300,3 +300,22 @@ fulfilment facades. Each facade must prove source ownership, target mapping and
 the required state (`CHECKED_IN`, `PICKED_UP` or `DELIVERED`). Feature-011
 receives opaque references and sanitized evidence, not foreign repositories or
 full transaction records.
+
+## Feature-012 — Workshop Ring Design Configuration
+
+Owner: `ringdesignconfiguration`.
+
+| Method | Endpoint | Actor | Contract boundary |
+| --- | --- | --- | --- |
+| GET | `/api/v1/workshop-design-options` | Guest/Member | Package-scoped active options; opaque references only. |
+| POST | `/api/v1/workshop-designs` | Guest/Member | Creates a server-validated design using Guest opaque session or Firebase identity. |
+| GET | `/api/v1/workshop-designs/{designId}` | Guest/Member | Safe projection scoped to session or Member ownership. |
+| POST | `/api/v1/workshop-designs/{designId}/versions` | Guest/Member | Creates a new immutable version using `Idempotency-Key` and `If-Match-Version`. |
+| POST | `/api/v1/workshop-designs/{designId}/evaluate` | Guest/Member | Server/rule-facade evaluation; estimate is advisory. |
+| POST | `/api/v1/workshop-designs/{designId}/archive` | Guest/Member | Soft archive only; versioned and idempotent. |
+| POST | `/api/v1/workshop-designs/{designId}/attach-to-booking` | Booking facade | Synchronous `attachAndLockDesignForBooking(...)`; not a payment API. |
+
+All write commands use `Idempotency-Key`; versioned commands use
+`If-Match-Version`. Public/safe DTOs do not expose database IDs, raw Guest
+session values, audit data or private Member data. Feature-003 consumes the
+internal facade and never accesses Feature-012 persistence directly.

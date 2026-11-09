@@ -48,6 +48,30 @@ export function checkVariants(variants) {
   return errors;
 }
 
+/**
+ * US10: quantity of every chosen size at every chosen branch (missing = 0). Keys are
+ * `variants[i].quantities.<branchId>` so the size table can show the message under the right cell.
+ */
+export function checkBranchQuantities(variants, branchIds) {
+  const errors = {};
+  if (!branchIds.length) errors.branches = 'branch.required';
+  variants.forEach((variant, index) => {
+    branchIds.forEach(branchId => {
+      const value = String(variant.quantities?.[branchId] ?? '0').trim();
+      if (!isQuantity(value)) errors[`variants[${index}].quantities.${branchId}`] = 'validation.quantity';
+    });
+  });
+  return errors;
+}
+
+/** US10: the `branches` field of a create command from the size table. */
+export function branchesPayload(variants, branchIds) {
+  return branchIds.map(branchId => ({
+    locationId: String(branchId),
+    quantities: variants.map(variant => ({ size: Number(variant.size), quantity: String(variant.quantities?.[branchId] ?? '0').trim() || '0' })),
+  }));
+}
+
 export function checkImages(images) {
   const errors = {};
   if (images.length > LIMITS.maxImages) errors.images = 'validation.tooManyImages';

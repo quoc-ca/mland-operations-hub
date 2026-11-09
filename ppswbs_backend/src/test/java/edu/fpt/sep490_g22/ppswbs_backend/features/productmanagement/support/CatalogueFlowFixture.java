@@ -16,6 +16,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.Medi
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.PriceApplicationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ProductPublicationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ProductReviewService;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -42,13 +43,16 @@ public class CatalogueFlowFixture {
     private final ProductReviewService reviewService;
     private final PriceApplicationService applyService;
     private final ProductPublicationService publication;
+    private final JdbcTemplate jdbc;
 
     public CatalogueFlowFixture(TransactionTemplate transaction, ProductCategoryRepository categories,
                                 ProductRepository products, ProductReviewRepository reviews,
                                 PriceProposalRepository proposals, CatalogueMediaRepository media,
                                 ProductImageRepository images, MediaReferenceService mediaReferences,
                                 CreateProductService createProducts, ProductReviewService reviewService,
-                                PriceApplicationService applyService, ProductPublicationService publication) {
+                                PriceApplicationService applyService, ProductPublicationService publication,
+                                JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.transaction = transaction;
         this.categories = categories;
         this.products = products;
@@ -70,10 +74,19 @@ public class CatalogueFlowFixture {
 
     /** Draft product with sizes 5 (quantity 3) and 12 (quantity 0), no image yet. */
     public long draftProduct(String actorId) {
-        var command = new CreateProductService.CreateProductCommand("Nhẫn " + UUID.randomUUID(), "Mô tả",
+        var command = atTestBranch(new CreateProductService.CreateProductCommand("Nhẫn " + UUID.randomUUID(), "Mô tả",
                 Long.toString(activeCategory()), List.of(new CreateProductService.VariantInput(5, "150000", "3"),
-                new CreateProductService.VariantInput(12, "180000", "0")), List.of());
+                new CreateProductService.VariantInput(12, "180000", "0")), List.of()));
         return Long.parseLong(createProducts.create(actorId, UUID.randomUUID(), command).resourceId());
+    }
+
+    /** The command sold at the active test branch (US10: a manual create needs a branch). */
+    public CreateProductService.CreateProductCommand atTestBranch(CreateProductService.CreateProductCommand command) {
+        return CatalogueTestBranches.atBranch(command, testBranch());
+    }
+
+    public long testBranch() {
+        return CatalogueTestBranches.ensure(jdbc);
     }
 
     /** A READY media object uploaded by the actor at the given time, not attached to anything. */

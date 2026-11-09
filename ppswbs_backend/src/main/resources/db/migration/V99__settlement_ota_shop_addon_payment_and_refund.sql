@@ -1,6 +1,6 @@
 ALTER TABLE payment_owner_registrations DROP CHECK ck_payment_owner_kind;
 ALTER TABLE payment_owner_registrations ADD CONSTRAINT ck_payment_owner_kind
-    CHECK (payment_kind IN ('DEPOSIT','FINAL_PAYMENT','SHOP_ADDON','REFUND'));
+    CHECK (payment_kind IN ('DEPOSIT','FINAL_PAYMENT','SHOP_ADDON','REFUND','RETAIL'));
 
 CREATE TABLE settlement_addon_payment_attempts (
     id BIGINT NOT NULL AUTO_INCREMENT,

@@ -29,7 +29,7 @@ export default function ProgramDetailPage() {
   const [editing, setEditing] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const toggle = useCommand();
-  const labels = useTargetLabels(api, program.data?.scope === 'PRODUCT' ? program.data.targets : null);
+  const labels = useTargetLabels(api, program.data?.targets || null);
 
   const reloadAll = () => { program.reload(); usage.reload(); };
   if (program.loading && !program.data) return <Loading />;

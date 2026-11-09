@@ -38,6 +38,9 @@ class BookingPendingHoldReleaseTransactionServiceTest {
     @Mock private WorkshopBookingAuthorizationService authorization;
     @Mock private BookingHoldReleaseService holdRelease;
     @Mock private BookingIdempotencyService idempotency;
+    @Mock private edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingPaymentAttemptRepository paymentAttempts;
+    @Mock private edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingLatePaymentEvidenceRepository latePayments;
+    @Mock private edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.WorkshopBookingLoyaltyOutcomeService loyalty;
     @Spy private ObjectMapper mapper = new ObjectMapper();
     @InjectMocks private BookingPendingHoldReleaseTransactionService service;
 
@@ -56,6 +59,17 @@ class BookingPendingHoldReleaseTransactionServiceTest {
     }
 
     @Test
+    void releaseAfterAPaymentWasStartedLeavesTheLoyaltyBenefitsToThePaymentOutcome() {
+        when(bookingFacade.verifyCustomerBookingAccess(any())).thenReturn(new CustomerBookingAccessDecision(true));
+        when(paymentAttempts.findByBookingIdOrderByCreatedAtDesc(19L)).thenReturn(List.of(
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingPaymentAttempt.builder().build()));
+
+        service.release(null, "BK-RELEASE-1", "GUEST", null, null, "0900000000", "Plans changed", "corr-1", claim);
+
+        verifyNoInteractions(loyalty);
+    }
+
+    @Test
     void guestReleaseRechecksStoredProofUnderLockAndCommitsAuditBearingCommand() {
         when(bookingFacade.verifyCustomerBookingAccess(any())).thenReturn(new CustomerBookingAccessDecision(true));
 
@@ -66,6 +80,7 @@ class BookingPendingHoldReleaseTransactionServiceTest {
         verify(holdRelease).releasePendingHold("BK-RELEASE-1", "REL-CUSTOMER-91", "corr-1",
                 "GUEST", null, "Plans changed");
         verify(idempotency).completeClaimWithinTransaction(91L, 1L, 204, "");
+        verify(loyalty).finishConfirmedUnpaidExpiry(pending, "customer-release-91"); // gives back held points and voucher
     }
 
     @Test

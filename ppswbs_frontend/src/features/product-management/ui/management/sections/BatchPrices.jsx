@@ -208,6 +208,7 @@ function PendingBatch({ rows, api, reload, setNotice }) {
   const setAll = checked => setSelected(Object.fromEntries(rows.map(row => [row.variant.id, checked])));
 
   const approve = async () => {
+    setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     const found = {};
     if (!chosen.length) found.selection = t('batch.noneSelected');
     chosen.forEach(row => { if (!isAmount(String(priceOf(row)).trim())) found[row.variant.id] = t('validation.amount'); });
@@ -220,6 +221,7 @@ function PendingBatch({ rows, api, reload, setNotice }) {
     })), ACTIONS.decidePrice, { key: applyNow ? 'batch.approvedAppliedN' : 'batch.approvedN', at: 'pending-batch' });
   };
   const reject = async () => {
+    setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     const found = {};
     if (!chosen.length) found.selection = t('batch.noneSelected');
     const problem = checkReason(reason);
@@ -332,6 +334,7 @@ function ProposeBatch({ rows, independent, api, reload, setNotice }) {
   const close = () => { setOpen(false); setErrors({}); setPrices({}); setSelected({}); batch.clear(); };
 
   const save = async submit => {
+    setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     const found = {};
     filled.forEach(row => { if (!isAmount(String(priceOf(row)).trim())) found[row.variant.id] = t('validation.amount'); });
     setErrors(found);

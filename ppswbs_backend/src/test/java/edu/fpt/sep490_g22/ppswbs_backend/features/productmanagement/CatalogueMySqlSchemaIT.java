@@ -24,6 +24,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Revie
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueCommandExecutor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CreateProductService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ManagementProductQueryService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueTestBranches;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueTestSupport;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
@@ -75,7 +76,7 @@ class CatalogueMySqlSchemaIT {
     @Autowired private ManagementProductQueryService query;
 
     @Test
-    void migrationV15IsAppliedAfterV5WithAllTwelveTables() {
+    void migrationV15IsAppliedAfterV5WithAllCatalogueTables() {
         CatalogueTestSupport.requireMySql84(dataSource);
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank", String.class);
@@ -85,7 +86,8 @@ class CatalogueMySqlSchemaIT {
         assertThat(tables).containsExactlyInAnyOrder("catalogue_audit_events", "catalogue_categories",
                 "catalogue_command_receipts", "catalogue_import_batches", "catalogue_media_objects",
                 "catalogue_media_references", "catalogue_price_applications", "catalogue_price_proposals",
-                "catalogue_product_images", "catalogue_product_reviews", "catalogue_products", "catalogue_variants");
+                "catalogue_product_images", "catalogue_product_reviews", "catalogue_products", "catalogue_variants",
+                "catalogue_variant_branch_stock");
     }
 
     @Test
@@ -188,9 +190,9 @@ class CatalogueMySqlSchemaIT {
         Long categoryId = transaction.execute(status ->
                 categories.saveAndFlush(ProductCategory.create("Tạo " + UUID.randomUUID(), null)).getId());
         UUID commandId = UUID.randomUUID();
-        var command = new CreateProductService.CreateProductCommand("Nhẫn tạo thật " + commandId, "Mô tả",
+        var command = CatalogueTestBranches.atBranch(new CreateProductService.CreateProductCommand("Nhẫn tạo thật " + commandId, "Mô tả",
                 categoryId.toString(), List.of(new CreateProductService.VariantInput(5, "150000", "3"),
-                new CreateProductService.VariantInput(12, "180000", "0")), List.of());
+                new CreateProductService.VariantInput(12, "180000", "0")), List.of()), CatalogueTestBranches.ensure(jdbc));
 
         CatalogueCommandExecutor.Outcome first = createProducts.create(CatalogueTestSupport.STAFF, commandId, command);
         CatalogueCommandExecutor.Outcome replay = createProducts.create(CatalogueTestSupport.STAFF, commandId, command);
@@ -224,8 +226,8 @@ class CatalogueMySqlSchemaIT {
             return category.getId();
         });
         long before = products.count();
-        var command = new CreateProductService.CreateProductCommand("Nhẫn", "Mô tả", categoryId.toString(),
-                List.of(new CreateProductService.VariantInput(5, "1", "0")), List.of());
+        var command = CatalogueTestBranches.atBranch(new CreateProductService.CreateProductCommand("Nhẫn", "Mô tả", categoryId.toString(),
+                List.of(new CreateProductService.VariantInput(5, "1", "0")), List.of()), CatalogueTestBranches.ensure(jdbc));
 
         assertThatThrownBy(() -> createProducts.create(CatalogueTestSupport.STAFF, UUID.randomUUID(), command))
                 .isInstanceOf(RuntimeException.class);

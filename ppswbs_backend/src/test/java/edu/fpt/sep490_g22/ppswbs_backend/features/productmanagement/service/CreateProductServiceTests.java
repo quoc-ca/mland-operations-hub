@@ -49,6 +49,7 @@ class CreateProductServiceTests {
     private CatalogueLockCoordinator locks;
     private MediaReferenceService mediaReferences;
     private CatalogueAuditWriter audit;
+    private ProductBranchStockService branchStock;
     private CreateProductService service;
     private ProductCategory category;
 
@@ -63,8 +64,10 @@ class CreateProductServiceTests {
         locks = mock(CatalogueLockCoordinator.class);
         mediaReferences = mock(MediaReferenceService.class);
         audit = mock(CatalogueAuditWriter.class);
+        branchStock = mock(ProductBranchStockService.class);
+        when(branchStock.validate(any(), any())).thenReturn(List.of());
         service = new CreateProductService(products, variants, reviews, proposals, images, locks, mediaReferences,
-                audit, mock(CatalogueCommandExecutor.class), mock(ManagementProductQueryService.class));
+                audit, mock(CatalogueCommandExecutor.class), mock(ManagementProductQueryService.class), branchStock);
 
         category = ProductCategory.create("Nhẫn bạc", null);
         setId(category, 5L);

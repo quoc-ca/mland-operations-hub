@@ -1,7 +1,7 @@
 # Interface Contracts: Loyalty & Promotion
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-03 (`getPromotionProgram` thêm `targetCheck`/`targetWarnings`; khôi phục lệnh tạo mất phản hồi; trước đó: 2026-11-01 (mã voucher tự sinh, thời gian hiện bằng chữ; bộ chọn đối tượng sản phẩm trên form tạo chương trình; T076 — frontend đã khởi tạo, quy tắc gửi lặp outcome, maxPoints cho component checkout; trước đó: 2026-10-30)
+**Date updated**: 2026-11-05 (previewBenefits thêm `reasonDetails` mã lý do, T081; trước đó: 2026-11-03 (`getPromotionProgram` thêm `targetCheck`/`targetWarnings`; khôi phục lệnh tạo mất phản hồi; trước đó: 2026-11-01 (mã voucher tự sinh, thời gian hiện bằng chữ; bộ chọn đối tượng sản phẩm trên form tạo chương trình; T076 — frontend đã khởi tạo, quy tắc gửi lặp outcome, maxPoints cho component checkout; trước đó: 2026-10-30))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -92,7 +92,7 @@ Tên interface là thiết kế public của module; không phải entity/HTTP D
 
 | Operation | Input | Result / semantics |
 | --- | --- | --- |
-| previewBenefits | TrustedSourceContext, BenefitSelection, verified actor | Breakdown, normalized code/selected revision, policy revision, eligible subtotal, max points, display reasons and terms digest. Read-only; không giữ quota/điểm, không tạo accepted benefit. |
+| previewBenefits | TrustedSourceContext, BenefitSelection, verified actor | Breakdown, normalized code/selected revision, policy revision, eligible subtotal, max points, display reasons and terms digest. Reasons có hai dạng cùng thứ tự: `reasons` (chuỗi tiếng Anh, giữ cho owner cũ) và `reasonDetails` (`BenefitReason{code: BenefitReasonCode, params}` với tham số là chuỗi số, ví dụ `POINTS_OUT_OF_RANGE{min,max}`); owner nên chuyển `reasonDetails` sang quote của mình để `BenefitSelector` hiện theo vi/en (T081). Read-only; không giữ quota/điểm, không tạo accepted benefit. |
 | reserveAcceptedTransaction | AcceptedSourceContext, selection, accepted terms proof, source command key | Kiểm tra lại current program/policy/availability, so với terms khách đã đồng ý; AcceptedBenefitRef + exact money/points/policy snapshot. Với WORKSHOP, snapshot chỉ gồm `postPromotionAmount` (= phí sau voucher và điểm). 003.1 tính `deposit = ceil(post / 2)` và `remaining = post - deposit` từ giá trị này, và 003.1 → 003.3 chuyển `frozenPostPromotionAmount`/`frozenRemainingAmount`; FE-06 không tính, không làm tròn và không lưu cọc hay còn lại. Phí sau giảm lẻ vẫn hợp lệ. MANDATORY transaction, giữ cùng source accept. Nếu khác điều khoản hoặc không đủ quota/điểm thì rollback, không silently choose lại. |
 | settleAcceptedBenefits | AuthoritativeOutcome paid/deposit/zero | Consume từng component đang HELD đúng lượng gốc; ghi settlement fact/outcome key một lần cả khi các component đều NONE để thống kê giảm tự động. Cùng result replay; expired/released/conflicting outcome không tự consume lại. |
 | grantEarnedPoints | AuthoritativeOutcome RETAIL_FULLY_PAID/RETAIL_ZERO_ACCEPTED hoặc WORKSHOP_COMPLETED_AND_FULLY_PAID | Policy acceptance + earnBase snapshot; một grant/giao dịch. Các component đã dùng phải CONSUMED hoặc NONE trước grant; không cấp điểm khi debit còn HELD. Workshop deposit không được gọi để grant. Zero earn ghi result0, không ledger giả. |

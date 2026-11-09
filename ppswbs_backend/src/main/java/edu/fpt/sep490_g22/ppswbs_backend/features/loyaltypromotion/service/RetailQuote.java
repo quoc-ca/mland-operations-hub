@@ -1,6 +1,8 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.ProgramKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReason;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReasonCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
@@ -45,22 +47,37 @@ public final class RetailQuote {
     }
 
     /**
-     * A programme as it applies now. {@code unavailableReason} is set when it cannot be used (paused, not active, no
-     * uses left, wrong scope); it is then never applied.
+     * A programme as it applies now. {@code unavailable} is set when it cannot be used (paused, not active, no uses
+     * left, wrong scope); it is then never applied.
      */
     public record Candidate(long programId, long revisionId, long revisionNo, ProgramKind kind, Instant createdAt,
                             DiscountTerms terms, boolean allowPoints, Set<Long> productTargets, Set<Long> variantTargets,
-                            String normalizedCode, String unavailableReason) {
+                            String normalizedCode, BenefitReason unavailable) {
+
+        /** English text of {@link #unavailable()}, or {@code null} when the programme can be used. */
+        public String unavailableReason() {
+            return unavailable == null ? null : unavailable.message();
+        }
     }
 
+    /** {@code reasonDetails} are the preview reasons as codes (T081); {@link #reasons()} is their English text. */
     public record Result(BigInteger grossAmount, BigInteger eligibleSubtotal, BigInteger programDiscount,
                          BigInteger netBeforePoints, BigInteger maxPoints, boolean pointsAllowed, BigInteger pointsUsed,
-                         BigInteger pointDiscount, BigInteger earnBase, Candidate candidate, List<String> reasons) {
+                         BigInteger pointDiscount, BigInteger earnBase, Candidate candidate,
+                         List<BenefitReason> reasonDetails) {
+
+        public Result {
+            reasonDetails = reasonDetails == null ? List.of() : List.copyOf(reasonDetails);
+        }
+
+        public List<String> reasons() {
+            return reasonDetails.stream().map(BenefitReason::message).toList();
+        }
     }
 
     public static Result compute(List<SourceLine> lines, BenefitSelection selection, Candidate voucher,
                                  List<Candidate> autos, PolicyTerms policy, BigInteger availablePoints, boolean strict) {
-        List<String> reasons = new ArrayList<>();
+        List<BenefitReason> reasons = new ArrayList<>();
         BigInteger gross = lines.stream().map(SourceLine::lineAmount).reduce(BigInteger.ZERO, BigInteger::add);
         LoyaltyValues.requireAmount("grossAmount", gross);
 
@@ -69,16 +86,16 @@ public final class RetailQuote {
         BigInteger discount = BigInteger.ZERO;
         if (selection.choice() == SelectionChoice.VOUCHER) {
             if (voucher == null) {
-                ineligible(strict, reasons, "The voucher code was not found.");
-            } else if (voucher.unavailableReason() != null) {
-                ineligible(strict, reasons, voucher.unavailableReason());
+                ineligible(strict, reasons, BenefitReason.of(BenefitReasonCode.VOUCHER_NOT_FOUND));
+            } else if (voucher.unavailable() != null) {
+                ineligible(strict, reasons, voucher.unavailable());
             } else {
                 BigInteger subtotal = eligibleSubtotal(lines, voucher);
                 DiscountResult result = LoyaltyCalculator.programDiscount(voucher.terms(), subtotal);
                 if (subtotal.signum() == 0) {
-                    ineligible(strict, reasons, "No item in the cart is covered by this voucher.");
+                    ineligible(strict, reasons, BenefitReason.of(BenefitReasonCode.NO_COVERED_ITEM));
                 } else if (!result.eligible()) {
-                    ineligible(strict, reasons, "The covered items do not reach the minimum amount of this voucher.");
+                    ineligible(strict, reasons, BenefitReason.of(BenefitReasonCode.BELOW_MINIMUM_AMOUNT));
                 } else {
                     chosen = voucher;
                     eligible = subtotal;
@@ -88,7 +105,7 @@ public final class RetailQuote {
         } else if (selection.choice() == SelectionChoice.AUTO) {
             Comparator<Candidate> order = Comparator.comparing(Candidate::createdAt).thenComparing(Candidate::programId);
             for (Candidate auto : autos.stream().sorted(order).toList()) {
-                if (auto.unavailableReason() != null) {
+                if (auto.unavailable() != null) {
                     continue;
                 }
                 BigInteger subtotal = eligibleSubtotal(lines, auto);
@@ -100,7 +117,7 @@ public final class RetailQuote {
                 }
             }
             if (chosen == null) {
-                reasons.add("No automatic discount applies to this cart.");
+                reasons.add(BenefitReason.of(BenefitReasonCode.NO_AUTO_DISCOUNT));
             }
         }
 
@@ -114,15 +131,16 @@ public final class RetailQuote {
                 LoyaltyCalculator.requirePointsSelection(policy, limit, requested);
                 used = requested;
             } else if (!pointsAllowed) {
-                reasons.add("Points cannot be used with this voucher.");
+                reasons.add(BenefitReason.of(BenefitReasonCode.POINTS_NOT_COMBINABLE));
             } else if (requested.compareTo(policy.minRedeemPoints()) < 0 || requested.compareTo(limit.maxPoints()) > 0) {
-                reasons.add("Points must be between " + policy.minRedeemPoints() + " and " + limit.maxPoints() + ".");
+                reasons.add(BenefitReason.of(BenefitReasonCode.POINTS_OUT_OF_RANGE, "min", policy.minRedeemPoints(),
+                        "max", limit.maxPoints()));
             } else {
                 used = requested;
             }
         }
         if (pointsAllowed && !limit.redeemable() && requested.signum() > 0 && !strict) {
-            reasons.add("Too few points can be used on this order to reach the minimum of " + policy.minRedeemPoints() + ".");
+            reasons.add(BenefitReason.of(BenefitReasonCode.POINTS_BELOW_MINIMUM, "min", policy.minRedeemPoints()));
         }
         BigInteger pointDiscount = LoyaltyCalculator.pointDiscount(policy, used);
         BigInteger earnBase = LoyaltyCalculator.earnBase(net, pointDiscount);
@@ -159,9 +177,9 @@ public final class RetailQuote {
                 .reduce(BigInteger.ZERO, BigInteger::add);
     }
 
-    private static void ineligible(boolean strict, List<String> reasons, String reason) {
+    private static void ineligible(boolean strict, List<BenefitReason> reasons, BenefitReason reason) {
         if (strict) {
-            throw new LoyaltyException(LoyaltyErrorCode.PROMOTION_INELIGIBLE, reason);
+            throw new LoyaltyException(LoyaltyErrorCode.PROMOTION_INELIGIBLE, reason.message());
         }
         reasons.add(reason);
     }

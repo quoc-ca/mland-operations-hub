@@ -26,6 +26,7 @@ export function ContentSection({ product, api, reload, setNotice, deleted, missi
 
   const save = async event => {
     event.preventDefault();
+    setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     const found = checkProductContent(form);
     setHints(found);
     if (Object.keys(found).length) return;

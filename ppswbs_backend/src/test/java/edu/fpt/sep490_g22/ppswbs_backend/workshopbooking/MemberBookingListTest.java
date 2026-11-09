@@ -7,6 +7,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingSes
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.WorkshopBookingRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.BookingSummaryResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.PaymentStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.WorkshopBooking;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopOperationsAdapter;
@@ -26,6 +27,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -69,11 +71,22 @@ class MemberBookingListTest {
     }
 
     @Test
-    void anExpiredUnpaidBookingIsLeftOut() {
-        when(bookings.findByMemberAccountId(42L)).thenReturn(List.of(
-                booking(1, "BK-EXPIRED", BookingStatus.EXPIRED, Instant.now())));
+    void anExpiredUnpaidBookingStaysVisibleForADayThenIsLeftOut() {
+        WorkshopBooking justExpired = booking(1, "BK-JUST-EXPIRED", BookingStatus.EXPIRED, Instant.now());
+        justExpired.setHoldExpiresAt(Instant.now().minusSeconds(60));
+        justExpired.setPaymentStatus(PaymentStatus.UNPAID);
+        WorkshopBooking longAgo = booking(2, "BK-OLD-EXPIRED", BookingStatus.EXPIRED, Instant.now());
+        longAgo.setHoldExpiresAt(Instant.now().minusSeconds(26 * 3600));
+        longAgo.setPaymentStatus(PaymentStatus.UNPAID);
+        when(commitments.findByBookingIdOrderByOrdinalAsc(anyLong())).thenReturn(List.of());
+        when(bookings.findByMemberAccountId(42L)).thenReturn(List.of(justExpired, longAgo));
 
-        assertThat(service.listMemberBookings(BEARER)).isEmpty();
+        // The old one is dropped without being projected; the recent one is attempted (and here, with no stored
+        // commitments, skipped fail-soft), so only the recent one ever reaches the projection.
+        service.listMemberBookings(BEARER);
+
+        verify(commitments, times(1)).findByBookingIdOrderByOrdinalAsc(anyLong());
+        verify(commitments).findByBookingIdOrderByOrdinalAsc(1L);
     }
 
     @Test

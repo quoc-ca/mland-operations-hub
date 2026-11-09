@@ -328,3 +328,27 @@ keep their separate 003.4/003.3 bill contract.
   record field types, database schema, locking implementation, public HTTP
   routes, VNPay credentials/configuration, and notification-provider delivery
   mechanics remain owned by their respective implementation/design work.
+
+## Feature-012 WorkshopRingDesignFacade (review baseline)
+
+Feature-003 consumes configured workshop ring designs only through the following
+logical boundary; it must not access Feature-012 repositories, entities or
+tables directly.
+
+```text
+ConfiguredDesignBookingCommand
+ConfiguredDesignBookingSnapshot
+ConfiguredDesignBookingOutcome
+```
+
+The internal operation is `attachAndLockDesignForBooking(...)`. It runs
+synchronously inside the Booking transaction, validates Guest session or Member
+ownership, package/branch compatibility and `VALIDATED` state, then returns a
+server-built immutable snapshot containing package, material, shape, size,
+component, attachment, engraving, evaluation and `rules_version`. Feature-012
+locks the design only on transaction commit; rollback leaves it retryable.
+
+The command carries opaque references only and uses `operationReference` for
+idempotency. A duplicate semantic command returns the prior outcome; changed
+payload with the same operation reference is a conflict. The facade does not
+create payment, capacity holds or tickets.

@@ -38,7 +38,7 @@ class CatalogueMySqlIT {
             "catalogue_audit_events", "catalogue_categories", "catalogue_command_receipts", "catalogue_import_batches",
             "catalogue_media_objects", "catalogue_media_references", "catalogue_price_applications",
             "catalogue_price_proposals", "catalogue_product_images", "catalogue_product_reviews", "catalogue_products",
-            "catalogue_variants");
+            "catalogue_variants", "catalogue_variant_branch_stock");
     private static final Pattern URL = Pattern.compile("^(jdbc:mysql://[^/]+)/([^?]+)(\\?.*)?$");
 
     private String serverUrl;

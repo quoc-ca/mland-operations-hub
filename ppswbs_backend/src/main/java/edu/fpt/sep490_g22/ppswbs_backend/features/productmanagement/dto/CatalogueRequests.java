@@ -36,6 +36,17 @@ public final class CatalogueRequests {
                                  String reason, List<ReviewPrice> prices) {
     }
 
+    /** US10: start selling at a branch, with a quantity per size (missing size = 0). */
+    public record BranchAddRequest(Long expectedVersion, String locationId, List<BranchSizeQuantity> quantities) {
+    }
+
+    public record BranchSizeQuantity(Integer size, String quantity) {
+    }
+
+    /** US10: stop or resume selling every size at a branch. */
+    public record BranchSaleRequest(Boolean saleEnabled) {
+    }
+
     public record QuantityRequest(Long expectedVersion, String quantity) {
     }
 

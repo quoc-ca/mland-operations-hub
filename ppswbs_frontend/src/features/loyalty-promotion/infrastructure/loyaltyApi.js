@@ -38,6 +38,11 @@ export function loyaltyApi(request) {
     listPublicProducts: ({ page } = {}) => request('/api/v1/products', { query: { page }, auth: false }),
     getPublicProduct: productId => request(`/api/v1/products/${id(productId)}`, { auth: false }),
 
+    // Names of workshop targets (no sign-in): a published package from 003 Workshop Operations, and the active
+    // branches (workshop_locations) as 002 lists them for buyers. A voucher's branch IDs are these location IDs.
+    getPublicWorkshopPackage: packageId => request(`/api/v1/workshop-packages/${id(packageId)}`, { auth: false }),
+    listPublicBranches: () => request('/api/v1/product-selling-locations', { auth: false }),
+
     // Manager point policy (T034)
     getPolicy: () => request('/api/v1/loyalty-policies/current'),
     updatePolicy: (key, body) => write('PUT', '/api/v1/loyalty-policies/current', key, body),

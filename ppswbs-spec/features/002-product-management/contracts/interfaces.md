@@ -79,6 +79,9 @@ Giữ shape common.ErrorResponse: code, message an toàn, correlationId, timesta
 | 400 | VALIDATION_ERROR, UNSUPPORTED_FILTER, INVALID_SORT, UNKNOWN_FIELD, IMPORT_FILE_INVALID (hỏng/không phải OOXML/có macro/header sai-thiếu cột/sheet đầu trống), IMPORT_ROW_LIMIT_EXCEEDED (> 500 dòng) | Trường/dòng lỗi; không query/ghi với tiêu chí sai. |
 | 401 | AUTHENTICATION_REQUIRED, INVALID_CREDENTIAL | Không tạo phiên/quyền từ credential lỗi. |
 | 403 | CATALOGUE_ACCESS_DENIED | Không tiết lộ protected resource. |
+| 403 | BRANCH_OUT_OF_SCOPE, BRANCH_SCOPE_EMPTY *(US10, 2026-11-08)* | Staff gửi lệnh cho chi nhánh không được gán, hoặc chưa được gán chi nhánh nào; không đổi dữ liệu (FR-050). |
+| 404 | BRANCH_NOT_FOUND, BRANCH_STOCK_NOT_FOUND *(US10)* | Chi nhánh không có hoặc ngừng hoạt động trong danh sách chi nhánh chuẩn; sản phẩm chưa bán ở chi nhánh đó. |
+| 409 | BRANCH_ALREADY_ADDED, BRANCH_REQUIRED *(US10)* | Thêm lại chi nhánh đã có; lệnh số lượng cũ theo size khi sản phẩm bán ở nhiều chi nhánh. |
 | 404 | PRODUCT_NOT_FOUND, VARIANT_NOT_FOUND, CATEGORY_NOT_FOUND, MEDIA_NOT_FOUND, PROPOSAL_NOT_FOUND, COMMAND_RESULT_NOT_FOUND, IMPORT_BATCH_NOT_FOUND | Public hidden/deleted giống không có; không reveal draft. |
 | 409 | STALE_VERSION, DUPLICATE_CATEGORY_NAME, PENDING_PRICE_PROPOSAL_EXISTS, REVIEW_NOT_CURRENT, PRICE_NOT_APPROVED, PRICE_TERMS_CHANGED, PRICE_APPLICATION_STALE, PUBLICATION_PREREQUISITES_MISSING, QUANTITY_BELOW_HELD, SIZE_LIST_IMMUTABLE, PRODUCT_DELETED, IDEMPOTENCY_KEY_REUSED, IMPORT_HAS_ERRORS (xác nhận batch REJECTED), IMPORT_BATCH_EXPIRED, IMPORT_PREVIEW_STALE (tái kiểm tra khi xác nhận thấy dữ liệu đổi; batch chuyển REJECTED, không tạo gì) | Tải latest trong quyền hiện tại, sửa/xác nhận lại; không ghi đè/hủy giao dịch cũ. |
 | 413 | MEDIA_TOO_LARGE, IMPORT_FILE_TOO_LARGE | Không attach object một phần / không tạo batch; file quá giới hạn bị từ chối. |

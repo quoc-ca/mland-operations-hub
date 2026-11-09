@@ -45,7 +45,9 @@ public final class ProductImportValidator {
     public record ImportError(int row, String column, String value, String code, String message) {
     }
 
-    public record PreviewVariant(int row, int size, BigInteger proposedPrice, BigInteger quantity) {
+    /** {@code branchQuantities}: quantity at each chosen branch, in the order of the file columns (US10); null without branches. */
+    public record PreviewVariant(int row, int size, BigInteger proposedPrice, BigInteger quantity,
+                                 List<BigInteger> branchQuantities) {
     }
 
     public record PreviewProduct(String groupKey, String name, String description, long categoryId,
@@ -66,6 +68,15 @@ public final class ProductImportValidator {
     }
 
     public static Result validate(List<RawRow> rows, Collection<ProductCategory> activeCategories) {
+        return validate(rows, activeCategories, List.of());
+    }
+
+    /**
+     * {@code branchHeaders} (US10, Q-B2): the header of each branch quantity column, in file order, starting at the
+     * column of {@link ImportColumn#QUANTITY}; empty = the single quantity column of the original template.
+     */
+    public static Result validate(List<RawRow> rows, Collection<ProductCategory> activeCategories,
+                                  List<String> branchHeaders) {
         Map<ByteBuffer, ProductCategory> categoriesByKey = new HashMap<>();
         for (ProductCategory category : activeCategories) {
             if (category.isActive()) {
@@ -96,13 +107,27 @@ public final class ProductImportValidator {
             }
             List<Integer> sizes = sizes(row, errors);
             BigInteger price = number(row, ImportColumn.PROPOSED_PRICE, true, errors);
-            BigInteger quantity = number(row, ImportColumn.QUANTITY, false, errors);
+            BigInteger quantity;
+            List<BigInteger> branchQuantities = null;
+            if (branchHeaders.isEmpty()) {
+                quantity = number(row, ImportColumn.QUANTITY, false, errors);
+            } else {
+                branchQuantities = new ArrayList<>();
+                quantity = BigInteger.ZERO;
+                for (int i = 0; i < branchHeaders.size(); i++) {
+                    BigInteger value = number(row.rowNumber(), row.cells().get(ImportColumn.QUANTITY.ordinal() + i),
+                            branchHeaders.get(i), false, true, errors);
+                    branchQuantities.add(value);
+                    quantity = value == null || quantity == null ? null : quantity.add(value);
+                }
+            }
             if (errors.size() > before || groupKey == null) {
                 continue;
             }
             ProductCategory rowCategory = category;
             Group group = groups.computeIfAbsent(groupKey, key -> new Group(key, name, description, rowCategory));
-            group.add(row.rowNumber(), name, description, rowCategory, sizes, price, quantity, errors);
+            group.add(row.rowNumber(), name, description, rowCategory, sizes, price, quantity,
+                    branchQuantities == null ? null : List.copyOf(branchQuantities), errors);
         }
 
         List<PreviewProduct> products = errors.isEmpty()
@@ -128,7 +153,7 @@ public final class ProductImportValidator {
 
         /** One row may carry several sizes (a list or range); each becomes a variant with the row's price and quantity. */
         void add(int row, String rowName, String rowDescription, ProductCategory rowCategory, List<Integer> rowSizes,
-                 BigInteger price, BigInteger quantity, List<ImportError> errors) {
+                 BigInteger price, BigInteger quantity, List<BigInteger> branchQuantities, List<ImportError> errors) {
             if (!name.equals(rowName)) {
                 errors.add(error(row, ImportColumn.NAME, rowName, "GROUP_FIELD_MISMATCH",
                         "Rows with the same group key must have the same product name."));
@@ -155,7 +180,7 @@ public final class ProductImportValidator {
                             "A product can have at most 25 sizes."));
                     return;
                 }
-                variants.add(new PreviewVariant(row, size, price, quantity));
+                variants.add(new PreviewVariant(row, size, price, quantity, branchQuantities));
             }
         }
 
@@ -254,12 +279,20 @@ public final class ProductImportValidator {
      * must be plain digits (no sign, separator, decimal point, exponent or leading zero).
      */
     private static BigInteger number(RawRow row, ImportColumn column, boolean positive, List<ImportError> errors) {
-        RawCell cell = row.cell(column);
-        if (unsupported(row.rowNumber(), column, cell, errors)) {
+        return number(row.rowNumber(), row.cell(column), column.header(), positive, false, errors);
+    }
+
+    /** {@code blankIsZero}: a blank branch quantity cell means 0 (Q-B2); other number cells are required. */
+    private static BigInteger number(int rowNumber, RawCell cell, String column, boolean positive, boolean blankIsZero,
+                                     List<ImportError> errors) {
+        if (unsupported(rowNumber, column, cell, errors)) {
             return null;
         }
         if (cell.isBlank()) {
-            errors.add(error(row.rowNumber(), column, null, "REQUIRED", "This field is required."));
+            if (blankIsZero) {
+                return BigInteger.ZERO;
+            }
+            errors.add(error(rowNumber, column, null, "REQUIRED", "This field is required."));
             return null;
         }
         BigInteger value = null;
@@ -277,22 +310,22 @@ public final class ProductImportValidator {
             if ((positive ? POSITIVE_TEXT : NONNEGATIVE_TEXT).matcher(text).matches()) {
                 value = new BigInteger(text);
             } else if (NONNEGATIVE_TEXT.matcher(text).matches()) {
-                errors.add(error(row.rowNumber(), column, text, "OUT_OF_RANGE", "Must be greater than 0."));
+                errors.add(error(rowNumber, column, text, "OUT_OF_RANGE", "Must be greater than 0."));
                 return null;
             }
         }
         if (value == null) {
-            errors.add(error(row.rowNumber(), column, cell.text(), "INVALID_NUMBER",
+            errors.add(error(rowNumber, column, cell.text(), "INVALID_NUMBER",
                     "Must be a whole number without separators, decimals or exponent."));
             return null;
         }
         if (value.signum() < 0 || (positive && value.signum() == 0)) {
-            errors.add(error(row.rowNumber(), column, value.toString(), "OUT_OF_RANGE",
+            errors.add(error(rowNumber, column, value.toString(), "OUT_OF_RANGE",
                     positive ? "Must be greater than 0." : "Must not be negative."));
             return null;
         }
         if (value.toString().length() > 19) {
-            errors.add(error(row.rowNumber(), column, value.toString(), "OUT_OF_RANGE", "The number is too large."));
+            errors.add(error(rowNumber, column, value.toString(), "OUT_OF_RANGE", "The number is too large."));
             return null;
         }
         return value;
@@ -303,6 +336,10 @@ public final class ProductImportValidator {
      * own for the last three, so all four use FORMULA_NOT_SUPPORTED with a specific message (to be confirmed).
      */
     private static boolean unsupported(int row, ImportColumn column, RawCell cell, List<ImportError> errors) {
+        return unsupported(row, column.header(), cell, errors);
+    }
+
+    private static boolean unsupported(int row, String column, RawCell cell, List<ImportError> errors) {
         String message = null;
         if (cell.formula()) {
             message = "Formulas are not supported; enter the value itself.";
@@ -330,9 +367,13 @@ public final class ProductImportValidator {
     }
 
     private static ImportError error(int row, ImportColumn column, String value, String code, String message) {
+        return error(row, column.header(), value, code, message);
+    }
+
+    private static ImportError error(int row, String column, String value, String code, String message) {
         String echoed = value == null ? null
                 : value.codePointCount(0, value.length()) <= ECHO_MAX ? value
                 : value.substring(0, value.offsetByCodePoints(0, ECHO_MAX));
-        return new ImportError(row, column.header(), echoed, code, message);
+        return new ImportError(row, column, echoed, code, message);
     }
 }

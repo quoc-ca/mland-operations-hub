@@ -1,5 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReason;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReasonCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
@@ -45,7 +47,7 @@ public final class WorkshopBenefitEvaluator {
 
     public static RetailQuote.Result compute(WorkshopFact booking, BenefitSelection selection, WorkshopCandidate voucher,
                                              PolicyTerms policy, BigInteger availablePoints, boolean strict) {
-        List<String> reasons = new ArrayList<>();
+        List<BenefitReason> reasons = new ArrayList<>();
         BigInteger fee = LoyaltyValues.requireAmount("grossPackageAmount", booking.grossPackageAmount());
         RetailQuote.Candidate chosen = null;
         BigInteger discount = BigInteger.ZERO;
@@ -53,20 +55,21 @@ public final class WorkshopBenefitEvaluator {
 
         if (selection.choice() == SelectionChoice.AUTO) {
             refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE,
-                    "Workshops have no automatic discount; enter a voucher code instead.");
+                    BenefitReason.of(BenefitReasonCode.WORKSHOP_NO_AUTO_DISCOUNT));
         } else if (selection.choice() == SelectionChoice.VOUCHER) {
             if (voucher == null) {
-                refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE, "The voucher code was not found.");
-            } else if (voucher.base().unavailableReason() != null) {
-                refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE, voucher.base().unavailableReason());
+                refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE,
+                        BenefitReason.of(BenefitReasonCode.VOUCHER_NOT_FOUND));
+            } else if (voucher.base().unavailable() != null) {
+                refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE, voucher.base().unavailable());
             } else if (!matches(voucher, booking)) {
                 refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE,
-                        "This voucher does not cover this package, branch, date or session.");
+                        BenefitReason.of(BenefitReasonCode.WORKSHOP_NOT_COVERED));
             } else {
                 DiscountResult result = LoyaltyCalculator.programDiscount(voucher.base().terms(), fee);
                 if (!result.eligible()) {
                     refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE,
-                            "The package fee does not reach the minimum amount of this voucher.");
+                            BenefitReason.of(BenefitReasonCode.WORKSHOP_BELOW_MINIMUM_FEE));
                 } else {
                     chosen = voucher.base();
                     eligible = fee;
@@ -85,9 +88,10 @@ public final class WorkshopBenefitEvaluator {
                 LoyaltyCalculator.requirePointsSelection(policy, limit, requested);
                 used = requested;
             } else if (!pointsAllowed) {
-                reasons.add("Points cannot be used with this voucher.");
+                reasons.add(BenefitReason.of(BenefitReasonCode.POINTS_NOT_COMBINABLE));
             } else if (requested.compareTo(policy.minRedeemPoints()) < 0 || requested.compareTo(limit.maxPoints()) > 0) {
-                reasons.add("Points must be between " + policy.minRedeemPoints() + " and " + limit.maxPoints() + ".");
+                reasons.add(BenefitReason.of(BenefitReasonCode.POINTS_OUT_OF_RANGE, "min", policy.minRedeemPoints(),
+                        "max", limit.maxPoints()));
             } else {
                 used = requested;
             }
@@ -96,7 +100,7 @@ public final class WorkshopBenefitEvaluator {
         BigInteger post = LoyaltyCalculator.earnBase(net, pointDiscount);
         if (post.signum() <= 0) {
             refuse(strict, reasons, LoyaltyErrorCode.WORKSHOP_NET_AMOUNT_INVALID,
-                    "The amount to pay after discounts must be greater than zero.");
+                    BenefitReason.of(BenefitReasonCode.WORKSHOP_NET_AMOUNT_INVALID));
         }
         return new RetailQuote.Result(fee, eligible, discount, net, limit.maxPoints(), pointsAllowed, used, pointDiscount,
                 post, chosen, List.copyOf(reasons));
@@ -115,9 +119,10 @@ public final class WorkshopBenefitEvaluator {
                         && (voucher.sessions().isEmpty() || voucher.sessions().contains(session.sessionRef())));
     }
 
-    private static void refuse(boolean strict, List<String> reasons, LoyaltyErrorCode code, String reason) {
+    private static void refuse(boolean strict, List<BenefitReason> reasons, LoyaltyErrorCode code,
+                               BenefitReason reason) {
         if (strict) {
-            throw new LoyaltyException(code, reason);
+            throw new LoyaltyException(code, reason.message());
         }
         reasons.add(reason);
     }

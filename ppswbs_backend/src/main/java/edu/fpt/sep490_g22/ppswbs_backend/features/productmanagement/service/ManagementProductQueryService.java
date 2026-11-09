@@ -4,6 +4,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.PricePro
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductCategoryRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductImageRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.VariantBranchStockRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.VariantBranchStock;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocation;
+import org.springframework.beans.factory.annotation.Autowired;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductReviewRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ManagementProductDtos;
@@ -61,11 +65,30 @@ public class ManagementProductQueryService {
     private final ProductReviewRepository reviews;
     private final PriceProposalRepository proposals;
     private final ObjectProvider<VariantHoldReader> holdReader;
+    private final ObjectProvider<VariantBranchStockRepository> branchStocks;
+    private final ObjectProvider<ProductBranchStockService> branchStockService;
 
+    /** Without branch data (unit tests of the base read). */
     public ManagementProductQueryService(ProductRepository products, ProductVariantRepository variants,
                                          ProductCategoryRepository categories, ProductImageRepository images,
                                          ProductReviewRepository reviews, PriceProposalRepository proposals,
                                          ObjectProvider<VariantHoldReader> holdReader) {
+        this(products, variants, categories, images, reviews, proposals, holdReader, null, null);
+    }
+
+    /**
+     * Branch data (US10) is optional so this read never depends on the branch source: without names a branch is shown
+     * by id. The branch service is resolved lazily because it creates products through this read.
+     */
+    @Autowired
+    public ManagementProductQueryService(ProductRepository products, ProductVariantRepository variants,
+                                         ProductCategoryRepository categories, ProductImageRepository images,
+                                         ProductReviewRepository reviews, PriceProposalRepository proposals,
+                                         ObjectProvider<VariantHoldReader> holdReader,
+                                         ObjectProvider<VariantBranchStockRepository> branchStocks,
+                                         ObjectProvider<ProductBranchStockService> branchStockService) {
+        this.branchStocks = branchStocks;
+        this.branchStockService = branchStockService;
         this.products = products;
         this.variants = variants;
         this.categories = categories;
@@ -103,15 +126,25 @@ public class ManagementProductQueryService {
 
     @Transactional(readOnly = true)
     public ManagementProductPage list(String q, String categoryId, Boolean published, Integer page) {
+        return list(q, categoryId, published, page, null);
+    }
+
+    /** {@code locationId}: only products sold at this branch (US10, FR-051); null = every product. */
+    @Transactional(readOnly = true)
+    public ManagementProductPage list(String q, String categoryId, Boolean published, Integer page, String locationId) {
         Keyword keyword = Keyword.parse(q);
         Long category = categoryId == null ? null : CatalogueValues.parseId("categoryId", categoryId);
+        Long location = locationId == null ? null : CatalogueValues.parseId("locationId", locationId);
         int pageNumber = page == null ? 0 : page;
         if (pageNumber < 0) {
             throw CatalogueException.invalidField("page", "Page must be zero or greater.");
         }
-        Page<Long> ids = products.searchManagementIds(category, published, keyword.anyKeyword(),
-                keyword.namePattern(), keyword.productNumber(), keyword.sku(),
-                PageRequest.of(pageNumber, ManagementProductDtos.PAGE_SIZE));
+        PageRequest pageable = PageRequest.of(pageNumber, ManagementProductDtos.PAGE_SIZE);
+        Page<Long> ids = location == null
+                ? products.searchManagementIds(category, published, keyword.anyKeyword(),
+                        keyword.namePattern(), keyword.productNumber(), keyword.sku(), pageable)
+                : products.searchManagementIdsAtBranch(location, category, published, keyword.anyKeyword(),
+                        keyword.namePattern(), keyword.productNumber(), keyword.sku(), pageable);
         List<ManagementProduct> items = load(ids.getContent());
         return new ManagementProductPage(items, pageNumber, ManagementProductDtos.PAGE_SIZE,
                 Long.toString(ids.getTotalElements()));
@@ -148,6 +181,13 @@ public class ManagementProductQueryService {
                 .findByVariantIdInOrderByVariantIdAscRevisionAscIdAsc(variantIds).stream()
                 .collect(Collectors.groupingBy(PriceProposal::getVariantId));
         Map<Long, BigInteger> heldByVariant = heldQuantities(productById.values(), variantsByProduct);
+        VariantBranchStockRepository stockRepository = branchStocks == null ? null : branchStocks.getIfAvailable();
+        Map<Long, List<VariantBranchStock>> stocksByVariant = stockRepository == null || variantIds.isEmpty() ? Map.of()
+                : stockRepository.findByVariantIdInOrderByVariantIdAscLocationIdAsc(variantIds).stream()
+                        .collect(Collectors.groupingBy(VariantBranchStock::getVariantId));
+        ProductBranchStockService branchService = stocksByVariant.isEmpty() || branchStockService == null ? null
+                : branchStockService.getIfAvailable();
+        Map<Long, SellingLocation> activeBranches = branchService == null ? Map.of() : branchService.activeBranchesOrEmpty();
 
         List<ManagementProduct> result = new ArrayList<>(productIds.size());
         for (Long id : productIds) {
@@ -157,7 +197,8 @@ public class ManagementProductQueryService {
             }
             result.add(toDto(product, categoryById.get(product.getCategoryId()),
                     variantsByProduct.getOrDefault(id, List.of()), imagesByProduct.getOrDefault(id, List.of()),
-                    reviewsByProduct.getOrDefault(id, List.of()), proposalsByVariant, heldByVariant));
+                    reviewsByProduct.getOrDefault(id, List.of()), proposalsByVariant, heldByVariant,
+                    stocksByVariant, activeBranches));
         }
         return result;
     }
@@ -195,7 +236,9 @@ public class ManagementProductQueryService {
     private static ManagementProduct toDto(Product product, ProductCategory category, List<ProductVariant> productVariants,
                                            List<ProductImage> productImages, List<ProductReview> productReviews,
                                            Map<Long, List<PriceProposal>> proposalsByVariant,
-                                           Map<Long, BigInteger> heldByVariant) {
+                                           Map<Long, BigInteger> heldByVariant,
+                                           Map<Long, List<VariantBranchStock>> stocksByVariant,
+                                           Map<Long, SellingLocation> activeBranches) {
         if (category == null) {
             throw new IllegalStateException("Product " + product.getId() + " references a missing category");
         }
@@ -216,17 +259,20 @@ public class ManagementProductQueryService {
                         .toList(),
                 productVariants.stream()
                         .map(variant -> toDto(variant, heldByVariant.get(variant.getId()),
-                                proposalsByVariant.getOrDefault(variant.getId(), List.of())))
+                                proposalsByVariant.getOrDefault(variant.getId(), List.of()),
+                                stocksByVariant.getOrDefault(variant.getId(), List.of())))
                         .toList(),
                 productReviews.stream()
                         .map(review -> new ManagementProductDtos.Review(CatalogueValues.format(review.getId()),
                                 review.getRevision(), review.getContentVersion(), review.getState().name(),
                                 review.isEffective(), review.getRejectionReason()))
-                        .toList());
+                        .toList(),
+                branchesOf(productVariants, stocksByVariant, activeBranches));
     }
 
     private static ManagementProductDtos.ManagementVariant toDto(ProductVariant variant, BigInteger held,
-                                                                 List<PriceProposal> variantProposals) {
+                                                                 List<PriceProposal> variantProposals,
+                                                                 List<VariantBranchStock> variantStocks) {
         BigInteger available = variant.getRemainingUnsold().subtract(held).max(BigInteger.ZERO);
         return new ManagementProductDtos.ManagementVariant(
                 CatalogueValues.format(variant.getId()),
@@ -253,7 +299,31 @@ public class ManagementProductQueryService {
                                 proposal.getBaseAppliedSequence(),
                                 proposal.getId().equals(variant.getAppliedProposalId()),
                                 proposal.getReason()))
+                        .toList(),
+                variantStocks.stream()
+                        .map(stock -> new ManagementProductDtos.BranchStock(CatalogueValues.format(stock.getLocationId()),
+                                CatalogueValues.format(stock.getRemainingUnsold()), stock.isSaleEnabled(),
+                                stock.getVersion()))
                         .toList());
+    }
+
+    /** Branches of a product, in branch id order: sold there, its name if still active, and whether any size sells. */
+    private static List<ManagementProductDtos.Branch> branchesOf(List<ProductVariant> productVariants,
+                                                                 Map<Long, List<VariantBranchStock>> stocksByVariant,
+                                                                 Map<Long, SellingLocation> activeBranches) {
+        Map<Long, Boolean> saleByBranch = new java.util.TreeMap<>();
+        for (ProductVariant variant : productVariants) {
+            for (VariantBranchStock stock : stocksByVariant.getOrDefault(variant.getId(), List.of())) {
+                saleByBranch.merge(stock.getLocationId(), stock.isSaleEnabled(), Boolean::logicalOr);
+            }
+        }
+        List<ManagementProductDtos.Branch> branches = new ArrayList<>();
+        saleByBranch.forEach((locationId, sale) -> {
+            SellingLocation location = activeBranches.get(locationId);
+            branches.add(new ManagementProductDtos.Branch(CatalogueValues.format(locationId),
+                    location == null ? null : location.displayName(), location != null, sale));
+        });
+        return branches;
     }
 
     private static <T> Map<Long, T> byId(Collection<T> rows, Function<T, Long> idOf) {

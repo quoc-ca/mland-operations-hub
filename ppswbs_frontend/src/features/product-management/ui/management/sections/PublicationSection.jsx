@@ -3,7 +3,9 @@ import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { ErrorNotice } from '../../../../../shared/ui/components';
 import { ACTIONS } from '../../../application/useCatalogueCommand';
 import { messages } from '../../messages';
-import { effectiveProposal } from '../../../domain/productRules';
+import { effectiveProposal, missingRequirements } from '../../../domain/productRules';
+import { publishWithoutReview } from '../../../application/publishNow';
+import { useRole } from '../../../../../shared/auth/useRole';
 import { useProductCommand } from '../ProductDetailPage';
 import { NoticeAt } from '../notices';
 
@@ -17,6 +19,15 @@ export function PublicationSection({ product, api, reload, setNotice, deleted, f
   const format = useFormat();
   const command = useProductCommand({ reload, setNotice });
   const target = !product.published;
+  const isManager = useRole() === 'MANAGER';
+  // A Manager skips the initial review: submit, approve the proposed prices and apply them, then publish, each its own command.
+  const canPublishNow = isManager && !product.published && !product.firstPublishedAt && !deleted;
+  const publishNow = async () => {
+    if (Object.keys(missingRequirements(product)).length) { flagMissing(); return; }
+    const send = () => publishWithoutReview(api, product);
+    const outcome = await command.run(send, { key: 'publication.published', at: 'publication' }, ACTIONS.publish);
+    if (outcome.error?.code === 'PUBLICATION_PREREQUISITES_MISSING' || outcome.error?.fieldErrors?.length) flagMissing();
+  };
   const toggle = async () => {
     const outcome = await command.run(key => api.setPublication(key, product.id, product.version, target), { key: target ? 'publication.published' : 'publication.hidden', at: 'publication' }, target ? ACTIONS.publish : ACTIONS.unpublish);
     if (outcome.error?.code === 'PUBLICATION_PREREQUISITES_MISSING') flagMissing();
@@ -45,8 +56,11 @@ export function PublicationSection({ product, api, reload, setNotice, deleted, f
           );
         })}
       </div>
-      <p className="muted small">{t('publication.hint')}</p>
-      {!deleted && (
+      <p className="muted small">{t(canPublishNow ? 'publication.managerHint' : 'publication.hint')}</p>
+      {canPublishNow && (
+        <button type="button" className="button primary" disabled={command.pending} onClick={publishNow}>{t('publication.publishNow')}</button>
+      )}
+      {!deleted && !canPublishNow && (
         <button type="button" className={target ? 'button primary' : 'button outline'} disabled={command.pending} onClick={toggle}>
           {target ? t('publication.publish') : t('publication.hide')}
         </button>

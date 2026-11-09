@@ -1,6 +1,8 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.ProgramKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReason;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReasonCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
@@ -192,14 +194,39 @@ class LoyaltyRetailQuoteTest {
     @Test
     void anUnavailableVoucherExplainsWhy() {
         Candidate paused = new Candidate(1, 10, 1, ProgramKind.VOUCHER, EARLY, fixed(5_000, 5_000, 0), true,
-                Set.of(1L), Set.of(), "CODE1", "This voucher is paused.");
+                Set.of(1L), Set.of(), "CODE1", BenefitReason.of(BenefitReasonCode.PROMOTION_PAUSED));
         Result preview = RetailQuote.compute(CART, select(SelectionChoice.VOUCHER, 0), paused, List.of(), POLICY,
                 n(0), false);
         assertThat(preview.candidate()).isNull();
-        assertThat(preview.reasons()).contains("This voucher is paused.");
+        assertThat(preview.reasons()).contains("This promotion is paused.");
         Result missing = RetailQuote.compute(CART, select(SelectionChoice.VOUCHER, 0), null, List.of(), POLICY, n(0),
                 false);
         assertThat(missing.reasons()).anyMatch(reason -> reason.contains("not found"));
+        assertThat(missing.reasonDetails()).extracting(BenefitReason::code)
+                .containsExactly(BenefitReasonCode.VOUCHER_NOT_FOUND);
+    }
+
+    @Test
+    void reasonsCarryAStableCodeAndParametersBesideTheEnglishText() {
+        // T081 / FR-013: the screen translates the code; the English text stays for callers that read strings.
+        Result belowMinimum = RetailQuote.compute(List.of(line(1, 11, 1, 9_900)), select(SelectionChoice.NONE, 9),
+                null, List.of(), POLICY, n(500), false);
+        assertThat(belowMinimum.reasonDetails()).extracting(BenefitReason::code)
+                .contains(BenefitReasonCode.POINTS_OUT_OF_RANGE, BenefitReasonCode.POINTS_BELOW_MINIMUM);
+        BenefitReason range = belowMinimum.reasonDetails().get(0);
+        assertThat(range.params()).containsEntry("min", "10").containsEntry("max", "9");
+        assertThat(range.message()).isEqualTo("Points must be between 10 and 9.");
+        assertThat(belowMinimum.reasons()).hasSameSizeAs(belowMinimum.reasonDetails());
+
+        Result noCombine = RetailQuote.compute(CART, select(SelectionChoice.VOUCHER, 50),
+                voucher(1, percent("10", 50_000, 0), false, Set.of(1L)), List.of(), POLICY, n(100), false);
+        assertThat(noCombine.reasonDetails()).extracting(BenefitReason::code)
+                .containsExactly(BenefitReasonCode.POINTS_NOT_COMBINABLE);
+
+        Result noAuto = RetailQuote.compute(CART, select(SelectionChoice.AUTO, 0), null, List.of(), POLICY, n(0),
+                false);
+        assertThat(noAuto.reasonDetails()).extracting(BenefitReason::code)
+                .containsExactly(BenefitReasonCode.NO_AUTO_DISCOUNT);
     }
 
     @Test

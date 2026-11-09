@@ -1,7 +1,7 @@
 # Verification — FE-06 Loyalty & Promotion
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-04 (mục 46: rà soát hoàn thành — 80/80 task, backend 258/258, frontend 31/31, owner thử voucher thật; trước đó: 2026-11-03 (mục 40 sửa theo thực tế, mục 41: cảnh báo phạm vi cho Manager, khôi phục lệnh tạo, mã voucher trong spec; trước đó: 2026-11-01 (mục 30: chuẩn bị T075/T076, đối chiếu 41 FR; mục 29: phục hồi, tranh chấp nguồn, báo cáo lượt dùng; mục 28: workshop nguồn thật FE-03 và CORS; mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật))
+**Date updated**: 2026-11-05 (mục 49: kiểm thử cuối trên màn thật, tên gói/chi nhánh workshop; mục 48: T081 mã lý do vi/en; trước đó: 2026-11-04 (mục 46: rà soát hoàn thành — 80/80 task, backend 258/258, frontend 31/31, owner thử voucher thật; trước đó: 2026-11-03 (mục 40 sửa theo thực tế, mục 41: cảnh báo phạm vi cho Manager, khôi phục lệnh tạo, mã voucher trong spec; trước đó: 2026-11-01 (mục 30: chuẩn bị T075/T076, đối chiếu 41 FR; mục 29: phục hồi, tranh chấp nguồn, báo cáo lượt dùng; mục 28: workshop nguồn thật FE-03 và CORS; mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật)))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -755,3 +755,62 @@ Với member@gmail.com:
 - Kiểm tra: frontend 006 + 002 `npx vitest run` 89/89 (sửa 1 test theo định dạng thời gian mới). Trên Chrome đo computed style: trang `/promotions` và `/promotions/4` đúng như trên. Màn Manager (10, 12) chưa xem lại trên trình duyệt sau khi sửa: phiên Chrome lúc kiểm tra không còn là Manager (trang chi tiết chương trình trả 403).
 - Figma cũ hơn code (cần cập nhật Figma, không sửa code): 13 ghi "FLOOR" (code: "Làm tròn xuống (bỏ phần lẻ)"); 14/15 ghi "Mã sản phẩm 42" (code: "Sản phẩm" + tên, mục 42); chưa có frame cảnh báo phạm vi ở chi tiết chương trình; đường dẫn trên cùng của chi tiết/tạo chương trình khác chữ.
 - Chưa so: màn Member 16/17 (cần phiên Member), BenefitSelector 18 (trong trang FE-03), trạng thái phụ.
+
+## 48. T081: mã lý do cho xem trước ưu đãi (speckit-converge F1), 2026-11-05
+
+- **Thay đổi backend:** thêm `facade/BenefitReasonCode` (18 mã, mỗi mã giữ câu tiếng Anh cũ làm mẫu) và `facade/BenefitReason{code, params}`. `RetailQuote`, `WorkshopBenefitEvaluator` và `LoyaltyQuoteService.unavailableReason` trả lý do dạng mã; `RetailQuote.Result.reasons()` và `BenefitPreview.reasons` vẫn là chuỗi tiếng Anh như trước. `BenefitPreview` thêm trường cuối `reasonDetails` (cùng thứ tự với `reasons`) và giữ constructor cũ 18 tham số, nên code và test double của FE-03/FE-08 không phải sửa. Ở chế độ strict (accept), thông báo lỗi giữ nguyên chữ.
+- **Thay đổi frontend:** `BenefitSelector` dịch `quote.reasonDetails` theo `reason.<CODE>` trong `ui/messages.js` (vi/en, số được nhóm chữ số). Nếu không có `reasonDetails` hoặc gặp mã chưa biết thì hiện chuỗi `reasons` như cũ.
+- **Contract:** `contracts/interfaces.md` ghi `reasonDetails` ở dòng `previewBenefits`.
+- **Kiểm tra:**
+  - Backend: `.\mvnw.cmd -o test -Dtest=LoyaltyRetailQuoteTest,LoyaltyWorkshopQuoteTest,LoyaltyCalculationTest,RetailCheckoutQuotePreviewServiceTest,MemberQuoteBookingAcceptanceServiceTest,WorkshopBookingQuoteExpiryTest`. Kết quả **60/60 đạt**: 006 có 15 + 13 + 21, gồm test mới `reasonsCarryAStableCodeAndParametersBesideTheEnglishText`; FE-08 5; FE-03 5 + 1.
+  - Frontend: `npx vitest run src/features/loyalty-promotion` cho **32/32 đạt**, gồm test mới hiện lý do theo vi/en và lùi về chuỗi khi gặp mã lạ.
+- **Chưa chạy:** bộ IT MySQL của 006. Không có thay đổi schema hay luồng ghi; các IT chỉ kiểm `reasons()` rỗng hoặc không rỗng, ý nghĩa đó không đổi. Chưa kiểm trên trình duyệt.
+- **Bàn giao cho owner:** người dùng chỉ thấy lý do tiếng Việt khi quote của owner chuyển tiếp `reasonDetails`. FE-03 cần thêm trường này vào `WorkshopBookingQuoteResponse`. FE-08 hiện dùng `RetailBenefitPanel` riêng nên cần tự dịch theo mã. Phần này thuộc file của owner, 006 không sửa.
+
+## 49. Kiểm thử cuối trên màn thật trước khi gộp, 2026-11-05
+
+Môi trường: nhánh `khuong` (`c17573a` cùng T081 chưa commit), backend và frontend chạy local, `ppswbs_dev`, Firebase thật. Backend chạy với `--spring.flyway.validate-on-migrate=false` vì `V80` của FE-08/003 lệch checksum; xem validation-report 002 cùng ngày.
+
+- **Manager, đều đạt:**
+  - Voucher sản phẩm #8 (`MLY9PDKM2K`):
+    - Lỗi phần trăm 101, lỗi thời gian kết thúc trước bắt đầu, lỗi chưa chọn đối tượng đều hiện đúng; dữ liệu đã nhập được giữ.
+    - Tích "cả sản phẩm" thì các ô size bị khóa.
+    - Form sửa không có ô mã và phạm vi.
+    - Bấm Hủy ở hộp tạm dừng thì không đổi gì; tạm dừng rồi mở lại vẫn giữ 0/100.
+  - Giảm tự động #9: phạm vi tự khóa ở Sản phẩm, không có ô mã/lượt, luôn cho dùng điểm.
+  - Voucher workshop #10 (`MLNYM4XMTN`): cho gói 2, chi nhánh 1.
+  - Chính sách điểm:
+    - 101% bị chặn.
+    - Hai tab cùng sửa: tab sau nhận 409, giá trị đang nhập được giữ, "Tải bản mới nhất" hiện phiên bản 6.
+    - Đã đưa về 10% (phiên bản 7).
+  - Manager mở `/me/loyalty` thì bị 403.
+- **Member, đều đạt:**
+  - F1–F3: thẻ công khai hiện đủ; lưu #8 và #10 vào Kho, cả hai hiện "Dùng được".
+  - F5: My Loyalty hiện 0/0/0 theo chính sách phiên bản 7.
+  - F6: Member vào trang quản lý ưu đãi thì bị 403.
+- **Đặt workshop gói 2 (`BenefitSelector` trong màn của FE-03):**
+  - Mã sai thì có lý do. Mã ` mlnym4xmtn ` (chữ thường, có khoảng trắng) vẫn nhận: giảm 100.000 ₫, sau ưu đãi 700.000 ₫, cọc 350.000 ₫, còn lại 350.000 ₫.
+  - Nhập 20 điểm khi ví 0 điểm thì bị chặn; ô xác nhận và nút Xác nhận đều khóa.
+  - Đặt thật BK-7E8F261D56834356835E: `AcceptedBenefit` ở trạng thái `HELD`, `held_count` của #10 = 1.
+  - Đặt lần hai với cùng mã thì bị từ chối vì hết lượt mỗi Member.
+  - Hết hạn giữ chỗ lúc 11:30:12 UTC: `RELEASED`/`INELIGIBLE` lúc 11:30:14; bộ đếm về 0, voucher vẫn còn trong Kho (US7.1).
+- **Lỗi tìm thấy và đã sửa:**
+  - **Hiện tượng:** thẻ voucher workshop ở `/promotions`, Kho Voucher và chi tiết hiện mã thô "Mã gói workshop 2 / Mã chi nhánh 1".
+  - **Sửa:**
+    - `useTargetLabels` đọc tên gói qua `GET /api/v1/workshop-packages/{id}` và tên chi nhánh qua `GET /api/v1/product-selling-locations`. Cả hai đọc không cần đăng nhập; mã chi nhánh của voucher chính là `workshop_locations.id`.
+    - `Terms` hiện "Gói workshop: <tên>" và "Chi nhánh: <tên>"; nếu không đọc được tên thì hiện "Gói #id" / "Chi nhánh #id".
+    - Form tạo vẫn ghi "Mã gói workshop".
+    - Trang chi tiết Manager cũng đọc tên cho chương trình workshop.
+  - **Test:** thêm 1 test frontend. Frontend 006 33/33, toàn bộ 282/282, build đạt.
+  - **Trên màn thật (Member):** `/promotions` và Kho Voucher hiện "Workshop nhẫn bạc thử hành trình 1104" và "Mland Hà Nội – Hoàn Kiếm".
+- **Ghi nhận cho owner khác (chưa sửa, ngoài phạm vi 006):**
+  - FE-03:
+    - `GET /api/v1/workshop-packages` và `GET /api/v1/workshop-packages/2/sessions` trả 500, nên trang `/workshops` lỗi.
+    - Quote của FE-03 chưa chuyển tiếp `reasonDetails` (T081), nên lý do vẫn hiện tiếng Anh, ví dụ "Points must be between 10 and 0.".
+    - Màn đặt chỗ chưa truyền voucher đã lưu vào `BenefitSelector`.
+    - Màn đặt chỗ hiện chi nhánh "MLAND Quận 1 / Thủ Đức", tên này không có trong `workshop_locations`.
+  - FE-08/003: `V80` lỗi trên database trống và lệch checksum.
+- **Chưa chạy:**
+  - F4: Manager tạm dừng rồi Member xem lại trong Kho (cần đổi phiên).
+  - Phiên Staff.
+  - Checkout bán lẻ, thanh toán đặt cọc và tích điểm.

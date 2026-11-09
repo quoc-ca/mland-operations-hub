@@ -6,7 +6,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.CommandR
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ManagementProductDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueAuthorization;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueAuthorization.Capability;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueBranchScope;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ProductBranchStockService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CommandReceiptQueryService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CreateProductService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.DeleteProductService;
@@ -56,12 +58,17 @@ class ManagementProductApiController {
     private final ProductReviewService reviews;
     private final ProductPublicationService publication;
     private final CommandReceiptQueryService receipts;
+    private final CatalogueBranchScope branchScope;
+    private final ProductBranchStockService branchStock;
 
     ManagementProductApiController(CatalogueAuthorization authorization, ManagementProductQueryService query,
                                    CreateProductService createProducts, UpdateProductService updates,
                                    DeleteProductService deletion, ProductImageService images,
                                    ProductReviewService reviews, ProductPublicationService publication,
-                                   CommandReceiptQueryService receipts) {
+                                   CommandReceiptQueryService receipts, CatalogueBranchScope branchScope,
+                                   ProductBranchStockService branchStock) {
+        this.branchScope = branchScope;
+        this.branchStock = branchStock;
         this.authorization = authorization;
         this.query = query;
         this.createProducts = createProducts;
@@ -77,9 +84,42 @@ class ManagementProductApiController {
     ResponseEntity<ManagementProductDtos.ManagementProductPage> list(@RequestParam(required = false) String q,
                                                                      @RequestParam(required = false) String categoryId,
                                                                      @RequestParam(required = false) Boolean published,
-                                                                     @RequestParam(required = false) Integer page) {
+                                                                     @RequestParam(required = false) Integer page,
+                                                                     @RequestParam(required = false) String locationId) {
         authorization.require(Capability.READ_INTERNAL);
-        return ok(query.list(q, categoryId, published, page));
+        return ok(query.list(q, categoryId, published, page, locationId));
+    }
+
+    /** US10 FR-049: start selling the product at another branch. */
+    @PostMapping("/products/{productId}/branches")
+    ResponseEntity<JsonNode> addBranch(@PathVariable String productId, @RequestHeader(KEY) UUID key,
+                                       @RequestBody CatalogueRequests.BranchAddRequest body) {
+        String actor = authorization.require(Capability.VARIANT_QUANTITY);
+        List<ProductBranchStockService.SizeQuantity> quantities = body.quantities() == null ? List.of()
+                : body.quantities().stream()
+                        .map(entry -> new ProductBranchStockService.SizeQuantity(entry.size(), entry.quantity())).toList();
+        return committed(branchStock.addBranch(actor, key, productId, version(body.expectedVersion()),
+                new ProductBranchStockService.BranchInput(required("locationId", body.locationId()), quantities)));
+    }
+
+    /** US10 FR-049: stop or resume selling at one branch. */
+    @PutMapping("/products/{productId}/branches/{locationId}/sale-status")
+    ResponseEntity<JsonNode> setBranchSale(@PathVariable String productId, @PathVariable String locationId,
+                                           @RequestHeader(KEY) UUID key,
+                                           @RequestBody CatalogueRequests.BranchSaleRequest body) {
+        String actor = authorization.require(Capability.VARIANT_SALE_STATUS);
+        return committed(branchStock.setSaleEnabled(actor, key, productId, locationId,
+                flag("saleEnabled", body.saleEnabled())));
+    }
+
+    /** US10 FR-049: quantity of one size at one branch. */
+    @PutMapping("/variants/{variantId}/branches/{locationId}/quantity")
+    ResponseEntity<JsonNode> setBranchQuantity(@PathVariable String variantId, @PathVariable String locationId,
+                                               @RequestHeader(KEY) UUID key,
+                                               @RequestBody CatalogueRequests.QuantityRequest body) {
+        String actor = authorization.require(Capability.VARIANT_QUANTITY);
+        return committed(branchStock.setQuantity(actor, key, variantId, locationId, version(body.expectedVersion()),
+                required("quantity", body.quantity())));
     }
 
     @PostMapping("/products")
@@ -99,6 +139,7 @@ class ManagementProductApiController {
     ResponseEntity<JsonNode> update(@PathVariable String productId, @RequestHeader(KEY) UUID key,
                                     @RequestBody CatalogueRequests.ProductUpdate body) {
         String actor = authorization.require(Capability.PRODUCT_EDIT);
+        branchScope.requireProduct(productId);
         return committed(updates.update(actor, key, productId, version(body.expectedVersion()),
                 new UpdateProductService.UpdateCommand(body.name(), body.description(), body.categoryId())));
     }
@@ -107,6 +148,7 @@ class ManagementProductApiController {
     ResponseEntity<JsonNode> delete(@PathVariable String productId, @RequestHeader(KEY) UUID key,
                                     @RequestParam Long expectedVersion) {
         String actor = authorization.require(Capability.PRODUCT_DELETE);
+        branchScope.requireProduct(productId);
         return committed(deletion.delete(actor, key, productId, version(expectedVersion)));
     }
 
@@ -114,6 +156,7 @@ class ManagementProductApiController {
     ResponseEntity<JsonNode> replaceImages(@PathVariable String productId, @RequestHeader(KEY) UUID key,
                                            @RequestBody CatalogueRequests.ImagesUpdate body) {
         String actor = authorization.require(Capability.MEDIA_MANAGE);
+        branchScope.requireProduct(productId);
         List<CreateProductService.ImageInput> wanted = required("images", body.images()).stream()
                 .map(image -> new CreateProductService.ImageInput(image.mediaId(), image.altText(), image.position()))
                 .toList();
@@ -124,6 +167,7 @@ class ManagementProductApiController {
     ResponseEntity<JsonNode> submitReview(@PathVariable String productId, @RequestHeader(KEY) UUID key,
                                           @RequestBody CatalogueRequests.VersionRequest body) {
         String actor = authorization.require(Capability.PRODUCT_SUBMIT);
+        branchScope.requireProduct(productId);
         return committed(reviews.submit(actor, key, productId, version(body.expectedVersion())));
     }
 
@@ -151,6 +195,7 @@ class ManagementProductApiController {
     ResponseEntity<JsonNode> setPublication(@PathVariable String productId, @RequestHeader(KEY) UUID key,
                                             @RequestBody CatalogueRequests.PublicationRequest body) {
         String actor = authorization.require(Capability.PRODUCT_PUBLISH);
+        branchScope.requireProduct(productId);
         return committed(publication.setPublication(actor, key, productId, version(body.expectedVersion()),
                 flag("published", body.published())));
     }

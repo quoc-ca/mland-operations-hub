@@ -77,20 +77,25 @@ export default function MainTopbar() {
     }
     let active = true;
 
-    // Lấy thông tin hồ sơ tài khoản (fullName, email)
+    // Lấy thông tin hồ sơ tài khoản (fullName, email), rồi mới lấy điểm.
+    // Điểm tích lũy chỉ có ở Member: gọi API Member với Staff/Manager/Admin sẽ bị 403,
+    // mà mọi 403 đều đưa người dùng về trang chủ (SessionNavigationBoundary).
     http('/api/v1/accounts/me/profile')
       .then((p) => {
-        if (active && p) setProfileData(p);
-      })
-      .catch(() => {});
-
-    // Lấy số điểm tích lũy thực tế
-    http('/api/v1/members/me/loyalty-accounts/current')
-      .then((acc) => {
-        if (active && acc) {
-          const pts = Number(acc.availablePoints ?? acc.balancePoints ?? 0);
-          setLoyaltyPoints(pts);
+        if (!active || !p) return;
+        setProfileData(p);
+        if (p.role !== 'MEMBER') {
+          setLoyaltyPoints(null);
+          return;
         }
+        http('/api/v1/members/me/loyalty-accounts/current')
+          .then((acc) => {
+            if (active && acc) {
+              const pts = Number(acc.availablePoints ?? acc.balancePoints ?? 0);
+              setLoyaltyPoints(pts);
+            }
+          })
+          .catch(() => {});
       })
       .catch(() => {});
 

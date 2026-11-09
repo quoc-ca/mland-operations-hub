@@ -58,7 +58,7 @@ describe('a Member sees their own bookings and tickets on the lookup page', () =
     await user.click(await screen.findByRole('button', { name: 'Xem chi tiết BK-CONFIRMED-1' }));
 
     expect(await screen.findByText('Vé tham gia workshop đã được phát hành')).toBeInTheDocument();
-    expect(screen.getByLabelText(/Mã đặt chỗ \(Booking Code\)/)).toHaveValue('BK-CONFIRMED-1');
+    expect(screen.queryByLabelText(/Mã đặt chỗ \(Booking Code\)/)).toBeNull(); // a Member does not type a code
     expect(calls.filter(call => call.path.startsWith('/api/v1/members/me/workshop-bookings/'))).toHaveLength(0);
   });
 
@@ -145,5 +145,25 @@ describe('the package reviews are offered once a session has been held', () => {
     const links = await screen.findAllByRole('link', { name: 'Xem đánh giá của gói' });
     expect(links).toHaveLength(1);
     expect(links[0]).toHaveAttribute('href', '/reviews?packageId=145');
+  });
+});
+
+describe('a pending hold whose 10 minutes ended', () => {
+  beforeEach(() => clearRoleCache());
+
+  it('is refreshed and shown as expired instead of still offering payment', async () => {
+    const user = userEvent.setup();
+    const endedHold = { ...confirmed, bookingCode: 'BK-HOLD-9', bookingStatus: 'PENDING_PAYMENT', paymentStatus: 'UNPAID', holdExpiresAt: new Date(Date.now() - 1000).toISOString(), tickets: [] };
+    mockFetch({
+      [PROFILE]: json(200, { role: 'MEMBER' }),
+      [LIST]: json(200, [endedHold]),
+      'GET /api/v1/members/me/workshop-bookings/BK-HOLD-9': json(200, { ...endedHold, bookingStatus: 'EXPIRED' }),
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Xem chi tiết BK-HOLD-9' }));
+    expect(await screen.findByText(/Đã hết thời hạn giữ chỗ/)).toBeInTheDocument();
+    expect(await screen.findByText('HẾT HẠN GIỮ CHỖ', {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Tiến hành thanh toán cọc/ })).toBeNull();
   });
 });
