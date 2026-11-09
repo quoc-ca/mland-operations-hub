@@ -4844,6 +4844,16 @@
           },
           "canBuy": {
             "type": "boolean"
+          },
+          "assignedToBranches": {
+            "type": "boolean",
+            "description": "false = product not yet assigned to any branch: every active selling location may be chosen and branches is empty."
+          },
+          "branches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicVariantBranch"
+            }
           }
         },
         "required": [
@@ -4853,7 +4863,9 @@
           "appliedPrice",
           "currency",
           "saleEnabled",
-          "canBuy"
+          "canBuy",
+          "assignedToBranches",
+          "branches"
         ]
       },
       "PriceRange": {
@@ -5776,6 +5788,23 @@
           "remainingUnsold",
           "saleEnabled",
           "version"
+        ]
+      },
+      "PublicVariantBranch": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "US10 FR-046/FR-052: an active branch selling the size; canBuy = available there now. No quantity, hold or stopped branch is exposed.",
+        "properties": {
+          "locationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "canBuy": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "locationId",
+          "canBuy"
         ]
       }
     }

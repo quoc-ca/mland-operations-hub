@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { clearRoleCache } from '../../../shared/auth/useRole';
 import { json, mockFetch, renderRoutes } from '../../../test/render';
 import { productManagementRoutes } from '../routes/productManagementRoutes';
-import { actionResult, categoryPage, managementProduct } from './fixtures';
+import { actionResult, categoryPage, managementProduct, publicProduct } from './fixtures';
 
 const M = '/api/v1/catalogue-management';
 const PROFILE = 'GET /api/v1/accounts/me/profile';
@@ -64,6 +64,45 @@ describe('US10 branches on the create form', () => {
     await user.click(screen.getByRole('button', { name: 'Tạo sản phẩm' }));
     expect(screen.getByText('Chọn ít nhất một chi nhánh.')).toBeInTheDocument();
     expect(calls.some(call => call.method === 'POST')).toBe(false);
+  });
+});
+
+describe('US10 FR-046/FR-052 branches on the public product page', () => {
+  beforeEach(() => clearRoleCache());
+
+  it('offers only the branches selling the chosen size and shows one without stock as sold out', async () => {
+    const user = userEvent.setup();
+    const product = publicProduct({
+      variants: [
+        { id: '101', size: 12, sku: 'SP000042-S12', appliedPrice: '1250000', currency: 'VND', saleEnabled: true, canBuy: true,
+          assignedToBranches: true, branches: [{ locationId: '1', canBuy: false }, { locationId: '2', canBuy: true }] },
+        { id: '102', size: 14, sku: 'SP000042-S14', appliedPrice: '1300000', currency: 'VND', saleEnabled: true, canBuy: true,
+          assignedToBranches: false, branches: [] },
+      ],
+    });
+    const calls = mockFetch({
+      'GET /api/v1/products/42': json(200, product),
+      'GET /api/v1/product-selling-locations': json(200, { items: [
+        { id: '1', name: 'Hoàn Kiếm', address: '' }, { id: '2', name: 'Tây Hồ', address: '' }, { id: '3', name: 'Đà Nẵng', address: '' }] }),
+      'POST /api/v1/members/me/ready-ring-cart/lines': json(201, { id: 'cart' }),
+    });
+    renderRoutes([...productManagementRoutes, { path: '/member/cart', element: <p>FE-08 cart</p> }], { path: '/products/42' });
+
+    const branch = await screen.findByLabelText('Chi nhánh');
+    await screen.findByRole('option', { name: /Tây Hồ/ });
+    const names = within(branch).getAllByRole('option').map(option => option.textContent);
+    expect(names).toEqual(['Chọn chi nhánh', 'Hoàn Kiếm (hết hàng)', 'Tây Hồ']);
+    expect(within(branch).getByRole('option', { name: /Hoàn Kiếm/ })).toBeDisabled();
+
+    // A size not yet assigned to a branch offers every selling location.
+    await user.selectOptions(screen.getByLabelText('Size'), '102');
+    expect(within(screen.getByLabelText('Chi nhánh')).getAllByRole('option')).toHaveLength(4);
+
+    await user.selectOptions(screen.getByLabelText('Size'), '101');
+    await user.selectOptions(screen.getByLabelText('Chi nhánh'), '2');
+    await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
+    expect(await screen.findByText('FE-08 cart')).toBeInTheDocument();
+    expect(calls.find(call => call.method === 'POST').body).toEqual({ variantId: 101, locationId: 2, quantity: 1 });
   });
 });
 

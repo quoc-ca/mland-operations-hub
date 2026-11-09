@@ -55,7 +55,9 @@ class CataloguePublicApiIT {
 
     private static final Set<String> PRODUCT_FIELDS = Set.of("id", "name", "description", "category", "images", "variants",
             "priceRange", "canBuy", "createdAt");
-    private static final Set<String> VARIANT_FIELDS = Set.of("id", "size", "sku", "appliedPrice", "currency", "saleEnabled", "canBuy");
+    // US10 FR-052: branches per size with a buyable flag only — still no quantity, hold or stopped branch.
+    private static final Set<String> VARIANT_FIELDS = Set.of("id", "size", "sku", "appliedPrice", "currency", "saleEnabled", "canBuy",
+            "assignedToBranches", "branches");
     private static final Set<String> IMAGE_FIELDS = Set.of("id", "url", "altText", "position");
 
     @Autowired private MockMvc mvc;

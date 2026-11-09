@@ -12,12 +12,17 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Produ
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductCategory;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductImage;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.VariantBranchStock;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.HeldSnapshot;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigInteger;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -55,11 +60,16 @@ public class PublicCatalogueProjection {
     private final ProductImageRepository images;
     private final CatalogueMediaRepository media;
     private final ObjectProvider<VariantHoldReader> holdReader;
+    private final ProductBranchStockService branchStock;
+    private final CatalogueAvailabilityService availability;
 
     public PublicCatalogueProjection(PublicCatalogueQueryRepository publicQueries, ProductRepository products,
                                      ProductCategoryRepository categories, ProductVariantRepository variants,
                                      ProductImageRepository images, CatalogueMediaRepository media,
-                                     ObjectProvider<VariantHoldReader> holdReader) {
+                                     ObjectProvider<VariantHoldReader> holdReader,
+                                     ProductBranchStockService branchStock, CatalogueAvailabilityService availability) {
+        this.branchStock = branchStock;
+        this.availability = availability;
         this.publicQueries = publicQueries;
         this.products = products;
         this.categories = categories;
@@ -69,12 +79,80 @@ public class PublicCatalogueProjection {
         this.holdReader = holdReader;
     }
 
-    /** Whether each size can be bought, for the given sizes of eligible products. */
+    /** Size of an eligible product, as the availability check needs it (entity or candidate row). */
+    public record SizeLine(long id, boolean saleEnabled, BigInteger remainingUnsold) {
+        static SizeLine of(ProductVariant size) {
+            return new SizeLine(size.getId(), size.isSaleEnabled(), size.getRemainingUnsold());
+        }
+    }
+
+    /** Whether a size can be bought, and at which branches (US10). */
+    public record SizeAvailability(boolean canBuy, boolean assignedToBranches,
+                                   List<PublicCatalogueDtos.PublicVariantBranch> branches) {
+    }
+
+    /**
+     * US10 (FR-020/FR-046/FR-052): a size sold at branches can be bought at a branch when it is sale-enabled, the branch
+     * is active and sells it, and min(branch quantity − holds at the branch, size total − holds of the size) &gt; 0 (until
+     * FE-08 keeps holds per branch, the size's holds count at every branch — never too optimistic). It can be bought
+     * when at least one branch can. A size not yet assigned to any branch keeps the size rule. When the branch list
+     * cannot be read, browsing keeps working: the branches of the rows are taken as active.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Map<Long, SizeAvailability> availability(Collection<SizeLine> sizes) {
+        List<Long> ids = sizes.stream().map(SizeLine::id).toList();
+        Map<Long, BigInteger> heldBySize = held(ids);
+        Map<Long, Map<Long, VariantBranchStock>> stocks = branchStock.stocksBySize(ids);
+        Set<Long> active = activeBranchesOrNull();
+        List<BranchVariant> keys = new ArrayList<>();
+        for (SizeLine size : sizes) {
+            stocks.getOrDefault(size.id(), Map.of()).values().stream()
+                    .filter(row -> row.isSaleEnabled() && (active == null || active.contains(row.getLocationId())))
+                    .forEach(row -> keys.add(new BranchVariant(size.id(), row.getLocationId())));
+        }
+        Map<BranchVariant, HeldSnapshot> heldByBranch = keys.isEmpty() ? Map.of()
+                : availability.readBranchSnapshots(keys, Instant.now());
+
+        Map<Long, SizeAvailability> result = new LinkedHashMap<>();
+        for (SizeLine size : sizes) {
+            BigInteger ofSize = size.remainingUnsold().subtract(heldBySize.get(size.id()));
+            Map<Long, VariantBranchStock> rows = stocks.getOrDefault(size.id(), Map.of());
+            if (rows.isEmpty()) {
+                result.put(size.id(), new SizeAvailability(canBuy(size.saleEnabled(), size.remainingUnsold(),
+                        heldBySize.get(size.id())), false, List.of()));
+                continue;
+            }
+            List<PublicCatalogueDtos.PublicVariantBranch> branches = new ArrayList<>();
+            for (VariantBranchStock row : rows.values()) {
+                BranchVariant key = new BranchVariant(size.id(), row.getLocationId());
+                HeldSnapshot held = heldByBranch.get(key);
+                if (held == null) {
+                    continue; // stopped at this branch or branch not active: not listed
+                }
+                boolean buyable = size.saleEnabled()
+                        && row.getRemainingUnsold().subtract(held.heldQuantity()).min(ofSize).signum() > 0;
+                branches.add(new PublicCatalogueDtos.PublicVariantBranch(Long.toString(row.getLocationId()), buyable));
+            }
+            boolean any = branches.stream().anyMatch(PublicCatalogueDtos.PublicVariantBranch::canBuy);
+            result.put(size.id(), new SizeAvailability(any, true, List.copyOf(branches)));
+        }
+        return result;
+    }
+
+    /** Whether each size can be bought (at at least one branch), for the given sizes of eligible products. */
     @Transactional(propagation = Propagation.MANDATORY)
     public Map<Long, Boolean> canBuy(Collection<ProductVariant> sizes) {
-        Map<Long, BigInteger> held = held(sizes.stream().map(ProductVariant::getId).toList());
-        return sizes.stream().collect(Collectors.toMap(ProductVariant::getId,
-                size -> canBuy(size.isSaleEnabled(), size.getRemainingUnsold(), held.get(size.getId()))));
+        Map<Long, Boolean> result = new LinkedHashMap<>();
+        availability(sizes.stream().map(SizeLine::of).toList()).forEach((id, value) -> result.put(id, value.canBuy()));
+        return result;
+    }
+
+    private Set<Long> activeBranchesOrNull() {
+        try {
+            return branchStock.activeBranches().keySet();
+        } catch (CatalogueException e) {
+            return null;
+        }
     }
 
     static boolean canBuy(boolean saleEnabled, BigInteger remainingUnsold, BigInteger validHeld) {
@@ -126,7 +204,8 @@ public class PublicCatalogueProjection {
         Map<Long, List<ProductImage>> imagesByProduct = allImages.stream()
                 .filter(image -> ready.contains(image.getMediaObjectId()))
                 .collect(Collectors.groupingBy(ProductImage::getProductId));
-        Map<Long, Boolean> buyable = canBuy(sizesByProduct.values().stream().flatMap(List::stream).toList());
+        Map<Long, SizeAvailability> buyable = availability(sizesByProduct.values().stream().flatMap(List::stream)
+                .map(SizeLine::of).toList());
 
         Map<Long, PublicCatalogueDtos.PublicProduct> views = new LinkedHashMap<>();
         for (Long id : ids) {
@@ -136,7 +215,8 @@ public class PublicCatalogueProjection {
             List<PublicCatalogueDtos.PublicVariant> variantViews = sizes.stream()
                     .map(size -> new PublicCatalogueDtos.PublicVariant(size.getId().toString(), size.getRingSize(),
                             size.getSku(), size.getAppliedPrice().toString(), PublicCatalogueDtos.CURRENCY,
-                            size.isSaleEnabled(), buyable.get(size.getId())))
+                            size.isSaleEnabled(), buyable.get(size.getId()).canBuy(),
+                            buyable.get(size.getId()).assignedToBranches(), buyable.get(size.getId()).branches()))
                     .toList();
             BigInteger minimum = sizes.stream().map(ProductVariant::getAppliedPrice).min(Comparator.naturalOrder())
                     .orElseThrow();
