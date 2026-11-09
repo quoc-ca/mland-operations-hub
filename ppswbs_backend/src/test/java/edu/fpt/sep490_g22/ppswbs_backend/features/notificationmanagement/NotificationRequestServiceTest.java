@@ -81,7 +81,7 @@ class NotificationRequestServiceTest {
                 anyString(), anyString(), anyString(), anyString()
         )).thenReturn(Optional.empty());
 
-        when(notificationRequestRepository.save(any(NotificationRequest.class))).thenAnswer(inv -> {
+        when(notificationRequestRepository.saveAndFlush(any(NotificationRequest.class))).thenAnswer(inv -> {
             NotificationRequest r = inv.getArgument(0);
             r.setId(100L);
             return r;
@@ -101,7 +101,7 @@ class NotificationRequestServiceTest {
         assertThat(result.getNotificationRequestId()).isEqualTo(100L);
 
         ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
-        verify(notificationRequestRepository).save(captor.capture());
+        verify(notificationRequestRepository).saveAndFlush(captor.capture());
         NotificationRequest saved = captor.getValue();
         assertThat(saved.getBusinessEventReference()).isEqualTo("BK-001");
         assertThat(saved.getRecipientAddressMasked()).isEqualTo("c***r@example.com");
@@ -141,6 +141,7 @@ class NotificationRequestServiceTest {
         assertThat(result.getStatus()).isEqualTo(NotificationIntentResult.Status.DUPLICATE_IGNORED);
         assertThat(result.getNotificationRequestId()).isEqualTo(77L);
         verify(notificationRequestRepository, never()).save(any());
+        verify(notificationRequestRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -201,6 +202,45 @@ class NotificationRequestServiceTest {
         assertThat(NotificationRequestService.maskEmail("nguyenvana@gmail.com")).isEqualTo("n***a@gmail.com");
         assertThat(NotificationRequestService.maskEmail("ab@yahoo.com")).isEqualTo("a***b@yahoo.com");
         assertThat(NotificationRequestService.maskEmail("invalid")).isEqualTo("***");
+    }
+
+    @Test
+    @DisplayName("Should record OperationalFailure when required placeholder is missing (FR-010)")
+    void shouldRecordFailureWhenRequiredPlaceholderMissing() {
+        TemplateDefinition def = new TemplateDefinition();
+        def.setId(1L);
+        def.setCode("BOOKING_CONFIRMED");
+        def.setLifecycleStatus("ACTIVE");
+
+        TemplateVersion ver = new TemplateVersion();
+        ver.setId(10L);
+        ver.setSubjectTemplate("Booking {{bookingCode}}");
+        ver.setHtmlTemplate("<p>{{customerName}}</p>");
+        ver.setPlainTextTemplate("{{customerName}}");
+
+        when(templateDefinitionRepository.findByCode("BOOKING_CONFIRMED")).thenReturn(Optional.of(def));
+        when(templateVersionRepository.findByTemplateDefinitionIdAndStatus(1L, "ACTIVE")).thenReturn(Optional.of(ver));
+        when(renditionService.extractPlaceholders(anyString())).thenReturn(Set.of("bookingCode", "customerName"));
+        when(operationalFailureRepository.save(any(OperationalFailure.class))).thenAnswer(inv -> {
+            OperationalFailure f = inv.getArgument(0);
+            f.setId(502L);
+            return f;
+        });
+
+        SubmitNotificationIntentCommand cmd = SubmitNotificationIntentCommand.builder()
+                .businessEventReference("BK-004")
+                .templateCode("BOOKING_CONFIRMED")
+                .recipientEmail("customer@example.com")
+                .businessDataSnapshot(Map.of("customerName", "Customer A"))
+                .build();
+
+        NotificationIntentResult result = service.submitNotificationIntent(cmd);
+
+        assertThat(result.getStatus()).isEqualTo(NotificationIntentResult.Status.OPERATIONAL_FAILURE);
+        assertThat(result.getFailureCode()).isEqualTo("REQUIRED_PLACEHOLDER_MISSING");
+        assertThat(result.getOperationalFailureId()).isEqualTo(502L);
+        verify(notificationRequestRepository, never()).save(any());
+        verify(notificationRequestRepository, never()).saveAndFlush(any());
     }
 }
 

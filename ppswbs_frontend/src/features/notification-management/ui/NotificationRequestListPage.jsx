@@ -112,7 +112,7 @@ export function NotificationRequestListPage() {
                   id="filter-event"
                   type="text"
                   className="nm-input"
-                  placeholder="Ví dụ: BK-20261106-001"
+                  placeholder="VD: BK-2026..., ORD-..."
                   value={filters.businessEventReference}
                   onChange={(e) => setFilter('businessEventReference', e.target.value)}
                 />
@@ -195,12 +195,13 @@ export function NotificationRequestListPage() {
                           <button
                             type="button"
                             className="nm-btn nm-btn-sm"
+                            aria-label={`Xem chi tiết #${item.id}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOpenDetail(item.id);
                             }}
                           >
-                            Chi tiết &rarr;
+                            Xem chi tiết
                           </button>
                         </td>
                       </tr>

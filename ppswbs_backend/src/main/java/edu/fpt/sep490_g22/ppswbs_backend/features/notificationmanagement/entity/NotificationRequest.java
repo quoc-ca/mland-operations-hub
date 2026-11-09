@@ -10,6 +10,12 @@ import java.time.Instant;
 @Entity
 @Table(
     name = "notification_request",
+    uniqueConstraints = {
+        @UniqueConstraint(
+            name = "uq_nr_idempotency",
+            columnNames = {"business_event_reference", "template_code", "recipient_role", "recipient_address_fingerprint", "original_request_id"}
+        )
+    },
     indexes = {
         @Index(name = "idx_nr_worker_poll", columnList = "delivery_state, next_attempt_at, id"),
         @Index(name = "idx_nr_retention", columnList = "terminal_at, delivery_state")

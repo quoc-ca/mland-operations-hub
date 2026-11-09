@@ -59,7 +59,7 @@ export function RedeliverConfirmationModal({
     >
       <div className="nm-modal">
         <div className="nm-modal-header">
-          <h3 id="redeliver-modal-title">Gửi lại với link/vé mới #{requestItem.id}</h3>
+          <h3 id="redeliver-modal-title">Cấp lại liên kết và gửi lại #{requestItem.id}</h3>
           <button
             type="button"
             className="nm-modal-close"
@@ -90,7 +90,7 @@ export function RedeliverConfirmationModal({
                 htmlFor="redeliverReason"
                 style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}
               >
-                Lý do cấp và gửi lại link mới *
+                Lý do cấp lại liên kết và gửi *
               </label>
               <textarea
                 id="redeliverReason"
@@ -119,7 +119,7 @@ export function RedeliverConfirmationModal({
               className="nm-btn nm-btn-primary"
               disabled={submitting || !reason.trim()}
             >
-              {submitting ? 'Đang xử lý…' : 'Xác nhận cấp mới và gửi lại'}
+              {submitting ? 'Đang xử lý…' : 'Xác nhận cấp lại và gửi'}
             </button>
           </div>
         </form>

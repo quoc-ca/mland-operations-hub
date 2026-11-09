@@ -13,7 +13,7 @@ function versionStatusBadge(status) {
     case 'DRAFT':
       return <span className="nm-badge nm-badge-draft">Bản nháp</span>;
     case 'DEACTIVATED':
-      return <span className="nm-badge nm-badge-deactivated">Lịch sử</span>;
+      return <span className="nm-badge nm-badge-deactivated">Lưu trữ</span>;
     default:
       return <span className="nm-badge">{status}</span>;
   }

@@ -167,5 +167,77 @@ class DeliveryWorkerServiceTest {
         assertThat(finalReq.getAttemptCount()).isEqualTo(3);
         assertThat(finalReq.getTerminalAt()).isNotNull();
     }
+
+    @Test
+    @DisplayName("Should schedule retry in 5 minutes on second temporary failure (attempt 2 -> RETRY_SCHEDULED in 5 min) (FR-013)")
+    void shouldScheduleRetryInFiveMinutesOnSecondAttempt() {
+        NotificationRequest req = new NotificationRequest();
+        req.setId(4L);
+        req.setDeliveryState("RETRY_SCHEDULED");
+        req.setAttemptCount(1); // will be attempt 2
+        req.setRecipientSnapshot("{\"email\":\"test@example.com\"}");
+
+        Rendition rendition = new Rendition();
+        rendition.setRenderedSubject("Subject");
+        rendition.setRenderedHtml("<p>Body</p>");
+        rendition.setRenderedPlainText("Body");
+
+        when(notificationRequestRepository.findById(4L)).thenReturn(Optional.of(req));
+        when(renditionService.getOrCreateRendition(req)).thenReturn(rendition);
+        when(mailSenderProvider.getIfAvailable()).thenReturn(javaMailSender);
+
+        MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
+        when(javaMailSender.createMimeMessage()).thenReturn(mimeMessage);
+        doThrow(new MailSendException("Connection timed out")).when(javaMailSender).send(mimeMessage);
+
+        workerService.deliverSingleRequest(4L);
+
+        ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
+        verify(notificationRequestRepository, atLeastOnce()).save(captor.capture());
+
+        NotificationRequest finalReq = captor.getValue();
+        assertThat(finalReq.getDeliveryState()).isEqualTo("RETRY_SCHEDULED");
+        assertThat(finalReq.getAttemptCount()).isEqualTo(2);
+        assertThat(finalReq.getNextAttemptAt()).isNotNull();
+        assertThat(finalReq.getNextAttemptAt()).isAfter(java.time.Instant.now().plusSeconds(280));
+        assertThat(finalReq.getTerminalAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("Should fail immediately on permanent SMTP 5xx rejection without retrying (FR-013)")
+    void shouldFailImmediatelyOnPermanentSmtpError() {
+        NotificationRequest req = new NotificationRequest();
+        req.setId(5L);
+        req.setDeliveryState("PENDING");
+        req.setAttemptCount(0);
+        req.setRecipientSnapshot("{\"email\":\"unknown@example.com\"}");
+
+        Rendition rendition = new Rendition();
+        rendition.setRenderedSubject("Subject");
+        rendition.setRenderedHtml("<p>Body</p>");
+        rendition.setRenderedPlainText("Body");
+
+        when(notificationRequestRepository.findById(5L)).thenReturn(Optional.of(req));
+        when(renditionService.getOrCreateRendition(req)).thenReturn(rendition);
+        when(mailSenderProvider.getIfAvailable()).thenReturn(javaMailSender);
+
+        MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
+        when(javaMailSender.createMimeMessage()).thenReturn(mimeMessage);
+        doThrow(new MailSendException("550 5.1.1 User unknown")).when(javaMailSender).send(mimeMessage);
+
+        workerService.deliverSingleRequest(5L);
+
+        ArgumentCaptor<NotificationRequest> reqCaptor = ArgumentCaptor.forClass(NotificationRequest.class);
+        verify(notificationRequestRepository, atLeastOnce()).save(reqCaptor.capture());
+        NotificationRequest finalReq = reqCaptor.getValue();
+        assertThat(finalReq.getDeliveryState()).isEqualTo("FAILED");
+        assertThat(finalReq.getAttemptCount()).isEqualTo(1);
+        assertThat(finalReq.getTerminalAt()).isNotNull();
+
+        ArgumentCaptor<DeliveryAttempt> attemptCaptor = ArgumentCaptor.forClass(DeliveryAttempt.class);
+        verify(deliveryAttemptRepository).save(attemptCaptor.capture());
+        DeliveryAttempt attempt = attemptCaptor.getValue();
+        assertThat(attempt.getOutcomeCategory()).isEqualTo("REJECTED_PERMANENT");
+    }
 }
 

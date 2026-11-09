@@ -69,7 +69,7 @@ export function NotificationRequestDetailDrawer({
   const isResendEligible =
     state === 'SENT' ||
     state === 'FAILED' ||
-    (state === 'UNKNOWN_OUTCOME' && userRole === 'ADMIN');
+    state === 'UNKNOWN_OUTCOME';
   const isCancelEligible = state === 'PENDING' || state === 'RETRY_SCHEDULED';
 
   const handleResendSuccess = async (id, reason, duplicateRiskAccepted) => {
@@ -179,7 +179,7 @@ export function NotificationRequestDetailDrawer({
               {/* Delivery Attempts Table */}
               <div style={{ marginBottom: '1.25rem' }}>
                 <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9375rem', fontWeight: 600 }}>
-                  Nhật ký các lần gửi (Delivery Attempts)
+                  Lịch sử các lần gửi thư (Attempts)
                 </h4>
                 {Array.isArray(detail.attempts) && detail.attempts.length > 0 ? (
                   <div className="nm-card">
@@ -220,7 +220,7 @@ export function NotificationRequestDetailDrawer({
               {/* Operational Audits Table */}
               <div>
                 <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9375rem', fontWeight: 600 }}>
-                  Nhật ký kiểm toán tác vụ (Operational Audits)
+                  Lịch sử thao tác & kiểm toán (Audit Trail)
                 </h4>
                 {Array.isArray(detail.audits) && detail.audits.length > 0 ? (
                   <div className="nm-card">

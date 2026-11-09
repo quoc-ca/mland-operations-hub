@@ -1,18 +1,28 @@
 import React from 'react';
-import { RequireSession } from '../../../shared/auth/RequireSession';
+import { Navigate, useLocation } from 'react-router';
 import { useRole } from '../../../shared/auth/useRole';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import OperationsSidebar from '../../../shared/ui/OperationsSidebar';
 
-function GuardInner({ children }) {
+export function NotificationManagementGuard({ children }) {
   const { status } = useAuth();
   const role = useRole();
+  const location = useLocation();
 
   if (status === 'loading') {
     return (
       <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
         Đang kiểm tra quyền truy cập…
       </div>
+    );
+  }
+
+  if (status === 'signed-out') {
+    return (
+      <Navigate
+        to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`}
+        replace
+      />
     );
   }
 
@@ -44,14 +54,6 @@ function GuardInner({ children }) {
   }
 
   return children;
-}
-
-export function NotificationManagementGuard({ children }) {
-  return (
-    <RequireSession requiredText="Khu vực quản trị thông báo yêu cầu đăng nhập tài khoản Quản trị viên hoặc Quản lý.">
-      <GuardInner>{children}</GuardInner>
-    </RequireSession>
-  );
 }
 
 export default NotificationManagementGuard;

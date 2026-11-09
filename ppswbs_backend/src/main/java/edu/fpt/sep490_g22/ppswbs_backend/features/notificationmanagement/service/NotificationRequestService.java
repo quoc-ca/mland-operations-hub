@@ -16,6 +16,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.facade.
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.facade.SubmitNotificationIntentCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,119 +67,139 @@ public class NotificationRequestService {
             }
 
             String fingerprint = sha256Hex(email.toLowerCase(Locale.ROOT));
+            String lockKey = (command.getBusinessEventReference() + ":" + command.getTemplateCode() + ":" + fingerprint).intern();
 
-            Optional<TemplateDefinition> defOpt = templateDefinitionRepository.findByCode(command.getTemplateCode());
-            if (defOpt.isEmpty()) {
-                return recordFailure(
-                        command.getBusinessEventReference(),
-                        command.getTemplateCode(),
-                        fingerprint,
-                        "TEMPLATE_NOT_FOUND",
-                        "Template definition not found for code: " + command.getTemplateCode()
-                );
-            }
-
-            TemplateDefinition definition = defOpt.get();
-            if (!"ACTIVE".equalsIgnoreCase(definition.getLifecycleStatus())) {
-                return recordFailure(
-                        command.getBusinessEventReference(),
-                        command.getTemplateCode(),
-                        fingerprint,
-                        "TEMPLATE_INACTIVE",
-                        "Template definition is not in ACTIVE status: " + definition.getLifecycleStatus()
-                );
-            }
-
-            Optional<TemplateVersion> activeVersionOpt = templateVersionRepository
-                    .findByTemplateDefinitionIdAndStatus(definition.getId(), "ACTIVE");
-            if (activeVersionOpt.isEmpty()) {
-                return recordFailure(
-                        command.getBusinessEventReference(),
-                        command.getTemplateCode(),
-                        fingerprint,
-                        "TEMPLATE_INACTIVE",
-                        "No active template version found for template code: " + command.getTemplateCode()
-                );
-            }
-
-            TemplateVersion activeVersion = activeVersionOpt.get();
-
-            // Validate required placeholders in active version against provided snapshot
-            Set<String> requiredPlaceholders = new HashSet<>();
-            requiredPlaceholders.addAll(renditionService.extractPlaceholders(activeVersion.getSubjectTemplate()));
-            requiredPlaceholders.addAll(renditionService.extractPlaceholders(activeVersion.getHtmlTemplate()));
-            requiredPlaceholders.addAll(renditionService.extractPlaceholders(activeVersion.getPlainTextTemplate()));
-
-            Map<String, Object> snapshot = command.getBusinessDataSnapshot() != null ? command.getBusinessDataSnapshot() : Collections.emptyMap();
-            List<String> missing = new ArrayList<>();
-            for (String req : requiredPlaceholders) {
-                if (!snapshot.containsKey(req) || snapshot.get(req) == null) {
-                    missing.add(req);
-                }
-            }
-
-            if (!missing.isEmpty()) {
-                return recordFailure(
-                        command.getBusinessEventReference(),
-                        command.getTemplateCode(),
-                        fingerprint,
-                        "REQUIRED_PLACEHOLDER_MISSING",
-                        "Missing required placeholder(s): " + String.join(", ", missing)
-                );
-            }
-
-            // Idempotency check: unique original request for same (businessEventReference, templateCode, recipientRole, fingerprint)
-            Optional<NotificationRequest> existingOpt = notificationRequestRepository
-                    .findByBusinessEventReferenceAndTemplateCodeAndRecipientRoleAndRecipientAddressFingerprintAndOriginalRequestIsNull(
+            synchronized (lockKey) {
+                Optional<TemplateDefinition> defOpt = templateDefinitionRepository.findByCode(command.getTemplateCode());
+                if (defOpt.isEmpty()) {
+                    return recordFailure(
                             command.getBusinessEventReference(),
                             command.getTemplateCode(),
-                            "CUSTOMER",
-                            fingerprint
+                            fingerprint,
+                            "TEMPLATE_NOT_FOUND",
+                            "Template definition not found for code: " + command.getTemplateCode()
                     );
+                }
 
-            if (existingOpt.isPresent()) {
-                NotificationRequest existing = existingOpt.get();
-                log.info("Duplicate notification intent detected for event {} and recipient. Returning DUPLICATE_IGNORED.", command.getBusinessEventReference());
-                return NotificationIntentResult.builder()
-                        .status(Status.DUPLICATE_IGNORED)
-                        .notificationRequestId(existing.getId())
-                        .message("Duplicate intent ignored")
-                        .build();
+                TemplateDefinition definition = defOpt.get();
+                if (!"ACTIVE".equalsIgnoreCase(definition.getLifecycleStatus())) {
+                    return recordFailure(
+                            command.getBusinessEventReference(),
+                            command.getTemplateCode(),
+                            fingerprint,
+                            "TEMPLATE_INACTIVE",
+                            "Template definition is not in ACTIVE status: " + definition.getLifecycleStatus()
+                    );
+                }
+
+                Optional<TemplateVersion> activeVersionOpt = templateVersionRepository
+                        .findByTemplateDefinitionIdAndStatus(definition.getId(), "ACTIVE");
+                if (activeVersionOpt.isEmpty()) {
+                    return recordFailure(
+                            command.getBusinessEventReference(),
+                            command.getTemplateCode(),
+                            fingerprint,
+                            "TEMPLATE_INACTIVE",
+                            "No active template version found for template code: " + command.getTemplateCode()
+                    );
+                }
+
+                TemplateVersion activeVersion = activeVersionOpt.get();
+
+                // Validate required placeholders in active version against provided snapshot
+                Set<String> requiredPlaceholders = new HashSet<>();
+                requiredPlaceholders.addAll(renditionService.extractPlaceholders(activeVersion.getSubjectTemplate()));
+                requiredPlaceholders.addAll(renditionService.extractPlaceholders(activeVersion.getHtmlTemplate()));
+                requiredPlaceholders.addAll(renditionService.extractPlaceholders(activeVersion.getPlainTextTemplate()));
+
+                Map<String, Object> snapshot = command.getBusinessDataSnapshot() != null ? command.getBusinessDataSnapshot() : Collections.emptyMap();
+                List<String> missing = new ArrayList<>();
+                for (String req : requiredPlaceholders) {
+                    if (!snapshot.containsKey(req) || snapshot.get(req) == null) {
+                        missing.add(req);
+                    }
+                }
+
+                if (!missing.isEmpty()) {
+                    return recordFailure(
+                            command.getBusinessEventReference(),
+                            command.getTemplateCode(),
+                            fingerprint,
+                            "REQUIRED_PLACEHOLDER_MISSING",
+                            "Missing required placeholder(s): " + String.join(", ", missing)
+                    );
+                }
+
+                // Idempotency check: unique original request for same (businessEventReference, templateCode, recipientRole, fingerprint)
+                Optional<NotificationRequest> existingOpt = notificationRequestRepository
+                        .findByBusinessEventReferenceAndTemplateCodeAndRecipientRoleAndRecipientAddressFingerprintAndOriginalRequestIsNull(
+                                command.getBusinessEventReference(),
+                                command.getTemplateCode(),
+                                "CUSTOMER",
+                                fingerprint
+                        );
+
+                if (existingOpt.isPresent()) {
+                    NotificationRequest existing = existingOpt.get();
+                    log.info("Duplicate notification intent detected for event {} and recipient. Returning DUPLICATE_IGNORED.", command.getBusinessEventReference());
+                    return NotificationIntentResult.builder()
+                            .status(Status.DUPLICATE_IGNORED)
+                            .notificationRequestId(existing.getId())
+                            .message("Duplicate intent ignored")
+                            .build();
+                }
+
+                // Create NotificationRequest
+                NotificationRequest request = new NotificationRequest();
+                request.setBusinessEventReference(command.getBusinessEventReference());
+                request.setTemplateCode(command.getTemplateCode());
+                request.setTemplateVersion(activeVersion);
+                request.setRecipientRole("CUSTOMER");
+                request.setRecipientAddressFingerprint(fingerprint);
+                request.setRecipientAddressMasked(maskEmail(email));
+
+                Map<String, String> recipientMap = new HashMap<>();
+                recipientMap.put("email", email);
+                if (command.getRecipientName() != null) {
+                    recipientMap.put("name", command.getRecipientName());
+                }
+                request.setRecipientSnapshot(objectMapper.writeValueAsString(recipientMap));
+                request.setBusinessDataSnapshot(objectMapper.writeValueAsString(snapshot));
+
+                request.setArtifactReference(command.getArtifactReference());
+                request.setCredentialReference(command.getCredentialReference());
+                request.setCredentialExpiresAt(command.getCredentialExpiresAt());
+                request.setDeliveryState("PENDING");
+                request.setAttemptCount(0);
+                request.setNextAttemptAt(Instant.now());
+                request.setOriginalRequest(null);
+
+                try {
+                    NotificationRequest saved = notificationRequestRepository.saveAndFlush(request);
+                    log.info("Notification request {} successfully enqueued for event {}", saved.getId(), command.getBusinessEventReference());
+
+                    return NotificationIntentResult.builder()
+                            .status(Status.ENQUEUED)
+                            .notificationRequestId(saved.getId())
+                            .message("Notification intent enqueued")
+                            .build();
+                } catch (DataIntegrityViolationException dive) {
+                    log.info("Concurrent insert collision for event {}. Returning DUPLICATE_IGNORED.", command.getBusinessEventReference());
+                    Optional<NotificationRequest> dupOpt = notificationRequestRepository
+                            .findByBusinessEventReferenceAndTemplateCodeAndRecipientRoleAndRecipientAddressFingerprintAndOriginalRequestIsNull(
+                                    command.getBusinessEventReference(),
+                                    command.getTemplateCode(),
+                                    "CUSTOMER",
+                                    fingerprint
+                            );
+                    Long dupId = dupOpt.map(NotificationRequest::getId).orElse(null);
+                    return NotificationIntentResult.builder()
+                            .status(Status.DUPLICATE_IGNORED)
+                            .notificationRequestId(dupId)
+                            .message("Duplicate intent ignored")
+                            .build();
+                }
             }
-
-            // Create NotificationRequest
-            NotificationRequest request = new NotificationRequest();
-            request.setBusinessEventReference(command.getBusinessEventReference());
-            request.setTemplateCode(command.getTemplateCode());
-            request.setTemplateVersion(activeVersion);
-            request.setRecipientRole("CUSTOMER");
-            request.setRecipientAddressFingerprint(fingerprint);
-            request.setRecipientAddressMasked(maskEmail(email));
-
-            Map<String, String> recipientMap = new HashMap<>();
-            recipientMap.put("email", email);
-            if (command.getRecipientName() != null) {
-                recipientMap.put("name", command.getRecipientName());
-            }
-            request.setRecipientSnapshot(objectMapper.writeValueAsString(recipientMap));
-            request.setBusinessDataSnapshot(objectMapper.writeValueAsString(snapshot));
-
-            request.setArtifactReference(command.getArtifactReference());
-            request.setCredentialReference(command.getCredentialReference());
-            request.setCredentialExpiresAt(command.getCredentialExpiresAt());
-            request.setDeliveryState("PENDING");
-            request.setAttemptCount(0);
-            request.setNextAttemptAt(Instant.now());
-            request.setOriginalRequest(null);
-
-            NotificationRequest saved = notificationRequestRepository.save(request);
-            log.info("Notification request {} successfully enqueued for event {}", saved.getId(), command.getBusinessEventReference());
-
-            return NotificationIntentResult.builder()
-                    .status(Status.ENQUEUED)
-                    .notificationRequestId(saved.getId())
-                    .message("Notification intent enqueued")
-                    .build();
 
         } catch (Exception e) {
             log.error("Unexpected error submitting notification intent for event {}", command != null ? command.getBusinessEventReference() : "null", e);

@@ -116,6 +116,7 @@ export function TemplateListPage() {
                           <Link
                             to={`/admin/notifications/templates/${tpl.code}`}
                             className="nm-btn nm-btn-sm"
+                            aria-label={`Chi tiết ${tpl.code}`}
                           >
                             Xem chi tiết &rarr;
                           </Link>

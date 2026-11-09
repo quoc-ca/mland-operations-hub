@@ -14,7 +14,7 @@ test_method: verifyRestEndpointsRbacMatrix
 **Date created**: 2026-11-09
 **Date updated**: 2026-11-09
 **Author**: Senior QA Engineer
-**Last updated by**: Senior QA Engineer
+**Last updated by**: Senior Java/Spring Backend Implementation Engineer
 
 ## 1. Mục tiêu kiểm thử tích hợp (Integration Objective)
 
@@ -50,10 +50,16 @@ Xác minh phân quyền truy cập API theo FR-016 & FR-027: Toàn bộ REST end
 ## 5. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
-- Command: NOT_RUN
-- Actual result: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-09T09:43:36Z
+- Executed by: Senior Java/Spring Backend Implementation Engineer
+- Command: `mvn -q -Dtest=NotificationManagementIT#verifyRestEndpointsRbacMatrix test`
+- Surefire evidence: `target/surefire-reports/TEST-edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.NotificationManagementIT.xml` testcase `verifyRestEndpointsRbacMatrix`
+- Actual result: PASS
+- Runs: 1
+- PASS: 1
+- FAIL: 0
+- ERROR: 0
+- SKIPPED: 0
 <!-- EXECUTION:END -->
 

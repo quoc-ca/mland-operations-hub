@@ -15,7 +15,7 @@ test_method: shouldRecordFailureWhenEmailInvalid
 **Date created**: 2026-11-09
 **Date updated**: 2026-11-09
 **Author**: Senior QA Engineer
-**Last updated by**: Senior QA Engineer
+**Last updated by**: Senior Java/Spring Backend Implementation Engineer
 
 ## Test design
 
@@ -47,14 +47,14 @@ test_method: shouldRecordFailureWhenEmailInvalid
 ## Execution
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
-- Command: NOT_RUN
-- Surefire evidence: NOT_RUN
-- Actual result: NOT_RUN
-- Runs: 0
-- PASS: 0
+- Latest status: PASS
+- Executed at: 2026-11-09T09:43:36Z
+- Executed by: Senior Java/Spring Backend Implementation Engineer
+- Command: `mvn -q -Dtest=NotificationRequestServiceTest#shouldRecordFailureWhenEmailInvalid test`
+- Surefire evidence: `target/surefire-reports/TEST-edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.NotificationRequestServiceTest.xml` testcase `shouldRecordFailureWhenEmailInvalid`
+- Actual result: PASS
+- Runs: 1
+- PASS: 1
 - FAIL: 0
 - ERROR: 0
 - SKIPPED: 0

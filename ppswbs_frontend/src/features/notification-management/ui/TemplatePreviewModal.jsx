@@ -88,9 +88,14 @@ export function TemplatePreviewModal({
     >
       <div className="nm-modal nm-modal-lg">
         <div className="nm-modal-header">
-          <h3 id="preview-modal-title">
-            Xem trước mẫu thư: {template?.name} (Phiên bản v{versionNumber})
-          </h3>
+          <div>
+            <h3 id="preview-modal-title" style={{ margin: 0 }}>
+              Xem trước mẫu thông báo email
+            </h3>
+            <div style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.25rem' }}>
+              {template?.name} (Phiên bản v{versionNumber})
+            </div>
+          </div>
           <button
             type="button"
             className="nm-modal-close"
@@ -103,7 +108,7 @@ export function TemplatePreviewModal({
 
         <div className="nm-modal-body">
           <div className="nm-alert nm-alert-info" role="status">
-            <strong>Dữ liệu mẫu an toàn:</strong> Bản xem trước sử dụng dữ liệu giả lập (synthetic fixtures). Không bao giờ hiển thị hoặc nạp thông tin thật của khách hàng, mật khẩu hay mã định danh bảo mật.
+            <strong>Dữ liệu mẫu an toàn - Không sử dụng dữ liệu khách hàng thật:</strong> Bản xem trước sử dụng dữ liệu giả lập (synthetic fixtures). Không bao giờ hiển thị hoặc nạp thông tin thật của khách hàng, mật khẩu hay mã định danh bảo mật.
           </div>
 
           {error && <div className="nm-alert nm-alert-danger" role="alert">{error}</div>}

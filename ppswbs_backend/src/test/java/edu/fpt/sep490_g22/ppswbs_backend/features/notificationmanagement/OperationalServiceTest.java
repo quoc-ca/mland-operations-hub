@@ -5,6 +5,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Actor
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.controller.dto.CancelRequestCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.controller.dto.CancelResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.controller.dto.RedeliverRequestCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.controller.dto.RedeliverResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.controller.dto.ResendRequestCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.controller.dto.ResendResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.dao.DeliveryAttemptRepository;
@@ -169,6 +171,55 @@ class OperationalServiceTest {
         assertThatThrownBy(() -> operationalService.cancelRequest(40L, actor, command))
                 .isInstanceOf(NotificationManagementException.class)
                 .hasMessageContaining("đang trong tiến trình xử lý");
+    }
+
+    @Test
+    @DisplayName("Should successfully redeliver with refreshed credential (FR-019)")
+    void shouldRedeliverWithRefreshedCredential() {
+        NotificationRequest original = new NotificationRequest();
+        original.setId(50L);
+        original.setDeliveryState("SENT");
+        original.setBusinessEventReference("BK-500");
+        original.setTemplateCode("BOOKING_CONFIRMED");
+        original.setRecipientRole("CUSTOMER");
+        original.setRecipientAddressFingerprint("fp_123");
+        original.setRecipientAddressMasked("c***r@example.com");
+        original.setRecipientSnapshot("{\"email\":\"customer@example.com\"}");
+        original.setBusinessDataSnapshot("{\"bookingCode\":\"BK-500\"}");
+        original.setArtifactReference("ART-OLD");
+        original.setCredentialReference("CRED-OLD");
+
+        when(notificationRequestRepository.findById(50L)).thenReturn(Optional.of(original));
+        when(notificationRequestRepository.save(any(NotificationRequest.class))).thenAnswer(inv -> {
+            NotificationRequest r = inv.getArgument(0);
+            r.setId(51L);
+            return r;
+        });
+
+        CurrentAccountActor actor = new CurrentAccountActor(1L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of());
+        RedeliverRequestCommand command = RedeliverRequestCommand.builder()
+                .reason("Khách hàng yêu cầu link vé mới sau khi vé cũ hết hạn 24h")
+                .build();
+
+        RedeliverResponse response = operationalService.redeliverWithRefreshedCredential(50L, actor, command);
+
+        assertThat(response.newRequestId()).isEqualTo(51L);
+        assertThat(response.originalRequestId()).isEqualTo(50L);
+        assertThat(response.deliveryState()).isEqualTo("PENDING");
+
+        ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
+        verify(notificationRequestRepository).save(captor.capture());
+        NotificationRequest created = captor.getValue();
+        assertThat(created.getOriginalRequest()).isSameAs(original);
+        assertThat(created.getBusinessEventReference()).isEqualTo("BK-500");
+        assertThat(created.getBusinessDataSnapshot()).isEqualTo("{\"bookingCode\":\"BK-500\"}");
+        assertThat(created.getDeliveryState()).isEqualTo("PENDING");
+
+        ArgumentCaptor<OperationalAuditRecord> auditCaptor = ArgumentCaptor.forClass(OperationalAuditRecord.class);
+        verify(operationalAuditRepository).save(auditCaptor.capture());
+        OperationalAuditRecord audit = auditCaptor.getValue();
+        assertThat(audit.getActionType()).isEqualTo("REDELIVER_REFRESHED_CREDENTIAL");
+        assertThat(audit.getNotificationRequest()).isSameAs(original);
     }
 }
 

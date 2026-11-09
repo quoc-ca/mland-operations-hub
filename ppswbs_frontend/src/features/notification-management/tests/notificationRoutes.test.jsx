@@ -1,6 +1,6 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
 import { notificationRoutes } from '../routes/notificationRoutes';
 import { clearRoleCache } from '../../../shared/auth/useRole';
@@ -72,5 +72,17 @@ describe('Notification Management Routes and Guard', () => {
     expect(
       await screen.findByRole('heading', { name: 'Nhật ký gửi thông báo (Delivery Logs)' })
     ).toBeInTheDocument();
+  });
+
+  it('redirects unauthenticated guest accessing notification route to /login?redirect=...', async () => {
+    const { router } = renderRoutes(notificationRoutes, {
+      path: '/admin/notifications/requests',
+      session: fakeSession('signed-out'),
+    });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/login');
+      expect(router.state.location.search).toBe('?redirect=%2Fadmin%2Fnotifications%2Frequests');
+    });
   });
 });

@@ -101,7 +101,10 @@ export function ResendConfirmationModal({
               >
                 {isManagerForbidden ? (
                   <div>
-                    <strong>Từ chối quyền:</strong> Trạng thái thư này là <code>UNKNOWN_OUTCOME</code> (tiến trình bị gián đoạn khi đang kết nối máy chủ thư). Chỉ Quản trị viên (Admin) mới có quyền can thiệp gửi lại.
+                    <strong>Từ chối quyền: Chỉ Quản trị viên (ADMIN) mới có quyền gửi lại</strong>
+                    <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem' }}>
+                      Trạng thái thư này là <code>UNKNOWN_OUTCOME</code> (tiến trình bị gián đoạn khi đang kết nối máy chủ thư). Chỉ Quản trị viên (Admin) mới có quyền can thiệp gửi lại.
+                    </p>
                   </div>
                 ) : (
                   <div>
