@@ -157,6 +157,44 @@ describe('product target picker', () => {
     expect(calls.find(call => call.method === 'POST').body.targets).toEqual({ productIds: ['42'] });
   }, 20000); // many typed fields: give a loaded machine time
 
+  it('sends a whole product mixed with a size of another product as sizes, so the backend accepts it', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({ [`GET ${C}`]: json(200, catalogue), [`POST ${P}`]: json(400, { code: 'INVALID_INPUT', message: 'x' }) });
+    open('/promotion-management/programs/new');
+    await user.click(await screen.findByRole('button', { name: 'Tìm' }));
+    await user.click(await screen.findByRole('checkbox', { name: /#42\)/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Size 16/ }));
+    expect(screen.getByText(/Đang chọn cả sản phẩm lẫn từng size/)).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Tên chương trình'), 'Giảm');
+    await user.type(screen.getByLabelText('Phần trăm giảm (%)'), '10');
+    await user.type(screen.getByLabelText('Giảm tối đa (₫)'), '50000');
+    await user.type(screen.getByLabelText('Tổng số lượt'), '100');
+    await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
+    await waitFor(() => expect(calls.some(call => call.method === 'POST')).toBe(true));
+    expect(calls.find(call => call.method === 'POST').body.targets).toEqual({ variantIds: ['101', '102', '103'] });
+  }, 20000);
+
+  it('labels products and sizes that are not on sale and keeps deleted products unchoosable', async () => {
+    const user = userEvent.setup();
+    mockFetch({ [`GET ${C}`]: json(200, { items: [
+      { id: '50', name: 'Nhẫn mới', published: false, firstPublishedAt: null, variants: [{ id: '501', size: 10, sku: 'SP000050-S10', saleEnabled: true }] },
+      { id: '51', name: 'Nhẫn cũ', published: false, firstPublishedAt: '2026-10-01T00:00:00Z', variants: [{ id: '511', size: 11, sku: 'SP000051-S11', saleEnabled: false }] },
+      { id: '52', name: 'Nhẫn bỏ', published: false, deletedAt: '2026-10-02T00:00:00Z', variants: [{ id: '521', size: 12, sku: 'SP000052-S12', saleEnabled: true }] },
+      { id: '53', name: 'Nhẫn bán', published: true, firstPublishedAt: '2026-10-01T00:00:00Z', variants: [{ id: '531', size: 13, sku: 'SP000053-S13', saleEnabled: true }] },
+    ], page: 0, pageSize: 20, totalElements: '4' }) });
+    open('/promotion-management/programs/new');
+    await user.click(await screen.findByRole('button', { name: 'Tìm' }));
+    const results = await screen.findByRole('list', { name: 'Kết quả tìm sản phẩm' });
+    const row = name => within(results).getByText(new RegExp(name)).closest('li');
+    expect(within(row('Nhẫn mới')).getByText('Chưa công khai')).toBeInTheDocument();
+    expect(within(row('Nhẫn cũ')).getByText('Đang ẩn')).toBeInTheDocument();
+    expect(within(row('Nhẫn cũ')).getByText('Ngừng bán')).toBeInTheDocument();
+    expect(within(row('Nhẫn bỏ')).getByText('Đã xóa')).toBeInTheDocument();
+    expect(within(row('Nhẫn bỏ')).getAllByRole('checkbox').every(box => box.disabled)).toBe(true);
+    expect(within(row('Nhẫn bán')).queryByText(/Chưa công khai|Đang ẩn|Đã xóa|Ngừng bán/)).toBeNull();
+    expect(within(row('Nhẫn cũ')).getAllByRole('checkbox').some(box => box.disabled)).toBe(false);
+  });
+
   it('asks for a target before sending anything', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({});
@@ -177,6 +215,101 @@ describe('product target picker', () => {
     open('/promotion-management/programs/5');
     expect(await screen.findByText('Nhẫn vàng (#43); 99')).toBeInTheDocument();
     expect(await screen.findByText('Nhẫn bạc · size 14 · SP000042-S14')).toBeInTheDocument();
+  });
+});
+
+describe('product voucher branches (Session 2026-11-09, T086)', () => {
+  // The form reads branch management (as 002's product create does); names on details come from the public list.
+  const W = '/api/v1/workshop-locations';
+  const B = '/api/v1/product-selling-locations';
+  const managed = [{ id: 7, code: 'HN-HOANKIEM', name: 'Hoàn Kiếm', address: 'Hà Nội', active: true }, { id: 8, code: 'HN-TAYHO', name: 'Tây Hồ', address: 'Hà Nội', active: true }];
+  const branches = { items: [{ id: '7', name: 'Hoàn Kiếm', address: 'Hà Nội' }, { id: '8', name: 'Tây Hồ', address: 'Hà Nội' }] };
+  const atBranch7 = {
+    items: [{
+      id: '42', name: 'Nhẫn bạc', branches: [{ locationId: '7', name: 'Hoàn Kiếm', active: true, saleEnabled: true }],
+      variants: [
+        { id: '101', size: 12, sku: 'SP000042-S12', branchStocks: [{ locationId: '7', remainingUnsold: '3', saleEnabled: true, version: 0 }] },
+        { id: '102', size: 14, sku: 'SP000042-S14', branchStocks: [{ locationId: '8', remainingUnsold: '2', saleEnabled: true, version: 0 }] },
+      ],
+    }],
+    page: 0, pageSize: 20, totalElements: '1',
+  };
+  const fillTerms = async user => {
+    await user.type(screen.getByLabelText('Tên chương trình'), 'Hoàn Kiếm');
+    await user.type(screen.getByLabelText('Phần trăm giảm (%)'), '10');
+    await user.type(screen.getByLabelText('Giảm tối đa (₫)'), '50000');
+    await user.type(screen.getByLabelText('Tổng số lượt'), '100');
+  };
+
+  it('limits the voucher to a chosen branch, suggests only products sold there and warns for a size not sold there', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({ [`GET ${W}`]: json(200, managed), [`GET ${C}`]: json(200, atBranch7), [`POST ${P}`]: json(400, { code: 'INVALID_INPUT', message: 'x' }) });
+    open('/promotion-management/programs/new');
+    expect(await screen.findByRole('radio', { name: 'Tất cả chi nhánh' })).toBeChecked();
+    await user.click(screen.getByRole('radio', { name: 'Chỉ một số chi nhánh' }));
+    await user.click(await screen.findByRole('checkbox', { name: /Hoàn Kiếm/ }));
+    await user.click(screen.getByRole('button', { name: 'Tìm' }));
+    const size14 = await screen.findByRole('checkbox', { name: /Size 14/ });
+    expect(calls.filter(call => call.path === C).at(-1).query).toEqual({ page: '0', locationId: '7' });
+    expect(within(size14.closest('label')).getByText('Chưa bán ở chi nhánh đã chọn')).toBeInTheDocument();
+    expect(within(screen.getByRole('checkbox', { name: /Size 12/ }).closest('label')).queryByText('Chưa bán ở chi nhánh đã chọn')).toBeNull();
+    await user.click(size14);
+    expect(screen.getByText(/Một số size đã chọn chưa bán ở chi nhánh nào đã chọn/)).toBeInTheDocument();
+
+    await fillTerms(user);
+    await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
+    await waitFor(() => expect(calls.some(call => call.method === 'POST')).toBe(true));
+    expect(calls.find(call => call.method === 'POST').body.targets).toEqual({ variantIds: ['102'], branchIds: ['7'] });
+  }, 20000);
+
+  it('"Only some branches" with none chosen is refused before sending; "All branches" sends no branch', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({ [`GET ${W}`]: json(200, managed), [`GET ${C}`]: json(200, catalogue), [`POST ${P}`]: json(400, { code: 'INVALID_INPUT', message: 'x' }) });
+    open('/promotion-management/programs/new');
+    await user.click(await screen.findByRole('button', { name: 'Tìm' }));
+    await user.click(await screen.findByRole('checkbox', { name: /#42\)/ }));
+    await fillTerms(user);
+    await user.click(screen.getByRole('radio', { name: 'Chỉ một số chi nhánh' }));
+    await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
+    expect(await screen.findByText('Chọn ít nhất một chi nhánh, hoặc chọn "Tất cả chi nhánh".')).toBeInTheDocument();
+    expect(calls.filter(call => call.method === 'POST')).toHaveLength(0);
+
+    await user.click(screen.getByRole('radio', { name: 'Tất cả chi nhánh' }));
+    await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
+    await waitFor(() => expect(calls.some(call => call.method === 'POST')).toBe(true));
+    expect(calls.find(call => call.method === 'POST').body.targets).toEqual({ productIds: ['42'] });
+  }, 20000);
+
+  it('an automatic discount has no branch choice', async () => {
+    const user = userEvent.setup();
+    mockFetch({});
+    open('/promotion-management/programs/new');
+    await user.selectOptions(await screen.findByLabelText('Loại'), 'AUTO_DISCOUNT');
+    expect(screen.getByText('Giảm tự động áp dụng ở mọi chi nhánh.')).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Chỉ một số chi nhánh' })).toBeNull();
+  });
+
+  it('the detail shows "All branches", or the branch names, and warns for a branch no longer active', async () => {
+    mockFetch({
+      [`GET ${P}/5`]: json(200, program({ targets: { productIds: ['42'], branchIds: ['7', '9'] },
+        targetCheck: 'CHECKED', targetWarnings: [{ dimension: 'BRANCH', targetKey: '9', state: 'BRANCH_INACTIVE' }] })),
+      [`GET ${P}/5/usage`]: json(200, voucherUsage),
+      [`GET ${C}/42`]: json(200, catalogue.items[0]),
+      [`GET ${B}`]: json(200, branches),
+    });
+    open('/promotion-management/programs/5');
+    expect(await screen.findByText('Hoàn Kiếm; Chi nhánh #9')).toBeInTheDocument();
+    expect(await screen.findByText('Chi nhánh #9 — chi nhánh đã ngừng hoạt động')).toBeInTheDocument();
+  });
+
+  it('a product voucher without branches reads "All branches"', async () => {
+    mockFetch({
+      [`GET ${P}/5`]: json(200, program()),
+      [`GET ${P}/5/usage`]: json(200, voucherUsage),
+      [`GET ${C}/42`]: json(200, catalogue.items[0]),
+    });
+    open('/promotion-management/programs/5');
+    expect(await screen.findByText('Tất cả chi nhánh')).toBeInTheDocument();
   });
 });
 

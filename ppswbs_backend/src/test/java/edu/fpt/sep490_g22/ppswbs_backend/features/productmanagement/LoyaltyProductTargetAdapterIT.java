@@ -63,7 +63,7 @@ class LoyaltyProductTargetAdapterIT {
                 .isInstanceOfSatisfying(LoyaltyException.class,
                         error -> assertThat(error.code()).isEqualTo(LoyaltyErrorCode.INVALID_INPUT));
         assertThatThrownBy(() -> adapter.validateAndGuard(TargetScope.PRODUCT,
-                List.of(new TargetRef(TargetDimension.BRANCH, "1"))))
+                List.of(new TargetRef(TargetDimension.PACKAGE, "1"))))
                 .isInstanceOfSatisfying(LoyaltyException.class,
                         error -> assertThat(error.code()).isEqualTo(LoyaltyErrorCode.INVALID_INPUT));
     }

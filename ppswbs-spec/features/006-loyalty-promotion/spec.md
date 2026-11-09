@@ -1,7 +1,7 @@
 # Feature Specification: Loyalty & Promotion Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-03 (mã voucher do hệ thống sinh — ghi lại quyết định 2026-11-01 vào spec; trước đó: 2026-10-30)
+**Date updated**: 2026-11-10 (Session 2026-11-10: ghi nhận giá sau giảm tự động và nhãn ưu đãi trên trang sản phẩm công khai của 002 — thêm US3.7, FR-042; trước đó: 2026-11-09 (Session 2026-11-09: voucher sản phẩm có phạm vi chi nhánh tùy chọn — phương án B, theo tồn kho theo chi nhánh của 002 US10; sửa US1.1, US1.5, US3.2, US4.10, thêm US1.9, US4.11, sửa FR-003, FR-007, FR-011, FR-013, FR-014, thêm D-009; trước đó: 2026-11-03 mã voucher do hệ thống sinh))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -41,6 +41,19 @@ Nguồn chính là FE-06 hiện tại và quyết định trực tiếp trong h�
 
 - Q: Mã voucher do Manager tự gõ hay hệ thống sinh? → A (Đặng Thị Khương, đã áp dụng từ 2026-11-01, ghi vào spec 2026-11-03): **Hệ thống sinh mã** trên form tạo voucher: "ML" + 8 ký tự ngẫu nhiên (bỏ 0/O, 1/I/L), Manager không gõ mã nhưng có thể bấm "Sinh mã khác"; nếu backend báo mã đã tồn tại thì form tự sinh mã khác và gửi lại (tối đa 3 lần). Mã vẫn duy nhất toàn hệ thống, không đổi sau khi tạo và không tái sử dụng. Backend vẫn tự kiểm tra duy nhất sau trim, không phân biệt hoa/thường cho mọi mã nhận được, nên kịch bản US1.4 kiểm ở mức API.
 
+### Session 2026-11-09 (voucher sản phẩm theo chi nhánh)
+
+- Q: 002 đã chuyển sang tồn kho theo chi nhánh (US10, phương án B: mỗi chi nhánh bán sản phẩm/size khác nhau). Voucher sản phẩm có cần theo chi nhánh không? → A (Đặng Thị Khương, owner FE-06, ngày 2026-11-09, chọn **phương án B**): Voucher sản phẩm có thêm **phạm vi chi nhánh tùy chọn**. Mặc định "Tất cả chi nhánh" (không giới hạn, giống hành vi cũ); hoặc chọn **một hoặc nhiều** chi nhánh đang hoạt động. Không chọn chi nhánh nghĩa là không giới hạn, nên voucher đã tạo trước đây giữ nguyên ý nghĩa. Thay câu "voucher sản phẩm không giới hạn chi nhánh" của US1.1 và ràng buộc "Không BRANCH cho PRODUCT" trong data-model.
+- Q: Chi nhánh để so với phạm vi voucher là chi nhánh nào? → A: **Chi nhánh ghi trên dòng giỏ FE-08** lúc Member thêm sản phẩm (cùng `locationId` của FR-046/FR-053 bên 002), không phải nơi Staff điều phối chuẩn bị hàng. Đổi nơi chuẩn bị hàng sau khi chấp nhận đơn không đổi khoản giảm (US4.10 giữ nguyên).
+- Q: Giỏ có dòng ở nhiều chi nhánh (FE-08 tách thành nhiều đơn chi nhánh, một voucher cho cả checkout) thì tính thế nào? → A: Phạm vi sản phẩm/size và phạm vi chi nhánh kết hợp bằng **AND**: phần đủ điều kiện (FR-014) chỉ gồm dòng vừa thuộc sản phẩm/size trong phạm vi vừa thuộc chi nhánh trong phạm vi. Ngưỡng, trần và giảm cố định tính trên phần đủ điều kiện đó; dòng ở chi nhánh ngoài phạm vi không được giảm. Vẫn tối đa một voucher cho cả checkout (FR-08-007).
+- Q: Giảm tự động có theo chi nhánh không? → A: **Chưa** trong lần này. FR-005 giữ nguyên "không giới hạn chi nhánh"; mở rộng sau nếu cần. Voucher workshop giữ quy tắc chi nhánh riêng của FR-004/FR-019.
+- Q: Form chọn sản phẩm thay đổi thế nào? → A: Khi đã chọn chi nhánh, bộ chọn sản phẩm/size chỉ gợi ý sản phẩm đang bán ở ít nhất một chi nhánh đã chọn. Chọn size chưa bán ở chi nhánh nào trong phạm vi vẫn được lưu (hàng có thể được thêm sau, giống quy tắc sản phẩm chưa công khai vẫn được chọn) nhưng form cảnh báo. Phạm vi chi nhánh không đổi được sau khi tạo (FR-006).
+
+### Session 2026-11-10 (ưu đãi trên trang sản phẩm công khai)
+
+- Q: Trang sản phẩm công khai của 002 (thẻ ở danh sách `/products`, dải sản phẩm ở trang chủ, trang chi tiết) hiện ưu đãi của FE-06 thế nào? → A (Đặng Thị Khương, owner FE-06, ngày 2026-11-10, ghi nhận bản đã triển khai): Giảm tự động được trừ thẳng vào giá hiển thị (giá sau giảm màu đỏ, giá gốc gạch ngang); voucher chỉ hiện nhãn vì cần nhập mã ở checkout. Cách tính dùng cùng quy tắc với báo giá bán lẻ nhưng cho **một đơn vị** của từng size; giá này chỉ để xem, số tiền thật do báo giá checkout tính lại. Chi tiết ở FR-042; 002 FR-058 dùng lại qua cổng công khai `features/loyalty-promotion/publicOffers.js`.
+- Q: Giảm tự động có giá trị tối thiểu lớn hơn giá một sản phẩm thì sao? → A: Không trừ vào giá; hiện nhãn "Giảm … cho đơn từ …" để khách biết cần mua nhiều hơn.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Tạo chương trình ưu đãi (Priority: P1)
@@ -53,14 +66,15 @@ Là Manager, tôi muốn tạo voucher riêng cho sản phẩm hoặc workshop v
 
 **Acceptance Scenarios**:
 
-1. **Given** Manager có quyền và phạm vi sản phẩm/biến thể hợp lệ, **When** tạo voucher với tên, mã do hệ thống sinh (Session 2026-11-03), thời gian, kiểu/mức giảm, mức giảm tối đa, giá trị tối thiểu, tổng lượt, lượt mỗi Member và lựa chọn kết hợp điểm, **Then** lưu đủ điều kiện; voucher chỉ dùng cho sản phẩm và không giới hạn chi nhánh.
+1. **Given** Manager có quyền và phạm vi sản phẩm/biến thể hợp lệ, **When** tạo voucher với tên, mã do hệ thống sinh (Session 2026-11-03), thời gian, kiểu/mức giảm, mức giảm tối đa, giá trị tối thiểu, tổng lượt, lượt mỗi Member và lựa chọn kết hợp điểm, **Then** lưu đủ điều kiện; voucher chỉ dùng cho sản phẩm. Phạm vi chi nhánh là tùy chọn (Session 2026-11-09): mặc định "Tất cả chi nhánh" (không giới hạn), hoặc một/nhiều chi nhánh đang hoạt động.
 2. **Given** gói/lịch workshop hợp lệ, **When** tạo voucher với gói, chi nhánh, ngày/phiên, khoảng thời gian được đặt bằng mã, kiểu/mức giảm, trần giảm, phí gói tối thiểu, hạn mức và kết hợp điểm, **Then** lưu riêng cho workshop; thời gian đặt bằng mã phân biệt với ngày tham gia.
 3. **Given** Manager tạo giảm tự động sản phẩm, **When** lưu phạm vi, thời gian, mức giảm và điều kiện hợp lệ, **Then** không cần mã nhập, không giới hạn chi nhánh và luôn cho kết hợp điểm (Manager không tắt được); không tạo giảm tự động workshop.
 4. **Given** mã `TET10` đã được cấp, kể cả chương trình hết hạn/bị dừng, **When** một yêu cầu tạo gửi mã ` tet10 ` hoặc cấp lại mã đó cho phạm vi khác (kiểm ở mức API; form tạo dùng mã hệ thống sinh), **Then** từ chối sau khi bỏ khoảng trắng đầu/cuối và so sánh không phân biệt hoa/thường; trên form, mã sinh ra bị trùng thì tự sinh mã khác.
-5. **Given** thiếu dữ liệu, bắt đầu không trước kết thúc, mức giảm tiền/trần không nguyên dương, tỷ lệ phần trăm ngoài khoảng lớn hơn 0 đến 100%, ngưỡng tiền âm/không nguyên, lượt không nguyên dương hoặc phạm vi không hợp lệ (gồm sản phẩm/biến thể không tồn tại, biến thể không thuộc sản phẩm hoặc sản phẩm đã xóa mềm; sản phẩm chưa công khai/đang ẩn/ngừng bán vẫn được chọn), **When** lưu, **Then** nêu lỗi tương ứng và không lưu chương trình thiếu điều kiện.
+5. **Given** thiếu dữ liệu, bắt đầu không trước kết thúc, mức giảm tiền/trần không nguyên dương, tỷ lệ phần trăm ngoài khoảng lớn hơn 0 đến 100%, ngưỡng tiền âm/không nguyên, lượt không nguyên dương hoặc phạm vi không hợp lệ (gồm sản phẩm/biến thể không tồn tại, biến thể không thuộc sản phẩm hoặc sản phẩm đã xóa mềm; sản phẩm chưa công khai/đang ẩn/ngừng bán vẫn được chọn; chi nhánh không tồn tại hoặc đang ngừng hoạt động; giảm tự động gửi kèm chi nhánh), **When** lưu, **Then** nêu lỗi tương ứng và không lưu chương trình thiếu điều kiện.
 6. **Given** Guest, Member, Staff hoặc tài khoản không có quyền Manager hiện hành, **When** tạo/sửa/tạm dừng/mở lại chương trình, **Then** từ chối; biết mã hoặc liên kết không cấp thêm quyền.
 7. **Given** chương trình ngày lễ, **When** tạo, **Then** vẫn thuộc sản phẩm hoặc workshop với thời gian riêng, không thành lớp voucher cộng thêm.
 8. **Given** lưu lỗi hoặc mất phản hồi, **When** kiểm tra lại trước khi gửi lại, **Then** chỉ báo thành công khi có kết quả xác nhận và không tạo trùng từ thao tác đã ghi nhận.
+9. *(Session 2026-11-09)* **Given** hai chi nhánh A, B đang hoạt động; sản phẩm P bán ở A (size 12) và B (size 14), **When** Manager tạo voucher sản phẩm chọn chi nhánh A, **Then** bộ chọn chỉ gợi ý sản phẩm đang bán ở A; chọn size 14 của P (chưa bán ở A) vẫn lưu được nhưng form cảnh báo; voucher lưu phạm vi chi nhánh A và không đổi được sau tạo. Không chọn chi nhánh thì voucher áp dụng mọi chi nhánh.
 
 ### User Story 2 - Sửa, tạm dừng, mở lại và theo dõi chương trình (Priority: P1)
 
@@ -93,11 +107,12 @@ Là khách, tôi muốn hiểu điều kiện; khi là Member, tôi muốn lưu 
 **Acceptance Scenarios**:
 
 1. **Given** ưu đãi tại trang sản phẩm, gói workshop hoặc trang ưu đãi, **When** đọc thẻ, **Then** thấy phạm vi Mua sản phẩm/Đặt workshop, mức giảm, trần giảm, giá trị tối thiểu, thời hạn và có cho kết hợp điểm không.
-2. **Given** mở điều kiện, **When** đọc, **Then** thấy sản phẩm/biến thể hoặc gói, chi nhánh/ngày/phiên workshop nếu có, tổng hạn mức và lượt mỗi Member theo cấu hình. Thẻ/chi tiết công khai chỉ liệt kê sản phẩm trong phạm vi đang công khai; chương trình sản phẩm không còn sản phẩm nào công khai trong phạm vi không hiện ở danh sách ưu đãi công khai, còn trong Kho Voucher vẫn hiện kèm trạng thái "Hiện không có sản phẩm áp dụng".
+2. **Given** mở điều kiện, **When** đọc, **Then** thấy sản phẩm/biến thể và chi nhánh áp dụng của voucher sản phẩm ("Tất cả chi nhánh" khi không giới hạn, Session 2026-11-09) hoặc gói, chi nhánh/ngày/phiên workshop nếu có, tổng hạn mức và lượt mỗi Member theo cấu hình. Thẻ/chi tiết công khai chỉ liệt kê sản phẩm trong phạm vi đang công khai; chương trình sản phẩm không còn sản phẩm nào công khai trong phạm vi không hiện ở danh sách ưu đãi công khai, còn trong Kho Voucher vẫn hiện kèm trạng thái "Hiện không có sản phẩm áp dụng".
 3. **Given** Guest chọn Lưu, **When** chưa đăng nhập, **Then** được hướng dẫn đăng nhập; Member lưu thành công thì mã thuộc kho chính mình, lưu lặp không thêm quyền.
 4. **Given** đã lưu mã, **When** xem kho/chọn ở checkout, **Then** thấy điều kiện hiện tại; lưu chưa giữ lượt/điểm, chưa tiêu hạn mức và không bảo đảm dùng được. Member vẫn nhập trực tiếp mà không lưu trước; nhập ` sp10 ` tra được cùng voucher `SP10` nếu mã đó tồn tại, rồi vẫn kiểm tra điều kiện giao dịch.
 5. **Given** mã hết hạn/bị dừng/chưa đủ điều kiện, **When** xem/chọn, **Then** nêu tình trạng, không coi có trong kho là đủ điều kiện.
 6. **Given** phiên hết hạn, yêu cầu đọc kho người khác hoặc lỗi tải/lưu, **When** tiếp tục, **Then** yêu cầu đăng nhập/thử lại hoặc từ chối theo quyền; không báo lưu thành công khi chưa xác nhận.
+7. **Given** sản phẩm công khai thuộc phạm vi chương trình sản phẩm đang hoạt động *(Session 2026-11-10)*, **When** khách xem thẻ ở danh sách, dải sản phẩm ở trang chủ hoặc trang chi tiết của 002, **Then** giảm tự động lớn nhất áp dụng được cho một đơn vị được trừ vào giá (giá gốc gạch ngang), voucher chỉ hiện nhãn mức giảm; chương trình chỉ áp dụng một phần size ghi rõ size; đọc ưu đãi lỗi thì trang hiện giá thường, không báo lỗi; số tiền khách trả vẫn do báo giá checkout tính.
 
 ### User Story 4 - Dùng ưu đãi khi mua sản phẩm (Priority: P1)
 
@@ -118,7 +133,8 @@ Là Member, tôi muốn chọn một giảm tự động hoặc một voucher v�
 7. **Given** đang thử mã/chọn điểm, **When** chưa xác nhận đơn, **Then** chưa giữ quyền lợi. Khi xác nhận, kiểm tra lại giá/điều kiện/số dư/hạn mức và chỉ chấp nhận đơn cùng phần giữ hợp lệ; thất bại không để giữ dở dang.
 8. **Given** mã workshop hoặc mã sai/hết hạn/dừng/hết lượt/chưa đạt ngưỡng, **When** áp dụng, **Then** nêu lý do và cho chọn lại hoặc không dùng. Giá/điểm/hạn mức đổi trước chấp nhận thì cho xác nhận tổng mới, không tạo đơn khác tổng khách đã đồng ý.
 9. **Given** FE-08 xác nhận thanh toán đầy đủ hoặc chấp nhận đơn 0đ hợp lệ, **When** chốt, **Then** chốt lượt/trừ điểm đúng một lần; đơn 0đ không chờ cổng thanh toán và không tích điểm từ phần đã giảm hết.
-10. **Given** Staff điều phối nơi chuẩn bị hàng, **When** kiểm tra ưu đãi, **Then** không đổi khoản giảm vì chi nhánh. Biết mã giao dịch của người khác không cho dùng điểm/phần giữ của người đó.
+10. **Given** Staff điều phối nơi chuẩn bị hàng, **When** kiểm tra ưu đãi, **Then** không đổi khoản giảm vì chi nhánh chuẩn bị hàng; phạm vi chi nhánh của voucher chỉ so với chi nhánh ghi trên dòng giỏ lúc thêm sản phẩm (Session 2026-11-09). Biết mã giao dịch của người khác không cho dùng điểm/phần giữ của người đó.
+11. *(Session 2026-11-09)* **Given** voucher giảm 10% chỉ áp chi nhánh A cho sản phẩm P, giỏ có P 1.000.000đ ở A và P 1.000.000đ ở B, **When** áp mã, **Then** phần đủ điều kiện là 1.000.000đ (chỉ dòng ở A), giảm 100.000đ, dòng ở B không được giảm; giỏ chỉ có dòng ở B thì từ chối với lý do "voucher không áp dụng tại chi nhánh này". Voucher không giới hạn chi nhánh tính cả hai dòng.
 
 ### User Story 5 - Dùng ưu đãi khi đặt workshop (Priority: P1)
 
@@ -200,6 +216,7 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 ### Edge Cases
 
 - Mã khác hoa/thường/khoảng trắng, mã phạm vi còn lại và mã hết hạn vẫn kiểm tra duy nhất; lưu mã chưa giữ lượt.
+- *(Session 2026-11-09)* Chi nhánh trong phạm vi voucher sản phẩm ngừng hoạt động sau khi tạo: voucher không tự tạm dừng, không đổi phạm vi; khách không thêm được hàng ở chi nhánh đó (FR-046 của 002) nên không phát sinh dòng mới; chi tiết chương trình của Manager cảnh báo chi nhánh ngừng hoạt động. Giỏ trộn chi nhánh trong/ngoài phạm vi chỉ giảm phần ở chi nhánh trong phạm vi.
 - Sản phẩm trong phạm vi chương trình bị ẩn, ngừng bán hoặc xóa mềm sau khi tạo: chương trình không tự tạm dừng và không đổi phạm vi; dòng đó không đủ điều kiện ở checkout, sản phẩm khác trong phạm vi vẫn dùng được; lịch sử/báo cáo giữ tham chiếu cũ. Chi tiết chương trình của Manager cảnh báo phạm vi đang ẩn/đã xóa để Manager tự quyết định tạm dừng.
 - Giỏ trộn dòng đủ/không đủ điều kiện; ngưỡng vừa đủ/thiếu một đồng; giảm cố định vượt phần đủ điều kiện; phần trăm có phần lẻ không làm tổng âm.
 - Nhiều giảm tự động bằng khoản giảm ưu tiên tạo trước; thứ tự phụ khi trùng cả thời điểm thuộc thiết kế plan, không thay quy tắc khoản giảm lớn nhất.
@@ -224,24 +241,24 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 
 **Quản lí chương trình**
 
-- **FR-003**: Manager MUST tạo được voucher sản phẩm với tên, mã, thời gian, sản phẩm/biến thể, kiểu/mức giảm, trần giảm, ngưỡng phần đủ điều kiện, tổng lượt, lượt mỗi Member và cho/không kết hợp điểm.
+- **FR-003**: Manager MUST tạo được voucher sản phẩm với tên, mã, thời gian, sản phẩm/biến thể, phạm vi chi nhánh tùy chọn (Session 2026-11-09: không chọn = mọi chi nhánh; hoặc một/nhiều chi nhánh), kiểu/mức giảm, trần giảm, ngưỡng phần đủ điều kiện, tổng lượt, lượt mỗi Member và cho/không kết hợp điểm.
 - **FR-004**: Manager MUST tạo được voucher workshop với tên/mã, gói/chi nhánh/ngày/phiên, thời gian đặt bằng mã, kiểu/mức giảm, trần giảm, phí gói tối thiểu, tổng lượt, lượt mỗi Member và kết hợp điểm; thời gian đặt phân biệt lịch tham gia.
 - **FR-005**: Manager MUST tạo được giảm tự động sản phẩm theo phạm vi, thời gian, kiểu/mức giảm và điều kiện tương ứng, không cần mã hoặc giới hạn chi nhánh. Giảm tự động luôn cho kết hợp điểm; không có lựa chọn tắt kết hợp điểm cho loại này.
 - **FR-006**: Mã voucher MUST do hệ thống sinh trên form tạo (Session 2026-11-03); hệ thống MUST bỏ khoảng trắng đầu/cuối và so sánh mã không phân biệt hoa/thường; mã duy nhất toàn hệ thống, không tái sử dụng. Không đổi mã hoặc phạm vi sản phẩm/workshop sau tạo.
-- **FR-007**: Hệ thống MUST kiểm tra trường bắt buộc, bắt đầu trước kết thúc, mức giảm tiền/trần nguyên VND dương, tỷ lệ giảm lớn hơn 0 không quá 100%, ngưỡng tiền nguyên VND không âm, lượt tổng/mỗi Member nguyên dương và phạm vi hợp lệ. Phạm vi sản phẩm hợp lệ khi sản phẩm/biến thể tồn tại, biến thể thuộc sản phẩm và chưa bị xóa mềm; sản phẩm chưa công khai, đang ẩn hoặc size ngừng bán vẫn được chọn. Từ chối dữ liệu sai hoặc thiếu quyền. Không báo lưu thành công khi chưa xác nhận hoặc tạo trùng từ thao tác đã ghi nhận.
+- **FR-007**: Hệ thống MUST kiểm tra trường bắt buộc, bắt đầu trước kết thúc, mức giảm tiền/trần nguyên VND dương, tỷ lệ giảm lớn hơn 0 không quá 100%, ngưỡng tiền nguyên VND không âm, lượt tổng/mỗi Member nguyên dương và phạm vi hợp lệ. Phạm vi sản phẩm hợp lệ khi sản phẩm/biến thể tồn tại, biến thể thuộc sản phẩm và chưa bị xóa mềm; sản phẩm chưa công khai, đang ẩn hoặc size ngừng bán vẫn được chọn. Phạm vi chi nhánh của voucher sản phẩm (Session 2026-11-09) hợp lệ khi mọi chi nhánh tồn tại và đang hoạt động lúc lưu theo nguồn chi nhánh chuẩn mà 002 dùng (`SellingLocationPort`); size chưa bán ở chi nhánh nào trong phạm vi vẫn hợp lệ (chỉ cảnh báo trên form). Giảm tự động gửi kèm chi nhánh bị từ chối. Từ chối dữ liệu sai hoặc thiếu quyền. Không báo lưu thành công khi chưa xác nhận hoặc tạo trùng từ thao tác đã ghi nhận.
 - **FR-008**: Manager MUST xem danh sách/chi tiết, lọc sản phẩm/workshop, xem điều kiện/thời gian/tổng hạn mức, lượt đã dùng và tổng tiền giảm hiện tại của chương trình. Không tính lượt đang giữ hoặc booking đã ghi nhận hủy hợp lệ vào số tổng; lịch sử dùng/hoàn được giữ để tra cứu. Xử lí hủy lặp không trừ số liệu thêm lần nữa; hết hạn/tạm dừng chương trình không loại giao dịch đã chốt chưa bị hủy khỏi báo cáo.
 - **FR-009**: Manager MUST sửa điều kiện được phép cho giao dịch mới, tạm dừng và mở lại chương trình đã tạm dừng. Mở lại cùng chương trình/mã, giữ lịch sử và lượt đã dùng/đang giữ; không tự gia hạn hoặc reset lượt, giao dịch mới vẫn kiểm tra điều kiện hiện hành. Không giảm tổng hạn mức/lượt mỗi Member dưới đã dùng cộng đang giữ tương ứng theo số liệu hiện tại.
 - **FR-010**: Giao dịch đã chấp nhận MUST giữ điều kiện/quyền lợi đã ghi nhận: khoản giảm, điểm dùng, quy đổi và chính sách tích. Sửa/dừng/hết hạn chương trình không tự hủy phần giữ hợp lệ hoặc gia hạn thời hạn gốc; giao dịch mới kiểm tra điều kiện hiện hành.
 
 **Kho Voucher**
 
-- **FR-011**: Thẻ MUST hiển thị phạm vi, mức/trần giảm, giá trị tối thiểu, thời hạn và kết hợp điểm; chi tiết có đối tượng áp dụng, chi nhánh/ngày/phiên workshop nếu có, tổng hạn mức và lượt mỗi Member theo cấu hình. Thẻ/chi tiết công khai chỉ liệt kê sản phẩm trong phạm vi đang công khai; chương trình sản phẩm không còn sản phẩm nào công khai trong phạm vi không hiện ở danh sách ưu đãi công khai, còn trong Kho Voucher vẫn hiện kèm trạng thái "Hiện không có sản phẩm áp dụng".
+- **FR-011**: Thẻ MUST hiển thị phạm vi, mức/trần giảm, giá trị tối thiểu, thời hạn và kết hợp điểm; voucher sản phẩm giới hạn chi nhánh MUST hiện "Áp dụng tại: <tên chi nhánh>" trên thẻ (Session 2026-11-09); chi tiết có đối tượng áp dụng, chi nhánh của voucher sản phẩm, chi nhánh/ngày/phiên workshop nếu có, tổng hạn mức và lượt mỗi Member theo cấu hình. Thẻ/chi tiết công khai chỉ liệt kê sản phẩm trong phạm vi đang công khai; chương trình sản phẩm không còn sản phẩm nào công khai trong phạm vi không hiện ở danh sách ưu đãi công khai, còn trong Kho Voucher vẫn hiện kèm trạng thái "Hiện không có sản phẩm áp dụng".
 - **FR-012**: Member MUST lưu/xem kho cá nhân, chọn mã đã lưu hoặc nhập trực tiếp; lưu lặp không thêm quyền, lưu chưa giữ lượt/điểm hoặc bảo đảm mã hợp lệ.
-- **FR-013**: Hệ thống MUST nêu lý do mã không tồn tại, sai phạm vi, hết hạn/dừng/hết lượt/chưa đủ điều kiện; cho chọn lại/không dùng. Mất phiên/lỗi tải/lưu phải cho đăng nhập/thử lại, không trình bày dữ liệu chưa xác nhận như hiện tại.
+- **FR-013**: Hệ thống MUST nêu lý do mã không tồn tại, sai phạm vi (gồm không có dòng nào ở chi nhánh trong phạm vi, Session 2026-11-09), hết hạn/dừng/hết lượt/chưa đủ điều kiện; cho chọn lại/không dùng. Mất phiên/lỗi tải/lưu phải cho đăng nhập/thử lại, không trình bày dữ liệu chưa xác nhận như hiện tại.
 
 **Ưu đãi sản phẩm**
 
-- **FR-014**: Cơ sở ngưỡng và tính giảm MUST chỉ gồm tiền dòng sản phẩm/biến thể thuộc phạm vi trước ưu đãi/điểm, không giao hàng. Giảm cố định một lần/đơn; phần trăm làm tròn xuống đến đồng; không vượt trần hoặc phần đủ điều kiện, không làm tiền hàng âm. Dòng sản phẩm thuộc phạm vi nhưng không mua được theo FE-02/FE-08 (ẩn, ngừng bán, đã xóa) không được tính vào phần đủ điều kiện.
+- **FR-014**: Cơ sở ngưỡng và tính giảm MUST chỉ gồm tiền dòng sản phẩm/biến thể thuộc phạm vi trước ưu đãi/điểm, không giao hàng. Giảm cố định một lần/đơn; phần trăm làm tròn xuống đến đồng; không vượt trần hoặc phần đủ điều kiện, không làm tiền hàng âm. Dòng sản phẩm thuộc phạm vi nhưng không mua được theo FE-02/FE-08 (ẩn, ngừng bán, đã xóa) không được tính vào phần đủ điều kiện. Với voucher giới hạn chi nhánh (Session 2026-11-09), dòng chỉ thuộc phần đủ điều kiện khi chi nhánh ghi trên dòng giỏ nằm trong phạm vi (AND với phạm vi sản phẩm/size); dòng thiếu chi nhánh không đủ điều kiện cho voucher giới hạn chi nhánh nhưng vẫn tính bình thường cho voucher không giới hạn và giảm tự động.
 - **FR-015**: Mỗi đơn MUST dùng tối đa một giảm tự động hoặc một voucher. Nhiều giảm tự động thì chọn khoản giảm lớn nhất, bằng nhau tạo trước; chọn voucher thay thế bỏ giảm tự động.
 - **FR-016**: Checkout MUST hiển thị điểm khả dụng, số điểm tối đa/tiền giảm tương ứng, tiền hàng, giảm chương trình, giảm điểm, giao hàng và tổng; Member chủ động chọn, không tự trừ điểm.
 - **FR-017**: Khi xác nhận, hệ thống MUST kiểm tra lại giá/điều kiện/số dư/hạn mức, ghi chính sách và chỉ chấp nhận đơn cùng phần giữ hợp lệ theo FE-08; không giữ dở dang hoặc tạo tổng khác khách xác nhận. Thử mã/mở checkout chưa giữ; thay đổi trước chấp nhận phải cho xác nhận lại.
@@ -278,10 +295,11 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 - **FR-039**: Hành trình FE-06 cốt lõi MUST hoàn thành được từ giao diện web chạy tách riêng; hệ thống MUST NOT phụ thuộc giao diện do máy chủ dựng. Lỗi an toàn, cho sửa/đăng nhập/thử lại, không thông báo thành công trước xác nhận.
 - **FR-040**: FE-06 MUST dùng chung cơ chế xác thực FE-01/001: phiên theo contract FE-01/001, danh tính đã xác minh, kiểm tra thu hồi/trạng thái/quyền hiện tại; không tự cấp quyền nội bộ từ phiên Member hoặc kéo dài phiên trượt. V1 không yêu cầu MFA hay tầng xác thực bổ sung (theo 001, chốt 2026-10-27): thao tác Manager chỉ cần bearer hợp lệ, tài khoản ACTIVE và vai trò MANAGER hiện hành.
 - **FR-041**: Hệ thống MUST giữ lịch sử điểm/lượt voucher, nhật ký thay đổi và kết quả thao tác tối thiểu 5 năm; không dọn dữ liệu khi còn tham chiếu hoặc giao dịch chưa kết thúc. Thời hạn lưu không làm điểm hết hạn, mất bằng chứng chống cộng/trừ/hoàn trùng hoặc cho tái sử dụng mã voucher cũ.
+- **FR-042** *(Session 2026-11-10)*: FE-06 MUST cung cấp cho trang sản phẩm công khai của 002 (thẻ sản phẩm FR-058 của 002, trang chi tiết) phần hiển thị ưu đãi, chỉ đọc chương trình sản phẩm đang hoạt động qua API công khai (`GET /api/v1/promotions`, phạm vi PRODUCT), không thêm API. Quy tắc: (1) một size thuộc chương trình khi khớp mọi chiều chương trình dùng (sản phẩm, size; với voucher giới hạn chi nhánh thì size đang bán ở ít nhất một chi nhánh đó, FR-011); (2) khoản giảm trên một đơn vị dùng cùng công thức báo giá bán lẻ (FR-014): theo % làm tròn xuống, không vượt trần, không vượt giá, bằng 0 khi giá dưới giá trị tối thiểu; (3) giảm tự động lớn nhất được trừ vào giá từng size, thẻ hiện khoảng giá sau giảm và khoảng giá gốc gạch ngang; giảm tự động có tối thiểu lớn hơn giá một đơn vị chỉ hiện nhãn "cho đơn từ …"; (4) voucher MUST NOT trừ vào giá, chỉ hiện nhãn (tối đa hai); (5) chương trình chỉ áp dụng một phần size MUST ghi size áp dụng. Đọc ưu đãi lỗi MUST NOT chặn hay báo lỗi trang sản phẩm: hiện giá thường. Giá hiển thị chỉ để xem, MUST NOT thay báo giá checkout. FE-06 chỉ xuất thành phần qua cổng công khai, MUST NOT sửa trang của 002.
 
 ### Key Entities *(include if feature involves data)*
 
-- **Chương trình ưu đãi**: Tên, phạm vi, loại voucher/giảm tự động, thời gian, trạng thái, đối tượng áp dụng, kiểu/mức/trần giảm, ngưỡng, kết hợp điểm và thời điểm tạo; mã voucher duy nhất/cố định.
+- **Chương trình ưu đãi**: Tên, phạm vi (voucher sản phẩm có thêm tập chi nhánh tùy chọn, Session 2026-11-09), loại voucher/giảm tự động, thời gian, trạng thái, đối tượng áp dụng, kiểu/mức/trần giảm, ngưỡng, kết hợp điểm và thời điểm tạo; mã voucher duy nhất/cố định.
 - **Hạn mức và lượt voucher**: Tổng/lượt Member, phần giữ/đã dùng/đã trả; gắn chương trình, Member và giao dịch gốc để không dùng/trả vượt.
 - **Voucher đã lưu**: Quan hệ Member–voucher truy cập nhanh điều kiện hiện tại, không phải quyền giữ hạn mức.
 - **Chính sách điểm**: Tỷ lệ tích/quy đổi, điểm tối thiểu, trần giảm/cách tính; thông số áp dụng được ghi nhận tại lúc chấp nhận giao dịch.
@@ -324,5 +342,6 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 - D-005: Điều kiện hủy và số tiền cọc hoàn thuộc FE-03; FE-06 chỉ giải phóng/hoàn điểm/lượt từ kết quả xác nhận, không tự thêm trả hàng/hoàn tiền sản phẩm hoặc hủy workshop hoàn thành.
 - D-006: [FE-09](../../research.md#fe-09) cung cấp hành trình cấu hình chung cho Admin; chính sách điểm thuộc FE-06 và do Manager quản lí, không nằm trong cấu hình của Admin.
 - D-007: Spec đặc tả nghiệp vụ. Plan sẽ xác định thiết kế tích hợp, biểu mẫu, dữ liệu và kiểm chứng theo constitution, tuân thủ retention FR-041/A-005 đã được xác nhận khi lập plan; không tự chọn công nghệ/provider hoặc thực hiện triển khai. Dependency chưa có không chặn review spec nhưng phải được hoàn thiện/kiểm chứng trước bật hành trình phụ thuộc.
+- D-009 *(Session 2026-11-09)*: Phạm vi chi nhánh của voucher sản phẩm cần FE-08 truyền chi nhánh của từng dòng giỏ (`locationId`, đã có trên dòng giỏ theo spec 008) khi gọi `previewBenefits`/`reserveAcceptedTransaction`, và khi phân bổ khoản giảm cho các đơn chi nhánh thì không phân bổ vào đơn ở chi nhánh ngoài phạm vi. Đây là thay đổi contract với FE-08, cần owner FE-08 (Bùi Trọng Thịnh) đồng ý; FE-06 không sửa code FE-08. Khi chưa có `locationId`, chỉ voucher giới hạn chi nhánh bị từ chối kèm lý do; voucher không giới hạn, giảm tự động và điểm hoạt động như cũ.
 - D-008: Không thêm gửi voucher tự động, phân nhóm theo hạng, đổi điểm lấy quà, chuyển điểm hoặc điều chỉnh điểm thủ công.
 

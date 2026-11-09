@@ -154,7 +154,7 @@ Các hàm theo size ở trên **vẫn giữ nguyên** để FE-08 chạy tiếp;
 
 ### PromotionTargetPort — FE-06 owns SPI, productmanagement implements
 
-- Port và boundary types thuộc `loyaltypromotion::facade` ([FE-06 interfaces](../../006-loyalty-promotion/contracts/interfaces.md)). productmanagement triển khai bằng `LoyaltyProductTargetAdapter` trong `service/` cho dimension PRODUCT/VARIANT.
+- Port và boundary types thuộc `loyaltypromotion::facade` ([FE-06 interfaces](../../006-loyalty-promotion/contracts/interfaces.md)). productmanagement triển khai bằng `LoyaltyProductTargetAdapter` trong `service/` cho dimension PRODUCT/VARIANT và BRANCH (FE-06 Session 2026-11-09, T084 của 006: voucher sản phẩm giới hạn chi nhánh). Với BRANCH, adapter đọc `SellingLocationPort.activeSellingLocations()` — cùng nguồn chi nhánh của US10 — và trả tồn tại/đang hoạt động; chỉ đọc nguồn chi nhánh khi yêu cầu có target BRANCH; không có hoặc lỗi nguồn chi nhánh → `DEPENDENCY_UNAVAILABLE`, không coi là hợp lệ. FE-06 từ chối chi nhánh không tồn tại/ngừng hoạt động lúc lưu và cảnh báo `BRANCH_INACTIVE` sau đó.
 - Phụ thuộc được phép: `productmanagement → loyaltypromotion::facade`. Không import service/entity của FE-06; FE-06 không gọi ngược productmanagement.
 - Adapter trả immutable facts/guard cho mỗi product/variant: tồn tại, đã xóa mềm, đang công khai, đang bán. Cấu hình chương trình chỉ bị từ chối khi target không tồn tại, variant không thuộc product hoặc đã xóa mềm; sản phẩm chưa công khai/đang ẩn/ngừng bán vẫn được chọn (spec Clarification 2026-10-26). Khả năng áp dụng ưu đãi lúc checkout do FE-06/FE-08 quyết định; không trả entity và không gọi remote dưới khóa. Thiếu dữ liệu hoặc lỗi phụ thuộc trả lỗi an toàn để FE-06 trả DEPENDENCY_UNAVAILABLE.
 

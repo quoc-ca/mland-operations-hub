@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
-import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
+import { useSearchParams } from 'react-router';
+import { useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/components';
-import { publicImageUrl } from '../../application/useCatalogueApi';
 import { useCatalogueApi } from '../../application/useCatalogueApi';
 import { messages } from '../messages';
-import { PriceRange } from './PriceRange';
+import { PublicProductGrid } from './PublicProductGrid';
 
 const FILTERS = ['q', 'categoryId', 'minimumPrice', 'maximumPrice', 'canBuy', 'sort'];
 const SORTS = ['', 'name-asc', 'price-asc', 'price-desc', 'newest'];
@@ -75,7 +74,7 @@ export default function PublicProductListPage() {
         ? <div className="empty-state">{t('public.empty')}</div>
         : <>
           <p className="muted">{t('public.count', { count: total })}</p>
-          <div className="catalogue-grid">{data.items.map(product => <ProductCard key={product.id} product={product} />)}</div>
+          <PublicProductGrid products={data.items} />
           <nav className="pager" aria-label={t('pager.label')}>
             <button type="button" className="button outline" disabled={page <= 0} onClick={() => goTo(page - 1)}>{t('pager.previous')}</button>
             <span>{t('pager.page', { page: page + 1, pages: lastPage + 1 })}</span>
@@ -86,17 +85,3 @@ export default function PublicProductListPage() {
   );
 }
 
-function ProductCard({ product }) {
-  const t = useT(messages);
-  const format = useFormat();
-  const image = [...(product.images || [])].sort((a, b) => a.position - b.position)[0];
-  return (
-    <Link className="ring-card" to={`/products/${encodeURIComponent(product.id)}`}>
-      {image ? <img className="product-image" src={publicImageUrl(image.url)} alt={image.altText} /> : <div className="ring-visual silver" aria-hidden="true"><span /></div>}
-      {product.category && <span className="badge">{product.category.name}</span>}
-      <strong>{product.name}</strong>
-      <PriceRange range={product.priceRange} format={format} />
-      <span className={product.canBuy ? 'status ok' : 'status'}>{product.canBuy ? t('public.canBuy') : t('public.cannotBuy')}</span>
-    </Link>
-  );
-}

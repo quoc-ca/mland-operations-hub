@@ -125,7 +125,8 @@ function TargetWarnings({ program, labels, onRetry }) {
   }
   const warnings = program.targetWarnings || [];
   if (warnings.length === 0) return null;
-  const nameOf = ({ dimension, targetKey }) => labels?.[dimension === 'VARIANT' ? 'variantIds' : 'productIds']?.[targetKey]
+  const labelGroup = { VARIANT: 'variantIds', PRODUCT: 'productIds', BRANCH: 'branchIds' };
+  const nameOf = ({ dimension, targetKey }) => labels?.[labelGroup[dimension] || 'productIds']?.[targetKey]
     || t(`warn.${dimension}`, { id: targetKey });
   return (
     <div className="notice error" role="status">

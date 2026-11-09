@@ -330,7 +330,9 @@ class LoyaltyEntityRulesTests {
     void targetDimensionsMustMatchTheScope() {
         PromotionTarget.create(1L, TargetScope.PRODUCT, TargetDimension.VARIANT, "10");
         PromotionTarget.create(1L, TargetScope.WORKSHOP, TargetDimension.BRANCH, "3");
-        assertThatThrownBy(() -> PromotionTarget.create(1L, TargetScope.PRODUCT, TargetDimension.BRANCH, "3"))
+        // Session 2026-11-09: a product voucher may be limited to branches.
+        PromotionTarget.create(1L, TargetScope.PRODUCT, TargetDimension.BRANCH, "3");
+        assertThatThrownBy(() -> PromotionTarget.create(1L, TargetScope.PRODUCT, TargetDimension.PACKAGE, "3"))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> PromotionTarget.create(1L, TargetScope.WORKSHOP, TargetDimension.PRODUCT, "3"))
                 .isInstanceOf(IllegalArgumentException.class);

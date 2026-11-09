@@ -1152,6 +1152,15 @@
             },
             "minItems": 1,
             "uniqueItems": true
+          },
+          "branchIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PositiveId"
+            },
+            "minItems": 1,
+            "uniqueItems": true,
+            "description": "Session 2026-11-09: optional, VOUCHER only. Omitted = every branch. Each branch must exist and be active when saved. AUTO_DISCOUNT with branchIds is rejected (VALIDATION_FAILED). Immutable after create."
           }
         },
         "required": [],
@@ -1167,7 +1176,7 @@
             ]
           }
         ],
-        "description": "At least one product/variant set, no branch restriction."
+        "description": "At least one product/variant set; optional branchIds (voucher only) ANDed with the product/variant scope against each cart line's branch."
       },
       "WorkshopTargets": {
         "type": "object",
@@ -2040,7 +2049,8 @@
             "type": "string",
             "enum": [
               "PRODUCT",
-              "VARIANT"
+              "VARIANT",
+              "BRANCH"
             ]
           },
           "targetKey": {
@@ -2051,9 +2061,10 @@
             "enum": [
               "DELETED",
               "NOT_PUBLIC",
-              "NOT_ON_SALE"
+              "NOT_ON_SALE",
+              "BRANCH_INACTIVE"
             ],
-            "description": "DELETED: soft-deleted or gone; NOT_PUBLIC: unpublished, hidden or its category inactive; NOT_ON_SALE: public but no size on sale."
+            "description": "DELETED: soft-deleted or gone; NOT_PUBLIC: unpublished, hidden or its category inactive; NOT_ON_SALE: public but no size on sale; BRANCH_INACTIVE (dimension BRANCH, Session 2026-11-09): the branch of a product voucher no longer exists or is no longer active."
           }
         },
         "required": [

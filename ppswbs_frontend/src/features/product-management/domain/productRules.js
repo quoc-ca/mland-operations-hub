@@ -160,6 +160,24 @@ export function matchProductForFile(fileName, products) {
   return best ? best.id : null;
 }
 
+/**
+ * Key two product names are compared by for the same-name warning: trimmed, inner spaces collapsed, one Unicode form
+ * (a name typed with combined or separate Vietnamese marks is the same), any case. Marks still count: "Nhẫn" ≠ "Nhan".
+ */
+export function productNameKey(name) {
+  return String(name ?? '').normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('vi');
+}
+
+/**
+ * Products of a list that are not deleted and have the same name (productNameKey), except the one being edited.
+ * Product names need not be unique (spec 002, A-003); this only feeds a warning.
+ */
+export function sameNameProducts(items, name, exceptId) {
+  const key = productNameKey(name);
+  if (!key) return [];
+  return (items || []).filter(item => !item.deletedAt && String(item.id) !== String(exceptId ?? '') && productNameKey(item.name) === key);
+}
+
 /** Sizes in ascending order with consecutive runs folded, as an import file may write them: [12,5,6,7,14] → "5–7, 12, 14". */
 export function compactSizes(sizes) {
   const sorted = [...new Set((sizes || []).map(Number))].sort((a, b) => a - b);
