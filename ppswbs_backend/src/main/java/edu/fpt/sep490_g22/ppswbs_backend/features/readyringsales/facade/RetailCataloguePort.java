@@ -8,7 +8,12 @@ public interface RetailCataloguePort {
 
     boolean isEligibleForCart(Long variantId, Long locationId);
 
-    CartProductFact readCartProduct(Long variantId);
+    /**
+     * Reads sale facts for one concrete size at one concrete branch.  A cart
+     * line is never allowed to reuse availability or a price from another
+     * branch that happens to sell the same size.
+     */
+    CartProductFact readCartProduct(Long variantId, Long locationId);
 
     record CartProductFact(String productName, String sku, Integer size, String indicativePrice,
                            String currency, String availableQuantity, boolean saleEligible) {}

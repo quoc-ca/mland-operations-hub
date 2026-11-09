@@ -54,7 +54,7 @@ class GroupedCheckoutIntegrationTest {
     void setUp() {
         checkoutRepository.deleteAll(); cartRepository.deleteAll(); accountRepository.deleteAll();
         when(cataloguePort.isEligibleForCart(anyLong(), anyLong())).thenReturn(true);
-        org.mockito.Mockito.lenient().when(cataloguePort.readCartProduct(anyLong())).thenReturn(
+        org.mockito.Mockito.lenient().when(cataloguePort.readCartProduct(anyLong(), anyLong())).thenReturn(
             new edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailCataloguePort.CartProductFact("Ring", "SKU", 10, "100", "VND", "5", true));
         when(pricingPort.price(any())).thenAnswer(invocation -> ((List<edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.CartLine>) invocation.getArgument(0)).stream()
             .map(line -> new RetailCheckoutPorts.PricedLine(line.getVariantId(), line.getLocationId(), line.getQuantity(), BigDecimal.valueOf(500_000))).toList());

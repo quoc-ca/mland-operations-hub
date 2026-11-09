@@ -19,13 +19,13 @@ class RetailCartRestorationTest {
     }
 
     @Test
-    void restoresOnlyQuantityWithinVariantLimitAcrossLocations() {
+    void restoresQuantityUpToLimitAtEachLocation() {
         var cart = new RetailCart(1L);
         cart.addLine(101L, 20L, 97);
         var checkout = checkout(101L, 5);
-        assertThat(RetailCartRestoration.restore(cart, checkout)).isEqualTo(3);
+        assertThat(RetailCartRestoration.restore(cart, checkout)).isZero();
         assertThat(cart.getLines()).hasSize(2);
-        assertThat(cart.getLines()).extracting("quantity").containsExactly(97, 2);
+        assertThat(cart.getLines()).extracting("quantity").containsExactly(97, 5);
     }
 
     private GroupedCheckout checkout(long variant, int quantity) {
