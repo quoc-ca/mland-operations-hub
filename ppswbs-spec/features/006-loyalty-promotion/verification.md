@@ -1,7 +1,7 @@
 # Verification — FE-06 Loyalty & Promotion
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-05 (mục 49: kiểm thử cuối trên màn thật, tên gói/chi nhánh workshop; mục 48: T081 mã lý do vi/en; trước đó: 2026-11-04 (mục 46: rà soát hoàn thành — 80/80 task, backend 258/258, frontend 31/31, owner thử voucher thật; trước đó: 2026-11-03 (mục 40 sửa theo thực tế, mục 41: cảnh báo phạm vi cho Manager, khôi phục lệnh tạo, mã voucher trong spec; trước đó: 2026-11-01 (mục 30: chuẩn bị T075/T076, đối chiếu 41 FR; mục 29: phục hồi, tranh chấp nguồn, báo cáo lượt dùng; mục 28: workshop nguồn thật FE-03 và CORS; mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật)))
+**Date updated**: 2026-11-10 (mục 50: voucher sản phẩm theo chi nhánh T083–T087, ưu đãi trên trang sản phẩm công khai T089, đóng T082, sửa OpenAPI `TargetWarning`; trước đó: 2026-11-05 (mục 49: kiểm thử cuối trên màn thật, tên gói/chi nhánh workshop; mục 48: T081 mã lý do vi/en; trước đó: 2026-11-04 (mục 46: rà soát hoàn thành — 80/80 task, backend 258/258, frontend 31/31, owner thử voucher thật; trước đó: 2026-11-03 (mục 40 sửa theo thực tế, mục 41: cảnh báo phạm vi cho Manager, khôi phục lệnh tạo, mã voucher trong spec; trước đó: 2026-11-01 (mục 30: chuẩn bị T075/T076, đối chiếu 41 FR; mục 29: phục hồi, tranh chấp nguồn, báo cáo lượt dùng; mục 28: workshop nguồn thật FE-03 và CORS; mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật))))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -814,3 +814,18 @@ Môi trường: nhánh `khuong` (`c17573a` cùng T081 chưa commit), backend và
   - F4: Manager tạm dừng rồi Member xem lại trong Kho (cần đổi phiên).
   - Phiên Staff.
   - Checkout bán lẻ, thanh toán đặt cọc và tích điểm.
+
+## 50. Voucher sản phẩm theo chi nhánh, ưu đãi trên trang sản phẩm công khai, rà soát 002 ↔ 006, 2026-11-10
+
+- **Phạm vi:** Session 2026-11-09 (T083–T087, phương án B), Session 2026-11-10 (T089, FR-042, US3.7), đóng T082. Không thêm migration (`dimension`/`targetKey` đã nhận BRANCH).
+- **Chạy ngày 2026-11-10 (nhánh `khuong`, chưa commit):**
+  - Backend unit: `PromotionBranchTargetParsingTest` 3/3, `LoyaltyEntityRulesTests` 23/23, `LoyaltyProductTargetAdapterBranchTest` 3/3, `LoyaltyRetailQuoteTest` 19/19 (gồm 4 test chi nhánh US4.11: giỏ A+B, chỉ B, `locationId` null, voucher không giới hạn, giảm tự động).
+  - Frontend: 002 + 006 + landing 155/155; toàn bộ frontend 525/525; `npm run build` đạt.
+- **Rà soát 002 ↔ 006, đã sửa:**
+  - OpenAPI `TargetWarning`: `dimension` thêm `BRANCH`, `state` thêm `BRANCH_INACTIVE` cho khớp `PromotionTargetWarningService` và màn chi tiết chương trình (số schema giữ 35).
+  - 002 `contracts/interfaces.md` mục PromotionTargetPort: adapter nhận cả BRANCH qua `SellingLocationPort`.
+  - 002 spec (Phụ thuộc US10): điều kiện chi nhánh cho voucher sản phẩm đã triển khai ở 006, không còn là đề xuất.
+  - T082: FE-03 dùng `WorkshopBenefitPanel.jsx` riêng (commit `46e72c0`), không file nào import `features/loyaltypromotion/checkout/BenefitSelector.jsx` → đã xóa file tạm. Mục 38 ("FE-03 vẫn import …") là trạng thái cũ.
+- **Chưa chạy:** IT MySQL (`LoyaltyApiContractIT`, `PromotionTargetWarningIT` với chi nhánh thật), trình duyệt với phiên Manager tạo voucher giới hạn chi nhánh.
+- **Chờ owner khác:**
+  - FE-08 (T088, D-009): `RetailCheckoutQuotePreviewService` và `RetailCheckoutAcceptanceService` vẫn tạo `SourceLine` không có `locationId`, nên voucher giới hạn chi nhánh hiện luôn bị từ chối với `BRANCH_NOT_COVERED`; voucher không giới hạn chi nhánh và giảm tự động không bị ảnh hưởng. Cùng nhóm với T124 của 002. Kiểm lại trên develop `235eadd` (FE-08 chuyển giỏ/checkout sang chi nhánh, 2026-11-10): vẫn dùng constructor `SourceLine` cũ, dù dòng báo giá đã có chi nhánh (`branch.getLocationId()`) — FE-08 chỉ cần truyền giá trị này. Ghép thử nhánh làm việc lên develop: không xung đột; test 006 + `ModulithArchitectureTests` đạt.

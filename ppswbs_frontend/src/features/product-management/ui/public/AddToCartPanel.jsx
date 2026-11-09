@@ -17,8 +17,12 @@ const QUANTITY = /^[1-9][0-9]?$/;
  * only this button writes. Errors show FE-08's message. Branches come from GET /api/v1/product-selling-locations; if
  * that source is unavailable the button stays disabled with a retry (no guessed default branch). US10: for a size sold
  * at branches only those branches are offered, a branch without stock shown as sold out (FR-046/FR-052).
+ *
+ * @param returnPath where a Guest comes back after sign-in (default: this page); the list's quick add uses the
+ *                   product page, which restores the choice from the query
+ * @param onAdded    called after a successful add instead of opening the cart (the list's quick add)
  */
-export function AddToCartPanel({ product }) {
+export function AddToCartPanel({ product, returnPath, onAdded }) {
   const t = useT(messages);
   const errorText = useErrorText(messages);
   const api = useCatalogueApi();
@@ -61,13 +65,14 @@ export function AddToCartPanel({ product }) {
   const quantityOk = QUANTITY.test(choice.quantity);
   const ready = Boolean(choice.variantId && choice.locationId && quantityOk && locations.data && !pending);
 
-  const back = `${location.pathname}?${new URLSearchParams({ variantId: choice.variantId, locationId: choice.locationId, quantity: choice.quantity })}`;
+  const back = `${returnPath || location.pathname}?${new URLSearchParams({ variantId: choice.variantId, locationId: choice.locationId, quantity: choice.quantity })}`;
   const add = async () => {
     setPending(true);
     setError(null);
     try {
       await api.addCartLine({ variantId: Number(choice.variantId), locationId: Number(choice.locationId), quantity: Number(choice.quantity) });
-      navigate('/member/cart');
+      // The quick add of the list stays on the list (onAdded); the detail page opens the cart as before.
+      if (onAdded) { setPending(false); onAdded(); } else navigate('/member/cart');
     } catch (failure) {
       setError(failure);
       setPending(false);

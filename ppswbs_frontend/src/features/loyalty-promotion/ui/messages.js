@@ -1,6 +1,17 @@
 // vi/en texts of 006 screens (shared mechanism: src/shared/i18n). Error texts are keyed by backend error code.
 const vi = {
   all: 'Tất cả', back: 'Quay lại', cancel: 'Hủy', save: 'Lưu', saving: 'Đang lưu…', edit: 'Sửa', more: 'Xem thêm', yes: 'Có', no: 'Không',
+  // Session 2026-11-09: product voucher limited to branches
+  'branch.title': 'Chi nhánh áp dụng', 'branch.all': 'Tất cả chi nhánh', 'branch.some': 'Chỉ một số chi nhánh',
+  'branch.hint': 'Voucher chỉ giảm cho sản phẩm khách thêm vào giỏ ở chi nhánh đã chọn. Không đổi được sau khi tạo.',
+  'branch.autoHint': 'Giảm tự động áp dụng ở mọi chi nhánh.', 'branch.loading': 'Đang tải danh sách chi nhánh…',
+  'branch.failed': 'Chưa tải được danh sách chi nhánh.', 'branch.retry': 'Thử lại', 'branch.none': 'Chưa có chi nhánh nào đang hoạt động.',
+  'branch.pickOne': 'Chọn ít nhất một chi nhánh, hoặc chọn "Tất cả chi nhánh".',
+  'picker.branchFilter': 'Chỉ hiện sản phẩm đang bán ở chi nhánh đã chọn.',
+  'picker.state.offBranch': 'Chưa bán ở chi nhánh đã chọn', 'picker.offBranchHint': 'Một số size đã chọn chưa bán ở chi nhánh nào đã chọn: vẫn lưu được, nhưng voucher chỉ dùng được khi chi nhánh đó có bán size này.',
+  'warn.BRANCH': 'Chi nhánh #{id}', 'warn.BRANCH_INACTIVE': 'chi nhánh đã ngừng hoạt động',
+  'offer.atBranches': 'Áp dụng tại: {branches}.', 'offer.atBranchCount': 'Áp dụng tại {count} chi nhánh.',
+  'reason.BRANCH_NOT_COVERED': 'Voucher không áp dụng tại chi nhánh của các sản phẩm trong giỏ.',
 
   'nav.label': 'Quản lý ưu đãi', 'nav.programs': 'Chương trình ưu đãi', 'nav.newProgram': 'Tạo chương trình', 'nav.policy': 'Chính sách điểm', 'nav.programDetail': 'Chi tiết chương trình', 'nav.breadcrumb': 'Vị trí hiện tại',
   'nav.promotions': 'Xem ưu đãi', 'nav.savedVouchers': 'Kho Voucher',
@@ -36,6 +47,8 @@ const vi = {
   'create.productTargetsHint': 'Tìm sản phẩm rồi chọn cả sản phẩm hoặc từng size. Phạm vi và đối tượng không đổi được sau khi tạo.',
   'picker.search': 'Tìm sản phẩm', 'picker.searchHint': 'Tên, mã sản phẩm hoặc SKU', 'picker.find': 'Tìm', 'picker.searching': 'Đang tìm…',
   'picker.none': 'Không có sản phẩm nào khớp.', 'picker.results': 'Kết quả tìm sản phẩm', 'picker.wholeProduct': '— cả sản phẩm (mọi size)',
+  'picker.mixedHint': 'Đang chọn cả sản phẩm lẫn từng size: khi lưu, mỗi sản phẩm chọn cả sẽ được lưu thành danh sách mọi size của nó (cùng phạm vi áp dụng).',
+  'picker.state.draft': 'Chưa công khai', 'picker.state.hidden': 'Đang ẩn', 'picker.state.deleted': 'Đã xóa', 'picker.state.stopped': 'Ngừng bán',
   'picker.size': 'Size {size}', 'picker.previous': 'Trang trước', 'picker.next': 'Trang sau', 'picker.page': 'Trang {page}/{pages}',
   'picker.chosen': 'Đã chọn ({count})', 'picker.nothingChosen': 'Chưa chọn sản phẩm hoặc size nào.', 'picker.remove': 'Bỏ chọn {label}', 'picker.removeShort': 'Bỏ chọn',
   'create.pending': 'Lần tạo chương trình "{name}" trước đó chưa nhận được phản hồi nên chưa biết đã lưu hay chưa.', 'create.pendingCheck': 'Gửi lại đúng yêu cầu đó', 'create.pendingDiscard': 'Bỏ qua', 'create.pendingList': 'Xem danh sách chương trình',
@@ -77,6 +90,12 @@ const vi = {
   'public.notFound': 'Ưu đãi không tồn tại hoặc không còn công khai',
   'public.notQuote': 'Thẻ ưu đãi chỉ để tham khảo; voucher có dùng được hay không sẽ được kiểm tra khi đặt đơn.',
   'public.save': 'Lưu vào Kho Voucher', 'public.saved': 'Đã lưu.', 'public.signInToSave': 'Đăng nhập để lưu',
+  'offer.auto': 'Giảm {value}', 'offer.autoFrom': 'Giảm {value} đơn từ {minimum}', 'offer.voucher': 'Mã giảm {value}',
+  'offer.sizesShort': ' · size {sizes}', 'offer.sizesCount': ' · {count} size', 'offer.appliesTo': 'Chỉ áp dụng cho size {sizes}.',
+  'offer.originalPrice': 'Giá gốc {price}', 'offer.title': 'Ưu đãi cho sản phẩm này',
+  'offer.autoLine': '{name}: giảm {value}, đã trừ vào giá.', 'offer.autoFromLine': '{name}: giảm {value} cho đơn từ {minimum}, tự trừ khi đặt.',
+  'offer.voucherLine': '{name}: mã {code}, giảm {value}{minimum}.', 'offer.voucherMinimum': ' cho đơn từ {minimum}',
+  'offer.view': 'Xem và lưu mã', 'offer.notice': 'Giá giảm tính cho 1 sản phẩm; số tiền cuối cùng được tính lại khi đặt đơn.',
 
   'checkout.title': 'Ưu đãi và điểm', 'checkout.choice': 'Chọn ưu đãi', 'checkout.choice.NONE': 'Không dùng ưu đãi',
   'checkout.choice.AUTO': 'Giảm giá tự động (nếu có)', 'checkout.choice.VOUCHER': 'Dùng voucher',
@@ -134,6 +153,17 @@ const vi = {
 
 const en = {
   all: 'All', back: 'Back', cancel: 'Cancel', save: 'Save', saving: 'Saving…', edit: 'Edit', more: 'Load more', yes: 'Yes', no: 'No',
+  // Session 2026-11-09: product voucher limited to branches
+  'branch.title': 'Branches', 'branch.all': 'All branches', 'branch.some': 'Only some branches',
+  'branch.hint': 'The voucher only discounts items the customer added to the cart at a chosen branch. It cannot change after creation.',
+  'branch.autoHint': 'An automatic discount applies at every branch.', 'branch.loading': 'Loading the branches…',
+  'branch.failed': 'The branches could not be loaded.', 'branch.retry': 'Try again', 'branch.none': 'No branch is active yet.',
+  'branch.pickOne': 'Choose at least one branch, or choose "All branches".',
+  'picker.branchFilter': 'Only products sold at the chosen branches are shown.',
+  'picker.state.offBranch': 'Not sold at the chosen branches', 'picker.offBranchHint': 'Some chosen sizes are not sold at any chosen branch: you can still save, but the voucher only works once a chosen branch sells that size.',
+  'warn.BRANCH': 'Branch #{id}', 'warn.BRANCH_INACTIVE': 'branch no longer active',
+  'offer.atBranches': 'Only at: {branches}.', 'offer.atBranchCount': 'Only at {count} branches.',
+  'reason.BRANCH_NOT_COVERED': 'This voucher does not apply at the branch of the items in the cart.',
 
   'nav.label': 'Offer management', 'nav.programs': 'Programmes', 'nav.newProgram': 'New programme', 'nav.policy': 'Point policy', 'nav.programDetail': 'Programme detail', 'nav.breadcrumb': 'You are here',
   'nav.promotions': 'See offers', 'nav.savedVouchers': 'Voucher wallet',
@@ -169,6 +199,8 @@ const en = {
   'create.productTargetsHint': 'Search a product, then choose the whole product or single sizes. Scope and targets cannot change after creation.',
   'picker.search': 'Find a product', 'picker.searchHint': 'Name, product number or SKU', 'picker.find': 'Search', 'picker.searching': 'Searching…',
   'picker.none': 'No product matches.', 'picker.results': 'Product search results', 'picker.wholeProduct': '— whole product (every size)',
+  'picker.mixedHint': 'Whole products and single sizes are mixed: each whole product is saved as the list of all its sizes (same coverage).',
+  'picker.state.draft': 'Not public yet', 'picker.state.hidden': 'Hidden', 'picker.state.deleted': 'Deleted', 'picker.state.stopped': 'Sale stopped',
   'picker.size': 'Size {size}', 'picker.previous': 'Previous page', 'picker.next': 'Next page', 'picker.page': 'Page {page}/{pages}',
   'picker.chosen': 'Chosen ({count})', 'picker.nothingChosen': 'No product or size chosen yet.', 'picker.remove': 'Remove {label}', 'picker.removeShort': 'Remove',
   'create.pending': 'The earlier create of "{name}" got no answer, so it is not known whether it was saved.', 'create.pendingCheck': 'Send that same request again', 'create.pendingDiscard': 'Dismiss', 'create.pendingList': 'See the programme list',
@@ -210,6 +242,12 @@ const en = {
   'public.notFound': 'This offer does not exist or is no longer public',
   'public.notQuote': 'Offer cards are for information; whether a voucher applies is checked when you order.',
   'public.save': 'Save to wallet', 'public.saved': 'Saved.', 'public.signInToSave': 'Sign in to save',
+  'offer.auto': '{value} off', 'offer.autoFrom': '{value} off orders from {minimum}', 'offer.voucher': 'Code: {value} off',
+  'offer.sizesShort': ' · size {sizes}', 'offer.sizesCount': ' · {count} sizes', 'offer.appliesTo': 'Only for size {sizes}.',
+  'offer.originalPrice': 'Was {price}', 'offer.title': 'Offers on this product',
+  'offer.autoLine': '{name}: {value} off, already taken off the price.', 'offer.autoFromLine': '{name}: {value} off orders from {minimum}, applied at checkout.',
+  'offer.voucherLine': '{name}: code {code}, {value} off{minimum}.', 'offer.voucherMinimum': ' on orders from {minimum}',
+  'offer.view': 'View and save code', 'offer.notice': 'The reduced price is for one item; the final amount is worked out again at checkout.',
 
   'checkout.title': 'Offers and points', 'checkout.choice': 'Choose an offer', 'checkout.choice.NONE': 'No offer',
   'checkout.choice.AUTO': 'Automatic discount (if any)', 'checkout.choice.VOUCHER': 'Use a voucher',

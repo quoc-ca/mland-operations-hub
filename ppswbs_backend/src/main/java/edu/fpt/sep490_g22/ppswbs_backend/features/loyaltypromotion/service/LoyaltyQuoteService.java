@@ -82,7 +82,7 @@ public class LoyaltyQuoteService {
                 result.pointsUsed(), result.pointDiscount(), result.earnBase(), result.earnBase(),
                 chosen == null ? null : chosen.programId(), chosen == null ? null : chosen.revisionNo(),
                 chosen == null ? null : chosen.normalizedCode(), policy.getRevisionNo(), result.pointsAllowed(),
-                result.reasons(), evaluation.termsDigest(), result.reasonDetails());
+                result.reasons(), evaluation.termsDigest(), result.reasonDetails(), result.eligibleLines());
     }
 
     /**
@@ -147,7 +147,10 @@ public class LoyaltyQuoteService {
         List<PromotionTarget> rows = targets.findByRevisionIdOrderByDimensionAscTargetKeyAsc(revision.getId());
         return new RetailQuote.Candidate(program.getId(), revision.getId(), revision.getRevisionNo(), program.getKind(),
                 program.getCreatedAt(), revision.terms(), revision.isAllowPoints(),
-                ids(rows, TargetDimension.PRODUCT), ids(rows, TargetDimension.VARIANT), program.getCodeOriginal(),
+                ids(rows, TargetDimension.PRODUCT), ids(rows, TargetDimension.VARIANT),
+                // A workshop programme's branches are matched per session by WorkshopBenefitEvaluator instead.
+                expected == TargetScope.PRODUCT ? ids(rows, TargetDimension.BRANCH) : Set.of(),
+                program.getCodeOriginal(),
                 unavailableReason(program, revision, context.memberId(), context.at(), expected));
     }
 

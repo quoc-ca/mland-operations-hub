@@ -52,6 +52,10 @@ export function Terms({ item, labels }) {
     const text = value => labels?.[key]?.[value] || (named ? t(`targetUnknown.${key}`, { id: value }) : value);
     rows.push([t(named ? `targetName.${key}` : `target.${key}`), values.map(text).join('; '), 'wide']);
   });
+  // Session 2026-11-09: a product voucher without branches applies at every branch; say so.
+  if (item.scope === 'PRODUCT' && item.kind === 'VOUCHER' && !targets.branchIds?.length) {
+    rows.push([t('targetName.branchIds'), t('branch.all'), 'wide']);
+  }
   if (item.totalLimit) rows.push([t('field.totalLimit'), format.number(item.totalLimit)]);
   if (item.perMemberLimit) rows.push([t('field.perMemberLimit'), format.number(item.perMemberLimit)]);
   return (

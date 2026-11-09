@@ -5,8 +5,9 @@ import { ErrorNotice, Field, useCommand } from '../../../../shared/ui/components
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { messages } from '../messages';
 import { useDateTime } from '../display';
-import { checkCreate, createBody, defaultWindow, generateVoucherCode, LIMITS, serverFieldErrors, toInstant } from '../../domain/promotionRules';
+import { checkCreate, createBody, defaultWindow, generateVoucherCode, LIMITS, productBranchIds, productTargets, serverFieldErrors, toInstant } from '../../domain/promotionRules';
 import { DateTimeField } from './DateTimeField';
+import { ProductBranchPicker } from './ProductBranchPicker';
 import { ProductTargetPicker } from './ProductTargetPicker';
 import { WorkshopTargetPicker } from './WorkshopTargetPicker';
 import { PageTop } from './PromotionManagementLayout';
@@ -31,6 +32,8 @@ const emptyForm = () => ({
   kind: 'VOUCHER', scope: 'PRODUCT', name: '', discountKind: 'PERCENT', percentage: '', amount: '',
   maxDiscountAmount: '', minimumEligibleAmount: '0', allowPoints: true, totalLimit: '', perMemberLimit: '1',
   productIds: '', variantIds: '', packageIds: '', branchIds: '', sessionIds: '',
+  // Session 2026-11-09: branches of a product voucher ('ALL' = every branch, nothing sent).
+  branchMode: 'ALL', productBranchIds: [],
 });
 
 /**
@@ -48,10 +51,11 @@ export default function ProgramCreatePage() {
   const dateTime = useDateTime();
   const [form, setForm] = useState(emptyForm);
   const [hints, setHints] = useState({});
-  const [picked, setPicked] = useState({ products: {}, variants: {} });
+  const [picked, setPicked] = useState({ products: {}, variants: {}, sizesOf: {} });
   const pick = next => {
     setPicked(next);
-    setForm(current => ({ ...current, productIds: Object.keys(next.products).join(','), variantIds: Object.keys(next.variants).join(',') }));
+    const targets = productTargets(next);
+    setForm(current => ({ ...current, productIds: targets.productIds.join(','), variantIds: targets.variantIds.join(',') }));
   };
   const command = useCommand();
   const [kept, setKept] = useState(() => pending.read());
@@ -173,8 +177,14 @@ export default function ProgramCreatePage() {
         <p className="muted small">{t(form.scope === 'PRODUCT' ? 'create.productTargetsHint' : 'create.workshopTargetsHint')}</p>
         {errorOf('targets') && <p className="field-error">{errorOf('targets')}</p>}
         {form.scope === 'PRODUCT' ? (
-          <ProductTargetPicker api={api} value={picked} onChange={pick}
-            errors={{ productIds: errorOf('targets.productIds'), variantIds: errorOf('targets.variantIds') }} />
+          <>
+            <h3 className="picker-title">{t('branch.title')}</h3>
+            <ProductBranchPicker api={api} voucher={voucher} mode={form.branchMode} value={form.productBranchIds}
+              onChange={(mode, ids) => setForm(current => ({ ...current, branchMode: mode, productBranchIds: ids }))}
+              error={errorOf('targets.branchIds')} />
+            <ProductTargetPicker api={api} value={picked} onChange={pick} branchIds={productBranchIds(form)}
+              errors={{ productIds: errorOf('targets.productIds'), variantIds: errorOf('targets.variantIds') }} />
+          </>
         ) : (
           <WorkshopTargetPicker api={api} form={form} setField={setField}
             errors={{ packageIds: errorOf('targets.packageIds'), branchIds: errorOf('targets.branchIds'), sessionIds: errorOf('targets.sessionIds') }} />

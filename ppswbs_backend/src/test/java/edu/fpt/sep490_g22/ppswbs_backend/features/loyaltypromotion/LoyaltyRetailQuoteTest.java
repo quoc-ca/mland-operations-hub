@@ -112,6 +112,89 @@ class LoyaltyRetailQuoteTest {
         assertThat(result.programDiscount()).isEqualTo(n(10_000));
     }
 
+    private static final long BRANCH_A = 501L;
+    private static final long BRANCH_B = 502L;
+
+    private static SourceLine lineAt(long product, long variant, long unit, Long branch) {
+        return new SourceLine(product, variant, 1, n(unit), branch);
+    }
+
+    private static Candidate branchVoucher(Set<Long> branches) {
+        return new Candidate(1, 10, 1, ProgramKind.VOUCHER, EARLY, percent("10", 1_000_000, 0), true, Set.of(1L),
+                Set.of(), branches, "CODE1", null);
+    }
+
+    @Test
+    void aBranchLimitedVoucherDiscountsOnlyLinesAddedAtItsBranches() {
+        // US4.11 (Session 2026-11-09): P at A and P at B, voucher 10% limited to A.
+        List<SourceLine> cart = List.of(lineAt(1, 11, 1_000_000, BRANCH_A), lineAt(1, 11, 1_000_000, BRANCH_B));
+        Result limited = RetailQuote.compute(cart, select(SelectionChoice.VOUCHER, 0),
+                branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), false);
+        assertThat(limited.eligibleSubtotal()).isEqualTo(n(1_000_000));
+        assertThat(limited.programDiscount()).isEqualTo(n(100_000));
+        assertThat(limited.eligibleLines()).containsExactly(0);
+
+        Result everyBranch = RetailQuote.compute(cart, select(SelectionChoice.VOUCHER, 0),
+                branchVoucher(Set.of()), List.of(), POLICY, n(0), false);
+        assertThat(everyBranch.eligibleSubtotal()).isEqualTo(n(2_000_000));
+        assertThat(everyBranch.eligibleLines()).containsExactly(0, 1);
+    }
+
+    @Test
+    void aBranchLimitedVoucherIsRefusedWithABranchReasonWhenNoLineIsAtItsBranches() {
+        List<SourceLine> onlyB = List.of(lineAt(1, 11, 1_000_000, BRANCH_B));
+        Result result = RetailQuote.compute(onlyB, select(SelectionChoice.VOUCHER, 0),
+                branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), false);
+        assertThat(result.candidate()).isNull();
+        assertThat(result.reasonDetails()).extracting(BenefitReason::code)
+                .containsExactly(BenefitReasonCode.BRANCH_NOT_COVERED);
+        assertThatThrownBy(() -> RetailQuote.compute(onlyB, select(SelectionChoice.VOUCHER, 0),
+                branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), true))
+                .isInstanceOfSatisfying(LoyaltyException.class,
+                        e -> assertThat(e.code()).isEqualTo(LoyaltyErrorCode.PROMOTION_INELIGIBLE));
+
+        // A product outside the voucher stays NO_COVERED_ITEM even at the right branch.
+        Result otherProduct = RetailQuote.compute(List.of(lineAt(2, 21, 100_000, BRANCH_A)),
+                select(SelectionChoice.VOUCHER, 0), branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), false);
+        assertThat(otherProduct.reasonDetails()).extracting(BenefitReason::code)
+                .containsExactly(BenefitReasonCode.NO_COVERED_ITEM);
+    }
+
+    @Test
+    void aLineWithoutBranchNeverMatchesABranchLimitedVoucherButStillMatchesOtherBenefits() {
+        List<SourceLine> noBranch = List.of(lineAt(1, 11, 1_000_000, null));
+        Result limited = RetailQuote.compute(noBranch, select(SelectionChoice.VOUCHER, 0),
+                branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), false);
+        assertThat(limited.candidate()).isNull();
+        assertThat(limited.reasonDetails()).extracting(BenefitReason::code)
+                .containsExactly(BenefitReasonCode.BRANCH_NOT_COVERED);
+
+        Result unlimited = RetailQuote.compute(noBranch, select(SelectionChoice.VOUCHER, 0),
+                branchVoucher(Set.of()), List.of(), POLICY, n(0), false);
+        assertThat(unlimited.programDiscount()).isEqualTo(n(100_000));
+        Result automatic = RetailQuote.compute(noBranch, select(SelectionChoice.AUTO, 0), null,
+                List.of(auto(2, EARLY, fixed(30_000, 30_000, 0), Set.of(1L))), POLICY, n(0), false);
+        assertThat(automatic.programDiscount()).isEqualTo(n(30_000));
+    }
+
+    @Test
+    void onlyABranchLimitedVoucherBindsTheDiscountedLinesInTheDigest() {
+        List<SourceLine> cart = List.of(lineAt(1, 11, 500_000, BRANCH_A), lineAt(1, 11, 500_000, BRANCH_B));
+        List<SourceLine> swapped = List.of(lineAt(1, 11, 500_000, BRANCH_B), lineAt(1, 11, 500_000, BRANCH_A));
+        Result before = RetailQuote.compute(cart, select(SelectionChoice.VOUCHER, 0),
+                branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), false);
+        Result after = RetailQuote.compute(swapped, select(SelectionChoice.VOUCHER, 0),
+                branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), false);
+        assertThat(RetailQuote.digest(before, 1, n(0))).isNotEqualTo(RetailQuote.digest(after, 1, n(0)));
+
+        Result plain = RetailQuote.compute(CART, select(SelectionChoice.VOUCHER, 0),
+                voucher(1, percent("10", 50_000, 500_000), true, Set.of(1L)), List.of(), POLICY, n(0), false);
+        Result plainWithoutLines = new Result(plain.grossAmount(), plain.eligibleSubtotal(), plain.programDiscount(),
+                plain.netBeforePoints(), plain.maxPoints(), plain.pointsAllowed(), plain.pointsUsed(),
+                plain.pointDiscount(), plain.earnBase(), plain.candidate(), plain.reasonDetails());
+        assertThat(RetailQuote.digest(plain, 1, n(0))).isEqualTo(RetailQuote.digest(plainWithoutLines, 1, n(0)));
+    }
+
     @Test
     void theBestAutomaticDiscountWinsAndTiesGoToTheOlderProgramme() {
         List<Candidate> autos = List.of(

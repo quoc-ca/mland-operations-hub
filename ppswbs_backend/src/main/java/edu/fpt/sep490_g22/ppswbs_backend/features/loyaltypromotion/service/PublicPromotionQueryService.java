@@ -141,7 +141,7 @@ public class PublicPromotionQueryService {
         }
         PromotionReadDtos.Program management = PromotionManagementQueryService.toDto(program, revision, rows);
         PromotionReadDtos.Targets shown = program.getScope() == TargetScope.PRODUCT
-                ? new PromotionReadDtos.Targets(productIds, variantIds, null, null, null, null)
+                ? new PromotionReadDtos.Targets(productIds, variantIds, null, productBranches(rows), null, null)
                 : management.targets();
         PublicPromotionDtos.PublicPromotion card = new PublicPromotionDtos.PublicPromotion(management.id(),
                 management.kind(), management.scope(), management.code(), management.name(), management.startAt(),
@@ -152,6 +152,12 @@ public class PublicPromotionQueryService {
 
     private static List<String> keys(List<PromotionTarget> rows, TargetDimension dimension) {
         return rows.stream().filter(row -> row.getDimension() == dimension).map(PromotionTarget::getTargetKey).toList();
+    }
+
+    /** Branches a product voucher is limited to (Session 2026-11-09); {@code null} = every branch. */
+    private static List<String> productBranches(List<PromotionTarget> rows) {
+        List<String> branches = keys(rows, TargetDimension.BRANCH);
+        return branches.isEmpty() ? null : branches;
     }
 
     private static List<String> publicKeys(List<TargetFact> facts, TargetDimension dimension) {

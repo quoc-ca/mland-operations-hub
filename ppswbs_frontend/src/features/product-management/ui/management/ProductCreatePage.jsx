@@ -12,6 +12,8 @@ import { branchesPayload, checkBranchQuantities, checkImages, checkProductConten
 import { ImageEditor, imagesPayload, imagesPending } from './ImageEditor';
 import { PageTop } from './ManagementLayout';
 import { SizePicker } from './SizePicker';
+import { SameNameWarning } from './SameNameWarning';
+import { useSameNameProducts } from '../../application/sameNameProducts';
 
 /**
  * T028 create: sizes are chosen only here (the size list is immutable afterwards), as chips 5–29 with one price and
@@ -41,6 +43,8 @@ export default function ProductCreatePage() {
   const chosenBranches = availableBranches.filter(branch => branchIds.includes(String(branch.id)));
   const toggleBranch = id => setBranchIds(current => (current.includes(id) ? current.filter(value => value !== id) : [...current, id]));
   const [form, setForm] = useState({ name: '', description: '', categoryId: '' });
+  // Product names need not be unique (A-003): other products with this name are only pointed out.
+  const sameName = useSameNameProducts(api, form.name);
   const [variants, setVariants] = useState([]);
   const [images, setImages] = useState([]);
   const [hints, setHints] = useState({});
@@ -138,6 +142,7 @@ export default function ProductCreatePage() {
             </select>
           </Field>
         </div>
+        <SameNameWarning products={sameName} />
         {categories.error && <ErrorNotice error={categories.error} messages={messages} onRetry={categories.reload} />}
         <Field label={t('field.description')} error={errorOf('description')}><textarea value={form.description} onChange={set('description')} maxLength={LIMITS.descriptionMax} /></Field>
 

@@ -52,7 +52,23 @@ public final class RetailQuote {
      */
     public record Candidate(long programId, long revisionId, long revisionNo, ProgramKind kind, Instant createdAt,
                             DiscountTerms terms, boolean allowPoints, Set<Long> productTargets, Set<Long> variantTargets,
-                            String normalizedCode, BenefitReason unavailable) {
+                            Set<Long> branchTargets, String normalizedCode, BenefitReason unavailable) {
+
+        /**
+         * {@code branchTargets} (Session 2026-11-09): branches a product voucher is limited to, matched against each
+         * line's {@code locationId}; empty = every branch.
+         */
+        public Candidate {
+            branchTargets = branchTargets == null ? Set.of() : Set.copyOf(branchTargets);
+        }
+
+        /** Shape before Session 2026-11-09 (no branch limit). */
+        public Candidate(long programId, long revisionId, long revisionNo, ProgramKind kind, Instant createdAt,
+                         DiscountTerms terms, boolean allowPoints, Set<Long> productTargets, Set<Long> variantTargets,
+                         String normalizedCode, BenefitReason unavailable) {
+            this(programId, revisionId, revisionNo, kind, createdAt, terms, allowPoints, productTargets,
+                    variantTargets, Set.of(), normalizedCode, unavailable);
+        }
 
         /** English text of {@link #unavailable()}, or {@code null} when the programme can be used. */
         public String unavailableReason() {
@@ -64,10 +80,23 @@ public final class RetailQuote {
     public record Result(BigInteger grossAmount, BigInteger eligibleSubtotal, BigInteger programDiscount,
                          BigInteger netBeforePoints, BigInteger maxPoints, boolean pointsAllowed, BigInteger pointsUsed,
                          BigInteger pointDiscount, BigInteger earnBase, Candidate candidate,
-                         List<BenefitReason> reasonDetails) {
+                         List<BenefitReason> reasonDetails, List<Integer> eligibleLines) {
 
+        /**
+         * {@code eligibleLines} (Session 2026-11-09): zero-based indexes of the source lines the chosen programme
+         * discounts, so the owner spreads the discount only over branch orders holding them; empty without programme.
+         */
         public Result {
             reasonDetails = reasonDetails == null ? List.of() : List.copyOf(reasonDetails);
+            eligibleLines = eligibleLines == null ? List.of() : List.copyOf(eligibleLines);
+        }
+
+        public Result(BigInteger grossAmount, BigInteger eligibleSubtotal, BigInteger programDiscount,
+                      BigInteger netBeforePoints, BigInteger maxPoints, boolean pointsAllowed, BigInteger pointsUsed,
+                      BigInteger pointDiscount, BigInteger earnBase, Candidate candidate,
+                      List<BenefitReason> reasonDetails) {
+            this(grossAmount, eligibleSubtotal, programDiscount, netBeforePoints, maxPoints, pointsAllowed, pointsUsed,
+                    pointDiscount, earnBase, candidate, reasonDetails, List.of());
         }
 
         public List<String> reasons() {
@@ -93,7 +122,11 @@ public final class RetailQuote {
                 BigInteger subtotal = eligibleSubtotal(lines, voucher);
                 DiscountResult result = LoyaltyCalculator.programDiscount(voucher.terms(), subtotal);
                 if (subtotal.signum() == 0) {
-                    ineligible(strict, reasons, BenefitReason.of(BenefitReasonCode.NO_COVERED_ITEM));
+                    // Items are covered but none was added at a branch of the voucher (Session 2026-11-09).
+                    boolean branchOnly = !voucher.branchTargets().isEmpty()
+                            && lines.stream().anyMatch(line -> matchesItem(line, voucher));
+                    ineligible(strict, reasons, BenefitReason.of(branchOnly ? BenefitReasonCode.BRANCH_NOT_COVERED
+                            : BenefitReasonCode.NO_COVERED_ITEM));
                 } else if (!result.eligible()) {
                     ineligible(strict, reasons, BenefitReason.of(BenefitReasonCode.BELOW_MINIMUM_AMOUNT));
                 } else {
@@ -144,8 +177,16 @@ public final class RetailQuote {
         }
         BigInteger pointDiscount = LoyaltyCalculator.pointDiscount(policy, used);
         BigInteger earnBase = LoyaltyCalculator.earnBase(net, pointDiscount);
+        List<Integer> eligibleLines = new ArrayList<>();
+        if (chosen != null) {
+            for (int i = 0; i < lines.size(); i++) {
+                if (matches(lines.get(i), chosen)) {
+                    eligibleLines.add(i);
+                }
+            }
+        }
         return new Result(gross, eligible, discount, net, limit.maxPoints(), pointsAllowed, used, pointDiscount,
-                earnBase, chosen, List.copyOf(reasons));
+                earnBase, chosen, List.copyOf(reasons), eligibleLines);
     }
 
     /** SHA-256 (hex) of every value the customer agrees to; the accept transaction must reproduce it exactly. */
@@ -161,6 +202,10 @@ public final class RetailQuote {
                 "pointDiscount=" + result.pointDiscount(),
                 "earnBase=" + result.earnBase(),
                 "shipping=" + shippingAmount);
+        if (chosen != null && !chosen.branchTargets().isEmpty()) {
+            // Only branch-limited vouchers bind which lines are discounted, so existing quotes keep their digest.
+            canonical = canonical + "|lines=" + result.eligibleLines();
+        }
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(canonical.getBytes(StandardCharsets.UTF_8)));
@@ -171,10 +216,20 @@ public final class RetailQuote {
 
     private static BigInteger eligibleSubtotal(List<SourceLine> lines, Candidate candidate) {
         return lines.stream()
-                .filter(line -> candidate.productTargets().isEmpty() || candidate.productTargets().contains(line.productId()))
-                .filter(line -> candidate.variantTargets().isEmpty() || candidate.variantTargets().contains(line.variantId()))
+                .filter(line -> matches(line, candidate))
                 .map(SourceLine::lineAmount)
                 .reduce(BigInteger.ZERO, BigInteger::add);
+    }
+
+    /** Products AND sizes AND, when the voucher is limited, the branch recorded on the line (Session 2026-11-09). */
+    private static boolean matches(SourceLine line, Candidate candidate) {
+        return matchesItem(line, candidate) && (candidate.branchTargets().isEmpty()
+                || (line.locationId() != null && candidate.branchTargets().contains(line.locationId())));
+    }
+
+    private static boolean matchesItem(SourceLine line, Candidate candidate) {
+        return (candidate.productTargets().isEmpty() || candidate.productTargets().contains(line.productId()))
+                && (candidate.variantTargets().isEmpty() || candidate.variantTargets().contains(line.variantId()));
     }
 
     private static void ineligible(boolean strict, List<BenefitReason> reasons, BenefitReason reason) {

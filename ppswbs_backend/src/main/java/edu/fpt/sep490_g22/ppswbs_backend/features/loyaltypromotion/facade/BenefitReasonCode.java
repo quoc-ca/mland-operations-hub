@@ -15,6 +15,8 @@ public enum BenefitReasonCode {
     VOUCHER_NO_USES_LEFT("This voucher has no uses left."),
     VOUCHER_MEMBER_LIMIT_REACHED("You have already used this voucher the maximum number of times."),
     NO_COVERED_ITEM("No item in the cart is covered by this voucher."),
+    /** Session 2026-11-09: covered items exist, but none was added at a branch the voucher is limited to. */
+    BRANCH_NOT_COVERED("This voucher does not apply at the branch of these items."),
     BELOW_MINIMUM_AMOUNT("The covered items do not reach the minimum amount of this voucher."),
     NO_AUTO_DISCOUNT("No automatic discount applies to this cart."),
     WORKSHOP_NO_AUTO_DISCOUNT("Workshops have no automatic discount; enter a voucher code instead."),

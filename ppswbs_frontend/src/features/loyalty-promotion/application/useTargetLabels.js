@@ -70,6 +70,24 @@ function useLabels(targets, sources, api) {
   return labels;
 }
 
+/**
+ * Names of active branches (Session 2026-11-09: "Áp dụng tại" of a product voucher), read once without sign-in when
+ * some ID is asked for; a failed read or an inactive branch leaves the name out.
+ */
+export function usePublicBranchNames(api, branchIds) {
+  const [names, setNames] = useState({});
+  const key = [...new Set((branchIds || []).map(String))].sort().join(',');
+  useEffect(() => {
+    if (!key) return undefined;
+    let alive = true;
+    api.listPublicBranches()
+      .then(list => { if (alive) setNames(Object.fromEntries((list?.items || []).map(branch => [String(branch.id), branch.name]))); })
+      .catch(() => { /* keep counts only */ });
+    return () => { alive = false; };
+  }, [api, key]);
+  return names;
+}
+
 /** Names for a programme's targets on the Manager detail page: products from 002's management reads, workshops public. */
 export function useTargetLabels(api, targets) {
   return useLabels([targets], {

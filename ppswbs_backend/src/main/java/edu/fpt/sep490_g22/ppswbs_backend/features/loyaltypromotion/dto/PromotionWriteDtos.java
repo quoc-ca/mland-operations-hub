@@ -112,7 +112,7 @@ public final class PromotionWriteDtos {
         }
 
         List<TargetRef> targets = scope == TargetScope.PRODUCT
-                ? productTargets(object(body, "targets"))
+                ? productTargets(object(body, "targets"), kind)
                 : workshopTargets(object(body, "targets"));
 
         NormalizedCode code = null;
@@ -218,14 +218,24 @@ public final class PromotionWriteDtos {
         };
     }
 
-    private static List<TargetRef> productTargets(JsonNode targets) {
-        onlyFields(targets, Set.of("productIds", "variantIds"), "targets.");
+    /**
+     * Products and sizes, plus optional {@code branchIds} for a voucher (Session 2026-11-09, T083): no branch means
+     * every branch; an automatic discount never takes branches (FR-005).
+     */
+    private static List<TargetRef> productTargets(JsonNode targets, ProgramKind kind) {
+        onlyFields(targets, Set.of("productIds", "variantIds", "branchIds"), "targets.");
         List<TargetRef> refs = new ArrayList<>();
         refs.addAll(ids(targets, "productIds", TargetDimension.PRODUCT));
         refs.addAll(ids(targets, "variantIds", TargetDimension.VARIANT));
         if (refs.isEmpty()) {
             throw LoyaltyException.invalidField("targets", "At least one product or size is required.");
         }
+        List<TargetRef> branches = ids(targets, "branchIds", TargetDimension.BRANCH);
+        if (!branches.isEmpty() && kind != ProgramKind.VOUCHER) {
+            throw LoyaltyException.invalidField("targets.branchIds",
+                    "An automatic discount applies at every branch.");
+        }
+        refs.addAll(branches);
         return refs;
     }
 

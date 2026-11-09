@@ -19,9 +19,10 @@ import java.util.Set;
 
 /**
  * One scope value of a programme (unique per revision, dimension and key). Different dimensions combine with
- * AND, values inside a dimension with OR. Product programmes have no branch; package, date, session and branch
- * belong to workshops. Products and variants stay referenced even if hidden or deleted later; they only stop
- * being eligible at quote time.
+ * AND, values inside a dimension with OR. Package, date and session belong to workshops; branch belongs to
+ * workshops and, from Session 2026-11-09, to product vouchers (no branch row = every branch; automatic discounts
+ * never get one, enforced when the request is read). Products and variants stay referenced even if hidden or deleted
+ * later; they only stop being eligible at quote time.
  */
 @Entity
 @Table(name = "promotion_revision_target")
@@ -30,7 +31,7 @@ import java.util.Set;
 public class PromotionTarget {
 
     private static final Set<TargetDimension> PRODUCT_DIMENSIONS =
-            EnumSet.of(TargetDimension.PRODUCT, TargetDimension.VARIANT);
+            EnumSet.of(TargetDimension.PRODUCT, TargetDimension.VARIANT, TargetDimension.BRANCH);
     private static final Set<TargetDimension> WORKSHOP_DIMENSIONS =
             EnumSet.of(TargetDimension.PACKAGE, TargetDimension.BRANCH, TargetDimension.WORKSHOP_DATE,
                     TargetDimension.SESSION);

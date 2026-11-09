@@ -88,7 +88,30 @@ export function createBody(form) {
     ? { productIds: form.productIds, variantIds: form.variantIds }
     : { packageIds: form.packageIds, branchIds: form.branchIds, sessionIds: form.sessionIds };
   Object.entries(lists).forEach(([key, text]) => { const items = splitList(text); if (items.length) body.targets[key] = items; });
+  // Session 2026-11-09: a product voucher may be limited to branches; none (or "all") = every branch.
+  const branches = productBranchIds(form);
+  if (branches.length) body.targets.branchIds = branches;
   return body;
+}
+
+/** Branches a product voucher is limited to, from the form; [] = every branch (and always for an automatic discount). */
+export function productBranchIds(form) {
+  if (form.scope !== 'PRODUCT' || form.kind !== 'VOUCHER' || form.branchMode !== 'SOME') return [];
+  return [...new Set((form.productBranchIds || []).map(String))];
+}
+
+/**
+ * Sale facts of a 002 management product at the chosen branches (US10 data): whether the product is sold at one of
+ * them, and the sizes that are not. No branch chosen → everything counts as sold.
+ */
+export function branchSale(product, branchIds) {
+  if (!branchIds?.length) return { atBranch: true, offSizes: new Set() };
+  const chosen = new Set(branchIds.map(String));
+  const atBranch = (product.branches || []).some(branch => chosen.has(String(branch.locationId)));
+  const offSizes = new Set((product.variants || [])
+    .filter(variant => !(variant.branchStocks || []).some(stock => chosen.has(String(stock.locationId)) && stock.saleEnabled !== false))
+    .map(variant => String(variant.id)));
+  return { atBranch, offSizes };
 }
 
 /** Hints (i18n keys) for the create form. */
@@ -109,7 +132,26 @@ export function checkCreate(form) {
     if (!isPositive(form.perMemberLimit.trim())) errors.perMemberLimit = 'validation.positive';
   }
   if (form.scope === 'PRODUCT' && !splitList(form.productIds).length && !splitList(form.variantIds).length) errors.targets = 'validation.productTarget';
+  if (form.scope === 'PRODUCT' && form.kind === 'VOUCHER' && form.branchMode === 'SOME' && !productBranchIds(form).length) {
+    errors['targets.branchIds'] = 'branch.pickOne';
+  }
   return errors;
+}
+
+/**
+ * Target lists sent for the picker's selection. The backend combines product and size targets with AND and
+ * refuses a size whose product is not also a product target, so "whole product A" + "size of product B" can never
+ * be sent as is. When whole products and single sizes are mixed, each whole product is sent as every one of its
+ * sizes instead (a product's sizes are fixed at creation in 002, so this covers exactly the same lines).
+ *
+ * @param picked { products: {id: label}, variants: {id: label}, sizesOf: {productId: [variantId]} }
+ */
+export function productTargets(picked) {
+  const products = Object.keys(picked.products || {});
+  const variants = Object.keys(picked.variants || {});
+  if (!products.length || !variants.length) return { productIds: products, variantIds: variants };
+  const expanded = products.flatMap(id => picked.sizesOf?.[id] || []);
+  return { productIds: [], variantIds: [...new Set([...expanded, ...variants])] };
 }
 
 /** Label of a whole product or of one size, shown in the target picker, its selection and the programme detail. */
