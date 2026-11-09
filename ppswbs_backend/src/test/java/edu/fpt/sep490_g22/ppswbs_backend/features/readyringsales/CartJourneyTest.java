@@ -51,7 +51,7 @@ class CartJourneyTest {
         cartRepository.deleteAll();
         accountRepository.deleteAll();
         when(cataloguePort.isEligibleForCart(anyLong(), anyLong())).thenReturn(true);
-        org.mockito.Mockito.lenient().when(cataloguePort.readCartProduct(anyLong())).thenReturn(
+        org.mockito.Mockito.lenient().when(cataloguePort.readCartProduct(anyLong(), anyLong())).thenReturn(
             new edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailCataloguePort.CartProductFact("Ring", "SKU", 10, "100", "VND", "99", true));
     }
 

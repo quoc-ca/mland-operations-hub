@@ -1,9 +1,9 @@
 # Feature-012 Research — Workshop Ring Design Configuration
 
-Date created: 2026-11-08  
-Date updated: 2026-11-08  
-Author: Ngô Tiến Đạt  
-Last updated by: Ngô Tiến Đạt  
+Date created: 2026-11-08
+Date updated: 2026-11-09
+Author: Ngô Tiến Đạt
+Last updated by: Ngô Tiến Đạt
 
 ## 1. Research purpose
 
@@ -190,3 +190,16 @@ facade implementation and formal approval remain implementation gates.
 
 These decisions move the package to `SPEC/DESIGN READY FOR REVIEW`; they do not
 constitute implementation approval.
+
+## 11. Figma evidence added — 2026-11-09
+
+The existing Figma file now contains a Feature-012 section with the following
+traceable frames: section `457:1553`, desktop configuration `457:1554`, mobile
+configuration `457:1655`, model/blank selection `457:1698`, validation and
+estimate `457:1749`, and branch recovery `457:1795`.
+
+The design evidence confirms the intended presentation direction: generous
+spacing, clear helper text beside controls, visible current values, a live
+preview area and explicit recovery states. It does not approve new catalogue
+values, backend fields, pricing formulas or business transitions. Figma revision
+approval remains a separate gate.

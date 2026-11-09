@@ -1,11 +1,11 @@
 # Feature-012 Architecture Design — Workshop Ring Design Configuration
 
-Date created: 2026-11-08  
-Date updated: 2026-11-08  
-Author: Ngô Tiến Đạt  
-Last updated by: Ngô Tiến Đạt  
+Date created: 2026-11-08
+Date updated: 2026-11-09
+Author: Ngô Tiến Đạt
+Last updated by: Ngô Tiến Đạt
 
-**Status:** Proposed design; implementation requires approval of the spec, data
+**Status:** Frontend design handoff ready for review; implementation requires approval of the spec, data
 model, API contract, Guest session boundary and Workshop Booking facade.
 
 ## 1. Design objective and boundaries
@@ -129,7 +129,117 @@ Package page
 The server is authoritative for permission, option availability, compatibility,
 estimate, difficulty, version and lock state.
 
-## 6. Technical gates
+## 6. Frontend handoff from the Figma baseline
+
+The current repository uses React 19, Vite and `react-router` 7. Feature-012
+should follow the existing feature conventions visible in
+`ppswbs_frontend/src/features/reviewmanagement/` and
+`ppswbs_frontend/src/features/designreview/` rather than adding a state library
+or UI framework.
+
+Recommended feature boundary:
+
+```text
+ppswbs_frontend/src/features/ringdesignconfiguration/
+├── routes.jsx
+├── api/
+│   └── workshopRingDesignApi.js
+├── application/
+│   ├── useWorkshopDesignOptions.js
+│   ├── useWorkshopDesignDraft.js
+│   └── useWorkshopDesignCommand.js
+├── domain/
+│   ├── designDraft.js
+│   ├── designPreview.js
+│   └── designErrors.js
+├── ui/
+│   ├── RingDesignEntryPage.jsx
+│   ├── RingModelSelectionPage.jsx
+│   ├── RingConfigurationPage.jsx
+│   ├── RingPreview.jsx
+│   ├── DesignControlField.jsx
+│   ├── DesignEvaluationPage.jsx
+│   ├── MemberDesignHistoryPage.jsx
+│   ├── BranchCompatibilityPage.jsx
+│   └── ring-design.css
+├── messages.js
+└── tests/
+```
+
+These are implementation units to be confirmed by the frontend agent; they do
+not create a new backend module or a second booking flow. Use the existing
+shared modules:
+
+```text
+shared/api/http.js
+shared/ui/components.js
+shared/auth/AuthProvider.jsx
+shared/auth/RequireSession.jsx
+shared/i18n/
+```
+
+Read requests use the project's resource pattern. Save, evaluate, archive and
+attach commands use the project's command pattern, generate one
+`Idempotency-Key` per user action, and reuse that key for a retry. Versioned
+commands send `If-Match-Version` from the last server response. The frontend
+must not retry a write with a new key or bypass the shared HTTP/auth client.
+
+### 6.1 Figma source and component mapping
+
+| Figma node | Purpose | Frontend implication |
+| --- | --- | --- |
+| `457:1553` | `F12 · Workshop Ring Design Configuration` section | Canonical Feature-012 visual section for this handoff. |
+| `457:1554` | Desktop configurator, 1440×1080 | Two-column layout: controls left, live preview and summary right. |
+| `457:1655` | Mobile configurator, 390×844 | Stacked preview-first layout with compact controls. |
+| `457:1698` | Model or blank selection | Three starting-point cards and package-aware explanation. |
+| `457:1749` | Validation and estimate | Safe summary, compatibility state and advisory estimate. |
+| `457:1795` | Branch compatibility recovery | Correction actions without losing the saved design. |
+
+The Figma Button component set key is
+`ab924dce8b851fd820bd0d56da24a9c489311ae6`; the Standard slider component set
+key is `4851d51e7cd3b6f9988e35f1ea59cbd4d382627b`. These keys document the
+visual source only; production code must use the repository's shared UI
+primitives and CSS conventions.
+
+### 6.2 Preview architecture
+
+`RingPreview` receives a normalized local preview model, not an API entity:
+
+```text
+PreviewModel = {
+  modelReference?, shapeReference?, materialReference?,
+  ringSize?, bandWidth?, gemstoneReference?,
+  attachmentReferences[], engravingPreview?
+}
+```
+
+The preview is derived locally whenever a control changes. It must visibly
+reflect selected material, gemstone, ring size and band width. It must tolerate
+missing optional values and show a neutral incomplete state rather than invent a
+catalogue option. The Figma ring illustration is a 2D visual baseline; no 3D,
+WebGL or external image service is implied by this design.
+
+`RingPreview` must never display the estimate as a payable price, expose raw
+provider/database IDs, or mutate the draft. Save/Evaluate sends the normalized
+server contract and replaces the local authoritative version only after success.
+
+### 6.3 Responsive and accessibility rules
+
+- Desktop keeps the controls and preview in separate readable panels with a
+  persistent summary; avoid compressing controls into a dense table.
+- Mobile places the preview before controls and keeps the primary action visible
+  after the controls; controls are full-width and vertically spaced.
+- Every slider has a visible label, current value, unit/range explanation and a
+  non-slider fallback such as numeric/select input when the returned option
+  requires it.
+- Every selectable pill/card has selected, focus, disabled and unavailable
+  semantics. Color alone must not indicate the active choice.
+- Error/help text is adjacent to the affected field and announced through the
+  existing accessibility pattern.
+- Vietnamese and English labels must be supplied through shared i18n messages;
+  no literal UI copy is hidden in the API adapter.
+
+## 7. Technical gates
 
 - Existing `ring_designs` mapping must be reconciled before JPA entities are
   implemented.

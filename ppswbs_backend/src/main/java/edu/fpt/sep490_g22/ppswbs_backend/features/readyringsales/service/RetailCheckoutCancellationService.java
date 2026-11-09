@@ -7,6 +7,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Loyalt
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.OutcomeKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.AvailabilityGuardPort;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.GroupedCheckoutRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailCartRepository;
@@ -48,12 +49,13 @@ public class RetailCheckoutCancellationService {
         if (checkout.getPaymentState() != PaymentState.ACCEPTED_UNPAID || checkout.getPaymentInitiatedAt() != null) {
             throw new RetailConflictException("Checkout cannot be cancelled after payment initiation");
         }
-        List<Long> ids = checkout.getOrders().stream().flatMap(order -> order.getItems().stream())
-            .map(item -> item.getVariantId()).distinct().sorted().toList();
+        var quantities = RetailBranchOrderKeys.quantities(checkout);
+        List<BranchVariant> branchKeys = quantities.keySet().stream().sorted().toList();
+        List<Long> ids = RetailBranchOrderKeys.variantIds(quantities);
         if (ids.isEmpty()) throw new RetailConflictException("Checkout has no items");
         try {
-            return catalogue.withLockedHistoricalContext(checkoutId, ids, context ->
-            guard.withGuard(ids, context.asOf(), snapshots -> {
+            return catalogue.withLockedHistoricalBranchContext(checkoutId, branchKeys, context ->
+            guard.withBranchGuard(branchKeys, context.asOf(), snapshots -> {
                 List<RetailVariantHold> current = ids.stream().map(id -> holdRepository
                     .findByGroupedCheckoutIdAndVariantId(checkoutId, id)
                     .orElseThrow(() -> new RetailConflictException("Checkout inventory hold is missing"))).toList();

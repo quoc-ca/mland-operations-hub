@@ -40,7 +40,7 @@ class CartServiceTest {
 
     @BeforeEach
     void catalogueFacts() {
-        lenient().when(cataloguePort.readCartProduct(any()))
+        lenient().when(cataloguePort.readCartProduct(any(), any()))
             .thenReturn(new RetailCataloguePort.CartProductFact("Ring", "SKU", 10, "100", "VND", "99", true));
     }
 
@@ -75,12 +75,12 @@ class CartServiceTest {
     }
 
     @Test
-    void rejectsQuantityAboveAvailableAcrossLocations() {
+    void rejectsQuantityAboveAvailableAtTheSelectedLocation() {
         RetailCart cart = new RetailCart(99L);
-        cart.addLine(101L, 10L, 2);
+        cart.addLine(101L, 20L, 2);
         when(cataloguePort.isEligibleForCart(101L, 20L)).thenReturn(true);
         when(cartRepository.findByMemberAccountId(99L)).thenReturn(Optional.of(cart));
-        when(cataloguePort.readCartProduct(101L)).thenReturn(
+        when(cataloguePort.readCartProduct(101L, 20L)).thenReturn(
             new RetailCataloguePort.CartProductFact("Ring", "SKU", 10, "100", "VND", "3", true));
 
         assertThatThrownBy(() -> cartService.addLine(99L, new CartDtos.AddCartLineRequest(101L, 20L, 2)))
@@ -89,9 +89,9 @@ class CartServiceTest {
     }
 
     @Test
-    void rejectsQuantityAboveNinetyNineAcrossLocationsForTheSameVariant() {
+    void rejectsQuantityAboveNinetyNineAtTheSelectedLocation() {
         RetailCart existingCart = new RetailCart(99L);
-        existingCart.addLine(101L, 10L, 70);
+        existingCart.addLine(101L, 20L, 70);
         when(cataloguePort.isEligibleForCart(101L, 20L)).thenReturn(true);
         when(cartRepository.findByMemberAccountId(99L)).thenReturn(Optional.of(existingCart));
 

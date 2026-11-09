@@ -5,6 +5,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Loyalt
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.OutcomeKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.AvailabilityGuardPort;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.GroupedCheckoutRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailCartRepository;
@@ -48,11 +49,12 @@ public class RetailUnstartedExpiryService {
         var checkout = checkouts.lockOwned(checkoutId, memberId)
             .orElseThrow(() -> new RetailNotFoundException("Checkout does not exist"));
         if (checkout.getPaymentState() != PaymentState.ACCEPTED_UNPAID || checkout.getPaymentInitiatedAt() != null) return false;
-        List<Long> ids = checkout.getOrders().stream().flatMap(order -> order.getItems().stream())
-            .map(item -> item.getVariantId()).distinct().sorted().toList();
+        var quantities = RetailBranchOrderKeys.quantities(checkout);
+        List<BranchVariant> branchKeys = quantities.keySet().stream().sorted().toList();
+        List<Long> ids = RetailBranchOrderKeys.variantIds(quantities);
         if (ids.isEmpty()) throw new RetailConflictException("Checkout has no items");
-        return catalogue.withLockedHistoricalContext(checkoutId, ids, context ->
-            guard.withGuard(ids, context.asOf(), snapshots -> {
+        return catalogue.withLockedHistoricalBranchContext(checkoutId, branchKeys, context ->
+            guard.withBranchGuard(branchKeys, context.asOf(), snapshots -> {
                 var current = ids.stream().map(id -> holdRepository.findByGroupedCheckoutIdAndVariantId(checkoutId, id)
                     .orElseThrow(() -> new RetailConflictException("Checkout inventory hold is missing"))).toList();
                 Instant deadline = current.getFirst().getExpiresAt();

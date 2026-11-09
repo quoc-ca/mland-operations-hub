@@ -28,8 +28,8 @@ class RetailCheckoutQuotePreviewServiceTest {
     void persistsServerPricedPickupQuoteWithoutReservingBenefits() {
         RetailCart cart = cart();
         when(carts.findByMemberAccountId(1L)).thenReturn(Optional.of(cart));
-        when(catalogue.readSaleFacts(List.of(101L))).thenReturn(List.of(
-            new CartSaleFact(101L, 5L, "Ring", "SKU", 10, BigInteger.valueOf(100), "VND", true, BigInteger.TEN)));
+        when(catalogue.readBranchSaleFacts(List.of(new BranchVariant(101L, 10L))))
+            .thenReturn(List.of(branchFact()));
         when(loyalty.previewBenefits(any(), any())).thenReturn(new BenefitPreview(
             BigInteger.valueOf(200), BigInteger.valueOf(200), BigInteger.TEN, BigInteger.valueOf(190),
             BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO,
@@ -149,8 +149,13 @@ class RetailCheckoutQuotePreviewServiceTest {
 
     private void mockCatalogue() {
         when(carts.findByMemberAccountId(1L)).thenReturn(Optional.of(cart()));
-        when(catalogue.readSaleFacts(List.of(101L))).thenReturn(List.of(
-            new CartSaleFact(101L, 5L, "Ring", "SKU", 10, BigInteger.valueOf(100), "VND", true, BigInteger.TEN)));
+        when(catalogue.readBranchSaleFacts(List.of(new BranchVariant(101L, 10L))))
+            .thenReturn(List.of(branchFact()));
+    }
+
+    private BranchCartSaleFact branchFact() {
+        return new BranchCartSaleFact(101L, 10L, 5L, "Ring", "SKU", 10,
+            BigInteger.valueOf(100), "VND", true, BigInteger.TEN, true);
     }
 
     private BenefitPreview preview(Long programId, BigInteger usedPoints, List<String> reasons) {
