@@ -6,6 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ActionRe
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Product;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.VariantBranchStock;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocation;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocationPort;
 import org.springframework.beans.factory.ObjectProvider;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -246,6 +248,18 @@ public class ProductBranchStockService {
             if (row.getRemainingUnsold().equals(value)) {
                 return stockResult(commandId, row, false);
             }
+            if (product.hasEverBeenPublished() && availability.tracksHoldsPerBranch()) {
+                // FR-053: holds are per branch, so the new branch quantity may not go below the holds at this branch.
+                BranchVariant stockKey = new BranchVariant(id, location);
+                Instant asOf = Instant.now();
+                return availability.withBranchGuard(List.of(stockKey), asOf, snapshots -> {
+                    if (value.compareTo(snapshots.get(stockKey).heldQuantity()) < 0) {
+                        throw new CatalogueException(CatalogueErrorCode.QUANTITY_BELOW_HELD);
+                    }
+                    BigInteger heldOfSize = availability.readSnapshots(List.of(id), asOf).get(id).heldQuantity();
+                    return applyQuantity(actorId, commandId, variant, row, value, heldOfSize);
+                });
+            }
             return guarded(product, List.of(variant), held -> applyQuantity(actorId, commandId, variant, row, value,
                     held.getOrDefault(id, BigInteger.ZERO)));
         });
@@ -331,6 +345,26 @@ public class ProductBranchStockService {
             stocks.saveAllAndFlush(rows);
         }
         return touched;
+    }
+
+    // ---- FR-053 support for the sales facade ----
+
+    /** Branch rows of the sizes: size id → (branch id → row). A size without rows is absent (not yet assigned). */
+    public Map<Long, Map<Long, VariantBranchStock>> stocksBySize(Collection<Long> variantIds) {
+        Map<Long, Map<Long, VariantBranchStock>> result = new HashMap<>();
+        if (variantIds.isEmpty()) {
+            return result;
+        }
+        for (VariantBranchStock row : stocks.findByVariantIdInOrderByVariantIdAscLocationIdAsc(variantIds)) {
+            result.computeIfAbsent(row.getVariantId(), ignored -> new LinkedHashMap<>()).put(row.getLocationId(), row);
+        }
+        return result;
+    }
+
+    /** Saves a branch row changed by an accepted sale; the caller holds the size lock. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public VariantBranchStock saveSaleDeduction(VariantBranchStock row) {
+        return stocks.saveAndFlush(row);
     }
 
     // ---- helpers ----

@@ -15,7 +15,12 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Produ
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductCategory;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductImage;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.VariantBranchStock;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.AcceptedSaleResult;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchAcceptedSaleResult;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchCartSaleFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchStockFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CartSaleFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesException.Reason;
@@ -188,6 +193,114 @@ public class CatalogueSalesService implements CatalogueSalesFacade {
         return translated(() -> record(operationRef, variantId, quantity));
     }
 
+    // ---- FR-053: sale per size × branch ----
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BranchCartSaleFact> readBranchSaleFacts(Collection<BranchVariant> keys) {
+        List<BranchVariant> ordered = requireKeys(keys);
+        return translated(() -> {
+            Set<Long> ids = sizesOf(ordered);
+            Map<Long, ProductVariant> sizes = variants.findAllById(ids).stream()
+                    .collect(Collectors.toMap(ProductVariant::getId, Function.identity()));
+            List<Long> missing = ids.stream().filter(id -> !sizes.containsKey(id)).toList();
+            if (!missing.isEmpty()) {
+                throw new CatalogueSalesException(Reason.NOT_FOUND, "Some sizes do not exist.", missing);
+            }
+            Set<Long> productIds = sizes.values().stream().map(ProductVariant::getProductId)
+                    .collect(Collectors.toCollection(TreeSet::new));
+            Map<Long, Product> owners = products.findAllById(productIds).stream()
+                    .collect(Collectors.toMap(Product::getId, Function.identity()));
+            Set<Long> eligibleProducts = new HashSet<>(publicQueries.findEligibleIds(productIds));
+            Set<Long> activeBranches = branchStock.activeBranches().keySet();
+            Map<BranchVariant, BranchStockFact> stock = branchFacts(ordered, states(sizes), activeBranches);
+
+            List<BranchVariant> eligible = ordered.stream()
+                    .filter(key -> eligibleProducts.contains(sizes.get(key.variantId()).getProductId())
+                            && sizes.get(key.variantId()).isSaleEnabled() && sells(stock.get(key)))
+                    .toList();
+            Instant asOf = now();
+            Map<Long, HeldSnapshot> heldBySize = availability.readSnapshots(sizesOf(eligible), asOf);
+            Map<BranchVariant, HeldSnapshot> heldByBranch = availability.readBranchSnapshots(eligible, asOf);
+
+            List<BranchCartSaleFact> facts = new ArrayList<>();
+            for (BranchVariant key : ordered) {
+                ProductVariant size = sizes.get(key.variantId());
+                Product product = owners.get(size.getProductId());
+                BranchStockFact fact = stock.get(key);
+                boolean saleEligible = heldByBranch.containsKey(key);
+                BigInteger available = BigInteger.ZERO;
+                if (saleEligible) {
+                    BigInteger atBranch = fact.remainingUnsold().subtract(heldByBranch.get(key).heldQuantity());
+                    BigInteger ofSize = size.getRemainingUnsold().subtract(heldBySize.get(size.getId()).heldQuantity());
+                    available = atBranch.min(ofSize).max(BigInteger.ZERO);
+                }
+                facts.add(new BranchCartSaleFact(size.getId(), key.locationId(), product.getId(), product.getName(),
+                        size.getSku(), size.getRingSize(), size.getAppliedPrice(), SaleVariantFact.CURRENCY,
+                        saleEligible, available, fact.assignedToBranches()));
+            }
+            return List.copyOf(facts);
+        });
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public <T> T withLockedBranchSaleContext(Collection<BranchVariant> keys, Function<SaleContext, T> work) {
+        Objects.requireNonNull(work, "work");
+        List<BranchVariant> ordered = requireKeys(keys);
+        SaleContext context = translated(() -> {
+            SaleContext locked = lockContext(sizesOf(ordered), null);
+            Set<Long> notForSale = new TreeSet<>();
+            locked.variants().stream()
+                    .filter(fact -> fact.productDeleted() || !fact.publiclyEligible() || !fact.saleEnabled())
+                    .forEach(fact -> notForSale.add(fact.variantId()));
+            List<BranchStockFact> stock = List.copyOf(branchFacts(ordered, sizesById(locked),
+                    branchStock.activeBranches().keySet()).values());
+            stock.stream().filter(fact -> !sells(fact)).forEach(fact -> notForSale.add(fact.variantId()));
+            if (!notForSale.isEmpty()) {
+                throw new CatalogueSalesException(Reason.NOT_FOR_SALE, "Some sizes are not open for sale at this branch.",
+                        List.copyOf(notForSale));
+            }
+            return new SaleContext(locked.asOf(), null, locked.variants(), stock);
+        });
+        return runInScope(context, work);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public <T> T withLockedHistoricalBranchContext(String acceptedTransactionRef, Collection<BranchVariant> keys,
+                                                   Function<SaleContext, T> work) {
+        Objects.requireNonNull(work, "work");
+        if (acceptedTransactionRef == null || acceptedTransactionRef.isBlank()) {
+            throw new CatalogueSalesException(Reason.INVALID_REQUEST, "An accepted transaction reference is required.");
+        }
+        List<BranchVariant> ordered = requireKeys(keys);
+        SaleContext context = translated(() -> {
+            SaleContext locked = lockContext(sizesOf(ordered), acceptedTransactionRef);
+            // Settling an accepted sale must not depend on the branch list being reachable: unknown = not active.
+            List<BranchStockFact> stock = List.copyOf(branchFacts(ordered, sizesById(locked),
+                    branchStock.activeBranchesOrEmpty().keySet()).values());
+            return new SaleContext(locked.asOf(), acceptedTransactionRef, locked.variants(), stock);
+        });
+        return runInScope(context, work);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public BranchAcceptedSaleResult recordAcceptedSale(UUID operationRef, long variantId, long locationId,
+                                                       BigInteger quantity) {
+        if (operationRef == null || quantity == null || quantity.signum() <= 0 || quantity.toString().length() > 19
+                || locationId <= 0) {
+            throw new CatalogueSalesException(Reason.INVALID_REQUEST,
+                    "An operation reference, a branch and a positive quantity are required.");
+        }
+        if (LOCKED_SCOPES.get().stream().noneMatch(scope -> scope.contains(variantId))) {
+            throw new CatalogueSalesException(Reason.NO_LOCKED_CONTEXT,
+                    "The size must be locked by a sale context first.", List.of(variantId));
+        }
+        return translated(() -> recordAtBranch(operationRef, variantId, locationId, quantity));
+    }
+
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public void retainMediaReferences(String ownerRecordRef, Collection<UUID> mediaIds) {
@@ -322,6 +435,154 @@ public class CatalogueSalesService implements CatalogueSalesFacade {
         return new AcceptedSaleResult(operationRef, variantId, quantity, after, saved.getVersion(), false);
     }
 
+    /** FR-053 deduction at a branch; the size is locked by the enclosing context. */
+    private BranchAcceptedSaleResult recordAtBranch(UUID operationRef, long variantId, long locationId,
+                                                    BigInteger quantity) {
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("variantId", variantId);
+        request.put("locationId", locationId);
+        request.put("quantity", quantity.toString());
+        String digest = CatalogueCommandExecutor.digest(request);
+        var previous = receipts.findByActorIdAndActionAndCommandId(CONSUMER, SALE_ACTION, operationRef);
+        if (previous.isPresent()) {
+            return replayAtBranch(previous.get(), operationRef, variantId, locationId, quantity, digest);
+        }
+
+        ProductVariant size = variants.lockAllByIdIn(List.of(variantId)).stream().findFirst()
+                .orElseThrow(() -> new CatalogueException(CatalogueErrorCode.VARIANT_NOT_FOUND));
+        Instant asOf = now();
+        HeldSnapshot heldOfSize = availability.readSnapshots(List.of(variantId), asOf).get(variantId);
+        Map<Long, VariantBranchStock> rows = branchStock.stocksBySize(List.of(variantId)).getOrDefault(variantId, Map.of());
+        VariantBranchStock row = null;
+        BigInteger branchBefore = null;
+        if (!rows.isEmpty()) {
+            row = rows.get(locationId);
+            if (row == null) {
+                throw new CatalogueSalesException(Reason.NOT_FOR_SALE, "The size is not sold at this branch.",
+                        List.of(variantId));
+            }
+            branchBefore = row.getRemainingUnsold();
+            BigInteger branchAfter = branchBefore.subtract(quantity);
+            BigInteger heldAtBranch = BigInteger.ZERO;
+            if (availability.tracksHoldsPerBranch()) {
+                BranchVariant key = new BranchVariant(variantId, locationId);
+                heldAtBranch = availability.readBranchSnapshots(List.of(key), asOf).get(key).heldQuantity();
+            }
+            if (branchAfter.signum() < 0 || branchAfter.compareTo(heldAtBranch) < 0) {
+                throw new CatalogueException(CatalogueErrorCode.QUANTITY_BELOW_HELD);
+            }
+        }
+        BigInteger before = size.getRemainingUnsold();
+        BigInteger after = size.recordAcceptedSale(quantity, heldOfSize.heldQuantity());
+        ProductVariant saved = variants.saveAndFlush(size);
+        BigInteger branchAfter = after;
+        if (row != null) {
+            row.setRemainingUnsold(branchBefore.subtract(quantity));
+            branchAfter = branchStock.saveSaleDeduction(row).getRemainingUnsold();
+        }
+
+        Map<String, Object> changes = new LinkedHashMap<>();
+        changes.put("operationRef", operationRef.toString());
+        changes.put("sku", saved.getSku());
+        changes.put("locationId", Long.toString(locationId));
+        changes.put("assignedToBranches", row != null);
+        changes.put("quantity", quantity.toString());
+        changes.put("oldQuantity", before.toString());
+        changes.put("newQuantity", after.toString());
+        if (row != null) {
+            changes.put("oldBranchQuantity", branchBefore.toString());
+            changes.put("newBranchQuantity", branchAfter.toString());
+        }
+        audit.recordSuccess(new CatalogueAuditWriter.Entry(CONSUMER, SALE_ACTION, "variant", saved.getId().toString(),
+                saved.getVersion(), null, List.of("remainingUnsold", "branchRemainingUnsold"), changes));
+        receipts.saveAndFlush(new CatalogueCommandReceipt(CONSUMER, SALE_ACTION, operationRef, digest, "variant",
+                saved.getId().toString(), 200, saved.getVersion(), safeResult(after, branchAfter), now()));
+        return new BranchAcceptedSaleResult(operationRef, variantId, locationId, quantity, branchAfter, after,
+                saved.getVersion(), false);
+    }
+
+    private static BranchAcceptedSaleResult replayAtBranch(CatalogueCommandReceipt receipt, UUID operationRef,
+                                                           long variantId, long locationId, BigInteger quantity,
+                                                           String digest) {
+        if (!receipt.getRequestDigest().equals(digest)) {
+            throw new CatalogueSalesException(Reason.OPERATION_CONFLICT,
+                    "The operation reference was already used for another sale.", List.of(variantId));
+        }
+        try {
+            JsonNode body = JSON.readTree(receipt.getSafeResult());
+            BigInteger sizeAfter = new BigInteger(body.get("remainingAfter").asText());
+            JsonNode branch = body.get("branchRemainingAfter");
+            return new BranchAcceptedSaleResult(operationRef, variantId, locationId, quantity,
+                    branch == null ? sizeAfter : new BigInteger(branch.asText()), sizeAfter,
+                    receipt.getResultVersion(), true);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Stored sale result is unreadable", e);
+        }
+    }
+
+    private static String safeResult(BigInteger remainingAfter, BigInteger branchRemainingAfter) {
+        return JSON.createObjectNode().put("remainingAfter", remainingAfter.toString())
+                .put("branchRemainingAfter", branchRemainingAfter.toString()).toString();
+    }
+
+    // ---- branch facts ----
+
+    /** Size total and sale flag, from the entity (reads) or from a locked context. */
+    private record SizeState(BigInteger remainingUnsold, boolean saleEnabled) {
+    }
+
+    private static Map<Long, SizeState> states(Map<Long, ProductVariant> sizes) {
+        Map<Long, SizeState> states = new LinkedHashMap<>();
+        sizes.forEach((id, size) -> states.put(id, new SizeState(size.getRemainingUnsold(), size.isSaleEnabled())));
+        return states;
+    }
+
+    private static Map<Long, SizeState> sizesById(SaleContext context) {
+        Map<Long, SizeState> states = new LinkedHashMap<>();
+        context.variants().forEach(fact -> states.put(fact.variantId(),
+                new SizeState(fact.remainingUnsold(), fact.saleEnabled())));
+        return states;
+    }
+
+    /**
+     * One fact per key (ascending). A size with branch rows uses the row of the key's branch (no row = not sold there);
+     * a size without rows (not yet assigned) is offered at every active branch from its total.
+     */
+    private Map<BranchVariant, BranchStockFact> branchFacts(List<BranchVariant> keys, Map<Long, SizeState> sizes,
+                                                            Set<Long> activeBranches) {
+        Map<Long, Map<Long, VariantBranchStock>> stocks = branchStock.stocksBySize(sizesOf(keys));
+        Map<BranchVariant, BranchStockFact> facts = new LinkedHashMap<>();
+        for (BranchVariant key : keys) {
+            SizeState size = sizes.get(key.variantId());
+            Map<Long, VariantBranchStock> rows = stocks.getOrDefault(key.variantId(), Map.of());
+            boolean assigned = !rows.isEmpty();
+            VariantBranchStock row = rows.get(key.locationId());
+            BigInteger remaining = assigned ? (row == null ? BigInteger.ZERO : row.getRemainingUnsold()) : size.remainingUnsold();
+            boolean saleEnabled = assigned ? row != null && row.isSaleEnabled() : size.saleEnabled();
+            facts.put(key, new BranchStockFact(key.variantId(), key.locationId(), remaining, saleEnabled,
+                    activeBranches.contains(key.locationId()), assigned));
+        }
+        return facts;
+    }
+
+    /** The branch is active and sells the size there (the size-level checks are separate). */
+    private static boolean sells(BranchStockFact fact) {
+        return fact.branchActive() && fact.saleEnabled();
+    }
+
+    private static List<BranchVariant> requireKeys(Collection<BranchVariant> keys) {
+        if (keys == null || keys.isEmpty() || keys.stream().anyMatch(Objects::isNull)) {
+            throw new CatalogueSalesException(Reason.INVALID_REQUEST, "At least one size and branch is required.");
+        }
+        return List.copyOf(new TreeSet<>(keys));
+    }
+
+    private static Set<Long> sizesOf(Collection<BranchVariant> keys) {
+        Set<Long> ids = new TreeSet<>();
+        keys.forEach(key -> ids.add(key.variantId()));
+        return ids;
+    }
+
     private static AcceptedSaleResult replay(CatalogueCommandReceipt receipt, UUID operationRef, long variantId,
                                              BigInteger quantity, String digest) {
         if (!receipt.getRequestDigest().equals(digest)) {
@@ -380,7 +641,8 @@ public class CatalogueSalesService implements CatalogueSalesFacade {
             case VARIANT_NOT_FOUND, PRODUCT_NOT_FOUND, CATEGORY_NOT_FOUND -> Reason.NOT_FOUND;
             case MEDIA_NOT_FOUND -> Reason.MEDIA_NOT_AVAILABLE;
             case QUANTITY_BELOW_HELD -> Reason.INSUFFICIENT_QUANTITY;
-            case AVAILABILITY_DEPENDENCY_UNAVAILABLE -> Reason.DEPENDENCY_UNAVAILABLE;
+            case AVAILABILITY_DEPENDENCY_UNAVAILABLE, LOCATION_DEPENDENCY_UNAVAILABLE -> Reason.DEPENDENCY_UNAVAILABLE;
+            case BRANCH_STOCK_NOT_FOUND, BRANCH_NOT_FOUND -> Reason.NOT_FOR_SALE;
             case STALE_VERSION, CATALOGUE_BUSY -> Reason.BUSY;
             case PRODUCT_DELETED, PRICE_NOT_APPROVED, PUBLICATION_PREREQUISITES_MISSING -> Reason.NOT_FOR_SALE;
             default -> Reason.INVALID_REQUEST;

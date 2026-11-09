@@ -2260,3 +2260,10 @@ directly.
 No migration is created in this documentation step. The repository migration
 baseline is `V102`; any future Feature-012 migration must be append-only and
 greater than `V102` after repository and `flyway_schema_history` verification.
+
+## Feature-002 — tồn kho theo chi nhánh (US10, migration V109, 2026-11-08)
+
+- Bảng mới `catalogue_variant_branch_stock` (owner `productmanagement`): `id`, `variant_id` (FK `catalogue_variants`), `location_id` (id `workshop_locations` của 003.2, **không** khai báo FK chéo module), `remaining_unsold DECIMAL(19,0) CHECK >= 0`, `sale_enabled`, `version`, `created_at/updated_at`; unique `(variant_id, location_id)`, index `(location_id, variant_id)`. Không xóa dòng; ngừng bán tại chi nhánh = `sale_enabled = 0`.
+- `catalogue_variants.remaining_unsold` được giữ và luôn bằng tổng các dòng chi nhánh của size (cập nhật cùng transaction, dưới khóa size) cho tới khi FE-08 chuyển hẳn sang hàm theo chi nhánh; size chưa có dòng chi nhánh (dữ liệu trước US10) giữ tổng cũ.
+- V109 chuyển số lượng cũ sang chi nhánh có mã `HN-HOANKIEM` (Q-B1). Database không có mã này thì không chuyển gì (không dừng migration); sản phẩm cũ được gán chi nhánh trên giao diện.
+- Chi tiết: `features/002-product-management/data-model.md` mục "Branch stock".
