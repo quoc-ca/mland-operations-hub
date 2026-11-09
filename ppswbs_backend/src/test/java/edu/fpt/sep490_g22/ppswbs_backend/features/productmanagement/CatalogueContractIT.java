@@ -95,10 +95,12 @@ class CatalogueContractIT {
         when(tokens.verify(eq("revoked"))).thenThrow(new TokenRevokedException("revoked"));
         when(accounts.resolveActor(anyString(), anyBoolean()))
                 .thenAnswer(call -> Optional.ofNullable(ACTORS.get((String) call.getArgument(0))));
+        // US10: Staff act at the test branch where the fixture creates products.
+        when(accounts.getLocationScope(org.mockito.ArgumentMatchers.any())).thenReturn(List.of(fixture.testBranch()));
     }
 
     @Test
-    void everyContractOperationIsMappedAndTheContractHas49Schemas() {
+    void everyContractOperationIsMappedAndTheContractHas56Schemas() {
         Set<String> mapped = new HashSet<>();
         for (RequestMappingInfo info : mappings.getHandlerMethods().keySet()) {
             for (String pattern : info.getPatternValues()) {
@@ -107,10 +109,10 @@ class CatalogueContractIT {
         }
         List<String> operations = operations().stream().map(op -> op.method + " " + normalize(op.path)).toList();
 
-        // 33 operations + getManagementProductMedia (T103, 2026-11-03).
-        assertThat(operations).hasSize(34);
+        // 33 operations + getManagementProductMedia (T103, 2026-11-03) + 3 branch operations (US10, 2026-11-08).
+        assertThat(operations).hasSize(37);
         assertThat(mapped).containsAll(operations);
-        assertThat(contract.get("components").get("schemas").size()).isEqualTo(49);
+        assertThat(contract.get("components").get("schemas").size()).isEqualTo(56);
     }
 
     @Test
@@ -143,7 +145,8 @@ class CatalogueContractIT {
         long productId = fixture.draftProduct("9301");
         String body = json.writeValueAsString(Map.of("name", "Hợp đồng " + UUID.randomUUID(), "description", "Mô tả",
                 "categoryId", Long.toString(categoryId), "variants", List.of(Map.of("size", 9, "proposedPrice",
-                        "123000", "quantity", "0"))));
+                        "123000", "quantity", "0")), "branches", List.of(Map.of("locationId",
+                Long.toString(fixture.testBranch()), "quantities", List.of(Map.of("size", 9, "quantity", "0"))))));
 
         assertMatches("ActionResult", call(MockMvcRequestBuilders.post("/api/v1/catalogue-management/products")
                 .header("Idempotency-Key", UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON).content(body)));
@@ -180,7 +183,7 @@ class CatalogueContractIT {
 
     private MockHttpServletRequestBuilder request(Operation op) {
         String path = op.path.replace("{productId}", "1").replace("{variantId}", "1").replace("{proposalId}", "1")
-                .replace("{categoryId}", "1").replace("{batchId}", UUID.randomUUID().toString())
+                .replace("{categoryId}", "1").replace("{locationId}", "1").replace("{batchId}", UUID.randomUUID().toString())
                 .replace("{commandId}", UUID.randomUUID().toString()).replace("{mediaId}", UUID.randomUUID().toString());
         JsonNode content = op.node.path("requestBody").path("content");
         MockHttpServletRequestBuilder request;

@@ -18,6 +18,7 @@ export function ImagesSection({ product, api, reload, setNotice, deleted, missin
   const editing = images !== null;
 
   const save = async () => {
+    setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     const found = checkImages(images);
     if (imagesPending(images)) found.images = 'image.notReady';
     setHints(found);

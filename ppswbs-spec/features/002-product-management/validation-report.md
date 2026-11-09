@@ -1,7 +1,7 @@
 # Validation Report: Product Management
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-05 (Convergence T110–T113, chạy lại toàn bộ luồng 002 trên màn thật, sửa thông báo cũ ở màn Danh mục; trước đó: 2026-11-04 (T105–T109: sửa giá/số lượng nhiều size, áp dụng ngay sau khi duyệt, chỉ ra mục còn thiếu, thông báo kết quả; owner kiểm thử thực tế; trước đó: 2026-11-03 (rà soát spec–code–Figma: FR-003, FR-028, T103 xem ảnh quản trị, nhãn khu vực; trước đó: 2026-11-01 (T090 UI với API giả lập, tích hợp thật NOT RUN; T087 đồng bộ tài liệu; regression toàn hệ thống T086; chạy lại sau develop 365dcf3: T074, T085, T086; frontend React T088/T089 và màn hình 002; 2026-10-27: sau merge develop, T002/T007, REST API, T051, T073, T083, các task viết test; facade FE-08 phía 002))
+**Date updated**: 2026-11-05 (kiểm thử cuối trên màn thật trước khi gộp, sửa thông báo cũ ở trang chi tiết sản phẩm; Convergence T110–T113, chạy lại toàn bộ luồng 002 trên màn thật, sửa thông báo cũ ở màn Danh mục; trước đó: 2026-11-04 (T105–T109: sửa giá/số lượng nhiều size, áp dụng ngay sau khi duyệt, chỉ ra mục còn thiếu, thông báo kết quả; owner kiểm thử thực tế; trước đó: 2026-11-03 (rà soát spec–code–Figma: FR-003, FR-028, T103 xem ảnh quản trị, nhãn khu vực; trước đó: 2026-11-01 (T090 UI với API giả lập, tích hợp thật NOT RUN; T087 đồng bộ tài liệu; regression toàn hệ thống T086; chạy lại sau develop 365dcf3: T074, T085, T086; frontend React T088/T089 và màn hình 002; 2026-10-27: sau merge develop, T002/T007, REST API, T051, T073, T083, các task viết test; facade FE-08 phía 002))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -354,3 +354,23 @@ Môi trường: nhánh `khuong` (`d39b841` + thay đổi chưa commit của T110
 - **Ghi nhận, chưa sửa:** các nút "Ngừng bán size" trong bảng size không có nhãn riêng theo size cho trình đọc màn hình (không thuộc yêu cầu của spec).
 - **Chưa chạy trên màn thật:** phiên Staff (Staff duyệt bị 403 chỉ có test tự động), thêm vào giỏ bằng Member (FE-08), batch import quá 60 phút.
 - **Dữ liệu thử còn trong `ppswbs_dev`:** danh mục "Nhẫn kiểm thử 0511", "Nhẫn kiểm thử thông báo 0511"; SP000011 (đang công khai), SP000012 (nháp), SP000013 (đã xóa mềm).
+
+## Kiểm thử cuối trên màn thật trước khi gộp (2026-11-05, chiều)
+
+Môi trường: nhánh `khuong` (`c17573a` cùng thay đổi chưa commit của 006 T081), backend và frontend chạy local, MySQL 8.4 database `ppswbs_dev`, Firebase thật, phiên manager@gmail.com rồi member@gmail.com.
+
+- **Kiểm tra tự động trước đó:** backend 002 + `ModulithArchitectureTests` trên database trống `ppswbs_pm_final1105b`: **365/365 đạt**. Lần chạy chung có 3 test của `CatalogueSellingLocationIT` lỗi vì MySQL "Too many connections"; chạy riêng thì 3/3 đạt. Lưu ý: kết quả này có được nhờ **vá tạm `V80`** của FE-08/003 trên máy (thêm `DROP FOREIGN KEY fk_retail_checkout_holds_checkout`), sau đó đã trả file về đúng bản của nhánh. `V80` trên nhánh (sau `4756bbc`) lỗi MySQL 1833 trên database trống và lệch checksum với `ppswbs_dev`, nên backend local phải chạy với `--spring.flyway.validate-on-migrate=false`. **Chặn gộp cho đến khi owner sửa `V80`.**
+- **Hành trình trên màn thật, đều đạt:**
+  - A1–A4: tạo danh mục, tên trùng khác hoa/thường bị từ chối, ngừng hoạt động có xác nhận và hiện số sản phẩm.
+  - B1–B8 (SP000014): bỏ trống tên hoặc nhập giá sai thì báo lỗi ở từng ô và giữ dữ liệu; gửi duyệt khi chưa có ảnh bị chặn; Manager duyệt, sửa giá size 12, áp dụng ngay, công khai; trang công khai hiện 1.280.000–1.300.000 ₫.
+  - B18–B20: size ngừng bán có nhãn; ẩn rồi công khai lại; đề xuất giá sau công khai đi qua nháp → gửi → duyệt không áp dụng (giá công khai chưa đổi) → áp dụng (giá đổi).
+  - B9–B12, B21: lý do từ chối bỏ trống bị chặn; lịch sử có 2 lần duyệt; xóa có xác nhận.
+  - C2–C5: file lỗi báo 7 lỗi theo dòng; file hợp lệ tạo #15 và #16; bấm xác nhận 2 lần không tạo trùng.
+  - B22: Member vào khu quản trị sản phẩm thì bị 403.
+- **Lỗi tìm thấy và đã sửa:**
+  - **Hiện tượng:** trang chi tiết sản phẩm vẫn giữ thông báo "Đã tạo sản phẩm…" khi thao tác kế tiếp bị chặn ngay ở trình duyệt (gửi duyệt khi thiếu ảnh, ô nhập sai). Điều này lệch Session 2026-11-04.
+  - **Sửa:** mọi handler của các section (`ContentSection`, `ImagesSection`, `PriceSection` ×2, `ReviewSection` ×2, `VariantsSection`, `BatchPrices` ×3, `BatchQuantities`) giờ gọi `setNotice(null)` trước khi kiểm tra dữ liệu.
+  - **Test:** thêm 2 test trong `screens.test.jsx`. Hai test hỏng khi chưa có phần sửa và đạt khi có.
+  - **Kết quả:** frontend 002 + 006 97/97; toàn bộ frontend 282/282; `npm run build` đạt. Trên màn thật với manager@gmail.com: tạo sản phẩm nháp #17 (chưa có ảnh) → bấm Gửi duyệt thì thông báo "Đã tạo sản phẩm…" biến mất, chỉ còn khung "còn thiếu". Lưu nội dung thành công ("Đã lưu tên, mô tả và danh mục.") rồi lưu với tên trống thì thông báo thành công biến mất, ô tên báo "Bắt buộc nhập.". Khung "còn thiếu ảnh" vẫn hiện vì là chỉ báo yêu cầu, chỉ tắt khi sản phẩm có ảnh.
+- **Chưa chạy trên màn thật:** phiên Staff, gắn ảnh hàng loạt sau import, thêm vào giỏ (FE-08).
+- **Dữ liệu thử còn trong `ppswbs_dev`:** danh mục "Nhẫn vàng 0511b" và "Nhẫn ngừng 0511b" (đã ngừng); SP000014 (đang công khai), #16 (đã duyệt), #15 (đã xóa mềm), #17 "Nhẫn kiểm tra thông báo 0511c" (nháp).

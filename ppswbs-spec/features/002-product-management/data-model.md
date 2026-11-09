@@ -1,7 +1,7 @@
 # Data Model: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới)
+**Date updated**: 2026-11-08 (bảng `catalogue_variant_branch_stock` cho US10 — tồn kho theo chi nhánh; trước đó: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -79,6 +79,21 @@ Không có mutation thêm/đổi/xóa size; size không còn bán dùng DISABLED
 - Lock order khi xác nhận: category IDs tăng dần (mọi category trong payload, kiểm tra còn active) → product mới (chưa có lock cạnh tranh) → variant mới. Không giữ guard FE-08 (variant mới chưa thể có hold).
 - parsed_payload là dữ liệu nghiệp vụ tối thiểu (không chứa công thức, hyperlink, nội dung ô thô). Giá trị bắt đầu bằng `=`, `+`, `-`, `@` chỉ bị vô hiệu hóa ở báo cáo lỗi xuất file; trong payload/DB lưu nguyên giá trị đã trim.
 - Dọn payload: job nền xóa parsed_payload và errors của batch quá hạn, chuyển VALIDATED → EXPIRED (REJECTED giữ trạng thái, errors null); không xóa metadata batch/audit/receipt (5 năm).
+
+## Branch stock (US10, Session 2026-11-08 — duyệt 2026-11-08)
+
+| Table / entity | Fields and relationships | Invariants |
+| --- | --- | --- |
+| catalogue_variant_branch_stock | id BIGINT, variant_id FK → catalogue_variants, location_id BIGINT (id chi nhánh của nguồn chi nhánh chuẩn 003.2, **không FK chéo module**), remaining_unsold DECIMAL(19,0), sale_enabled BOOLEAN, version BIGINT, created_at/updated_at | Unique(variant_id, location_id). remaining_unsold ≥ 0 và ≥ giữ hợp lệ tại (variant, location) dưới guard của FE-08. Không xóa dòng; ngừng bán tại chi nhánh = sale_enabled=false. Chi nhánh được kiểm tra tồn tại/đang hoạt động qua port chi nhánh lúc tạo/thêm, không đọc thẳng bảng `workshop_locations`. |
+
+Thay đổi kèm theo (đề xuất):
+
+- `catalogue_variants.remaining_unsold` thôi là nguồn quyết định mua sau migration. *(Triển khai 2026-11-08)*: cột được giữ và luôn bằng tổng các dòng chi nhánh của size (mọi lệnh tồn kho cập nhật cả hai trong cùng transaction, dưới khóa size), vì FE-08 vẫn đọc và trừ tổng cho tới T124; size chưa có dòng chi nhánh giữ tổng cũ. Gỡ cột hoặc đổi nghĩa chỉ sau khi FE-08 gửi chi nhánh. `catalogue_variants.sale_enabled` giữ nghĩa ngừng bán ở mọi chi nhánh (FR-021).
+- Khả dụng tại chi nhánh = `branch_stock.remaining_unsold` − giữ hợp lệ của FE-08 tại (variant, location). FE-08 cần thêm `location_id` vào giữ hàng (`retail_variant_holds`) và guard (`retail_variant_availability_guards` đổi khóa thành variant + location) — thuộc owner FE-08, ghi tại FR-053.
+- Audit (`catalogue_audit_events`) ghi thêm `location_id` trong `safe_changes` cho lệnh tồn kho; command receipt dùng action mới (ví dụ `variant.branch.quantity`, `product.branch.add`, `product.branch.sale`).
+- Index: (location_id, variant_id) cho lọc danh sách theo chi nhánh và đọc công khai theo size.
+
+Migration (FR-055): `INSERT … SELECT` một dòng cho mỗi variant với `location_id` của chi nhánh mặc định tra theo **mã** (Q-B1), `remaining_unsold` và `sale_enabled=true` như cũ; không có mã đó thì không chuyển gì (sản phẩm cũ "chưa gán chi nhánh", gán sau trên giao diện — FR-055 bản sửa, không dừng migration để không chặn backend cả nhóm); `INSERT IGNORE`/kiểm tra unique để chạy lại không trùng. Số migration cấp theo high-water mark lúc triển khai (hiện V108), không đặt trước.
 
 ## Public reads and indexes
 

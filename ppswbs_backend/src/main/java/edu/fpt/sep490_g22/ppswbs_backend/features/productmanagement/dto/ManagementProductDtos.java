@@ -25,7 +25,18 @@ public final class ManagementProductDtos {
     public record ManagementProduct(String id, String name, String description, Category category, boolean published,
                                     Instant firstPublishedAt, Instant deletedAt, long contentVersion, long version,
                                     List<ImageReference> images, List<ManagementVariant> variants,
-                                    List<Review> reviews) {
+                                    List<Review> reviews, List<Branch> branches) {
+    }
+
+    /**
+     * A branch where the product is sold (US10). {@code name} is null when the branch is no longer active in the
+     * canonical list; {@code saleEnabled} is false when selling is stopped there for every size.
+     */
+    public record Branch(String locationId, String name, boolean active, boolean saleEnabled) {
+    }
+
+    /** Quantity of a size at one branch (US10); {@code version} is the row version for the branch quantity command. */
+    public record BranchStock(String locationId, String remainingUnsold, boolean saleEnabled, long version) {
     }
 
     public record Category(String id, String name, String description, boolean active, long version) {
@@ -37,7 +48,8 @@ public final class ManagementProductDtos {
     public record ManagementVariant(String id, int size, String sku, String remainingUnsold, String validHeldQuantity,
                                     String availableQuantity, boolean saleEnabled,
                                     @JsonInclude(JsonInclude.Include.NON_NULL) String appliedPrice,
-                                    long appliedSequence, long version, List<Proposal> proposals) {
+                                    long appliedSequence, long version, List<Proposal> proposals,
+                                    List<BranchStock> branchStocks) {
     }
 
     public record Proposal(String id, String variantId, long revision, long version, String state, boolean effective,

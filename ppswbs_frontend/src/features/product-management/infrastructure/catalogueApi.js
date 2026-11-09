@@ -10,6 +10,7 @@ export const ACTIONS = {
   submitReview: 'product.review.submit', decideReview: 'product.review.decide',
   publish: 'product.publish', unpublish: 'product.unpublish',
   quantity: 'variant.quantity', saleStatus: 'variant.sale-status',
+  addBranch: 'product.branch.add', branchQuantity: 'variant.branch.quantity', branchSale: 'product.branch.sale',
   proposePrice: 'price.propose', revisePrice: 'price.revise', submitPrice: 'price.submit', decidePrice: 'price.decide', applyPrice: 'price.apply',
   createCategory: 'category.create', updateCategory: 'category.update', categoryActivation: 'category.activation',
 };
@@ -52,6 +53,13 @@ export function catalogueApi(request) {
     // Sizes and prices (T050, T057, T064)
     setQuantity: (key, variantId, expectedVersion, quantity) => write('PUT', `/variants/${id(variantId)}/quantity`, key, { expectedVersion, quantity }),
     setSaleStatus: (key, variantId, expectedVersion, saleEnabled) => write('PUT', `/variants/${id(variantId)}/sale-status`, key, { expectedVersion, saleEnabled }),
+
+    // Branches (US10, Session 2026-11-08). The list is the canonical branch list of 003.2, already limited to the
+    // Manager's active branches or the Staff member's assigned ones; the backend checks the scope again.
+    listBranches: () => request('/api/v1/workshop-locations'),
+    addBranch: (key, productId, expectedVersion, locationId, quantities) => write('POST', `/products/${id(productId)}/branches`, key, { expectedVersion, locationId, quantities }),
+    setBranchQuantity: (key, variantId, locationId, expectedVersion, quantity) => write('PUT', `/variants/${id(variantId)}/branches/${id(locationId)}/quantity`, key, { expectedVersion, quantity }),
+    setBranchSale: (key, productId, locationId, saleEnabled) => write('PUT', `/products/${id(productId)}/branches/${id(locationId)}/sale-status`, key, { saleEnabled }),
     proposePrice: (key, variantId, expectedVersion, proposedPrice) => write('POST', `/variants/${id(variantId)}/price-proposals`, key, { expectedVersion, proposedPrice }),
     revisePrice: (key, proposalId, expectedVersion, proposedPrice) => write('POST', `/price-proposals/${id(proposalId)}/revisions`, key, { expectedVersion, proposedPrice }),
     submitPrice: (key, proposalId, expectedVersion) => write('POST', `/price-proposals/${id(proposalId)}/submissions`, key, { expectedVersion }),
@@ -69,10 +77,14 @@ export function catalogueApi(request) {
     getCommandReceipt: (commandId, action) => read(`/command-receipts/${id(commandId)}`, { action }),
 
     // Excel import (T101)
-    downloadImportTemplate: () => request(`${MANAGEMENT}/product-imports/template`, { responseType: 'blob' }),
-    validateImport: (key, file) => {
+    // US10 Q-B2: locationIds are the chosen branches in column order (one "Số lượng {branch}" column each).
+    downloadImportTemplate: (locationIds = []) => request(`${MANAGEMENT}/product-imports/template`, {
+      responseType: 'blob', query: locationIds.length ? { locationIds: locationIds.join(',') } : undefined,
+    }),
+    validateImport: (key, file, locationIds = []) => {
       const form = new FormData();
       form.append('file', file);
+      locationIds.forEach(locationId => form.append('locationIds', locationId));
       return request(`${MANAGEMENT}/product-imports`, { method: 'POST', idempotencyKey: key, form });
     },
     getImport: batchId => read(`/product-imports/${id(batchId)}`),

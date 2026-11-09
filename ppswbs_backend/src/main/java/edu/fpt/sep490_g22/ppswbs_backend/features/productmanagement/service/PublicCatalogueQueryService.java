@@ -109,11 +109,12 @@ public class PublicCatalogueQueryService {
                 keyword == null ? null : "%" + escapeLike(keyword.toLowerCase(Locale.ROOT)) + "%",
                 categoryId, minimum, maximum, onlyBuyable));
         if (onlyBuyable) {
-            Map<Long, BigInteger> held = projection.held(rows.stream().map(CandidateRow::variantId).toList());
-            rows = rows.stream()
-                    .filter(row -> PublicCatalogueProjection.canBuy(row.saleEnabled(), row.remainingUnsold(),
-                            held.get(row.variantId())))
-                    .toList();
+            // US10 FR-052/FR-033: buyable at at least one branch, with the same size passing the price filter.
+            Map<Long, PublicCatalogueProjection.SizeAvailability> availability = projection.availability(rows.stream()
+                    .map(row -> new PublicCatalogueProjection.SizeLine(row.variantId(), row.saleEnabled(),
+                            row.remainingUnsold()))
+                    .toList());
+            rows = rows.stream().filter(row -> availability.get(row.variantId()).canBuy()).toList();
         }
         Map<Long, ProductKey> keys = new LinkedHashMap<>();
         for (CandidateRow row : rows) {

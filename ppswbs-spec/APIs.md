@@ -319,3 +319,18 @@ All write commands use `Idempotency-Key`; versioned commands use
 `If-Match-Version`. Public/safe DTOs do not expose database IDs, raw Guest
 session values, audit data or private Member data. Feature-003 consumes the
 internal facade and never accesses Feature-012 persistence directly.
+
+## Feature-002 — Product Management: tồn kho theo chi nhánh (US10, 2026-11-09)
+
+Nguồn chi tiết: `features/002-product-management/contracts/product-management.openapi.json` và `contracts/interfaces.md` (mục "FR-053"). Chi nhánh là `workshop_locations` của 003.2; 002 không tạo/sửa chi nhánh.
+
+| Owner | Boundary | Method and route | Access | Purpose | Maturity |
+| --- | --- | --- | --- | --- | --- |
+| `productmanagement` | Protected client REST | `POST /api/v1/catalogue-management/products` (thêm `branches[]`) | Staff (chi nhánh được gán) / Manager | Tạo sản phẩm kèm số lượng từng size tại từng chi nhánh. | Implemented 2026-11-08 |
+| `productmanagement` | Protected client REST | `POST /api/v1/catalogue-management/products/{productId}/branches` | Staff (chi nhánh được gán) / Manager | Bán sản phẩm ở thêm một chi nhánh. | Implemented |
+| `productmanagement` | Protected client REST | `PUT /api/v1/catalogue-management/variants/{variantId}/branches/{locationId}/quantity` | Staff (chi nhánh được gán) / Manager | Sửa số lượng một size tại một chi nhánh. | Implemented |
+| `productmanagement` | Protected client REST | `PUT /api/v1/catalogue-management/products/{productId}/branches/{locationId}/sale-status` | Staff (chi nhánh được gán) / Manager | Ngừng/mở bán tại một chi nhánh. | Implemented |
+| `productmanagement` | Protected client REST | `GET /api/v1/catalogue-management/products?locationId=` | Staff / Manager | Lọc danh sách theo chi nhánh. | Implemented |
+| `productmanagement` | Protected client REST | `GET /product-imports/template?locationIds=`, `POST /product-imports` (`locationIds`) | Staff (chi nhánh được gán) / Manager | Import Excel với một cột số lượng mỗi chi nhánh. | Implemented |
+| `productmanagement` | Public client REST | `GET /api/v1/products/{productId}` (mỗi size thêm `assignedToBranches`, `branches[{locationId, canBuy}]`) | Public | Trang sản phẩm chỉ cho chọn chi nhánh đang bán size, còn hàng. | Implemented 2026-11-09 |
+| `productmanagement.facade` | Synchronous facade | `readyringsales` | `CatalogueSalesFacade.readBranchSaleFacts`, `withLockedBranchSaleContext`, `withLockedHistoricalBranchContext`, `recordAcceptedSale(op, variantId, locationId, qty)`; SPI `AvailabilityGuardPort.tracksHoldsPerBranch/readBranchSnapshots/withBranchGuard` (có cài đặt mặc định theo size). | Contract implemented by 002; FE-08 adoption pending (T124) |

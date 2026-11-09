@@ -55,6 +55,47 @@ public interface CatalogueSalesFacade {
      */
     AcceptedSaleResult recordAcceptedSale(UUID operationRef, long variantId, BigInteger quantity);
 
+    // ---- FR-053 (US10, 2026-11-09): sale per size × branch ----
+    // Additive: the size-only methods above keep working until FE-08 has switched to these, then they are removed
+    // together with the interim "deduct without branch" rule. Same transaction, lock and error rules as above; the
+    // branch ({@code locationId}) is the branch of the cart line / order.
+
+    /**
+     * Read-only cart facts per size × branch, one {@link BranchCartSaleFact} per distinct key in {@link BranchVariant}
+     * order (see that record for eligibility and available quantity). Held quantities come from
+     * {@link AvailabilityGuardPort#readBranchSnapshots}. May be called with or without a transaction. Empty or null
+     * keys are {@code INVALID_REQUEST}; an unknown size is {@code NOT_FOUND}; a missing hold or branch source is
+     * {@code DEPENDENCY_UNAVAILABLE}.
+     */
+    List<BranchCartSaleFact> readBranchSaleFacts(Collection<BranchVariant> keys);
+
+    /**
+     * {@link #withLockedSaleContext} for sizes at branches: locks the sizes of the keys (category → product → size,
+     * ascending) and adds one {@link BranchStockFact} per key to the context. Besides the size checks, each key's
+     * branch must be active and sell the size (a product not yet assigned to any branch may be sold at any active
+     * branch); otherwise {@code NOT_FOR_SALE} lists the offending sizes. Availability at the branch (branch quantity −
+     * branch holds) is checked by FE-08 under {@link AvailabilityGuardPort#withBranchGuard} inside {@code work}.
+     */
+    <T> T withLockedBranchSaleContext(Collection<BranchVariant> keys, Function<SaleContext, T> work);
+
+    /**
+     * {@link #withLockedHistoricalContext} for sizes at branches (settlement or release of an accepted transaction):
+     * the same locks and branch facts, without any sale check.
+     */
+    <T> T withLockedHistoricalBranchContext(String acceptedTransactionRef, Collection<BranchVariant> keys,
+                                            Function<SaleContext, T> work);
+
+    /**
+     * Deducts {@code quantity} from the size at the branch exactly once per {@code operationRef}, inside a context
+     * that locked the size, after FE-08 settled its hold in the same transaction. The branch quantity and the size
+     * total both go down; neither may go below zero, and the size total not below the size's held quantity after
+     * settlement (per branch too once {@link AvailabilityGuardPort#tracksHoldsPerBranch} is true). A product not yet
+     * assigned to any branch is deducted from its size total only. Repeating the same operation returns the earlier
+     * result; reusing the reference for another size, branch or quantity is {@code OPERATION_CONFLICT}; a branch that
+     * does not sell an assigned size is {@code NOT_FOR_SALE}.
+     */
+    BranchAcceptedSaleResult recordAcceptedSale(UUID operationRef, long variantId, long locationId, BigInteger quantity);
+
     /**
      * Registers that an FE-08 record (for example an order item snapshot) uses these images, so cleanup keeps
      * them. Call in the transaction that stores the snapshot. {@code ownerRecordRef} is FE-08's stable

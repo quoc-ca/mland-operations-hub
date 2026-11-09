@@ -8,6 +8,7 @@ import { MissingNote, sectionClass, useProductCommand } from '../ProductDetailPa
 import { newCommandId } from '../../../../../shared/api/http';
 import { ApplyNowToggle, BatchPrices } from './BatchPrices';
 import { NoticeAt } from '../notices';
+import { useRole } from '../../../../../shared/auth/useRole';
 
 /**
  * T057 price proposals per size: proposed, approved and applied amounts are shown apart with the revision
@@ -17,11 +18,12 @@ import { NoticeAt } from '../notices';
  */
 export function PriceSection({ product, missing = {}, ...context }) {
   const t = useT(messages);
+  const isManager = useRole() === 'MANAGER';
   return (
     <section className={sectionClass(missing.prices)} aria-labelledby="price-title">
       <h2 id="price-title">{t('section.prices')}</h2>
       <MissingNote messageKey={missing.prices} />
-      {!product.firstPublishedAt && <p className="muted small">{t('price.initialHint')}</p>}
+      {!product.firstPublishedAt && <p className="muted small">{t(isManager ? 'price.initialHintManager' : 'price.initialHint')}</p>}
       {!context.deleted && <BatchPrices product={product} {...context} />}
       {(product.variants || []).map(variant => <VariantPrices key={variant.id} product={product} variant={variant} {...context} />)}
     </section>
@@ -95,6 +97,7 @@ function AmountForm({ label, hint, initial, send, action, notice, reload, setNot
   if (amount === null) return <button type="button" className="button outline" onClick={() => setAmount(initial || '')}>{label}</button>;
   const submit = async event => {
     event.preventDefault();
+    setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     if (!isAmount(amount)) { setLocalError(t('validation.amount')); return; }
     setLocalError(null);
     const outcome = await command.run(key => send(key, amount), notice(amount), action);
@@ -134,6 +137,7 @@ function PriceDecision({ proposal, note, api, reload, setNotice }) {
 
   const submit = async event => {
     event.preventDefault();
+    setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     let body;
     if (mode === 'APPROVE') {
       if (!isAmount(approvedPrice)) { setLocalError(t('validation.amount')); return; }

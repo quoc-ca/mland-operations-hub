@@ -1,6 +1,8 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.ProgramKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReason;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReasonCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
@@ -55,7 +57,7 @@ class LoyaltyWorkshopQuoteTest {
 
     private static WorkshopCandidate voucher(DiscountTerms terms, boolean allowPoints, Set<Long> packages,
                                              Set<Long> branches, Set<LocalDate> dates, Set<String> sessions,
-                                             String unavailable) {
+                                             BenefitReason unavailable) {
         RetailQuote.Candidate base = new RetailQuote.Candidate(9, 90, 1, ProgramKind.VOUCHER, CREATED, terms,
                 allowPoints, Set.of(), Set.of(), "WS9", unavailable);
         return new WorkshopCandidate(base, packages, branches, dates, sessions);
@@ -181,10 +183,12 @@ class LoyaltyWorkshopQuoteTest {
     @Test
     void anUnavailableVoucherOrAProductVoucherIsRefusedWithItsReason() {
         WorkshopCandidate expired = voucher(fixed(1, 1, 0), true, Set.of(1L), Set.of(), Set.of(), Set.of(),
-                "This promotion has ended.");
+                BenefitReason.of(BenefitReasonCode.PROMOTION_ENDED));
         RetailQuote.Result preview = WorkshopBenefitEvaluator.compute(booking(1_000_000), voucherSelection(0), expired,
                 POLICY, n(0), false);
         assertThat(preview.reasons()).contains("This promotion has ended.");
+        assertThat(preview.reasonDetails()).extracting(BenefitReason::code)
+                .containsExactly(BenefitReasonCode.PROMOTION_ENDED);
         assertCode(() -> WorkshopBenefitEvaluator.compute(booking(1_000_000), voucherSelection(0), null, POLICY, n(0),
                 true), LoyaltyErrorCode.PROMOTION_INELIGIBLE);
     }

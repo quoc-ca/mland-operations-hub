@@ -444,6 +444,15 @@
               "type": "boolean"
             },
             "description": "Filter current publication flag."
+          },
+          {
+            "in": "query",
+            "name": "locationId",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": "Only products sold at this branch (US10)."
           }
         ],
         "responses": {
@@ -1825,7 +1834,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Old per-size command: allowed while the size is sold at no branch or exactly one branch (that branch changes); several branches → 409 BRANCH_REQUIRED (US10)."
       }
     },
     "/api/v1/catalogue-management/variants/{variantId}/sale-status": {
@@ -3310,7 +3320,24 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "locationIds",
+            "required": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "maxItems": 20
+            },
+            "description": "US10 Q-B2: one column \"Số lượng {branch name}\" per chosen branch, in this order, replaces \"Số lượng\"."
+          }
+        ]
       }
     },
     "/api/v1/catalogue-management/product-imports": {
@@ -3342,6 +3369,14 @@
                     "type": "string",
                     "format": "binary",
                     "description": "One .xlsx, no macros, max 5,000,000 bytes and 500 data rows; only the first sheet is read; request max 5,100,000 bytes."
+                  },
+                  "locationIds": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Id"
+                    },
+                    "maxItems": 20,
+                    "description": "US10 Q-B2: chosen branches in column order; empty = the original template, products start with no branch. With one branch the old \"Số lượng\" header is accepted. A blank branch cell is 0."
                   }
                 },
                 "required": [
@@ -3800,6 +3835,382 @@
           }
         }
       }
+    },
+    "/api/v1/catalogue-management/products/{productId}/branches": {
+      "post": {
+        "operationId": "addProductBranch",
+        "summary": "US10: start selling the product at another branch with a quantity per size",
+        "tags": [
+          "Catalogue management"
+        ],
+        "security": [
+          {
+            "bearerIdentity": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed result; same-key retry is resolved from the committed receipt after current authorization.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "description": "No storage of management data or stale availability."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchAddRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogue-management/products/{productId}/branches/{locationId}/sale-status": {
+      "put": {
+        "operationId": "setProductBranchSale",
+        "summary": "US10: stop or resume selling every size at one branch",
+        "tags": [
+          "Catalogue management"
+        ],
+        "security": [
+          {
+            "bearerIdentity": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "locationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed result; same-key retry is resolved from the committed receipt after current authorization.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "description": "No storage of management data or stale availability."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSaleRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogue-management/variants/{variantId}/branches/{locationId}/quantity": {
+      "put": {
+        "operationId": "setVariantBranchQuantity",
+        "summary": "US10: quantity of one size at one branch; the size total follows",
+        "tags": [
+          "Catalogue management"
+        ],
+        "security": [
+          {
+            "bearerIdentity": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "locationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed result; same-key retry is resolved from the committed receipt after current authorization.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "description": "No storage of management data or stale availability."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuantityRequest"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4046,6 +4457,13 @@
               "$ref": "#/components/schemas/ImageReference"
             },
             "maxItems": 10
+          },
+          "branches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BranchInput"
+            },
+            "description": "US10 (Session 2026-11-08): quantity per size × branch; branches come from the canonical list of 003.2 (GET /api/v1/workshop-locations). Staff only at assigned branches (BRANCH_OUT_OF_SCOPE / BRANCH_SCOPE_EMPTY). Required for a manual create (at least one); when sent, size totals come from it and variants[].quantity is ignored."
           }
         },
         "required": [
@@ -4426,6 +4844,16 @@
           },
           "canBuy": {
             "type": "boolean"
+          },
+          "assignedToBranches": {
+            "type": "boolean",
+            "description": "false = product not yet assigned to any branch: every active selling location may be chosen and branches is empty."
+          },
+          "branches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicVariantBranch"
+            }
           }
         },
         "required": [
@@ -4435,7 +4863,9 @@
           "appliedPrice",
           "currency",
           "saleEnabled",
-          "canBuy"
+          "canBuy",
+          "assignedToBranches",
+          "branches"
         ]
       },
       "PriceRange": {
@@ -4673,6 +5103,13 @@
             "items": {
               "$ref": "#/components/schemas/Proposal"
             }
+          },
+          "branchStocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManagementBranchStock"
+            },
+            "description": "remainingUnsold of the size is the sum of these rows (empty for a product not assigned to a branch yet)."
           }
         },
         "required": [
@@ -4685,7 +5122,8 @@
           "version",
           "proposals",
           "validHeldQuantity",
-          "availableQuantity"
+          "availableQuantity",
+          "branchStocks"
         ],
         "description": "A quantity snapshot must be authoritative; if required hold data cannot be verified, return 503 rather than omitting fields or substituting zero. A newly created never-public variant can have a proven zero hold context."
       },
@@ -4748,6 +5186,12 @@
             "items": {
               "$ref": "#/components/schemas/Review"
             }
+          },
+          "branches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManagementBranch"
+            }
           }
         },
         "required": [
@@ -4762,7 +5206,8 @@
           "version",
           "images",
           "variants",
-          "reviews"
+          "reviews",
+          "branches"
         ],
         "description": "Deleted products are absent from ordinary management reads. Accepted-transaction historical access is through the trusted internal FE-08 contract, not this response."
       },
@@ -5215,6 +5660,151 @@
         },
         "required": [
           "items"
+        ]
+      },
+      "BranchSizeQuantity": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "size": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 29
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$"
+          }
+        },
+        "required": [
+          "size",
+          "quantity"
+        ]
+      },
+      "BranchInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "US10 (Session 2026-11-08): quantity per size × branch; branches come from the canonical list of 003.2 (GET /api/v1/workshop-locations). Staff only at assigned branches (BRANCH_OUT_OF_SCOPE / BRANCH_SCOPE_EMPTY).",
+        "properties": {
+          "locationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "quantities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BranchSizeQuantity"
+            },
+            "maxItems": 25
+          }
+        },
+        "required": [
+          "locationId"
+        ]
+      },
+      "BranchAddRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Start selling at another branch; a missing size counts 0. For a product with no branch yet the current quantities move to this first branch when not sent.",
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "locationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "quantities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BranchSizeQuantity"
+            },
+            "maxItems": 25
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "locationId"
+        ]
+      },
+      "BranchSaleRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "saleEnabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "saleEnabled"
+        ]
+      },
+      "ManagementBranch": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A branch where the product is sold; name is null when the branch is no longer active.",
+        "properties": {
+          "locationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "saleEnabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "locationId",
+          "name",
+          "active",
+          "saleEnabled"
+        ]
+      },
+      "ManagementBranchStock": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "locationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "remainingUnsold": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$"
+          },
+          "saleEnabled": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "locationId",
+          "remainingUnsold",
+          "saleEnabled",
+          "version"
+        ]
+      },
+      "PublicVariantBranch": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "US10 FR-046/FR-052: an active branch selling the size; canBuy = available there now. No quantity, hold or stopped branch is exposed.",
+        "properties": {
+          "locationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "canBuy": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "locationId",
+          "canBuy"
         ]
       }
     }

@@ -1,0 +1,203 @@
+# DRAFT, NOT APPLIED. Reference for the future OTA shop add-on collection (SHOP_ADDON).
+# Origin: the abandoned 2026-11 direct add-on payment attempt (003.3 T040 replaced it with the folio correction).
+# It adds the SHOP_ADDON payment kind, createShopAddonUrl, the return-URL prefix, the ingress and evidence-command
+# branches, and a payment_kind column on SettlementFinalPaymentAttempt (no Flyway migration existed for that column).
+# Not drop-in: the OTA bill is a separate 003.3 bill (T036), so re-check the owner, bill and refund rules first.
+# Reference only: the FinalPaymentService hunk no longer applies cleanly to HEAD, so merge it by hand (git apply --3way may help for the rest).
+
+diff --git a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/common/payment/PaymentGatewayCheckoutPort.java b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/common/payment/PaymentGatewayCheckoutPort.java
+index bb3011f..bb7c35c 100644
+--- a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/common/payment/PaymentGatewayCheckoutPort.java
++++ b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/common/payment/PaymentGatewayCheckoutPort.java
+@@ -8,4 +8,7 @@ public interface PaymentGatewayCheckoutPort {
+ 
+     String createFinalPaymentUrl(String merchantReference, String bookingCode, long amountVnd,
+                                  Instant createdAt, Instant expiresAt, String clientIp);
++
++    String createShopAddonUrl(String merchantReference, String bookingCode, long amountVnd,
++                              Instant createdAt, Instant expiresAt, String clientIp);
+ }
+diff --git a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/controller/VnpayBrowserReturnController.java b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/controller/VnpayBrowserReturnController.java
+index de96a4f..b03a992 100644
+--- a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/controller/VnpayBrowserReturnController.java
++++ b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/controller/VnpayBrowserReturnController.java
+@@ -24,6 +24,7 @@ import java.util.Map;
+ public class VnpayBrowserReturnController {
+     private static final String DEPOSIT_PREFIX = "Workshop deposit ";
+     private static final String FINAL_PREFIX = "Workshop final payment ";
++    private static final String SHOP_ADDON_PREFIX = "Workshop shop add-on payment ";
+ 
+     private final String frontendBaseUrl;
+ 
+@@ -68,6 +69,7 @@ public class VnpayBrowserReturnController {
+         if (orderInfo == null || orderInfo.isBlank()) return null;
+         if (orderInfo.startsWith(DEPOSIT_PREFIX)) return suffix(orderInfo, DEPOSIT_PREFIX);
+         if (orderInfo.startsWith(FINAL_PREFIX)) return suffix(orderInfo, FINAL_PREFIX);
++        if (orderInfo.startsWith(SHOP_ADDON_PREFIX)) return suffix(orderInfo, SHOP_ADDON_PREFIX);
+         return null;
+     }
+ 
+diff --git a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/entity/PaymentOwnerKind.java b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/entity/PaymentOwnerKind.java
+index 8508b1e..2c6e1b8 100644
+--- a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/entity/PaymentOwnerKind.java
++++ b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/entity/PaymentOwnerKind.java
+@@ -1,2 +1,2 @@
+ package edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity;
+-public enum PaymentOwnerKind { DEPOSIT, FINAL_PAYMENT, REFUND }
++public enum PaymentOwnerKind { DEPOSIT, FINAL_PAYMENT, SHOP_ADDON, REFUND }
+diff --git a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/service/PaymentIngressService.java b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/service/PaymentIngressService.java
+index 15e3039..38ce360 100644
+--- a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/service/PaymentIngressService.java
++++ b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/service/PaymentIngressService.java
+@@ -96,7 +96,7 @@ public class PaymentIngressService {
+         if (owner.getPaymentKind() == PaymentOwnerKind.DEPOSIT) {
+             booking.applyVerifiedDepositPaymentEvidence(new ApplyVerifiedDepositPaymentEvidenceCommand(owner.getBookingReference(), evidence, merchant, amount, "VND", operation, correlation));
+         } else {
+-            if (owner.getPaymentKind() == PaymentOwnerKind.FINAL_PAYMENT
++            if ((owner.getPaymentKind() == PaymentOwnerKind.FINAL_PAYMENT || owner.getPaymentKind() == PaymentOwnerKind.SHOP_ADDON)
+                     && (owner.getProviderCreateDate() == null || !owner.getProviderCreateDate().matches("[0-9]{14}"))) {
+                 throw new IllegalStateException("FINAL_PAYMENT_ORIGINAL_CREATE_DATE_MISSING");
+             }
+diff --git a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/service/VnpayPaymentGatewayCheckoutAdapter.java b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/service/VnpayPaymentGatewayCheckoutAdapter.java
+index 1bc8c27..e04fe38 100644
+--- a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/service/VnpayPaymentGatewayCheckoutAdapter.java
++++ b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/paymentintegration/service/VnpayPaymentGatewayCheckoutAdapter.java
+@@ -31,6 +31,13 @@ public class VnpayPaymentGatewayCheckoutAdapter implements PaymentGatewayCheckou
+                 "Workshop final payment ");
+     }
+ 
++    @Override
++    public String createShopAddonUrl(String merchantReference, String bookingCode, long amountVnd,
++                                     Instant createdAt, Instant expiresAt, String clientIp) {
++        return createUrl(merchantReference, bookingCode, amountVnd, createdAt, expiresAt, clientIp,
++                "Workshop shop add-on payment ");
++    }
++
+     private String createUrl(String merchantReference, String bookingCode, long amountVnd,
+                              Instant createdAt, Instant expiresAt, String clientIp,
+                              String orderInfoPrefix) {
+diff --git a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/entity/SettlementFinalPaymentAttempt.java b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/entity/SettlementFinalPaymentAttempt.java
+index e974419..4e2efee 100644
+--- a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/entity/SettlementFinalPaymentAttempt.java
++++ b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/entity/SettlementFinalPaymentAttempt.java
+@@ -33,6 +33,9 @@ public class SettlementFinalPaymentAttempt {
+     @Column(name = "currency_code", nullable = false, length = 3)
+     private String currencyCode;
+ 
++    @Column(name = "payment_kind", nullable = false, length = 24)
++    @Builder.Default private String paymentKind = "FINAL_PAYMENT";
++
+     @Column(name = "provider_create_date", nullable = false, length = 14)
+     private String providerCreateDate;
+ 
+diff --git a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/ApplyVerifiedSettlementPaymentEvidenceCommand.java b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/ApplyVerifiedSettlementPaymentEvidenceCommand.java
+index ae92c95..604e76e 100644
+--- a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/ApplyVerifiedSettlementPaymentEvidenceCommand.java
++++ b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/facade/ApplyVerifiedSettlementPaymentEvidenceCommand.java
+@@ -23,14 +23,14 @@ public record ApplyVerifiedSettlementPaymentEvidenceCommand(
+         require(merchantReference, "merchantReference");
+         require(paymentKind, "paymentKind");
+         require(currencyCode, "currencyCode");
+-        if (!paymentKind.equals("FINAL_PAYMENT") && !paymentKind.equals("REFUND")) {
+-            throw new IllegalArgumentException("paymentKind must be FINAL_PAYMENT or REFUND");
++        if (!paymentKind.equals("FINAL_PAYMENT") && !paymentKind.equals("SHOP_ADDON") && !paymentKind.equals("REFUND")) {
++            throw new IllegalArgumentException("paymentKind must be FINAL_PAYMENT, SHOP_ADDON or REFUND");
+         }
+         if (amountVnd == null || amountVnd <= 0) throw new IllegalArgumentException("amountVnd must be positive");
+         if (!currencyCode.equals("VND")) throw new IllegalArgumentException("currencyCode must be VND");
+         require(operationReference, "operationReference");
+         require(correlationReference, "correlationReference");
+-        if (paymentKind.equals("FINAL_PAYMENT")) {
++        if (paymentKind.equals("FINAL_PAYMENT") || paymentKind.equals("SHOP_ADDON")) {
+             require(providerTransactionNumber, "providerTransactionNumber");
+             require(originalProviderCreateDate, "originalProviderCreateDate");
+             if (!originalProviderCreateDate.matches("[0-9]{14}"))
+diff --git a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalPaymentService.java b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalPaymentService.java
+index 65b6544..84e16b8 100644
+--- a/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalPaymentService.java
++++ b/ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopsettlement/service/FinalPaymentService.java
+@@ -6,8 +6,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.Settlem
+ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
+ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
+ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalPaymentAttemptRepository;
++import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementDirectAddonBillRepository;
+ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementEvidenceConclusion;
+ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
++import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementDirectAddonBill;
+ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.ApplyVerifiedSettlementPaymentEvidenceCommand;
+ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementPaymentEvidenceOutcome;
+ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
+@@ -26,18 +28,21 @@ public class FinalPaymentService {
+     private final SettlementChargeRepository charges;
+     private final SettlementFinalPaymentAttemptRepository attempts;
+     private final WorkshopBookingSettlementAdapter booking;
++    private final SettlementDirectAddonBillRepository directAddonBills;
+ 
+     @Autowired
+     public FinalPaymentService(SettlementEvidenceConclusionRepository evidence,
+             SettlementFinalBillRepository bills,
+             SettlementChargeRepository charges,
+             SettlementFinalPaymentAttemptRepository attempts,
+-            WorkshopBookingSettlementAdapter booking) {
++            WorkshopBookingSettlementAdapter booking,
++            SettlementDirectAddonBillRepository directAddonBills) {
+         this.evidence = evidence;
+         this.bills = bills;
+         this.charges = charges;
+         this.attempts = attempts;
+         this.booking = booking;
++        this.directAddonBills = directAddonBills;
+     }
+ 
+     /** Compatibility constructor for existing isolated evidence-consumer tests. */
+@@ -45,7 +50,7 @@ public class FinalPaymentService {
+             SettlementFinalBillRepository bills,
+             SettlementChargeRepository charges,
+             WorkshopBookingSettlementAdapter booking) {
+-        this(evidence, bills, charges, null, booking);
++        this(evidence, bills, charges, null, booking, null);
+     }
+ 
+     @Transactional
+@@ -55,6 +60,41 @@ public class FinalPaymentService {
+         var byEvidence = evidence.findByEvidenceReference(command.verifiedEvidenceReference().trim());
+         if (byEvidence.isPresent()) return replay(byEvidence.get(), command);
+ 
++        if ("SHOP_ADDON".equals(command.paymentKind())) {
++            if (directAddonBills == null) return SettlementPaymentEvidenceOutcome.rejected("SHOP_ADDON_NOT_CONFIGURED");
++            var addonAttempt = attempts == null ? null : attempts.findByMerchantReference(command.merchantReference()).orElse(null);
++            if (addonAttempt == null || !"SHOP_ADDON".equals(addonAttempt.getPaymentKind())) {
++                return SettlementPaymentEvidenceOutcome.rejected("SHOP_ADDON_ATTEMPT_NOT_FOUND");
++            }
++            if (!Objects.equals(addonAttempt.getBookingReference(), command.bookingReference())) {
++                return SettlementPaymentEvidenceOutcome.rejected("BOOKING_REFERENCE_MISMATCH");
++            }
++            SettlementDirectAddonBill direct = directAddonBills.findByBillReferenceForUpdate(addonAttempt.getBillReference()).orElse(null);
++            if (direct == null) return SettlementPaymentEvidenceOutcome.rejected("SHOP_ADDON_BILL_NOT_FOUND");
++            if (!"PENDING_PAYMENT".equals(direct.getLifecycleStatus())) {
++                return "PAID".equals(direct.getLifecycleStatus())
++                        ? SettlementPaymentEvidenceOutcome.accepted()
++                        : SettlementPaymentEvidenceOutcome.rejected("SHOP_ADDON_NOT_PAYABLE");
++            }
++            if (!"VND".equals(command.currencyCode()) || !command.currencyCode().equals(direct.getCurrencyCode())
++                    || !Objects.equals(command.amountVnd(), direct.getAmountVnd())) {
++                return SettlementPaymentEvidenceOutcome.rejected("AMOUNT_MISMATCH");
++            }
++            evidence.saveAndFlush(SettlementEvidenceConclusion.builder()
++                    .evidenceReference(command.verifiedEvidenceReference().trim())
++                    .bookingReference(command.bookingReference().trim())
++                    .providerTransactionReference(command.merchantReference().trim())
++                    .providerTransactionNumber(command.providerTransactionNumber())
++                    .originalProviderCreateDate(command.originalProviderCreateDate())
++                    .conclusion("SHOP_ADDON_VERIFIED").amountVnd(command.amountVnd()).currencyCode(command.currencyCode())
++                    .operationReference(command.operationReference().trim()).createdAt(Instant.now()).build());
++            direct.setLifecycleStatus("PAID"); direct.setPaidAt(Instant.now());
++            if (attempts != null) attempts.findByMerchantReference(command.merchantReference()).ifPresent(attempt -> {
++                attempt.setLifecycleStatus("VERIFIED_PAID"); attempt.setPaymentUrlSnapshot(null);
++            });
++            return SettlementPaymentEvidenceOutcome.accepted();
++        }
++
+         SettlementFinalBill bill = bills.findByBookingReferenceForUpdate(command.bookingReference().trim()).orElse(null);
+         if (bill == null) return SettlementPaymentEvidenceOutcome.rejected("FINAL_BILL_NOT_FOUND");
+         if (!"VND".equals(command.currencyCode()) || !bill.getCurrencyCode().equals(command.currencyCode())) {
