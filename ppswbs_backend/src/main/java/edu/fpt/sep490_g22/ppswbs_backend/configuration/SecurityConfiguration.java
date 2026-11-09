@@ -95,6 +95,14 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/reviews").permitAll()
                 .requestMatchers(HttpMethod.PATCH, "/api/v1/reviews/*").permitAll()
+                // Feature-012 Workshop Ring Design Configuration endpoints (Guest & Member access)
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-design-options/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-designs/*").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/versions").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/evaluate").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/archive").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/attach-to-booking").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().denyAll()
             );
@@ -111,7 +119,7 @@ public class SecurityConfiguration {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key", "If-Match-Version", "X-Guest-Design-Session"));
         configuration.setExposedHeaders(List.of("X-Correlation-Id"));
         configuration.setAllowCredentials(false);
 
