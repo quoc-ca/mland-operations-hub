@@ -7,6 +7,7 @@ ppswbs_backend/logs/
 
 # Generated Browser MCP evidence; keep E2E case files in test-results tracked.
 ppswbs-spec/features/**/test-results/screenshots/
+ppswbs-spec/features/**/test-results/**/screenshots/
 
 node_modules/
 
