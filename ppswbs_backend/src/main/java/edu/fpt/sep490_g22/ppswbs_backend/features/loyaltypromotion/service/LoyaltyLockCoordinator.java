@@ -4,6 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.AcceptedB
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.LoyaltyRegistryRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.LoyaltyWalletRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.MemberProgramRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PromotionEligibilityRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PromotionProgramRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.AcceptedBenefit;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.LoyaltyRegistry;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,10 +65,12 @@ public class LoyaltyLockCoordinator {
     private final LoyaltyWalletRepository wallets;
     private final MemberProgramRepository memberPrograms;
     private final AcceptedBenefitRepository benefits;
+    private final PromotionEligibilityRepository eligibility;
 
     public LoyaltyLockCoordinator(LoyaltyRegistryRepository registries, PromotionProgramRepository programs,
                                   LoyaltyWalletRepository wallets, MemberProgramRepository memberPrograms,
-                                  AcceptedBenefitRepository benefits) {
+                                  AcceptedBenefitRepository benefits, PromotionEligibilityRepository eligibility) {
+        this.eligibility = eligibility;
         this.registries = registries;
         this.programs = programs;
         this.wallets = wallets;
@@ -104,6 +108,16 @@ public class LoyaltyLockCoordinator {
             throw new LoyaltyException(LoyaltyErrorCode.PROMOTION_NOT_FOUND, "The promotion was not found.");
         }
         return locked;
+    }
+
+    /**
+     * Automatic product discounts active at {@code at}, read with a shared lock at the programme step (they have no
+     * quota, so a shared lock is enough; a Manager edit takes the exclusive registry lock first).
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<PromotionProgram> shareActiveAutoDiscounts(Instant at) {
+        enter(Step.PROGRAMS, List.of("auto-discounts@" + at));
+        return eligibility.lockActiveAutoDiscounts(at);
     }
 
     /** The Member's wallet, locked; empty when the Member has none yet. */

@@ -85,6 +85,7 @@ const vi = {
   'saved.empty': 'Bạn chưa lưu voucher nào.', 'saved.savedAt': 'Đã lưu lúc {at}',
   'availability.ACTIVE': 'Dùng được', 'availability.PAUSED': 'Đang tạm dừng', 'availability.SCHEDULED': 'Chưa đến thời gian',
   'availability.EXPIRED': 'Hết hạn', 'availability.NO_PUBLIC_TARGET': 'Không còn sản phẩm/gói áp dụng',
+  'availability.NO_USES_LEFT': 'Đã hết lượt dùng', 'availability.MEMBER_LIMIT_REACHED': 'Bạn đã dùng hết lượt của mình',
 
   'manage.eyebrow': 'QUẢN LÝ ƯU ĐÃI', 'public.eyebrow': 'ƯU ĐÃI', 'public.title': 'Ưu đãi đang có', 'public.empty': 'Hiện chưa có ưu đãi nào.',
   'public.notFound': 'Ưu đãi không tồn tại hoặc không còn công khai',
@@ -237,6 +238,7 @@ const en = {
   'saved.empty': 'You have not saved any voucher.', 'saved.savedAt': 'Saved {at}',
   'availability.ACTIVE': 'Usable', 'availability.PAUSED': 'Paused', 'availability.SCHEDULED': 'Not started yet',
   'availability.EXPIRED': 'Expired', 'availability.NO_PUBLIC_TARGET': 'No product or package left',
+  'availability.NO_USES_LEFT': 'No uses left', 'availability.MEMBER_LIMIT_REACHED': 'You have used all your uses',
 
   'manage.eyebrow': 'PROMOTION MANAGEMENT', 'public.eyebrow': 'OFFERS', 'public.title': 'Current offers', 'public.empty': 'There are no offers right now.',
   'public.notFound': 'This offer does not exist or is no longer public',

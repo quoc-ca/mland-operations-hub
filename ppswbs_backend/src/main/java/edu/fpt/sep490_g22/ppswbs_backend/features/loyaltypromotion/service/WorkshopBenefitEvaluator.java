@@ -89,6 +89,9 @@ public final class WorkshopBenefitEvaluator {
                 used = requested;
             } else if (!pointsAllowed) {
                 reasons.add(BenefitReason.of(BenefitReasonCode.POINTS_NOT_COMBINABLE));
+            } else if (!limit.redeemable()) {
+                // The maximum is below the minimum: one reason, never "between 10 and 9" (review 2026-11-10, L6).
+                reasons.add(BenefitReason.of(BenefitReasonCode.POINTS_BELOW_MINIMUM, "min", policy.minRedeemPoints()));
             } else if (requested.compareTo(policy.minRedeemPoints()) < 0 || requested.compareTo(limit.maxPoints()) > 0) {
                 reasons.add(BenefitReason.of(BenefitReasonCode.POINTS_OUT_OF_RANGE, "min", policy.minRedeemPoints(),
                         "max", limit.maxPoints()));

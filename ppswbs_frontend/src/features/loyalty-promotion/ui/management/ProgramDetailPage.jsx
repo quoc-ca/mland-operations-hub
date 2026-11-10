@@ -6,7 +6,8 @@ import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { DiscountText, ScopeBadge, Terms, useDateTime } from '../display';
 import { sharedMessages } from '../../../../shared/ui/messages';
 import { messages } from '../messages';
-import { isAmount, isPercent, isPositive, LIMITS, serverFieldErrors, toInstant, toLocalInput } from '../../domain/promotionRules';
+import { errorFieldsOf, isAmount, isPercent, isPositive, LIMITS, toInstant, toLocalInput } from '../../domain/promotionRules';
+import { useFieldErrors } from '../../application/useFieldErrors';
 import { PageTop } from './PromotionManagementLayout';
 import { useTargetLabels } from '../../application/useTargetLabels';
 import { DateTimeField } from './DateTimeField';
@@ -71,8 +72,8 @@ export default function ProgramDetailPage() {
         <TargetWarnings program={data} labels={labels} onRetry={program.reload} />
         <p className="muted small detail-meta">{t('detail.meta', { version: data.version, revision: data.revision, createdAt: dateTime(data.createdAt) })}</p>
         <div className="actions form-actions">
-          {!editing && <button type="button" className="button outline" onClick={() => setEditing(true)}>{t('edit')}</button>}
-          <button type="button" className={paused ? 'button primary' : 'button outline'} onClick={() => { toggle.reset(); setConfirm(true); }}>{paused ? t('program.resume') : t('program.pause')}</button>
+          {!editing && <button type="button" className="button outline" onClick={() => { setNotice(null); setEditing(true); }}>{t('edit')}</button>}
+          <button type="button" className={paused ? 'button primary' : 'button outline'} onClick={() => { setNotice(null); toggle.reset(); setConfirm(true); }}>{paused ? t('program.resume') : t('program.pause')}</button>
         </div>
         {!confirm && <ErrorNotice error={toggle.error} messages={messages} onReload={reloadAll} />}
       </section>
@@ -161,12 +162,11 @@ function EditForm({ program, api, onDone, onCancel, onReload }) {
   const dateTime = useDateTime();
   const inWords = local => (toInstant(local) ? t('create.timeInWords', { at: dateTime(toInstant(local)) }) : null);
   const [form, setForm] = useState(() => initialForm(program));
-  const [hints, setHints] = useState({});
   const command = useCommand();
   const voucher = program.kind === 'VOUCHER';
-  const serverErrors = serverFieldErrors(command.error);
-  const errorOf = field => serverErrors[field] || (hints[field] && t(hints[field]));
-  const set = name => event => setForm(current => ({ ...current, [name]: event.target.type === 'checkbox' ? event.target.checked : event.target.value }));
+  const { errorOf, setHints, clear } = useFieldErrors(command.error, t);
+  const setValue = (name, value) => { clear(...errorFieldsOf(name)); setForm(current => ({ ...current, [name]: value })); };
+  const set = name => event => setValue(name, event.target.type === 'checkbox' ? event.target.checked : event.target.value);
 
   const save = async event => {
     event.preventDefault();
@@ -218,8 +218,8 @@ function EditForm({ program, api, onDone, onCancel, onReload }) {
       <div className="form-grid">
         <Field label={t('field.name')} error={errorOf('name')}><input value={form.name} onChange={set('name')} maxLength={LIMITS.nameMax} /></Field>
         <div />
-        <DateTimeField label={t('field.startAt')} error={errorOf('startAt')} hint={inWords(form.startAt)} value={form.startAt} onChange={value => setForm(current => ({ ...current, startAt: value }))} />
-        <DateTimeField label={t('field.endAt')} error={errorOf('endAt')} hint={inWords(form.endAt)} value={form.endAt} onChange={value => setForm(current => ({ ...current, endAt: value }))} />
+        <DateTimeField label={t('field.startAt')} error={errorOf('startAt')} hint={inWords(form.startAt)} value={form.startAt} onChange={value => setValue('startAt', value)} />
+        <DateTimeField label={t('field.endAt')} error={errorOf('endAt')} hint={inWords(form.endAt)} value={form.endAt} onChange={value => setValue('endAt', value)} />
         <Field label={t('field.discountKind')} error={errorOf('discount.kind')}>
           <select value={form.discountKind} onChange={set('discountKind')}>
             <option value="PERCENT">{t('discount.PERCENT')}</option>

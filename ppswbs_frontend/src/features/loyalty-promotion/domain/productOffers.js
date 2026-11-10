@@ -62,6 +62,15 @@ export function unitDiscount(program, price) {
   return result > 0n ? result : 0n;
 }
 
+/** Created first, then the lower ID. The public card has no createdAt, so a missing one falls back to the ID. */
+function createdFirst(a, b) {
+  const at = (a.createdAt || '').localeCompare(b.createdAt || '');
+  if (at !== 0 && a.createdAt && b.createdAt) return at;
+  const left = big(a.id) ?? 0n;
+  const right = big(b.id) ?? 0n;
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 const productPrograms = programs => (programs || []).filter(program => program.scope === 'PRODUCT');
 
 /**
@@ -71,7 +80,8 @@ const productPrograms = programs => (programs || []).filter(program => program.s
 export function offersForProduct(product, programs) {
   const list = productPrograms(programs);
   const variants = (product.variants || []).filter(variant => big(variant.appliedPrice) !== null);
-  const autos = list.filter(program => program.kind === 'AUTO_DISCOUNT');
+  // Same order as RetailQuote: on equal discounts the programme created first wins (the API lists newest first).
+  const autos = list.filter(program => program.kind === 'AUTO_DISCOUNT').sort(createdFirst);
   const vouchers = list.filter(program => program.kind === 'VOUCHER' && variants.some(variant => covers(program, product, variant)));
 
   const sizes = {};
