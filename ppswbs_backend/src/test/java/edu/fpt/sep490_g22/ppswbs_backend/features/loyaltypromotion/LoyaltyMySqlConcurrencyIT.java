@@ -24,6 +24,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Accept
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.AuthoritativeOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.ComponentState;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitPreview;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
@@ -69,6 +70,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 /**
  * T063 (loyalty side only): real MySQL 8.4 transactions started together on a barrier, with this test acting as the
@@ -576,5 +578,55 @@ class LoyaltyMySqlConcurrencyIT {
         } catch (ExecutionException e) {
             return e.getCause();
         }
+    }
+
+    /** An active automatic discount on product 8001, large enough to be the best one. Returns its id. */
+    private long bigAutoDiscount() {
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        return transaction.execute(status -> {
+            PromotionProgram program = programs.saveAndFlush(PromotionProgram.autoDiscount(now, 1L));
+            PromotionRevision revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1,
+                    ProgramKind.AUTO_DISCOUNT, "Concurrency IT auto", now.minus(1, ChronoUnit.DAYS),
+                    now.plus(1, ChronoUnit.DAYS), DiscountTerms.fixed(n(450_000), n(450_000), BigInteger.ZERO), true,
+                    now, 1L));
+            targets.save(PromotionTarget.create(revision.getId(), TargetScope.PRODUCT, TargetDimension.PRODUCT,
+                    Long.toString(IN_SCOPE_PRODUCT)));
+            program.pointToRevision(revision.getId());
+            return program.getId();
+        });
+    }
+
+    @Test
+    void anAutomaticDiscountPausedAfterTheOwnersSnapshotIsNotAppliedAtAccept() throws Exception {
+        // Review 2026-11-10, L4: the owner's accept transaction already read something (REPEATABLE READ snapshot)
+        // when a Manager pauses the automatic discount the customer saw. The accept must see the pause.
+        long autoId = bigAutoDiscount();
+        BenefitSelection selection = new BenefitSelection(SelectionChoice.AUTO, null, BigInteger.ZERO);
+        long member = newMember();
+        TrustedSourceContext context = cart(member);
+        BenefitPreview seen = loyalty.previewBenefits(context, selection);
+        assertThat(seen.programId()).isEqualTo(autoId);
+        String sourceRef = "order-" + UUID.randomUUID();
+
+        Throwable failure = catchThrowable(() -> transaction.executeWithoutResult(status -> {
+            // The owner's transaction reads first: its snapshot still shows the discount as ENABLED.
+            assertThat(jdbc.queryForObject("select status from promotion_program where id = ?", String.class, autoId))
+                    .isEqualTo("ENABLED");
+            try {
+                inBackground(() -> {
+                    PromotionProgram current = programs.findById(autoId).orElseThrow();
+                    maintenance.pause(MANAGER_REF, UUID.randomUUID(), autoId, current.getConfigVersion());
+                    return "paused";
+                }).get(30, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
+            loyalty.reserveAcceptedTransaction(accept(context, sourceRef, seen.termsDigest()), selection,
+                    "cmd-" + sourceRef);
+        }));
+
+        assertThat(failure).isInstanceOf(LoyaltyException.class);
+        assertThat(((LoyaltyException) failure).code()).isEqualTo(LoyaltyErrorCode.QUOTE_CHANGED);
+        assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.RETAIL, sourceRef)).isEmpty();
     }
 }

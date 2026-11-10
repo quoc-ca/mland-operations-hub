@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigInteger;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -89,6 +90,8 @@ public class LoyaltyReservationService {
         locks.readRegistry();
         PromotionProgram voucher = voucherProgramId == null ? null
                 : locks.lockPrograms(Set.of(voucherProgramId)).get(voucherProgramId);
+        List<PromotionProgram> autos = selection.choice() == SelectionChoice.AUTO
+                ? locks.shareActiveAutoDiscounts(trusted.at()) : null;
         LoyaltyWallet wallet = selection.requestedPoints().signum() > 0
                 ? locks.lockOrOpenWallet(memberId) : locks.lockWallet(memberId).orElse(null);
         MemberProgram counters = voucher == null || voucher.getKind() != ProgramKind.VOUCHER ? null
@@ -99,7 +102,7 @@ public class LoyaltyReservationService {
             return replay(concurrent.get(), context);
         }
 
-        LoyaltyQuoteService.Evaluation evaluation = quotes.evaluate(trusted, selection, true);
+        LoyaltyQuoteService.Evaluation evaluation = quotes.evaluate(trusted, selection, true, autos);
         if (!evaluation.termsDigest().equals(context.termsDigest())) {
             throw new LoyaltyException(LoyaltyErrorCode.QUOTE_CHANGED,
                     "The price or conditions changed. Review the new total and confirm again.");

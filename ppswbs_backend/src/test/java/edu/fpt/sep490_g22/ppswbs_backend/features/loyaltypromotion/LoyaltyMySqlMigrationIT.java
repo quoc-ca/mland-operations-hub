@@ -161,9 +161,12 @@ class LoyaltyMySqlMigrationIT {
     @Test
     void seedHasOneRegistryRowPointingToTheDefaultPolicy() {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM loyalty_registry", Integer.class)).isEqualTo(1);
+        // The registry points to an existing policy; the seed is revision 1 with the defaults. A database copied from a
+        // used environment may already point to a newer revision a Manager saved, so the seed is read by revision.
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM loyalty_registry r JOIN loyalty_policy p "
+                + "ON p.id = r.current_policy_id WHERE r.id = 1", Integer.class)).isEqualTo(1);
         Map<String, Object> policy = jdbc.queryForMap("SELECT p.revision_no, p.earn_unit_amount, p.redeem_point_value, "
-                + "p.min_redeem_points, p.max_redeem_percent, p.rounding_mode FROM loyalty_registry r "
-                + "JOIN loyalty_policy p ON p.id = r.current_policy_id WHERE r.id = 1");
+                + "p.min_redeem_points, p.max_redeem_percent, p.rounding_mode FROM loyalty_policy p WHERE p.revision_no = 1");
         assertThat(((Number) policy.get("revision_no")).longValue()).isEqualTo(1L);
         assertThat(new BigInteger(policy.get("earn_unit_amount").toString())).isEqualTo(BigInteger.valueOf(10_000));
         assertThat(new BigInteger(policy.get("redeem_point_value").toString())).isEqualTo(BigInteger.valueOf(100));

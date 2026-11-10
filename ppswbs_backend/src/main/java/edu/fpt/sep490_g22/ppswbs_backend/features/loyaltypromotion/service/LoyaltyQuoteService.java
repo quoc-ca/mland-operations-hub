@@ -91,6 +91,15 @@ public class LoyaltyQuoteService {
      * rows.
      */
     public Evaluation evaluate(TrustedSourceContext context, BenefitSelection selection, boolean strict) {
+        return evaluate(context, selection, strict, null);
+    }
+
+    /**
+     * {@code lockedAutos}: the automatic discounts the accept read under a shared lock (L4); {@code null} reads them
+     * here without a lock (preview).
+     */
+    public Evaluation evaluate(TrustedSourceContext context, BenefitSelection selection, boolean strict,
+                               List<PromotionProgram> lockedAutos) {
         LoyaltyPolicy policy = policies.current();
         BigInteger available = wallets.findById(context.memberId()).map(LoyaltyWallet::availablePoints)
                 .orElse(BigInteger.ZERO);
@@ -103,7 +112,7 @@ public class LoyaltyQuoteService {
             voucher = programs.findByCodeKey(key).map(program -> candidate(program, context, TargetScope.PRODUCT)).orElse(null);
         }
         List<RetailQuote.Candidate> autos = selection.choice() == SelectionChoice.AUTO
-                ? eligibility.findActiveAutoDiscounts(context.at()).stream().map(p -> candidate(p, context, TargetScope.PRODUCT)).toList()
+                ? (lockedAutos != null ? lockedAutos : eligibility.findActiveAutoDiscounts(context.at())).stream().map(p -> candidate(p, context, TargetScope.PRODUCT)).toList()
                 : List.of();
         RetailQuote.Result result = RetailQuote.compute(context.lines(), selection, voucher, autos, policy.terms(),
                 available, strict);

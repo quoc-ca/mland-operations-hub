@@ -129,6 +129,55 @@ describe('T030 programmes', () => {
   }, 20000); // three submissions with many typed fields: give a loaded machine time
 });
 
+describe('field errors clear once the value is fixed (review 2026-11-10)', () => {
+  it('a hint and a server field error disappear when the field changes, before sending again', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      [`POST ${P}`]: json(400, { code: 'INVALID_INPUT', message: 'Bad.', fieldErrors: [{ field: 'name', message: 'Name rejected.' }] }),
+      [`GET ${C}`]: json(200, catalogue),
+    });
+    open('/promotion-management/programs/new');
+    await screen.findByLabelText('Mã voucher');
+    await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
+    expect(screen.getAllByText('Bắt buộc nhập.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Là số nguyên dương, không dấu chấm/phẩy, không bắt đầu bằng 0.').length).toBeGreaterThan(0);
+    const before = screen.getAllByText('Bắt buộc nhập.').length;
+    await user.type(screen.getByLabelText('Tên chương trình'), 'Giảm 10%');
+    expect(screen.queryAllByText('Bắt buộc nhập.').length).toBe(before - 1);
+    const positive = screen.getAllByText('Là số nguyên dương, không dấu chấm/phẩy, không bắt đầu bằng 0.').length;
+    await user.type(screen.getByLabelText('Giảm tối đa (₫)'), '50000');
+    expect(screen.getAllByText('Là số nguyên dương, không dấu chấm/phẩy, không bắt đầu bằng 0.').length).toBe(positive - 1);
+    await user.type(screen.getByLabelText('Phần trăm giảm (%)'), '10');
+    expect(screen.queryByText(/Phần trăm từ lớn hơn 0 đến 100/)).toBeNull();
+    // Choosing branches does not answer "pick a product or size": that error stays until a product is picked.
+    await user.click(screen.getByLabelText('Chỉ một số chi nhánh'));
+    expect(screen.getByText('Chọn ít nhất một sản phẩm hoặc một size.')).toBeInTheDocument();
+    await user.click(screen.getByLabelText('Tất cả chi nhánh'));
+
+    await user.type(screen.getByLabelText('Tổng số lượt'), '100');
+    await user.type(screen.getByLabelText('Tìm sản phẩm'), 'nhẫn');
+    await user.click(screen.getByRole('button', { name: 'Tìm' }));
+    await user.click(await screen.findByRole('checkbox', { name: /#42\)/ }));
+    await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
+    expect(await screen.findByText('Name rejected.')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Tên chương trình'), '!');
+    expect(screen.queryByText('Name rejected.')).toBeNull();
+  }, 20000);
+
+  it('a point policy hint disappears when the value is corrected', async () => {
+    const user = userEvent.setup();
+    mockFetch({ 'GET /api/v1/loyalty-policies/current': json(200, policy) });
+    open('/promotion-management/point-policy');
+    await user.click(await screen.findByRole('button', { name: 'Sửa' }));
+    const earn = screen.getByLabelText('Số tiền để tích 1 điểm (₫)');
+    await user.clear(earn);
+    await user.click(screen.getByRole('button', { name: 'Lưu' }));
+    expect(screen.getByText('Là số nguyên dương, không dấu chấm/phẩy, không bắt đầu bằng 0.')).toBeInTheDocument();
+    await user.type(earn, '20000');
+    expect(screen.queryByText('Là số nguyên dương, không dấu chấm/phẩy, không bắt đầu bằng 0.')).toBeNull();
+  });
+});
+
 describe('product target picker', () => {
   it('searches 002 products, sends only the chosen IDs and a whole product covers its sizes', async () => {
     const user = userEvent.setup();
@@ -336,6 +385,32 @@ describe('T047 edit / pause / resume', () => {
     expect(within(form).getByLabelText('Tên chương trình')).toHaveValue('Giảm 12%');
   });
 
+  it('an earlier success notice goes away when a new edit starts, so it never sits beside a new error (review 2026-11-10)', async () => {
+    const user = userEvent.setup();
+    let patches = 0;
+    mockFetch({
+      [`GET ${P}/5`]: json(200, program({ version: '2' })),
+      [`GET ${P}/5/usage`]: json(200, voucherUsage),
+      [`PATCH ${P}/5`]: () => (++patches === 1 ? json(200, program({ version: '3', name: 'Giảm 12%' }))
+        : json(409, { code: 'STALE_VERSION', message: 'Stale.' })),
+    });
+    open('/promotion-management/programs/5');
+    await user.click(await screen.findByRole('button', { name: 'Sửa' }));
+    let form = screen.getByRole('heading', { name: 'Sửa chương trình' }).closest('form');
+    await user.clear(within(form).getByLabelText('Tên chương trình'));
+    await user.type(within(form).getByLabelText('Tên chương trình'), 'Giảm 12%');
+    await user.click(within(form).getByRole('button', { name: 'Lưu' }));
+    expect(await screen.findByText('Đã lưu thay đổi.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Sửa' }));
+    expect(screen.queryByText('Đã lưu thay đổi.')).toBeNull();
+    form = screen.getByRole('heading', { name: 'Sửa chương trình' }).closest('form');
+    await user.type(within(form).getByLabelText('Tên chương trình'), '!');
+    await user.click(within(form).getByRole('button', { name: 'Lưu' }));
+    expect(await within(form).findByText(/Dữ liệu đã được thay đổi/)).toBeInTheDocument();
+    expect(screen.queryByText('Đã lưu thay đổi.')).toBeNull();
+  });
+
   it('pausing needs confirmation; Cancel sends nothing; usage is shown', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({
@@ -476,6 +551,16 @@ describe('T070 public offers and voucher wallet', () => {
     mockFetch({ 'GET /api/v1/members/me/saved-vouchers': json(200, { items: [{ promotion: publicPromotion(), savedAt: '2026-11-01T00:00:00Z', availability: 'PAUSED' }], nextCursor: null }) });
     open('/me/saved-vouchers');
     expect(await screen.findByText('Đang tạm dừng')).toBeInTheDocument();
+  });
+
+  it('the wallet says when no use is left, in total or for this Member (US3.5, review 2026-11-10)', async () => {
+    mockFetch({ 'GET /api/v1/members/me/saved-vouchers': json(200, { items: [
+      { promotion: publicPromotion({ id: '5' }), savedAt: '2026-11-01T00:00:00Z', availability: 'NO_USES_LEFT' },
+      { promotion: publicPromotion({ id: '6', code: 'MLAND20' }), savedAt: '2026-11-02T00:00:00Z', availability: 'MEMBER_LIMIT_REACHED' },
+    ], nextCursor: null }) });
+    open('/me/saved-vouchers');
+    expect(await screen.findByText('Đã hết lượt dùng')).toBeInTheDocument();
+    expect(screen.getByText('Bạn đã dùng hết lượt của mình')).toBeInTheDocument();
   });
 
   it('a hidden offer reads as not found', async () => {
