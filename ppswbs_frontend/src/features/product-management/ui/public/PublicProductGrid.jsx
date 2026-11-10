@@ -5,7 +5,7 @@ import { publicImageUrl } from '../../application/useCatalogueApi';
 import { messages } from '../messages';
 import { PriceRange } from './PriceRange';
 import { CartIcon, QuickAddDialog } from './QuickAddDialog';
-import { OfferBadges, OfferPrice, offersForProduct, usePublicProductPrograms } from '../../../loyalty-promotion/publicOffers';
+import { OfferBadges, OfferPrice, offersForProduct, usePublicProductPrograms } from '../../../loyalty-promotion';
 import '../product-management.css';
 
 /**

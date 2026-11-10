@@ -1955,7 +1955,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Acts at every branch selling the size (FR-021), so a Staff member needs every one of those branches in scope (FR-050), else 403 BRANCH_OUT_OF_SCOPE; a size not yet assigned to a branch needs at least one assigned branch (BRANCH_SCOPE_EMPTY)."
       }
     },
     "/api/v1/catalogue-management/variants/{variantId}/price-proposals": {
@@ -3478,7 +3479,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Without locationIds (the old template) only a Manager may import (products start without a branch); a Staff member gets 400 VALIDATION_ERROR on locationIds, or 403 BRANCH_SCOPE_EMPTY without an assigned branch (FR-048/FR-050). Confirmation re-checks this."
       }
     },
     "/api/v1/catalogue-management/product-imports/{batchId}": {
@@ -5732,10 +5734,15 @@
         "properties": {
           "saleEnabled": {
             "type": "boolean"
+          },
+          "expectedSaleEnabled": {
+            "type": "boolean",
+            "description": "T142 (FR-026): whether the product was sold at this branch when the user looked. If the current state differs, 409 STALE_VERSION and nothing changes."
           }
         },
         "required": [
-          "saleEnabled"
+          "saleEnabled",
+          "expectedSaleEnabled"
         ]
       },
       "ManagementBranch": {

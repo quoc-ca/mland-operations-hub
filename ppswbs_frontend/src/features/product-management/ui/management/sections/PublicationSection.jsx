@@ -3,7 +3,7 @@ import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { ErrorNotice } from '../../../../../shared/ui/components';
 import { ACTIONS } from '../../../application/useCatalogueCommand';
 import { messages } from '../../messages';
-import { effectiveProposal, missingRequirements } from '../../../domain/productRules';
+import { effectiveProposal, missingRequirements, reviewGate } from '../../../domain/productRules';
 import { publishWithoutReview } from '../../../application/publishNow';
 import { useRole } from '../../../../../shared/auth/useRole';
 import { useProductCommand } from '../ProductDetailPage';
@@ -21,7 +21,9 @@ export function PublicationSection({ product, api, reload, setNotice, deleted, f
   const target = !product.published;
   const isManager = useRole() === 'MANAGER';
   // A Manager skips the initial review: submit, approve the proposed prices and apply them, then publish, each its own command.
-  const canPublishNow = isManager && !product.published && !product.firstPublishedAt && !deleted;
+  // Not for a submission waiting for a decision or a rejected review: those are decided in the initial review (FR-010).
+  const gate = isManager ? reviewGate(product) : null;
+  const canPublishNow = isManager && !product.published && !product.firstPublishedAt && !deleted && !gate;
   const publishNow = async () => {
     if (Object.keys(missingRequirements(product)).length) { flagMissing(); return; }
     const send = () => publishWithoutReview(api, product);
@@ -56,11 +58,16 @@ export function PublicationSection({ product, api, reload, setNotice, deleted, f
           );
         })}
       </div>
-      <p className="muted small">{t(canPublishNow ? 'publication.managerHint' : 'publication.hint')}</p>
+      {gate ? (
+        <p className="notice">
+          {t(gate === 'PENDING' ? 'publication.managerReviewFirst' : 'publication.managerRejected')}{' '}
+          <a href="#review-title">{t('publication.goToReview')}</a>
+        </p>
+      ) : <p className="muted small">{t(canPublishNow ? 'publication.managerHint' : 'publication.hint')}</p>}
       {canPublishNow && (
         <button type="button" className="button primary" disabled={command.pending} onClick={publishNow}>{t('publication.publishNow')}</button>
       )}
-      {!deleted && !canPublishNow && (
+      {!deleted && !canPublishNow && !gate && (
         <button type="button" className={target ? 'button primary' : 'button outline'} disabled={command.pending} onClick={toggle}>
           {target ? t('publication.publish') : t('publication.hide')}
         </button>

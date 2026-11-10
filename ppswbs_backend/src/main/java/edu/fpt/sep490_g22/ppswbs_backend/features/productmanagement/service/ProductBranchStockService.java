@@ -150,6 +150,11 @@ public class ProductBranchStockService {
         return valid;
     }
 
+    /** FR-048/FR-050: creating without a branch (old import template) is for a Manager or an internal call only. */
+    public void requireNoBranchAllowed() {
+        scope.requireNoBranchAllowed();
+    }
+
     /** Total quantity per size of validated branches (the size's initial total at creation). */
     public static Map<Integer, BigInteger> totals(List<ValidBranch> branches) {
         Map<Integer, BigInteger> totals = new HashMap<>();
@@ -273,6 +278,8 @@ public class ProductBranchStockService {
     public boolean legacyQuantityTouchesBranch(ProductVariant variant, BigInteger newTotal) {
         List<VariantBranchStock> rows = stocks.findByVariantIdInOrderByVariantIdAscLocationIdAsc(List.of(variant.getId()));
         if (rows.isEmpty()) {
+            // FR-050: a Staff member without an assigned branch changes no stock, not even an unassigned total.
+            scope.requireAnyBranch();
             return false;
         }
         if (rows.size() > 1) {
@@ -284,15 +291,29 @@ public class ProductBranchStockService {
         return true;
     }
 
-    /** FR-049: stop or resume selling every size of the product at one branch. */
+    /** FR-049: stop or resume selling every size of the product at one branch (internal call: no stale check). */
     public CatalogueCommandExecutor.Outcome setSaleEnabled(String actorId, UUID commandId, String productId,
                                                            String locationId, boolean enabled) {
+        return setSaleEnabled(actorId, commandId, productId, locationId, enabled, null);
+    }
+
+    /**
+     * FR-049 with FR-026 (T142): {@code expectedSaleEnabled} is the branch state the user saw (sold there or not).
+     * When the current state differs, someone changed it meanwhile → {@code STALE_VERSION}, nothing changes. The
+     * command sets a target state, so a lost answer retried with the same key replays the receipt.
+     */
+    public CatalogueCommandExecutor.Outcome setSaleEnabled(String actorId, UUID commandId, String productId,
+                                                           String locationId, boolean enabled,
+                                                           Boolean expectedSaleEnabled) {
         long id = CatalogueValues.parseId("productId", productId);
         long location = CatalogueValues.parseId("locationId", locationId);
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("productId", id);
         request.put("locationId", location);
         request.put("saleEnabled", enabled);
+        if (expectedSaleEnabled != null) {
+            request.put("expectedSaleEnabled", expectedSaleEnabled);
+        }
         var key = new CatalogueCommandExecutor.CommandKey(actorId, SALE_ACTION, commandId,
                 CatalogueCommandExecutor.digest(request));
         return executor.execute(key, () -> {
@@ -304,6 +325,11 @@ public class ProductBranchStockService {
                     .stream().filter(row -> row.getLocationId() == location).toList();
             if (rows.isEmpty()) {
                 throw new CatalogueException(CatalogueErrorCode.BRANCH_STOCK_NOT_FOUND);
+            }
+            // Same rule as the management read (ManagementProductQueryService): sold there when any row is sale-enabled.
+            boolean current = rows.stream().anyMatch(VariantBranchStock::isSaleEnabled);
+            if (expectedSaleEnabled != null && expectedSaleEnabled != current) {
+                throw new CatalogueException(CatalogueErrorCode.STALE_VERSION);
             }
             boolean changed = false;
             for (VariantBranchStock row : rows) {

@@ -106,7 +106,7 @@ class CatalogueImportApiIT {
     @Test
     void validateThenConfirmCreatesDraftsAndAnotherActorSeesNothing() throws Exception {
         JsonNode batch = json.readTree(mvc.perform(as("staff", multipart(BASE + "/product-imports")
-                                .file(xlsxPart(validRows()))).header("Idempotency-Key", UUID.randomUUID()))
+                                .file(xlsxPart(validRows())).param("locationIds", Long.toString(fixture.testBranch()))).header("Idempotency-Key", UUID.randomUUID()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.state").value("VALIDATED"))
                 .andExpect(jsonPath("$.preview.length()").value(1))
@@ -130,7 +130,7 @@ class CatalogueImportApiIT {
         Object[][] rows = {{"R1", "Nhẫn khoảng size " + UUID.randomUUID(), "Mô tả", category, "5-9", "350000", 4},
                 {"R1", null, "Mô tả", category, "12,14", "380000", 1}};
         JsonNode batch = json.readTree(mvc.perform(as("staff", multipart(BASE + "/product-imports")
-                                .file(xlsxPart(rows))).header("Idempotency-Key", UUID.randomUUID()))
+                                .file(xlsxPart(rows)).param("locationIds", Long.toString(fixture.testBranch()))).header("Idempotency-Key", UUID.randomUUID()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.state").value("VALIDATED"))
                 .andExpect(jsonPath("$.rowCount").value(2))
@@ -158,7 +158,7 @@ class CatalogueImportApiIT {
     void aFileWithRowErrorsIsARejectedBatchWithADownloadableReport() throws Exception {
         String category = fixture.category(fixture.activeCategory()).getName();
         JsonNode batch = json.readTree(mvc.perform(as("staff", multipart(BASE + "/product-imports")
-                                .file(xlsxPart(new Object[][]{{"A", "Nhẫn", "Mô tả", category, 4, "1.5", 1}})))
+                                .file(xlsxPart(new Object[][]{{"A", "Nhẫn", "Mô tả", category, 4, "1.5", 1}})).param("locationIds", Long.toString(fixture.testBranch())))
                         .header("Idempotency-Key", UUID.randomUUID()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.state").value("REJECTED"))
@@ -237,6 +237,20 @@ class CatalogueImportApiIT {
         mvc.perform(get("/api/v1/product-media/" + mediaId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("MEDIA_NOT_FOUND"));
+    }
+
+    @Test
+    void anImportWithoutBranchIsForAManagerOnly() throws Exception {
+        // T137 (FR-048, FR-050, T134): the old template without a branch is refused to Staff over HTTP.
+        mvc.perform(as("staff", multipart(BASE + "/product-imports").file(xlsxPart(validRows())))
+                        .header("Idempotency-Key", UUID.randomUUID()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("locationIds"));
+        mvc.perform(as("manager", multipart(BASE + "/product-imports").file(xlsxPart(validRows())))
+                        .header("Idempotency-Key", UUID.randomUUID()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.state").value("VALIDATED"));
     }
 
     private Object[][] validRows() {

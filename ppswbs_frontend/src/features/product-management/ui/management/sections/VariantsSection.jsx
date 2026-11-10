@@ -8,6 +8,7 @@ import { useProductCommand } from '../ProductDetailPage';
 import { BatchQuantities } from './BatchQuantities';
 import { NoticeAt } from '../notices';
 import { QuantityStepper } from '../QuantityStepper';
+import { useRole } from '../../../../../shared/auth/useRole';
 
 /**
  * T050 quantity and T064 sale status per size, and US10 quantity per branch (Session 2026-11-08). Size and SKU are
@@ -30,6 +31,11 @@ export function VariantsSection({ product, ...context }) {
   const [selected, setSelected] = useState(null);
   const current = branches.find(branch => branch.locationId === selected) || branches[0] || null;
   const addable = myBranches.filter(branch => !branches.some(item => item.locationId === String(branch.id)));
+  // FR-021 with FR-050 (T134): stopping a size acts at every branch, so Staff need every branch selling the product
+  // (a product without a branch: at least one of their own). The backend refuses otherwise.
+  const isManager = useRole() === 'MANAGER';
+  const sizeSaleEditable = !context.deleted && (isManager
+    || (branches.length ? branches.every(branch => canEdit(branch.locationId)) : myBranches.length > 0));
 
   return (
     <section className="workspace-card" aria-labelledby="variants-title">
@@ -62,7 +68,7 @@ export function VariantsSection({ product, ...context }) {
         </div>
         {(product.variants || []).map(variant => (
           <VariantRow key={variant.id} variant={variant} branch={current?.locationId || null}
-            editable={!context.deleted && (!current || canEdit(current.locationId))} {...context} />
+            editable={!context.deleted && (!current || canEdit(current.locationId))} saleEditable={sizeSaleEditable} {...context} />
         ))}
       </div>
       {!context.deleted && addable.length > 0 && (
@@ -78,7 +84,8 @@ function BranchBar({ product, branch, name, editable, api, reload, setNotice }) 
   const t = useT(messages);
   const command = useProductCommand({ reload, setNotice });
   const at = `branch-${branch.locationId}`;
-  const toggle = () => command.run(key => api.setBranchSale(key, product.id, branch.locationId, !branch.saleEnabled),
+  // T142 (FR-026): send the state shown here; if someone changed it meanwhile the server answers 409 and the page reloads.
+  const toggle = () => command.run(key => api.setBranchSale(key, product.id, branch.locationId, !branch.saleEnabled, branch.saleEnabled),
     { key: branch.saleEnabled ? 'branch.saleStopped' : 'branch.saleResumed', params: { branch: name }, at }, ACTIONS.branchSale);
   return (
     <div className="branch-bar">
@@ -95,7 +102,7 @@ function BranchBar({ product, branch, name, editable, api, reload, setNotice }) 
   );
 }
 
-function VariantRow({ variant, branch, editable, api, reload, setNotice, deleted }) {
+function VariantRow({ variant, branch, editable, saleEditable = editable, api, reload, setNotice, deleted }) {
   const t = useT(messages);
   const format = useFormat();
   const [quantity, setQuantity] = useState(null);
@@ -144,7 +151,7 @@ function VariantRow({ variant, branch, editable, api, reload, setNotice, deleted
         <span role="cell">{format.money(variant.appliedPrice)}</span>
         <span role="cell">
           <span className={variant.saleEnabled ? 'status ok' : 'status'}>{variant.saleEnabled ? t('variant.onSale') : t('variant.saleOff')}</span>
-          {!deleted && editable && <button type="button" className="text-button" disabled={saleCommand.pending} onClick={toggleSale}>{variant.saleEnabled ? t('variant.stopSale') : t('variant.resumeSale')}</button>}
+          {!deleted && saleEditable && <button type="button" className="text-button" disabled={saleCommand.pending} onClick={toggleSale}>{variant.saleEnabled ? t('variant.stopSale') : t('variant.resumeSale')}</button>}
         </span>
       </div>
       {(quantityError || quantityCommand.error || saleCommand.error) && (

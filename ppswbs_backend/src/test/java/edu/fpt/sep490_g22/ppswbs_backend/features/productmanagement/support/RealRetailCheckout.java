@@ -14,6 +14,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailC
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailCheckoutQuotePreviewService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.SimulatedRetailPaymentOutcomeService;
 import org.springframework.boot.test.context.TestComponent;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
@@ -33,7 +34,9 @@ import java.util.UUID;
 public class RealRetailCheckout {
 
     public static final String PROFILE = "retail-payment-sim";
-    public static final long LOCATION = 1L;
+    // US10/FR-053: FE-08 checks the size at the cart line's branch, so sales go through the fixture's test branch (where
+    // CatalogueFlowFixture sells products), not a fixed id.
+    private final JdbcTemplate jdbc;
 
     public record Accepted(long memberId, String checkoutId, BigDecimal payable) {
     }
@@ -50,7 +53,8 @@ public class RealRetailCheckout {
     public RealRetailCheckout(CartService carts, RetailCheckoutQuotePreviewService previews,
                               RetailCheckoutAcceptanceService acceptance, RetailCheckoutCancellationService cancellation,
                               SimulatedRetailPaymentOutcomeService payments, GroupedCheckoutRepository checkouts,
-                              AccountRepository accounts, TransactionTemplate transaction) {
+                              AccountRepository accounts, TransactionTemplate transaction, JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.carts = carts;
         this.previews = previews;
         this.acceptance = acceptance;
@@ -73,7 +77,7 @@ public class RealRetailCheckout {
     }
 
     public Accepted accept(long memberId, long sizeId, int quantity) {
-        carts.addLine(memberId, new CartDtos.AddCartLineRequest(sizeId, LOCATION, quantity));
+        carts.addLine(memberId, new CartDtos.AddCartLineRequest(sizeId, location(), quantity));
         CheckoutDtos.BenefitPreviewView preview = preview(memberId);
         CheckoutDtos.GroupedCheckoutView accepted = acceptance.accept(memberId, UUID.randomUUID().toString(),
                 new CheckoutDtos.CreateGroupedCheckoutRequest(pickup(), preview.previewId(), noBenefit(), true));
@@ -116,8 +120,13 @@ public class RealRetailCheckout {
                 .findFirst().orElseThrow().getUnitPrice().toBigIntegerExact());
     }
 
-    private static List<CheckoutDtos.BranchOrderCheckoutInput> pickup() {
-        return List.of(new CheckoutDtos.BranchOrderCheckoutInput(LOCATION, "PICKUP", null));
+    /** The branch every sale of these tests uses: the active test branch of {@link CatalogueTestBranches}. */
+    public long location() {
+        return CatalogueTestBranches.ensure(jdbc);
+    }
+
+    private List<CheckoutDtos.BranchOrderCheckoutInput> pickup() {
+        return List.of(new CheckoutDtos.BranchOrderCheckoutInput(location(), "PICKUP", null));
     }
 
     private static CheckoutDtos.BenefitSelection noBenefit() {

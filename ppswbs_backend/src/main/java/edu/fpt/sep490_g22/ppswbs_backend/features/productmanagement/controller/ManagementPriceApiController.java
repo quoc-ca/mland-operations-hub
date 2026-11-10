@@ -67,7 +67,8 @@ class ManagementPriceApiController {
     ResponseEntity<JsonNode> setSaleStatus(@PathVariable String variantId, @RequestHeader(KEY) UUID key,
                                            @RequestBody CatalogueRequests.SaleStatusRequest body) {
         String actor = authorization.require(Capability.VARIANT_SALE_STATUS);
-        branchScope.requireProductOfVariant(variantId);
+        // FR-021: this stops the size at every branch, so a Staff member needs every branch selling it (FR-050).
+        branchScope.requireEveryBranchOfVariant(variantId);
         return committed(saleStatus.setSaleEnabled(actor, key, variantId, version(body.expectedVersion()),
                 flag("saleEnabled", body.saleEnabled())));
     }

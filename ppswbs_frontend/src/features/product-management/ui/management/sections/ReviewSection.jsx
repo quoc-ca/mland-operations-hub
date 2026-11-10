@@ -188,7 +188,12 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
             </>
           ) : (
             <Field label={t('decision.reason')} error={errors.reason || serverErrors.reason}>
-              <textarea value={reason} maxLength={LIMITS.reasonMax} onChange={event => setReason(event.target.value)} />
+              {/* The error goes away as soon as the reason is valid (Session 2026-11-04: marks clear once fixed). */}
+              <textarea value={reason} maxLength={LIMITS.reasonMax} onChange={event => {
+                const next = event.target.value;
+                setReason(next);
+                if (!checkReason(next)) setErrors(current => (current.reason ? { ...current, reason: undefined } : current));
+              }} />
             </Field>
           )}
           {serverErrors.prices && <p className="field-error">{serverErrors.prices}</p>}

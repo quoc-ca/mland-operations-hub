@@ -134,6 +134,17 @@ export function currentReview(product) {
   return latestEffective(product.reviews);
 }
 
+/**
+ * A never-published product whose initial review needs a Manager's own decision before any one-click publish
+ * (FR-010): 'PENDING' (a submission waits: see and adjust the price of each size) or 'REJECTED' (fix and submit
+ * again). Otherwise null.
+ */
+export function reviewGate(product) {
+  if (!product || product.deletedAt || product.published || product.firstPublishedAt) return null;
+  const state = currentReview(product)?.state;
+  return state === 'PENDING' || state === 'REJECTED' ? state : null;
+}
+
 function latestEffective(items) {
   return (items || []).filter(item => item.effective).reduce((latest, item) => (!latest || Number(item.revision) > Number(latest.revision) ? item : latest), null);
 }

@@ -7,7 +7,7 @@ import { useCatalogueApi } from '../../application/useCatalogueApi';
 import { messages } from '../messages';
 import { AddToCartPanel } from './AddToCartPanel';
 import { PriceRange } from './PriceRange';
-import { OfferBadges, OfferPrice, offersForProduct, ProductOfferList, SizeOfferPrice, usePublicProductPrograms } from '../../../loyalty-promotion/publicOffers';
+import { OfferBadges, OfferPrice, offersForProduct, ProductOfferList, SizeOfferPrice, usePublicProductPrograms } from '../../../loyalty-promotion';
 
 /**
  * T071: public detail. Reading creates no cart, hold or order; only "Add to cart" (T072, {@link AddToCartPanel})

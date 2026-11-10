@@ -44,7 +44,7 @@ public final class CatalogueRequests {
     }
 
     /** US10: stop or resume selling every size at a branch. */
-    public record BranchSaleRequest(Boolean saleEnabled) {
+    public record BranchSaleRequest(Boolean saleEnabled, Boolean expectedSaleEnabled) {
     }
 
     public record QuantityRequest(Long expectedVersion, String quantity) {
