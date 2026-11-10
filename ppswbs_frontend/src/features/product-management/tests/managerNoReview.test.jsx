@@ -53,6 +53,20 @@ describe('Manager: no review round for their own product', () => {
     mockFetch({ [PROFILE]: json(200, { role: 'MANAGER' }), [`GET ${M}/categories`]: json(200, categoryPage), [`GET ${M}/products/42`]: json(200, withReview('PENDING')) });
     renderRoutes(productManagementRoutes, { path: '/catalogue-management/products/42' });
     expect(await screen.findByRole('heading', { name: 'Duyệt hồ sơ ban đầu' })).toBeInTheDocument();
+    // FR-010: no one-click publish over a waiting submission; the Manager decides it in the review section.
+    expect(screen.queryByRole('button', { name: 'Công khai ngay' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Công khai sản phẩm' })).toBeNull();
+    expect(screen.getByText(/Staff đã gửi hồ sơ này/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Đến mục Duyệt hồ sơ ban đầu' })).toHaveAttribute('href', '#review-title');
+  });
+
+  it('a Manager sees why a review was rejected and gets no one-click publish', async () => {
+    const rejected = managementProduct({ reviews: [{ id: '301', revision: 1, contentVersion: 1, state: 'REJECTED', effective: true, reason: 'Ảnh mờ' }], variants: [variant] });
+    mockFetch({ [PROFILE]: json(200, { role: 'MANAGER' }), [`GET ${M}/categories`]: json(200, categoryPage), [`GET ${M}/products/42`]: json(200, rejected) });
+    renderRoutes(productManagementRoutes, { path: '/catalogue-management/products/42' });
+    expect(await screen.findByText('Bị từ chối: Ảnh mờ')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Công khai ngay' })).toBeNull();
+    expect(screen.getByText(/Hồ sơ đã bị từ chối/)).toBeInTheDocument();
   });
 });
 

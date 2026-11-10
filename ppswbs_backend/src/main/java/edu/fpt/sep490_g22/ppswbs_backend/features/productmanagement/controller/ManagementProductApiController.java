@@ -108,8 +108,9 @@ class ManagementProductApiController {
                                            @RequestHeader(KEY) UUID key,
                                            @RequestBody CatalogueRequests.BranchSaleRequest body) {
         String actor = authorization.require(Capability.VARIANT_SALE_STATUS);
+        // T142 (FR-026): the state the user saw; a different current state is 409 STALE_VERSION.
         return committed(branchStock.setSaleEnabled(actor, key, productId, locationId,
-                flag("saleEnabled", body.saleEnabled())));
+                flag("saleEnabled", body.saleEnabled()), flag("expectedSaleEnabled", body.expectedSaleEnabled())));
     }
 
     /** US10 FR-049: quantity of one size at one branch. */

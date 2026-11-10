@@ -376,3 +376,5 @@
 .branch-bar > span{display:inline-flex;gap:8px;align-items:center}
 .pm-theme .branch-bar .text-button{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border:1px solid var(--pm-line,#e5e7eb);border-radius:7px;background:#fff;color:var(--pm-ink,#1a1a1a);font-size:12px;font-weight:600;text-decoration:none}
 .pm-theme .branch-bar .text-button:disabled{opacity:.45}
+/* A section heading opened by link (#review-title …) lands below the sticky main top bar (72px). */
+.pm-theme .workspace-card h2[id]{scroll-margin-top:88px}

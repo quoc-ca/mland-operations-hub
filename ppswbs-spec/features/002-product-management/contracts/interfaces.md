@@ -52,6 +52,7 @@ API management chỉ nhận backend-verified bearer identity; cookie không thay
 | PUT products/{productId}/publication | expectedVersion + published boolean; validate initial review và mọi applied price; không check stock>0 làm publication condition. |
 | PUT variants/{variantId}/quantity | expectedVersion + quantity; source hold guard giữ xuyên suốt compare/save/audit. Không cancel hold để giảm lượng. |
 | PUT variants/{variantId}/sale-status | expectedVersion + saleEnabled; giữ nguyên quantity/size/SKU/publication. |
+| PUT products/{productId}/branches/{locationId}/sale-status | saleEnabled + expectedSaleEnabled (trạng thái bán tại chi nhánh mà người dùng đang thấy; khác trạng thái hiện tại → 409 `STALE_VERSION`, không đổi gì — T142, FR-026). Không có expectedVersion vì lệnh đổi mọi dòng tồn kho của sản phẩm tại chi nhánh; lệnh đặt trạng thái đích nên gửi lặp cùng key trả receipt. |
 | POST variants/{variantId}/price-proposals | expectedVersion + proposedPrice; tạo draft, chặn nếu size đã có current PENDING. |
 | POST price-proposals/{proposalId}/revisions | expectedVersion + proposedPrice; tạo revision mới, supersede revision cũ và clear pending pointer, không sửa quyết định lịch sử. |
 | POST price-proposals/{proposalId}/submissions | expectedVersion; submit current draft dưới variant lock, một pending/size. |

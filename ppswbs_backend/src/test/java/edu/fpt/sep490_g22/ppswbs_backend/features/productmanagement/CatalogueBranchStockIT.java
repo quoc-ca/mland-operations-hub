@@ -7,6 +7,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Curre
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.VariantBranchStockRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ManagementProductDtos;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.CatalogueAuditEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.VariantBranchStock;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueErrorCode;
@@ -60,6 +61,8 @@ class CatalogueBranchStockIT {
     @Autowired private JdbcTemplate jdbc;
     @Autowired private edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.importing.ProductImportService imports;
     @Autowired private TransactionTemplate transaction;
+    @Autowired private edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.CatalogueAuditRepository audits;
+    @Autowired private edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueBranchScope branchScope;
     @MockitoBean private AccountFacade accounts;
 
     private long branchA;
@@ -156,6 +159,22 @@ class CatalogueBranchStockIT {
     }
 
     @Test
+    void aBranchSaleChangeFromAStaleScreenIsRefused() {
+        // T142 (FR-026): A saw B "on sale" and stops it, but C already stopped and A's view is stale for a resume.
+        long productId = create(List.of(branch(branchA, "1", "1"), branch(branchB, "1", "1")));
+        String product = Long.toString(productId);
+        String b = Long.toString(branchB);
+
+        branchStock.setSaleEnabled(CatalogueTestSupport.STAFF, UUID.randomUUID(), product, b, false, true);
+        assertThatThrownBy(() -> branchStock.setSaleEnabled(CatalogueTestSupport.STAFF, UUID.randomUUID(), product, b, true, true))
+                .satisfies(error -> assertThat(((CatalogueException) error).code()).isEqualTo(CatalogueErrorCode.STALE_VERSION));
+        assertThat(query.get(product).branches()).extracting(ManagementProductDtos.Branch::saleEnabled).containsExactly(true, false);
+
+        branchStock.setSaleEnabled(CatalogueTestSupport.STAFF, UUID.randomUUID(), product, b, true, false);
+        assertThat(query.get(product).branches()).extracting(ManagementProductDtos.Branch::saleEnabled).containsExactly(true, true);
+    }
+
+    @Test
     void aSaleWithoutBranchTakesFromTheBranchesInIdOrderSoTheSumStaysTheTotal() {
         long productId = create(List.of(branch(branchA, "3", "0"), branch(branchB, "2", "5")));
         long size5 = sizes(productId).getFirst().getId();
@@ -223,7 +242,66 @@ class CatalogueBranchStockIT {
                 .containsExactly(BigInteger.valueOf(3), BigInteger.valueOf(2));
     }
 
+    @Test
+    void staffImportsAtTheirBranchesOnlyAndEveryRefusalIsAudited() throws Exception {
+        // T134/T138 (FR-045, FR-048, FR-050): no branch → refused, other branch → refused; both audited as rejected.
+        String category = jdbc.queryForObject("SELECT name FROM catalogue_categories WHERE id = ?", String.class,
+                fixture.activeCategory());
+        byte[] file;
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(); var out = new java.io.ByteArrayOutputStream()) {
+            var sheet = workbook.createSheet("Sản phẩm");
+            String[] header = {"Mã nhóm", "Tên sản phẩm", "Mô tả", "Danh mục", "Size", "Giá đề xuất (VND)", "Số lượng"};
+            Object[] values = {"G1", "Nhẫn import phạm vi", "Mô tả", category, "5", "150000", "1"};
+            var head = sheet.createRow(0);
+            var data = sheet.createRow(1);
+            for (int i = 0; i < header.length; i++) {
+                head.createCell(i).setCellValue(header[i]);
+                data.createCell(i).setCellValue(values[i].toString());
+            }
+            workbook.write(out);
+            file = out.toByteArray();
+        }
+        actAsStaff(42L);
+        when(accounts.getLocationScope(any())).thenReturn(List.of(branchA));
+
+        UUID noBranch = UUID.randomUUID();
+        byte[] upload = file;
+        assertThatThrownBy(() -> imports.validate("42", noBranch, "pham-vi.xlsx", upload, List.of()))
+                .satisfies(error -> assertThat(((CatalogueException) error).code()).isEqualTo(CatalogueErrorCode.VALIDATION_ERROR));
+        UUID otherBranch = UUID.randomUUID();
+        assertThatThrownBy(() -> imports.validate("42", otherBranch, "pham-vi.xlsx", upload, List.of(Long.toString(branchB))))
+                .satisfies(error -> assertThat(((CatalogueException) error).code()).isEqualTo(CatalogueErrorCode.BRANCH_OUT_OF_SCOPE));
+        assertThat(rejectedImportCode(noBranch)).isEqualTo("VALIDATION_ERROR");
+        assertThat(rejectedImportCode(otherBranch)).isEqualTo("BRANCH_OUT_OF_SCOPE");
+
+        // At an own branch the same file is accepted.
+        assertThat(imports.validate("42", UUID.randomUUID(), "pham-vi.xlsx", upload, List.of(Long.toString(branchA))).resourceId())
+                .isNotBlank();
+    }
+
+    @Test
+    void staffStopsASizeEverywhereOnlyWhenEveryBranchSellingItIsTheirs() {
+        // T134 (FR-021 with FR-050): the size-wide sale status acts at every branch.
+        SecurityContextHolder.clearContext();
+        long productId = create(List.of(branch(branchA, "1", "1"), branch(branchB, "1", "1")));
+        String size5 = sizes(productId).getFirst().getId().toString();
+        actAsStaff(42L);
+
+        when(accounts.getLocationScope(any())).thenReturn(List.of(branchA));
+        assertThatThrownBy(() -> branchScope.requireEveryBranchOfVariant(size5))
+                .satisfies(error -> assertThat(((CatalogueException) error).code()).isEqualTo(CatalogueErrorCode.BRANCH_OUT_OF_SCOPE));
+        when(accounts.getLocationScope(any())).thenReturn(List.of(branchA, branchB));
+        branchScope.requireEveryBranchOfVariant(size5);
+    }
+
     // ---- helpers ----
+
+    private String rejectedImportCode(UUID commandId) {
+        return transaction.execute(status -> audits
+                .findByResourceTypeAndResourceIdOrderByOccurredAtAscIdAsc("import-file", commandId.toString()))
+                .stream().filter(event -> event.getOutcome() == CatalogueAuditEvent.Outcome.REJECTED)
+                .map(event -> String.valueOf(event.getSafeChanges().get("code"))).findFirst().orElse(null);
+    }
 
     private long create(List<ProductBranchStockService.BranchInput> branches) {
         return Long.parseLong(createProducts.create(CatalogueTestSupport.STAFF, UUID.randomUUID(), command(branches)).resourceId());

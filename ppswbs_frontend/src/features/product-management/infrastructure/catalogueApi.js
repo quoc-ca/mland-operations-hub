@@ -59,7 +59,7 @@ export function catalogueApi(request) {
     listBranches: () => request('/api/v1/workshop-locations'),
     addBranch: (key, productId, expectedVersion, locationId, quantities) => write('POST', `/products/${id(productId)}/branches`, key, { expectedVersion, locationId, quantities }),
     setBranchQuantity: (key, variantId, locationId, expectedVersion, quantity) => write('PUT', `/variants/${id(variantId)}/branches/${id(locationId)}/quantity`, key, { expectedVersion, quantity }),
-    setBranchSale: (key, productId, locationId, saleEnabled) => write('PUT', `/products/${id(productId)}/branches/${id(locationId)}/sale-status`, key, { saleEnabled }),
+    setBranchSale: (key, productId, locationId, saleEnabled, expectedSaleEnabled) => write('PUT', `/products/${id(productId)}/branches/${id(locationId)}/sale-status`, key, { saleEnabled, expectedSaleEnabled }),
     proposePrice: (key, variantId, expectedVersion, proposedPrice) => write('POST', `/variants/${id(variantId)}/price-proposals`, key, { expectedVersion, proposedPrice }),
     revisePrice: (key, proposalId, expectedVersion, proposedPrice) => write('POST', `/price-proposals/${id(proposalId)}/revisions`, key, { expectedVersion, proposedPrice }),
     submitPrice: (key, proposalId, expectedVersion) => write('POST', `/price-proposals/${id(proposalId)}/submissions`, key, { expectedVersion }),

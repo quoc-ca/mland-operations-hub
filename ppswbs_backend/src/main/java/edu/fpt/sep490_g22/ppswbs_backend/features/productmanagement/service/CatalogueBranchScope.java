@@ -81,6 +81,44 @@ public class CatalogueBranchScope {
         }
     }
 
+    /** FR-050: a Staff member without an assigned branch may not create products or change stock. */
+    public void requireAnyBranch() {
+        Scope scope = current();
+        if (!scope.all() && scope.locationIds().isEmpty()) {
+            throw new CatalogueException(CatalogueErrorCode.BRANCH_SCOPE_EMPTY);
+        }
+    }
+
+    /**
+     * FR-048/FR-050: a product created without a branch (the old import template) is allowed only for a Manager or an
+     * internal call; a Staff member must choose branches of their own.
+     */
+    public void requireNoBranchAllowed() {
+        requireAnyBranch();
+        if (!current().all()) {
+            throw CatalogueException.invalidField("locationIds", "Choose at least one branch.");
+        }
+    }
+
+    /**
+     * FR-021 with FR-050: stopping or resuming a size acts at every branch that sells it, so a Staff member needs every
+     * one of those branches in scope. A size not yet assigned to any branch needs at least one assigned branch.
+     */
+    public void requireEveryBranchOfVariant(String variantId) {
+        if (current().all()) {
+            return;
+        }
+        long id = CatalogueValues.parseId("variantId", variantId);
+        variants.findProductIdById(id).orElseThrow(() -> new CatalogueException(CatalogueErrorCode.VARIANT_NOT_FOUND));
+        List<Long> sold = stocks.findByVariantIdInOrderByVariantIdAscLocationIdAsc(List.of(id)).stream()
+                .map(row -> row.getLocationId()).toList();
+        if (sold.isEmpty()) {
+            requireAnyBranch();
+            return;
+        }
+        requireBranches(sold);
+    }
+
     /** Q-B3: shared content of the product may be changed by this actor. */
     public void requireProduct(long productId) {
         Scope scope = current();

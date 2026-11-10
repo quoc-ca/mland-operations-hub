@@ -41,6 +41,11 @@ export default function ProductDetailPage() {
     setCrumb(name || null);
     return () => setCrumb(null);
   }, [setCrumb, name]);
+  // A link such as the list's "Review first" (#review-title) opens the page at that section once it is shown.
+  const loaded = Boolean(product.data);
+  useEffect(() => {
+    if (loaded && location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView?.({ block: 'start' });
+  }, [loaded, location.hash]);
 
   if (product.loading && !product.data) return <Loading />;
   if (!product.data) {
@@ -86,8 +91,9 @@ export default function ProductDetailPage() {
       <ImagesSection {...context} />
       <VariantsSection {...context} />
       <PriceSection {...context} />
-      {/* A Manager skips the review round (Publication applies directly); they only decide what a Staff submitted. */}
-      {!data.firstPublishedAt && (!isManager || currentReview(data)?.state === 'PENDING') && <ReviewSection {...context} />}
+      {/* A Manager skips the review round (Publication applies directly); they decide what a Staff submitted and see
+          why a review was rejected (FR-010). */}
+      {!data.firstPublishedAt && (!isManager || ['PENDING', 'REJECTED'].includes(currentReview(data)?.state)) && <ReviewSection {...context} />}
       <PublicationSection {...context} />
       <DeleteSection {...context} />
     </NoticeContext.Provider>

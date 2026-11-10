@@ -134,7 +134,8 @@ class CatalogueLifecycleConcurrencyIT {
     void aRefusedSaleRollsBackThePaymentInBothModules() {
         Sale sale = sale(5);
         Accepted accepted = retail.accept(sale.sizeId(), 2);
-        UUID fe08Operation = UUID.nameUUIDFromBytes(("retail-paid:" + accepted.checkoutId() + ":" + sale.sizeId())
+        // FE-08 (235eadd, FR-053) keys a paid sale by checkout, size and branch.
+        UUID fe08Operation = UUID.nameUUIDFromBytes(("retail-paid:" + accepted.checkoutId() + ":" + sale.sizeId() + ":" + retail.location())
                 .getBytes(StandardCharsets.UTF_8));
         transaction.executeWithoutResult(status -> sales.withLockedHistoricalContext("other-" + accepted.checkoutId(),
                 List.of(sale.sizeId()), context -> sales.recordAcceptedSale(fe08Operation, sale.sizeId(), BigInteger.ONE)));

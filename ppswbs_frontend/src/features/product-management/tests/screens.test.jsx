@@ -935,7 +935,9 @@ describe('T072 hand-off to the FE-08 cart', () => {
     const add = await screen.findByRole('button', { name: 'Thêm vào giỏ' });
     expect(add).toBeDisabled();
     expect(screen.getAllByRole('option').map(option => option.textContent)).not.toContain('Size 14');
-    await user.selectOptions(await screen.findByLabelText('Chi nhánh'), '9');
+    // Branches load after the page: wait for the option, or the choice races the list under a loaded test run.
+    await screen.findByRole('option', { name: /MLAND Thủ Đức/ });
+    await user.selectOptions(screen.getByLabelText('Chi nhánh'), '9');
     const quantity = screen.getByLabelText('Số lượng');
     await user.clear(quantity);
     await user.type(quantity, '2');

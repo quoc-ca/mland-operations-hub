@@ -1,7 +1,7 @@
 # Implementation Plan: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; T004 SDK Cloudinary, T092 Apache POI)
+**Date updated**: 2026-11-10 (T140: thiết kế tồn kho theo chi nhánh US10, Session 2026-11-04/11-08/11-09/11-10; trước đó: 2026-10-26: V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; T004 SDK Cloudinary, T092 Apache POI))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -12,7 +12,7 @@
 
 ## Summary
 
-Triển khai nhẫn bán sẵn trong module productmanagement: tạo sản phẩm với size cố định 5–29 và SKU tự sinh, gửi Manager duyệt, áp dụng đúng giá đã duyệt rồi chủ động công khai. Sửa nội dung trực tiếp sau công khai lần đầu; mọi đổi giá vẫn phải duyệt. Có quản lí ảnh, lượng bán chung, ngừng bán từng size, ẩn/công khai, xóa mềm không khôi phục, danh mục và public search/filter/sort theo spec.
+Triển khai nhẫn bán sẵn trong module productmanagement: tạo sản phẩm với size cố định 5–29 và SKU tự sinh, gửi Manager duyệt, áp dụng đúng giá đã duyệt rồi chủ động công khai. Sửa nội dung trực tiếp sau công khai lần đầu; mọi đổi giá vẫn phải duyệt. Có quản lí ảnh, số lượng theo size × chi nhánh (US10, từ Session 2026-11-08; trước đó là lượng bán chung), ngừng bán từng size hoặc tại một chi nhánh, ẩn/công khai, xóa mềm không khôi phục, danh mục và public search/filter/sort theo spec.
 
 Bổ sung import Excel (US9): tải file mẫu `.xlsx`, tải lên để kiểm tra (không tạo dữ liệu), xem trước/báo cáo lỗi theo dòng–cột, rồi xác nhận để tạo mọi sản phẩm nháp trong một transaction qua đúng `CreateProductService`. Không thay đổi vòng đời duyệt/giá/công khai và không có ảnh trong file.
 
@@ -151,6 +151,21 @@ Trạng thái xác thực và trạng thái nghiệp vụ được tách riêng:
 - Price: Nháp → Chờ duyệt → Đã duyệt/Bị từ chối; revision mới supersedes bản cũ, chỉ một pending/size. Áp dụng là receipt riêng, kiểm tra approved revision và baseAppliedSequence. Không overwrite quyết định lịch sử.
 - Product: unpublished/published và deletedAt riêng; firstPublishedAt không bị xóa khi ẩn. Sau firstPublishedAt, sửa content hợp lệ không cần duyệt lại. Product đã xóa không được restore qua command thường.
 - Frontend React + Vite gọi REST theo [interfaces](contracts/interfaces.md): field errors gắn đúng trường và giữ dữ liệu đã nhập, 409 cho xem latest rồi gửi lại, điều hướng client sau thành công; public empty khác dependency error. Không autosubmit; mọi màn hình có loading/empty/validation/success/failure/recovery.
+
+### Branch stock and later sessions (bổ sung 2026-11-10, T140)
+
+Ghi lại thiết kế đã triển khai sau bản plan 2026-10-26; nguồn quyết định là spec Clarifications Session 2026-11-04, 2026-11-08, 2026-11-09, 2026-11-10 và tasks Phase 13–16. Phần này không thay quyết định nào của spec.
+
+- **Dữ liệu (US10, FR-047)**: bảng `catalogue_variant_branch_stock` (migration `V109__catalogue_variant_branch_stock.sql`): một dòng cho mỗi size × chi nhánh, `remaining_unsold` DECIMAL(19,0) ≥ 0, `sale_enabled`, `version`, unique `(variant_id, location_id)`; không FK sang `workshop_locations` (bảng của 003.2), không xóa dòng (ngừng bán thay cho gỡ). `catalogue_variants.remaining_unsold` giữ lại và luôn bằng tổng các dòng của size cho tới khi FE-08 chuyển xong (T124).
+- **Migration (FR-055, Q-B1)**: chuyển số lượng cũ về chi nhánh mã `HN-HOANKIEM`; không có mã đó thì không chuyển gì, sản phẩm cũ "chưa gán chi nhánh" và chi nhánh đầu tiên được thêm trên giao diện nhận số lượng cũ. Chạy lại không tạo dòng trùng.
+- **Nguồn chi nhánh**: chỉ đọc qua `SellingLocationPort` (adapter của 003.2); lỗi nguồn → `LOCATION_DEPENDENCY_UNAVAILABLE` cho lệnh ghi, còn đọc công khai vẫn chạy. Màn quản trị lấy danh sách theo phạm vi từ `GET /api/v1/workshop-locations`.
+- **Phạm vi (FR-050, Q-B3)**: `CatalogueBranchScope` đọc chi nhánh được gán qua `AccountFacade.getLocationScope` ở mỗi lệnh, chạy sau `CatalogueAuthorization.require`. Manager: mọi chi nhánh. Staff: lệnh tồn kho chỉ ở chi nhánh được gán; nội dung/ảnh/giá đề xuất chỉ khi sản phẩm có ít nhất một chi nhánh của mình; ngừng/mở bán cả size cần mọi chi nhánh đang bán size đó (T134); tạo hoặc import không có chi nhánh chỉ Manager/lệnh nội bộ (T134); không có chi nhánh nào → `BRANCH_SCOPE_EMPTY`.
+- **Lệnh (FR-048, FR-049)**: tạo sản phẩm nhận `branches[]` (toàn bộ hoặc không); thêm chi nhánh, sửa số lượng size × chi nhánh, ngừng/mở bán tại chi nhánh — mỗi lệnh có receipt và audit có `locationId`. Lệnh số lượng theo size cũ chỉ còn hợp lệ khi size ở ≤ 1 chi nhánh (`BRANCH_REQUIRED` nếu nhiều hơn). Số mới không nhỏ hơn phần giữ hợp lệ, đọc dưới guard FE-08 (theo chi nhánh khi `tracksHoldsPerBranch()`).
+- **Bán (FR-053)**: facade thêm các hàm theo `BranchVariant` (`readBranchSaleFacts`, `withLockedBranchSaleContext`, `withLockedHistoricalBranchContext`, `recordAcceptedSale(op, variantId, locationId, qty)`) và `AvailabilityGuardPort` có cài đặt mặc định theo size; thứ tự khóa không đổi. Tạm thời một lần bán không có chi nhánh trừ các dòng theo id chi nhánh tăng dần (`deductSaleWithoutBranch`) — gỡ sau T124.
+- **Đọc công khai (FR-046, FR-052, FR-033)**: mỗi size trả `branches[{locationId, canBuy}]` của chi nhánh đang hoạt động và đang bán; `canBuy` = min(số tại chi nhánh − giữ tại chi nhánh, tổng size − giữ của size) > 0; không lộ số lượng/giữ hàng. "Có thể mua" = mua được ở ít nhất một chi nhánh.
+- **Import (Q-B2, FR-040)**: chọn chi nhánh trên màn import; mẫu có cột "Số lượng {tên chi nhánh}" theo thứ tự chọn; mẫu một cột cũ hợp lệ khi chọn đúng một chi nhánh; lần tải bị từ chối vì chi nhánh được audit như file bị từ chối (T138).
+- **Giao diện quản trị (Session 2026-11-04, 2026-11-08, 2026-11-10)**: bảng sửa giá/số lượng nhiều size (mỗi size một lệnh); "Áp dụng giá ngay sau khi duyệt"; Manager tạo không qua gửi duyệt và "Công khai ngay" (mỗi bước một lệnh) — riêng hồ sơ Staff đang Chờ duyệt hoặc Bị từ chối không duyệt bằng một lần bấm, mà dẫn tới mục *Duyệt hồ sơ ban đầu* (T135, FR-010); nút −/+ số lượng; cảnh báo trùng tên dùng tìm kiếm danh sách quản lí (FR-056, không thêm API).
+- **Giao diện công khai (FR-057, FR-058)**: thẻ sản phẩm dùng chung `PublicProductGrid` (danh sách và dải trang chủ khi owner trang chủ đồng ý), hộp *Thêm nhanh* dùng lại `AddToCartPanel`; ưu đãi lấy qua cổng công khai `features/loyalty-promotion/index.js` của 006 (T139), lỗi đọc ưu đãi hiện giá thường.
 
 ### Data, API and module contracts
 

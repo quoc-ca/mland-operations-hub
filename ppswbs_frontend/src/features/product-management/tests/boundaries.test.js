@@ -30,6 +30,17 @@ describe('002 frontend layer boundaries', () => {
     expect(direct).toEqual([]);
   });
 
+  it('reaches other features only through their public port (index.js)', () => {
+    // FRONTEND-ARCHITECTURE §2: "<feature>" or "<feature>/index" only, never a file inside another feature. Paths are
+    // resolved against src/features; shared/ and test/ (outside features/) are technical and allowed.
+    const crossing = sourceFiles(FEATURE_DIR).flatMap(file => importsOf(file)
+      .map(spec => ({ spec, resolved: path.relative(path.resolve(FEATURE_DIR, '..'), path.resolve(path.dirname(file), spec)).replace(/\\/g, '/') }))
+      .filter(({ spec, resolved }) => spec.startsWith('.') && !resolved.startsWith('product-management') && !resolved.startsWith('..')
+        && resolved.includes('/') && !/\/index(\.js)?$/.test(resolved))
+      .map(({ spec }) => `${path.relative(FEATURE_DIR, file)} -> ${spec}`));
+    expect(crossing).toEqual([]);
+  });
+
   it('domain does not depend on React, routing, HTTP or other layers', () => {
     expect(offenders('domain', spec => /^react|^react-router|shared\/api|firebase|(^|\/)(ui|application|infrastructure)(\/|$)/.test(spec)))
       .toEqual([]);

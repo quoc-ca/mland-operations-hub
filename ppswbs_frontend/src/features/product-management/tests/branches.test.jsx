@@ -180,6 +180,36 @@ describe('US10 branches on the detail page', () => {
     expect(put.body).toEqual({ expectedVersion: 7, quantity: '3' });
   });
 
+  it('a Staff member sees no size-wide stop for a product also sold outside their branches (T134)', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      [PROFILE]: json(200, { role: 'STAFF' }), [`GET ${M}/categories`]: json(200, categoryPage), [LOCATIONS]: json(200, [HK]),
+      [`GET ${M}/products/42`]: json(200, atTwoBranches),
+    });
+    renderRoutes(productManagementRoutes, { path: '/catalogue-management/products/42' });
+
+    expect(await screen.findByRole('button', { name: 'Ngừng bán tại chi nhánh này' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ngừng bán size' })).toBeNull();
+    await user.click(screen.getByRole('tab', { name: /Tây Hồ/ }));
+    expect(screen.queryByRole('button', { name: 'Ngừng bán tại chi nhánh này' })).toBeNull();
+  });
+
+  it('stopping sale at a branch sends the state shown, so a stale screen gets a conflict (T142)', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      [PROFILE]: json(200, { role: 'MANAGER' }), [`GET ${M}/categories`]: json(200, categoryPage), [LOCATIONS]: json(200, [HK, TH]),
+      [`GET ${M}/products/42`]: json(200, atTwoBranches),
+      [`PUT ${M}/products/42/branches/2/sale-status`]: json(200, actionResult('42', 'product.branch.sale')),
+    });
+    renderRoutes(productManagementRoutes, { path: '/catalogue-management/products/42' });
+
+    await user.click(await screen.findByRole('tab', { name: /Tây Hồ/ }));
+    await user.click(screen.getByRole('button', { name: 'Ngừng bán tại chi nhánh này' }));
+
+    await waitFor(() => expect(calls.some(call => call.method === 'PUT')).toBe(true));
+    expect(calls.find(call => call.method === 'PUT').body).toEqual({ saleEnabled: false, expectedSaleEnabled: true });
+  });
+
   it('a product without a branch offers to assign one with its current quantities', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({
