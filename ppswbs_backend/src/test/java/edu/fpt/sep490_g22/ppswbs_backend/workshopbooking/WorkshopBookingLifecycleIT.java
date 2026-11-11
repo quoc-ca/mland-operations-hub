@@ -392,11 +392,15 @@ class WorkshopBookingLifecycleIT {
         // Setup operations commit and ticket projection
         when(mockOperationsFacade.commitBookingHolds(any(CommitBookingHoldsCommand.class))).thenReturn(CapacityCommitOutcome.accepted());
 
+        // Sessions stay in the future relative to the run date: the Magic Link expires at the last session end and an
+        // expired link is left out of the delivery payload. Sub-millisecond parts check microsecond truncation.
+        Instant firstStart = Instant.now().plus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS).plusNanos(123_456_000);
+        Instant secondStart = firstStart.plus(1, ChronoUnit.DAYS).plusNanos(530_865_000);
         List<SessionEntitlementProjection> entitlements = List.of(
                 new SessionEntitlementProjection(selectedSessions.get(0), testLocationId,
-                        Instant.parse("2026-11-02T09:00:00.123456Z"), Instant.parse("2026-11-02T11:00:00.123456Z")),
+                        firstStart, firstStart.plus(2, ChronoUnit.HOURS)),
                 new SessionEntitlementProjection(selectedSessions.get(1), testLocationId,
-                        Instant.parse("2026-11-03T09:00:00.654321Z"), Instant.parse("2026-11-03T11:00:00.654321Z")));
+                        secondStart, secondStart.plus(2, ChronoUnit.HOURS)));
         UUID firstTicketRef = UUID.randomUUID();
         UUID secondTicketRef = UUID.randomUUID();
         DeliverySafeTicketSet ticketSet = new DeliverySafeTicketSet(List.of(

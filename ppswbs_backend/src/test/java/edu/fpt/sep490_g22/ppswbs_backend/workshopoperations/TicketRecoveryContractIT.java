@@ -11,6 +11,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.TicketR
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RequestBookingTicketRedeliveryCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketRedeliveryOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.WorkshopBookingNotificationFacade;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -74,6 +75,10 @@ public class TicketRecoveryContractIT {
 
     @MockBean
     private WorkshopBookingFacade workshopBookingFacade;
+
+    // WorkshopBookingFacadeImpl also provides this interface; mocking the facade removes it from the context.
+    @MockBean
+    private WorkshopBookingNotificationFacade workshopBookingNotificationFacade;
 
     private static Map<String, Object> openApiSpec;
     private static Validator validator;
