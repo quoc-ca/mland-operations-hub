@@ -4,7 +4,7 @@
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-08
-- **Date updated**: 2026-11-10
+- **Date updated**: 2026-11-12
 - **Source of truth**: Feature-012 `spec.md`, `data-model.md`, `contracts/workshop-ring-design.openapi.yaml`, `V109__workshop_ring_design_configuration.sql`, backend Spring Boot implementation, frontend React 19 + Vite implementation, and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
@@ -170,7 +170,106 @@
 
 ---
 
-## 3. Incomplete / Next Steps (Release Gates)
+## 4. QA test implementation and execution plan (2026-11-12)
+
+This is the testing-agent handoff. Feature-012 contains historical
+implementation/test notes, but the QA agent must re-run the scenarios with fresh
+environment, command and evidence before reporting current PASS.
+
+### 4.1 Required artifacts
+
+Create under `test-results/`:
+
+```text
+UTC-012-A-001--guest-session-and-draft-lifecycle.md
+UTC-012-A-002--versioning-validation-and-concurrency.md
+UTC-012-A-003--booking-attachment-and-privacy.md
+UTC-012-B-001--frontend-preview-and-api-adapter.md
+E2E-012-001--model-or-blank-entry.md
+E2E-012-002--live-ring-configuration.md
+E2E-012-003--save-evaluate-and-version-history.md
+E2E-012-004--branch-compatibility-recovery.md
+E2E-012-005--guest-expiry-and-member-ownership.md
+screenshots/
+```
+
+Each scenario must have YAML front matter, traceability to Feature-012
+`spec.md`, `design/`, `tasks.md` when available and OpenAPI, actor/test account,
+`health_urls`, isolated `test_data.isolation_key`, setup/cleanup, exact
+selectors/API commands, observable assertions, expected status/error code and
+evidence paths. Use the four testing skills prescribed by
+`ppswbs-testing/AGENT.md`.
+
+### 4.2 Gates and run order
+
+Complete T01–T10 before any execution: BrowserMCP, backend/frontend health,
+developer unit-test handoff, scenario traceability, adversarial cases, correct
+Guest/Member actors, stable selectors, observable assertions, JPEG evidence
+directory and isolated cleanup. Run backend unit/integration tests, frontend
+Vitest tests and Feature-003/004/011 regression tests before BrowserMCP E2E.
+An unavailable service, MySQL, JDK 21 or BrowserMCP produces `BLOCKED`, not
+PASS. Stop at the first failed assertion and record the evidence.
+
+### 4.3 Backend coverage
+
+Verify:
+
+- Guest session returns only an opaque reference, binds to the correct design,
+  touches activity on permitted requests, expires after 20 minutes inactivity
+  and rejects mutation/attach with `DESIGN_SESSION_EXPIRED`.
+- Member can read/write only own designs; cross-owner access is safely denied.
+- Published model and blank design use package-scoped server options; inactive,
+  unpublished, unknown, package-incompatible and branch-incompatible options are
+  rejected before version persistence.
+- Shape/material/size/component/attachment/engraving, quantity, placement and
+  text constraints are enforced server-side.
+- Client estimate/difficulty/rules version cannot override server evaluation;
+  estimate remains advisory and cannot mutate package price, deposit, payment or
+  capacity.
+- Every successful Save/Evaluate creates an immutable row-per-version with
+  lineage; concurrent stale writes return `DESIGN_VERSION_CONFLICT` without a
+  partial version, and duplicate idempotent commands replay deterministically.
+- Archive is soft-delete and retains version/evaluation/audit history.
+- `attachAndLockDesignForBooking(...)` validates ownership/session, package,
+  branch and `VALIDATED` state, returns the immutable snapshot and locks only on
+  booking commit.
+- Booking rollback preserves a retryable design and Feature-012 creates no
+  payment, capacity hold or ticket side effect.
+- Feature-003 cannot access Feature-012 repositories/entities directly and the
+  Modulith boundary remains valid.
+
+### 4.4 Frontend coverage
+
+Test the `ringdesignconfiguration` slice for model/blank loading and empty
+states, server-driven controls, immediate 2D SVG preview updates, current value
+and helper text, advisory estimate warning, 1440px two-column and 390px stacked
+layouts, keyboard/accessibility behavior, Save/Evaluate pending state,
+idempotency/version headers, validation focus, 401 expiry, 403 ownership, 409
+stale version, 422 incompatibility, 503 retry, Member history/archive and
+branch recovery without booking/payment side effects.
+
+### 4.5 E2E scenarios and evidence
+
+`E2E-012-001` covers package entry, model/blank selection and option loading.
+`E2E-012-002` covers material/gemstone/size/band-width changes and live preview.
+`E2E-012-003` covers Save/Evaluate, validation, Member history, versioning and
+retry. `E2E-012-004` covers branch incompatibility and correction. `E2E-012-005`
+covers Guest expiry, Guest isolation and Member ownership.
+
+Capture JPEG screenshots for initial load, model/blank selection, live preview,
+pending command, validated result, field error, stale conflict, branch recovery
+and expired session under `test-results/screenshots/`. Record failures in
+`ppswbs-testing/BUG-LOG.md` using the mandated `BUG-*` template.
+
+### 4.6 QA acceptance gate
+
+Feature-012 is QA accepted only when all applicable UTC/E2E scenarios PASS with
+reproducible evidence, frontend/backend regression is green, migration/Flyway
+history is verified, the booking facade is exercised, and no open
+BLOCKER/CRITICAL defect remains. Unresolved physical schema, Guest session,
+rule-facade or booking-facade approval remains a release blocker.
+
+## 5. Incomplete / Next Steps (Release Gates)
 
 ### Giai đoạn 1: Quản trị danh mục động cho Manager (FE-09)
 - Xây dựng màn hình quản lý danh mục nhẫn cho Manager để cập nhật động các mẫu đá quý, chất liệu và phụ kiện thay vì sử dụng seed ban đầu.

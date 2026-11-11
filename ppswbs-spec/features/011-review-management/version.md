@@ -4,7 +4,7 @@
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-03
-- **Date updated**: 2026-11-06
+- **Date updated**: 2026-11-12
 - **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V91__review_management.sql`, `V100__review_history_retention.sql`, OpenAPI contract (`review-management.openapi.yaml`) and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
@@ -518,3 +518,94 @@ shown only as context and is not used as a review target.
   route implementation in the current frontend; their Figma updates are kept
   as design handoff until those routes expose session and eligibility context.
 - Added responsive styles and no new API or compatibility payload.
+
+## 11. QA test implementation and execution plan (2026-11-12)
+
+This is a testing-agent handoff, not a current execution result. Historical
+backend/frontend test logs must be re-run with fresh environment and screenshot
+evidence before reporting PASS or ACCEPTED.
+
+### 11.1 Test artifacts
+
+Create under `test-results/`:
+
+```text
+UTC-011-A-001--eligibility-and-ownership.md
+UTC-011-A-002--review-lifecycle-and-concurrency.md
+UTC-011-A-003--moderation-reply-and-privacy.md
+UTC-011-B-001--frontend-review-adapters.md
+E2E-011-001--public-review-list-and-detail.md
+E2E-011-002--guest-lookup-and-create-review.md
+E2E-011-003--member-review-create-edit.md
+E2E-011-004--staff-manager-moderation.md
+E2E-011-005--manager-reply-and-aggregate.md
+screenshots/
+```
+
+Every scenario requires YAML front matter, traceability to `spec.md`,
+`tasks.md`, `data-model.md` and OpenAPI, actor/test account, `health_urls`,
+isolated `test_data.isolation_key`, cleanup, exact selectors/API commands,
+observable assertions, expected status/error code and evidence paths.
+
+### 11.2 Gates and execution order
+
+Complete T01–T10 from `ppswbs-testing/AGENT.md` before running tests. Run
+backend unit/integration tests first, frontend Vitest/API/component tests next,
+then start services and execute BrowserMCP E2E. If BrowserMCP, backend,
+frontend, MySQL or JDK 21 is unavailable, mark scenarios `BLOCKED`; do not mark
+them PASS and do not create a product defect for an unconfirmed environment
+failure.
+
+### 11.3 Backend coverage
+
+The test agent must verify:
+
+- Workshop source is eligible only after `CHECKED_IN`; no-show, cancelled and
+  not-checked-in sources are rejected.
+- Retail source is eligible only at `PICKED_UP`/`DELIVERED`; unpaid, cancelled
+  and unfulfilled lines are rejected.
+- Guest lookup normalizes contact data and returns only eligible sources through
+  an opaque 30-minute handle; raw contact/source/transaction data is never
+  disclosed.
+- Guest can create workshop and retail reviews only with the correct handle;
+  expired, replayed, wrong-source and raw-source-ID requests fail.
+- Member sees/creates only own eligible sources; cross-owner access is denied.
+- Rating is 1–5, text is at most 2,000 characters, target/source mapping is
+  immutable and malformed input is rejected before persistence.
+- Concurrent create yields one review through unique constraint/idempotency and
+  deterministic conflict mapping; retry with the same key returns the result.
+- Owner edit creates revision/audit and retains `PUBLIC`; owner cannot edit
+  another review or violate the lifecycle.
+- Public listing/detail/aggregate include `PUBLIC` only and omit email, phone,
+  source ID, owner reference and transaction details.
+- Staff can only hide; Staff cannot remove/reply. Manager may perform approved
+  moderation and one current reply; conflict-of-interest is rejected. Admin is
+  denied business moderation/reply.
+- `REMOVED` is soft state and review history/audit/reply data cannot be cascade
+  deleted. Aggregate transitions exclude hidden/removed reviews immediately.
+
+### 11.4 Frontend coverage
+
+Test `src/features/reviewmanagement/` for public list/detail loading, empty,
+filter/sort, aggregate and masked identity; Guest lookup and handle expiry;
+Member eligible-source ownership; create/edit validation and form preservation;
+`Idempotency-Key` and `If-Match-Version` reuse; 401/403/404/409/422/503 states;
+Staff/Manager/Admin action visibility; and public privacy filtering.
+
+### 11.5 E2E scenarios, evidence and defect handling
+
+`E2E-011-001` covers public list/detail and aggregate. `E2E-011-002` covers
+Guest workshop/retail lookup, invalid/expired handle and public submission.
+`E2E-011-003` covers Member own-source create/edit and cross-owner denial.
+`E2E-011-004` covers Staff hide, Staff denial, Manager moderation and conflict.
+`E2E-011-005` covers Manager reply/edit and aggregate/public masking.
+
+Capture JPEG screenshots after lookup, eligible-source display, create success,
+validation/denial, moderation, reply and public aggregate update under
+`test-results/screenshots/`. Stop at the first failed assertion and record a
+`BUG-E2E-*` entry in `ppswbs-testing/BUG-LOG.md` with exact steps,
+expected/actual behavior, logs and screenshot path.
+
+Feature-011 is QA accepted only when all applicable UTC/E2E scenarios PASS with
+reproducible evidence, OpenAPI/controller behavior and migration/history checks
+are verified, and no open BLOCKER/CRITICAL defect remains.

@@ -4,7 +4,7 @@
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-10-24
-- **Date updated**: 2026-11-05
+- **Date updated**: 2026-11-12
 - **Source of truth**: Feature-004 `spec.md`, `design.md`, OpenAPI contract and `FE-004-DESIGN-INDEPENDENT-HANDOFF.md`
 
 > This file is an implementation status index. Historical audit details are
@@ -839,4 +839,93 @@ permission, API, AI, retention or pricing rules.
 Frontend implementation remains on the existing `designreview` slice. The
 Figma work is a visual handoff, not a replacement for backend/OpenAPI mismatch
 resolution or integration verification.
+
+## 10. QA test implementation and execution plan (2026-11-12)
+
+This is a testing-agent handoff, not a current test result. Historical code or
+test logs must be re-run under `ppswbs-testing/AGENT.md` before reporting PASS.
+
+### 10.1 Test artifacts and traceability
+
+Create under `test-results/`:
+
+```text
+UTC-004-A-001--ai-input-security.md
+UTC-004-A-002--design-request-invariants.md
+UTC-004-A-003--review-routing-and-privacy.md
+UTC-004-B-001--frontend-command-and-preview.md
+E2E-004-001--guest-ai-support.md
+E2E-004-002--member-design-request.md
+E2E-004-003--staff-manager-review.md
+E2E-004-004--manager-price-suggestion.md
+screenshots/
+```
+
+Each file must contain the required YAML front matter, links to Feature-004
+`spec.md`/`tasks.md`/OpenAPI, actor and test account, `health_urls`, isolated
+`test_data.isolation_key`, setup/cleanup, exact selectors or API commands,
+observable assertions, expected status/error code and evidence paths. Use
+`$unit-test-specify`/`$unit-test-execute` for unit/integration cases and
+`$e2e-test-specify`/`$e2e-browser-execute` for BrowserMCP scenarios.
+
+### 10.2 Mandatory gates and run order
+
+Complete T01–T10 before execution: BrowserMCP availability for E2E, frontend
+and backend health, developer unit-test handoff, scenario traceability,
+adversarial cases, correct actor accounts, stable selectors, observable
+assertions, JPEG screenshot directory and isolated cleanup. A missing
+environment gate produces `BLOCKED`, not PASS.
+
+Run backend unit/integration tests first, then frontend Vitest tests, then
+regression suites and finally BrowserMCP E2E. Stop at the first failed
+assertion, preserve the failed evidence and add a `BUG-E2E-*` or appropriate
+defect record to `ppswbs-testing/BUG-LOG.md`.
+
+### 10.3 Backend/security coverage
+
+The test agent must cover:
+
+- Guest Basic AI Support succeeds, but Guest image submission is always `403`.
+- Member identity, active status, consent, ownership and design context are
+  validated before storage/provider calls.
+- Empty/overlong prompt, unsupported topic, private-data request and business
+  decision request fail with the documented error before mutation.
+- Prompt injection returns `AI_PROMPT_INJECTION_DETECTED`, calls no provider and
+  changes no business state.
+- Image MIME/signature/size/dimensions/metadata/malware/ownership validation
+  occurs before Gemini; invalid attempts still count toward the Member quota.
+- The fourth attempt in five rolling minutes returns `429 IMAGE_RATE_LIMITED`,
+  includes `Retry-After`, stores no image, calls no Gemini and creates no review.
+- Concurrent submissions cannot bypass the atomic quota; duplicate idempotent
+  retries do not consume another slot.
+- Provider output schema/policy validation rejects unsafe output with
+  `AI_OUTPUT_POLICY_VIOLATION`; AI cannot change review, booking, payment or
+  catalogue price state.
+- Temporary images are deleted after provider success and failure; raw image,
+  raw provider payload, token and unnecessary PII are not logged or retained.
+- Every valid image request reaches human review; Staff/Manager threshold,
+  scope, stale version and conflict-of-interest rules are enforced.
+- Price suggestion is Manager-only, advisory, range-validated, manually
+  recoverable and never automatically applied/published.
+
+### 10.4 Frontend coverage
+
+Test `src/features/designreview/` for Guest chat scope, prompt limits,
+unsupported-topic/timeout/retry states, Member description-only/image-only/both
+submissions, consent-before-multipart, file validation, rate-limit handling,
+401 refresh once, 403 denial, 409 conflict and form/idempotency preservation.
+Also verify safe candidate-feature/image-quality rendering, no raw provider
+payload, Staff/Manager review controls, Admin technical projection and hidden
+price suggestion for Staff/customers.
+
+### 10.5 E2E evidence and acceptance
+
+`E2E-004-001` covers Guest chat and image denial; `E2E-004-002` covers Member
+consent, valid submission, processing/result and failure retry;
+`E2E-004-003` covers Staff/Manager review, clarification and conflict;
+`E2E-004-004` covers Manager price suggestion, invalid fallback and visibility.
+Capture JPEG screenshots after submit, pending, success, denial and recovery in
+`test-results/screenshots/`. Feature-004 is QA accepted only when all applicable
+UTC/E2E cases PASS with reproducible evidence and no open BLOCKER/CRITICAL defect
+exists in `BUG-LOG.md`.
 
