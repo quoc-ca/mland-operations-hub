@@ -293,9 +293,26 @@ location, slot and session write endpoints currently neither declare nor consume
 
 - [X] T089 Realign the Wax Casting foundry-working-date rule to the owner-confirmed **at least two** Monday–Friday local dates strictly between the two sessions (2026-11-05; no maximum gap). T085 currently enforces strict `== 2` and T086 evidence rejects Monday-to-Friday; change the Operations validation used for reserve and complete replacement, keep Saturday/Sunday excluded and slot/time irrelevant, and update `WaxCastingScheduleValidationTest`, `WaxCastingBookingIntegrationIT`, `WaxCastingBookingAcceptanceIT` (003.1 T053) and the 003.3 T039 replacement coverage: Monday→Thursday and Friday→Wednesday stay valid, Monday→Wednesday and Friday→Tuesday stay invalid, Monday→Friday and longer gaps become valid. No partial hold/transfer on refusal. Do not tick without test evidence. **Evidence (2026-11-05):** `WorkshopPackageReservationPolicy.validateFoundryWorkingDayGap` now rejects only when the count is below the required value (shared by reserve and complete replacement). Passed: `WaxCastingScheduleValidationTest` 19/19 (Monday→Friday and a six-working-day gap accepted; Monday→Wednesday and Friday→Tuesday rejected), MySQL `WaxCastingBookingIntegrationIT` 15/15 (Monday→Friday reserve now ACCEPTED with 2 holds), `WaxCastingBookingAcceptanceIT` 5/5, `SettlementChangeFacadeIT` 13/13, `RequiredSessionChangeIT` 10/10 and `WorkshopPackageFacadeIT` 11/11 against `ppswbs_workshop_test_20261029`. `WorkshopPackageFacadeIT` now pins `workshop.operations.visible-location-ids` empty via `@TestPropertySource`, because `.env` is loaded with environment precedence and a local demo filter hid test locations.
 
+## Phase 14: Per-ticket capacity, attendance, QR and changes (decision 2026-11-12)
+
+Spec FR-030–FR-036. Serves 003.1 Phase 8 (groups, ticket bookings, recipients)
+and 003.3 Phase 8 (per-ticket cancellation, Mland remedy, changes).
+
+- [ ] T090 Group capacity facade (FR-030): reserve all lines of a booking group (several packages/sessions) all or none, one seat per ticket per session; commit/release the group before confirmation, per ticket afterwards; idempotent.
+- [ ] T091 Per-ticket cancellation (FR-031): release the ticket's seats in its future sessions and revoke its future entitlements without touching other tickets or attendance history.
+- [ ] T092 Per-ticket readiness and attendance outcome (FR-032): query and `BookingAttendanceFinalizedEvent` per ticket booking after the 24-hour correction window; no-show per ticket.
+- [ ] T093 QR revoke and reissue for a recipient change (FR-033): revoke immediately, issue a new opaque QR for the same entitlements, refuse after any check-in; check-in rejects revoked QR.
+- [ ] T094 Per-ticket session replacement (FR-034): selected tickets all or none, capacity + reschedule quota + package rules, late-arrival exception for an `IN_PROGRESS` source before it ends with the 7-day window, Mland replacements not counted.
+- [ ] T095 Reschedule quota (FR-035) per session, Manager-configured, counted per moved ticket; blocked until the owner decides values/defaults/sharing between advance and late-arrival changes.
+- [ ] T096 Integration tests on MySQL: group reserve with one failing line, per-ticket release, per-ticket attendance outcome, QR revoke at check-in, replacement all-or-none, late-arrival window edges (old end + 7 days), quota exhausted vs capacity full, OTA ticket refused.
+
 ---
 
 ## Dependencies and Execution Order
+
+Phase 14: T090 before 003.1 T092/T093; T091 before 003.3 T099/T100; T092 before
+003.3 T093; T093 before 003.1 T095; T094 needs T095 for customer changes and is
+needed by 003.3 T100/T101; T096 last.
 
 ### Phase Dependencies
 
