@@ -302,7 +302,13 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
 - **FR-044**: Each ticket allows one customer-requested change, shared by an
   advance change (at least 24 hours before the session) and late-arrival
   support (requested before the old session ends). One change may move session
-  1, session 2 or both in one action. For late-arrival support the replacement
+  1, session 2 or both in one action. The allowance belongs to the ticket, not
+  to each session: changing only session 1 consumes the ticket's allowance,
+  so a later change of session 2 needs the Manager-granted exception below.
+  Consume the allowance only after the whole selected replacement succeeds;
+  failed attempts and retries of the same successful operation consume no
+  additional allowance (clarified and approved 2026-11-12).
+  For late-arrival support the replacement
   for the missed session starts no later than the old session's end + 7 days; a
   following session moved with it may fall outside that window but must keep
   the package order and gap. Moving several tickets together is all-or-none for
@@ -321,9 +327,10 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   the time of the change.
 
 **Open before implementation:** the exact auto-approval conditions for online
-changes, and final approval of the customer email templates (draft in
-`artifacts/workshop-email-templates-draft.md`). Reschedule quota values were
-decided 2026-11-12 (003.2 FR-035) and the OTA add-on refund in FR-038a.
+changes. Customer email content was approved 2026-11-12 in
+`artifacts/workshop-email-templates-draft.md` (filename retained; not yet
+implemented). Reschedule quota values were decided 2026-11-12 (003.2 FR-035)
+and the OTA add-on refund in FR-038a.
 
 ## Scope
 

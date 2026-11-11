@@ -257,8 +257,10 @@ are kept for history and are read through this section.
   a schema migration and reseed with no conversion of old bookings. A
   single-person booking is a group with one ticket.
 
-**Open before implementation:** the default buyer email, the per-ticket
-recipient email and the resend/replace templates still need their exact text.
+**Email content approved 2026-11-12:** the buyer, recipient, resend/replace,
+expiry and late-payment templates are recorded in
+`artifacts/workshop-email-templates-draft.md`. The filename is retained for
+existing references; its content is approved, not yet implemented.
 
 ## Scope and source alignment
 

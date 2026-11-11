@@ -1,6 +1,6 @@
-# Bản nháp nội dung email workshop (đề xuất 12/11/2026)
+# Nội dung email workshop (đã duyệt 12/11/2026)
 
-Đề xuất để duyệt, chưa phải spec. Biến trong `{…}` do hệ thống điền. Quy tắc chung cho mọi email:
+Người dùng đã duyệt nội dung ngày 12/11/2026. Giữ tên file `workshop-email-templates-draft.md` để các liên kết hiện có tiếp tục hoạt động; nội dung không còn chờ duyệt. Chưa triển khai gửi email trong code. Biến trong `{…}` do hệ thống điền. Quy tắc chung cho mọi email:
 
 - Gửi từ địa chỉ của shop, tiêu đề bắt đầu bằng `MLAND –`.
 - Không ghi số tài khoản đầy đủ, không ghi email người khác đầy đủ (che dạng `ng***@gmail.com`).
