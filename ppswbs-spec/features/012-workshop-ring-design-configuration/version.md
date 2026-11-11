@@ -1,11 +1,11 @@
-# Version 1.0 — Feature 012: Workshop Ring Design Configuration (Backend Implementation & Full Test Verification)
+# Version 1.1 — Feature 012: Workshop Ring Design Configuration (Full-Stack Implementation & Test Verification)
 
 - **Feature**: 012 — Workshop Ring Design Configuration
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-08
-- **Date updated**: 2026-11-09
-- **Source of truth**: Feature-012 `spec.md`, `data-model.md`, `contracts/workshop-ring-design.openapi.yaml`, `V109__workshop_ring_design_configuration.sql`, backend implementation, and synchronized project specifications
+- **Date updated**: 2026-11-10
+- **Source of truth**: Feature-012 `spec.md`, `data-model.md`, `contracts/workshop-ring-design.openapi.yaml`, `V109__workshop_ring_design_configuration.sql`, backend Spring Boot implementation, frontend React 19 + Vite implementation, and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
 > the Feature-012 artifacts and source code. Phase labels are retained for
@@ -32,7 +32,7 @@
 ### Phase B — Persistence and Flyway Migration (V109)
 
 - Xác minh lịch sử di chuyển Flyway trong repository: Nhánh `develop` và `dat` đã có migration đến `V108__workshop_booking_settlement_conclusion_statuses.sql`. Đánh số migration mới append-only là [`V109__workshop_ring_design_configuration.sql`](../../../ppswbs_backend/src/main/resources/db/migration/V109__workshop_ring_design_configuration.sql).
-- Triển khai schema vật lý cho 7 bảng:
+- Triển khai schema vật lý cho 8 bảng:
   1. `guest_design_sessions`: Quản lý phiên khách vãng lai, opaque token `session_reference`, hash SHA-256 `session_digest`, liên kết `design_reference`, `issued_at`, `last_activity_at`, `expires_at`, `status` (`ACTIVE`, `EXPIRED`, `REVOKED`).
   2. `ring_designs`: Lưu trữ phiên bản mẫu nhẫn cấu hình theo cơ chế bất biến row-per-version (`design_reference`, `design_version`, `owner_type`, `owner_reference`, `package_reference`, `source_model_reference`, `source_design_id`, `material_reference`, `shape_reference`, `ring_size`, `component_snapshot` JSON, `estimated_price`, `currency`, `difficulty_score`, `rules_version`, `status` (`DRAFT`, `VALIDATED`, `ATTACHED_TO_BOOKING`, `LOCKED`, `ARCHIVED`), `booking_reference`).
   3. `ring_design_idempotency_records`: Lưu trữ idempotency key cho các lệnh ghi.
@@ -117,15 +117,63 @@
 
 ---
 
-## 2. Incomplete / Next Steps (Frontend & Release Gates)
+### Phase H — Frontend React 19 + Vite Implementation & Test Verification (2026-11-10)
 
-### Giai đoạn 1: Triển khai Frontend React + Vite
-- Xây dựng giao diện cấu hình nhẫn người dùng theo `frontend-handoff.md` và các frame Figma (`457:1553`, `457:1554`, `457:1655`, `457:1698`, `457:1749`, `457:1795`).
-- Xây dựng live preview `RingPreview` cập nhật tức thì trên client khi người dùng thay đổi chất liệu, dáng nhẫn, đá quý mà không cần chờ gọi API.
-- Hỗ trợ cả 2 luồng Guest (lưu `X-Guest-Design-Session` trong memory/session) và Member (Firebase JWT).
+- **Triển khai kiến trúc UI Frontend chuẩn hóa:**
+  - `api/workshopRingDesignApi.js`: Adapter kết nối REST API backend, hỗ trợ đầy đủ 7 endpoint, quản lý `sessionStorage` token `mland_guest_design_session` cho khách vãng lai, tự động inject headers `X-Guest-Design-Session`, `If-Match-Version` và `Idempotency-Key`.
+  - `api/useWorkshopRingDesignApi.js`: Custom hook tích hợp `useHttp` dùng chung.
+  - `domain/designDraft.js`: Quản lý cấu trúc dữ liệu bản nháp (Blank hoặc Model template), xác thực phía client (size 6..20, nội dung khắc tối đa 50 ký tự, kiểm tra ký tự hợp lệ), chuẩn hóa payload gửi lên backend.
+  - `domain/designPreview.js`: Chuyển đổi dữ liệu bản nháp thành Preview Model phản hồi tương tác thời gian thực:
+    - Bảng màu kim hoàn (Bạc Ý 925, Vàng 14K, Vàng Hồng 14K, Vàng Trắng 14K) với gradient đa điểm (highlight, primary, shadow).
+    - Kiểu phom dáng đai nhẫn (Tròn cổ điển, Vát cong lòng trong, Dáng xoắn vô cực, Búa gõ thủ công).
+    - Màu sắc và ánh quang (glow) của đá quý CZ (Trắng, Lam, Đỏ) và Moissanite.
+    - Tọa độ chiếu văn bản khắc chữ cá nhân hóa theo cung tròn lòng trong hoặc mặt ngoài đai nhẫn.
+  - `domain/designErrors.js`: Bảng ánh xạ mã lỗi typed (`DESIGN_INPUT_INVALID`, `DESIGN_BRANCH_INCOMPATIBLE`, `DESIGN_SESSION_EXPIRED`, `DESIGN_VERSION_CONFLICT`, `DESIGN_LOCKED`, v.v.) sang thông báo người dùng thân thiện.
+  - `messages.js`: Từ điển song ngữ Anh - Việt đầy đủ cho toàn bộ tính năng.
+  - `ring-design.css`: Giao diện Atelier Light tối ưu 2 cột trên Desktop (cột trái điều khiển, cột phải Live Preview cố định) và tự động xếp chồng (stacked) trên thiết bị di động.
+  - `application/`:
+    - `useWorkshopDesignOptions.js`: Hook tải tùy chọn gói workshop.
+    - `useWorkshopDesignDraft.js`: Hook quản lý trạng thái bản nháp nhẫn và cập nhật thông số reactive.
+    - `useWorkshopDesignCommand.js`: Hook thực thi các lệnh ghi bất đồng bộ có bảo vệ Idempotency.
+  - `ui/`:
+    - `RingPreview.jsx`: Component hiển thị Live Preview 2D bằng SVG thuần, không phụ thuộc thư viện 3D nặng nề, tương thích 100% mọi trình duyệt.
+    - `DesignControlField.jsx`: Component wrapper trường nhập liệu chuẩn hóa.
+    - `RingDesignEntryPage.jsx` (`/workshops/:packageReference/design`): Màn hình điểm vào luồng, hiển thị banner cảnh báo giá tham khảo và 2 lựa chọn (Chọn mẫu catalogue / Tự thiết kế từ phôi trắng).
+    - `RingModelSelectionPage.jsx` (`/workshops/:packageReference/design/models`): Danh sách mẫu gợi ý theo gói workshop kèm ảnh minh họa, độ khó và chi phí ước tính.
+    - `RingConfigurationPage.jsx` (`/workshops/:packageReference/design/configure`): Trình cấu hình 2 cột chính, tích hợp Live Preview và các bộ điều khiển chất liệu, dáng nhẫn, size, đá quý, họa tiết, khắc chữ.
+    - `DesignEvaluationPage.jsx` (`/workshops/:packageReference/design/:designId`): Kết quả thẩm định kỹ thuật, điểm độ khó, chi phí tham khảo, nút chuyển tiếp sang đặt lịch workshop và thao tác lưu trữ/xóa bản nháp.
+    - `BranchCompatibilityPage.jsx` (`/workshops/:packageReference/design/recovery`): Màn hình phục hồi khi chi nhánh không hỗ trợ kỹ thuật chế tác đã chọn.
+    - `MemberDesignHistoryPage.jsx` (`/my/designs`): Lịch sử thiết kế cá nhân của hội viên (bảo vệ bởi `<RequireSession>`).
+  - `routes.jsx`: Khai báo 6 routes và tích hợp hoàn chỉnh vào [`ppswbs_frontend/src/app/router.jsx`](../../../ppswbs_frontend/src/app/router.jsx).
 
-### Giai đoạn 2: Quản trị danh mục động cho Manager (FE-09)
+- **Kiểm thử tự động Frontend (Vitest + Testing Library trên jsdom):**
+  - `src/features/ringdesignconfiguration/tests/workshopRingDesignApi.test.js`: **10/10 tests passed** (Session storage handling, full REST endpoints, headers `X-Guest-Design-Session`, `If-Match-Version`, `Idempotency-Key`).
+  - `src/features/ringdesignconfiguration/tests/designDomain.test.js`: **9/9 tests passed** (Default blank draft, model populating, client validation, payload normalization, SVG preview model derivation, typed error translation).
+  - `src/features/ringdesignconfiguration/tests/screens.test.jsx`: **13/13 tests passed** (Toàn bộ 6 màn hình giao diện, luồng điều hướng, cập nhật preview, tạo và lưu phiên bản, thẩm định và handoff đặt lịch).
+  - **Tổng kết kiểm thử Feature 012 Frontend: 32/32 tests passed (100%)**.
+  - **Kiểm thử hồi quy Frontend:**
+    - `src/features/designreview/test/`: **21/21 tests passed (100%)** (Feature 011/004 regression suite).
+  - **Kiểm tra Production Build:**
+    - Lệnh: `npm.cmd run build` trong `ppswbs_frontend`.
+    - Kết quả: **Vite build thành công 100% trong 3.27s**, không có lỗi cú pháp, bundle hay import.
+
+---
+
+## 2. Blockers and Decisions Resolved
+
+| ID | Vấn đề / Blockers | Quyết định đã chốt & Thực thi | Trạng thái |
+|---|---|---|---|
+| **BLK-01** | Truy cập Figma qua MCP bị gián đoạn do token ủy quyền | Người dùng và Tech Lead đã đồng thuận lấy bộ Node IDs Figma (`457:1553`, `457:1554`, `457:1655`, `457:1698`, `457:1749`, `457:1795`) làm visual baseline, mã hóa trực tiếp giao diện Atelier Light vào CSS và JSX chuẩn. | **Đã giải quyết** |
+| **BLK-02** | Lưu trữ token phiên khách vãng lai `X-Guest-Design-Session` | Thống nhất sử dụng `sessionStorage` (khóa `mland_guest_design_session`). Token tồn tại xuyên suốt navigation trong phiên làm việc của tab và tự động bị xóa bỏ khi người dùng đóng tab, bảo đảm an toàn dữ liệu và tuân thủ TTL 20 phút. | **Đã giải quyết** |
+| **BLK-03** | Cơ chế Live Preview (2D SVG vs 3D Canvas) | Thống nhất dựng Live Preview 2D bằng SVG tương tác thuần (client-side SVG reactivity), đổi màu gradient kim loại, độ dày đai nhẫn, đá quý và văn bản khắc tức thì mà không cần cài đặt thư viện ngoài (Three.js/Babylon) gây phình to bundle. | **Đã giải quyết** |
+| **BLK-04** | Luồng chuyển tiếp sau thẩm định sang Đặt lịch Workshop | Thống nhất điều hướng khách hàng sang URL `/workshops/booking?packageReference=...&designId=...`. Chi phí ước tính hiển thị với nhãn Advisory, hoàn toàn không can thiệp hay thay đổi chính sách tiền cọc 50% hoặc giá gốc gói workshop. | **Đã giải quyết** |
+
+---
+
+## 3. Incomplete / Next Steps (Release Gates)
+
+### Giai đoạn 1: Quản trị danh mục động cho Manager (FE-09)
 - Xây dựng màn hình quản lý danh mục nhẫn cho Manager để cập nhật động các mẫu đá quý, chất liệu và phụ kiện thay vì sử dụng seed ban đầu.
 
-### Giai đoạn 3: Phê duyệt chính thức Revision Figma
+### Giai đoạn 2: Phê duyệt chính thức Revision Figma
 - Cập nhật mã revision Figma chính thức khi Tech Lead và UI Designer hoàn thiện rà soát giao diện visual.
