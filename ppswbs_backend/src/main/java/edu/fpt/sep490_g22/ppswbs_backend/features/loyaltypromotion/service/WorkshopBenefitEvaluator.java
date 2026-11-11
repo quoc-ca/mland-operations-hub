@@ -29,9 +29,10 @@ import java.util.Set;
  *   <li>The minimum and the discount use the package fee; the cap applies once to the whole booking, never per
  *       participant.</li>
  *   <li>Voucher first, then points (cap on the fee after the voucher, never on the deposit). The result is the
- *       post-promotion amount, which FE-03/003.1 uses for {@code deposit = ceil(post / 2)} and the remaining amount;
- *       loyalty never computes or rounds a deposit.</li>
- *   <li>A post-promotion amount of zero or less is refused in this version: no free booking.</li>
+ *       post-promotion amount; FE-03 derives the deposit and the remaining amount from it under its own deposit
+ *       policy. Loyalty never computes or rounds a deposit.</li>
+ *   <li>A post-promotion amount of exactly zero is valid (decision 2026-11-12): FE-03 confirms such a booking without
+ *       the payment gateway. Only a negative amount is refused, which the calculator cannot produce.</li>
  * </ul>
  * In preview mode problems become reasons; in strict mode (accept) they are typed failures.
  */
@@ -101,7 +102,7 @@ public final class WorkshopBenefitEvaluator {
         }
         BigInteger pointDiscount = LoyaltyCalculator.pointDiscount(policy, used);
         BigInteger post = LoyaltyCalculator.earnBase(net, pointDiscount);
-        if (post.signum() <= 0) {
+        if (post.signum() < 0) {
             refuse(strict, reasons, LoyaltyErrorCode.WORKSHOP_NET_AMOUNT_INVALID,
                     BenefitReason.of(BenefitReasonCode.WORKSHOP_NET_AMOUNT_INVALID));
         }

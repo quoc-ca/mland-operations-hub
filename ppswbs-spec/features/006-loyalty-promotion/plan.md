@@ -167,7 +167,7 @@ Trạng thái xác thực và trạng thái nghiệp vụ được tách riêng:
 | FR-008–FR-010 | quota locks, revisions/registry, data-model mục4/5; US2.8–US2.9 | Usage hiện tại loại booking hủy hợp lệ nhưng giữ history; lower-limit concurrency, pause/resume/expiry vs existing holds. |
 | FR-011–FR-013 | OpenAPI public/member paths, webcontracts | Cards/detail limits/allowPoints, own wallet, save no hold, status/errors/no-store. |
 | FR-014–FR-018 | calculation/snapshot and atomic source contract | Mixed eligible rows, floor/fixed cap, best auto, points min/cap, quote changes, paid/zero. |
-| FR-019–FR-022 | booking source contract, gatesG04/G05 | Net-fee-before-deposit, single voucher cap, deposit consume only, zero reject/rollback. |
+| FR-019–FR-022 | booking source contract, gatesG04/G05 | Net-fee-before-deposit, single voucher cap, deposit consume only; post 0đ accepted và settle không qua cổng (2026-11-12), chỉ âm mới reject/rollback. |
 | FR-023–FR-027 | policy/wallet immutable revisions, Manager policy API | Shared balance, exact conversion, version policy change and old snapshot/no-early-use. |
 | FR-028–FR-031 | earn effects/ledger and MyLoyalty | Completed+paid only, net earning/floor, once/retry, own consistent balance/history. |
 | FR-032–FR-038 | lock order/effect states/source proof | Last-slot/same-wallet races, callback vs expiry/cancel, restore partial retry, no guessing unresolved. |
