@@ -262,6 +262,29 @@ payment and refund records, isolated from OTA payment/payout facts:
   `channelBookingReference`, `amountVnd`, `currencyCode` (VND), `reason`,
   `managerActorReference`, `createdAt`, `updatedAt`. Manager-only.
 
+### Per-ticket settlement records (decision 2026-11-12, spec FR-030–FR-045)
+
+Planned, not yet implemented (tasks Phase 8). Each record belongs to one ticket
+folio (003.1 ticket booking) unless stated.
+
+| Record | Key data | Invariants |
+| --- | --- | --- |
+| Ticket folio | ticket booking reference; base = ticket final price; booking-time collection (0 for `FREE`/deferred); lines; derived `paidAmount`/`balanceDue`; `OPEN`/`FINALIZED`/`CLOSED`; `loyaltyProcessedAt` | One per ticket. Free/deferred folio opens without payment evidence. |
+| Folio collection | method (`VNPAY`, `CASH`, `BANK_TRANSFER`, `BOOKING_TIME`); amount; status (`PENDING_VERIFICATION`, `CONFIRMED`, `FAILED`, `VOIDED`); reference (VNPay transaction, bank transaction, cash receipt); payer; confirmer; cash received/change; times | Only `CONFIRMED` counts. VNPay only from signed evidence; cash by collecting Staff; transfer by `workshop.payment.transfer.confirm`. A bank reference or cash confirmation is used once. VNPay collection ≥ 5,000. |
+| Handover exception | folio; Manager; reason; time | Only a Manager may allow product handover before verification. |
+| Debt record | folio; amount; Manager; reason; open/closed and closing reason | Manager-only; no automatic reminder, deadline or booking block. |
+| Cash day close | branch; working date (Vietnam time); system cash total; counted amount; difference and reason; closer; Manager confirmation of a difference | One per branch per working date. Cash after the close belongs to the next date. Confirmed cash of a closed date changes only through Manager correction. |
+| Refund request | ticket folio and group; source (`MLAND_CANCELLATION`, `LATE_PAYMENT`, `OVERCHARGE`, `EXCESS_OR_DUPLICATE`); amount; recipient (payer by default; another recipient needs the payer's recorded confirmation); status (`PENDING_ACCOUNT`, `PENDING_APPROVAL`, `PENDING_TRANSFER`, `PENDING_RECONCILIATION`, `REFUNDED`, `CLOSED_UNREACHABLE`); approver; transferring actor; bank reference and proof; reconciling Manager; times | Σ refunded + pending per ticket ≤ money collected for that ticket. Deduplicated create/confirm. Consequences apply only at `REFUNDED`. A legacy VNPay refund with code `99` is reconciled first. |
+| Refund account | refund request; bank; account number (encrypted, masked after `REFUNDED`); holder name; payer confirmation when names differ; channel (link/counter); entering actor; link token hash, expiry (7 days), revocation; reminder times (days 3, 7) | Full number visible only to the approving Manager and the transferring actor; never in email, logs or audit. |
+| Ticket cancellation | ticket; requester (buyer/Staff for buyer); channel; request time; first-session start; 24-hour outcome (`VALID`, `LATE`); points returned; voucher restoration reference | Idempotent. Voucher use restored at most once per group, only when every ticket ended by valid or Mland cancellation. |
+| Mland ticket remedy | ticket; cancelled session; replacement offered; buyer answer and deadline (24 h before replacement start); outcome (`MOVED`, `REFUND`); refund request reference | Not counted as a customer change. Voucher restored once for the group even when partial. |
+| Ticket change | ticket; type (`ADVANCE`, `LATE_ARRIVAL`, `MLAND`, `MANAGER_GRANTED`); from/to sessions; counted (yes/no); price effect (voucher allocation lost, balance increase); buyer confirmation; actor | At most one counted customer change per ticket unless a Manager grants more. Price never decreases. |
+
+Permissions used here: `workshop.payment.transfer.confirm` and
+`workshop.refund.execute` (Manager by default, grantable per person, never per
+shift); approving refunds, confirming `REFUNDED`, handover exceptions, debt
+records and cash-close differences are Manager-only.
+
 ## Integrity Rules
 
 1. At most one final bill exists for one direct booking/package.
