@@ -1,0 +1,315 @@
+/* Feature-012 Workshop Ring Design Configuration Stylesheet */
+
+.ring-design-container {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #1e293b;
+}
+
+.ring-design-header {
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 1.5rem;
+}
+
+.ring-design-title {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  margin: 0 0 0.5rem;
+}
+
+.ring-design-subtitle {
+  font-size: 1.05rem;
+  color: #64748b;
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+
+.ring-notice-banner {
+  background: #f8fafc;
+  border-left: 4px solid #b45309;
+  padding: 0.85rem 1.25rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: #78350f;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+/* Two-column layout for Configurator */
+.ring-configurator-layout {
+  display: grid;
+  grid-template-columns: 1fr 440px;
+  gap: 2.5rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .ring-configurator-layout {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column-reverse;
+  }
+}
+
+/* Controls Panel (Left Column) */
+.ring-controls-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.ring-section-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.ring-section-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 0.35rem;
+}
+
+.ring-section-desc {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0 0 1.25rem;
+}
+
+/* Selection Cards Grid */
+.ring-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.ring-option-card {
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.15rem;
+  cursor: pointer;
+  background: #ffffff;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.ring-option-card:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+}
+
+.ring-option-card.selected {
+  border-color: #0f172a;
+  background: #f8fafc;
+  box-shadow: 0 0 0 1px #0f172a;
+}
+
+.ring-option-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #0f172a;
+  margin-bottom: 0.35rem;
+}
+
+.ring-option-desc {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.4;
+  margin-bottom: 0.5rem;
+}
+
+.ring-option-price {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #b45309;
+}
+
+/* Pill Selectors */
+.ring-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.ring-size-pill {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 9999px;
+  padding: 0.45rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ring-size-pill:hover {
+  background: #f1f5f9;
+}
+
+.ring-size-pill.selected {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+/* Preview & Summary Panel (Right Column) */
+.ring-preview-panel {
+  position: sticky;
+  top: 2rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ring-svg-container {
+  width: 100%;
+  aspect-ratio: 1;
+  background: radial-gradient(circle at center, #ffffff 40%, #f1f5f9 100%);
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.ring-preview-svg {
+  width: 80%;
+  height: 80%;
+}
+
+.ring-summary-box {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.ring-summary-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.ring-summary-item:last-child {
+  border-bottom: none;
+}
+
+.ring-summary-label {
+  color: #64748b;
+}
+
+.ring-summary-value {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* Badges & Tags */
+.ring-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.ring-status-badge.draft { background: #fef3c7; color: #92400e; }
+.ring-status-badge.validated { background: #dcfce7; color: #166534; }
+.ring-status-badge.locked { background: #e2e8f0; color: #334155; }
+.ring-status-badge.archived { background: #fee2e2; color: #991b1b; }
+
+.ring-advisory-badge {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Action Buttons */
+.ring-btn-primary {
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.85rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.ring-btn-primary:hover:not(:disabled) {
+  background: #1e293b;
+  transform: translateY(-1px);
+}
+
+.ring-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ring-btn-secondary {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ring-btn-secondary:hover {
+  background: #f8fafc;
+}
+
+/* Error Notice & Recovery Card */
+.ring-error-card {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  color: #991b1b;
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.ring-recovery-card {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 1.5rem;
+  color: #92400e;
+  margin-bottom: 2rem;
+}
+

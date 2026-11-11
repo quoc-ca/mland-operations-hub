@@ -1,4 +1,4 @@
--- V109__workshop_ring_design_configuration.sql
+-- V110__workshop_ring_design_configuration.sql
 -- Feature 012 Workshop Ring Design Configuration physical schema and initial catalog seed
 
 CREATE TABLE guest_design_sessions (

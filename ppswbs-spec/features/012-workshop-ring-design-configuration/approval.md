@@ -7,33 +7,33 @@ Last updated by: Ngô Tiến Đạt
 
 ## Status
 
-`APPROVED FOR BACKEND IMPLEMENTATION — PHYSICAL MIGRATION V109 & BACKEND CODE AUTHORIZED`
+`APPROVED FOR FULL-STACK IMPLEMENTATION — BACKEND & FRONTEND AUTHORIZED`
 
-Formal approval granted by Tech Lead for Feature-012 backend persistence, Modulith architecture,
-REST API implementation, and Migration `V109__workshop_ring_design_configuration.sql`.
-Figma visual revision and frontend screens remain pending frontend phase.
+Formal approval granted by Tech Lead on 2026-11-09 for Feature-012 full-stack implementation:
+Backend persistence, Modulith architecture, REST API, Migration `V109__workshop_ring_design_configuration.sql`,
+and Frontend React + Vite configurator using Figma frames (457:1553, 457:1554, 457:1655, 457:1698, 457:1749, 457:1795).
 
-## Pending approval scope
+## Approved scope
 
-- `research.md` (Approved for backend)
-- `spec.md` (Approved for backend)
-- `data-model.md` (Approved for backend)
-- `contracts/workshop-ring-design.openapi.yaml` (Approved with DesignOptionsResponse addition)
-- `design/architecture.md` (Approved for backend)
-- `design/workflows.md` (Approved for backend)
-- `design/ui-flow.md` (Frontend baseline only)
-- `frontend-handoff.md` (Frontend baseline only)
+- `research.md` (Approved)
+- `spec.md` (Approved)
+- `data-model.md` (Approved)
+- `contracts/workshop-ring-design.openapi.yaml` (Approved)
+- `design/architecture.md` (Approved)
+- `design/workflows.md` (Approved)
+- `design/ui-flow.md` (Approved)
+- `frontend-handoff.md` (Approved)
 
 ## Required approval fields
 
 | Field | Value |
 | --- | --- |
-| Approved revision | Rev 1.0 (Backend) |
-| Approved scope | Backend implementation, Flyway V109 migration, OpenAPI synchronization, unit/integration test suite |
+| Approved revision | Rev 1.1 (Full-stack Backend & Frontend) |
+| Approved scope | Backend API, Flyway V109, OpenAPI DTOs, Frontend React 19 + Vite configurator, Vitest suite |
 | Date approved | 2026-11-09 |
 | Tech Lead | Ngô Tiến Đạt |
 | Physical migration approved | Yes (V109__workshop_ring_design_configuration.sql) |
-| Production code approved | Yes (Backend Spring Modulith module) |
+| Production code approved | Yes (Spring Modulith module & React 19 Frontend) |
 
 ## Conditions before implementation
 
@@ -42,10 +42,11 @@ Figma visual revision and frontend screens remain pending frontend phase.
 3. [x] Approve the Manager-owned option/rule facade and its versioned evaluation input/output contract. (`DesignOptionRulesPort`, advisory estimate, difficulty score, `DesignOptionsResponse`).
 4. [x] Approve the Workshop Booking attachment facade and transaction boundary. (`attachAndLockDesignForBooking(...)` and REST attachment endpoint).
 5. [x] Verify Flyway version/history; repository baseline verified at `V108`. Next append-only migration is confirmed as `V109__workshop_ring_design_configuration.sql`.
+6. [x] Approve Frontend visual baseline and Figma node IDs (`457:1553`, `457:1554`, `457:1655`, `457:1698`, `457:1749`, `457:1795`), `sessionStorage` for Guest session token, and 2D SVG Live Preview.
 
-## Figma evidence pending approval
+## Figma evidence approved
 
-The Feature-012 visual baseline has been created in the existing Figma file:
+The Feature-012 visual baseline is confirmed from the Figma design frames:
 
 ```text
 Section: 457:1553
@@ -55,6 +56,3 @@ Model/blank selection: 457:1698
 Validation/estimate: 457:1749
 Branch recovery: 457:1795
 ```
-
-The Figma revision identifier and explicit visual approval remain TBD. These
-node IDs provide traceability but are not approval evidence by themselves.
