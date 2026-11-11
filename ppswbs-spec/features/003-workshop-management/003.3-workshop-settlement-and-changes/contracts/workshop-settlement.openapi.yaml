@@ -74,6 +74,47 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/final-bill/operator:
+    parameters: [{$ref: '#/components/parameters/BookingCode'}]
+    get:
+      summary: Read the booking's folio as an operator
+      description: >-
+        Backfilled 2026-11-12 (9a5c877). Staff assigned to a session of the
+        booking, or any active Manager, reads the folio. The customer route
+        GET .../final-bill stays Member/Guest only and an operator never uses it.
+        An unassigned Staff is refused with SESSION_ASSIGNMENT_REQUIRED.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/FinalBill'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-bookings/{bookingCode}/final-bill/add-ons:
+    parameters: [{$ref: '#/components/parameters/BookingCode'}]
+    get:
+      summary: List catalogue add-ons an operator may add to the booking's OPEN folio
+      description: >-
+        Backfilled 2026-11-12 (9a5c877). Returns the active fixed-price add-ons of
+        the booking's published package and active location, priced from the
+        003.2 catalogue. Same operator authority as the operator read.
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Sellable add-ons
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [addOnReference, description, amountVnd]
+                  properties:
+                    addOnReference: {type: string}
+                    description: {type: string}
+                    amountVnd: {type: integer, format: int64, minimum: 0, description: Whole VND.}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/final-bill/charges:
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:

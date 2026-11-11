@@ -292,6 +292,50 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /ota-provider/booking-events:
+    post:
+      operationId: receiveOtaProviderBookingEvent
+      summary: Receive a provider booking callback (interim generic ingress).
+      description: >-
+        Backfilled 2026-11-12 from implementation (1fe139a). Interim, provider-neutral
+        ingress used before per-provider onboarding contracts are approved; it is not
+        the approved provider transport. The caller sends X-Ota-Signature, which the
+        server currently compares with the active connection's credential reference
+        for the provider and environment (test-prefixed values are accepted only when
+        ota.auth.allow-test-tokens is enabled). A CONFIRMED outcome returns 201 with
+        the Mland booking and ticket references; any other outcome returns 422 with a
+        rejection reason. Missing or wrong signature returns 401. Replacement by a
+        real signed provider callback is required before go-live (see
+        artifacts/003-spec-code-gap-review.md, E3).
+      security: []
+      parameters:
+        - name: X-Ota-Signature
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, environment, externalBookingReference, providerProductReference, providerOptionReference, participantCount, acceptedAmountMinor, currencyCode]
+              properties:
+                provider: { type: string }
+                environment: { type: string }
+                externalEventReference: { type: string }
+                externalBookingReference: { type: string, minLength: 1 }
+                providerProductReference: { type: string, minLength: 1 }
+                providerOptionReference: { type: string, minLength: 1 }
+                participantCount: { type: integer, minimum: 1 }
+                acceptedAmountMinor: { type: integer, format: int64, minimum: 1 }
+                currencyCode: { type: string, pattern: '^[A-Za-z]{3}$' }
+                externalPaymentEvidenceReference: { type: string }
+                correlationReference: { type: string }
+      responses:
+        '201': { $ref: '#/components/responses/ProviderEventAcknowledgement' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ProviderEventAcknowledgement' }
 components:
   parameters:
     ChannelId:
@@ -606,6 +650,23 @@ components:
               field: { type: string, maxLength: 100 }
               code: { type: string, maxLength: 100 }
   responses:
+    ProviderEventAcknowledgement:
+      description: Outcome of a provider booking callback.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status, externalBookingReference, participantCount, acknowledgedAt]
+            properties:
+              status: { type: string, description: CONFIRMED when the Mland booking and tickets were accepted; otherwise a rejection status. }
+              externalBookingReference: { type: string }
+              channelBookingReference: { type: [string, 'null'] }
+              mlandBookingReference: { type: [string, 'null'] }
+              participantCount: { type: integer }
+              ticketReferences: { type: array, items: { type: string } }
+              rejectionReason: { type: [string, 'null'] }
+              correlationReference: { type: [string, 'null'] }
+              acknowledgedAt: { type: string, format: date-time }
     ChannelList:
       description: Authorized channel mappings.
       content: { application/json: { schema: { $ref: '#/components/schemas/ChannelList' } } }

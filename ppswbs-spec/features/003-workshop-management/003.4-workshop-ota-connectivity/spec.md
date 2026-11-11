@@ -99,6 +99,17 @@ are evidenced.
 - If retry is exhausted before the update is reconciled, Mland closes sales for
   the affected OTA mapping. It continues to record inbound provider events for
   reconciliation and reopens sales only after a successful confirmed re-sync.
+- **Interim provider booking ingress (backfilled 2026-11-12, 1fe139a):** before
+  per-provider onboarding contracts are approved, inbound booking callbacks use
+  the provider-neutral `POST /api/v1/ota-provider/booking-events`. It identifies
+  provider, environment, external booking/event references, provider
+  product/option, participant count, accepted amount and currency; a confirmed
+  outcome returns the Mland booking and ticket references, a rejection returns a
+  reason. Caller authentication currently compares `X-Ota-Signature` with the
+  active connection's credential reference (test tokens only when
+  `ota.auth.allow-test-tokens` is on). This is not an approved provider
+  signature scheme and must be replaced by each provider's signed callback
+  before go-live.
 - A booking for N participants creates exactly N active Mland tickets. The OTA
   must deliver each ticket/QR individually before the option can be sold.
 - A shared voucher/order code is only an authorized, audited post-go-live

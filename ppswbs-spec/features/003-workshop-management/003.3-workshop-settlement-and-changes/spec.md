@@ -117,6 +117,19 @@ only the exceptional correction flow (T040) applies.
   `REFUND_PENDING`/`REFUNDED` during a Mland remedy (D14); a Mland remedy emits
   Loyalty `VALID_WORKSHOP_CANCELLATION` (D15); OTA laser engraving is always
   free (D16). See FR-001, FR-001a and FR-021.
+- **Loyalty outcome processing (backfilled 2026-11-12, ade3df0, 4fa224e)**: the
+  outcome is decided only from the authoritative attendance outcome and folio
+  state: terminal `NO_SHOW` → `WORKSHOP_NO_SHOW_FINAL` whether the folio is
+  `OPEN` or `CLOSED`; terminal `ATTENDED`/`PARTIAL` →
+  `WORKSHOP_COMPLETED_AND_FULLY_PAID` only when the folio is `FINALIZED` with
+  zero balance (a `CLOSED` folio never grants); a `CLOSED` folio from an
+  accepted customer cancellation or a Mland remedy of a Member booking →
+  `VALID_WORKSHOP_CANCELLATION`. A scheduler is the single trigger and retry,
+  outside the cancellation, remedy, finalize and attendance transactions; once
+  decided the folio's `loyaltyProcessedAt` is set and it is not rescanned.
+  Booking keeps the Member Loyalty source while the booking is `CONFIRMED`,
+  `COMPLETED`, `NO_SHOW` or `CANCELLED`, so a completed Member booking is not
+  treated as a Guest booking.
 - **D17–D18**: an OTA shop add-on bill uses the server-derived price of the
   active 003.2 catalogue add-on (no actor-entered amount), and in-scope Staff
   or any active Manager may quote and bill it, the same rules as direct-booking

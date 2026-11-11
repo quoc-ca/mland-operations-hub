@@ -558,6 +558,29 @@ scope. The target implementation and all public contracts use `location` and
   not create or alter the catalogue per branch. It includes
   `OTHER_REQUIRES_NOTE` for an unlisted exception, which always requires a
   clear note or evidence reference.
+- **Reason-code catalogue (backfilled 2026-11-12 from implementation):**
+
+  | Code | Used for | Note | Evidence |
+  |---|---|:-:|:-:|
+  | `TICKET_REDELIVERY_UNAVAILABLE` | Check-in override after a failed ticket redelivery | Required | Required (failed-redelivery correlation reference) |
+  | `CUSTOMER_DEVICE_UNAVAILABLE` | Check-in override: customer device dead, damaged or unavailable onsite | — | — |
+  | `EARLY_CHECKIN` | Check-in override: customer admitted before the check-in window opens | — | — |
+  | `PHYSICAL_VOUCHER_VERIFIED` | Check-in override: printed confirmation verified by Staff | — | — |
+  | `INSTRUCTOR_UNAVAILABLE` | Session cancellation: instructor/craftsperson unavailable | Required | — |
+  | `FACILITY_ISSUE` | Session cancellation: facility, power, tool or equipment failure | Required | — |
+  | `WEATHER_EMERGENCY` | Session cancellation: severe weather or natural disaster | Required | — |
+  | `RECORDING_ERROR` | Attendance correction: scanning error or mistaken identification | Required | — |
+  | `OTHER_REQUIRES_NOTE` | Any unlisted exception | Required | — |
+
+  An unrecognized code is rejected. The catalogue is fixed in code; changing it
+  is a spec change.
+- **Visible-location configuration (backfilled 2026-11-12 from 8d8e5a4):** the
+  deployment setting `workshop.operations.visible-location-ids`
+  (environment `WORKSHOP_OPERATIONS_VISIBLE_LOCATION_IDS`) lists the location
+  IDs shown by public package/session/location discovery and Operations lists.
+  Empty means every active location is visible. It is an environment filter
+  (for example to hide test locations), not a business permission, and it does
+  not replace Staff location scope.
 
 ## User scenarios
 

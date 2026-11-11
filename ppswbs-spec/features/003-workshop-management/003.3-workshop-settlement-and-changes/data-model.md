@@ -44,6 +44,14 @@ append-only Flyway backfill creates OPEN folios for existing confirmed direct
 bookings. Physical columns, constraints and Flyway version are chosen during
 003.3 T087.
 
+**Loyalty processing marker (backfilled 2026-11-12, V97, ade3df0)**: nullable
+`loyaltyProcessedAt` is set once the Loyalty outcome for the folio is decided
+(earn granted, no-show final, or benefits restored), so a decided folio is not
+rescanned. The Loyalty outcome scheduler is the single trigger and retry; no
+Loyalty call runs inside the cancellation, remedy, finalize or attendance
+transactions, and a Loyalty failure rolls back only the processor run for the
+next retry.
+
 ### Folio Correction (T040, owner decisions D7–D10, 2026-11-05)
 
 A separate immutable record linked to one `FINALIZED` direct folio. It covers
@@ -73,6 +81,12 @@ Staff/Manager confirmation. A correction is an audited void/adjustment record,
 never an overwrite, and is allowed only while the folio is `OPEN`; after
 `FINALIZED` only a Folio Correction (overcharge refund) applies. Legacy charges created before description retention may
 have no customer-visible description.
+
+**Operator confirmation evidence (backfilled 2026-11-12, V103, 9a5c877)**: each
+catalogue add-on or variable charge stores `consentReference`
+(server-generated `CONSENT-<id>`), `consentRecordedBy` (acting account) and
+`consentRecordedAt`. It evidences the operator's statement that the customer
+agreed, not the customer's own consent.
 
 ### Settlement Case
 
@@ -222,6 +236,24 @@ opaque operation/key, semantic request identity, original safe outcome and
 correlation reference. The same key/content returns that outcome; changed reuse
 is a conflict. VNPay replay protection instead uses the verified provider
 transaction/reference.
+
+### OTA Shop Add-on Bill Payment and Refund (backfilled 2026-11-12, V99/V104, 6e2ca7a)
+
+A separate direct-Mland shop add-on bill of an OTA booking (003.4) has its own
+payment and refund records, isolated from OTA payment/payout facts:
+
+- **Add-on bill**: also stores nullable `mlandBookingReference`, the Mland
+  booking that holds the tickets, so Staff authority follows assignment to that
+  booking's sessions. A legacy bill without it stays Manager-only for Staff.
+- **Add-on payment attempt**: `attemptReference`, `billReference`,
+  `channelBookingReference`, `operationReference`, `merchantReference`,
+  `amountVnd`, `currencyCode`, `providerCreateDate`, optional payment URL
+  snapshot, `lifecycleStatus` (`PENDING`, `UNKNOWN`, `VERIFIED_PAID`,
+  `VERIFIED_UNPAID`, `EXPIRED`), `createdAt`, `expiresAt`. A registered payment
+  owner kind lets the shared VNPay ingress route the verified outcome here.
+- **Add-on refund**: `refundReference`, `caseReference`, `billReference`,
+  `channelBookingReference`, `amountVnd`, `currencyCode` (VND), `reason`,
+  `managerActorReference`, `createdAt`, `updatedAt`. Manager-only.
 
 ## Integrity Rules
 
