@@ -53,7 +53,7 @@ Ký hiệu `USn.m` là kịch bản m của User Story n. Khoảng số bao gồ
 | FR-014, FR-015 | US4.1–US4.3 | Phần đủ điều kiện, trần/làm tròn, cố định một lần và chọn giảm tự động. |
 | FR-016 | US4.4–US4.6 | Hiển thị khoản tiền, khả dụng/tối đa và khách chọn điểm. |
 | FR-017, FR-018 | US4.7–US4.9; US7.9 | Xác nhận lại, giữ cùng đơn và chốt đơn trả đủ/0đ. |
-| FR-019–FR-022 | US5.1–US5.4, US5.6, US5.7 | Điều kiện booking, tính cọc sau giảm, chốt cọc, từ chối miễn phí. |
+| FR-019–FR-022 | US5.1–US5.4, US5.6, US5.7 | Điều kiện booking, phí sau giảm giao cho FE-03 tính cọc, chốt cọc, booking 0đ hợp lệ (2026-11-12). |
 | FR-023 | US6.3, US6.5 | Điểm dùng chung, không hết hạn/hạng hoặc dùng trước khi cấp. |
 | FR-024, FR-025 | US4.4–US4.6; US5.2, US5.3; US8.1 | Bộ thông số đầu, trần/tối thiểu và cơ sở tính hai dịch vụ. |
 | FR-026, FR-027 | US8.1–US8.5; US6.7 | Quyền/cấu hình hợp lệ, chính sách giao dịch cũ/mới. |

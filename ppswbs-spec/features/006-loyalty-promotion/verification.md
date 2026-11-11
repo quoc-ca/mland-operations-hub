@@ -524,7 +524,7 @@ Ký hiệu kết quả: **ĐẠT** = có test chạy thật trên MySQL/nguồn 
 | FR-019 | Kiểm tra gói/chi nhánh/ngày/phiên, một voucher/booking | T056–T059 | `LoyaltyWorkshopQuoteTest`, `LoyaltyWorkshopFacadeIT`, `LoyaltyWorkshopBookingAcceptanceIT` (FE-03 thật) | ĐẠT |
 | FR-020 | Voucher rồi điểm → `post_promotion_amount`; cọc do FE-03 | T056–T060 | `LoyaltyWorkshopBookingAcceptanceIT` (cọc ceil(post/2), net lẻ) | ĐẠT |
 | FR-021 | Giữ khi accept, chốt khi cọc xác minh | T059, T060 | `LoyaltyWorkshopBookingAcceptanceIT`, `LoyaltyWorkshopSourceIntegrationIT` | ĐẠT |
-| FR-022 | Từ chối phí sau giảm ≤ 0 | T058 | `LoyaltyWorkshopQuoteTest`, `LoyaltyWorkshopFacadeIT` (`WORKSHOP_NET_AMOUNT_INVALID`) | ĐẠT |
+| FR-022 | *(sửa 2026-11-12)* Phí sau giảm 0đ được chấp nhận (voucher hoặc điểm với trần 100%); chỉ âm mới từ chối | T058 | `LoyaltyWorkshopQuoteTest` (`aZeroFeeAfterBenefitsIsAccepted`, `pointsCanTakeTheFeeToZeroWhenThePolicyCapAllowsIt`) — 14/14 qua ngày 2026-11-12 | ĐẠT (unit); luồng booking 0đ thật chờ FE-03 |
 | FR-023 | Một số dư chung, điểm không hết hạn | T011, T012 | `LoyaltyEntityRulesTests`, `LoyaltyRetentionIT` | ĐẠT |
 | FR-024 | Cấu hình khởi đầu 10.000đ/100đ/10 điểm/10% | T031–T033 | `LoyaltyMySqlMigrationIT`, `LoyaltyPolicyContractIT`; quan sát lại ở `LoyaltyWorkshopBookingAcceptanceIT` (trần 10%) | ĐẠT |
 | FR-025 | Điểm dùng nguyên, không vượt khả dụng/trần | T020, T051 | `LoyaltyCalculationTest`, `LoyaltyRetailQuoteTest` | ĐẠT |

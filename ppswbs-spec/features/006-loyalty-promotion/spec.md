@@ -154,12 +154,12 @@ Là Member đặt trực tiếp website, tôi muốn dùng voucher workshop và 
 **Acceptance Scenarios**:
 
 1. **Given** voucher hợp lệ theo gói, chi nhánh, ngày/phiên, thời gian đặt, ngưỡng và hạn mức, **When** chọn, **Then** tối đa một voucher/booking; trần giảm cho cả booking không nhân số người.
-2. **Given** phí gói 1.000.000đ, voucher giảm 100.000đ cho kết hợp, dùng 200 điểm, **When** tính, **Then** phí còn 880.000đ, cọc `ceil(880.000/2)` = 440.000đ và còn thu 440.000đ. Nếu phí sau giảm lẻ (ví dụ voucher cố định 15.001đ → 984.999đ) thì cọc = 492.500đ, còn lại 492.499đ; FE-06 không tính và không lưu cọc: chỉ giao `post_promotion_amount` cho 003.1, quy tắc cọc và số còn lại thuộc 003.1. Phí sau giảm 1đ vẫn hợp lệ (phí sau giảm dương); cọc và còn lại khi đó do 003.1 quyết định.
+2. **Given** phí gói 1.000.000đ, voucher giảm 100.000đ cho kết hợp, dùng 200 điểm, **When** tính, **Then** phí sau ưu đãi (`post_promotion_amount`) là 880.000đ. FE-06 không tính và không lưu cọc: chỉ giao `post_promotion_amount` cho 003.1; quy tắc cọc, số còn lại và cách thu khoản nhỏ hơn mức tối thiểu của cổng thanh toán đều thuộc 003.1. *(Quyết định 2026-11-12)* Phí sau ưu đãi 0đ hoặc 1đ đều hợp lệ với FE-06.
 3. **Given** booking trên, **When** chọn điểm, **Then** trần theo phí sau voucher 900.000đ là 90.000đ/900 điểm, còn bị giới hạn bởi điểm khả dụng; không tính riêng trên cọc. Không được kết hợp hoặc dưới mức tối thiểu thì không cho dùng và nêu lý do.
-4. **Given** xác nhận booking hợp lệ, **When** FE-03 chấp nhận, **Then** giữ lượt/điểm và ghi chính sách lúc đặt; xác minh cọc thành công mới chốt/trừ. Thu phần còn lại không giảm voucher hoặc trừ điểm lần nữa.
+4. **Given** xác nhận booking hợp lệ, **When** FE-03 chấp nhận, **Then** giữ lượt/điểm và ghi chính sách lúc đặt; xác minh cọc thành công, hoặc FE-03 xác nhận booking 0đ không qua cổng thanh toán, mới chốt/trừ. Thu phần còn lại không giảm voucher hoặc trừ điểm lần nữa.
 5. **Given** mới đặt/trả cọc/check-in hoặc đã trả đủ nhưng chưa hoàn thành, **When** xét điểm mới, **Then** chưa cộng; khi hoàn thành và trả đủ 880.000đ thì cộng một lần 88 điểm.
 6. **Given** mã sản phẩm hoặc sai gói/chi nhánh/ngày/phiên/thời gian đặt, **When** áp dụng, **Then** từ chối kèm lý do. Hết lượt/thiếu điểm trước xác nhận thì tính lại và cho xác nhận phí/cọc mới.
-7. **Given** phí sau giảm bằng 0/âm hoặc nghĩa vụ thanh toán không đạt FE-03, **When** xác nhận, **Then** từ chối, cho điều chỉnh; không tạo booking miễn phí hoặc giữ dở dang.
+7. *(Quyết định 2026-11-12)* **Given** voucher hoặc điểm đưa phí sau ưu đãi về đúng 0đ, **When** xác nhận, **Then** FE-06 trả `post_promotion_amount` = 0 và cho chấp nhận; FE-03 xác nhận booking không qua cổng thanh toán và gọi chốt quyền lợi như khi cọc thành công. Phí sau ưu đãi âm không thể xảy ra (tiền giảm không vượt phí); nếu dữ liệu sai dẫn tới âm thì từ chối `WORKSHOP_NET_AMOUNT_INVALID`, không giữ dở dang.
 8. **Given** yêu cầu áp dụng ưu đãi workshop ngoài hành trình Member đặt trực tiếp website, **When** xử lí, **Then** không tự mở rộng quyền lợi này sang Guest hoặc đăng ký ngoại bộ.
 
 ### User Story 6 - Tích điểm và xem My Loyalty (Priority: P1)
@@ -228,7 +228,7 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 - Giỏ trộn dòng đủ/không đủ điều kiện; ngưỡng vừa đủ/thiếu một đồng; giảm cố định vượt phần đủ điều kiện; phần trăm có phần lẻ không làm tổng âm.
 - Nhiều giảm tự động bằng khoản giảm ưu tiên tạo trước; thứ tự phụ khi trùng cả thời điểm thuộc thiết kế plan, không thay quy tắc khoản giảm lớn nhất.
 - Chọn 0 điểm là không dùng; chọn 1–9 điểm theo cấu hình đầu không hợp lệ. Khả dụng phải trừ mọi phần đang giữ, không chỉ đọc số dư tổng.
-- Sản phẩm 0đ theo FE-08 không chờ cổng thanh toán; workshop 0đ bị từ chối. Trần điểm 10% không tự mở thành thanh toán toàn bộ bằng điểm.
+- *(Quyết định 2026-11-12)* Sản phẩm 0đ theo FE-08 và workshop 0đ theo FE-03 đều không chờ cổng thanh toán; FE-06 không từ chối phí sau ưu đãi bằng 0. Trần dùng điểm là thông số Manager cấu hình (FR-026, lớn hơn 0 và tối đa 100%, khởi đầu 10%); với trần 10% điểm không trả hết được, nếu Manager đặt 100% thì điểm có thể đưa số tiền về 0đ. Số tiền sau ưu đãi từ 1đ đến dưới mức tối thiểu của VNPay (5.000đ) do FE-03/FE-08 xử lý ở luồng thanh toán của họ; FE-06 không giới hạn thêm.
 - Trả đủ nhưng chưa hoàn thành, hoặc hoàn thành nhưng chưa trả đủ đều chưa tích; đủ hai điều kiện theo thứ tự nào cũng chỉ cộng một lần.
 - Đổi chính sách/dừng/hết hạn sau chấp nhận không sửa quyền lợi giữ hợp lệ; đặt lại sau giải phóng phải kiểm tra điều kiện mới.
 - Hạ hạn mức khi có giữ/chốt mới phải kiểm tra số liệu hiện tại, không hủy phần giữ để ép lưu.
@@ -276,7 +276,7 @@ Là Manager, tôi muốn quản lí thông số chung của điểm thưởng v�
 - **FR-019**: Hệ thống MUST kiểm tra gói/chi nhánh/ngày/phiên, thời gian đặt, phí tối thiểu/hạn mức; tối đa một voucher/booking, trần cả booking không nhân số người. Với gói nhiều phiên, MUST kiểm tra mọi phiên đã chọn: một phiên ngoài phạm vi chi nhánh/ngày/phiên của voucher thì từ chối (làm rõ 2026-10-29).
 - **FR-020**: Workshop MUST trừ voucher trên phí gói, tiếp đến điểm nếu được phép, để ra `post_promotion_amount` (nguyên VND). FE-03/003.1 tính `deposit = ceil(post_promotion_amount / 2)` và `remaining = post_promotion_amount - deposit`; FE-06 MUST NOT tự làm tròn theo quy tắc khác, và MUST chỉ gửi/snapshot `post_promotion_amount` khi booking được chấp nhận; cọc và còn lại do 003.1 tính và giữ (003.3 dùng giá trị frozen của 003, không tính lại voucher/điểm/cọc). Hiển thị phí đầu, từng khoản giảm, phí phải trả, cọc và còn lại. Thu phần còn lại không giảm/trừ lại. Phí sau giảm lẻ vẫn hợp lệ, không bị từ chối vì lẻ.
 - **FR-021**: FE-03 chấp nhận booking thì MUST giữ lượt/điểm và ghi chính sách; xác minh cọc thành công mới chốt/trừ. Điểm/hạn mức/giá thay đổi trước chấp nhận phải tính lại và cho xác nhận phí/cọc.
-- **FR-022**: Phiên bản này MUST từ chối phí workshop sau giảm bằng 0/âm hoặc nghĩa vụ thanh toán không hợp lệ theo FE-03; cho điều chỉnh, không tạo booking miễn phí/giữ dở dang.
+- **FR-022** *(sửa 2026-11-12)*: Phí workshop sau ưu đãi bằng 0đ MUST được chấp nhận; FE-03 xác nhận booking 0đ không qua cổng thanh toán và chốt quyền lợi như khi cọc thành công. Chỉ phí sau ưu đãi âm (do dữ liệu sai) bị từ chối `WORKSHOP_NET_AMOUNT_INVALID`, không giữ dở dang. Cách thu số tiền dương nhỏ hơn mức tối thiểu của cổng thanh toán thuộc FE-03.
 
 **Điểm và cấu hình**
 
