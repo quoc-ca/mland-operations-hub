@@ -802,6 +802,16 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-006**: The system MUST create at most one customer-facing pending booking
   for a single accepted booking submission and must not leave an incomplete
   booking when creation fails.
+- **FR-006a** *(backfilled 2026-11-12 from 46e72c0, 78d79a3, 0b78d86)*: On the
+  booking page a signed-in Member picks a voucher from the Member's own voucher
+  wallet ("Kho Voucher") instead of typing a code, and sees the Member's
+  available points. The page requests a quote automatically when the selection
+  changes. `benefitSelection.voucherCode` is sent only for `choice = VOUCHER`
+  and is omitted for `NONE`.
+- **FR-006b** *(backfilled 2026-11-12 from 78d79a3)*: The quote response MUST
+  return, alongside `reasons`, `reasonDetails` with a stable reason code and a
+  Vietnamese customer message for each reason; the message falls back to the
+  original reason text when no translation exists.
 - **FR-007**: The system MUST create one payment-pending package invoice per
   booking and freeze the package total, post-promotion amount, deposit, and
   remaining amount together. The package total is the selected participant count
@@ -1145,6 +1155,36 @@ appropriate booking summary without exposing another customer's booking.
   and MUST NOT be implemented here.
 - **FR-021**: The system MUST restore the held participant capacity when a
   pending booking expires, exactly once.
+- **FR-021a** *(backfilled 2026-11-12 from b662e42, 6987155)*: An authenticated
+  Member MUST be able to list their own workshop bookings through
+  `GET /api/v1/members/me/workshop-bookings`: at most 30 bookings, newest
+  creation first. An `EXPIRED` booking is listed only while its
+  `holdExpiresAt` is within the last 24 hours, so the customer sees what
+  happened; older expired holds are left out. A booking that cannot be
+  projected is skipped without failing the list. A signed-in Member opens a
+  booking from this list ("Đặt chỗ của tôi") instead of typing a booking code.
+- **FR-021b** *(backfilled 2026-11-12 from b662e42)*: The booking projection MUST
+  expose a display-only `attendanceStatus`: null before attendance is
+  finalized, `ATTENDED`, `NO_SHOW_PENDING` while a recorded no-show is inside
+  the 24-hour attendance-correction window, or `NO_SHOW` when final. It does
+  not change `bookingStatus`, which still changes only on the 003.3 conclusion
+  (FR-020).
+- **FR-021c** *(backfilled 2026-11-12 from b662e42, c60056e, 12e7b76)*: Only the
+  booking's own Member projection (list and detail) MUST include opaque
+  `ticketReferences`; Guest lookup and Magic Link projections MUST NOT. A
+  screen uses them to match a Feature-011 review source (one ticket) to the
+  right booking and offers a review only for an attended ticket that Feature
+  011 reports eligible. 003.1 does not decide review eligibility.
+- **FR-017j** *(backfilled 2026-11-12 from f707cbe)*: When a Guest or Member
+  releases an active pending hold and no payment attempt and no late-payment
+  evidence exists for the booking, the release MUST also give back the points
+  and voucher held by the Member quote, exactly as an unpaid expiry does. When a
+  payment attempt was already started, the release MUST NOT release those
+  benefits; the verified payment outcome decides them. **Open issue
+  (2026-11-12, E1 in `artifacts/003-spec-code-gap-review.md`):** deposit
+  reconciliation only processes `PENDING_PAYMENT` bookings, so a released
+  (`CANCELLED`) booking whose payment never succeeds may keep its benefits held;
+  the rule for that case must be fixed before relying on it.
 - **FR-022**: The system MUST preserve the financial-status vocabulary needed by
   later workshop lifecycle features, including `FULLY_PAID`, without implementing
   final-payment settlement in this feature.
