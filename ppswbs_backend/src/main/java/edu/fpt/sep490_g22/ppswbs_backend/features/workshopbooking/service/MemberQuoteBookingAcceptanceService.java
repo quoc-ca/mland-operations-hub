@@ -25,6 +25,8 @@ import java.util.*;
 @RequiredArgsConstructor
 public class MemberQuoteBookingAcceptanceService {
     private static final TypeReference<List<WorkshopSessionFact>> SESSION_FACTS = new TypeReference<>() {};
+    /** Reference of the internal 0 VND acceptance used as the Loyalty settle key; it is not payment evidence. */
+    static final String ZERO_AMOUNT_EVIDENCE_PREFIX = "ZERO-AMOUNT-";
 
     private final WorkshopBookingAuthorizationService authorization;
     private final WorkshopOperationsAdapter operations;
@@ -37,6 +39,8 @@ public class MemberQuoteBookingAcceptanceService {
     private final BookingAuditEvidenceRepository audits;
     private final BookingIdempotencyService idempotency;
     private final ObjectMapper mapper;
+    private final BookingLifecycleService lifecycle;
+    private final WorkshopBookingLoyaltyOutcomeService loyaltyOutcome;
 
     /** Authenticate before the controller returns a cached idempotent response. */
     public Long requireMemberAccountId(String authorizationHeader, String quoteReference) {
@@ -189,10 +193,18 @@ public class MemberQuoteBookingAcceptanceService {
         quote.setAcceptedBookingCode(bookingCode);
         quotes.save(quote);
 
+        if (postPromotionAmount == 0L) {
+            // FR-007a1: a 0 VND booking (benefits cover the whole price) is confirmed here, without the payment
+            // gateway, and its held benefits are settled in the same transaction (006 workshop-booking-integration).
+            booking = lifecycle.confirmZeroAmountBooking(bookingCode, "ZERO-" + bookingCode, correlationReference);
+            loyaltyOutcome.settleVerifiedDeposit(booking, ZERO_AMOUNT_EVIDENCE_PREFIX + bookingCode);
+        }
+
         BookingSummaryResponse response = BookingSummaryResponse.builder().bookingCode(bookingCode)
                 .bookingStatus(booking.getBookingStatus().name()).paymentStatus(booking.getPaymentStatus().name())
                 .packageId(booking.getPackageId()).packageName(booking.getPackageNameSnapshot())
-                .participantCount(booking.getParticipantCount()).holdExpiresAt(booking.getHoldExpiresAt())
+                .participantCount(booking.getParticipantCount())
+                .holdExpiresAt(booking.getBookingStatus() == BookingStatus.CONFIRMED ? null : booking.getHoldExpiresAt())
                 .sessions(responseSessions).tickets(List.of()).build();
         completeClaim(claim, response);
         return response;
@@ -221,8 +233,9 @@ public class MemberQuoteBookingAcceptanceService {
     }
 
     private long exactVnd(BigInteger amount) {
-        if (amount == null || amount.signum() <= 0) {
-            throw new BookingCreationRejectedException("WORKSHOP_NET_AMOUNT_INVALID", "The accepted workshop amount must be positive");
+        // 0 VND is valid since 2026-11-12 (FR-007a1); only a negative amount is refused.
+        if (amount == null || amount.signum() < 0) {
+            throw new BookingCreationRejectedException("WORKSHOP_NET_AMOUNT_INVALID", "The accepted workshop amount must not be negative");
         }
         try {
             return amount.longValueExact();

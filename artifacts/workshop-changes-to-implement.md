@@ -183,7 +183,7 @@ Theo bản đề xuất cuối và các quyết định đã chốt, áp dụng 
 - Sửa `DirectBookingFolioOpeningService`: hiện không mở hóa đơn khi không có thanh toán cọc đã xác minh hoặc tổng cọc đã xác minh bằng 0. Chỉ bổ sung ngoại lệ cho booking miễn phí đã được xác nhận hợp lệ; vé có thu tiền vẫn phải có bằng chứng thanh toán đúng quy định.
 - Kiểm thử vé 0đ không có dịch vụ thêm, có dịch vụ thêm, gọi lặp, và vé 0đ trong giỏ phải chờ thanh toán chung trước khi mở hóa đơn.
 
-**Trạng thái:** Đã ghi nhận vấn đề 3; chưa sửa spec/code.
+**Trạng thái:** Đã ghi nhận vấn đề 3. **Cập nhật 12/11/2026:** đã làm phần booking đơn lẻ 0đ (chưa có giỏ): 003.1 FR-007a1 xác nhận booking 0đ trong giao dịch nhận quote, không gọi VNPay, không tạo payment receipt, settle quyền lợi Loyalty cùng giao dịch; `DirectBookingFolioOpeningService` mở folio 0đ cho booking đã xác nhận có giá và cọc bằng 0. Phần giỏ nhiều vé (vé 0đ chờ thanh toán chung) chưa làm.
 
 ## Hóa đơn cuối: thu toàn bộ số dư và xử lý ngoại lệ dưới 5.000đ
 

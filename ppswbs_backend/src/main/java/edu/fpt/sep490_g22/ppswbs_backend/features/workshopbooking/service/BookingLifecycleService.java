@@ -255,7 +255,57 @@ public class BookingLifecycleService {
                     bookingCode, invoice.getDepositAmount(), amountReceived);
             throw new BookingValidationException("Received amount does not match deposit requirement");
         }
+        if (amountReceived == null || amountReceived <= 0) {
+            // A 0 VND booking is confirmed by confirmZeroAmountBooking, never through payment evidence.
+            throw new BookingValidationException("A payment confirmation needs a positive amount");
+        }
 
+        booking = commitHoldsAndConfirm(booking, operationReference, correlationReference);
+
+        // Record payment receipt
+        BookingPaymentReceipt receipt = BookingPaymentReceipt.builder()
+                .booking(booking)
+                .providerEventId(providerEventId)
+                .providerName(providerName != null ? providerName : "VNPAY")
+                .amountReceived(amountReceived)
+                .receivedAt(Instant.now())
+                .safePayloadHash(safePayloadHash != null ? safePayloadHash : "UNKNOWN_HASH")
+                .build();
+        paymentReceiptRepository.save(receipt);
+
+        return issueTicketsAndPublish(booking, "PAYMENT_CONFIRMED", correlationReference);
+    }
+
+    /**
+     * FR-007a1 (2026-11-12): confirms a booking whose accepted post-promotion amount is 0 VND inside the acceptance
+     * transaction, without the payment gateway. It commits the holds, sets CONFIRMED, issues tickets and the Magic
+     * Link and publishes the same confirmation events as a paid deposit, but records no payment receipt: no money
+     * was received. The deposit requirement of 0 VND is met, so the financial status is DEPOSIT_PAID.
+     */
+    @Transactional
+    public WorkshopBooking confirmZeroAmountBooking(String bookingCode, String operationReference,
+                                                    String correlationReference) {
+        WorkshopBooking booking = bookingRepository.findByBookingCode(bookingCode)
+                .orElseThrow(() -> new BookingNotFoundException("Booking " + bookingCode + " not found"));
+        if (booking.getBookingStatus() == BookingStatus.CONFIRMED) {
+            return booking;
+        }
+        if (booking.getBookingStatus() != BookingStatus.PENDING_PAYMENT) {
+            throw new BookingConflictException("Booking is in status " + booking.getBookingStatus() + ", cannot confirm");
+        }
+        BookingInvoice invoice = invoiceRepository.findByBookingId(booking.getId())
+                .orElseThrow(() -> new IllegalStateException("Invoice missing for booking " + bookingCode));
+        if (invoice.getPostPromotionAmount() == null || invoice.getPostPromotionAmount() != 0L
+                || invoice.getDepositAmount() == null || invoice.getDepositAmount() != 0L) {
+            throw new BookingValidationException("Only a 0 VND booking is confirmed without payment");
+        }
+        booking = commitHoldsAndConfirm(booking, operationReference, correlationReference);
+        return issueTicketsAndPublish(booking, "ZERO_AMOUNT_CONFIRMED", correlationReference);
+    }
+
+    private WorkshopBooking commitHoldsAndConfirm(WorkshopBooking booking, String operationReference,
+                                                  String correlationReference) {
+        String bookingCode = booking.getBookingCode();
         // Commit holds in Workshop Operations
         List<BookingCapacityHold> holds = holdRepository.findByBookingId(booking.getId());
         List<UUID> holdUuids = new ArrayList<>();
@@ -285,19 +335,12 @@ public class BookingLifecycleService {
         booking.setBookingStatus(BookingStatus.CONFIRMED);
         booking.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
         booking.setConfirmedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
-        booking = bookingRepository.save(booking);
+        return bookingRepository.save(booking);
+    }
 
-        // Record payment receipt
-        BookingPaymentReceipt receipt = BookingPaymentReceipt.builder()
-                .booking(booking)
-                .providerEventId(providerEventId)
-                .providerName(providerName != null ? providerName : "VNPAY")
-                .amountReceived(amountReceived)
-                .receivedAt(Instant.now())
-                .safePayloadHash(safePayloadHash != null ? safePayloadHash : "UNKNOWN_HASH")
-                .build();
-        paymentReceiptRepository.save(receipt);
-
+    private WorkshopBooking issueTicketsAndPublish(WorkshopBooking booking, String auditAction,
+                                                   String correlationReference) {
+        String bookingCode = booking.getBookingCode();
         List<BookingSessionCommitment> commitments = commitmentRepository.findByBookingIdOrderByOrdinalAsc(booking.getId());
         // Operations is the only authority for issued ticket identities. Never invent a ticket fallback.
         BookingConfirmationService.ConfirmedTicketProjection confirmedTickets = bookingConfirmationService
@@ -336,7 +379,7 @@ public class BookingLifecycleService {
                 .bookingCode(bookingCode)
                 .locationId(confLocId)
                 .actorType("SYSTEM")
-                .action("PAYMENT_CONFIRMED")
+                .action(auditAction)
                 .outcome("ACCEPTED")
                 .correlationReference(correlationReference)
                 .occurredAt(Instant.now())

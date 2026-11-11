@@ -826,6 +826,24 @@ appropriate booking summary without exposing another customer's booking.
   immutable after acceptance. The system MUST preserve these snapshots and MUST
   NOT reject an otherwise valid booking merely because the post-promotion
   amount is odd VND.
+- **FR-007a1** *(2026-11-12, aligns with 006 "booking 0đ")*: A Member booking
+  whose accepted post-promotion amount is exactly 0 VND MUST be accepted and
+  confirmed inside the acceptance transaction without the payment gateway:
+  invoice post-promotion, deposit and remaining amounts are 0; Operations holds
+  are committed; the booking becomes `CONFIRMED` with financial status
+  `DEPOSIT_PAID` (the 0 VND deposit requirement is met); tickets, Magic Link,
+  confirmation notification and `MlandBookingConfirmedEvent` are issued as for
+  a paid deposit; and the held Loyalty benefits are settled in the same
+  transaction with outcome `WORKSHOP_DEPOSIT_ACCEPTED` keyed by the internal
+  reference `ZERO-AMOUNT-<bookingCode>`. No payment attempt, VNPay call or
+  payment receipt is created, and payment evidence MUST NOT be used to confirm
+  a 0 VND booking. The create response returns `CONFIRMED` without
+  `holdExpiresAt`. Only a negative accepted amount is refused
+  (`WORKSHOP_NET_AMOUNT_INVALID`). Replay of the same accepted command is
+  idempotent through the booking idempotency record and the Loyalty settle key.
+  The per-ticket booking-time collection table and multi-ticket cart in
+  `artifacts/workshop-changes-to-implement.md` are not implemented yet; this
+  requirement covers the single-booking 0 VND case only.
 - **FR-007b**: A direct Guest/Member booking MUST have exactly one OPEN folio
   from deposit confirmation until checkout or terminal cancellation/no-show
   closure. Settlement (003.3) creates it when it consumes the post-commit

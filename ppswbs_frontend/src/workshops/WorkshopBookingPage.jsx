@@ -600,10 +600,20 @@ export function WorkshopBookingPage({ packageId }) {
 
   // If booking succeeded, display BookingSummary confirmation state
   if (bookingOutcome) {
+    // A booking returned already CONFIRMED by the create call is a 0 VND booking (FR-007a1): benefits covered the
+    // whole price, so it was confirmed without a deposit payment.
+    const isZeroAmountBooking = bookingOutcome.bookingStatus === 'CONFIRMED';
     return (
       <main className="public-page figma-public-page">
-        <p className="eyebrow">GIỮ CHỖ THÀNH CÔNG</p>
-        <h1 style={{ color: '#002967' }}>Đã tạo đơn đặt chỗ workshop</h1>
+        <p className="eyebrow">{isZeroAmountBooking ? 'ĐẶT CHỖ THÀNH CÔNG' : 'GIỮ CHỖ THÀNH CÔNG'}</p>
+        <h1 style={{ color: '#002967' }}>
+          {isZeroAmountBooking ? 'Đơn đặt chỗ đã được xác nhận' : 'Đã tạo đơn đặt chỗ workshop'}
+        </h1>
+        {isZeroAmountBooking && (
+          <p className="muted">
+            Ưu đãi đã trả toàn bộ giá vé nên không cần đặt cọc. Vé và đường dẫn tra cứu được gửi qua email.
+          </p>
+        )}
 
         <div className="workspace-card" style={{ marginTop: '24px', padding: '32px', border: '2px solid #002967' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '16px' }}>
@@ -615,10 +625,13 @@ export function WorkshopBookingPage({ packageId }) {
             </div>
             <div style={{ textAlign: 'right' }}>
               <span className="status ok" style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                {bookingOutcome.bookingStatus === 'PENDING_PAYMENT' ? 'CHỜ ĐẶT CỌC' : bookingOutcome.bookingStatus}
+                {bookingOutcome.bookingStatus === 'PENDING_PAYMENT' ? 'CHỜ ĐẶT CỌC'
+                  : bookingOutcome.bookingStatus === 'CONFIRMED' ? 'ĐÃ XÁC NHẬN' : bookingOutcome.bookingStatus}
               </span>
               <span className="muted" style={{ display: 'block', fontSize: '12px', marginTop: '4px' }}>
-                Thanh toán: {bookingOutcome.paymentStatus === 'UNPAID' ? 'Chưa thanh toán' : bookingOutcome.paymentStatus}
+                Thanh toán: {bookingOutcome.paymentStatus === 'UNPAID' ? 'Chưa thanh toán'
+                  : bookingOutcome.bookingStatus === 'CONFIRMED' && isZeroAmountBooking ? 'Miễn phí, không cần thanh toán online'
+                  : bookingOutcome.paymentStatus}
               </span>
             </div>
           </div>

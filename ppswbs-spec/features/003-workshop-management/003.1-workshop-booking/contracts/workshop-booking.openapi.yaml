@@ -29,7 +29,7 @@ paths:
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateBookingRequest'}}}}
       responses:
-        '201': {description: Pending booking and holds, content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}
+        '201': {description: "Pending booking and holds; or, for a Member quote whose post-promotion amount is 0 VND, a booking already CONFIRMED with paymentStatus DEPOSIT_PAID and no holdExpiresAt, confirmed without the payment gateway (FR-007a1).", content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}
         '400': {$ref: '#/components/responses/Problem'}
         '409': {description: Quote expired (`QUOTE_EXPIRED`) or selection/terms conflict, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-bookings/{bookingCode}/payment-attempts:
