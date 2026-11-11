@@ -432,7 +432,7 @@ Planned, not yet implemented (tasks Phase 14).
 | Ticket QR generation | ticket reference; QR generation number; active opaque QR value; revoked QR values with revocation time and reason (`RECIPIENT_CHANGED`) | One active QR per ticket. Revocation is immediate and refused after any check-in of the ticket. Entitlements and attendance history are unchanged. |
 | Per-ticket attendance outcome | ticket booking reference; terminal flag; outcome (`ATTENDED`, `PARTIAL`, `NO_SHOW`); finalized-at; outbox row per ticket | Terminal only after every session of the ticket is finalized and the 24-hour correction window closed. |
 | Ticket replacement | ticket; source/target sessions; type (`CUSTOMER_ADVANCE`, `CUSTOMER_LATE_ARRIVAL`, `MLAND`); quota consumed; operation reference | All or none across the selected tickets; late-arrival target ≤ old end + 7 days for the missed session; quota checked in addition to capacity; history and QR kept. |
-| Session reschedule quota | session; quota (tickets receivable by customer change); used count | Manager-configured; counted per moved ticket; values/defaults/sharing open. |
+| Session reschedule quota | session; quota (tickets receivable by customer change); default or Manager-set flag; used count | One quota shared by advance and late-arrival changes; default floor(25% × capacity), at least 1; Manager may set any value including 0; Mland replacements exempt; counted per moved ticket. |
 
 `AttendanceTicket` keeps one record per ticket per session; under the group
 model each ticket belongs to one ticket booking instead of a booking with many

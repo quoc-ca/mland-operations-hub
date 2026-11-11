@@ -231,6 +231,11 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   pending for a ticket never exceeds the money collected for that ticket, and a
   refund of one ticket changes no other ticket. There is no 5,000 VND minimum.
   Voucher value is never refunded as money.
+- **FR-038a** *(decided 2026-11-12)*: The overcharge refund of an OTA booking's
+  separate Mland shop add-on bill (D12, T092) is Mland money and also moves to
+  the bank refund flow of FR-039–FR-040 (Manager-only, no VNPay Refund). The
+  payer is usually at the counter, so Staff may enter the account there instead
+  of sending the link. OTA base-ticket refunds remain the OTA's process.
 - **FR-039**: Refund request lifecycle: `PENDING_ACCOUNT` → `PENDING_APPROVAL` →
   `PENDING_TRANSFER` → `PENDING_RECONCILIATION` → `REFUNDED`, plus
   `CLOSED_UNREACHABLE` (reopenable). A Manager approves reason, amount and
@@ -315,10 +320,10 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   change), then added to the ticket's checkout balance; it need not be paid at
   the time of the change.
 
-**Open before implementation:** reschedule quota values and scope per change
-type (003.2), the exact auto-approval conditions for online changes, and the
-customer email templates for refund-account requests, Mland cancellation and
-change confirmation.
+**Open before implementation:** the exact auto-approval conditions for online
+changes, and final approval of the customer email templates (draft in
+`artifacts/workshop-email-templates-draft.md`). Reschedule quota values were
+decided 2026-11-12 (003.2 FR-035) and the OTA add-on refund in FR-038a.
 
 ## Scope
 

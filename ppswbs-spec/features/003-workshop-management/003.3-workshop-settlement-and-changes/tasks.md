@@ -171,7 +171,9 @@ ticket bookings) and 003.2 per-ticket capacity/attendance/quota.
 - [ ] T102 Frontend for Staff/Manager: ticket folio with mixed collections in the order VNPay, cash, transfer; pending verification; cash close; refund queue and transitions; customer refund-account page; ticket cancellation and change screens.
 - [ ] T103 Integration tests on MySQL: mixed collections, VNPay part under 5,000 refused, transfer confirmation authority, duplicate bank reference, excess money, cash close difference, refund lifecycle and masking, legacy `99`, per-ticket cancellation 24 h 00 m / 23 h 59 m, voucher restoration once, Mland partial cancellation, change limits and price increase.
 
-**Open:** whether the OTA shop add-on overcharge refund (T092, VNPay) also moves to bank refunds; reschedule quota values (003.2); email templates.
+- [ ] T104 Move the OTA shop add-on overcharge refund (T092, `ADDON_REFUND`) from VNPay partial refund to the bank refund flow of T097 (FR-038a); keep Manager-only approval; allow counter entry of the account.
+
+**Open:** customer email templates (draft in `artifacts/workshop-email-templates-draft.md`).
 
 ## Dependencies and execution order
 

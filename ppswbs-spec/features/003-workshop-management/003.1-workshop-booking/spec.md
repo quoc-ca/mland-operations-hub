@@ -225,6 +225,15 @@ are kept for history and are read through this section.
   or 5 failed, the buyer still wants to attend, and 1–3 hold at that moment)
   or opens a 100% bank refund under 003.3. Money is never moved to a new
   booking.
+- **FR-040a** *(2026-11-12)*: A late payment waiting for a Manager MUST reach
+  the buyer with a result within 24 hours of the evidence, or before the
+  earliest session of the group starts if that is sooner. The result is the
+  confirmation email or the refund-account request email (003.3 FR-040); a
+  "being processed" message does not count. When the review enters the Manager
+  queue the system MUST alert Managers at once (in the management screen and by
+  internal email) and order the queue by the earliest session start, so groups
+  whose session starts within 24 hours come first. The payer's "payment arrived
+  late" email states this deadline.
 
 ### Ticket recipients
 
