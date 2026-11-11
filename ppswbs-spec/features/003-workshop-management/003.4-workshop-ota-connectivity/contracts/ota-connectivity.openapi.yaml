@@ -300,13 +300,17 @@ paths:
         Backfilled 2026-11-12 from implementation (1fe139a). Interim, provider-neutral
         ingress used before per-provider onboarding contracts are approved; it is not
         the approved provider transport. The caller sends X-Ota-Signature, which the
-        server currently compares with the active connection's credential reference
-        for the provider and environment (test-prefixed values are accepted only when
-        ota.auth.allow-test-tokens is enabled). A CONFIRMED outcome returns 201 with
+        server compares in constant time with the ACTIVE connection's credential
+        reference for the provider and environment. Fail closed (E3, 2026-11-12): a
+        PRODUCTION callback returns 403 unless the provider is listed in
+        ota.provider-callbacks.approved-production-providers (empty by default, set only
+        after that provider's signed callback is approved and implemented); test-prefixed
+        values are accepted only for TEST connections and only when
+        ota.auth.allow-test-tokens is enabled. Replays are deduplicated by external
+        event reference and payload fingerprint. A CONFIRMED outcome returns 201 with
         the Mland booking and ticket references; any other outcome returns 422 with a
-        rejection reason. Missing or wrong signature returns 401. Replacement by a
-        real signed provider callback is required before go-live (see
-        artifacts/003-spec-code-gap-review.md, E3).
+        rejection reason. Missing or wrong signature, or an inactive connection,
+        returns 401.
       security: []
       parameters:
         - name: X-Ota-Signature
@@ -335,6 +339,7 @@ paths:
       responses:
         '201': { $ref: '#/components/responses/ProviderEventAcknowledgement' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ProviderEventAcknowledgement' }
 components:
   parameters:

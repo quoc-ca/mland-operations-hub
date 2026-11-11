@@ -24,6 +24,10 @@ import java.util.Objects;
 public class BookingDepositReconciliationService {
     private static final Duration QUERY_WINDOW = Duration.ofMinutes(60);
     private static final Duration QUERY_INTERVAL = Duration.ofMinutes(5);
+    private static final String QUERYDR_TRANSACTION_NOT_FOUND = "91";
+    private static final String FAILED_VERIFIED = "FAILED_VERIFIED";
+    private static final String NOT_FOUND_VERIFIED = "NOT_FOUND_VERIFIED";
+    private static final java.util.Set<String> TOOK_NO_MONEY = java.util.Set.of(FAILED_VERIFIED, NOT_FOUND_VERIFIED);
 
     private final WorkshopBookingRepository bookings;
     private final BookingPaymentAttemptRepository attempts;
@@ -140,12 +144,22 @@ public class BookingDepositReconciliationService {
         VnpayMerchantOperationResult result = merchant.queryTransaction(new VnpayQueryDrCommand(
                 check.operationReference(), check.merchantReference(), check.providerCreateDate(),
                 "Workshop deposit " + check.bookingCode(), merchantApiIpAddress));
+        // 91: VNPay has no transaction for this reference. The attempt's link has already expired (checked above),
+        // so the customer opened it but never paid and no payment can be created any more.
+        if (result != null && result.responseSignatureVerified()
+                && QUERYDR_TRANSACTION_NOT_FOUND.equals(result.providerResponseCode())
+                && check.merchantReference().equals(result.merchantReference())) {
+            transaction.executeWithoutResult(status -> markFailed(check.attemptId(), check.operationReference(),
+                    NOT_FOUND_VERIFIED, now));
+            return;
+        }
         if (result == null || !result.responseSignatureVerified()
                 || !"00".equals(result.providerResponseCode())
                 || !check.merchantReference().equals(result.merchantReference())
                 || !Objects.equals(check.amountVnd(), result.amountVnd())) return;
         if ("02".equals(result.transactionStatus())) {
-            transaction.executeWithoutResult(status -> markFailed(check.attemptId(), check.operationReference(), now));
+            transaction.executeWithoutResult(status -> markFailed(check.attemptId(), check.operationReference(),
+                    FAILED_VERIFIED, now));
         } else if ("00".equals(result.transactionStatus())
                 && result.providerTransactionNumber() != null && !result.providerTransactionNumber().isBlank()) {
             String evidence = "VNPAY-QDR-" + result.providerTransactionNumber();
@@ -161,22 +175,28 @@ public class BookingDepositReconciliationService {
                 || !Objects.equals(attempt.getAttemptAmount(), ipn.amountVnd())
                 || !"VND".equals(ipn.currencyCode())) return;
         if ("02".equals(ipn.transactionStatus())) {
-            markFailed(attempt.getId(), ipn.evidenceReference(), now);
+            markFailed(attempt.getId(), ipn.evidenceReference(), FAILED_VERIFIED, now);
         } else if ("00".equals(ipn.transactionStatus())) {
             markLateSuccess(attempt.getId(), ipn.evidenceReference(), now);
         }
     }
 
-    private void markFailed(Long attemptId, String proof, Instant now) {
+    /**
+     * Records that an expired attempt took no money (VNPay failure 02, or no transaction 91) and, once every attempt
+     * of the booking is resolved that way, gives back the points and voucher held by the Member quote. Applies to a
+     * hold that expired and to a pending hold the customer released after starting a payment (FR-017j); a released
+     * hold leaves its benefits to this outcome, so without it they would stay held.
+     */
+    private void markFailed(Long attemptId, String proof, String outcome, Instant now) {
         BookingPaymentAttempt candidate = attempts.findById(attemptId).orElse(null);
         if (candidate == null) return;
         WorkshopBooking booking = bookings.findLockedByBookingCode(candidate.getBooking().getBookingCode()).orElse(null);
         BookingDepositReconciliation row = reconciliations.findLockedByAttemptId(attemptId).orElse(null);
         if (row == null || !"PENDING".equals(row.getLifecycleStatus())) return;
         BookingPaymentAttempt attempt = row.getAttempt();
-        if (booking == null || booking.getBookingStatus() != BookingStatus.EXPIRED
+        if (booking == null || !endedUnpaid(booking)
                 || latePayments.existsByBookingCode(booking.getBookingCode())) return;
-        row.setLifecycleStatus("FAILED_VERIFIED");
+        row.setLifecycleStatus(outcome);
         row.setVerifiedEvidenceReference(proof);
         row.setNextQueryAt(null);
         row.setUpdatedAt(now);
@@ -185,8 +205,15 @@ public class BookingDepositReconciliationService {
         attempts.save(attempt);
         boolean allFailed = attempts.findByBookingIdOrderByCreatedAtDesc(booking.getId()).stream()
                 .allMatch(item -> reconciliations.findByAttemptId(item.getId())
-                        .map(state -> "FAILED_VERIFIED".equals(state.getLifecycleStatus())).orElse(false));
+                        .map(state -> TOOK_NO_MONEY.contains(state.getLifecycleStatus())).orElse(false));
         if (allFailed) loyalty.finishConfirmedUnpaidExpiry(booking, proof);
+    }
+
+    /** The hold ended without a confirmed deposit: it expired, or the customer released it before paying. */
+    private static boolean endedUnpaid(WorkshopBooking booking) {
+        BookingStatus state = booking.getBookingStatus();
+        if (state == BookingStatus.EXPIRED) return true;
+        return state == BookingStatus.CANCELLED && booking.getPaymentStatus() == PaymentStatus.UNPAID;
     }
 
     private void markLateSuccess(Long attemptId, String proof, Instant now) {

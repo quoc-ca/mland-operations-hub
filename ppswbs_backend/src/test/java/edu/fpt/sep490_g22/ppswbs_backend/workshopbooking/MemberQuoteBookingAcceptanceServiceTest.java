@@ -36,6 +36,8 @@ class MemberQuoteBookingAcceptanceServiceTest {
     private final BookingAuditEvidenceRepository audits = mock(BookingAuditEvidenceRepository.class);
     private final BookingIdempotencyService idempotency = mock(BookingIdempotencyService.class);
     private final ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+    private final BookingLifecycleService lifecycle = mock(BookingLifecycleService.class);
+    private final WorkshopBookingLoyaltyOutcomeService loyaltyOutcome = mock(WorkshopBookingLoyaltyOutcomeService.class);
     private MemberQuoteBookingAcceptanceService service;
 
     private final UUID firstSession = UUID.fromString("0a328a43-20cf-4c6b-bdd3-f821670d4ac0");
@@ -46,7 +48,7 @@ class MemberQuoteBookingAcceptanceServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         service = new MemberQuoteBookingAcceptanceService(authorization, operations, loyalty, quotes, bookings,
-                commitments, holds, invoices, audits, idempotency, mapper);
+                commitments, holds, invoices, audits, idempotency, mapper, lifecycle, loyaltyOutcome);
         quote = MemberWorkshopBookingQuote.builder().quoteRef("c320fb9f-84c2-4b42-b40f-9296b5b58039")
                 .memberAccountId(memberId).packageId(15L).packageNameSnapshot("Silverclay")
                 .pricePerParticipant(101L).participantCount(1)
@@ -107,6 +109,59 @@ class MemberQuoteBookingAcceptanceServiceTest {
         assertThat(quote.getQuoteState()).isEqualTo("ACCEPTED");
         assertThat(quote.getAcceptedBookingCode()).isEqualTo(response.getBookingCode());
         verify(idempotency).completeClaimWithinTransaction(eq(1L), eq(1L), eq(201), anyString());
+        verifyNoInteractions(lifecycle, loyaltyOutcome);
+    }
+
+    @Test
+    void zeroAmountQuoteIsConfirmedWithoutPaymentAndSettlesBenefitsInTheSameTransaction() {
+        quote.setProgramDiscount(101L);
+        quote.setPostPromotionAmount(0L);
+        quote.setEarnBase(0L);
+        when(loyalty.previewBenefits(any(), any())).thenReturn(new BenefitPreview(BigInteger.valueOf(101),
+                BigInteger.valueOf(101), BigInteger.valueOf(101), BigInteger.ZERO, BigInteger.ZERO,
+                BigInteger.TEN, BigInteger.valueOf(100), BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO,
+                BigInteger.ZERO, null, null, null, 1L, false, List.of(), "digest-accepted-quote"));
+        doAnswer(invocation -> {
+            AcceptedSourceContext context = invocation.getArgument(0);
+            return new AcceptedBenefitRef(88L, SourceKind.WORKSHOP, context.sourceRef(), BigInteger.valueOf(101),
+                    BigInteger.valueOf(101), BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO,
+                    1L, ComponentState.NONE, ComponentState.HELD, EarnState.PENDING);
+        }).when(loyalty).reserveAcceptedTransaction(any(), any(), anyString());
+        when(lifecycle.confirmZeroAmountBooking(anyString(), anyString(), anyString())).thenAnswer(invocation ->
+                WorkshopBooking.builder().bookingCode(invocation.getArgument(0)).packageId(15L)
+                        .packageNameSnapshot("Silverclay").participantCount(1).memberAccountId(memberId)
+                        .bookingStatus(BookingStatus.CONFIRMED).paymentStatus(PaymentStatus.DEPOSIT_PAID)
+                        .holdExpiresAt(Instant.now().plusSeconds(900)).build());
+
+        BookingSummaryResponse response = service.accept(request(), memberId, "corr-zero", null);
+
+        ArgumentCaptor<BookingInvoice> invoiceCaptor = ArgumentCaptor.forClass(BookingInvoice.class);
+        verify(invoices).save(invoiceCaptor.capture());
+        assertThat(invoiceCaptor.getValue().getPostPromotionAmount()).isZero();
+        assertThat(invoiceCaptor.getValue().getDepositAmount()).isZero();
+        assertThat(invoiceCaptor.getValue().getRemainingAmount()).isZero();
+        verify(lifecycle).confirmZeroAmountBooking(eq(response.getBookingCode()), eq("ZERO-" + response.getBookingCode()),
+                eq("corr-zero"));
+        verify(loyaltyOutcome).settleVerifiedDeposit(any(), eq("ZERO-AMOUNT-" + response.getBookingCode()));
+        assertThat(response.getBookingStatus()).isEqualTo("CONFIRMED");
+        assertThat(response.getPaymentStatus()).isEqualTo("DEPOSIT_PAID");
+        assertThat(response.getHoldExpiresAt()).isNull();
+    }
+
+    @Test
+    void negativeAcceptedAmountIsStillRefused() {
+        doAnswer(invocation -> {
+            AcceptedSourceContext context = invocation.getArgument(0);
+            return new AcceptedBenefitRef(88L, SourceKind.WORKSHOP, context.sourceRef(), BigInteger.valueOf(101),
+                    BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO, BigInteger.valueOf(-1), BigInteger.ZERO,
+                    1L, ComponentState.NONE, ComponentState.NONE, EarnState.PENDING);
+        }).when(loyalty).reserveAcceptedTransaction(any(), any(), anyString());
+
+        assertThatThrownBy(() -> service.accept(request(), memberId, "corr-negative", null))
+                .isInstanceOf(BookingCreationRejectedException.class)
+                .satisfies(error -> assertThat(((BookingCreationRejectedException) error).getCode())
+                        .isEqualTo("WORKSHOP_NET_AMOUNT_INVALID"));
+        verifyNoInteractions(lifecycle, loyaltyOutcome);
     }
 
     @Test

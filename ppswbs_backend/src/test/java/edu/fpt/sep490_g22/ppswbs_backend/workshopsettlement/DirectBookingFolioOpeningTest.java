@@ -68,6 +68,37 @@ class DirectBookingFolioOpeningTest {
     }
 
     @Test
+    void zeroAmountBookingOpensAZeroFolioWithoutAnyDepositPayment() {
+        String bookingRef = "BK-DIRECT-ZERO";
+        Instant confirmedAt = Instant.parse("2026-11-12T10:00:00Z");
+        when(bills.findByBookingReference(bookingRef)).thenReturn(Optional.empty());
+        when(booking.confirmedProjection(bookingRef)).thenReturn(new ConfirmedBookingFinancialProjection(
+                "PKG-10", 200_000L, 0L, 0L, 0L, 1, List.of("SES-1"), 5L));
+        when(bills.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Optional<SettlementFinalBill> result = openingService.openFolio(bookingRef, confirmedAt);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getPostPromotionAmountVnd()).isZero();
+        assertThat(result.get().getAcceptedDepositAmountVnd()).isZero();
+        assertThat(result.get().getRemainingAmountVnd()).isZero();
+        assertThat(result.get().getLifecycleStatus()).isEqualTo(SettlementFinalBillLifecycleStatus.OPEN.name());
+        verify(booking, never()).verifiedDepositPayments(any());
+    }
+
+    @Test
+    void paidBookingWithoutVerifiedDepositStillHasNoFolio() {
+        String bookingRef = "BK-DIRECT-NODEP";
+        when(bills.findByBookingReference(bookingRef)).thenReturn(Optional.empty());
+        when(booking.confirmedProjection(bookingRef)).thenReturn(new ConfirmedBookingFinancialProjection(
+                "PKG-10", 200_000L, 180_000L, 90_000L, 90_000L, 2, List.of("SES-1"), 5L));
+        when(booking.verifiedDepositPayments(bookingRef)).thenReturn(new VerifiedBookingDepositPaymentsProjection(List.of()));
+
+        assertThat(openingService.openFolio(bookingRef, Instant.now())).isEmpty();
+        verify(bills, never()).saveAndFlush(any());
+    }
+
+    @Test
     void replayIsIdempotentAndReturnsExistingFolio() {
         String bookingRef = "BK-DIRECT-102";
         SettlementFinalBill existing = SettlementFinalBill.builder()

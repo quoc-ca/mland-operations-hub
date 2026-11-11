@@ -6,6 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.Paym
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.service.PaymentIngressService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.service.VnpayChecksumService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.WorkshopBookingNotificationFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementPaymentEvidenceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,8 @@ class VnpayPaymentIngressIT {
 
     @MockBean private VnpayChecksumService checksum;
     @MockBean private WorkshopBookingFacade booking;
+    // WorkshopBookingFacadeImpl also provides this interface; mocking the facade removes it from the context.
+    @MockBean private WorkshopBookingNotificationFacade bookingNotification;
     @MockBean private WorkshopSettlementFacade settlement;
 
     @Test

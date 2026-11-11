@@ -826,6 +826,24 @@ appropriate booking summary without exposing another customer's booking.
   immutable after acceptance. The system MUST preserve these snapshots and MUST
   NOT reject an otherwise valid booking merely because the post-promotion
   amount is odd VND.
+- **FR-007a1** *(2026-11-12, aligns with 006 "booking 0đ")*: A Member booking
+  whose accepted post-promotion amount is exactly 0 VND MUST be accepted and
+  confirmed inside the acceptance transaction without the payment gateway:
+  invoice post-promotion, deposit and remaining amounts are 0; Operations holds
+  are committed; the booking becomes `CONFIRMED` with financial status
+  `DEPOSIT_PAID` (the 0 VND deposit requirement is met); tickets, Magic Link,
+  confirmation notification and `MlandBookingConfirmedEvent` are issued as for
+  a paid deposit; and the held Loyalty benefits are settled in the same
+  transaction with outcome `WORKSHOP_DEPOSIT_ACCEPTED` keyed by the internal
+  reference `ZERO-AMOUNT-<bookingCode>`. No payment attempt, VNPay call or
+  payment receipt is created, and payment evidence MUST NOT be used to confirm
+  a 0 VND booking. The create response returns `CONFIRMED` without
+  `holdExpiresAt`. Only a negative accepted amount is refused
+  (`WORKSHOP_NET_AMOUNT_INVALID`). Replay of the same accepted command is
+  idempotent through the booking idempotency record and the Loyalty settle key.
+  The per-ticket booking-time collection table and multi-ticket cart in
+  `artifacts/workshop-changes-to-implement.md` are not implemented yet; this
+  requirement covers the single-booking 0 VND case only.
 - **FR-007b**: A direct Guest/Member booking MUST have exactly one OPEN folio
   from deposit confirmation until checkout or terminal cancellation/no-show
   closure. Settlement (003.3) creates it when it consumes the post-commit
@@ -1180,11 +1198,17 @@ appropriate booking summary without exposing another customer's booking.
   evidence exists for the booking, the release MUST also give back the points
   and voucher held by the Member quote, exactly as an unpaid expiry does. When a
   payment attempt was already started, the release MUST NOT release those
-  benefits; the verified payment outcome decides them. **Open issue
-  (2026-11-12, E1 in `artifacts/003-spec-code-gap-review.md`):** deposit
-  reconciliation only processes `PENDING_PAYMENT` bookings, so a released
-  (`CANCELLED`) booking whose payment never succeeds may keep its benefits held;
-  the rule for that case must be fixed before relying on it.
+  benefits; the verified payment outcome decides them.
+- **FR-017k** *(2026-11-12, fixes E1)*: Deposit reconciliation MUST give back
+  the Member quote's held points and voucher, exactly once, when every payment
+  attempt of a booking whose hold ended unpaid has a verified no-money outcome.
+  "Ended unpaid" means `EXPIRED`, or `CANCELLED` by a pending-hold release with
+  financial status `UNPAID`. A verified no-money outcome is either a signed
+  VNPay failure (`vnp_TransactionStatus = 02`, from IPN or QueryDR) or a signed
+  QueryDR answer `vnp_ResponseCode = 91` (no transaction) for an attempt whose
+  link has already expired, meaning the link was opened but never paid. Late
+  payment evidence for the booking keeps the benefits for the late-payment
+  flow; an unverified or still-pending answer keeps them held.
 - **FR-022**: The system MUST preserve the financial-status vocabulary needed by
   later workshop lifecycle features, including `FULLY_PAID`, without implementing
   final-payment settlement in this feature.

@@ -44,6 +44,13 @@ append-only Flyway backfill creates OPEN folios for existing confirmed direct
 bookings. Physical columns, constraints and Flyway version are chosen during
 003.3 T087.
 
+**0 VND booking folio (2026-11-12, 003.1 FR-007a1)**: a confirmed direct
+booking whose frozen post-promotion and accepted deposit amounts are both 0 gets
+an OPEN folio with base 0, collected 0 and balance 0 without any verified
+deposit payment. A paid booking without a verified deposit still gets no folio.
+Add-ons, attendance and checkout then follow the normal OPEN-folio rules; a
+zero balance finalizes internally.
+
 **Loyalty processing marker (backfilled 2026-11-12, V97, ade3df0)**: nullable
 `loyaltyProcessedAt` is set once the Loyalty outcome for the folio is decided
 (earn granted, no-show final, or benefits restored), so a decided folio is not
