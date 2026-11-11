@@ -131,6 +131,73 @@ class OtaProviderEventControllerIT {
         }
 
         @Test
+        @DisplayName("E3: a PRODUCTION callback is refused while no signed callback is approved, even with a test token")
+        void productionCallback_withoutApprovedProvider_returns403() throws Exception {
+            mvc.perform(post("/api/v1/ota-provider/booking-events")
+                            .header("X-Ota-Signature", "test-signature")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(callback("PRODUCTION")))
+                    .andExpect(status().isForbidden());
+            verify(eventHandler, never()).handleBookingEvent(any());
+        }
+
+        @Test
+        @DisplayName("E3: an approved PRODUCTION provider still needs its exact credential; test tokens are ignored there")
+        void productionCallback_approvedProvider_ignoresTestToken() throws Exception {
+            OtaProviderEventController controller = new OtaProviderEventController(eventHandler, connectionRepository);
+            ReflectionTestUtils.setField(controller, "allowTestTokens", true);
+            ReflectionTestUtils.setField(controller, "approvedProductionProviders", "klook");
+            MockMvc approvedMvc = MockMvcBuilders.standaloneSetup(controller)
+                    .setControllerAdvice(new OtaExceptionHandler()).build();
+            org.mockito.Mockito.lenient().when(connectionRepository.findByProviderCodeAndEnvironment(
+                    OtaProvider.KLOOK, OtaEnvironment.PRODUCTION)).thenReturn(Optional.of(OtaChannelConnection.builder()
+                    .id(2L).providerCode(OtaProvider.KLOOK).environment(OtaEnvironment.PRODUCTION)
+                    .credentialReference("prod-klook-credential").status("ACTIVE").build()));
+
+            approvedMvc.perform(post("/api/v1/ota-provider/booking-events")
+                            .header("X-Ota-Signature", "test-signature")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(callback("PRODUCTION")))
+                    .andExpect(status().isUnauthorized());
+            verify(eventHandler, never()).handleBookingEvent(any());
+        }
+
+        @Test
+        @DisplayName("E3: an inactive connection is refused even with its exact credential")
+        void inactiveConnection_returns401() throws Exception {
+            OtaProviderEventController controller = new OtaProviderEventController(eventHandler, connectionRepository);
+            ReflectionTestUtils.setField(controller, "allowTestTokens", false);
+            MockMvc strictMvc = MockMvcBuilders.standaloneSetup(controller)
+                    .setControllerAdvice(new OtaExceptionHandler()).build();
+            when(connectionRepository.findByProviderCodeAndEnvironment(OtaProvider.KLOOK, OtaEnvironment.TEST))
+                    .thenReturn(Optional.of(OtaChannelConnection.builder().id(1L).providerCode(OtaProvider.KLOOK)
+                            .environment(OtaEnvironment.TEST).credentialReference("secret-klook-signature-123")
+                            .status("DISABLED").build()));
+
+            strictMvc.perform(post("/api/v1/ota-provider/booking-events")
+                            .header("X-Ota-Signature", "secret-klook-signature-123")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(callback("TEST")))
+                    .andExpect(status().isUnauthorized());
+            verify(eventHandler, never()).handleBookingEvent(any());
+        }
+
+        private String callback(String environment) {
+            return """
+                    {
+                        "provider": "KLOOK",
+                        "environment": "%s",
+                        "externalBookingReference": "ext-123",
+                        "providerProductReference": "prod-1",
+                        "providerOptionReference": "opt-1",
+                        "participantCount": 2,
+                        "acceptedAmountMinor": 200000,
+                        "currencyCode": "VND"
+                    }
+                    """.formatted(environment);
+        }
+
+        @Test
         @DisplayName("Invalid request payload (negative participants) returns 400 Bad Request")
         void invalidParticipantCount_returns400() throws Exception {
             String body = """

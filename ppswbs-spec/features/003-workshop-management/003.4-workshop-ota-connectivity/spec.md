@@ -105,11 +105,18 @@ are evidenced.
   provider, environment, external booking/event references, provider
   product/option, participant count, accepted amount and currency; a confirmed
   outcome returns the Mland booking and ticket references, a rejection returns a
-  reason. Caller authentication currently compares `X-Ota-Signature` with the
-  active connection's credential reference (test tokens only when
-  `ota.auth.allow-test-tokens` is on). This is not an approved provider
-  signature scheme and must be replaced by each provider's signed callback
-  before go-live.
+  reason. Caller authentication compares `X-Ota-Signature` in constant time
+  with the `ACTIVE` connection's credential reference. This is not an approved
+  provider signature scheme, so the endpoint fails closed (E3, 2026-11-12): a
+  `PRODUCTION` callback is refused with 403 unless the provider is listed in
+  `ota.provider-callbacks.approved-production-providers` (environment
+  `OTA_APPROVED_PRODUCTION_CALLBACK_PROVIDERS`, empty by default). A provider
+  may be listed only after its real signed-callback procedure is approved in
+  provider-readiness ("Callback authentication") and implemented, which needs
+  the provider's partner account and documentation. Test tokens are honoured
+  only for `TEST` connections and only when `ota.auth.allow-test-tokens` is on
+  (off by default). Replays are deduplicated by external event reference and
+  payload fingerprint.
 - A booking for N participants creates exactly N active Mland tickets. The OTA
   must deliver each ticket/QR individually before the option can be sold.
 - A shared voucher/order code is only an authorized, audited post-go-live

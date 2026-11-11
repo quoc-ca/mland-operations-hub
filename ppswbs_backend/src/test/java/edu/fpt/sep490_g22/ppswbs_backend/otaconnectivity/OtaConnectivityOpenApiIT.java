@@ -114,7 +114,10 @@ public class OtaConnectivityOpenApiIT {
                 "/ota-channel-bookings/lookups",
                 "/ota-channel-bookings/{channelBookingId}/add-on-quotes",
                 "/ota-addon-quotes/{quoteId}/acceptance",
-                "/ota-addon-quotes/{quoteId}/direct-bill"
+                "/ota-addon-quotes/{quoteId}/direct-bill",
+
+                // Interim provider booking callback ingress (backfilled 2026-11-12, E3 fail-closed)
+                "/ota-provider/booking-events"
         };
 
         for (String expectedPath : requiredPaths) {
@@ -211,7 +214,8 @@ public class OtaConnectivityOpenApiIT {
                 OtaChannelController.class,
                 OtaReconciliationController.class,
                 OtaFinancialEvidenceController.class,
-                OtaAddonController.class
+                OtaAddonController.class,
+                OtaProviderEventController.class
         };
 
         Set<String> controllerPaths = new HashSet<>();
