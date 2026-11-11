@@ -1180,11 +1180,17 @@ appropriate booking summary without exposing another customer's booking.
   evidence exists for the booking, the release MUST also give back the points
   and voucher held by the Member quote, exactly as an unpaid expiry does. When a
   payment attempt was already started, the release MUST NOT release those
-  benefits; the verified payment outcome decides them. **Open issue
-  (2026-11-12, E1 in `artifacts/003-spec-code-gap-review.md`):** deposit
-  reconciliation only processes `PENDING_PAYMENT` bookings, so a released
-  (`CANCELLED`) booking whose payment never succeeds may keep its benefits held;
-  the rule for that case must be fixed before relying on it.
+  benefits; the verified payment outcome decides them.
+- **FR-017k** *(2026-11-12, fixes E1)*: Deposit reconciliation MUST give back
+  the Member quote's held points and voucher, exactly once, when every payment
+  attempt of a booking whose hold ended unpaid has a verified no-money outcome.
+  "Ended unpaid" means `EXPIRED`, or `CANCELLED` by a pending-hold release with
+  financial status `UNPAID`. A verified no-money outcome is either a signed
+  VNPay failure (`vnp_TransactionStatus = 02`, from IPN or QueryDR) or a signed
+  QueryDR answer `vnp_ResponseCode = 91` (no transaction) for an attempt whose
+  link has already expired, meaning the link was opened but never paid. Late
+  payment evidence for the booking keeps the benefits for the late-payment
+  flow; an unverified or still-pending answer keeps them held.
 - **FR-022**: The system MUST preserve the financial-status vocabulary needed by
   later workshop lifecycle features, including `FULLY_PAID`, without implementing
   final-payment settlement in this feature.
