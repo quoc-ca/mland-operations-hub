@@ -149,12 +149,16 @@ through this section.
   session moved with it may be outside that window but must keep the package
   order and gap. A Mland-caused replacement uses the same checks but is not a
   customer change.
-- **FR-035**: Each session has a reschedule quota: the maximum number of
-  tickets it may receive by customer change, counted per ticket and configured
-  by a Manager. The quota never replaces the capacity check; a moved ticket
-  takes one seat. Quota values, defaults and whether advance changes and
-  late-arrival support share one quota are **open** and must be decided before
-  implementation; no figure from the discussion is adopted.
+- **FR-035** *(values decided 2026-11-12)*: Each session has one reschedule
+  quota: the maximum number of tickets it may receive by customer change,
+  counted per moved ticket and shared by advance changes and late-arrival
+  support. The default is 25% of the session capacity rounded down, at least 1
+  (for example 3 for a 12-seat session); a Manager may change it per session,
+  including 0 to close the session to customer changes. When capacity changes,
+  a session still on the default recomputes it; a Manager-set value is kept.
+  Mland-caused replacements do not consume or check the quota (capacity only).
+  The quota never replaces the capacity check; a moved ticket takes one seat.
+  The 25% default is a starting value to review after operating data exists.
 - **FR-036**: OTA tickets keep the OTA's policy; these customer change and
   cancellation rules do not apply to them.
 

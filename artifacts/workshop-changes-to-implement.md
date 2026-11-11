@@ -2,6 +2,35 @@
 
 Tài liệu ghi nhận quyết định mới để sửa spec và project. Chưa mô tả hành vi đã triển khai.
 
+## Đề xuất điều kiện tự duyệt đổi lịch online — chờ duyệt 12/11/2026
+
+Email đã được người dùng duyệt. Quy tắc đếm lượt đổi đã được xác nhận riêng ngày 12/11/2026: mỗi vé có một lượt; đổi một buổi hoặc cả hai buổi trong cùng phương án đều dùng một lượt; chỉ trừ khi đổi thành công. Đổi riêng buổi 1 rồi muốn đổi buổi 2 cần Manager xét ngoại lệ. Quy tắc này đã ghi rõ trong 003.3 FR-044 và T101. Các điều kiện tự duyệt còn lại dưới đây vẫn là đề xuất, chưa đưa thành FR bắt buộc.
+
+- Chỉ áp dụng đổi báo trước cho vé Mland đã xác nhận. Người mua Member phải được xác minh quyền sở hữu; người mua Guest xác minh qua OTP gửi email đặt vé. QR/link xem vé của người nhận không tự cấp quyền đổi. OTP Guest là phần đề xuất cần đặc tả, không phải tính năng đã triển khai.
+- Tại thời điểm backend xử lý xác nhận, từng buổi cũ được chọn đổi phải còn ít nhất 24 giờ trước giờ bắt đầu. Đúng 24 giờ được chấp nhận, thiếu dù một phần cũng không tự duyệt. Mở màn hình sớm không giữ quyền đổi khi đã qua hạn.
+- Mỗi vé còn lượt đổi theo FR-044. Đổi cả hai buổi trong một thao tác tiêu thụ một lượt của vé, không phải hai. Không đổi sang chính lịch cũ để tiêu thụ lượt.
+- Buổi được đổi chưa check-in/tham dự; vé không bị hủy, kết thúc hoặc đang có xử lý hủy/hoàn/đổi mâu thuẫn. Đã tham dự buổi 1 không tự chặn đổi buổi 2 còn đủ điều kiện. Không sửa lịch sử buổi đã học.
+- Ca đích thuộc cùng package, còn trong tương lai, PUBLISHED và được chọn bởi khách; đúng chi nhánh và quy tắc của package. Toàn bộ lịch sau đổi phải đúng thứ tự, khoảng cách, ngày làm việc và các điều kiện áp dụng. Mốc 7 ngày hiện chỉ được chốt cho hỗ trợ đến muộn, không tự mở rộng sang đổi báo trước.
+- Kiểm tra capacity chung các kênh và quota ở từng ca đích. Theo FR-035: mặc định max(1, floor(25% × capacity)), Manager có thể cấu hình khác hoặc 0; dùng chung cho đổi trước và đến muộn. Chỉ buổi thực sự chuyển vào mới nhận thêm vé/quota; buổi giữ nguyên không bị tính lần nữa.
+- Người mua chọn rõ các vé, xem toàn bộ lịch mới và giá trước/sau của từng vé rồi xác nhận. Cả tập vé được chọn phải hợp lệ; đổi toàn bộ hoặc không đổi vé nào. Không tự chọn các vé khác trong nhóm.
+- Tính giá theo FR-045: giữ giá package đã chốt, không thêm ưu đãi mới; vé ra ngoài phạm vi voucher mất phần giảm đã phân bổ, điểm đã dùng giữ nguyên. Tự duyệt được cả trường hợp tăng tiền nếu người mua chấp thuận chính xác báo giá mới; cộng chênh lệch vào số dư checkout, không cần trả ngay hay Manager duyệt chỉ vì có tăng tiền.
+- Nếu thay đổi làm cần sửa hóa đơn đã chốt hoặc đụng khoản thanh toán đang chờ có thể sai số tiền, không tự duyệt; chuyển nhân viên kiểm tra. Tiền cọc đã xác minh không phải một lý do tự chặn đổi.
+- Tại xác nhận, kiểm tra lại quyền, mốc 24 giờ, phiên bản lịch/báo giá, lượt đổi, quota và capacity trong thao tác nguyên tử. Thành công mới nhả chỗ cũ, nhận chỗ mới, tiêu thụ lượt, lưu giá/xác nhận và audit. Hết chỗ/báo giá đổi thì giữ nguyên lịch cũ và trả kết quả cụ thể cho khách chọn lại/xác nhận lại; retry không đổi hai lần.
+- Sau thành công gửi email theo nội dung đã duyệt cho người mua và thông báo lịch vé liên quan cho người nhận; giữ QR theo 003.2 FR-034. Lỗi gửi email không đảo lịch đã đổi, phải thử gửi lại mà không thực hiện đổi lần nữa.
+
+### Khi không tự duyệt
+
+- Hết capacity/quota, lịch package không hợp lệ hoặc thiếu xác nhận: báo rõ nguyên nhân và cho chọn lại; không tự tạo hàng đợi Manager để vượt điều kiện.
+- Yêu cầu trong vòng 24 giờ hoặc khách đến muộn: không tự duyệt online, liên hệ shop để xét đúng luồng hỗ trợ; không mặc nhiên hứa được đổi.
+- Hết lượt đổi, trạng thái tài chính mâu thuẫn, ngoại lệ: nhân viên kiểm tra; quyền cấp thêm lượt thuộc Manager theo FR-044. Vé OTA đi theo OTA; Mland đổi theo luồng riêng.
+
+### Kiểm thử cần thêm khi phương án được duyệt
+
+- Mốc 24 giờ đúng/thiếu, Guest OTP và quyền Member, người nhận không có quyền người mua.
+- Đổi buổi 2 sau khi đã học buổi 1; đổi cả hai buổi chỉ mất một lượt; quota/capacity vừa hết; không tính quota lại cho buổi giữ nguyên.
+- Nhiều vé đổi cùng nhau thành công hoặc không đổi vé nào; tăng tiền đã/chưa được người mua xác nhận.
+- Hai yêu cầu tranh chỗ/cuối quota, thay đổi báo giá lúc xác nhận, callback thanh toán đồng thời, retry và lỗi email không làm đổi/trừ lượt hai lần.
+
 ## Tổng hợp phạm vi thay đổi phần 003
 
 Mục này tập hợp hướng nghiệp vụ từ cuộc trao đổi và các quyết định chi tiết bên dưới. Đây là danh sách đầu vào để sửa spec, chưa phải một spec hoàn chỉnh. Các chi tiết chưa được ghi đầy đủ được liệt kê riêng, không tự coi là đã được quyết định.
@@ -72,7 +101,7 @@ Theo bản đề xuất cuối và các quyết định đã chốt, áp dụng 
 - Spec phần 003 về booking, tham dự, settlement/đổi lịch; liên kết hợp đồng khuyến mãi và payment dùng chung khi cần, không mở rộng thành thiết kế lại module bán hàng khác.
 - Data model, API contract, giao diện khách/Staff/Manager, thông báo và email, phân quyền, nhật ký, đối soát và các kiểm thử tích hợp liên quan.
 - Ưu tiên chính sách mới nhất: mục “Thanh toán kết hợp nhiều phương thức tại quầy” thay thế quy tắc VNPay-only tại quầy và cấm trả từng phần trong lịch sử phía dưới.
-- **Đã lưu:** danh sách này và các quyết định chi tiết bên dưới. **Đồng bộ spec (12/11/2026):** 003.1 đã có FR-030–FR-043 (giỏ, vé con, phân bổ ưu đãi, mức thu lúc đặt, giữ chỗ 12/10 phút, thanh toán đến muộn, người nhận vé), data-model, contract dự kiến `contracts/workshop-booking-cart.openapi.yaml` và tasks Phase 8 (T089–T097). **003.3 (12/11/2026):** FR-030–FR-045 (folio theo vé, thu tại quầy, chốt sổ, hoàn ngân hàng, hủy/Mland hủy/đổi lịch theo vé), cập nhật chính sách folio dùng chung, data-model, contract dự kiến `workshop-settlement-ticket.openapi.yaml`, tasks Phase 8 (T093–T103). **003.2 (12/11/2026):** FR-030–FR-036 (sức chứa theo vé, hủy vé, tham dự theo vé, đổi QR, thay ca theo vé với ngoại lệ đến muộn, quota đổi lịch), data-model, facade dùng chung, tasks Phase 14 (T090–T096). **Còn mở trước khi code:** giá trị quota đổi lịch, mẫu email, hoàn tiền add-on OTA. **Chưa làm:** sửa code.
+- **Đã lưu:** danh sách này và các quyết định chi tiết bên dưới. **Đồng bộ spec (12/11/2026):** 003.1 đã có FR-030–FR-043 (giỏ, vé con, phân bổ ưu đãi, mức thu lúc đặt, giữ chỗ 12/10 phút, thanh toán đến muộn, người nhận vé), data-model, contract dự kiến `contracts/workshop-booking-cart.openapi.yaml` và tasks Phase 8 (T089–T097). **003.3 (12/11/2026):** FR-030–FR-045 (folio theo vé, thu tại quầy, chốt sổ, hoàn ngân hàng, hủy/Mland hủy/đổi lịch theo vé), cập nhật chính sách folio dùng chung, data-model, contract dự kiến `workshop-settlement-ticket.openapi.yaml`, tasks Phase 8 (T093–T103). **003.2 (12/11/2026):** FR-030–FR-036 (sức chứa theo vé, hủy vé, tham dự theo vé, đổi QR, thay ca theo vé với ngoại lệ đến muộn, quota đổi lịch), data-model, facade dùng chung, tasks Phase 14 (T090–T096). **Đã chốt 12/11/2026:** quota đổi lịch mặc định 25% sức chứa (tối thiểu 1, Manager chỉnh được, dùng chung cho đổi trước và đến muộn, Mland đổi không tính quota); hoàn thu thừa bill add-on OTA chuyển sang hoàn ngân hàng (003.3 FR-038a); mốc phản hồi thanh toán đến muộn 24 giờ hoặc trước giờ bắt đầu ca (003.1 FR-040a). **Email đã duyệt 12/11/2026:** `artifacts/workshop-email-templates-draft.md` (giữ tên file). **Còn mở trước khi code:** điều kiện tự duyệt đổi lịch online; đề xuất bên dưới chưa phải chính sách đã duyệt. **Chưa làm:** sửa code.
 - **Còn cần hoàn thiện trước khi code:** các chi tiết được đánh dấu ở mục gửi vé, đổi lịch và voucher; kiểm chứng trên merchant sandbox/ngân hàng shop khi cần. Đây là phần cần ghi chính xác hoặc kiểm chứng, không phải tự mở lại các quyết định người dùng đã chốt.
 
 ## Hoàn tiền trực tiếp qua ngân hàng, không dùng VNPay Refund

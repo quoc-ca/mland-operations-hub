@@ -167,11 +167,13 @@ ticket bookings) and 003.2 per-ticket capacity/attendance/quota.
 - [ ] T098 Stop VNPay Refund for direct Mland money: route Mland remedy, overcharge correction (FR-004c) and late-payment refunds to T097; keep original VNPay evidence; reconcile any legacy refund with code `99` before a manual refund; leave pending legacy VNPay refunds untouched.
 - [ ] T099 Per-ticket customer cancellation (FR-041, FR-042): buyer-only, until the first session starts, capacity release in 003.2, 24-hour benefit rule, one voucher restoration per group, free/deferred folio closed without debt; idempotent.
 - [ ] T100 Per-ticket Mland remedy (FR-043): replacement offer and buyer answer, refund by default when unanswered 24 h before the replacement, 100% of the ticket's collected money by bank, points returned, voucher restored once even for a partial group; buyer and recipient notifications.
-- [ ] T101 Ticket changes (FR-044, FR-045): one counted customer change (advance or late arrival), late-arrival window (old end + 7 days), multi-ticket all-or-none, Manager-granted extra change, frozen price with voucher-scope loss and buyer-confirmed increase added to the balance; capacity and quota through 003.2.
+- [ ] T101 Ticket changes (FR-044, FR-045): one counted customer change per ticket (advance or late arrival), whether one or both sessions move; consume only on successful all-or-none replacement, never on failure or retry. Test that moving session 1 exhausts the normal allowance for a later session 2 change. Include late-arrival window (old end + 7 days), multi-ticket all-or-none, Manager-granted extra change, frozen price with voucher-scope loss and buyer-confirmed increase added to the balance; capacity and quota through 003.2.
 - [ ] T102 Frontend for Staff/Manager: ticket folio with mixed collections in the order VNPay, cash, transfer; pending verification; cash close; refund queue and transitions; customer refund-account page; ticket cancellation and change screens.
 - [ ] T103 Integration tests on MySQL: mixed collections, VNPay part under 5,000 refused, transfer confirmation authority, duplicate bank reference, excess money, cash close difference, refund lifecycle and masking, legacy `99`, per-ticket cancellation 24 h 00 m / 23 h 59 m, voucher restoration once, Mland partial cancellation, change limits and price increase.
 
-**Open:** whether the OTA shop add-on overcharge refund (T092, VNPay) also moves to bank refunds; reschedule quota values (003.2); email templates.
+- [ ] T104 Move the OTA shop add-on overcharge refund (T092, `ADDON_REFUND`) from VNPay partial refund to the bank refund flow of T097 (FR-038a); keep Manager-only approval; allow counter entry of the account.
+
+**Email content approved 2026-11-12:** use `artifacts/workshop-email-templates-draft.md` (filename retained). **Open:** exact online rescheduling auto-approval conditions for T101; approval of the email text does not close this policy item.
 
 ## Dependencies and execution order
 

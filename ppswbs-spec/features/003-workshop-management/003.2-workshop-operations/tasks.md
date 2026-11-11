@@ -303,7 +303,7 @@ and 003.3 Phase 8 (per-ticket cancellation, Mland remedy, changes).
 - [ ] T092 Per-ticket readiness and attendance outcome (FR-032): query and `BookingAttendanceFinalizedEvent` per ticket booking after the 24-hour correction window; no-show per ticket.
 - [ ] T093 QR revoke and reissue for a recipient change (FR-033): revoke immediately, issue a new opaque QR for the same entitlements, refuse after any check-in; check-in rejects revoked QR.
 - [ ] T094 Per-ticket session replacement (FR-034): selected tickets all or none, capacity + reschedule quota + package rules, late-arrival exception for an `IN_PROGRESS` source before it ends with the 7-day window, Mland replacements not counted.
-- [ ] T095 Reschedule quota (FR-035) per session, Manager-configured, counted per moved ticket; blocked until the owner decides values/defaults/sharing between advance and late-arrival changes.
+- [ ] T095 Reschedule quota (FR-035): one quota per session shared by advance and late-arrival changes, default floor(25% × capacity) with minimum 1, Manager override per session (0 closes it), default recomputed on capacity change unless overridden, Mland replacements exempt; counted per moved ticket.
 - [ ] T096 Integration tests on MySQL: group reserve with one failing line, per-ticket release, per-ticket attendance outcome, QR revoke at check-in, replacement all-or-none, late-arrival window edges (old end + 7 days), quota exhausted vs capacity full, OTA ticket refused.
 
 ---
