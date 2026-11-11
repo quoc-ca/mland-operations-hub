@@ -120,7 +120,37 @@ outside it (owner decisions D13/D14, 2026-11-05).
   A failed check has no booking/payment/ticket/capacity side effect and records
   only the required minimal denied-attempt audit evidence.
 
+## Booking group and ticket bookings (decision 2026-11-12, spec FR-030–FR-043)
+
+Planned model, not yet implemented (tasks Phase 8). It replaces "one booking =
+one package with `participant_count` tickets and one invoice" for new bookings.
+
+```text
+BookingGroup (1) ── (1..N) TicketBooking ── (1..2) TicketSessionEntitlement
+     │                     ├── (1) TicketPriceSnapshot (allocations, collection kind)
+     │                     ├── (0..1) TicketRecipient (+ change history)
+     │                     └── (1) OPEN folio in 003.3
+     ├── (1) GroupQuote (cart lines, recorded Loyalty policy, voucher use)
+     ├── (N) GroupPaymentAttempt / receipt (one VNPay payment for the group)
+     └── (0..N) LatePaymentReview
+```
+
+| Entity | Owned data | Required invariant |
+| --- | --- | --- |
+| BookingGroup | group code; buyer (Member account or Guest contact); shared contact snapshot; group status (`PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED`, `CANCELLED`); one `holdExpiresAt` (12 min); payment link expiry (`holdExpiresAt − 2 min`); group collection amount and mode (`VNPAY`, `INTERNAL_FREE`, `INTERNAL_DEFERRED`); voucher use reference | All tickets are held, confirmed, expired or released together until confirmation; afterwards each ticket has its own lifecycle. One voucher use per group. Group collection = sum of ticket collections; VNPay only when ≥ 5,000 VND. |
+| TicketBooking | ticket booking code; group; package and session-set snapshot; service/financial status; QR/Magic Link reference; one-change counter used by 003.3 | One person per ticket. A multi-session package is one ticket. Cancel/change/refund of one ticket never changes another ticket implicitly. |
+| TicketPriceSnapshot | package price; voucher allocation; allocated points and point discount; final price; collected at booking; collection kind (`FREE`, `FULL`, `DEPOSIT`, `DEFERRED_BELOW_VNPAY_MINIMUM`); remaining; disclosed non-refundable condition; recorded Loyalty policy revision | Immutable after confirmation. Allocations use largest remainder in whole VND / whole points (ties: higher price, then cart order); voucher allocation ≤ ticket price; ticket at 0 after voucher gets no points. Collection: 0 → 0; 1–204,999 → full; ≥ 205,000 → 200,000; whole group 1–4,999 → all deferred to checkout. |
+| TicketRecipient | ticket; recipient email (encrypted or masked in reads); active QR generation; change count; change history (old/new masked email, actor, channel, time) | Optional. A recipient change revokes the old QR and issues a new one; same-email resend keeps the QR. No change after check-in; at most 3 online changes per ticket. Only the buyer or Staff after verifying the buyer may change it. |
+| LatePaymentReview | group; verified evidence reference; arrival time; evaluated conditions (capacity, start ≥ 2 h, recomputed amount, ≤ 60 min, no duplicate booking); outcome (`AUTO_RECONFIRMED`, `PENDING_MANAGER`, `MANAGER_CONFIRMED`, `REFUND_REQUESTED`) | One review per verified evidence. Auto re-confirmation is atomic for the whole group and idempotent across IPN/QueryDR. Manager confirmation is allowed only when only the 60-minute or duplicate-booking condition failed. |
+
+`BookingInvoice` keeps its meaning for single-ticket history; for new bookings
+the per-ticket `TicketPriceSnapshot` and the 003.3 folio replace the group-level
+`deposit = ceil(post / 2)` invariant.
+
 ## Migration boundary
+
+**Update 2026-11-12:** only dev/test data exists, so the group/ticket model is
+introduced by a schema migration plus reseed; no booking conversion is needed.
 
 This document does not authorize a migration. Existing applied migrations stay
 unchanged. Dev/test reset requires a preflight confirming no booking/customer
