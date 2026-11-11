@@ -294,12 +294,18 @@ class LoyaltyRetailQuoteTest {
         // T081 / FR-013: the screen translates the code; the English text stays for callers that read strings.
         Result belowMinimum = RetailQuote.compute(List.of(line(1, 11, 1, 9_900)), select(SelectionChoice.NONE, 9),
                 null, List.of(), POLICY, n(500), false);
+        // 9.900đ allows at most 9 points, below the minimum of 10: one reason, not also "between 10 and 9" (L6).
         assertThat(belowMinimum.reasonDetails()).extracting(BenefitReason::code)
-                .contains(BenefitReasonCode.POINTS_OUT_OF_RANGE, BenefitReasonCode.POINTS_BELOW_MINIMUM);
-        BenefitReason range = belowMinimum.reasonDetails().get(0);
-        assertThat(range.params()).containsEntry("min", "10").containsEntry("max", "9");
-        assertThat(range.message()).isEqualTo("Points must be between 10 and 9.");
+                .containsExactly(BenefitReasonCode.POINTS_BELOW_MINIMUM);
+        assertThat(belowMinimum.reasonDetails().get(0).params()).containsEntry("min", "10");
         assertThat(belowMinimum.reasons()).hasSameSizeAs(belowMinimum.reasonDetails());
+
+        Result outOfRange = RetailQuote.compute(List.of(line(1, 11, 1, 1_000_000)), select(SelectionChoice.NONE, 5),
+                null, List.of(), POLICY, n(500), false);
+        BenefitReason range = outOfRange.reasonDetails().get(0);
+        assertThat(range.code()).isEqualTo(BenefitReasonCode.POINTS_OUT_OF_RANGE);
+        assertThat(range.params()).containsEntry("min", "10").containsEntry("max", "500");
+        assertThat(range.message()).isEqualTo("Points must be between 10 and 500.");
 
         Result noCombine = RetailQuote.compute(CART, select(SelectionChoice.VOUCHER, 50),
                 voucher(1, percent("10", 50_000, 0), false, Set.of(1L)), List.of(), POLICY, n(100), false);

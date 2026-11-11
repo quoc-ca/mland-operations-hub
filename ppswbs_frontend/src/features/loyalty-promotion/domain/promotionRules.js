@@ -114,6 +114,23 @@ export function branchSale(product, branchIds) {
   return { atBranch, offSizes };
 }
 
+/**
+ * Error keys a form value feeds, so that changing the value clears them: a discount value is checked as
+ * `discount.*`, a picked target as `targets.*`, and start/end are checked together.
+ */
+export function errorFieldsOf(name) {
+  if (['discountKind', 'percentage', 'amount', 'maxDiscountAmount'].includes(name)) {
+    return ['discount.kind', 'discount.percentage', 'discount.amount', 'discount.maxDiscountAmount', 'discount', 'body'];
+  }
+  if (name === 'startAt' || name === 'endAt') return ['startAt', 'endAt', 'body'];
+  if (['productIds', 'variantIds', 'packageIds', 'branchIds', 'sessionIds', 'workshopDates'].includes(name)) {
+    return ['targets', `targets.${name}`, 'body'];
+  }
+  // Branches do not answer "pick a product or size" (`targets`), so that error stays until a product is picked.
+  if (name === 'productBranchIds') return ['targets.branchIds', 'body'];
+  return [name, 'body'];
+}
+
 /** Hints (i18n keys) for the create form. */
 export function checkCreate(form) {
   const errors = {};

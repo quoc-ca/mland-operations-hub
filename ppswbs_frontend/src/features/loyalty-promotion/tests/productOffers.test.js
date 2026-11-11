@@ -81,3 +81,13 @@ describe('offers of a product', () => {
     expect(offers.autoForBiggerOrder).toEqual([]);
   });
 });
+
+describe('equal automatic discounts (review 2026-11-10, L3)', () => {
+  it('names the programme created first, like the checkout quote, although the API lists newest first', () => {
+    const newer = program({ id: '12', name: 'Mới hơn' });
+    const older = program({ id: '3', name: 'Tạo trước' });
+    const offers = offersForProduct(product, [newer, older]);
+    expect(offers.auto.name).toBe('Tạo trước');
+    expect(offers.sizes['201'].program.id).toBe('3');
+  });
+});

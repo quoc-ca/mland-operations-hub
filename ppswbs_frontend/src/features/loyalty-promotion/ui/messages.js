@@ -85,6 +85,7 @@ const vi = {
   'saved.empty': 'Bạn chưa lưu voucher nào.', 'saved.savedAt': 'Đã lưu lúc {at}',
   'availability.ACTIVE': 'Dùng được', 'availability.PAUSED': 'Đang tạm dừng', 'availability.SCHEDULED': 'Chưa đến thời gian',
   'availability.EXPIRED': 'Hết hạn', 'availability.NO_PUBLIC_TARGET': 'Không còn sản phẩm/gói áp dụng',
+  'availability.NO_USES_LEFT': 'Đã hết lượt dùng', 'availability.MEMBER_LIMIT_REACHED': 'Bạn đã dùng hết lượt của mình',
 
   'manage.eyebrow': 'QUẢN LÝ ƯU ĐÃI', 'public.eyebrow': 'ƯU ĐÃI', 'public.title': 'Ưu đãi đang có', 'public.empty': 'Hiện chưa có ưu đãi nào.',
   'public.notFound': 'Ưu đãi không tồn tại hoặc không còn công khai',
@@ -123,7 +124,7 @@ const vi = {
   'reason.WORKSHOP_NO_AUTO_DISCOUNT': 'Workshop không có giảm tự động; hãy nhập mã voucher.',
   'reason.WORKSHOP_NOT_COVERED': 'Voucher không áp dụng cho gói, chi nhánh, ngày hoặc phiên đã chọn.',
   'reason.WORKSHOP_BELOW_MINIMUM_FEE': 'Phí gói chưa đạt giá trị tối thiểu của voucher.',
-  'reason.WORKSHOP_NET_AMOUNT_INVALID': 'Số tiền phải trả sau ưu đãi phải lớn hơn 0.',
+  'reason.WORKSHOP_NET_AMOUNT_INVALID': 'Số tiền phải trả sau ưu đãi không được âm.',
   'reason.POINTS_NOT_COMBINABLE': 'Voucher này không cho dùng kèm điểm.',
   'reason.POINTS_OUT_OF_RANGE': 'Số điểm phải từ {min} đến {max}.',
   'reason.POINTS_BELOW_MINIMUM': 'Đơn này dùng được quá ít điểm, chưa đạt mức tối thiểu {min} điểm.',
@@ -146,7 +147,7 @@ const vi = {
   'error.QUOTE_CHANGED': 'Giá hoặc điều kiện đã thay đổi. Xem tổng tiền mới rồi xác nhận lại.',
   'error.POINTS_LIMIT_CHANGED': 'Số điểm dùng được đã thay đổi. Kiểm tra rồi xác nhận lại.',
   'error.PROMOTION_INELIGIBLE': 'Ưu đãi không áp dụng được cho đơn này.', 'error.POINTS_USE_NOT_ALLOWED': 'Không dùng được điểm với lựa chọn này.',
-  'error.WORKSHOP_NET_AMOUNT_INVALID': 'Số tiền sau ưu đãi phải lớn hơn 0.',
+  'error.WORKSHOP_NET_AMOUNT_INVALID': 'Số tiền sau ưu đãi không được âm.',
   'error.DEPENDENCY_UNAVAILABLE': 'Một dịch vụ liên quan tạm thời không phản hồi. Bấm Thử lại.',
   'error.RETRYABLE_CONTENTION': 'Hệ thống đang bận. Bấm Thử lại để gửi lại đúng thao tác.',
 };
@@ -237,6 +238,7 @@ const en = {
   'saved.empty': 'You have not saved any voucher.', 'saved.savedAt': 'Saved {at}',
   'availability.ACTIVE': 'Usable', 'availability.PAUSED': 'Paused', 'availability.SCHEDULED': 'Not started yet',
   'availability.EXPIRED': 'Expired', 'availability.NO_PUBLIC_TARGET': 'No product or package left',
+  'availability.NO_USES_LEFT': 'No uses left', 'availability.MEMBER_LIMIT_REACHED': 'You have used all your uses',
 
   'manage.eyebrow': 'PROMOTION MANAGEMENT', 'public.eyebrow': 'OFFERS', 'public.title': 'Current offers', 'public.empty': 'There are no offers right now.',
   'public.notFound': 'This offer does not exist or is no longer public',
@@ -275,7 +277,7 @@ const en = {
   'reason.WORKSHOP_NO_AUTO_DISCOUNT': 'Workshops have no automatic discount; enter a voucher code instead.',
   'reason.WORKSHOP_NOT_COVERED': 'This voucher does not cover this package, branch, date or session.',
   'reason.WORKSHOP_BELOW_MINIMUM_FEE': 'The package fee does not reach the minimum amount of this voucher.',
-  'reason.WORKSHOP_NET_AMOUNT_INVALID': 'The amount to pay after discounts must be greater than zero.',
+  'reason.WORKSHOP_NET_AMOUNT_INVALID': 'The amount to pay after discounts cannot be negative.',
   'reason.POINTS_NOT_COMBINABLE': 'Points cannot be used with this voucher.',
   'reason.POINTS_OUT_OF_RANGE': 'Points must be between {min} and {max}.',
   'reason.POINTS_BELOW_MINIMUM': 'Too few points can be used on this order to reach the minimum of {min}.',
@@ -298,7 +300,7 @@ const en = {
   'error.QUOTE_CHANGED': 'The price or conditions changed. Review the new total and confirm again.',
   'error.POINTS_LIMIT_CHANGED': 'The usable points changed. Review and confirm again.',
   'error.PROMOTION_INELIGIBLE': 'The offer does not apply to this order.', 'error.POINTS_USE_NOT_ALLOWED': 'Points cannot be used with this choice.',
-  'error.WORKSHOP_NET_AMOUNT_INVALID': 'The amount after discounts must be above zero.',
+  'error.WORKSHOP_NET_AMOUNT_INVALID': 'The amount after discounts cannot be negative.',
   'error.DEPENDENCY_UNAVAILABLE': 'A related service is not responding. Try again.',
   'error.RETRYABLE_CONTENTION': 'The system is busy. Try again to resend this same action.',
 };

@@ -710,7 +710,7 @@
             "$ref": "#/components/responses/DependencyUnavailable"
           }
         },
-        "description": "Save current voucher once; same resource is idempotent, no reservation/quota use. No memberId in input."
+        "description": "Save current voucher once; same resource is idempotent, no reservation/quota use. No memberId in input. Only a voucher listed publicly now (enabled, inside its window, with a public target) can be saved; any other programme answers 404 PROMOTION_NOT_FOUND so an ID never reveals a code. A voucher saved earlier stays saveable and listed with its availability (2026-11-10 review). A refused write is audited as request.refused (spec FR-043)."
       }
     },
     "/api/v1/members/me/loyalty-accounts/current": {
@@ -1745,9 +1745,11 @@
               "SCHEDULED",
               "PAUSED",
               "EXPIRED",
-              "NO_PUBLIC_TARGET"
+              "NO_PUBLIC_TARGET",
+              "NO_USES_LEFT",
+              "MEMBER_LIMIT_REACHED"
             ],
-            "description": "NO_PUBLIC_TARGET: product program whose targets are currently all hidden, unpublished or deleted (shown as \"Hiện không có sản phẩm áp dụng\")."
+            "description": "NO_PUBLIC_TARGET: product program whose targets are currently all hidden, unpublished or deleted, including a program whose size targets are all no longer public (shown as \"Hiện không có sản phẩm áp dụng\"). NO_USES_LEFT: used plus held uses reached the total limit. MEMBER_LIMIT_REACHED: this Member's used plus held uses reached the per-member limit. Added 2026-11-10 (review); held uses count until released."
           }
         },
         "required": [

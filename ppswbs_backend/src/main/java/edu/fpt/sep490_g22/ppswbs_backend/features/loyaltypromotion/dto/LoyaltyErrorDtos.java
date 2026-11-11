@@ -43,7 +43,7 @@ public final class LoyaltyErrorDtos {
             case POINTS_LIMIT_CHANGED -> "The usable points changed. Review and confirm again.";
             case PROMOTION_INELIGIBLE -> "The promotion cannot be applied to this purchase.";
             case POINTS_USE_NOT_ALLOWED -> "Points cannot be used with this selection.";
-            case WORKSHOP_NET_AMOUNT_INVALID -> "The amount after discounts must be greater than zero.";
+            case WORKSHOP_NET_AMOUNT_INVALID -> "The amount after discounts cannot be negative.";
             case DEPENDENCY_UNAVAILABLE -> "A required service is unavailable. Try again later.";
             case RETRYABLE_CONTENTION -> "The system is busy. Retry with the same request.";
         };

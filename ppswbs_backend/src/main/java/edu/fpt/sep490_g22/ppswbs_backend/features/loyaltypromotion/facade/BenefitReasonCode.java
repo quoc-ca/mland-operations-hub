@@ -22,6 +22,8 @@ public enum BenefitReasonCode {
     WORKSHOP_NO_AUTO_DISCOUNT("Workshops have no automatic discount; enter a voucher code instead."),
     WORKSHOP_NOT_COVERED("This voucher does not cover this package, branch, date or session."),
     WORKSHOP_BELOW_MINIMUM_FEE("The package fee does not reach the minimum amount of this voucher."),
+    // Text kept verbatim: FE-03's QuoteReasonTranslator matches on it. Since 2026-11-12 only a negative amount
+    // (which the calculator cannot produce) raises this reason; zero is valid.
     WORKSHOP_NET_AMOUNT_INVALID("The amount to pay after discounts must be greater than zero."),
     POINTS_NOT_COMBINABLE("Points cannot be used with this voucher."),
     POINTS_OUT_OF_RANGE("Points must be between {min} and {max}."),

@@ -20,7 +20,7 @@ public final class PublicPromotionDtos {
     public record PromotionPage(List<PublicPromotion> items, String nextCursor) {
     }
 
-    /** {@code availability}: ACTIVE, SCHEDULED, PAUSED, EXPIRED or NO_PUBLIC_TARGET. */
+    /** {@code availability}: ACTIVE, SCHEDULED, PAUSED, EXPIRED, NO_PUBLIC_TARGET, NO_USES_LEFT or MEMBER_LIMIT_REACHED. */
     public record SavedVoucher(PublicPromotion promotion, String savedAt, String availability) {
     }
 
