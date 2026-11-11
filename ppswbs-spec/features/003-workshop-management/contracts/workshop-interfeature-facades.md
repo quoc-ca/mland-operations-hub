@@ -333,6 +333,24 @@ immutable.
 OTA bookings are out of scope: they have no direct folio, and OTA shop add-ons
 keep their separate 003.4/003.3 bill contract.
 
+## Per-ticket boundary changes (decision 2026-11-12, planned)
+
+Planned facade changes for 003.1 FR-030–FR-043, 003.2 FR-030–FR-036 and 003.3
+FR-030–FR-045; not implemented yet. Record shapes are indicative; final names are
+chosen at implementation.
+
+| Owner | Operation | Change |
+| --- | --- | --- |
+| 003.2 | Reserve/commit/release capacity | Accept a booking-group reference with lines (package, session set, ticket count); one seat per ticket per session; all or none for the group before confirmation, per ticket afterwards. |
+| 003.2 | Cancel ticket entitlements | New per-ticket command releasing the ticket's future seats and revoking its future entitlements; replaces whole-booking `CancelBookingCommand` for new bookings. |
+| 003.2 | Revoke and reissue ticket QR | New command for a recipient change; old QR refused at check-in; refused after any check-in. |
+| 003.2 | Replace ticket sessions | Per-ticket replacement for the selected tickets, all or none, with capacity, reschedule quota and the late-arrival window; type `CUSTOMER_ADVANCE`, `CUSTOMER_LATE_ARRIVAL` or `MLAND`. |
+| 003.2 | Attendance outcome / readiness / `BookingAttendanceFinalizedEvent` | Keyed by ticket booking instead of booking. |
+| 003.1 | `MlandBookingConfirmedEvent` and `ConfirmedBookingFinancialProjection` | One per ticket booking; the projection gives the ticket's final price, allocated booking-time collection and kind (`FREE`, `FULL`, `DEPOSIT`, `DEFERRED_BELOW_VNPAY_MINIMUM`) so 003.3 opens the ticket folio. |
+| 003.1 | Verified booking-time payments | Group payment evidence plus each ticket's allocated share. |
+| 003.3 → 003.1 | Booking status conclusions | Per ticket booking; refund status set only at `REFUNDED` after bank reconciliation. |
+| 003.3 → paymentintegration | Refund adapter | No longer used for direct Mland money (bank refunds); VNPay collection unchanged. |
+
 ## Explicitly not decided here
 
 - Java package names beyond the existing feature `facade` package, concrete

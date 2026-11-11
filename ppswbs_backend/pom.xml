@@ -159,6 +159,11 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
 					<argLine>-Dfile.encoding=UTF-8</argLine>
+					<!-- Tests must never send real email. A developer's .env may set APP_MAIL_ADAPTER=smtp and
+					     application.properties imports .env; a system property overrides it for every test. -->
+					<systemPropertyVariables>
+						<app.mail.adapter>captured</app.mail.adapter>
+					</systemPropertyVariables>
 					<includes>
 						<include>**/*Test.java</include>
 						<include>**/*Tests.java</include>

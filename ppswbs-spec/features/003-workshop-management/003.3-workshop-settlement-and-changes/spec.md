@@ -73,7 +73,7 @@ session-assignment access")". A Manager remains global.
 
 T040 is an exceptional post-finalized correction/remedy path, not the normal add-on flow.
 
-- The folio's base line is the 003.1 frozen `postPromotionAmount`; its first
+- *(Superseded 2026-11-12 by FR-030: per-ticket base and booking-time collection.)* The folio's base line is the 003.1 frozen `postPromotionAmount`; its first
   verified collection is the 003.1 deposit `ceil(postPromotionAmount / 2)`,
   immutable after acceptance. A full-amount payment at booking time is not
   offered; the remaining amount and add-ons are collected at checkout.
@@ -109,7 +109,7 @@ only the exceptional correction flow (T040) applies.
   Settlement emits `WORKSHOP_COMPLETED_AND_FULLY_PAID` when its folio is
   `FINALIZED` with zero balance. `WORKSHOP_NO_SHOW_FINAL` is emitted only for a
   full no-show (D2), whose folio becomes `CLOSED`.
-- **D11**: after a Mland-caused remedy refund (FR-020/FR-021) is verified by
+- **D11** *(superseded 2026-11-12: a refund is complete when a Manager confirms `REFUNDED` after bank reconciliation, FR-039)*: after a Mland-caused remedy refund (FR-020/FR-021) is verified by
   signed QueryDR for every allocation, the folio becomes `CLOSED`, recording
   collected and refunded amounts; a pending/unknown refund keeps it `OPEN`.
 - **D12–D16**: 003.3 owns the OTA shop add-on bill (D12); 003.1 sets booking
@@ -143,6 +143,183 @@ only the exceptional correction flow (T040) applies.
   folio-correction resource and its `payment-attempts` operation is removed.
   See FR-004c.
 
+## Per-ticket settlement, bank refunds, counter collection and changes (decision 2026-11-12)
+
+**Source:** owner decisions recorded 2026-11-11/12 in
+`artifacts/workshop-changes-to-implement.md`. **Status:** specified, not yet
+implemented (tasks Phase 8). It follows 003.1 FR-030–FR-043 (booking group,
+one ticket booking per person, per-ticket booking-time collection).
+
+**Supersedes** (superseded lines are kept for history and read through this
+section): the folio base/deposit rule `ceil(post/2)` and "deposits are
+non-refundable and do not call VNPay" wording of the 2026-11-05 policy (the
+non-refund rule stays, now per ticket); every VNPay refund and refund-QueryDR
+path for direct Mland money — FR-004c, FR-021, D11 and Session 2026-10-31
+"refund execution"; VNPay-only final-payment evidence and the ban on manually
+recorded counter payments (FR-009, FR-010, FR-011, FR-007 "no Manager
+exception"); whole-booking customer cancellation (FR-013–FR-015a, FR-016,
+FR-017); Manager-only required-session change with no customer
+self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
+
+### Per-ticket folio
+
+- **FR-030**: Each ticket booking MUST have its own OPEN folio. Base line = the
+  ticket's final price (003.1 FR-035); first collection = the ticket's allocated
+  booking-time collection; a `FREE` or `DEFERRED_BELOW_VNPAY_MINIMUM` ticket
+  opens its folio with no payment evidence (collected 0, balance = ticket price,
+  which is 0 for a free ticket). D2–D6 apply per ticket: a ticket is a no-show
+  only when every session of that ticket is a final `NO_SHOW`; Loyalty earn is
+  decided per checked-out ticket after the 24-hour attendance-correction window,
+  for a Member buyer only, never twice for a folio with several collections.
+
+### Counter collection
+
+- **FR-031**: The remaining balance and add-ons MAY be paid by VNPay, cash or
+  direct bank transfer to the shop account, in several collections and mixed
+  methods on one folio. The checkout screen MUST offer them in this order:
+  VNPay, cash, direct transfer. Each collection records method, amount, status
+  (`PENDING_VERIFICATION`, `CONFIRMED`, `FAILED`, `VOIDED`), reference, payer,
+  confirming actor and time, and belongs to one ticket folio.
+- **FR-032**: Verification: VNPay only by signed IPN/QueryDR (never marked by
+  Staff); cash by Staff with collection authority, recording amount received
+  and change returned, with only the applied amount on the folio; direct
+  transfer only by an actor holding `workshop.payment.transfer.confirm` after
+  seeing the money in the shop account (remote confirmation allowed). A
+  customer screenshot is never enough. A `PENDING_VERIFICATION` collection does
+  not reduce the balance.
+- **FR-033**: The VNPay minimum of 5,000 VND applies to each VNPay collection;
+  cash has no minimum and direct transfer follows the shop bank's limits. A
+  balance of 1–4,999 VND is collected by cash or transfer. When a split would
+  leave a VNPay part under 5,000 the screen MUST say so before collecting. The
+  system MUST NOT raise an amount, waive a remainder or hide a remainder.
+- **FR-034**: Creating a collection MUST lock the folio and consider confirmed
+  and pending collections so one balance is never assigned twice. Switching
+  method for a part with a pending VNPay attempt MUST first reconcile that
+  attempt; closing the QR or screen is not proof of failure. Money that arrives
+  twice or exceeds the balance MUST be recorded in full and routed to a Manager
+  refund (FR-039); it never finalizes or earns twice. The same bank transaction
+  or cash confirmation cannot be recorded twice.
+- **FR-035**: The folio MUST be `FINALIZED` only when `balanceDue = 0`, no
+  collection is pending and checkout conditions hold; the workshop product is
+  handed over only after that. When the customer must leave while a transfer or
+  VNPay part is unverified, Staff records `Chờ xác minh thanh toán` with the
+  customer's transaction reference and the product is not handed over; the
+  folio finalizes automatically when the part is confirmed. Handing over before
+  verification is an exception only a Manager may approve, with a reason and
+  audit. Recording a real debt (`Còn nợ`) and closing it are Manager-only, with
+  a reason; there is no automatic reminder, deadline or booking block.
+- **FR-036**: Each branch MUST close its cash book once per working day (Vietnam
+  time) when closing: the system totals confirmed cash for the branch and day
+  (net of change returned), the closer enters the counted amount, a difference
+  requires a reason and Manager confirmation, and cash collected after the close
+  belongs to the next day. Confirmed cash of a closed day changes only through
+  the Manager correction flow. Transfers and VNPay are reconciled in separate
+  reports, not in the cash close.
+- **FR-037**: Add-on and variable-charge prices remain at least 5,000 VND. A
+  wrongly recorded line is voided whole with history by a Manager while the
+  folio is OPEN; this is not a customer's right to cancel a used service.
+
+### Bank refunds (no VNPay Refund)
+
+- **FR-038**: Direct Mland money is refunded only by bank transfer outside the
+  system; the system calculates, records, tracks and reconciles but MUST NOT
+  call VNPay Refund or refund-QueryDR. Refunds apply to Mland-caused
+  cancellation (FR-043), late payment that is not re-confirmed (003.1 FR-040),
+  overcharge after `FINALIZED` (FR-004c, now by bank) and duplicate or excess
+  money (FR-034). Customer self-cancellation and no-show never refund the
+  booking-time collection. Refunds are per ticket; the total refunded or
+  pending for a ticket never exceeds the money collected for that ticket, and a
+  refund of one ticket changes no other ticket. There is no 5,000 VND minimum.
+  Voucher value is never refunded as money.
+- **FR-039**: Refund request lifecycle: `PENDING_ACCOUNT` → `PENDING_APPROVAL` →
+  `PENDING_TRANSFER` → `PENDING_RECONCILIATION` → `REFUNDED`, plus
+  `CLOSED_UNREACHABLE` (reopenable). A Manager approves reason, amount and
+  recipient. An actor holding `workshop.refund.execute` transfers outside the
+  system and records the bank reference and proof; only a Manager confirms
+  `REFUNDED` after matching the bank statement (one Manager may both approve and
+  confirm; every step records actor, time and proof). The default recipient is
+  the payer of the refunded money (the group payer for the shared booking-time
+  payment even when the ticket was sent to someone else; the counter payer for
+  a counter collection); another recipient needs the payer's recorded
+  confirmation. Requests and confirmations are deduplicated. A legacy VNPay
+  refund with code `99` MUST be reconciled before any manual refund of the same
+  money. Business consequences (folio `CLOSED`, booking refund status) apply only
+  after `REFUNDED`.
+- **FR-040**: The system MUST collect the recipient account through a single-use
+  link sent to the payer (valid 7 days, resendable, a resend revokes the old
+  link) or Staff entry at the counter (recording actor, channel and time): bank,
+  account number and holder name. A holder name different from the payer needs
+  the payer's confirmation; the transferring actor checks the name shown by the
+  bank and stops on a mismatch. Account numbers are encrypted, shown in full
+  only to the approving Manager and the transferring actor, masked
+  (`****1234`) elsewhere, never written to email, logs or audit, and only the
+  masked form is kept after `REFUNDED`. Without a reply the request stays
+  `PENDING_ACCOUNT` with reminders on days 3 and 7; after 30 days a Manager may
+  close it as `CLOSED_UNREACHABLE` with a reason and reopen it when the customer
+  returns. The customer never loses the right to the refund.
+
+### Customer cancellation per ticket
+
+- **FR-041**: The buyer MAY cancel chosen tickets (a recipient cannot; a
+  recipient goes through the buyer or the shop). A ticket can be cancelled while
+  unused and before its first session starts; there is no earlier deadline.
+  Cancellation releases the capacity of every future session of the ticket and
+  changes no other ticket. The booking-time collection is not refunded; a
+  `FREE` or deferred ticket's folio closes without debt.
+- **FR-042**: The 24-hour mark before the ticket's first session decides
+  benefits: cancelling at least 24 hours before is a **valid cancellation** and
+  returns the ticket's used points; cancelling later still releases capacity
+  but benefits are treated as a no-show (no points returned). The group's
+  voucher use is restored once only when every ticket of the group ended by
+  valid cancellation or Mland cancellation; any late cancellation or no-show
+  prevents it. Each cancellation records request time, first-session start, the
+  24-hour outcome, benefits returned, actor and channel, and replays are
+  idempotent. Cart-level voucher conditions are not re-evaluated.
+
+### Mland cancellation per ticket
+
+- **FR-043**: When Mland cancels or moves a session, only tickets with that
+  session are affected; a two-session ticket losing one session is handled as a
+  whole ticket. Mland first offers an equivalent replacement (not counted as the
+  customer's change, no extra charge, same capacity/quota/package-order checks).
+  The buyer answers at least 24 hours before the replacement starts; no answer
+  means refund, never an automatic move. If declined or unavailable, 100% of the
+  money collected for the ticket (booking-time and counter) is refunded by bank
+  under FR-038–FR-040, even if an earlier session of the ticket was attended.
+  Used points of the ticket are returned. The group's voucher use is restored
+  once even when only part of the group is cancelled by Mland, and never a
+  second time. The buyer is emailed the replacement and refund choice; a
+  recipient is told the session was cancelled but only the buyer chooses. The
+  refund policy snapshot taken at confirmation still applies.
+
+### Changes (rescheduling)
+
+- **FR-044**: Each ticket allows one customer-requested change, shared by an
+  advance change (at least 24 hours before the session) and late-arrival
+  support (requested before the old session ends). One change may move session
+  1, session 2 or both in one action. For late-arrival support the replacement
+  for the missed session starts no later than the old session's end + 7 days; a
+  following session moved with it may fall outside that window but must keep
+  the package order and gap. Moving several tickets together is all-or-none for
+  the chosen tickets. Mland-caused changes do not count; a Manager may grant
+  extra changes with a reason and audit. The customer may act online within
+  these rights or ask Staff at the shop. Only valid options are shown and they
+  are rechecked on confirmation. Capacity and the reschedule quota are checked
+  per ticket in 003.2; quota never replaces the capacity check. OTA tickets
+  follow the OTA's policy.
+- **FR-045**: The package price stays frozen, so a change never lowers the price
+  and never creates a refund. A ticket moved outside its voucher scope loses
+  its allocated voucher discount; used points stay. A ticket moved into scope
+  gains no new voucher. Any increase is shown with the new schedule and amount
+  and confirmed by the buyer (owning a QR is not consent to a financial
+  change), then added to the ticket's checkout balance; it need not be paid at
+  the time of the change.
+
+**Open before implementation:** reschedule quota values and scope per change
+type (003.2), the exact auto-approval conditions for online changes, and the
+customer email templates for refund-account requests, Mland cancellation and
+change confirmation.
+
 ## Scope
 
 This feature owns direct-Mland actions after a workshop booking is confirmed:
@@ -161,7 +338,7 @@ separate Mland shop add-on bill of an OTA booking (D12).
 
 ## Clarifications
 
-### Session 2026-10-31 — owner-approved refund execution
+### Session 2026-10-31 — owner-approved refund execution (superseded 2026-11-12 by FR-038–FR-040: bank refunds, no VNPay Refund)
 
 - Once an Mland-caused remedy is eligible, Settlement automatically initiates
   the policy-calculated refund; no second manual send
@@ -601,7 +778,7 @@ outcome.
   laser engraving from the active catalogue like any other add-on. A variable charge MUST be
   submitted only by Staff/Manager with description, amount, and reason; that
   audited command confirms it. No customer variable-charge command exists.
-- **FR-004c**: A correction to a `FINALIZED` direct folio (owner decisions
+- **FR-004c** *(superseded 2026-11-12 by FR-038 (bank refund))*: A correction to a `FINALIZED` direct folio (owner decisions
   D7–D10, 2026-11-05) MUST be a separate, immutable, audited folio-correction
   record linked to the folio; it MUST NOT add, edit or remove folio lines or
   totals. Only an active Manager MAY open and approve it, with a required
@@ -639,14 +816,14 @@ outcome.
   stored contact phone or email for that request. The projection MAY include the
   customer-visible charge lines, due/paid/refunded amounts, and bill status, but
   MUST exclude raw gateway evidence and internal-only data.
-- **FR-007**: The system MUST prevent final-bill finalization and package-output
+- **FR-007** *(superseded 2026-11-12 by FR-035)*: The system MUST prevent final-bill finalization and package-output
   release until the complete final balance has matching verified payment
   evidence. No Manager exception, credit, or deferred collection is permitted.
 - **FR-008**: Settlement MUST send 003.1 the `RecordFinalBalanceResolvedCommand`
   conclusion only when the folio's final balance is settled through matching
   verified payment evidence; 003.1 alone then changes the booking to
   `FULLY_PAID`. Settlement MUST NOT change Booking state directly.
-- **FR-009**: The system MUST accept final-payment evidence only from valid
+- **FR-009** *(superseded 2026-11-12 by FR-031–FR-034 (counter collection))*: The system MUST accept final-payment evidence only from valid
   signed VNPay IPN or QueryDR, matched to the final bill's reference, amount and
   currency. It MUST process that evidence idempotently and reject invalid,
   mismatched, unsigned, duplicate, late, browser-return-only, or manually
@@ -669,10 +846,10 @@ outcome.
   evidence only through `WorkshopSettlementFacade`; it MUST NOT expose or own a
   VNPay IPN HTTP route, raw callback payload, checksum verification, or routing
   of deposit evidence.
-- **FR-010**: Settlement MUST require the final balance to be collected and
+- **FR-010** *(superseded 2026-11-12 by FR-035)*: Settlement MUST require the final balance to be collected and
   verified before handing the workshop package output to the customer. It MUST
   NOT create credit, deferred-payment cases, reminders, or payment reissues.
-- **FR-011**: Staff/Manager MUST be able to start a separate `FINAL_PAYMENT`
+- **FR-011** *(superseded 2026-11-12 by FR-031–FR-034)*: Staff/Manager MUST be able to start a separate `FINAL_PAYMENT`
   checkout for the server-derived outstanding VND balance through
   `paymentintegration`. The resulting attempt MUST be idempotently bound to its
   booking, merchant reference, amount, and VND currency, and MUST expire 10
@@ -707,7 +884,7 @@ outcome.
   recipient/rendered content MUST be retained for at most 30 days after
   handoff. After 30 days the delivery payload MUST no longer be retrievable.
   Delivery failure MUST NOT reverse the accepted Settlement outcome.
-- **FR-013**: Guest/authorized Member cancellation MUST be whole-booking only;
+- **FR-013** *(superseded 2026-11-12 by FR-041)*: Guest/authorized Member cancellation MUST be whole-booking only;
   session/ticket/participant self-service cancellation/refund is prohibited. An
   authenticated Member MUST pass ownership verification; a Guest MUST provide
   the booking code and stored contact phone or email at cancellation-request
@@ -720,18 +897,18 @@ outcome.
   same-key request with the same semantic input MUST replay the existing safe
   outcome; any new key after a case exists MUST NOT create another case or refund
   operation and MUST return a conflict.
-- **FR-014**: Normal customer cancellation MUST require all tickets unused, no
+- **FR-014** *(superseded 2026-11-12 by FR-041)*: Normal customer cancellation MUST require all tickets unused, no
   required session started, and policy eligibility. The workshop product is
   handed to the customer only after their workshop session; therefore the
   no-session-started requirement also ensures no workshop product has already
   been handed over. No separate package-output delivery check is required for
   customer cancellation.
-- **FR-015**: Direct customer cancellation MUST NOT calculate or request a refund.
+- **FR-015** *(superseded 2026-11-12 by FR-041)*: Direct customer cancellation MUST NOT calculate or request a refund.
   If all required sessions are future and all tickets are unused, Settlement MUST
   hand the booking to Operations for an idempotent whole-booking cancellation;
   the case is `RESOLVED` only after Operations accepts, and the paid deposit is
   retained. An Operations rejection leaves the case `REJECTED`.
-- **FR-015a**: After an accepted ordinary direct cancellation or an
+- **FR-015a** *(superseded 2026-11-12 by FR-041 and FR-030)*: After an accepted ordinary direct cancellation or an
   Operations-final no-show, Settlement MUST close the direct folio at the
   verified collected amount and set it to `CLOSED`. It MUST NOT refund the
   direct deposit,
@@ -741,13 +918,13 @@ outcome.
   required session has a final `NO_SHOW`; partial attendance is not a no-show
   and proceeds to normal checkout for the full package price plus accepted
   add-ons.
-- **FR-016**: The case MUST snapshot policy, earliest-session reference, paid
+- **FR-016** *(superseded 2026-11-12 by FR-042)*: The case MUST snapshot policy, earliest-session reference, paid
   amount, computed amount, request time, and eligibility outcome. A replay MUST
   return that snapshot; a conflicting new key MUST NOT create another snapshot.
-- **FR-017**: Direct customer cancellation MUST never create a `PENDING_PROVIDER`
+- **FR-017** *(superseded 2026-11-12 by FR-038)*: Direct customer cancellation MUST never create a `PENDING_PROVIDER`
   case and MUST never invoke VNPay refund or QueryDR. Provider refund states are
   limited to approved Mland-caused remedy/provider flows and Manager folio corrections (FR-004c).
-- **FR-018**: An authorized Manager MAY replace one or more future required
+- **FR-018** *(superseded 2026-11-12 by FR-044)*: An authorized Manager MAY replace one or more future required
   sessions only with compatible sessions that have capacity for the booking's
   unchanged participant count. For a multi-session package, the complete
   resulting session set MUST remain valid; Wax Casting's resulting pair MUST be
@@ -772,9 +949,9 @@ outcome.
   MUST additionally accept the authoritative 003.2 `cancellationHandoffReference`.
   It MUST NOT accept caller-supplied capacity, ticket/QR, price, or partial
   replacement mapping.
-- **FR-020**: When Mland cancels a required session, the system MUST offer an
+- **FR-020** *(superseded 2026-11-12 by FR-043)*: When Mland cancels a required session, the system MUST offer an
   equivalent replacement before an authorized whole-booking/package refund.
-- **FR-021**: If replacement is unavailable or declined, the authorized remedy
+- **FR-021** *(superseded 2026-11-12 by FR-038 and FR-043)*: If replacement is unavailable or declined, the authorized remedy
   MUST refund the amount required by the booking's Mland-caused-cancellation
   policy snapshot. The initial policy is 100% of every successfully collected
   booking/package payment, including deposit and final payment even if an
