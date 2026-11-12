@@ -113,7 +113,24 @@ public class CatalogueCommandExecutor {
         try {
             return run(key, work);
         } catch (CatalogueException rejected) {
-            recordRejection(key, rejected);
+            recordRejection(key.actorId(), key.action(), key.commandId(), rejected);
+            throw rejected;
+        }
+    }
+
+    /**
+     * T144 (FR-027, FR-050, SC-007): a check that rejects a command before it reaches {@link #execute} — the branch
+     * scope checks of the management API — is audited the same way as a rejection inside the command: own
+     * transaction, actor, action, command key and error code only. Must run outside a transaction, like a command.
+     */
+    public void precheck(String actorId, String action, UUID commandId, Runnable check) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalStateException("A catalogue command check must run outside a transaction");
+        }
+        try {
+            check.run();
+        } catch (CatalogueException rejected) {
+            recordRejection(actorId, action, commandId, rejected);
             throw rejected;
         }
     }
@@ -125,7 +142,7 @@ public class CatalogueCommandExecutor {
      * rejected fields — never the request, a value the user typed, a token or file content. A failure to write it is
      * logged and never replaces the original error.
      */
-    private void recordRejection(CommandKey key, CatalogueException rejected) {
+    private void recordRejection(String actorId, String action, UUID commandId, CatalogueException rejected) {
         if (!rejected.code().status().is4xxClientError()) {
             return;
         }
@@ -136,10 +153,10 @@ public class CatalogueCommandExecutor {
             changes.put("fields", fields);
         }
         try {
-            audit.recordRejection(new CatalogueAuditWriter.Entry(key.actorId(), key.action(), REJECTED_RESOURCE_TYPE,
-                    key.commandId().toString(), null, null, null, changes));
+            audit.recordRejection(new CatalogueAuditWriter.Entry(actorId, action, REJECTED_RESOURCE_TYPE,
+                    commandId.toString(), null, null, null, changes));
         } catch (RuntimeException auditFailure) {
-            log.warn("Could not audit rejected catalogue command action={} code={}", key.action(),
+            log.warn("Could not audit rejected catalogue command action={} code={}", action,
                     rejected.code().name(), auditFailure);
         }
     }

@@ -293,6 +293,32 @@ class CatalogueApiIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(productJson("Nhẫn phạm vi " + UUID.randomUUID(), fixture.activeCategory())))
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("BRANCH_SCOPE_EMPTY"));
+
+        // T144 (FR-027, SC-007): a shared-content command refused by the branch scope of the controller is audited as
+        // REJECTED (actor, action, command key, code) and changes nothing.
+        String nameBefore = jdbc.queryForObject("SELECT name FROM catalogue_products WHERE id = ?", String.class, productId);
+        UUID refusedEdit = UUID.randomUUID();
+        mvc.perform(as("staff", put(base + "/products/" + productId)).header("Idempotency-Key", refusedEdit)
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
+                                "expectedVersion", fixture.productVersion(productId), "name", "Tên không được lưu",
+                                "description", "Mô tả", "categoryId", Long.toString(fixture.activeCategory())))))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("BRANCH_SCOPE_EMPTY"));
+        UUID refusedPrice = UUID.randomUUID();
+        mvc.perform(as("staff", post(base + "/variants/" + variantId + "/price-proposals")).header("Idempotency-Key", refusedPrice)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":0,\"proposedPrice\":\"500000\"}"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("BRANCH_SCOPE_EMPTY"));
+        assertThat(jdbc.queryForObject("SELECT name FROM catalogue_products WHERE id = ?", String.class, productId))
+                .isEqualTo(nameBefore);
+        for (Object[] refused : List.of(new Object[] {refusedEdit, "product.edit"}, new Object[] {refusedPrice, "price.propose"})) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT actor_id, action, outcome, safe_changes FROM catalogue_audit_events WHERE resource_type = 'command' "
+                            + "AND resource_id = ?", refused[0].toString());
+            assertThat(rows).hasSize(1);
+            assertThat(rows.get(0)).containsEntry("actor_id", "9101").containsEntry("action", refused[1])
+                    .containsEntry("outcome", "REJECTED");
+            assertThat(String.valueOf(rows.get(0).get("safe_changes"))).contains("BRANCH_SCOPE_EMPTY")
+                    .doesNotContain("Tên không được lưu").doesNotContain("500000");
+        }
     }
 
     @Test

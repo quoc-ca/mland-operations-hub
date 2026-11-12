@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.CatalogueRequests;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueAuthorization;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueBranchScope;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueCommandExecutor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueAuthorization.Capability;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.PriceApplicationService;
@@ -43,10 +44,13 @@ class ManagementPriceApiController {
     private final PriceProposalService proposals;
     private final PriceApplicationService applications;
     private final CatalogueBranchScope branchScope;
+    private final CatalogueCommandExecutor commands;
 
     ManagementPriceApiController(CatalogueAuthorization authorization, VariantQuantityService quantities,
                                  VariantSaleStatusService saleStatus, PriceProposalService proposals,
-                                 PriceApplicationService applications, CatalogueBranchScope branchScope) {
+                                 PriceApplicationService applications, CatalogueBranchScope branchScope,
+                                 CatalogueCommandExecutor commands) {
+        this.commands = commands;
         this.branchScope = branchScope;
         this.authorization = authorization;
         this.quantities = quantities;
@@ -68,7 +72,8 @@ class ManagementPriceApiController {
                                            @RequestBody CatalogueRequests.SaleStatusRequest body) {
         String actor = authorization.require(Capability.VARIANT_SALE_STATUS);
         // FR-021: this stops the size at every branch, so a Staff member needs every branch selling it (FR-050).
-        branchScope.requireEveryBranchOfVariant(variantId);
+        commands.precheck(actor, VariantSaleStatusService.ACTION, key,
+                () -> branchScope.requireEveryBranchOfVariant(variantId));
         return committed(saleStatus.setSaleEnabled(actor, key, variantId, version(body.expectedVersion()),
                 flag("saleEnabled", body.saleEnabled())));
     }
@@ -77,7 +82,8 @@ class ManagementPriceApiController {
     ResponseEntity<JsonNode> propose(@PathVariable String variantId, @RequestHeader(KEY) UUID key,
                                      @RequestBody CatalogueRequests.PriceRequest body) {
         String actor = authorization.require(Capability.PRICE_PROPOSE);
-        branchScope.requireProductOfVariant(variantId);
+        commands.precheck(actor, PriceProposalService.CREATE_ACTION, key,
+                () -> branchScope.requireProductOfVariant(variantId));
         return committed(proposals.create(actor, key, variantId, version(body.expectedVersion()),
                 required("proposedPrice", body.proposedPrice())));
     }
@@ -86,7 +92,8 @@ class ManagementPriceApiController {
     ResponseEntity<JsonNode> revise(@PathVariable String proposalId, @RequestHeader(KEY) UUID key,
                                     @RequestBody CatalogueRequests.PriceRequest body) {
         String actor = authorization.require(Capability.PRICE_PROPOSE);
-        branchScope.requireProductOfProposal(proposalId);
+        commands.precheck(actor, PriceProposalService.REVISE_ACTION, key,
+                () -> branchScope.requireProductOfProposal(proposalId));
         return committed(proposals.revise(actor, key, proposalId, version(body.expectedVersion()),
                 required("proposedPrice", body.proposedPrice())));
     }
@@ -95,7 +102,8 @@ class ManagementPriceApiController {
     ResponseEntity<JsonNode> submit(@PathVariable String proposalId, @RequestHeader(KEY) UUID key,
                                     @RequestBody CatalogueRequests.VersionRequest body) {
         String actor = authorization.require(Capability.PRICE_PROPOSE);
-        branchScope.requireProductOfProposal(proposalId);
+        commands.precheck(actor, PriceProposalService.SUBMIT_ACTION, key,
+                () -> branchScope.requireProductOfProposal(proposalId));
         return committed(proposals.submit(actor, key, proposalId, version(body.expectedVersion())));
     }
 
@@ -116,7 +124,8 @@ class ManagementPriceApiController {
     ResponseEntity<JsonNode> apply(@PathVariable String proposalId, @RequestHeader(KEY) UUID key,
                                    @RequestBody CatalogueRequests.VersionRequest body) {
         String actor = authorization.require(Capability.PRICE_APPLY);
-        branchScope.requireProductOfProposal(proposalId);
+        commands.precheck(actor, PriceApplicationService.APPLY_ACTION, key,
+                () -> branchScope.requireProductOfProposal(proposalId));
         return committed(applications.apply(actor, key, proposalId, version(body.expectedVersion())));
     }
 }
