@@ -93,7 +93,7 @@ public class RetailCheckoutAcceptanceService {
         BigInteger remainingDiscount = quote.getProgramDiscount().add(quote.getPointsDiscount());
         List<RetailCheckoutQuoteBranch> sortedBranches = quote.getBranches().stream()
             .sorted(Comparator.comparing(RetailCheckoutQuoteBranch::getLocationId)).toList();
-        // Shares decided at preview (voucher only on its branches); quotes made before V113 split by branch amount.
+        // Shares decided at preview (voucher only on its branches); quotes made before V124 split by branch amount.
         boolean allocated = sortedBranches.stream().allMatch(branch -> branch.getDiscountAmount() != null)
             && sortedBranches.stream().map(RetailCheckoutQuoteBranch::getDiscountAmount).reduce(BigInteger.ZERO, BigInteger::add)
                 .equals(remainingDiscount);
