@@ -1,7 +1,7 @@
 # Tasks: Loyalty & Promotion Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-10 (thêm Phase 15 — T090–T097 sửa các phát hiện của rà soát spec ↔ code ngày 2026-11-10 (Đặng Thị Khương duyệt), tick T090–T097 kèm bằng chứng verification mục 52; trước đó cùng ngày: tick T082 — xóa file tạm `loyaltypromotion/checkout/BenefitSelector.jsx` vì FE-03 không còn dùng; OpenAPI `TargetWarning` thêm BRANCH/BRANCH_INACTIVE; verification mục 50; thêm Phase 14 — T089 giá sau giảm tự động và nhãn ưu đãi trên trang sản phẩm công khai per FR-042, đã triển khai, ghi nhận khi rà soát spec ↔ code; trước đó: 2026-11-05 (tick T081 — mã lý do vi/en, verification mục 48; speckit-converge: thêm Phase 12 Convergence T081–T082; trước đó: 2026-11-03 (tick T055 — FE-08 dùng `RetailBenefitPanel` riêng, lấy `maxPoints`/`minRedeemPoints` từ báo giá FE-06, develop `4fdae05`; thêm T079 cảnh báo phạm vi sản phẩm ẩn/xóa cho Manager, T080 khôi phục lệnh tạo chương trình mất phản hồi; trước đó: 2026-11-01 (tick T061 — FE-03 đã nhúng BenefitSelector workshop (develop 9b7b38e) và trả maxPoints (0bab915); tick T072 (phiên qua HTTP với xác minh token giả lập), T078 (UI giả lập), T073–T076 — đóng phần hoàn thiện; T055/T061 chờ owner nhúng; tick T062, T063, T064, T065, T071 — phục hồi/tranh chấp với nguồn thật FE-03/FE-08, sửa gửi lặp outcome trong AcceptedBenefit; tick T057, T059, T060 — workshop nguồn thật của FE-03 trên develop 8d69792; tick T077, T030, T034, T040, T047, T070 — frontend React trên nền 002, test với HTTP giả lập; T055 có component nhưng chưa được FE-08 nhúng; trước đó: 2026-10-29)))
+**Date updated**: 2026-11-12 (thêm Phase 16 — T098 giỏ workshop nhiều vé cho 003.1, D-010, verification mục 53; trước đó: 2026-11-10 (thêm Phase 15 — T090–T097 sửa các phát hiện của rà soát spec ↔ code ngày 2026-11-10 (Đặng Thị Khương duyệt), tick T090–T097 kèm bằng chứng verification mục 52; trước đó cùng ngày: tick T082 — xóa file tạm `loyaltypromotion/checkout/BenefitSelector.jsx` vì FE-03 không còn dùng; OpenAPI `TargetWarning` thêm BRANCH/BRANCH_INACTIVE; verification mục 50; thêm Phase 14 — T089 giá sau giảm tự động và nhãn ưu đãi trên trang sản phẩm công khai per FR-042, đã triển khai, ghi nhận khi rà soát spec ↔ code; trước đó: 2026-11-05 (tick T081 — mã lý do vi/en, verification mục 48; speckit-converge: thêm Phase 12 Convergence T081–T082; trước đó: 2026-11-03 (tick T055 — FE-08 dùng `RetailBenefitPanel` riêng, lấy `maxPoints`/`minRedeemPoints` từ báo giá FE-06, develop `4fdae05`; thêm T079 cảnh báo phạm vi sản phẩm ẩn/xóa cho Manager, T080 khôi phục lệnh tạo chương trình mất phản hồi; trước đó: 2026-11-01 (tick T061 — FE-03 đã nhúng BenefitSelector workshop (develop 9b7b38e) và trả maxPoints (0bab915); tick T072 (phiên qua HTTP với xác minh token giả lập), T078 (UI giả lập), T073–T076 — đóng phần hoàn thiện; T055/T061 chờ owner nhúng; tick T062, T063, T064, T065, T071 — phục hồi/tranh chấp với nguồn thật FE-03/FE-08, sửa gửi lặp outcome trong AcceptedBenefit; tick T057, T059, T060 — workshop nguồn thật của FE-03 trên develop 8d69792; tick T077, T030, T034, T040, T047, T070 — frontend React trên nền 002, test với HTTP giả lập; T055 có component nhưng chưa được FE-08 nhúng; trước đó: 2026-10-29))))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -346,26 +346,8 @@ Nguồn: báo cáo rà soát ngày 2026-11-10 (M1–M3, L1–L6) và spec Clarif
 - [x] T096 (2026-11-10: spec FR-002; verification mục 52) Sửa câu chi nhánh của FR-002 trong `spec.md` cho khớp Session 2026-11-09 (L5); ghi bằng chứng chạy test và kiểm tra trên màn thật vào `verification.md`. per FR-002, FR-003
 - [x] T097 (2026-11-10: `loyalty.test.jsx` 55/55 gồm "an earlier success notice goes away when a new edit starts", bước "Choosing branches does not answer…"; `PromotionManagementContractIT` 14/14; kiểm lại trên màn thật; verification mục 52) [US1] [US2] Sửa lỗi phát hiện khi test trên màn thật: `domain/promotionRules.js` `errorFieldsOf('productBranchIds')` không xóa lỗi `targets` (chọn chi nhánh không thay cho chọn sản phẩm); `ui/management/ProgramDetailPage.jsx` xóa thông báo thành công cũ khi bấm Sửa/Tạm dừng/Mở lại; `service/LoyaltyRefusalAudit.java` ghi người gửi theo cùng quy ước của lệnh thành công (Manager: ID, Member: `member:<id>`, Staff/Admin: `account:<id>`), data-model cập nhật. Helper IT theo kịp 002 US10: `LoyaltyRetailCheckoutIT` dùng chi nhánh của `CatalogueFlowFixture`, `LoyaltyMySqlMigrationIT` đọc chính sách seed theo revision 1. per FR-039, FR-043, US8.6
 
-## Phase 16: Giỏ nhiều vé của 003.1 (đề nghị 2026-11-12 từ owner 003.1)
+## Phase 16: Giỏ workshop nhiều vé cho 003.1 (Session 2026-11-12, D-010)
 
-Nguồn: `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/cart-benefit-contract-request.md`.
-Theo quy ước T088: owner 003.1 (Hồ Hoàng Quốc) nêu yêu cầu, owner 006 (Đặng Thị
-Khương) duyệt và triển khai. Chưa duyệt thì 003.1 T092/T093 không áp voucher/điểm
-cho giỏ của Member.
+Nguồn: 003.1 FR-030/FR-033/FR-034 báo facade chỉ nhận một `packageId`, không có nguồn cho cờ "vé trong phạm vi voucher". Owner FE-06 chốt 006 mở rộng facade. Không sửa code 003.
 
-- [ ] T098 [US5] Preview/reserve cho giỏ nhiều vé workshop: thêm `WorkshopTicketFact`
-  (một người: `packageId`, giá vé, các session của chính vé đó) và `WorkshopCartFact`
-  (danh sách vé theo thứ tự giỏ) vào `facade`; `TrustedSourceContext` và
-  `AcceptedSourceContext` nhận một trong hai (`WorkshopFact` cũ hoặc `WorkshopCartFact`),
-  giữ constructor cũ cho owner chưa chuyển. `BenefitPreview.eligibleLineIndexes` trả
-  **vị trí các vé nằm trong phạm vi voucher** — đây là dữ liệu duy nhất 003.1 không tự
-  suy ra được. Phạm vi theo từng vé: voucher nhắm package của vé **và** mọi session của
-  *chính vé đó* thỏa branch/date/session; tức là áp `WorkshopBenefitEvaluator.matches`
-  cho từng vé thay vì cho cả booking (thay quyết định tất-cả-hoặc-không 2026-10-29, chỉ
-  với context giỏ). Điều kiện mức giỏ (số tiền tối thiểu, số người) xét trên cả giỏ; trần
-  điểm theo chính sách đã ghi, áp trên tổng giỏ sau voucher, điểm nguyên.
-  `reserveAcceptedTransaction` giữ một lượt voucher và một khoản điểm cho cả nhóm,
-  idempotent khi replay. Test: giỏ hai package voucher nhắm một package; một vé lệch
-  branch/date/session; vé khớp vẫn được giảm khi vé khác không khớp; điều kiện mức giỏ;
-  trần điểm sau voucher; voucher 100% và vé 0đ; một lượt voucher mỗi nhóm.
-  per 003.1 FR-030, FR-033, FR-034; FR-013, FR-014, FR-025, US5
+- [x] T098 (2026-11-12: `LoyaltyWorkshopCartQuoteTest` 10/10, unit loyalty + Modulith 258/258, `LoyaltyWorkshopFacadeIT` 7/7 gồm `aCartDiscountsOnlyInScopeTicketsAndBindsTheTickets`; verification mục 53) [US5] Giỏ workshop nhiều vé: `facade/WorkshopTicketFact.java` (mới), `facade/WorkshopFact.java` thêm `tickets`, `cart(...)`, `isCart()` (constructor 4 tham số giữ nguyên); `service/WorkshopBenefitEvaluator.java` xét phạm vi theo từng vé, phí tối thiểu/giảm trên phần trong phạm vi, trần một lần cho nhóm, trả chỉ số vé trong phạm vi; `service/LoyaltyQuoteService.java` digest gắn vé và vé trong phạm vi (dạng một gói giữ digest cũ); `facade/BenefitPreview.java` javadoc. Contract: interfaces.md "Cách 003.1 dùng voucher cho giỏ nhiều vé". per FR-019, FR-020, US5.1–US5.3, D-010

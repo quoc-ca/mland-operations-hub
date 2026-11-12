@@ -7,6 +7,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.Manageme
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueAuthorization;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueAuthorization.Capability;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueBranchScope;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueCommandExecutor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ProductBranchStockService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CommandReceiptQueryService;
@@ -60,13 +61,15 @@ class ManagementProductApiController {
     private final CommandReceiptQueryService receipts;
     private final CatalogueBranchScope branchScope;
     private final ProductBranchStockService branchStock;
+    private final CatalogueCommandExecutor commands;
 
     ManagementProductApiController(CatalogueAuthorization authorization, ManagementProductQueryService query,
                                    CreateProductService createProducts, UpdateProductService updates,
                                    DeleteProductService deletion, ProductImageService images,
                                    ProductReviewService reviews, ProductPublicationService publication,
                                    CommandReceiptQueryService receipts, CatalogueBranchScope branchScope,
-                                   ProductBranchStockService branchStock) {
+                                   ProductBranchStockService branchStock, CatalogueCommandExecutor commands) {
+        this.commands = commands;
         this.branchScope = branchScope;
         this.branchStock = branchStock;
         this.authorization = authorization;
@@ -140,7 +143,7 @@ class ManagementProductApiController {
     ResponseEntity<JsonNode> update(@PathVariable String productId, @RequestHeader(KEY) UUID key,
                                     @RequestBody CatalogueRequests.ProductUpdate body) {
         String actor = authorization.require(Capability.PRODUCT_EDIT);
-        branchScope.requireProduct(productId);
+        inScope(actor, UpdateProductService.ACTION, key, productId);
         return committed(updates.update(actor, key, productId, version(body.expectedVersion()),
                 new UpdateProductService.UpdateCommand(body.name(), body.description(), body.categoryId())));
     }
@@ -149,7 +152,7 @@ class ManagementProductApiController {
     ResponseEntity<JsonNode> delete(@PathVariable String productId, @RequestHeader(KEY) UUID key,
                                     @RequestParam Long expectedVersion) {
         String actor = authorization.require(Capability.PRODUCT_DELETE);
-        branchScope.requireProduct(productId);
+        inScope(actor, DeleteProductService.ACTION, key, productId);
         return committed(deletion.delete(actor, key, productId, version(expectedVersion)));
     }
 
@@ -157,7 +160,7 @@ class ManagementProductApiController {
     ResponseEntity<JsonNode> replaceImages(@PathVariable String productId, @RequestHeader(KEY) UUID key,
                                            @RequestBody CatalogueRequests.ImagesUpdate body) {
         String actor = authorization.require(Capability.MEDIA_MANAGE);
-        branchScope.requireProduct(productId);
+        inScope(actor, ProductImageService.ACTION, key, productId);
         List<CreateProductService.ImageInput> wanted = required("images", body.images()).stream()
                 .map(image -> new CreateProductService.ImageInput(image.mediaId(), image.altText(), image.position()))
                 .toList();
@@ -168,7 +171,7 @@ class ManagementProductApiController {
     ResponseEntity<JsonNode> submitReview(@PathVariable String productId, @RequestHeader(KEY) UUID key,
                                           @RequestBody CatalogueRequests.VersionRequest body) {
         String actor = authorization.require(Capability.PRODUCT_SUBMIT);
-        branchScope.requireProduct(productId);
+        inScope(actor, ProductReviewService.SUBMIT_ACTION, key, productId);
         return committed(reviews.submit(actor, key, productId, version(body.expectedVersion())));
     }
 
@@ -196,9 +199,15 @@ class ManagementProductApiController {
     ResponseEntity<JsonNode> setPublication(@PathVariable String productId, @RequestHeader(KEY) UUID key,
                                             @RequestBody CatalogueRequests.PublicationRequest body) {
         String actor = authorization.require(Capability.PRODUCT_PUBLISH);
-        branchScope.requireProduct(productId);
-        return committed(publication.setPublication(actor, key, productId, version(body.expectedVersion()),
-                flag("published", body.published())));
+        boolean published = flag("published", body.published());
+        String action = published ? ProductPublicationService.PUBLISH_ACTION : ProductPublicationService.UNPUBLISH_ACTION;
+        inScope(actor, action, key, productId);
+        return committed(publication.setPublication(actor, key, productId, version(body.expectedVersion()), published));
+    }
+
+    /** Q-B3 / FR-050 check of a shared-content command; a refusal is audited as REJECTED (T144, FR-027). */
+    private void inScope(String actor, String action, UUID key, String productId) {
+        commands.precheck(actor, action, key, () -> branchScope.requireProduct(productId));
     }
 
     @GetMapping("/command-receipts/{commandId}")

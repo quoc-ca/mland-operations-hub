@@ -9,13 +9,19 @@ const MAX_NAMES = 60;
  * Existing, not deleted products with exactly this name (productNameKey), read through the management list search
  * (q matches names, so a page holds every product whose name contains it; up to PAGES pages are read). Only products
  * this account can see are found. A failed read gives [] — the warning is advice and never blocks saving.
+ * The search text is the name normalized like productNameKey (NFC, trimmed, inner spaces collapsed; case kept, the
+ * search ignores case), so a name typed with extra spaces still finds the products it is compared with (FR-056, T143).
  */
+export function sameNameSearchText(name) {
+  return String(name ?? '').normalize('NFC').trim().replace(/\s+/g, ' ');
+}
+
 export async function findSameName(api, name) {
   if (!productNameKey(name)) return [];
   const found = [];
   try {
     for (let page = 0; page < PAGES; page += 1) {
-      const result = await api.listProducts({ q: name.trim(), page: page || undefined });
+      const result = await api.listProducts({ q: sameNameSearchText(name), page: page || undefined });
       found.push(...sameNameProducts(result?.items, name));
       const total = Number(result?.totalElements || 0);
       if ((page + 1) * Number(result?.pageSize || 20) >= total) break;

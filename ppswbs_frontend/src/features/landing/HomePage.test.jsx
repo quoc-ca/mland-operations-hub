@@ -210,6 +210,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
           priceRange: { minimum: 580000 },
           images: [{ url: '/media/ring1.png', altText: 'Nhẫn 1' }],
           variants: [{ sku: 'ML-LIVE-01' }],
+          canBuy: true,
         },
       ],
     };
@@ -218,15 +219,31 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
 
     renderHomePage();
 
+    // The live products use 002's product card: name and image open the product, a cart button adds to the cart.
     await waitFor(() => {
-      expect(screen.getByText('ML-LIVE-01')).toBeInTheDocument();
+      expect(screen.getByText('Nhẫn Bạc Kim Cương Nhân Tạo')).toBeInTheDocument();
     });
-
-    expect(screen.getByText('Nhẫn Bạc Kim Cương Nhân Tạo')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Chi tiết →' })).toHaveAttribute(
+    expect(screen.getByText('Nhẫn Bạc Kim Cương Nhân Tạo').closest('a')).toHaveAttribute(
       'href',
       '/products/prod-live-101',
     );
+    expect(screen.getByText('580.000 ₫')).toBeInTheDocument();
+    expect(screen.getByText('Còn hàng')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Thêm Nhẫn Bạc Kim Cương Nhân Tạo vào giỏ hàng' })).toBeEnabled();
+    // Shown as a sideways strip with arrows and a link to the whole catalogue.
+    expect(screen.getByRole('list', { name: 'Nhẫn Ready Rings' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sản phẩm tiếp theo' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Xem tất cả nhẫn →' })).toHaveAttribute('href', '/products');
+  });
+
+  it('shows every product of the first catalogue page, not only four', async () => {
+    const items = Array.from({ length: 7 }, (_, index) => ({
+      id: `p${index}`, name: `Nhẫn số ${index}`, priceRange: { minimum: '100000' }, images: [], variants: [], canBuy: true,
+    }));
+    vi.spyOn(catalogueApi, 'listPublicProducts').mockResolvedValue({ items });
+    renderHomePage();
+    await waitFor(() => expect(screen.getByText('Nhẫn số 6')).toBeInTheDocument());
+    expect(within(screen.getByRole('list', { name: 'Nhẫn Ready Rings' })).getAllByRole('listitem')).toHaveLength(7);
   });
 
   it('renders Ecosystem Hub with 6 services and 4 internal operation portals', () => {

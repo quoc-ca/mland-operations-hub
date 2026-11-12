@@ -41,6 +41,13 @@ describe('002 frontend layer boundaries', () => {
     expect(crossing).toEqual([]);
   });
 
+  it('offers the shared public product card through its public port (FR-058, T145)', async () => {
+    const port = await import('../index.js');
+    const { PublicProductGrid } = await import('../ui/public/PublicProductGrid');
+    expect(port.PublicProductGrid).toBe(PublicProductGrid);
+    expect(typeof port.productManagementRoutes).not.toBe('undefined');
+  });
+
   it('domain does not depend on React, routing, HTTP or other layers', () => {
     expect(offenders('domain', spec => /^react|^react-router|shared\/api|firebase|(^|\/)(ui|application|infrastructure)(\/|$)/.test(spec)))
       .toEqual([]);

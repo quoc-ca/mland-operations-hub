@@ -28,6 +28,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Target
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetScope;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TrustedSourceContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopTicketFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopSessionFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.DiscountTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.support.LoyaltyTestSupport;
@@ -256,6 +257,44 @@ class LoyaltyWorkshopFacadeIT {
                         e -> assertThat(e.code()).isEqualTo(LoyaltyErrorCode.QUOTE_CHANGED));
         assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.WORKSHOP, bookingRef)).isEmpty();
         assertThat(wallets.findById(memberId).orElseThrow().getHeldPoints()).isZero();
+    }
+
+    /** Cart (Session 2026-11-12): two tickets of the targeted package and one of another package, all on DAY. */
+    private static TrustedSourceContext cart(long memberId, long packageId, long otherPrice) {
+        return new TrustedSourceContext(SourceKind.WORKSHOP, memberId, Instant.now(), List.of(),
+                WorkshopFact.cart(List.of(
+                        new WorkshopTicketFact("t-1", packageId, n(600_000), List.of(WorkshopSessionFact.of(SESSION_1, 2L, DAY))),
+                        new WorkshopTicketFact("t-2", packageId + 1, n(otherPrice), List.of(WorkshopSessionFact.of(SESSION_2, 2L, DAY))),
+                        new WorkshopTicketFact("t-3", packageId, n(400_000), List.of(WorkshopSessionFact.of(SESSION_1, 2L, DAY))))),
+                BigInteger.ZERO);
+    }
+
+    @Test
+    void aCartDiscountsOnlyInScopeTicketsAndBindsTheTickets() {
+        long packageId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
+        String code = workshopVoucher(packageId);
+        long memberId = member(1_000);
+        BenefitSelection selection = new BenefitSelection(SelectionChoice.VOUCHER, code, n(100));
+        BenefitPreview preview = loyalty.previewBenefits(cart(memberId, packageId, 500_000), selection);
+        assertThat(preview.grossAmount()).isEqualTo(n(1_500_000));
+        assertThat(preview.eligibleSubtotal()).isEqualTo(n(1_000_000));
+        assertThat(preview.programDiscount()).isEqualTo(n(100_000));
+        assertThat(preview.eligibleLineIndexes()).containsExactly(0, 2);
+        assertThat(preview.postPromotionAmount()).isEqualTo(n(1_390_000));
+
+        // Another price on the out-of-scope ticket than the one previewed is QUOTE_CHANGED and holds nothing.
+        String changedRef = "group-" + UUID.randomUUID();
+        assertThatThrownBy(() -> transaction.execute(status -> loyalty.reserveAcceptedTransaction(
+                accept(cart(memberId, packageId, 500_001), changedRef, preview.termsDigest()), selection, "cmd")))
+                .isInstanceOfSatisfying(LoyaltyException.class,
+                        e -> assertThat(e.code()).isEqualTo(LoyaltyErrorCode.QUOTE_CHANGED));
+        assertThat(wallets.findById(memberId).orElseThrow().getHeldPoints()).isZero();
+
+        String ref = "group-" + UUID.randomUUID();
+        AcceptedBenefitRef accepted = transaction.execute(status -> loyalty.reserveAcceptedTransaction(
+                accept(cart(memberId, packageId, 500_000), ref, preview.termsDigest()), selection, "cmd"));
+        assertThat(accepted.postPromotionAmount()).isEqualTo(n(1_390_000));
+        assertThat(wallets.findById(memberId).orElseThrow().getHeldPoints()).isEqualTo(n(100));
     }
 
     @Test
