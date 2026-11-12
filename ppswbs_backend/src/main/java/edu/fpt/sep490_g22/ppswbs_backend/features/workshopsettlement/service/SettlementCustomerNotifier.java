@@ -21,9 +21,18 @@ import java.util.Locale;
 public class SettlementCustomerNotifier {
     static final String FINAL_PAYMENT_VERIFIED = "FINAL_PAYMENT_VERIFIED";
     static final String REFUND_VERIFIED = "REFUND_VERIFIED";
+    static final String REFUND_ACCOUNT_REMINDER = "REFUND_ACCOUNT_REMINDER";
 
     private final SettlementNotificationHandoffService handoffs;
     private final WorkshopBookingSettlementAdapter booking;
+
+    /** Reminds the payer that Mland still needs their account before a bank refund can move (FR-040). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String notifyRefundAccountNeeded(String bookingReference, long amountVnd, String refundReference,
+                                            String correlationReference) {
+        return notifyVerified(bookingReference, REFUND_ACCOUNT_REMINDER, amountVnd, refundReference,
+                correlationReference);
+    }
 
     /** @return the notification reference, or null when no notification was created. */
     @Transactional(propagation = Propagation.MANDATORY)
@@ -47,6 +56,10 @@ public class SettlementCustomerNotifier {
 
     private static String render(String kind, long amountVnd, String bookingReference) {
         String amount = NumberFormat.getIntegerInstance(Locale.forLanguageTag("vi-VN")).format(amountVnd) + " VND";
+        if (REFUND_ACCOUNT_REMINDER.equals(kind)) {
+            return "Mland cần số tài khoản để hoàn " + amount + " cho đơn " + bookingReference
+                    + ". Vui lòng mở lại liên kết trong email trước đó để điền.";
+        }
         return REFUND_VERIFIED.equals(kind)
                 ? "Mland đã hoàn " + amount + " cho đơn " + bookingReference + ". Số tiền sẽ về phương thức thanh toán ban đầu theo thời gian của ngân hàng."
                 : "Mland đã nhận thanh toán " + amount + " cho đơn " + bookingReference + ". Cảm ơn bạn.";
