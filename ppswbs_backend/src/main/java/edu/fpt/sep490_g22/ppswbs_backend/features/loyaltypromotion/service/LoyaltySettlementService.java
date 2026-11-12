@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.AcceptedBenefit;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.AcceptedBenefitPart;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.AuthoritativeOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -30,10 +32,13 @@ public class LoyaltySettlementService {
 
     private final BenefitEffectSupport effects;
     private final LoyaltyAuditService audit;
+    private final BenefitPartSupport partSupport;
 
-    public LoyaltySettlementService(BenefitEffectSupport effects, LoyaltyAuditService audit) {
+    public LoyaltySettlementService(BenefitEffectSupport effects, LoyaltyAuditService audit,
+                                    BenefitPartSupport partSupport) {
         this.effects = effects;
         this.audit = audit;
+        this.partSupport = partSupport;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -46,6 +51,10 @@ public class LoyaltySettlementService {
                 outcome.outcome() != OutcomeKind.WORKSHOP_DEPOSIT_ACCEPTED);
         AcceptedBenefit benefit = locked.benefit();
         boolean firstSettlement = benefit.getSettlementOutcomeKey() == null;
+        // A checkout accepted with branch orders (D-011) settles every part at once, unless parts already have outcomes.
+        // A replay of the group deposit after per-ticket outcomes (D-012) is still a no-op, not a conflict.
+        List<AcceptedBenefitPart> parts = outcome.sourceOutcomeKey().equals(benefit.getSettlementOutcomeKey())
+                ? partSupport.partsOf(benefit) : partSupport.requireWholeAllowed(benefit);
         AcceptedBenefit.Changes changes = benefit.settle(outcome.sourceOutcomeKey(), outcome.sourceOutcomeVersion(),
                 outcome.decisionAt());
         if (changes.points()) {
@@ -55,9 +64,10 @@ public class LoyaltySettlementService {
             effects.consumeVoucher(locked);
         }
         if (firstSettlement) {
+            partSupport.mirrorSettle(parts, outcome.decisionAt());
             audit.record(outcome.ownerModule(), "benefit.settle", "benefit:" + benefit.getId(),
                     BenefitEffectSupport.detail(benefit, outcome));
         }
-        return BenefitEffectSupport.result(benefit);
+        return BenefitPartSupport.result(benefit, parts);
     }
 }

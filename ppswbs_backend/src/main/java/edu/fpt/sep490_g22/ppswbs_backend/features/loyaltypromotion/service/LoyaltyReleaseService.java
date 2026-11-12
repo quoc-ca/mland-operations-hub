@@ -1,15 +1,18 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.AcceptedBenefit;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.AcceptedBenefitPart;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.AuthoritativeOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.OutcomeKind;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -31,10 +34,19 @@ public class LoyaltyReleaseService {
 
     private final BenefitEffectSupport effects;
     private final LoyaltyAuditService audit;
+    /** Null only in unit tests that build the service by hand without settlement parts. */
+    private final BenefitPartSupport partSupport;
 
-    public LoyaltyReleaseService(BenefitEffectSupport effects, LoyaltyAuditService audit) {
+    @Autowired
+    public LoyaltyReleaseService(BenefitEffectSupport effects, LoyaltyAuditService audit,
+                                 BenefitPartSupport partSupport) {
         this.effects = effects;
         this.audit = audit;
+        this.partSupport = partSupport;
+    }
+
+    LoyaltyReleaseService(BenefitEffectSupport effects, LoyaltyAuditService audit) {
+        this(effects, audit, null);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -45,6 +57,8 @@ public class LoyaltyReleaseService {
         }
         BenefitEffectSupport.Locked locked = effects.lockFor(outcome);
         AcceptedBenefit benefit = locked.benefit();
+        // A checkout accepted with branch orders (D-011) releases every part at once, unless parts have outcomes.
+        List<AcceptedBenefitPart> parts = partSupport == null ? List.of() : partSupport.requireWholeAllowed(benefit);
         AcceptedBenefit.Changes changes = benefit.release(outcome.sourceOutcomeKey(), outcome.sourceOutcomeVersion(),
                 outcome.decisionAt());
         if (changes.points()) {
@@ -54,9 +68,10 @@ public class LoyaltyReleaseService {
             effects.releaseVoucher(locked);
         }
         if (changes.any()) {
+            parts.forEach(part -> part.mirrorRelease(outcome.decisionAt()));
             audit.record(outcome.ownerModule(), "benefit.release", "benefit:" + benefit.getId(),
                     BenefitEffectSupport.detail(benefit, outcome));
         }
-        return BenefitEffectSupport.result(benefit);
+        return BenefitPartSupport.result(benefit, parts);
     }
 }

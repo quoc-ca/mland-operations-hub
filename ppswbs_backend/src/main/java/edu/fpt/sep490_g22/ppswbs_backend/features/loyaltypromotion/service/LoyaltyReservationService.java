@@ -1,10 +1,12 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.AcceptedBenefitPartRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.AcceptedBenefitRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.LoyaltyPolicyRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PointLedgerRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PromotionProgramRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.AcceptedBenefit;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.AcceptedBenefitPart;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.LedgerEntryKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.LoyaltyPolicy;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.LoyaltyWallet;
@@ -18,6 +20,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Benefi
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SelectionChoice;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SettlementPart;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TrustedSourceContext;
 import org.springframework.stereotype.Service;
@@ -56,11 +59,13 @@ public class LoyaltyReservationService {
     private final PointLedgerRepository ledger;
     private final LoyaltyAuditService audit;
     private final LoyaltyPolicyRepository policies;
+    private final AcceptedBenefitPartRepository parts;
 
     public LoyaltyReservationService(LoyaltyQuoteService quotes, LoyaltyLockCoordinator locks,
                                      AcceptedBenefitRepository benefits, PromotionProgramRepository programs,
                                      PointLedgerRepository ledger, LoyaltyAuditService audit,
-                                     LoyaltyPolicyRepository policies) {
+                                     LoyaltyPolicyRepository policies, AcceptedBenefitPartRepository parts) {
+        this.parts = parts;
         this.policies = policies;
         this.quotes = quotes;
         this.locks = locks;
@@ -133,14 +138,45 @@ public class LoyaltyReservationService {
         audit.record("source:" + trusted.sourceKind(), "benefit.reserve", "benefit:" + benefit.getId(),
                 "{\"program\":" + (chosen == null ? "null" : chosen.programId()) + ",\"points\":\"" + points
                         + "\",\"discount\":\"" + result.programDiscount() + "\"}");
+        List<AcceptedBenefitPart.Share> shares = List.of();
+        BigInteger earned = LoyaltyCalculator.earnedPoints(evaluation.policy().terms(), result.earnBase());
+        if (!context.parts().isEmpty()) {
+            // Session 2026-11-12 (D-011): each branch order's share, fixed now with the policy of acceptance.
+            shares = BenefitPartAllocator.allocate(trusted.lines(), context.parts(),
+                    result.eligibleLines(), result.programDiscount(), points, result.pointDiscount(), earned);
+        } else if (trusted.workshop() != null && trusted.workshop().isCart()) {
+            // Session 2026-11-12 (D-012): one share per ticket so 003.3 can earn and give back per ticket.
+            shares = BenefitPartAllocator.allocateTickets(trusted.workshop().tickets(), result.eligibleLines(),
+                    result.programDiscount(), points, evaluation.policy().terms().redeemPointValue(), earned);
+        }
+        if (!shares.isEmpty()) {
+            for (int i = 0; i < shares.size(); i++) {
+                parts.save(AcceptedBenefitPart.accept(benefit.getId(), i + 1, shares.get(i)));
+            }
+            parts.flush();
+        }
         return ref(benefit);
     }
 
-    /** The same source accepted again: the existing snapshot when the terms match, otherwise a conflict. */
+    /**
+     * The same source accepted again: the existing snapshot when the terms and the branch orders match, otherwise a
+     * conflict.
+     */
     private AcceptedBenefitRef replay(AcceptedBenefit existing, AcceptedSourceContext context) {
         if (!existing.getAcceptedTermsDigest().equals(context.termsDigest())) {
             throw new LoyaltyException(LoyaltyErrorCode.IDEMPOTENCY_CONFLICT,
                     "This transaction was already accepted with different terms.");
+        }
+        List<String> stored = parts.findByAcceptedBenefitIdOrderByPartSeqAsc(existing.getId()).stream()
+                .map(AcceptedBenefitPart::getPartRef).toList();
+        TrustedSourceContext trusted = context.trusted();
+        List<String> sent = trusted.workshop() != null && trusted.workshop().isCart()
+                ? trusted.workshop().tickets().stream().map(edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion
+                        .facade.WorkshopTicketFact::ticketRef).toList()
+                : context.parts().stream().map(SettlementPart::partRef).toList();
+        if (!stored.equals(sent)) {
+            throw new LoyaltyException(LoyaltyErrorCode.IDEMPOTENCY_CONFLICT,
+                    "This transaction was already accepted with different branch orders.");
         }
         return ref(existing);
     }
@@ -151,6 +187,8 @@ public class LoyaltyReservationService {
         return new AcceptedBenefitRef(benefit.getId(), benefit.getSourceKind(), benefit.getSourceRef(),
                 benefit.getGrossAmount(), benefit.getProgramDiscount(), benefit.getRequestedPoints(),
                 benefit.getPointDiscount(), benefit.getPostPromotionAmount(), benefit.getEarnBase(),
-                policyRevision, benefit.getPointsState(), benefit.getVoucherState(), benefit.getEarnState());
+                policyRevision, benefit.getPointsState(), benefit.getVoucherState(), benefit.getEarnState(),
+                parts.findByAcceptedBenefitIdOrderByPartSeqAsc(benefit.getId()).stream()
+                        .map(AcceptedBenefitPart::ref).toList());
     }
 }

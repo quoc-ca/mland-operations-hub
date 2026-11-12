@@ -18,8 +18,9 @@ import { messages } from '../messages';
  * - acknowledged / onAcknowledge(boolean), onRecalculate(), onConfirm(), pending
  * - context: 'retail' (default) or 'workshop'. A workshop has no automatic discount and its quote (FE-03
  *   WorkshopBookingQuoteResponse) is passed as { grossAmount, programDiscount, pointsUsed, pointDiscount,
- *   postPromotionAmount, depositAmount, remainingAmount, maxPoints, reasons }: the deposit and the remaining amount are
- *   both computed from the post-promotion amount, so the points are never deducted twice.
+ *   postPromotionAmount, depositAmount, remainingAmount, maxPoints, reasons }: depositAmount is what FE-03 collects at
+ *   booking under its own rule (003.1 FR-035: full, 200.000 deposit or 0) and remainingAmount the rest; both are
+ *   computed by FE-03 from the post-promotion amount, so the points are never deducted twice.
  * - Either quote may also carry reasonDetails: [{ code, params }] (FE-06 BenefitPreview.reasonDetails, T081). Each
  *   reason is then shown in the reader's language; a code this screen does not know, or a quote without
  *   reasonDetails, falls back to the English text in reasons.
