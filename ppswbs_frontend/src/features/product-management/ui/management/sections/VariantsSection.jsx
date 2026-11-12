@@ -118,6 +118,8 @@ function VariantRow({ variant, branch, editable, saleEditable = editable, api, r
     setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     if (!isQuantity(quantity)) { setHint('validation.quantity'); return; }
     setHint(null);
+    // Same number as now: nothing to change, so no command and no "saved" line (the batch table skips it the same way).
+    if (BigInt(String(quantity).trim()) === BigInt(String(shown))) { setQuantity(null); quantityCommand.reset(); return; }
     const send = branch
       ? key => api.setBranchQuantity(key, variant.id, branch, stock.version, quantity)
       : key => api.setQuantity(key, variant.id, variant.version, quantity);
@@ -147,7 +149,8 @@ function VariantRow({ variant, branch, editable, saleEditable = editable, api, r
           )}
         </span>
         <span role="cell">{branch ? variant.remainingUnsold : variant.validHeldQuantity}</span>
-        <span role="cell">{branch ? variant.validHeldQuantity : variant.availableQuantity}</span>
+        {/* FR-051: holds at this branch once FE-08 keeps them per branch; until then the size's holds (null here). */}
+        <span role="cell">{branch ? (stock?.validHeldQuantity ?? variant.validHeldQuantity) : variant.availableQuantity}</span>
         <span role="cell">{format.money(variant.appliedPrice)}</span>
         <span role="cell">
           <span className={variant.saleEnabled ? 'status ok' : 'status'}>{variant.saleEnabled ? t('variant.onSale') : t('variant.saleOff')}</span>

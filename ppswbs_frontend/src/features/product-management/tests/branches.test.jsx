@@ -180,6 +180,32 @@ describe('US10 branches on the detail page', () => {
     expect(put.body).toEqual({ expectedVersion: 7, quantity: '3' });
   });
 
+  it('shows the holds of the chosen branch once FE-08 keeps them per branch (FR-051)', async () => {
+    const user = userEvent.setup();
+    const heldAtHoanKiem = managementProduct({
+      branches: atTwoBranches.branches,
+      variants: [{
+        ...atTwoBranches.variants[0], validHeldQuantity: '2', availableQuantity: '3',
+        branchStocks: [
+          { locationId: '1', remainingUnsold: '3', saleEnabled: true, version: 0, validHeldQuantity: '2', availableQuantity: '1' },
+          { locationId: '2', remainingUnsold: '2', saleEnabled: true, version: 7, validHeldQuantity: '0', availableQuantity: '2' },
+        ],
+      }],
+    });
+    mockFetch({
+      [PROFILE]: json(200, { role: 'MANAGER' }), [`GET ${M}/categories`]: json(200, categoryPage), [LOCATIONS]: json(200, [HK, TH]),
+      [`GET ${M}/products/42`]: json(200, heldAtHoanKiem),
+    });
+    renderRoutes(productManagementRoutes, { path: '/catalogue-management/products/42' });
+
+    const heldCell = () => within(screen.getByRole('table', { name: 'Size và số lượng' })).getAllByRole('row')[1]
+      .querySelectorAll('[role=cell]')[4].textContent;
+    await user.click(await screen.findByRole('tab', { name: /Hoàn Kiếm/ }));
+    expect(heldCell()).toBe('2');
+    await user.click(screen.getByRole('tab', { name: /Tây Hồ/ }));
+    expect(heldCell()).toBe('0');
+  });
+
   it('a Staff member sees no size-wide stop for a product also sold outside their branches (T134)', async () => {
     const user = userEvent.setup();
     mockFetch({

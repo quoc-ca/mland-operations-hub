@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { clearRoleCache } from '../../../shared/auth/useRole';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
 import { productManagementRoutes } from '../routes/productManagementRoutes';
 import { actionResult, categoryPage, managementProduct, publicProduct } from './fixtures';
@@ -9,6 +10,9 @@ const M = '/api/v1/catalogue-management';
 // US10: one branch in the account's list is chosen by default on the create form.
 const BRANCHES = { 'GET /api/v1/workshop-locations': json(200, [{ id: 1, code: 'HN-HOANKIEM', name: 'Hoàn Kiếm', address: 'Hà Nội', active: true }]) };
 const open = (path, options) => renderRoutes(productManagementRoutes, { path, ...options });
+// Only a Manager sees the price and review decisions (FR-002); a Staff member would only get 403 for them.
+const AS_MANAGER = { 'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }) };
+beforeEach(() => clearRoleCache());
 
 describe('management shell', () => {
   it('asks to sign in without a session and sends no request', async () => {
@@ -176,7 +180,7 @@ describe('T050 product detail edits', () => {
         proposal(),
       ] }],
     });
-    const calls = mockFetch({
+    const calls = mockFetch({ ...AS_MANAGER,
       [`GET ${M}/products/42`]: () => json(200, product()),
       [`GET ${M}/categories`]: json(200, categoryPage),
       [`POST ${M}/price-proposals/601/submissions`]: () => { stage.value = 'PENDING'; return json(200, actionResult('601', 'SUBMIT_PRICE')); },
@@ -250,9 +254,22 @@ describe('T050 product detail edits', () => {
 });
 
 describe('T034 review decision', () => {
+  it('a Staff member sees the pending review and prices but no Manager decision buttons (FR-002)', async () => {
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'STAFF' }),
+      [`GET ${M}/products/42`]: json(200, managementProduct()),
+      [`GET ${M}/categories`]: json(200, categoryPage),
+    });
+    open('/catalogue-management/products/42');
+    const review = (await screen.findByRole('heading', { name: 'Duyệt hồ sơ ban đầu' })).closest('section');
+    await waitFor(() => expect(within(review).queryByRole('heading', { name: 'Quyết định của Manager' })).not.toBeInTheDocument());
+    expect(within(review).queryByRole('button', { name: 'Duyệt' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Từ chối' })).not.toBeInTheDocument();
+  });
+
   it('rejecting needs a reason and approving sends a price for every size', async () => {
     const user = userEvent.setup();
-    const calls = mockFetch({
+    const calls = mockFetch({ ...AS_MANAGER,
       [`GET ${M}/products/42`]: json(200, managementProduct()),
       [`GET ${M}/categories`]: json(200, categoryPage),
       [`POST ${M}/products/42/review-decisions`]: json(200, actionResult('42', 'product.review.decide')),
@@ -286,7 +303,7 @@ describe('bulk price decisions', () => {
 
   it('initial review: one amount fills the chosen sizes, the gap to the proposal shows, the whole file is still sent', async () => {
     const user = userEvent.setup();
-    const calls = mockFetch({
+    const calls = mockFetch({ ...AS_MANAGER,
       [`GET ${M}/products/42`]: json(200, managementProduct({ variants: [
         variant('101', 12, { id: '501', state: 'PENDING', proposedPrice: '1250000' }),
         variant('102', 14, { id: '502', state: 'PENDING', proposedPrice: '1300000' }),
@@ -318,7 +335,7 @@ describe('bulk price decisions', () => {
   it('after publication: approves the chosen sizes one by one with their own keys and reports each size', async () => {
     const user = userEvent.setup();
     const published = { published: true, firstPublishedAt: '2026-10-30T00:00:00Z', reviews: [{ id: '301', revision: 1, contentVersion: 1, state: 'APPROVED', effective: true }] };
-    const calls = mockFetch({
+    const calls = mockFetch({ ...AS_MANAGER,
       [`GET ${M}/products/42`]: json(200, managementProduct({ ...published, variants: [
         variant('101', 12, { id: '601', state: 'PENDING', proposedPrice: '1250000' }, { appliedPrice: '1200000' }),
         variant('102', 14, { id: '602', state: 'PENDING', proposedPrice: '1300000' }, { appliedPrice: '1200000' }),
@@ -353,7 +370,7 @@ describe('bulk price decisions', () => {
   it('approving several sizes applies each one right after its decision, using the approved revision', async () => {
     const user = userEvent.setup();
     const published = { published: true, firstPublishedAt: '2026-10-30T00:00:00Z', reviews: [{ id: '301', revision: 1, contentVersion: 1, state: 'APPROVED', effective: true }] };
-    const calls = mockFetch({
+    const calls = mockFetch({ ...AS_MANAGER,
       [`GET ${M}/products/42`]: json(200, managementProduct({ ...published, variants: [
         variant('101', 12, { id: '601', state: 'PENDING', proposedPrice: '1250000' }),
         variant('102', 14, { id: '602', state: 'PENDING', proposedPrice: '1300000' }),
@@ -385,7 +402,7 @@ describe('bulk price decisions', () => {
         variant('102', 14, { id: '502', state: stage.value, proposedPrice: '1300000', version: stage.value === 'APPROVED' ? 1 : 0 }),
       ],
     });
-    const calls = mockFetch({
+    const calls = mockFetch({ ...AS_MANAGER,
       [`GET ${M}/products/42`]: () => json(200, product()),
       [`GET ${M}/categories`]: json(200, categoryPage),
       [`POST ${M}/products/42/review-decisions`]: () => { stage.value = 'APPROVED'; return json(200, actionResult('42', 'product.review.decide')); },
@@ -397,7 +414,8 @@ describe('bulk price decisions', () => {
     await user.click(within(review).getByRole('button', { name: 'Duyệt' }));
     await user.click(within(review).getByRole('button', { name: 'Duyệt toàn bộ hồ sơ' }));
 
-    expect(await screen.findAllByText('Đã duyệt hồ sơ và áp dụng giá 2 size. Có thể Công khai sản phẩm.')).toHaveLength(2); // page top and under the section
+    // Page top; the section itself closes for a Manager once nothing is pending (Session 2026-11-08), taking its copy along.
+    expect(await screen.findByText('Đã duyệt hồ sơ và áp dụng giá 2 size. Có thể Công khai sản phẩm.')).toBeInTheDocument();
     const applications = calls.filter(call => call.path.endsWith('/applications'));
     expect(applications.map(call => [call.path.split('/').at(-2), call.body])).toEqual([['501', { expectedVersion: 1 }], ['502', { expectedVersion: 1 }]]);
   });

@@ -217,7 +217,7 @@
 .lp-theme .promo-card .facts dt{font-size:12px;color:var(--lp-muted);text-transform:none;letter-spacing:0}
 .lp-theme .promo-card .facts dd{margin-top:8px;font-size:13px;font-weight:600}
 .lp-theme .promo-card .muted.small{font-size:12px;color:var(--lp-muted);margin:0}
-.lp-theme .promo-card .status{min-width:0;min-height:26px;padding:0 12px;border:0;border-radius:13px;background:var(--lp-bg);color:var(--lp-muted);font-size:12px;font-weight:600;align-items:center}
+.lp-theme .promo-card .status{min-width:0;min-height:26px;padding:0 12px;border:0;border-radius:13px;background:var(--lp-bg);color:var(--lp-muted);font-size:12px;font-weight:600;align-items:center;gap:.35em}
 .lp-theme .promo-card .status.ok{background:var(--lp-ok-bg);color:var(--lp-ok)}
 .lp-theme .promo-card .badge{font-size:12px;padding:5px 12px}
 @media(max-width:820px){.lp-theme .promo-grid{grid-template-columns:1fr}}

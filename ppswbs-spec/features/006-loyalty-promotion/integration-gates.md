@@ -1,7 +1,7 @@
 # Integration Gates — FE-06
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01 (G-04 đạt phần UI: FE-03 nhúng BenefitSelector — verification mục 32; đóng T072–T076/T078 với xác minh token giả lập — verification mục 31; hiện trạng G-01–G-07 2026-11-01 (chuẩn bị T075); nguồn workshop FE-03 và CORS — verification mục 28; T077 đạt — dùng nền frontend của 002; trước đó: 2026-10-27 (T002: cập nhật hiện trạng G-01–G-07 theo `khuong` và `origin/develop` `37d68cf`; T077: frontend chưa có))
+**Date updated**: 2026-11-12 (thêm mục "Tình trạng tích hợp 2026-11-12" và cập nhật sau khi gộp develop; trước đó: 2026-11-01 (G-04 đạt phần UI: FE-03 nhúng BenefitSelector — verification mục 32; đóng T072–T076/T078 với xác minh token giả lập — verification mục 31; hiện trạng G-01–G-07 2026-11-01 (chuẩn bị T075); nguồn workshop FE-03 và CORS — verification mục 28; T077 đạt — dùng nền frontend của 002; trước đó: 2026-10-27 (T002: cập nhật hiện trạng G-01–G-07 theo `khuong` và `origin/develop` `37d68cf`; T077: frontend chưa có)))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -82,3 +82,24 @@ Nguồn: nhánh `khuong` (`73ac306` cộng thay đổi chưa commit của 006) v
 | G-05 Workshop hậu xử lý | Cọc xác minh, hết hạn, hủy hợp lệ, no-show, hoàn thành + trả đủ đều do code FE-03 quyết định, kể cả gửi lặp và tranh chấp (mục 28–29). | Không còn thiếu phía 006. |
 | G-06 Data/module | Migration loyalty V10–V12 trên develop; `ModulithArchitectureTests` 5/5; toàn bộ 006 248/248 (mục 29). | Đã chạy lại 2026-11-01: 257/257 đạt, 0 bỏ qua (verification mục 31). |
 | G-07 Governance | Tài liệu Approved; chênh lệch tài liệu cần sửa khi đóng T076 liệt kê ở verification mục 30. | T076 đóng 2026-11-01: sửa chênh lệch tài liệu; speckit-analyze không có trong phiên, phân tích thủ công (verification mục 31). |
+
+## Tình trạng tích hợp 2026-11-12 (rà soát liên feature 002/006 ↔ 003/008)
+
+Bảng trên là ảnh chụp ngày 2026-11-01, giữ nguyên làm lịch sử. Một số câu đã cũ: FE-03 và FE-08 không còn nhúng `BenefitSelector` (dùng panel riêng, T102); cọc workshop không còn là `ceil(post/2)` (003.1 FR-035, T101).
+
+| Gate | Tình trạng 2026-11-12 | Còn thiếu |
+| --- | --- | --- |
+| G-02 Catalogue | Target PRODUCT/WORKSHOP dùng thật; thẻ sản phẩm 002 dùng ưu đãi 006 (FR-042) chạy trên màn thật. | Không. |
+| G-03 Retail (FE-08) | Preview/accept/thanh toán/0đ/hủy/hết hạn chạy qua facade thật (test 006 301/301). | (1) FE-08 vẫn tạo `SourceLine` 4 tham số, chưa truyền `locationId` (D-009) → voucher giới hạn chi nhánh luôn bị từ chối ở checkout thật. (2) Trả tiền mặt theo đơn chi nhánh (D-011) đã có phía 006 nhưng spec FE-08 FR-08-041→049 chưa lên nhánh nào và code FE-08 chưa dùng `parts`. (3) `RetailCatalogueMySqlIntegrationTest` của FE-08 lỗi vì gán cứng chi nhánh 1 (fixture 002 US10). |
+| G-04 Booking (FE-03) | Quote/accept giữ voucher + điểm, booking 0đ lưu được từ V120 (T100). | Giỏ nhiều vé (D-010) đã có phía 006; code 003.1 chưa dùng `WorkshopFact.cart` (003.1 T090 chưa làm). Trang đặt chỗ FE-03 vẫn hiện "Tiền đặt cọc (50%)" theo luật cũ, khác 003.1 FR-035. |
+| G-05 Workshop hậu xử lí | Code FE-03 hiện hủy/không đến/hoàn thành theo cả booking, khớp facade 006. | **Lệch spec:** 003.3 FR-030 (tích điểm theo từng vé), FR-042 (hủy hợp lệ trả điểm của vé; lượt voucher của nhóm chỉ trả khi mọi vé hủy hợp lệ), FR-043 (Mland hủy: trả điểm của vé, trả lượt voucher một lần dù chỉ một phần nhóm) cần 006 có phần theo vé cho WORKSHOP; 006 hiện chỉ restore/grant cả booking. Xem T103. |
+
+Cập nhật cùng ngày sau T103: lệch G-05 với 003.3 FR-030/FR-042/FR-043 đã đóng phía 006 (D-012: phần theo vé, 4 outcome `WORKSHOP_TICKET_*`, V121). Còn lại phía FE-03: dùng `WorkshopFact.cart` khi accept giỏ (003.1 T090) và gửi outcome theo vé từ 003.3; xem interfaces.md "Cách 003 dùng outcome theo vé".
+
+Cập nhật sau khi gộp develop `ad63577` vào `khuong` (merge `76cf012`, 2026-11-12):
+
+| Gate | Tình trạng |
+| --- | --- |
+| G-03 Retail (FE-08) | **D-009 đã dùng:** `RetailCheckoutQuotePreviewService` và `RetailCheckoutAcceptanceService` tạo `SourceLine` 5 tham số kèm `locationId` của dòng giỏ (`d8aecc2`). Giữ hàng theo size × chi nhánh xong (002 T124, `8d1ef1b`). Tiền mặt tại quầy chỉ cho đơn **một** chi nhánh (`f7fe656`), dùng outcome cả checkout; `parts`/`RETAIL_BRANCH_*` (D-011) chưa được FE-08 dùng — chỉ cần khi mở tiền mặt cho checkout nhiều chi nhánh. |
+| G-04 Booking (FE-03) | **D-010 đã dùng:** `WorkshopCartBenefitService` preview/accept giỏ và đọc `eligibleLineIndexes` (`04a7b50`); nhóm settle/release qua outcome cả nhóm (`5179057`). Từ T103, giỏ tự có phần theo vé; outcome cả nhóm cập nhật mọi vé như nhau. |
+| G-05 Workshop hậu xử lí | 003 quyết định tích điểm của nhóm từ điểm danh từng vé nhưng vẫn gửi một outcome cả nhóm (`2ad1070`); `WORKSHOP_TICKET_*` (D-012) chưa được 003 dùng — khi 003 cần trả điểm/tích điểm riêng từng vé theo 003.3 FR-030/042/043 thì chuyển sang outcome theo vé (interfaces.md "Cách 003 dùng outcome theo vé"). |

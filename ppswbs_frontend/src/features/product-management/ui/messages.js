@@ -48,6 +48,7 @@ const vi = {
   'size.choose': 'Chọn size', 'size.from': 'Từ size', 'size.to': 'Đến size', 'size.addRange': 'Chọn khoảng', 'size.all': 'Chọn tất cả', 'size.none': 'Bỏ chọn',
   'size.applyHint': 'Áp dụng cho {count} size đã chọn:', 'size.apply': 'Áp dụng', 'size.priceFor': 'Giá đề xuất size {size}', 'size.quantityFor': 'Số lượng size {size}', 'size.removeOne': 'Bỏ size {size}', 'create.submit': 'Tạo sản phẩm',
   'create.success': 'Đã tạo sản phẩm "{name}" ở trạng thái nháp. Thêm ảnh rồi gửi duyệt khi sẵn sàng.',
+  'create.successWithImages': 'Đã tạo sản phẩm "{name}" ở trạng thái nháp. Bấm "Gửi duyệt" ở mục Duyệt hồ sơ ban đầu khi sẵn sàng.',
   'create.sizesHintManager': 'Danh sách size chỉ chọn khi tạo, sau đó không thêm hoặc bớt được. Manager không cần gửi duyệt: giá nhập ở đây được áp dụng làm giá bán ngay khi tạo.',
   'field.sellingPrice': 'Giá bán (₫)', 'create.afterCreate': 'Sau khi tạo',
   'create.keepHidden': 'Chưa công khai (lưu và áp dụng giá, khách chưa thấy)', 'create.publishNow': 'Công khai ngay',
@@ -163,7 +164,7 @@ const vi = {
   'publication.managerReviewFirst': 'Staff đã gửi hồ sơ này. Hãy duyệt ở mục “Duyệt hồ sơ ban đầu” (xem và sửa được giá từng size) trước khi công khai.',
   'publication.managerRejected': 'Hồ sơ đã bị từ chối, lý do ở mục “Duyệt hồ sơ ban đầu”. Sửa nội dung hoặc giá rồi gửi duyệt lại trước khi công khai.',
   'publication.goToReview': 'Đến mục Duyệt hồ sơ ban đầu',
-'list.actions': 'Thao tác', 'list.approvePublish': 'Duyệt & công khai', 'list.awaitingReview': 'Staff đã gửi duyệt', 'list.publish': 'Công khai', 'list.hide': 'Ẩn', 'list.details': 'Chi tiết', 'list.working': 'Đang xử lý…', 'list.actionFailed': 'Không thực hiện được. Mở chi tiết để xem còn thiếu gì.', 'publication.managerHint': 'Manager không cần duyệt: bấm “Công khai ngay” để duyệt hồ sơ, áp dụng giá đề xuất cho mọi size và công khai sản phẩm trong một lần.',
+'list.actions': 'Thao tác', 'list.approvePublish': 'Duyệt & công khai', 'list.awaitingReview': 'Staff đã gửi duyệt', 'list.publish': 'Công khai', 'list.hide': 'Ẩn', 'list.details': 'Chi tiết', 'list.working': 'Đang xử lý…', 'list.actionFailed': 'Không thực hiện được. Mở chi tiết để xem còn thiếu gì.', 'publication.managerHintApproved': 'Hồ sơ đã duyệt: bấm “Công khai ngay” để áp dụng giá còn thiếu (nếu có) và công khai sản phẩm.', 'publication.managerHint': 'Manager không cần duyệt: bấm “Công khai ngay” để duyệt hồ sơ, áp dụng giá đề xuất cho mọi size và công khai sản phẩm trong một lần.',
   'publication.published': 'Đã công khai sản phẩm. Khách đã xem được ở trang sản phẩm.', 'publication.hidden': 'Đã ẩn sản phẩm. Khách không còn thấy, size và giá được giữ nguyên.',
 
   'delete.title': 'Xóa sản phẩm', 'delete.action': 'Xóa sản phẩm',
@@ -176,7 +177,7 @@ const vi = {
   'category.inactive': 'Ngừng hoạt động', 'category.activate': 'Kích hoạt', 'category.deactivate': 'Ngừng hoạt động',
   'category.activateTitle': 'Kích hoạt lại "{name}"?', 'category.deactivateTitle': 'Ngừng hoạt động "{name}"?',
   'category.impactCount': '{count} sản phẩm thuộc danh mục này.',
-  'category.deactivateHint': 'Sản phẩm không bị xóa và cờ công khai được giữ, nhưng danh mục ngừng hoạt động không dùng được cho sản phẩm mới hoặc gửi duyệt.',
+  'category.deactivateHint': 'Sản phẩm không bị xóa và cờ công khai được giữ, nhưng khách không còn thấy và không mua được các sản phẩm này cho tới khi kích hoạt lại; danh mục ngừng hoạt động cũng không dùng được cho sản phẩm mới hoặc gửi duyệt.',
   'category.activateHint': 'Danh mục sẽ dùng lại được cho sản phẩm.', 'category.created': 'Đã tạo danh mục "{name}".', 'category.saved': 'Đã lưu danh mục "{name}".',
   'category.activated': 'Đã kích hoạt lại danh mục "{name}".', 'category.deactivated': 'Đã ngừng hoạt động danh mục "{name}".',
 
@@ -304,6 +305,7 @@ const en = {
   'size.choose': 'Choose sizes', 'size.from': 'From size', 'size.to': 'To size', 'size.addRange': 'Add range', 'size.all': 'Select all', 'size.none': 'Clear',
   'size.applyHint': 'Apply to the {count} chosen sizes:', 'size.apply': 'Apply', 'size.priceFor': 'Proposed price of size {size}', 'size.quantityFor': 'Quantity of size {size}', 'size.removeOne': 'Remove size {size}', 'create.submit': 'Create product',
   'create.success': 'Product "{name}" was created as a draft. Add images, then submit it for review when ready.',
+  'create.successWithImages': 'Product "{name}" was created as a draft. Submit it for review under Initial review when ready.',
   'create.sizesHintManager': 'Sizes are chosen only when creating; none can be added or removed later. A Manager needs no review: the prices entered here become selling prices as soon as the product is created.',
   'field.sellingPrice': 'Selling price (₫)', 'create.afterCreate': 'After creating',
   'create.keepHidden': 'Not published yet (saved with prices applied, hidden from customers)', 'create.publishNow': 'Publish now',
@@ -419,7 +421,7 @@ const en = {
   'publication.managerReviewFirst': 'A Staff member submitted this review. Decide it under “Initial review” (every size’s price can be seen and adjusted) before publishing.',
   'publication.managerRejected': 'The review was rejected; the reason is under “Initial review”. Fix the content or prices and submit again before publishing.',
   'publication.goToReview': 'Go to Initial review',
-'list.actions': 'Actions', 'list.approvePublish': 'Approve & publish', 'list.awaitingReview': 'Submitted for review', 'list.publish': 'Publish', 'list.hide': 'Hide', 'list.details': 'Details', 'list.working': 'Working…', 'list.actionFailed': 'Could not do it. Open the details to see what is missing.', 'publication.managerHint': 'A Manager needs no review: “Publish now” approves the file, applies the proposed price of every size and publishes the product in one go.',
+'list.actions': 'Actions', 'list.approvePublish': 'Approve & publish', 'list.awaitingReview': 'Submitted for review', 'list.publish': 'Publish', 'list.hide': 'Hide', 'list.details': 'Details', 'list.working': 'Working…', 'list.actionFailed': 'Could not do it. Open the details to see what is missing.', 'publication.managerHintApproved': 'The file is approved: “Publish now” applies any price still missing and publishes the product.', 'publication.managerHint': 'A Manager needs no review: “Publish now” approves the file, applies the proposed price of every size and publishes the product in one go.',
   'publication.published': 'Product published. Customers can now see it.', 'publication.hidden': 'Product hidden. Customers no longer see it; sizes and prices are kept.',
 
   'delete.title': 'Delete product', 'delete.action': 'Delete product',
@@ -432,7 +434,7 @@ const en = {
   'category.inactive': 'Inactive', 'category.activate': 'Activate', 'category.deactivate': 'Deactivate',
   'category.activateTitle': 'Activate "{name}" again?', 'category.deactivateTitle': 'Deactivate "{name}"?',
   'category.impactCount': '{count} products belong to this category.',
-  'category.deactivateHint': 'Products are not deleted and keep their publication flag, but an inactive category cannot be used for new products or reviews.',
+  'category.deactivateHint': 'Products are not deleted and keep their publication flag, but customers no longer see or buy these products until the category is activated again; an inactive category cannot be used for new products or reviews either.',
   'category.activateHint': 'The category can be used for products again.', 'category.created': 'Category "{name}" created.', 'category.saved': 'Category "{name}" saved.',
   'category.activated': 'Category "{name}" is active again.', 'category.deactivated': 'Category "{name}" deactivated.',
 

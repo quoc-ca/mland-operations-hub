@@ -28,7 +28,7 @@ export default function ProductListPage() {
   useEffect(() => { setDraft(criteria); }, [params.toString()]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const products = useResource(() => api.listProducts({ ...criteria, page: page || undefined }), [params.toString()]);
-  const categories = useResource(() => api.listCategories(), []);
+  const categories = useResource(() => api.listAllCategories(), []);
   // US10 FR-051: filter by branch. Every active branch is offered (Staff see the products of every branch too).
   const branches = useResource(() => api.listSellingLocations(), []);
 

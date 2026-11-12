@@ -41,11 +41,16 @@ public class DefaultLoyaltyFacade implements LoyaltyFacade {
     private final LoyaltyReleaseService releases;
     private final LoyaltyRestorationService restorations;
     private final AcceptedBenefitRepository benefits;
+    private final LoyaltyPartLifecycleService partLifecycle;
+    private final BenefitPartSupport partSupport;
 
     public DefaultLoyaltyFacade(LoyaltyQuoteService quotes, LoyaltyReservationService reservations,
                                 LoyaltySettlementService settlements, LoyaltyEarnService earn,
                                 LoyaltyReleaseService releases, LoyaltyRestorationService restorations,
-                                AcceptedBenefitRepository benefits) {
+                                AcceptedBenefitRepository benefits, LoyaltyPartLifecycleService partLifecycle,
+                                BenefitPartSupport partSupport) {
+        this.partLifecycle = partLifecycle;
+        this.partSupport = partSupport;
         this.quotes = quotes;
         this.reservations = reservations;
         this.settlements = settlements;
@@ -78,37 +83,44 @@ public class DefaultLoyaltyFacade implements LoyaltyFacade {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public BenefitResult settleAcceptedBenefits(AuthoritativeOutcome outcome) {
-        return contended(() -> settlements.settleAcceptedBenefits(outcome));
+        return contended(() -> outcome.outcome().isPartOutcome() ? partLifecycle.settlePart(outcome)
+                : settlements.settleAcceptedBenefits(outcome));
     }
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public BenefitResult grantEarnedPoints(AuthoritativeOutcome outcome) {
-        return contended(() -> earn.grantEarnedPoints(outcome));
+        return contended(() -> outcome.outcome().isWorkshopTicketOutcome() ? partLifecycle.grantTicket(outcome)
+                : outcome.outcome().isPartOutcome() ? partLifecycle.grantPart(outcome)
+                : earn.grantEarnedPoints(outcome));
     }
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public BenefitResult releaseHeldBenefits(AuthoritativeOutcome outcome) {
-        return contended(() -> releases.releaseHeldBenefits(outcome));
+        return contended(() -> outcome.outcome().isPartOutcome() ? partLifecycle.releasePart(outcome)
+                : releases.releaseHeldBenefits(outcome));
     }
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public BenefitResult restoreCancelledWorkshopBenefits(AuthoritativeOutcome outcome) {
-        return contended(() -> restorations.restoreCancelledWorkshopBenefits(outcome));
+        return contended(() -> outcome.outcome().isWorkshopTicketOutcome() ? partLifecycle.cancelTicket(outcome)
+                : restorations.restoreCancelledWorkshopBenefits(outcome));
     }
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public BenefitResult finishIneligibleEarn(AuthoritativeOutcome outcome) {
-        return contended(() -> earn.finishIneligibleEarn(outcome));
+        return contended(() -> outcome.outcome().isWorkshopTicketOutcome() ? partLifecycle.noShowTicket(outcome)
+                : outcome.outcome().isPartOutcome() ? partLifecycle.finishIneligiblePart(outcome)
+                : earn.finishIneligibleEarn(outcome));
     }
 
     @Override
     @Transactional(readOnly = true)
     public BenefitResult findBenefitResult(SourceKind sourceKind, String sourceRef) {
-        return benefits.findBySourceKindAndSourceRef(sourceKind, sourceRef).map(BenefitEffectSupport::result)
+        return benefits.findBySourceKindAndSourceRef(sourceKind, sourceRef).map(partSupport::result)
                 .orElseThrow(() -> new LoyaltyException(LoyaltyErrorCode.BENEFIT_STATE_CONFLICT,
                         "No accepted benefit exists for this source transaction."));
     }

@@ -6,6 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductI
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.VariantBranchStockRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.VariantBranchStock;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocation;
 import org.springframework.beans.factory.annotation.Autowired;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductReviewRepository;
@@ -188,6 +189,8 @@ public class ManagementProductQueryService {
         ProductBranchStockService branchService = stocksByVariant.isEmpty() || branchStockService == null ? null
                 : branchStockService.getIfAvailable();
         Map<Long, SellingLocation> activeBranches = branchService == null ? Map.of() : branchService.activeBranchesOrEmpty();
+        Map<BranchVariant, BigInteger> heldByBranch = branchHeldQuantities(productById.values(), variantsByProduct,
+                stocksByVariant);
 
         List<ManagementProduct> result = new ArrayList<>(productIds.size());
         for (Long id : productIds) {
@@ -198,9 +201,47 @@ public class ManagementProductQueryService {
             result.add(toDto(product, categoryById.get(product.getCategoryId()),
                     variantsByProduct.getOrDefault(id, List.of()), imagesByProduct.getOrDefault(id, List.of()),
                     reviewsByProduct.getOrDefault(id, List.of()), proposalsByVariant, heldByVariant,
-                    stocksByVariant, activeBranches));
+                    stocksByVariant, activeBranches, heldByBranch));
         }
         return result;
+    }
+
+    /**
+     * FR-051: holds per size × branch of the loaded rows. A never-published product has none (0 at every branch).
+     * Empty when the FE-08 source still holds per size: the DTO then gives no per-branch numbers.
+     */
+    private Map<BranchVariant, BigInteger> branchHeldQuantities(Collection<Product> loaded,
+                                                                Map<Long, List<ProductVariant>> variantsByProduct,
+                                                                Map<Long, List<VariantBranchStock>> stocksByVariant) {
+        if (stocksByVariant.isEmpty()) {
+            return Map.of();
+        }
+        VariantHoldReader reader = holdReader.getIfAvailable();
+        List<BranchVariant> needSource = new ArrayList<>();
+        List<BranchVariant> neverPublished = new ArrayList<>();
+        for (Product product : loaded) {
+            for (ProductVariant variant : variantsByProduct.getOrDefault(product.getId(), List.of())) {
+                for (VariantBranchStock stock : stocksByVariant.getOrDefault(variant.getId(), List.of())) {
+                    BranchVariant key = new BranchVariant(variant.getId(), stock.getLocationId());
+                    (product.hasEverBeenPublished() ? needSource : neverPublished).add(key);
+                }
+            }
+        }
+        Map<BranchVariant, BigInteger> fromSource = needSource.isEmpty() || reader == null ? Map.of()
+                : reader.validHeldByBranch(needSource);
+        if (fromSource.isEmpty() && !needSource.isEmpty()) {
+            return Map.of(); // not known per branch: keep the size rule everywhere
+        }
+        Map<BranchVariant, BigInteger> held = new HashMap<>();
+        neverPublished.forEach(key -> held.put(key, BigInteger.ZERO));
+        for (BranchVariant key : needSource) {
+            BigInteger value = fromSource.get(key);
+            if (value == null || value.signum() < 0) {
+                throw new CatalogueException(CatalogueErrorCode.AVAILABILITY_DEPENDENCY_UNAVAILABLE);
+            }
+            held.put(key, value);
+        }
+        return held;
     }
 
     private Map<Long, BigInteger> heldQuantities(Collection<Product> loaded,
@@ -238,7 +279,8 @@ public class ManagementProductQueryService {
                                            Map<Long, List<PriceProposal>> proposalsByVariant,
                                            Map<Long, BigInteger> heldByVariant,
                                            Map<Long, List<VariantBranchStock>> stocksByVariant,
-                                           Map<Long, SellingLocation> activeBranches) {
+                                           Map<Long, SellingLocation> activeBranches,
+                                           Map<BranchVariant, BigInteger> heldByBranch) {
         if (category == null) {
             throw new IllegalStateException("Product " + product.getId() + " references a missing category");
         }
@@ -260,7 +302,7 @@ public class ManagementProductQueryService {
                 productVariants.stream()
                         .map(variant -> toDto(variant, heldByVariant.get(variant.getId()),
                                 proposalsByVariant.getOrDefault(variant.getId(), List.of()),
-                                stocksByVariant.getOrDefault(variant.getId(), List.of())))
+                                stocksByVariant.getOrDefault(variant.getId(), List.of()), heldByBranch))
                         .toList(),
                 productReviews.stream()
                         .map(review -> new ManagementProductDtos.Review(CatalogueValues.format(review.getId()),
@@ -272,7 +314,8 @@ public class ManagementProductQueryService {
 
     private static ManagementProductDtos.ManagementVariant toDto(ProductVariant variant, BigInteger held,
                                                                  List<PriceProposal> variantProposals,
-                                                                 List<VariantBranchStock> variantStocks) {
+                                                                 List<VariantBranchStock> variantStocks,
+                                                                 Map<BranchVariant, BigInteger> heldByBranch) {
         BigInteger available = variant.getRemainingUnsold().subtract(held).max(BigInteger.ZERO);
         return new ManagementProductDtos.ManagementVariant(
                 CatalogueValues.format(variant.getId()),
@@ -301,10 +344,17 @@ public class ManagementProductQueryService {
                                 proposal.getReason()))
                         .toList(),
                 variantStocks.stream()
-                        .map(stock -> new ManagementProductDtos.BranchStock(CatalogueValues.format(stock.getLocationId()),
-                                CatalogueValues.format(stock.getRemainingUnsold()), stock.isSaleEnabled(),
-                                stock.getVersion()))
+                        .map(stock -> branchStockDto(stock,
+                                heldByBranch.get(new BranchVariant(variant.getId(), stock.getLocationId()))))
                         .toList());
+    }
+
+    /** {@code held} null: not known per branch (FE-08 still holds per size), so neither number is given. */
+    private static ManagementProductDtos.BranchStock branchStockDto(VariantBranchStock stock, BigInteger held) {
+        return new ManagementProductDtos.BranchStock(CatalogueValues.format(stock.getLocationId()),
+                CatalogueValues.format(stock.getRemainingUnsold()), stock.isSaleEnabled(), stock.getVersion(),
+                held == null ? null : CatalogueValues.format(held),
+                held == null ? null : CatalogueValues.format(stock.getRemainingUnsold().subtract(held).max(BigInteger.ZERO)));
     }
 
     /** Branches of a product, in branch id order: sold there, its name if still active, and whether any size sells. */

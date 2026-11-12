@@ -138,17 +138,31 @@ class LoyaltyMySqlMigrationIT {
     // ----- migration, tables and seed -----
 
     @Test
-    void migrationsAreAppliedInOrderWithTenTables() {
+    void migrationsAreAppliedInOrderWithElevenTables() {
         LoyaltyTestSupport.requireMySql84(dataSource);
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank", String.class);
         assertThat(versions).containsSubsequence("5", "10", "11", "12");
+        assertThat(versions).contains("119", "120", "121");
         List<String> tables = jdbc.queryForList("SELECT table_name FROM information_schema.tables "
                 + "WHERE table_schema = DATABASE() AND (table_name LIKE 'loyalty\\_%' OR table_name LIKE 'promotion\\_%') "
                 + "ORDER BY table_name", String.class);
-        assertThat(tables).containsExactlyInAnyOrder("loyalty_accepted_benefit", "loyalty_audit", "loyalty_policy",
-                "loyalty_point_ledger", "loyalty_registry", "loyalty_wallet", "promotion_member_program",
-                "promotion_program", "promotion_revision", "promotion_revision_target");
+        // V119 (Session 2026-11-12, D-011) adds the settlement parts of a retail checkout.
+        assertThat(tables).containsExactlyInAnyOrder("loyalty_accepted_benefit", "loyalty_accepted_benefit_part",
+                "loyalty_audit", "loyalty_policy", "loyalty_point_ledger", "loyalty_registry", "loyalty_wallet",
+                "promotion_member_program", "promotion_program", "promotion_revision", "promotion_revision_target");
+    }
+
+    @Test
+    void theLedgerIsUniquePerBenefitKindAndPart() {
+        LoyaltyTestSupport.requireMySql84(dataSource);
+        List<String> columns = jdbc.queryForList("SELECT column_name FROM information_schema.statistics "
+                + "WHERE table_schema = DATABASE() AND table_name = 'loyalty_point_ledger' "
+                + "AND index_name = 'uk_loyalty_ledger_benefit_kind_part' ORDER BY seq_in_index", String.class);
+        assertThat(columns).containsExactly("accepted_benefit_id", "entry_kind", "part_seq");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.statistics "
+                + "WHERE table_schema = DATABASE() AND table_name = 'loyalty_point_ledger' "
+                + "AND index_name = 'uk_loyalty_ledger_benefit_kind'", Integer.class)).isZero();
     }
 
     @Test
@@ -391,10 +405,11 @@ class LoyaltyMySqlMigrationIT {
     }
 
     @Test
-    void onlyAWorkshopStoresAPositivePostPromotionAmount() {
-        // A workshop must carry the fee after voucher and points; a retail order never does.
+    void onlyAWorkshopStoresAPostPromotionAmount() {
+        // A workshop must carry the fee after voucher and points; a retail order never does. Since V120 (T100,
+        // FR-022) 0đ is a valid workshop amount; the zero and negative cases are in
+        // aWorkshopMayStoreAZeroPostPromotionAmountButNotANegativeOne.
         assertRejected(sql -> insertBenefit(sql, "WORKSHOP", unique("w1-"), null, 1, "PENDING", null));
-        assertRejected(sql -> insertBenefit(sql, "WORKSHOP", unique("w2-"), "0", 1, "PENDING", null));
         assertRejected(sql -> insertBenefit(sql, "RETAIL", unique("w3-"), "880000", 1, "PENDING", null));
         // An odd amount stays exact: deposit and remaining are FE-03's business and are not stored here.
         rolledBack(sql -> insertBenefit(sql, "WORKSHOP", unique("w4-"), "984999", 1, "PENDING", null));
@@ -415,6 +430,15 @@ class LoyaltyMySqlMigrationIT {
         List<String> columns = jdbc.queryForList("SELECT column_name FROM information_schema.columns "
                 + "WHERE table_schema = DATABASE() AND table_name = 'loyalty_accepted_benefit'", String.class);
         assertThat(columns).contains("post_promotion_amount").doesNotContain("deposit_amount", "remaining_amount");
+    }
+
+    /** T100 (V120, FR-022): a workshop may store 0đ after benefits; negative stays refused, retail stores none. */
+    @Test
+    void aWorkshopMayStoreAZeroPostPromotionAmountButNotANegativeOne() {
+        rolledBack(sql -> insertBenefit(sql, "WORKSHOP", unique("z0-"), "0", 1, "PENDING", null));
+        assertRejected(sql -> insertBenefit(sql, "WORKSHOP", unique("z1-"), "-1", 1, "PENDING", null));
+        assertRejected(sql -> insertBenefit(sql, "WORKSHOP", unique("z2-"), null, 1, "PENDING", null));
+        assertRejected(sql -> insertBenefit(sql, "RETAIL", unique("z3-"), "0", 1, "PENDING", null));
     }
 
     @Test
