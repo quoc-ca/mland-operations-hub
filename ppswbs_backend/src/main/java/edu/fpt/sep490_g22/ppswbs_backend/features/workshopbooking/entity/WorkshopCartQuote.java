@@ -35,6 +35,23 @@ public class WorkshopCartQuote {
     @Column(name = "lines_json", nullable = false, columnDefinition = "JSON", updatable = false)
     private String linesJson;
 
+    /** The benefit the buyer chose, as 006 received it; null when none was asked for. */
+    @Column(name = "benefit_selection_json", columnDefinition = "JSON", updatable = false)
+    private String benefitSelectionJson;
+
+    /** 0-based cart positions of the tickets the voucher covers, exactly as 006 answered. */
+    @Column(name = "eligible_ticket_indexes_json", columnDefinition = "JSON", updatable = false)
+    private String eligibleTicketIndexesJson;
+
+    @Column(name = "point_value_vnd", nullable = false, updatable = false)
+    private long pointValueVnd;
+
+    @Column(name = "terms_digest", length = 128, updatable = false)
+    private String termsDigest;
+
+    @Column(name = "loyalty_policy_revision", updatable = false)
+    private Long loyaltyPolicyRevision;
+
     @Column(name = "gross_vnd", nullable = false, updatable = false)
     private long grossVnd;
 

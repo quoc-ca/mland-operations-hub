@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.CreateBookingGroupRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.WorkshopCartQuoteRequest;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.math.BigInteger;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +46,7 @@ class WorkshopCartBookingTest {
     private TicketBookingRepository tickets;
     private TicketPriceSnapshotRepository snapshots;
     private WorkshopCartQuoteService quoteService;
+    private LoyaltyFacade loyalty;
     private GroupConfirmationService groupConfirmation;
     private BookingGroupCreationService creationService;
     private final List<WorkshopCartQuote> saved = new ArrayList<>();
@@ -74,10 +77,12 @@ class WorkshopCartBookingTest {
         when(tickets.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(snapshots.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         WorkshopCartPricingService pricing = new WorkshopCartPricingService(operations);
-        quoteService = new WorkshopCartQuoteService(authorization, pricing, quotes, mapper);
+        loyalty = mock(LoyaltyFacade.class);
+        WorkshopCartBenefitService benefits = new WorkshopCartBenefitService(loyalty);
+        quoteService = new WorkshopCartQuoteService(authorization, pricing, benefits, quotes, mapper);
         groupConfirmation = mock(GroupConfirmationService.class);
         creationService = new BookingGroupCreationService(authorization, pricing, operations, quotes, groups, lines,
-                tickets, snapshots, mock(BookingIdempotencyService.class), groupConfirmation, mapper);
+                tickets, snapshots, mock(BookingIdempotencyService.class), benefits, groupConfirmation, mapper);
     }
 
     // ---- quoting ----
@@ -136,12 +141,124 @@ class WorkshopCartBookingTest {
                 new WorkshopCartQuoteRequest.BenefitSelectionRequest(
                         WorkshopCartQuoteRequest.BenefitSelectionRequest.Choice.NONE, null, "500"));
 
+        // FE-06 benefits belong to a Member, so a Guest cart has none to apply.
         for (WorkshopCartQuoteRequest request : List.of(withVoucher, withPoints)) {
             assertThatThrownBy(() -> quoteService.quote(null, request))
                     .isInstanceOf(BookingCreationRejectedException.class)
-                    .hasFieldOrPropertyWithValue("code", WorkshopCartQuoteService.BENEFITS_PENDING_CODE);
+                    .hasFieldOrPropertyWithValue("code", WorkshopCartQuoteService.BENEFITS_NEED_A_MEMBER);
         }
         verifyNoInteractions(quotes);
+        verifyNoInteractions(loyalty);
+    }
+
+    @Test
+    void aMemberVoucherDiscountsOnlyTheTicketsLoyaltySaysItCovers() {
+        UUID clay = publishedLine("7", 300_000, 1, 6, 1, "Clay Workshop");
+        UUID wax = publishedLine("9", 500_000, 1, 4, 1, "Wax Casting");
+        givenMember(42L);
+        // 006 answers for the cart: 100,000 off, and only the two Clay tickets are inside the voucher scope.
+        givenPreview(100_000, 0, 0, 0, List.of(0, 1));
+
+        WorkshopCartQuoteResponse quote = quoteService.quote("Bearer token",
+                cartWithVoucher(line(7L, clay, 2), line(9L, wax, 1)));
+
+        assertThat(quote.voucherDiscountVnd()).isEqualTo(100_000);
+        assertThat(quote.lines().get(0).tickets()).extracting(WorkshopCartQuoteResponse.QuotedTicket::voucherDiscountVnd)
+                .containsExactly(50_000L, 50_000L);
+        assertThat(quote.lines().get(1).tickets().get(0).voucherDiscountVnd()).isZero();
+        assertThat(quote.finalTotalVnd()).isEqualTo(1_000_000);
+        assertThat(saved.get(0).getTermsDigest()).isEqualTo("digest-1");
+    }
+
+    @Test
+    void theCartHandedToLoyaltyIsOneTicketPerPersonInCartOrder() {
+        UUID clay = publishedLine("7", 300_000, 1, 6, 1, "Clay Workshop");
+        UUID wax = publishedLine("9", 500_000, 1, 4, 1, "Wax Casting");
+        givenMember(42L);
+        givenPreview(0, 0, 0, 0, List.of());
+
+        quoteService.quote("Bearer token", cartWithVoucher(line(7L, clay, 2), line(9L, wax, 1)));
+
+        ArgumentCaptor<TrustedSourceContext> context = ArgumentCaptor.forClass(TrustedSourceContext.class);
+        verify(loyalty).previewBenefits(context.capture(), any());
+        WorkshopFact fact = context.getValue().workshop();
+        assertThat(fact.isCart()).isTrue();
+        assertThat(fact.tickets()).extracting(WorkshopTicketFact::ticketRef)
+                .containsExactly("L0-T1", "L0-T2", "L1-T1");
+        assertThat(fact.tickets()).extracting(ticket -> ticket.ticketPrice().longValueExact())
+                .containsExactly(300_000L, 300_000L, 500_000L);
+        assertThat(fact.participantCount()).isEqualTo(3);
+        assertThat(fact.grossPackageAmount().longValueExact()).isEqualTo(1_100_000);
+    }
+
+    @Test
+    void pointsFollowThePostVoucherPriceOfEachTicket() {
+        UUID clay = publishedLine("7", 300_000, 1, 6, 1, "Clay Workshop");
+        givenMember(42L);
+        // 100 points at 100 VND, no voucher: 10,000 VND spread over two equal tickets.
+        givenPreview(0, 100, 100, 10_000, List.of());
+
+        WorkshopCartQuoteResponse quote = quoteService.quote("Bearer token", cartWithPoints("100", line(7L, clay, 2)));
+
+        assertThat(quote.pointsUsed()).isEqualTo(100);
+        assertThat(quote.lines().get(0).tickets()).extracting(WorkshopCartQuoteResponse.QuotedTicket::pointsUsed)
+                .containsExactly(50L, 50L);
+        assertThat(quote.finalTotalVnd()).isEqualTo(590_000);
+    }
+
+    @Test
+    void confirmingAMemberCartHoldsOneLoyaltyReservationForTheWholeGroup() {
+        UUID clay = publishedLine("7", 300_000, 1, 6, 1, "Clay Workshop");
+        givenMember(42L);
+        givenPreview(100_000, 0, 0, 0, List.of(0, 1));
+        WorkshopCartQuoteResponse quote = quoteService.quote("Bearer token", cartWithVoucher(line(7L, clay, 2)));
+        openQuote(quote.quoteRef());
+        when(operations.reserveGroupCapacity(anyString(), any(), anyString(), anyString()))
+                .thenReturn(GroupCapacityOutcome.accepted(List.of(List.of(UUID.randomUUID())), HOLD_EXPIRY));
+        when(loyalty.reserveAcceptedTransaction(any(), any(), anyString())).thenReturn(acceptedRef(100_000, 0));
+
+        var response = creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "buyer@example.com", "0901234567"), 42L, "corr-9", null);
+
+        ArgumentCaptor<AcceptedSourceContext> accepted = ArgumentCaptor.forClass(AcceptedSourceContext.class);
+        verify(loyalty, times(1)).reserveAcceptedTransaction(accepted.capture(), any(), anyString());
+        assertThat(accepted.getValue().sourceRef()).isEqualTo(response.groupCode());
+        assertThat(accepted.getValue().quoteRef()).isEqualTo(quote.quoteRef());
+        assertThat(accepted.getValue().termsDigest()).isEqualTo("digest-1");
+        assertThat(accepted.getValue().trusted().workshop().tickets()).hasSize(2);
+        assertThat(response.tickets()).extracting(dto -> dto.finalPriceVnd())
+                .containsExactly(250_000L, 250_000L);
+    }
+
+    @Test
+    void aBenefitThatMovedSinceTheQuoteIsRefusedInsteadOfBooked() {
+        UUID clay = publishedLine("7", 300_000, 1, 6, 1, "Clay Workshop");
+        givenMember(42L);
+        givenPreview(100_000, 0, 0, 0, List.of(0, 1));
+        WorkshopCartQuoteResponse quote = quoteService.quote("Bearer token", cartWithVoucher(line(7L, clay, 2)));
+        openQuote(quote.quoteRef());
+        when(operations.reserveGroupCapacity(anyString(), any(), anyString(), anyString()))
+                .thenReturn(GroupCapacityOutcome.accepted(List.of(List.of(UUID.randomUUID())), HOLD_EXPIRY));
+        when(loyalty.reserveAcceptedTransaction(any(), any(), anyString())).thenReturn(acceptedRef(60_000, 0));
+
+        assertThatThrownBy(() -> creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "buyer@example.com", "0901234567"), 42L, "corr-10", null))
+                .isInstanceOf(BookingCreationRejectedException.class)
+                .hasFieldOrPropertyWithValue("code", "QUOTE_CHANGED");
+    }
+
+    @Test
+    void aCartWithNoBenefitNeverTouchesLoyalty() {
+        UUID clay = publishedLine("7", 300_000, 1, 6, 1, "Clay Workshop");
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, clay, 1)));
+        openQuote(quote.quoteRef());
+        when(operations.reserveGroupCapacity(anyString(), any(), anyString(), anyString()))
+                .thenReturn(GroupCapacityOutcome.accepted(List.of(List.of(UUID.randomUUID())), HOLD_EXPIRY));
+
+        creationService.create(new CreateBookingGroupRequest(quote.quoteRef(), "buyer@example.com", "0901234567"),
+                null, "corr-11", null);
+
+        verifyNoInteractions(loyalty);
     }
 
     @Test
@@ -358,6 +475,27 @@ class WorkshopCartBookingTest {
         when(quotes.findForUpdate(quoteRef)).thenReturn(Optional.of(stored));
     }
 
+    private void givenMember(long accountId) {
+        when(authorization.requireMemberOwnership("Bearer token", null))
+                .thenReturn(new AccountSummary(accountId, ActorRole.MEMBER, ActorStatus.ACTIVE, null, null, null));
+    }
+
+    /** The answer 006 gives for a whole cart, including which tickets the voucher covers. */
+    private void givenPreview(long discount, long pointsUsed, long pointValue, long pointDiscount,
+                              List<Integer> eligibleTickets) {
+        when(loyalty.previewBenefits(any(), any())).thenReturn(new BenefitPreview(
+                BigInteger.ZERO, BigInteger.ZERO, BigInteger.valueOf(discount), BigInteger.ZERO, BigInteger.ZERO,
+                BigInteger.ZERO, BigInteger.valueOf(pointValue), BigInteger.valueOf(pointsUsed),
+                BigInteger.valueOf(pointDiscount), BigInteger.ZERO, BigInteger.ZERO, null, null, null, 3L, true,
+                List.of(), "digest-1", List.of(), eligibleTickets));
+    }
+
+    private static AcceptedBenefitRef acceptedRef(long discount, long points) {
+        return new AcceptedBenefitRef(1L, SourceKind.WORKSHOP, "GRP", BigInteger.ZERO,
+                BigInteger.valueOf(discount), BigInteger.valueOf(points), BigInteger.ZERO, BigInteger.ZERO,
+                BigInteger.ZERO, 3L, ComponentState.HELD, ComponentState.HELD, EarnState.PENDING);
+    }
+
     private UUID publishedLine(String packageReference, long price, int min, int max, int requiredSessions,
                                String name) {
         UUID session = UUID.randomUUID();
@@ -376,5 +514,16 @@ class WorkshopCartBookingTest {
 
     private static WorkshopCartQuoteRequest cart(WorkshopCartQuoteRequest.Line... lines) {
         return new WorkshopCartQuoteRequest(List.of(lines), null);
+    }
+
+    /** The same cart, with the buyer asking for a voucher so 006 is consulted. */
+    private static WorkshopCartQuoteRequest cartWithVoucher(WorkshopCartQuoteRequest.Line... lines) {
+        return new WorkshopCartQuoteRequest(List.of(lines), new WorkshopCartQuoteRequest.BenefitSelectionRequest(
+                WorkshopCartQuoteRequest.BenefitSelectionRequest.Choice.VOUCHER, "SUMMER", "0"));
+    }
+
+    private static WorkshopCartQuoteRequest cartWithPoints(String points, WorkshopCartQuoteRequest.Line... lines) {
+        return new WorkshopCartQuoteRequest(List.of(lines), new WorkshopCartQuoteRequest.BenefitSelectionRequest(
+                WorkshopCartQuoteRequest.BenefitSelectionRequest.Choice.NONE, null, points));
     }
 }

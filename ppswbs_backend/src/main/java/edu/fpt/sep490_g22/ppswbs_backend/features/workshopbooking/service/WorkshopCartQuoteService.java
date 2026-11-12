@@ -3,6 +3,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.WorkshopCartQuoteRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.WorkshopCartQuoteRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.WorkshopCartQuoteResponse;
@@ -29,16 +30,32 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class WorkshopCartQuoteService {
 
-    /** Code returned while the 006 cart contract is pending; the cart itself stays quotable without benefits. */
-    public static final String BENEFITS_PENDING_CODE = "CART_BENEFITS_NOT_AVAILABLE";
+    /** FE-06 benefits are Member-only, so a Guest cart asking for a voucher or points is refused. */
+    public static final String BENEFITS_NEED_A_MEMBER = "CART_BENEFITS_NEED_A_MEMBER";
 
     static final TypeReference<List<StoredLine>> STORED_LINES = new TypeReference<>() {
     };
 
     private final WorkshopBookingAuthorizationService authorization;
     private final WorkshopCartPricingService pricing;
+    private final WorkshopCartBenefitService benefits;
     private final WorkshopCartQuoteRepository quotes;
     private final ObjectMapper mapper;
+
+    /** Turns the request's choice into the selection 006 expects. */
+    static edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection selectionOf(
+            WorkshopCartQuoteRequest.BenefitSelectionRequest requested) {
+        String voucherCode = requested.choice() == WorkshopCartQuoteRequest.BenefitSelectionRequest.Choice.VOUCHER
+                ? (requested.voucherCode() == null || requested.voucherCode().isBlank()
+                        ? null : requested.voucherCode().trim())
+                : null;
+        String points = requested.requestedPoints() == null || requested.requestedPoints().isBlank()
+                ? "0" : requested.requestedPoints();
+        return new edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection(
+                edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SelectionChoice
+                        .valueOf(requested.choice().name()),
+                voucherCode, new java.math.BigInteger(points));
+    }
 
     /** The cart as stored on the quote, so group creation re-reads exactly what was quoted. */
     public record StoredLine(long packageId, List<String> sessionReferences, int participantCount,
@@ -50,13 +67,15 @@ public class WorkshopCartQuoteService {
         if (request == null || request.lines() == null || request.lines().isEmpty()) {
             throw new BookingValidationException("A cart needs at least one line");
         }
-        if (request.benefitSelection() != null && request.benefitSelection().requestsBenefit()) {
-            throw new BookingCreationRejectedException(BENEFITS_PENDING_CODE,
-                    "A voucher or points cannot be applied to a cart yet; quote the cart without them");
-        }
+        boolean wantsBenefit = request.benefitSelection() != null && request.benefitSelection().requestsBenefit();
         Long buyerMemberAccountId = authorizationHeader == null || authorizationHeader.isBlank()
                 ? null
                 : authorization.requireMemberOwnership(authorizationHeader, null).accountId();
+        if (wantsBenefit && buyerMemberAccountId == null) {
+            // FE-06 benefits belong to a Member, so a Guest cart simply has none to apply.
+            throw new BookingCreationRejectedException(BENEFITS_NEED_A_MEMBER,
+                    "A voucher or points can only be used by a signed-in Member");
+        }
 
         List<WorkshopCartPricingService.LineInput> inputs = new ArrayList<>();
         for (WorkshopCartQuoteRequest.Line line : request.lines()) {
@@ -64,6 +83,17 @@ public class WorkshopCartQuoteService {
                     canonicalUuids(line.sessionReferences()), line.participantCount()));
         }
         WorkshopCartPricingService.PricedCart cart = pricing.price(inputs);
+
+        // 006 decides the discount, the points and which tickets the voucher covers; 003.1 spreads them.
+        BenefitSelection selection = wantsBenefit ? selectionOf(request.benefitSelection()) : null;
+        WorkshopCartBenefitService.CartBenefits applied = selection == null
+                ? WorkshopCartBenefitService.CartBenefits.none()
+                : benefits.preview(buyerMemberAccountId, cart, selection);
+        if (!applied.isEmpty()) {
+            cart = cart.withAllocation(TicketBenefitAllocator.allocate(
+                    benefits.allocatorInputs(cart, applied.eligibleTicketIndexes()), applied.voucherDiscountVnd(),
+                    applied.pointsUsed(), applied.pointValueVnd()));
+        }
 
         List<StoredLine> stored = cart.lines().stream()
                 .map(line -> new StoredLine(line.packageId(),
@@ -76,10 +106,15 @@ public class WorkshopCartQuoteService {
                 .quoteRef(UUID.randomUUID().toString())
                 .buyerMemberAccountId(buyerMemberAccountId)
                 .linesJson(write(stored))
+                .benefitSelectionJson(selection == null ? null : write(selection))
+                .eligibleTicketIndexesJson(write(applied.eligibleTicketIndexes()))
                 .grossVnd(cart.grossVnd())
-                .voucherDiscountVnd(0)
-                .pointsUsed(0)
-                .pointDiscountVnd(0)
+                .voucherDiscountVnd(applied.voucherDiscountVnd())
+                .pointsUsed(applied.pointsUsed())
+                .pointDiscountVnd(applied.pointDiscountVnd())
+                .pointValueVnd(applied.pointValueVnd())
+                .termsDigest(applied.termsDigest())
+                .loyaltyPolicyRevision(applied.policyRevision() == 0 ? null : applied.policyRevision())
                 .finalTotalVnd(finalTotal)
                 .groupCollectionVnd(cart.allocation().groupCollectionVnd())
                 .paymentMode(cart.allocation().paymentMode())
@@ -107,7 +142,8 @@ public class WorkshopCartQuoteService {
                     line.pricePerParticipantVnd(), line.participantCount(), sessions, List.copyOf(tickets)));
         }
         return new WorkshopCartQuoteResponse(quote.getQuoteRef(), quote.getExpiresAt(), List.copyOf(lines),
-                cart.grossVnd(), 0, 0, 0, finalTotal, cart.allocation().groupCollectionVnd(),
+                cart.grossVnd(), quote.getVoucherDiscountVnd(), quote.getPointsUsed(), quote.getPointDiscountVnd(),
+                finalTotal, cart.allocation().groupCollectionVnd(),
                 finalTotal - cart.allocation().groupCollectionVnd(), cart.allocation().paymentMode().name());
     }
 

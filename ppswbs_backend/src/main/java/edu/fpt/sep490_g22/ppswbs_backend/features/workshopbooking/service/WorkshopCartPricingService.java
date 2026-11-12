@@ -36,7 +36,7 @@ public class WorkshopCartPricingService {
     }
 
     public record PricedSession(UUID reference, Long locationReference, int ordinal, Instant scheduledStart,
-                                Instant scheduledEnd) {
+                                Instant scheduledEnd, java.time.LocalDate workshopDate) {
     }
 
     public record PricedLine(int lineIndex, long packageId, String packageName, long pricePerParticipantVnd,
@@ -49,6 +49,11 @@ public class WorkshopCartPricingService {
      * @param grossVnd   the cart total before any benefit
      */
     public record PricedCart(List<PricedLine> lines, TicketBenefitAllocator.GroupResult allocation, long grossVnd) {
+
+        /** The same cart with the benefits 006 decided allocated over its tickets (003.1 FR-033, FR-034). */
+        public PricedCart withAllocation(TicketBenefitAllocator.GroupResult allocated) {
+            return new PricedCart(lines, allocated, grossVnd);
+        }
 
         /** The allocation result of one ticket, addressed by its line and 1-based ordinal within the line. */
         public TicketBenefitAllocator.TicketResult ticket(int lineIndex, int participantOrdinal) {
@@ -124,7 +129,7 @@ public class WorkshopCartPricingService {
                 throw new BookingConflictException("A session in the cart no longer has room for the whole line");
             }
             sessions.add(new PricedSession(reference, session.locationReference(), 0, session.scheduledStart(),
-                    session.scheduledEnd()));
+                    session.scheduledEnd(), session.workshopDate()));
         }
         List<PricedSession> ordered = new ArrayList<>();
         List<PricedSession> chronological = sessions.stream()
@@ -133,7 +138,7 @@ public class WorkshopCartPricingService {
         for (int i = 0; i < chronological.size(); i++) {
             PricedSession session = chronological.get(i);
             ordered.add(new PricedSession(session.reference(), session.locationReference(), i + 1,
-                    session.scheduledStart(), session.scheduledEnd()));
+                    session.scheduledStart(), session.scheduledEnd(), session.workshopDate()));
         }
         return new PricedLine(index, line.packageId(), pkg.packageName(), pkg.publicPerParticipantPrice(),
                 line.participantCount(), List.copyOf(ordered));

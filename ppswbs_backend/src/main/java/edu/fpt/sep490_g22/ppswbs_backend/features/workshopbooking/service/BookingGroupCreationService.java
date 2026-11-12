@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.AcceptedBenefitRef;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingGroupLineRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingGroupRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketBookingRepository;
@@ -51,6 +52,7 @@ public class BookingGroupCreationService {
     private final TicketBookingRepository tickets;
     private final TicketPriceSnapshotRepository snapshots;
     private final BookingIdempotencyService idempotency;
+    private final WorkshopCartBenefitService benefits;
     private final GroupConfirmationService groupConfirmation;
     private final ObjectMapper mapper;
 
@@ -98,6 +100,14 @@ public class BookingGroupCreationService {
                         WorkshopCartQuoteService.canonicalUuids(line.sessionReferences()), line.participantCount()))
                 .toList();
         WorkshopCartPricingService.PricedCart cart = pricing.price(inputs);
+        // The quote already holds 006's answer: the discount, the points and which tickets the voucher
+        // covers. Re-applying it here is what the drift checks below are compared against.
+        List<Integer> eligibleTickets = readEligibleTickets(quote.getEligibleTicketIndexesJson());
+        if (quote.getVoucherDiscountVnd() > 0 || quote.getPointsUsed() > 0) {
+            cart = cart.withAllocation(TicketBenefitAllocator.allocate(
+                    benefits.allocatorInputs(cart, eligibleTickets), quote.getVoucherDiscountVnd(),
+                    quote.getPointsUsed(), quote.getPointValueVnd()));
+        }
         for (int index = 0; index < stored.size(); index++) {
             if (stored.get(index).pricePerParticipantVnd() != cart.lines().get(index).pricePerParticipantVnd()) {
                 throw new BookingCreationRejectedException("QUOTE_CHANGED",
@@ -123,6 +133,20 @@ public class BookingGroupCreationService {
                 "CREATE-" + groupCode, correlationReference);
         requireHeld(outcome, cart.lines().size());
 
+        // One Loyalty reservation per group, inside this transaction, for the cart exactly as it was quoted.
+        AcceptedBenefitRef acceptedBenefits = null;
+        if (quote.getBenefitSelectionJson() != null) {
+            acceptedBenefits = benefits.accept(quote.getBuyerMemberAccountId(), cart,
+                    readSelection(quote.getBenefitSelectionJson()), groupCode, quote.getQuoteRef(),
+                    quote.getTermsDigest(), Instant.now(), outcome.expiresAt());
+            long acceptedDiscount = acceptedBenefits.programDiscount().longValueExact();
+            long acceptedPoints = acceptedBenefits.pointsHeld().longValueExact();
+            if (acceptedDiscount != quote.getVoucherDiscountVnd() || acceptedPoints != quote.getPointsUsed()) {
+                throw new BookingCreationRejectedException("QUOTE_CHANGED",
+                        "The benefit of this cart changed since the quote");
+            }
+        }
+
         BookingGroup group = groups.save(BookingGroup.builder()
                 .groupCode(groupCode)
                 .buyerMemberAccountId(quote.getBuyerMemberAccountId())
@@ -133,6 +157,9 @@ public class BookingGroupCreationService {
                 .groupCollectionVnd(cart.allocation().groupCollectionVnd())
                 .holdExpiresAt(outcome.expiresAt())
                 .paymentDeadlineAt(outcome.expiresAt().minus(paymentBuffer))
+                .voucherUseReference(acceptedBenefits == null ? null
+                        : Long.toString(acceptedBenefits.acceptedBenefitId()))
+                .loyaltyPolicyRevision(acceptedBenefits == null ? null : acceptedBenefits.policyRevisionNo())
                 .build());
 
         List<BookingGroupResponse.GroupLine> responseLines = new ArrayList<>();
@@ -243,6 +270,28 @@ public class BookingGroupCreationService {
         }
         if (outcome.expiresAt() == null || outcome.lineHoldReferences().size() != expectedLines) {
             throw new BookingConflictException("Workshop Operations returned an incomplete group hold outcome");
+        }
+    }
+
+    private List<Integer> readEligibleTickets(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            return mapper.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<List<Integer>>() {
+            });
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("The stored voucher scope could not be read", ex);
+        }
+    }
+
+    private edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection readSelection(
+            String json) {
+        try {
+            return mapper.readValue(json,
+                    edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection.class);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("The stored benefit selection could not be read", ex);
         }
     }
 
