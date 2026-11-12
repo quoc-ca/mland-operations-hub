@@ -17,7 +17,19 @@ public class BookingAttendanceOutcomeService {
 
     public Evaluation evaluate(String bookingReference, Instant now) {
         if (bookingReference == null || bookingReference.isBlank()) return Evaluation.pending();
-        List<TicketSessionEntitlement> items = entitlements.findActiveByBookingReference(bookingReference);
+        return evaluate(entitlements.findActiveByBookingReference(bookingReference), now);
+    }
+
+    /**
+     * The same outcome for one ticket alone. A booking group holds several people under one booking
+     * reference, so "every session of this ticket" can only be judged per ticket (003.3 FR-030).
+     */
+    public Evaluation evaluateTicket(String ticketReference, Instant now) {
+        if (ticketReference == null || ticketReference.isBlank()) return Evaluation.pending();
+        return evaluate(entitlements.findActiveByTicketReference(ticketReference), now);
+    }
+
+    private Evaluation evaluate(List<TicketSessionEntitlement> items, Instant now) {
         if (items.isEmpty() || items.stream().anyMatch(item -> item.getSession() == null
                 || item.getSession().getState() != SessionState.ATTENDANCE_FINALIZED
                 || item.getSession().getAttendanceFinalizedAt() == null)) return Evaluation.pending();

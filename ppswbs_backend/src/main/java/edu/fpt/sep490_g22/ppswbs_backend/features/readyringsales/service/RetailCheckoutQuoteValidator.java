@@ -29,6 +29,9 @@ public class RetailCheckoutQuoteValidator {
             || cart.getVersion() == null || cart.getVersion() != quote.getCartVersion()) {
             throw stale();
         }
+        if (!Objects.equals(RetailPaymentMethods.parse(request.paymentMethod()).name(), quote.getPaymentMethod())) {
+            throw stale();
+        }
         var selected = request.benefitSelection();
         if (selected == null || !Objects.equals(selected.choice(), quote.getSelectionChoice())
             || !Objects.equals(selected.voucherCode(), quote.getVoucherCode()) || selected.requestedPoints() == null

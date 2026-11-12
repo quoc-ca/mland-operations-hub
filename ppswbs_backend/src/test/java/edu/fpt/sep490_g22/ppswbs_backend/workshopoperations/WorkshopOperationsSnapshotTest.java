@@ -46,6 +46,7 @@ class WorkshopOperationsSnapshotTest {
             mock(FacadeCommandIdempotencyManager.class),
             new ObjectMapper(),
             mock(CapacityHoldService.class),
+            mock(GroupCapacityService.class),
             mock(AttendanceTicketService.class),
             mock(WorkshopOtaSnapshotService.class),
             packagePolicy,

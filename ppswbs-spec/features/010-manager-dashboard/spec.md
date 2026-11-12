@@ -59,6 +59,19 @@ An Admin may receive a separate, purpose-limited `Parameter Impact Summary` for 
 - Q: Which reporting-period filters must FE-10 V1 support? → A: Calendar day, week, month, and year in Vietnam time (UTC+7), without a custom date range.
 - Q: When must FE-10 refresh its dashboard data? → A: Reload on initial page load, filter application, or explicit Manager refresh; do not refresh automatically on a timer.
 
+### Session 2026-11-12
+
+- Q: FE-08 now lets store-pickup orders be paid in cash at the branch counter.
+  Does that cash count as retail revenue? → A: Yes. A branch order whose cash
+  collection is confirmed by authorized Staff of that branch is a verified
+  retail payment. Its revenue is the branch order's product value after the
+  allocated discount (pickup has no delivery fee), and the Staff confirmation
+  time in Vietnam time decides the reporting period. A cash order that is not
+  yet confirmed, cancelled, or expired is never counted.
+- Q: Does the dashboard split revenue by payment method or show daily cash? →
+  A: No. FE-10 keeps its five KPI cards (FR-016). The daily cash total used to
+  check the cash drawer is an operational view owned by FE-08.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - View Executive Manager Dashboard (Priority: P1)
@@ -168,7 +181,11 @@ and complete source states and verifies that each state is represented distinctl
   the affected result MUST be partial with safe quality metadata.
 - **FR-026**: The system MUST include a retail order in dashboard revenue and
   paid-order count only after its payment is successfully verified and the
-  verified outcome is committed by the retail domain. A Manager refresh MUST
+  verified outcome is committed by the retail domain. A verified payment is
+  either verified VNPay evidence or a counter cash collection confirmed by
+  authorized branch Staff (FE-08 FR-08-045); for cash, the confirmation time
+  in Vietnam time determines the reporting period. Unconfirmed, cancelled, or
+  expired cash orders MUST NOT contribute to any KPI. A Manager refresh MUST
   read the latest committed verified facts; pending or failed payment attempts
   MUST NOT contribute to any KPI.
 

@@ -61,8 +61,7 @@ public class SimulatedRetailPaymentOutcomeService {
         if (ids.isEmpty()) throw new RetailConflictException("Checkout has no items");
         return catalogue.withLockedHistoricalBranchContext(checkoutId, branchKeys, context -> {
             var view = guard.withBranchGuard(branchKeys, context.asOf(), snapshots -> {
-                var lockedHolds = ids.stream().map(id -> holdRepository.findByGroupedCheckoutIdAndVariantId(checkoutId, id)
-                    .orElseThrow(() -> new RetailConflictException("Checkout inventory hold is missing"))).toList();
+                var lockedHolds = holds.requireBranchHolds(checkoutId, branchKeys);
                 Instant now = Instant.now();
                 Instant deadline = lockedHolds.getFirst().getExpiresAt();
                 if (!now.isBefore(deadline) || lockedHolds.stream().anyMatch(hold -> !deadline.equals(hold.getExpiresAt()))) {

@@ -165,8 +165,13 @@ are kept for history and are read through this section.
   | Ticket final price | Collected at booking | Kind |
   |---|---|---|
   | 0 VND | 0 | `FREE` |
-  | 1–204,999 VND | full ticket price | `FULL` |
-  | from 205,000 VND | 200,000 | `DEPOSIT` |
+  | 1–200,000 VND | full ticket price | `FULL` |
+  | above 200,000 VND | 200,000 | `DEPOSIT` |
+
+  That is `min(final price, 200,000)` per ticket (decision 2026-11-12, replacing
+  the 205,000 band). A 203,000 ticket collects 200,000 and keeps 3,000 as its
+  checkout balance; a customer cancel or no-show forfeits only the 200,000
+  collected, and the uncollected 3,000 creates no debt.
 
   Remaining = ticket price − collected. It is not multiplied by the number of
   sessions. The group collection is the sum over tickets. Each ticket MUST

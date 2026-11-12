@@ -62,7 +62,9 @@ class WorkshopFinalBillUnpaidFinalizationTest {
 
     private WorkshopFinalBillApiService service() {
         return new WorkshopFinalBillApiService(bills, charges, evidence, booking, operations,
-                authorization, idempotency, billService, variableCharges, catalogueAddOns);
+                authorization, idempotency, billService, variableCharges, catalogueAddOns,
+                new FolioBalanceService(charges, evidence,
+                        mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFolioCollectionRepository.class)));
     }
 
     private static Authentication authentication(ActorRole role) {

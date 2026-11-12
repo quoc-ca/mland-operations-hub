@@ -51,6 +51,19 @@ class RetailCheckoutQuotePreviewServiceTest {
     }
 
     @Test
+    void sendsTheCartBranchOfEachLineToLoyaltyForBranchLimitedVouchers() {
+        mockCatalogue();
+        when(loyalty.previewBenefits(any(), any())).thenReturn(preview(null, BigInteger.ZERO, List.of()));
+        when(quotes.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.preview(1L, request("PICKUP"));
+
+        var context = org.mockito.ArgumentCaptor.forClass(edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TrustedSourceContext.class);
+        verify(loyalty).previewBenefits(context.capture(), any());
+        assertThat(context.getValue().lines()).extracting("locationId").containsExactly(10L);
+    }
+
+    @Test
     void ghtkWithoutShippingQuoteAndRecipientIsRejectedBeforeCreatingPreview() {
         when(carts.findByMemberAccountId(1L)).thenReturn(Optional.of(cart()));
         assertThatThrownBy(() -> service.preview(1L, request("GHTK")))

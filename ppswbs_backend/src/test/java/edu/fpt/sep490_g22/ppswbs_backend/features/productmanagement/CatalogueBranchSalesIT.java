@@ -71,11 +71,12 @@ class CatalogueBranchSalesIT {
     }
 
     @Test
-    void theCurrentSourceIsPerSizeAndItsBranchDefaultsReportTheSizeHolds() {
+    void theFe08SourceTracksBranchesAndCountsALegacySizeHoldAtEveryBranch() {
         long size5 = publishedAtAAndB().getId();
-        retail.hold(retail.newCheckout(), size5, 1);
+        retail.hold(retail.newCheckout(), size5, 1);   // legacy size-level hold (no branch)
 
-        assertThat(source.tracksHoldsPerBranch()).isFalse();
+        // FE-08 T124 (2026-11-12): holds are per size x branch; a size-level hold still counts at every branch.
+        assertThat(source.tracksHoldsPerBranch()).isTrue();
         Map<BranchVariant, HeldSnapshot> snapshots = transaction.execute(status -> source.readBranchSnapshots(
                 List.of(new BranchVariant(size5, branchB), new BranchVariant(size5, branchA)), Instant.now()));
         assertThat(snapshots.keySet()).containsExactly(new BranchVariant(size5, branchA), new BranchVariant(size5, branchB));
