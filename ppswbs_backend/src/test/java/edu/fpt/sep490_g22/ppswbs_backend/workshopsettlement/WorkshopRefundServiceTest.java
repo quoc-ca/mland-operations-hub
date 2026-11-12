@@ -294,18 +294,23 @@ class WorkshopRefundServiceTest {
         SettlementRefundAllocation alloc = allocation("ALLOC-ADDON", "PAY-ADDON-1", 50_000, 50_000, "02");
         alloc.setCaseReference(addonCaseRef);
         when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(addonCaseRef)).thenReturn(List.of(alloc));
-        when(provider.requestRefund(any(VnpayRefundCommand.class))).thenReturn(
-                result("REFUND", "ACCEPTED", "00", "02", "06", "70006", "PAY-ADDON-1", 50_000L, true));
-        when(provider.queryRefund(any(VnpayRefundReconciliationCommand.class))).thenReturn(
-                result("REFUND_QUERYDR", "VERIFIED", "00", "02", "00", "70006", "PAY-ADDON-1", 50_000L, true));
+        givenBankRefundOpens("REFUND-ADDON");
 
         service.dispatchCase(addonCaseRef);
 
+        // T104: the add-on overcharge of an OTA booking is Mland money, so it leaves by bank transfer too.
+        // The OTA's own base ticket stays the OTA's process and was never handled here.
+        verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
+        assertThat(alloc.getLifecycleStatus()).isEqualTo("PENDING_BANK_REFUND");
+        assertThat(alloc.getBankRefundReference()).isEqualTo("REFUND-ADDON");
+        assertThat(addonCase.getLifecycleStatus()).isNotEqualTo("RESOLVED");
+
+        service.onBankRefundConfirmed(
+                new edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBankRefundConfirmedEvent(
+                        "REFUND-ADDON", BOOKING_REF, "ALLOC-ADDON", 50_000, Instant.now()));
+
         assertThat(alloc.getLifecycleStatus()).isEqualTo("VERIFIED");
         assertThat(addonCase.getLifecycleStatus()).isEqualTo("RESOLVED");
-
-        // Verify orderInfo was "Workshop add-on refund CASE-ADDON-1"
-        verify(provider).requestRefund(argThat(cmd -> "Workshop add-on refund CASE-ADDON-1".equals(cmd.orderInfo())));
 
         // Verify consequences were NEVER invoked
         verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());

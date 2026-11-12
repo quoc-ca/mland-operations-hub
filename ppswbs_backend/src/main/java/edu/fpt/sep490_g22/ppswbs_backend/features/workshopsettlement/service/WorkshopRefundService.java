@@ -122,10 +122,13 @@ public class WorkshopRefundService {
     /**
      * T098: Mland's own money — a remedy for a cancellation Mland caused, an overcharge corrected after the
      * folio was finalized, and a late payment that was not re-confirmed — is refunded by bank transfer, so
-     * these never reach the gateway. {@code ADDON_REFUND} joins them in T104.
+     * these never reach the gateway. The overcharge refund of an OTA booking's separate Mland shop add-on
+     * bill is Mland money too, so T104 brought {@code ADDON_REFUND} here as well; only the OTA's own base
+     * ticket stays the OTA's process, which this service never touched.
      */
     private static final java.util.Set<String> BANK_ROUTED_CASE_TYPES =
-            java.util.Set.of("MLAND_CANCELLATION_REMEDY", "FOLIO_CORRECTION", "LATE_PAYMENT_REFUND");
+            java.util.Set.of("MLAND_CANCELLATION_REMEDY", "FOLIO_CORRECTION", "LATE_PAYMENT_REFUND",
+                    "ADDON_REFUND");
 
     /** Hands one prepared allocation to the bank refund of T097 and leaves it waiting for a Manager. */
     private void routeToBankRefund(SettlementRefundAllocation allocation, SettlementCase settlementCase) {
@@ -136,11 +139,12 @@ public class WorkshopRefundService {
                     allocation.getAllocationReference());
             return;
         }
-        RefundReason reason = "FOLIO_CORRECTION".equals(settlementCase.getCaseType())
-                ? RefundReason.OVERCHARGE_AFTER_FINALIZED
-                : "LATE_PAYMENT_REFUND".equals(settlementCase.getCaseType())
-                ? RefundReason.LATE_PAYMENT_NOT_RECONFIRMED
-                : RefundReason.MLAND_CANCELLATION;
+        RefundReason reason = switch (settlementCase.getCaseType()) {
+            case "FOLIO_CORRECTION" -> RefundReason.OVERCHARGE_AFTER_FINALIZED;
+            case "LATE_PAYMENT_REFUND" -> RefundReason.LATE_PAYMENT_NOT_RECONFIRMED;
+            case "ADDON_REFUND" -> RefundReason.OTA_ADDON_OVERCHARGE;
+            default -> RefundReason.MLAND_CANCELLATION;
+        };
         var opened = bankRefunds.open(settlementCase.getBookingReference(), null, reason,
                 allocation.getAllocationReference(), allocation.getAllocatedAmountVnd(), null,
                 settlementCase.getCorrelationReference());
