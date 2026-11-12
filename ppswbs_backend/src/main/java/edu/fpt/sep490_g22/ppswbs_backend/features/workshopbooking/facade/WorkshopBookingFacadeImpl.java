@@ -57,6 +57,12 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
     private final WorkshopOperationsAdapter operationsAdapter;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupPaymentEvidenceService
             groupPaymentEvidence;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingGroupRepository
+            bookingGroupRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.WorkshopCartQuoteRepository
+            cartQuoteRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketBookingRepository
+            ticketBookingRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -152,6 +158,31 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         }
         return new WorkshopBookingLoyaltyOutcomeSource(true, quote.getQuoteRef(),
                 Math.addExact(booking.getVersion(), 1L), booking.getHoldExpiresAt());
+    }
+
+    @Override
+    @Transactional
+    public BookingGroupLoyaltyOutcomeSource getGroupLoyaltyOutcomeSource(String groupReference) {
+        if (groupReference == null || groupReference.isBlank()) {
+            return BookingGroupLoyaltyOutcomeSource.none();
+        }
+        BookingGroup group = bookingGroupRepository.findByGroupCode(groupReference).orElse(null);
+        // A Guest group never had a benefit, and a Member group that reserved none has no earn to decide.
+        if (group == null || group.getBuyerMemberAccountId() == null || group.getVoucherUseReference() == null) {
+            return BookingGroupLoyaltyOutcomeSource.none();
+        }
+        var quote = cartQuoteRepository.findByAcceptedGroupCode(groupReference).orElse(null);
+        if (quote == null) {
+            return BookingGroupLoyaltyOutcomeSource.none();
+        }
+        var tickets = ticketBookingRepository.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId())
+                .stream()
+                .map(ticket -> new BookingGroupLoyaltyOutcomeSource.GroupTicket(ticket.getTicketCode(),
+                        ticket.getOperationsTicketReference()))
+                .toList();
+        return new BookingGroupLoyaltyOutcomeSource(true, quote.getQuoteRef(),
+                Math.addExact(group.getVersion() == null ? 0L : group.getVersion(), 1L),
+                group.getHoldExpiresAt(), tickets);
     }
 
     /**

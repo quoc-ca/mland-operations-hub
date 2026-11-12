@@ -39,6 +39,9 @@ public interface WorkshopOperationsFacade {
 
     BookingAttendanceOutcome getBookingAttendanceOutcome(BookingAttendanceOutcomeQuery query);
 
+    /** The terminal attendance outcome of one ticket of a booking group (003.3 FR-030). */
+    BookingAttendanceOutcome getTicketAttendanceOutcome(TicketAttendanceOutcomeQuery query);
+
     /** Authoritative, PII-free session and attendance facts used by cancellation policy. */
     BookingCancellationEligibilitySnapshot getBookingCancellationEligibility(BookingCancellationEligibilityQuery query);
 

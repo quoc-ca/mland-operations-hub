@@ -52,6 +52,74 @@ public class WorkshopLoyaltyOutcomeProcessor {
     private final WorkshopCancellationLoyaltyService cancellationLoyalty;
     private final LoyaltyFacade loyalty;
 
+    /**
+     * A booking group holds exactly one accepted Loyalty transaction, so its earn is one decision for the
+     * whole group even though each ticket has its own folio (006 grants once per transaction). The decision
+     * still reads attendance per ticket, because a ticket is a no-show only when every session of that
+     * ticket is a final {@code NO_SHOW} (003.3 FR-030).
+     *
+     * <p>Every ticket folio of the group reaches this method, and whichever gets here first decides; the
+     * others then find the earn already settled and are simply marked processed.
+     */
+    private void processGroupTicket(SettlementFinalBill bill) {
+        String groupReference = bill.getGroupReference();
+        var source = booking.groupLoyaltyOutcomeSource(groupReference);
+        if (source == null || !source.memberOrigin() || source.snapshotRef() == null) {
+            markProcessed(bill); // A Guest group, or a group that reserved no benefit, has no earn.
+            return;
+        }
+        var existing = loyalty.findBenefitResult(SourceKind.WORKSHOP, groupReference);
+        if (existing == null) {
+            return;
+        }
+        if (existing.earnState() != EarnState.PENDING) {
+            markProcessed(bill);
+            return;
+        }
+        if (source.tickets().isEmpty()) {
+            return;
+        }
+
+        boolean everyTicketNoShow = true;
+        for (var ticket : source.tickets()) {
+            if (ticket.operationsTicketReference() == null) {
+                return; // The group is not fully issued yet; decide nothing.
+            }
+            var attendance = operations.ticketAttendanceOutcome(ticket.operationsTicketReference());
+            if (attendance == null || !attendance.terminal()) {
+                return; // Still inside the attendance-correction window for at least one ticket.
+            }
+            everyTicketNoShow &= attendance.outcome() == BookingAttendanceOutcome.Outcome.NO_SHOW;
+        }
+
+        Instant now = Instant.now();
+        if (everyTicketNoShow) {
+            loyalty.finishIneligibleEarn(new AuthoritativeOutcome(SourceKind.WORKSHOP, groupReference,
+                    "workshopsettlement", "group-no-show-" + groupReference, source.nextOutcomeVersion(),
+                    OutcomeKind.WORKSHOP_NO_SHOW_FINAL, now, source.originalDeadline(), source.snapshotRef(),
+                    true, "attendance-outcome:" + groupReference));
+            markProcessed(bill);
+            return;
+        }
+
+        // Points are granted only once the whole group is settled: every folio finalized with nothing owed.
+        var folios = bills.findByGroupReferenceOrderByIdAsc(groupReference);
+        if (folios.size() != source.tickets().size()) {
+            return;
+        }
+        for (SettlementFinalBill folio : folios) {
+            if (!SettlementFinalBillLifecycleStatus.FINALIZED.name().equals(folio.getLifecycleStatus())
+                    || outstanding(folio) != 0L) {
+                return;
+            }
+        }
+        loyalty.grantEarnedPoints(new AuthoritativeOutcome(SourceKind.WORKSHOP, groupReference,
+                "workshopsettlement", "group-completed-" + groupReference, source.nextOutcomeVersion(),
+                OutcomeKind.WORKSHOP_COMPLETED_AND_FULLY_PAID, now, source.originalDeadline(),
+                source.snapshotRef(), true, "booking-group:" + groupReference));
+        markProcessed(bill);
+    }
+
     @Transactional
     public void process(String bookingReference) {
         SettlementFinalBill bill = bills.findByBookingReferenceForUpdate(bookingReference).orElse(null);
@@ -59,6 +127,10 @@ public class WorkshopLoyaltyOutcomeProcessor {
             return;
         }
 
+        if (bill.getGroupReference() != null) {
+            processGroupTicket(bill);
+            return;
+        }
         var source = booking.loyaltyOutcomeSource(bookingReference);
         if (source == null || !source.memberOrigin()) {
             markProcessed(bill); // Guests have no Loyalty outcome.

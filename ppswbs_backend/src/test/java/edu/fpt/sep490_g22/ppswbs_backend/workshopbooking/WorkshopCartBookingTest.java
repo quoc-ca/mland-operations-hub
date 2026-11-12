@@ -36,7 +36,8 @@ import static org.mockito.Mockito.*;
  */
 class WorkshopCartBookingTest {
 
-    private static final Instant HOLD_EXPIRY = Instant.parse("2026-11-12T10:12:00Z");
+    /** The 12-minute group hold, relative to now so the Loyalty accept deadline is always still open. */
+    private static final Instant HOLD_EXPIRY = Instant.now().plus(java.time.Duration.ofMinutes(12));
 
     private WorkshopOperationsAdapter operations;
     private WorkshopBookingAuthorizationService authorization;
@@ -64,7 +65,7 @@ class WorkshopCartBookingTest {
         when(quotes.save(any())).thenAnswer(invocation -> {
             WorkshopCartQuote quote = invocation.getArgument(0);
             if (quote.getCreatedAt() == null) {
-                quote.setCreatedAt(Instant.parse("2026-11-12T10:00:00Z"));
+                quote.setCreatedAt(Instant.now());
                 quote.setExpiresAt(quote.getCreatedAt().plus(WorkshopCartQuote.QUOTE_TTL));
                 quote.setQuoteState(CartQuoteState.OPEN);
             }

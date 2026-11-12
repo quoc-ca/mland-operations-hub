@@ -300,6 +300,13 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
 
     @Override
     @Transactional(readOnly = true)
+    public BookingAttendanceOutcome getTicketAttendanceOutcome(TicketAttendanceOutcomeQuery query) {
+        if (query == null) return BookingAttendanceOutcome.pending();
+        return bookingAttendanceOutcomeService.evaluateTicket(query.ticketReference(), Instant.now()).outcome();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public BookingCancellationEligibilitySnapshot getBookingCancellationEligibility(BookingCancellationEligibilityQuery query) {
         if (query == null) return BookingCancellationEligibilitySnapshot.rejected("BOOKING_REFERENCE_MISSING");
         List<TicketSessionEntitlement> active = entitlementRepository.findActiveByBookingReference(query.bookingReference());
