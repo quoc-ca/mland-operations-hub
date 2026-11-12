@@ -7,6 +7,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.AttendanceTicketService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.CapacityHoldService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.GroupCapacityService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager.ClaimResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager.ClaimStatus;
@@ -40,6 +41,7 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final FacadeCommandIdempotencyManager idempotencyManager;
     private final ObjectMapper objectMapper;
     private final CapacityHoldService capacityHoldService;
+    private final GroupCapacityService groupCapacityService;
     private final AttendanceTicketService attendanceTicketService;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
@@ -107,6 +109,12 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
         return capacityHoldService.reserveBookingCapacity(command,
                 () -> packageReservationPolicy.validate(command),
                 () -> packageReservationPolicy.snapshotForBooking(command));
+    }
+
+    @Override
+    @Transactional
+    public GroupCapacityOutcome reserveGroupCapacity(ReserveGroupCapacityCommand command) {
+        return groupCapacityService.reserveGroupCapacity(command);
     }
 
     @Override

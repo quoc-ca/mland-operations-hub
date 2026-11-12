@@ -15,6 +15,9 @@ public interface WorkshopOperationsFacade {
 
     CapacityHoldOutcome reserveBookingCapacity(ReserveBookingCapacityCommand command);
 
+    /** Reserves every line of a booking group all or none, one seat per ticket per session (003.2 FR-030). */
+    GroupCapacityOutcome reserveGroupCapacity(ReserveGroupCapacityCommand command);
+
     CapacityCommitOutcome commitBookingHolds(CommitBookingHoldsCommand command);
 
     OtaBookingCapacityOutcome acceptOtaBooking(AcceptOtaBookingCommand command);
