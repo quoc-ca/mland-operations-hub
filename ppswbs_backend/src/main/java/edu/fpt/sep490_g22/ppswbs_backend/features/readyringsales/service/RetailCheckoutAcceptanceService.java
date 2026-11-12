@@ -138,8 +138,10 @@ public class RetailCheckoutAcceptanceService {
                 createdHolds.add(holds.createHeld(checkout, keyAtBranch.variantId(), keyAtBranch.locationId(),
                     quantitiesByBranch.get(keyAtBranch), deadline));
             }
-            List<SourceLine> lines = quote.getBranches().stream().flatMap(branch -> branch.getItems().stream())
-                .map(item -> new SourceLine(item.getProductId(), item.getVariantId(), item.getQuantity(), item.getUnitPrice())).toList();
+            // Each line carries its cart branch so FE-06 can match branch-limited product vouchers (006 T088).
+            List<SourceLine> lines = quote.getBranches().stream().flatMap(branch -> branch.getItems().stream()
+                .map(item -> new SourceLine(item.getProductId(), item.getVariantId(), item.getQuantity(), item.getUnitPrice(),
+                    branch.getLocationId()))).toList();
             var selection = new BenefitSelection(SelectionChoice.valueOf(quote.getSelectionChoice()), quote.getVoucherCode(), quote.getRequestedPoints());
             var trusted = new TrustedSourceContext(SourceKind.RETAIL, memberId, now, lines, null, quote.getShippingTotal());
             var accepted = loyalty.reserveAcceptedTransaction(new AcceptedSourceContext(trusted, checkout.getId(), checkout.getVersion(),

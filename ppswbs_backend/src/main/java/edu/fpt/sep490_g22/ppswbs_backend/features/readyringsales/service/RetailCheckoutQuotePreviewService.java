@@ -86,7 +86,9 @@ public class RetailCheckoutQuotePreviewService {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         List<SourceLine> sourceLines = selected.stream().map(line -> {
             BranchCartSaleFact fact = facts.get(branchKey(line));
-            return new SourceLine(fact.productId(), fact.variantId(), line.getQuantity(), fact.appliedPrice());
+            // The cart line's branch lets FE-06 match branch-limited product vouchers (006 T088).
+            return new SourceLine(fact.productId(), fact.variantId(), line.getQuantity(), fact.appliedPrice(),
+                line.getLocationId());
         }).toList();
         BigInteger subtotal = sourceLines.stream().map(SourceLine::lineAmount).reduce(BigInteger.ZERO, BigInteger::add);
         Map<Long, RetailCheckoutPorts.ShippingQuote> shipping = new HashMap<>();
