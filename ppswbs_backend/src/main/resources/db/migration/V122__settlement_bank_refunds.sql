@@ -1,4 +1,4 @@
--- V119: bank refund requests (003.3 T097, FR-038..FR-040).
+-- V122: bank refund requests (003.3 T097, FR-038..FR-040).
 -- Mland money is refunded only by bank transfer outside the system: this schema calculates, records, tracks
 -- and reconciles, and nothing here calls a gateway. A refund belongs to one ticket (or one single booking),
 -- and the money refunded or pending for that ticket never exceeds what was collected for it, which the
