@@ -37,7 +37,8 @@ public class RetailCheckoutQuotePreviewService {
     @Transactional(readOnly = true)
     public CheckoutDtos.ShippingQuoteView quoteShipping(Long memberId, CheckoutDtos.ShippingQuoteRequest request) {
         var cart = carts.findByMemberAccountId(memberId).orElseThrow(() -> new RetailConflictException("Retail cart is empty"));
-        var branch = cart.getLines().stream().filter(line -> request.locationId().equals(line.getLocationId())).toList();
+        var branch = RetailCartSelection.select(cart, request.cartLineIds()).stream()
+            .filter(line -> request.locationId().equals(line.getLocationId())).toList();
         if (branch.isEmpty()) throw new RetailConflictException("Cart has no line for this branch");
         var facts = readBranchFacts(branch.stream().map(this::branchKey).distinct().sorted().toList());
         var lines = branch.stream().map(line -> {
@@ -60,14 +61,16 @@ public class RetailCheckoutQuotePreviewService {
         RetailCart cart = carts.findByMemberAccountId(memberId)
             .orElseThrow(() -> new RetailConflictException("Retail cart is empty"));
         if (cart.getLines().isEmpty()) throw new RetailConflictException("Retail cart is empty");
+        // Only the lines the Member ticked are quoted; the quote items become the checkout's exact contents.
+        List<CartLine> selected = RetailCartSelection.select(cart, request.cartLineIds());
         Map<Long, CheckoutDtos.BranchOrderCheckoutInput> choices = choices(request.branchOrders());
-        Set<Long> locations = cart.getLines().stream().map(CartLine::getLocationId).collect(Collectors.toSet());
+        Set<Long> locations = selected.stream().map(CartLine::getLocationId).collect(Collectors.toSet());
         if (!locations.equals(choices.keySet())) throw new RetailConflictException("Fulfilment choices must match cart locations");
 
-        List<BranchVariant> keys = cart.getLines().stream().map(this::branchKey).distinct().sorted().toList();
+        List<BranchVariant> keys = selected.stream().map(this::branchKey).distinct().sorted().toList();
         Map<BranchVariant, BranchCartSaleFact> facts = readBranchFacts(keys);
         Map<BranchVariant, Integer> quantities = new HashMap<>();
-        cart.getLines().forEach(line -> quantities.merge(branchKey(line), line.getQuantity(), Integer::sum));
+        selected.forEach(line -> quantities.merge(branchKey(line), line.getQuantity(), Integer::sum));
         for (BranchVariant key : keys) {
             BranchCartSaleFact fact = facts.get(key);
             if (!fact.saleEligible() || fact.appliedPrice() == null || !"VND".equals(fact.currency())
@@ -78,7 +81,7 @@ public class RetailCheckoutQuotePreviewService {
 
         BenefitSelection selection = selection(request.selection());
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        List<SourceLine> sourceLines = cart.getLines().stream().map(line -> {
+        List<SourceLine> sourceLines = selected.stream().map(line -> {
             BranchCartSaleFact fact = facts.get(branchKey(line));
             return new SourceLine(fact.productId(), fact.variantId(), line.getQuantity(), fact.appliedPrice());
         }).toList();
@@ -89,7 +92,7 @@ public class RetailCheckoutQuotePreviewService {
         for (Long location : locations) {
             var choice = choices.get(location);
             if (!"GHTK".equalsIgnoreCase(choice.method())) continue;
-            var lines = cart.getLines().stream().filter(line -> location.equals(line.getLocationId()))
+            var lines = selected.stream().filter(line -> location.equals(line.getLocationId()))
                 .map(line -> new RetailCheckoutPorts.PricedLine(line.getVariantId(), location, line.getQuantity(),
                     new java.math.BigDecimal(facts.get(branchKey(line)).appliedPrice()))).toList();
             var recipient = choice.recipient();
@@ -133,7 +136,7 @@ public class RetailCheckoutQuotePreviewService {
             selection.voucherCode(), selection.requestedPoints(), result.termsDigest(), "VND", subtotal,
             shippingTotal, result.programDiscount(), result.pointDiscount(), result.postPromotionAmount().add(shippingTotal), now, expiresAt);
         for (Long location : locations.stream().sorted().toList()) {
-            var branchLines = cart.getLines().stream().filter(line -> line.getLocationId().equals(location)).toList();
+            var branchLines = selected.stream().filter(line -> line.getLocationId().equals(location)).toList();
             BigInteger branchSubtotal = branchLines.stream().map(line -> facts.get(branchKey(line)).appliedPrice()
                 .multiply(BigInteger.valueOf(line.getQuantity()))).reduce(BigInteger.ZERO, BigInteger::add);
             var choice = choices.get(location);

@@ -9,6 +9,7 @@ import '../ui/readyringsales.css';
 import '../ui/checkout-layout.css';
 import '../ui/shopping.css';
 import '../ui/checkout-bottom.css';
+import '../ui/cart-shopee.css';
 
 // FE-08 routes live inside AppLayout, like 002 and 006.
 export const readyRingSalesRoutes = [

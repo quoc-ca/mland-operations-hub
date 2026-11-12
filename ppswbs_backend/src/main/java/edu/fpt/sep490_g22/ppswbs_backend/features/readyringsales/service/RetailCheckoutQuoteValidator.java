@@ -71,7 +71,11 @@ public class RetailCheckoutQuoteValidator {
                     || !branchFact.saleEnabled() || !branchFact.branchActive() || !branchFact.assignedToBranches()) throw stale();
             }
         }
-        if (!choices.isEmpty() || quotedLines.isEmpty() || !quotedLines.equals(currentLines)
+        // The quote may cover only the lines the Member selected; each quoted line must still be in the
+        // cart with the same quantity, while unselected cart lines are allowed to remain.
+        boolean quotedLinesUnchanged = quotedLines.entrySet().stream()
+            .allMatch(entry -> entry.getValue().equals(currentLines.get(entry.getKey())));
+        if (!choices.isEmpty() || quotedLines.isEmpty() || !quotedLinesUnchanged
             || !saleFacts.keySet().equals(quotedLines.keySet().stream().map(LineKey::variantId).collect(java.util.stream.Collectors.toSet()))
             || !branchFacts.keySet().equals(quotedLines.keySet().stream()
                 .map(key -> new BranchVariant(key.variantId(), key.locationId())).collect(java.util.stream.Collectors.toSet()))) {

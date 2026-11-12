@@ -40,8 +40,12 @@ with this decision before implementation:
 - The Member makes one payment for the grouped checkout. The checkout summary
   MUST show each branch order's item subtotal and GHTK shipping fee separately,
   followed by the combined payable total.
-- The whole cart is revalidated before the complete set of branch orders is
-  accepted.
+- Like a marketplace cart, the Member ticks the cart lines to buy, either one
+  line at a time, all lines of a branch, or every line. Only the ticked lines
+  are revalidated and become the grouped checkout; unticked lines stay in the
+  cart unchanged and are not priced, held, or removed by that checkout. The
+  complete set of branch orders for the ticked lines is accepted together or
+  not at all.
 - A verified full payment is required before the retail sale is completed,
   except for an approved checkout whose payable total is zero.
 - The Member chooses store pickup or GHTK fulfilment during checkout. GHTK
@@ -186,6 +190,20 @@ configuration, accounting, or executive reporting in FE-10.
   creates no payment attempt, and lets the Member retry the quote or explicitly
   change only the affected branch to pickup.
 
+### Session 2026-11-12
+
+- Q: Must the Member buy the whole cart at once? → A: No. The cart works like a
+  marketplace cart: each line, each branch group, and the whole cart have a
+  tick box, and every sellable line is ticked by default. Checkout, benefit
+  preview, shipping quotes, holds, and the accepted branch orders cover only
+  the ticked lines. Unticked lines stay in the cart with their quantities.
+  After acceptance, only the purchased lines leave the cart; if the checkout is
+  later released or cancelled, those lines are restored as before.
+- Q: What if the ticked lines change between preview and acceptance? → A: The
+  checkout is rejected as stale whenever a ticked line is removed or its
+  quantity changes, or the cart version changes, and the Member reviews a new
+  preview. Lines that cannot be sold are shown but cannot be ticked.
+
 ### Session 2026-10-25
 
 - Q: When must a benefit preview be recalculated and accepted again? → A: FE-08
@@ -256,9 +274,10 @@ without any order, payment, or stock-sale effect.
 
 ### User Story 2 - Checkout and pay for a retail order (Priority: P1)
 
-As a Member, I want to review a complete grouped quote and pay its full amount
-so that the system creates exactly the branch orders and purchase terms that I
-accepted.
+As a Member, I want to tick the cart lines I want to buy now, review a
+complete grouped quote for those lines, and pay its full amount so that the
+system creates exactly the branch orders and purchase terms that I accepted,
+while the lines I did not tick stay in my cart.
 
 **Why this priority**: Verified payment is the business gate for completing a
 retail sale and for allowing fulfilment to begin.
@@ -270,20 +289,26 @@ or duplicate payment effects.
 
 **Acceptance Scenarios**:
 
-1. **Given** a non-empty own cart containing one or more branch groups, **When**
-   the Member opens checkout, **Then** the system revalidates every line and
+1. **Given** a non-empty own cart containing one or more branch groups and at
+   least one ticked line, **When** the Member opens checkout, **Then** the
+   system revalidates every ticked line and
    shows current variants, quantities, prices, branch groups, fulfilment
    choices, applicable benefits, each branch order's separate shipping fee when
    GHTK is selected, and the combined payable total.
-2. **Given** every cart line, requested benefit, fulfilment choice, recipient
-   data, and shipping quote is valid, **When** the Member accepts the complete
-   quote, **Then** the system creates one complete branch order for each branch
-   group, holds the exact selected quantities and benefits, snapshots each
+2. **Given** every ticked cart line, requested benefit, fulfilment choice,
+   recipient data, and shipping quote is valid, **When** the Member accepts the
+   complete quote, **Then** the system creates one complete branch order for
+   each branch group of ticked lines, removes only those lines from the cart, holds the exact selected quantities and benefits, snapshots each
    applicable shipping fee, and creates the payment attempt with the original
    deadlines.
-3. **Given** any line is invalid, unavailable, or changed, **When** checkout is
-   submitted, **Then** the system rejects the complete checkout and creates no
-   partial branch order or partial hold.
+3. **Given** any ticked line is invalid, unavailable, or changed, **When**
+   checkout is submitted, **Then** the system rejects the complete checkout and
+   creates no partial branch order or partial hold.
+3a. **Given** a cart with lines from two branches, **When** the Member ticks
+   only the lines of one branch and completes checkout, **Then** exactly one
+   branch order is created for that branch and the other branch's lines remain
+   in the cart with their quantities. **Given** no line is ticked, **When** the
+   Member tries to continue, **Then** checkout is not started.
 4. **Given** a valid grouped payment attempt whose amount includes the sum of
    every branch order subtotal and its applicable GHTK shipping fee, **When**
    VNPay returns matching verified evidence for the full amount and currency,
@@ -465,14 +490,21 @@ including frozen items, amounts, payment state, and fulfilment evidence.
 - **FR-08-003**: The system MUST keep cart values indicative until checkout and
   MUST not create an order, payment, hold, or sold-quantity deduction from a
   cart edit alone.
-- **FR-08-004**: The system MUST revalidate the entire cart, processing branch,
+- **FR-08-004**: The system MUST revalidate every ticked cart line, processing branch,
   current price, quantity, promotion, loyalty eligibility, fulfilment choice,
   recipient data, delivery coverage, and shipping quote before accepting
   checkout.
-- **FR-08-005**: The system MUST group cart lines by their recorded processing
-  branch and create either one complete branch order for every group together
-  with the complete hold/benefit bundle, or no accepted branch orders and no
-  partial bundle.
+- **FR-08-005**: The system MUST group the ticked cart lines by their recorded
+  processing branch and create either one complete branch order for every group
+  together with the complete hold/benefit bundle, or no accepted branch orders
+  and no partial bundle.
+- **FR-08-005a**: The Member MUST be able to tick or untick each sellable cart
+  line, all lines of one branch, or all lines, with every sellable line ticked
+  by default. Benefit preview, shipping quote, and checkout requests MUST carry
+  the ticked cart line identifiers; the server MUST reject an empty, duplicated,
+  or unknown selection, and a request without a selection keeps the earlier
+  whole-cart behaviour. Accepting checkout MUST remove only the purchased lines
+  from the cart; unticked lines MUST keep their quantities.
 - **FR-08-006**: The system MUST freeze the accepted product/variant identity,
   quantity, branch, fulfilment method, recipient snapshot when applicable,
   currency, price, shipping fee, discount, payable amount, and applicable policy

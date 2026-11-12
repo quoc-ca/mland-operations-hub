@@ -40,7 +40,7 @@ public class RetailCheckoutService {
     @Transactional(readOnly = true)
     public CheckoutDtos.BenefitPreviewView previewBenefits(Long memberAccountId, CheckoutDtos.BenefitPreviewRequest request) {
         RetailCart cart = requireCart(memberAccountId);
-        List<RetailCheckoutPorts.PricedLine> lines = pricingPort.price(cart.getLines());
+        List<RetailCheckoutPorts.PricedLine> lines = pricingPort.price(RetailCartSelection.select(cart, request.cartLineIds()));
         RetailCheckoutPorts.BenefitPreview preview = benefitPort.preview(memberAccountId, lines, toSelection(request.selection()));
         BigDecimal subtotal = subtotal(lines);
         BigDecimal shipping = previewShipping(memberAccountId, request.branchOrders(), lines);
@@ -53,7 +53,7 @@ public class RetailCheckoutService {
     @Transactional(readOnly = true)
     public CheckoutDtos.ShippingQuoteView quoteShipping(Long memberAccountId, CheckoutDtos.ShippingQuoteRequest request) {
         RetailCart cart = requireCart(memberAccountId);
-        List<RetailCheckoutPorts.PricedLine> lines = pricingPort.price(cart.getLines()).stream()
+        List<RetailCheckoutPorts.PricedLine> lines = pricingPort.price(RetailCartSelection.select(cart, request.cartLineIds())).stream()
             .filter(line -> line.locationId().equals(request.locationId())).toList();
         if (lines.isEmpty()) throw new RetailConflictException("Cart has no line for the selected location");
         var recipient = request.recipient() == null ? null : new RetailCheckoutPorts.RecipientAddress(
@@ -75,11 +75,12 @@ public class RetailCheckoutService {
         RetailCart cart = cartRepository.findLockedByMemberAccountId(memberAccountId)
             .orElseThrow(() -> new RetailConflictException("Retail cart is empty"));
         if (cart.getLines().isEmpty()) throw new RetailConflictException("Retail cart is empty");
+        List<CartLine> selected = RetailCartSelection.select(cart, request.cartLineIds());
         Map<Long, CheckoutDtos.BranchOrderCheckoutInput> choices = choicesByLocation(request.branchOrders());
-        Set<Long> cartLocations = cart.getLines().stream().map(CartLine::getLocationId).collect(Collectors.toSet());
-        if (!cartLocations.equals(choices.keySet())) throw new RetailConflictException("Checkout choices must match every cart location exactly once");
+        Set<Long> cartLocations = selected.stream().map(CartLine::getLocationId).collect(Collectors.toSet());
+        if (!cartLocations.equals(choices.keySet())) throw new RetailConflictException("Checkout choices must match every selected cart location exactly once");
 
-        List<RetailCheckoutPorts.PricedLine> priced = pricingPort.price(cart.getLines());
+        List<RetailCheckoutPorts.PricedLine> priced = pricingPort.price(selected);
         BigDecimal subtotal = subtotal(priced);
         RetailCheckoutPorts.BenefitPreview benefit = benefitPort.requireValidPreview(memberAccountId, request.benefitPreviewId(),
             toSelection(request.benefitSelection()), subtotal);
@@ -106,8 +107,7 @@ public class RetailCheckoutService {
         }
         checkoutRepository.saveAndFlush(checkout);
         entityManager.persist(new CheckoutHold(checkout, Instant.now().plus(15, ChronoUnit.MINUTES)));
-        cart.getLines().clear();
-        cart.touch();
+        RetailCartSelection.removeCheckedOut(cart, selected);
         return toView(checkout);
     }
 

@@ -22,6 +22,7 @@ export function retailApi(request) {
     getStaffShipment: shipmentId => request(`/api/v1/staff/retail-shipments/${id(shipmentId)}`),
     transitionStaffShipment: (shipmentId, body) => request(`/api/v1/staff/retail-shipments/${id(shipmentId)}/transitions`, { method: 'POST', body }),
 
+    listBranches: () => request('/api/v1/product-selling-locations', { auth: false }),
     listSavedVouchers: () => request('/api/v1/members/me/saved-vouchers', { query: { limit: 100 } }),
     getLoyaltyAccount: () => request('/api/v1/members/me/loyalty-accounts/current'),
     previewBenefits: body => request('/api/v1/ready-ring-benefit-previews', { method: 'POST', body }),
