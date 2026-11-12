@@ -38,6 +38,13 @@ public class TicketBooking {
     @Column(name = "package_name_snapshot", nullable = false, length = 255)
     private String packageNameSnapshot;
 
+    /** Identity Workshop Operations issued for this ticket at confirmation; Operations is the only authority. */
+    @Column(name = "operations_ticket_reference", length = 36)
+    private String operationsTicketReference;
+
+    @Column(name = "qr_reference", length = 128)
+    private String qrReference;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "ticket_status", nullable = false, length = 32)
     private BookingStatus ticketStatus;
@@ -47,6 +54,9 @@ public class TicketBooking {
     private PaymentStatus financialStatus;
 
     /** Customer-requested changes already used; one is allowed per ticket (003.3 FR-044). */
+    @Column(name = "confirmed_at")
+    private Instant confirmedAt;
+
     @Column(name = "customer_changes_used", nullable = false)
     private int customerChangesUsed;
 

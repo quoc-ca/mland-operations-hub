@@ -44,6 +44,7 @@ class WorkshopCartBookingTest {
     private TicketBookingRepository tickets;
     private TicketPriceSnapshotRepository snapshots;
     private WorkshopCartQuoteService quoteService;
+    private GroupConfirmationService groupConfirmation;
     private BookingGroupCreationService creationService;
     private final List<WorkshopCartQuote> saved = new ArrayList<>();
 
@@ -74,8 +75,9 @@ class WorkshopCartBookingTest {
         when(snapshots.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         WorkshopCartPricingService pricing = new WorkshopCartPricingService(operations);
         quoteService = new WorkshopCartQuoteService(authorization, pricing, quotes, mapper);
+        groupConfirmation = mock(GroupConfirmationService.class);
         creationService = new BookingGroupCreationService(authorization, pricing, operations, quotes, groups, lines,
-                tickets, snapshots, mock(BookingIdempotencyService.class), mapper);
+                tickets, snapshots, mock(BookingIdempotencyService.class), groupConfirmation, mapper);
     }
 
     // ---- quoting ----
@@ -329,6 +331,23 @@ class WorkshopCartBookingTest {
         assertThat(response.tickets()).hasSize(2)
                 .allSatisfy(ticket -> assertThat(ticket.collectionKind())
                         .isEqualTo(TicketCollectionKind.FREE.name()));
+        // FR-039: nothing to collect, so the group is confirmed here instead of waiting for a gateway.
+        verify(groupConfirmation).confirmInternalGroup(eq(response.groupCode()), anyString(), eq("corr-7"));
+    }
+
+    @Test
+    void aPayingGroupWaitsForItsGatewayPaymentBeforeAnythingIsConfirmed() {
+        UUID session = publishedLine("7", 203_000, 1, 6, 1, "Clay Workshop");
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, session, 1)));
+        openQuote(quote.quoteRef());
+        when(operations.reserveGroupCapacity(anyString(), any(), anyString(), anyString()))
+                .thenReturn(GroupCapacityOutcome.accepted(List.of(List.of(UUID.randomUUID())), HOLD_EXPIRY));
+
+        var response = creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "buyer@example.com", "0901234567"), null, "corr-8", null);
+
+        assertThat(response.groupStatus()).isEqualTo(BookingStatus.PENDING_PAYMENT.name());
+        verifyNoInteractions(groupConfirmation);
     }
 
     // ---- helpers ----

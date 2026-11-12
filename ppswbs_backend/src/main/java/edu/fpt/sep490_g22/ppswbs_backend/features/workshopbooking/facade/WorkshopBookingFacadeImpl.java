@@ -55,6 +55,8 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
     private final WorkshopBookingLoyaltyOutcomeService loyaltyOutcomeService;
     private final ObjectMapper objectMapper;
     private final WorkshopOperationsAdapter operationsAdapter;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupPaymentEvidenceService
+            groupPaymentEvidence;
 
     @Override
     @Transactional(readOnly = true)
@@ -279,6 +281,14 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
     public DepositPaymentEvidenceOutcome applyVerifiedDepositPaymentEvidence(ApplyVerifiedDepositPaymentEvidenceCommand command) {
         log.info("WorkshopBookingFacade.applyVerifiedDepositPaymentEvidence: bookingReference={}, evidenceRef={}, opRef={}",
                 command.bookingReference(), command.verifiedEvidenceReference(), command.operationReference());
+
+        // A booking group pays once for the whole group, and its attempt owns the merchant reference, so group
+        // evidence is routed before the single-booking path ever looks for a booking code (003.1 FR-038).
+        if (groupPaymentEvidence.owns(command.merchantReference())) {
+            return groupPaymentEvidence.apply(command.bookingReference(), command.merchantReference(),
+                    command.amountVnd(), command.currencyCode(), command.operationReference(),
+                    command.correlationReference());
+        }
 
         Optional<WorkshopBooking> optBooking = bookingRepository.findLockedByBookingCode(command.bookingReference());
         if (optBooking.isEmpty()) {

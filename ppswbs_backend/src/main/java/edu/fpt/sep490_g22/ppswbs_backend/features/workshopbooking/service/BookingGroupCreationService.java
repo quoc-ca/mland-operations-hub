@@ -51,6 +51,7 @@ public class BookingGroupCreationService {
     private final TicketBookingRepository tickets;
     private final TicketPriceSnapshotRepository snapshots;
     private final BookingIdempotencyService idempotency;
+    private final GroupConfirmationService groupConfirmation;
     private final ObjectMapper mapper;
 
     /** The link expires 2 minutes before the hold so a late result never books a released seat (FR-032). */
@@ -136,6 +137,8 @@ public class BookingGroupCreationService {
 
         List<BookingGroupResponse.GroupLine> responseLines = new ArrayList<>();
         List<BookingGroupResponse.GroupTicket> responseTickets = new ArrayList<>();
+        List<TicketBooking> createdTickets = new ArrayList<>();
+        List<TicketBenefitAllocator.TicketResult> allocations = new ArrayList<>();
         for (WorkshopCartPricingService.PricedLine line : cart.lines()) {
             List<UUID> holdReferences = outcome.lineHoldReferences().get(line.lineIndex());
             if (holdReferences.size() != line.sessions().size()) {
@@ -185,11 +188,8 @@ public class BookingGroupCreationService {
                         .remainingVnd(allocated.remainingVnd())
                         .nonRefundableDisclosed(true)
                         .build());
-                responseTickets.add(new BookingGroupResponse.GroupTicket(ticket.getTicketCode(), line.lineIndex(),
-                        ordinal, line.packageId(), line.packageName(), ticket.getTicketStatus().name(),
-                        ticket.getFinancialStatus().name(), allocated.finalPriceVnd(),
-                        allocated.collectedAtBookingVnd(), allocated.collectionKind().name(),
-                        allocated.remainingVnd()));
+                createdTickets.add(ticket);
+                allocations.add(allocated);
             }
         }
 
@@ -197,6 +197,19 @@ public class BookingGroupCreationService {
         quote.setAcceptedGroupCode(groupCode);
         quotes.save(quote);
 
+        // FR-039: a group that collects nothing at booking needs no gateway, so it is confirmed here and now.
+        if (group.getPaymentMode() != GroupPaymentMode.VNPAY) {
+            groupConfirmation.confirmInternalGroup(groupCode, "CONFIRM-" + groupCode, correlationReference);
+        }
+
+        for (int i = 0; i < createdTickets.size(); i++) {
+            TicketBooking ticket = createdTickets.get(i);
+            TicketBenefitAllocator.TicketResult allocated = allocations.get(i);
+            responseTickets.add(new BookingGroupResponse.GroupTicket(ticket.getTicketCode(), ticket.getLineIndex(),
+                    ticket.getParticipantOrdinal(), ticket.getPackageId(), ticket.getPackageNameSnapshot(),
+                    ticket.getTicketStatus().name(), ticket.getFinancialStatus().name(), allocated.finalPriceVnd(),
+                    allocated.collectedAtBookingVnd(), allocated.collectionKind().name(), allocated.remainingVnd()));
+        }
         BookingGroupResponse response = new BookingGroupResponse(groupCode, group.getGroupStatus().name(),
                 group.getPaymentMode().name(), group.getGroupCollectionVnd(), group.getHoldExpiresAt(),
                 group.getPaymentDeadlineAt(), List.copyOf(responseLines), List.copyOf(responseTickets));
