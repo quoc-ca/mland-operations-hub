@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 class WorkshopRefundServiceTest {
@@ -52,6 +53,8 @@ class WorkshopRefundServiceTest {
     private final WorkshopBookingSettlementAdapter booking = mock(WorkshopBookingSettlementAdapter.class);
     private final SettlementFinalBillRepository bills = mock(SettlementFinalBillRepository.class);
     private final SettlementCustomerNotifier notifier = mock(SettlementCustomerNotifier.class);
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.BankRefundService bankRefunds =
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.BankRefundService.class);
     private final RecordingTransactionManager transactions = new RecordingTransactionManager();
     private final Map<String, SettlementRefundAllocation> allocationRows = new ConcurrentHashMap<>();
     private SettlementCase cancellationCase;
@@ -64,7 +67,7 @@ class WorkshopRefundServiceTest {
                 .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("PENDING_PROVIDER")
                 .correlationReference("CORR-1").createdAt(Instant.now()).updatedAt(Instant.now()).build();
         service = new WorkshopRefundService(provider, allocations, cases, audits, operations, cancellationLoyalty,
-                booking, bills, notifier, transactions, "8.8.8.8", "sandbox-merchant");
+                booking, bills, notifier, bankRefunds, transactions, "8.8.8.8", "sandbox-merchant");
         when(cases.findByCaseReference(CASE_REF)).thenReturn(Optional.of(cancellationCase));
         when(cases.findByCaseReferenceForUpdate(CASE_REF)).thenReturn(Optional.of(cancellationCase));
         when(cases.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -102,30 +105,64 @@ class WorkshopRefundServiceTest {
     }
 
     @Test
-    void dispatchesMlandRemedyRefundThroughSameVerifiedProviderPath() {
+    void aMlandRemedyGoesBackByBankTransferAndNeverReachesTheGateway() {
         cancellationCase.setCaseType("MLAND_CANCELLATION_REMEDY");
         SettlementRefundAllocation allocation = allocation("ALLOC-MLAND", "PAY-MLAND", 50_000, 25_000, "03");
         when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(CASE_REF)).thenReturn(List.of(allocation));
-        when(provider.requestRefund(any(VnpayRefundCommand.class))).thenReturn(
-                result("REFUND", "ACCEPTED", "00", "03", "06", "70009", "PAY-MLAND", 25_000L, true));
-        when(provider.queryRefund(any(VnpayRefundReconciliationCommand.class))).thenReturn(
-                result("REFUND_QUERYDR", "VERIFIED", "00", "03", "00", "70009", "PAY-MLAND", 25_000L, true));
+        givenBankRefundOpens("REFUND-1");
+
+        service.dispatchCase(CASE_REF);
+
+        // T098: Mland's own money is refunded outside the system, so VNPay is never asked for a refund.
+        verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
+        assertThat(allocation.getLifecycleStatus()).isEqualTo("PENDING_BANK_REFUND");
+        assertThat(allocation.getBankRefundReference()).isEqualTo("REFUND-1");
+        // The original payment evidence stays: it is still what proves Mland holds the money.
+        assertThat(allocation.getOriginalPaymentReference()).isEqualTo("PAY-MLAND");
+        // Nothing is settled before a Manager confirms the transfer, so no consequence has run.
+        assertThat(cancellationCase.getLifecycleStatus()).isNotEqualTo("RESOLVED");
+        verify(cancellationLoyalty, never()).restoreVerifiedCancellation(any(), anyString());
+        verify(booking).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUND_PENDING),
+                eq(CASE_REF), anyString(), eq("CORR-1"));
+        verify(booking, never()).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUNDED),
+                eq(CASE_REF), anyString(), eq("CORR-1"));
+    }
+
+    @Test
+    void theManagersBankConfirmationSettlesTheAllocationAndItsConsequences() {
+        cancellationCase.setCaseType("MLAND_CANCELLATION_REMEDY");
+        SettlementRefundAllocation allocation = allocation("ALLOC-MLAND", "PAY-MLAND", 50_000, 25_000, "03");
+        allocation.setLifecycleStatus("PENDING_BANK_REFUND");
+        allocation.setBankRefundReference("REFUND-1");
+        when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(CASE_REF)).thenReturn(List.of(allocation));
         SettlementFinalBill openFolio = SettlementFinalBill.builder().billReference("BILL-MLAND")
                 .bookingReference(BOOKING_REF).lifecycleStatus("OPEN").build();
         when(bills.findByBookingReference(BOOKING_REF)).thenReturn(Optional.of(openFolio));
 
-        service.dispatchCase(CASE_REF);
+        service.onBankRefundConfirmed(
+                new edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBankRefundConfirmedEvent(
+                        "REFUND-1", BOOKING_REF, "ALLOC-MLAND", 25_000, Instant.now()));
 
         assertThat(allocation.getLifecycleStatus()).isEqualTo("VERIFIED");
         assertThat(cancellationCase.getLifecycleStatus()).isEqualTo("RESOLVED");
-        verify(provider).requestRefund(any(VnpayRefundCommand.class));
-        verify(operations).applyRefund(eq(BOOKING_REF), anyString(), anyString(), eq("CORR-1"));
         verify(cancellationLoyalty).restoreVerifiedCancellation(eq(cancellationCase), anyString());
-        verify(booking).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUND_PENDING), eq(CASE_REF), anyString(), eq("CORR-1"));
-        verify(booking).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUNDED), eq(CASE_REF), anyString(), eq("CORR-1"));
-        verify(booking).recordBookingServiceOutcome(eq(BOOKING_REF), eq(BookingServiceOutcome.CANCELLED), eq(CASE_REF), anyString(), eq("CORR-1"));
+        verify(booking).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUNDED), eq(CASE_REF),
+                anyString(), eq("CORR-1"));
         assertThat(openFolio.getLifecycleStatus()).isEqualTo("CLOSED");
-        verify(bills).saveAndFlush(openFolio);
+    }
+
+    @Test
+    void anUnreconciledLegacyGatewayRefundIsLeftAloneInsteadOfPaidTwice() {
+        cancellationCase.setCaseType("MLAND_CANCELLATION_REMEDY");
+        SettlementRefundAllocation allocation = allocation("ALLOC-MLAND", "PAY-MLAND", 50_000, 25_000, "03");
+        allocation.setProviderResponseCode("99");
+        when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(CASE_REF)).thenReturn(List.of(allocation));
+
+        service.dispatchCase(CASE_REF);
+
+        assertThat(allocation.getLifecycleStatus()).isEqualTo("PREPARED");
+        assertThat(allocation.getBankRefundReference()).isNull();
+        verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
     }
 
     @Test
@@ -214,17 +251,25 @@ class WorkshopRefundServiceTest {
         SettlementRefundAllocation alloc = allocation("ALLOC-CORR", "PAY-1", 40_000, 20_000, "03");
         alloc.setCaseReference(corrCaseRef);
         when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(corrCaseRef)).thenReturn(List.of(alloc));
-        when(provider.requestRefund(any(VnpayRefundCommand.class))).thenReturn(
-                result("REFUND", "ACCEPTED", "00", "03", "06", "70005", "PAY-1", 20_000L, true));
-        when(provider.queryRefund(any(VnpayRefundReconciliationCommand.class))).thenReturn(
-                result("REFUND_QUERYDR", "VERIFIED", "00", "03", "00", "70005", "PAY-1", 20_000L, true));
+        givenBankRefundOpens("REFUND-CORR");
 
         service.dispatchCase(corrCaseRef);
+
+        // T098: an overcharge corrected after FINALIZED is Mland money, so it leaves by bank transfer too.
+        verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
+        assertThat(alloc.getLifecycleStatus()).isEqualTo("PENDING_BANK_REFUND");
+
+        // The correction resolves only once the Manager has confirmed the bank transfer.
+        assertThat(corrCase.getLifecycleStatus()).isNotEqualTo("RESOLVED");
+
+        service.onBankRefundConfirmed(
+                new edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBankRefundConfirmedEvent(
+                        "REFUND-CORR", BOOKING_REF, "ALLOC-CORR", 20_000, Instant.now()));
 
         assertThat(alloc.getLifecycleStatus()).isEqualTo("VERIFIED");
         assertThat(corrCase.getLifecycleStatus()).isEqualTo("RESOLVED");
 
-        // Verify consequences were NEVER invoked
+        // A folio correction still touches no booking, folio or cancellation consequence.
         verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
         verify(cancellationLoyalty, never()).restoreVerifiedCancellation(any(), anyString());
         verify(booking, never()).recordBookingRefundStatus(anyString(), any(), anyString(), anyString(), anyString());
@@ -249,18 +294,23 @@ class WorkshopRefundServiceTest {
         SettlementRefundAllocation alloc = allocation("ALLOC-ADDON", "PAY-ADDON-1", 50_000, 50_000, "02");
         alloc.setCaseReference(addonCaseRef);
         when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(addonCaseRef)).thenReturn(List.of(alloc));
-        when(provider.requestRefund(any(VnpayRefundCommand.class))).thenReturn(
-                result("REFUND", "ACCEPTED", "00", "02", "06", "70006", "PAY-ADDON-1", 50_000L, true));
-        when(provider.queryRefund(any(VnpayRefundReconciliationCommand.class))).thenReturn(
-                result("REFUND_QUERYDR", "VERIFIED", "00", "02", "00", "70006", "PAY-ADDON-1", 50_000L, true));
+        givenBankRefundOpens("REFUND-ADDON");
 
         service.dispatchCase(addonCaseRef);
 
+        // T104: the add-on overcharge of an OTA booking is Mland money, so it leaves by bank transfer too.
+        // The OTA's own base ticket stays the OTA's process and was never handled here.
+        verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
+        assertThat(alloc.getLifecycleStatus()).isEqualTo("PENDING_BANK_REFUND");
+        assertThat(alloc.getBankRefundReference()).isEqualTo("REFUND-ADDON");
+        assertThat(addonCase.getLifecycleStatus()).isNotEqualTo("RESOLVED");
+
+        service.onBankRefundConfirmed(
+                new edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBankRefundConfirmedEvent(
+                        "REFUND-ADDON", BOOKING_REF, "ALLOC-ADDON", 50_000, Instant.now()));
+
         assertThat(alloc.getLifecycleStatus()).isEqualTo("VERIFIED");
         assertThat(addonCase.getLifecycleStatus()).isEqualTo("RESOLVED");
-
-        // Verify orderInfo was "Workshop add-on refund CASE-ADDON-1"
-        verify(provider).requestRefund(argThat(cmd -> "Workshop add-on refund CASE-ADDON-1".equals(cmd.orderInfo())));
 
         // Verify consequences were NEVER invoked
         verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
@@ -273,6 +323,15 @@ class WorkshopRefundServiceTest {
         var auditCaptor = org.mockito.ArgumentCaptor.forClass(SettlementBusinessAudit.class);
         verify(audits, atLeastOnce()).save(auditCaptor.capture());
         assertThat(auditCaptor.getAllValues()).anyMatch(a -> "ADDON_REFUND_VERIFIED".equals(a.getActionCode()));
+    }
+
+    /** The bank refund T097 opens when an allocation is routed away from the gateway. */
+    private void givenBankRefundOpens(String requestReference) {
+        var request = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundRequest
+                .builder().requestReference(requestReference).build();
+        when(bankRefunds.open(anyString(), any(), any(), anyString(), anyLong(), any(), anyString()))
+                .thenReturn(new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service
+                        .BankRefundService.OpenedRefund(request, "token"));
     }
 
     private SettlementRefundAllocation allocation(String ref, String paymentRef, long original, long amount, String type) {
