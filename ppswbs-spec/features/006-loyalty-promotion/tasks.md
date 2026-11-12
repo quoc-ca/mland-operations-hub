@@ -345,3 +345,27 @@ Nguồn: báo cáo rà soát ngày 2026-11-10 (M1–M3, L1–L6) và spec Clarif
 - [x] T095 (2026-11-10: `productOffers.test.js` 9/9, `LoyaltyRetailQuoteTest` 19/19; màn thật `/products/1` và xem trước checkout; verification mục 52) [US3] [US4] [US5] Thứ tự giảm tự động bằng nhau trên trang sản phẩm (L3) và một lý do khi điểm tối đa dưới mức tối thiểu (L6): `ppswbs_frontend/src/features/loyalty-promotion/domain/productOffers.js` sắp tạo trước rồi ID; `service/RetailQuote.java`, `service/WorkshopBenefitEvaluator.java` chỉ trả `POINTS_BELOW_MINIMUM` (không thêm "between 10 and 9"). Test `productOffers.test.js` "equal automatic discounts", `LoyaltyRetailQuoteTest.reasonsCarryAStableCodeAndParametersBesideTheEnglishText`. per FR-015, FR-042, FR-025, US4.5
 - [x] T096 (2026-11-10: spec FR-002; verification mục 52) Sửa câu chi nhánh của FR-002 trong `spec.md` cho khớp Session 2026-11-09 (L5); ghi bằng chứng chạy test và kiểm tra trên màn thật vào `verification.md`. per FR-002, FR-003
 - [x] T097 (2026-11-10: `loyalty.test.jsx` 55/55 gồm "an earlier success notice goes away when a new edit starts", bước "Choosing branches does not answer…"; `PromotionManagementContractIT` 14/14; kiểm lại trên màn thật; verification mục 52) [US1] [US2] Sửa lỗi phát hiện khi test trên màn thật: `domain/promotionRules.js` `errorFieldsOf('productBranchIds')` không xóa lỗi `targets` (chọn chi nhánh không thay cho chọn sản phẩm); `ui/management/ProgramDetailPage.jsx` xóa thông báo thành công cũ khi bấm Sửa/Tạm dừng/Mở lại; `service/LoyaltyRefusalAudit.java` ghi người gửi theo cùng quy ước của lệnh thành công (Manager: ID, Member: `member:<id>`, Staff/Admin: `account:<id>`), data-model cập nhật. Helper IT theo kịp 002 US10: `LoyaltyRetailCheckoutIT` dùng chi nhánh của `CatalogueFlowFixture`, `LoyaltyMySqlMigrationIT` đọc chính sách seed theo revision 1. per FR-039, FR-043, US8.6
+
+## Phase 16: Giỏ nhiều vé của 003.1 (đề nghị 2026-11-12 từ owner 003.1)
+
+Nguồn: `ppswbs-spec/features/003-workshop-management/003.1-workshop-booking/cart-benefit-contract-request.md`.
+Theo quy ước T088: owner 003.1 (Hồ Hoàng Quốc) nêu yêu cầu, owner 006 (Đặng Thị
+Khương) duyệt và triển khai. Chưa duyệt thì 003.1 T092/T093 không áp voucher/điểm
+cho giỏ của Member.
+
+- [ ] T098 [US5] Preview/reserve cho giỏ nhiều vé workshop: thêm `WorkshopTicketFact`
+  (một người: `packageId`, giá vé, các session của chính vé đó) và `WorkshopCartFact`
+  (danh sách vé theo thứ tự giỏ) vào `facade`; `TrustedSourceContext` và
+  `AcceptedSourceContext` nhận một trong hai (`WorkshopFact` cũ hoặc `WorkshopCartFact`),
+  giữ constructor cũ cho owner chưa chuyển. `BenefitPreview.eligibleLineIndexes` trả
+  **vị trí các vé nằm trong phạm vi voucher** — đây là dữ liệu duy nhất 003.1 không tự
+  suy ra được. Phạm vi theo từng vé: voucher nhắm package của vé **và** mọi session của
+  *chính vé đó* thỏa branch/date/session; tức là áp `WorkshopBenefitEvaluator.matches`
+  cho từng vé thay vì cho cả booking (thay quyết định tất-cả-hoặc-không 2026-10-29, chỉ
+  với context giỏ). Điều kiện mức giỏ (số tiền tối thiểu, số người) xét trên cả giỏ; trần
+  điểm theo chính sách đã ghi, áp trên tổng giỏ sau voucher, điểm nguyên.
+  `reserveAcceptedTransaction` giữ một lượt voucher và một khoản điểm cho cả nhóm,
+  idempotent khi replay. Test: giỏ hai package voucher nhắm một package; một vé lệch
+  branch/date/session; vé khớp vẫn được giảm khi vé khác không khớp; điều kiện mức giỏ;
+  trần điểm sau voucher; voucher 100% và vé 0đ; một lượt voucher mỗi nhóm.
+  per 003.1 FR-030, FR-033, FR-034; FR-013, FR-014, FR-025, US5
