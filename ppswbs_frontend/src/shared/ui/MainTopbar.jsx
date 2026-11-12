@@ -254,6 +254,13 @@ export default function MainTopbar() {
                           >
                             <span>🚚</span> Vận đơn GHTK
                           </Link>
+                          <Link
+                            to="/staff/retail-pickups"
+                            className="main-topbar-dropdown-item"
+                            role="menuitem"
+                          >
+                            <span>🏪</span> Đơn nhận tại cửa hàng
+                          </Link>
                         </>
                       )}
                       {(userRole === 'MANAGER' || userRole === 'ADMIN') && (

@@ -56,9 +56,7 @@ public class RetailCheckoutCancellationService {
         try {
             return catalogue.withLockedHistoricalBranchContext(checkoutId, branchKeys, context ->
             guard.withBranchGuard(branchKeys, context.asOf(), snapshots -> {
-                List<RetailVariantHold> current = ids.stream().map(id -> holdRepository
-                    .findByGroupedCheckoutIdAndVariantId(checkoutId, id)
-                    .orElseThrow(() -> new RetailConflictException("Checkout inventory hold is missing"))).toList();
+                List<RetailVariantHold> current = holds.requireBranchHolds(checkoutId, branchKeys);
                 Instant deadline = current.getFirst().getExpiresAt();
                 if (current.stream().anyMatch(hold -> !deadline.equals(hold.getExpiresAt()))) {
                     throw new RetailConflictException("Checkout hold deadlines do not match");

@@ -71,8 +71,7 @@ public class RetailPaymentEvidenceService implements RetailPaymentEvidenceFacade
         if (ids.isEmpty()) throw new RetailConflictException("Checkout has no items");
         catalogue.withLockedHistoricalBranchContext(payment.checkoutId(), branchKeys, context -> {
             guard.withBranchGuard(branchKeys, context.asOf(), snapshots -> {
-                var locked = ids.stream().map(id -> holdRepository.findByGroupedCheckoutIdAndVariantId(payment.checkoutId(), id)
-                        .orElseThrow(() -> new RetailConflictException("Checkout inventory hold is missing"))).toList();
+                var locked = holds.requireBranchHolds(payment.checkoutId(), branchKeys);
                 Instant deadline = locked.getFirst().getExpiresAt();
                 if (locked.stream().anyMatch(h -> h.getStatus() != RetailVariantHoldStatus.HELD
                         || !deadline.equals(h.getExpiresAt()) || !now.isBefore(h.getExpiresAt())))
