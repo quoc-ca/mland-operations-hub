@@ -104,11 +104,11 @@ public class WorkshopRingDesignApplicationService {
 
         RingDesign saved = designRepository.save(initialDesign);
 
+        DesignResponseDto response = mapToResponse(saved, val, eval, snapshotMap);
         if (binding.ownerType == RingDesignOwnerType.GUEST_SESSION && binding.guestSession != null) {
             binding.guestSession.setDesignReference(designReference);
+            response.setGuestSession(binding.guestSession.getSessionReference());
         }
-
-        DesignResponseDto response = mapToResponse(saved, val, eval, snapshotMap);
         idempotencyService.record(idempotencyKey, "CREATE_DESIGN", actorScope, request, 201, response);
         return response;
     }
