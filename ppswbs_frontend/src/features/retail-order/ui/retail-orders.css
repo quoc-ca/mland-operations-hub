@@ -1,0 +1,55 @@
+.order-tabs-page{display:grid;gap:14px}
+.order-tabs{display:flex;overflow-x:auto;background:#fff;border:1px solid #e3e3e3;border-radius:10px}
+.order-tabs button{flex:1 0 auto;padding:14px 18px;border:0;border-bottom:3px solid transparent;background:transparent;color:#4b5563;font:inherit;font-size:15px;cursor:pointer;white-space:nowrap}
+.order-tabs button:hover{color:#002967}
+.order-tabs button.active{color:#002967;border-bottom-color:#002967;font-weight:600}
+.order-tab-count{display:inline-block;min-width:20px;margin-left:6px;padding:1px 7px;border-radius:10px;background:#002967;color:#fff;font-size:12px;text-align:center}
+.order-search{width:100%;padding:11px 14px;border:1px solid #e3e3e3;border-radius:10px;background:#fff;font:inherit}
+.order-empty{text-align:center;padding:48px 16px;background:#fff;border:1px dashed #d1d5db;border-radius:10px;color:#6b7280}
+.order-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:0;overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.order-card:hover{border-color:#9ca3af}
+.order-card:focus-visible{outline:2px solid #002967;outline-offset:2px}
+.order-card.open{border-color:#002967;box-shadow:0 0 0 1px #002967}
+.order-card.urgent{border-left:5px solid #d97706}
+.order-card-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:14px 20px;background:#f9fafb;border-bottom:1px solid #eef0f3}
+.order-code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:15px;font-weight:700;letter-spacing:.04em;color:#111827}
+.order-branch{font-size:13px;color:#6b7280}
+.order-pill{margin-left:auto;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700;background:#e8eefb;color:#002967;white-space:nowrap}
+.pill-completed,.pill-history{background:#e6f4ea;color:#14532d}
+.pill-cancelled{background:#f1f2f4;color:#6b7280}
+.pill-awaiting_payment,.pill-awaiting_cash{background:#fff3dc;color:#92400e}
+.pill-awaiting_pickup,.pill-to_hand_over{background:#e0f2fe;color:#075985}
+.pill-shipping,.pill-to_ship{background:#ede9fe;color:#5b21b6}
+.order-items{list-style:none;margin:0;padding:4px 20px}
+.order-items li,.order-recipient{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid #f1f2f4}
+.order-items li:last-child{border-bottom:0}
+.order-recipient{padding:12px 20px}
+.order-thumb{display:grid;place-items:center;width:52px;height:52px;border-radius:8px;background:#fdf6c9;color:#807300;font-size:20px}
+.order-item-name{display:flex;flex-direction:column;gap:3px;min-width:0}
+.order-item-name small{color:#6b7280}
+.order-hint{margin:0 20px 12px;padding:9px 12px;border-radius:8px;background:#f2f5fa;font-size:13px;color:#374151}
+.order-hint.warn{background:#fff6e5;color:#7a4a00}
+.order-detail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 24px;margin:0 20px 12px;padding:14px 16px;border-radius:8px;background:#f8fafc;cursor:default}
+.order-detail>div{display:flex;flex-direction:column;gap:2px}
+.order-detail>div.wide{grid-column:1/-1}
+.order-detail dt{font-size:12px;color:#6b7280}
+.order-detail dd{margin:0;font-size:14px;color:#111827}
+.order-timeline{margin:4px 0 0;padding-left:18px}
+.order-card-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;border-top:1px solid #eef0f3}
+.order-more{font-size:12px;color:#6b7280}
+.order-sum{font-size:14px;color:#374151}
+.order-sum strong{margin-left:8px;font-size:20px;color:#002967}
+.order-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px;padding:0 20px 14px;cursor:default}
+.cash-input{display:flex;align-items:center;gap:6px;font-size:13px}
+.cash-input input{width:130px;padding:8px 10px;border:1px solid #b8b8b8;border-radius:6px}
+.staff-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.staff-summary div{display:flex;flex-direction:column;gap:6px;padding:16px 18px;border-radius:10px;background:#fff;border:1px solid #e5e7eb}
+.staff-summary span{font-size:12px;color:#6b7280}
+.staff-summary strong{font-size:24px;color:#111827}
+.staff-summary .warn{border-color:#f59e0b;background:#fffbeb}.staff-summary .warn strong{color:#b45309}
+.staff-toolbar{display:flex;gap:12px}
+.staff-toolbar .button{white-space:nowrap}
+.retail-staff-crumb{display:flex;align-items:center;gap:16px;color:#6b7280!important;font-size:11px!important}
+.retail-staff-crumb a{color:#002967;font-size:13px;font-weight:600;text-decoration:none}
+.retail-staff-crumb a:hover{text-decoration:underline}
+@media(max-width:760px){.staff-summary,.order-detail{grid-template-columns:1fr}.order-pill{margin-left:0}}

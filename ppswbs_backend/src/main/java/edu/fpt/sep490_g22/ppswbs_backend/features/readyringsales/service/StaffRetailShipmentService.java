@@ -122,7 +122,13 @@ public class StaffRetailShipmentService {
             shipment.getBranchOrderIdentifier(), shipment.getLocationId(), shipment.getMockTrackingNumber(),
             shipment.getStatus(), shipment.getVersion(), shipment.getRecipientName(),
             shipment.getProvinceName(), shipment.getDistrictName(), shipment.getWardName(),
-            shipment.getCreatedAt(), shipment.getUpdatedAt());
+            shipment.getCreatedAt(), shipment.getUpdatedAt(), orderCode(shipment),
+            shipment.getBranchOrder().getPayableAmount().stripTrailingZeros().toPlainString(),
+            shipment.getBranchOrder().getItems().stream().mapToInt(item -> item.getQuantity()).sum());
+    }
+
+    private static String orderCode(RetailShipment shipment) {
+        return RetailOrderCodes.of(shipment.getBranchOrder().getId(), shipment.getGroupedCheckout().getCreatedAt());
     }
 
     static StaffRetailShipmentView view(RetailShipment shipment) {
@@ -135,6 +141,6 @@ public class StaffRetailShipmentService {
             shipment.getMockTrackingNumber(), shipment.getStatus(), shipment.getVersion(),
             shipment.getRecipientName(), shipment.getRecipientPhone(), shipment.getRecipientAddress(),
             shipment.getProvinceName(), shipment.getDistrictName(), shipment.getWardName(),
-            shipment.getCreatedAt(), shipment.getUpdatedAt(), history);
+            shipment.getCreatedAt(), shipment.getUpdatedAt(), history, orderCode(shipment));
     }
 }
