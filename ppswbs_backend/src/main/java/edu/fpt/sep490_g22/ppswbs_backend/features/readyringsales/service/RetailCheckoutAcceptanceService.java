@@ -133,10 +133,10 @@ public class RetailCheckoutAcceptanceService {
                     throw new RetailConflictException("Product quantity is no longer available");
                 }
             }
-            // The current hold tables are intentionally variant-scoped. FE-02's branch guard keeps this bridge safe
-            // until the dedicated branch-hold migration is scheduled.
-            for (Long id : variantIds) {
-                createdHolds.add(holds.createHeld(checkout, id, quantitiesByVariant.get(id), deadline));
+            // One hold per size x branch (FR-053, T124): a hold at one branch never reduces another branch.
+            for (BranchVariant keyAtBranch : branchVariants) {
+                createdHolds.add(holds.createHeld(checkout, keyAtBranch.variantId(), keyAtBranch.locationId(),
+                    quantitiesByBranch.get(keyAtBranch), deadline));
             }
             List<SourceLine> lines = quote.getBranches().stream().flatMap(branch -> branch.getItems().stream())
                 .map(item -> new SourceLine(item.getProductId(), item.getVariantId(), item.getQuantity(), item.getUnitPrice())).toList();

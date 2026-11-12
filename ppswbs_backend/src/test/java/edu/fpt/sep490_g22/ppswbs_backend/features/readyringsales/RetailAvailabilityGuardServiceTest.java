@@ -1,7 +1,10 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailBranchAvailabilityGuardRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailVariantAvailabilityGuardRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailBranchAvailabilityGuard;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailVariantHoldRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailVariantAvailabilityGuard;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailVariantHold;
@@ -28,9 +31,70 @@ class RetailAvailabilityGuardServiceTest {
 
     private final RetailVariantAvailabilityGuardRepository guards = mock(RetailVariantAvailabilityGuardRepository.class);
     private final RetailVariantHoldRepository holds = mock(RetailVariantHoldRepository.class);
-    private final RetailAvailabilityGuardService service = new RetailAvailabilityGuardService(guards, holds);
+    private final RetailBranchAvailabilityGuardRepository branchGuards = mock(RetailBranchAvailabilityGuardRepository.class);
+    private final RetailAvailabilityGuardService service = new RetailAvailabilityGuardService(guards, holds, branchGuards);
     private final RetailVariantHoldLifecycleService lifecycle = new RetailVariantHoldLifecycleService(holds, service);
     private final Instant now = Instant.parse("2026-10-29T10:00:00Z");
+
+    @Test
+    void tracksHoldsPerBranch() {
+        assertThat(service.tracksHoldsPerBranch()).isTrue();
+    }
+
+    @Test
+    void branchSnapshotsCountOnlyThatBranchPlusLegacySizeHolds() {
+        when(holds.sumValidHeldByVariantAndLocation(eq(List.of(101L)), eq(RetailVariantHoldStatus.HELD), any())).thenReturn(List.of(
+            branchHeld(101L, 10L, 2L), branchHeld(101L, RetailVariantHold.UNATTRIBUTED_LOCATION, 1L)));
+        when(branchGuards.findByVariantIdIn(List.of(101L))).thenReturn(List.of());
+
+        var snapshots = service.readBranchSnapshots(List.of(new BranchVariant(101L, 20L), new BranchVariant(101L, 10L)), now);
+
+        assertThat(snapshots.get(new BranchVariant(101L, 10L)).heldQuantity()).isEqualTo(java.math.BigInteger.valueOf(3));
+        assertThat(snapshots.get(new BranchVariant(101L, 20L)).heldQuantity()).isEqualTo(java.math.BigInteger.ONE);
+    }
+
+    @Test
+    void createsABranchHoldUnderTheBranchGuardAfterLockingTheSizeGuard() {
+        RetailVariantAvailabilityGuard sizeGuard = guard(2L, 0L);
+        RetailBranchAvailabilityGuard branchGuard = mock(RetailBranchAvailabilityGuard.class);
+        when(branchGuard.getVersion()).thenReturn(3L);
+        GroupedCheckout checkout = mock(GroupedCheckout.class);
+        when(checkout.getId()).thenReturn("checkout-1");
+        when(guards.findByVariantIdInOrderByVariantIdAsc(List.of(2L))).thenReturn(List.of(sizeGuard));
+        when(branchGuards.lockOne(2L, 10L)).thenReturn(java.util.Optional.of(branchGuard));
+        when(holds.sumValidHeldByVariantIds(eq(List.of(2L)), eq(RetailVariantHoldStatus.HELD), any())).thenReturn(List.of());
+        when(holds.sumValidHeldByVariantAndLocation(eq(List.of(2L)), eq(RetailVariantHoldStatus.HELD), any())).thenReturn(List.of());
+        when(holds.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RetailVariantHold created = service.withBranchGuard(List.of(new BranchVariant(2L, 10L)), now, snapshots -> {
+            assertThat(snapshots.get(new BranchVariant(2L, 10L)).sourceRevision()).isEqualTo(3L);
+            return lifecycle.createHeld(checkout, 2L, 10L, 1, now.plusSeconds(900));
+        });
+
+        assertThat(created.getLocationId()).isEqualTo(10L);
+        var order = inOrder(guards, branchGuards);
+        order.verify(guards).findByVariantIdInOrderByVariantIdAsc(List.of(2L));
+        order.verify(branchGuards).lockOne(2L, 10L);
+        verify(branchGuard).touch();
+        verify(sizeGuard).touch();
+    }
+
+    @Test
+    void rejectsABranchHoldOutsideItsGuard() {
+        GroupedCheckout checkout = mock(GroupedCheckout.class);
+        when(checkout.getId()).thenReturn("checkout-1");
+
+        assertThatThrownBy(() -> lifecycle.createHeld(checkout, 2L, 10L, 1, now.plusSeconds(900)))
+            .isInstanceOf(CatalogueSalesException.class);
+    }
+
+    private static RetailVariantHoldRepository.BranchHeldQuantity branchHeld(long variantId, long locationId, long quantity) {
+        return new RetailVariantHoldRepository.BranchHeldQuantity() {
+            @Override public Long getVariantId() { return variantId; }
+            @Override public Long getLocationId() { return locationId; }
+            @Override public Long getHeldQuantity() { return quantity; }
+        };
+    }
 
     @Test
     void returnsVerifiedZeroForAVariantWithoutAGuardOrHold() {

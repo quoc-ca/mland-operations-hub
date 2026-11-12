@@ -64,8 +64,7 @@ public class RetailConfirmedUnpaidExpiryService {
         if (ids.isEmpty()) throw new RetailConflictException("Checkout has no items");
         return catalogue.withLockedHistoricalBranchContext(checkoutId, branchKeys, context ->
                 guard.withBranchGuard(branchKeys, context.asOf(), snapshots -> {
-                    var current = ids.stream().map(id -> holdRepository.findByGroupedCheckoutIdAndVariantId(checkoutId, id)
-                            .orElseThrow(() -> new RetailConflictException("Checkout inventory hold is missing"))).toList();
+                    var current = holds.requireBranchHolds(checkoutId, branchKeys);
                     Instant deadline = current.getFirst().getExpiresAt();
                     if (current.stream().anyMatch(h -> !deadline.equals(h.getExpiresAt()) || h.getStatus() != RetailVariantHoldStatus.HELD))
                         throw new RetailConflictException("Checkout inventory holds are inconsistent");

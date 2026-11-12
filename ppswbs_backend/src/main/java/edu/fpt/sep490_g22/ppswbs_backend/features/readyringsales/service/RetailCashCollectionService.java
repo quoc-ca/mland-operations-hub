@@ -127,8 +127,7 @@ public class RetailCashCollectionService {
         try {
             catalogue.withLockedHistoricalBranchContext(checkoutId, branchKeys, context -> {
                 guard.withBranchGuard(branchKeys, context.asOf(), snapshots -> {
-                    var locked = ids.stream().map(id -> holdRepository.findByGroupedCheckoutIdAndVariantId(checkoutId, id)
-                        .orElseThrow(() -> new RetailConflictException("Checkout inventory hold is missing"))).toList();
+                    var locked = holds.requireBranchHolds(checkoutId, branchKeys);
                     Instant deadline = locked.getFirst().getExpiresAt();
                     if (locked.stream().anyMatch(hold -> hold.getStatus() != RetailVariantHoldStatus.HELD
                         || !deadline.equals(hold.getExpiresAt()) || !now.isBefore(hold.getExpiresAt()))) {
