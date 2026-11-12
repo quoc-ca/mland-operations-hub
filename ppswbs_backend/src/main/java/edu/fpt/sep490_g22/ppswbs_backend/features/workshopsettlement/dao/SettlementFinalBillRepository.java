@@ -8,6 +8,8 @@ import jakarta.persistence.LockModeType;
 import java.util.Optional;
 public interface SettlementFinalBillRepository extends JpaRepository<SettlementFinalBill, Long> {
  Optional<SettlementFinalBill> findByBookingReference(String bookingReference);
+ /** Every ticket folio of one booking group, which shares one Loyalty transaction. */
+ java.util.List<SettlementFinalBill> findByGroupReferenceOrderByIdAsc(String groupReference);
  java.util.List<SettlementFinalBill> findByLifecycleStatusInOrderByIdAsc(java.util.Collection<String> lifecycleStatuses);
  /** Folios whose Member Loyalty outcome is not decided yet; decided folios are never rescanned. */
  java.util.List<SettlementFinalBill> findByLifecycleStatusInAndLoyaltyProcessedAtIsNullOrderByIdAsc(

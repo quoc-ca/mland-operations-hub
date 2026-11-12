@@ -52,6 +52,7 @@ class WorkshopBookingFacadePaymentAttemptTest {
     @Mock private BookingLifecycleService bookingLifecycleService;
     @Mock private WorkshopBookingLoyaltyOutcomeService loyaltyOutcomeService;
     @Mock private ObjectMapper objectMapper;
+    @Mock private edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupPaymentEvidenceService groupPaymentEvidence;
 
     @InjectMocks private WorkshopBookingFacadeImpl facade;
 

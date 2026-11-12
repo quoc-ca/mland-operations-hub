@@ -298,7 +298,7 @@ location, slot and session write endpoints currently neither declare nor consume
 Spec FR-030–FR-036. Serves 003.1 Phase 8 (groups, ticket bookings, recipients)
 and 003.3 Phase 8 (per-ticket cancellation, Mland remedy, changes).
 
-- [ ] T090 Group capacity facade (FR-030): reserve all lines of a booking group (several packages/sessions) all or none, one seat per ticket per session; commit/release the group before confirmation, per ticket afterwards; idempotent.
+- [x] T090 Group capacity facade (FR-030): `WorkshopOperationsFacade.reserveGroupCapacity` (`GroupCapacityService`) reserves every line all or none, sums demand per session across lines, one hold per line per session, 12-minute hold (`workshop.booking.group-hold-minutes`), per-line failing indexes on refusal, idempotent with replay; commit/release reuse the per-line booking references. `GroupCapacityServiceTest` (8 cases). Per-ticket commit/release after confirmation continues in 003.2 T091.
 - [ ] T091 Per-ticket cancellation (FR-031): release the ticket's seats in its future sessions and revoke its future entitlements without touching other tickets or attendance history.
 - [ ] T092 Per-ticket readiness and attendance outcome (FR-032): query and `BookingAttendanceFinalizedEvent` per ticket booking after the 24-hour correction window; no-show per ticket.
 - [ ] T093 QR revoke and reissue for a recipient change (FR-033): revoke immediately, issue a new opaque QR for the same entitlements, refuse after any check-in; check-in rejects revoked QR.

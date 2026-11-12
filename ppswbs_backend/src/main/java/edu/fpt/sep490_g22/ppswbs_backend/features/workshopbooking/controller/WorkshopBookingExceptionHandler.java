@@ -108,6 +108,21 @@ public class WorkshopBookingExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, ex.getCode(), "Booking Selection Rejected", ex.getMessage(), correlationId);
     }
 
+    /** FR-031: nothing was held, so the cart stays editable and the failing positions are named. */
+    @ExceptionHandler(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.CartHoldRejectedException.class)
+    public ResponseEntity<edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.CartHoldRejectionResponse> handleCartHoldRejected(
+            edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.CartHoldRejectedException ex,
+            HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        var body = new edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.CartHoldRejectionResponse(
+                URI.create(PROBLEM_BASE_URI + ex.getCode().toLowerCase().replace('_', '-')),
+                "Cart Hold Rejected", HttpStatus.CONFLICT.value(), ex.getCode(), ex.getMessage(), correlationId,
+                ex.getFailingLines());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .header(CORRELATION_ID_HEADER, correlationId)
+                .body(body);
+    }
+
     @ExceptionHandler(BookingRateLimitException.class)
     public ResponseEntity<ProblemDetailResponse> handleRateLimit(
             BookingRateLimitException ex, HttpServletRequest request) {
