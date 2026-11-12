@@ -31,6 +31,7 @@ public class WorkshopFinalBillApiService {
     private final FinalBookingBillService billService;
     private final VariableChargeService variableChargeService;
     private final CatalogueAddOnService catalogueAddOnService;
+    private final FolioBalanceService folioBalances;
 
     @Transactional(readOnly = true)
     public FinalBillProjectionDto read(String bookingCode, String contactEmail, String contactPhone,
@@ -151,6 +152,10 @@ public class WorkshopFinalBillApiService {
         if (outstanding(openBill) != 0L) {
             throw new WorkshopSettlementConflictException("OUTSTANDING_BALANCE");
         }
+        // FR-035: a folio with an unproven collection is not finalized, even at a zero balance.
+        if (folioBalances.balanceOf(openBill).hasPendingPart()) {
+            throw new WorkshopSettlementConflictException("COLLECTION_PENDING_VERIFICATION");
+        }
         String operation = operationReference("FINALIZE", bookingCode, key);
         String fingerprint = fingerprint("FINALIZE", bookingCode);
         idempotency.execute(operation, fingerprint, () -> {
@@ -174,11 +179,9 @@ public class WorkshopFinalBillApiService {
                 new FinalBillProjectionDto.CustomerVisibleChargeDto(c.getDescription(), c.getAmountVnd())).toList());
     }
 
+    /** Counter collections (FR-031) settle a balance as much as a verified gateway payment does. */
     private long outstanding(SettlementFinalBill bill) {
-        long chargeTotal = charges.findByBillReferenceAndLifecycleStatusOrderByIdAsc(
-                bill.getBillReference(), "CONFIRMED").stream().mapToLong(c -> c.getAmountVnd() == null ? 0L : c.getAmountVnd()).sum();
-        return Math.max(0L, Math.subtractExact(Math.addExact(bill.getRemainingAmountVnd(), chargeTotal),
-                totalEvidence(bill.getBookingReference(), "FINAL_PAYMENT_VERIFIED")));
+        return folioBalances.balanceOf(bill).balanceDue();
     }
 
     private long totalEvidence(String bookingCode, String conclusion) {
