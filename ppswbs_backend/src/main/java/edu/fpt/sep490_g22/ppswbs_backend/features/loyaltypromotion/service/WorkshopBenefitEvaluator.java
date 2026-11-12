@@ -7,6 +7,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Loyalt
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SelectionChoice;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopTicketFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.DiscountResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.PointsLimit;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.PolicyTerms;
@@ -28,6 +29,9 @@ import java.util.Set;
  *       workshop date.</li>
  *   <li>The minimum and the discount use the package fee; the cap applies once to the whole booking, never per
  *       participant.</li>
+ *   <li>Cart (Session 2026-11-12, 003.1 FR-033): scope is checked per ticket; the minimum and the discount use the
+ *       sum of in-scope tickets, the cap applies once to the whole group, and the result lists the in-scope ticket
+ *       indexes so 003.1 allocates the discount only to them. Points use the whole cart after the voucher.</li>
  *   <li>Voucher first, then points (cap on the fee after the voucher, never on the deposit). The result is the
  *       post-promotion amount; FE-03 derives the deposit and the remaining amount from it under its own deposit
  *       policy. Loyalty never computes or rounds a deposit.</li>
@@ -53,6 +57,7 @@ public final class WorkshopBenefitEvaluator {
         RetailQuote.Candidate chosen = null;
         BigInteger discount = BigInteger.ZERO;
         BigInteger eligible = BigInteger.ZERO;
+        List<Integer> eligibleTickets = List.of();
 
         if (selection.choice() == SelectionChoice.AUTO) {
             refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE,
@@ -63,18 +68,32 @@ public final class WorkshopBenefitEvaluator {
                         BenefitReason.of(BenefitReasonCode.VOUCHER_NOT_FOUND));
             } else if (voucher.base().unavailable() != null) {
                 refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE, voucher.base().unavailable());
-            } else if (!matches(voucher, booking)) {
-                refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE,
-                        BenefitReason.of(BenefitReasonCode.WORKSHOP_NOT_COVERED));
             } else {
-                DiscountResult result = LoyaltyCalculator.programDiscount(voucher.base().terms(), fee);
-                if (!result.eligible()) {
+                List<Integer> inScope = new ArrayList<>();
+                BigInteger inScopeAmount = BigInteger.ZERO;
+                List<WorkshopTicketFact> tickets = ticketsOf(booking);
+                for (int i = 0; i < tickets.size(); i++) {
+                    if (matches(voucher, tickets.get(i))) {
+                        inScope.add(i);
+                        inScopeAmount = inScopeAmount.add(tickets.get(i).ticketPrice());
+                    }
+                }
+                if (inScope.isEmpty()) {
                     refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE,
-                            BenefitReason.of(BenefitReasonCode.WORKSHOP_BELOW_MINIMUM_FEE));
+                            BenefitReason.of(BenefitReasonCode.WORKSHOP_NOT_COVERED));
                 } else {
-                    chosen = voucher.base();
-                    eligible = fee;
-                    discount = result.discount();
+                    // The minimum and the discount use the in-scope tickets only (same rule as retail FR-014).
+                    DiscountResult result = LoyaltyCalculator.programDiscount(voucher.base().terms(), inScopeAmount);
+                    if (!result.eligible()) {
+                        refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE,
+                                BenefitReason.of(BenefitReasonCode.WORKSHOP_BELOW_MINIMUM_FEE));
+                    } else {
+                        chosen = voucher.base();
+                        eligible = inScopeAmount;
+                        discount = result.discount();
+                        // The single-package shape keeps no line indexes so its existing quotes keep their digest.
+                        eligibleTickets = booking.isCart() ? inScope : List.of();
+                    }
                 }
             }
         }
@@ -107,17 +126,25 @@ public final class WorkshopBenefitEvaluator {
                     BenefitReason.of(BenefitReasonCode.WORKSHOP_NET_AMOUNT_INVALID));
         }
         return new RetailQuote.Result(fee, eligible, discount, net, limit.maxPoints(), pointsAllowed, used, pointDiscount,
-                post, chosen, List.copyOf(reasons));
+                post, chosen, List.copyOf(reasons), eligibleTickets);
+    }
+
+    /** The cart's tickets, or the single-package booking as one ticket priced at the whole package fee. */
+    private static List<WorkshopTicketFact> ticketsOf(WorkshopFact booking) {
+        return booking.isCart() ? booking.tickets()
+                : List.of(new WorkshopTicketFact("package", booking.packageId(), booking.grossPackageAmount(),
+                        booking.sessions()));
     }
 
     /**
-     * The package must be targeted, and EVERY selected session must satisfy the branch, date and session restrictions
-     * (decision 2026-10-29): the discount covers the whole package, so a voucher limited to a day or a session cannot
-     * discount a booking whose other session falls outside it.
+     * The ticket's package must be targeted, and EVERY session of the ticket must satisfy the branch, date and session
+     * restrictions (decision 2026-10-29): the discount covers the whole package, so a voucher limited to a day or a
+     * session cannot discount a ticket whose other session falls outside it. Other tickets of a cart are judged on
+     * their own (Session 2026-11-12).
      */
-    private static boolean matches(WorkshopCandidate voucher, WorkshopFact booking) {
-        return (voucher.packages().isEmpty() || voucher.packages().contains(booking.packageId()))
-                && booking.sessions().stream().allMatch(session ->
+    private static boolean matches(WorkshopCandidate voucher, WorkshopTicketFact ticket) {
+        return (voucher.packages().isEmpty() || voucher.packages().contains(ticket.packageId()))
+                && ticket.sessions().stream().allMatch(session ->
                         (voucher.branches().isEmpty() || voucher.branches().contains(session.branchId()))
                         && (voucher.workshopDates().isEmpty() || voucher.workshopDates().contains(session.workshopDate()))
                         && (voucher.sessions().isEmpty() || voucher.sessions().contains(session.sessionRef())));

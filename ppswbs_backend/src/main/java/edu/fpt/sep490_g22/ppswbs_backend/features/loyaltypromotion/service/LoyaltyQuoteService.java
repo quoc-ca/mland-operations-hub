@@ -142,6 +142,17 @@ public class LoyaltyQuoteService {
         booking.sessions().forEach(session -> bound.append("|session=").append(session.sessionRef())
                 .append('@').append(session.branchId()).append('@').append(session.workshopDate()));
         bound.append("|people=").append(booking.participantCount());
+        // A cart (Session 2026-11-12) also binds every ticket in cart order and which tickets the voucher covers, so
+        // an accept with other tickets, prices or order than the preview is QUOTE_CHANGED. The single-package shape
+        // appends nothing here and keeps its digest.
+        booking.tickets().forEach(ticket -> {
+            bound.append("|ticket=").append(ticket.ticketRef()).append('#').append(ticket.packageId())
+                    .append('$').append(ticket.ticketPrice());
+            ticket.sessions().forEach(session -> bound.append('/').append(session.sessionRef()));
+        });
+        if (booking.isCart()) {
+            bound.append("|inScope=").append(result.eligibleLines());
+        }
         return new Evaluation(result, policy, LoyaltyCommandService.digest(bound.toString()));
     }
 
