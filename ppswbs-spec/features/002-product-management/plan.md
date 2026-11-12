@@ -1,7 +1,7 @@
 # Implementation Plan: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-10 (T140: thiết kế tồn kho theo chi nhánh US10, Session 2026-11-04/11-08/11-09/11-10; trước đó: 2026-10-26: V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; T004 SDK Cloudinary, T092 Apache POI))
+**Date updated**: 2026-11-12 (T146: cập nhật các câu viết trước khi triển khai — Technical Context, Constitution Check I, Project Structure, Verification — theo trạng thái đã triển khai, owner duyệt 2026-11-12; trước đó: 2026-11-10 (T140: thiết kế tồn kho theo chi nhánh US10, Session 2026-11-04/11-08/11-09/11-10; trước đó: 2026-10-26: V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; T004 SDK Cloudinary, T092 Apache POI)))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -23,7 +23,7 @@ Giữ module đóng; JPA/Flyway và MySQL 8.4, REST API versioned phục vụ fr
 | Item | Selected/proposed design |
 | --- | --- |
 | Language/Version | Java 21 theo pom hiện hành. |
-| Primary dependencies | Spring Boot 3.4.1, Modulith 1.3.1, Firebase Admin 9.11.0, JPA/Flyway, Security, Validation theo pom (Thymeleaf còn trong pom nhưng không dùng cho UI); frontend React + Vite tách riêng, chưa khởi tạo; không nâng version. |
+| Primary dependencies | Spring Boot 3.4.1, Modulith 1.3.1, Firebase Admin 9.11.0, JPA/Flyway, Security, Validation theo pom (Thymeleaf còn trong pom nhưng không dùng cho UI); frontend React + Vite tách riêng tại `ppswbs_frontend/` (đã khởi tạo theo T088/T089); không nâng version. |
 | Storage | MySQL 8.4/InnoDB để kiểm chứng; bảng catalogue mới, DECIMAL(19,0), UTC timestamps, append-only migration. Cloudinary đã được chọn; adapter đề xuất signed server-side upload, authenticated assets và stream cùng origin. SDK `com.cloudinary:cloudinary-http5:2.4.0` (T004, duyệt 2026-10-26; xem research D-06); không nâng dependency hiện có. |
 | Testing | JUnit/Spring Boot Test/MockMvc hiện có; MySQL thật cho migration/locking/collation, H2 bổ trợ. Fixture dependency không phải integration evidence. |
 | Target platform | Frontend React + Vite (client-side rendering) tách riêng gọi Spring Boot REST; không chọn production host hoặc deployment topology. |
@@ -40,8 +40,8 @@ Giữ module đóng; JPA/Flyway và MySQL 8.4, REST API versioned phục vụ fr
 | Principle/gate | Before research | After design | Evidence/condition |
 | --- | --- | --- | --- |
 | I. Module ownership | PASS | PASS DESIGN | productmanagement sở hữu entity/repo/use case; chỉ facade/SPI ra ngoài; không nghiệp vụ trong common. |
-| I. Acyclic dependencies | RISK | PASS DESIGN / INTEGRATION OPEN | FE-08 implements productmanagement SPI; productmanagement implements `PromotionTargetPort` của FE-06 (chỉ dùng `loyaltypromotion::facade`, không có chiều ngược lại); lock contract tại [interfaces](contracts/interfaces.md); adapter chưa có. |
-| I. JPA/migrations | PASS | PASS DESIGN | Khóa JPA, append-only migration, không raw SQL application, không sửa migration đã áp dụng (hiện chưa có migration nào). |
+| I. Acyclic dependencies | RISK | PASS DESIGN / INTEGRATION OPEN | FE-08 implements productmanagement SPI; productmanagement implements `PromotionTargetPort` của FE-06 (chỉ dùng `loyaltypromotion::facade`, không có chiều ngược lại); lock contract tại [interfaces](contracts/interfaces.md); các adapter đã có: availability/sales của FE-08 (`readyringsales`), `WorkshopSellingLocationAdapter` của 003.2, `LoyaltyProductTargetAdapter` của 002 — kiểm chứng bằng `ModulithArchitectureTests`; phần giữ hàng theo chi nhánh của FE-08 còn ở T124. |
+| I. JPA/migrations | PASS | PASS DESIGN | Khóa JPA, append-only migration, không raw SQL application, không sửa migration đã áp dụng (migration của 002: `V15__product_management.sql` và `V109__catalogue_variant_branch_stock.sql`, cùng các bản bổ sung đã áp dụng; trùng số `V109` với 012 theo dõi ở T136). |
 | II. Identity/authority | OPEN | FE-02 DECISION CLOSED / IDENTITY DEPENDENCY OPEN | Roles, dùng chung xác thực theo 001 đã chốt. V1 không yêu cầu MFA cho vai trò nội bộ (chốt 2026-10-26 theo 001); facade identity/quyền của 001 cần triển khai. Không suy quyền từ Member cookie/ROLE_MEMBER/OWNER. |
 | II. Sensitive data | PASS | POLICY CONFIRMED / IMPLEMENTATION PENDING | Retention ảnh 24h/30 ngày có reference guard, business audit/command result 5 năm đã chốt; cleanup/audit cần triển khai và kiểm chứng. |
 | III. Contract/web | PASS | PASS DESIGN | OpenAPI 3.0.3, typed errors/DTO, bearer cho mọi REST, frontend React tách riêng; backend không render UI. |
@@ -70,7 +70,7 @@ ppswbs-spec/features/002-product-management/
 
 Không tạo tasks.md trong speckit-plan; không sửa checklist reviewer/spec/research tổng để nâng trạng thái phê duyệt.
 
-### Source Code (repository root, planned only)
+### Source Code (repository root, đã triển khai)
 
 ```text
 ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/
@@ -98,7 +98,7 @@ ppswbs_frontend/        (React + Vite)
   src/features/product-management/  ui/ (management, public), application/ (hook gọi API), domain/ (luật thuần), infrastructure/ (REST client), routes/, tests/; cổng công khai index.js — theo FRONTEND-ARCHITECTURE (chuyển 2026-11-02)
 ```
 
-**Structure Decision**: Theo constitution I, backend tổ chức `features/<feature>/{controller,dto,dao,entity,service,facade}`. Feature 002 là module Modulith riêng tên `productmanagement` (Java package hợp lệ; slug tài liệu là `product-management`). Toàn bộ `ppswbs_backend/src`, kể cả shell `catalogue` cũ, đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24); `productmanagement` là module mới tạo từ đầu, không kế thừa code cũ. Plan phải kiểm chứng bằng `ApplicationModules.verify()` rằng `productmanagement` được nhận diện là module riêng, không chỉ gói grouping `features`. Không tạo service mới hoặc làm chung module FE-08. Tên bảng `catalogue_*`, route `/api/v1/catalogue-management/...` và tên class `Catalogue*` giữ nguyên trong tài liệu này (không thuộc yêu cầu đổi gói). Member Profile không được triển khai/sửa từ tác vụ này. Những file trên là vị trí dự kiến, không phải file production đã tạo.
+**Structure Decision**: Theo constitution I, backend tổ chức `features/<feature>/{controller,dto,dao,entity,service,facade}`. Feature 002 là module Modulith riêng tên `productmanagement` (Java package hợp lệ; slug tài liệu là `product-management`). Toàn bộ `ppswbs_backend/src`, kể cả shell `catalogue` cũ, đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24); `productmanagement` là module mới tạo từ đầu, không kế thừa code cũ. Plan phải kiểm chứng bằng `ApplicationModules.verify()` rằng `productmanagement` được nhận diện là module riêng, không chỉ gói grouping `features`. Không tạo service mới hoặc làm chung module FE-08. Tên bảng `catalogue_*`, route `/api/v1/catalogue-management/...` và tên class `Catalogue*` giữ nguyên trong tài liệu này (không thuộc yêu cầu đổi gói). Member Profile không được triển khai/sửa từ tác vụ này. Các vị trí trên đã được tạo khi triển khai (cập nhật 2026-11-12, T146); danh sách file chi tiết theo từng task ở [tasks.md](tasks.md).
 
 ## Phase 0 — Research and decisions
 
@@ -190,7 +190,7 @@ Xem [data-model](data-model.md), [OpenAPI](contracts/product-management.openapi.
 | FR-026–FR-030 | Receipt/audit, locks and normalized category key | Lost response replay, audit rollback, concurrent duplicate category/activation. |
 | FR-031–FR-038 | Public predicates, two-step paging, React screens over REST | Same-variant price/buyability filter, hidden price isolation, empty/error/media restoration, UI journeys over REST. |
 
-[quickstart.md](quickstart.md) ghi lệnh, điều kiện chạy và kết quả mong đợi. Chưa chạy runtime tests vì chưa có implementation; không đánh dấu contract/migration/security/FE-08 integration là pass bằng fixture hoặc static checks.
+[quickstart.md](quickstart.md) ghi lệnh, điều kiện chạy và kết quả mong đợi. Implementation và runtime tests đã có; bằng chứng theo từng lần chạy (unit, IT MySQL, frontend, trình duyệt) ghi ở [validation-report.md](validation-report.md) và ghi chú của từng task trong [tasks.md](tasks.md) (cập nhật 2026-11-12, T146). Vẫn không đánh dấu contract/migration/security/FE-08 integration là pass bằng fixture hoặc static checks.
 
 ## Complexity Tracking
 

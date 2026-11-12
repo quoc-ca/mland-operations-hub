@@ -12,7 +12,9 @@ import java.util.List;
  * preview comes from loyalty.
  * {@code eligibleLineIndexes} (Session 2026-11-09) are the zero-based indexes of the retail source lines the chosen
  * programme discounts, so the order owner spreads the discount only over branch orders that hold those lines; empty
- * for workshop or when no programme applies.
+ * when no programme applies. For a workshop cart ({@link WorkshopFact#cart}, Session 2026-11-12) they are the
+ * zero-based indexes of the in-scope tickets in cart order: 003.1 allocates {@code programDiscount} only over those
+ * tickets (003.1 FR-033). Always empty for the single-package workshop shape.
  */
 public record BenefitPreview(BigInteger grossAmount, BigInteger eligibleSubtotal, BigInteger programDiscount,
                              BigInteger netBeforePoints, BigInteger maxPoints, BigInteger minRedeemPoints,

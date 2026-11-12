@@ -8,6 +8,7 @@ import { firebaseAuthClient } from '../accountmanagement/auth/FirebaseAuthClient
 import { listWorkshopPackages, listMemberBookings } from '../../api/workshops';
 import { listPublicProducts, publicMediaUrl } from '../../api/catalogue';
 import MainTopbar from '../../shared/ui/MainTopbar';
+import { PublicProductGrid } from '../product-management/ui/public/PublicProductGrid';
 import './landing.css';
 
 /**
@@ -166,6 +167,7 @@ export default function HomePage() {
   // Live state kết nối từ các features khác
   const [workshopPackages, setWorkshopPackages] = useState(DEFAULT_WORKSHOP_PACKAGES);
   const [readyRings, setReadyRings] = useState(DEFAULT_READY_RINGS);
+  const [readyProducts, setReadyProducts] = useState([]);
   const [orderCount, setOrderCount] = useState(1);
   const [liveFullName, setLiveFullName] = useState('');
 
@@ -248,6 +250,8 @@ export default function HomePage() {
         if (!active) return;
         const items = Array.isArray(res) ? res : res?.items || [];
         if (items.length === 0) return;
+        // 002 product cards (discount price, offer badges, cart button) in a sideways strip: the whole first page.
+        setReadyProducts(items);
         const mapped = items.slice(0, 4).map((p, idx) => {
           const code = p.variants?.[0]?.sku || `ML-R0${idx + 1}`;
           const minPrice = p.priceRange?.minimum || p.variants?.[0]?.appliedPrice;
@@ -477,6 +481,7 @@ export default function HomePage() {
           <h3 id="ready-rings-title" className="landing-section-title">
             READY RINGS — NHẪN CHẾ TÁC THỦ CÔNG SẴN SÀNG GIAO
           </h3>
+          {readyProducts.length > 0 ? <PublicProductGrid products={readyProducts} standalone /> : (
           <div className="landing-rings-grid">
             {readyRings.map((ring) => (
               <article key={ring.code} className="landing-ring-card">
@@ -501,6 +506,7 @@ export default function HomePage() {
               </article>
             ))}
           </div>
+          )}
         </section>
 
         {/* ================================================================
