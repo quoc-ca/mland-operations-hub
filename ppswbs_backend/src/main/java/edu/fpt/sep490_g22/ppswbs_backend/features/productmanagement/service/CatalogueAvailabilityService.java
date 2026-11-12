@@ -48,6 +48,18 @@ public class CatalogueAvailabilityService implements VariantHoldReader {
         return held;
     }
 
+    /** FR-051: per size × branch once FE-08 tracks holds per branch; empty (unknown) before that. */
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Map<BranchVariant, BigInteger> validHeldByBranch(Collection<BranchVariant> keys) {
+        if (keys == null || keys.isEmpty() || !tracksHoldsPerBranch()) {
+            return Map.of();
+        }
+        Map<BranchVariant, BigInteger> held = new LinkedHashMap<>();
+        readBranchSnapshots(keys, Instant.now()).forEach((key, snapshot) -> held.put(key, snapshot.heldQuantity()));
+        return held;
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public Map<Long, HeldSnapshot> readSnapshots(Collection<Long> variantIds, Instant asOf) {
         List<Long> ids = ascending(variantIds);

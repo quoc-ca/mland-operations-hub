@@ -18,6 +18,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Benefi
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.ComponentState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.EarnState;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
@@ -295,6 +296,157 @@ class LoyaltyWorkshopFacadeIT {
                 accept(cart(memberId, packageId, 500_000), ref, preview.termsDigest()), selection, "cmd"));
         assertThat(accepted.postPromotionAmount()).isEqualTo(n(1_390_000));
         assertThat(wallets.findById(memberId).orElseThrow().getHeldPoints()).isEqualTo(n(100));
+    }
+
+    /**
+     * T100 (FR-022, US5.7, decision 2026-11-12): a voucher that takes the package fee to exactly 0đ is accepted and
+     * stored; FE-03 confirms the booking without the gateway and settles it like a deposit.
+     */
+    @Test
+    void aZeroFeeWorkshopBookingIsAcceptedStoredAndSettled() {
+        long packageId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
+        String code = workshopVoucher(packageId);
+        long memberId = member(1);
+        TrustedSourceContext zero = new TrustedSourceContext(SourceKind.WORKSHOP, memberId, Instant.now(), List.of(),
+                WorkshopFact.singleSession(packageId, 1, n(100_000), WorkshopSessionFact.of(SESSION_1, 2L, DAY)),
+                BigInteger.ZERO);
+        BenefitSelection selection = new BenefitSelection(SelectionChoice.VOUCHER, code, BigInteger.ZERO);
+        BenefitPreview preview = loyalty.previewBenefits(zero, selection);
+        assertThat(preview.postPromotionAmount()).isZero();
+        assertThat(preview.reasons()).isEmpty();
+
+        String ref = "booking-" + UUID.randomUUID();
+        AcceptedBenefitRef accepted = transaction.execute(status ->
+                loyalty.reserveAcceptedTransaction(accept(zero, ref, preview.termsDigest()), selection, "cmd"));
+        assertThat(accepted.postPromotionAmount()).isZero();
+        assertThat(accepted.voucherState()).isEqualTo(ComponentState.HELD);
+
+        transaction.executeWithoutResult(status -> loyalty.settleAcceptedBenefits(
+                outcome(ref, OutcomeKind.WORKSHOP_DEPOSIT_ACCEPTED, "zero-" + ref, 2)));
+        AcceptedBenefit stored = benefits.findBySourceKindAndSourceRef(SourceKind.WORKSHOP, ref).orElseThrow();
+        assertThat(stored.getPostPromotionAmount()).isZero();
+        assertThat(stored.getVoucherState()).isEqualTo(ComponentState.CONSUMED);
+    }
+
+    // ---- T103 (Session 2026-11-12, D-012): per-ticket outcomes of a workshop cart (003.3 FR-030/FR-042/FR-043) ----
+
+    private record TicketCart(long memberId, String code, String ref, AcceptedBenefitRef held) {
+        edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitPartRef ticket(String ref) {
+            return held.parts().stream().filter(p -> p.partRef().equals(ref)).findFirst().orElseThrow();
+        }
+    }
+
+    /** Three 500.000 tickets t-1..t-3 of the voucher package on DAY, voucher 100.000 and 100 points; deposit settled. */
+    private TicketCart acceptAndSettleThreeTickets() {
+        long packageId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
+        String code = workshopVoucher(packageId);
+        long memberId = member(1_000);
+        List<WorkshopTicketFact> tickets = List.of("t-1", "t-2", "t-3").stream()
+                .map(t -> new WorkshopTicketFact(t, packageId, n(500_000), List.of(WorkshopSessionFact.of(SESSION_1, 2L, DAY))))
+                .toList();
+        TrustedSourceContext group = new TrustedSourceContext(SourceKind.WORKSHOP, memberId, Instant.now(), List.of(),
+                WorkshopFact.cart(tickets), BigInteger.ZERO);
+        BenefitSelection selection = new BenefitSelection(SelectionChoice.VOUCHER, code, n(100));
+        BenefitPreview preview = loyalty.previewBenefits(group, selection);
+        String ref = "group-" + UUID.randomUUID();
+        AcceptedBenefitRef held = transaction.execute(status ->
+                loyalty.reserveAcceptedTransaction(accept(group, ref, preview.termsDigest()), selection, "cmd"));
+        transaction.executeWithoutResult(status -> loyalty.settleAcceptedBenefits(
+                outcome(ref, OutcomeKind.WORKSHOP_DEPOSIT_ACCEPTED, "dep-" + ref, 2)));
+        return new TicketCart(memberId, code, ref, held);
+    }
+
+    private static AuthoritativeOutcome ticketOutcome(String ref, OutcomeKind kind, String key, String ticket) {
+        Instant now = Instant.now();
+        return new AuthoritativeOutcome(SourceKind.WORKSHOP, ref, "workshopbooking", key + "-" + ref, 3, kind, now,
+                now.plusSeconds(900), "snap", true, "proof", ticket);
+    }
+
+    private BigInteger balance(long memberId) {
+        return wallets.findById(memberId).orElseThrow().getBalancePoints();
+    }
+
+    @Test
+    void aWorkshopCartIsSplitPerTicketAtAccept() {
+        TicketCart cart = acceptAndSettleThreeTickets();
+        assertThat(cart.held().parts()).extracting(p -> p.partRef()).containsExactly("t-1", "t-2", "t-3");
+        assertThat(cart.held().parts()).extracting(p -> p.programDiscount())
+                .containsExactly(n(33_334), n(33_333), n(33_333));
+        assertThat(cart.held().parts()).extracting(p -> p.pointsHeld()).containsExactly(n(33), n(34), n(33));
+        assertThat(cart.held().parts().stream().map(p -> p.earnPoints()).reduce(BigInteger.ZERO, BigInteger::add))
+                .as("ticket earn shares add up to the group's points").isEqualTo(n(1_400_000)
+                        .subtract(cart.held().pointDiscount()).divide(n(10_000)));
+        assertThat(balance(cart.memberId())).as("the group deposit debited the 100 points").isEqualTo(n(900));
+    }
+
+    @Test
+    void ticketsEarnOneByOneAndACancelledTicketGetsItsPointsBack() {
+        TicketCart cart = acceptAndSettleThreeTickets();
+        String ref = cart.ref();
+
+        // t-2 validly cancelled: its 34 points come back; the voucher stays used (t-1, t-3 still running).
+        BenefitResult cancelled = transaction.execute(status -> loyalty.restoreCancelledWorkshopBenefits(
+                ticketOutcome(ref, OutcomeKind.WORKSHOP_TICKET_VALID_CANCELLATION, "cancel-2", "t-2")));
+        assertThat(balance(cart.memberId())).isEqualTo(n(934));
+        assertThat(cancelled.voucherState()).isEqualTo(ComponentState.CONSUMED);
+
+        // t-1 checked out: earns only its share, once.
+        BigInteger e1 = cart.ticket("t-1").earnPoints();
+        transaction.executeWithoutResult(status -> loyalty.grantEarnedPoints(
+                ticketOutcome(ref, OutcomeKind.WORKSHOP_TICKET_COMPLETED_AND_FULLY_PAID, "done-1", "t-1")));
+        transaction.executeWithoutResult(status -> loyalty.grantEarnedPoints(
+                ticketOutcome(ref, OutcomeKind.WORKSHOP_TICKET_COMPLETED_AND_FULLY_PAID, "done-1", "t-1")));
+        assertThat(balance(cart.memberId())).isEqualTo(n(934).add(e1));
+
+        // t-3 no-show: nothing back, no earn, the booking's earn is now the sum of earned tickets.
+        BenefitResult last = transaction.execute(status -> loyalty.finishIneligibleEarn(
+                ticketOutcome(ref, OutcomeKind.WORKSHOP_TICKET_NO_SHOW_FINAL, "noshow-3", "t-3")));
+        assertThat(last.earnState()).isEqualTo(EarnState.GRANTED);
+        assertThat(last.voucherState()).as("a no-show blocks the voucher return").isEqualTo(ComponentState.CONSUMED);
+        assertThat(last.parts()).extracting(p -> p.closure())
+                .containsExactly("COMPLETED", "VALID_CANCELLATION", "NO_SHOW");
+        AcceptedBenefit stored = benefits.findBySourceKindAndSourceRef(SourceKind.WORKSHOP, ref).orElseThrow();
+        assertThat(stored.getEarnedPoints()).isEqualTo(e1);
+
+        // A whole-booking earn after per-ticket outcomes is a conflict.
+        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> loyalty.grantEarnedPoints(
+                outcome(ref, OutcomeKind.WORKSHOP_COMPLETED_AND_FULLY_PAID, "all-" + ref, 4))))
+                .isInstanceOfSatisfying(LoyaltyException.class,
+                        e -> assertThat(e.code()).isEqualTo(LoyaltyErrorCode.BENEFIT_STATE_CONFLICT));
+        // The group deposit replayed after ticket outcomes is still a no-op.
+        transaction.executeWithoutResult(status -> loyalty.settleAcceptedBenefits(
+                outcome(ref, OutcomeKind.WORKSHOP_DEPOSIT_ACCEPTED, "dep-" + ref, 2)));
+    }
+
+    @Test
+    void aMlandCancellationGivesTheVoucherBackOnceEvenForPartOfTheGroup() {
+        TicketCart cart = acceptAndSettleThreeTickets();
+        long consumedBefore = programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount();
+        BenefitResult mland = transaction.execute(status -> loyalty.restoreCancelledWorkshopBenefits(
+                ticketOutcome(cart.ref(), OutcomeKind.WORKSHOP_TICKET_MLAND_CANCELLATION, "mland-1", "t-1")));
+        assertThat(mland.voucherState()).isEqualTo(ComponentState.RESTORED);
+        assertThat(programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount()).isEqualTo(consumedBefore - 1);
+        transaction.executeWithoutResult(status -> loyalty.restoreCancelledWorkshopBenefits(
+                ticketOutcome(cart.ref(), OutcomeKind.WORKSHOP_TICKET_VALID_CANCELLATION, "cancel-2", "t-2")));
+        assertThat(programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount())
+                .as("never a second time").isEqualTo(consumedBefore - 1);
+        assertThat(balance(cart.memberId())).isEqualTo(n(900 + 33 + 34));
+    }
+
+    @Test
+    void theVoucherComesBackWhenEveryTicketIsValidlyCancelled() {
+        TicketCart cart = acceptAndSettleThreeTickets();
+        transaction.executeWithoutResult(status -> loyalty.restoreCancelledWorkshopBenefits(
+                ticketOutcome(cart.ref(), OutcomeKind.WORKSHOP_TICKET_VALID_CANCELLATION, "c1", "t-1")));
+        BenefitResult two = transaction.execute(status -> loyalty.restoreCancelledWorkshopBenefits(
+                ticketOutcome(cart.ref(), OutcomeKind.WORKSHOP_TICKET_VALID_CANCELLATION, "c2", "t-2")));
+        assertThat(two.voucherState()).isEqualTo(ComponentState.CONSUMED);
+        BenefitResult three = transaction.execute(status -> loyalty.restoreCancelledWorkshopBenefits(
+                ticketOutcome(cart.ref(), OutcomeKind.WORKSHOP_TICKET_VALID_CANCELLATION, "c3", "t-3")));
+        assertThat(three.voucherState()).isEqualTo(ComponentState.RESTORED);
+        assertThat(three.pointsState()).isEqualTo(ComponentState.RESTORED);
+        assertThat(three.earnState()).isEqualTo(EarnState.INELIGIBLE);
+        assertThat(balance(cart.memberId())).isEqualTo(n(1_000));
     }
 
     @Test

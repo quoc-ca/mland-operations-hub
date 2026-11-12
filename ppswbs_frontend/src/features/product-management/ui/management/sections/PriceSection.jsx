@@ -24,13 +24,13 @@ export function PriceSection({ product, missing = {}, ...context }) {
       <h2 id="price-title">{t('section.prices')}</h2>
       <MissingNote messageKey={missing.prices} />
       {!product.firstPublishedAt && <p className="muted small">{t(isManager ? 'price.initialHintManager' : 'price.initialHint')}</p>}
-      {!context.deleted && <BatchPrices product={product} {...context} />}
-      {(product.variants || []).map(variant => <VariantPrices key={variant.id} product={product} variant={variant} {...context} />)}
+      {!context.deleted && <BatchPrices product={product} isManager={isManager} {...context} />}
+      {(product.variants || []).map(variant => <VariantPrices key={variant.id} product={product} variant={variant} isManager={isManager} {...context} />)}
     </section>
   );
 }
 
-function VariantPrices({ product, variant, api, reload, setNotice, deleted }) {
+function VariantPrices({ product, variant, api, reload, setNotice, deleted, isManager = true }) {
   const t = useT(messages);
   const format = useFormat();
   const current = effectiveProposal(variant);
@@ -77,7 +77,7 @@ function VariantPrices({ product, variant, api, reload, setNotice, deleted }) {
             <ActionButton label={t('price.submit')} send={key => api.submitPrice(key, current.id, current.version)} action={ACTIONS.submitPrice} notice={note('price.submitted')} reload={reload} setNotice={setNotice} />
           )}
           {state === 'PENDING' && independent && <p className="muted small price-step">{t('price.pendingHint')}</p>}
-          {state === 'PENDING' && independent && <PriceDecision proposal={current} note={note} api={api} reload={reload} setNotice={setNotice} />}
+          {state === 'PENDING' && independent && isManager && <PriceDecision proposal={current} note={note} api={api} reload={reload} setNotice={setNotice} />}
           {state === 'PENDING' && !independent && <p className="muted small">{t('price.decideInReview')}</p>}
           {state === 'APPROVED' && !current.applied && (
             <ActionButton label={t('price.apply', { amount: format.money(current.approvedPrice) })} send={key => api.applyPrice(key, current.id, current.version)} action={ACTIONS.applyPrice} notice={note('price.appliedNotice', current.approvedPrice)} reload={reload} setNotice={setNotice} />

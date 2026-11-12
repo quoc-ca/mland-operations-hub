@@ -5788,6 +5788,18 @@
           "version": {
             "type": "integer",
             "minimum": 0
+          },
+          "validHeldQuantity": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "nullable": true,
+            "description": "FR-051 (2026-11-12): valid FE-08 holds at this branch. Null while the FE-08 source keeps holds per size only; the size's validHeldQuantity then applies at every branch."
+          },
+          "availableQuantity": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "nullable": true,
+            "description": "FR-051: max(0, remainingUnsold - validHeldQuantity) at this branch; null when validHeldQuantity is null."
           }
         },
         "required": [

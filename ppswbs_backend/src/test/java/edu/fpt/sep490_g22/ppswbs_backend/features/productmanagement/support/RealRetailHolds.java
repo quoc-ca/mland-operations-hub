@@ -5,6 +5,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.AvailabilityGuardPort;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.GroupedCheckoutRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailVariantHoldRepository;
@@ -79,6 +80,14 @@ public class RealRetailHolds {
                     return lifecycle.createHeld(checkouts.findById(checkoutId).orElseThrow(), sizeId, quantity, expiresAt)
                             .getId();
                 })));
+    }
+
+    /** A hold at one branch (FR-053, FE-08 T124), created under the branch guard as FE-08 checkout does. */
+    public String holdAtBranch(String checkoutId, long sizeId, long locationId, int quantity) {
+        BranchVariant key = new BranchVariant(sizeId, locationId);
+        return inTx(() -> source.withBranchGuard(List.of(key), Instant.now(), snapshots ->
+                lifecycle.createHeld(checkouts.findById(checkoutId).orElseThrow(), sizeId, locationId, quantity,
+                        Instant.now().plus(15, ChronoUnit.MINUTES)).getId()));
     }
 
     /** FE-08 releases its hold under its guard (also allowed after the product was hidden or deleted). */

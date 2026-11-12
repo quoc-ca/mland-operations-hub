@@ -35,8 +35,13 @@ public final class ManagementProductDtos {
     public record Branch(String locationId, String name, boolean active, boolean saleEnabled) {
     }
 
-    /** Quantity of a size at one branch (US10); {@code version} is the row version for the branch quantity command. */
-    public record BranchStock(String locationId, String remainingUnsold, boolean saleEnabled, long version) {
+    /**
+     * Quantity of a size at one branch (US10); {@code version} is the row version for the branch quantity command.
+     * {@code validHeldQuantity}/{@code availableQuantity} (FR-051): holds and availability at this branch, null while the
+     * FE-08 source keeps holds per size only (the size's {@code validHeldQuantity} then applies at every branch).
+     */
+    public record BranchStock(String locationId, String remainingUnsold, boolean saleEnabled, long version,
+                              String validHeldQuantity, String availableQuantity) {
     }
 
     public record Category(String id, String name, String description, boolean active, long version) {

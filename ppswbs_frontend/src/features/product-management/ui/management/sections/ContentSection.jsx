@@ -10,7 +10,7 @@ import { NoticeAt } from '../notices';
 /** T050: name, description and category only (PUT products/{id}); sizes and SKUs stay read-only. */
 export function ContentSection({ product, api, reload, setNotice, deleted, missing = {} }) {
   const t = useT(messages);
-  const categories = useResource(() => api.listCategories(), []);
+  const categories = useResource(() => api.listAllCategories(), []);
   const initial = () => ({ name: product.name, description: product.description || '', categoryId: product.category?.id || '' });
   const [form, setForm] = useState(initial);
   const [editing, setEditing] = useState(false);
