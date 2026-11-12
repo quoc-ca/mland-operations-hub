@@ -30,8 +30,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestContext;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.support.AbstractTestExecutionListener;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -46,6 +50,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@TestExecutionListeners(
+        listeners = WorkshopOtaSnapshotIT.IsolatedSchemaCleanupListener.class,
+        mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
 class WorkshopOtaSnapshotIT {
     private static final OtaMigrationTestSupport OTA_DB = OtaMigrationTestSupport.fromEnvironment().orElse(null);
     private static final String OTA_SCHEMA = initializeOtaSchema();
@@ -89,9 +97,17 @@ class WorkshopOtaSnapshotIT {
         registry.add("spring.flyway.enabled", () -> "false");
     }
 
-    @org.junit.jupiter.api.AfterAll
-    static void cleanupIsolatedMysql() throws Exception {
-        if (OTA_DB != null) OTA_DB.close();
+    public static final class IsolatedSchemaCleanupListener extends AbstractTestExecutionListener {
+        @Override
+        public int getOrder() {
+            // afterTestClass callbacks run in reverse order: close the dirty context first, then drop its schema.
+            return 2999; // Immediately after Spring's order-3000 DirtiesContext listener on teardown.
+        }
+
+        @Override
+        public void afterTestClass(TestContext testContext) throws Exception {
+            if (OTA_DB != null) OTA_DB.close();
+        }
     }
     @BeforeEach
     void setUp() throws Exception {
