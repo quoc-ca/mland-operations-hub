@@ -60,7 +60,7 @@ const vi = {
   'edit.limitHint': 'Không được thấp hơn số lượt đã dùng hoặc đang giữ.',
   'program.created': 'Đã tạo chương trình.', 'program.updated': 'Đã lưu thay đổi.', 'program.paused': 'Đã tạm dừng chương trình.',
   'program.resumed': 'Đã mở lại chương trình.', 'program.pause': 'Tạm dừng', 'program.resume': 'Mở lại',
-  'program.pauseText': 'Khách sẽ không dùng được chương trình mới cho đơn mới. Đơn đã nhận ưu đãi, lịch sử và số lượt giữ nguyên.',
+  'program.pauseText': 'Khách sẽ không dùng được chương trình này cho đơn mới. Đơn đã nhận ưu đãi, lịch sử và số lượt giữ nguyên.',
   'program.resumeText': 'Chương trình sẽ dùng được lại trong thời gian áp dụng.',
   'usage.title': 'Tình hình sử dụng', 'usage.consumed': 'Đã dùng / tổng', 'usage.held': 'Đang giữ', 'usage.accepted': 'Số đơn đã nhận',
   'usage.discount': 'Tổng tiền đã giảm',

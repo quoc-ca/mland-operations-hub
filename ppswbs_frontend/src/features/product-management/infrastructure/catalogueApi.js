@@ -90,7 +90,28 @@ export function catalogueApi(request) {
     getImport: batchId => read(`/product-imports/${id(batchId)}`),
     confirmImport: (key, batchId, expectedVersion) => write('POST', `/product-imports/${id(batchId)}/confirmations`, key, { expectedVersion }),
     downloadImportErrors: batchId => request(`${MANAGEMENT}/product-imports/${id(batchId)}/error-report`, { responseType: 'blob' }),
+
+    // Every category, for a picker or filter: the list endpoints answer 20 per page (A-002), so a select built from
+    // one page would hide the 21st category onwards.
+    listAllCategories: () => allPages(page => read('/categories', { page })),
+    listAllPublicCategories: () => allPages(page => publicRead('/product-categories', { page })),
   };
+}
+
+/** Pages are zero-based; stops at the last page (totalElements) or at an empty page, at most MAX_PAGES pages. */
+const MAX_PAGES = 100;
+async function allPages(readPage) {
+  const items = [];
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const data = await readPage(page);
+    const pageItems = data?.items || [];
+    items.push(...pageItems);
+    const total = Number(data?.totalElements);
+    const pageSize = Number(data?.pageSize);
+    if (!pageItems.length || (Number.isFinite(total) && items.length >= total)
+      || !Number.isFinite(total) || (Number.isFinite(pageSize) && pageItems.length < pageSize)) break;
+  }
+  return { items, totalElements: String(items.length) };
 }
 
 /** Same-origin media path from the public catalogue, served by the backend. */

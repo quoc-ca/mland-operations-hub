@@ -58,6 +58,7 @@ class CatalogueBranchSalesIT {
     @Autowired private JdbcTemplate jdbc;
     @Autowired private TransactionTemplate transaction;
     @Autowired private edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.PublicCatalogueQueryService publicCatalogue;
+    @Autowired private edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.ManagementProductQueryService managementProducts;
 
     private long branchA;
     private long branchB;
@@ -79,8 +80,27 @@ class CatalogueBranchSalesIT {
         assertThat(source.tracksHoldsPerBranch()).isTrue();
         Map<BranchVariant, HeldSnapshot> snapshots = transaction.execute(status -> source.readBranchSnapshots(
                 List.of(new BranchVariant(size5, branchB), new BranchVariant(size5, branchA)), Instant.now()));
-        assertThat(snapshots.keySet()).containsExactly(new BranchVariant(size5, branchA), new BranchVariant(size5, branchB));
+        // AvailabilityGuardPort.readBranchSnapshots promises exactly one snapshot per requested key, not an order
+        // (CatalogueAvailabilityService puts them in ascending BranchVariant order itself).
+        assertThat(snapshots.keySet()).containsExactlyInAnyOrder(
+                new BranchVariant(size5, branchA), new BranchVariant(size5, branchB));
         assertThat(snapshots.values()).allSatisfy(snapshot -> assertThat(snapshot.heldQuantity()).isEqualTo(BigInteger.ONE));
+    }
+
+    @Test
+    void theManagementReadShowsHoldsAndAvailabilityPerBranch() {
+        ProductVariant size5 = publishedAtAAndB();   // size 5: A = 3, B = 2
+        retail.holdAtBranch(retail.newCheckout(), size5.getId(), branchA, 2);
+
+        // FR-051 (2026-11-12): a hold at A counts at A only; the size row keeps the total of its holds.
+        var variant = managementProducts.get(Long.toString(size5.getProductId())).variants().stream()
+                .filter(row -> row.id().equals(Long.toString(size5.getId()))).findFirst().orElseThrow();
+        assertThat(variant.validHeldQuantity()).isEqualTo("2");
+        assertThat(variant.branchStocks()).extracting(stock -> stock.locationId(), stock -> stock.validHeldQuantity(),
+                        stock -> stock.availableQuantity())
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(Long.toString(branchA), "2", "1"),
+                        org.assertj.core.groups.Tuple.tuple(Long.toString(branchB), "0", "2"));
     }
 
     @Test

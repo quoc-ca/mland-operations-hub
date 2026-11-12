@@ -32,7 +32,7 @@ export default function ProductCreatePage() {
   const t = useT(messages);
   const api = useCatalogueApi();
   const navigate = useNavigate();
-  const categories = useResource(() => api.listCategories(), []);
+  const categories = useResource(() => api.listAllCategories(), []);
   // US10: branches this account may sell at (Manager: every active branch; Staff: assigned ones — the API filters).
   const branchList = useResource(() => api.listBranches(), []);
   const availableBranches = (Array.isArray(branchList.data) ? branchList.data : branchList.data?.items || [])
@@ -76,7 +76,8 @@ export default function ProductCreatePage() {
       pending.forget();
       const id = outcome.result.resourceId;
       const params = { name: form.name.trim() };
-      let notice = { key: 'create.success', params };
+      // With images already attached the next step is only the review submission.
+      let notice = { key: images.length ? 'create.successWithImages' : 'create.success', params };
       if (isManager) {
         // Each step is its own command; if one fails the product is already saved and the detail page says what is left.
         setApplying(true);

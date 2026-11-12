@@ -21,7 +21,7 @@ export default function PublicProductListPage() {
   useEffect(() => { setDraft(criteria); }, [params.toString()]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const products = useResource(() => api.listPublicProducts({ ...criteria, page: page || undefined }), [params.toString()]);
-  const categories = useResource(() => api.listPublicCategories(), []);
+  const categories = useResource(() => api.listAllPublicCategories(), []);
 
   const apply = event => {
     event.preventDefault();
