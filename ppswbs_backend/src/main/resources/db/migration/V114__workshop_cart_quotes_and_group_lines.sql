@@ -1,5 +1,5 @@
--- V112: cart quotes and the group's own lines/holds (003.1 T092, FR-030..FR-036).
--- V111 added the group, its tickets and their price snapshots but no place for the cart lines a group was
+-- V114: cart quotes and the group's own lines/holds (003.1 T092, FR-030..FR-036).
+-- V113 added the group, its tickets and their price snapshots but no place for the cart lines a group was
 -- built from, nor for the capacity holds T093 must commit or release. Both live here. All amounts are whole VND.
 
 CREATE TABLE booking_group_lines (

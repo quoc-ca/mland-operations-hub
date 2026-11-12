@@ -1,4 +1,4 @@
--- V115: folio collections and the per-branch cash day close (003.3 T094-T096, FR-031..FR-036).
+-- V117: folio collections and the per-branch cash day close (003.3 T094-T096, FR-031..FR-036).
 -- A folio's balance may be collected in several parts and mixed methods. A collection keys on bill_reference
 -- like settlement_charges does, so it belongs to exactly one ticket or booking folio. All amounts are whole
 -- VND. A PENDING_VERIFICATION collection never reduces a balance; only a CONFIRMED one does.

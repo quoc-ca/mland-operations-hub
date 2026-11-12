@@ -1,4 +1,4 @@
--- V111: booking groups and per-person ticket bookings (003.1 FR-030..FR-043, decision 2026-11-12).
+-- V113: booking groups and per-person ticket bookings (003.1 FR-030..FR-043, decision 2026-11-12).
 -- Dev/test data only exists, so the model is added beside workshop_bookings without converting rows; a
 -- single-person booking is a group of one. Recipient, change-history, group payment and late-payment tables
 -- are created now so later tasks only add entities and logic. All amounts are whole VND.

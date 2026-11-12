@@ -1,4 +1,4 @@
--- V116: benefits on a cart quote (003.1 T092 with the 006 cart contract of 2026-11-12, D-010).
+-- V118: benefits on a cart quote (003.1 T092 with the 006 cart contract of 2026-11-12, D-010).
 -- 006 decides the group discount, the points and which tickets the voucher covers; 003.1 stores that answer
 -- with the quote and allocates it per ticket. The ticket order is the cart order of lines_json, so accept
 -- rebuilds exactly the cart that was previewed and the terms digest still matches.

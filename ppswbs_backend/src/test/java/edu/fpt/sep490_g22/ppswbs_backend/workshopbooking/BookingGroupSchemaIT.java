@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * V111 on MySQL: the group/ticket schema stores the 2026-11-12 collection rules and the database itself refuses
+ * V113 on MySQL: the group/ticket schema stores the 2026-11-12 collection rules and the database itself refuses
  * invalid rows. Each write runs in its own transaction so a refused insert cannot poison the next step; created
  * groups are deleted afterwards (tickets, snapshots and the other group tables cascade).
  */

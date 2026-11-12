@@ -1,7 +1,7 @@
--- V113: group confirmation (003.1 T093, FR-038, FR-039).
+-- V115: group confirmation (003.1 T093, FR-038, FR-039).
 -- A confirmed ticket carries the QR identity Workshop Operations issued for it, and the group gets one
 -- Magic Link so the buyer reaches every ticket of the group (FR-042). Group payment attempts already exist
--- in V111; nothing here collects money.
+-- in V113; nothing here collects money.
 
 ALTER TABLE ticket_bookings
     ADD COLUMN operations_ticket_reference CHAR(36) NULL DEFAULT NULL AFTER package_name_snapshot,
