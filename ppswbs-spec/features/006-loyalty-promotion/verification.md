@@ -1,7 +1,7 @@
 # Verification — FE-06 Loyalty & Promotion
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-12 (mục 58: đổi số migration sang V119–V121; trước đó cùng ngày: mục 57: tích điểm, hủy và trả điểm theo vé workshop, T103; trước đó cùng ngày: mục 56: rà soát liên feature 002/006 ↔ 003/008; trước đó cùng ngày: mục 55: rà soát toàn bộ 006 và speckit-converge, sửa T100 (V120), T101, T102; trước đó cùng ngày: mục 54: checkout nhiều chi nhánh trả tại quầy của FE-08, T099; trước đó cùng ngày: mục 53: giỏ workshop nhiều vé cho 003.1, T098; trước đó: 2026-11-10 (mục 52: rà soát spec ↔ code và sửa M1–M3, L1–L6 (T090–T097), test tự động và trên màn thật; mục 51: contract chi nhánh cho FE-08; mục 50: voucher sản phẩm theo chi nhánh T083–T087, ưu đãi trên trang sản phẩm công khai T089, đóng T082, sửa OpenAPI `TargetWarning`; trước đó: 2026-11-05 (mục 49: kiểm thử cuối trên màn thật, tên gói/chi nhánh workshop; mục 48: T081 mã lý do vi/en; trước đó: 2026-11-04 (mục 46: rà soát hoàn thành — 80/80 task, backend 258/258, frontend 31/31, owner thử voucher thật; trước đó: 2026-11-03 (mục 40 sửa theo thực tế, mục 41: cảnh báo phạm vi cho Manager, khôi phục lệnh tạo, mã voucher trong spec; trước đó: 2026-11-01 (mục 30: chuẩn bị T075/T076, đối chiếu 41 FR; mục 29: phục hồi, tranh chấp nguồn, báo cáo lượt dùng; mục 28: workshop nguồn thật FE-03 và CORS; mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật)))))
+**Date updated**: 2026-11-12 (mục 60: rà soát cuối và chạy toàn bộ 006 trên màn thật — Manager, Member, Staff thu tiền; trước đó cùng ngày: mục 59: sau khi gộp develop; trước đó cùng ngày: mục 58: đổi số migration sang V119–V121; trước đó cùng ngày: mục 57: tích điểm, hủy và trả điểm theo vé workshop, T103; trước đó cùng ngày: mục 56: rà soát liên feature 002/006 ↔ 003/008; trước đó cùng ngày: mục 55: rà soát toàn bộ 006 và speckit-converge, sửa T100 (V120), T101, T102; trước đó cùng ngày: mục 54: checkout nhiều chi nhánh trả tại quầy của FE-08, T099; trước đó cùng ngày: mục 53: giỏ workshop nhiều vé cho 003.1, T098; trước đó: 2026-11-10 (mục 52: rà soát spec ↔ code và sửa M1–M3, L1–L6 (T090–T097), test tự động và trên màn thật; mục 51: contract chi nhánh cho FE-08; mục 50: voucher sản phẩm theo chi nhánh T083–T087, ưu đãi trên trang sản phẩm công khai T089, đóng T082, sửa OpenAPI `TargetWarning`; trước đó: 2026-11-05 (mục 49: kiểm thử cuối trên màn thật, tên gói/chi nhánh workshop; mục 48: T081 mã lý do vi/en; trước đó: 2026-11-04 (mục 46: rà soát hoàn thành — 80/80 task, backend 258/258, frontend 31/31, owner thử voucher thật; trước đó: 2026-11-03 (mục 40 sửa theo thực tế, mục 41: cảnh báo phạm vi cho Manager, khôi phục lệnh tạo, mã voucher trong spec; trước đó: 2026-11-01 (mục 30: chuẩn bị T075/T076, đối chiếu 41 FR; mục 29: phục hồi, tranh chấp nguồn, báo cáo lượt dùng; mục 28: workshop nguồn thật FE-03 và CORS; mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật)))))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -935,3 +935,59 @@ Môi trường: nhánh `khuong` (`c17573a` cùng T081 chưa commit), backend và
 - develop (`ad63577`) đã dùng V111–V118 (V111 retail cash, V112 retail branch holds — 002 T124, V113–V118 workshop 003). Ba migration 006 chưa commit trên `khuong` trùng số nên đổi: `V111__loyalty_accepted_benefit_parts.sql` → **V119**, `V112__loyalty_workshop_zero_fee.sql` → **V120**, `V113__loyalty_workshop_ticket_parts.sql` → **V121**. Nội dung không đổi. Các mục 54–57 và tài liệu 006 đã sửa theo số mới (`LoyaltyMySqlMigrationIT` yêu cầu 119, 120, 121).
 - `ppswbs_dev` đã chạy ba bản này với số cũ; owner đổi `flyway_schema_history` (111/112/113 → 119/120/121) rồi chạy backend một lần với out-of-order để áp V111–V118 của develop sau khi gộp.
 - **Sau khi owner sửa `flyway_schema_history`** (111/112/113 → 119/120/121): lần chạy đầu Flyway báo "resolved migration not applied: 111, 112, 113" vì `target/classes` còn bản build cũ trước khi đổi tên; xóa ba file thừa trong `target/classes/db/migration` thì đạt. `features.loyaltypromotion.**` + `features.workshopbooking/workshopsettlement/workshopoperations.**` + `MemberQuoteBookingAcceptanceIT`/`ServiceTest` + Modulith: 314/315 khi chạy chung, lỗi duy nhất là `LoyaltyWorkshopBookingAcceptanceIT.aCapacityRefusalReservesNothingAndKeepsTheQuoteOpen` (Mockito `WrongTypeOfReturnValue` khi stub spy dùng chung, không liên quan migration); chạy riêng lớp đó 5/5 → **315/315**. `LoyaltyMySqlMigrationIT` 22/22 với V119–V121.
+
+## 59. Sau khi gộp develop vào `khuong` (merge `76cf012`), 2026-11-12
+
+- `ppswbs_dev`: chạy backend một lần với out-of-order → Flyway "Successfully validated 119 migrations", áp V111–V118 của develop ("now at version v118"; V119–V121 của 006 đã có từ trước).
+- **Test backend trên code đã gộp:** 006 `features.loyaltypromotion.**` + 003 dùng facade (`features.workshopbooking/workshopsettlement/workshopoperations.**`, `MemberQuoteBookingAcceptanceIT`/`ServiceTest`) + Modulith: 314/315 chạy chung; lỗi duy nhất `LoyaltyRecoverySourceIntegrationIT.aLateDepositAfterAConfirmedUnpaidExpiryChangesNothing` ("Workshop Operations rejected the quoted session selection" — dữ liệu phiên của fixture 003 khi chạy chung), chạy riêng 6/6 → **315/315**. Code 003 mới (giỏ D-010, outcome cả nhóm) chạy cùng phần theo vé của T103 không lỗi.
+- **Tích hợp đã có trên develop:** FE-08 truyền `locationId` (D-009, `d8aecc2`); 003.1 dùng `WorkshopFact.cart` + `eligibleLineIndexes` (D-010, `04a7b50`); outcome theo phần D-011 và theo vé D-012 chưa được owner dùng (xem integration-gates mục cập nhật sau gộp).
+- **Lỗi không thuộc 002/006:** FE-08 `RetailCatalogueMySqlIntegrationTest` 31 lỗi trên `ppswbs_dev` ("Variant is not eligible for the selected location") vì vẫn gán cứng `BranchOrderCheckoutInput(1L, …)` (dòng 337, 432, 510) thay cho `fixture.testBranch()`; trên schema mới id 1 trùng chi nhánh của fixture nên đạt 32/32. `paymentintegration.PaymentIngressServiceTest` 1 lỗi (có từ trước).
+
+## 60. Rà soát cuối và chạy toàn bộ 006 trên màn thật, 2026-11-12 (tối)
+
+Môi trường như validation-report 002 mục "Rà soát cuối và chạy toàn bộ 002 trên màn thật": `ppswbs_dev`, backend kèm cờ FE-08 `retail.checkout.test-acceptance-enabled=true`, đăng nhập Firebase thật `manager`, `member` (id 8), `staff` (Hoàn Kiếm).
+
+| Bước | Kết quả |
+| --- | --- |
+| Manager tạo voucher sản phẩm "Voucher rà soát 1211" (mã sinh `MLHGTSPMX6`, 10% trần 100.000 ₫, 10 lượt, 1 lượt/Member, mọi chi nhánh, sản phẩm 1517) | Chi tiết "Đã tạo chương trình", Đã dùng 0/10 (FR-003, FR-006, FR-008) |
+| Manager tạo "Giảm tự động rà soát 1211" (5%, trần 50.000 ₫) | Danh sách hiện đủ hai chương trình; Chính sách điểm 10.000 ₫/điểm, 1 điểm = 100 ₫, tối thiểu 10, tối đa 10% (FR-005, FR-024, FR-026) |
+| Trang công khai trước/sau giờ bắt đầu | Voucher bắt đầu 21:45 chưa hiện ở `/promotions` lúc 21:42, hiện lúc 21:45; giảm tự động trừ vào giá thẻ và trang chi tiết (FR-011, FR-042) |
+| Member lưu voucher | "Đã lưu. Kho Voucher"; Kho Voucher "Dùng được" (FR-012) |
+| Giỏ chỉ chọn sản phẩm 1517 | Giảm tự động 450.000 → 427.500 ₫; chọn voucher → 405.000 ₫, voucher thay giảm tự động (FR-014, FR-015); giỏ nhiều sản phẩm dùng khoản giảm lớn nhất 100.000 ₫ của chương trình khác (một ưu đãi mỗi đơn) |
+| Checkout tiền mặt tại quầy | Báo giá: Tiền hàng 450.000, Ưu đãi −45.000, điểm 0 ("Cần tối thiểu 10 điểm"), Tổng 405.000 (FR-016) |
+| Đặt hàng → Kho Voucher | "Bạn đã dùng hết lượt của mình" (lượt bị giữ, FR-032) |
+| Member hủy đơn chưa thanh toán | Kho Voucher lại "Dùng được"; `loyalty_accepted_benefit` 7927 `voucher_state=RELEASED`, `earn_state=INELIGIBLE` (FR-033) |
+| Đặt lại 2 chiếc (900.000 − 90.000 = 810.000 ₫), Staff thu tiền mặt tại quầy | 7928 `voucher_state=CONSUMED`, `earn_state=GRANTED`, `earned_points=81` (810.000 / 10.000, làm tròn xuống), `earn_base=810000`; `loyalty_wallet` member 8: số dư 81, giữ 0 (FR-018, FR-028, FR-029, FR-030) |
+
+**Lỗi tìm thấy và đã sửa (chưa commit):** nhãn "Đã lưu. Kho Voucher" dính chữ ("Đã lưu.Kho Voucher") vì `.promo-card .status` là flex — thêm `gap` (`loyalty-promotion.css`).
+
+**Test:** backend `features.loyaltypromotion.**` + `ModulithArchitectureTests` trên database mới `ppswbs_review_loy` **305/305**; frontend 002 + 006 **157/157**.
+
+**Ghi chú:** trang chi tiết chương trình và trang sản phẩm công khai hiện ưu đãi chậm vài giây trên `ppswbs_dev` vì đọc tới 5 trang × 100 chương trình công khai (nhiều chương trình do IT tạo) và mỗi request kiểm tra Firebase. Các ghi nhận FE-08 (cờ đặt hàng, ô tiền khách đưa…) xem validation-report 002.
+
+### Lượt 2 (đêm 2026-11-12 → 2026-11-13): các luồng còn thiếu
+
+**Đối chiếu FR:** mọi FR 006 (FR-001→FR-043) đã có task/kiểm chứng ghi trong `tasks.md`/tài liệu này.
+
+| Bước | Kết quả |
+| --- | --- |
+| Manager xem chương trình 1166 | Đã dùng 1/10, đang giữ 0, tổng giảm 90.000 ₫ — đơn đã hủy không tính (FR-008) |
+| Manager sửa tổng lượt 0, rồi 12 | 0 bị chặn "Không được thấp hơn số lượt đã dùng hoặc đang giữ"; 12 lưu, "lần sửa 2" (FR-009) |
+| Manager tạm dừng, mở lại | Khi dừng `GET /api/v1/promotions` không còn `MLHGTSPMX6`; mở lại có lại (FR-009) |
+| Manager sửa chính sách điểm, trần 150% | Chặn "Phần trăm từ lớn hơn 0 đến 100…"; hủy, chính sách giữ 10% (FR-026) |
+| Member My Loyalty | Có thể dùng 81, số dư 81, giữ 0, lịch sử "+81 Tích điểm" (FR-031) |
+| Member giỏ size 13 (500.000) tại Tây Hồ, bật điểm | Giảm tự động −25.000; "dùng tối đa 81 điểm" (= min(81, ⌊10% × 475.000 / 100⌋)); −8.100 ₫ → 466.900 ₫ (FR-016, FR-025) |
+| Đặt đơn tiền mặt → My Loyalty → hủy đơn | Có thể dùng 0 / giữ 81 ("Giữ điểm +81"); sau hủy có thể dùng 81 / giữ 0 ("Trả điểm giữ −81") (FR-032, FR-033) |
+| Member đặt workshop gói 800.000 ₫, voucher workshop `MLNYM4XMTN` (−100.000), bật 81 điểm | Sau voucher 700.000, điểm −8.100 → 691.900 ₫, cọc 345.950 ₫ (FR-019, FR-020); booking `BK-97EF43DF…`: `loyalty_accepted_benefit` 7930 voucher HELD, điểm HELD, `post_promotion_amount=691900`; ví giữ 81 (FR-021) |
+| Member hủy giữ chỗ (chưa cọc) | 7930 voucher RELEASED, điểm RELEASED, `earn_state=INELIGIBLE`; ví 81 / giữ 0 (FR-033, FR-034) |
+
+**Không chạy được:** cọc workshop thành công → chốt, hoàn thành → tích điểm, hủy sau cọc → hoàn: cần VNPay (đang `VNPAY_ENABLED=false`) hoặc màn xác nhận cọc của 003; đã có test backend `LoyaltyWorkshop*IT`.
+
+**Sửa (chưa commit):** câu xác nhận tạm dừng "không dùng được chương trình mới cho đơn mới" → "chương trình này".
+
+**Ghi nhận:** lịch sử điểm hiện nguồn bằng mã checkout dài (`Đơn hàng #8b93b584-…`) còn trang Đơn mua của FE-08 hiện mã ngắn (`#2288A4B6`), khách khó đối chiếu — cần FE-08 truyền mã đơn hiển thị cho 006 nếu muốn khớp.
+
+## 61. Chương trình ưu đãi mẫu, 2026-11-13
+
+- `PromotionSeedRunner` + `promotion-seed.json` (xem quickstart). Chạy thật trên `ppswbs_dev` sau khi dọn dữ liệu thử và có 21 sản phẩm mẫu: log "Promotion seed: 10 sample programme(s) created."; đối tượng đúng (2 voucher × 21 sản phẩm, mã não 6, đá thô 3 + Tây Hồ, đá quý 10 + Hoàn Kiếm, giảm tự động 2 và 4 sản phẩm, 3 voucher workshop, một có Hoàn Kiếm); `/promotions` hiện đủ 10; thẻ "Nhẫn bạc cành lá citrine" 560.000 → 530.000 ₫ kèm nhãn voucher. Khởi động lại: vẫn 10 chương trình, 21 sản phẩm.
+- `PromotionSeedRunnerTests` (10 mục đều qua `parseCreate`, mã/tên không trùng) + Modulith 6/6.

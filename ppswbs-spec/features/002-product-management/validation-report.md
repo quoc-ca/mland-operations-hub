@@ -1,7 +1,7 @@
 # Validation Report: Product Management
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-12 (T124: kiểm phần FE-08 trên develop; trước đó cùng ngày: rà soát liên feature 002/006 ↔ 003/008; trước đó: 2026-11-10 (rà soát spec ↔ code và liên kết 002 ↔ 006: sửa interfaces PromotionTargetPort, phụ thuộc US10, ghi việc chờ FE-08/003.2/trang chủ; trước đó: 2026-11-05 (kiểm thử cuối trên màn thật trước khi gộp, sửa thông báo cũ ở trang chi tiết sản phẩm; Convergence T110–T113, chạy lại toàn bộ luồng 002 trên màn thật, sửa thông báo cũ ở màn Danh mục; trước đó: 2026-11-04 (T105–T109: sửa giá/số lượng nhiều size, áp dụng ngay sau khi duyệt, chỉ ra mục còn thiếu, thông báo kết quả; owner kiểm thử thực tế; trước đó: 2026-11-03 (rà soát spec–code–Figma: FR-003, FR-028, T103 xem ảnh quản trị, nhãn khu vực; trước đó: 2026-11-01 (T090 UI với API giả lập, tích hợp thật NOT RUN; T087 đồng bộ tài liệu; regression toàn hệ thống T086; chạy lại sau develop 365dcf3: T074, T085, T086; frontend React T088/T089 và màn hình 002; 2026-10-27: sau merge develop, T002/T007, REST API, T051, T073, T083, các task viết test; facade FE-08 phía 002))))
+**Date updated**: 2026-11-12 (rà soát cuối và chạy toàn bộ 002 trên màn thật với Manager, Staff, Member: sửa ô chọn danh mục chỉ tải 20 mục, số giữ theo chi nhánh (FR-051), ẩn nút duyệt với Staff, lưu số lượng không đổi; trước đó cùng ngày: sau khi gộp develop: sửa CatalogueBranchSalesIT, 346/346; trước đó cùng ngày: T124: kiểm phần FE-08 trên develop; trước đó cùng ngày: rà soát liên feature 002/006 ↔ 003/008; trước đó: 2026-11-10 (rà soát spec ↔ code và liên kết 002 ↔ 006: sửa interfaces PromotionTargetPort, phụ thuộc US10, ghi việc chờ FE-08/003.2/trang chủ; trước đó: 2026-11-05 (kiểm thử cuối trên màn thật trước khi gộp, sửa thông báo cũ ở trang chi tiết sản phẩm; Convergence T110–T113, chạy lại toàn bộ luồng 002 trên màn thật, sửa thông báo cũ ở màn Danh mục; trước đó: 2026-11-04 (T105–T109: sửa giá/số lượng nhiều size, áp dụng ngay sau khi duyệt, chỉ ra mục còn thiếu, thông báo kết quả; owner kiểm thử thực tế; trước đó: 2026-11-03 (rà soát spec–code–Figma: FR-003, FR-028, T103 xem ảnh quản trị, nhãn khu vực; trước đó: 2026-11-01 (T090 UI với API giả lập, tích hợp thật NOT RUN; T087 đồng bộ tài liệu; regression toàn hệ thống T086; chạy lại sau develop 365dcf3: T074, T085, T086; frontend React T088/T089 và màn hình 002; 2026-10-27: sau merge develop, T002/T007, REST API, T051, T073, T083, các task viết test; facade FE-08 phía 002))))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -404,3 +404,65 @@ Môi trường: nhánh `khuong` (`c17573a` cùng thay đổi chưa commit của 
   - `CatalogueBranchSalesIT` 5/6: `theFe08SourceTracksBranchesAndCountsALegacySizeHoldAtEveryBranch` so `keySet()` theo thứ tự (A, B), trong khi code trả theo id chi nhánh tăng dần; trên schema mới `branchB` có id nhỏ hơn `branchA` nên thứ tự đảo. Lỗi ở test (giả định id), không ở code. Sửa sau khi gộp develop: so theo thứ tự id tăng dần hoặc `containsExactlyInAnyOrder`.
   - `CartJourneyTest` 1 lỗi, `GroupedCheckoutIntegrationTest` 1 lỗi — cùng lỗi đã thấy trên `khuong` trước T124 (test FE-08, không liên quan giữ hàng theo chi nhánh).
 - **Kết luận:** T124 hoàn tất phía FE-08, tick. Code còn ở develop; `khuong` cần gộp develop (006 đã đổi migration sang V119–V121 để không trùng).
+
+## Sau khi gộp develop vào `khuong` (merge `76cf012`, 2026-11-12)
+
+- `CatalogueBranchSalesIT.theFe08SourceTracksBranchesAndCountsALegacySizeHoldAtEveryBranch` sửa: so tập key không theo thứ tự (`containsExactlyInAnyOrder`) — `AvailabilityGuardPort.readBranchSnapshots` chỉ hứa một snapshot cho mỗi key; thứ tự tăng dần do `CatalogueAvailabilityService` tự sắp (bản sửa đầu so theo id tăng dần vẫn lỗi trên database mới, sửa lại trong mục rà soát cuối ngày bên dưới).
+- Backend `features.productmanagement.**` trên `ppswbs_dev` (đã có V111–V121): **346/346** (19 lỗi "Too many connections" khi chạy chung; chạy riêng `CatalogueSalesIT`, `CatalogueSellingLocationIT`, `CatalogueBranchSalesIT` 25/25).
+- Test FE-08 `RetailCatalogueMySqlIntegrationTest` vẫn gán cứng chi nhánh `1L` (dòng 337, 432, 510) nên lỗi 31 test trên `ppswbs_dev`, đạt trên schema mới — báo owner FE-08 dùng `fixture.testBranch()`.
+
+## Rà soát cuối và chạy toàn bộ 002 trên màn thật (2026-11-12, tối)
+
+Môi trường: nhánh `khuong` sau merge `76cf012` cùng thay đổi chưa commit; backend `ppswbs_dev` (MySQL 8.4.13) chạy kèm `--retail.checkout.test-acceptance-enabled=true` (cờ của FE-08, thiếu cờ này "Đặt hàng" trả 500 `Checkout integrations are not configured`); frontend Vite 5173; đăng nhập Firebase thật: `manager` (MANAGER), `staff` (STAFF, gán Hoàn Kiếm), `member`; Cloudinary thật.
+
+**Luồng đã chạy (đạt):**
+
+| Vai trò | Luồng | Kết quả |
+| --- | --- | --- |
+| Manager | Tạo "Nhẫn rà soát 1211" (Nhẫn bạc, Hoàn Kiếm + Tây Hồ, size 12–14 chọn khoảng, giá/số lượng áp chung, ảnh PNG lên Cloudinary, "Công khai ngay") | Sản phẩm 1517, SKU `SP001517-S12…S14`, 3 chiếc/size/chi nhánh, giá 500.000 ₫ áp dụng, đang công khai; thông báo "Đã tạo và công khai…" (FR-007, FR-048) |
+| Manager | Đề xuất giá size 12 450.000 → gửi duyệt → duyệt + áp dụng ngay | Giá đang áp dụng 450.000 ₫, bản cũ "Đã duyệt / không áp dụng" (FR-013–FR-016, Session 2026-11-04) |
+| Manager | Màn Import Excel, Danh mục, danh sách sản phẩm | Hiện đúng (chi nhánh theo phạm vi, hướng dẫn cột Size) |
+| Member | Danh sách `/products` (tìm `q`), thẻ trang chủ, trang chi tiết | Giá sau giảm tự động 427.500–475.000 ₫, giá gốc gạch, nhãn "Giảm 5%" + "Mã giảm 10%" (FR-058, 006 FR-042) |
+| Member | Thêm giỏ từ trang chi tiết (size 12, Hoàn Kiếm) và "Thêm nhanh" ở danh sách | `POST …/ready-ring-cart/lines` 200; chi tiết chuyển `/member/cart`; danh sách ở lại và hiện "Đã thêm … vào giỏ hàng. Xem giỏ hàng" (FR-046, FR-052, FR-057) |
+| Staff (Hoàn Kiếm) | Chi tiết sản phẩm 1517 | Tab Tây Hồ chỉ xem; sửa số lượng size 12 tại Hoàn Kiếm xuống 1 khi đang giữ 2 → backend từ chối "Số lượng mới thấp hơn số đang được giữ" (US10.4, FR-050); đề xuất giá size 13 → gửi duyệt; màn tạo chỉ có Hoàn Kiếm, không có "Công khai ngay" (FR-007) |
+
+**Lỗi tìm thấy và đã sửa (chưa commit):**
+
+1. **Ô chọn danh mục chỉ có 20 mục đầu** — form tạo, sửa nội dung, bộ lọc danh sách quản trị và bộ lọc trang công khai gọi `listCategories()` một trang (A-002: 20/trang), nên danh mục thứ 21 trở đi không chọn được (trên `ppswbs_dev` có 1.125 danh mục, "Nhẫn bạc" không có trong ô chọn). Sửa: `catalogueApi.listAllCategories()` / `listAllPublicCategories()` đọc lần lượt mọi trang (dừng ở `totalElements`, trang rỗng hoặc trang thiếu; tối đa 100 trang). Màn "Danh mục" vẫn phân trang.
+2. **Số "Đang giữ" ở tab chi nhánh là số của cả size** (FR-051) — sau T124 FE-08 giữ theo size × chi nhánh, nhưng DTO quản trị chưa có số giữ theo chi nhánh nên tab Tây Hồ hiện 2 dù đơn giữ ở Hoàn Kiếm, và kiểm tra trước khi lưu ở bảng sửa nhiều size so với tổng size. Sửa: `ManagementBranchStock` thêm `validHeldQuantity`, `availableQuantity` (null khi nguồn FE-08 còn giữ theo size; OpenAPI cập nhật), `VariantHoldReader.validHeldByBranch` (mặc định rỗng = chưa biết; `CatalogueAvailabilityService` đọc `readBranchSnapshots` khi `tracksHoldsPerBranch()`), `ManagementProductQueryService` điền số theo chi nhánh; frontend dùng số này ở cột "Đang giữ" và ở kiểm tra của `BatchQuantities` (chưa có thì giữ cách cũ). Trên màn: Hoàn Kiếm "Đang giữ 2", Tây Hồ "0".
+3. **Staff thấy nút Duyệt/Từ chối giá và hồ sơ** (FR-002) — bấm chỉ nhận 403. Sửa: duyệt từng size (`PriceSection`), bảng duyệt nhiều size (`BatchPrices`) và "Quyết định của Manager" (`ReviewSection`) chỉ hiện cho MANAGER; Staff vẫn thấy trạng thái và dòng "Staff chỉ xem".
+4. **Lưu số lượng không đổi vẫn gửi lệnh** và báo "Đã sửa số lượng size 12: 3 → 3." — sửa: không gửi, đóng ô sửa (bảng nhiều size vốn đã bỏ qua size không đổi).
+5. `CatalogueBranchSalesIT` (sửa chưa commit trước đó) vẫn lỗi trên database mới — sửa lại như ghi ở mục trên.
+
+**Test sau khi sửa:** frontend `src/features/product-management` + `src/features/loyalty-promotion` **157/157** (thêm test số giữ theo chi nhánh, test Staff không thấy nút duyệt; 6 test duyệt giá thêm hồ sơ MANAGER, một test bỏ kỳ vọng câu thông báo dưới mục đã tự đóng với Manager). Backend `features.productmanagement.**` trên database mới `ppswbs_review_pm`: 346 chạy, 31 lỗi đều do "Too many connections" khi chạy chung với app đang chạy và 1 lỗi thứ tự ở `CatalogueBranchSalesIT` (đã sửa); chạy riêng `CatalogueBranchSalesIT`, `CataloguePublicIT`, `CatalogueSalesIT` 33/33, `CatalogueSellingLocationIT` + `ModulithArchitectureTests` đạt; sau bản sửa 2: `CatalogueBranchSalesIT` (thêm `theManagementReadShowsHoldsAndAvailabilityPerBranch`), `ManagementProductQueryServiceTests`, `CatalogueContractIT`, `CatalogueApiIT` **29/29**.
+
+**Ghi nhận không thuộc 002 (báo owner):**
+
+- `ppswbs_dev` có rất nhiều dữ liệu do test IT tạo (1.125 danh mục, ~500 sản phẩm, chi nhánh `PM-TEST-*`, `A-/B-…`, chương trình 006 "Expiry verification"…) vì đã chạy IT trên database này; nên chạy IT bằng `PM_TEST_JDBC_URL`/`LOYALTY_TEST_JDBC_URL` trỏ database riêng và dọn `ppswbs_dev` trước khi chụp màn cho tài liệu (cần owner đồng ý vì là xóa dữ liệu).
+- FE-08: "Đặt hàng" cần `retail.checkout.test-acceptance-enabled=true` (thiếu thì 500); ô "Tiền khách đưa" điền sẵn số cần thu nên gõ thêm thành 810.000.810.000 ₫ và vẫn được nhận (tiền thối 810 tỷ); giỏ chọn lại tất cả dòng mỗi lần mở; "Hủy đơn" không hỏi xác nhận; ảnh sản phẩm trong giỏ/checkout là ô trống.
+
+### Lượt 2 (đêm 2026-11-12 → 2026-11-13): các luồng còn thiếu
+
+**Đối chiếu FR:** mọi FR 002 (FR-001→FR-058) đã có task/kiểm chứng ghi trong `tasks.md`/báo cáo này; riêng FR-054 (giá chung mọi chi nhánh) chưa có dòng nào — kiểm trực tiếp: giá nằm ở size/đề xuất (`catalogue_variants`, `price_proposals`), bảng `catalogue_variant_branch_stock` không có cột giá; trên màn cùng một giá ở cả hai chi nhánh. Đạt.
+
+**Backend `features.productmanagement.**` + Modulith (app tắt, database `ppswbs_review_pm`):** 352 test, 333 đạt khi chạy chung; 19 lỗi đều "Too many connections" (`max_connections` = 151, mỗi context test một pool); chạy riêng `CatalogueSalesIT`, `CatalogueSellingLocationIT` **19/19**.
+
+| Vai trò | Luồng | Kết quả |
+| --- | --- | --- |
+| Staff | Tạo "Nhẫn staff rà soát 1211" (chỉ có Hoàn Kiếm, giá đề xuất, ảnh) → Gửi duyệt | Sản phẩm 1518 nháp → "Chờ duyệt"; không có nút Duyệt/Từ chối (FR-002, FR-009) |
+| Manager | Từ chối khi trống lý do; Duyệt toàn bộ hồ sơ + áp dụng ngay | Chặn "Cần nhập lý do"; "Đã duyệt hồ sơ và áp dụng giá 1 size" (FR-010, FR-015) |
+| Manager | Công khai ngay → Ẩn → Công khai lại | Trạng thái và câu báo đúng từng bước (FR-017, FR-018) |
+| Manager | Sản phẩm 1517: ngừng bán size 14, ngừng bán tại Tây Hồ; API công khai; mở bán lại | Size 14 `canBuy=false`; danh sách chi nhánh công khai chỉ còn Hoàn Kiếm; mở lại đủ (FR-021, FR-049, FR-052). Size 12 tổng còn 4 = 6 − 2 chiếc đã bán ở Hoàn Kiếm (FR-053) |
+| Manager | Sửa số lượng nhiều size tại Hoàn Kiếm, "Cộng thêm" 2 | "Đã sửa số lượng 3 size", mỗi size +2 |
+| Manager | Danh mục: tạo "  nhẫn BẠC  "; tạo "Danh mục rà soát 1211"; chuyển 1518 sang (sửa trực tiếp sau công khai); ngừng hoạt động; kích hoạt lại | Trùng tên bị từ chối; hộp xác nhận liệt kê 1 sản phẩm bị ảnh hưởng; `GET /products/1518` 404 khi ngừng, 200 khi kích hoạt lại (FR-012, FR-029, FR-030) |
+| Manager | Import file lỗi (danh mục sai, size 30, giá 0, khoảng `20-12`, giá `12.5`, số lượng −1) | 6 lỗi đúng dòng/cột/giá trị, không có nút xác nhận (FR-040–FR-043) |
+| Manager | Import file hợp lệ (2 cột chi nhánh, ô Size `12-14`) → Xác nhận → gắn ảnh hàng loạt `RS1-nhan.png`, `RS2-nhan.png` | Sản phẩm 1519 (`SP001519-S12…S14`), 1520 (`S16`, `S18`); ảnh tự khớp theo Mã nhóm, "Đã lưu ảnh thành công cho 2 sản phẩm" (FR-039, FR-044, US9.11) |
+| Manager | Xóa sản phẩm 1520 | Hộp xác nhận "Không thể khôi phục", về danh sách "Đã xóa sản phẩm…" (FR-022) |
+| Guest | Đọc công khai không bearer; API quản trị không bearer | 200 / 401 `MISSING_BEARER_TOKEN` (FR-001). Màn Guest không chạy được vì khung Browser luôn giữ phiên đăng nhập; đã có test frontend FR-057 cho Guest |
+
+**Sửa thêm (chưa commit, chỉ giao diện):** câu báo sau khi tạo sản phẩm đã có ảnh không còn nói "Thêm ảnh" (`create.successWithImages`); gợi ý mục Công khai cho Manager khi hồ sơ đã duyệt (`publication.managerHintApproved`); hộp ngừng hoạt động danh mục nói rõ khách không còn thấy và không mua được các sản phẩm đó. Frontend 002 + 006 **157/157**.
+
+## Dọn dữ liệu thử và dữ liệu sản phẩm mẫu (2026-11-13)
+
+- **Dọn `ppswbs_dev`** (owner đồng ý, phương án "sạch hết dữ liệu giao dịch"; sao lưu trước tại `D:\mland-operations-hub\ppswbs_dev-backup-20261113.sql`): xóa toàn bộ catalogue 002, chương trình/voucher đã lưu/lịch sử điểm 006 (ví về 0, giữ chính sách điểm), giỏ/đơn/giữ hàng FE-08, booking workshop thử và hóa đơn/case quyết toán liên quan, 10 chi nhánh do test tạo (`PM-TEST-*`, `PM-IT-*`, `FE08-T124-*`). Giữ tài khoản, chi nhánh `HN-HOANKIEM`, `HN-TAYHO`, `DN-HAICHAU`, slot/ca/gói workshop.
+- **Dữ liệu mẫu:** owner cung cấp 36 ảnh (`test-data/anh`); 24 ảnh nhẫn → 21 sản phẩm, 4 danh mục ("Nhẫn bạc trơn", "Nhẫn đá quý", "Nhẫn mã não", "Nhẫn đá thô"); 12 ảnh dây chuyền/bông tai/vòng tay không dùng vì 002 chỉ có size nhẫn 5–29 (owner chọn). Ảnh thu nhỏ cạnh dài 1200 px (2,8 MB) trong `catalogue-seed/images/`. `CatalogueSeedRunner` (xem quickstart). Chạy thật trên `ppswbs_dev`: 21 sản phẩm công khai (`SP000001`…`SP000021`), 24 ảnh trên Cloudinary, tồn kho theo Hoàn Kiếm và Tây Hồ; khởi động lại vẫn 21. `CatalogueSeedRunnerTests` (file mẫu đúng quy tắc FR-004/005/008) + Modulith 7/7.

@@ -92,3 +92,7 @@ Lưu kết quả mới cho từng V-ID/FR/US: revision, môi trường, MySQL ve
 Đối với documentation-only planning, static checks về links, OpenAPI JSON/refs, FR traceability và placeholders là kiểm chứng phù hợp; không tạo test code chỉ để chứng minh tài liệu đã viết. Runtime/security/MySQL/real-adapter scenarios chưa chạy vì implementation/dependency chưa tồn tại; manual reading không thay các gate này.
 
 Khi validation fail: giữ nguyên dữ liệu, kiểm tra command receipt trước retry, xác định correlation ID; không reset schema hoặc xóa giữ để ép test pass. Rollout/recovery production phải có phê duyệt riêng; plan chỉ đề xuất disable routes productmanagement và additive fix, không hard-delete/down-migrate.
+
+### Dữ liệu sản phẩm mẫu (2026-11-13)
+
+Backend tự tạo 4 danh mục và 21 sản phẩm nhẫn đã công khai, có ảnh thật, khi khởi động lần đầu (`CatalogueSeedRunner`, đọc `ppswbs_backend/src/main/resources/catalogue-seed/catalogue-seed.json` và ảnh trong `catalogue-seed/images/`). Chạy nền sau khi ứng dụng sẵn sàng, đi qua đúng các service của màn quản trị (tạo có chi nhánh → gửi duyệt → duyệt → áp dụng giá → công khai), actor nội bộ `system:catalogue-seed`. Điều kiện: Cloudinary đã cấu hình (`CLOUDINARY_*`, thiếu thì log cảnh báo và không tạo gì) và có chi nhánh mã `HN-HOANKIEM`/`HN-TAYHO` (mã không có thì bỏ chi nhánh đó). Sản phẩm đã có (cùng tên, cùng danh mục) được bỏ qua, nên khởi động lại không nhân đôi. Tắt: `CATALOGUE_SEED_ENABLED=false` (hoặc `app.catalogue.seed.enabled=false`). Không chạy trong test.
