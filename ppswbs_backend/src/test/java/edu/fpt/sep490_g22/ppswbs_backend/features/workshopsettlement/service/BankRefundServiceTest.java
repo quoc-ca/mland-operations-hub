@@ -93,7 +93,8 @@ class BankRefundServiceTest {
                         && row.getLifecycleStatus() == invocation.getArgument(1)).toList());
         givenCollected(500_000);
 
-        service = new BankRefundService(requests, links, collections, audits);
+        service = new BankRefundService(requests, links, collections, audits,
+                mock(org.springframework.context.ApplicationEventPublisher.class));
     }
 
     // ---- opening ----

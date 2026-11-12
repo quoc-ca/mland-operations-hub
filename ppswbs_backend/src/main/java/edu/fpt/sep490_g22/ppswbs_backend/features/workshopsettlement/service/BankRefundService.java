@@ -50,6 +50,7 @@ public class BankRefundService {
     private final SettlementRefundAccountLinkRepository links;
     private final SettlementFolioCollectionRepository collections;
     private final SettlementBusinessAuditRepository audits;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     /** A newly opened request, with the raw link value when one was created for it. */
     public record OpenedRefund(SettlementRefundRequest request, String rawAccountLinkToken) {
@@ -227,6 +228,10 @@ public class BankRefundService {
         request.setRecipientAccountEncrypted(null);
         SettlementRefundRequest saved = requests.saveAndFlush(request);
         audit(saved, "REFUND_CONFIRMED", managerAccountId, null, correlationReference);
+        // Only now may the consequences follow (FR-039): the allocation closes and the folio and booking move.
+        events.publishEvent(new edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBankRefundConfirmedEvent(
+                saved.getRequestReference(), saved.getBookingReference(), saved.getSourceReference(),
+                saved.getAmountVnd(), saved.getConfirmedAt()));
         log.info("Refund {} confirmed against the bank statement", saved.getRequestReference());
         return saved;
     }
