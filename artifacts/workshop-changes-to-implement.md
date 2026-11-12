@@ -110,7 +110,7 @@ Theo bản đề xuất cuối và các quyết định đã chốt, áp dụng 
 
 ### Quy tắc nghiệp vụ cần phản ánh
 
-- Khách tự hủy hoặc vắng không được hoàn khoản đã thu lúc đặt, bao gồm cả trường hợp thu đủ giá vé dưới 205.000đ (quyết định A bên dưới). Các ngoại lệ Mland phải hoàn tiền, khoản thu thừa sau checkout và các trường hợp hoàn đã được phê duyệt mới tạo yêu cầu hoàn.
+- Khách tự hủy hoặc vắng không được hoàn khoản đã thu lúc đặt, bao gồm cả trường hợp thu đủ giá vé từ 200.000đ trở xuống; vé trên 200.000đ chỉ mất cọc 200.000đ, phần chưa thu không thành công nợ (công thức min(giá cuối, 200.000đ) chốt 12/11/2026). Các ngoại lệ Mland phải hoàn tiền, khoản thu thừa sau checkout và các trường hợp hoàn đã được phê duyệt mới tạo yêu cầu hoàn.
 - Với giao dịch cọc chung của giỏ, tính và lưu số tiền hoàn theo từng vé; tổng tiền hoàn đã thực hiện hoặc đang chờ không được vượt khoản đã thu và phân bổ cho vé đó. Không thay đổi các vé khác trong nhóm khi chỉ một vé được hoàn.
 - Mặc định chuyển khoản cho người đã trả khoản tiền đang được hoàn: với cọc chung là người thanh toán cọc của nhóm, kể cả khi vé được gửi cho người khác; với khoản thu tại checkout là người đã trả khoản thu đó. Nếu chuyển cho người khác, phải có xác nhận của người trả tiền và lưu bằng chứng xác nhận.
 - Manager duyệt lý do, số tiền và người nhận. Nhân viên thực hiện chuyển khoản ngân hàng ngoài hệ thống, ghi mã giao dịch và chứng từ. Chỉ Manager xác nhận `Đã hoàn` sau khi đối chiếu giao dịch ngân hàng; trước đó yêu cầu ở trạng thái `Chờ hoàn` hoặc `Chờ đối soát`.
@@ -155,7 +155,7 @@ Theo bản đề xuất cuối và các quyết định đã chốt, áp dụng 
 - Số tiền cần thu từ 1đ đến 4.999đ: không tạo giao dịch VNPay. Với khoản thu lúc đặt của giỏ, hoãn sang checkout theo mục "Tổng thu lúc đặt dưới 5.000đ: hoãn sang checkout"; với số dư tại quầy, thu bằng tiền mặt/chuyển khoản. Hiển thị cách thu ngay khi tính giá.
 - Số tiền cần thu từ 5.000đ: đạt điều kiện số tiền tối thiểu; vẫn phải qua các kiểm tra thanh toán khác.
 - Kiểm tra tổng cọc của cả giỏ khi trả cọc chung và số dư cần thu của từng vé khi checkout riêng. Giá của một vé dưới 5.000đ không làm giao dịch chung không hợp lệ nếu tổng số tiền thực thu đạt ngưỡng (đã chốt: giỏ vé A 3.000đ + vé B 500.000đ hợp lệ). Sàn giá add-on 5.000đ là quy tắc riêng, vẫn giữ.
-- Khi tính giá đặt chỗ, kiểm tra cả khoản thu lúc đặt và số dư checkout dự kiến. Bản đề xuất cuối xử lý vé giá 203.000đ bằng cách thu đủ 203.000đ lúc đặt, còn lại 0đ, theo quyết định A bên dưới. Các dịch vụ thêm hoặc điều chỉnh sau đặt vẫn cần kiểm tra riêng số tiền phải thu.
+- Khi tính giá đặt chỗ, kiểm tra cả khoản thu lúc đặt và số dư checkout dự kiến. Vé giá 203.000đ thu cọc 200.000đ lúc đặt, còn lại 3.000đ thu ở checkout (công thức min(giá cuối, 200.000đ), chốt 12/11/2026; thay quyết định A). Các dịch vụ thêm hoặc điều chỉnh sau đặt vẫn cần kiểm tra riêng số tiền phải thu.
 - Tính lại báo giá khi khách thay voucher, số điểm hoặc giỏ. Không tự tăng khoản phải trả lên 5.000đ, miễn phần lẻ hoặc âm thầm thay đổi quyền lợi voucher để vượt kiểm tra.
 - Không áp ngưỡng này cho khoản hoàn ngân hàng ngoài hệ thống. Không ghi nhận các phương án bội số 5.000đ, trần voucher 69% hoặc sàn giá sau giảm 205.000đ như quyết định đã chọn.
 
@@ -181,7 +181,7 @@ Theo bản đề xuất cuối và các quyết định đã chốt, áp dụng 
 - Các ngoại lệ hoàn do Mland và các khoản thu sai/trùng vẫn theo chính sách xử lý riêng; khi phải hoàn thì chuyển khoản ngân hàng và đối soát như đã chốt.
 - Trước khi khách xác nhận đặt, giao diện phải phân biệt `Thanh toán toàn bộ` và `Cọc`, đồng thời công bố rằng khoản trả lúc đặt không được hoàn khi khách tự hủy hoặc vắng. Không chỉ ghi “mất cọc 200.000đ” cho vé đã thu đủ 203.000đ.
 - Lưu số tiền thực thu và điều kiện không hoàn của từng vé tại thời điểm đặt để xử lý hủy nhất quán. Không áp hồi tố điều kiện mới lên booking cũ đã xác nhận theo điều kiện khác.
-- Bổ sung kiểm thử các giá cuối 200.000đ, 200.001đ, 204.999đ và 205.000đ: số thu lúc đặt, số dư checkout, hủy/vắng và ngoại lệ hoàn do Mland.
+- Bổ sung kiểm thử các giá cuối 200.000đ, 200.001đ, 203.000đ, 204.999đ và 205.000đ (số dư checkout 0đ, 1đ, 3.000đ, 4.999đ, 5.000đ): số thu lúc đặt, số dư checkout, hủy/vắng và ngoại lệ hoàn do Mland.
 
 **Trạng thái:** Đã ghi nhận quyết định A; chưa sửa spec/code.
 

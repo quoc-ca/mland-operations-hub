@@ -51,12 +51,12 @@ class BookingGroupSchemaIT {
 
     @Test
     void storesAGroupWithTicketsAndImmutablePriceSnapshots() {
-        BookingGroup group = newGroup(GroupPaymentMode.VNPAY, 203_000);
+        BookingGroup group = newGroup(GroupPaymentMode.VNPAY, 350_000);
         TicketBooking free = newTicket(group, 0, 1);
         TicketBooking full = newTicket(group, 0, 2);
         TicketBooking deposit = newTicket(group, 1, 1);
         save(snapshot(free, 300_000, 300_000, 0, 0, TicketCollectionKind.FREE, 0));
-        save(snapshot(full, 203_000, 0, 0, 203_000, TicketCollectionKind.FULL, 0));
+        save(snapshot(full, 150_000, 0, 0, 150_000, TicketCollectionKind.FULL, 0));
         save(snapshot(deposit, 500_000, 0, 0, 200_000, TicketCollectionKind.DEPOSIT, 300_000));
 
         assertThat(groups.findByGroupCode(group.getGroupCode())).isPresent();
