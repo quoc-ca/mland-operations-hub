@@ -28,6 +28,9 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
     try {
       const guestSession = getStoredGuestSession();
       const res = await api.createDesign(key, createPayload, guestSession, isAuthenticated);
+      if (res && res.guestSession) {
+        setStoredGuestSession(res.guestSession);
+      }
       resetCommandKey();
       return res;
     } catch (err) {

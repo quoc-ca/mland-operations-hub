@@ -25,7 +25,11 @@ public class WorkshopRingDesignController {
     ) {
         Long memberAccountId = resolveMemberAccountId();
         DesignResponseDto dto = applicationService.createDraft(request, memberAccountId, guestSessionHeader, idempotencyKey);
-        return ResponseEntity.status(HttpStatus.CREATED).body(dto);
+        var responseBuilder = ResponseEntity.status(HttpStatus.CREATED);
+        if (dto.getGuestSession() != null) {
+            responseBuilder.header("X-Guest-Design-Session", dto.getGuestSession());
+        }
+        return responseBuilder.body(dto);
     }
 
     @GetMapping("/{designId}")
