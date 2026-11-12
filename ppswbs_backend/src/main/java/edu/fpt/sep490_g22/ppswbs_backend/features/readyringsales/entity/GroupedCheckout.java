@@ -40,6 +40,10 @@ public class GroupedCheckout {
     @Column(name = "payment_initiated_at") private Instant paymentInitiatedAt;
     @Column(name = "cancellation_unrestored_quantity") private Integer cancellationUnrestoredQuantity;
     @Column(name = "payment_proof_ref", length = 128) private String paymentProofRef;
+    /** VNPAY or CASH_AT_COUNTER (FR-08-041); see {@link RetailPaymentMethod}. */
+    @Column(name = "payment_method", nullable = false, length = 24) private String paymentMethod = RetailPaymentMethod.VNPAY.name();
+    /** Pickup/payment deadline of a cash checkout (72 hours after acceptance); null for VNPay. */
+    @Column(name = "counter_payment_deadline") private Instant counterPaymentDeadline;
     @Version @Column(nullable = false) private Long version;
     @CreationTimestamp @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @UpdateTimestamp @Column(name = "updated_at", nullable = false) private Instant updatedAt;
@@ -59,6 +63,12 @@ public class GroupedCheckout {
 
     @PrePersist void assignId() { if (id == null) id = UUID.randomUUID().toString(); }
     public void addOrder(RetailOrder order) { orders.add(order); }
+    /** Marks this accepted checkout as paid in cash at the branch counter before {@code deadline}. */
+    public void useCounterCash(Instant deadline) {
+        this.paymentMethod = RetailPaymentMethod.CASH_AT_COUNTER.name();
+        this.counterPaymentDeadline = deadline;
+    }
+    public boolean isCounterCash() { return RetailPaymentMethod.CASH_AT_COUNTER.name().equals(paymentMethod); }
     public void beginPayment() { this.paymentState = PaymentState.PAYMENT_INITIATED; this.paymentInitiatedAt = Instant.now(); }
     public void markPaid() { this.paymentState = PaymentState.PAID; orders.forEach(RetailOrder::markPaid); }
     public void markPaidWithProof(String proofRef) { this.paymentProofRef = proofRef; markPaid(); }

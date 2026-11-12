@@ -114,7 +114,13 @@ public class RetailCheckoutAcceptanceService {
         for (OrderItem item : items) {
             catalogue.retainMediaReferences(item.getId(), facts.get(item.getVariantId()).imageMediaIds());
         }
-        Instant deadline = now.plus(15, ChronoUnit.MINUTES);
+        RetailPaymentMethod paymentMethod = RetailPaymentMethods.parse(quote.getPaymentMethod());
+        Instant deadline = RetailPaymentMethods.holdDeadline(paymentMethod, now);
+        if (paymentMethod == RetailPaymentMethod.CASH_AT_COUNTER) {
+            // Cash is collected at the branch when the goods are picked up; no VNPay attempt is created.
+            checkout.useCounterCash(deadline);
+            checkouts.saveAndFlush(checkout);
+        }
         boolean zeroTotal = quote.getPayableTotal().signum() == 0;
         CheckoutDtos.GroupedCheckoutView view = guard.withBranchGuard(branchVariants, context.asOf(), snapshots -> {
             List<RetailVariantHold> createdHolds = new ArrayList<>();

@@ -64,6 +64,9 @@ public class RetailCheckoutQuotePreviewService {
         // Only the lines the Member ticked are quoted; the quote items become the checkout's exact contents.
         List<CartLine> selected = RetailCartSelection.select(cart, request.cartLineIds());
         Map<Long, CheckoutDtos.BranchOrderCheckoutInput> choices = choices(request.branchOrders());
+        RetailPaymentMethod paymentMethod = RetailPaymentMethods.parse(request.paymentMethod());
+        RetailPaymentMethods.requireAllowed(paymentMethod, choices.values().stream()
+            .map(CheckoutDtos.BranchOrderCheckoutInput::method).toList());
         Set<Long> locations = selected.stream().map(CartLine::getLocationId).collect(Collectors.toSet());
         if (!locations.equals(choices.keySet())) throw new RetailConflictException("Fulfilment choices must match cart locations");
 
@@ -135,6 +138,8 @@ public class RetailCheckoutQuotePreviewService {
         var quote = new RetailCheckoutQuote(memberId, cart.getId(), cart.getVersion(), selection.choice().name(),
             selection.voucherCode(), selection.requestedPoints(), result.termsDigest(), "VND", subtotal,
             shippingTotal, result.programDiscount(), result.pointDiscount(), result.postPromotionAmount().add(shippingTotal), now, expiresAt);
+        RetailPaymentMethods.requirePayableForCash(paymentMethod, new java.math.BigDecimal(quote.getPayableTotal()));
+        quote.usePaymentMethod(paymentMethod);
         for (Long location : locations.stream().sorted().toList()) {
             var branchLines = selected.stream().filter(line -> line.getLocationId().equals(location)).toList();
             BigInteger branchSubtotal = branchLines.stream().map(line -> facts.get(branchKey(line)).appliedPrice()
