@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
 import { WorkshopAccessPage } from './WorkshopAccessPage';
 import { WorkshopBookingPage } from './WorkshopBookingPage';
 import { WorkshopDetailPage } from './WorkshopDetailPage';
@@ -17,6 +17,12 @@ function WorkshopBookingRoute() {
   return <WorkshopBookingPage packageId={packageId} />;
 }
 
+function WorkshopBookingQueryRoute() {
+  const [params] = useSearchParams();
+  const packageRef = params.get('packageReference') || params.get('packageId') || '1';
+  return <WorkshopBookingPage packageId={packageRef} />;
+}
+
 function WorkshopPaymentReturnRoute() {
   const { bookingCode } = useParams();
   return <WorkshopPaymentReturnPage bookingCode={bookingCode} />;
@@ -28,6 +34,7 @@ export const workshopRoutes = [
   { path: '/workshops', element: <WorkshopListPage /> },
   { path: '/workshops/:packageId', element: <WorkshopDetailRoute /> },
   { path: '/workshops/:packageId/book', element: <WorkshopBookingRoute /> },
+  { path: '/workshops/booking', element: <WorkshopBookingQueryRoute /> },
   { path: '/workshop-booking/lookup', element: <WorkshopLookupPage /> },
   { path: '/workshop-booking/access', element: <WorkshopAccessPage /> },
   { path: '/workshop-booking/:bookingCode/payment-return', element: <WorkshopPaymentReturnRoute /> },

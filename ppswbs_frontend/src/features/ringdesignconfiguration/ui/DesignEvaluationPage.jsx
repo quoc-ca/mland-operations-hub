@@ -5,6 +5,7 @@ import { useWorkshopDesignCommand } from '../application/useWorkshopDesignComman
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import RingPreview from './RingPreview';
 import { derivePreviewModel } from '../domain/designPreview';
+import { getErrorMessage } from '../domain/designErrors';
 import { messages } from '../messages';
 import '../ring-design.css';
 
@@ -29,7 +30,7 @@ export default function DesignEvaluationPage() {
         const res = await api.getDesign(designId, null, isAuthenticated);
         setDesign(res);
       } catch (err) {
-        setFetchError(err.message || 'Không thể tải thông tin thiết kế.');
+        setFetchError(getErrorMessage(err));
       } finally {
         setLoading(false);
       }

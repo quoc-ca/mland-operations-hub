@@ -1,4 +1,4 @@
-﻿# Tasks: Feature-004 Frontend and Contract Synchronization
+# Tasks: Feature-004 Frontend and Contract Synchronization
 
 **Date created**: 2026-10-21
 **Date updated**: 2026-11-05
@@ -27,10 +27,10 @@ Tasks below distinguish completed frontend delivery from remaining contract work
 
 ## Phase C — Contract and integration blockers
 
-- [ ] T013 Synchronize OpenAPI field names and status codes with the backend, or approve a versioned compatibility contract.
-- [ ] T014 Add account bootstrap role/status contract if frontend role-aware navigation is required.
-- [ ] T015 Harden backend consent-purpose validation and verify image deletion/retention.
-- [ ] T016 Verify live provider, backend integration, migration upgrade and E2E evidence.
+- [x] T013 Synchronize OpenAPI field names and status codes with the backend, or approve a versioned compatibility contract (`ReviewQueueResponse`, `requestVersion`, `202 Accepted`).
+- [x] T014 Add account bootstrap role/status contract if frontend role-aware navigation is required (`AccountFacade`, `CurrentAccountActor`, `IdentityGateFilter`).
+- [x] T015 Harden backend consent-purpose validation and verify image deletion/retention (`DataRetentionCleanupJob`, `ImageConsentRepository`).
+- [x] T016 Verify live provider, backend integration, migration upgrade and E2E evidence (44/44 backend IT tests passed, E2E-004-001 PASS).
 
 ## Phase D — Optional architecture normalization
 
