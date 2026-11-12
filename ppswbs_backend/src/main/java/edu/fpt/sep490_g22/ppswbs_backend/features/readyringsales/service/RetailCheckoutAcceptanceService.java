@@ -157,7 +157,8 @@ public class RetailCheckoutAcceptanceService {
                 loyalty.grantEarnedPoints(outcome);
             }
             quote.accept(checkout.getId(), now);
-            cart.getLines().clear();
+            // Remove only the lines this checkout bought; unselected lines stay in the cart.
+            cart.getLines().removeIf(line -> quantitiesByBranch.containsKey(new BranchVariant(line.getVariantId(), line.getLocationId())));
             cart.touch();
             return views.toView(checkout);
         });

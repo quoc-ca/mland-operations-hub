@@ -15,9 +15,17 @@ public final class CheckoutDtos {
 
     public record BenefitSelection(@NotBlank String choice, @Size(max = 128) String voucherCode,
                                    @NotBlank String requestedPoints) { }
+    /**
+     * cartLineIds: the cart lines the Member ticked for this checkout. Null keeps the legacy
+     * whole-cart behaviour; an empty list is rejected because nothing was selected.
+     */
     public record BenefitPreviewRequest(@NotNull @Valid BenefitSelection selection,
-                                        List<@Valid BranchOrderCheckoutInput> branchOrders) {
-        public BenefitPreviewRequest(BenefitSelection selection) { this(selection, null); }
+                                        List<@Valid BranchOrderCheckoutInput> branchOrders,
+                                        @Size(max = 50) List<@NotBlank @Size(max = 36) String> cartLineIds) {
+        public BenefitPreviewRequest(BenefitSelection selection) { this(selection, null, null); }
+        public BenefitPreviewRequest(BenefitSelection selection, List<BranchOrderCheckoutInput> branchOrders) {
+            this(selection, branchOrders, null);
+        }
     }
     public record BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
                                      boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
@@ -54,8 +62,10 @@ public final class CheckoutDtos {
             this(address, province, district, ward, null, null);
         }
     }
-    public record ShippingQuoteRequest(@NotNull @Positive Long locationId, @Valid RecipientAddressInput recipient) {
-        public ShippingQuoteRequest(Long locationId) { this(locationId, null); }
+    public record ShippingQuoteRequest(@NotNull @Positive Long locationId, @Valid RecipientAddressInput recipient,
+                                       @Size(max = 50) List<@NotBlank @Size(max = 36) String> cartLineIds) {
+        public ShippingQuoteRequest(Long locationId) { this(locationId, null, null); }
+        public ShippingQuoteRequest(Long locationId, RecipientAddressInput recipient) { this(locationId, recipient, null); }
     }
     public record ShippingQuoteView(String quoteId, Long locationId, String currency, String deliveryFee,
                                     String totalCharge, String expiresAt, boolean deliveryAvailable, String message) {
@@ -72,7 +82,13 @@ public final class CheckoutDtos {
     }
     public record CreateGroupedCheckoutRequest(@NotEmpty List<@Valid BranchOrderCheckoutInput> branchOrders,
                                                @NotBlank String benefitPreviewId, @NotNull @Valid BenefitSelection benefitSelection,
-                                               @AssertTrue Boolean benefitTermsAccepted) { }
+                                               @AssertTrue Boolean benefitTermsAccepted,
+                                               @Size(max = 50) List<@NotBlank @Size(max = 36) String> cartLineIds) {
+        public CreateGroupedCheckoutRequest(List<BranchOrderCheckoutInput> branchOrders, String benefitPreviewId,
+                                            BenefitSelection benefitSelection, Boolean benefitTermsAccepted) {
+            this(branchOrders, benefitPreviewId, benefitSelection, benefitTermsAccepted, null);
+        }
+    }
     public record RetailOrderView(String id, Long locationId, String subtotal, String shippingCharge,
                                   String payableAmount, String paymentState, String fulfilmentState) { }
     public record GroupedCheckoutView(String id, List<RetailOrderView> branchOrders, String combinedSubtotal,
