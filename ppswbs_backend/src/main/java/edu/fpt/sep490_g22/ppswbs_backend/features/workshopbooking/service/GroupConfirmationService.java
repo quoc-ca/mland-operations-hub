@@ -52,6 +52,7 @@ public class GroupConfirmationService {
     private final TicketPriceSnapshotRepository snapshots;
     private final BookingGroupMagicLinkRepository magicLinks;
     private final WorkshopOperationsAdapter operations;
+    private final GroupLoyaltyOutcomeService loyaltyOutcome;
     private final ApplicationEventPublisher events;
 
     /** How long after the last session a group's Magic Link stays usable when no session end is known. */
@@ -85,7 +86,7 @@ public class GroupConfirmationService {
         if (group.getGroupCollectionVnd() != 0) {
             throw new BookingValidationException("An internally confirmed group collects nothing at booking");
         }
-        return confirm(group, "INTERNAL_CONFIRMED", operationReference, correlationReference);
+        return confirm(group, "INTERNAL_CONFIRMED", null, operationReference, correlationReference);
     }
 
     /**
@@ -93,8 +94,8 @@ public class GroupConfirmationService {
      * evidence check; this method only requires the group to be the VNPay one still inside its hold.
      */
     @Transactional
-    public GroupConfirmation confirmPaidGroup(String groupCode, long verifiedAmountVnd, String operationReference,
-                                              String correlationReference) {
+    public GroupConfirmation confirmPaidGroup(String groupCode, long verifiedAmountVnd, String evidenceReference,
+                                              String operationReference, String correlationReference) {
         BookingGroup group = lockGroup(groupCode);
         if (group.getPaymentMode() != GroupPaymentMode.VNPAY) {
             throw new BookingValidationException("This group was not awaiting a gateway payment");
@@ -102,7 +103,7 @@ public class GroupConfirmationService {
         if (verifiedAmountVnd != group.getGroupCollectionVnd()) {
             throw new BookingConflictException("The verified amount does not match the group collection");
         }
-        return confirm(group, "GROUP_PAYMENT_CONFIRMED", operationReference, correlationReference);
+        return confirm(group, "GROUP_PAYMENT_CONFIRMED", evidenceReference, operationReference, correlationReference);
     }
 
     /** FR-032: when the 12-minute hold runs out the whole group is released, never a part of it. */
@@ -131,6 +132,7 @@ public class GroupConfirmationService {
         }
         group.setGroupStatus(BookingStatus.EXPIRED);
         groups.save(group);
+        loyaltyOutcome.releaseExpiredGroup(group);
         for (TicketBooking ticket : tickets.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId())) {
             ticket.setTicketStatus(BookingStatus.EXPIRED);
             tickets.save(ticket);
@@ -139,8 +141,8 @@ public class GroupConfirmationService {
         return true;
     }
 
-    private GroupConfirmation confirm(BookingGroup group, String auditAction, String operationReference,
-                                      String correlationReference) {
+    private GroupConfirmation confirm(BookingGroup group, String auditAction, String evidenceReference,
+                                      String operationReference, String correlationReference) {
         if (group.getGroupStatus() == BookingStatus.CONFIRMED) {
             return replay(group);
         }
@@ -231,7 +233,10 @@ public class GroupConfirmationService {
                 .expiresAt(lastSessionEnd != null ? lastSessionEnd : now.plus(FALLBACK_LINK_LIFETIME))
                 .build());
 
-        // 3. One event per ticket so Settlement opens one folio per ticket (003.3 FR-030).
+        // 3. One voucher use and one points hold per group, settled once now that the group is real.
+        loyaltyOutcome.settleConfirmedGroup(group, evidenceReference);
+
+        // 4. One event per ticket so Settlement opens one folio per ticket (003.3 FR-030).
         for (int i = 0; i < confirmedEntities.size(); i++) {
             ConfirmedTicket ticket = confirmed.get(i);
             events.publishEvent(new MlandTicketConfirmedEvent(group.getGroupCode(), ticket.ticketCode(),

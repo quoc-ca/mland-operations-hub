@@ -99,7 +99,8 @@ public class GroupPaymentQueryDrRecoveryScheduler {
             }
             String evidence = "VNPAY-QDR-" + result.providerTransactionNumber();
             DepositPaymentEvidenceOutcome applied = groupEvidence.apply(candidate.groupCode(),
-                    candidate.merchantReference(), candidate.amountVnd(), "VND", operationReference, evidence);
+                    candidate.merchantReference(), candidate.amountVnd(), "VND", evidence, operationReference,
+                    evidence);
             if (applied != null && applied.status() == BookingOutcomeStatus.ACCEPTED) {
                 log.info("Recovered group payment {} by QueryDR at minute {}", candidate.groupCode(),
                         checkpoint.minute());

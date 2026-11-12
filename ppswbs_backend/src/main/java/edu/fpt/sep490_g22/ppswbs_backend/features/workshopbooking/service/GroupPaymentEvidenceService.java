@@ -35,8 +35,8 @@ public class GroupPaymentEvidenceService {
 
     @Transactional
     public DepositPaymentEvidenceOutcome apply(String bookingReference, String merchantReference, long amountVnd,
-                                               String currencyCode, String operationReference,
-                                               String correlationReference) {
+                                               String currencyCode, String evidenceReference,
+                                               String operationReference, String correlationReference) {
         Optional<GroupPaymentAttempt> found = attempts.findByMerchantReference(merchantReference);
         if (found.isEmpty()) {
             return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.NOT_READY);
@@ -52,7 +52,8 @@ public class GroupPaymentEvidenceService {
             return DepositPaymentEvidenceOutcome.accepted();
         }
         try {
-            confirmation.confirmPaidGroup(groupCode, amountVnd, operationReference, correlationReference);
+            confirmation.confirmPaidGroup(groupCode, amountVnd, evidenceReference, operationReference,
+                    correlationReference);
         } catch (BookingCreationRejectedException ex) {
             // The hold had already run out. The money is real, so the group waits for the FR-040 late-payment
             // review of T094; NOT_READY keeps the single-booking late-evidence path from being handed a group.

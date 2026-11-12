@@ -13,6 +13,9 @@ public interface WorkshopCartQuoteRepository extends JpaRepository<WorkshopCartQ
 
     Optional<WorkshopCartQuote> findByQuoteRef(String quoteRef);
 
+    /** The quote a booking group was created from, for the group's one Loyalty outcome. */
+    Optional<WorkshopCartQuote> findByAcceptedGroupCode(String acceptedGroupCode);
+
     /** Locks the quote so two concurrent group creations cannot both accept it. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select q from WorkshopCartQuote q where q.quoteRef = :quoteRef")

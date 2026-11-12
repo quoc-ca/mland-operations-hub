@@ -286,8 +286,8 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         // evidence is routed before the single-booking path ever looks for a booking code (003.1 FR-038).
         if (groupPaymentEvidence.owns(command.merchantReference())) {
             return groupPaymentEvidence.apply(command.bookingReference(), command.merchantReference(),
-                    command.amountVnd(), command.currencyCode(), command.operationReference(),
-                    command.correlationReference());
+                    command.amountVnd(), command.currencyCode(), command.verifiedEvidenceReference(),
+                    command.operationReference(), command.correlationReference());
         }
 
         Optional<WorkshopBooking> optBooking = bookingRepository.findLockedByBookingCode(command.bookingReference());

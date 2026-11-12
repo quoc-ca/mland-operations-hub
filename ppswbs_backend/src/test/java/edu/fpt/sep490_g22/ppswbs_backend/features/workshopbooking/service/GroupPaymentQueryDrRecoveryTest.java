@@ -47,7 +47,7 @@ class GroupPaymentQueryDrRecoveryTest {
         ingressOutcomes = mock(PaymentIngressOutcomeQueryPort.class);
         merchantOperations = mock(VnpayMerchantOperationsPort.class);
         evidence = mock(GroupPaymentEvidenceService.class);
-        when(evidence.apply(anyString(), anyString(), anyLong(), anyString(), anyString(), anyString()))
+        when(evidence.apply(anyString(), anyString(), anyLong(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(DepositPaymentEvidenceOutcome.accepted());
         scheduler = new GroupPaymentQueryDrRecoveryScheduler(attempts, ingressOutcomes, merchantOperations, evidence,
                 "203.0.113.9");
@@ -72,8 +72,8 @@ class GroupPaymentQueryDrRecoveryTest {
         assertThat(query.getValue().operationReference()).endsWith("-M10");
         assertThat(query.getValue().merchantReference()).isEqualTo(MERCHANT);
         assertThat(query.getValue().originalTransactionDate()).isEqualTo("20261112170000");
-        verify(evidence).apply(eq(GROUP), eq(MERCHANT), eq(AMOUNT), eq("VND"), anyString(),
-                eq("VNPAY-QDR-TX-7"));
+        verify(evidence).apply(eq(GROUP), eq(MERCHANT), eq(AMOUNT), eq("VND"), eq("VNPAY-QDR-TX-7"),
+                anyString(), anyString());
     }
 
     @Test
@@ -87,7 +87,8 @@ class GroupPaymentQueryDrRecoveryTest {
         assertThat(query.getAllValues()).extracting(VnpayQueryDrCommand::operationReference)
                 .satisfiesExactly(first -> assertThat(first).endsWith("-M10"),
                         second -> assertThat(second).endsWith("-M11"));
-        verify(evidence, times(1)).apply(eq(GROUP), eq(MERCHANT), eq(AMOUNT), eq("VND"), anyString(), anyString());
+        verify(evidence, times(1)).apply(eq(GROUP), eq(MERCHANT), eq(AMOUNT), eq("VND"), anyString(), anyString(),
+                anyString());
     }
 
     @Test
@@ -170,13 +171,13 @@ class GroupPaymentQueryDrRecoveryTest {
     @Test
     void aRejectedApplicationIsNotRetriedAtTheNextCheckpoint() {
         when(merchantOperations.queryTransaction(any())).thenReturn(paid());
-        when(evidence.apply(anyString(), anyString(), anyLong(), anyString(), anyString(), anyString()))
+        when(evidence.apply(anyString(), anyString(), anyLong(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.NOT_READY));
 
         scheduler.recover(candidate(), atMinute(11));
 
         verify(merchantOperations, times(1)).queryTransaction(any());
-        verify(evidence, times(1)).apply(anyString(), anyString(), anyLong(), anyString(), anyString(), anyString());
+        verify(evidence, times(1)).apply(anyString(), anyString(), anyLong(), anyString(), anyString(), anyString(), anyString());
     }
 
     @Test

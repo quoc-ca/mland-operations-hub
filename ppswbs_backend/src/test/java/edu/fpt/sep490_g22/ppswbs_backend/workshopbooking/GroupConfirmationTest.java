@@ -44,6 +44,7 @@ class GroupConfirmationTest {
     private BookingGroupMagicLinkRepository magicLinks;
     private WorkshopOperationsAdapter operations;
     private ApplicationEventPublisher events;
+    private GroupLoyaltyOutcomeService loyaltyOutcome;
     private GroupConfirmationService service;
 
     private BookingGroup group;
@@ -63,7 +64,9 @@ class GroupConfirmationTest {
         when(lines.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(tickets.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(magicLinks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        service = new GroupConfirmationService(groups, lines, tickets, snapshots, magicLinks, operations, events);
+        loyaltyOutcome = mock(GroupLoyaltyOutcomeService.class);
+        service = new GroupConfirmationService(groups, lines, tickets, snapshots, magicLinks, operations,
+                loyaltyOutcome, events);
     }
 
     // ---- internal confirmation ----
@@ -164,7 +167,7 @@ class GroupConfirmationTest {
         givenIssuedTickets(0, 1);
         givenIssuedTickets(1, 1);
 
-        var result = service.confirmPaidGroup(GROUP, 400_000, "op-1", "corr-1");
+        var result = service.confirmPaidGroup(GROUP, 400_000, "VNPAY-TX-7", "op-1", "corr-1");
 
         assertThat(result.tickets()).extracting(GroupConfirmationService.ConfirmedTicket::financialStatus)
                 .containsOnly(PaymentStatus.DEPOSIT_PAID.name());
@@ -181,7 +184,7 @@ class GroupConfirmationTest {
         givenCommitAccepted();
         givenIssuedTickets(0, 1);
 
-        var result = service.confirmPaidGroup(GROUP, 150_000, "op-1", "corr-1");
+        var result = service.confirmPaidGroup(GROUP, 150_000, "VNPAY-TX-7", "op-1", "corr-1");
 
         assertThat(result.tickets().get(0).financialStatus()).isEqualTo(PaymentStatus.FULLY_PAID.name());
     }
@@ -190,7 +193,7 @@ class GroupConfirmationTest {
     void anAmountThatDoesNotMatchTheGroupCollectionIsRefused() {
         givenGroup(GroupPaymentMode.VNPAY, 400_000);
 
-        assertThatThrownBy(() -> service.confirmPaidGroup(GROUP, 399_000, "op-1", "corr-1"))
+        assertThatThrownBy(() -> service.confirmPaidGroup(GROUP, 399_000, "VNPAY-TX-7", "op-1", "corr-1"))
                 .isInstanceOf(BookingConflictException.class);
         verifyNoInteractions(operations);
     }
@@ -201,10 +204,10 @@ class GroupConfirmationTest {
         givenLine(0, "Clay Workshop", 1, 150_000, 150_000, TicketCollectionKind.FULL, 0);
         givenCommitAccepted();
         givenIssuedTickets(0, 1);
-        service.confirmPaidGroup(GROUP, 150_000, "op-1", "corr-1");
+        service.confirmPaidGroup(GROUP, 150_000, "VNPAY-TX-7", "op-1", "corr-1");
         clearInvocations(operations, magicLinks, events);
 
-        var replay = service.confirmPaidGroup(GROUP, 150_000, "op-1", "corr-1");
+        var replay = service.confirmPaidGroup(GROUP, 150_000, "VNPAY-TX-7", "op-1", "corr-1");
 
         assertThat(replay.alreadyConfirmed()).isTrue();
         assertThat(replay.rawMagicToken()).isNull();
@@ -219,7 +222,7 @@ class GroupConfirmationTest {
         givenGroup(GroupPaymentMode.VNPAY, 150_000);
         group.setHoldExpiresAt(Instant.now().minusSeconds(60));
 
-        assertThatThrownBy(() -> service.confirmPaidGroup(GROUP, 150_000, "op-1", "corr-1"))
+        assertThatThrownBy(() -> service.confirmPaidGroup(GROUP, 150_000, "VNPAY-TX-7", "op-1", "corr-1"))
                 .isInstanceOf(BookingCreationRejectedException.class)
                 .hasFieldOrPropertyWithValue("code", "GROUP_HOLD_EXPIRED");
         verifyNoInteractions(operations);
@@ -232,7 +235,7 @@ class GroupConfirmationTest {
         when(operations.commitBookingHolds(anyString(), anyList(), anyString(), anyString()))
                 .thenReturn(CapacityCommitOutcome.rejected(RejectionReason.HOLD_MISSING_OR_EXPIRED));
 
-        assertThatThrownBy(() -> service.confirmPaidGroup(GROUP, 150_000, "op-1", "corr-1"))
+        assertThatThrownBy(() -> service.confirmPaidGroup(GROUP, 150_000, "VNPAY-TX-7", "op-1", "corr-1"))
                 .isInstanceOf(BookingConflictException.class);
         assertThat(group.getGroupStatus()).isEqualTo(BookingStatus.PENDING_PAYMENT);
         verifyNoInteractions(magicLinks);
@@ -246,8 +249,46 @@ class GroupConfirmationTest {
         givenCommitAccepted();
         givenIssuedTickets(0, 1);
 
-        assertThatThrownBy(() -> service.confirmPaidGroup(GROUP, 300_000, "op-1", "corr-1"))
+        assertThatThrownBy(() -> service.confirmPaidGroup(GROUP, 300_000, "VNPAY-TX-7", "op-1", "corr-1"))
                 .isInstanceOf(BookingConflictException.class);
+    }
+
+    @Test
+    void confirmingAGroupSettlesItsLoyaltyComponentsOnceWithThePaymentEvidence() {
+        givenGroup(GroupPaymentMode.VNPAY, 150_000);
+        givenLine(0, "Clay Workshop", 1, 150_000, 150_000, TicketCollectionKind.FULL, 0);
+        givenCommitAccepted();
+        givenIssuedTickets(0, 1);
+
+        service.confirmPaidGroup(GROUP, 150_000, "VNPAY-TX-7", "op-1", "corr-1");
+
+        verify(loyaltyOutcome).settleConfirmedGroup(group, "VNPAY-TX-7");
+    }
+
+    @Test
+    void anInternalConfirmationSettlesWithoutPaymentEvidence() {
+        givenGroup(GroupPaymentMode.INTERNAL_FREE, 0);
+        givenLine(0, "Open Day", 1, 0, 0, TicketCollectionKind.FREE, 0);
+        givenCommitAccepted();
+        givenIssuedTickets(0, 1);
+
+        service.confirmInternalGroup(GROUP, "op-1", "corr-1");
+
+        verify(loyaltyOutcome).settleConfirmedGroup(group, null);
+    }
+
+    @Test
+    void aReplayedConfirmationSettlesNothingASecondTime() {
+        givenGroup(GroupPaymentMode.VNPAY, 150_000);
+        givenLine(0, "Clay Workshop", 1, 150_000, 150_000, TicketCollectionKind.FULL, 0);
+        givenCommitAccepted();
+        givenIssuedTickets(0, 1);
+        service.confirmPaidGroup(GROUP, 150_000, "VNPAY-TX-7", "op-1", "corr-1");
+        clearInvocations(loyaltyOutcome);
+
+        service.confirmPaidGroup(GROUP, 150_000, "VNPAY-TX-7", "op-1", "corr-1");
+
+        verifyNoInteractions(loyaltyOutcome);
     }
 
     // ---- expiry ----
@@ -263,6 +304,8 @@ class GroupConfirmationTest {
 
         assertThat(service.releaseExpiredGroup(GROUP, "op-1", "corr-1")).isTrue();
 
+        // The group's one voucher use and points hold go back with it.
+        verify(loyaltyOutcome).releaseExpiredGroup(group);
         assertThat(group.getGroupStatus()).isEqualTo(BookingStatus.EXPIRED);
         assertThat(ticketRows).allSatisfy(ticket ->
                 assertThat(ticket.getTicketStatus()).isEqualTo(BookingStatus.EXPIRED));
@@ -305,8 +348,8 @@ class GroupConfirmationTest {
         when(attempts.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         GroupPaymentEvidenceService evidence = new GroupPaymentEvidenceService(attempts, service);
 
-        DepositPaymentEvidenceOutcome first = evidence.apply(GROUP, "GRP-M1", 150_000, "VND", "op-1", "corr-1");
-        DepositPaymentEvidenceOutcome second = evidence.apply(GROUP, "GRP-M1", 150_000, "VND", "op-1", "corr-1");
+        DepositPaymentEvidenceOutcome first = evidence.apply(GROUP, "GRP-M1", 150_000, "VND", "VNPAY-TX-7", "op-1", "corr-1");
+        DepositPaymentEvidenceOutcome second = evidence.apply(GROUP, "GRP-M1", 150_000, "VND", "VNPAY-TX-7", "op-1", "corr-1");
 
         assertThat(first.status()).isEqualTo(BookingOutcomeStatus.ACCEPTED);
         assertThat(second.status()).isEqualTo(BookingOutcomeStatus.ACCEPTED);
@@ -324,9 +367,9 @@ class GroupConfirmationTest {
         when(attempts.findByMerchantReference("GRP-M1")).thenReturn(Optional.of(attempt));
         GroupPaymentEvidenceService evidence = new GroupPaymentEvidenceService(attempts, service);
 
-        assertThat(evidence.apply(GROUP, "GRP-M1", 149_000, "VND", "op", "corr").reason())
+        assertThat(evidence.apply(GROUP, "GRP-M1", 149_000, "VND", "ev", "op", "corr").reason())
                 .isEqualTo(BookingRejectionReason.PAYMENT_MISMATCH);
-        assertThat(evidence.apply("GRP-OTHER", "GRP-M1", 150_000, "VND", "op", "corr").reason())
+        assertThat(evidence.apply("GRP-OTHER", "GRP-M1", 150_000, "VND", "ev", "op", "corr").reason())
                 .isEqualTo(BookingRejectionReason.PAYMENT_MISMATCH);
         assertThat(evidence.owns("GRP-UNKNOWN")).isFalse();
     }
