@@ -1,0 +1,361 @@
+package edu.fpt.sep490_g22.ppswbs_backend.workshopbooking;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.CreateBookingGroupRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.WorkshopCartQuoteRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.WorkshopCartQuoteResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopOperationsAdapter;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
+
+/**
+ * 003.1 T092: quoting a multi-ticket cart and confirming it into one booking group.
+ * Benefits are refused while the 006 cart contract is pending, so every cart here prices at package price.
+ */
+class WorkshopCartBookingTest {
+
+    private static final Instant HOLD_EXPIRY = Instant.parse("2026-11-12T10:12:00Z");
+
+    private WorkshopOperationsAdapter operations;
+    private WorkshopBookingAuthorizationService authorization;
+    private WorkshopCartQuoteRepository quotes;
+    private BookingGroupRepository groups;
+    private BookingGroupLineRepository lines;
+    private TicketBookingRepository tickets;
+    private TicketPriceSnapshotRepository snapshots;
+    private WorkshopCartQuoteService quoteService;
+    private BookingGroupCreationService creationService;
+    private final List<WorkshopCartQuote> saved = new ArrayList<>();
+
+    @BeforeEach
+    void setUp() {
+        operations = mock(WorkshopOperationsAdapter.class);
+        authorization = mock(WorkshopBookingAuthorizationService.class);
+        quotes = mock(WorkshopCartQuoteRepository.class);
+        groups = mock(BookingGroupRepository.class);
+        lines = mock(BookingGroupLineRepository.class);
+        tickets = mock(TicketBookingRepository.class);
+        snapshots = mock(TicketPriceSnapshotRepository.class);
+        ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+        when(quotes.save(any())).thenAnswer(invocation -> {
+            WorkshopCartQuote quote = invocation.getArgument(0);
+            if (quote.getCreatedAt() == null) {
+                quote.setCreatedAt(Instant.parse("2026-11-12T10:00:00Z"));
+                quote.setExpiresAt(quote.getCreatedAt().plus(WorkshopCartQuote.QUOTE_TTL));
+                quote.setQuoteState(CartQuoteState.OPEN);
+            }
+            saved.removeIf(existing -> existing.getQuoteRef().equals(quote.getQuoteRef()));
+            saved.add(quote);
+            return quote;
+        });
+        when(groups.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(lines.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tickets.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(snapshots.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        WorkshopCartPricingService pricing = new WorkshopCartPricingService(operations);
+        quoteService = new WorkshopCartQuoteService(authorization, pricing, quotes, mapper);
+        creationService = new BookingGroupCreationService(authorization, pricing, operations, quotes, groups, lines,
+                tickets, snapshots, mock(BookingIdempotencyService.class), mapper);
+    }
+
+    // ---- quoting ----
+
+    @Test
+    void quotesEveryTicketOfEveryLineAndSumsOneGroupCollection() {
+        UUID clay = publishedLine("7", 203_000, 1, 6, 1, "Clay Workshop");
+        UUID wax = publishedLine("9", 500_000, 1, 4, 1, "Wax Casting");
+
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(
+                line(7L, clay, 2), line(9L, wax, 1)));
+
+        assertThat(quote.lines()).hasSize(2);
+        assertThat(quote.lines().get(0).tickets()).extracting(WorkshopCartQuoteResponse.QuotedTicket::finalPriceVnd)
+                .containsExactly(203_000L, 203_000L);
+        // min(final, 200,000) per ticket: 200,000 × 3 = 600,000 in one payment, 3,000 + 3,000 left at checkout.
+        assertThat(quote.groupCollectionVnd()).isEqualTo(600_000);
+        assertThat(quote.grossVnd()).isEqualTo(906_000);
+        assertThat(quote.finalTotalVnd()).isEqualTo(906_000);
+        assertThat(quote.remainingAtCheckoutVnd()).isEqualTo(306_000);
+        assertThat(quote.paymentMode()).isEqualTo(GroupPaymentMode.VNPAY.name());
+        assertThat(quote.lines().get(0).tickets()).extracting(WorkshopCartQuoteResponse.QuotedTicket::collectionKind)
+                .containsOnly(TicketCollectionKind.DEPOSIT.name());
+    }
+
+    @Test
+    void aGuestCartNeedsNoAuthenticationAndHasNoBuyer() {
+        UUID session = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
+
+        quoteService.quote(null, cart(line(7L, session, 1)));
+
+        verifyNoInteractions(authorization);
+        assertThat(saved.get(0).getBuyerMemberAccountId()).isNull();
+        assertThat(saved.get(0).getVoucherDiscountVnd()).isZero();
+        assertThat(saved.get(0).getPointsUsed()).isZero();
+    }
+
+    @Test
+    void aMemberCartRecordsTheBuyer() {
+        UUID session = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
+        when(authorization.requireMemberOwnership("Bearer token", null))
+                .thenReturn(new AccountSummary(42L, ActorRole.MEMBER, ActorStatus.ACTIVE, null, null, null));
+
+        quoteService.quote("Bearer token", cart(line(7L, session, 1)));
+
+        assertThat(saved.get(0).getBuyerMemberAccountId()).isEqualTo(42L);
+    }
+
+    @Test
+    void aCartAskingForAVoucherOrPointsIsRefusedWhileThe006ContractIsPending() {
+        UUID session = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
+        WorkshopCartQuoteRequest withVoucher = new WorkshopCartQuoteRequest(List.of(line(7L, session, 1)),
+                new WorkshopCartQuoteRequest.BenefitSelectionRequest(
+                        WorkshopCartQuoteRequest.BenefitSelectionRequest.Choice.VOUCHER, "SUMMER", "0"));
+        WorkshopCartQuoteRequest withPoints = new WorkshopCartQuoteRequest(List.of(line(7L, session, 1)),
+                new WorkshopCartQuoteRequest.BenefitSelectionRequest(
+                        WorkshopCartQuoteRequest.BenefitSelectionRequest.Choice.NONE, null, "500"));
+
+        for (WorkshopCartQuoteRequest request : List.of(withVoucher, withPoints)) {
+            assertThatThrownBy(() -> quoteService.quote(null, request))
+                    .isInstanceOf(BookingCreationRejectedException.class)
+                    .hasFieldOrPropertyWithValue("code", WorkshopCartQuoteService.BENEFITS_PENDING_CODE);
+        }
+        verifyNoInteractions(quotes);
+    }
+
+    @Test
+    void anExplicitlyEmptySelectionStillQuotes() {
+        UUID session = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
+        WorkshopCartQuoteRequest request = new WorkshopCartQuoteRequest(List.of(line(7L, session, 1)),
+                new WorkshopCartQuoteRequest.BenefitSelectionRequest(
+                        WorkshopCartQuoteRequest.BenefitSelectionRequest.Choice.NONE, null, "0"));
+
+        assertThat(quoteService.quote(null, request).finalTotalVnd()).isEqualTo(150_000);
+    }
+
+    @Test
+    void aLineThatNoLongerHasRoomForEveryoneIsRefusedBeforeAnythingIsHeld() {
+        UUID session = UUID.randomUUID();
+        when(operations.getPublishedPackageSelection("7"))
+                .thenReturn(new PublishedPackageSelectionSnapshot("7", 150_000, 1, 6, 1, true, 1, "Clay Workshop"));
+        when(operations.getSaleEligibility(session)).thenReturn(new SaleEligibilitySnapshot(session, true, "ON_SALE",
+                5L, Instant.parse("2026-11-20T02:00:00Z"), Instant.parse("2026-11-20T05:00:00Z"), 1,
+                java.time.LocalDate.parse("2026-11-20")));
+
+        assertThatThrownBy(() -> quoteService.quote(null, cart(line(7L, session, 3))))
+                .isInstanceOf(BookingConflictException.class);
+    }
+
+    @Test
+    void aLineThatDoesNotMatchThePackageRequirementsIsRejected() {
+        UUID session = publishedLine("7", 150_000, 2, 6, 1, "Clay Workshop");
+
+        assertThatThrownBy(() -> quoteService.quote(null, cart(line(7L, session, 1))))
+                .isInstanceOf(BookingValidationException.class);
+    }
+
+    @Test
+    void aFreeCartIsConfirmedInternally() {
+        UUID session = publishedLine("7", 0, 1, 6, 1, "Open Day");
+
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, session, 2)));
+
+        assertThat(quote.groupCollectionVnd()).isZero();
+        assertThat(quote.paymentMode()).isEqualTo(GroupPaymentMode.INTERNAL_FREE.name());
+    }
+
+    @Test
+    void aCartUnderTheVnpayFloorIsDeferredToCheckout() {
+        UUID session = publishedLine("7", 3_000, 1, 6, 1, "Mini Workshop");
+
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, session, 1)));
+
+        assertThat(quote.paymentMode()).isEqualTo(GroupPaymentMode.INTERNAL_DEFERRED.name());
+        assertThat(quote.groupCollectionVnd()).isZero();
+        assertThat(quote.lines().get(0).tickets().get(0).remainingVnd()).isEqualTo(3_000);
+    }
+
+    // ---- confirming the cart into a group ----
+
+    @Test
+    void holdsEveryLineThenStoresOneTicketAndOneSnapshotPerPerson() {
+        UUID clay = publishedLine("7", 203_000, 1, 6, 1, "Clay Workshop");
+        UUID wax = publishedLine("9", 500_000, 1, 4, 1, "Wax Casting");
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, clay, 2), line(9L, wax, 1)));
+        openQuote(quote.quoteRef());
+        UUID clayHold = UUID.randomUUID();
+        UUID waxHold = UUID.randomUUID();
+        when(operations.reserveGroupCapacity(anyString(), any(), anyString(), eq("corr-1")))
+                .thenReturn(GroupCapacityOutcome.accepted(List.of(List.of(clayHold), List.of(waxHold)), HOLD_EXPIRY));
+
+        var response = creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "buyer@example.com", "0901234567"), null, "corr-1", null);
+
+        assertThat(response.groupStatus()).isEqualTo(BookingStatus.PENDING_PAYMENT.name());
+        assertThat(response.groupCollectionVnd()).isEqualTo(600_000);
+        assertThat(response.holdExpiresAt()).isEqualTo(HOLD_EXPIRY);
+        // FR-032: the customer's deadline is 2 minutes before the hold ends.
+        assertThat(response.paymentDeadlineAt()).isEqualTo(HOLD_EXPIRY.minusSeconds(120));
+        assertThat(response.tickets()).hasSize(3);
+        assertThat(response.tickets()).extracting(dto -> dto.lineIndex() + "/" + dto.participantOrdinal())
+                .containsExactly("0/1", "0/2", "1/1");
+        assertThat(response.tickets()).extracting(dto -> dto.collectedAtBookingVnd())
+                .containsExactly(200_000L, 200_000L, 200_000L);
+        assertThat(response.tickets()).extracting(dto -> dto.remainingVnd())
+                .containsExactly(3_000L, 3_000L, 300_000L);
+        verify(tickets, times(3)).save(any());
+        verify(snapshots, times(3)).save(any());
+
+        ArgumentCaptor<BookingGroupLine> stored = ArgumentCaptor.forClass(BookingGroupLine.class);
+        verify(lines, times(2)).save(stored.capture());
+        assertThat(stored.getAllValues()).extracting(BookingGroupLine::getTicketCount).containsExactly(2, 1);
+        assertThat(stored.getAllValues().get(0).getSessions()).singleElement()
+                .satisfies(session -> {
+                    assertThat(session.getHoldReference()).isEqualTo(clayHold.toString());
+                    assertThat(session.getHoldStatus()).isEqualTo(LineHoldStatus.RESERVED);
+                });
+        assertThat(saved.get(0).getQuoteState()).isEqualTo(CartQuoteState.ACCEPTED);
+    }
+
+    @Test
+    void aRefusedHoldNamesTheFailingLinesAndWritesNothing() {
+        UUID clay = publishedLine("7", 203_000, 1, 6, 1, "Clay Workshop");
+        UUID wax = publishedLine("9", 500_000, 1, 4, 1, "Wax Casting");
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, clay, 2), line(9L, wax, 1)));
+        openQuote(quote.quoteRef());
+        when(operations.reserveGroupCapacity(anyString(), any(), anyString(), anyString()))
+                .thenReturn(GroupCapacityOutcome.rejected(RejectionReason.INSUFFICIENT_CAPACITY, List.of(1)));
+
+        assertThatThrownBy(() -> creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "buyer@example.com", "0901234567"), null, "corr-2", null))
+                .isInstanceOf(CartHoldRejectedException.class)
+                .hasFieldOrPropertyWithValue("code", "INSUFFICIENT_CAPACITY")
+                .hasFieldOrPropertyWithValue("failingLines", List.of(1));
+
+        verifyNoInteractions(groups);
+        verifyNoInteractions(tickets);
+        verifyNoInteractions(snapshots);
+        assertThat(saved.get(0).getQuoteState()).isEqualTo(CartQuoteState.OPEN);
+    }
+
+    @Test
+    void aQuoteIsConfirmedOnlyOnce() {
+        UUID session = publishedLine("7", 203_000, 1, 6, 1, "Clay Workshop");
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, session, 1)));
+        WorkshopCartQuote stored = saved.get(0);
+        stored.setQuoteState(CartQuoteState.ACCEPTED);
+        when(quotes.findForUpdate(quote.quoteRef())).thenReturn(Optional.of(stored));
+
+        assertThatThrownBy(() -> creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "buyer@example.com", "0901234567"), null, "corr-3", null))
+                .isInstanceOf(BookingCreationRejectedException.class)
+                .hasFieldOrPropertyWithValue("code", "QUOTE_ALREADY_ACCEPTED");
+    }
+
+    @Test
+    void anExpiredQuoteIsRefused() {
+        UUID session = publishedLine("7", 203_000, 1, 6, 1, "Clay Workshop");
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, session, 1)));
+        WorkshopCartQuote stored = saved.get(0);
+        stored.setExpiresAt(Instant.parse("2020-01-01T00:00:00Z"));
+        when(quotes.findForUpdate(quote.quoteRef())).thenReturn(Optional.of(stored));
+
+        assertThatThrownBy(() -> creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "buyer@example.com", "0901234567"), null, "corr-4", null))
+                .isInstanceOf(BookingCreationRejectedException.class)
+                .hasFieldOrPropertyWithValue("code", "QUOTE_EXPIRED");
+    }
+
+    @Test
+    void aPriceThatMovedSinceTheQuoteIsRefusedInsteadOfBooked() {
+        UUID session = publishedLine("7", 203_000, 1, 6, 1, "Clay Workshop");
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, session, 1)));
+        openQuote(quote.quoteRef());
+        when(operations.getPublishedPackageSelection("7"))
+                .thenReturn(new PublishedPackageSelectionSnapshot("7", 250_000, 1, 6, 1, true, 1, "Clay Workshop"));
+
+        assertThatThrownBy(() -> creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "buyer@example.com", "0901234567"), null, "corr-5", null))
+                .isInstanceOf(BookingCreationRejectedException.class)
+                .hasFieldOrPropertyWithValue("code", "QUOTE_CHANGED");
+        verifyNoInteractions(groups);
+    }
+
+    @Test
+    void anotherMembersQuoteIsNotFound() {
+        UUID session = publishedLine("7", 203_000, 1, 6, 1, "Clay Workshop");
+        when(authorization.requireMemberOwnership("Bearer token", null))
+                .thenReturn(new AccountSummary(42L, ActorRole.MEMBER, ActorStatus.ACTIVE, null, null, null));
+        WorkshopCartQuoteResponse quote = quoteService.quote("Bearer token", cart(line(7L, session, 1)));
+        openQuote(quote.quoteRef());
+
+        assertThatThrownBy(() -> creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "buyer@example.com", "0901234567"), 99L, "corr-6", null))
+                .isInstanceOf(BookingNotFoundException.class);
+    }
+
+    @Test
+    void aFreeCartBecomesAnInternallyConfirmedGroupThatCollectsNothing() {
+        UUID session = publishedLine("7", 0, 1, 6, 1, "Open Day");
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, session, 2)));
+        openQuote(quote.quoteRef());
+        when(operations.reserveGroupCapacity(anyString(), any(), anyString(), anyString()))
+                .thenReturn(GroupCapacityOutcome.accepted(List.of(List.of(UUID.randomUUID())), HOLD_EXPIRY));
+
+        var response = creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "buyer@example.com", "0901234567"), null, "corr-7", null);
+
+        assertThat(response.paymentMode()).isEqualTo(GroupPaymentMode.INTERNAL_FREE.name());
+        assertThat(response.groupCollectionVnd()).isZero();
+        assertThat(response.tickets()).hasSize(2)
+                .allSatisfy(ticket -> assertThat(ticket.collectionKind())
+                        .isEqualTo(TicketCollectionKind.FREE.name()));
+    }
+
+    // ---- helpers ----
+
+    private void openQuote(String quoteRef) {
+        WorkshopCartQuote stored = saved.stream().filter(q -> q.getQuoteRef().equals(quoteRef)).findFirst()
+                .orElseThrow();
+        when(quotes.findForUpdate(quoteRef)).thenReturn(Optional.of(stored));
+    }
+
+    private UUID publishedLine(String packageReference, long price, int min, int max, int requiredSessions,
+                               String name) {
+        UUID session = UUID.randomUUID();
+        when(operations.getPublishedPackageSelection(packageReference)).thenReturn(
+                new PublishedPackageSelectionSnapshot(packageReference, price, min, max, requiredSessions, true, 1,
+                        name));
+        when(operations.getSaleEligibility(session)).thenReturn(new SaleEligibilitySnapshot(session, true, "ON_SALE",
+                5L, Instant.parse("2026-11-20T02:00:00Z"), Instant.parse("2026-11-20T05:00:00Z"), 20,
+                java.time.LocalDate.parse("2026-11-20")));
+        return session;
+    }
+
+    private static WorkshopCartQuoteRequest.Line line(long packageId, UUID session, int participants) {
+        return new WorkshopCartQuoteRequest.Line(packageId, List.of(session.toString()), participants);
+    }
+
+    private static WorkshopCartQuoteRequest cart(WorkshopCartQuoteRequest.Line... lines) {
+        return new WorkshopCartQuoteRequest(List.of(lines), null);
+    }
+}

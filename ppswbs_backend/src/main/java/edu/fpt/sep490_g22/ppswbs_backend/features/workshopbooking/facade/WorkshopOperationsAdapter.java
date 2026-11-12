@@ -76,6 +76,22 @@ public class WorkshopOperationsAdapter {
                         correlationReference));
     }
 
+    /**
+     * Reserves every line of a booking group, all or none (003.1 FR-031). Operations rechecks publication,
+     * sale eligibility and capacity atomically and, on refusal, names the failing cart positions.
+     */
+    public edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.GroupCapacityOutcome reserveGroupCapacity(
+            String groupReference,
+            List<edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReserveGroupCapacityCommand.Line> lines,
+            String operationReference,
+            String correlationReference) {
+        log.info("WorkshopOperationsAdapter.reserveGroupCapacity: groupRef={}, lines={}, opRef={}",
+                groupReference, lines.size(), operationReference);
+        return workshopOperationsFacade.reserveGroupCapacity(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReserveGroupCapacityCommand(
+                        groupReference, lines, operationReference, correlationReference));
+    }
+
     public edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OtaBookingCapacityOutcome acceptOtaBooking(
             String bookingReference, String packageReference, UUID sessionReference, int participantCount,
             String operationReference, String correlationReference) {
