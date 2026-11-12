@@ -19,8 +19,7 @@ public final class TicketBenefitAllocator {
 
     /** The VNPay minimum applies to the group collection, not to a ticket price (FR-036). */
     public static final long VNPAY_MINIMUM_VND = 5_000;
-    /** Tickets priced from this amount upward pay a fixed deposit instead of the full price (FR-035). */
-    public static final long DEPOSIT_THRESHOLD_VND = 205_000;
+    /** A ticket collects min(final price, this amount) at booking; the rest is its checkout balance (FR-035). */
     public static final long DEPOSIT_VND = 200_000;
 
     private TicketBenefitAllocator() {
@@ -85,7 +84,7 @@ public final class TicketBenefitAllocator {
             if (finalPrice == 0) {
                 collected = 0;
                 kind = TicketCollectionKind.FREE;
-            } else if (finalPrice < DEPOSIT_THRESHOLD_VND) {
+            } else if (finalPrice <= DEPOSIT_VND) {
                 collected = finalPrice;
                 kind = TicketCollectionKind.FULL;
             } else {

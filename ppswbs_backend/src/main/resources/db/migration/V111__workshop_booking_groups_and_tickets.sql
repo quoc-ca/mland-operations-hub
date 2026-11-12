@@ -77,12 +77,12 @@ CREATE TABLE ticket_price_snapshots (
         AND final_price_vnd = package_price_vnd - voucher_discount_vnd - point_discount_vnd
         AND collected_at_booking_vnd >= 0 AND remaining_vnd >= 0
         AND collected_at_booking_vnd + remaining_vnd = final_price_vnd),
-    -- FR-035: 0 free; 1..204,999 full; from 205,000 a 200,000 deposit; group under 5,000 deferred (collected 0).
+    -- FR-035: 0 free; 1..200,000 full; above 200,000 a 200,000 deposit (min(final, 200,000)); group under 5,000 deferred (collected 0).
     CONSTRAINT ck_tps_kind CHECK (
         (collection_kind = 'FREE' AND final_price_vnd = 0 AND collected_at_booking_vnd = 0)
-        OR (collection_kind = 'FULL' AND final_price_vnd BETWEEN 1 AND 204999
+        OR (collection_kind = 'FULL' AND final_price_vnd BETWEEN 1 AND 200000
             AND collected_at_booking_vnd = final_price_vnd)
-        OR (collection_kind = 'DEPOSIT' AND final_price_vnd >= 205000 AND collected_at_booking_vnd = 200000)
+        OR (collection_kind = 'DEPOSIT' AND final_price_vnd >= 200001 AND collected_at_booking_vnd = 200000)
         OR (collection_kind = 'DEFERRED_BELOW_VNPAY_MINIMUM' AND final_price_vnd >= 1
             AND collected_at_booking_vnd = 0))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

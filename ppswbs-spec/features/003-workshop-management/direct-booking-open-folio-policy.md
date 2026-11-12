@@ -24,7 +24,7 @@ text is kept for history. Details: 003.1 FR-030–FR-043 and 003.3 FR-030–FR-0
 | Topic | Rule below | Now |
 | --- | --- | --- |
 | Folio granularity | One folio per booking | One OPEN folio per ticket booking (one person) inside a booking group. |
-| Booking-time collection | Deposit `ceil(post/2)` | Per ticket: 0 → free; 1–204,999 → full price; ≥ 205,000 → 200,000; group total 1–4,999 → deferred to checkout. One VNPay payment per group. |
+| Booking-time collection | Deposit `ceil(post/2)` | Per ticket: 0 → free; 1–200,000 → full price; > 200,000 → 200,000; group total 1–4,999 → deferred to checkout. One VNPay payment per group. |
 | Verified collection | Only signed VNPay IPN/QueryDR; counter payments not accepted | VNPay (signed evidence), cash confirmed by Staff, or direct transfer confirmed by `workshop.payment.transfer.confirm` after seeing the money; several collections and mixed methods per folio; pending collections do not count. |
 | Refunds | VNPay full/partial refund verified by QueryDR (Mland remedy, overcharge correction) | Bank transfer outside the system only: account collection link, Manager approval, transfer by `workshop.refund.execute`, Manager confirms `REFUNDED` after reconciliation. No VNPay Refund call. |
 | Customer cancellation | Whole booking | Per ticket; no refund of the booking-time collection; points returned only when cancelled ≥ 24 h before the ticket's first session; voucher use restored once when the whole group ended by valid or Mland cancellation. |

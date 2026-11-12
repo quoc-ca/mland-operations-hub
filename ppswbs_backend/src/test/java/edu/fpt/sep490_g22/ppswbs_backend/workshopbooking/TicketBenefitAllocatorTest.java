@@ -140,8 +140,9 @@ class TicketBenefitAllocatorTest {
             "4999,FULL,4999,0",
             "5000,FULL,5000,0",
             "200000,FULL,200000,0",
-            "200001,FULL,200001,0",
-            "204999,FULL,204999,0",
+            "200001,DEPOSIT,200000,1",
+            "203000,DEPOSIT,200000,3000",
+            "204999,DEPOSIT,200000,4999",
             "205000,DEPOSIT,200000,5000",
             "500000,DEPOSIT,200000,300000"
     })
@@ -158,12 +159,12 @@ class TicketBenefitAllocatorTest {
 
     @Test
     void mixedCartCollectsPerTicketAndAddsUpToOneVnpayPayment() {
-        // A free, B 203,000 full, C 500,000 deposit: 403,000 in one payment, 300,000 left for C.
+        // A free, B 203,000 and C 500,000 both deposit: 400,000 in one payment; 3,000 and 300,000 left to checkout.
         GroupResult r = run(List.of(t(0), t(203_000), t(500_000)), 0, 0, 100);
 
         assertThat(r.paymentMode()).isEqualTo(GroupPaymentMode.VNPAY);
-        assertThat(r.groupCollectionVnd()).isEqualTo(403_000);
-        assertThat(r.tickets()).extracting(TicketResult::remainingVnd).containsExactly(0L, 0L, 300_000L);
+        assertThat(r.groupCollectionVnd()).isEqualTo(400_000);
+        assertThat(r.tickets()).extracting(TicketResult::remainingVnd).containsExactly(0L, 3_000L, 300_000L);
     }
 
     @Test

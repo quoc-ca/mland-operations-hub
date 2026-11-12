@@ -82,16 +82,16 @@ class BookingGroupSchemaIT {
         TicketBooking one = newTicket(group, 0, 1);
         TicketBooking two = newTicket(group, 0, 2);
         TicketBooking three = newTicket(group, 0, 3);
-        // A deposit is exactly 200,000 from 205,000 upward; 204,999 is paid in full.
+        // A deposit is exactly 200,000 above 200,000; up to 200,000 is paid in full.
         refusedBy("ck_tps_kind", () -> snapshots.saveAndFlush(
                 snapshot(one, 500_000, 0, 0, 150_000, TicketCollectionKind.DEPOSIT, 350_000)));
         refusedBy("ck_tps_kind", () -> snapshots.saveAndFlush(
-                snapshot(two, 204_999, 0, 0, 200_000, TicketCollectionKind.DEPOSIT, 4_999)));
+                snapshot(two, 200_000, 0, 0, 150_000, TicketCollectionKind.DEPOSIT, 50_000)));
         refusedBy("ck_tps_kind", () -> snapshots.saveAndFlush(
-                snapshot(three, 205_000, 0, 0, 205_000, TicketCollectionKind.FULL, 0)));
+                snapshot(three, 200_001, 0, 0, 200_001, TicketCollectionKind.FULL, 0)));
         // The boundaries themselves are accepted.
-        save(snapshot(one, 204_999, 0, 0, 204_999, TicketCollectionKind.FULL, 0));
-        save(snapshot(two, 205_000, 0, 0, 200_000, TicketCollectionKind.DEPOSIT, 5_000));
+        save(snapshot(one, 200_000, 0, 0, 200_000, TicketCollectionKind.FULL, 0));
+        save(snapshot(two, 200_001, 0, 0, 200_000, TicketCollectionKind.DEPOSIT, 1));
     }
 
     @Test

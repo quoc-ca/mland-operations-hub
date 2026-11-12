@@ -79,8 +79,8 @@ Theo bản đề xuất cuối và các quyết định đã chốt, áp dụng 
 | Giá vé sau ưu đãi | Thu lúc đặt |
 |---|---|
 | 0đ | Xác nhận miễn phí, không gọi VNPay |
-| 1đ–204.999đ | Thu toàn bộ giá vé |
-| Từ 205.000đ | Thu cọc 200.000đ |
+| 1đ–200.000đ | Thu toàn bộ giá vé |
+| Trên 200.000đ | Cọc 200.000đ, phần còn lại thu tại checkout (chốt lại 12/11/2026, thay quyết định A) |
 
 - **Đã chốt (11/11/2026):** Vé có giá cuối 1đ–4.999đ được chấp nhận; sàn 5.000đ chỉ áp cho tổng số tiền thực thu của giao dịch VNPay chung, không áp cho giá từng vé. Ví dụ giỏ có vé A 3.000đ và vé B 500.000đ là hợp lệ: thu 3.000đ + 200.000đ = 203.000đ trong một giao dịch. Giỏ có tổng thu lúc đặt từ 1đ đến 4.999đ được xử lý theo mục "Tổng thu lúc đặt dưới 5.000đ: hoãn sang checkout" bên dưới.
 - Cộng khoản thu của từng vé thành giao dịch chung. Không tính cọc theo số buổi và không đổi lại thành 50%.
@@ -171,6 +171,8 @@ Theo bản đề xuất cuối và các quyết định đã chốt, áp dụng 
 **Trạng thái:** Đã ghi nhận giới hạn cần triển khai; chưa sửa spec/code.
 
 ## Quyết định A: không hoàn khoản đã trả lúc đặt khi khách tự hủy hoặc vắng
+
+> **Đã thay thế 12/11/2026:** thu lúc đặt của mỗi vé = min(giá cuối, 200.000đ). Vé 203.000đ thu cọc 200.000đ, 3.000đ còn lại thu ở checkout; tự hủy hoặc vắng chỉ mất 200.000đ đã thu. Nội dung bên dưới giữ để tham chiếu lịch sử.
 
 **Đã chốt với người dùng (11/11/2026):** Chọn A cho trường hợp vé có giá sau ưu đãi từ 200.001đ đến 204.999đ được thu đủ lúc đặt theo bản `VNPAY_BANCUOI.docx`. Toàn bộ khoản đã thu lúc đặt không hoàn khi khách tự hủy hoặc không tham dự; không tách phần vượt 200.000đ để hoàn lại.
 
