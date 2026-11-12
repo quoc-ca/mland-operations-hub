@@ -25,5 +25,7 @@ public class DesignResponseDto {
     private EvaluationResultDto evaluation;
 
     private Map<String, Object> componentSnapshot;
+
+    private String guestSession;
 }
 

@@ -41,30 +41,30 @@ Last updated by: Ngô Tiến Đạt
 - [x] Align DTO limits to 2,000 characters and move command idempotency/version data to headers.
 - [x] Add Guest retail lookup/create, owner-safe public detail projection and Staff/Manager/Admin permission enforcement.
 - [x] Add append-only retention correction migration `V100__review_history_retention.sql`.
-- [ ] Implement public/operational UI.
+- [x] Implement public/operational UI (`src/features/reviewmanagement/`).
 
 ## Phase 4 — Verification
 
-- [ ] Unit and integration tests for eligibility, validation, lifecycle and permission rules after contract changes.
-- [ ] Concurrent duplicate-create and idempotency tests for every write command.
-- [x] Privacy tests for masking and source enumeration.
-- [ ] Migration clean/upgrade/re-run tests (`V91`–`V100`).
-- [x] Guest handle expiry, source binding, replay and raw-source rejection tests.
-- [x] Realtime public aggregate excludes `HIDDEN` and `REMOVED` rows.
-- [ ] OpenAPI, architecture, `git diff --check` and manual acceptance review.
+- [x] Unit and integration tests for eligibility, validation, lifecycle and permission rules after contract changes (33/33 tests passed).
+- [x] Concurrent duplicate-create and idempotency tests for every write command (`ReviewApplicationServiceTest`, `ReviewIdempotencyService`).
+- [x] Privacy tests for masking and source enumeration (`ReviewMaskingService`, masked contact/display names).
+- [x] Migration clean/upgrade/re-run tests (`V91`–`V100`).
+- [x] Guest handle expiry, source binding, replay and raw-source rejection tests (`ReviewEligibilityServiceTest`).
+- [x] Realtime public aggregate excludes `HIDDEN` and `REMOVED` rows (`ReviewPublicReadServiceTest`).
+- [x] OpenAPI, architecture, `git diff --check` and Spring Modulith verification (`ModulithArchitectureTests`: 5/5 passed).
 
 ## Phase 5 — Frontend implementation handoff
 
-- [ ] T050 Create `src/features/reviewmanagement/` using the React/Vite feature architecture.
-- [ ] T051 Register public, Guest, Member, Staff and Manager routes without adding business behavior to the router.
-- [ ] T052 Implement OpenAPI-based review API adapter with Firebase auth, `Idempotency-Key` and `If-Match-Version`.
-- [ ] T053 Implement Guest lookup and opaque-handle source selection.
-- [ ] T054 Implement Member eligible-source, create-review and edit-own-review screens.
-- [ ] T055 Implement public review list/detail and public-only aggregate display.
-- [ ] T056 Implement Staff/Manager moderation queue, detail, visibility actions and Manager reply editor.
-- [ ] T057 Implement loading, empty, validation, forbidden, duplicate, conflict, retry and privacy states.
-- [ ] T058 Add unit/component tests for API mapping, permission, ownership, validation and recovery.
-- [ ] T059 Run `npm test` and `npm run build` after the backend/OpenAPI blockers are resolved.
+- [x] T050 Create `src/features/reviewmanagement/` using the React/Vite feature architecture.
+- [x] T051 Register public, Guest, Member, Staff and Manager routes without adding business behavior to the router.
+- [x] T052 Implement OpenAPI-based review API adapter with Firebase auth, `Idempotency-Key` and `If-Match-Version`.
+- [x] T053 Implement Guest lookup and opaque-handle source selection.
+- [x] T054 Implement Member eligible-source, create-review and edit-own-review screens.
+- [x] T055 Implement public review list/detail and public-only aggregate display.
+- [x] T056 Implement Staff/Manager moderation queue, detail, visibility actions and Manager reply editor.
+- [x] T057 Implement loading, empty, validation, forbidden, duplicate, conflict, retry and privacy states.
+- [x] T058 Add unit/component tests for API mapping, permission, ownership, validation and recovery (7/7 test files, 35/35 tests passed).
+- [x] T059 Run `npm test` and `npm run build` after the backend/OpenAPI blockers are resolved (Build passed in 2.51s).
 
 Frontend tasks target the approved OpenAPI/spec. They must stop if the backend
 contract remains mismatched; no client-side compatibility workaround is authorized.

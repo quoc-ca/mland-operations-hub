@@ -4,6 +4,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.dto.Ri
 import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.service.RingDesignException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -17,8 +19,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@RestControllerAdvice(basePackages = "edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration")
 @Slf4j
+@RestControllerAdvice(basePackages = "edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration")
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class WorkshopRingDesignExceptionHandler {
 
     @ExceptionHandler(RingDesignException.class)

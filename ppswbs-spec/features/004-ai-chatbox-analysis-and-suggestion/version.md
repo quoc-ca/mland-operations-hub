@@ -929,3 +929,92 @@ Capture JPEG screenshots after submit, pending, success, denial and recovery in
 UTC/E2E cases PASS with reproducible evidence and no open BLOCKER/CRITICAL defect
 exists in `BUG-LOG.md`.
 
+### 10.6 Test Execution Evidence & Status Log (2026-11-12)
+
+- **Backend Integration Test Suite**:
+  - Command: `mvnw.cmd test -Dtest="edu.fpt.sep490_g22.ppswbs_backend.designreview.*IT"`
+  - Results: **44/44 tests passed (100%)** in 2m 04s (`AiSupportIT`, `DataRetentionIT`, `DesignRequestIT`, `HumanReviewIT`, `PriceProposalIT`).
+- **Frontend Vitest Component & Screen Suite**:
+  - Command: `npm.cmd test -- src/features/designreview`
+  - Results: **2/2 test files passed, 21/21 tests passed (100%)** (`designReviewApi.test.js`, `screens.test.jsx`).
+- **E2E BrowserMCP Layer & Preflight T01–T10 Gate Execution**:
+  - Scenarios generated under `test-results/`:
+    - `E2E-004-001--guest-ai-support.md`: Guest chat & image upload denial.
+    - `E2E-004-002--member-design-request.md`: Member consent, 10MB limit, 429 rate limit (4th upload in 5m), candidate features, safe projections.
+    - `E2E-004-003--staff-manager-review.md`: Staff review, 403 unauthorized reviewer/self-review, 409 stale version conflict.
+    - `E2E-004-004--manager-price-suggestion.md`: Advisory price calculation, retry idempotency, Admin technical audit projection.
+  - Preflight Health Check:
+    - Gate T01 (`browsermcp` tool availability): **PASS** (Đã kết nối Chrome qua Browser MCP extension).
+    - Gate T02 (Service health check): **PASS** (Frontend `http://localhost:5173` HTTP 200, Backend `http://localhost:8080` HTTP 401 active).
+  - Kết quả thực thi thực tế qua Browser MCP (Live Chrome):
+    - `E2E-004-001`: **PASS** — Trợ lý AI trả lời câu hỏi tư vấn workshop thành công, hiển thị đúng disclaimer tham khảo và nhãn KHÁCH (CÔNG KHAI); Route Guard chặn an toàn khách vãng lai truy cập `/design-requests/new` và chuyển hướng về `/login`. Bằng chứng JPEG: [`screenshots/E2E-004-001--success.jpg`](test-results/screenshots/E2E-004-001--success.jpg).
+    - `E2E-004-002`, `E2E-004-003`, `E2E-004-004`: **BLOCKED** tại bước xác thực tài khoản Member/Staff/Manager do môi trường backend local chưa cấu hình file private key `FIREBASE_ADMIN_CREDENTIALS_PATH` trong `.env` để backend verify Firebase JWT token.
+
+### 10.7 QA progress update and next test wave (2026-11-12)
+
+> **Thông báo chỉ đạo (User Instruction - 2026-11-12):** Tạm thời ngưng các công việc liên quan đến triển khai kiểm thử cho các kịch bản cần đến các vai trò đặc quyền (Admin, Manager, Staff) cho đến khi môi trường backend cấu hình đầy đủ credentials/service account. Tiếp tục duy trì và bảo toàn các luồng Guest, Member và kiểm chứng tích hợp nội bộ.
+
+Theo xác nhận hiện tại, phạm vi kiểm thử Guest đã hoàn thành (E2E-004-001 PASS). Các dòng
+`BLOCKED` lịch sử ở mục 10.6 đối với các kịch bản Member/Staff/Manager phản ánh việc tạm ngưng theo chỉ đạo hoặc thiếu credentials môi trường.
+
+#### Đợt kiểm thử tiếp theo — privileged roles and cross-boundary behavior
+
+1. **Staff review boundary**
+   - Đăng nhập Staff bằng test account riêng, mở review queue và chỉ xử lý request
+     trong phạm vi được backend trả về.
+   - Xác nhận Staff có thể ghi `ACCEPTED`, `REJECTED` hoặc
+     `CLARIFICATION_REQUIRED` trong authority/value threshold được cấp.
+   - Xác nhận Staff không thể request/view price suggestion, không thể review
+     request do chính mình tạo và không thể ghi đè version cũ.
+   - Kiểm tra 403 cho role sai, 409 cho stale/duplicate decision và audit event
+     sau quyết định.
+
+2. **Manager review and price boundary**
+   - Kiểm tra Manager xử lý request vượt ngưỡng 3.000.000 VND hoặc được đánh dấu
+     cần Manager authority.
+   - Kiểm tra Manager xem price suggestion, điều chỉnh hoặc dùng manual fallback;
+     AI suggestion không được tự đổi catalogue price, invoice, payment hoặc
+     custom-manufacturing order.
+   - Kiểm tra retry cùng `Idempotency-Key`, invalid/out-of-range suggestion,
+     provider timeout và quyết định được audit.
+
+3. **Admin technical projection**
+   - Xác nhận Admin chỉ xem correlation ID, provider status, timestamp và failure
+     evidence tối thiểu; không xem suggested price, commercial explanation hoặc
+     thực hiện review/price decision.
+   - Kiểm tra Staff, Guest và Member đều bị từ chối khi truy cập projection này.
+
+4. **Security and failure regression**
+   - Chạy lại prompt injection, private-data request, unsafe provider output,
+     image metadata stripping, temporary image deletion và text retention.
+   - Kiểm tra provider không bị gọi khi schema, consent, ownership, rate limit
+     hoặc security screening thất bại.
+
+#### Blocker resolution plan
+
+- **BLK-004-01 — Firebase privileged-role credentials:** cấu hình
+  `FIREBASE_ADMIN_CREDENTIALS_PATH` bằng secret local được cấp riêng, kiểm tra
+  health/auth trước E2E và không commit private key. Nếu chưa có credential,
+  ghi `BLOCKED`, không giả lập PASS.
+- **BLK-004-02 — Contract verification:** đối chiếu controller, OpenAPI,
+  frontend adapter và scenario cho `message/answer`, `designVersion`, price
+  response status, error code và role mapping; thêm contract test trước E2E.
+- **BLK-004-03 — Database/Flyway and facade evidence:** chạy validation trên
+  database sạch và database hiện hữu, xác minh retention, temporary-image
+  cleanup, review routing và branch/authority scope; không sửa migration đã chạy.
+- **BLK-004-04 — Release evidence:** cập nhật từng scenario bằng command,
+  actor, status code, screenshot JPEG và log; chỉ đóng blocker sau khi có bằng
+  chứng lặp lại được và không còn BLOCKER/CRITICAL trong `BUG-LOG.md`.
+
+#### Required regression order
+
+```text
+Firebase/auth setup
+→ backend integration/security
+→ frontend Vitest/build
+→ Staff/Manager/Admin BrowserMCP
+→ Guest/Member smoke regression
+→ Feature-011/012 cross-feature regression
+→ final Flyway and release audit
+```
+

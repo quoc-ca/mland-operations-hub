@@ -5,7 +5,7 @@
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-08
 - **Date updated**: 2026-11-12
-- **Source of truth**: Feature-012 `spec.md`, `data-model.md`, `contracts/workshop-ring-design.openapi.yaml`, `V109__workshop_ring_design_configuration.sql`, backend Spring Boot implementation, frontend React 19 + Vite implementation, and synchronized project specifications
+- **Source of truth**: Feature-012 `spec.md`, `data-model.md`, `contracts/workshop-ring-design.openapi.yaml`, `V110__workshop_ring_design_configuration.sql`, backend Spring Boot implementation, frontend React 19 + Vite implementation, and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
 > the Feature-012 artifacts and source code. Phase labels are retained for
@@ -29,9 +29,19 @@
   - `models`: Danh sách mẫu thiết kế có sẵn/published models (`modelReference`, `name`, `description`, `imageUrl`, `materialReference`, `shapeReference`).
 - Chuẩn hóa toàn bộ request/response DTOs: `CreateDesignRequest`, `SaveDesignVersionRequest`, `ComponentSelectionDto`, `AttachmentSelectionDto`, `EngravingInputDto`, `DesignResponseDto`, `ValidationResultDto`, `EvaluationResultDto`, `AttachDesignRequestDto`, `BookingDesignSnapshotDto`, `RingDesignErrorResponseDto`.
 
-### Phase B — Persistence and Flyway Migration (V109)
+### Phase B — Persistence and Flyway Migration (V110)
 
-- Xác minh lịch sử di chuyển Flyway trong repository: Nhánh `develop` và `dat` đã có migration đến `V108__workshop_booking_settlement_conclusion_statuses.sql`. Đánh số migration mới append-only là [`V109__workshop_ring_design_configuration.sql`](../../../ppswbs_backend/src/main/resources/db/migration/V109__workshop_ring_design_configuration.sql).
+- Xác minh lịch sử di chuyển Flyway trong repository: Nhánh `develop` và commit đồng nghiệp (`fa43546`) đã có migration `V109__catalogue_variant_branch_stock.sql`. Để đảm bảo tính toàn vẹn và không làm ảnh hưởng đến commit của người khác, migration vật lý của Feature 012 đã được chuẩn hóa và đánh số kế tiếp là [`V110__workshop_ring_design_configuration.sql`](../../../ppswbs_backend/src/main/resources/db/migration/V110__workshop_ring_design_configuration.sql).
+- **Khắc phục triệt để lỗi khởi động Backend (Exit code 1 do Flyway validation failure & checksum mismatch):**
+  - *Nguyên nhân phát hiện qua `error.log` (2026-11-12):*
+    1. Schema history cũ trong cơ sở dữ liệu `ppswbs_dev` bị lệch số thứ tự (checksum mismatch từ V89..V99) do nhánh `develop` đã thực hiện renumber lại toàn bộ các migration bán lẻ (retail) và xưởng (workshop).
+    2. Migration `V100` cũ (`review history retention`) bị trạng thái FAILED (`success = 0`) trong bảng `flyway_schema_history` khiến Flyway chặn toàn bộ quá trình boot của Spring Boot.
+    3. Migration out-of-order `V79_1` gặp lỗi xung đột khóa ngoại kép với `V80` trên database sạch (`Can't DROP 'fk_retail_checkout_holds_checkout'`).
+  - *Giải pháp triệt để đã thi hành:*
+    1. Đồng bộ file `V79_1__detach_retail_checkout_hold_foreign_key.sql` theo đúng commit fix chính thức `4a65f3a9` của tác giả Thịnh trên `origin/develop` (chuyển lệnh drop FK thành no-op `SELECT 1;` do `V80` đã tự động xử lý drop và recreate FK).
+    2. Tái tạo cơ sở dữ liệu môi trường phát triển cục bộ (`DROP DATABASE IF EXISTS ppswbs_dev; CREATE DATABASE ppswbs_dev;`) do database dev không chứa bất kỳ dữ liệu nghiệp vụ nào (0 records).
+    3. Thực thi kiểm chứng tự động: Toàn bộ 108 migration scripts (từ V4 đến V110) đã di chuyển hoàn tất với kết quả `108/108 SUCCESS` (`success = 1`).
+    4. Backend Spring Boot khởi động hoàn toàn thành công trên port 8080 (`Tomcat started on port 8080 (http)` trong 30.97s).
 - Triển khai schema vật lý cho 8 bảng:
   1. `guest_design_sessions`: Quản lý phiên khách vãng lai, opaque token `session_reference`, hash SHA-256 `session_digest`, liên kết `design_reference`, `issued_at`, `last_activity_at`, `expires_at`, `status` (`ACTIVE`, `EXPIRED`, `REVOKED`).
   2. `ring_designs`: Lưu trữ phiên bản mẫu nhẫn cấu hình theo cơ chế bất biến row-per-version (`design_reference`, `design_version`, `owner_type`, `owner_reference`, `package_reference`, `source_model_reference`, `source_design_id`, `material_reference`, `shape_reference`, `ring_size`, `component_snapshot` JSON, `estimated_price`, `currency`, `difficulty_score`, `rules_version`, `status` (`DRAFT`, `VALIDATED`, `ATTACHED_TO_BOOKING`, `LOCKED`, `ARCHIVED`), `booking_reference`).
@@ -167,6 +177,7 @@
 | **BLK-02** | Lưu trữ token phiên khách vãng lai `X-Guest-Design-Session` | Thống nhất sử dụng `sessionStorage` (khóa `mland_guest_design_session`). Token tồn tại xuyên suốt navigation trong phiên làm việc của tab và tự động bị xóa bỏ khi người dùng đóng tab, bảo đảm an toàn dữ liệu và tuân thủ TTL 20 phút. | **Đã giải quyết** |
 | **BLK-03** | Cơ chế Live Preview (2D SVG vs 3D Canvas) | Thống nhất dựng Live Preview 2D bằng SVG tương tác thuần (client-side SVG reactivity), đổi màu gradient kim loại, độ dày đai nhẫn, đá quý và văn bản khắc tức thì mà không cần cài đặt thư viện ngoài (Three.js/Babylon) gây phình to bundle. | **Đã giải quyết** |
 | **BLK-04** | Luồng chuyển tiếp sau thẩm định sang Đặt lịch Workshop | Thống nhất điều hướng khách hàng sang URL `/workshops/booking?packageReference=...&designId=...`. Chi phí ước tính hiển thị với nhãn Advisory, hoàn toàn không can thiệp hay thay đổi chính sách tiền cọc 50% hoặc giá gốc gói workshop. | **Đã giải quyết** |
+| **BLK-05** | Xung đột phiên bản migration Flyway V109 | Commit `fa43546` của đồng nghiệp đã sử dụng `V109__catalogue_variant_branch_stock.sql`. Nhằm bảo toàn commit của người khác, migration của Feature 012 đã được đổi tên thành `V110__workshop_ring_design_configuration.sql`. Toàn bộ 25 bài test backend và flyway verification đã pass 100%. | **Đã giải quyết** |
 
 ---
 
@@ -268,6 +279,111 @@ reproducible evidence, frontend/backend regression is green, migration/Flyway
 history is verified, the booking facade is exercised, and no open
 BLOCKER/CRITICAL defect remains. Unresolved physical schema, Guest session,
 rule-facade or booking-facade approval remains a release blocker.
+
+### 4.7 Test Execution Evidence & Status Log (2026-11-12)
+
+- **Backend Integration Test Suite**:
+  - Command: `mvnw.cmd test -Dtest="edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.*Test"`
+  - Results: **25/25 tests passed (100%)** in 52.3s (`GuestDesignSessionServiceTest`, `ManagerDesignRuleAdapterTest`, `WorkshopRingDesignApplicationServiceTest`, `WorkshopRingDesignControllerMockMvcTest`).
+- **Frontend Vitest Component & Screen Suite**:
+  - Command: `npm.cmd test -- src/features/ringdesignconfiguration`
+  - Results: **3/3 test files passed, 32/32 tests passed (100%)** (`workshopRingDesignApi.test.js`, `designDomain.test.js`, `screens.test.jsx`).
+- **Spring Modulith Architecture Verification**:
+  - Command: `mvnw.cmd test -Dtest="ModulithArchitectureTests"`
+  - Results: **5/5 tests passed (100%)**.
+- **E2E BrowserMCP Layer & Preflight T01–T10 Gate Execution**:
+  - Scenarios generated under `test-results/`:
+    - `E2E-012-001--model-or-blank-entry.md`: Entry flow, advisory price disclaimer banner, model catalogue vs blank selection.
+    - `E2E-012-002--live-ring-configuration.md`: Live 2D SVG preview updating reactively on material, shape, size 6..20, gemstone and engraving toggle.
+    - `E2E-012-003--save-evaluate-and-version-history.md`: Save/Evaluate, difficulty score, advisory price, optimistic version locking `If-Match-Version`, booking handoff.
+    - `E2E-012-004--branch-compatibility-recovery.md`: Branch capability limitation detection, recovery warning card, adjust design or change branch actions.
+    - `E2E-012-005--guest-expiry-and-member-ownership.md`: Guest session 20-min inactivity expiry 401, Member design history list, ownership isolation 403, soft-delete archive.
+  - Preflight Health Check:
+    - Gate T01 (`browsermcp` tool availability): **PASS** (Đã kết nối Chrome thực tế thông qua Browser MCP extension).
+    - Gate T02 (Service health check): **PASS** (Frontend `http://localhost:5173` HTTP 200, Backend `http://localhost:8080` HTTP 401 active).
+  - Kết quả thực thi thực tế qua Browser MCP (Live Chrome):
+    - `E2E-012-001`: **PASS** — Khởi đầu từ phôi trắng (Blank) hoặc Catalogue models, hiển thị banner cảnh báo giá tham khảo (Advisory Disclaimer) và 5 phân mục tùy biến thiết kế. Bằng chứng JPEG: [`screenshots/E2E-012-001--success.jpg`](test-results/screenshots/E2E-012-001--success.jpg).
+    - `E2E-012-002`: **PASS** — Cấu hình thời gian thực Vàng 14K, Dáng xoắn vô cực, Size 12, Đá CZ Lam 2mm, Khắc chữ "Forever Together 2026"; 2D SVG preview và bảng tóm tắt chi phí cập nhật reactive ngay lập tức. Bằng chứng JPEG: [`screenshots/E2E-012-002--success.jpg`](test-results/screenshots/E2E-012-002--success.jpg).
+    - `E2E-012-003`: **PASS** (Re-tested thành công) — Người dùng vãng lai cấu hình và bấm "Lưu & Thẩm định", hệ thống tự động sinh và đính kèm `X-Guest-Design-Session`, lưu phiên bản 2 thành công và chuyển hướng đến trang kết quả thẩm định hiển thị đúng điểm độ khó và chi phí tham khảo ước tính, chuyển tiếp sang `/workshops/booking?...`. Lỗi BUG-E2E-0004 đã được đóng. Bằng chứng JPEG: [`screenshots/E2E-012-003--success.jpg`](test-results/screenshots/E2E-012-003--success.jpg).
+    - `E2E-012-004`: **PASS** — Màn hình `/recovery` hiển thị cảnh báo chi nhánh không tương thích máy khắc laser và cung cấp 2 nút điều chỉnh thiết kế / chọn chi nhánh khác. Bằng chứng JPEG: [`screenshots/E2E-012-004--success.jpg`](test-results/screenshots/E2E-012-004--success.jpg).
+    - `E2E-012-005`: **PASS** (Nhánh phiên hết hạn) — Route Guard chặn truy cập `/my/designs` khi chưa đăng nhập. Truy cập thiết kế có phiên hết hạn phản hồi chuẩn xác HTTP 401 `DESIGN_SESSION_EXPIRED` và hiển thị alert tiếng Việt: *"Phiên làm việc của bạn đã hết hạn sau 20 phút không hoạt động. Vui lòng bắt đầu lại để tiếp tục."*. Bằng chứng JPEG: [`screenshots/E2E-012-005--session-expired.jpg`](test-results/screenshots/E2E-012-005--session-expired.jpg). (Các bước 1–2 về Member history bị BLOCKED do thiếu credentials Firebase Admin trong môi trường local).
+
+### 4.8 QA progress update and next test wave (2026-11-12)
+
+> **Thông báo chỉ đạo (User Instruction - 2026-11-12):** Tạm thời ngưng các công việc liên quan đến triển khai kiểm thử cho các kịch bản cần đến các vai trò đặc quyền (Admin, Manager, Staff) cho đến khi môi trường backend cấu hình đầy đủ credentials/service account. Tập trung xác minh và duy trì toàn bộ luồng Guest/Member cấu hình nhẫn, hoàn thiện liên kết chuyển tiếp đặt lịch workshop (`/workshops/:packageId/book?designId=...`), và bảo toàn kết quả kiểm thử đơn vị & tích hợp.
+
+Theo xác nhận hiện tại, các luồng Guest (khởi tạo, 2D SVG preview, Save & Evaluate, Branch Recovery, và Session Expiry 20 phút) đã hoàn thành kiểm thử thực tế và PASS 100% qua Browser MCP. Lỗi BUG-E2E-0004 đã được đóng hoàn toàn. Kịch bản Member history (các bước 1–2 của E2E-012-005) tạm thời giữ trạng thái BLOCKED do môi trường chưa cấu hình private key Firebase Admin.
+
+#### Đợt kiểm thử tiếp theo — booking attachment and release integrity
+
+1. **Save/Evaluate/version invariants**
+   - Kiểm tra mỗi Save/Evaluate thành công tạo một immutable row-per-version,
+     giữ `source_design_id` lineage và không sửa version đã attach booking.
+   - Gửi concurrent update với cùng version: một command thành công, command còn
+     lại trả `409 DESIGN_VERSION_CONFLICT`; retry cùng idempotency key phải replay
+     deterministic, không tạo version thứ hai.
+   - Client không được override estimate, difficulty hoặc `rules_version`.
+
+2. **Branch/package compatibility**
+   - Revalidate material, component, attachment và engraving sau khi chọn branch.
+   - Kiểm tra option inactive, unpublished, sai package hoặc branch không hỗ trợ
+     bị từ chối trước khi persist; UI hiển thị recovery action rõ ràng.
+   - Xác nhận estimate chỉ là advisory và không thay đổi package price, deposit,
+     payment, capacity hoặc ticket.
+
+3. **Feature-003 booking attachment**
+   - Gọi `attachAndLockDesignForBooking(...)` qua facade, không truy cập trực tiếp
+     repository/entity của Feature-012.
+   - Kiểm tra chỉ design `VALIDATED`, đúng owner/session, đúng package/branch mới
+     được attach; snapshot booking là immutable và không lộ internal ID.
+   - Booking commit phải lock design; booking rollback phải giữ design retryable,
+     không tạo payment/capacity hold/ticket side effect từ Feature-012.
+
+4. **Member history/archive and session lifecycle**
+   - Re-run Member history với Firebase Admin credentials, cross-owner denial,
+     archive soft-delete và retention/audit preservation.
+   - Kiểm tra Guest session opaque, inactivity TTL 20 phút, revoke/replay và
+     mutation sau expiry đều trả `401 DESIGN_SESSION_EXPIRED`.
+
+5. **Frontend and accessibility regression**
+   - Kiểm tra 1440px two-column, 390px stacked layout, keyboard navigation,
+     helper text, preview update, loading/empty/422/409/503 states và retry giữ
+     form data.
+   - Chạy regression với Feature-003 booking, Feature-004 design request và
+     Feature-011 workshop review entry point.
+
+#### Blocker resolution plan
+
+- **BLK-012-01 — Firebase/member ownership evidence:** cấu hình credentials an
+  toàn và re-run Member history/cross-owner tests; thiếu credentials thì giữ
+  `BLOCKED`.
+- **BLK-012-02 — Booking facade transaction test:** tạo test với booking commit,
+  rollback và retry để chứng minh lock/snapshot atomicity; không dùng UI success
+  thay cho database/transaction evidence.
+- **BLK-012-03 — Physical schema/Flyway gate:** xác nhận migration Feature-012
+  (`V110` theo audit hiện tại) không xung đột migration sau merge, chạy clean
+  install/upgrade/rerun và `flyway validate()` trước release.
+- **BLK-012-04 — Manager catalogue/rule source:** xác minh option catalogue và
+  rule version lấy từ Manager-owned facade, không phụ thuộc seed hard-code hoặc
+  client calculation.
+- **BLK-012-05 — Figma/design approval:** ghi revision/node IDs sau khi Tech Lead
+  duyệt; đây là gate tài liệu/UI, không được coi là backend test evidence.
+- **BLK-012-06 — Release evidence:** bổ sung screenshot JPEG, API/DB logs,
+  transaction outcome và BUG-LOG record cho mọi failure; chỉ đóng blocker khi
+  có execution lặp lại được và không còn BLOCKER/CRITICAL.
+
+#### Required regression order
+
+```text
+Firebase/auth setup
+→ backend invariants and Modulith tests
+→ Flyway clean/upgrade/rerun
+→ Feature-003 booking facade commit/rollback
+→ frontend Vitest/build/accessibility
+→ privileged/member BrowserMCP re-run
+→ Guest smoke regression
+→ cross-feature release audit
+```
 
 ## 5. Incomplete / Next Steps (Release Gates)
 
