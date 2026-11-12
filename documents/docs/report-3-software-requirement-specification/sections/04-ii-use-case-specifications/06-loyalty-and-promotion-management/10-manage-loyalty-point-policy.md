@@ -2,11 +2,11 @@
 
 #### Primary Actors
 
-- Manager
+Manager.
 
 #### Secondary Actors
 
-- None
+None.
 
 #### Description
 
@@ -34,7 +34,7 @@ The system identifies the invalid value (MSG08), rejects the change and keeps th
 
 **Any step — Actor is not a Manager or the session has expired**
 
-The system rejects the request (MSG01, MSG02). Admin cannot view or change the point policy.
+The system rejects the request (MSG01, MSG02). Admin cannot view or change the point policy. A rejected change is recorded as in UC-45.
 
 **Step 5 — Save not confirmed or response lost**
 
@@ -47,9 +47,7 @@ The system does not report the update (MSG04); new transactions continue to use 
 
 #### Business Rules
 
-- BR-51-01
-- BR-51-02
-- BR-51-03
+BR-51-01, BR-51-02, BR-51-03
 
 #### Business Rule Definitions
 

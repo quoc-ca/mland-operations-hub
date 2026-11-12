@@ -2,11 +2,11 @@
 
 #### Primary Actors
 
-- Member
+Member.
 
 #### Secondary Actors
 
-- None
+None.
 
 #### Description
 
@@ -50,9 +50,7 @@ The system rejects the request (MSG01).
 
 #### Business Rules
 
-- BR-43-01
-- BR-43-02
-- BR-43-03
+BR-43-01, BR-43-02, BR-43-03
 
 #### Business Rule Definitions
 

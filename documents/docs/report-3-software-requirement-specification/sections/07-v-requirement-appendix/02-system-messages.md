@@ -11,11 +11,11 @@
 |7|MSG07|Error|The catalogue search criteria are invalid, such as a keyword over 200 characters, a negative price, a minimum above the maximum or an unknown category (UC-10).|The search criteria are invalid: {reason}.|
 |8|MSG08|Error|A field fails validation when saving a product, category, program or point policy.|{Field} is invalid: {rule}.|
 |9|MSG09|Success|A draft product is created (UC-12).|Product {product code} was created as a draft with SKUs {SKU list}.|
-|10|MSG10|Success|Product content, images, quantity, sale status or category changes are saved (UC-12, UC-18). Shown at the top of the page and under the button used.|{What was saved}, e.g. "Quantity of size {size} changed: {old} → {new}." / "Quantities of {n} sizes changed." / "Category "{name}" saved."|
+|10|MSG10|Success|Product content, images, branch stock, quantity, sale status or category changes are saved (UC-12, UC-18). Shown at the top of the page and under the button used.|{What was saved}, e.g. "Quantity of size {size} changed: {old} → {new}." / "Quantities of {n} sizes changed." / "Category "{name}" saved."|
 |11|MSG11|Error|An image breaks the type, size, count or alt-text rules (UC-12).|Images must be JPEG, PNG or WebP, at most 5,000,000 bytes each, up to 10 per product, with alt text of 1–200 characters.|
 |12|MSG12|Error|An image cannot be stored (UC-12).|The image could not be uploaded. The previous images have been kept. Please try again.|
 |13|MSG13|Error|The actor tries to add or change sizes after the product is saved (UC-12).|Sizes cannot be added or changed after the product has been saved.|
-|14|MSG14|Error|The new quantity is lower than the quantity held by valid holds (UC-12).|The quantity cannot be lower than the {held quantity} units currently held.|
+|14|MSG14|Error|The new quantity of a size at a branch is lower than the quantity held by valid holds at that branch (UC-12).|The quantity cannot be lower than the {held quantity} units currently held.|
 |15|MSG15|Confirmation|The actor selects Delete on a product (UC-12).|Delete product {product code}? It will be removed from the catalogue and cannot be restored.|
 |16|MSG16|Success|A product is deleted (UC-12).|Product {product code} has been deleted.|
 |17|MSG17|Error|An action targets a deleted product (UC-12 to UC-17).|This product has been deleted and can no longer be changed or sold.|
@@ -27,17 +27,17 @@
 |23|MSG23|Error|The proposal or decision is no longer pending or valid (UC-15, UC-16).|This item is no longer valid for this action. Reload to see the latest version.|
 |24|MSG24|Success|An approved price is applied, later or right after the approval (UC-15, UC-16).|"Price {amount} applied to size {size}." / "Approved prices applied to {n} sizes." / "Price {amount} approved and applied for size {size}. The new selling price is in effect."|
 |25|MSG25|Error|A product is published without meeting all conditions (UC-17).|The product cannot be published: {unmet condition}.|
-|26|MSG26|Success|A product is published or unpublished (UC-17).|Product {product code} is now {Published / Unpublished}.|
+|26|MSG26|Success|A product is published or unpublished, including through a Manager's Publish now (UC-17).|Product {product code} is now {Published / Unpublished}.|
 |27|MSG27|Error|The actor removes the last usable image of a published product (UC-12).|The last image cannot be removed while the product is published.|
 |28|MSG28|Error|A category name already exists, ignoring case (UC-18).|A category with this name already exists.|
 |29|MSG29|Confirmation|The actor deactivates a category (UC-18).|Deactivating this category will hide {number} products from the public catalogue. Continue?|
-|30|MSG30|Error|The uploaded import file is not accepted (UC-13).|The file must be a macro-free .xlsx file of at most 5,000,000 bytes and 500 data rows, with the template columns in the original order.|
+|30|MSG30|Error|The uploaded import file is not accepted, including when its branch quantity columns do not match the selected branches (UC-13).|The file must be a macro-free .xlsx file of at most 5,000,000 bytes and 500 data rows, with the template columns in the original order and one quantity column per selected branch.|
 |31|MSG31|Information|The import file has been validated (UC-13).|{products} products and {variants} variants are ready to import. {errors} errors found.|
 |32|MSG32|Error|An import row is invalid (UC-13).|Row {row}, column {column}: value "{value}" is invalid. {reason}|
-|33|MSG33|Error|The import preview is out of date when the actor confirms (UC-13).|The data has changed since the preview. Please validate the file again.|
+|33|MSG33|Error|The import preview is out of date or older than 60 minutes when the actor confirms (UC-13).|The data has changed since the preview. Please validate the file again.|
 |34|MSG34|Success|The import is completed (UC-13).|{products} draft products were created: {product codes}.|
-|35|MSG35|Warning|The selected size is stopped from sale or out of stock (UC-11).|This size is not available for purchase.|
-|36|MSG36|Error|The branch source is unavailable on the product detail page (UC-11).|The branch list is temporarily unavailable. Please try again.|
+|35|MSG35|Warning|The selected size is stopped from sale or not available at any branch (UC-10, UC-11).|This size is not available for purchase.|
+|36|MSG36|Error|The shared branch list is unavailable on the product detail page or the Quick add box (UC-10, UC-11).|The branch list is temporarily unavailable. Please try again.|
 |37|MSG37|Error|Add to cart is selected without a size or branch (UC-11).|Please select a size and a branch before adding to the cart.|
 |38|MSG38|Success|A voucher or automatic discount is created (UC-45, UC-46).|Program {name} has been created [with code {voucher code}].|
 |39|MSG39|Error|A voucher code already exists after trimming and ignoring case (UC-46).|Voucher code {voucher code} already exists.|
@@ -45,14 +45,17 @@
 |41|MSG41|Error|The Manager tries to change the code or scope of an existing program (UC-45, UC-46).|The code and scope cannot be changed after the program has been created.|
 |42|MSG42|Error|A total or per-Member limit is lower than the used plus held uses (UC-46).|The limit cannot be lower than {used} used plus {held} held uses.|
 |43|MSG43|Success|A program is edited, paused or resumed (UC-45, UC-46).|Program {name} has been {updated / paused / resumed}. Changes apply to new transactions only.|
-|44|MSG44|Warning|Products in a program's scope are hidden, stopped from sale or deleted (UC-45, UC-46).|Some products in this program's scope are hidden, stopped from sale or deleted.|
+|44|MSG44|Warning|Products in a program's scope are hidden, stopped from sale or deleted, or a branch in a product voucher's scope is inactive (UC-45, UC-46).|Some products in this program's scope are hidden, stopped from sale or deleted.|
 |45|MSG45|Information|A Guest selects Save on a voucher (UC-47).|Sign in to save this voucher.|
 |46|MSG46|Success|A Member saves a voucher (UC-47).|The voucher has been saved to your Voucher Wallet.|
-|47|MSG47|Information|A saved product voucher has no published product in scope (UC-47).|No products currently apply.|
-|48|MSG48|Error|A voucher cannot be applied to the order or booking (UC-48).|This voucher cannot be used: {reason}.|
+|47|MSG47|Information|A saved voucher has no published product in scope, or its uses or the Member's uses are all used or held (UC-47).|No products currently apply. / No uses left. / You have reached your limit for this voucher.|
+|48|MSG48|Error|A voucher cannot be applied to the order or booking, for example the code does not exist, the scope or branch does not match, or the voucher is expired, paused or fully used (UC-48).|This voucher cannot be used: {reason}.|
 |49|MSG49|Error|The Member tries to use points with a voucher that does not allow them (UC-44).|This voucher cannot be combined with loyalty points.|
 |50|MSG50|Error|The number of points is outside the allowed range (UC-44).|You can use from {minimum} to {maximum} points for this transaction.|
 |51|MSG51|Confirmation|The price, discount, points or limits changed before the order or booking was accepted (UC-44, UC-48).|The total has changed to {new total} VND. Please review and confirm again.|
-|52|MSG52|Error|The workshop fee after discounts is 0 or less (UC-48).|The fee after discounts must be greater than 0. Please adjust the voucher or points.|
+|52|MSG52|Error|The workshop fee after discounts is negative because of invalid data; a fee of 0 VND is accepted (UC-48).|The amount after discounts cannot be negative. Please adjust the voucher or points.|
 |53|MSG53|Success|The loyalty point policy is updated (UC-51).|The loyalty point policy has been updated. It applies to transactions accepted from now on.|
 |54|MSG54|Error|A change of several sizes succeeds for some sizes only (UC-12, UC-14, UC-15, UC-16).|{done}/{total} sizes done. The other sizes were not saved; see the details under {section}. (Each failed size and its reason is listed under the button used.)|
+|55|MSG55|Success|An item is added to the cart from the Quick add box on the product list (UC-10).|"{product name}" was added to your cart. View cart|
+|56|MSG56|Warning|A new product, or a product in an import file, has the same name as an existing product (UC-12, UC-13). Saving or importing is still allowed.|{count} product(s) already have this name: {links}. / {count} product(s) in the file have the name of an existing product. Check them before confirming (the import is still allowed).|
+|57|MSG57|Success / Error|Images are saved, or not saved, for the products just imported (UC-13).|Images saved for {count} products. / Images of {count} products were not saved; see the error on each product and save again.|
