@@ -15,6 +15,7 @@ As an authorized catalogue maintainer, I want to publish a product that meets al
 This use case includes the following sub-flows:
 
 - Publish Product
+- Publish Now as Manager
 - Unpublish Product
 
 #### Preconditions
@@ -30,6 +31,12 @@ This use case includes the following sub-flows:
 2. The system checks the latest state: for a product that has never been published, an approved and still valid review record; an active category; valid content; at least one usable image; and an applied approved price for every size.
 3. The system sets the product to Published, records an audit entry and confirms (MSG26). Zero quantity does not block publication.
 
+**Publish Now as Manager**
+
+1. A Manager selects Publish (product list) or Publish now (product detail) on a product whose review is Draft or Approved.
+2. The screen sends, one after another, only the steps that are still missing: the submission (UC-14), the approval with the current proposed prices (UC-15), the application of each approved price (UC-16) and the publication. Each step is its own command with its own record and audit entry.
+3. The system checks every condition at each step and confirms the result (MSG26).
+
 **Unpublish Product**
 
 1. The actor opens a published product and selects Unpublish.
@@ -41,6 +48,14 @@ This use case includes the following sub-flows:
 **Publish Step 2 — Condition not met**
 
 The system keeps the product unpublished, names the unmet condition (MSG25) and records the attempt. A proposed price, or an approved price that is not yet applied, does not meet the condition.
+
+**Publish Now Step 1 — Review is Pending or Rejected**
+
+A Pending review submitted by Staff is not approved by one click: the list shows Review to approve and the detail page points to the Initial review section (UC-15). A Rejected review shows View reason and no publish button.
+
+**Publish Now Step 2 — A step fails**
+
+The steps already completed are kept; the system reports the step that failed, and selecting Publish now again continues from the missing step.
 
 **Publish Step 2 — Product was published before and is now hidden**
 
@@ -72,5 +87,5 @@ BR-17-01, BR-17-02, BR-17-03
 | ID | Rule Definition |
 |---|---|
 | BR-17-01 | Publishing is a separate action and requires a not-deleted product, an approved and valid review record for a new product, an active category, valid content, at least one usable image and an applied approved price for every size. |
-| BR-17-02 | Review status, price status and publication status are separate; approval or price application never publishes a product automatically. |
+| BR-17-02 | Review status, price status and publication status are separate; approval or price application never publishes a product automatically. A Manager's Publish now only sends the missing steps as separate commands, and is not available for a Pending or Rejected review. |
 | BR-17-03 | Unpublishing blocks public reads and new holds only; it does not cancel valid holds, change accepted orders or remove history, and a repeated request creates no extra state change. |

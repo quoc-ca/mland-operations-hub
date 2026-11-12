@@ -2,16 +2,15 @@
 
 #### Primary Actors
 
-- Member
+Member.
 
 #### Secondary Actors
 
-- Order Management and Fulfillment (retail checkout and payment)
-- Workshop Management (booking and deposit payment)
+Order Management and Fulfillment (retail checkout and payment); Workshop Management (booking and deposit payment).
 
 #### Description
 
-This use case allows a Member to choose how many available points to use as a non-cash discount on a retail order or a direct website workshop booking. Points are applied after the voucher or automatic discount, are held when the order or booking is accepted, and are deducted only after the payment is verified.
+This use case allows a Member to choose how many available points to use as a non-cash discount on a retail order or a direct website workshop booking. Points are applied after the voucher or automatic discount, are held when the order or booking is accepted, and are deducted only after the payment is verified, or when a valid 0 VND order or booking is accepted.
 
 #### Preconditions
 
@@ -28,7 +27,7 @@ This use case allows a Member to choose how many available points to use as a no
 3. The system calculates the point discount and shows the item amount, program discount, point discount, shipping (retail only) and total. For a workshop, it shows the fee after discounts, which Workshop Management uses to calculate the deposit and the remaining amount.
 4. The Member confirms the order or booking.
 5. The system rechecks the price, conditions, available points and limits, records the point policy in effect, and holds the points together with the accepted order or booking.
-6. After the retail payment or the workshop deposit is verified, the system deducts the held points once and records a used entry.
+6. After the retail payment or the workshop deposit is verified, or when Order Management or Workshop Management accepts a valid 0 VND order or booking without the payment gateway, the system deducts the held points once and records a used entry. When a retail checkout is split into branch orders that are paid separately, the points are divided between the branch orders on acceptance, and each branch order deducts its own share when it is paid.
 
 #### Alternative Flows
 
@@ -58,17 +57,13 @@ The system does not deduct points from a browser message alone.
 
 #### Postconditions
 
-- Used points are deducted exactly once after verified payment and recorded in the history.
+- Used points are deducted exactly once after verified payment, or on acceptance of a valid 0 VND transaction, and recorded in the history.
 - The order or booking keeps the point policy and discount recorded when it was accepted, even if the policy changes later.
 - Collecting the remaining workshop amount does not deduct points again.
 
 #### Business Rules
 
-- BR-44-01
-- BR-44-02
-- BR-44-03
-- BR-44-04
-- BR-44-05
+BR-44-01, BR-44-02, BR-44-03, BR-44-04, BR-44-05
 
 #### Business Rule Definitions
 
@@ -77,5 +72,5 @@ The system does not deduct points from a browser message alone.
 | BR-44-01 | Points are a non-cash discount chosen by the Member; the system never deducts points automatically. |
 | BR-44-02 | Points used are whole numbers from the minimum per use up to `min(available points, floor(cap × amount after program discount / point value))`. |
 | BR-44-03 | Points can be combined with an automatic discount, or with a voucher only when that voucher allows points. |
-| BR-44-04 | Points are held when the order or booking is accepted and deducted once after verified payment of the retail order or the workshop deposit; the remaining workshop payment does not deduct points again. |
+| BR-44-04 | Points are held when the order or booking is accepted and deducted once after verified payment of the retail order (or of each branch order, for its share) or the workshop deposit, or on acceptance of a valid 0 VND order or booking; the remaining workshop payment does not deduct points again. |
 | BR-44-05 | Points earned by a transaction cannot discount that same transaction. |
