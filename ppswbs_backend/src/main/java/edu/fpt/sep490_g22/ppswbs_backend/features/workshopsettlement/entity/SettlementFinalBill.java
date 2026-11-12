@@ -11,6 +11,8 @@ public class SettlementFinalBill {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @Column(name="bill_reference", nullable=false, unique=true, length=128) private String billReference;
     @Column(name="booking_reference", nullable=false, unique=true, length=128) private String bookingReference;
+    /** The booking group a ticket folio belongs to; null for a single direct booking (003.3 FR-030). */
+    @Column(name="group_reference", length=128) private String groupReference;
     @Column(name="post_promotion_amount_vnd", nullable=false) private Long postPromotionAmountVnd;
     @Column(name="accepted_deposit_amount_vnd", nullable=false) private Long acceptedDepositAmountVnd;
     @Column(name="remaining_amount_vnd", nullable=false) private Long remainingAmountVnd;
