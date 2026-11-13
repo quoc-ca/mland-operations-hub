@@ -46,7 +46,7 @@
 .main-topbar-nav {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: clamp(10px, 1.6vw, 20px);
 }
 
 .main-topbar-link {
@@ -54,13 +54,14 @@
   font-weight: 500;
   color: #6b7280;
   text-decoration: none;
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, font-weight 0.15s ease;
   white-space: nowrap;
 }
 
 .main-topbar-link:hover,
 .main-topbar-link.active {
   color: #1a1a1a;
+  font-weight: 600;
 }
 
 .main-topbar-tools {

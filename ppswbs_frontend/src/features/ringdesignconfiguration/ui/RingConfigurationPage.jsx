@@ -14,8 +14,8 @@ export default function RingConfigurationPage() {
   const { packageReference } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const isAuthenticated = Boolean(user);
+  const { status, userId } = useAuth();
+  const isAuthenticated = status === 'signed-in' || Boolean(userId);
 
   const mode = searchParams.get('mode') || 'BLANK';
   const modelRef = searchParams.get('modelRef') || null;

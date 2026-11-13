@@ -4,8 +4,17 @@
   max-width: 1320px;
   margin: 0 auto;
   padding: 2rem 1.5rem 4rem;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: #1e293b;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ring-design-container button,
+.ring-design-container input,
+.ring-design-container select,
+.ring-design-container textarea {
+  font-family: inherit;
 }
 
 .ring-design-header {

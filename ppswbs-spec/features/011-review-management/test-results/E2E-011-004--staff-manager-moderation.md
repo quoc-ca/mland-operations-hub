@@ -3,8 +3,8 @@ scenario_id: E2E-011-004
 feature: FE-011
 actor: STAFF
 preconditions:
-  - backend_health: FAIL
-  - frontend_health: FAIL
+  - backend_health: PASS
+  - frontend_health: PASS
 traceability:
   - FE-011
   - AC-011-MODERATION
@@ -105,13 +105,13 @@ requests --filter "/api/v1/review-moderation"
 ## 6. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: BLOCKED
-- Executed at: 2026-11-12 19:47:15
+- Latest status: PASS
+- Executed at: 2026-11-13 19:10:00
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: Step 1: Đăng nhập Staff
-- Actual result: Preflight T01 (Browser MCP) và T02 (Frontend :5173 / Backend :8080) đã PASS. Kịch bản bị chặn tại bước xác thực token Firebase: Backend local chưa cấu hình FIREBASE_ADMIN_CREDENTIALS_PATH trong .env nên verifyIdToken trả về 401 INVALID_TOKEN khi nhận JWT token từ client.
-- Evidence screenshot: NOT_RUN
-- Bug reference: NONE
+- Failure step: NONE
+- Actual result: Nhân viên Staff staff.test@mland.vn mở /review-moderation, chọn review và thực hiện Ẩn đánh giá (HIDE) thành công (HTTP 200, status chuyển thành HIDDEN trong DB). Thao tác Staff bấm Gỡ đánh giá bị backend từ chối chính xác với HTTP 403 Forbidden (PASS RBAC). Sau khi fix BUG-E2E-0006 (cho phép internal moderators xem chi tiết review không phải PUBLIC kèm header Bearer xác thực), Quản lý manager.test@mland.vn lọc trạng thái HIDDEN, mở chi tiết /review-moderation/:id thành công với HTTP 200. Manager nhập lý do "Đánh giá hợp lệ sau khi kiểm tra thông tin workshop." và bấm "Khôi phục công khai" (RESTORE), trạng thái đánh giá được khôi phục thành công sang PUBLIC trong cơ sở dữ liệu.
+- Evidence screenshot: screenshots/E2E-011-004--moderation-row.jpg, screenshots/E2E-011-004--manager-filter-hidden.jpg, screenshots/E2E-011-004--moderation-success.jpg
+- Bug reference: BUG-E2E-0006 (RESOLVED & VERIFIED)
 <!-- EXECUTION:END -->
 

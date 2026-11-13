@@ -12,8 +12,8 @@ import '../ring-design.css';
 export default function DesignEvaluationPage() {
   const { packageReference, designId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const isAuthenticated = Boolean(user);
+  const { status, userId } = useAuth();
+  const isAuthenticated = status === 'signed-in' || Boolean(userId);
   const api = useWorkshopRingDesignApi();
 
   const [design, setDesign] = useState(null);

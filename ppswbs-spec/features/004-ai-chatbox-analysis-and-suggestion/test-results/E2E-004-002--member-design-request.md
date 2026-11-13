@@ -3,8 +3,8 @@ scenario_id: E2E-004-002
 feature: FE-004
 actor: MEMBER
 preconditions:
-  - backend_health: FAIL
-  - frontend_health: FAIL
+  - backend_health: PASS
+  - frontend_health: PASS
 traceability:
   - FE-004
   - AC-004-DESIGN-REQUEST
@@ -126,13 +126,13 @@ requests --filter "/api/v1/design-requests"
 ## 6. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: BLOCKED
-- Executed at: 2026-11-12 19:47:15
+- Latest status: PASS
+- Executed at: 2026-11-13 19:04:00
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: Step 1: Đăng nhập tài khoản Member
-- Actual result: Preflight T01 (Browser MCP) và T02 (Frontend :5173 / Backend :8080) đã PASS. Tuy nhiên kịch bản bị chặn tại bước xác thực token Firebase: Backend local chưa cấu hình FIREBASE_ADMIN_CREDENTIALS_PATH trong .env nên verifyIdToken trả về 401 INVALID_TOKEN khi nhận JWT token từ client.
-- Evidence screenshot: NOT_RUN
-- Bug reference: NONE
+- Failure step: NONE
+- Actual result: Sau khi áp dụng migration Flyway V119 chuyển khóa ngoại fk_tir_design_request tham chiếu tới bảng độc lập design_requests, Member member.test@mland.vn tạo yêu cầu phân tích thiết kế kèm ảnh ring-sample.png và xác nhận consent thành công. Backend xử lý POST /api/v1/design-requests trả về HTTP 202 Accepted. Giao diện chuyển hướng đến /design-requests/:id hiển thị đúng mã tham chiếu DR-7B1BE554, trạng thái phân tích SUCCEEDED, trạng thái thẩm duyệt NEED_REVIEW, cùng đầy đủ candidate features an toàn (CLASSIC_SILVER_BAND, SILVER_925, 3.5mm, POLISHED, feasibility 0.92) và các chỉ số chất lượng ảnh mà không để lộ raw provider payload hay raw image.
+- Evidence screenshot: screenshots/E2E-004-002--oversized-error.jpg, screenshots/E2E-004-002--consent-gate.jpg, screenshots/E2E-004-002--success.jpg
+- Bug reference: BUG-E2E-0005 (RESOLVED & VERIFIED)
 <!-- EXECUTION:END -->
 

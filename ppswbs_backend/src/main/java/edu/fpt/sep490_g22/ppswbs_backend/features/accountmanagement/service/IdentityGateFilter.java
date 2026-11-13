@@ -105,7 +105,8 @@ public class IdentityGateFilter extends OncePerRequestFilter {
         // Member, and the app then signed that Member out.
         if ("GET".equalsIgnoreCase(request.getMethod())
                 && path.startsWith("/api/v1/reviews")
-                && !"/api/v1/reviews/eligible-sources".equals(path)) {
+                && !"/api/v1/reviews/eligible-sources".equals(path)
+                && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
             return true;
         }
         boolean reviewWriteGuestRoute = ("POST".equalsIgnoreCase(request.getMethod()) && "/api/v1/reviews".equals(path))

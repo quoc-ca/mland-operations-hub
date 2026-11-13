@@ -87,13 +87,13 @@ requests --filter "/api/v1/reviews/REV-PUBLIC-01/reply"
 ## 6. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: BLOCKED
-- Executed at: 2026-11-12 19:47:15
+- Latest status: PASS
+- Executed at: 2026-11-13 18:36:00
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: Step 1: Đăng nhập Manager
-- Actual result: Preflight T01 (Browser MCP) và T02 (Frontend :5173 / Backend :8080) đã PASS. Kịch bản bị chặn tại bước xác thực token Firebase: Backend local chưa cấu hình FIREBASE_ADMIN_CREDENTIALS_PATH trong .env nên verifyIdToken trả về 401 INVALID_TOKEN khi nhận JWT token từ client.
-- Evidence screenshot: NOT_RUN
+- Failure step: NONE
+- Actual result: Manager đăng nhập mở chi tiết review tại /review-moderation/11111111-1111-1111-1111-111111111111, nhập nội dung phản hồi chính thức "Cảm ơn bạn đã đóng góp ý kiến. Mland rất hân hạnh được đồng hành cùng bạn!" và nhấn "Lưu phản hồi". Backend xử lý POST /api/v1/reviews/11111111-1111-1111-1111-111111111111/reply trả về HTTP 201 Created. Giao diện cập nhật hiển thị khối "Phản hồi từ Ban Quản lý Mland (v0)". Truy cập /reviews và /reviews/11111111-1111-1111-1111-111111111111 với tư cách khách công khai hiển thị phản hồi chính thức và điểm tổng hợp 4.0 ★★★★☆ (1 đánh giá) chính xác.
+- Evidence screenshot: screenshots/E2E-011-005--success.jpg, screenshots/E2E-011-005--public-reply.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 
