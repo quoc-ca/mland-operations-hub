@@ -1,11 +1,11 @@
 # Workflow Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-14
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Design status**: APPROVED — workflows aligned with approved specification, data model, interfaces, and OpenAPI 3.1.0 contract (see `approval.md`).
+**Design status**: Draft revision — the 2026-11-14 Manager-global workflow is proposed and pending Tech Lead approval. Historical approval in `approval.md` remains limited to its recorded scope.
 
 ## Workflow index
 
@@ -63,7 +63,7 @@
 ## WF-03: Provision and activate an internal Account
 
 - **Trigger and actor**: Current `ADMIN` creates/resends/edits Staff or Manager; intended identity subsequently signs in.
-- **Preconditions and authorization**: Admin authority is checked server-side. Create permits only `STAFF`/`MANAGER`; Staff has exactly one and Manager one-or-more effective active Workshop Locations. Request contains a fresh idempotency key.
+- **Preconditions and authorization**: Admin authority is checked server-side. Create permits only `STAFF`/`MANAGER`; Staff has exactly one effective active Workshop Location while Manager has one-or-more organizational assignments. Manager assignments do not limit Manager-authorized actions. Request contains a fresh idempotency key.
 - **Related architecture flow**: Architecture §Data flows 4.
 
 1. `AdminAccountService.create` validates role, canonical `workshopLocationId` assignments and idempotency key/digest through the authoritative Location boundary.
@@ -96,17 +96,17 @@
 2. Restore before revocation completion is a conflict/unavailable outcome, not a bypass.
 3. Concurrent Admin changes use expected version; authorized success/failure audit records outcome/correlation but no password, token, action link, full name or phone.
 
-## WF-05: Consumer target facts and roster
+## WF-05: Manager authorization, Staff target facts and roster
 
-- **Trigger and actor**: An approved FE-003 service after it authorizes its own actor and Workshop resource.
-- **Preconditions and authorization**: FE-003 authorization happens before facade invocation. `workshopLocationId` is canonical positive opaque Account-independent site/scope ID.
+- **Trigger and actor**: An approved FE-003 service after it resolves its own current actor and Workshop resource.
+- **Preconditions and authorization**: An active current Manager is authorized for an explicitly Manager-authorized action without a Location lookup. A Staff location-scoped action or Staff-target selection uses the facade below. `workshopLocationId` is canonical positive opaque Account-independent site/scope ID.
 - **Related architecture flow**: Architecture §Data flows 6.
 
-1. FE-003 calls proposed `AccountFacade.findEligibleRoster(workshopLocationId, requiredRole)` to present only minimal ACTIVE candidates matching effective `activeWorkshopLocationIds`.
-2. UI may display current profile display name plus Account ID only to disambiguate names; it receives no email, phone, provider UID or lifecycle detail.
-3. Immediately before its sensitive mutation, FE-003 calls proposed `findTargetFacts(accountId)`.
-4. `FOUND` returns Account ID, role, lifecycle status and effective `activeWorkshopLocationIds`; FE-003 applies its own approved rule and commits only if it passes.
-5. FE-003 audits its own decision/mutation; FE-001 does not audit these read-only queries.
+1. For an action explicitly authorized to Manager, FE-003 checks the current `CurrentAccountActor` is `MANAGER` and `ACTIVE`, then applies its resource rule without calling a Location facade.
+2. For a Staff target picker, FE-003 calls `AccountFacade.findEligibleRoster(workshopLocationId)` to present only minimal active Staff candidates matching effective `activeWorkshopLocationIds`.
+3. UI may display current profile display name plus Account ID only to disambiguate names; it receives no email, phone, provider UID or lifecycle detail.
+4. Immediately before a dependent Staff location-scoped mutation, FE-003 calls `findTargetFacts(accountId)`. `FOUND` returns Account ID, role, lifecycle status and effective `activeWorkshopLocationIds`; FE-003 applies its approved Staff rule and commits only if it passes.
+5. A Manager is never selected or authorized through this roster. FE-003 audits its own decision/mutation; FE-001 does not audit these read-only queries.
 
 ### Failure, recovery, and integrity
 

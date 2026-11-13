@@ -1,11 +1,11 @@
 # Architecture Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-14
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Design status**: APPROVED — specification, architecture, OpenAPI 3.1 contract, internal interfaces, data model, and tasks approved by Tech Lead Phan Sơn (see `approval.md`). Revision R-SL approved for frontend handoff on 2026-11-06.
+**Design status**: Draft revision — the 2026-11-14 Manager-global authorization flow is proposed and pending Tech Lead approval. Historical approval, including Revision R-SL, remains limited to the scopes recorded in `approval.md`.
 
 ## Scope and source map
 
@@ -81,7 +81,7 @@ Dependency direction is UI component → hook → API/Firebase client → contro
 | `facade/AccountFacade.java` | facade / existing+proposed revision | Current actor and narrow consumer reads | resolveActor; findTargetFacts; findEligibleRoster | repositories; Workshop Location facade | FR-027–032 |
 | `facade/CurrentAccountActor.java` | boundary record / existing+proposed revision | Minimal admission actor: Account ID, role, status and email-verification only | record accessors | no entity/provider types or Location facade | FR-027 |
 | `facade/TargetAccountFacts`, `TargetFactsOutcome` | boundary types / proposed | FOUND, NOT_FOUND, UNAVAILABLE without PII | outcome accessors | no controller/entity/DAO exposure | FR-028, 030–031 |
-| `facade/InternalRosterEntry`, `RosterOutcome` | boundary types / proposed | Minimal Staff/Manager selection data/unavailable | outcome accessors | no contacts/lifecycle detail | FR-029–032 |
+| `facade/InternalRosterEntry`, `RosterOutcome` | boundary types / proposed | Minimal Staff-selection data/unavailable | outcome accessors | no contacts/lifecycle detail | FR-029–032 |
 | `service/AccountBootstrapService.java` | service / existing+proposed revision | Find/create Account and required Profile from verified identity email; activate eligible internal account | bootstrap | Account/Profile repositories, audit/location validator | FR-001, 007, 013, 022 |
 | `service/ProfileService.java`, `EmailSyncService.java` | services / existing | Own profile and current-identity email sync | get/save profile; synchronizeEmail | repositories; verified identity | FR-006–008 |
 | `service/AdminAccountService.java` | service / existing | Provisioning, invitation, internal profile/role/location/list/detail | create; resend; list/detail; updateProfile; assignRoleLocation | repositories; Firebase, Location, notification boundaries | FR-011–018, 024 |
@@ -111,7 +111,7 @@ No cache, event replication, personnel identifier, generic RBAC store, app sessi
 3. **WF-08 Profile verification gate:** `ProfilePage entry or status-reload icon → useVerifiedEmailGate → FirebaseAuthClient.reloadCurrentUser/getFreshIdToken → AccountManagementApiClient.synchronizeEmail → AccountController.syncOwnEmail → EmailSyncService → Account repository → gate result → Profile save`; unverified/provider/sync failure → explicit verify/resend/retry state, with no background poll or mutation retry.
 4. **WF-03 internal provision:** `InternalAccountCreatePage/useAdminAccounts → API client → AdminAccountController → AdminAccountService → Location facade + provisioning/account/audit repositories → post-commit FE-07 intent → response`; audit persistence failure emits a correlation-safe operational signal but preserves the original business outcome.
 5. **WF-04 suspend/restore:** `AdminAccountDetailPage → API client → AdminAccountController → SuspensionService → Account/Audit repositories → post-commit Firebase revocation + FE-07 intent → response`.
-6. **WF-05 target facts/roster:** `FE-003 authorized service → AccountFacade.findEligibleRoster/findTargetFacts → Account repositories + Location facade → typed outcome → FE-003 decision/error`; there is no Account HTTP route and `UNAVAILABLE` prevents consumer mutation.
+6. **WF-05 Manager authorization and Staff roster:** `FE-003 Manager action → CurrentAccountActor role/status check → FE-003 resource decision`; no Location facade participates. `FE-003 Staff target/location action → AccountFacade.findEligibleRoster/findTargetFacts → Account repositories + Location facade → typed outcome → FE-003 Staff decision/error`; there is no Account HTTP route and `UNAVAILABLE` prevents only the dependent Staff mutation.
 
 ## Reconciliation gaps and handoff blockers
 

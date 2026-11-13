@@ -1,13 +1,13 @@
 # Implementation Plan: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-04
+**Date updated**: 2026-11-14
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
 **Branch**: `son` | **Spec**: [spec.md](spec.md)
 
-**Input**: Regenerated from approved design artifacts: spec.md (pass 16/16), data-model.md, contracts/interfaces.md, design/architecture.md, design/workflows.md, design/ui-flow.md, checklists/requirements.md. Supersedes the legacy Member Profile plan entirely.
+**Input**: Historical approved design artifacts plus the 2026-11-14 Manager-global authorization revision in spec.md, data-model.md, contracts/interfaces.md, design/architecture.md, design/workflows.md, and design/ui-flow.md. The revision is proposed and pending Tech Lead approval; it supersedes no approval record. This plan otherwise supersedes the legacy Member Profile plan entirely.
 
 ---
 
@@ -144,7 +144,7 @@ ppswbs_backend/src/main/java/.../
     │   ├── AccountId.java                 # Opaque canonical positive-integer boundary type
     │   ├── TargetAccountFacts.java        # FOUND value: accountId, role, status, activeWorkshopLocationIds
     │   ├── TargetFactsOutcome.java        # Sealed: FOUND | NOT_FOUND | UNAVAILABLE
-    │   ├── InternalRosterEntry.java       # accountId, displayName, role (STAFF or MANAGER only)
+    │   ├── InternalRosterEntry.java       # accountId, displayName, role (STAFF only)
     │   └── RosterOutcome.java             # Sealed: AVAILABLE(entries) | UNAVAILABLE
     ├── dao/
     │   ├── AccountRepository.java
@@ -176,8 +176,8 @@ ppswbs_backend/src/main/java/.../configuration/
 | Account identity vs. email ownership | Verified Firebase UID is the identity key; email is a current snapshot. No merge by email alone. |
 | Bootstrap behavior for unverified / missing email | Unverified email → create Account+Profile, apply verification gates. No email claim → no Account/Profile; safe recovery guidance. |
 | PENDING_SETUP activation rule | Requires intended UID sign-in + verified email + valid active Workshop scope. Never creates a Member Account. |
-| Workshop scope in identity gate | Gate resolves current actor WITHOUT Workshop scope. Scope is resolved per-action via facade immediately before mutation. |
-| Target facts facade typed contract | `findTargetFacts(AccountId)` → `TargetFactsOutcome`; `findEligibleRoster(workshopLocationId, role)` → `RosterOutcome`. Named types in contracts/interfaces.md. |
+| Workshop scope in identity gate | Gate resolves current actor WITHOUT Workshop scope. An active Manager's Manager-authorized action uses current role/status without a Location lookup; a Staff location-scoped action resolves effective scope per action via facade immediately before mutation. |
+| Target facts facade typed contract | `findTargetFacts(AccountId)` → `TargetFactsOutcome` for targets/Staff scope; `findEligibleRoster(workshopLocationId)` → Staff-only `RosterOutcome`. Named types in contracts/interfaces.md. |
 | Audit outcome schema conflict | Approved baseline: Java `AuditOutcome` enum + `VARCHAR(16)` via append-only migration; `V5` must not be edited. |
 | Idempotency for internal account create | Idempotency key + normalized digest; same key + same digest returns preserved result; same key + different digest → 409. |
 | CORS and credential transport | Exact local origin `http://localhost:5173`; `Authorization: Bearer`; no cookies; `Allow-Credentials: false`. |
@@ -211,7 +211,7 @@ Facade methods (Java module boundary only — no REST endpoints):
 |--------|--------|--------------|
 | `resolveActor(bearerToken)` | Firebase ID token | `CurrentAccountActor` or typed identity outcome |
 | `findTargetFacts(AccountId)` | Opaque canonical Account ID | `TargetFactsOutcome`: FOUND / NOT_FOUND / UNAVAILABLE |
-| `findEligibleRoster(workshopLocationId, role)` | Canonical location ID + STAFF\|MANAGER | `RosterOutcome`: AVAILABLE(entries) / UNAVAILABLE |
+| `findEligibleRoster(workshopLocationId)` | Canonical location ID | Staff-only `RosterOutcome`: AVAILABLE(entries) / UNAVAILABLE |
 
 External boundaries:
 - Firebase adapter: bearer verify/revocation, identity create/setup links, session invalidation
