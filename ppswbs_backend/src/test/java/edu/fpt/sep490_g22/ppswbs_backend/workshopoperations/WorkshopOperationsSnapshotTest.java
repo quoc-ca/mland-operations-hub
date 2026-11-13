@@ -48,6 +48,8 @@ class WorkshopOperationsSnapshotTest {
             mock(CapacityHoldService.class),
             mock(GroupCapacityService.class),
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketQrReissueService.class),
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketCancellationService.class),
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketSessionReplacementService.class),
             mock(AttendanceTicketService.class),
             mock(WorkshopOtaSnapshotService.class),
             packagePolicy,

@@ -25,6 +25,16 @@ public interface CapacityHoldRepository extends JpaRepository<CapacityHold, Long
 
     List<CapacityHold> findByBookingReference(String bookingReference);
 
+    /**
+     * The confirmed holds of one booking line in one session (003.2 FR-031): a per-ticket release decrements
+     * the line's committed seat count there, so the seat is given back even though the line keeps its hold.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT ch FROM CapacityHold ch WHERE ch.bookingReference = :bookingReference "
+            + "AND ch.session.id = :sessionId AND ch.state = 'CONFIRMED' ORDER BY ch.id")
+    List<CapacityHold> findConfirmedForBookingAndSessionWithLock(@Param("bookingReference") String bookingReference,
+                                                                 @Param("sessionId") Long sessionId);
+
     List<CapacityHold> findBySessionIdAndState(Long sessionId, CapacityHoldState state);
 
     @Query("SELECT COALESCE(SUM(ch.requestedTicketCount), 0) FROM CapacityHold ch WHERE ch.session.id = :sessionId AND ch.state = 'ACTIVE' AND ch.expiresAt > :now")

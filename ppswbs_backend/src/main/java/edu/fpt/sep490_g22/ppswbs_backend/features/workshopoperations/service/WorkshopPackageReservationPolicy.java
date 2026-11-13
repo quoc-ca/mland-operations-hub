@@ -178,7 +178,23 @@ public class WorkshopPackageReservationPolicy {
         if (snapshot == null || targets.size() != snapshot.getRequiredSessionCount()
                 || participantCount < snapshot.getMinParticipants()
                 || participantCount > snapshot.getMaxParticipants()) return false;
+        return satisfiesPackageStructure(snapshot, targets);
+    }
 
+    /**
+     * 003.2 FR-034: the structural package rules of a per-ticket replacement. The participant bounds are not
+     * re-checked here, because moving one ticket of a booking group changes no participant count.
+     */
+    @Transactional(readOnly = true)
+    public boolean isValidTicketReplacement(String bookingReference, List<WorkshopSession> targets) {
+        WorkshopBookingPackagePolicySnapshot snapshot = bookingPolicySnapshotRepository
+                .findByBookingReference(bookingReference).orElse(null);
+        if (snapshot == null || targets.size() != snapshot.getRequiredSessionCount()) return false;
+        return satisfiesPackageStructure(snapshot, targets);
+    }
+
+    private boolean satisfiesPackageStructure(WorkshopBookingPackagePolicySnapshot snapshot,
+                                              List<WorkshopSession> targets) {
         if (targets.stream().map(WorkshopSession::getId).distinct().count() != targets.size()) {
             return false;
         }

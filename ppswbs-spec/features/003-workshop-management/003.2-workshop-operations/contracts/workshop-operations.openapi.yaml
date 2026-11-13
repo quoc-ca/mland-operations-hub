@@ -234,6 +234,23 @@ paths:
         '200': { $ref: '#/components/responses/Session' }
         '400': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/reschedule-quota:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    put:
+      summary: Manager sets or clears this session's reschedule quota (FR-035)
+      description: >-
+        Approved 2026-11-13. quota null returns the session to the default floor(25% x capacity) with a minimum
+        of 1 and recomputes it on every capacity change; 0 closes the session to customer changes; a
+        Manager-set value is kept when the capacity changes. The used count is never reset, because the
+        tickets already moved in keep their seat. Manager only; refused once the session is
+        ATTENDANCE_FINALIZED or CANCELLED. Mland replacements neither check nor consume the quota.
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RescheduleQuotaRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/state-transitions:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
@@ -494,6 +511,21 @@ components:
               type: array
               description: Accounts of the Staff currently assigned to the session; empty when none.
               items: { type: integer, format: int64 }
+            rescheduleQuota:
+              type: integer
+              description: Tickets this session may receive by customer change (FR-035); the Manager-set value or the default.
+            rescheduleQuotaOverridden:
+              type: boolean
+              description: True when a Manager set the quota, so a capacity change no longer recomputes it.
+            rescheduleQuotaUsed:
+              type: integer
+              description: Tickets this session has already received by customer change.
+    RescheduleQuotaRequest:
+      type: object
+      required: [reason]
+      properties:
+        quota: { type: integer, minimum: 0, nullable: true, description: 'Null restores the default; 0 closes the session to customer changes.' }
+        reason: { type: string, maxLength: 500 }
     AttendanceRosterEntry:
       type: object
       required: [ticketCode, bookingReference, attendanceState]

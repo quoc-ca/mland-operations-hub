@@ -331,6 +331,34 @@ public class BankRefundService {
         return requests.findByBookingReferenceOrderByIdAsc(bookingReference);
     }
 
+    /** FR-039 queue: every request, or only one status, newest first. */
+    @Transactional(readOnly = true)
+    public List<SettlementRefundRequest> list(RefundRequestStatus status) {
+        return status == null ? requests.findByOrderByCreatedAtDesc()
+                : requests.findByStatusOrderByCreatedAtDesc(status);
+    }
+
+    @Transactional(readOnly = true)
+    public SettlementRefundRequest require(String requestReference) {
+        return requests.findByRequestReference(requestReference)
+                .orElseThrow(WorkshopSettlementNotFoundException::new);
+    }
+
+    /**
+     * FR-040: the full account number, for the Manager who approves and the actor who transfers. Every read is
+     * audited, because this is the one place the number leaves the database in clear.
+     */
+    @Transactional
+    public String revealAccountNumber(String requestReference, Long actorAccountId, String correlationReference) {
+        SettlementRefundRequest request = requests.findByRequestReference(requestReference)
+                .orElseThrow(WorkshopSettlementNotFoundException::new);
+        if (request.getRecipientAccountEncrypted() == null) {
+            throw new WorkshopSettlementConflictException("REFUND_ACCOUNT_NOT_ON_FILE");
+        }
+        audit(request, "REFUND_ACCOUNT_REVEALED", actorAccountId, null, correlationReference);
+        return RefundAccountCipher.decrypt(request.getRecipientAccountEncrypted());
+    }
+
     // ---- internals ----
 
     private void applyAccount(SettlementRefundRequest request, String bankCode, String accountNumber,

@@ -79,6 +79,27 @@ public class WorkshopSession {
     @Column(name = "attendance_finalized_at")
     private Instant attendanceFinalizedAt;
 
+    /** Manager-set reschedule quota (003.2 FR-035); null means the default derived from the capacity. */
+    @Column(name = "reschedule_quota_override")
+    private Integer rescheduleQuotaOverride;
+
+    /** Tickets this session has received by customer change (advance or late arrival). */
+    @Column(name = "reschedule_quota_used", nullable = false)
+    @Builder.Default
+    private Integer rescheduleQuotaUsed = 0;
+
+    /** FR-035: the override when set, otherwise floor(25% x capacity) with a minimum of 1. */
+    public int effectiveRescheduleQuota() {
+        if (rescheduleQuotaOverride != null) {
+            return rescheduleQuotaOverride;
+        }
+        return Math.max(1, (capacity == null ? 0 : capacity) / 4);
+    }
+
+    public int remainingRescheduleQuota() {
+        return Math.max(0, effectiveRescheduleQuota() - (rescheduleQuotaUsed == null ? 0 : rescheduleQuotaUsed));
+    }
+
     @PrePersist
     protected void onCreate() {
         if (reference == null) {
