@@ -101,10 +101,22 @@ public class LoyaltyQuoteService {
     public Evaluation evaluate(TrustedSourceContext context, BenefitSelection selection, boolean strict,
                                List<PromotionProgram> lockedAutos) {
         LoyaltyPolicy policy = policies.current();
-        BigInteger available = wallets.findById(context.memberId()).map(LoyaltyWallet::availablePoints)
-                .orElse(BigInteger.ZERO);
+        // A Guest workshop context (Session 2026-11-14, FR-044) has no wallet and may not use a voucher or points;
+        // only an automatic discount applies. Refusing here keeps the rule in one place for preview and accept.
+        if (context.isGuest()) {
+            if (selection.choice() == SelectionChoice.VOUCHER) {
+                throw new LoyaltyException(LoyaltyErrorCode.PROMOTION_INELIGIBLE,
+                        "A voucher can only be used by a signed-in Member.");
+            }
+            if (selection.requestedPoints().signum() > 0) {
+                throw new LoyaltyException(LoyaltyErrorCode.PROMOTION_INELIGIBLE,
+                        "Points can only be spent by a signed-in Member.");
+            }
+        }
+        BigInteger available = context.isGuest() ? BigInteger.ZERO
+                : wallets.findById(context.memberId()).map(LoyaltyWallet::availablePoints).orElse(BigInteger.ZERO);
         if (context.sourceKind() == SourceKind.WORKSHOP) {
-            return evaluateWorkshop(context, selection, strict, policy, available);
+            return evaluateWorkshop(context, selection, strict, policy, available, lockedAutos);
         }
         RetailQuote.Candidate voucher = null;
         if (selection.choice() == SelectionChoice.VOUCHER) {
@@ -121,7 +133,8 @@ public class LoyaltyQuoteService {
 
     /** The programme as a candidate for this context, with the reason it cannot be used if any. */
     private Evaluation evaluateWorkshop(TrustedSourceContext context, BenefitSelection selection, boolean strict,
-                                        LoyaltyPolicy policy, BigInteger available) {
+                                        LoyaltyPolicy policy, BigInteger available,
+                                        List<PromotionProgram> lockedAutos) {
         WorkshopBenefitEvaluator.WorkshopCandidate voucher = null;
         if (selection.choice() == SelectionChoice.VOUCHER) {
             String key = LoyaltyValues.normalizeCode("voucherCode", selection.voucherCode()).key();
@@ -132,7 +145,18 @@ public class LoyaltyQuoteService {
                         ids(rows, TargetDimension.BRANCH), dates(rows), keys(rows, TargetDimension.SESSION));
             }).orElse(null);
         }
-        RetailQuote.Result result = WorkshopBenefitEvaluator.compute(context.workshop(), selection, voucher,
+        // Workshop automatic discounts (Session 2026-11-14, FR-044) are read in the (createdAt, id) tie-break order
+        // the evaluator relies on, and are targeted by package only, so no other dimension is loaded for them.
+        List<WorkshopBenefitEvaluator.WorkshopCandidate> autos = selection.choice() != SelectionChoice.AUTO ? List.of()
+                : (lockedAutos != null ? lockedAutos : eligibility.findActiveWorkshopAutoDiscounts(context.at()))
+                        .stream().map(program -> {
+                            RetailQuote.Candidate base = candidate(program, context, TargetScope.WORKSHOP);
+                            List<PromotionTarget> rows =
+                                    targets.findByRevisionIdOrderByDimensionAscTargetKeyAsc(base.revisionId());
+                            return WorkshopBenefitEvaluator.WorkshopCandidate.auto(base,
+                                    ids(rows, TargetDimension.PACKAGE));
+                        }).toList();
+        RetailQuote.Result result = WorkshopBenefitEvaluator.compute(context.workshop(), selection, voucher, autos,
                 policy.terms(), available, strict);
         WorkshopFact booking = context.workshop();
         String digest = RetailQuote.digest(result, policy.getId(), BigInteger.ZERO);

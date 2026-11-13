@@ -194,10 +194,16 @@ class LoyaltyWorkshopQuoteTest {
     }
 
     @Test
-    void thereIsNoAutomaticDiscountForWorkshops() {
+    void withoutAnyWorkshopProgrammeAnAutomaticSelectionSimplyGivesNoDiscount() {
+        // Session 2026-11-14 (FR-044) replaced the old refusal: workshops do have automatic discounts now, so an
+        // automatic selection with no active programme is a reason, not a typed failure. WorkshopAutoDiscountTest
+        // covers the selection rules themselves.
         BenefitSelection auto = new BenefitSelection(SelectionChoice.AUTO, null, BigInteger.ZERO);
-        assertCode(() -> WorkshopBenefitEvaluator.compute(booking(1_000_000), auto, null, POLICY, n(0), true),
-                LoyaltyErrorCode.PROMOTION_INELIGIBLE);
+        RetailQuote.Result strict = WorkshopBenefitEvaluator.compute(booking(1_000_000), auto, null, POLICY, n(0), true);
+        assertThat(strict.candidate()).isNull();
+        assertThat(strict.programDiscount()).isZero();
+        assertThat(strict.reasonDetails()).extracting(BenefitReason::code)
+                .containsExactly(BenefitReasonCode.WORKSHOP_NO_AUTO_DISCOUNT_APPLIES);
         assertThat(WorkshopBenefitEvaluator.compute(booking(1_000_000), auto, null, POLICY, n(0), false).reasons())
                 .isNotEmpty();
     }

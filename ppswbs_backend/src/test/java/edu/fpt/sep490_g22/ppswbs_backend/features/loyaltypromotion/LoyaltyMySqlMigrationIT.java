@@ -284,17 +284,21 @@ class LoyaltyMySqlMigrationIT {
     }
 
     @Test
-    void automaticDiscountCannotHaveCodeQuotaOrWorkshopScope() {
+    void automaticDiscountCannotHaveCodeOrQuotaAndMayHaveEitherScope() {
         assertRejected(sql -> sql.update("INSERT INTO promotion_program (kind, scope, code_original, code_key, status, "
                 + "created_at, created_by, version) VALUES ('AUTO_DISCOUNT','PRODUCT','X','X','ENABLED',?,1,0)",
                 java.sql.Timestamp.from(NOW)));
         assertRejected(sql -> sql.update("INSERT INTO promotion_program (kind, scope, status, total_limit, member_limit, "
                 + "held_count, consumed_count, created_at, created_by, version) "
                 + "VALUES ('AUTO_DISCOUNT','PRODUCT','ENABLED',5,1,0,0,?,1,0)", java.sql.Timestamp.from(NOW)));
-        assertRejected(sql -> sql.update("INSERT INTO promotion_program (kind, scope, status, created_at, created_by, version) "
-                + "VALUES ('AUTO_DISCOUNT','WORKSHOP','ENABLED',?,1,0)", java.sql.Timestamp.from(NOW)));
         rolledBack(sql -> sql.update("INSERT INTO promotion_program (kind, scope, status, created_at, created_by, version) "
                 + "VALUES ('AUTO_DISCOUNT','PRODUCT','ENABLED',?,1,0)", java.sql.Timestamp.from(NOW)));
+        // V134 (Session 2026-11-14, FR-044): the WORKSHOP scope is allowed now; the no-code/no-quota rule stays.
+        rolledBack(sql -> sql.update("INSERT INTO promotion_program (kind, scope, status, created_at, created_by, version) "
+                + "VALUES ('AUTO_DISCOUNT','WORKSHOP','ENABLED',?,1,0)", java.sql.Timestamp.from(NOW)));
+        assertRejected(sql -> sql.update("INSERT INTO promotion_program (kind, scope, status, total_limit, member_limit, "
+                + "held_count, consumed_count, created_at, created_by, version) "
+                + "VALUES ('AUTO_DISCOUNT','WORKSHOP','ENABLED',5,1,0,0,?,1,0)", java.sql.Timestamp.from(NOW)));
     }
 
     @Test
