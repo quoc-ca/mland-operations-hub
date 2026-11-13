@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-/** Request bodies of the group recovery routes (003.1 FR-048, contract workshop-booking-cart.openapi.yaml). */
+/** Request bodies of the group recovery routes (003.1 FR-048, contract workshop-booking.openapi.yaml). */
 public final class GroupRecoveryDtos {
 
     private GroupRecoveryDtos() {

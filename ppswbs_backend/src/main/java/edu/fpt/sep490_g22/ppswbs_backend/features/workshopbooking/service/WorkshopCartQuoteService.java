@@ -33,6 +33,11 @@ public class WorkshopCartQuoteService {
     /** FE-06 benefits are Member-only, so a Guest cart asking for a voucher or points is refused. */
     public static final String BENEFITS_NEED_A_MEMBER = "CART_BENEFITS_NEED_A_MEMBER";
 
+    /** Asks 006 for nothing: used to read a Member's point limits for a cart that selected no benefit (FR-034). */
+    private static final BenefitSelection NO_BENEFIT = new BenefitSelection(
+            edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SelectionChoice.NONE, null,
+            java.math.BigInteger.ZERO);
+
     static final TypeReference<List<StoredLine>> STORED_LINES = new TypeReference<>() {
     };
 
@@ -89,6 +94,13 @@ public class WorkshopCartQuoteService {
         WorkshopCartBenefitService.CartBenefits applied = selection == null
                 ? WorkshopCartBenefitService.CartBenefits.none()
                 : benefits.preview(buyerMemberAccountId, cart, selection);
+        // A Member sees the point cap, the smallest redeemable amount, the point value and 006's reasons even
+        // before choosing anything (FR-034), because the evaluator refuses an amount outside the range instead of
+        // trimming it. This extra preview is read-only: it holds no voucher and no points, and it is not stored on
+        // the quote, so a cart with no benefit keeps an empty benefit snapshot.
+        WorkshopCartBenefitService.CartBenefits shown = selection != null || buyerMemberAccountId == null
+                ? applied
+                : benefits.preview(buyerMemberAccountId, cart, NO_BENEFIT);
         if (!applied.isEmpty()) {
             cart = cart.withAllocation(TicketBenefitAllocator.allocate(
                     benefits.allocatorInputs(cart, applied.eligibleTicketIndexes()), applied.voucherDiscountVnd(),
@@ -119,11 +131,11 @@ public class WorkshopCartQuoteService {
                 .groupCollectionVnd(cart.allocation().groupCollectionVnd())
                 .paymentMode(cart.allocation().paymentMode())
                 .build());
-        return response(quote, cart, finalTotal);
+        return response(quote, cart, finalTotal, shown);
     }
 
     private WorkshopCartQuoteResponse response(WorkshopCartQuote quote, WorkshopCartPricingService.PricedCart cart,
-                                               long finalTotal) {
+                                               long finalTotal, WorkshopCartBenefitService.CartBenefits shown) {
         List<WorkshopCartQuoteResponse.QuotedLine> lines = new ArrayList<>();
         for (WorkshopCartPricingService.PricedLine line : cart.lines()) {
             List<WorkshopCartQuoteResponse.QuotedSession> sessions = line.sessions().stream()
@@ -143,8 +155,10 @@ public class WorkshopCartQuoteService {
         }
         return new WorkshopCartQuoteResponse(quote.getQuoteRef(), quote.getExpiresAt(), List.copyOf(lines),
                 cart.grossVnd(), quote.getVoucherDiscountVnd(), quote.getPointsUsed(), quote.getPointDiscountVnd(),
-                finalTotal, cart.allocation().groupCollectionVnd(),
-                finalTotal - cart.allocation().groupCollectionVnd(), cart.allocation().paymentMode().name());
+                finalTotal, shown.maxPoints(), shown.minRedeemPoints(), shown.pointValueVnd(),
+                cart.allocation().groupCollectionVnd(),
+                finalTotal - cart.allocation().groupCollectionVnd(), cart.allocation().paymentMode().name(),
+                shown.reasons());
     }
 
     static List<UUID> canonicalUuids(List<String> values) {

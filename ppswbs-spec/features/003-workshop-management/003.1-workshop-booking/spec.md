@@ -308,7 +308,7 @@ FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
   are removed too, because they project only a direct `WorkshopBooking` and an
   OTA booking has no customer lookup.
 - **FR-047 — group routes that replace them** (contract:
-  `contracts/workshop-booking-cart.openapi.yaml`):
+  `contracts/workshop-booking.openapi.yaml`, where T104 moved them on 2026-11-14):
 
   | Removed | Replacement | State on `quoc` @ 85eedfd6 |
   |---|---|---|
